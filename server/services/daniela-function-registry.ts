@@ -83,6 +83,7 @@ const registry: DanielaFunctionEntry[] = [
           language: { type: "string", description: "Target language for cross-language handoffs" },
           role: { type: "string", enum: ["tutor", "assistant"], description: "Whether switching to main tutor or assistant" },
           make_permanent: { type: "boolean", description: "If true, save this as the student's permanent preferred tutor so they're routed here automatically in future sessions" },
+          mode: { type: "string", enum: ["tutor_mode", "founder_mode", "honesty_mode"], description: "Session mode to activate for the new tutor: tutor_mode (default language learning), founder_mode (English-first product/strategy, you as collaborator), honesty_mode (minimal prompting, raw authentic conversation)" },
         },
         required: ["target"],
       },

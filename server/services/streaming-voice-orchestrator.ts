@@ -5390,7 +5390,7 @@ Remember: David may reference things discussed in these recent text chats.
   ): Promise<void> {
     if (!session.pendingTutorSwitch) return;
 
-    const { targetGender, targetLanguage, targetRole } = session.pendingTutorSwitch;
+    const { targetGender, targetLanguage, targetRole, mode: requestedMode } = session.pendingTutorSwitch;
 
     const transferValidation = targetRole !== 'assistant'
       ? validateTutorTransfer(session.targetLanguage, targetLanguage)
@@ -5674,6 +5674,7 @@ Remember: David may reference things discussed in these recent text chats.
           tutorName,
           isLanguageSwitch,
           requiresGreeting: true,
+          mode: requestedMode,
         });
 
         if (tutorName && !isAssistantSwitch) {
@@ -5691,6 +5692,7 @@ Remember: David may reference things discussed in these recent text chats.
         timestamp: Date.now(),
         targetGender,
         isLanguageSwitch: false,
+        mode: requestedMode,
       });
     }
   }

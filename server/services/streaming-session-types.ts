@@ -44,6 +44,7 @@ export interface StreamingSession {
     targetGender: 'male' | 'female';
     targetLanguage?: string;
     targetRole?: 'tutor' | 'assistant';
+    mode?: 'tutor_mode' | 'founder_mode' | 'honesty_mode';
   };
   previousTutorName?: string;
   /**

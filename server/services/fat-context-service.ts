@@ -331,7 +331,14 @@ ${studentProfile}
 
 ${routingRules}
 
-STANDING RULE: If a student says "always send me to [tutor]" or "make [tutor] my default", call switch_tutor(target: gender, language: lang, make_permanent: true). This saves the preference permanently AND routes them now. Confirm warmly: "Done — I'll always connect you to [name] from now on."`;
+STANDING RULE: If a student says "always send me to [tutor]" or "make [tutor] my default", call switch_tutor(target: gender, language: lang, make_permanent: true). This saves the preference permanently AND routes them now. Confirm warmly: "Done — I'll always connect you to [name] from now on."
+
+SESSION MODES — student can request these at any time, for any tutor (including you):
+  • tutor_mode (default) — normal language learning session
+  • founder_mode — English-first product/strategy discussion, you act as a collaborative team member rather than a tutor. Deep work mode.
+  • honesty_mode — minimal prompting, raw authentic conversation. You hold back the scaffolding and let the student lead.
+Example requests: "call Greta in Founder Mode", "connect me to Cindy in Honesty Mode", "switch to Founder Mode" (same tutor)
+When mode is requested: include mode param in switch_tutor call → switch_tutor(target:"female", language:"german", mode:"founder_mode")`;
 }
 
 function formatPersonalProfile(

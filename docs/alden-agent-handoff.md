@@ -1,6 +1,37 @@
 # Alden ↔ Agent Handoff
 
 ---
+## From Agent — Wed, Jun 4, 2026 (session — mode routing + language tabs)
+
+### What was built
+
+**1. Conversational Mode Routing via Daniela**
+
+Students can now ask Daniela (or any tutor) to switch into a different session mode mid-conversation. Three modes:
+- `tutor_mode` — default, normal language learning
+- `founder_mode` — English-first product/strategy collab, tutor acts as team member
+- `honesty_mode` — minimal prompting, raw authentic conversation
+
+**How it works end-to-end:**
+1. `switch_tutor` in `daniela-function-registry.ts` — has `mode` enum param (already existed)
+2. `native-fc-handlers.ts` — extracts `mode` from args, stores in `session.pendingTutorSwitch.mode`
+3. `streaming-session-types.ts` — `PendingTutorSwitch` has `mode?` field
+4. `streaming-voice-orchestrator.ts` — destructures `mode: requestedMode` from pendingTutorSwitch; all 3 `tutor_handoff` emit sites forward it (main emit ~5680, error fallback ~5698, assistant handoff left intentionally without — it navigates to /practice so mode wouldn't survive)
+5. `streamingVoiceClient.ts` — `tutorHandoff` event type has `mode?` field
+6. `StreamingVoiceChat.tsx` — `pendingHandoffModeRef` stores mode from handoff event; consumed on reconnect in `streamingVoice.connect()` — sets `founderMode` or `rawHonestyMode` appropriately
+7. `fat-context-service.ts` — RECEPTIONIST BRIEFING now includes a MODES section so Daniela knows to include `mode` in `switch_tutor` when student requests it
+
+**Example:** "Call Greta in Founder Mode" → Daniela calls `switch_tutor(target:"female", language:"german", mode:"founder_mode")` → orchestrator emits handoff with mode → client stores in ref → new session starts with `founderMode: true`
+
+**2. Language Tabs on Language Hub**
+
+Hub now fetches `/api/user/languages` and renders language buttons below the hero if the student studies >1 language. Clicking a tab re-fetches review items, scenarios, and DanielaLearningInsights for that language. Tabs only appear for multi-language students — single-language students see no change.
+
+### What's unresolved
+- Modes are purely conversational — no persistent storage (intentional). When the student ends a session, mode resets to default.
+- If David wants to persist a mode preference (like he can with tutor gender), `make_permanent` + a new DB column would be the path.
+
+---
 ## From Agent — Wed, Jun 4, 2026 (session — show_daily_plan tool)
 
 ### What was built

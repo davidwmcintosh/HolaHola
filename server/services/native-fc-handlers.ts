@@ -73,15 +73,17 @@ export class NativeFunctionCallHandler {
         const language = fn.args.language as string | undefined;
         const role = fn.args.role as string | undefined;
         const makePermanent = fn.args.make_permanent as boolean | undefined;
+        const mode = fn.args.mode as 'tutor_mode' | 'founder_mode' | 'honesty_mode' | undefined;
         
         if (target && !session.pendingTutorSwitch && !session.crossLanguageTransferBlocked) {
           const targetGender = target as 'male' | 'female';
-          console.log(`[Native Function Call] SWITCH_TUTOR -> ${targetGender}, language: ${language || 'same'}, role: ${role || 'tutor'}${makePermanent ? ' [PERMANENT]' : ''}`);
+          console.log(`[Native Function Call] SWITCH_TUTOR -> ${targetGender}, language: ${language || 'same'}, role: ${role || 'tutor'}${makePermanent ? ' [PERMANENT]' : ''}${mode ? ` [MODE: ${mode}]` : ''}`);
           
           session.pendingTutorSwitch = {
             targetGender,
             targetLanguage: language || session.targetLanguage,
             targetRole: (role === 'assistant' ? 'assistant' : 'tutor') as 'tutor' | 'assistant' | undefined,
+            mode,
           };
           session.switchTutorTriggered = true;
 

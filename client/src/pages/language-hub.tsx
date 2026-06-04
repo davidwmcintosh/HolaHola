@@ -45,6 +45,20 @@ export default function LanguageHub() {
   const { user } = useUser();
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
 
+  // Studied languages for the tab strip
+  const { data: userLanguagesData } = useQuery<{ languages: string[] }>({
+    queryKey: ["/api/user/languages"],
+    queryFn: async () => {
+      const res = await fetch("/api/user/languages", { credentials: "include" });
+      if (!res.ok) return { languages: [] };
+      return res.json();
+    },
+  });
+  const studiedLanguages = userLanguagesData?.languages ?? [];
+  const showTabs = studiedLanguages.length > 1;
+  const defaultLang = language === "all" ? "spanish" : language;
+  const [selectedLang, setSelectedLang] = useState<string>(defaultLang);
+
   const { data: hubData } = useQuery<HubData>({
     queryKey: ["/api/review-hub", { language }],
     queryFn: async () => {
@@ -55,21 +69,20 @@ export default function LanguageHub() {
     },
   });
 
-  // Recommended scenarios (for the slug strip)
-  const lang = language === "all" ? "spanish" : language;
+  // Recommended scenarios (for the slug strip) — use selectedLang for tab-aware filtering
   const { data: featuredScenarios = [] } = useQuery<(Scenario & { mode?: string })[]>({
-    queryKey: ["/api/scenarios/recommended", lang],
+    queryKey: ["/api/scenarios/recommended", selectedLang],
     queryFn: async () => {
-      const res = await fetch(`/api/scenarios/recommended?language=${lang}`, { credentials: "include" });
+      const res = await fetch(`/api/scenarios/recommended?language=${selectedLang}`, { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
     },
   });
 
   const { data: reviewItems = [] } = useQuery<ReviewItem[]>({
-    queryKey: ["/api/review-items", lang],
+    queryKey: ["/api/review-items", selectedLang],
     queryFn: async () => {
-      const res = await fetch(`/api/review-items?language=${lang}&limit=5`, { credentials: "include" });
+      const res = await fetch(`/api/review-items?language=${selectedLang}&limit=5`, { credentials: "include" });
       if (!res.ok) return [];
       const data = await res.json();
       return Array.isArray(data) ? data : (data?.items ?? []);
@@ -105,10 +118,28 @@ export default function LanguageHub() {
         </Button>
       </section>
 
+      {/* ── Language Tabs ─────────────────────────────────────────────────── */}
+      {showTabs && (
+        <div className="px-6 pb-4 flex gap-2 justify-center flex-wrap">
+          {studiedLanguages.map((lang) => (
+            <Button
+              key={lang}
+              variant={selectedLang === lang ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedLang(lang)}
+              data-testid={`tab-language-${lang}`}
+              className="capitalize"
+            >
+              {lang}
+            </Button>
+          ))}
+        </div>
+      )}
+
       {/* ── Daniela's Learning Insights ───────────────────────────────────── */}
       {user && (
         <div className="px-6 pb-8">
-          <DanielaLearningInsights language={language} userId={user.id} />
+          <DanielaLearningInsights language={selectedLang} userId={user.id} />
         </div>
       )}
 

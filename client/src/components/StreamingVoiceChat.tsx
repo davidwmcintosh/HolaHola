@@ -422,6 +422,7 @@ export function StreamingVoiceChat({
   // Cross-language handoff tracking
   // When true, we're reconnecting after a language switch
   const isLanguageHandoffRef = useRef(false);
+  const pendingHandoffModeRef = useRef<'tutor_mode' | 'founder_mode' | 'honesty_mode' | undefined>(undefined);
   
   // Keep refs updated with current state
   useEffect(() => {
@@ -905,7 +906,10 @@ export function StreamingVoiceChat({
           startRinging();
         }
         
-        const isExplicitFounderMode = learningContext === 'founder-mode';
+        const handoffMode = pendingHandoffModeRef.current;
+        pendingHandoffModeRef.current = undefined; // consume it
+        const isExplicitFounderMode = learningContext === 'founder-mode' || handoffMode === 'founder_mode';
+        const isExplicitHonestyMode = isHonestyMode || handoffMode === 'honesty_mode';
         
         await streamingVoice.connect({
           conversationId,
@@ -916,7 +920,7 @@ export function StreamingVoiceChat({
           tutorPersonality: userDetails.tutorPersonality || 'warm',
           tutorExpressiveness: userDetails.tutorExpressiveness || 3,
           tutorGender,  // Pass current tutor gender from context
-          rawHonestyMode: isHonestyMode,  // Minimal prompting for authentic conversation
+          rawHonestyMode: isExplicitHonestyMode,  // Minimal prompting for authentic conversation
           founderMode: isExplicitFounderMode,  // Only true when explicitly selected
           onProcessingPending: () => {
             // processing_pending fired (PTT released, Gemini transcribed) — set thinking immediately.
@@ -1209,8 +1213,13 @@ export function StreamingVoiceChat({
             }
           },
           onTutorHandoff: (handoff) => {
-            const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant } = handoff;
+            const { targetGender, targetLanguage, tutorName, isLanguageSwitch, isAssistant, mode: handoffMode } = handoff;
             
+            // Store requested mode so it's applied when the new session connects
+            if (handoffMode && handoffMode !== 'tutor_mode') {
+              pendingHandoffModeRef.current = handoffMode;
+            }
+
             // ASSISTANT HANDOFF: Navigate to assistant practice page
             if (isAssistant) {
               console.log(`[TUTOR HANDOFF] Assistant handoff to ${tutorName} - navigating to practice page`);
@@ -1223,7 +1232,7 @@ export function StreamingVoiceChat({
             }
             
             if (isLanguageSwitch && targetLanguage) {
-              console.log(`[TUTOR HANDOFF] Cross-language switch to ${tutorName} (${targetGender}) in ${targetLanguage}`);
+              console.log(`[TUTOR HANDOFF] Cross-language switch to ${tutorName} (${targetGender}) in ${targetLanguage}${handoffMode ? ` [${handoffMode}]` : ''}`);
               // Mark that we're in a language handoff - used to complete handoff after reconnection
               isLanguageHandoffRef.current = true;
               // CRITICAL: Clear greeting lock so new tutor can greet

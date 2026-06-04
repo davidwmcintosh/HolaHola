@@ -1253,6 +1253,7 @@ export class StreamingVoiceClient {
             isLanguageSwitch: boolean;
             requiresGreeting?: boolean; // True if client should request greeting after reconnecting
             isAssistant?: boolean;     // True if switching to assistant tutor (navigate to practice page)
+            mode?: 'tutor_mode' | 'founder_mode' | 'honesty_mode'; // Session mode for new tutor
             timestamp: number;
           });
           break;
