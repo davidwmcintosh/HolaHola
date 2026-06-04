@@ -5486,6 +5486,179 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'SHOW_DAILY_PLAN': {
+        const text = fn.args.text as string | undefined;
+        const greetingOverride = fn.args.greeting as string | undefined;
+        if (text && !session.functionCallText) session.functionCallText = text;
+
+        const planPromise = (async () => {
+          try {
+            const { getSharedDb } = await import('../db');
+            const { sql: rawSql, and, eq, gte, lte, inArray } = await import('drizzle-orm');
+            const db = getSharedDb();
+
+            const userId = String(session.userId || '');
+            const language = session.language || session.targetLanguage || 'spanish';
+
+            // 1. Due vocab — already pre-loaded in session
+            const dueVocabCount = (session.lastDueVocab?.length) || 0;
+
+            // 2. Sessions this week
+            const weekStart = new Date();
+            weekStart.setHours(0, 0, 0, 0);
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay()); // Sunday
+
+            let sessionsThisWeek = 0;
+            try {
+              const weekResult = await db.execute(rawSql`
+                SELECT COUNT(*) as cnt FROM conversations
+                WHERE user_id = ${userId}
+                  AND created_at >= ${weekStart.toISOString()}
+                  AND language = ${language}
+              `);
+              sessionsThisWeek = Number((weekResult.rows?.[0] as any)?.cnt || 0);
+            } catch (e) { /* non-fatal */ }
+
+            // 3. Assignments due in next 7 days (if student is in a class)
+            const dueAssignments: Array<{ title: string; dueDate: Date | null; type: string }> = [];
+            if (session.classId) {
+              try {
+                const upcoming = await db.execute(rawSql`
+                  SELECT a.title, a.due_date, a.assignment_type
+                  FROM assignments a
+                  LEFT JOIN assignment_submissions s
+                    ON s.assignment_id = a.id AND s.student_id = ${userId}
+                  WHERE a.class_id = ${session.classId}
+                    AND a.is_published = true
+                    AND (s.status IS NULL OR s.status IN ('not_started', 'in_progress'))
+                    AND (a.due_date IS NULL OR a.due_date >= NOW())
+                    AND (a.due_date IS NULL OR a.due_date <= NOW() + INTERVAL '7 days')
+                  ORDER BY a.due_date ASC NULLS LAST
+                  LIMIT 3
+                `);
+                for (const row of (upcoming.rows || []) as any[]) {
+                  dueAssignments.push({ title: row.title, dueDate: row.due_date ? new Date(row.due_date) : null, type: row.assignment_type });
+                }
+              } catch (e) { /* non-fatal */ }
+            }
+
+            // 4. Last recommendation or current unit from context
+            const recommendation = session.lastRecommendation as any;
+            const currentUnit = recommendation?.unit_title || recommendation?.unitTitle || null;
+            const nextLesson = recommendation?.lesson_title || recommendation?.lessonTitle || recommendation?.title || null;
+
+            // 5. Build agenda
+            const agenda: Array<{
+              id: string; type: string; label: string; detail?: string;
+              urgency: 'due' | 'suggested'; startPrompt?: string;
+            }> = [];
+
+            // Vocab review first if there are words due
+            if (dueVocabCount > 0) {
+              agenda.push({
+                id: 'vocab-review',
+                type: 'vocab_review',
+                label: `Review ${dueVocabCount} vocabulary word${dueVocabCount !== 1 ? 's' : ''}`,
+                detail: 'Spaced repetition — due for review today',
+                urgency: 'due',
+                startPrompt: `Let's start the vocab review — quiz me on the ${dueVocabCount} words that are due.`,
+              });
+            }
+
+            // Assignments
+            for (const asgn of dueAssignments) {
+              const dueDateStr = asgn.dueDate
+                ? asgn.dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+                : null;
+              agenda.push({
+                id: `assignment-${asgn.title.slice(0, 20)}`,
+                type: 'assignment',
+                label: asgn.title,
+                detail: dueDateStr ? `Due ${dueDateStr}` : 'Assigned',
+                urgency: 'due',
+                startPrompt: `Let's work on my assignment: ${asgn.title}`,
+              });
+            }
+
+            // Next lesson from recommendation
+            if (nextLesson) {
+              agenda.push({
+                id: 'next-lesson',
+                type: 'lesson',
+                label: nextLesson,
+                detail: currentUnit ? `${currentUnit}` : undefined,
+                urgency: 'suggested',
+                startPrompt: `Let's continue with the lesson: ${nextLesson}`,
+              });
+            } else if (currentUnit) {
+              agenda.push({
+                id: 'current-unit',
+                type: 'lesson',
+                label: `Continue ${currentUnit}`,
+                urgency: 'suggested',
+                startPrompt: `Let's continue with ${currentUnit}`,
+              });
+            } else {
+              // Generic fallback
+              agenda.push({
+                id: 'practice',
+                type: 'conversation',
+                label: 'Free conversation practice',
+                detail: 'Talk with Daniela about anything',
+                urgency: 'suggested',
+                startPrompt: `Let's just have a free conversation in ${language}.`,
+              });
+            }
+
+            // 6. Build date label
+            const now = new Date();
+            const dateLabel = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+            // 7. Greeting
+            const userName = (session as any).userName || (session as any).studentName || null;
+            const hour = now.getHours();
+            const timeGreeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+            const greeting = greetingOverride || (userName ? `${timeGreeting}, ${userName}!` : `${timeGreeting}!`);
+
+            const whiteboardUpdate = {
+              type: 'whiteboard_update' as const,
+              timestamp: Date.now(),
+              items: [{
+                id: 'daily-plan',
+                type: 'daily_plan' as const,
+                content: `Today's Plan — ${dateLabel}`,
+                data: {
+                  greeting,
+                  dateLabel,
+                  agenda,
+                  stats: {
+                    dueVocabCount,
+                    sessionsThisWeek,
+                    goalSessionsPerWeek: 5,
+                  },
+                  language,
+                },
+              }],
+            };
+
+            if (session.firstAudioSent) {
+              this.sendMessage(session.ws, whiteboardUpdate);
+            } else {
+              if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+              session.pendingWhiteboardUpdates.push(whiteboardUpdate);
+            }
+
+            console.log(`[Native Function→ShowDailyPlan] Plan card sent: ${agenda.length} agenda items, ${dueVocabCount} vocab due, ${dueAssignments.length} assignments`);
+          } catch (err: any) {
+            console.error(`[Native Function→ShowDailyPlan] Error:`, err.message);
+          }
+        })();
+
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(planPromise as Promise<void>);
+        break;
+      }
+
       // ──────────────────────────────────────────────────────────────────────────
 
       default:

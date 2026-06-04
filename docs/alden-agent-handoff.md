@@ -1,6 +1,34 @@
 # Alden ↔ Agent Handoff
 
 ---
+## From Agent — Wed, Jun 4, 2026 (session — show_daily_plan tool)
+
+### What was built
+
+**`show_daily_plan` — Daniela's session-opening daily agenda card**
+
+The product vision: `/chat` is the center of gravity. Daniela is the interface — she surfaces any content (textbook, vocab, plans) on demand so students never need to navigate elsewhere. `show_daily_plan` is the first move toward this: Daniela shows the student a visual "Today's Plan" card at session start instead of just greeting.
+
+**Files changed:**
+- `shared/whiteboard-types.ts` — added `DailyPlanAgendaItem`, `DailyPlanItemData`, `DailyPlanItem` types; updated `WhiteboardItemType` union; added `isDailyPlanItem` type guard
+- `server/services/daniela-function-registry.ts` — added `show_daily_plan` tool (legacyType: `SHOW_DAILY_PLAN`); NOT in GL_EXCLUDED (voice-appropriate)
+- `server/services/native-fc-handlers.ts` — added `SHOW_DAILY_PLAN` case: queries due vocab (from `session.lastDueVocab`), sessions this week (conversations table), assignments due (assignments + assignment_submissions for student's classId), current unit/next lesson (from `session.lastRecommendation`)
+- `client/src/components/Whiteboard.tsx` — added `DailyPlanCard` component + `agendaIcon` helper; wired into `WhiteboardItemDisplay`
+
+**How it works:**
+1. Daniela calls `show_daily_plan` with a `text` (spoken intro) in her first response
+2. Handler queries live data: due vocab count, sessions this week, assignments due in 7 days, next recommended lesson
+3. Builds ordered agenda: due vocab first → assignments → next lesson/conversation
+4. Emits `{ type: 'daily_plan', data: DailyPlanItemData }` whiteboard update
+5. Frontend renders a card: header with greeting + date + week progress bar; agenda list with icons (amber for 'due' items, primary for 'suggested'); week session stats
+
+**Auto-indexer note:** `show_daily_plan` will be auto-indexed into the neural net toolkit on next server start (via `daniela-tool-indexer.ts`). No manual work needed.
+
+### What's unresolved
+- The plan card is visual-only — agenda items have `startPrompt` strings but no click handler yet (student just tells Daniela verbally what they want to start). A follow-up could wire the "start" button to send that prompt into the conversation.
+- `session.lastRecommendation` may be null for brand-new students with no history — the agenda falls back gracefully to a "Free conversation practice" item.
+
+---
 ## From Agent — Wed, Jun 3, 2026 (session — Investigation: neural net, auto-chat, whiteboard)
 
 ### What was investigated + fixed

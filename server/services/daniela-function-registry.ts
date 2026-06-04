@@ -4419,6 +4419,48 @@ SHOW AND SPEAK PROTOCOL (mandatory):
       return `Textbook section "${key}" is open in the panel. Ask the student to look at the first word and say it aloud.`;
     },
   },
+
+  {
+    legacyType: 'SHOW_DAILY_PLAN',
+    declaration: {
+      name: "show_daily_plan",
+      description: `Show the student a personalized daily agenda card on the whiteboard at the very START of a new session.
+
+WHEN TO USE:
+• Call this in your FIRST response of a NEW session — before anything else.
+• Do NOT call it in resumed sessions where you are already mid-conversation.
+• Do NOT call it if the student has explicitly jumped straight into a request ("translate this", "let's do vocab").
+
+WHAT IT DOES:
+• Pulls together: due vocab count, upcoming assignments, current unit, weekly session progress.
+• Renders a visual "Today's Plan" card on the whiteboard with an ordered agenda.
+• You narrate the plan aloud while the card appears — tell the student what's waiting for them.
+
+SPEAK PROTOCOL (mandatory):
+1. Set "text" to a warm, brief narration — 1–3 sentences. E.g. "Here's what I have for you today — a few vocab words due, and we'll pick up right where you left off in Unit 3."
+2. Call show_daily_plan — the card loads.
+3. In your NEXT turn, ask the student where they want to start: "Want to knock out the vocab first, or dive into the lesson?"
+
+The card is a visual summary only — it does not start any activity automatically. You guide the student through it.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: {
+            type: "string",
+            description: "Brief spoken intro while the plan card appears, e.g. 'Here's your plan for today — let me show you what's on the agenda.'",
+          },
+          greeting: {
+            type: "string",
+            description: "Optional personalized greeting for the card header, e.g. 'Good morning, Sofia!' — if omitted, a default greeting is used.",
+          },
+        },
+        required: ["text"],
+      },
+    },
+    buildContinuationResponse: () => {
+      return `Daily plan card is now showing on the whiteboard. Ask the student where they'd like to start — vocab review, the next lesson, or an assignment.`;
+    },
+  },
 ];
 
 

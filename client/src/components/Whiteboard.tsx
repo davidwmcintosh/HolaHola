@@ -96,14 +96,15 @@ import type {
   SentenceTableItem,
   TextbookSearchItem,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isSceneCanvasItem, isSentenceTableItem, isTextbookSearchItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isSceneCanvasItem, isSentenceTableItem, isTextbookSearchItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions, isDailyPlanItem } from "@shared/whiteboard-types";
+import type { DailyPlanItem, DailyPlanAgendaItem } from "@shared/whiteboard-types";
 import { SceneCanvas } from "@/components/SceneCanvas";
 import type { CognatePair, FalseFriendOption } from "@shared/whiteboard-types";
 import type { ToneItem } from "@shared/whiteboard-types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { GripVertical, PenLine, Send } from "lucide-react";
+import { GripVertical, PenLine, Send, ClipboardList, Zap, CalendarDays, ChevronRight } from "lucide-react";
 
 interface WhiteboardProps {
   items: WhiteboardItem[];
@@ -3903,6 +3904,96 @@ function TextbookSearchItemDisplay({ item, index }: { item: TextbookSearchItem; 
   );
 }
 
+// ─── Daily Plan Card ──────────────────────────────────────────────────────────
+
+function agendaIcon(type: DailyPlanAgendaItem['type']) {
+  switch (type) {
+    case 'vocab_review': return <RotateCcw className="w-4 h-4" />;
+    case 'lesson':       return <BookOpen className="w-4 h-4" />;
+    case 'assignment':   return <ClipboardList className="w-4 h-4" />;
+    case 'practice':     return <Zap className="w-4 h-4" />;
+    case 'conversation': return <MessageSquare className="w-4 h-4" />;
+    default:             return <CheckCircle2 className="w-4 h-4" />;
+  }
+}
+
+function DailyPlanCard({ item, index }: { item: DailyPlanItem; index: number }) {
+  const { data } = item;
+  const { greeting, dateLabel, agenda, stats } = data;
+
+  const sessionsDisplay = `${stats.sessionsThisWeek}/${stats.goalSessionsPerWeek}`;
+  const weekProgress = Math.min(stats.sessionsThisWeek / (stats.goalSessionsPerWeek || 5), 1);
+
+  return (
+    <div
+      className="rounded-xl border border-border bg-card text-card-foreground overflow-hidden"
+      data-testid={`whiteboard-daily-plan-${index}`}
+    >
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-border bg-muted/40">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <p className="text-xs text-muted-foreground">{dateLabel}</p>
+            <h2 className="text-base font-semibold leading-tight">{greeting}</h2>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <CalendarDays className="w-3.5 h-3.5" />
+              <span>{sessionsDisplay} this week</span>
+            </span>
+            {stats.dueVocabCount > 0 && (
+              <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>{stats.dueVocabCount} due</span>
+              </span>
+            )}
+          </div>
+        </div>
+        {/* Week progress bar */}
+        <div className="mt-2 h-1 rounded-full bg-border overflow-hidden">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-500"
+            style={{ width: `${weekProgress * 100}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Agenda list */}
+      <div className="divide-y divide-border">
+        {agenda.map((agendaItem, i) => (
+          <div
+            key={agendaItem.id}
+            className="flex items-center gap-3 px-4 py-3"
+            data-testid={`daily-plan-item-${agendaItem.id}`}
+          >
+            <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${
+              agendaItem.urgency === 'due'
+                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400'
+                : 'bg-primary/10 text-primary'
+            }`}>
+              {agendaIcon(agendaItem.type)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium leading-snug truncate">{agendaItem.label}</p>
+              {agendaItem.detail && (
+                <p className="text-xs text-muted-foreground truncate mt-0.5">{agendaItem.detail}</p>
+              )}
+            </div>
+            {agendaItem.urgency === 'due' && (
+              <span className="shrink-0 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+                Due
+              </span>
+            )}
+            <ChevronRight className="shrink-0 w-4 h-4 text-muted-foreground" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── WhiteboardItemDisplay ────────────────────────────────────────────────────
+
 const WhiteboardItemDisplay = ({ 
   item, 
   index,
@@ -4053,6 +4144,10 @@ const WhiteboardItemDisplay = ({
 
   if (isTextbookSearchItem(item)) {
     return <TextbookSearchItemDisplay item={item} index={index} />;
+  }
+
+  if (isDailyPlanItem(item)) {
+    return <DailyPlanCard item={item} index={index} />;
   }
   
   return <TextItemDisplay item={item} index={index} />;

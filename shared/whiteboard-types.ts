@@ -73,7 +73,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'sentence_table' | 'textbook_search' | 'overlay_panel';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'sentence_table' | 'textbook_search' | 'overlay_panel' | 'daily_plan';
 
 /**
  * Drill types for inline micro-exercises
@@ -1093,6 +1093,52 @@ export interface OverlayPanelItem extends WhiteboardItemBase {
 
 // ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Daily plan agenda item — one line in the student's daily agenda
+ */
+export interface DailyPlanAgendaItem {
+  id: string;
+  /** Determines the icon shown next to the item */
+  type: 'vocab_review' | 'lesson' | 'assignment' | 'practice' | 'conversation';
+  /** Short label shown in the agenda (e.g. "Review 7 vocab words") */
+  label: string;
+  /** Secondary detail line (e.g. "Due today · Unit 3: Food & Dining") */
+  detail?: string;
+  /** 'due' = assigned/due, 'suggested' = Daniela's recommendation */
+  urgency: 'due' | 'suggested';
+  /** Message Daniela should receive if the student taps "Start" for this item */
+  startPrompt?: string;
+}
+
+/**
+ * Daily plan card data — shown at session start via show_daily_plan tool
+ */
+export interface DailyPlanItemData {
+  /** Personalized greeting shown in the card header, e.g. "Good morning, Sofia!" */
+  greeting: string;
+  /** Formatted date, e.g. "Wednesday, June 4" */
+  dateLabel: string;
+  /** Ordered list of today's agenda items */
+  agenda: DailyPlanAgendaItem[];
+  /** Quick stats for the bottom bar */
+  stats: {
+    dueVocabCount: number;
+    sessionsThisWeek: number;
+    goalSessionsPerWeek: number;
+    streakDays?: number;
+  };
+  /** Target language (e.g. "spanish") */
+  language: string;
+}
+
+export interface DailyPlanItem extends WhiteboardItemBase {
+  type: 'daily_plan';
+  content: string;
+  data: DailyPlanItemData;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
 export type WhiteboardItem = 
   | WriteItem 
   | PhoneticItem 
@@ -1124,7 +1170,8 @@ export type WhiteboardItem =
   | SceneCanvasItem
   | SentenceTableItem
   | TextbookSearchItem
-  | OverlayPanelItem;
+  | OverlayPanelItem
+  | DailyPlanItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -2979,6 +3026,10 @@ export function isSpeakDrill(item: DrillItem): boolean {
 
 export function isOverlayPanelItem(item: WhiteboardItem): item is OverlayPanelItem {
   return item.type === 'overlay_panel';
+}
+
+export function isDailyPlanItem(item: WhiteboardItem): item is DailyPlanItem {
+  return item.type === 'daily_plan';
 }
 
 export function isCognateMatchDrill(item: DrillItem): boolean {
