@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUser } from "@/lib/auth";
 import { DanielaLearningInsights } from "@/components/DanielaLearningInsights";
 import { Button } from "@/components/ui/button";
-import { Phone, Headphones, MessageSquare, Play, ChevronRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Phone, Headphones, MessageSquare, Play, ChevronRight, Eye } from "lucide-react";
 import type { Scenario } from "@shared/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -18,12 +21,29 @@ interface HubData {
   }>;
 }
 
+interface ReviewItem {
+  id: string;
+  prompt: string;
+  targetText: string;
+  context?: string | null;
+  itemType: string;
+  createdAt: string;
+}
+
+const ITEM_TYPE_CONFIG: Record<string, { color: string; label: string }> = {
+  vocabulary: { color: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300", label: "Word" },
+  phrase:     { color: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300", label: "Phrase" },
+  grammar:    { color: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300", label: "Grammar" },
+  pronunciation: { color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300", label: "Sound" },
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function LanguageHub() {
   const [, navigate] = useLocation();
   const { language } = useLanguage();
   const { user } = useUser();
+  const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
 
   const { data: hubData } = useQuery<HubData>({
     queryKey: ["/api/review-hub", { language }],
@@ -43,6 +63,16 @@ export default function LanguageHub() {
       const res = await fetch(`/api/scenarios/recommended?language=${lang}`, { credentials: "include" });
       if (!res.ok) return [];
       return res.json();
+    },
+  });
+
+  const { data: reviewItems = [] } = useQuery<ReviewItem[]>({
+    queryKey: ["/api/review-items", lang],
+    queryFn: async () => {
+      const res = await fetch(`/api/review-items?language=${lang}&limit=5`, { credentials: "include" });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : (data?.items ?? []);
     },
   });
 
@@ -117,6 +147,59 @@ export default function LanguageHub() {
               <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
             </div>
           </Link>
+        </div>
+      )}
+
+      {/* ── From Your Conversations ───────────────────────────────────────── */}
+      {reviewItems.length > 0 && (
+        <div className="px-6 pb-8">
+          <Card data-testid="section-from-conversations">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <MessageSquare className="h-5 w-5 text-primary" />
+                From Your Conversations
+              </CardTitle>
+              <CardDescription>Vocabulary, phrases, and grammar from your recent chats</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {reviewItems.map((item) => {
+                const typeConf = ITEM_TYPE_CONFIG[item.itemType] ?? ITEM_TYPE_CONFIG.vocabulary;
+                const isRevealed = revealedIds.has(item.id);
+                return (
+                  <div key={item.id} className="rounded-md border p-3 space-y-2" data-testid={`review-item-${item.id}`}>
+                    <Badge variant="outline" className={`text-xs ${typeConf.color}`}>
+                      {typeConf.label}
+                    </Badge>
+                    <p className="text-sm font-medium">{item.prompt}</p>
+                    {item.context && (
+                      <p className="text-xs text-muted-foreground italic">"{item.context}"</p>
+                    )}
+                    {!isRevealed ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => setRevealedIds(prev => new Set([...prev, item.id]))}
+                        data-testid={`button-reveal-${item.id}`}
+                      >
+                        <Eye className="w-3.5 h-3.5 mr-1.5" />
+                        Show answer
+                      </Button>
+                    ) : (
+                      <div className="bg-primary/10 rounded-md px-3 py-2 text-center">
+                        <p className="text-sm font-semibold text-primary">{item.targetText}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              <Link href="/review-hub">
+                <Button variant="ghost" size="sm" className="w-full text-xs gap-1 mt-1" data-testid="link-full-review-hub">
+                  See all in Review Hub <ChevronRight className="h-3 w-3" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
         </div>
       )}
 
