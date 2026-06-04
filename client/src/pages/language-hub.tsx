@@ -7,7 +7,7 @@ import { DanielaLearningInsights } from "@/components/DanielaLearningInsights";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Phone, Headphones, MessageSquare, Play, ChevronRight, Eye } from "lucide-react";
+import { Phone, Headphones, MessageSquare, Play, ChevronRight, Eye, Sparkles } from "lucide-react";
 import type { Scenario } from "@shared/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ export default function LanguageHub() {
     },
   });
 
-  const { data: reviewItems = [] } = useQuery<ReviewItem[]>({
+  const { data: reviewItems = [], isLoading: reviewItemsLoading } = useQuery<ReviewItem[]>({
     queryKey: ["/api/review-items", selectedLang],
     queryFn: async () => {
       const res = await fetch(`/api/review-items?language=${selectedLang}&limit=5`, { credentials: "include" });
@@ -88,6 +88,8 @@ export default function LanguageHub() {
       return Array.isArray(data) ? data : (data?.items ?? []);
     },
   });
+
+  const showEmptyState = showTabs && !reviewItemsLoading && reviewItems.length === 0;
 
   const recentConv = hubData?.recentConversations?.[0] ?? null;
   const topScenarios = featuredScenarios.slice(0, 3);
@@ -137,9 +139,31 @@ export default function LanguageHub() {
       )}
 
       {/* ── Daniela's Learning Insights ───────────────────────────────────── */}
-      {user && (
+      {user && !showEmptyState && (
         <div className="px-6 pb-8">
           <DanielaLearningInsights language={selectedLang} userId={user.id} />
+        </div>
+      )}
+
+      {/* ── Empty state for languages with no sessions yet ─────────────────── */}
+      {showEmptyState && (
+        <div className="px-6 pb-8">
+          <Card className="border-dashed" data-testid="section-empty-language">
+            <CardContent className="flex flex-col items-center justify-center py-10 text-center gap-3">
+              <div className="p-3 rounded-full bg-muted">
+                <Sparkles className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="font-medium text-sm capitalize">No {selectedLang} sessions yet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Start a conversation and your vocabulary, phrases, and insights will appear here.
+                </p>
+              </div>
+              <Button size="sm" variant="outline" onClick={() => navigate("/chat")} data-testid="button-empty-start">
+                Start a session
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       )}
 
