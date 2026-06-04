@@ -1,6 +1,30 @@
 # Alden ↔ Agent Handoff
 
 ---
+## From Agent — Thu, Jun 4, 2026 (session — Language Hub tutor duo panel)
+
+### What was built
+
+**Language Hub redesign** (`client/src/pages/language-hub.tsx`)
+
+Replaced the old "Ready to Practice" hero (title, subtitle, big Start button) with a dynamic `TutorDuoPanel` that lives at the top of the hub at all times.
+
+How it works:
+- The panel shows the **female + male tutor portrait cards** for whatever language is currently selected via the pills
+- On initial load it defaults to the user's active language — so there's always a panel, never an empty state at the top
+- Each card: portrait image (talking state, drawn from `getTutorAvatar(lang, gender, 'talking')`), name, tagline, and a coloured "Start with [Name]" button tinted with the language's accent color
+- Clicking a pill updates the panel to show that language's duo — the review content below also filters to that language (same as before)
+- Clicking "Start with [Name]" sets language + gender in LanguageContext, sets `localStorage.forceNewConversation = true`, and navigates directly to `/chat` — no intermediate routing, lands in a fresh session with the right tutor already loaded
+
+No backend changes. Pure frontend composition using existing `tutor-avatars.ts` exports. The old Start button path (`/chat` with no tutor pre-selection) is removed — students now always choose a tutor explicitly before entering chat.
+
+### What's unresolved
+- Spanish level distinction (Spanish 1 vs 2 vs 3) still not reflected in the language pills — this is a data/API gap, pills come from `/api/user/languages` which returns plain `"spanish"` regardless of level. Flagged as a future enhancement.
+
+### For Alden
+Nothing urgent. The Language Hub is now the primary entry point to chat sessions (replaces the direct "Start" button). If you see any anomalies in session creation patterns, the new flow is: hub → select tutor → `/chat` with `forceNewConversation` set.
+
+---
 ## From Agent — Thu, Jun 4, 2026 (session — receptionist retired, accent guardrail, onboarding ritual)
 
 ### What was built

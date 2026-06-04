@@ -8,7 +8,15 @@ import { InteractiveTextbookCard } from "@/components/InteractiveTextbookCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Phone, Headphones, MessageSquare, Play, ChevronRight, Eye, Sparkles } from "lucide-react";
+import { MessageSquare, Play, ChevronRight, Eye, Sparkles, Phone } from "lucide-react";
+import {
+  getTutorAvatar,
+  getTutorName,
+  getTutorTagline,
+  languageAccentColors,
+  normalizeLanguage,
+} from "@/lib/tutor-avatars";
+import type { TutorGender } from "@/lib/tutor-avatars";
 import type { Scenario } from "@shared/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -38,11 +46,78 @@ const ITEM_TYPE_CONFIG: Record<string, { color: string; label: string }> = {
   pronunciation: { color: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300", label: "Sound" },
 };
 
+// ─── Tutor Duo Panel ──────────────────────────────────────────────────────────
+
+interface TutorDuoPanelProps {
+  language: string;
+  onStart: (gender: TutorGender) => void;
+}
+
+function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
+  const normalized = normalizeLanguage(language);
+  const accentColor = languageAccentColors[normalized] ?? "#6366f1";
+  const accentBg = accentColor + "18"; // ~10% opacity tint
+
+  const tutors: Array<{ gender: TutorGender }> = [
+    { gender: "female" },
+    { gender: "male" },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {tutors.map(({ gender }) => {
+        const name = getTutorName(normalized, gender);
+        const tagline = getTutorTagline(normalized, gender);
+        const portrait = getTutorAvatar(normalized, gender, "talking");
+
+        return (
+          <div
+            key={gender}
+            className="rounded-lg overflow-hidden border bg-card flex flex-col"
+            data-testid={`card-tutor-${normalized}-${gender}`}
+          >
+            {/* Portrait area */}
+            <div
+              className="relative flex items-end justify-center overflow-hidden"
+              style={{ backgroundColor: accentBg, height: "200px" }}
+            >
+              <img
+                src={portrait}
+                alt={name}
+                className="h-full w-auto object-contain object-bottom select-none"
+                draggable={false}
+              />
+            </div>
+
+            {/* Info + action */}
+            <div className="p-4 flex flex-col gap-3 flex-1">
+              <div>
+                <p className="font-semibold text-base leading-tight">{name}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{tagline}</p>
+              </div>
+              <Button
+                size="default"
+                className="w-full gap-2"
+                onClick={() => onStart(gender)}
+                data-testid={`button-start-${normalized}-${gender}`}
+                style={{ backgroundColor: accentColor, color: "#fff", borderColor: accentColor }}
+              >
+                <Phone className="h-4 w-4" />
+                Start with {name}
+              </Button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function LanguageHub() {
   const [, navigate] = useLocation();
-  const { language } = useLanguage();
+  const { language, setLanguage, setTutorGender } = useLanguage();
   const { user } = useUser();
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
 
@@ -95,35 +170,27 @@ export default function LanguageHub() {
   const recentConv = hubData?.recentConversations?.[0] ?? null;
   const topScenarios = featuredScenarios.slice(0, 3);
 
+  const handleStartWithTutor = (gender: TutorGender) => {
+    setLanguage(selectedLang);
+    setTutorGender(gender);
+    localStorage.setItem("forceNewConversation", "true");
+    navigate("/chat");
+  };
+
   return (
     <div className="min-h-full flex flex-col">
 
-      {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <section className="flex flex-col items-center justify-center px-6 pt-16 pb-12 text-center">
-        <h1 className="text-3xl font-bold tracking-tight mb-3">
-          Ready to practice?
-        </h1>
-        <div className="flex items-center gap-2 text-muted-foreground mb-2">
-          <Headphones className="h-4 w-4 shrink-0" />
-          <p className="text-base">Get your headphones on, then click Start.</p>
-        </div>
-        <p className="text-sm text-muted-foreground mb-10">
-          Daniela will greet you and route you to the right tutor.
-        </p>
-        <Button
-          size="lg"
-          className="gap-2 px-10 text-base"
-          onClick={() => navigate("/chat")}
-          data-testid="button-start-session"
-        >
-          <Phone className="h-5 w-5" />
-          Start
-        </Button>
+      {/* ── Tutor Duo Panel ───────────────────────────────────────────────── */}
+      <section className="px-6 pt-8 pb-6">
+        <TutorDuoPanel
+          language={selectedLang}
+          onStart={handleStartWithTutor}
+        />
       </section>
 
       {/* ── Language Tabs ─────────────────────────────────────────────────── */}
       {showTabs && (
-        <div className="px-6 pb-4 flex gap-2 justify-center flex-wrap">
+        <div className="px-6 pb-6 flex gap-2 justify-center flex-wrap">
           {studiedLanguages.map((lang) => (
             <Button
               key={lang}
@@ -160,9 +227,6 @@ export default function LanguageHub() {
                   Start a conversation and your vocabulary, phrases, and insights will appear here.
                 </p>
               </div>
-              <Button size="sm" variant="outline" onClick={() => navigate("/chat")} data-testid="button-empty-start">
-                Start a session
-              </Button>
             </CardContent>
           </Card>
         </div>
@@ -324,4 +388,3 @@ export default function LanguageHub() {
     </div>
   );
 }
-
