@@ -4562,73 +4562,92 @@ Return [] if nothing is worth surfacing.`;
           console.log('[ONBOARDING-NATIVE-LANG] Extraction result:', JSON.stringify(nativeLangResult));
           
           if (nativeLangResult.language && nativeLangResult.confidence !== "low") {
-            // Native language extracted successfully, complete onboarding
-            console.log('[ONBOARDING-NATIVE-LANG] Current conversation before update:', {
-              userName: conversation.userName,
-              language: conversation.language,
-              nativeLanguage: conversation.nativeLanguage
-            });
-            
+            // Native language captured — advance to learning goals (step 4)
             updatedConversation = await storage.updateConversation(conversationId, userId, {
               nativeLanguage: nativeLangResult.language,
-              isOnboarding: false,
-              onboardingStep: null,
+              onboardingStep: "learningGoals",
+              // isOnboarding stays true until goals are captured
             }) || conversation;
             
-            console.log('[ONBOARDING-NATIVE-LANG] Updated conversation after native language:', {
-              id: updatedConversation.id,
-              language: updatedConversation.language,
-              nativeLanguage: updatedConversation.nativeLanguage,
-              isOnboarding: updatedConversation.isOnboarding,
-              userName: updatedConversation.userName
-            });
-            
-            // Verify userName is preserved
             if (!updatedConversation.userName) {
               console.error('[ONBOARDING-NATIVE-LANG] ERROR: userName was lost during update!');
             }
             
             const userName = updatedConversation.userName || "there";
-            const targetLanguage = updatedConversation.language;
-            const nativeLanguage = updatedConversation.nativeLanguage || "english";
-            
-            console.log('[ONBOARDING-COMPLETION] Generating completion message:', {
-              userName,
-              targetLanguage,
-              nativeLanguage,
-              conversationId: updatedConversation.id
-            });
-            
-            // Generate a clean, warm ending — onboarding is done, Daniela is ready
-            const nativeLanguagePrompt = `You are Daniela, a warm and witty Spanish language tutor. The student's name is ${userName}, they want to learn ${targetLanguage}, and their native language is ${nativeLanguage}.
-
-Write a brief, warm closing message IN ${nativeLanguage} (2-3 sentences max) that:
-1. Tells them you have everything you need and you're excited to get started
-2. Ends with a natural, encouraging sign-off — something like "Let's go!" or the equivalent in ${targetLanguage}
-3. Does NOT ask any more questions — this is the end of the intake, not a continuation
-
-Be yourself: warm, confident, ready. Keep it short.`;
-            
-            console.log('[ONBOARDING-COMPLETION PROMPT]', nativeLanguagePrompt);
-            
-            try {
-              const user = req.user;
-              const model = getModelForTier(user.subscriptionTier, user);
-              
-              aiResponse = await callGemini(model, [
-                { role: "user", content: nativeLanguagePrompt }
-              ]);
-              
-              console.log('[ONBOARDING-COMPLETION SUCCESS] Generated:', aiResponse.substring(0, 100));
-            } catch (error) {
-              console.error('[ONBOARDING-COMPLETION ERROR]', error);
-              aiResponse = `Perfect, ${userName}! I have everything I need. Your first session is about to begin — ¡vamos!`;
-              console.log('[ONBOARDING-COMPLETION FALLBACK] Using fallback');
-            }
+            const targetLanguage = updatedConversation.language || "the language";
+            aiResponse = `Almost done, ${userName}! Last question: what's bringing you to ${targetLanguage}? (Travel, family, work, curiosity — whatever feels true.)`;
           } else {
             // Native language unclear, ask again
             console.log('[ONBOARDING-NATIVE-LANG] Extraction failed or low confidence, asking again');
             aiResponse = "I didn't quite catch that. What language do you speak? (For example: English, Spanish, French, German, etc.)";
+          }
+        } else if (conversation.onboardingStep === "learningGoals") {
+          // Step 4: capture learning motivation / goal — save as personal fact, then complete
+          const rawGoal = messageData.content.trim();
+          const userName = conversation.userName || "there";
+          const targetLanguage = conversation.language || "the language";
+          const nativeLanguage = conversation.nativeLanguage || "english";
+          
+          // Distill the answer into a clean, saveable fact string
+          let goalFact = rawGoal;
+          try {
+            const user = req.user;
+            const model = getModelForTier(user.subscriptionTier, user);
+            const distillPrompt = `The student said this when asked why they're learning ${targetLanguage}: "${rawGoal}"
+
+Rewrite it as a single, concise fact sentence starting with "Wants to" or "Learning for" (max 15 words). Return only the sentence, no punctuation at the end.`;
+            goalFact = await callGemini(model, [{ role: "user", content: distillPrompt }]);
+            goalFact = goalFact.trim().replace(/[."']$/, '');
+          } catch {
+            // fall back to raw text — still worth saving
+          }
+          
+          // Save as learner_personal_fact so Daniela knows from the first real session
+          try {
+            await studentLearningService.savePersonalFact({
+              studentId: userId,
+              factType: 'goal',
+              fact: goalFact,
+              context: `Captured during onboarding intake`,
+              language: conversation.language || undefined,
+              sourceConversationId: conversationId,
+              confidenceScore: 0.95,
+            });
+            console.log('[ONBOARDING-GOALS] Saved goal fact:', goalFact);
+          } catch (factError) {
+            console.error('[ONBOARDING-GOALS] Failed to save goal fact (non-fatal):', factError);
+          }
+          
+          // Complete onboarding
+          updatedConversation = await storage.updateConversation(conversationId, userId, {
+            isOnboarding: false,
+            onboardingStep: null,
+          }) || conversation;
+          
+          console.log('[ONBOARDING-COMPLETION] Generating closing message:', {
+            userName, targetLanguage, nativeLanguage, goalFact,
+            conversationId: updatedConversation.id
+          });
+          
+          // Generate a warm, definitive closing — intake is done
+          const closingPrompt = `You are Daniela, a warm and witty language tutor. The student's name is ${userName}, they want to learn ${targetLanguage}, their native language is ${nativeLanguage}, and their reason for learning is: "${goalFact}".
+
+Write a brief, warm closing message IN ${nativeLanguage} (2-3 sentences max) that:
+1. Acknowledges their reason for learning with genuine warmth (one short sentence)
+2. Tells them you're ready and excited to get started
+3. Ends with a natural sign-off in ${targetLanguage} (e.g. "¡Vamos!" for Spanish, "Allons-y!" for French)
+4. Does NOT ask any more questions — the intake is complete
+
+Be yourself: warm, confident, a little personality. Keep it short.`;
+          
+          try {
+            const user = req.user;
+            const model = getModelForTier(user.subscriptionTier, user);
+            aiResponse = await callGemini(model, [{ role: "user", content: closingPrompt }]);
+            console.log('[ONBOARDING-COMPLETION SUCCESS] Generated:', aiResponse.substring(0, 100));
+          } catch (error) {
+            console.error('[ONBOARDING-COMPLETION ERROR]', error);
+            aiResponse = `That's a great reason, ${userName}! I have everything I need. Let's do this — ¡vamos!`;
           }
         }
 

@@ -17,7 +17,8 @@ Added to ESSENTIAL GUARDRAILS in both `buildMinimalIdentityAnchor` and `createSt
 
 ### What's unresolved
 - Cross-language transfers remain disabled (`CROSS_LANGUAGE_TRANSFERS_ENABLED = false` at streaming-voice-orchestrator.ts line 271). The roster exists but Daniela no longer briefs on it by default, so this is less of an issue.
-- The onboarding (3 steps: name → language → native language) doesn't yet save a learning goal or interests as `learner_personal_facts`. Daniela picks that up in the first real session, but a 4th intake step + fact-save could make her first session even more personalized.
+
+**Onboarding is now 4 steps** (update): name → targetLanguage → nativeLanguage → learningGoals → complete. Step 4 distills the student's answer into a clean goal fact and saves it as a `learner_personal_fact` (factType: 'goal', confidence 0.95). Daniela sees it in fat context on the first real session. The closing message is now goal-aware.
 
 ### For Alden
 Nothing urgent. If you see any `[ONBOARDING]` log traffic, the new flow should complete cleanly and then the conversation resets. If you spot any race condition where the fresh-session creation fires during an active non-onboarding chat (it shouldn't — the guard is `prev === true && current === false`), flag it here.
