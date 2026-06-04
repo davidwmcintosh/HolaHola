@@ -5,7 +5,6 @@ import { useUser } from "@/lib/auth";
 import { DanielaLearningInsights } from "@/components/DanielaLearningInsights";
 import { Button } from "@/components/ui/button";
 import { Phone, Headphones, MessageSquare, Play, ChevronRight } from "lucide-react";
-import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
 import type { Scenario } from "@shared/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -55,12 +54,6 @@ export default function LanguageHub() {
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
       <section className="flex flex-col items-center justify-center px-6 pt-16 pb-12 text-center">
-        <img
-          src={holaholaLogo}
-          alt="HolaHola"
-          className="h-14 mb-8 select-none"
-          draggable={false}
-        />
         <h1 className="text-3xl font-bold tracking-tight mb-3">
           Ready to practice?
         </h1>

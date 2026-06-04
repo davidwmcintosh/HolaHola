@@ -108,6 +108,16 @@ const CompleteRegistration = lazyWithRetry(() => import("@/pages/auth/CompleteRe
 const ForgotPassword = lazyWithRetry(() => import("@/pages/auth/ForgotPassword"));
 const ResetPassword = lazyWithRetry(() => import("@/pages/auth/ResetPassword"));
 
+// Closes sidebar when entering /chat, reopens when leaving
+function SidebarRouteController() {
+  const [location] = useLocation();
+  const { setOpen } = useSidebar();
+  useEffect(() => {
+    setOpen(location !== "/chat");
+  }, [location, setOpen]);
+  return null;
+}
+
 // Loading fallback component
 function PageLoader() {
   return (
@@ -337,6 +347,7 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
           <DanielaSessionProvider>
             <PendingJoinCodeHandler />
             <SidebarProvider defaultOpen={true} style={style as React.CSSProperties}>
+              <SidebarRouteController />
               <div className="flex h-screen w-full max-w-full overflow-hidden">
                 {/* Sidebar renders as Sheet overlay on mobile, regular sidebar on desktop */}
                 <AppSidebar />
