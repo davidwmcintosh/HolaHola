@@ -26,7 +26,6 @@ import { PendingJoinCodeHandler } from "@/components/PendingJoinCodeHandler";
 import { BUILD_TIME } from "./buildtime";
 import { TermsGate } from "@/components/TermsGate";
 import { DanielaSessionProvider } from "@/contexts/DanielaSessionContext";
-import { FloatingVoiceWidget } from "@/components/FloatingVoiceWidget";
 
 function lazyWithRetry(importFn: () => Promise<any>, retries = 3, delay = 1500) {
   return lazy(() => {
@@ -222,9 +221,7 @@ function Router() {
         <Route path="/dashboard" component={ReviewHub} />
         <Route path="/legacy-dashboard" component={Dashboard} />
         <Route path="/onboarding" component={Onboarding} />
-        {/* /chat is rendered by the always-mounted ambient Chat instance in AuthenticatedApp.
-            This null route prevents the NotFound catch-all from firing when path === /chat. */}
-        <Route path="/chat">{() => null}</Route>
+        <Route path="/chat" component={Chat} />
         {/* Voice tutor route aliases - all redirect to /chat */}
         <Route path="/voice-tutor"><Redirect to="/chat" /></Route>
         <Route path="/voice"><Redirect to="/chat" /></Route>
@@ -344,21 +341,10 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
                 <AppSidebar />
                 <div className="flex flex-col flex-1 relative min-w-0 overflow-hidden">
                   <main className="flex-1 overflow-x-hidden overflow-y-auto relative">
-                    {/* Always-mounted ambient session — Chat manages its own visibility
-                        based on the current path. Navigation away from /chat does NOT
-                        unmount this component, keeping the WebSocket/audio session alive.
-                        When visible, Chat uses absolute inset-0 to fill main. */}
-                    <Suspense fallback={null}>
-                      <Chat />
-                    </Suspense>
-                    {/* Route-based content — /chat route renders null so this Router
-                        only shows non-chat pages on top of the ambient Chat above. */}
                     <Router />
                   </main>
                   {/* Floating menu button - bottom-left */}
                   <FloatingMenuButton />
-                  {/* Floating voice widget - bottom-right, hidden on /chat */}
-                  <FloatingVoiceWidget />
                 </div>
               </div>
               <OfflineIndicator />

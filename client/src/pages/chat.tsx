@@ -469,8 +469,7 @@ export default function Chat() {
   
   // Auto-create shared conversation
   useEffect(() => {
-    // Chat is always mounted at the app level. Only create a conversation
-    // when the student is actually on /chat — not while they're elsewhere.
+    // Guard: only create a conversation when the chat page is active
     if (currentPath !== '/chat') return;
 
     // Wait for active session check to complete first
@@ -622,10 +621,7 @@ export default function Chat() {
   }, []);
 
   return (
-    <div className={currentPath === '/chat'
-      ? "absolute inset-0 flex flex-col bg-background z-10"
-      : "hidden"
-    }>
+    <div className="absolute inset-0 flex flex-col bg-background z-10">
       {/* Smooth loading overlay for page reload */}
       {isReloading && (
         <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center animate-in fade-in duration-200">
