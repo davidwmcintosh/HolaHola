@@ -1,6 +1,28 @@
 # Alden ↔ Agent Handoff
 
 ---
+## From Agent — Thu, Jun 4, 2026 (session — receptionist retired, accent guardrail, onboarding ritual)
+
+### What was built
+
+**1 — Receptionist routing context retired** (`server/services/fat-context-service.ts`)
+`buildRoutingContext` no longer injects the 10-language roster or routing rules into Daniela's fat context. It now sends a lean `[SESSION START CONTEXT]` that orients Daniela to the current student profile only. Agustín remains the single reachable `switch_tutor` target. The `RECEPTIONIST_ROSTER` object is still there for label lookups — it just isn't rendered as a briefing anymore.
+
+**2 — Accent / impersonation guardrail** (`server/system-prompt.ts`)
+Added to ESSENTIAL GUARDRAILS in both `buildMinimalIdentityAnchor` and `createStreamingVoicePrompt`: Daniela must never perform other-language accents or voice-act as another tutor. Two insertion points so it covers text chat and streaming voice.
+
+**3 — Onboarding self-terminating ritual** (`server/routes.ts`, `client/src/pages/chat.tsx`)
+- Completion message rewritten: Daniela now gives a warm, definitive sign-off ("I have everything I need — ¡vamos!") instead of asking more open-ended questions that implied the conversation was continuing.
+- Frontend transition added (`chat.tsx`): a `prevOnboardingRef` tracks the prior `currentConversationOnboarding` value. When it transitions `true → false` (onboarding just completed), a 2.5s timer fires, clears the onboarding `conversationId`, and force-creates a fresh first session. This makes the intake feel like a phone call that ends cleanly and reconnects to the real session.
+
+### What's unresolved
+- Cross-language transfers remain disabled (`CROSS_LANGUAGE_TRANSFERS_ENABLED = false` at streaming-voice-orchestrator.ts line 271). The roster exists but Daniela no longer briefs on it by default, so this is less of an issue.
+- The onboarding (3 steps: name → language → native language) doesn't yet save a learning goal or interests as `learner_personal_facts`. Daniela picks that up in the first real session, but a 4th intake step + fact-save could make her first session even more personalized.
+
+### For Alden
+Nothing urgent. If you see any `[ONBOARDING]` log traffic, the new flow should complete cleanly and then the conversation resets. If you spot any race condition where the fresh-session creation fires during an active non-onboarding chat (it shouldn't — the guard is `prev === true && current === false`), flag it here.
+
+---
 ## From Agent — Thu, Jun 4, 2026 (session — tutor directory accuracy + switch_tutor fix)
 
 ### What was built / fixed

@@ -4599,15 +4599,15 @@ Return [] if nothing is worth surfacing.`;
               conversationId: updatedConversation.id
             });
             
-            // Generate the completion message in the user's native language
-            const nativeLanguagePrompt = `You are a language tutor. The student's name is ${userName}, they want to learn ${targetLanguage}, and their native language is ${nativeLanguage}. 
-            
-            Write a brief, friendly message IN ${nativeLanguage} that:
-            1. Welcomes them warmly
-            2. Introduces one simple ${targetLanguage} word (like "Hola" for Spanish) with its meaning
-            3. Optionally asks what topics interest them (travel, food, music, etc.) to personalize learning
-            
-            Keep it conversational and encouraging. Use ONLY ${nativeLanguage} for explanations.`;
+            // Generate a clean, warm ending — onboarding is done, Daniela is ready
+            const nativeLanguagePrompt = `You are Daniela, a warm and witty Spanish language tutor. The student's name is ${userName}, they want to learn ${targetLanguage}, and their native language is ${nativeLanguage}.
+
+Write a brief, warm closing message IN ${nativeLanguage} (2-3 sentences max) that:
+1. Tells them you have everything you need and you're excited to get started
+2. Ends with a natural, encouraging sign-off — something like "Let's go!" or the equivalent in ${targetLanguage}
+3. Does NOT ask any more questions — this is the end of the intake, not a continuation
+
+Be yourself: warm, confident, ready. Keep it short.`;
             
             console.log('[ONBOARDING-COMPLETION PROMPT]', nativeLanguagePrompt);
             
@@ -4622,8 +4622,8 @@ Return [] if nothing is worth surfacing.`;
               console.log('[ONBOARDING-COMPLETION SUCCESS] Generated:', aiResponse.substring(0, 100));
             } catch (error) {
               console.error('[ONBOARDING-COMPLETION ERROR]', error);
-              aiResponse = `Perfect, ${userName}! Let's start with a simple word. What topics interest you - travel, food, music, or something else?`;
-              console.log('[ONBOARDING-COMPLETION FALLBACK] Using English fallback');
+              aiResponse = `Perfect, ${userName}! I have everything I need. Your first session is about to begin — ¡vamos!`;
+              console.log('[ONBOARDING-COMPLETION FALLBACK] Using fallback');
             }
           } else {
             // Native language unclear, ask again

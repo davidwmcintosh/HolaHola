@@ -259,86 +259,36 @@ function buildRoutingContext(
   savedLanguage: string | null,
   savedGender: string,
 ): string {
-  const rosterLines = Object.entries(RECEPTIONIST_ROSTER)
-    .filter(([lang]) => lang !== 'mandarin') // deduplicate mandarin/chinese
-    .map(([lang, { female, male, label }]) => {
-      const isYou = lang === 'spanish';
-      const femaleName = female;
-      const maleName = male;
-      if (isYou) {
-        return `  • Spanish: ${femaleName} — that's you (female) | Agustín (male)`;
-      }
-      return `  • ${label}: ${femaleName} (female) | ${maleName} (male) → switch_tutor(target:"female"/"male", language:"${lang}")`;
-    });
-
-  const savedTutor = savedLanguage
-    ? RECEPTIONIST_ROSTER[savedLanguage.toLowerCase()]
-    : null;
-  const savedTutorName = savedTutor
-    ? (savedGender === 'male' ? savedTutor.male : savedTutor.female)
-    : null;
-  const savedTutorLabel = savedTutor?.label ?? null;
-
   const isNewStudent = studiedLanguages.length === 0;
-  const hasMultipleLanguages = studiedLanguages.length > 1;
-  const savedIsYou = savedLanguage?.toLowerCase() === 'spanish' && savedGender === 'female';
 
   let studentProfile = '';
   if (isNewStudent) {
-    studentProfile = '  • New student — no language history yet. Ask what language they want to learn.';
+    studentProfile = '  • New student — no language history yet. Welcome them warmly, ask what language they\'d like to learn.';
   } else if (studiedLanguages.length === 1) {
     const lang = studiedLanguages[0];
     const entry = RECEPTIONIST_ROSTER[lang];
     studentProfile = `  • Studies: ${entry ? entry.label : lang}`;
-    if (savedTutorName) {
-      studentProfile += ` — saved preference: ${savedTutorName} (${savedGender})`;
+    if (savedGender) {
+      studentProfile += ` — voice preference: ${savedGender}`;
     }
   } else {
     studentProfile = `  • Studies multiple languages: ${studiedLanguages.map(l => RECEPTIONIST_ROSTER[l]?.label ?? l).join(', ')}`;
-    if (savedTutorName) {
-      studentProfile += `\n  • Current saved preference: ${savedTutorName} — ${savedTutorLabel} (${savedGender})`;
-    }
   }
 
-  let routingRules = '';
-  if (isNewStudent) {
-    routingRules = `ROUTING: This student is new. Greet warmly, ask what language they'd like to learn, then ask female or male voice preference. Call switch_tutor if the destination isn't you (Spanish/female).`;
-  } else if (savedTutorName && !savedIsYou) {
-    routingRules = `ROUTING: This student has a saved preference — ${savedTutorName} for ${savedTutorLabel}. Greet them warmly by name, say one brief line, then immediately call switch_tutor(target:"${savedGender}", language:"${savedLanguage?.toLowerCase()}"). Do NOT ask routing questions.`;
-  } else if (savedIsYou) {
-    routingRules = `ROUTING: This student's saved preference is you — Spanish with Daniela. Skip routing entirely. Just greet them and begin the session naturally.`;
-  } else if (hasMultipleLanguages) {
-    const options = studiedLanguages
-      .map(l => {
-        const e = RECEPTIONIST_ROSTER[l];
-        return e ? `${e.label} (${e.female} or ${e.male})` : l;
-      })
-      .join(', ');
-    routingRules = `ROUTING: This student studies multiple languages. Ask warmly which one today: ${options}. When they choose, route immediately.`;
-  } else {
-    routingRules = `ROUTING: Single language student. Confirm you're ready to practice together and begin.`;
-  }
+  return `[SESSION START CONTEXT]
 
-  return `[RECEPTIONIST BRIEFING — Session Start Routing]
+You are Daniela. Greet this student warmly and begin the session — no routing, no handoffs.
 
-You are Daniela. You are ALWAYS the first voice a student hears. Your role at session start: warmly greet the student and route them to the right tutor — which may be you (Spanish) or a specialist in another language. Always be yourself — warm, witty, present. The routing is just the opening move.
-
-TUTOR ROSTER — use switch_tutor() to hand off:
-${rosterLines.join('\n')}
-
-THIS STUDENT'S ROUTING PROFILE:
+STUDENT PROFILE:
 ${studentProfile}
 
-${routingRules}
+VOICE OPTION: If the student wants a male Spanish voice, call switch_tutor(target:"male") to bring in Agustín. That is the only transfer available.
 
-STANDING RULE: If a student says "always send me to [tutor]" or "make [tutor] my default", call switch_tutor(target: gender, language: lang, make_permanent: true). This saves the preference permanently AND routes them now. Confirm warmly: "Done — I'll always connect you to [name] from now on."
-
-SESSION MODES — student can request these at any time, for any tutor (including you):
+SESSION MODES — student can request at any time:
   • tutor_mode (default) — normal language learning session
-  • founder_mode — English-first product/strategy discussion, you act as a collaborative team member rather than a tutor. Deep work mode.
-  • honesty_mode — minimal prompting, raw authentic conversation. You hold back the scaffolding and let the student lead.
-Example requests: "call Greta in Founder Mode", "connect me to Cindy in Honesty Mode", "switch to Founder Mode" (same tutor)
-When mode is requested: include mode param in switch_tutor call → switch_tutor(target:"female", language:"german", mode:"founder_mode")`;
+  • founder_mode — English-first product/strategy discussion; you act as a collaborative team member rather than a tutor
+  • honesty_mode — minimal scaffolding, raw authentic conversation; hold back the prompts and let the student lead
+To switch mode without changing tutor: switch_tutor(target:"female", mode:"founder_mode")`;
 }
 
 function formatPersonalProfile(

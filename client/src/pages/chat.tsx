@@ -58,6 +58,7 @@ export default function Chat() {
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   const [isCheckingActiveSession, setIsCheckingActiveSession] = useState(true); // Start true to block auto-create until checked
   const [currentConversationOnboarding, setCurrentConversationOnboarding] = useState<boolean | null>(null);
+  const prevOnboardingRef = useRef<boolean | null>(null);
   const previousModeRef = useRef<"text" | "voice">("voice");
   const [showInsufficientCreditsDialog, setShowInsufficientCreditsDialog] = useState(false);
   const { isExhausted, isLow, isCritical } = useCredits();
@@ -466,6 +467,22 @@ export default function Chat() {
       setClassName(null);
     }
   }, [conversationId]);
+
+  // When onboarding completes (true → false), start a fresh session after a short delay
+  useEffect(() => {
+    const prev = prevOnboardingRef.current;
+    prevOnboardingRef.current = currentConversationOnboarding;
+
+    if (prev === true && currentConversationOnboarding === false) {
+      // Onboarding just finished — give the user 2.5s to read the closing message,
+      // then drop the onboarding conversation and open a clean first session.
+      const timer = setTimeout(() => {
+        setConversationId(null);
+        setForceNewConversation(true);
+      }, 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [currentConversationOnboarding]);
   
   // Auto-create shared conversation
   useEffect(() => {
