@@ -7138,7 +7138,33 @@ export class NativeFunctionCallHandler {
       );
 
       if (!rows.rows[0]) {
-        (session as any).pullLessonContentResult = `No content found for lesson "${resolvedLessonId}". Use search_textbook to find the right ID.`;
+        // No rich textbook content yet — fall back to curriculum_lessons structure
+        const fallbackRows = await db.execute(
+          rawSql`
+            SELECT cl.name, cl.description, cl.conversation_topic, cl.objectives,
+                   cl.required_vocabulary, cu.name AS unit_name
+            FROM curriculum_lessons cl
+            LEFT JOIN curriculum_units cu ON cu.id = cl.curriculum_unit_id
+            WHERE cl.id = ${resolvedLessonId}
+            LIMIT 1
+          `
+        );
+        if (!fallbackRows.rows[0]) {
+          (session as any).pullLessonContentResult = `Lesson "${resolvedLessonId}" not found. Use search_textbook to find the right ID.`;
+          return;
+        }
+        const fb = fallbackRows.rows[0] as any;
+        const parts: string[] = [`LESSON: ${fb.unit_name ? `${fb.unit_name} — ` : ''}${fb.name}`];
+        if (fb.description) parts.push(fb.description);
+        if (fb.conversation_topic) parts.push(`Conversation topic: ${fb.conversation_topic}`);
+        if (Array.isArray(fb.objectives) && fb.objectives.length > 0) {
+          parts.push('Objectives:\n' + (fb.objectives as string[]).map((o: string) => `• ${o}`).join('\n'));
+        }
+        if (Array.isArray(fb.required_vocabulary) && fb.required_vocabulary.length > 0) {
+          parts.push('Key vocabulary:\n' + (fb.required_vocabulary as string[]).map((v: string) => `• ${v}`).join('\n'));
+        }
+        parts.push('(Full lesson content not yet seeded — use open_textbook_section or search_textbook to find related vocab panels.)');
+        (session as any).pullLessonContentResult = parts.join('\n\n');
         return;
       }
 

@@ -3654,7 +3654,7 @@ What happens when you call this:
 - The lesson page appears in the student's classroom view
 
 How to lead the page:
-1. Introduce the topic ("Today we're going to go through Chapter 3 on -AR verbs")
+1. Introduce the topic ("Today we're going to go through this chapter on [topic]")
 2. Teach the vocabulary one word at a time — say the word, have the student repeat, give a sentence
 3. Explain the grammar pattern in your own words — point to the examples
 4. Have the student practice each key example sentence aloud
@@ -3668,7 +3668,7 @@ Best for: Starting a focused study session, following a structured curriculum, d
         properties: {
           lesson_id: {
             type: "string",
-            description: "The curriculum lesson ID to load (e.g. 'madrigal-ch1-ar-present'). Use search_textbook first if unsure which lesson to load.",
+            description: "The curriculum lesson ID to load. Use search_textbook first to find the right lesson ID — never guess or hardcode chapter numbers, as chapter order may change.",
           },
           focus: {
             type: "string",
@@ -3785,15 +3785,15 @@ What happens:
 You need the lesson_id. If you don't know it, pass a topic keyword instead and the system will find the best match.
 
 Examples:
-• Conversation is about daily routines → pull_lesson_content(lesson_id: "madrigal-ch3-ar-present") to bring in the -AR verb pattern grid
 • Student asks how to say "I'm going to the market" → pull_lesson_content(topic: "ir places") to get the ir + destination patterns
-• Student wobbles on preterite forms → pull_lesson_content(topic: "preterite tomar") to surface that chapter's drills`,
+• Student wobbles on preterite forms → pull_lesson_content(topic: "preterite tomar") to surface that chapter's drills
+• Student wants to review -AR verbs → pull_lesson_content(topic: "ar verbs present") to find the right chapter (do NOT assume a chapter number — use search_textbook or a topic keyword instead)`,
       parametersJsonSchema: {
         type: "object",
         properties: {
           lesson_id: {
             type: "string",
-            description: "The curriculum lesson ID (e.g. 'madrigal-ch1-ar-present'). Use this if you know the lesson.",
+            description: "The curriculum lesson ID from search_textbook results. Never hardcode a chapter number into an ID — always get it from search_textbook first.",
           },
           topic: {
             type: "string",
