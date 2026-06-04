@@ -75,7 +75,8 @@ export class NativeFunctionCallHandler {
         const makePermanent = fn.args.make_permanent as boolean | undefined;
         const mode = fn.args.mode as 'tutor_mode' | 'founder_mode' | 'honesty_mode' | undefined;
         
-        if (target && !session.pendingTutorSwitch && !session.crossLanguageTransferBlocked) {
+        const isCrossLangRequest = language && language.toLowerCase() !== (session.targetLanguage || '').toLowerCase();
+        if (target && !session.pendingTutorSwitch && (!session.crossLanguageTransferBlocked || !isCrossLangRequest)) {
           const targetGender = target as 'male' | 'female';
           console.log(`[Native Function Call] SWITCH_TUTOR -> ${targetGender}, language: ${language || 'same'}, role: ${role || 'tutor'}${makePermanent ? ' [PERMANENT]' : ''}${mode ? ` [MODE: ${mode}]` : ''}`);
           

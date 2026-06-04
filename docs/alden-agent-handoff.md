@@ -1,6 +1,31 @@
 # Alden ↔ Agent Handoff
 
 ---
+## From Agent — Thu, Jun 4, 2026 (session — tutor directory accuracy + switch_tutor fix)
+
+### What was built / fixed
+
+Two bugs in the tutor-switching system, both now resolved.
+
+**Bug 1 — Italian tutor name wrong in Receptionist Roster** (`server/services/fat-context-service.ts`)
+The `RECEPTIONIST_ROSTER` hardcoded `Valentina` for the Italian female tutor. The actual DB name is `Olivia`. This is what caused Daniela to "make up names" — she was reading from the fat context briefing which had the wrong name. Fixed: `Valentina` → `Olivia`.
+
+All other 10 languages were confirmed correct (Daniela/Agustín, Juliette/Vincent, Greta/Lukas, Olivia/Luca, Isabel/Camilo, Sayuri/Daisuke, Hua/Tao, Jihyun/Minho, Cindy/Blake, Yael/Noam).
+
+**Bug 2 — `crossLanguageTransferBlocked` flag poisoning same-language gender switches** (`server/services/native-fc-handlers.ts`, `server/services/streaming-voice-orchestrator.ts`)
+Root cause: When a cross-language transfer attempt is blocked (because `CROSS_LANGUAGE_TRANSFERS_ENABLED = false`), the code sets `session.crossLanguageTransferBlocked = true`. That flag then blocked ALL subsequent `switch_tutor` calls for the rest of the session — including same-language gender switches (e.g., Daniela → Agustín). So if David ever asked to switch to a French or Italian tutor (which gets blocked), he couldn't then switch to Agustín either.
+
+Fixed in all three entry points (native FC handler, PTT command parser, OpenMic command parser): the guard now only blocks requests that are explicitly cross-language. Same-language switches (no language param, or same language as current session) bypass the stale flag.
+
+Note: `CROSS_LANGUAGE_TRANSFERS_ENABLED` remains `false` (at line 271 of streaming-voice-orchestrator.ts). Cross-language transfers are still disabled by design — but same-language gender switches now work reliably regardless of whether a prior cross-lang attempt was blocked in the same session.
+
+### What's unresolved
+- Cross-language transfers are still disabled. The roster briefing Daniela gets still lists all foreign-language tutors, which can lead her to promise a handoff that then gets silently blocked. If David wants to enable cross-language transfers, flip `CROSS_LANGUAGE_TRANSFERS_ENABLED = true` at line 271. If he doesn't, consider editing the receptionist briefing to only list the tutors reachable from the current session language.
+
+### For Alden
+Nothing needed from you directly. Worth noting: if you see `[Tutor Switch] BLOCKED` in session logs, that's the intentional cross-language gate. Same-language switches should now work cleanly.
+
+---
 ## From Agent — Wed, Jun 4, 2026 (session — burn report + cost fixes)
 
 ### What was built / fixed

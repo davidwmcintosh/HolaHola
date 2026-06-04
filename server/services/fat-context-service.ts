@@ -17,7 +17,7 @@ const RECEPTIONIST_ROSTER: Record<string, { female: string; male: string; label:
   spanish:    { female: 'Daniela (you)',  male: 'Agustín',  label: 'Spanish' },
   french:     { female: 'Juliette',       male: 'Vincent',  label: 'French' },
   german:     { female: 'Greta',          male: 'Lukas',    label: 'German' },
-  italian:    { female: 'Valentina',      male: 'Luca',     label: 'Italian' },
+  italian:    { female: 'Olivia',          male: 'Luca',     label: 'Italian' },
   portuguese: { female: 'Isabel',         male: 'Camilo',   label: 'Portuguese' },
   japanese:   { female: 'Sayuri',         male: 'Daisuke',  label: 'Japanese' },
   chinese:    { female: 'Hua',            male: 'Tao',      label: 'Mandarin' },

@@ -3025,11 +3025,14 @@ Remember: David may reference things discussed in these recent text chats.
               switch (cmd.type) {
                 case 'SWITCH_TUTOR': {
                   // Only process if not already handled by whiteboard parser
-                  // Also skip if cross-language transfer was already blocked this turn
+                  // Skip cross-language re-attempts if already blocked this turn, but same-language
+                  // gender switches must always be allowed even if a prior cross-lang attempt failed.
                   const target = cmd.params.target as string;
-                  if (!session.pendingTutorSwitch && !session.crossLanguageTransferBlocked && target) {
+                  const cmdLang3030 = cmd.params.language as string | undefined;
+                  const isCrossLang3030 = cmdLang3030 && cmdLang3030.toLowerCase() !== (session.targetLanguage || '').toLowerCase();
+                  if (!session.pendingTutorSwitch && (!session.crossLanguageTransferBlocked || !isCrossLang3030) && target) {
                     const targetGender = target as 'male' | 'female';
-                    let resolvedLanguage = cmd.params.language as string | undefined;
+                    let resolvedLanguage = cmdLang3030;
                     
                     // AUTO-INFER LANGUAGE: If no language specified but AI mentioned a tutor from another language
                     // This ensures cross-language transfers are detected even in JSON command format
@@ -6394,9 +6397,11 @@ Remember: David may reference things discussed in these recent text chats.
             switch (cmd.type) {
               case 'SWITCH_TUTOR': {
                 const target = cmd.params.target as string;
-                if (!session.pendingTutorSwitch && !session.crossLanguageTransferBlocked && target) {
+                const cmdLang6397 = cmd.params.language as string | undefined;
+                const isCrossLang6397 = cmdLang6397 && cmdLang6397.toLowerCase() !== (session.targetLanguage || '').toLowerCase();
+                if (!session.pendingTutorSwitch && (!session.crossLanguageTransferBlocked || !isCrossLang6397) && target) {
                   const targetGender = target as 'male' | 'female';
-                  let resolvedLanguage = cmd.params.language as string | undefined;
+                  let resolvedLanguage = cmdLang6397;
                   if (!resolvedLanguage && session.tutorDirectory && session.targetLanguage) {
                     resolvedLanguage = inferLanguageFromTutorName(chunk.text, targetGender, session.targetLanguage, session.tutorDirectory);
                   }
