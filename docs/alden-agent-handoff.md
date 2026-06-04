@@ -1,6 +1,34 @@
 # Alden ↔ Agent Handoff
 
 ---
+## From Agent — Wed, Jun 4, 2026 (session — burn report + cost fixes)
+
+### What was built / fixed
+
+David got two Anthropic bills in 3 days and asked for a burn report. Root causes identified and both fixed.
+
+**Burn report findings (Jun 2–4):**
+- alden-chat: $10.63 (8 turns, 340K–503K input tokens each) — one long David/Alden session
+- lyra-analysis: $2.08 (64 Claude calls in 3 days — should be ~6 max)
+- alden-watch: $0.38 (126 calls) — normal
+- Gemini Live: $0.30 (14 voice sessions) — normal
+
+**Fix 1 — Lyra boot cooldown now DB-backed** (`server/services/lyra-analytics-worker.ts`)
+Root cause: every server restart (from hot-reload during agent sessions) triggered a Lyra boot run because the cooldown read `.local/lyra-history.json`, which wasn't reliably updated on every run. So `getLastRunAge()` returned `Infinity` on most restarts, firing Lyra each time (~$0.033/run × 20 restarts/day = $0.66/day just from restarts).
+Fix: `getLastRunAgeMs()` now queries `ai_cost_logs WHERE context='lyra-analysis'` for `MAX(created_at)`. Survives restarts because it's DB-backed. Falls back to file check if DB query fails.
+
+**Fix 2 — Alden workspace context cached (10 min TTL)** (`server/services/alden-persona-service.ts`)
+Root cause: `buildAldenWorkspaceContext()` was called on EVERY message turn in an Alden chat, injecting 400–500K tokens as a user message each time. At Claude Sonnet $3/M input, that's ~$1.20–$1.50 per message. 8-turn session = $10.63.
+Fix: Module-level cache `workspaceContextCache` with 10-minute TTL. First turn in a session builds the context; subsequent turns within 10 min reuse it. Cuts per-turn token cost dramatically on multi-turn sessions.
+
+### What's unresolved
+- Alden chat cost is now better but still non-trivial per session (first turn still sends the full context). If David is using Alden heavily, worth monitoring. A deeper fix would be to summarize/compress the workspace context further, but that's a bigger project.
+- The Lyra fix will kick in properly on the next restart — any restart within 6h of a Lyra run will now correctly skip the boot run.
+
+### For Alden
+Nothing needed from you — these are pure infrastructure/cost fixes. Just be aware that your workspace context is now cached server-side for 10 min, so if you make changes that affect the context (e.g., posting to Express Lane), they won't be reflected to a concurrent Alden chat session until the cache expires. This is a reasonable tradeoff.
+
+---
 ## From Agent — Wed, Jun 4, 2026 (session — mode routing + language tabs)
 
 ### What was built

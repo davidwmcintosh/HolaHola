@@ -54,6 +54,24 @@ interface AldenChatResponse {
 
 const MAX_AGENT_ROUNDS = 10;
 
+// ── Workspace Context Cache ────────────────────────────────────────────────
+// buildAldenWorkspaceContext() runs heavy DB queries and loads replit.md on
+// every call. At $3/M input tokens, a 400K-token context = $1.20 per message
+// in a long chat. Cache for 10 minutes so back-to-back turns in the same
+// session reuse the same context rather than rebuilding it from scratch.
+const WORKSPACE_CONTEXT_TTL_MS = 10 * 60 * 1000; // 10 minutes
+let workspaceContextCache: { context: string; builtAt: number } | null = null;
+
+async function getWorkspaceContext(): Promise<string> {
+  const now = Date.now();
+  if (workspaceContextCache && (now - workspaceContextCache.builtAt) < WORKSPACE_CONTEXT_TTL_MS) {
+    return workspaceContextCache.context;
+  }
+  const context = await buildAldenWorkspaceContext();
+  workspaceContextCache = { context, builtAt: now };
+  return context;
+}
+
 export async function generateAldenResponse(params: AldenChatParams): Promise<AldenChatResponse> {
   const { userMessage, conversationHistory = [], founderName = 'David', timezone, learningContext, conversationId } = params;
   const toolsUsed: string[] = [];
@@ -64,10 +82,11 @@ export async function generateAldenResponse(params: AldenChatParams): Promise<Al
 
     const messages: Anthropic.MessageParam[] = [];
 
-    // ── Workspace Context Injection (push model, every turn) ─────────────────
+    // ── Workspace Context Injection (cached, refreshes every 10 min) ──────────
     // Mirrors Daniela's classroom: persistent memory, significant past sessions,
-    // and Express Lane awareness are assembled and injected before every message.
-    const workspaceContext = await buildAldenWorkspaceContext();
+    // and Express Lane awareness are injected before every message. Cached to
+    // avoid rebuilding 400K tokens of context on every turn in a long session.
+    const workspaceContext = await getWorkspaceContext();
     if (workspaceContext) {
       messages.push({
         role: 'user',

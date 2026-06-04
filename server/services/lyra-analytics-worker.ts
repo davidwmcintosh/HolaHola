@@ -467,14 +467,30 @@ Look for: rich target-language output vs. single-word appearances inside English
 
 const BOOT_COOLDOWN_MS = 6 * 60 * 60 * 1000; // 6h — skip boot run if last run was recent
 
-function getLastRunAge(): number {
+/**
+ * Check last lyra-analysis run age from the DB (reliable across restarts).
+ * Falls back to the history file if the DB query fails.
+ */
+async function getLastRunAgeMs(): Promise<number> {
   try {
-    const history = loadLyraHistory();
-    if (history.length === 0) return Infinity;
-    const last = history[history.length - 1];
-    return Date.now() - new Date(last.timestamp).getTime();
+    const db = getSharedDb();
+    const { sql } = await import('drizzle-orm');
+    const rows = await db.execute(
+      sql`SELECT MAX(created_at) AS last_run FROM ai_cost_logs WHERE context = 'lyra-analysis'`
+    );
+    const lastRun = (rows.rows?.[0] as any)?.last_run;
+    if (!lastRun) return Infinity;
+    return Date.now() - new Date(lastRun).getTime();
   } catch {
-    return Infinity;
+    // Fallback to file-based check
+    try {
+      const history = loadLyraHistory();
+      if (history.length === 0) return Infinity;
+      const last = history[history.length - 1];
+      return Date.now() - new Date(last.timestamp).getTime();
+    } catch {
+      return Infinity;
+    }
   }
 }
 
@@ -482,9 +498,10 @@ export function startLyraAnalyticsWorker(intervalMs?: number): void {
   const interval = intervalMs || AUDIT_INTERVAL_MS;
   console.log(`[Lyra Worker] Starting (interval: ${interval / (60 * 60 * 1000)}h)`);
 
-  // Boot run: only fire if last analysis was more than 6h ago (prevents restart-loop charges)
-  setTimeout(() => {
-    const age = getLastRunAge();
+  // Boot run: only fire if last analysis was more than 6h ago (prevents restart-loop charges).
+  // Uses DB-backed age check so cooldown survives server restarts (file-based check was unreliable).
+  setTimeout(async () => {
+    const age = await getLastRunAgeMs();
     if (age < BOOT_COOLDOWN_MS) {
       const hoursAgo = (age / (60 * 60 * 1000)).toFixed(1);
       console.log(`[Lyra Worker] Boot run skipped — last run was ${hoursAgo}h ago (cooldown: 6h)`);
