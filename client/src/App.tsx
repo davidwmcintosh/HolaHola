@@ -77,6 +77,7 @@ const AdminCallQuality = lazyWithRetry(() => import("@/pages/admin/CallQuality")
 const AdminImageEngineTest = lazyWithRetry(() => import("@/pages/admin/ImageEngineTest"));
 const DanielaDiary = lazyWithRetry(() => import("@/pages/daniela-diary"));
 const Lessons = lazyWithRetry(() => import("@/pages/lessons"));
+const LanguageHub = lazyWithRetry(() => import("@/pages/language-hub"));
 const ReviewHub = lazyWithRetry(() => import("@/pages/review-hub"));
 const ArisPractice = lazyWithRetry(() => import("@/pages/aris-practice"));
 const ScenarioBrowser = lazyWithRetry(() => import("@/pages/scenario-browser"));
@@ -217,7 +218,7 @@ function Router() {
     <PageWrapper>
       <ScrollToTop />
       <Switch>
-        <Route path="/" component={ReviewHub} />
+        <Route path="/" component={LanguageHub} />
         <Route path="/dashboard" component={ReviewHub} />
         <Route path="/legacy-dashboard" component={Dashboard} />
         <Route path="/onboarding" component={Onboarding} />
