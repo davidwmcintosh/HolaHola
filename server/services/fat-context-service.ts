@@ -10,7 +10,22 @@ import {
   peopleConnections,
   conversations,
   messages,
+  users,
 } from "@shared/schema";
+
+const RECEPTIONIST_ROSTER: Record<string, { female: string; male: string; label: string }> = {
+  spanish:    { female: 'Daniela (you)',  male: 'Agustín',  label: 'Spanish' },
+  french:     { female: 'Juliette',       male: 'Vincent',  label: 'French' },
+  german:     { female: 'Greta',          male: 'Lukas',    label: 'German' },
+  italian:    { female: 'Valentina',      male: 'Luca',     label: 'Italian' },
+  portuguese: { female: 'Isabel',         male: 'Camilo',   label: 'Portuguese' },
+  japanese:   { female: 'Sayuri',         male: 'Daisuke',  label: 'Japanese' },
+  chinese:    { female: 'Hua',            male: 'Tao',      label: 'Mandarin' },
+  mandarin:   { female: 'Hua',            male: 'Tao',      label: 'Mandarin' },
+  korean:     { female: 'Jihyun',         male: 'Minho',    label: 'Korean' },
+  english:    { female: 'Cindy',          male: 'Blake',    label: 'English' },
+  hebrew:     { female: 'Yael',           male: 'Noam',     label: 'Hebrew' },
+};
 
 export const FAT_CONTEXT_ENABLED = process.env.FAT_CONTEXT_ENABLED !== 'false';
 
@@ -33,6 +48,7 @@ interface FatContextResult {
   personalProfileSection: string;
   vocabularySection: string;
   recentConversationsSection: string;
+  routingContextSection: string;
   totalTokenEstimate: number;
   stats: {
     facts: number;
@@ -198,6 +214,22 @@ export async function buildFatContext(
   const vocabularySection = formatVocabulary(vocabResult, targetLanguage);
   const recentConversationsSection = formatRecentConversations(conversationMessages);
 
+  // Build receptionist routing context — who is this student, what languages do they study
+  let routingContextSection = '';
+  try {
+    const [userPrefsRows, userLanguages] = await Promise.all([
+      db.select({
+        targetLanguage: users.targetLanguage,
+        tutorGender: users.tutorGender,
+      }).from(users).where(eq(users.id, userId)).limit(1),
+      storage.getUserLanguages(userId),
+    ]);
+    const prefs = userPrefsRows[0];
+    routingContextSection = buildRoutingContext(userLanguages, prefs?.targetLanguage ?? null, prefs?.tutorGender ?? 'female');
+  } catch (err: any) {
+    console.warn('[Fat Context] Routing context query failed:', err.message);
+  }
+
   const totalChars = personalProfileSection.length + vocabularySection.length + recentConversationsSection.length;
   const totalTokenEstimate = Math.ceil(totalChars / 4);
 
@@ -207,6 +239,7 @@ export async function buildFatContext(
     personalProfileSection,
     vocabularySection,
     recentConversationsSection,
+    routingContextSection,
     totalTokenEstimate,
     stats: {
       facts: factsResult.length,
@@ -219,6 +252,86 @@ export async function buildFatContext(
       messages: totalMsgCount,
     },
   };
+}
+
+function buildRoutingContext(
+  studiedLanguages: string[],
+  savedLanguage: string | null,
+  savedGender: string,
+): string {
+  const rosterLines = Object.entries(RECEPTIONIST_ROSTER)
+    .filter(([lang]) => lang !== 'mandarin') // deduplicate mandarin/chinese
+    .map(([lang, { female, male, label }]) => {
+      const isYou = lang === 'spanish';
+      const femaleName = female;
+      const maleName = male;
+      if (isYou) {
+        return `  • Spanish: ${femaleName} — that's you (female) | Agustín (male)`;
+      }
+      return `  • ${label}: ${femaleName} (female) | ${maleName} (male) → switch_tutor(target:"female"/"male", language:"${lang}")`;
+    });
+
+  const savedTutor = savedLanguage
+    ? RECEPTIONIST_ROSTER[savedLanguage.toLowerCase()]
+    : null;
+  const savedTutorName = savedTutor
+    ? (savedGender === 'male' ? savedTutor.male : savedTutor.female)
+    : null;
+  const savedTutorLabel = savedTutor?.label ?? null;
+
+  const isNewStudent = studiedLanguages.length === 0;
+  const hasMultipleLanguages = studiedLanguages.length > 1;
+  const savedIsYou = savedLanguage?.toLowerCase() === 'spanish' && savedGender === 'female';
+
+  let studentProfile = '';
+  if (isNewStudent) {
+    studentProfile = '  • New student — no language history yet. Ask what language they want to learn.';
+  } else if (studiedLanguages.length === 1) {
+    const lang = studiedLanguages[0];
+    const entry = RECEPTIONIST_ROSTER[lang];
+    studentProfile = `  • Studies: ${entry ? entry.label : lang}`;
+    if (savedTutorName) {
+      studentProfile += ` — saved preference: ${savedTutorName} (${savedGender})`;
+    }
+  } else {
+    studentProfile = `  • Studies multiple languages: ${studiedLanguages.map(l => RECEPTIONIST_ROSTER[l]?.label ?? l).join(', ')}`;
+    if (savedTutorName) {
+      studentProfile += `\n  • Current saved preference: ${savedTutorName} — ${savedTutorLabel} (${savedGender})`;
+    }
+  }
+
+  let routingRules = '';
+  if (isNewStudent) {
+    routingRules = `ROUTING: This student is new. Greet warmly, ask what language they'd like to learn, then ask female or male voice preference. Call switch_tutor if the destination isn't you (Spanish/female).`;
+  } else if (savedTutorName && !savedIsYou) {
+    routingRules = `ROUTING: This student has a saved preference — ${savedTutorName} for ${savedTutorLabel}. Greet them warmly by name, say one brief line, then immediately call switch_tutor(target:"${savedGender}", language:"${savedLanguage?.toLowerCase()}"). Do NOT ask routing questions.`;
+  } else if (savedIsYou) {
+    routingRules = `ROUTING: This student's saved preference is you — Spanish with Daniela. Skip routing entirely. Just greet them and begin the session naturally.`;
+  } else if (hasMultipleLanguages) {
+    const options = studiedLanguages
+      .map(l => {
+        const e = RECEPTIONIST_ROSTER[l];
+        return e ? `${e.label} (${e.female} or ${e.male})` : l;
+      })
+      .join(', ');
+    routingRules = `ROUTING: This student studies multiple languages. Ask warmly which one today: ${options}. When they choose, route immediately.`;
+  } else {
+    routingRules = `ROUTING: Single language student. Confirm you're ready to practice together and begin.`;
+  }
+
+  return `[RECEPTIONIST BRIEFING — Session Start Routing]
+
+You are Daniela. You are ALWAYS the first voice a student hears. Your role at session start: warmly greet the student and route them to the right tutor — which may be you (Spanish) or a specialist in another language. Always be yourself — warm, witty, present. The routing is just the opening move.
+
+TUTOR ROSTER — use switch_tutor() to hand off:
+${rosterLines.join('\n')}
+
+THIS STUDENT'S ROUTING PROFILE:
+${studentProfile}
+
+${routingRules}
+
+STANDING RULE: If a student says "always send me to [tutor]" or "make [tutor] my default", call switch_tutor(target: gender, language: lang, make_permanent: true). This saves the preference permanently AND routes them now. Confirm warmly: "Done — I'll always connect you to [name] from now on."`;
 }
 
 function formatPersonalProfile(

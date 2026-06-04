@@ -72,10 +72,11 @@ export class NativeFunctionCallHandler {
         const target = fn.args.target as string | undefined;
         const language = fn.args.language as string | undefined;
         const role = fn.args.role as string | undefined;
+        const makePermanent = fn.args.make_permanent as boolean | undefined;
         
         if (target && !session.pendingTutorSwitch && !session.crossLanguageTransferBlocked) {
           const targetGender = target as 'male' | 'female';
-          console.log(`[Native Function Call] SWITCH_TUTOR -> ${targetGender}, language: ${language || 'same'}, role: ${role || 'tutor'}`);
+          console.log(`[Native Function Call] SWITCH_TUTOR -> ${targetGender}, language: ${language || 'same'}, role: ${role || 'tutor'}${makePermanent ? ' [PERMANENT]' : ''}`);
           
           session.pendingTutorSwitch = {
             targetGender,
@@ -83,6 +84,20 @@ export class NativeFunctionCallHandler {
             targetRole: (role === 'assistant' ? 'assistant' : 'tutor') as 'tutor' | 'assistant' | undefined,
           };
           session.switchTutorTriggered = true;
+
+          // Save as permanent preferred tutor when the student requests it
+          if (makePermanent && session.userId && language) {
+            try {
+              const { users: usersTable } = await import('@shared/schema');
+              const db = getSharedDb();
+              await db.update(usersTable)
+                .set({ targetLanguage: language, tutorGender: targetGender })
+                .where(eq(usersTable.id, String(session.userId)));
+              console.log(`[SWITCH_TUTOR] Saved permanent preferred tutor: ${language}/${targetGender} for user ${session.userId}`);
+            } catch (err: any) {
+              console.warn(`[SWITCH_TUTOR] Failed to save permanent preference:`, err.message);
+            }
+          }
         }
         break;
       }

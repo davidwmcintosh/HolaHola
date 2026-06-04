@@ -270,6 +270,7 @@ export interface StreamingSession {
     fatContextProfile?: string;
     fatContextVocabulary?: string;
     fatContextConversations?: string;
+    fatContextRouting?: string;
     fatContextTokenEstimate?: number;
     textbookChapterContext?: string;
     courseTOC?: string;

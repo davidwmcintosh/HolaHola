@@ -82,6 +82,7 @@ const registry: DanielaFunctionEntry[] = [
           target: { type: "string", enum: ["male", "female"], description: "Target tutor gender" },
           language: { type: "string", description: "Target language for cross-language handoffs" },
           role: { type: "string", enum: ["tutor", "assistant"], description: "Whether switching to main tutor or assistant" },
+          make_permanent: { type: "boolean", description: "If true, save this as the student's permanent preferred tutor so they're routed here automatically in future sessions" },
         },
         required: ["target"],
       },

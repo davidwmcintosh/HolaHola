@@ -1473,6 +1473,7 @@ Remember: David may reference things discussed in these recent text chats.
             cache.fatContextProfile = fatResult.personalProfileSection;
             cache.fatContextVocabulary = fatResult.vocabularySection;
             cache.fatContextConversations = fatResult.recentConversationsSection;
+            cache.fatContextRouting = fatResult.routingContextSection;
             cache.fatContextTokenEstimate = fatResult.totalTokenEstimate;
             console.log(`[Fat Context] Loaded ~${fatResult.totalTokenEstimate} tokens: ${fatResult.stats.facts} facts, ${fatResult.stats.vocabWords} vocab, ${fatResult.stats.conversations} convos (${fatResult.stats.messages} msgs), ${fatResult.stats.struggles} struggles, ${fatResult.stats.motivations} motivations, ${fatResult.stats.people} people, ${fatResult.stats.insights} insights`);
           })
@@ -2643,6 +2644,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (hasFreshCache && session.cachedContext?.fatContextConversations) {
         dynamicContextParts.push(session.cachedContext.fatContextConversations);
+      }
+      if (hasFreshCache && session.cachedContext?.fatContextRouting) {
+        dynamicContextParts.push(session.cachedContext.fatContextRouting);
       }
       if (hasFreshCache && session.cachedContext?.textbookChapterContext) {
         dynamicContextParts.push(session.cachedContext.textbookChapterContext);
@@ -6108,6 +6112,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (hasFreshCacheOpenMic && session.cachedContext?.fatContextConversations) {
         dynamicContextPartsOpenMic.push(session.cachedContext.fatContextConversations);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.fatContextRouting) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.fatContextRouting);
       }
       if (hasFreshCacheOpenMic && session.cachedContext?.textbookChapterContext) {
         dynamicContextPartsOpenMic.push(session.cachedContext.textbookChapterContext);

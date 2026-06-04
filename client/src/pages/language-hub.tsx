@@ -2,23 +2,13 @@ import { useLocation, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUser } from "@/lib/auth";
-import {
-  getTutorAvatar,
-  getTutorName,
-  getTutorTagline,
-  languageAccentColors,
-  type SupportedLanguage,
-} from "@/lib/tutor-avatars";
 import { DanielaLearningInsights } from "@/components/DanielaLearningInsights";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Phone, Headphones, MessageSquare, Play, ChevronRight } from "lucide-react";
 import holaholaLogo from "@assets/holaholamainlogoBackgroundRemoved_1765308837223.png";
 import type { Scenario } from "@shared/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-type TutorGender = "male" | "female";
 
 interface HubData {
   recentConversations: Array<{
@@ -29,45 +19,13 @@ interface HubData {
   }>;
 }
 
-// ─── Tutor roster — both genders per language ─────────────────────────────────
-
-interface TutorEntry {
-  language: SupportedLanguage;
-  label: string;
-  gender: TutorGender;
-}
-
-const TUTOR_ROSTER: TutorEntry[] = [
-  { language: "spanish",    label: "Spanish",    gender: "female" },
-  { language: "spanish",    label: "Spanish",    gender: "male"   },
-  { language: "french",     label: "French",     gender: "female" },
-  { language: "french",     label: "French",     gender: "male"   },
-  { language: "german",     label: "German",     gender: "female" },
-  { language: "german",     label: "German",     gender: "male"   },
-  { language: "italian",    label: "Italian",    gender: "female" },
-  { language: "italian",    label: "Italian",    gender: "male"   },
-  { language: "portuguese", label: "Portuguese", gender: "female" },
-  { language: "portuguese", label: "Portuguese", gender: "male"   },
-  { language: "japanese",   label: "Japanese",   gender: "female" },
-  { language: "japanese",   label: "Japanese",   gender: "male"   },
-  { language: "chinese",    label: "Mandarin",   gender: "female" },
-  { language: "chinese",    label: "Mandarin",   gender: "male"   },
-  { language: "korean",     label: "Korean",     gender: "female" },
-  { language: "korean",     label: "Korean",     gender: "male"   },
-  { language: "english",    label: "English",    gender: "female" },
-  { language: "english",    label: "English",    gender: "male"   },
-  { language: "hebrew",     label: "Hebrew",     gender: "female" },
-  { language: "hebrew",     label: "Hebrew",     gender: "male"   },
-];
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function LanguageHub() {
   const [, navigate] = useLocation();
-  const { language, setLanguage, setTutorGender } = useLanguage();
+  const { language } = useLanguage();
   const { user } = useUser();
 
-  // Recent conversation (for the "continue" slug)
   const { data: hubData } = useQuery<HubData>({
     queryKey: ["/api/review-hub", { language }],
     queryFn: async () => {
@@ -88,14 +46,6 @@ export default function LanguageHub() {
       return res.json();
     },
   });
-
-  const handleStart = () => navigate("/chat");
-
-  const handlePickTutor = (lang: SupportedLanguage, gender: TutorGender) => {
-    setLanguage(lang);
-    setTutorGender(gender);
-    navigate("/chat");
-  };
 
   const recentConv = hubData?.recentConversations?.[0] ?? null;
   const topScenarios = featuredScenarios.slice(0, 3);
@@ -119,51 +69,18 @@ export default function LanguageHub() {
           <p className="text-base">Get your headphones on, then click Start.</p>
         </div>
         <p className="text-sm text-muted-foreground mb-10">
-          Your tutor will ask what language you'd like to study.
+          Daniela will greet you and route you to the right tutor.
         </p>
         <Button
           size="lg"
           className="gap-2 px-10 text-base"
-          onClick={handleStart}
+          onClick={() => navigate("/chat")}
           data-testid="button-start-session"
         >
           <Phone className="h-5 w-5" />
           Start
         </Button>
       </section>
-
-      {/* ── Tutor grid divider ────────────────────────────────────────────── */}
-      <div className="flex items-center gap-4 px-8 mb-8">
-        <div className="flex-1 border-t" />
-        <span className="text-xs text-muted-foreground uppercase tracking-wide">
-          Or jump straight to a tutor
-        </span>
-        <div className="flex-1 border-t" />
-      </div>
-
-      {/* ── Tutor grid — both genders ─────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4 px-6 pb-12">
-        {TUTOR_ROSTER.map(({ language: lang, label, gender }) => {
-          const name    = getTutorName(lang, gender);
-          const tagline = getTutorTagline(lang, gender);
-          const avatar  = getTutorAvatar(lang, gender, "listening");
-          const accent  = languageAccentColors[lang];
-
-          return (
-            <TutorCard
-              key={`${lang}-${gender}`}
-              name={name}
-              label={label}
-              tagline={tagline}
-              avatar={avatar}
-              accent={accent}
-              gender={gender}
-              onClick={() => handlePickTutor(lang, gender)}
-              testId={`card-tutor-${lang}-${gender}`}
-            />
-          );
-        })}
-      </div>
 
       {/* ── Daniela's Learning Insights ───────────────────────────────────── */}
       {user && (
@@ -271,55 +188,3 @@ export default function LanguageHub() {
   );
 }
 
-// ─── Tutor card ───────────────────────────────────────────────────────────────
-
-interface TutorCardProps {
-  name:    string;
-  label:   string;
-  tagline: string;
-  avatar:  string;
-  accent:  string;
-  gender:  TutorGender;
-  onClick: () => void;
-  testId:  string;
-}
-
-function TutorCard({ name, label, tagline, avatar, accent, gender, onClick, testId }: TutorCardProps) {
-  return (
-    <button
-      className="text-left rounded-md border bg-card hover-elevate active-elevate-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-all"
-      onClick={onClick}
-      data-testid={testId}
-      type="button"
-    >
-      {/* Avatar */}
-      <div className="rounded-t-md overflow-hidden h-36 bg-muted/30 relative">
-        <img
-          src={avatar}
-          alt={name}
-          className="w-full h-full object-cover object-top"
-          loading="lazy"
-        />
-        {/* Accent stripe */}
-        <div
-          className="absolute bottom-0 left-0 right-0 h-[3px]"
-          style={{ backgroundColor: accent }}
-        />
-      </div>
-
-      {/* Info */}
-      <div className="p-3">
-        <div className="flex flex-wrap items-center gap-1.5 mb-1">
-          <span className="font-semibold text-sm">{name}</span>
-          <span
-            className="text-xs font-medium px-1.5 py-0.5 rounded-full"
-            style={{ backgroundColor: `${accent}22`, color: accent }}
-          >
-            {label}
-          </span>
-        </div>
-        <p className="text-xs text-muted-foreground leading-snug">{tagline}</p>
-      </div>
-    </button>
-  );
-}
