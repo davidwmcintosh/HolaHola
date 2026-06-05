@@ -85,8 +85,8 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
               <div
                 className="absolute rounded-full"
                 style={{
-                  width: "160px",
-                  height: "160px",
+                  width: "178px",
+                  height: "178px",
                   backgroundColor: accentColor + "38",
                   border: `3px solid ${accentColor}`,
                   top: "50%",
