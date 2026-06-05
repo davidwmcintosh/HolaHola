@@ -462,7 +462,7 @@ export function ConversationHistory({
                   <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap ml-10">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
-                      {parseUTC(conversation.createdAt as unknown as string).toLocaleDateString()}
+                      {parseUTC((conversation.lastMessageAt ?? conversation.createdAt) as unknown as string).toLocaleDateString()}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-4 w-4" />

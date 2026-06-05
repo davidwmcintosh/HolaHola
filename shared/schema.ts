@@ -452,6 +452,7 @@ export const conversations = pgTable("conversations", {
   conversationType: conversationTypeEnum("conversation_type").default("learning"), // learning, editor_collaboration
   textbookLessonId: text("textbook_lesson_id"), // Lesson ID when conversation starts from a textbook chapter
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastMessageAt: timestamp("last_message_at"), // When the most recent message was sent (nullable for old rows)
 }, (table) => [
   index("idx_conversations_user_id").on(table.userId),
   index("idx_conversations_user_language").on(table.userId, table.language),

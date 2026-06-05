@@ -2077,6 +2077,7 @@ export class DatabaseStorage implements IStorage {
       await this.updateConversationInternal(data.conversationId, {
         messageCount: conversation.messageCount + 1,
         duration,
+        lastMessageAt: message.createdAt,
       });
     }
 
@@ -5014,7 +5015,7 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(conversations)
       .where(and(...conditions))
-      .orderBy(desc(conversations.createdAt));
+      .orderBy(sql`COALESCE(${conversations.lastMessageAt}, ${conversations.createdAt}) DESC`);
   }
 
   // Phase 1: Get filtered vocabulary
