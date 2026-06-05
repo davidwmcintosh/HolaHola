@@ -498,9 +498,11 @@ export async function executeAldenTool(
             currentEnvironment: currentEnv,
             voiceHealth: {
               status: healthStatus.status,
-              score: healthStatus.score,
-              metrics1h: healthStatus.metrics1h,
-              metrics6h: healthStatus.metrics6h,
+              // Derive numeric score from status (voice-health-monitor returns {status,reasons,metrics})
+              score: healthStatus.status === 'green' ? 100 : healthStatus.status === 'yellow' ? 60 : 0,
+              reasons: healthStatus.reasons,
+              metrics1h: (healthStatus.metrics as any)?.last1h,
+              metrics6h: (healthStatus.metrics as any)?.last6h,
             },
             activeSessions: Number(activeSessionCount?.count || 0),
             serverUptime: Math.floor(process.uptime()),
@@ -1022,7 +1024,7 @@ export async function executeAldenTool(
             dimensions: dimensionSummaries,
             voicePipeline: {
               status: healthStatus.status,
-              score: healthStatus.score,
+              score: healthStatus.status === 'green' ? 100 : healthStatus.status === 'yellow' ? 60 : 0,
             },
             contextInjection: {
               status: contextHealth.status,

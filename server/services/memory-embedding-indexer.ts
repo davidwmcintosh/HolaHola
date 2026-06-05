@@ -120,7 +120,8 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
     const rows = await db
       .select({
         id: danielaGrowthMemories.id,
-        content: danielaGrowthMemories.content,
+        lesson: danielaGrowthMemories.lesson,
+        title: danielaGrowthMemories.title,
       })
       .from(danielaGrowthMemories)
       .where(sql`
@@ -131,7 +132,9 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
       `)
       .limit(100);
     for (const r of rows) {
-      if (r.content) targets.push({ id: r.id, userId: null, content: r.content, memoryType: 'growth_memory' });
+      // Combine title + lesson into the embeddable content string
+      const content = [r.title, r.lesson].filter(Boolean).join('. ');
+      if (content) targets.push({ id: r.id, userId: null, content, memoryType: 'growth_memory' });
     }
   } catch (err: any) {
     console.warn('[EmbedIndexer] growth_memories scan failed:', err.message);

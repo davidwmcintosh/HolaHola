@@ -151,9 +151,13 @@ async function generatePresenceDoc(userId: string): Promise<void> {
         .limit(5),
 
       // Open curiosities Daniela is holding about this student
-      db.select({ content: danielaCuriosities.content, createdAt: danielaCuriosities.createdAt })
+      // Note: the table uses 'question' as the content field, not 'content'
+      db.select({ content: danielaCuriosities.question, createdAt: danielaCuriosities.createdAt })
         .from(danielaCuriosities)
-        .where(eq(danielaCuriosities.userId, userId))
+        .where(and(
+          eq(danielaCuriosities.userId, userId),
+          eq(danielaCuriosities.status, 'open'),
+        ))
         .orderBy(desc(danielaCuriosities.createdAt))
         .limit(5),
     ]);
