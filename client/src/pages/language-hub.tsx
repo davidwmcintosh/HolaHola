@@ -64,9 +64,9 @@ const LANGUAGE_CARD_BG: Record<string, string> = (() => {
     portuguese: flagOnly("linear-gradient(90deg, rgba(0,102,0,.2) 0% 40%, rgba(204,0,0,.18) 40% 100%)"),
     // Japan — Hinomaru disc + Mount Fuji silhouette (pilot)
     japanese:   `${mountFuji}, radial-gradient(circle at 50% 50%, rgba(188,0,45,.24) 0% 30%, transparent 30%)`,
-    // China — red field + gold star + pagoda (pilot)
-    chinese:    `${chinesePagoda}, radial-gradient(circle at 18% 28%, rgba(255,222,0,.36) 0% 13%, transparent 13%), linear-gradient(180deg, rgba(196,17,27,.2) 0% 100%)`,
-    mandarin:   `${chinesePagoda}, radial-gradient(circle at 18% 28%, rgba(255,222,0,.36) 0% 13%, transparent 13%), linear-gradient(180deg, rgba(196,17,27,.2) 0% 100%)`,
+    // China — red field + small gold star (fixed 20px radius) + pagoda (pilot)
+    chinese:    `${chinesePagoda}, radial-gradient(circle 20px at 18% 28%, rgba(255,222,0,.38) 0%, rgba(255,222,0,.38) 80%, transparent 100%), linear-gradient(180deg, rgba(196,17,27,.2) 0% 100%)`,
+    mandarin:   `${chinesePagoda}, radial-gradient(circle 20px at 18% 28%, rgba(255,222,0,.38) 0%, rgba(255,222,0,.38) 80%, transparent 100%), linear-gradient(180deg, rgba(196,17,27,.2) 0% 100%)`,
     // Korea — Taegeukgi only
     korean:     flagOnly("radial-gradient(circle at 50% 50%, rgba(0,56,184,.2) 0% 20%, rgba(196,17,27,.2) 20% 33%, transparent 33%)"),
     // Israel — blue bands only
@@ -113,7 +113,7 @@ interface TutorDuoPanelProps {
 function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
   const normalized = normalizeLanguage(language);
   const accentColor = languageAccentColors[normalized] ?? "#6366f1";
-  const accentBg = accentColor + "18"; // ~10% opacity tint
+  const accentBg = accentColor + "30"; // ~19% opacity tint
 
   const tutors: Array<{ gender: TutorGender }> = [
     { gender: "female" },
@@ -133,10 +133,14 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
             className="rounded-lg overflow-hidden border bg-card flex flex-col"
             data-testid={`card-tutor-${normalized}-${gender}`}
           >
-            {/* Portrait area */}
+            {/* Portrait area — accentBg is the base colour; flag/SVG layers sit on top */}
             <div
               className="relative flex items-end justify-center overflow-hidden"
-              style={{ background: LANGUAGE_CARD_BG[normalized] ?? accentBg, height: "200px" }}
+              style={{
+                backgroundColor: accentBg,
+                backgroundImage: LANGUAGE_CARD_BG[normalized] ?? "none",
+                height: "200px",
+              }}
             >
               <img
                 src={portrait}
