@@ -72,6 +72,14 @@ import portugueseMaleListening from "@assets/Tutor_Images/Male/Portuguese_Male_L
 import portugueseMaleTalking from "@assets/Tutor_Images/Male/Portuguese_Male_Talking.jpg";
 import portugueseMaleThinking from "@assets/Tutor_Images/Male/Portuguese_Male_Thinking.jpg";
 
+// Hebrew avatars
+import hebrewFemaleListening from "@assets/hebrew_female_listening_no_background_1780627140407.png";
+import hebrewFemaleTalking from "@assets/hebrew_female_talking_no_background_1780627140407.png";
+import hebrewFemaleThinking from "@assets/hebrew_female_thinking_no_background_1780627140407.png";
+import hebrewMaleListening from "@assets/hebrew_male_listening_no_background_1780627164915.png";
+import hebrewMaleTalking from "@assets/hebrew_male_talking_no_background_1780627164916.png";
+import hebrewMaleThinking from "@assets/hebrew_male_thinking_no_background_1780627164916.png";
+
 // Spanish male uses original boy tutor assets
 import spanishMaleListening from "@assets/Boy-tutor-waiting-No-Background_1764186322051.png";
 import spanishMaleThinking from "@assets/Boy_Tutor_Thinking_No_Background_1766162338594.jpg";
@@ -183,7 +191,7 @@ const femaleAvatars: Record<SupportedLanguage, TutorAvatarSet> = {
   korean: { listening: koreanFemaleListening, thinking: koreanFemaleThinking, talking: koreanFemaleTalking },
   portuguese: { listening: portugueseFemaleListening, thinking: portugueseFemaleThinking, talking: portugueseFemaleTalking },
   spanish: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking },
-  hebrew: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking }, // Uses Daniela's avatar (dedicated Hebrew avatar coming soon)
+  hebrew: { listening: hebrewFemaleListening, thinking: hebrewFemaleThinking, talking: hebrewFemaleTalking },
   biology: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking },
   history: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking },
   math: { listening: spanishFemaleListening, thinking: spanishFemaleThinking, talking: spanishFemaleTalking },
@@ -200,7 +208,7 @@ const maleAvatars: Record<SupportedLanguage, TutorAvatarSet> = {
   korean: { listening: koreanMaleListening, thinking: koreanMaleThinking, talking: koreanMaleTalking },
   portuguese: { listening: portugueseMaleListening, thinking: portugueseMaleThinking, talking: portugueseMaleTalking },
   spanish: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking },
-  hebrew: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking }, // Uses Agustin's avatar (dedicated Hebrew avatar coming soon)
+  hebrew: { listening: hebrewMaleListening, thinking: hebrewMaleThinking, talking: hebrewMaleTalking },
   biology: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking },
   history: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking },
   math: { listening: spanishMaleListening, thinking: spanishMaleThinking, talking: spanishMaleTalking },
