@@ -370,13 +370,14 @@ export default function LanguageHub() {
   const [selectedLang, setSelectedLang] = useState<string>(defaultLang);
 
   const { data: hubData } = useQuery<HubData>({
-    queryKey: ["/api/review-hub", { language }],
+    queryKey: ["/api/review-hub", { language: selectedLang }],
     queryFn: async () => {
-      const params = new URLSearchParams({ language });
+      const params = new URLSearchParams({ language: selectedLang });
       const res = await fetch(`/api/review-hub?${params}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
+    enabled: !!selectedLang,
   });
 
   // Recommended scenarios (for the slug strip) — use selectedLang for tab-aware filtering

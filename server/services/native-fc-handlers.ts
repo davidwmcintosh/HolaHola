@@ -2197,6 +2197,7 @@ export class NativeFunctionCallHandler {
             context: fpContext ?? null,
             itemType: fpItemType,
             sourceConversationId: session.conversationId ?? null,
+            nextReviewAt: new Date(), // immediately available — student flagged it now
           }]);
           console.log(`[Native Function→FlagForPractice] ✓ Saved "${fpTargetText}" to practice rotation`);
         })().catch(err => console.error(`[Native Function→FlagForPractice] Error:`, err.message));
