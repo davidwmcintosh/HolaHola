@@ -3847,14 +3847,24 @@ export async function registerRoutes(app: Express): Promise<void> {
       // REUSE EXISTING CONVERSATIONS: Check if a recent conversation exists for this user/language
       // Only create a new one if necessary (prevents creating 100+ conversations)
       const allConversations = await storage.getUserConversations(userId);
+      // Only reuse a conversation if it had activity within the last 4 hours.
+      // Beyond that, a returning user expects a fresh thread — not yesterday's session.
+      const CONVERSATION_REUSE_WINDOW_MS = 4 * 60 * 60 * 1000; // 4 hours
       const recentConversation = allConversations
-        .filter(c => 
-          c.language === data.language && 
-          c.isOnboarding === isOnboarding &&
-          (!userName || c.userName === userName) && // Match userName if provided
-          (!classId || c.classId === classId) // Match classId if we have one
-        )
-        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+        .filter(c => {
+          if (c.language !== data.language) return false;
+          if (c.isOnboarding !== isOnboarding) return false;
+          if (userName && c.userName !== userName) return false;
+          if (classId && c.classId !== classId) return false;
+          // Staleness check: last activity must be within the reuse window
+          const lastActive = (c.lastMessageAt ?? c.createdAt) as Date;
+          return (Date.now() - new Date(lastActive).getTime()) <= CONVERSATION_REUSE_WINDOW_MS;
+        })
+        .sort((a, b) => {
+          const aTime = new Date((a.lastMessageAt ?? a.createdAt) as Date).getTime();
+          const bTime = new Date((b.lastMessageAt ?? b.createdAt) as Date).getTime();
+          return bTime - aTime;
+        })[0];
       
       let conversation;
       let isNewConversation = false;

@@ -8367,15 +8367,20 @@ Remember: David may reference things discussed in these recent text chats.
         console.warn(`[Persist] AI dedup check failed, saving anyway: ${aiDedupErr.message}`);
       }
       
+      // Strip TTS style directives before saving — these are audio-pipeline-only instructions
+      // that should never appear in stored message content or the transcript UI.
+      // Pattern: "text-to-speech:sotto;" or "text-to-speech:calm;" at the start of the string.
+      const cleanedAiResponse = aiResponse.replace(/^text-to-speech:\w+;\s*/i, '').trim();
+
       // Extract target language text for the AI response
-      const targetLanguageText = extractTargetLanguageText(aiResponse);
+      const targetLanguageText = extractTargetLanguageText(cleanedAiResponse);
       const hasTargetLanguage = hasSignificantTargetLanguageContent(targetLanguageText);
       
       // Save AI message with target language text if applicable
       const aiMessage = await storage.createMessage({
         conversationId,
         role: 'assistant',
-        content: aiResponse,
+        content: cleanedAiResponse,
         ...(hasTargetLanguage ? { targetLanguageText } : {}),
         enrichmentStatus: 'pending',
       });
@@ -8390,7 +8395,7 @@ Remember: David may reference things discussed in these recent text chats.
             conversationId, 
             aiMessage.id, 
             userTranscript,
-            aiResponse,
+            cleanedAiResponse,
             pronunciationConfidence
           );
         } catch (error: any) {
