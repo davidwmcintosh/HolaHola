@@ -4,12 +4,14 @@ import { useLocation, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useUser } from "@/lib/auth";
+import { useLearningFilter } from "@/contexts/LearningFilterContext";
+import { useAuth } from "@/hooks/useAuth";
 import { DanielaLearningInsights } from "@/components/DanielaLearningInsights";
 import { InteractiveTextbookCard } from "@/components/InteractiveTextbookCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageSquare, Play, ChevronRight, Eye, Sparkles, Phone, ArrowRight } from "lucide-react";
+import { MessageSquare, Play, ChevronRight, Eye, Sparkles, Phone, ArrowRight, User, Zap, Heart } from "lucide-react";
 import {
   getTutorAvatar,
   getTutorName,
@@ -263,10 +265,55 @@ function WelcomePanel({ onStart }: { onStart: () => void }) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
+// ─── Session Mode Row ─────────────────────────────────────────────────────────
+
+interface ModeOption {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  devOnly?: boolean;
+}
+
+const SESSION_MODES: ModeOption[] = [
+  { id: "self-directed",  label: "Self-Directed", icon: User },
+  { id: "founder-mode",   label: "Founder Mode",  icon: Zap,   devOnly: true },
+  { id: "honesty-mode",   label: "Honesty Mode",  icon: Heart, devOnly: true },
+];
+
+function SessionModeRow({ isDeveloper }: { isDeveloper: boolean }) {
+  const { learningContext, setLearningContext } = useLearningFilter();
+  const visibleModes = SESSION_MODES.filter(m => !m.devOnly || isDeveloper);
+
+  if (visibleModes.length <= 1) return null;
+
+  return (
+    <div className="px-6 pb-4 flex gap-2 flex-wrap" data-testid="section-session-mode">
+      {visibleModes.map(({ id, label, icon: Icon }) => {
+        const active = learningContext === id;
+        return (
+          <Button
+            key={id}
+            variant={active ? "default" : "outline"}
+            size="sm"
+            onClick={() => setLearningContext(id)}
+            data-testid={`button-mode-${id}`}
+            className="gap-1.5 capitalize"
+          >
+            <Icon className="h-3.5 w-3.5" />
+            {label}
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function LanguageHub() {
   const [, navigate] = useLocation();
   const { language, setLanguage, setTutorGender } = useLanguage();
   const { user } = useUser();
+  const { user: authUser } = useAuth();
+  const isDeveloper = authUser?.role === 'developer' || authUser?.role === 'admin';
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
 
   // Studied languages for the tab strip
@@ -351,7 +398,7 @@ export default function LanguageHub() {
 
       {/* ── Language Tabs (returning students only) ───────────────────────── */}
       {!isNewStudent && showTabs && (
-        <div className="px-6 pb-6 flex gap-2 justify-center flex-wrap">
+        <div className="px-6 pb-4 flex gap-2 justify-center flex-wrap">
           {studiedLanguages.map((lang) => (
             <Button
               key={lang}
@@ -366,6 +413,9 @@ export default function LanguageHub() {
           ))}
         </div>
       )}
+
+      {/* ── Session Mode Row (dev-only modes: Founder, Honesty) ───────────── */}
+      {!isNewStudent && <SessionModeRow isDeveloper={isDeveloper} />}
 
       {/* ── Daniela's Learning Insights ───────────────────────────────────── */}
       {user && !showEmptyState && (
