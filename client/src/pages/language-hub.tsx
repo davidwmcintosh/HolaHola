@@ -1,4 +1,5 @@
 import { useState } from "react";
+import bonsaiJapanImg from "@assets/bonsai_no_background_1780632791121.png";
 import { useLocation, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -50,8 +51,8 @@ const FLAG_BG: Record<string, string> = (() => {
   // Portugal — green / red split with gold emblem outline
   const portuguese = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 5 3"><g opacity=".09"><rect width="5" height="3" fill="#FF0000"/><rect width="2" height="3" fill="#006600"/><circle cx="2" cy="1.5" r=".65" fill="none" stroke="#FFD700" stroke-width=".12"/><circle cx="2" cy="1.5" r=".28" fill="#003893"/></g></svg>`);
 
-  // Japan — simplified map silhouette: Honshu diagonal, Hokkaido top-right, Kyushu/Shikoku bottom-left
-  const japanese = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200"><g opacity=".15" fill="#3B3B2A"><path d="M210,14 C220,16 235,22 240,30 C244,38 238,46 232,52 C226,58 218,62 216,70 C214,78 222,84 224,92 C226,100 220,108 214,114 C208,120 200,124 196,132 C192,140 196,150 192,158 C188,166 178,170 170,172 C162,174 154,170 148,164 C142,158 140,148 144,140 C148,132 158,128 162,120 C166,112 162,102 158,94 C154,86 148,80 148,72 C148,64 156,58 162,52 C168,46 174,40 178,32 C182,24 190,16 200,14 C204,12 208,13 210,14 Z"/><path d="M240,22 C248,18 260,16 268,20 C276,24 278,34 274,42 C270,50 260,54 252,52 C244,50 238,42 238,34 C238,28 239,24 240,22 Z"/><path d="M132,136 C138,130 148,128 154,132 C160,136 160,146 156,152 C152,158 144,160 138,156 C132,152 128,144 130,138 C131,137 132,136 132,136 Z"/><path d="M104,150 C112,144 124,142 130,148 C136,154 134,164 128,170 C122,176 112,178 106,172 C100,166 98,158 102,152 C103,151 104,150 104,150 Z"/></g></svg>`);
+  // Japan — PNG bonsai overlay (see portrait container below)
+  const japanese = null;
 
   // China — red field + 5 gold stars
   const chinese = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><g opacity=".09"><rect width="30" height="20" fill="#DE2910"/>${_s(5,5,3.2,"#FFDE00")}${_s(11,2,1.5,"#FFDE00")}${_s(13.5,5,1.5,"#FFDE00")}${_s(11,8.5,1.5,"#FFDE00")}${_s(8,11,1.5,"#FFDE00")}</g></svg>`);
@@ -145,6 +146,16 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
                 backgroundRepeat: FLAG_BG[normalized] ? "no-repeat" : undefined,
               }}
             >
+              {/* Japanese bonsai PNG overlay */}
+              {normalized === 'japanese' && (
+                <img
+                  src={bonsaiJapanImg}
+                  aria-hidden
+                  draggable={false}
+                  className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
+                  style={{ opacity: 0.13 }}
+                />
+              )}
               {/* Accent-coloured circle behind the tutor */}
               <div
                 className="absolute rounded-full"
