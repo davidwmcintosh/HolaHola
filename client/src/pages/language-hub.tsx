@@ -113,7 +113,9 @@ interface TutorDuoPanelProps {
 function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
   const normalized = normalizeLanguage(language);
   const accentColor = languageAccentColors[normalized] ?? "#6366f1";
-  const accentBg = accentColor + "40"; // ~25% opacity tint
+  const accentBg = accentColor + "40"; // ~25% opacity base tint
+  // Visible circle disc behind the tutor, centered on upper-body area
+  const circleBg = `radial-gradient(circle 75px at 50% 46%, ${accentColor}99 0%, ${accentColor}77 55px, ${accentColor}22 73px, transparent 76px)`;
 
   const tutors: Array<{ gender: TutorGender }> = [
     { gender: "female" },
@@ -138,8 +140,8 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
               className="relative flex items-end justify-center overflow-hidden"
               style={{
                 background: LANGUAGE_CARD_BG[normalized]
-                  ? `${LANGUAGE_CARD_BG[normalized]}, linear-gradient(${accentBg}, ${accentBg})`
-                  : accentBg,
+                  ? `${LANGUAGE_CARD_BG[normalized]}, ${circleBg}, linear-gradient(${accentBg}, ${accentBg})`
+                  : `${circleBg}, ${accentBg}`,
                 height: "200px",
               }}
             >
