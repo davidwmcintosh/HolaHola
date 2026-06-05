@@ -152,7 +152,7 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
                   src={bonsaiJapanImg}
                   aria-hidden
                   draggable={false}
-                  className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
+                  className="absolute inset-0 w-full h-full object-contain object-right-bottom pointer-events-none select-none"
                   style={{ opacity: 0.13 }}
                 />
               )}
