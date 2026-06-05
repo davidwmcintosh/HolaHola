@@ -19,62 +19,6 @@ import {
 import type { TutorGender } from "@/lib/tutor-avatars";
 import type { Scenario } from "@shared/schema";
 
-// ─── Language card backgrounds ────────────────────────────────────────────────
-// Flag patterns at ~20% opacity + optional SVG landmark silhouette for pilot
-// languages. Transparent areas fall through to the card's bg-card colour.
-
-function _svg(content: string, pos: string): string {
-  return `url("data:image/svg+xml,${encodeURIComponent(content)}") no-repeat ${pos}`;
-}
-
-const LANGUAGE_CARD_BG: Record<string, string> = (() => {
-  // ── Pilot landmarks ────────────────────────────────────────────────────────
-  const eiffelTower = _svg(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 90"><path d="M20 90 L12 52 L3 32 L10 30 L12 20 L16 20 L16 8 L17 0 L33 0 L34 8 L34 20 L38 20 L40 30 L47 32 L38 52 L30 90z" fill="#1E3A8A" opacity="0.28"/><line x1="7" y1="33" x2="43" y2="33" stroke="#1E3A8A" stroke-width="2" opacity="0.22"/><line x1="13" y1="51" x2="37" y2="51" stroke="#1E3A8A" stroke-width="2" opacity="0.22"/></svg>`,
-    "top right / 52px auto"
-  );
-
-  const mountFuji = _svg(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 50"><path d="M0 50 L40 2 L80 50z" fill="#BC002D" opacity="0.2"/><path d="M29 20 L40 2 L51 20 L48 18 L40 6 L32 18z" fill="white" opacity="0.38"/></svg>`,
-    "bottom center / 100% auto"
-  );
-
-  const spanishSun = _svg(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50"><circle cx="25" cy="25" r="9" fill="#AA151B" opacity="0.24"/><line x1="25" y1="5" x2="25" y2="12" stroke="#AA151B" stroke-width="2.5" opacity="0.2"/><line x1="25" y1="38" x2="25" y2="45" stroke="#AA151B" stroke-width="2.5" opacity="0.2"/><line x1="5" y1="25" x2="12" y2="25" stroke="#AA151B" stroke-width="2.5" opacity="0.2"/><line x1="38" y1="25" x2="45" y2="25" stroke="#AA151B" stroke-width="2.5" opacity="0.2"/><line x1="11" y1="11" x2="16" y2="16" stroke="#AA151B" stroke-width="2" opacity="0.17"/><line x1="34" y1="34" x2="39" y2="39" stroke="#AA151B" stroke-width="2" opacity="0.17"/><line x1="39" y1="11" x2="34" y2="16" stroke="#AA151B" stroke-width="2" opacity="0.17"/><line x1="11" y1="39" x2="16" y2="34" stroke="#AA151B" stroke-width="2" opacity="0.17"/></svg>`,
-    "top right / 52px 52px"
-  );
-
-  const chinesePagoda = _svg(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 70"><rect x="19" y="62" width="6" height="8" fill="#C4111B" opacity="0.28"/><polygon points="12,62 32,62 28,52 16,52" fill="#C4111B" opacity="0.28"/><rect x="14" y="44" width="16" height="8" fill="#C4111B" opacity="0.28"/><polygon points="6,44 38,44 33,33 11,33" fill="#C4111B" opacity="0.28"/><rect x="11" y="24" width="22" height="9" fill="#C4111B" opacity="0.28"/><polygon points="3,24 41,24 35,13 9,13" fill="#C4111B" opacity="0.28"/><rect x="17" y="6" width="10" height="7" fill="#C4111B" opacity="0.28"/><polygon points="15,6 29,6 25,0 19,0" fill="#C4111B" opacity="0.28"/></svg>`,
-    "top right / 44px auto"
-  );
-
-  const flagOnly = (css: string) => css;
-
-  return {
-    // Spain — flag stripes (low opacity) + radiating sun (pilot)
-    spanish:    `${spanishSun}, linear-gradient(0deg, rgba(170,21,27,.09) 0% 25%, rgba(241,191,0,.08) 25% 75%, rgba(170,21,27,.09) 75% 100%)`,
-    // France — flag stripes (low opacity) + Eiffel Tower (pilot)
-    french:     `${eiffelTower}, linear-gradient(90deg, rgba(0,35,149,.09) 0% 33%, transparent 33% 67%, rgba(239,65,53,.09) 67% 100%)`,
-    // Germany — flag stripes (low opacity)
-    german:     flagOnly("linear-gradient(0deg, rgba(255,206,0,.09) 0% 33%, rgba(221,0,0,.08) 33% 67%, rgba(20,20,20,.06) 67% 100%)"),
-    // Italy — flag stripes (low opacity)
-    italian:    flagOnly("linear-gradient(90deg, rgba(0,140,69,.09) 0% 33%, transparent 33% 67%, rgba(205,33,42,.09) 67% 100%)"),
-    // Portugal — flag stripes (low opacity)
-    portuguese: flagOnly("linear-gradient(90deg, rgba(0,102,0,.09) 0% 40%, rgba(204,0,0,.08) 40% 100%)"),
-    // Japan — Hinomaru disc (low opacity) + Mount Fuji silhouette (pilot)
-    japanese:   `${mountFuji}, radial-gradient(circle at 50% 50%, rgba(188,0,45,.1) 0% 30%, transparent 30%)`,
-    // China — red field (low opacity) + small gold star + pagoda (pilot)
-    chinese:    `${chinesePagoda}, radial-gradient(circle 20px at 18% 28%, rgba(255,222,0,.32) 0%, rgba(255,222,0,.32) 80%, transparent 100%), linear-gradient(180deg, rgba(196,17,27,.08) 0% 100%)`,
-    mandarin:   `${chinesePagoda}, radial-gradient(circle 20px at 18% 28%, rgba(255,222,0,.32) 0%, rgba(255,222,0,.32) 80%, transparent 100%), linear-gradient(180deg, rgba(196,17,27,.08) 0% 100%)`,
-    // Korea — Taegeukgi (low opacity)
-    korean:     flagOnly("radial-gradient(circle at 50% 50%, rgba(0,56,184,.09) 0% 20%, rgba(196,17,27,.09) 20% 33%, transparent 33%)"),
-    // Israel — blue bands (low opacity)
-    hebrew:     flagOnly("linear-gradient(0deg, rgba(0,56,184,.09) 0% 18%, transparent 18% 30%, rgba(0,56,184,.06) 30% 70%, transparent 70% 82%, rgba(0,56,184,.09) 82% 100%)"),
-    // England — St George's cross (low opacity)
-    english:    flagOnly("linear-gradient(0deg, transparent 43%, rgba(207,20,43,.09) 43% 57%, transparent 57%), linear-gradient(90deg, transparent 43%, rgba(207,20,43,.09) 43% 57%, transparent 57%)"),
-  };
-})();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -113,9 +57,6 @@ interface TutorDuoPanelProps {
 function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
   const normalized = normalizeLanguage(language);
   const accentColor = languageAccentColors[normalized] ?? "#6366f1";
-  const accentBg = accentColor + "40"; // ~25% opacity base tint
-  // White glow circle behind the tutor — white contrasts against any accent bg
-  const circleBg = `radial-gradient(circle 78px at 50% 46%, rgba(255,255,255,0.52) 0%, rgba(255,255,255,0.38) 56px, rgba(255,255,255,0.04) 74px, transparent 77px)`;
 
   const tutors: Array<{ gender: TutorGender }> = [
     { gender: "female" },
@@ -135,20 +76,28 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
             className="rounded-lg overflow-hidden border bg-card flex flex-col"
             data-testid={`card-tutor-${normalized}-${gender}`}
           >
-            {/* Portrait area — accent colour is the last (base) layer; flag/SVG on top */}
+            {/* Portrait area — neutral bg + solid accent circle + avatar */}
             <div
-              className="relative flex items-end justify-center overflow-hidden"
-              style={{
-                background: LANGUAGE_CARD_BG[normalized]
-                  ? `${LANGUAGE_CARD_BG[normalized]}, ${circleBg}, linear-gradient(${accentBg}, ${accentBg})`
-                  : `${circleBg}, ${accentBg}`,
-                height: "200px",
-              }}
+              className="relative flex items-end justify-center bg-muted/40"
+              style={{ height: "200px" }}
             >
+              {/* Accent-coloured circle behind the tutor */}
+              <div
+                className="absolute rounded-full"
+                style={{
+                  width: "160px",
+                  height: "160px",
+                  backgroundColor: accentColor + "38",
+                  border: `3px solid ${accentColor}`,
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -44%)",
+                }}
+              />
               <img
                 src={portrait}
                 alt={name}
-                className="h-full w-auto object-contain object-bottom select-none"
+                className="relative h-full w-auto object-contain object-bottom select-none"
                 draggable={false}
               />
             </div>
