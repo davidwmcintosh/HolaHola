@@ -133,12 +133,13 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
             className="rounded-lg overflow-hidden border bg-card flex flex-col"
             data-testid={`card-tutor-${normalized}-${gender}`}
           >
-            {/* Portrait area — accentBg is the base colour; flag/SVG layers sit on top */}
+            {/* Portrait area — accent colour is the last (base) layer; flag/SVG on top */}
             <div
               className="relative flex items-end justify-center overflow-hidden"
               style={{
-                backgroundColor: accentBg,
-                backgroundImage: LANGUAGE_CARD_BG[normalized] ?? "none",
+                background: LANGUAGE_CARD_BG[normalized]
+                  ? `${LANGUAGE_CARD_BG[normalized]}, linear-gradient(${accentBg}, ${accentBg})`
+                  : accentBg,
                 height: "200px",
               }}
             >
