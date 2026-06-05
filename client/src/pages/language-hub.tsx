@@ -114,8 +114,8 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
   const normalized = normalizeLanguage(language);
   const accentColor = languageAccentColors[normalized] ?? "#6366f1";
   const accentBg = accentColor + "40"; // ~25% opacity base tint
-  // Visible circle disc behind the tutor, centered on upper-body area
-  const circleBg = `radial-gradient(circle 75px at 50% 46%, ${accentColor}99 0%, ${accentColor}77 55px, ${accentColor}22 73px, transparent 76px)`;
+  // White glow circle behind the tutor — white contrasts against any accent bg
+  const circleBg = `radial-gradient(circle 78px at 50% 46%, rgba(255,255,255,0.52) 0%, rgba(255,255,255,0.38) 56px, rgba(255,255,255,0.04) 74px, transparent 77px)`;
 
   const tutors: Array<{ gender: TutorGender }> = [
     { gender: "female" },
