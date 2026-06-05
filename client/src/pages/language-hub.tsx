@@ -89,7 +89,7 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
                   height: "160px",
                   backgroundColor: accentColor + "38",
                   border: `3px solid ${accentColor}`,
-                  top: "42%",
+                  top: "46%",
                   left: "50%",
                   transform: "translate(-50%, -50%)",
                 }}
