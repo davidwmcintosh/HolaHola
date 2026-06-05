@@ -19,20 +19,64 @@ import {
 import type { TutorGender } from "@/lib/tutor-avatars";
 import type { Scenario } from "@shared/schema";
 
-// ─── Flag background gradients (very low opacity — ghost texture only) ────────
-const FLAG_BG: Record<string, string> = {
-  spanish:    "linear-gradient(0deg, rgba(170,21,27,.07) 0% 25%, rgba(241,191,0,.06) 25% 75%, rgba(170,21,27,.07) 75% 100%)",
-  french:     "linear-gradient(90deg, rgba(0,35,149,.07) 0% 33%, rgba(240,240,240,.04) 33% 67%, rgba(239,65,53,.07) 67% 100%)",
-  german:     "linear-gradient(0deg, rgba(255,206,0,.07) 0% 33%, rgba(221,0,0,.06) 33% 67%, rgba(20,20,20,.05) 67% 100%)",
-  italian:    "linear-gradient(90deg, rgba(0,140,69,.07) 0% 33%, rgba(240,240,240,.04) 33% 67%, rgba(205,33,42,.07) 67% 100%)",
-  portuguese: "linear-gradient(90deg, rgba(0,102,0,.07) 0% 40%, rgba(204,0,0,.06) 40% 100%)",
-  japanese:   "radial-gradient(circle at 50% 50%, rgba(188,0,45,.08) 0% 28%, transparent 28%)",
-  chinese:    "linear-gradient(180deg, rgba(196,17,27,.07) 0% 100%)",
-  mandarin:   "linear-gradient(180deg, rgba(196,17,27,.07) 0% 100%)",
-  korean:     "radial-gradient(circle at 50% 50%, rgba(0,56,184,.07) 0% 18%, rgba(196,17,27,.07) 18% 30%, transparent 30%)",
-  hebrew:     "linear-gradient(0deg, rgba(0,56,184,.07) 0% 16%, transparent 16% 28%, rgba(0,56,184,.05) 28% 72%, transparent 72% 84%, rgba(0,56,184,.07) 84% 100%)",
-  english:    "linear-gradient(90deg, rgba(0,40,104,.08) 0% 38%, transparent 38% 100%), repeating-linear-gradient(0deg, rgba(178,34,52,.07) 0px, rgba(178,34,52,.07) 14px, transparent 14px, transparent 28px)",
-};
+// ─── SVG flag backgrounds (ghost opacity — recognisable shapes) ───────────────
+function _flag(svg: string): string {
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") no-repeat center / cover`;
+}
+function _starPts(cx: number, cy: number, r: number): string {
+  const ri = r * 0.4;
+  return Array.from({ length: 10 }, (_, i) => {
+    const a = (i * Math.PI) / 5 - Math.PI / 2;
+    const d = i % 2 === 0 ? r : ri;
+    return `${(cx + d * Math.cos(a)).toFixed(2)},${(cy + d * Math.sin(a)).toFixed(2)}`;
+  }).join(" ");
+}
+const _s = (cx: number, cy: number, r: number, fill = "white") =>
+  `<polygon points="${_starPts(cx, cy, r)}" fill="${fill}"/>`;
+
+const FLAG_BG: Record<string, string> = (() => {
+  // Spain — red / yellow / red horizontal (1:2:1)
+  const spanish = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 2"><g opacity=".09"><rect width="3" height=".5" fill="#AA151B"/><rect y=".5" width="3" height="1" fill="#F1BF00"/><rect y="1.5" width="3" height=".5" fill="#AA151B"/></g></svg>`);
+
+  // France — blue / white / red vertical thirds
+  const french = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 2"><g opacity=".09"><rect width="1" height="2" fill="#002395"/><rect x="2" width="1" height="2" fill="#ED2939"/></g></svg>`);
+
+  // Germany — black / red / gold horizontal thirds
+  const german = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 1"><g opacity=".08"><rect width="3" height=".333" fill="#000"/><rect y=".333" width="3" height=".334" fill="#DD0000"/><rect y=".667" width="3" height=".333" fill="#FFCE00"/></g></svg>`);
+
+  // Italy — green / white / red vertical thirds
+  const italian = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 2"><g opacity=".09"><rect width="1" height="2" fill="#009246"/><rect x="2" width="1" height="2" fill="#CE2B37"/></g></svg>`);
+
+  // Portugal — green / red split with gold emblem outline
+  const portuguese = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 5 3"><g opacity=".09"><rect width="5" height="3" fill="#FF0000"/><rect width="2" height="3" fill="#006600"/><circle cx="2" cy="1.5" r=".65" fill="none" stroke="#FFD700" stroke-width=".12"/><circle cx="2" cy="1.5" r=".28" fill="#003893"/></g></svg>`);
+
+  // Japan — Hinomaru red disc on white
+  const japanese = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 2"><g opacity=".1"><rect width="3" height="2" fill="#f5f5f5"/><circle cx="1.5" cy="1" r=".62" fill="#BC002D"/></g></svg>`);
+
+  // China — red field + 5 gold stars
+  const chinese = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><g opacity=".09"><rect width="30" height="20" fill="#DE2910"/>${_s(5,5,3.2,"#FFDE00")}${_s(11,2,1.5,"#FFDE00")}${_s(13.5,5,1.5,"#FFDE00")}${_s(11,8.5,1.5,"#FFDE00")}${_s(8,11,1.5,"#FFDE00")}</g></svg>`);
+
+  // Korea — white + Taegeuk (red top / blue bottom) + 4 corner trigrams
+  const korean = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><g opacity=".09"><rect width="30" height="20" fill="#f5f5f5"/><circle cx="15" cy="10" r="4" fill="#C60C30"/><path d="M15,6 A4,4,0,0,0,15,14 A2,2,0,0,0,15,10 A2,2,0,0,1,15,6Z" fill="#003478"/><line x1="3" y1="3" x2="8" y2="3" stroke="#000" stroke-width=".8"/><line x1="3" y1="4.5" x2="8" y2="4.5" stroke="#000" stroke-width=".8"/><line x1="3" y1="6" x2="8" y2="6" stroke="#000" stroke-width=".8"/><line x1="22" y1="14" x2="27" y2="14" stroke="#000" stroke-width=".8"/><line x1="22" y1="15.5" x2="27" y2="15.5" stroke="#000" stroke-width=".8"/><line x1="22" y1="17" x2="27" y2="17" stroke="#000" stroke-width=".8"/><line x1="22" y1="3" x2="24.5" y2="3" stroke="#000" stroke-width=".8"/><line x1="25.5" y1="3" x2="27" y2="3" stroke="#000" stroke-width=".8"/><line x1="22" y1="4.5" x2="27" y2="4.5" stroke="#000" stroke-width=".8"/><line x1="22" y1="6" x2="24.5" y2="6" stroke="#000" stroke-width=".8"/><line x1="25.5" y1="6" x2="27" y2="6" stroke="#000" stroke-width=".8"/><line x1="3" y1="14" x2="5.5" y2="14" stroke="#000" stroke-width=".8"/><line x1="6.5" y1="14" x2="8" y2="14" stroke="#000" stroke-width=".8"/><line x1="3" y1="15.5" x2="8" y2="15.5" stroke="#000" stroke-width=".8"/><line x1="3" y1="17" x2="5.5" y2="17" stroke="#000" stroke-width=".8"/><line x1="6.5" y1="17" x2="8" y2="17" stroke="#000" stroke-width=".8"/></g></svg>`);
+
+  // Israel — white + 2 blue bands + Star of David
+  const hebrew = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 2"><g opacity=".09"><rect width="3" height="2" fill="#f5f5f5"/><rect y=".22" width="3" height=".22" fill="#003399"/><rect y="1.56" width="3" height=".22" fill="#003399"/><polygon points="1.5,.72 1.7,1.08 1.3,1.08" fill="none" stroke="#003399" stroke-width=".06"/><polygon points="1.5,1.28 1.7,.92 1.3,.92" fill="none" stroke="#003399" stroke-width=".06"/></g></svg>`);
+
+  // USA — 13 red/white stripes + blue canton + 6 white stars
+  const sh = 100 / 13;
+  const cw = 76, ch = sh * 7;
+  let stripes = "";
+  for (let i = 0; i < 7; i++) stripes += `<rect y="${(i * 2 * sh).toFixed(1)}" width="190" height="${sh.toFixed(1)}" fill="#B22234"/>`;
+  const starPositions = [
+    [cw*0.2,ch*0.2],[cw*0.5,ch*0.2],[cw*0.8,ch*0.2],
+    [cw*0.2,ch*0.6],[cw*0.5,ch*0.6],[cw*0.8,ch*0.6],
+    [cw*0.35,ch*0.4],[cw*0.65,ch*0.4],
+  ];
+  const uStars = starPositions.map(([sx,sy]) => _s(sx, sy, 4.5)).join("");
+  const english = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 190 100"><g opacity=".09">${stripes}<rect width="${cw}" height="${ch.toFixed(1)}" fill="#3C3B6E"/>${uStars}</g></svg>`);
+
+  return { spanish, french, german, italian, portuguese, japanese, chinese, mandarin: chinese, korean, hebrew, english };
+})();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
