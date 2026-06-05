@@ -8963,6 +8963,84 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ─── Admin: Onboarding Tester ────────────────────────────────────────────────
+
+  // GET current user's onboarding-related prefs (for snapshot before test)
+  app.get("/api/admin/onboarding/snapshot", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+      res.json({
+        firstName: user.firstName || "",
+        targetLanguage: user.targetLanguage || "",
+        nativeLanguage: user.nativeLanguage || "",
+        difficultyLevel: user.difficultyLevel || "beginner",
+        onboardingCompleted: user.onboardingCompleted ?? true,
+      });
+    } catch (err: any) {
+      console.error('[Admin/Onboarding] snapshot error:', err.message);
+      res.status(500).json({ message: "Failed to get snapshot" });
+    }
+  });
+
+  // POST: reset user state for onboarding test
+  // Clears firstName + targetLanguage so the defensive sync cannot auto-restore
+  app.post("/api/admin/onboarding/start-test", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      const user = await storage.getUser(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      // Save snapshot before touching anything
+      const snapshot = {
+        firstName: user.firstName || "",
+        targetLanguage: user.targetLanguage || "",
+        nativeLanguage: user.nativeLanguage || "",
+        difficultyLevel: user.difficultyLevel || "beginner",
+        onboardingCompleted: user.onboardingCompleted ?? true,
+      };
+
+      // 1) Clear firstName so LanguageContext can't immediately restore localStorage.userName
+      await storage.updateUserDetails(userId, { firstName: "" });
+
+      // 2) Clear targetLanguage so defensive-sync condition fails
+      //    (it requires: targetLanguage && difficultyLevel && firstName)
+      await storage.updateUserPreferences(userId, {
+        targetLanguage: "",
+        onboardingCompleted: false,
+      });
+
+      console.log(`[Admin/Onboarding] Test started for userId=${userId} — state reset`);
+      res.json({ ok: true, snapshot });
+    } catch (err: any) {
+      console.error('[Admin/Onboarding] start-test error:', err.message);
+      res.status(500).json({ message: "Failed to reset for test" });
+    }
+  });
+
+  // POST: restore user state after onboarding test
+  app.post("/api/admin/onboarding/restore-test", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      const { firstName, targetLanguage, nativeLanguage, difficultyLevel } = req.body;
+
+      await storage.updateUserDetails(userId, { firstName: firstName || "" });
+      await storage.updateUserPreferences(userId, {
+        targetLanguage: targetLanguage || undefined,
+        nativeLanguage: nativeLanguage || undefined,
+        difficultyLevel: difficultyLevel || undefined,
+        onboardingCompleted: true,
+      });
+
+      console.log(`[Admin/Onboarding] Test restored for userId=${userId}`);
+      res.json({ ok: true });
+    } catch (err: any) {
+      console.error('[Admin/Onboarding] restore-test error:', err.message);
+      res.status(500).json({ message: "Failed to restore after test" });
+    }
+  });
+
   // Admin: list recent Daniela outbound calls for call quality review
   app.get("/api/admin/outbound-calls", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
     try {

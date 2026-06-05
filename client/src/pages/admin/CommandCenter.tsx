@@ -31,6 +31,7 @@ import { TextbookSeederTab } from "@/components/TextbookSeederTab";
 import { CurriculumEnrichmentTab } from "@/components/CurriculumEnrichmentTab";
 import { SyncControlCenterContent } from "@/pages/admin/SyncControlCenter";
 import { MenuImageGeneratorContent } from "@/pages/admin/MenuImageGenerator";
+import { OnboardingTesterContent } from "@/pages/admin/OnboardingTester";
 import { 
   LayoutDashboard,
   Users,
@@ -1885,6 +1886,7 @@ export default function CommandCenter() {
         { id: "overview", label: "Overview", icon: LayoutDashboard, roles: ['admin', 'developer', 'teacher'] },
         { id: "users", label: "Users", icon: Users, roles: ['admin'] },
         { id: "classes", label: "Classes", icon: GraduationCap, roles: ['admin', 'developer'] },
+        { id: "onboarding-tester", label: "Onboarding", icon: Play, roles: ['admin', 'developer'] },
       ]
     },
     {
@@ -2085,6 +2087,10 @@ export default function CommandCenter() {
 
           <TabsContent value="classes" className="space-y-4">
             <ClassesTab />
+          </TabsContent>
+
+          <TabsContent value="onboarding-tester" className="space-y-4">
+            <OnboardingTesterContent />
           </TabsContent>
 
           <TabsContent value="analytics" className="space-y-4">
