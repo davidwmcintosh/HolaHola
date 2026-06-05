@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { Switch, Route, useLocation, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -112,9 +112,14 @@ const ResetPassword = lazyWithRetry(() => import("@/pages/auth/ResetPassword"));
 function SidebarRouteController() {
   const [location] = useLocation();
   const { setOpen } = useSidebar();
+  // Keep a ref so the effect always calls the latest setOpen without re-triggering
+  // when setOpen's reference changes (it recreates on every open/close state change).
+  const setOpenRef = useRef(setOpen);
+  useEffect(() => { setOpenRef.current = setOpen; });
+
   useEffect(() => {
-    setOpen(location !== "/chat");
-  }, [location, setOpen]);
+    setOpenRef.current(location !== "/chat");
+  }, [location]);
   return null;
 }
 
