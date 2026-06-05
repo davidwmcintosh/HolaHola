@@ -223,31 +223,41 @@ export class GeminiLiveSession {
     const languageCode = voiceOverride?.geminiLanguageCode || LANGUAGE_TO_BCP47[langKey] || 'en-US';
     console.log(`[GeminiLive] Opening session — model: ${GEMINI_LIVE_MODEL}, voice: ${liveName}, languageCode: ${languageCode}${voiceOverride?.geminiLanguageCode ? ' (voice-lab override)' : ''}`);
 
-    // Inject a compact native-accent directive for non-English sessions so the
-    // model prioritises the target language's phonology and prosody in its output.
-    const NATIVE_ACCENT_DIRECTIVE: Record<string, string> = {
-      'es-ES': 'Speak Spanish with authentic Castilian Spanish phonology.',
-      'es-MX': 'Speak Spanish with authentic Mexican Spanish phonology.',
-      'es-CO': 'Speak Spanish with authentic Colombian Spanish phonology.',
-      'es-AR': 'Speak Spanish with authentic Rioplatense Spanish phonology.',
-      'es-CL': 'Speak Spanish with authentic Chilean Spanish phonology.',
-      'es-PE': 'Speak Spanish with authentic Peruvian Spanish phonology.',
-      'fr-FR': 'Speak French with authentic Parisian French phonology.',
-      'fr-CA': 'Speak French with authentic Québécois phonology.',
-      'de-DE': 'Speak German with authentic Standard German (Hochdeutsch) phonology and prosody.',
-      'de-AT': 'Speak German with authentic Austrian German phonology.',
-      'de-CH': 'Speak German with authentic Swiss Standard German phonology.',
-      'it-IT': 'Speak Italian with authentic Standard Italian phonology.',
-      'it-CH': 'Speak Italian with authentic Swiss Italian phonology.',
-      'pt-BR': 'Speak Portuguese with authentic Brazilian Portuguese phonology and prosody.',
-      'pt-PT': 'Speak Portuguese with authentic European Portuguese phonology.',
-      'ja-JP': 'Speak Japanese with authentic standard Tokyo Japanese phonology and pitch accent.',
-      'zh-CN': 'Speak Mandarin Chinese with authentic Mainland Putonghua phonology and tones.',
-      'zh-TW': 'Speak Mandarin Chinese with authentic Taiwan Guoyu phonology and tones.',
-      'ko-KR': 'Speak Korean with authentic Seoul Korean phonology.',
-      'he-IL': 'Speak Hebrew with authentic Modern Israeli Hebrew phonology.',
+    // Build a universal accent identity directive from the session's language code.
+    // The label is driven entirely by languageCode, which comes from the Voice Lab
+    // override first (voiceOverride.geminiLanguageCode) and then the language-map
+    // default — so changing the Voice Lab accent automatically changes this directive.
+    //
+    // The directive is intentionally language-agnostic: the tutor's accent is part of
+    // who they are and travels with them into every language they speak — the target
+    // language, the student's native language (English, Italian, etc.), or anything
+    // else. A tutor from Spain sounds Spanish whether she's speaking Spanish or Italian.
+    const ACCENT_DESCRIPTIONS: Record<string, string> = {
+      'es-ES': 'Castilian Spanish',
+      'es-MX': 'Mexican Spanish',
+      'es-CO': 'Colombian Spanish',
+      'es-AR': 'Rioplatense (Argentine) Spanish',
+      'es-CL': 'Chilean Spanish',
+      'es-PE': 'Peruvian Spanish',
+      'fr-FR': 'Parisian French',
+      'fr-CA': 'Québécois French',
+      'de-DE': 'Standard German (Hochdeutsch)',
+      'de-AT': 'Austrian German',
+      'de-CH': 'Swiss German',
+      'it-IT': 'Standard Italian',
+      'it-CH': 'Swiss Italian',
+      'pt-BR': 'Brazilian Portuguese',
+      'pt-PT': 'European Portuguese',
+      'ja-JP': 'standard Tokyo Japanese',
+      'zh-CN': 'Mainland Mandarin Chinese',
+      'zh-TW': 'Taiwan Mandarin Chinese',
+      'ko-KR': 'Seoul Korean',
+      'he-IL': 'Modern Israeli Hebrew',
     };
-    const accentDirective = NATIVE_ACCENT_DIRECTIVE[languageCode];
+    const accentLabel = ACCENT_DESCRIPTIONS[languageCode];
+    const accentDirective = accentLabel
+      ? `Your native accent is ${accentLabel}. This is who you are — your accent travels with you into every language you speak, whether that is the target language, English, Italian, or whatever the student's native language happens to be. Speak consistently with that accent at all times.`
+      : null;
     const effectiveSystemPrompt = accentDirective
       ? `${systemPrompt}\n\n[VOICE]: ${accentDirective}`
       : systemPrompt;
