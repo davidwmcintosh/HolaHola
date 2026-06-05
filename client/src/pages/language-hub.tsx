@@ -22,18 +22,30 @@ import type { Scenario } from "@shared/schema";
 // ─── Language card backgrounds ────────────────────────────────────────────────
 // Rich cultural gradients behind each tutor portrait.
 // Bottom glow keeps the tutor readable; top gives the scene depth.
+// Flag-inspired backgrounds — actual flag patterns at ~20% opacity.
+// Transparent areas let the card's own bg-card colour show through.
 const LANGUAGE_CARD_BG: Record<string, string> = {
-  spanish:    "radial-gradient(ellipse at 50% 110%, rgba(253,230,138,.45) 0%, transparent 58%), linear-gradient(175deg, #92400E 0%, #B45309 42%, #D97706 100%)",
-  french:     "radial-gradient(ellipse at 50% 110%, rgba(253,224,71,.25) 0%, transparent 58%), linear-gradient(175deg, #1E3A8A 0%, #1D4ED8 50%, #2563EB 100%)",
-  german:     "radial-gradient(ellipse at 50% 110%, rgba(250,204,21,.32) 0%, transparent 58%), linear-gradient(175deg, #14532D 0%, #166534 46%, #15803D 100%)",
-  italian:    "radial-gradient(ellipse at 50% 110%, rgba(253,224,71,.32) 0%, transparent 58%), linear-gradient(175deg, #1A2E05 0%, #3F6212 42%, #4D7C0F 100%)",
-  portuguese: "radial-gradient(ellipse at 50% 110%, rgba(167,243,208,.38) 0%, transparent 58%), linear-gradient(175deg, #0C4A6E 0%, #0369A1 46%, #0891B2 100%)",
-  japanese:   "radial-gradient(ellipse at 50% 110%, rgba(251,207,232,.55) 0%, transparent 58%), linear-gradient(175deg, #831843 0%, #BE185D 46%, #EC4899 100%)",
-  chinese:    "radial-gradient(ellipse at 50% 110%, rgba(253,224,71,.42) 0%, transparent 58%), linear-gradient(175deg, #7F1D1D 0%, #991B1B 42%, #DC2626 100%)",
-  mandarin:   "radial-gradient(ellipse at 50% 110%, rgba(253,224,71,.42) 0%, transparent 58%), linear-gradient(175deg, #7F1D1D 0%, #991B1B 42%, #DC2626 100%)",
-  korean:     "radial-gradient(ellipse at 50% 110%, rgba(186,230,253,.42) 0%, transparent 58%), linear-gradient(175deg, #0C4A6E 0%, #0369A1 42%, #0EA5E9 100%)",
-  hebrew:     "radial-gradient(ellipse at 50% 110%, rgba(191,219,254,.32) 0%, transparent 58%), linear-gradient(175deg, #1E3A8A 0%, #1D4ED8 46%, #2563EB 100%)",
-  english:    "radial-gradient(ellipse at 50% 110%, rgba(237,233,254,.42) 0%, transparent 58%), linear-gradient(175deg, #3B0764 0%, #6D28D9 46%, #7C3AED 100%)",
+  // Spain — horizontal red / yellow / red
+  spanish:    "linear-gradient(0deg, rgba(170,21,27,.22) 0% 25%, rgba(241,191,0,.2) 25% 75%, rgba(170,21,27,.22) 75% 100%)",
+  // France — vertical blue | white | red
+  french:     "linear-gradient(90deg, rgba(0,35,149,.2) 0% 33%, transparent 33% 67%, rgba(239,65,53,.2) 67% 100%)",
+  // Germany — horizontal black | red | gold
+  german:     "linear-gradient(0deg, rgba(255,206,0,.22) 0% 33%, rgba(221,0,0,.18) 33% 67%, rgba(20,20,20,.13) 67% 100%)",
+  // Italy — vertical green | white | red
+  italian:    "linear-gradient(90deg, rgba(0,140,69,.2) 0% 33%, transparent 33% 67%, rgba(205,33,42,.2) 67% 100%)",
+  // Portugal — vertical green (40 %) | red
+  portuguese: "linear-gradient(90deg, rgba(0,102,0,.2) 0% 40%, rgba(204,0,0,.18) 40% 100%)",
+  // Japan — Hinomaru: white field, central red disc
+  japanese:   "radial-gradient(circle at 50% 50%, rgba(188,0,45,.24) 0% 30%, transparent 30%)",
+  // China — red field with small gold star upper-left
+  chinese:    "radial-gradient(circle at 18% 28%, rgba(255,222,0,.36) 0% 13%, transparent 13%), linear-gradient(180deg, rgba(196,17,27,.2) 0% 100%)",
+  mandarin:   "radial-gradient(circle at 18% 28%, rgba(255,222,0,.36) 0% 13%, transparent 13%), linear-gradient(180deg, rgba(196,17,27,.2) 0% 100%)",
+  // Korea — Taegeukgi: simplified blue/red circle on white
+  korean:     "radial-gradient(circle at 50% 50%, rgba(0,56,184,.2) 0% 20%, rgba(196,17,27,.2) 20% 33%, transparent 33%)",
+  // Israel — two blue horizontal bands on white
+  hebrew:     "linear-gradient(0deg, rgba(0,56,184,.24) 0% 18%, transparent 18% 30%, rgba(0,56,184,.13) 30% 70%, transparent 70% 82%, rgba(0,56,184,.24) 82% 100%)",
+  // England — St George's red cross on white
+  english:    "linear-gradient(0deg, transparent 43%, rgba(207,20,43,.22) 43% 57%, transparent 57%), linear-gradient(90deg, transparent 43%, rgba(207,20,43,.22) 43% 57%, transparent 57%)",
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
