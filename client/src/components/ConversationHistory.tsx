@@ -17,6 +17,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+// Parse DB timestamps (which may lack Z suffix) as UTC so toLocaleDateString()
+// correctly converts to the user's local timezone.
+function parseUTC(dateStr: string | Date): Date {
+  if (dateStr instanceof Date) return dateStr;
+  if (!dateStr) return new Date();
+  // Already has timezone info
+  if (dateStr.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(dateStr)) return new Date(dateStr);
+  // Replace space separator with T and append Z to force UTC interpretation
+  return new Date(dateStr.replace(' ', 'T') + 'Z');
+}
+
 const difficultyColors = {
   beginner: "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400",
   intermediate: "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-400",
@@ -279,7 +290,7 @@ export function ConversationHistory({
                       {message.content}
                     </p>
                     <p className="text-xs mt-2 opacity-70">
-                      {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {parseUTC(message.createdAt as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                   {message.role === "user" && (
@@ -395,7 +406,7 @@ export function ConversationHistory({
                           {result.conversationTitle || 'Untitled Conversation'}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {new Date(result.createdAt).toLocaleDateString()}
+                          {parseUTC(result.createdAt as string).toLocaleDateString()}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground line-clamp-2">
@@ -451,7 +462,7 @@ export function ConversationHistory({
                   <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap ml-10">
                     <span className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
-                      {new Date(conversation.createdAt).toLocaleDateString()}
+                      {parseUTC(conversation.createdAt as unknown as string).toLocaleDateString()}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-4 w-4" />

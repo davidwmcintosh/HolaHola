@@ -2061,11 +2061,17 @@ export class DatabaseStorage implements IStorage {
       const allMessages = await this.getMessagesByConversation(data.conversationId);
       
       let duration = 0;
-      if (allMessages.length > 0) {
-        const firstMessage = allMessages[0];
-        const lastMessage = allMessages[allMessages.length - 1];
-        const durationMs = new Date(lastMessage.createdAt).getTime() - new Date(firstMessage.createdAt).getTime();
-        duration = Math.floor(durationMs / 60000);
+      if (allMessages.length > 1) {
+        const GAP_THRESHOLD_MS = 60 * 60 * 1000; // 60-minute gap = new sitting
+        for (let i = 1; i < allMessages.length; i++) {
+          const prev = new Date(allMessages[i - 1].createdAt).getTime();
+          const curr = new Date(allMessages[i].createdAt).getTime();
+          const gapMs = curr - prev;
+          if (gapMs <= GAP_THRESHOLD_MS) {
+            duration += gapMs;
+          }
+        }
+        duration = Math.floor(duration / 60000);
       }
       
       await this.updateConversationInternal(data.conversationId, {

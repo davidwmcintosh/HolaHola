@@ -1493,7 +1493,11 @@ export default function Settings() {
                               const minutes = Math.round(absSeconds / 60);
                               const hours = Math.round(absSeconds / 360) / 10;
                               const displayTime = absSeconds >= 3600 ? `${hours}h` : `${minutes}m`;
-                              const date = new Date(entry.createdAt);
+                              // Parse DB timestamps (no Z suffix) as UTC so local timezone is applied correctly
+                              const rawDate = entry.createdAt;
+                              const date = (rawDate.endsWith('Z') || /[+-]\d{2}:?\d{2}$/.test(rawDate))
+                                ? new Date(rawDate)
+                                : new Date(rawDate.replace(' ', 'T') + 'Z');
                               
                               return (
                                 <div key={entry.id} className="flex items-center justify-between py-2 px-3 rounded-md border text-sm" data-testid={`row-usage-${entry.id}`}>
