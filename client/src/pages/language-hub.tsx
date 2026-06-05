@@ -20,33 +20,61 @@ import type { TutorGender } from "@/lib/tutor-avatars";
 import type { Scenario } from "@shared/schema";
 
 // ─── Language card backgrounds ────────────────────────────────────────────────
-// Rich cultural gradients behind each tutor portrait.
-// Bottom glow keeps the tutor readable; top gives the scene depth.
-// Flag-inspired backgrounds — actual flag patterns at ~20% opacity.
-// Transparent areas let the card's own bg-card colour show through.
-const LANGUAGE_CARD_BG: Record<string, string> = {
-  // Spain — horizontal red / yellow / red
-  spanish:    "linear-gradient(0deg, rgba(170,21,27,.22) 0% 25%, rgba(241,191,0,.2) 25% 75%, rgba(170,21,27,.22) 75% 100%)",
-  // France — vertical blue | white | red
-  french:     "linear-gradient(90deg, rgba(0,35,149,.2) 0% 33%, transparent 33% 67%, rgba(239,65,53,.2) 67% 100%)",
-  // Germany — horizontal black | red | gold
-  german:     "linear-gradient(0deg, rgba(255,206,0,.22) 0% 33%, rgba(221,0,0,.18) 33% 67%, rgba(20,20,20,.13) 67% 100%)",
-  // Italy — vertical green | white | red
-  italian:    "linear-gradient(90deg, rgba(0,140,69,.2) 0% 33%, transparent 33% 67%, rgba(205,33,42,.2) 67% 100%)",
-  // Portugal — vertical green (40 %) | red
-  portuguese: "linear-gradient(90deg, rgba(0,102,0,.2) 0% 40%, rgba(204,0,0,.18) 40% 100%)",
-  // Japan — Hinomaru: white field, central red disc
-  japanese:   "radial-gradient(circle at 50% 50%, rgba(188,0,45,.24) 0% 30%, transparent 30%)",
-  // China — red field with small gold star upper-left
-  chinese:    "radial-gradient(circle at 18% 28%, rgba(255,222,0,.36) 0% 13%, transparent 13%), linear-gradient(180deg, rgba(196,17,27,.2) 0% 100%)",
-  mandarin:   "radial-gradient(circle at 18% 28%, rgba(255,222,0,.36) 0% 13%, transparent 13%), linear-gradient(180deg, rgba(196,17,27,.2) 0% 100%)",
-  // Korea — Taegeukgi: simplified blue/red circle on white
-  korean:     "radial-gradient(circle at 50% 50%, rgba(0,56,184,.2) 0% 20%, rgba(196,17,27,.2) 20% 33%, transparent 33%)",
-  // Israel — two blue horizontal bands on white
-  hebrew:     "linear-gradient(0deg, rgba(0,56,184,.24) 0% 18%, transparent 18% 30%, rgba(0,56,184,.13) 30% 70%, transparent 70% 82%, rgba(0,56,184,.24) 82% 100%)",
-  // England — St George's red cross on white
-  english:    "linear-gradient(0deg, transparent 43%, rgba(207,20,43,.22) 43% 57%, transparent 57%), linear-gradient(90deg, transparent 43%, rgba(207,20,43,.22) 43% 57%, transparent 57%)",
-};
+// Flag patterns at ~20% opacity + optional SVG landmark silhouette for pilot
+// languages. Transparent areas fall through to the card's bg-card colour.
+
+function _svg(content: string, pos: string): string {
+  return `url("data:image/svg+xml,${encodeURIComponent(content)}") no-repeat ${pos}`;
+}
+
+const LANGUAGE_CARD_BG: Record<string, string> = (() => {
+  // ── Pilot landmarks ────────────────────────────────────────────────────────
+  const eiffelTower = _svg(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 90"><path d="M20 90 L12 52 L3 32 L10 30 L12 20 L16 20 L16 8 L17 0 L33 0 L34 8 L34 20 L38 20 L40 30 L47 32 L38 52 L30 90z" fill="#1E3A8A" opacity="0.28"/><line x1="7" y1="33" x2="43" y2="33" stroke="#1E3A8A" stroke-width="2" opacity="0.22"/><line x1="13" y1="51" x2="37" y2="51" stroke="#1E3A8A" stroke-width="2" opacity="0.22"/></svg>`,
+    "top right / 52px auto"
+  );
+
+  const mountFuji = _svg(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 50"><path d="M0 50 L40 2 L80 50z" fill="#BC002D" opacity="0.2"/><path d="M29 20 L40 2 L51 20 L48 18 L40 6 L32 18z" fill="white" opacity="0.38"/></svg>`,
+    "bottom center / 100% auto"
+  );
+
+  const spanishSun = _svg(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50"><circle cx="25" cy="25" r="9" fill="#AA151B" opacity="0.24"/><line x1="25" y1="5" x2="25" y2="12" stroke="#AA151B" stroke-width="2.5" opacity="0.2"/><line x1="25" y1="38" x2="25" y2="45" stroke="#AA151B" stroke-width="2.5" opacity="0.2"/><line x1="5" y1="25" x2="12" y2="25" stroke="#AA151B" stroke-width="2.5" opacity="0.2"/><line x1="38" y1="25" x2="45" y2="25" stroke="#AA151B" stroke-width="2.5" opacity="0.2"/><line x1="11" y1="11" x2="16" y2="16" stroke="#AA151B" stroke-width="2" opacity="0.17"/><line x1="34" y1="34" x2="39" y2="39" stroke="#AA151B" stroke-width="2" opacity="0.17"/><line x1="39" y1="11" x2="34" y2="16" stroke="#AA151B" stroke-width="2" opacity="0.17"/><line x1="11" y1="39" x2="16" y2="34" stroke="#AA151B" stroke-width="2" opacity="0.17"/></svg>`,
+    "top right / 52px 52px"
+  );
+
+  const chinesePagoda = _svg(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 70"><rect x="19" y="62" width="6" height="8" fill="#C4111B" opacity="0.28"/><polygon points="12,62 32,62 28,52 16,52" fill="#C4111B" opacity="0.28"/><rect x="14" y="44" width="16" height="8" fill="#C4111B" opacity="0.28"/><polygon points="6,44 38,44 33,33 11,33" fill="#C4111B" opacity="0.28"/><rect x="11" y="24" width="22" height="9" fill="#C4111B" opacity="0.28"/><polygon points="3,24 41,24 35,13 9,13" fill="#C4111B" opacity="0.28"/><rect x="17" y="6" width="10" height="7" fill="#C4111B" opacity="0.28"/><polygon points="15,6 29,6 25,0 19,0" fill="#C4111B" opacity="0.28"/></svg>`,
+    "top right / 44px auto"
+  );
+
+  const flagOnly = (css: string) => css;
+
+  return {
+    // Spain — flag stripes + radiating sun (pilot)
+    spanish:    `${spanishSun}, linear-gradient(0deg, rgba(170,21,27,.22) 0% 25%, rgba(241,191,0,.2) 25% 75%, rgba(170,21,27,.22) 75% 100%)`,
+    // France — flag stripes + Eiffel Tower (pilot)
+    french:     `${eiffelTower}, linear-gradient(90deg, rgba(0,35,149,.2) 0% 33%, transparent 33% 67%, rgba(239,65,53,.2) 67% 100%)`,
+    // Germany — flag stripes only
+    german:     flagOnly("linear-gradient(0deg, rgba(255,206,0,.22) 0% 33%, rgba(221,0,0,.18) 33% 67%, rgba(20,20,20,.13) 67% 100%)"),
+    // Italy — flag stripes only
+    italian:    flagOnly("linear-gradient(90deg, rgba(0,140,69,.2) 0% 33%, transparent 33% 67%, rgba(205,33,42,.2) 67% 100%)"),
+    // Portugal — flag stripes only
+    portuguese: flagOnly("linear-gradient(90deg, rgba(0,102,0,.2) 0% 40%, rgba(204,0,0,.18) 40% 100%)"),
+    // Japan — Hinomaru disc + Mount Fuji silhouette (pilot)
+    japanese:   `${mountFuji}, radial-gradient(circle at 50% 50%, rgba(188,0,45,.24) 0% 30%, transparent 30%)`,
+    // China — red field + gold star + pagoda (pilot)
+    chinese:    `${chinesePagoda}, radial-gradient(circle at 18% 28%, rgba(255,222,0,.36) 0% 13%, transparent 13%), linear-gradient(180deg, rgba(196,17,27,.2) 0% 100%)`,
+    mandarin:   `${chinesePagoda}, radial-gradient(circle at 18% 28%, rgba(255,222,0,.36) 0% 13%, transparent 13%), linear-gradient(180deg, rgba(196,17,27,.2) 0% 100%)`,
+    // Korea — Taegeukgi only
+    korean:     flagOnly("radial-gradient(circle at 50% 50%, rgba(0,56,184,.2) 0% 20%, rgba(196,17,27,.2) 20% 33%, transparent 33%)"),
+    // Israel — blue bands only
+    hebrew:     flagOnly("linear-gradient(0deg, rgba(0,56,184,.24) 0% 18%, transparent 18% 30%, rgba(0,56,184,.13) 30% 70%, transparent 70% 82%, rgba(0,56,184,.24) 82% 100%)"),
+    // England — St George's cross only
+    english:    flagOnly("linear-gradient(0deg, transparent 43%, rgba(207,20,43,.22) 43% 57%, transparent 57%), linear-gradient(90deg, transparent 43%, rgba(207,20,43,.22) 43% 57%, transparent 57%)"),
+  };
+})();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
