@@ -85,6 +85,7 @@ export interface StudentSnapshotContext {
   lastSession?: {
     topic: string;
     daysAgo: number;
+    minutesAgo: number; // precise elapsed time — use for sub-day granularity
     summary?: string;
   };
   syllabusPosition?: {
@@ -161,11 +162,17 @@ export function buildStudentSnapshotSection(
     lines.push('');
   }
   
-  // Last session
+  // Last session — use minutesAgo for precise elapsed-time text
   if (snapshot.lastSession) {
-    const daysText = snapshot.lastSession.daysAgo === 0 ? 'earlier today' :
-                     snapshot.lastSession.daysAgo === 1 ? 'yesterday' :
-                     `${snapshot.lastSession.daysAgo} days ago`;
+    const m = snapshot.lastSession.minutesAgo ?? (snapshot.lastSession.daysAgo * 24 * 60);
+    const daysText =
+      m < 2    ? 'just moments ago' :
+      m < 10   ? 'a few minutes ago' :
+      m < 60   ? `${m} minutes ago` :
+      m < 120  ? 'about an hour ago' :
+      m < 1440 ? `${Math.round(m / 60)} hours ago` :
+      m < 2880 ? 'yesterday' :
+      `${Math.floor(m / 1440)} days ago`;
     lines.push(`LAST SESSION: "${snapshot.lastSession.topic}" (${daysText})`);
     if (snapshot.lastSession.summary) {
       lines.push(`  ${snapshot.lastSession.summary}`);
@@ -272,6 +279,8 @@ export async function getStudentSnapshotData(
       startedAt: voiceSessions.startedAt,
       topic: sql<string>`COALESCE(${conversations.topic}, 'Practice session')`,
       title: conversations.title,
+      // Use lastMessageAt (most recent activity) — falls back to startedAt if null
+      lastActiveAt: sql<Date>`COALESCE(${conversations.lastMessageAt}, ${conversations.createdAt}, ${voiceSessions.startedAt})`,
     })
       .from(voiceSessions)
       .leftJoin(conversations, eq(voiceSessions.conversationId, conversations.id))
@@ -286,10 +295,14 @@ export async function getStudentSnapshotData(
     
     if (recentSessions.length > 0) {
       const lastSession = recentSessions[0];
-      const daysAgo = Math.floor((Date.now() - new Date(lastSession.startedAt).getTime()) / (1000 * 60 * 60 * 24));
+      // Use lastActiveAt (most recent message time) for accurate elapsed-time reporting
+      const referenceTime = lastSession.lastActiveAt ?? lastSession.startedAt;
+      const minutesAgo = Math.round((Date.now() - new Date(referenceTime).getTime()) / (1000 * 60));
+      const daysAgo = Math.floor(minutesAgo / (60 * 24));
       snapshot.lastSession = {
         topic: lastSession.topic || lastSession.title || 'Practice session',
         daysAgo,
+        minutesAgo,
       };
     }
     

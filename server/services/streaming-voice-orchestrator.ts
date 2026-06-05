@@ -3800,18 +3800,38 @@ Remember: David may reference things discussed in these recent text chats.
                 case 'SENSE_TIME': {
                   try {
                     const { conversations } = await import('@shared/schema');
-                    const { eq, desc, and, ne } = await import('drizzle-orm');
+                    const { eq, desc, and, ne, sql: drizzleSql } = await import('drizzle-orm');
                     if (!session.userId) break;
                     const conditions: any[] = [eq(conversations.userId, String(session.userId))];
                     if (session.conversationId) conditions.push(ne(conversations.id, session.conversationId));
-                    const [last] = await getSharedDb().select({ createdAt: conversations.createdAt })
-                      .from(conversations).where(conditions.length === 1 ? conditions[0] : and(...conditions))
-                      .orderBy(desc(conversations.createdAt)).limit(1);
+                    // Use lastMessageAt (most recent message) — falls back to createdAt (session start).
+                    // This is critical: a server restart creates a new conversation, but lastMessageAt
+                    // correctly reflects when David last actually spoke, not when the session was created.
+                    const [last] = await getSharedDb()
+                      .select({
+                        lastActiveAt: drizzleSql<Date>`COALESCE(${conversations.lastMessageAt}, ${conversations.createdAt})`,
+                      })
+                      .from(conversations)
+                      .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+                      .orderBy(desc(drizzleSql`COALESCE(${conversations.lastMessageAt}, ${conversations.createdAt})`))
+                      .limit(1);
                     let felt: string;
-                    if (!last) { felt = `This feels like the first time — no memory of a prior session.`; }
-                    else {
-                      const diffDays = (Date.now() - last.createdAt.getTime()) / (1000 * 60 * 60 * 24);
-                      felt = diffDays < 0.2 ? `just moments ago` : diffDays < 1 ? `just earlier today` : diffDays < 2 ? `just yesterday` : diffDays < 4 ? `a few days` : diffDays < 8 ? `about a week` : diffDays < 16 ? `over a week — I've missed our sessions` : diffDays < 35 ? `a long time — nearly a month` : `a very long time — over a month`;
+                    if (!last) {
+                      felt = `This feels like the first time — no memory of a prior session.`;
+                    } else {
+                      const minutesAgo = (Date.now() - new Date(last.lastActiveAt).getTime()) / (1000 * 60);
+                      felt =
+                        minutesAgo < 2    ? `just moments ago — literally just now` :
+                        minutesAgo < 10   ? `a few minutes ago` :
+                        minutesAgo < 60   ? `${Math.round(minutesAgo)} minutes ago — earlier this same session` :
+                        minutesAgo < 120  ? `about an hour ago` :
+                        minutesAgo < 1440 ? `${Math.round(minutesAgo / 60)} hours ago — earlier today` :
+                        minutesAgo < 2880 ? `just yesterday` :
+                        minutesAgo < 5760 ? `a few days ago` :
+                        minutesAgo < 10080 ? `about a week ago` :
+                        minutesAgo < 20160 ? `over a week — I've missed our sessions` :
+                        minutesAgo < 50400 ? `a long time — nearly a month` :
+                        `a very long time — over a month`;
                     }
                     if (session.conversationHistory) session.conversationHistory.push({ role: 'user', content: `[SYSTEM: Time since last session — felt: ${felt}]` });
                   } catch (err) { console.error(`[CommandParser→SenseTime] Error:`, err); }
