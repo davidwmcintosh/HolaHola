@@ -146,15 +146,24 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
                 backgroundRepeat: FLAG_BG[normalized] ? "no-repeat" : undefined,
               }}
             >
-              {/* Japanese bonsai PNG overlay */}
+              {/* Japanese bonsai PNG overlay — right side + mirrored left side */}
               {normalized === 'japanese' && (
-                <img
-                  src={bonsaiJapanImg}
-                  aria-hidden
-                  draggable={false}
-                  className="absolute inset-0 w-full h-full object-contain object-right-bottom pointer-events-none select-none"
-                  style={{ opacity: 0.13 }}
-                />
+                <>
+                  <img
+                    src={bonsaiJapanImg}
+                    aria-hidden
+                    draggable={false}
+                    className="absolute inset-0 w-full h-full object-contain object-right-bottom pointer-events-none select-none"
+                    style={{ opacity: 0.13 }}
+                  />
+                  <img
+                    src={bonsaiJapanImg}
+                    aria-hidden
+                    draggable={false}
+                    className="absolute inset-0 w-full h-full object-contain object-left-bottom pointer-events-none select-none"
+                    style={{ opacity: 0.13, transform: 'scaleX(-1)' }}
+                  />
+                </>
               )}
               {/* Accent-coloured circle behind the tutor */}
               <div
