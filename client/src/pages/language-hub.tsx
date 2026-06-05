@@ -31,7 +31,7 @@ const FLAG_BG: Record<string, string> = {
   mandarin:   "linear-gradient(180deg, rgba(196,17,27,.07) 0% 100%)",
   korean:     "radial-gradient(circle at 50% 50%, rgba(0,56,184,.07) 0% 18%, rgba(196,17,27,.07) 18% 30%, transparent 30%)",
   hebrew:     "linear-gradient(0deg, rgba(0,56,184,.07) 0% 16%, transparent 16% 28%, rgba(0,56,184,.05) 28% 72%, transparent 72% 84%, rgba(0,56,184,.07) 84% 100%)",
-  english:    "linear-gradient(0deg, transparent 42%, rgba(207,20,43,.07) 42% 58%, transparent 58%), linear-gradient(90deg, transparent 42%, rgba(207,20,43,.07) 42% 58%, transparent 58%)",
+  english:    "linear-gradient(90deg, rgba(0,40,104,.08) 0% 38%, transparent 38% 100%), repeating-linear-gradient(0deg, rgba(178,34,52,.07) 0px, rgba(178,34,52,.07) 14px, transparent 14px, transparent 28px)",
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -104,8 +104,9 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
                 style={{
                   width: "178px",
                   height: "178px",
-                  backgroundColor: accentColor + "38",
+                  backgroundColor: "#ffffff",
                   border: `3px solid ${accentColor}`,
+                  boxShadow: "0 4px 14px rgba(0,0,0,0.13), 0 1px 4px rgba(0,0,0,0.08)",
                   top: "50%",
                   left: "50%",
                   transform: "translate(-50%, -50%)",
