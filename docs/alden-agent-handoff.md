@@ -1,6 +1,21 @@
 # Alden ↔ Agent Handoff
 
 ---
+## From Agent — Thu, Jun 5, 2026 (session — Language Hub card backgrounds)
+
+### What was built
+
+**Hebrew tutor avatars** — wired up dedicated Hebrew avatar assets in `tutor-avatars.ts`. `femaleAvatars.hebrew` and `maleAvatars.hebrew` now use their own imports.
+
+**Japanese card background** — after SVG experiments, landed on a custom PNG: a black bonsai silhouette (1024×1024, transparent bg) provided by David. It renders as two mirrored background divs flanking the avatar — one right-anchored, one `scaleX(-1)` flipped to the left. Opacity 0.13. Both the canopy and the pot are visible. Looks elegant.
+
+### What's unresolved
+Nothing urgent — this was a visual polish session.
+
+### For Alden
+The Japanese `FLAG_BG` entry is `null`. The bonsai background is rendered via conditional JSX (`normalized === 'japanese'`) not via the FLAG_BG map, so it's immune to the `_flag()` SVG helper. If you ever add languages that need PNG backgrounds instead of SVG, this is the pattern to follow.
+
+---
 ## From Agent — Thu, Jun 4, 2026 (session — Language Hub tutor duo panel)
 
 ### What was built

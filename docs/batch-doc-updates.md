@@ -754,3 +754,33 @@ Three targeted fixes to reduce the Anthropic bill based on a 5-week burn analysi
 - `server/services/native-fc-handlers.ts` — Lyra dedup cache
 - `server/services/alden-workspace-context.ts` — replit.md + insights cap
 - `server/services/alden-persona-service.ts` — history window
+
+---
+
+## Session — Jun 5, 2026 (Language Hub card backgrounds — Hebrew avatars + Japanese bonsai)
+
+### What was built
+
+**1. Hebrew tutor avatars** (`client/src/lib/tutor-avatars.ts`)
+Wired up 6 dedicated Hebrew avatar imports. `femaleAvatars.hebrew` and `maleAvatars.hebrew` now use proper Hebrew-specific asset files instead of falling through to a default.
+
+**2. Japanese card background — bonsai PNG**  (`client/src/pages/language-hub.tsx`)
+
+After several SVG iterations (flag circles, SVG bonsai, map silhouette), landed on a custom PNG provided by David: a 1024×1024 black bonsai silhouette with transparent background, composed with the tree in the right half of the frame.
+
+Implementation:
+- Imported as `bonsaiJapanImg` via `@assets/bonsai_no_background_1780632791121.png`
+- Renders as **two absolutely-positioned background divs** inside the portrait container (which is `relative overflow-hidden`)
+- Right tree: `backgroundPosition: 'right bottom'`, `backgroundSize: 'auto 95%'`, `opacity: 0.13`
+- Left tree (mirrored): identical styles + `transform: 'scaleX(-1)'` — flipping the div flips the background-position visually, so both use `right bottom` in CSS but one renders left
+- Both render only when `normalized === 'japanese'`
+- The Japanese entry in `FLAG_BG` is `null` (no SVG background-image override)
+
+The bonsai image is off-center in the source (tree in right half, transparent left half), which means at `backgroundSize: 'auto 95%'` + `right bottom`, the tree sits near the card edge rather than center — ideal for flanking the avatar.
+
+### Key files modified
+- `client/src/lib/tutor-avatars.ts` — Hebrew avatar imports + maps
+- `client/src/pages/language-hub.tsx` — `FLAG_BG` japanese null, bonsai PNG overlay, import
+
+### Assets added
+- `attached_assets/bonsai_no_background_1780632791121.png` — the bonsai silhouette (1024×1024, transparent bg)
