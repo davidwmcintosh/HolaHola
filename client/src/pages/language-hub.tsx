@@ -21,7 +21,7 @@ import type { Scenario } from "@shared/schema";
 
 // ─── SVG flag backgrounds (ghost opacity — recognisable shapes) ───────────────
 function _flag(svg: string): string {
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}") no-repeat center / cover`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 function _starPts(cx: number, cy: number, r: number): string {
   const ri = r * 0.4;
@@ -140,6 +140,9 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
               style={{
                 height: "200px",
                 backgroundImage: FLAG_BG[normalized] ?? undefined,
+                backgroundSize: FLAG_BG[normalized] ? "cover" : undefined,
+                backgroundPosition: FLAG_BG[normalized] ? "center" : undefined,
+                backgroundRepeat: FLAG_BG[normalized] ? "no-repeat" : undefined,
               }}
             >
               {/* Accent-coloured circle behind the tutor */}
