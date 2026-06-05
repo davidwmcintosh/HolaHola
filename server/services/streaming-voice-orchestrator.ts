@@ -8208,7 +8208,53 @@ Remember: David may reference things discussed in these recent text chats.
     session.checkpointedUserMessageId = undefined;
     session.checkpointedUserTranscript = undefined;
   }
-  
+
+  /**
+   * Remove consecutive duplicate sentences from a text string.
+   * Handles the case where Gemini Live re-emits the same sentence twice in a row
+   * (e.g. after a micro-reconnect or tool-call text being echoed again in the turn text).
+   * Example: "Hello!Hello!" → "Hello!"
+   *          "Of course! What's on your mind? We can practice.Of course! What's on your mind? We can practice." → deduplicated
+   */
+  private deduplicateConsecutiveSentences(text: string): string {
+    if (!text || text.length < 10) return text;
+    
+    // Try to split on sentence boundaries (. ! ?) followed by space OR capital letter
+    const sentenceRegex = /([^.!?]+[.!?]+)/g;
+    const sentences = text.match(sentenceRegex);
+    if (!sentences || sentences.length < 2) {
+      // No clear sentence boundaries — fall back to detecting half-string repetition
+      const half = Math.floor(text.length / 2);
+      if (text.length % 2 === 0 || text.length % 2 === 1) {
+        const firstHalf = text.substring(0, half);
+        const secondHalf = text.substring(half).trimStart();
+        // Allow 1-char tolerance for punctuation spacing
+        if (secondHalf.startsWith(firstHalf.trim().substring(0, 20))) {
+          console.log(`[PersistMessages] Detected half-string repetition — deduplicating`);
+          return firstHalf.trim();
+        }
+      }
+      return text;
+    }
+    
+    const deduped: string[] = [];
+    for (let i = 0; i < sentences.length; i++) {
+      const current = sentences[i].trim();
+      const prev = deduped.length > 0 ? deduped[deduped.length - 1].trim() : null;
+      if (prev && current === prev) {
+        console.log(`[PersistMessages] Duplicate sentence removed: "${current.substring(0, 60)}..."`);
+        continue;
+      }
+      deduped.push(sentences[i]);
+    }
+    
+    // If we removed anything, rejoin; otherwise return original (preserves formatting)
+    if (deduped.length < sentences.length) {
+      return deduped.join('').trim();
+    }
+    return text;
+  }
+
   /**
    * Persist user and AI messages to database
    */
@@ -8298,6 +8344,10 @@ Remember: David may reference things discussed in these recent text chats.
         console.log(`[Persist] Skipping empty AI response (function-call-only turn)`);
         return;
       }
+      
+      // Deduplicate consecutive repeated sentences before saving
+      // (guards against Gemini Live re-emitting the same sentence twice after a micro-reconnect)
+      aiResponse = this.deduplicateConsecutiveSentences(aiResponse);
       
       // DB-LEVEL DEDUP for AI responses: Check if this exact response was already saved recently
       try {

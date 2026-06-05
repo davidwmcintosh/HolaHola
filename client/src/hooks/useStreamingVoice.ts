@@ -1714,6 +1714,27 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
             setGlobalPlaybackState('idle');
           }, 8000);
         }
+        
+        // Animation desync fix: if WS drops while audio is actively playing/buffering,
+        // the avatar can get stuck showing the "speaking/hand-up" state because no more
+        // audio chunks will arrive but the player state stays non-idle.
+        // Schedule a fast check: if the player hasn't naturally drained within 4s of the
+        // WS drop, force-clear the playback state so the avatar returns to idle.
+        if ((state === 'reconnecting' || state === 'disconnected') &&
+            (getGlobalPlaybackState() === 'playing' || getGlobalPlaybackState() === 'buffering')) {
+          const thisTurn = turnCounterRef.current;
+          const capturedPlaybackStateAtDrop = getGlobalPlaybackState();
+          console.log(`[StreamingVoice] WS dropped during active audio (${capturedPlaybackStateAtDrop}) — scheduling 4s avatar-desync guard`);
+          setTimeout(() => {
+            if (turnCounterRef.current !== thisTurn) return;
+            const currentPlayback = getGlobalPlaybackState();
+            if (currentPlayback === 'playing' || currentPlayback === 'buffering') {
+              console.log(`[StreamingVoice] Avatar-desync guard: playback still ${currentPlayback} 4s after WS drop — forcing idle to restore avatar`);
+              setGlobalPlaybackState('idle');
+              playerRef.current?.stop?.();
+            }
+          }, 4000);
+        }
       });
       clientRef.current.on('processing', handleProcessing);
       clientRef.current.on('processing_pending', handleProcessingPending);  // Immediate thinking signal

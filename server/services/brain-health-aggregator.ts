@@ -133,6 +133,30 @@ export async function runBrainHealthCheck(): Promise<BrainHealthReport> {
     }
     
     console.log('[BrainHealthAggregator] All assessment failures were Neon connection timeouts (system idle) — overriding to GREEN');
+  } else {
+    // Per-dimension Neon override: even if not ALL failures are Neon errors, any individual
+    // dimension that failed ONLY due to a Neon connection timeout should be overridden to green.
+    // This prevents false yellow/red for a single dimension (e.g. Neural Retrieval) timing out
+    // while the database was temporarily cold, when everything else is healthy.
+    for (const dim of failedDimensions) {
+      const isOnlyNeonError = dim.reasons.every(reason =>
+        !reason.includes('Assessment error:') ||
+        reason.includes('WebSocket was closed') ||
+        reason.includes('timeout exceeded') ||
+        reason.includes('connection timeout')
+      ) && dim.reasons.some(reason =>
+        reason.includes('Assessment error:') &&
+        (reason.includes('WebSocket was closed') ||
+         reason.includes('timeout exceeded') ||
+         reason.includes('connection timeout'))
+      );
+      if (isOnlyNeonError) {
+        console.log(`[BrainHealthAggregator] ${dim.name} failed only due to Neon connection timeout — overriding to GREEN`);
+        dim.status = 'green';
+        dim.score = 100;
+        dim.reasons = ['Database connection pool temporarily cold — healthy'];
+      }
+    }
   }
 
   const weights: Record<string, number> = {

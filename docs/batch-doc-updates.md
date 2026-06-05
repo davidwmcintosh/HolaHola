@@ -8,6 +8,35 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jun 5, 2026 (June 4 session bug fixes — 4 code fixes)
+
+### What was built
+
+Five issues from David's June 4 Spanish/Daniela session (report `79655e97`, conversation `ad842319`, 423 messages) were triaged and four received code fixes. Report marked resolved.
+
+**1. `phase_shift` tool crash** — `server/services/native-fc-handlers.ts`
+Every `phase_shift` call through the native FC handler was crashing with "this.processPhaseShift(...) is not a function". Root cause: a trailing `()` on the call site was attempting to invoke the returned `Promise<void>` as a second function call. One character removed — the crash is gone.
+
+**2. Neural Retrieval false health degradation** — `server/services/brain-health-aggregator.ts`
+Health check was showing green→yellow transitions when the Neon DB connection pool went cold mid-session. The existing "all failures are Neon errors → override to green" check required ALL dimensions to fail with Neon errors. Added a per-dimension override in the `else` branch so any single dimension that fails only due to a Neon connection timeout is individually overridden to green. Stops false health alerts from transient DB cold-start.
+
+**3. Double echo / sentence repetition** — `server/services/streaming-voice-orchestrator.ts`
+Daniela was occasionally saying the same sentence twice in a row (e.g. "Of course! What's on your mind? We can practice.Of course! What's on your mind? We can practice."). Root cause: Gemini Live can re-emit text during a micro-reconnect or when function-call embedded text is echoed in the continuation turn. Added `deduplicateConsecutiveSentences()` method, called inside `persistMessages()` before saving the AI response to DB. Uses sentence-boundary regex to detect and remove adjacent duplicate sentences.
+
+**4. Avatar hand animation desync** — `client/src/hooks/useStreamingVoice.ts`
+After a connection drop mid-audio, the tutor avatar would stay in the "speaking/hand-raised" state for 20-45s (until failsafe timers fired). David observed this live. Root cause: `globalPlaybackState` was stuck at `playing`/`buffering` because no more audio chunks would arrive from the dead socket but the player wasn't informed to drain. Added a 4-second guard: when WS transitions to disconnected/reconnecting during active audio, schedule a check — if the player hasn't naturally transitioned to idle within 4s, force-clear `globalPlaybackState` and stop the player. Avatar returns to idle within seconds instead of 45s.
+
+**5. Multiple `no_audio` failsafe events** — no code change
+Five `failsafe_tier2_45s` events during the session. These are downstream symptoms of WS instability. The avatar desync fix above reduces the UX impact; the underlying WS reconnect lifecycle is a separate future investigation.
+
+### Key files
+- `server/services/native-fc-handlers.ts`
+- `server/services/brain-health-aggregator.ts`
+- `server/services/streaming-voice-orchestrator.ts`
+- `client/src/hooks/useStreamingVoice.ts`
+
+---
+
 ## Session — May 19, 2026 (session 51b — 4 infrastructure fixes)
 
 ### What was built

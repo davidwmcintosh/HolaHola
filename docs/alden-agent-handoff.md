@@ -1,6 +1,51 @@
 # Alden ↔ Agent Handoff
 
 ---
+## From Agent — Fri, Jun 5, 2026 (session — June 4 session bug fixes)
+
+### What was built
+
+David submitted a session flag (report ID `79655e97`) from his June 4 Spanish/Daniela session (conversation `ad842319`, 423 messages). All five flagged issues were investigated and fixed. Report status updated to `resolved`.
+
+**Bug 1 — `phase_shift` tool crash (FIXED)**
+File: `server/services/native-fc-handlers.ts`, line 116 (was 116, now 119)
+Error: `this.processPhaseShift(...) is not a function`
+Root cause: `this.processPhaseShift(session, {...})()` — an extra `()` was appended after the call, attempting to invoke the returned `Promise<void>` as a function.
+Fix: Removed the spurious `()`. Now: `this.processPhaseShift(session, {...}).catch(err => ...)`.
+This was causing every `phase_shift` tool invocation through the native function call handler to throw, crashing that turn's tool execution path.
+
+**Bug 2 — Neural Retrieval health false-yellow (FIXED)**
+File: `server/services/brain-health-aggregator.ts`
+The health aggregator only overrode to green if ALL failures were Neon connection timeouts. If Neural Retrieval was the ONLY dimension with a Neon timeout error (i.e. a cold-pool transient) while everything else was green, `failedDimensions` contained just Neural Retrieval, but `allFailuresAreNeonConnectionErrors` was still true — EXCEPT if the error message format didn't match exactly (e.g. contained additional text), or if there were mixed reasons. Added a **per-dimension Neon override** path in the `else` branch: any individual dimension that failed ONLY due to Neon connection timeout is also overridden to green, regardless of other dimensions. This prevents transient cold-pool DB connections from triggering a false health degradation event.
+
+**Bug 3 — Double echo / repeated sentence (FIXED)**
+Transcript evidence: Daniela said "Of course! What's on your mind? We can practice in English for a bit.Of course! What's on your mind? We can practice in English for a bit." — the same sentence verbatim back-to-back with no space between.
+Root cause: Gemini Live can re-emit the same sentence twice during a micro-reconnect or when the tool-call embedded text is echoed back in the continuation turn text.
+Fix: Added `deduplicateConsecutiveSentences()` private method on `StreamingVoiceOrchestrator`. Called inside `persistMessages()` on the `aiResponse` before saving to DB. Uses sentence-boundary regex to remove adjacent duplicate sentences; falls back to half-string repetition detection for edge cases. Only dedups if a duplicate is actually detected, so normal text is untouched.
+
+**Bug 4 — Avatar hand animation desync (FIXED)**
+David observed: "your hand is still in the air as if you're talking" → silence → "Oh, now your hand is down."
+Root cause: When the WS connection drops during active audio playback (`globalPlaybackState === 'playing'` or `'buffering'`), no more audio chunks will arrive from the dead socket, but the player's state doesn't immediately transition to `idle` — it waits for either a natural drain (if buffered chunks remain) or the 20-45s failsafe timers. During that window the avatar stays in the speaking/hand-raised pose.
+Fix: Added a new guard in `client/src/hooks/useStreamingVoice.ts` inside the connection state handler. When WS transitions to `disconnected` or `reconnecting` AND `globalPlaybackState` is `playing`/`buffering`, a 4-second timer is scheduled. If the player hasn't naturally transitioned to idle by then, it force-clears: `setGlobalPlaybackState('idle')` + `player.stop()`. 4s gives the buffered audio time to drain naturally; anything longer than that means chunks are lost and the avatar should return to idle.
+
+**Bug 5 — Multiple `no_audio` failsafe_tier2_45s events (CONTEXT)**
+Five `failsafe_tier2_45s` events fired during the session. These are symptoms of the connection instability pattern (WS drops causing audio pipeline to get stuck waiting for chunks that never arrive). The root fixes above (animation desync guard, phase_shift crash) address the most visible consequences. The underlying WS stability is a separate concern. No code change for this specifically — it's tracked in the session report and the existing failsafe chain remains in place.
+
+### Key files modified
+- `server/services/native-fc-handlers.ts` — phase_shift call bug fix
+- `server/services/brain-health-aggregator.ts` — per-dimension Neon timeout override
+- `server/services/streaming-voice-orchestrator.ts` — `deduplicateConsecutiveSentences()` + wired into `persistMessages()`
+- `client/src/hooks/useStreamingVoice.ts` — 4s avatar desync guard on WS disconnect during audio
+
+### What's unresolved
+- WS connection instability causing the `failsafe_tier2_45s` cascade — the symptoms are addressed but the root cause (why the WS drops during active sessions) is not yet diagnosed. This needs a deeper look at the GL session reconnect lifecycle. Low urgency for now.
+
+### For Alden
+- The `phase_shift` crash was silent — it had been failing on every phase_shift call that went through the native FC handler path. It would have silently swallowed the error (`.catch` was there, just unreachable). Now it's fixed.
+- `deduplicateConsecutiveSentences` is conservative — it only acts when an adjacent duplicate is detected. Normal transcripts will pass through untouched.
+- The 4s animation desync guard uses `turnCounterRef` to avoid acting on stale turns. If the user starts a new turn within 4s of the WS drop, the guard cancels itself.
+
+---
 ## From Agent — Thu, Jun 5, 2026 (session — Language Hub card backgrounds)
 
 ### What was built

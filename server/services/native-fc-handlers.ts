@@ -113,7 +113,7 @@ export class NativeFunctionCallHandler {
           this.processPhaseShift(session, { 
             to: to as 'warmup' | 'active_teaching' | 'challenge' | 'reflection' | 'drill' | 'assessment', 
             reason 
-          })().catch(err => console.error(`[Native Function→PhaseShift] Error:`, err));
+          }).catch(err => console.error(`[Native Function→PhaseShift] Error:`, err));
           console.log(`[Native Function→PhaseShift] Triggered: ${to} - ${reason}`);
         }
         if (text && !session.functionCallText) {
