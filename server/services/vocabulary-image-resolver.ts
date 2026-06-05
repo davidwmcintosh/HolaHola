@@ -186,7 +186,7 @@ const ALL_ARTICLES = new Set([...SPANISH_ARTICLES, ...FRENCH_ARTICLES]);
 // Kept here (rather than imported) to avoid a circular import — the resolver
 // already uses a dynamic import for SCENE_OVERRIDES from the seed service.
 export const LANGUAGE_CHARACTER_INTROS: Record<string, string> = {
-  spanish:    'Daniela, a 28-year-old Latina woman with a short wavy dark-brown bob (chin-length), warm medium-brown skin, and bright brown eyes, wearing a sky-blue short-sleeve collared button-up shirt and dark jeans,',
+  spanish:    'Daniela, a 28-year-old Latina woman with long wavy dark-brown hair, warm medium-brown skin, and bright brown eyes, wearing a sky-blue short-sleeve collared button-up shirt and dark jeans,',
   french:     'Sophie, a 27-year-old French woman with chin-length auburn hair, fair skin, and green eyes, wearing a striped navy-and-white Breton top and light trousers,',
   german:     'Anna, a 26-year-old German woman with straight blonde hair in a ponytail, fair skin, and blue-grey eyes, wearing a forest-green pullover and grey slim-fit trousers,',
   italian:    'Giulia, a 25-year-old Italian woman with long straight dark-brown hair, warm olive skin, and dark-brown eyes, wearing a terracotta linen blouse and white wide-leg trousers,',
