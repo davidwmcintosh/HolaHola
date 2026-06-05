@@ -19,6 +19,20 @@ import {
 import type { TutorGender } from "@/lib/tutor-avatars";
 import type { Scenario } from "@shared/schema";
 
+// ─── Flag background gradients (very low opacity — ghost texture only) ────────
+const FLAG_BG: Record<string, string> = {
+  spanish:    "linear-gradient(0deg, rgba(170,21,27,.07) 0% 25%, rgba(241,191,0,.06) 25% 75%, rgba(170,21,27,.07) 75% 100%)",
+  french:     "linear-gradient(90deg, rgba(0,35,149,.07) 0% 33%, rgba(240,240,240,.04) 33% 67%, rgba(239,65,53,.07) 67% 100%)",
+  german:     "linear-gradient(0deg, rgba(255,206,0,.07) 0% 33%, rgba(221,0,0,.06) 33% 67%, rgba(20,20,20,.05) 67% 100%)",
+  italian:    "linear-gradient(90deg, rgba(0,140,69,.07) 0% 33%, rgba(240,240,240,.04) 33% 67%, rgba(205,33,42,.07) 67% 100%)",
+  portuguese: "linear-gradient(90deg, rgba(0,102,0,.07) 0% 40%, rgba(204,0,0,.06) 40% 100%)",
+  japanese:   "radial-gradient(circle at 50% 50%, rgba(188,0,45,.08) 0% 28%, transparent 28%)",
+  chinese:    "linear-gradient(180deg, rgba(196,17,27,.07) 0% 100%)",
+  mandarin:   "linear-gradient(180deg, rgba(196,17,27,.07) 0% 100%)",
+  korean:     "radial-gradient(circle at 50% 50%, rgba(0,56,184,.07) 0% 18%, rgba(196,17,27,.07) 18% 30%, transparent 30%)",
+  hebrew:     "linear-gradient(0deg, rgba(0,56,184,.07) 0% 16%, transparent 16% 28%, rgba(0,56,184,.05) 28% 72%, transparent 72% 84%, rgba(0,56,184,.07) 84% 100%)",
+  english:    "linear-gradient(0deg, transparent 42%, rgba(207,20,43,.07) 42% 58%, transparent 58%), linear-gradient(90deg, transparent 42%, rgba(207,20,43,.07) 42% 58%, transparent 58%)",
+};
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -76,10 +90,13 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
             className="rounded-lg overflow-hidden border bg-card flex flex-col"
             data-testid={`card-tutor-${normalized}-${gender}`}
           >
-            {/* Portrait area — neutral bg + solid accent circle + avatar */}
+            {/* Portrait area — ghost flag bg + accent circle + avatar */}
             <div
               className="relative flex items-end justify-center overflow-hidden bg-muted/40"
-              style={{ height: "200px" }}
+              style={{
+                height: "200px",
+                backgroundImage: FLAG_BG[normalized] ?? undefined,
+              }}
             >
               {/* Accent-coloured circle behind the tutor */}
               <div
