@@ -52,27 +52,27 @@ const LANGUAGE_CARD_BG: Record<string, string> = (() => {
   const flagOnly = (css: string) => css;
 
   return {
-    // Spain — flag stripes + radiating sun (pilot)
-    spanish:    `${spanishSun}, linear-gradient(0deg, rgba(170,21,27,.22) 0% 25%, rgba(241,191,0,.2) 25% 75%, rgba(170,21,27,.22) 75% 100%)`,
-    // France — flag stripes + Eiffel Tower (pilot)
-    french:     `${eiffelTower}, linear-gradient(90deg, rgba(0,35,149,.2) 0% 33%, transparent 33% 67%, rgba(239,65,53,.2) 67% 100%)`,
-    // Germany — flag stripes only
-    german:     flagOnly("linear-gradient(0deg, rgba(255,206,0,.22) 0% 33%, rgba(221,0,0,.18) 33% 67%, rgba(20,20,20,.13) 67% 100%)"),
-    // Italy — flag stripes only
-    italian:    flagOnly("linear-gradient(90deg, rgba(0,140,69,.2) 0% 33%, transparent 33% 67%, rgba(205,33,42,.2) 67% 100%)"),
-    // Portugal — flag stripes only
-    portuguese: flagOnly("linear-gradient(90deg, rgba(0,102,0,.2) 0% 40%, rgba(204,0,0,.18) 40% 100%)"),
-    // Japan — Hinomaru disc + Mount Fuji silhouette (pilot)
-    japanese:   `${mountFuji}, radial-gradient(circle at 50% 50%, rgba(188,0,45,.24) 0% 30%, transparent 30%)`,
-    // China — red field + small gold star (fixed 20px radius) + pagoda (pilot)
-    chinese:    `${chinesePagoda}, radial-gradient(circle 20px at 18% 28%, rgba(255,222,0,.38) 0%, rgba(255,222,0,.38) 80%, transparent 100%), linear-gradient(180deg, rgba(196,17,27,.2) 0% 100%)`,
-    mandarin:   `${chinesePagoda}, radial-gradient(circle 20px at 18% 28%, rgba(255,222,0,.38) 0%, rgba(255,222,0,.38) 80%, transparent 100%), linear-gradient(180deg, rgba(196,17,27,.2) 0% 100%)`,
-    // Korea — Taegeukgi only
-    korean:     flagOnly("radial-gradient(circle at 50% 50%, rgba(0,56,184,.2) 0% 20%, rgba(196,17,27,.2) 20% 33%, transparent 33%)"),
-    // Israel — blue bands only
-    hebrew:     flagOnly("linear-gradient(0deg, rgba(0,56,184,.24) 0% 18%, transparent 18% 30%, rgba(0,56,184,.13) 30% 70%, transparent 70% 82%, rgba(0,56,184,.24) 82% 100%)"),
-    // England — St George's cross only
-    english:    flagOnly("linear-gradient(0deg, transparent 43%, rgba(207,20,43,.22) 43% 57%, transparent 57%), linear-gradient(90deg, transparent 43%, rgba(207,20,43,.22) 43% 57%, transparent 57%)"),
+    // Spain — flag stripes (low opacity) + radiating sun (pilot)
+    spanish:    `${spanishSun}, linear-gradient(0deg, rgba(170,21,27,.09) 0% 25%, rgba(241,191,0,.08) 25% 75%, rgba(170,21,27,.09) 75% 100%)`,
+    // France — flag stripes (low opacity) + Eiffel Tower (pilot)
+    french:     `${eiffelTower}, linear-gradient(90deg, rgba(0,35,149,.09) 0% 33%, transparent 33% 67%, rgba(239,65,53,.09) 67% 100%)`,
+    // Germany — flag stripes (low opacity)
+    german:     flagOnly("linear-gradient(0deg, rgba(255,206,0,.09) 0% 33%, rgba(221,0,0,.08) 33% 67%, rgba(20,20,20,.06) 67% 100%)"),
+    // Italy — flag stripes (low opacity)
+    italian:    flagOnly("linear-gradient(90deg, rgba(0,140,69,.09) 0% 33%, transparent 33% 67%, rgba(205,33,42,.09) 67% 100%)"),
+    // Portugal — flag stripes (low opacity)
+    portuguese: flagOnly("linear-gradient(90deg, rgba(0,102,0,.09) 0% 40%, rgba(204,0,0,.08) 40% 100%)"),
+    // Japan — Hinomaru disc (low opacity) + Mount Fuji silhouette (pilot)
+    japanese:   `${mountFuji}, radial-gradient(circle at 50% 50%, rgba(188,0,45,.1) 0% 30%, transparent 30%)`,
+    // China — red field (low opacity) + small gold star + pagoda (pilot)
+    chinese:    `${chinesePagoda}, radial-gradient(circle 20px at 18% 28%, rgba(255,222,0,.32) 0%, rgba(255,222,0,.32) 80%, transparent 100%), linear-gradient(180deg, rgba(196,17,27,.08) 0% 100%)`,
+    mandarin:   `${chinesePagoda}, radial-gradient(circle 20px at 18% 28%, rgba(255,222,0,.32) 0%, rgba(255,222,0,.32) 80%, transparent 100%), linear-gradient(180deg, rgba(196,17,27,.08) 0% 100%)`,
+    // Korea — Taegeukgi (low opacity)
+    korean:     flagOnly("radial-gradient(circle at 50% 50%, rgba(0,56,184,.09) 0% 20%, rgba(196,17,27,.09) 20% 33%, transparent 33%)"),
+    // Israel — blue bands (low opacity)
+    hebrew:     flagOnly("linear-gradient(0deg, rgba(0,56,184,.09) 0% 18%, transparent 18% 30%, rgba(0,56,184,.06) 30% 70%, transparent 70% 82%, rgba(0,56,184,.09) 82% 100%)"),
+    // England — St George's cross (low opacity)
+    english:    flagOnly("linear-gradient(0deg, transparent 43%, rgba(207,20,43,.09) 43% 57%, transparent 57%), linear-gradient(90deg, transparent 43%, rgba(207,20,43,.09) 43% 57%, transparent 57%)"),
   };
 })();
 
@@ -113,7 +113,7 @@ interface TutorDuoPanelProps {
 function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
   const normalized = normalizeLanguage(language);
   const accentColor = languageAccentColors[normalized] ?? "#6366f1";
-  const accentBg = accentColor + "30"; // ~19% opacity tint
+  const accentBg = accentColor + "40"; // ~25% opacity tint
 
   const tutors: Array<{ gender: TutorGender }> = [
     { gender: "female" },
