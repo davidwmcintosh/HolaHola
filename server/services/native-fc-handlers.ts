@@ -1,5 +1,5 @@
 import { sql, eq, and, desc, ilike, or } from "drizzle-orm";
-import { tutorSessions, hiveSnapshots, conversationMemories } from "@shared/schema";
+import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems } from "@shared/schema";
 import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
 import { getCharacter } from "./character-registry";
@@ -2175,6 +2175,31 @@ export class NativeFunctionCallHandler {
           });
           console.log(`[Native Function→WriteToSelf] ✓ Saved`);
         })().catch(err => console.error(`[Native Function→WriteToSelf] Error:`, err.message));
+        break;
+      }
+
+      case 'FLAG_FOR_PRACTICE': {
+        if (session.isIncognito) break;
+        const fpPrompt     = fn.args.prompt as string | undefined;
+        const fpTargetText = fn.args.targetText as string | undefined;
+        const fpContext    = fn.args.context as string | undefined;
+        const fpItemType   = (fn.args.itemType as string | undefined) ?? 'phrase';
+        if (!fpPrompt || !fpTargetText) break;
+        const fpUserId   = session.userId;
+        const fpLanguage = (session.targetLanguage || '').toLowerCase();
+        console.log(`[Native Function→FlagForPractice] Saving "${fpTargetText}" (${fpItemType}) for user=${fpUserId}`);
+        (async () => {
+          await storage.createReviewItems([{
+            userId: fpUserId,
+            language: fpLanguage,
+            prompt: fpPrompt,
+            targetText: fpTargetText,
+            context: fpContext ?? null,
+            itemType: fpItemType,
+            sourceConversationId: session.conversationId ?? null,
+          }]);
+          console.log(`[Native Function→FlagForPractice] ✓ Saved "${fpTargetText}" to practice rotation`);
+        })().catch(err => console.error(`[Native Function→FlagForPractice] Error:`, err.message));
         break;
       }
 

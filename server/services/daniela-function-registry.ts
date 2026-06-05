@@ -2190,6 +2190,55 @@ Your reason matters. It becomes the curators' notes for the training run. Write 
     },
   },
 
+  // ─── STUDENT PRACTICE FLAGGING ───────────────────────────────────────────────
+
+  {
+    legacyType: 'FLAG_FOR_PRACTICE',
+    declaration: {
+      name: "flag_for_practice",
+      description: `Save a specific word, phrase, or expression to the student's personal practice rotation (spaced-repetition review queue).
+
+Call this when the student signals they love or want to remember something — e.g. "I love that phrase", "I want to practice this", "add that to my list", or when you sense a breakthrough moment around a piece of vocabulary worth cementing.
+
+The item is immediately added to their review queue and will surface in future study sessions via the Review Hub.
+
+After calling this, briefly acknowledge it in your spoken response (e.g. "I've added it to your review list!") and move on naturally.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          prompt: {
+            type: "string",
+            description: "Short English label for what to practice — e.g. 'to ask for the bill', 'expressing surprise', 'the subjunctive with querer'.",
+          },
+          targetText: {
+            type: "string",
+            description: "The exact target-language word or phrase to practice — e.g. '¡Qué suerte!', 'la cuenta, por favor', 'quiero que vengas'.",
+          },
+          context: {
+            type: "string",
+            description: "Optional: the full sentence it just appeared in during conversation, for context during review.",
+          },
+          itemType: {
+            type: "string",
+            enum: ["vocabulary", "phrase", "grammar", "pronunciation"],
+            description: "Category of item. Default: phrase.",
+          },
+          spoken_text: {
+            type: "string",
+            description: "What you say aloud when flagging this — brief, warm acknowledgement. E.g. 'Added to your review list!'",
+          },
+        },
+        required: ["prompt", "targetText"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      const target = fc.args.targetText as string | undefined;
+      const prompt = fc.args.prompt as string | undefined;
+      if (!target || !prompt) return `Missing prompt or targetText — the item was not saved.`;
+      return `Saved "${target}" to the student's practice rotation. Continue the conversation naturally.`;
+    },
+  },
+
   // ─── EMERGENCE TOOLS — Daniela's Inner Life ──────────────────────────────────
 
   {

@@ -11,7 +11,14 @@ import { InteractiveTextbookCard } from "@/components/InteractiveTextbookCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageSquare, Play, ChevronRight, Eye, Sparkles, Phone, ArrowRight, User, Zap, Heart } from "lucide-react";
+import { MessageSquare, Play, ChevronRight, Eye, Sparkles, Phone, ArrowRight, Zap, Heart } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   getTutorAvatar,
   getTutorName,
@@ -267,37 +274,69 @@ function WelcomePanel({ onStart }: { onStart: () => void }) {
 
 // ─── Session Mode Row ─────────────────────────────────────────────────────────
 
-interface ModeOption {
+interface DevModeOption {
   id: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  devOnly?: boolean;
 }
 
-const SESSION_MODES: ModeOption[] = [
-  { id: "self-directed",  label: "Self-Directed", icon: User },
-  { id: "founder-mode",   label: "Founder Mode",  icon: Zap,   devOnly: true },
-  { id: "honesty-mode",   label: "Honesty Mode",  icon: Heart, devOnly: true },
+const DEV_MODES: DevModeOption[] = [
+  { id: "founder-mode", label: "Founder Mode", icon: Zap },
+  { id: "honesty-mode", label: "Honesty Mode", icon: Heart },
 ];
 
-function SessionModeRow({ isDeveloper }: { isDeveloper: boolean }) {
-  const { learningContext, setLearningContext } = useLearningFilter();
-  const visibleModes = SESSION_MODES.filter(m => !m.devOnly || isDeveloper);
+function SessionModeRow({ isDeveloper, selectedLang }: { isDeveloper: boolean; selectedLang: string }) {
+  const { learningContext, setLearningContext, enrolledClasses } = useLearningFilter();
 
-  if (visibleModes.length <= 1) return null;
+  // Classes enrolled for this language
+  const langClasses = enrolledClasses.filter(
+    e => e.isActive && e.class.language?.toLowerCase() === selectedLang.toLowerCase()
+  );
+
+  // The context value for the Select — if current context matches a class id or self-directed, use it;
+  // otherwise fall back to self-directed
+  const contextOptions = [
+    { value: "self-directed", label: "Self-Directed" },
+    ...langClasses.map(e => ({ value: e.classId, label: e.class.name })),
+  ];
+  const selectValue = contextOptions.some(o => o.value === learningContext)
+    ? learningContext
+    : "self-directed";
+
+  // Only show dev mode pills if developer
+  const showDevPills = isDeveloper;
+
+  // Hide entirely if nothing to choose (no classes, no dev pills)
+  if (langClasses.length === 0 && !showDevPills) return null;
 
   return (
-    <div className="px-6 pb-4 flex gap-2 flex-wrap" data-testid="section-session-mode">
-      {visibleModes.map(({ id, label, icon: Icon }) => {
+    <div className="px-6 pb-4 flex gap-2 flex-wrap items-center" data-testid="section-session-mode">
+      <Select value={selectValue} onValueChange={setLearningContext}>
+        <SelectTrigger
+          className="w-[180px] h-8 text-sm"
+          data-testid="select-session-context"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {contextOptions.map(opt => (
+            <SelectItem key={opt.value} value={opt.value} data-testid={`option-context-${opt.value}`}>
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {showDevPills && DEV_MODES.map(({ id, label, icon: Icon }) => {
         const active = learningContext === id;
         return (
           <Button
             key={id}
             variant={active ? "default" : "outline"}
             size="sm"
-            onClick={() => setLearningContext(id)}
+            onClick={() => setLearningContext(active ? "self-directed" : id)}
             data-testid={`button-mode-${id}`}
-            className="gap-1.5 capitalize"
+            className="gap-1.5 h-8"
           >
             <Icon className="h-3.5 w-3.5" />
             {label}
@@ -415,7 +454,7 @@ export default function LanguageHub() {
       )}
 
       {/* ── Session Mode Row (dev-only modes: Founder, Honesty) ───────────── */}
-      {!isNewStudent && <SessionModeRow isDeveloper={isDeveloper} />}
+      {!isNewStudent && <SessionModeRow isDeveloper={isDeveloper} selectedLang={selectedLang} />}
 
       {/* ── Daniela's Learning Insights ───────────────────────────────────── */}
       {user && !showEmptyState && (
