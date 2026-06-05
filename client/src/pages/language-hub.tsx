@@ -8,7 +8,7 @@ import { InteractiveTextbookCard } from "@/components/InteractiveTextbookCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageSquare, Play, ChevronRight, Eye, Sparkles, Phone } from "lucide-react";
+import { MessageSquare, Play, ChevronRight, Eye, Sparkles, Phone, ArrowRight } from "lucide-react";
 import {
   getTutorAvatar,
   getTutorName,
@@ -113,6 +113,49 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
   );
 }
 
+// ─── New Student Welcome Panel ────────────────────────────────────────────────
+
+function WelcomePanel({ onStart }: { onStart: () => void }) {
+  const danielaPortrait = getTutorAvatar("spanish", "female", "talking");
+
+  return (
+    <div className="flex flex-col items-center text-center gap-6 py-4">
+      {/* Portrait */}
+      <div
+        className="relative flex items-end justify-center rounded-xl overflow-hidden w-full"
+        style={{ backgroundColor: "#F59E0B18", height: "220px" }}
+      >
+        <img
+          src={danielaPortrait}
+          alt="Daniela"
+          className="h-full w-auto object-contain object-bottom select-none"
+          draggable={false}
+        />
+      </div>
+
+      {/* Copy */}
+      <div className="space-y-1.5 px-2">
+        <h2 className="text-xl font-bold tracking-tight">Meet Daniela</h2>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          She'll guide you through a quick setup — pick your language, share your goals,
+          and you'll be speaking in minutes.
+        </p>
+      </div>
+
+      {/* CTA */}
+      <Button
+        size="lg"
+        className="gap-2 px-10"
+        onClick={onStart}
+        data-testid="button-begin-onboarding"
+      >
+        Begin your first session
+        <ArrowRight className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function LanguageHub() {
@@ -170,6 +213,9 @@ export default function LanguageHub() {
   const recentConv = hubData?.recentConversations?.[0] ?? null;
   const topScenarios = featuredScenarios.slice(0, 3);
 
+  // Brand new student: languages loaded but empty → show onboarding welcome
+  const isNewStudent = userLanguagesData !== undefined && studiedLanguages.length === 0;
+
   const handleStartWithTutor = (gender: TutorGender) => {
     setLanguage(selectedLang);
     setTutorGender(gender);
@@ -177,19 +223,29 @@ export default function LanguageHub() {
     navigate("/chat");
   };
 
+  const handleBeginOnboarding = () => {
+    navigate("/chat");
+  };
+
   return (
     <div className="min-h-full flex flex-col">
 
-      {/* ── Tutor Duo Panel ───────────────────────────────────────────────── */}
-      <section className="px-6 pt-8 pb-6">
-        <TutorDuoPanel
-          language={selectedLang}
-          onStart={handleStartWithTutor}
-        />
-      </section>
+      {/* ── New student welcome OR returning tutor duo ────────────────────── */}
+      {isNewStudent ? (
+        <section className="px-6 pt-8 pb-6">
+          <WelcomePanel onStart={handleBeginOnboarding} />
+        </section>
+      ) : (
+        <section className="px-6 pt-8 pb-6">
+          <TutorDuoPanel
+            language={selectedLang}
+            onStart={handleStartWithTutor}
+          />
+        </section>
+      )}
 
-      {/* ── Language Tabs ─────────────────────────────────────────────────── */}
-      {showTabs && (
+      {/* ── Language Tabs (returning students only) ───────────────────────── */}
+      {!isNewStudent && showTabs && (
         <div className="px-6 pb-6 flex gap-2 justify-center flex-wrap">
           {studiedLanguages.map((lang) => (
             <Button
