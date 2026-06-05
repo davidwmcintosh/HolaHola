@@ -78,7 +78,7 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
           >
             {/* Portrait area — neutral bg + solid accent circle + avatar */}
             <div
-              className="relative flex items-end justify-center bg-muted/40"
+              className="relative flex items-end justify-center overflow-hidden bg-muted/40"
               style={{ height: "200px" }}
             >
               {/* Accent-coloured circle behind the tutor */}
@@ -89,9 +89,9 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
                   height: "160px",
                   backgroundColor: accentColor + "38",
                   border: `3px solid ${accentColor}`,
-                  top: "50%",
+                  top: "42%",
                   left: "50%",
-                  transform: "translate(-50%, -44%)",
+                  transform: "translate(-50%, -50%)",
                 }}
               />
               <img
