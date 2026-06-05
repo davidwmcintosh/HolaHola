@@ -40,7 +40,7 @@ import { resolveVocabularyImage } from './vocabulary-image-resolver';
 export const CHARACTER_PROFILES = {
   /** Spanish — used for all Spanish greeting & farewell prompts */
   ES: {
-    primary:   'Daniela, a 28-year-old Latina woman with long wavy dark-brown hair, warm medium-brown skin, and bright brown eyes, wearing a sky-blue short-sleeve collared button-up shirt and dark jeans',
+    primary:   'Daniela, a 28-year-old Latina woman with a short wavy dark-brown bob (chin-length), warm medium-brown skin, and bright brown eyes, wearing a sky-blue short-sleeve collared button-up shirt and dark jeans',
     secondary: 'Marco, a 30-year-old Latino man with short curly black hair, light-olive skin, and friendly dark eyes, wearing a white button-up shirt and chinos',
     abuela:    'Rosa, a warm 68-year-old Mexican grandmother with short curly silver-white hair, warm brown skin, kind dark eyes behind gold-rimmed glasses, and a white blouse with colorful floral embroidery',
   },
