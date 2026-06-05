@@ -19,6 +19,23 @@ import {
 import type { TutorGender } from "@/lib/tutor-avatars";
 import type { Scenario } from "@shared/schema";
 
+// ─── Language card backgrounds ────────────────────────────────────────────────
+// Rich cultural gradients behind each tutor portrait.
+// Bottom glow keeps the tutor readable; top gives the scene depth.
+const LANGUAGE_CARD_BG: Record<string, string> = {
+  spanish:    "radial-gradient(ellipse at 50% 110%, rgba(253,230,138,.45) 0%, transparent 58%), linear-gradient(175deg, #92400E 0%, #B45309 42%, #D97706 100%)",
+  french:     "radial-gradient(ellipse at 50% 110%, rgba(253,224,71,.25) 0%, transparent 58%), linear-gradient(175deg, #1E3A8A 0%, #1D4ED8 50%, #2563EB 100%)",
+  german:     "radial-gradient(ellipse at 50% 110%, rgba(250,204,21,.32) 0%, transparent 58%), linear-gradient(175deg, #14532D 0%, #166534 46%, #15803D 100%)",
+  italian:    "radial-gradient(ellipse at 50% 110%, rgba(253,224,71,.32) 0%, transparent 58%), linear-gradient(175deg, #1A2E05 0%, #3F6212 42%, #4D7C0F 100%)",
+  portuguese: "radial-gradient(ellipse at 50% 110%, rgba(167,243,208,.38) 0%, transparent 58%), linear-gradient(175deg, #0C4A6E 0%, #0369A1 46%, #0891B2 100%)",
+  japanese:   "radial-gradient(ellipse at 50% 110%, rgba(251,207,232,.55) 0%, transparent 58%), linear-gradient(175deg, #831843 0%, #BE185D 46%, #EC4899 100%)",
+  chinese:    "radial-gradient(ellipse at 50% 110%, rgba(253,224,71,.42) 0%, transparent 58%), linear-gradient(175deg, #7F1D1D 0%, #991B1B 42%, #DC2626 100%)",
+  mandarin:   "radial-gradient(ellipse at 50% 110%, rgba(253,224,71,.42) 0%, transparent 58%), linear-gradient(175deg, #7F1D1D 0%, #991B1B 42%, #DC2626 100%)",
+  korean:     "radial-gradient(ellipse at 50% 110%, rgba(186,230,253,.42) 0%, transparent 58%), linear-gradient(175deg, #0C4A6E 0%, #0369A1 42%, #0EA5E9 100%)",
+  hebrew:     "radial-gradient(ellipse at 50% 110%, rgba(191,219,254,.32) 0%, transparent 58%), linear-gradient(175deg, #1E3A8A 0%, #1D4ED8 46%, #2563EB 100%)",
+  english:    "radial-gradient(ellipse at 50% 110%, rgba(237,233,254,.42) 0%, transparent 58%), linear-gradient(175deg, #3B0764 0%, #6D28D9 46%, #7C3AED 100%)",
+};
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface HubData {
@@ -79,7 +96,7 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
             {/* Portrait area */}
             <div
               className="relative flex items-end justify-center overflow-hidden"
-              style={{ backgroundColor: accentBg, height: "200px" }}
+              style={{ background: LANGUAGE_CARD_BG[normalized] ?? accentBg, height: "200px" }}
             >
               <img
                 src={portrait}
@@ -103,7 +120,7 @@ function TutorDuoPanel({ language, onStart }: TutorDuoPanelProps) {
                 style={{ backgroundColor: accentColor, color: "#fff", borderColor: accentColor }}
               >
                 <Phone className="h-4 w-4" />
-                Start with {name}
+                Call {name}
               </Button>
             </div>
           </div>

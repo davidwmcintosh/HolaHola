@@ -139,6 +139,7 @@ import { toInternalActflLevel, toExternalActflLevel } from "./actfl-utils";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@deepgram/sdk";
 import { validateOneUnitRule, countConceptualUnits } from "./phrase-detection";
+import { getOnboardingDialogue, updateOnboardingDialogue, resetOnboardingDialogue, fillTemplate, DEFAULT_DIALOGUE } from "./onboarding-dialogue-config";
 import { brainHealthTelemetry } from "./services/brain-health-telemetry";
 
 // ============================================================================
@@ -4485,7 +4486,7 @@ Return [] if nothing is worth surfacing.`;
           const aiMessage = await storage.createMessage({
             conversationId,
             role: "assistant",
-            content: "I focus on teaching practical, everyday language. Let's get started with your language learning! May I ask your name please?",
+            content: getOnboardingDialogue().step1.opener,
           });
           return res.json({ userMessage, aiMessage });
         }
@@ -4512,10 +4513,10 @@ Return [] if nothing is worth surfacing.`;
               onboardingStep: updatedConversation.onboardingStep
             });
             
-            aiResponse = `Nice to meet you, ${nameResult.name}! Which language would you like to study?`;
+            aiResponse = fillTemplate(getOnboardingDialogue().step2.success, { name: nameResult.name || "there" });
           } else {
             // Name unclear, ask again
-            aiResponse = "I didn't quite catch your name. Could you tell me your name again?";
+            aiResponse = getOnboardingDialogue().step1.retry;
           }
         } else if (conversation.onboardingStep === "targetLanguage" || conversation.onboardingStep === "language") {
           // Extract target language preference from user's message
@@ -4550,11 +4551,11 @@ Return [] if nothing is worth surfacing.`;
             }
             
             const userName = updatedConversation.userName || "there";
-            aiResponse = `Great! And what is your native language, ${userName}? (The language you already speak)`;
+            aiResponse = fillTemplate(getOnboardingDialogue().step3.success, { name: userName });
           } else {
             // Language unclear, ask again
             console.log('[ONBOARDING-TARGET-LANG] Extraction failed or low confidence, asking again');
-            aiResponse = "I'm not sure which language you'd like to study. Please choose one from: English, Spanish, French, German, Italian, Portuguese, Japanese, Mandarin, or Korean.";
+            aiResponse = getOnboardingDialogue().step2.retry;
           }
         } else if (conversation.onboardingStep === "nativeLanguage") {
           // Extract native language from user's message
@@ -4575,11 +4576,11 @@ Return [] if nothing is worth surfacing.`;
             
             const userName = updatedConversation.userName || "there";
             const targetLanguage = updatedConversation.language || "the language";
-            aiResponse = `Almost done, ${userName}! Last question: what's bringing you to ${targetLanguage}? (Travel, family, work, curiosity — whatever feels true.)`;
+            aiResponse = fillTemplate(getOnboardingDialogue().step4.opener, { name: userName, language: targetLanguage });
           } else {
             // Native language unclear, ask again
             console.log('[ONBOARDING-NATIVE-LANG] Extraction failed or low confidence, asking again');
-            aiResponse = "I didn't quite catch that. What language do you speak? (For example: English, Spanish, French, German, etc.)";
+            aiResponse = getOnboardingDialogue().step3.retry;
           }
         } else if (conversation.onboardingStep === "learningGoals") {
           // Step 4: capture learning motivation / goal — save as personal fact, then complete
@@ -8964,6 +8965,37 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // ─── Admin: Onboarding Tester ────────────────────────────────────────────────
+
+  // GET onboarding dialogue config (all step messages)
+  app.get("/api/admin/onboarding/dialogue", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (_req: any, res) => {
+    try {
+      res.json({ dialogue: getOnboardingDialogue(), defaults: DEFAULT_DIALOGUE });
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to get dialogue config" });
+    }
+  });
+
+  // PUT update onboarding dialogue config
+  app.put("/api/admin/onboarding/dialogue", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const updated = updateOnboardingDialogue(req.body);
+      console.log(`[Admin/OnboardingDialogue] Config updated by userId=${getRequestUserId(req)}`);
+      res.json({ dialogue: updated });
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to update dialogue config" });
+    }
+  });
+
+  // POST reset onboarding dialogue to defaults
+  app.post("/api/admin/onboarding/dialogue/reset", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const reset = resetOnboardingDialogue();
+      console.log(`[Admin/OnboardingDialogue] Reset to defaults by userId=${getRequestUserId(req)}`);
+      res.json({ dialogue: reset });
+    } catch (err: any) {
+      res.status(500).json({ message: "Failed to reset dialogue config" });
+    }
+  });
 
   // GET current user's onboarding-related prefs (for snapshot before test)
   app.get("/api/admin/onboarding/snapshot", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
