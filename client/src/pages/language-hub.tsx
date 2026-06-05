@@ -50,8 +50,8 @@ const FLAG_BG: Record<string, string> = (() => {
   // Portugal — green / red split with gold emblem outline
   const portuguese = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 5 3"><g opacity=".09"><rect width="5" height="3" fill="#FF0000"/><rect width="2" height="3" fill="#006600"/><circle cx="2" cy="1.5" r=".65" fill="none" stroke="#FFD700" stroke-width=".12"/><circle cx="2" cy="1.5" r=".28" fill="#003893"/></g></svg>`);
 
-  // Japan — Hinomaru red disc; higher opacity because the circle IS the whole design
-  const japanese = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 2"><circle cx="1.5" cy="1" r=".62" fill="#BC002D" opacity=".22"/></svg>`);
+  // Japan — faint red tint fills the whole card (visible around the white circle) + slightly deeper center disc
+  const japanese = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 2"><rect width="3" height="2" fill="#BC002D" opacity=".07"/><circle cx="1.5" cy="1" r=".62" fill="#BC002D" opacity=".18"/></svg>`);
 
   // China — red field + 5 gold stars
   const chinese = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 20"><g opacity=".09"><rect width="30" height="20" fill="#DE2910"/>${_s(5,5,3.2,"#FFDE00")}${_s(11,2,1.5,"#FFDE00")}${_s(13.5,5,1.5,"#FFDE00")}${_s(11,8.5,1.5,"#FFDE00")}${_s(8,11,1.5,"#FFDE00")}</g></svg>`);
