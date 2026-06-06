@@ -3182,7 +3182,8 @@ export class NativeFunctionCallHandler {
         const content = fn.args.content as string | undefined;
         const reasoning = fn.args.reasoning as string | undefined;
 
-        if (target && reasoning && session.isFounderMode) {
+        const isStudentDataTarget = target === 'personal_facts' || target === 'capability_gap';
+        if (target && reasoning && (session.isFounderMode || isStudentDataTarget)) {
           if (!content) {
             console.warn(`[Native Function→SelfSurgery] No content provided for target: ${target}`);
             break;
