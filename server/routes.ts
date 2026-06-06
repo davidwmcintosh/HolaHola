@@ -753,6 +753,15 @@ export async function registerRoutes(app: Express): Promise<void> {
     res.json({ ok: true, message: 'Worker stop requested', status: getMenuWorkerStatus() });
   });
 
+  // GET /api/admin/alden-status — Alden watch worker live status
+  app.get('/api/admin/alden-status', async (req: any, res) => {
+    if (getRequestUserId(req) !== '49847136') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const { getAldenStatus } = await import('./services/alden-watch-worker');
+    res.json(getAldenStatus());
+  });
+
   // SSE streaming batch generator
   // GET /api/admin/batch-menu-images?limit=50&delay=2000
   app.get('/api/admin/batch-menu-images', async (req: any, res) => {

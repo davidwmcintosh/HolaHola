@@ -12,7 +12,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { getUserDb } from "../db";
 import { aldenNotifications } from "@shared/schema";
-import { executeAldenTool } from "./alden-functions";
+import { executeAldenTool, ALDEN_TOOLS } from "./alden-functions";
 import { eq, desc, and } from "drizzle-orm";
 import {
   captureSnapshot,
@@ -23,10 +23,21 @@ import {
 import { attemptAutoRepair } from "./alden-auto-repair";
 import { costTracker } from "./cost-tracker";
 import { writeEscalation } from "./alden-escalation-log";
+import { founderCollabService } from "./founder-collaboration-service";
 
 const CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000;
 const HEALTH_SCORE_LOW_THRESHOLD = 70;
-const BUDGET_ALERT_USD = 5;
+
+// Cost tier thresholds (24h window)
+const BUDGET_WARN_USD       = 3;   // Tier 1 — notification only (existing behaviour)
+const BUDGET_ALERT_USD      = 5;   // Tier 2 — notification + Hive post
+const BUDGET_HARD_PAUSE_USD = 10;  // Tier 3 — Hive post + skip cycle entirely
+
+// Tool-use loop safety cap
+const MAX_TOOL_ITERATIONS = 8;
+
+// Founder ID used across Hive/Express-Lane posts
+const FOUNDER_ID = '49847136';
 
 // Rolling history — last 5 cycles used for trend comparison
 interface CycleMetric {
@@ -44,8 +55,18 @@ const cycleHistory: CycleMetric[] = [];
 // Health score consecutive drop tracking
 let consecutiveLowScoreCycles = 0;
 
-// Budget alert cooldown (fires at most once per 12h)
+// Budget alert cooldown (fires at most once per 12h per tier)
 let lastBudgetAlertTime: number | null = null;
+
+// Hard-pause state: set when 24h spend crosses $10; cleared when spend drops below
+let hardPauseActive = false;
+
+// Last watch cycle timestamp — exposed via /api/admin/alden-status
+let lastWatchCycleTime: number | null = null;
+
+// Rolling buffer of last 5 notification fingerprints for status endpoint
+const MAX_FP_HISTORY = 5;
+const lastNotificationFingerprints: Array<{ fp: string; ts: number }> = [];
 
 // Note: global cooldown removed. Each issue type is deduplicated by fingerprint
 // (hasDuplicateActiveIssue). New issue types fire immediately; repeat issues are
@@ -100,8 +121,57 @@ async function hasDuplicateActiveIssue(fingerprint: string): Promise<boolean> {
   }
 }
 
+/**
+ * Post a message to the Express Lane / Hive as Alden.
+ * Fire-and-forget safe — errors are logged but never throw.
+ */
+async function postHiveMessage(content: string, metadata?: Record<string, any>): Promise<void> {
+  try {
+    const session = await founderCollabService.getOrCreateActiveSession(FOUNDER_ID);
+    await founderCollabService.addMessage(session.id, {
+      role: 'editor',
+      content: `[Alden Watch] ${content}`,
+      metadata: { source: 'alden-watch', ...metadata },
+    });
+  } catch (err: any) {
+    console.warn('[AldenWatch] Hive post failed:', err.message);
+  }
+}
+
 async function runWatchCycle() {
   try {
+    // ── Pre-flight: hard-pause check (Tier 3 — $10 threshold) ───────────────
+    const hardBudget = costTracker.checkBudgetThreshold(BUDGET_HARD_PAUSE_USD, 24);
+    if (hardBudget.exceeded) {
+      if (!hardPauseActive) {
+        hardPauseActive = true;
+        const msg = `HARD PAUSE: 24h AI spend has reached $${hardBudget.totalCostUsd.toFixed(2)}, crossing the $${BUDGET_HARD_PAUSE_USD} hard limit. Watch cycles are suspended until spend drops below this threshold. No further autonomous AI calls will be made this window.`;
+        console.warn('[AldenWatch]', msg);
+        await postHiveMessage(msg, { tier: 'hard_pause', spendUsd: hardBudget.totalCostUsd });
+        const fp = 'budget_hard_pause';
+        const isDup = await hasDuplicateActiveIssue(fp);
+        if (!isDup) {
+          const dbHard = getUserDb();
+          await dbHard.insert(aldenNotifications).values({
+            content: msg,
+            triggeredBy: 'alden-watch',
+            severity: 'alert',
+            read: false,
+            fingerprint: fp,
+          });
+        }
+      } else {
+        console.log('[AldenWatch] Hard pause active — skipping cycle');
+      }
+      return;
+    } else {
+      // Spend dropped back below $10 — lift the pause
+      if (hardPauseActive) {
+        hardPauseActive = false;
+        console.log('[AldenWatch] Spend recovered below hard limit — resuming watch cycles');
+      }
+    }
+
     // Gather system state using existing tools — each is isolated so one failure
     // doesn't poison the whole snapshot with a WebSocket/DB error narrative.
     const safeCall = async (toolName: string, args: Record<string, any>) => {
@@ -202,17 +272,21 @@ async function runWatchCycle() {
       })),
     }, null, 2).substring(0, 5500);
 
-    // Ask Alden's intelligence if anything warrants a notification
+    // ── Agentic tool-use loop ────────────────────────────────────────────────
+    // Alden can call tools autonomously (up to MAX_TOOL_ITERATIONS turns) to
+    // investigate before settling on a verdict. The loop terminates when:
+    //   • stop_reason === 'end_turn'   — Alden is done thinking
+    //   • stop_reason !== 'tool_use'   — unexpected stop, treat as done
+    //   • iteration cap reached        — safety valve
     const client = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY,
+      apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
-    const response = await client.messages.create({
-      model: 'claude-sonnet-4-5',
-      max_tokens: 300,
-      messages: [{
-        role: 'user',
-        content: `You are Alden, the development steward of HolaHola. You just ran a routine system check with autonomous pattern detection and anomaly analysis. Review this snapshot and decide: is there anything genuinely worth notifying the founder (David) about?
+    const loopMessages: Anthropic.MessageParam[] = [{
+      role: 'user',
+      content: `You are Alden, the development steward of HolaHola. You just ran a routine system check with autonomous pattern detection and anomaly analysis. Review this snapshot and decide: is there anything genuinely worth notifying the founder (David) about?
+
+You have access to tools — use them to investigate anything that looks suspicious before reaching a verdict. Only call tools when you genuinely need more information to make a decision.
 
 System snapshot:
 ${systemSnapshot}
@@ -221,8 +295,8 @@ Rules:
 - Only notify if something is actually wrong, unusual, or worth his attention
 - Don't notify for normal healthy states
 - Anomalies and pattern changes are provided — use them in your analysis
-- If there's nothing worth mentioning, respond with exactly: NOTHING
-- If something warrants attention, respond in this exact format on ONE line:
+- When you are done investigating, respond with exactly: NOTHING
+  OR in this exact format on ONE line:
   SEVERITY:FINGERPRINT:Message written as Alden speaking directly to David (1-3 sentences)
   Where SEVERITY is INFO, WARNING, or ALERT
   Where FINGERPRINT is a short snake_case key identifying this issue type (e.g. db_connection_failure, low_engagement, high_latency, health_score_low, budget_exceeded, voice_pipeline_error)
@@ -230,16 +304,81 @@ Rules:
 Example: WARNING:db_connection_failure:The database monitoring tools are failing to connect, which is preventing me from gathering accurate system metrics. This needs investigation.
 
 Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
-      }],
-    });
+    }];
 
-    if (response.usage) {
-      costTracker.track('claude-sonnet-4-5', response.usage.input_tokens, response.usage.output_tokens, 'alden-watch');
+    let finalText = 'NOTHING';
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+
+    for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
+      const response = await client.messages.create({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 600,
+        tools: ALDEN_TOOLS,
+        messages: loopMessages,
+      });
+
+      if (response.usage) {
+        totalInputTokens  += response.usage.input_tokens;
+        totalOutputTokens += response.usage.output_tokens;
+      }
+
+      // Append assistant's response to conversation
+      loopMessages.push({ role: 'assistant', content: response.content });
+
+      if (response.stop_reason === 'end_turn') {
+        // Extract the text verdict from the final response
+        const textBlock = response.content.find(b => b.type === 'text');
+        finalText = (textBlock as any)?.text?.trim() || 'NOTHING';
+        console.log(`[AldenWatch] Tool loop ended at iteration ${iteration + 1}`);
+        break;
+      }
+
+      if (response.stop_reason !== 'tool_use') {
+        // Unexpected stop reason — extract text if present and break
+        const textBlock = response.content.find(b => b.type === 'text');
+        finalText = (textBlock as any)?.text?.trim() || 'NOTHING';
+        console.log(`[AldenWatch] Unexpected stop_reason "${response.stop_reason}" at iteration ${iteration + 1}`);
+        break;
+      }
+
+      // Execute each tool call and gather results
+      const toolResults: Anthropic.ToolResultBlockParam[] = [];
+      for (const block of response.content) {
+        if (block.type !== 'tool_use') continue;
+        console.log(`[AldenWatch] Tool call: ${block.name} (iteration ${iteration + 1})`);
+        let toolOutput: any;
+        try {
+          toolOutput = await executeAldenTool(block.name, block.input as Record<string, any>);
+        } catch (e: any) {
+          toolOutput = { error: `Tool "${block.name}" failed: ${e.message}` };
+        }
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: block.id,
+          content: JSON.stringify(toolOutput).substring(0, 3000),
+        });
+      }
+
+      // Append tool results as user turn
+      loopMessages.push({ role: 'user', content: toolResults });
+
+      // If we hit the cap on the last iteration, extract whatever text is available
+      if (iteration === MAX_TOOL_ITERATIONS - 1) {
+        console.warn(`[AldenWatch] Tool loop hit iteration cap (${MAX_TOOL_ITERATIONS}) — treating as NOTHING`);
+        finalText = 'NOTHING';
+      }
     }
+
+    // Track combined token cost for the entire loop
+    costTracker.track('claude-sonnet-4-5', totalInputTokens, totalOutputTokens, 'alden-watch');
 
     // Save this cycle to rolling history (capped at MAX_CYCLE_HISTORY)
     cycleHistory.push(currentMetric);
     if (cycleHistory.length > MAX_CYCLE_HISTORY) cycleHistory.shift();
+
+    // Record cycle time
+    lastWatchCycleTime = Date.now();
 
     // ── Always-on: health score consecutive drop tracking ───────────────────
     if (currentMetric.healthScore < HEALTH_SCORE_LOW_THRESHOLD) {
@@ -267,34 +406,59 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
       consecutiveLowScoreCycles = 0;
     }
 
-    // ── Always-on: cost budget alert (24h window, 12h cooldown) ─────────────
-    const budget = costTracker.checkBudgetThreshold(BUDGET_ALERT_USD, 24);
-    if (budget.exceeded) {
-      const sinceLastBudgetAlert = lastBudgetAlertTime ? Date.now() - lastBudgetAlertTime : Infinity;
+    // ── Always-on: tiered cost budget controls (24h window) ─────────────────
+    const budget24h = costTracker.getSummary(24);
+    const spend = budget24h.totalCostUsd;
+    const sinceLastBudgetAlert = lastBudgetAlertTime ? Date.now() - lastBudgetAlertTime : Infinity;
+
+    if (spend >= BUDGET_ALERT_USD) {
+      // Tier 2 — $5: notification + Hive post
       if (sinceLastBudgetAlert > 12 * 60 * 60 * 1000) {
-        console.log(`[AldenWatch] Budget exceeded: $${budget.totalCostUsd.toFixed(4)} in 24h`);
+        console.log(`[AldenWatch] Tier-2 budget: $${spend.toFixed(4)} in 24h (threshold: $${BUDGET_ALERT_USD})`);
         const fp = 'budget_exceeded';
-        const isDup = await hasDuplicateActiveIssue(fp);
-        if (!isDup) {
+        const isDupAlert = await hasDuplicateActiveIssue(fp);
+        if (!isDupAlert) {
           const dbB = getUserDb();
           await dbB.insert(aldenNotifications).values({
-            content: `AI spend in the last 24h has reached $${budget.totalCostUsd.toFixed(4)}, crossing the $${budget.thresholdUsd} threshold. Review the cost breakdown in Lyra's next report.`,
+            content: `AI spend in the last 24h has reached $${spend.toFixed(4)}, crossing the $${BUDGET_ALERT_USD} alert threshold. Review the cost breakdown in Lyra's next report.`,
             triggeredBy: 'alden-watch',
             severity: 'warning',
             read: false,
             fingerprint: fp,
           });
+          await postHiveMessage(
+            `Budget alert (Tier 2): 24h AI spend is $${spend.toFixed(4)}, over the $${BUDGET_ALERT_USD} threshold. Monitoring closely.`,
+            { tier: 'alert', spendUsd: spend },
+          );
           lastBudgetAlertTime = Date.now();
-          console.log('[AldenWatch] Budget alert queued');
+          console.log('[AldenWatch] Tier-2 budget alert queued + Hive post sent');
         } else {
           console.log('[AldenWatch] Budget alert suppressed — already reported and unread');
+        }
+      }
+    } else if (spend >= BUDGET_WARN_USD) {
+      // Tier 1 — $3: notification only (no Hive post)
+      if (sinceLastBudgetAlert > 12 * 60 * 60 * 1000) {
+        console.log(`[AldenWatch] Tier-1 budget warn: $${spend.toFixed(4)} in 24h (threshold: $${BUDGET_WARN_USD})`);
+        const fp = 'budget_warn';
+        const isDupWarn = await hasDuplicateActiveIssue(fp);
+        if (!isDupWarn) {
+          const dbW = getUserDb();
+          await dbW.insert(aldenNotifications).values({
+            content: `AI spend in the last 24h has reached $${spend.toFixed(4)}, crossing the $${BUDGET_WARN_USD} early-warning threshold. No action required yet.`,
+            triggeredBy: 'alden-watch',
+            severity: 'info',
+            read: false,
+            fingerprint: fp,
+          });
+          lastBudgetAlertTime = Date.now();
+          console.log('[AldenWatch] Tier-1 budget warning queued');
         }
       }
     }
 
     // ── Claude intelligence: conditional on having a real finding ────────────
-    const text = (response.content[0] as any)?.text?.trim() || 'NOTHING';
-    if (text === 'NOTHING' || text.startsWith('NOTHING')) {
+    if (finalText === 'NOTHING' || finalText.startsWith('NOTHING')) {
       console.log('[AldenWatch] Check complete — no notification needed');
       return;
     }
@@ -302,9 +466,9 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
     // Parse SEVERITY:FINGERPRINT:Message format
     let severity: 'info' | 'warning' | 'alert' = 'info';
     let fingerprint: string | undefined;
-    let message = text;
+    let message = finalText;
 
-    const parts = text.match(/^(INFO|WARNING|ALERT):([a-z0-9_]+):(.+)$/s);
+    const parts = finalText.match(/^(INFO|WARNING|ALERT):([a-z0-9_]+):(.+)$/);
     if (parts) {
       const sev = parts[1].toLowerCase();
       severity = sev === 'warning' ? 'warning' : sev === 'alert' ? 'alert' : 'info';
@@ -312,9 +476,9 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
       message = parts[3].trim();
     } else {
       // Fallback: old-style parsing without fingerprint
-      if (text.startsWith('WARNING:')) { severity = 'warning'; message = text.replace(/^WARNING:\s*/, ''); }
-      else if (text.startsWith('ALERT:')) { severity = 'alert'; message = text.replace(/^ALERT:\s*/, ''); }
-      else if (text.startsWith('INFO:')) { message = text.replace(/^INFO:\s*/, ''); }
+      if (finalText.startsWith('WARNING:')) { severity = 'warning'; message = finalText.replace(/^WARNING:\s*/, ''); }
+      else if (finalText.startsWith('ALERT:')) { severity = 'alert'; message = finalText.replace(/^ALERT:\s*/, ''); }
+      else if (finalText.startsWith('INFO:')) { message = finalText.replace(/^INFO:\s*/, ''); }
     }
 
     // Dedup: if an unread notification with the same fingerprint exists, skip
@@ -337,6 +501,12 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
     });
 
     console.log(`[AldenWatch] Queued ${severity} notification [${fingerprint ?? 'no-fingerprint'}]: "${message.substring(0, 80)}..."`);
+
+    // Track recent fingerprints for status endpoint
+    if (fingerprint) {
+      lastNotificationFingerprints.push({ fp: fingerprint, ts: Date.now() });
+      if (lastNotificationFingerprints.length > MAX_FP_HISTORY) lastNotificationFingerprints.shift();
+    }
 
     // Track alert messages for recurring-pattern detection
     recentAlertMessages.push(message);
@@ -437,4 +607,37 @@ export function startAldenWatchWorker() {
     runWatchCycle();
     setInterval(runWatchCycle, CHECK_INTERVAL_MS);
   }, 5 * 60 * 1000);
+}
+
+/**
+ * Returns live status data for the /api/admin/alden-status endpoint.
+ */
+export function getAldenStatus() {
+  const summary24h = costTracker.getSummary(24);
+  const spend = summary24h.totalCostUsd;
+
+  let activeTier: 'nominal' | 'warn' | 'alert' | 'hard_pause';
+  if (spend >= BUDGET_HARD_PAUSE_USD) {
+    activeTier = 'hard_pause';
+  } else if (spend >= BUDGET_ALERT_USD) {
+    activeTier = 'alert';
+  } else if (spend >= BUDGET_WARN_USD) {
+    activeTier = 'warn';
+  } else {
+    activeTier = 'nominal';
+  }
+
+  return {
+    spend24hUsd: spend,
+    thresholds: {
+      warn:       BUDGET_WARN_USD,
+      alert:      BUDGET_ALERT_USD,
+      hard_pause: BUDGET_HARD_PAUSE_USD,
+    },
+    activeTier,
+    hardPauseActive,
+    consecutiveLowScoreCycles,
+    lastWatchCycleTime,
+    lastNotificationFingerprints: lastNotificationFingerprints.slice(-5),
+  };
 }
