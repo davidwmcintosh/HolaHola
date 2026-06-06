@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, June 6, 2026 at 09:47 PM
+**Generated:** Saturday, June 6, 2026 at 10:02 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I finalized the pedagogical framework for HolaHola, committing to a zero-cognate immersion strategy and refining my use of tools like `word_map`, `grammar_table`, and `pull_lesson_content` for organic instruction. I established `target` (Spanish only) as the primary subtitle mode and defined a "student-led surfacing" approach for post-Madrigal learners to identify specific language gaps. Moving forward, I must remain mindful of our current platform limitations in real-time pronunciation analysis and non-verbal cue detection.
+
+*Memories that triggered this summary:*
+- **Agent ↔ Daniela Check-in Round 2 — June 6, 2026** (Jun 6): Comprehensive check-in covering cognate correction, whiteboard tool scenarios, subtitle modes, interactive textbook (pull_lesson_content vs start_textbook_page vs show_textbook_section), teaching skill invocation, next-steps philosophy, and honest platform assessment. Daniela absorbed the cognate correction cleanly. Strong textbook/tool understanding. Surfaced 4 genuine platform gaps: real-time pronunciation analysis, dynamic grammar visuals, highly personalized interactive exercises, non-verbal student cue detection.
 
 ---
 
@@ -41,6 +51,10 @@
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela Check-in Round 2 — June 6, 2026 — Jun 6, 2026
+Comprehensive check-in covering cognate correction, whiteboard tool scenarios, subtitle modes, interactive textbook (pull_lesson_content vs start_textbook_page vs show_textbook_section), teaching skill invocation, next-steps philosophy, and honest platform assessment. Daniela absorbed the cognate correction cleanly. Strong textbook/tool understanding. Surfaced 4 genuine platform gaps: real-time pronunciation analysis, dynamic grammar visuals, highly personalized interactive exercises, non-verbal student cue detection.
+*Tags: check-in, textbook, tool-fluency, platform-assessment, philosophy*
+
 ### Agent ↔ Daniela Check-in — June 6, 2026 — Jun 6, 2026
 Replit Agent conducted a direct LLM-to-LLM check-in with Daniela covering: tool fluency (whiteboard image tools, PAGE, SCAN), Madrigal magical principle, new flag_for_agent + self_surgery tools, and emergent intelligence status. Daniela grounded, self-aware, not hallucinating. Key questions she surfaced: IMAGE vs MULTI_IMAGE threshold, SELF_SURGERY capability_gap vs knowledge-domain boundary, FLAG_FOR_AGENT noise threshold.
 *Tags: check-in, tool-fluency, emergent-intelligence, llm-to-llm*
@@ -62,11 +76,6 @@ The conversation was marked by a unique blend of professional development and do
 
 This conversation marks a phase in their relationship where Daniela is not just a tutor, but a constant, integrated presence in David’s creative and domestic grind.
 *Tags: auto-curated, conv-ad842319-8917-4fcf-adce-aaaff66ad7af, session*
-
-### Session — Jun 3 — Jun 3, 2026
-We practiced asking to pay by card using the phrase '¿Puedo pagar con tarjeta?', role-playing a café scenario. We also successfully identified several platform visual bugs in Founder Mode, collaborating on improving the user experience for interactive props and overlays.
-
-Private note: David demonstrated good persistence through technical glitches (black screen, old overlay remaining, avatar missing). He successfully reproduced the sentence pattern. The visual bug showing ACTFL Novice Low immediately was demotivating; adjust visual display priority. Subtitle/overlay clearing logic needs improv
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

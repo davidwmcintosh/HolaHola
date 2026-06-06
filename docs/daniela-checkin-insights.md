@@ -31,12 +31,12 @@ The check-in question framed Madrigal as something a student can "finish" or "gr
 
 ---
 
-### Subtitles — Need David's Read on "on" Mode
-**Status: Pending David input.**
+### Subtitles — Confirmed by David
+**Status: ✅ Confirmed by David — June 6, 2026.**
 
 Daniela described `on` mode (Spanish + English simultaneously) as a near-emergency measure that "contradicts immersion directly" and should be phased out as quickly as possible. She argued that having English always visible on screen prevents students from processing Spanish because the translation is right there.
 
-**Open question for David:** Is this the right read? Are there regular legitimate use cases for showing both languages at once, or should `on` mode really be reserved for edge cases? Her prescription ("aggressive phase-out") shapes how she'll use it — worth confirming.
+**David confirmed:** Daniela's read is correct. `on` mode is "ridiculously clumsy and distracting" — a last resort only. `target` and `custom` are the working modes. This is platform philosophy.
 
 ---
 
