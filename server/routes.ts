@@ -759,7 +759,7 @@ export async function registerRoutes(app: Express): Promise<void> {
       return res.status(403).json({ error: 'Forbidden' });
     }
     const { getAldenStatus } = await import('./services/alden-watch-worker');
-    res.json(getAldenStatus());
+    res.json(await getAldenStatus());
   });
 
   // SSE streaming batch generator

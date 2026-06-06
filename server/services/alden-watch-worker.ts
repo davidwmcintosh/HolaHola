@@ -11,9 +11,9 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { getUserDb } from "../db";
-import { aldenNotifications } from "@shared/schema";
+import { aldenNotifications, aiCostLogs } from "@shared/schema";
+import { sql as drizzleSql, eq, desc, and } from "drizzle-orm";
 import { executeAldenTool, ALDEN_TOOLS } from "./alden-functions";
-import { eq, desc, and } from "drizzle-orm";
 import {
   captureSnapshot,
   detectAnomalies,
@@ -55,8 +55,9 @@ const cycleHistory: CycleMetric[] = [];
 // Health score consecutive drop tracking
 let consecutiveLowScoreCycles = 0;
 
-// Budget alert cooldown (fires at most once per 12h per tier)
-let lastBudgetAlertTime: number | null = null;
+// Budget alert cooldown — per-tier so Tier-2 is never suppressed by a prior Tier-1 fire
+let lastBudgetWarnTime:  number | null = null;  // Tier 1 — $3
+let lastBudgetAlertTime: number | null = null;  // Tier 2 — $5
 
 // Hard-pause state: set when 24h spend crosses $10; cleared when spend drops below
 let hardPauseActive = false;
@@ -409,11 +410,11 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
     // ── Always-on: tiered cost budget controls (24h window) ─────────────────
     const budget24h = costTracker.getSummary(24);
     const spend = budget24h.totalCostUsd;
-    const sinceLastBudgetAlert = lastBudgetAlertTime ? Date.now() - lastBudgetAlertTime : Infinity;
 
     if (spend >= BUDGET_ALERT_USD) {
       // Tier 2 — $5: notification + Hive post
-      if (sinceLastBudgetAlert > 12 * 60 * 60 * 1000) {
+      const sinceLastAlert = lastBudgetAlertTime ? Date.now() - lastBudgetAlertTime : Infinity;
+      if (sinceLastAlert > 12 * 60 * 60 * 1000) {
         console.log(`[AldenWatch] Tier-2 budget: $${spend.toFixed(4)} in 24h (threshold: $${BUDGET_ALERT_USD})`);
         const fp = 'budget_exceeded';
         const isDupAlert = await hasDuplicateActiveIssue(fp);
@@ -437,8 +438,9 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
         }
       }
     } else if (spend >= BUDGET_WARN_USD) {
-      // Tier 1 — $3: notification only (no Hive post)
-      if (sinceLastBudgetAlert > 12 * 60 * 60 * 1000) {
+      // Tier 1 — $3: notification + Hive post (early warning)
+      const sinceLastWarn = lastBudgetWarnTime ? Date.now() - lastBudgetWarnTime : Infinity;
+      if (sinceLastWarn > 12 * 60 * 60 * 1000) {
         console.log(`[AldenWatch] Tier-1 budget warn: $${spend.toFixed(4)} in 24h (threshold: $${BUDGET_WARN_USD})`);
         const fp = 'budget_warn';
         const isDupWarn = await hasDuplicateActiveIssue(fp);
@@ -451,8 +453,12 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
             read: false,
             fingerprint: fp,
           });
-          lastBudgetAlertTime = Date.now();
-          console.log('[AldenWatch] Tier-1 budget warning queued');
+          await postHiveMessage(
+            `Budget early warning (Tier 1): 24h AI spend is $${spend.toFixed(4)}, passing the $${BUDGET_WARN_USD} watch threshold. No action needed yet — just a heads-up.`,
+            { tier: 'warn', spendUsd: spend },
+          );
+          lastBudgetWarnTime = Date.now();
+          console.log('[AldenWatch] Tier-1 budget warning queued + Hive post sent');
         }
       }
     }
@@ -642,10 +648,23 @@ export function startAldenWatchWorker() {
 
 /**
  * Returns live status data for the /api/admin/alden-status endpoint.
+ * Uses ai_cost_logs (DB-backed) for the 24h spend so the figure survives restarts.
+ * Falls back to in-memory costTracker if the DB query fails.
  */
-export function getAldenStatus() {
-  const summary24h = costTracker.getSummary(24);
-  const spend = summary24h.totalCostUsd;
+export async function getAldenStatus() {
+  let spend: number;
+  try {
+    const db = getUserDb();
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const rows = await db
+      .select({ total: drizzleSql<number>`coalesce(sum(${aiCostLogs.costUsd}), 0)` })
+      .from(aiCostLogs)
+      .where(drizzleSql`${aiCostLogs.loggedAt} >= ${cutoff}`);
+    spend = Number(rows[0]?.total ?? 0);
+  } catch {
+    // Fall back to in-memory tracker if DB is unavailable
+    spend = costTracker.getSummary(24).totalCostUsd;
+  }
 
   let activeTier: 'nominal' | 'warn' | 'alert' | 'hard_pause';
   if (spend >= BUDGET_HARD_PAUSE_USD) {
@@ -660,6 +679,7 @@ export function getAldenStatus() {
 
   return {
     spend24hUsd: spend,
+    spendSource: 'db',
     thresholds: {
       warn:       BUDGET_WARN_USD,
       alert:      BUDGET_ALERT_USD,
