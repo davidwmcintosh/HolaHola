@@ -3208,6 +3208,7 @@ export class NativeFunctionCallHandler {
             reasoning,
             priority: fn.args.priority as number | undefined,
             confidence: fn.args.confidence as number | undefined,
+            acknowledgment: fn.args.acknowledgment as string | undefined,
           }).then(result => {
             console.log(`[Native Function→SelfSurgery] Proposal for ${target}: ${result.message}`);
             if (!session.pendingMemorySurfaces) session.pendingMemorySurfaces = [];
@@ -6751,6 +6752,7 @@ export class NativeFunctionCallHandler {
         }
         if (session.conversationId) body += `\nSession: ${session.conversationId}`;
         if (session.targetLanguage) body += `\nLanguage: ${session.targetLanguage}`;
+        if (data.acknowledgment) body += `\nDaniela's note: "${data.acknowledgment}"`;
         body += '\nSource: Daniela (self_surgery proposal)';
 
         try {
@@ -6791,9 +6793,10 @@ export class NativeFunctionCallHandler {
             }
           }
 
+          const ackSuffix = data.acknowledgment ? ` Your note — "${data.acknowledgment}" — has been appended to the report.` : ' You can acknowledge this naturally if relevant.';
           const ackMessage = noteId
-            ? `[SELF_SURGERY ACK] Your ${label} was received and logged for Agent review (note ID: ${noteId}). You can acknowledge this naturally if relevant.`
-            : `[SELF_SURGERY ACK] Your ${label} was received and logged for Agent review.`;
+            ? `[SELF_SURGERY ACK] Your ${label} was received and logged for Agent review (note ID: ${noteId}).${ackSuffix}`
+            : `[SELF_SURGERY ACK] Your ${label} was received and logged for Agent review.${ackSuffix}`;
           return { success: true, noteId, message: ackMessage };
         } catch (err: any) {
           console.error(`[Self-Surgery] Failed to log ${data.targetTable} to agent_notes:`, err.message);

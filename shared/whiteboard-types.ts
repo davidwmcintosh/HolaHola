@@ -811,6 +811,7 @@ export interface SelfSurgeryItemData {
   reasoning: string;                  // Why Daniela is proposing this
   priority?: number;                  // 1-100 importance scale (default 50)
   confidence?: number;                // 1-100 how confident she is (default 70)
+  acknowledgment?: string;            // Optional brief note from Daniela about what she observed (personal_facts / capability_gap only)
 }
 
 export interface SelfSurgeryItem extends WhiteboardItemBase {

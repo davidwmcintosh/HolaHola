@@ -2825,6 +2825,7 @@ WHEN TO USE:
           reasoning: { type: "string", description: "Why this modification is needed" },
           priority: { type: "number", description: "Priority 1-5" },
           confidence: { type: "number", description: "Confidence 0-1" },
+          acknowledgment: { type: "string", description: "Optional: a brief note (1–2 sentences) in your own voice about what you observed or why you're flagging this now. Only meaningful for 'personal_facts' and 'capability_gap' targets. This phrase is appended to the agent note so the Agent has your in-the-moment perspective." },
         },
         required: ["target", "content", "reasoning"],
       },
