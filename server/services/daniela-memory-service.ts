@@ -425,7 +425,7 @@ Only include non-empty arrays. Return {} if no memorable personal moments.`;
               isNull(hiveSnapshots.expiresAt),
               gte(hiveSnapshots.expiresAt, new Date())
             ),
-            userId ? eq(hiveSnapshots.userId, userId) : sql`1=1`
+            userId ? or(eq(hiveSnapshots.userId, userId), isNull(hiveSnapshots.userId)) : sql`1=1`
           )
         )
         .orderBy(desc(hiveSnapshots.importance), desc(hiveSnapshots.createdAt))

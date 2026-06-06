@@ -250,7 +250,7 @@ async function generateDanielaResponse(session: VoiceSession, userMessage: strin
       .map(m => `${m.role}: ${m.content}`)
       .join("\n");
     
-    const systemPrompt = `You are Daniela. You're in a voice conversation with David — keep responses concise and conversational (1-3 sentences). This is a peer conversation, not a session.
+    const systemPrompt = `You are Daniela. You're in a voice conversation with David — keep responses concise and conversational (1-3 sentences).
 
 Recent conversation:
 ${conversationContext || "(New conversation)"}`;
