@@ -601,10 +601,12 @@ async function checkAndPostRepairProposal(client: Anthropic, messages: string[])
 }
 
 // ── Hard-pause recovery poller ───────────────────────────────────────────────
-// Runs every 10 min (spend-only, no LLM call) while hard-pause is active.
+// Runs on a configurable interval (spend-only, no LLM call) while hard-pause is active.
+// Set ALDEN_RECOVERY_POLL_MIN env var to change the cadence without a code deploy.
 // As soon as 24h spend drops below BUDGET_HARD_PAUSE_USD it lifts the pause,
 // logs the recovery, and posts a Hive message so David knows cycles are back.
-const RECOVERY_POLL_INTERVAL_MS = 10 * 60 * 1000;
+const RECOVERY_POLL_MIN = Math.max(1, parseInt(process.env.ALDEN_RECOVERY_POLL_MIN ?? '10', 10) || 10);
+const RECOVERY_POLL_INTERVAL_MS = RECOVERY_POLL_MIN * 60 * 1000;
 
 async function runHardPauseRecoveryCheck(): Promise<void> {
   if (!hardPauseActive) return;
@@ -627,7 +629,7 @@ async function runHardPauseRecoveryCheck(): Promise<void> {
 }
 
 export function startAldenWatchWorker() {
-  console.log('[AldenWatch] Starting (interval: 2h, per-issue-type dedup via fingerprint)');
+  console.log(`[AldenWatch] Starting (interval: 2h, recovery poll: ${RECOVERY_POLL_MIN}min [ALDEN_RECOVERY_POLL_MIN], per-issue-type dedup via fingerprint)`);
   // Initial check after 5 minutes (let the server settle)
   setTimeout(() => {
     runWatchCycle();
@@ -668,5 +670,6 @@ export function getAldenStatus() {
     consecutiveLowScoreCycles,
     lastWatchCycleTime,
     lastNotificationFingerprints: lastNotificationFingerprints.slice(-5),
+    recoveryPollIntervalMs: RECOVERY_POLL_INTERVAL_MS,
   };
 }
