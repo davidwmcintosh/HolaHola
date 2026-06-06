@@ -801,7 +801,9 @@ export type SelfSurgeryTarget =
   | 'learner_error_patterns'
   | 'dialect_variations'
   | 'linguistic_bridges'
-  | 'creativity_templates';
+  | 'creativity_templates'
+  | 'personal_facts'
+  | 'capability_gap';
 
 export interface SelfSurgeryItemData {
   targetTable: SelfSurgeryTarget;     // Which neural network table to update

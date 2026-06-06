@@ -2820,7 +2820,7 @@ WHEN TO USE:
       parametersJsonSchema: {
         type: "object",
         properties: {
-          target: { type: "string", enum: ["tutor_procedures", "teaching_principles", "tool_knowledge", "situational_patterns", "language_idioms", "cultural_nuances", "learner_error_patterns", "dialect_variations", "linguistic_bridges", "creativity_templates"], description: "Which knowledge domain to modify" },
+          target: { type: "string", enum: ["tutor_procedures", "teaching_principles", "tool_knowledge", "situational_patterns", "language_idioms", "cultural_nuances", "learner_error_patterns", "dialect_variations", "linguistic_bridges", "creativity_templates", "personal_facts", "capability_gap"], description: "Which knowledge domain to modify. Use 'personal_facts' to flag a specific learner fact as possibly wrong or stale (requires: student_id, fact_description, what_seems_wrong). Use 'capability_gap' to describe a teaching situation you couldn't handle (requires: situation, what_i_tried, what_would_have_helped)." },
           content: { type: "string", description: "JSON content to add/modify" },
           reasoning: { type: "string", description: "Why this modification is needed" },
           priority: { type: "number", description: "Priority 1-5" },
@@ -2829,6 +2829,26 @@ WHEN TO USE:
         required: ["target", "content", "reasoning"],
       },
     },
+  },
+
+  {
+    legacyType: 'FLAG_FOR_AGENT',
+    declaration: {
+      name: "flag_for_agent",
+      description: "Escalate directly to the Replit Agent's session-start reading queue. Use this proactively — not just when asked — whenever you notice something that needs Agent attention: a student fact that seems wrong or stale, a missing tool you needed, a data integrity issue, a behavior pattern you can't explain, or a capability gap the platform doesn't cover. The Agent reads this queue at the start of every build session.",
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          topic: { type: "string", description: "Short label for what you're flagging (e.g. 'Stale student fact', 'Missing tool', 'Memory inconsistency')" },
+          description: { type: "string", description: "Full context of what you noticed — be specific. Include what you observed, what you expected, what seemed off, and why it matters." },
+          urgency: { type: "string", enum: ["low", "medium", "high"], description: "low = informational, read next session; medium = should address before next session with this student; high = architectural or data integrity issue" },
+          student_id: { type: "string", description: "Optional: the student's user ID if this flag is student-specific" },
+        },
+        required: ["topic", "description", "urgency"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) =>
+      `Flag logged for the Agent: "${fc.args.topic}" (urgency: ${fc.args.urgency}). The Agent will review it at next session start. You can continue the lesson — this runs in the background.`,
   },
 
   // === DRILLS ===
@@ -4634,7 +4654,7 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'search_conversation_threads', 'browse_conversations_by_date', 'get_conversation_themes', 'read_full_session',
   'recall_express_lane_image', 'express_lane_post',
   'save_conversation_memory',
-  'hive_suggestion', 'self_surgery',
+  'hive_suggestion', 'self_surgery', 'flag_for_agent',
   'record_student_consent', 'dismiss_absence_nudge', 'first_meeting_complete',
   'mark_lesson_covered',
   'set_memory_pin', 'correct_memory', 'forget_memory',

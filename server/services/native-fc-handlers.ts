@@ -1,5 +1,5 @@
 import { sql, eq, and, desc, ilike, or } from "drizzle-orm";
-import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems } from "@shared/schema";
+import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes } from "@shared/schema";
 import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
 import { getCharacter } from "./character-registry";
@@ -3141,6 +3141,38 @@ export class NativeFunctionCallHandler {
         break;
       }
       
+      case 'FLAG_FOR_AGENT': {
+        if (session.isIncognito) {
+          console.log(`[Native Function→FlagForAgent] INCOGNITO - skipping flag persistence`);
+          break;
+        }
+        const flagTopic = fn.args.topic as string | undefined;
+        const flagDescription = fn.args.description as string | undefined;
+        const flagUrgency = (fn.args.urgency as string | undefined) || 'low';
+        const flagStudentId = fn.args.student_id as string | undefined;
+
+        if (flagTopic && flagDescription) {
+          const db = getSharedDb();
+          const studentContext = flagStudentId ? `\nStudent ID: ${flagStudentId}` : '';
+          const sessionContext = session.conversationId ? `\nSession: ${session.conversationId}` : '';
+          const languageContext = session.targetLanguage ? `\nLanguage: ${session.targetLanguage}` : '';
+          const body = `${flagDescription}\n\n---\nUrgency: ${flagUrgency}${studentContext}${sessionContext}${languageContext}\nSource: Daniela (flag_for_agent)`;
+
+          db.insert(agentNotes).values({
+            fromAgent: 'daniela' as any,
+            toAgent: 'agent',
+            subject: `[Daniela — ${flagUrgency.toUpperCase()}] ${flagTopic.substring(0, 250)}`,
+            body,
+            sessionLabel: `Daniela flag — ${new Date().toISOString().substring(0, 10)}`,
+          }).then(() => {
+            console.log(`[Native Function→FlagForAgent] Logged flag: "${flagTopic}" (${flagUrgency})`);
+          }).catch((err: Error) => {
+            console.error(`[Native Function→FlagForAgent] Failed to insert agent note:`, err.message);
+          });
+        }
+        break;
+      }
+
       case 'SELF_SURGERY': {
         if (session.isIncognito) {
           console.log(`[Native Function→SelfSurgery] INCOGNITO - skipping self-surgery persistence`);
@@ -3149,8 +3181,13 @@ export class NativeFunctionCallHandler {
         const target = fn.args.target as string | undefined;
         const content = fn.args.content as string | undefined;
         const reasoning = fn.args.reasoning as string | undefined;
-        
-        if (target && content && reasoning && session.isFounderMode) {
+
+        if (target && reasoning && session.isFounderMode) {
+          if (!content) {
+            console.warn(`[Native Function→SelfSurgery] No content provided for target: ${target}`);
+            break;
+          }
+
           let parsedContent: Record<string, unknown>;
           try {
             parsedContent = typeof content === 'string' ? JSON.parse(content) : content;
@@ -3158,14 +3195,14 @@ export class NativeFunctionCallHandler {
             console.warn(`[Native Function→SelfSurgery] Invalid JSON content: ${content.substring(0, 100)}...`);
             break;
           }
-          
-          this.processSelfSurgeryProposal(session, {
+
+          this.processSelfSurgery(session, {
             targetTable: target as import('@shared/whiteboard-types').SelfSurgeryTarget,
             content: parsedContent,
             reasoning,
             priority: fn.args.priority as number | undefined,
             confidence: fn.args.confidence as number | undefined,
-          })().catch(err => console.error(`[Native Function→SelfSurgery] Error:`, err));
+          }).catch(err => console.error(`[Native Function→SelfSurgery] Error:`, err));
           console.log(`[Native Function→SelfSurgery] Proposal for ${target}`);
         }
         break;
@@ -6678,10 +6715,46 @@ export class NativeFunctionCallHandler {
         'learner_error_patterns',
         'dialect_variations',
         'linguistic_bridges',
+        'personal_facts',
+        'capability_gap',
       ] as const;
       
       if (!validTargets.includes(data.targetTable as any)) {
         console.error(`[Self-Surgery] Invalid target table: ${data.targetTable}`);
+        return;
+      }
+
+      // personal_facts and capability_gap create agent_notes proposals (not neural net table entries)
+      if (data.targetTable === 'personal_facts' || data.targetTable === 'capability_gap') {
+        const db = getSharedDb();
+        const contentObj = typeof data.content === 'string'
+          ? (() => { try { return JSON.parse(data.content as unknown as string); } catch { return data.content; } })()
+          : data.content;
+        const isPersonalFacts = data.targetTable === 'personal_facts';
+        const subject = isPersonalFacts
+          ? `[Daniela — PERSONAL FACT] ${(contentObj.fact_description as string || 'Learner fact may be stale').substring(0, 220)}`
+          : `[Daniela — CAPABILITY GAP] ${(contentObj.situation as string || 'Teaching gap').substring(0, 220)}`;
+        let body: string;
+        if (isPersonalFacts) {
+          body = `Daniela flagged a learner personal fact as possibly wrong or stale.\n\nFact: ${contentObj.fact_description || 'unspecified'}\nStudent ID: ${contentObj.student_id || 'not provided'}\nWhat seems wrong: ${contentObj.what_seems_wrong || data.reasoning}\nReasoning: ${data.reasoning}`;
+        } else {
+          body = `Daniela encountered a teaching situation she couldn't fully handle.\n\nSituation: ${contentObj.situation || data.reasoning}\nWhat I tried: ${contentObj.what_i_tried || 'not specified'}\nWhat would have helped: ${contentObj.what_would_have_helped || 'not specified'}\nReasoning: ${data.reasoning}`;
+        }
+        if (session.conversationId) body += `\nSession: ${session.conversationId}`;
+        if (session.targetLanguage) body += `\nLanguage: ${session.targetLanguage}`;
+        body += '\nSource: Daniela (self_surgery proposal)';
+
+        db.insert(agentNotes).values({
+          fromAgent: 'daniela' as any,
+          toAgent: 'agent',
+          subject,
+          body,
+          sessionLabel: `Daniela self-surgery — ${new Date().toISOString().substring(0, 10)}`,
+        }).then(() => {
+          console.log(`[Self-Surgery] ✅ ${data.targetTable} proposal logged for Agent review`);
+        }).catch((err: Error) => {
+          console.error(`[Self-Surgery] Failed to log ${data.targetTable} to agent_notes:`, err.message);
+        });
         return;
       }
       
@@ -6808,6 +6881,22 @@ export class NativeFunctionCallHandler {
       case 'linguistic_bridges':
         if (!content.sourceLanguage || !content.targetLanguage || !content.concept) {
           return { valid: false, error: 'linguistic_bridges requires: sourceLanguage, targetLanguage, concept' };
+        }
+        break;
+      case 'personal_facts':
+        if (!content.fact_description) {
+          return { valid: false, error: 'personal_facts requires: fact_description (what fact seems wrong)' };
+        }
+        if (!content.what_seems_wrong) {
+          return { valid: false, error: 'personal_facts requires: what_seems_wrong (why you think it is incorrect or stale)' };
+        }
+        break;
+      case 'capability_gap':
+        if (!content.situation) {
+          return { valid: false, error: 'capability_gap requires: situation (describe the teaching situation you could not handle)' };
+        }
+        if (!content.what_would_have_helped) {
+          return { valid: false, error: 'capability_gap requires: what_would_have_helped (describe the tool, knowledge, or capability that would have resolved it)' };
         }
         break;
       default:
