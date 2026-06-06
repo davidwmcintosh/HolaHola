@@ -6117,6 +6117,20 @@ export class NativeFunctionCallHandler {
                   const body = row.content ?? row.summary ?? '';
                   lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | conversation_memory | ${date}] ${row.title}\n${body}`);
                 }
+              } else if (hit.memoryType === 'teaching_skill') {
+                const { teachingSkills: ts } = await import('@shared/schema');
+                const [row] = await sharedDb.select({
+                  name: ts.name,
+                  title: ts.title,
+                  triggerConditions: ts.triggerConditions,
+                  chapterTypes: ts.chapterTypes,
+                  madrigalAligned: ts.madrigalAligned,
+                }).from(ts).where(eq(ts.id, hit.memoryId)).limit(1);
+                if (row) {
+                  const types = row.chapterTypes?.join(', ') || 'universal';
+                  const madrigal = row.madrigalAligned ? ' [Madrigal]' : '';
+                  lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | teaching_skill${madrigal}] invoke_teaching_skill("${row.name}") — ${row.triggerConditions || row.title} (${types})`);
+                }
               }
             } catch { /* skip failed hydration */ }
           }

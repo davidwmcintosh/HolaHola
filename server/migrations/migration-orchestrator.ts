@@ -515,6 +515,35 @@ const MIGRATIONS: Migration[] = [
       console.log('[MIGRATIONS] 011: Added call_transcript column to daniela_outbound_queue');
     },
   },
+  {
+    version: '012',
+    name: 'teaching-skills',
+    up: async () => {
+      const exists = await tableExists('teaching_skills');
+      if (exists) {
+        console.log('[MIGRATIONS] 012: teaching_skills table already exists, skipping');
+        return;
+      }
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS teaching_skills (
+          id VARCHAR(255) PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          name VARCHAR(100) NOT NULL UNIQUE,
+          title VARCHAR(255) NOT NULL,
+          description TEXT,
+          trigger_conditions TEXT,
+          steps JSONB NOT NULL DEFAULT '[]',
+          params_schema JSONB NOT NULL DEFAULT '{}',
+          madrigal_aligned BOOLEAN NOT NULL DEFAULT FALSE,
+          chapter_types TEXT[] DEFAULT '{}',
+          actfl_level_range VARCHAR(50),
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at TIMESTAMP DEFAULT NOW(),
+          origin_proposal_id VARCHAR(255)
+        )
+      `);
+      console.log('[MIGRATIONS] 012: Created teaching_skills table');
+    },
+  },
 ];
 
 export class MigrationOrchestrator {
