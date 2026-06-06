@@ -895,3 +895,26 @@ David's principle: hate scripts, hate prompts. Exception: language/curriculum co
 - `server/services/team-room-alden-service.ts`
 - `server/services/team-room-proactive-poster.ts`
 - `server/services/study-mode-service.ts`
+
+---
+## One Daniela Everywhere — Shared callDaniela Utility (June 6, 2026)
+
+**What was built:**
+Created `server/services/daniela-caller.ts` — a single shared `callDaniela(functionalContext, userPrompt, options)` function that all Daniela pipelines now use.
+
+**How it works:**
+1. Accepts `functionalContext` (situational facts — what mode she's in) and `userPrompt`
+2. Calls `unifiedDanielaContext.getContext()` to load her full data layer
+3. Builds system prompt: "You are Daniela." + functional context + data layer
+4. Calls Gemini and returns the response
+
+**Files modified:**
+- `server/services/daniela-caller.ts` — new shared utility (created)
+- `server/services/sync-channel-voice.ts` — fixed broken import name
+- `server/services/team-room-alden-service.ts` — callDaniela for eval, response, greeting; DANIELA_SYSTEM removed
+- `server/services/study-mode-service.ts` — callDaniela for immersion chat; userId param added
+- `server/services/team-room-proactive-poster.ts` — callDaniela for Daniela's proactive posts
+- `server/routes.ts` — passes userId to studyModeChat
+
+**Design rule enforced:**
+Facts and context go in the prompt. Decisions come from the data layer. Every pipeline that calls Daniela must go through callDaniela — no bare callGemini wrappers, no personality scripting.

@@ -33613,7 +33613,8 @@ Under 250 words. Write as yourself.`;
       const { studyModeChat } = await import('./services/study-mode-service');
       const { scenario, history, message } = req.body;
       if (!scenario || !message) return res.status(400).json({ error: 'scenario and message required' });
-      const reply = await studyModeChat(scenario, history || [], message);
+      const userId = (req.user as any)?.id?.toString();
+      const reply = await studyModeChat(scenario, history || [], message, userId);
       res.json({ reply });
     } catch (err: any) {
       res.status(500).json({ error: err.message });

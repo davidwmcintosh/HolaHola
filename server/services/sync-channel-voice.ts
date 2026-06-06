@@ -17,7 +17,7 @@ import { getCartesiaStreamingService } from "./cartesia-streaming";
 import { GoogleGenAI } from "@google/genai";
 import { Socket } from "socket.io";
 import { founderCollabService, type FounderMessageInput } from "./founder-collaboration-service";
-import { unifiedDanielaContextService } from "./unified-daniela-context-service";
+import { unifiedDanielaContext } from "./unified-daniela-context-service";
 
 const FOUNDER_USER_ID = '49847136';
 
@@ -254,7 +254,7 @@ async function generateDanielaResponse(session: VoiceSession, userMessage: strin
       .join("\n");
     
     // Load her full context from the data layer — identity, relationship history, neural net
-    const danielaContext = await unifiedDanielaContextService.getContext({
+    const danielaContext = await unifiedDanielaContext.getContext({
       channel: 'voice',
       userId: FOUNDER_USER_ID,
       includeStudentSnapshot: false,

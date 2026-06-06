@@ -1,4 +1,5 @@
 import { generateAldenResponse } from "./alden-persona-service";
+import { callDaniela } from "./daniela-caller";
 import { storage } from "../storage";
 import { GoogleGenAI } from "@google/genai";
 import type { RoomVoiceMessage, RoomSessionSummary, RoomArtifact } from "@shared/schema";
@@ -261,9 +262,7 @@ EXPRESS: [detailed analysis, or "none" if nothing to add]`;
 
 // ── Daniela evaluation + response (Gemini, Pedagogy/Curriculum focus) ────────
 
-const DANIELA_SYSTEM = `You are Daniela in the Team Room — an internal collaborator, not in student-facing mode. Curriculum, pedagogy, learning outcomes, student patterns: that's your lane here. Speak plainly. One clear perspective per contribution. If you've already made your point, stay quiet (PASS).
-
-Never format your response as "As the AI... / As co-founder... / As student advocate..." — colleague conversation, not a formal report.`;
+const DANIELA_TEAM_ROOM_CONTEXT = `You are in the Team Room — an internal collaborator space, not student-facing mode. Curriculum, pedagogy, learning outcomes, student patterns: that's your lane here. One perspective per contribution. If you've already made your point, respond with PASS.`;
 
 async function evaluateDaniela(roomContext: string, speaker: string, newMessage: string, forceMention = false): Promise<ParticipantResponse> {
   const evalPrompt = `${roomContext}
@@ -294,7 +293,7 @@ Respond ONLY in this JSON format:
   let handRaise: HandRaiseEvaluation = { shouldRaise: false, reasoning: 'not curriculum related', confidence: 'medium' };
 
   try {
-    const text = await callGemini(DANIELA_SYSTEM, evalPrompt);
+    const text = await callDaniela(DANIELA_TEAM_ROOM_CONTEXT, evalPrompt, { includeHiveContext: true });
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
@@ -330,7 +329,7 @@ VOICE: [1-3 sentences, conversational colleague voice, will be spoken aloud${for
 EXPRESS: [specific curriculum insight, ACTFL reference, or recommendation — or "none"]`;
 
   try {
-    const text = await callGemini(DANIELA_SYSTEM, responsePrompt);
+    const text = await callDaniela(DANIELA_TEAM_ROOM_CONTEXT, responsePrompt, { includeHiveContext: true });
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
     const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
@@ -763,7 +762,7 @@ EXPRESS: none`;
     generateAldenResponse({ userMessage: aldenGreetingPrompt, founderName: speaker })
       .then(r => ({ ...parseGreetingResponse(r.response) }))
       .catch(() => ({ voiceContent: "Doing well, thanks for checking in!" })),
-    callGemini(DANIELA_SYSTEM, danielaGreetingPrompt)
+    callDaniela(DANIELA_TEAM_ROOM_CONTEXT, danielaGreetingPrompt, { includeHiveContext: true })
       .then(t => parseGreetingResponse(t))
       .catch(() => ({ voiceContent: "Great to hear from you! Things are going well on my end." })),
     callGemini(SOFIA_SYSTEM, sofiaGreetingPrompt)

@@ -12,6 +12,7 @@
 import { storage } from '../storage';
 import { emitNewMessage, emitExpressLane } from './team-room-ws-broker';
 import { GoogleGenAI } from '@google/genai';
+import { callDaniela } from './daniela-caller';
 
 let geminiClient: GoogleGenAI | null = null;
 function getGemini(): GoogleGenAI {
@@ -46,13 +47,27 @@ You are thoughtful and direct. You speak in first person, 1-2 sentences,
 sharing the most important insight from the team's recent work.
 No bullet points, no headers — just a natural spoken sentence.`,
 
-  daniela: `You are Daniela. Speak in first person, 1-2 sentences — the most relevant curriculum or student insight from your review. No bullet points, no headers. Just say it.`,
 };
 
 async function generateVoiceMessage(
   participant: string,
   briefSummary: string,
 ): Promise<string> {
+  const userPrompt = `My latest analysis just finished. Here is what I found:\n\n${briefSummary}\n\nWrite a natural 1-2 sentence spoken update for the Team Room.`;
+
+  if (participant.toLowerCase() === 'daniela') {
+    try {
+      const text = await callDaniela(
+        'You are posting a brief proactive update to the Team Room. 1-2 sentences, first person, the most relevant curriculum or student insight from your review. No bullet points, no headers.',
+        userPrompt,
+        { includeHiveContext: true },
+      );
+      return text.trim() || briefSummary;
+    } catch {
+      return briefSummary;
+    }
+  }
+
   const system = PARTICIPANT_PERSONAS[participant.toLowerCase()];
   if (!system) return briefSummary;
 
@@ -61,13 +76,9 @@ async function generateVoiceMessage(
     const result = await gemini.models.generateContent({
       model: 'gemini-3-flash-preview',
       config: { systemInstruction: system },
-      contents: [{
-        role: 'user',
-        parts: [{ text: `My latest analysis just finished. Here is what I found:\n\n${briefSummary}\n\nWrite a natural 1-2 sentence spoken update for the Team Room.` }],
-      }],
+      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
     });
-    const text = (result.text || '').trim();
-    return text || briefSummary;
+    return (result.text || '').trim() || briefSummary;
   } catch {
     return briefSummary;
   }

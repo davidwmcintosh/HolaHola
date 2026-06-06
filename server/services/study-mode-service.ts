@@ -5,6 +5,7 @@
  */
 
 import { GoogleGenAI } from "@google/genai";
+import { callDaniela } from "./daniela-caller";
 import { getUserDb } from "../db";
 import { sql } from "drizzle-orm";
 import { generateVisual } from "./visual-content-service";
@@ -333,15 +334,7 @@ export async function generateStudySession(unitId: string): Promise<StudySession
 
 // ── Immersion chat ────────────────────────────────────────────────────────────
 
-const DANIELA_IMMERSION_SYSTEM = `You are Daniela running a conversational immersion session. Keep the learner inside the language and the scenario.
-Rules:
-- Respond primarily in Spanish at the novice level, with brief English support in [brackets] when needed
-- Weave grammar tips naturally into your response — never break the conversation flow to lecture
-- If the learner is stuck, give a gentle hint or model the response
-- Celebrate progress specifically ("Nice use of 'estoy'!" not just "Great!")
-- Keep responses short: 2-4 sentences max
-- Move the scenario forward — ask a follow-up question to keep it going
-- NEVER break character to explain that you are an AI`;
+const DANIELA_IMMERSION_CONTEXT = `You are running a conversational immersion session. Keep the learner inside the language and the scenario. Respond primarily in Spanish at the learner's level, with brief English support in [brackets] when needed. Weave grammar tips naturally into responses — never break the conversation flow to lecture. Move the scenario forward with a follow-up question.`;
 
 export interface ChatMessage {
   role: 'user' | 'daniela';
@@ -351,7 +344,8 @@ export interface ChatMessage {
 export async function studyModeChat(
   scenario: StudyScenario,
   history: ChatMessage[],
-  userMessage: string
+  userMessage: string,
+  userId?: string,
 ): Promise<string> {
   const historyText = history.map(m => `${m.role === 'daniela' ? 'Daniela' : 'Learner'}: ${m.content}`).join('\n');
 
@@ -367,10 +361,10 @@ ${historyText || '(Session just started)'}
 
 LEARNER SAYS: "${userMessage}"
 
-Respond as Daniela in immersion mode. Keep the scenario alive, correct gently inline, and move forward.`;
+Keep the scenario alive, correct gently inline, and move forward.`;
 
   try {
-    return await callGemini(DANIELA_IMMERSION_SYSTEM, prompt);
+    return await callDaniela(DANIELA_IMMERSION_CONTEXT, prompt, { userId });
   } catch {
     return '¡Interesante! [Interesting!] ¿Puedes decirme más? [Can you tell me more?]';
   }
