@@ -1371,6 +1371,19 @@ ${parts.join('\n\n')}
       );
     }
 
+    // 2f. TEACHING SKILLS — available skill roster injected for all sessions
+    promises.push(
+      (async () => {
+        try {
+          const { fetchActiveSkillsSummary } = await import('./teaching-skills-service');
+          const skillsSummary = await fetchActiveSkillsSummary();
+          if (skillsSummary) cache.teachingSkillsSection = skillsSummary;
+        } catch (err: any) {
+          console.warn(`[Context Prefetch] Teaching skills failed:`, err.message);
+        }
+      })()
+    );
+
     // 3. Developer/founder context (Hive, Express Lane, Text Chat, Editor Feedback)
     const needsExpressLaneContext = session.isDeveloperUser;
     if (needsExpressLaneContext) {
@@ -2679,6 +2692,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (hasFreshCache && session.cachedContext?.goalSection) {
         dynamicContextParts.push(session.cachedContext.goalSection);
+      }
+      if (hasFreshCache && session.cachedContext?.teachingSkillsSection) {
+        dynamicContextParts.push(session.cachedContext.teachingSkillsSection);
       }
       if (hiveContextSection) {
         dynamicContextParts.push(hiveContextSection);
@@ -6165,6 +6181,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (hasFreshCacheOpenMic && session.cachedContext?.goalSection) {
         dynamicContextPartsOpenMic.push(session.cachedContext.goalSection);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.teachingSkillsSection) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.teachingSkillsSection);
       }
       
       // CLASSROOM ENVIRONMENT (OpenMic): Daniela's unified workspace via shared pipeline

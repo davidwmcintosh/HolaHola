@@ -4471,6 +4471,59 @@ SHOW AND SPEAK PROTOCOL (mandatory):
     },
   },
 
+  // === TEACHING SKILLS (compound pedagogical routines) ===
+  {
+    legacyType: 'INVOKE_TEACHING_SKILL',
+    declaration: {
+      name: 'invoke_teaching_skill',
+      description: `Execute a named pedagogical skill — a pre-reasoned teaching routine with exact step-by-step instructions.
+
+Returns a complete script you follow directly: which tools to call, what to say at each step, what to listen for, when to pivot. You make the atomic tool calls yourself — the server just gives you the pre-reasoned plan so you don't have to re-derive the pedagogy from scratch.
+
+WHEN TO USE:
+• Introducing a new Madrigal chapter vocabulary set → "madrigal_chapter_drill" (verb_vocab mode)
+• Running a preterite verb chapter (tomar, comprar, tener) → "madrigal_chapter_drill" (preterite mode)
+• Teaching ser or estar conjugation cluster → "madrigal_chapter_drill" (ser_estar mode)
+• Student is zoning out or cognitively flat → "attention_reset"
+• Student made a repeated grammar error → "error_recovery"
+• Student ready for applied scenario practice → "scenario_immersion"
+• Bringing back previously learned vocabulary → "vocab_spiral"
+
+PARAMS: skill-specific. For madrigal_chapter_drill:
+• verb_vocab: embedded_phrase (e.g. "va a"), words (array of 4 with text/translation/imageQuery)
+• preterite: verb (e.g. "tomar"), anchor_form (e.g. "tomé"), qa_cards (array), conjugation_rows (optional)
+• ser_estar: verb ("ser"/"estar"), anchor_form (e.g. "soy"), conjugation_rows
+
+The script you receive is exact — follow it in order and adapt only when the student surprises you mid-sequence.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          skill_name: {
+            type: 'string',
+            description: 'The skill to invoke, e.g. "madrigal_chapter_drill", "attention_reset", "error_recovery", "scenario_immersion", "vocab_spiral"',
+          },
+          chapter_type: {
+            type: 'string',
+            enum: ['verb_vocab', 'preterite', 'ser_estar'],
+            description: 'Optional — the Madrigal chapter type. Auto-detected from params if omitted.',
+          },
+          params: {
+            type: 'object',
+            description: 'Skill-specific parameters. For madrigal_chapter_drill verb_vocab: { embedded_phrase, words }. For preterite: { verb, anchor_form, qa_cards }. For ser_estar: { verb, anchor_form, conjugation_rows }.',
+          },
+        },
+        required: ['skill_name'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const result = (session as any).invokeTeachingSkillResult as string | undefined;
+      if (!result) {
+        return `Teaching skill could not be loaded. Continue the lesson using your standard approach.`;
+      }
+      return result;
+    },
+  },
+
   {
     legacyType: 'SHOW_DAILY_PLAN',
     declaration: {

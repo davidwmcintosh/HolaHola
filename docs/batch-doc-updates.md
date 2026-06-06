@@ -813,3 +813,54 @@ The bonsai image is off-center in the source (tree in right half, transparent le
 
 ### Assets added
 - `attached_assets/bonsai_no_background_1780632791121.png` — the bonsai silhouette (1024×1024, transparent bg)
+
+---
+
+## Teaching Skills / Madrigal Playbooks (Task #38)
+
+### What was built
+Named, executable pedagogical routines (teaching skills) that Daniela can invoke by name to get a complete step-by-step script. Reduces per-turn reasoning overhead and encodes the Madrigal method precisely in the data layer.
+
+### How it works
+- Daniela calls `invoke_teaching_skill("madrigal_chapter_drill", { params: {...} })` as a function tool
+- The handler looks up the skill from the DB, detects chapter type from params, substitutes `{param}` slots in instruction templates, and returns a complete script
+- The script appears in the function call continuation response — Daniela reads it and follows the steps, making the atomic tool calls herself (e.g. calling `show_vocab_grid` at Step 1 as instructed)
+- This preserves Daniela's agency to adapt when a student surprises her mid-sequence
+
+### Key files
+- `server/services/teaching-skills-service.ts` — core service: renderTeachingSkillScript(), seedTeachingSkills(), fetchActiveSkillsSummary(), indexTeachingSkillsIntoNeuralNet()
+- `shared/schema.ts` — `teachingSkills` table (teachingSkillsId, name, title, description, steps jsonb, paramsSchema jsonb, chapterTypes text[], madrigalAligned, actflLevelRange, isActive, triggerConditions)
+- `server/services/daniela-function-registry.ts` — `invoke_teaching_skill` tool entry (legacyType: INVOKE_TEACHING_SKILL), available in GL voice sessions
+- `server/services/native-fc-handlers.ts` — INVOKE_TEACHING_SKILL case, uses pendingMemoryLookupPromises pattern for async DB lookup
+- `server/services/streaming-voice-orchestrator.ts` — injects `teachingSkillsSection` (skill roster) into cached context for both PTT and OpenMic paths
+- `server/services/streaming-session-types.ts` — `teachingSkillsSection?: string` added to context cache type
+
+### Seeded skills (5 total)
+1. **madrigal_chapter_drill** [Madrigal] — 17 steps across 3 chapter types:
+   - `verb_vocab`: DISPLAY (show_vocab_grid) → MODEL → CHORAL → SPOT → QA_PIVOT → WRAP
+   - `preterite`: ANCHOR → CHORAL → QA_CARDS → CONJUGATION (grammar_table) → PRODUCTION (drill) → WRAP
+   - `ser_estar`: ANCHOR → CONJUGATION_TABLE (grammar_table) → SENTENCE_COMBINER → PRODUCTION → WRAP
+2. **attention_reset** — 4 steps: ENERGY_SHIFT → TPR_BURST → VISUAL_PIVOT (show_image) → REENTER
+3. **error_recovery** — 4 steps: ACKNOWLEDGE → CONTRAST → DRILL_CORRECT → MOVE_ON (record_pattern_signal)
+4. **scenario_immersion** — 4 steps: LOAD (load_scenario) → ROLEPLAY → DEBRIEF → LOG_GROWTH (log_growth_memory)
+5. **vocab_spiral** — 3 steps: RETRIEVE → CONNECT → PRODUCE
+
+### API routes
+- `GET /api/teaching-skills` — list active skills (+ `?includeInactive=true`)
+- `GET /api/teaching-skills/:idOrName` — get skill by ID or name
+- `POST /api/agent/teaching-skills/seed` — seed initial skills (agent token required)
+- `PATCH /api/agent/teaching-skills/:id` — update a skill (agent token required)
+- `POST /api/agent/teaching-skills/render` — preview a rendered script without a live session (agent token required)
+- `POST /api/agent/teaching-skills/index` — re-index all skills into neural net (agent token required)
+
+### Neural net
+Skills are pinned as `teaching_skill` memory type in `memory_embeddings`. Auto-indexed at seed time. Re-index anytime via `POST /api/agent/teaching-skills/index`.
+
+### Chapter type auto-detection
+If `chapter_type` is not explicitly passed in the tool call, the renderer auto-detects from params:
+- Has `embedded_phrase` or `words` array → `verb_vocab`
+- Has `qa_cards` or `anchor_form` → `preterite`
+- Has `cluster_type` or `conjugation_rows` → `ser_estar`
+
+### User-facing
+Students see no change — this is internal Daniela infrastructure. The effect is more consistent Madrigal chapter delivery with less drift between sessions.

@@ -268,6 +268,7 @@ export interface StreamingSession {
     temporalAwarenessSection?: string; // Upcoming/recent time-sensitive facts (temporal reasoning)
     coverageAuditSection?: string;     // Blind spots — topic areas Daniela knows little about yet
     goalSection?: string;              // Active learning goal + capability map for self-directed students
+    teachingSkillsSection?: string;    // Available teaching skills summary (invoke_teaching_skill)
     fatContextProfile?: string;
     fatContextVocabulary?: string;
     fatContextConversations?: string;

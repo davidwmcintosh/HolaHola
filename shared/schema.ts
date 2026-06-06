@@ -9256,6 +9256,39 @@ export type InsertLearningGoal = z.infer<typeof insertLearningGoalSchema>;
 export type LearningGoal = typeof learningGoals.$inferSelect;
 
 /**
+ * Teaching Skills — named, executable pedagogical routines Daniela can invoke by name.
+ * Each skill is a compound sequence of her existing tools, pre-reasoned and pre-scripted.
+ * When she calls invoke_teaching_skill("madrigal_chapter_drill", {...}), she gets back an
+ * exact step-by-step script with tool call instructions she follows herself.
+ *
+ * Madrigal-aligned skills encode the proper Madrigal method precisely so Daniela doesn't
+ * have to re-derive the pedagogy from context on every turn.
+ */
+export const teachingSkills = pgTable("teaching_skills", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+
+  name: varchar("name").notNull().unique(),
+  title: varchar("title").notNull(),
+  description: text("description").notNull(),
+  triggerConditions: text("trigger_conditions"),
+
+  steps: jsonb("steps").notNull(),
+  paramsSchema: jsonb("params_schema"),
+
+  madrigalAligned: boolean("madrigal_aligned").default(false),
+  chapterTypes: varchar("chapter_types").array(),
+  actflLevelRange: varchar("actfl_level_range"),
+
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  originProposalId: varchar("origin_proposal_id"),
+});
+
+export const insertTeachingSkillSchema = createInsertSchema(teachingSkills).omit({ id: true, createdAt: true });
+export type InsertTeachingSkill = z.infer<typeof insertTeachingSkillSchema>;
+export type TeachingSkill = typeof teachingSkills.$inferSelect;
+
+/**
  * Persistent cache mapping image URLs → Gemini-visible descriptions.
  * First time an image URL is shown to Daniela, we fetch the bytes and send as inlineData.
  * After that, we store a text description here so future sessions can use text instead

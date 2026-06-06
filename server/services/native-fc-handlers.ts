@@ -5403,6 +5403,33 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'INVOKE_TEACHING_SKILL': {
+        const skillName = fn.args.skill_name as string | undefined;
+        const chapterType = fn.args.chapter_type as string | undefined;
+        const params = (fn.args.params ?? {}) as Record<string, unknown>;
+
+        if (!skillName) {
+          (session as any).invokeTeachingSkillResult = 'INVOKE_TEACHING_SKILL: skill_name is required.';
+          break;
+        }
+
+        const skillPromise = (async () => {
+          try {
+            const { renderTeachingSkillScript } = await import('./teaching-skills-service');
+            const script = await renderTeachingSkillScript(skillName, chapterType, params);
+            (session as any).invokeTeachingSkillResult = script;
+            console.log(`[Native Function→InvokeTeachingSkill] Rendered script for "${skillName}" (${chapterType || 'auto-detect'} mode)`);
+          } catch (err: any) {
+            console.error(`[Native Function→InvokeTeachingSkill] Error:`, err.message);
+            (session as any).invokeTeachingSkillResult = `Could not load skill "${skillName}": ${err.message}`;
+          }
+        })();
+
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(skillPromise as Promise<void>);
+        break;
+      }
+
       case 'SWAP_VOCAB_IMAGE': {
         const text = fn.args.text as string | undefined;
         const word = fn.args.word as string | undefined;

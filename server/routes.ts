@@ -34357,5 +34357,128 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // ─── Teaching Skills CRUD ────────────────────────────────────────────────────
+
+  // List all active teaching skills (public — Daniela's context injection uses this)
+  app.get("/api/teaching-skills", async (req: any, res) => {
+    try {
+      const { teachingSkills } = await import('@shared/schema');
+      const { getSharedDb } = await import('./db');
+      const { eq } = await import('drizzle-orm');
+      const db = getSharedDb();
+
+      const includeInactive = req.query.includeInactive === 'true';
+      const skills = includeInactive
+        ? await db.select().from(teachingSkills)
+        : await db.select().from(teachingSkills).where(eq(teachingSkills.isActive, true));
+
+      res.json({ skills, count: skills.length });
+    } catch (err: any) {
+      console.error('[API] GET /api/teaching-skills error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Get a single skill by ID or name
+  app.get("/api/teaching-skills/:idOrName", async (req: any, res) => {
+    try {
+      const { teachingSkills } = await import('@shared/schema');
+      const { getSharedDb } = await import('./db');
+      const { eq, or } = await import('drizzle-orm');
+      const db = getSharedDb();
+
+      const { idOrName } = req.params;
+      const [skill] = await db
+        .select()
+        .from(teachingSkills)
+        .where(or(eq(teachingSkills.id, idOrName), eq(teachingSkills.name, idOrName)))
+        .limit(1);
+
+      if (!skill) return res.status(404).json({ error: `Skill "${idOrName}" not found` });
+      res.json({ skill });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Seed initial teaching skills (agent only)
+  app.post("/api/agent/teaching-skills/seed", requireAgentToken, async (req: any, res) => {
+    try {
+      const { seedTeachingSkills } = await import('./services/teaching-skills-service');
+      const result = await seedTeachingSkills();
+      logAgentAction('teaching_skills_seed', '/api/agent/teaching-skills/seed', true, `${result.inserted} inserted, ${result.skipped} skipped`);
+      res.json({ ok: true, ...result });
+    } catch (err: any) {
+      console.error('[API] POST /api/agent/teaching-skills/seed error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Update a skill (agent only) — update steps, trigger conditions, active flag, etc.
+  app.patch("/api/agent/teaching-skills/:id", requireAgentToken, async (req: any, res) => {
+    try {
+      const { teachingSkills } = await import('@shared/schema');
+      const { getSharedDb } = await import('./db');
+      const { eq } = await import('drizzle-orm');
+      const { invalidateSkillsCache } = await import('./services/teaching-skills-service');
+      const db = getSharedDb();
+
+      const { id } = req.params;
+      const { title, description, triggerConditions, steps, paramsSchema, isActive, chapterTypes, actflLevelRange, madrigalAligned } = req.body;
+
+      const updates: Record<string, unknown> = {};
+      if (title !== undefined) updates.title = title;
+      if (description !== undefined) updates.description = description;
+      if (triggerConditions !== undefined) updates.triggerConditions = triggerConditions;
+      if (steps !== undefined) updates.steps = steps;
+      if (paramsSchema !== undefined) updates.paramsSchema = paramsSchema;
+      if (isActive !== undefined) updates.isActive = isActive;
+      if (chapterTypes !== undefined) updates.chapterTypes = chapterTypes;
+      if (actflLevelRange !== undefined) updates.actflLevelRange = actflLevelRange;
+      if (madrigalAligned !== undefined) updates.madrigalAligned = madrigalAligned;
+      updates.updatedAt = new Date();
+
+      const [updated] = await db
+        .update(teachingSkills)
+        .set(updates as any)
+        .where(eq(teachingSkills.id, id))
+        .returning();
+
+      if (!updated) return res.status(404).json({ error: `Skill "${id}" not found` });
+
+      invalidateSkillsCache();
+      logAgentAction('teaching_skills_update', `/api/agent/teaching-skills/${id}`, true, `Updated skill "${updated.name}"`);
+      res.json({ ok: true, skill: updated });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Render a skill script (preview without a live session — useful for testing)
+  app.post("/api/agent/teaching-skills/render", requireAgentToken, async (req: any, res) => {
+    try {
+      const { renderTeachingSkillScript } = await import('./services/teaching-skills-service');
+      const { skill_name, chapter_type, params = {} } = req.body;
+
+      if (!skill_name) return res.status(400).json({ error: 'skill_name is required' });
+
+      const script = await renderTeachingSkillScript(skill_name, chapter_type, params);
+      res.json({ ok: true, script });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Index teaching skills into neural net (agent only)
+  app.post("/api/agent/teaching-skills/index", requireAgentToken, async (req: any, res) => {
+    try {
+      const { indexTeachingSkillsIntoNeuralNet } = await import('./services/teaching-skills-service');
+      await indexTeachingSkillsIntoNeuralNet();
+      res.json({ ok: true, message: 'Teaching skills indexed into neural net' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
     // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }
