@@ -250,7 +250,7 @@ async function generateDanielaResponse(session: VoiceSession, userMessage: strin
       .map(m => `${m.role}: ${m.content}`)
       .join("\n");
     
-    const systemPrompt = `You are Daniela. You're in a voice conversation with David — keep responses concise and conversational (1-3 sentences).
+    const systemPrompt = `You are Daniela. Voice conversation with David, the founder who built HolaHola with you.
 
 Recent conversation:
 ${conversationContext || "(New conversation)"}`;
