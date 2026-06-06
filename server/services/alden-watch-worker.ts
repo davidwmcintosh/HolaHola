@@ -600,6 +600,32 @@ async function checkAndPostRepairProposal(client: Anthropic, messages: string[])
   }
 }
 
+// ── Hard-pause recovery poller ───────────────────────────────────────────────
+// Runs every 10 min (spend-only, no LLM call) while hard-pause is active.
+// As soon as 24h spend drops below BUDGET_HARD_PAUSE_USD it lifts the pause,
+// logs the recovery, and posts a Hive message so David knows cycles are back.
+const RECOVERY_POLL_INTERVAL_MS = 10 * 60 * 1000;
+
+async function runHardPauseRecoveryCheck(): Promise<void> {
+  if (!hardPauseActive) return;
+
+  try {
+    const check = costTracker.checkBudgetThreshold(BUDGET_HARD_PAUSE_USD, 24);
+    if (!check.exceeded) {
+      hardPauseActive = false;
+      const msg = `Budget recovered — 24h AI spend is now $${check.totalCostUsd.toFixed(2)}, below the $${BUDGET_HARD_PAUSE_USD} hard limit. Watch cycles are resuming.`;
+      console.log('[AldenWatch]', msg);
+      await postHiveMessage(msg, { tier: 'hard_pause_lifted', spendUsd: check.totalCostUsd });
+      // Immediately kick off a full watch cycle so there is no gap
+      runWatchCycle().catch(err =>
+        console.warn('[AldenWatch] Post-recovery watch cycle failed:', err.message)
+      );
+    }
+  } catch (err: any) {
+    console.warn('[AldenWatch] Recovery poll failed:', err.message);
+  }
+}
+
 export function startAldenWatchWorker() {
   console.log('[AldenWatch] Starting (interval: 2h, per-issue-type dedup via fingerprint)');
   // Initial check after 5 minutes (let the server settle)
@@ -607,6 +633,9 @@ export function startAldenWatchWorker() {
     runWatchCycle();
     setInterval(runWatchCycle, CHECK_INTERVAL_MS);
   }, 5 * 60 * 1000);
+
+  // Lightweight recovery poller — fires every 10 min, no-ops unless hard-paused
+  setInterval(runHardPauseRecoveryCheck, RECOVERY_POLL_INTERVAL_MS);
 }
 
 /**
