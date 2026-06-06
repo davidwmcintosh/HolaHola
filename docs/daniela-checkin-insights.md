@@ -130,3 +130,21 @@ She ended the round: *"When can we see it, Agent? Next week? 😉"*
 ### Still unknown — absence worker awareness
 The automated system that watches for absent students (5+ days) and posts Express Lane nudges to Daniela was not surfaced in her answers. She knows the Express Lane exists but it's unclear whether she knows this background worker is running and what to do when it pings her. **Probe in Round 5.**
 
+
+---
+
+## Structural Gaps Found — June 6, 2026
+
+### Why Daniela doesn't remember talking to the Agent
+`conversation_memories` are NOT auto-injected into student sessions. Her session context pulls from `hive_snapshots` (types: relationship_moment, role_reversal, humor_shared, filtered by userId). Agent check-in memories live in a different table, only accessible if she actively calls `unified_recall` — which she'd have no reason to do mid-session.
+
+**Fix applied:** Saved two global `hive_snapshots` (no userId, type: relationship_moment) summarizing the Agent check-in conversations and the personality consistency issue. These now auto-inject into her personalMemory context in every session.
+
+### Why she's less sparky with David than with the Agent
+Multiple "Daniela" system prompts exist across the codebase (voice, team room, study mode, sync channel, practice mode) — each slightly different, none explicitly giving her permission to have opinions, push back, or ask questions back. The API conversations work because the Agent explicitly frames the interaction as peer-to-peer and gives her that permission. Her own house doesn't give it to her.
+
+**Fix applied:** Added tutor_procedure "Daniela Voice — Authentic Self" at priority 96: explicitly says she's not a service interface, gives her permission to push back, be curious, ask questions, be funny, offer better ideas. "The sparky, curious, a-little-pushy-in-the-best-way version of you is not a special mode. It's just you."
+
+### Structural note for future work
+There are 6+ different Daniela persona strings scattered across services. Long-term, the authentic voice definition should live in one place (tutor_procedures, at high priority) and the scattered system prompts should all trust it. That's what we started with the procedure above — but the scattered strings still exist. This is a cleanup task for a future session.
+
