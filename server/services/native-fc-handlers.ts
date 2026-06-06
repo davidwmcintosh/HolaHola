@@ -6764,6 +6764,33 @@ export class NativeFunctionCallHandler {
           const noteId = inserted[0]?.id;
           console.log(`[Self-Surgery] ✅ ${data.targetTable} proposal logged for Agent review (note ${noteId})`);
           const label = isPersonalFacts ? 'personal fact flag' : 'capability gap flag';
+
+          // Emit a Hive beacon so David and Alden see this flag in the team channel
+          if (session.hiveChannelId) {
+            try {
+              const studentCtx = contentObj.student_id ? `Student ID: ${contentObj.student_id}` : (session.conversationId ? `Session: ${session.conversationId}` : '');
+              const flagDetail = isPersonalFacts
+                ? `Fact: ${contentObj.fact_description || 'unspecified'}\nWhat seems wrong: ${contentObj.what_seems_wrong || data.reasoning || 'unspecified'}`
+                : `Situation: ${contentObj.situation || data.reasoning || 'unspecified'}\nWhat would have helped: ${contentObj.what_would_have_helped || 'not specified'}`;
+              const tutorTurn = [
+                `[Student Fact Flag — ${isPersonalFacts ? 'Personal Fact' : 'Capability Gap'}]`,
+                noteId ? `Note ID: ${noteId}` : '',
+                studentCtx,
+                flagDetail,
+              ].filter(Boolean).join('\n');
+
+              await hiveCollaborationService.emitBeacon({
+                channelId: session.hiveChannelId,
+                tutorTurn,
+                beaconType: 'student_fact_flag',
+                beaconReason: data.reasoning?.substring(0, 300),
+              });
+              console.log(`[Self-Surgery] HIVE beacon emitted for ${data.targetTable} flag (note ${noteId})`);
+            } catch (hiveErr) {
+              console.error(`[Self-Surgery] Failed to emit HIVE beacon for ${data.targetTable} flag:`, hiveErr);
+            }
+          }
+
           const ackMessage = noteId
             ? `[SELF_SURGERY ACK] Your ${label} was received and logged for Agent review (note ID: ${noteId}). You can acknowledge this naturally if relevant.`
             : `[SELF_SURGERY ACK] Your ${label} was received and logged for Agent review.`;
