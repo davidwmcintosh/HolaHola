@@ -3208,8 +3208,11 @@ export class NativeFunctionCallHandler {
             reasoning,
             priority: fn.args.priority as number | undefined,
             confidence: fn.args.confidence as number | undefined,
+          }).then(result => {
+            console.log(`[Native Function→SelfSurgery] Proposal for ${target}: ${result.message}`);
+            if (!session.pendingMemorySurfaces) session.pendingMemorySurfaces = [];
+            session.pendingMemorySurfaces.push(result.message);
           }).catch(err => console.error(`[Native Function→SelfSurgery] Error:`, err));
-          console.log(`[Native Function→SelfSurgery] Proposal for ${target}`);
         }
         break;
       }
@@ -6709,7 +6712,7 @@ export class NativeFunctionCallHandler {
   async processSelfSurgery(
     session: StreamingSession,
     data: SelfSurgeryItemData
-  ): Promise<void> {
+  ): Promise<{ success: boolean; noteId?: string; proposalId?: string | number; message: string }> {
     try {
       const validTargets = [
         'tutor_procedures',
@@ -6727,7 +6730,7 @@ export class NativeFunctionCallHandler {
       
       if (!validTargets.includes(data.targetTable as any)) {
         console.error(`[Self-Surgery] Invalid target table: ${data.targetTable}`);
-        return;
+        return { success: false, message: `Invalid target table: ${data.targetTable}` };
       }
 
       // personal_facts and capability_gap create agent_notes proposals (not neural net table entries)
@@ -6750,18 +6753,25 @@ export class NativeFunctionCallHandler {
         if (session.targetLanguage) body += `\nLanguage: ${session.targetLanguage}`;
         body += '\nSource: Daniela (self_surgery proposal)';
 
-        db.insert(agentNotes).values({
-          fromAgent: 'daniela' as any,
-          toAgent: 'agent',
-          subject,
-          body,
-          sessionLabel: `Daniela self-surgery — ${new Date().toISOString().substring(0, 10)}`,
-        }).then(() => {
-          console.log(`[Self-Surgery] ✅ ${data.targetTable} proposal logged for Agent review`);
-        }).catch((err: Error) => {
+        try {
+          const inserted = await db.insert(agentNotes).values({
+            fromAgent: 'daniela' as any,
+            toAgent: 'agent',
+            subject,
+            body,
+            sessionLabel: `Daniela self-surgery — ${new Date().toISOString().substring(0, 10)}`,
+          }).returning({ id: agentNotes.id });
+          const noteId = inserted[0]?.id;
+          console.log(`[Self-Surgery] ✅ ${data.targetTable} proposal logged for Agent review (note ${noteId})`);
+          const label = isPersonalFacts ? 'personal fact flag' : 'capability gap flag';
+          const ackMessage = noteId
+            ? `[SELF_SURGERY ACK] Your ${label} was received and logged for Agent review (note ID: ${noteId}). You can acknowledge this naturally if relevant.`
+            : `[SELF_SURGERY ACK] Your ${label} was received and logged for Agent review.`;
+          return { success: true, noteId, message: ackMessage };
+        } catch (err: any) {
           console.error(`[Self-Surgery] Failed to log ${data.targetTable} to agent_notes:`, err.message);
-        });
-        return;
+          return { success: false, message: `Failed to log ${data.targetTable} flag: ${err.message}` };
+        }
       }
 
       // Knowledge-domain targets (tutor_procedures, teaching_principles, etc.) flagged outside
@@ -6822,7 +6832,7 @@ export class NativeFunctionCallHandler {
       } catch (parseErr) {
         console.error(`[Self-Surgery] Failed to parse content as JSON:`, parseErr);
         console.log(`[Self-Surgery] Raw content: ${data.content}`);
-        return;
+        return { success: false, message: 'Failed to parse content as JSON' };
       }
       
       const validation = this.validateSurgeryContent(data.targetTable, contentObj);
@@ -6868,17 +6878,24 @@ export class NativeFunctionCallHandler {
           console.error(`[Self-Surgery] Failed to emit HIVE beacon:`, hiveErr);
         }
       }
+
+      return {
+        success: true,
+        proposalId: proposal.id,
+        message: `[SELF_SURGERY ACK] Your ${data.targetTable} proposal was received and queued for review (proposal #${proposal.id}).`,
+      };
       
     } catch (error: any) {
       console.error(`[Self-Surgery] Failed to create proposal:`, error.message);
       console.error(`[Self-Surgery] Full error:`, error);
+      return { success: false, message: `Failed to create proposal: ${error.message}` };
     }
   }
 
   private async processSelfSurgeryProposal(
     session: StreamingSession,
     data: SelfSurgeryItemData
-  ): Promise<void> {
+  ): Promise<{ success: boolean; noteId?: string; proposalId?: string | number; message: string }> {
     return this.processSelfSurgery(session, data);
   }
   

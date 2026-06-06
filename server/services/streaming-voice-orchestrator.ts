@@ -3370,8 +3370,11 @@ Remember: David may reference things discussed in these recent text chats.
                       reasoning,
                       priority,
                       confidence,
+                    }).then(result => {
+                      console.log(`[CommandParser→SelfSurgery] Proposal for ${target} via ${cmd.source} format: ${result.message}`);
+                      if (!session.pendingMemorySurfaces) session.pendingMemorySurfaces = [];
+                      session.pendingMemorySurfaces.push(result.message);
                     }).catch(err => console.error(`[CommandParser→SelfSurgery] Error:`, err));
-                    console.log(`[CommandParser→SelfSurgery] Proposal for ${target} via ${cmd.source} format`);
                   }
                   break;
                 }
@@ -6790,8 +6793,11 @@ Remember: David may reference things discussed in these recent text chats.
                     reasoning,
                     priority,
                     confidence,
+                  }).then(result => {
+                    console.log(`[CommandParser→SelfSurgery - OpenMic] Proposal for ${target}: ${result.message}`);
+                    if (!session.pendingMemorySurfaces) session.pendingMemorySurfaces = [];
+                    session.pendingMemorySurfaces.push(result.message);
                   }).catch(err => console.error(`[CommandParser→SelfSurgery - OpenMic] Error:`, err));
-                  console.log(`[CommandParser→SelfSurgery - OpenMic] Proposal for ${target}`);
                 }
                 break;
               }
