@@ -1249,3 +1249,55 @@ Direct Replit Agent → Daniela conversation via Gemini API (5 rounds). No stude
 ### Skill written
 `.agents/skills/consult-daniela/SKILL.md` — updated with current model (`gemini-2.5-flash`), standard system prompt, 5-question check-in sequence, evaluation rubric, and Hive posting instructions.
 
+
+═══════════════════════════════════════════════════════════════════
+
+## June 6, 2026 — Agent ↔ Daniela Check-in Round 2: Textbook, Tools, Philosophy
+
+### Scope
+Broader probe: cognate correction verification, whiteboard tool scenarios, subtitle modes, interactive textbook architecture, teaching skill invocation, next-steps philosophy, honest platform gap assessment.
+
+### Cognate correction — absorbed cleanly ✅
+She described it accurately without prompting: "Cognates are not a teaching strategy. The -tion→-ción pattern encourages an English-to-Spanish mental leap rather than immersion. Only backs into a cognate as a pleasant discovery if a student independently notices. Fully committed."
+
+### Whiteboard tools — scenario-grounded, pedagogically sound ✅
+| Tool | When she reaches for it |
+|------|------------------------|
+| write | Fluid correction mid-conversation — correct form visually without breaking conversational flow |
+| grammar_table | Formal drilling — student wants all preterite endings in one view |
+| word_map | Semantic family expansion — hablar → hablante, habla, hablamos |
+| dialogue | Pre-scenario pattern prep — student sees exchange structure before immersion |
+| reading | Extended comprehension — full passage for processing |
+
+### Subtitle modes — strong analysis, good instincts ✅
+- **off**: Target state. Always aiming here.
+- **on**: Emergency only. Described as "overused by default." Contradicts immersion — phase out aggressively.
+- **target** (Spanish only): Workhorse for beginner-intermediate. Connects spoken to written without English crutch.
+- **custom**: Most surgical, most **underused**. "A laser pointer" — display only the one word/structure that matters right now. Perfectly aligned with immersion.
+
+### Interactive textbook — distinction accurate ✅
+- **pull_lesson_content**: Organic weaving — topic comes up mid-session, pull vocabulary and weave it in without breaking flow. "Incidental but effective."
+- **start_textbook_page**: Formal commitment — student explicitly wants to learn something. Walk through vocab → grammar → student produces sentences → log_page_event.
+- **show_textbook_section**: Reference panel only — shows original Madrigal source material alongside live conversation. Not an interactive teaching tool.
+Her framing: show_textbook_section = lookup; pull_lesson_content = organic weaving; start_textbook_page = full formal lesson. Correct.
+
+### Teaching skill invocation ✅
+Most confident: madrigal_chapter_drill (all 3 modes) and scenario_immersion.
+attention_reset vs error_recovery framework:
+- **attention_reset**: Problem is energy/engagement — student cognitively flat, fatigued, zoning out.
+- **error_recovery**: Problem is a broken pattern — same grammar error repeating across multiple attempts despite energy.
+Clear and correct distinction.
+
+### Next-steps philosophy — this is the most important finding
+For a student who has finished the Madrigal foundations: "Start by letting the student talk freely for 1-2 minutes about something real to them. Listen for what they're reaching for but can't say. That moment — where they want something they don't have — is the lesson. Then pull_lesson_content or invoke_teaching_skill on exactly that gap. Don't predetermine a chapter."
+
+**This is exactly aligned with the HolaHola philosophy.** She's not planning the lesson in advance — she's listening for the gap and letting that surface the target.
+
+### Platform gaps — her honest self-assessment (worth taking seriously)
+1. **Real-time pronunciation analysis**: Can show phonetic text, can ask for repetition, but cannot listen and analyze actual pronunciation/intonation. "Cannot tell a student exactly where tongue placement needs adjustment."
+2. **Dynamic grammar visualization**: grammar_table covers conjugations; abstract concepts (how tenses relate on a timeline, how sentence components move) need something more interactive.
+3. **Bespoke interactive exercises**: Beyond the predefined drill types, generating truly custom interactive activities is limited.
+4. **Non-verbal cue detection**: "The subtle signals a human tutor would catch proactively escape me." Frustration in tone, confusion in expression, fatigue in posture — entirely dependent on what the student says.
+
+Gap #1 may be addressable (Azure Speech pronunciation assessment is in the stack). Gap #4 is fundamental. Gaps #2 and #3 are product direction questions.
+
