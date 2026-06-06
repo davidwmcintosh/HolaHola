@@ -535,13 +535,25 @@ const MIGRATIONS: Migration[] = [
           params_schema JSONB NOT NULL DEFAULT '{}',
           madrigal_aligned BOOLEAN NOT NULL DEFAULT FALSE,
           chapter_types TEXT[] DEFAULT '{}',
-          actfl_level_range VARCHAR(50),
+          actfl_levels TEXT[] DEFAULT '{}',
           is_active BOOLEAN NOT NULL DEFAULT TRUE,
           created_at TIMESTAMP DEFAULT NOW(),
           origin_proposal_id VARCHAR(255)
         )
       `);
       console.log('[MIGRATIONS] 012: Created teaching_skills table');
+    },
+  },
+  {
+    version: '013',
+    name: 'teaching-skills-actfl-levels-column',
+    up: async () => {
+      // The live table was created before actfl_levels was added; add it if missing.
+      await db.execute(sql`
+        ALTER TABLE teaching_skills
+          ADD COLUMN IF NOT EXISTS actfl_levels TEXT[] DEFAULT '{}'
+      `);
+      console.log('[MIGRATIONS] 013: Ensured actfl_levels column on teaching_skills');
     },
   },
 ];

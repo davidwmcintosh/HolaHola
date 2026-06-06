@@ -9269,7 +9269,7 @@ export const teachingSkills = pgTable("teaching_skills", {
 
   name: varchar("name").notNull().unique(),
   title: varchar("title").notNull(),
-  description: text("description").notNull(),
+  description: text("description"),
   triggerConditions: text("trigger_conditions"),
 
   steps: jsonb("steps").notNull(),
@@ -9277,7 +9277,7 @@ export const teachingSkills = pgTable("teaching_skills", {
 
   madrigalAligned: boolean("madrigal_aligned").default(false),
   chapterTypes: varchar("chapter_types").array(),
-  actflLevelRange: varchar("actfl_level_range"),
+  actflLevels: varchar("actfl_levels").array(),
 
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),

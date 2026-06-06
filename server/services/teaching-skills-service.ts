@@ -302,7 +302,7 @@ function formatSkillForEmbedding(skill: TeachingSkill): string {
     `TRIGGER: ${skill.triggerConditions || ''}`,
     `APPLIES TO: ${types}`,
     skill.madrigalAligned ? 'MADRIGAL ALIGNED: yes' : '',
-    `LEVEL: ${skill.actflLevelRange || 'all'}`,
+    `LEVEL: ${skill.actflLevels?.join(', ') || 'all'}`,
   ].filter(Boolean).join('\n');
 }
 
@@ -677,7 +677,7 @@ export const SEED_SKILLS = [
     triggerConditions: 'when introducing a new Madrigal chapter, when starting a vocabulary set from the Madrigal textbook, when a student asks to learn new place/food/action vocabulary',
     madrigalAligned: true,
     chapterTypes: ['verb_vocab', 'preterite', 'ser_estar'],
-    actflLevelRange: 'novice',
+    actflLevels: ['novice'],
     steps: MADRIGAL_CHAPTER_DRILL_STEPS,
     paramsSchema: {
       type: 'object',
@@ -740,7 +740,7 @@ export const SEED_SKILLS = [
     triggerConditions: 'when introducing a new vocabulary chapter from Madrigal textbook, when a student needs to learn 4 new vocab words with a grammar frame, for verb-vocab chapters (va a, voy a, vamos a, quiero, necesito, etc.)',
     madrigalAligned: true,
     chapterTypes: ['verb_vocab'],
-    actflLevelRange: 'novice',
+    actflLevels: ['novice'],
     steps: MADRIGAL_CHAPTER_DRILL_STEPS.filter(s => !s.chapter_types || s.chapter_types.includes('verb_vocab')),
     paramsSchema: {
       type: 'object',
@@ -776,7 +776,7 @@ export const SEED_SKILLS = [
     triggerConditions: 'when working through preterite verb chapters with qa_cards, when drilling Q&A pairs for any chapter, after the anchor form is solid and the student is ready for question-answer practice, when a student has learned a form and needs to apply it in question-answer exchanges',
     madrigalAligned: true,
     chapterTypes: ['preterite', 'ser_estar'],
-    actflLevelRange: 'novice',
+    actflLevels: ['novice'],
     steps: [
       {
         phase: 'ORIENT',
@@ -847,7 +847,7 @@ Do NOT start re-drilling errors now — note them and move on.`,
     triggerConditions: 'when student is zoning out or distracted, when the lesson energy has gone flat, when student is cognitively overloaded and needs a mental break before continuing',
     madrigalAligned: false,
     chapterTypes: null,
-    actflLevelRange: null,
+    actflLevels: null,
     steps: ATTENTION_RESET_STEPS,
     paramsSchema: {
       type: 'object',
@@ -864,7 +864,7 @@ Do NOT start re-drilling errors now — note them and move on.`,
     triggerConditions: 'when student makes a repeated grammar error, when a specific form keeps coming out wrong, after noticing a pattern signal that needs gentle correction without breaking lesson flow',
     madrigalAligned: false,
     chapterTypes: null,
-    actflLevelRange: null,
+    actflLevels: null,
     steps: ERROR_RECOVERY_STEPS,
     paramsSchema: {
       type: 'object',
@@ -883,7 +883,7 @@ Do NOT start re-drilling errors now — note them and move on.`,
     triggerConditions: 'when a student is ready for applied use of vocabulary in context, for intermediate+ students who need real communicative practice, when topic vocabulary has been introduced and needs to be activated in authentic use',
     madrigalAligned: false,
     chapterTypes: null,
-    actflLevelRange: 'intermediate',
+    actflLevels: ['intermediate'],
     steps: SCENARIO_IMMERSION_STEPS,
     paramsSchema: {
       type: 'object',
@@ -902,7 +902,7 @@ Do NOT start re-drilling errors now — note them and move on.`,
     triggerConditions: 'when introducing a new topic that connects to previous vocabulary, at the start of a session to re-activate words from prior sessions, when a student seems to have forgotten words they once knew well',
     madrigalAligned: false,
     chapterTypes: null,
-    actflLevelRange: null,
+    actflLevels: null,
     steps: VOCAB_SPIRAL_STEPS,
     paramsSchema: {
       type: 'object',
@@ -931,6 +931,12 @@ export async function seedTeachingSkills(): Promise<{ inserted: number; skipped:
         .limit(1);
 
       if (existing.length > 0) {
+        // Update actflLevels in case it was backfilled (migration 013 added the column with empty default)
+        if (seed.actflLevels && seed.actflLevels.length > 0) {
+          await db.update(teachingSkills)
+            .set({ actflLevels: seed.actflLevels })
+            .where(eq(teachingSkills.name, seed.name));
+        }
         skipped++;
         continue;
       }
@@ -942,7 +948,7 @@ export async function seedTeachingSkills(): Promise<{ inserted: number; skipped:
         triggerConditions: seed.triggerConditions,
         madrigalAligned: seed.madrigalAligned,
         chapterTypes: seed.chapterTypes ?? undefined,
-        actflLevelRange: seed.actflLevelRange ?? undefined,
+        actflLevels: seed.actflLevels ?? undefined,
         isActive: true,
         steps: seed.steps,
         paramsSchema: seed.paramsSchema,

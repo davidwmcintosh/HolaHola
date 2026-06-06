@@ -34424,7 +34424,7 @@ Under 250 words. Write as yourself.`;
       const db = getSharedDb();
 
       const { id } = req.params;
-      const { title, description, triggerConditions, steps, paramsSchema, isActive, chapterTypes, actflLevelRange, madrigalAligned } = req.body;
+      const { title, description, triggerConditions, steps, paramsSchema, isActive, chapterTypes, actflLevels, madrigalAligned } = req.body;
 
       const updates: Record<string, unknown> = {};
       if (title !== undefined) updates.title = title;
@@ -34434,7 +34434,7 @@ Under 250 words. Write as yourself.`;
       if (paramsSchema !== undefined) updates.paramsSchema = paramsSchema;
       if (isActive !== undefined) updates.isActive = isActive;
       if (chapterTypes !== undefined) updates.chapterTypes = chapterTypes;
-      if (actflLevelRange !== undefined) updates.actflLevelRange = actflLevelRange;
+      if (actflLevels !== undefined) updates.actflLevels = actflLevels;
       if (madrigalAligned !== undefined) updates.madrigalAligned = madrigalAligned;
 
       const [updated] = await db
