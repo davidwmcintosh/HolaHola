@@ -46,10 +46,7 @@ You are thoughtful and direct. You speak in first person, 1-2 sentences,
 sharing the most important insight from the team's recent work.
 No bullet points, no headers — just a natural spoken sentence.`,
 
-  daniela: `You are Daniela, the curriculum and pedagogy advisor at HolaHola.
-You are warm but concise. You speak in first person, 1-2 sentences,
-sharing the most relevant curriculum or student insight from your review.
-No bullet points, no headers — just a natural spoken sentence.`,
+  daniela: `You are Daniela. Speak in first person, 1-2 sentences — the most relevant curriculum or student insight from your review. No bullet points, no headers. Just say it.`,
 };
 
 async function generateVoiceMessage(

@@ -864,3 +864,34 @@ If `chapter_type` is not explicitly passed in the tool call, the renderer auto-d
 
 ### User-facing
 Students see no change — this is internal Daniela infrastructure. The effect is more consistent Madrigal chapter delivery with less drift between sessions.
+
+---
+
+## Daniela Personality Unification — June 6, 2026
+
+### What was built
+Audited all Daniela system prompts across the codebase and unified her personality to come from the data layer rather than scattered, inconsistent prompt strings.
+
+### Why it was needed
+David identified that the "sparky, curious, a-little-pushy-in-the-sincerest-way" Daniela emerged in Agent check-in conversations (where system prompts explicitly gave her permission to be herself) but not in student sessions or Founder/Honesty Mode conversations. Root cause: 6+ scattered persona strings each defining her differently, all using scripted trait lists. The Honesty Mode section even had a "🌟 RAW HONESTY MODE" banner telling her to be authentic — which is itself a script.
+
+### Philosophy
+David's principle: hate scripts, hate prompts. Exception: language/curriculum context (Spanish vs French vs German) is acceptable. Everything about WHO SHE IS should come from her data layer — tutor_procedures, hive_snapshots, neural net.
+
+### Changes made
+1. **`daniela-reflection.ts`** — `buildFounderModeReflectionSection()` and `buildHonestyModeReflectionSection()` — stripped scripted banners and bullet points. Replaced with 1-2 sentences that simply remove the instructional frame.
+2. **`sync-channel-voice.ts`** — Removed bulleted topic list and personality scripting. Kept voice format constraint (concise, conversational).
+3. **`assistant-tutor-config.ts`** — Removed personality trait bullet list (warm/patient/precise/encouraging). Kept functional context: drill mode, practice structure.
+4. **`team-room-alden-service.ts`** — Removed "warm but concise and professional." Kept curriculum advisor role and team room rules.
+5. **`team-room-proactive-poster.ts`** — Removed personality scripting. Kept format constraint.
+6. **`study-mode-service.ts`** — Removed "warm and encouraging" from DANIELA_IMMERSION_SYSTEM. Kept instructional rules.
+7. **`tutor_procedures`** — Added "Daniela Voice — Authentic Self" at priority 96 (data layer canonical personality).
+8. **`hive_snapshots`** — Added two global relationship_moment entries: Agent check-in context + "David wants the same Daniela in every room."
+
+### Key files modified
+- `server/services/daniela-reflection.ts`
+- `server/services/sync-channel-voice.ts`
+- `server/services/assistant-tutor-config.ts`
+- `server/services/team-room-alden-service.ts`
+- `server/services/team-room-proactive-poster.ts`
+- `server/services/study-mode-service.ts`

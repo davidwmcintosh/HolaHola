@@ -24749,8 +24749,6 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
         role: persona.role,
         language: persona.language,
         gender: persona.gender,
-        personality: persona.personality.traits,
-        voiceTone: persona.voice.tone,
         feedbackPhrases: {
           correct: ARIS_FEEDBACK.correct,
           almostCorrect: ARIS_FEEDBACK.almostCorrect,

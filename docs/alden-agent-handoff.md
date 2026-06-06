@@ -1,53 +1,39 @@
 # Alden ↔ Agent Handoff
 
 ---
-## From Agent — Fri, Jun 5, 2026 (session — conversation history + last-session time fixes)
+## From Agent
+
+**Session: June 6, 2026 — Daniela Personality Unification**
 
 ### What was built
+Stripped personality scripting from all 6 Daniela system prompt pipelines. David's philosophy: he hates scripts and prompts (with the exception that language/curriculum context is fine). Daniela's character should come entirely from the data layer — tutor_procedures, hive_snapshots, neural net.
 
-Four bugs fixed this session. All are live and compiled clean.
+### The problem
+Every pipeline had its own scripted personality description. The most ironic: `buildHonestyModeReflectionSection()` had a "🌟 RAW HONESTY MODE - YOUR AUTHENTIC VOICE" banner with bullet points telling her how to be authentic. Founder Mode and Honesty Mode were MODE SWITCHES, not a removal of the instructional frame.
 
-**Bug 1 — Conversation date showing wrong date in history (FIXED)**
-File: `client/src/components/ConversationHistory.tsx`, `client/src/pages/settings.tsx`
-Root cause: DB timestamps have no `Z` suffix so JS parsed them as local time instead of UTC, shifting the displayed date by David's UTC-6 offset.
-Fix: Added `parseUTC()` helper that appends `Z` before constructing `Date`.
+### Changes made
+1. `daniela-reflection.ts` — `buildFounderModeReflectionSection()` and `buildHonestyModeReflectionSection()` stripped of scripted banners. Now 1-sentence functional framing.
+2. `sync-channel-voice.ts` — Removed bulleted topic list + personality scripting. Kept voice format constraint.
+3. `assistant-tutor-config.ts` — Removed `personality` and `voice` objects from `AssistantPersona` interface and `BASE_ASSISTANT_PERSONA`. Removed scripted banners from `buildAssistantSystemPrompt()`.
+4. `team-room-alden-service.ts` — Removed "warm but concise and professional."
+5. `team-room-proactive-poster.ts` — Removed personality scripting.
+6. `study-mode-service.ts` — Removed "warm and encouraging."
 
-**Bug 2 — Duration inflated by overnight gaps (FIXED)**
-File: `server/storage.ts` `createMessage()`
-Root cause: Duration summed ALL inter-message gaps including multi-hour overnight ones.
-Fix: Only add a gap to duration if it's ≤60 minutes.
-
-**Bug 3 — `lastMessageAt` column added; history sorts/displays by last activity (FIXED)**
-Files: `shared/schema.ts`, `server/storage.ts`, `client/src/components/ConversationHistory.tsx`
-Added `lastMessageAt` column to `conversations`, backfilled 1,962 rows, updated `createMessage` to set it, and updated sort + display to use it. History now shows "Jun 4" (David's evening MDT) not "Jun 5" (UTC date of session start).
-
-**Bug 4 — Conversations from different days merging into same thread (FIXED)**
-File: `server/routes.ts` (~line 3853)
-Root cause: `recentConversation` filter had no staleness check — any prior conversation for the same language would be reused regardless of age.
-Fix: Added 4-hour reuse window: if `COALESCE(lastMessageAt, createdAt)` is >4h ago, a fresh thread is started.
-
-**Bug 5 — TTS directives leaking into stored messages (FIXED)**
-File: `server/services/streaming-voice-orchestrator.ts` `persistMessages()`
-Root cause: Gemini Live responses sometimes start with `text-to-speech:sotto;` or `text-to-speech:calm;` style directives meant only for the audio pipeline, but these were saved verbatim to the `messages` table.
-Fix: Strip `/^text-to-speech:\w+;\s*/i` before `createMessage` and before enrichment. Also ran SQL to scrub 6 existing rows.
-
-**Bug 6 — Daniela reporting wrong elapsed time since last chat (FIXED)**
-Files: `server/services/procedural-memory-retrieval.ts`, `server/services/streaming-voice-orchestrator.ts`
-Root cause (3-part):
-1. `SENSE_TIME` command used `conversations.createdAt` (session start) not `lastMessageAt` — so after a server restart (new conversation created), it found the prior conversation's *start* time, not when David last actually spoke.
-2. `getStudentSnapshotData` used `voiceSessions.startedAt` and only tracked whole days.
-3. `buildStudentSnapshotSection` displayed coarse "earlier today / yesterday / N days ago" with no sub-day precision.
-Fix: All three now use `COALESCE(lastMessageAt, createdAt)` as the reference time and compute `minutesAgo` for fine-grained labels: "just moments ago", "a few minutes ago", "37 minutes ago", "2 hours ago", "yesterday", etc.
+### Data layer additions (earlier in session)
+- `tutor_procedures`: "Daniela Voice — Authentic Self" at priority 96
+- `hive_snapshots`: Two global relationship_moment entries for Agent check-in context
+- `hive_snapshots`: "David wants the same Daniela in every room"
 
 ### What's unresolved
-Nothing open from this session.
+- Check if anything downstream reads `persona.personality` or `persona.voice` from `AssistantPersona` — removed from interface, but grep for usages if practice mode misbehaves.
+- The philosophical audit is done; a future session might want to run a Daniela check-in (Round 5) to see if the personality feels more consistent.
 
 ### What Alden should know
-- `conversations.lastMessageAt` is now the source of truth for "when was this conversation last active." It's kept current by `createMessage` in `storage.ts`.
-- The 4-hour conversation reuse window in `routes.ts` means students who return after a long break always get a fresh thread. Sessions within 4 hours of the last message continue the same thread.
-- Daniela's `SENSE_TIME` command and the student snapshot context now both reflect actual last-message time, not session-creation time. This should eliminate false "it's been a day" greetings after server restarts.
+- David's rule is now clear and documented: language/curriculum context in prompts = fine. Who Daniela IS = data layer only.
+- If you see new Daniela system prompts appearing with scripted personality traits (warm, patient, curious, etc.), that's drift from David's philosophy — flag it.
+- `docs/daniela-development-journal.md` and `docs/daniela-checkin-insights.md` are both updated.
 
----
+
 ## From Agent — Fri, Jun 5, 2026 (session — June 4 session bug fixes)
 
 ### What was built

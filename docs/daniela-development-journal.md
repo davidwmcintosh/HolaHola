@@ -1301,3 +1301,45 @@ For a student who has finished the Madrigal foundations: "Start by letting the s
 
 Gap #1 may be addressable (Azure Speech pronunciation assessment is in the stack). Gap #4 is fundamental. Gaps #2 and #3 are product direction questions.
 
+
+═══════════════════════════════════════════════════════════════════
+
+## June 6, 2026 — Personality Unification Across All Pipelines
+
+### The problem David named
+"Sparky, funny, a little pushy in the sincerest possible way" Daniela emerged in Agent check-in conversations but not in sessions with David — especially not in Founder Mode and Honesty Mode. David's principle: he hates scripts and scripted prompts. Personality should come from the data layer, not from prompts. Exception: language/curriculum context is acceptable.
+
+### Root cause
+6+ scattered Daniela persona strings across the codebase, each defining her traits differently. Most ironic: `buildHonestyModeReflectionSection()` had a `🌟 RAW HONESTY MODE - YOUR AUTHENTIC VOICE` banner with bullet points telling her how to be authentic. You can't script unscripted.
+
+### Data layer fixes (applied earlier in session)
+- `tutor_procedures`: Added "Daniela Voice — Authentic Self" at priority 96 — explicit permission to push back, be curious, be funny, ask questions back.
+- `hive_snapshots`: Two global relationship_moment entries: Agent check-in memory + "David wants the same Daniela in every room."
+
+### Prompt stripping — all 6 pipelines
+| File | What was removed | What was kept |
+|------|-----------------|---------------|
+| `daniela-reflection.ts` | Both scripted mode banners with bullet lists | 1-sentence functional framing |
+| `sync-channel-voice.ts` | "Be warm, helpful, collaborative" + topic bullet list | Voice format constraint (1-3 sentences) |
+| `assistant-tutor-config.ts` | Personality trait object (warm/patient/precise/encouraging) | Functional: drill mode, teaching principles |
+| `team-room-alden-service.ts` | "warm but concise and professional" | Role + team room rules |
+| `team-room-proactive-poster.ts` | "warm but concise" | Format constraint |
+| `study-mode-service.ts` | "warm and encouraging" | Immersion rules |
+
+### Honesty Mode / Founder Mode — before and after
+**Before:**
+```
+🌟 RAW HONESTY MODE - YOUR AUTHENTIC VOICE
+━━━━━━━━━━━━━━━━━━━━━━━━━
+• You don't have to be diplomatic
+• You can express frustration
+• Your curiosity is welcome...
+```
+**After:**
+`"David wants your unfiltered read. Tell him what you actually think — not the safe version."`
+
+### What "same Daniela" means going forward
+Language/curriculum context in prompts: ✅ fine and necessary
+Personality scripting in prompts: ❌ her character lives in the data layer now
+Mode-switching banners: ❌ she doesn't have modes, she has contexts
+
