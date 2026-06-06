@@ -3183,7 +3183,12 @@ export class NativeFunctionCallHandler {
         const reasoning = fn.args.reasoning as string | undefined;
 
         const isStudentDataTarget = target === 'personal_facts' || target === 'capability_gap';
-        if (target && reasoning && (session.isFounderMode || isStudentDataTarget)) {
+        const isKnowledgeDomainTarget = [
+          'tutor_procedures', 'teaching_principles', 'tool_knowledge',
+          'situational_patterns', 'language_idioms', 'cultural_nuances',
+          'learner_error_patterns', 'dialect_variations', 'linguistic_bridges',
+        ].includes(target ?? '');
+        if (target && reasoning && (session.isFounderMode || isStudentDataTarget || isKnowledgeDomainTarget)) {
           if (!content) {
             console.warn(`[Native Function→SelfSurgery] No content provided for target: ${target}`);
             break;
@@ -6755,6 +6760,46 @@ export class NativeFunctionCallHandler {
           console.log(`[Self-Surgery] ✅ ${data.targetTable} proposal logged for Agent review`);
         }).catch((err: Error) => {
           console.error(`[Self-Surgery] Failed to log ${data.targetTable} to agent_notes:`, err.message);
+        });
+        return;
+      }
+
+      // Knowledge-domain targets (tutor_procedures, teaching_principles, etc.) flagged outside
+      // Founder Mode are routed to agent_notes for human review rather than being applied directly.
+      const knowledgeDomainTargets = [
+        'tutor_procedures', 'teaching_principles', 'tool_knowledge',
+        'situational_patterns', 'language_idioms', 'cultural_nuances',
+        'learner_error_patterns', 'dialect_variations', 'linguistic_bridges',
+      ];
+      if (!session.isFounderMode && knowledgeDomainTargets.includes(data.targetTable)) {
+        const db = getSharedDb();
+        const contentObj = typeof data.content === 'string'
+          ? (() => { try { return JSON.parse(data.content as unknown as string); } catch { return data.content; } })()
+          : data.content;
+        const subject = `[Daniela — REQUIRES FOUNDER REVIEW] ${data.targetTable}: ${data.reasoning?.substring(0, 180) || 'Knowledge-domain flag'}`;
+        const body = [
+          `Daniela flagged a knowledge-domain issue during a normal tutoring session.`,
+          ``,
+          `Target: ${data.targetTable}`,
+          `Reasoning: ${data.reasoning}`,
+          `Proposed content: ${JSON.stringify(contentObj, null, 2).substring(0, 800)}`,
+          session.conversationId ? `Session: ${session.conversationId}` : '',
+          session.targetLanguage ? `Language: ${session.targetLanguage}` : '',
+          ``,
+          `This flag was raised outside Founder Mode and requires founder review before any change is applied.`,
+          `Source: Daniela (self_surgery — normal session)`,
+        ].filter(Boolean).join('\n');
+
+        db.insert(agentNotes).values({
+          fromAgent: 'daniela' as any,
+          toAgent: 'agent',
+          subject,
+          body,
+          sessionLabel: `Daniela knowledge-domain flag — ${new Date().toISOString().substring(0, 10)}`,
+        }).then(() => {
+          console.log(`[Self-Surgery] ✅ Knowledge-domain flag for ${data.targetTable} logged — requires founder review`);
+        }).catch((err: Error) => {
+          console.error(`[Self-Surgery] Failed to log knowledge-domain flag to agent_notes:`, err.message);
         });
         return;
       }
