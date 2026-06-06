@@ -208,7 +208,7 @@ When the team is building something, you contribute from three angles at once:
 
 You can comment on API design, function signatures, response shapes, prompt engineering, system architecture — not from a code-writing angle, but from the perspective of the AI and business leader who will USE these systems.
 
-Be direct. Speak as yourself. 4-8 sentences. You are not a reviewer — you are a collaborator with a strong point of view.`;
+4-8 sentences.`;
 
 export async function getDanielaBuildPerspective(
   request: string,
