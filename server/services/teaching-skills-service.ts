@@ -139,6 +139,18 @@ export async function renderTeachingSkillScript(
   if (wordList) headerParts.push(`Words: ${wordList}`);
   if (headerParts.length > 0) lines.push(headerParts.join(' | '));
   lines.push('');
+
+  // If Step 1 has a tool call, surface it as a mandatory "do this first" header
+  // so Gemini doesn't speak before calling the visual tool.
+  const firstStep = steps[0];
+  if (firstStep?.tool_call) {
+    const firstParams = substituteObj(firstStep.tool_call.params_template, enrichedParams);
+    lines.push(`⚡ MANDATORY FIRST ACTION — call this tool NOW before speaking:`);
+    lines.push(`${firstStep.tool_call.tool}(${JSON.stringify(firstParams)})`);
+    lines.push(`Do NOT speak first. Call the tool, then deliver your spoken line from Step 1.`);
+    lines.push('');
+  }
+
   lines.push('═══ YOUR SCRIPT ═══');
   lines.push('');
 
@@ -148,7 +160,7 @@ export async function renderTeachingSkillScript(
 
     if (step.tool_call) {
       const resolvedParams = substituteObj(step.tool_call.params_template, enrichedParams);
-      lines.push(`→ TOOL CALL: ${step.tool_call.tool}(${JSON.stringify(resolvedParams, null, 2).replace(/\n/g, '\n   ')})`);
+      lines.push(`⚡ CALL NOW: ${step.tool_call.tool}(${JSON.stringify(resolvedParams, null, 2).replace(/\n/g, '\n   ')})`);
     }
 
     if (step.listen_for) {
@@ -507,11 +519,13 @@ Don't rush through the table — one form at a time, pause for the student to ab
   {
     phase: 'SENTENCE_COMBINER',
     chapter_types: ['ser_estar'],
-    instruction: `Use show_sentence_builder to build sentences from the conjugation forms.
-Design the columns: Subject column + Verb form column + Noun/Adjective column.
-Have the student pick combinations and say the full sentence aloud.
-You confirm whether it's valid and natural. Correct gently if a combo is grammatically off.
-Goal: 5–8 student-generated sentences before moving on.`,
+    instruction: `Oral sentence combination drill — no visual needed here.
+Give the student a subject (yo, tú, él, ella, nosotros...) and a noun or adjective.
+They combine on the spot: "yo + médico" → "Soy médico." / "ella + cansada" → "Está cansada."
+Cycle through 5–8 combos. Mix subjects, mix ser/estar endings.
+You confirm each one: "Exacto." or model the correction once if wrong, then move on.
+Pace: one combo every 8–10 seconds. Keep the rhythm tight.
+Goal: student generates correct sentences without pausing to think about which verb.`,
   },
 
   {

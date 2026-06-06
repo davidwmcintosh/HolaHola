@@ -4517,6 +4517,8 @@ The script you receive is exact — follow it in order and adapt only when the s
     },
     buildContinuationResponse: ({ session }) => {
       const result = (session as any).invokeTeachingSkillResult as string | undefined;
+      // Clear after reading so stale results don't persist across turns
+      (session as any).invokeTeachingSkillResult = undefined;
       if (!result) {
         return `Teaching skill could not be loaded. Continue the lesson using your standard approach.`;
       }
