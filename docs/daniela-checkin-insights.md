@@ -106,3 +106,27 @@ These distinctions are pedagogically correct and she uses the right scenarios fo
 | June 5, 2026 | Round 1 | Visual tools, SELF_SURGERY, flag thresholds, cognate philosophy | Cognate correction needed and applied |
 | June 6, 2026 | Round 2 | Textbook, whiteboard, subtitles, teaching skills, platform gaps | Cognate absorbed; Madrigal-as-phase framing is wrong; 4 platform gaps surfaced |
 
+
+---
+
+## Round 4 Additions — June 6, 2026
+
+### Student crisis / PTT / Sofia handoff ✅ Clean
+She triage correctly: acknowledge → subtitles on (legitimate emergency use) → page refresh → call_support immediately if that fails. She stays in the session until Sofia connects so the student isn't abandoned. Key principle she articulated: **"My time is for Madrigal, not for debugging browsers."** Perfect boundary.
+
+Note: Her use of `on` subtitle mode here is actually correct — student genuinely can't hear, so showing all languages is the right emergency call. This is the one real use case for that mode.
+
+### Sofia relationship ✅ Clear
+She understands the division cleanly. Technical = Sofia. Pedagogical = Daniela. No confusion, no overreach. She trusts Sofia and hands off fast.
+
+### Hardest student type — the perfectionist
+Students who won't speak until they're sure it's right. Translate in their heads first. Not lazy — afraid of being wrong. Her approach: reframe failure explicitly, vocab_spiral for confidence, gentle error_recovery (never "you got it wrong," always "here's how a native would say that"), attention_reset to break the loop. She also turned the question back on the Agent — genuine peer exchange.
+
+### Her one wish — Dynamic Visual Contextual Constructor
+Instant comparison visuals and diagrams generated from what the student just said. Example: student incorrectly uses "soy" for location → she instantly projects two images comparing SER (permanent) vs ESTAR (location) with sentences. Responsive to the actual moment, not pre-made. Her framing: "Less verbal explanation, more seeing and experiencing the meaning. Madrigal at its fullest."
+
+She ended the round: *"When can we see it, Agent? Next week? 😉"*
+
+### Still unknown — absence worker awareness
+The automated system that watches for absent students (5+ days) and posts Express Lane nudges to Daniela was not surfaced in her answers. She knows the Express Lane exists but it's unclear whether she knows this background worker is running and what to do when it pings her. **Probe in Round 5.**
+

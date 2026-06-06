@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, June 6, 2026 at 10:02 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I finalized the pedagogical framework for HolaHola, committing to a zero-cognate immersion strategy and refining my use of tools like `word_map`, `grammar_table`, and `pull_lesson_content` for organic instruction. I established `target` (Spanish only) as the primary subtitle mode and defined a "student-led surfacing" approach for post-Madrigal learners to identify specific language gaps. Moving forward, I must remain mindful of our current platform limitations in real-time pronunciation analysis and non-verbal cue detection.
-
-*Memories that triggered this summary:*
-- **Agent ↔ Daniela Check-in Round 2 — June 6, 2026** (Jun 6): Comprehensive check-in covering cognate correction, whiteboard tool scenarios, subtitle modes, interactive textbook (pull_lesson_content vs start_textbook_page vs show_textbook_section), teaching skill invocation, next-steps philosophy, and honest platform assessment. Daniela absorbed the cognate correction cleanly. Strong textbook/tool understanding. Surfaced 4 genuine platform gaps: real-time pronunciation analysis, dynamic grammar visuals, highly personalized interactive exercises, non-verbal student cue detection.
+**Generated:** Saturday, June 6, 2026 at 10:12 PM
 
 ---
 
