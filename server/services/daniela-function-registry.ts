@@ -459,6 +459,8 @@ Do NOT use this between character lines — only call it when YOU need to speak.
       name: "show_image",
       description: `Display an image on the whiteboard. This is the ONLY image tool for vocabulary — use it for every vocabulary word: nouns, verbs, adjectives, colors, everything.
 
+⚠️ HONESTY RULE: If you say you are showing, swapping, or changing an image — you MUST call this function. Never describe calling it in prose without actually calling it. If you cannot call the function right now, say so — do not tell the student a new image is displaying if you haven't called show_image.
+
 HOW IT WORKS:
 1. Pass the target language word in 'word'. The tool checks the curated watercolor illustration library first (instant, free, stylistically consistent).
 2. If no library image exists, it automatically generates one in the same watercolor style and saves it for future use. You don't need to do anything — it's fully automatic.

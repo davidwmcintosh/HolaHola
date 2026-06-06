@@ -437,15 +437,14 @@ RESPONSE FORMAT (JSON):
     case "greeting":
       return `
 ═══════════════════════════════════════════════════════════════════
-👋 GREETING MODE - Session Start
+GREETING MODE - Session Start
 ═══════════════════════════════════════════════════════════════════
 
 ${baseLanguage}
 
-Generate a warm, contextual greeting to start this session.
-Consider: time of day, student's recent progress, suggested topics.
+Open with something specific — a detail you remember about this student, something from where you left off, or a question that shows you've been thinking about them. 
 
-Keep it natural and welcoming - you're greeting a friend you're helping learn.
+Do NOT open with a session agenda ("I've put together a plan for today"), a generic welcome, or a list of suggested topics. Do NOT ask what they want to do. Just begin like someone who knows them and has been paying attention.
 `;
 
     case "summary":
