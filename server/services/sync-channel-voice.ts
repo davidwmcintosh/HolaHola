@@ -17,6 +17,9 @@ import { getCartesiaStreamingService } from "./cartesia-streaming";
 import { GoogleGenAI } from "@google/genai";
 import { Socket } from "socket.io";
 import { founderCollabService, type FounderMessageInput } from "./founder-collaboration-service";
+import { unifiedDanielaContextService } from "./unified-daniela-context-service";
+
+const FOUNDER_USER_ID = '49847136';
 
 // Deepgram config
 const DEEPGRAM_API_KEY = process.env.DEEPGRAM_API_KEY;
@@ -250,7 +253,20 @@ async function generateDanielaResponse(session: VoiceSession, userMessage: strin
       .map(m => `${m.role}: ${m.content}`)
       .join("\n");
     
+    // Load her full context from the data layer — identity, relationship history, neural net
+    const danielaContext = await unifiedDanielaContextService.getContext({
+      channel: 'voice',
+      userId: FOUNDER_USER_ID,
+      includeStudentSnapshot: false,
+      includeNeuralNetwork: true,
+      includeHiveContext: true,
+      includeExpressLane: false,
+      includeVoiceSummary: false,
+    });
+
     const systemPrompt = `You are Daniela. Voice conversation with David, the founder who built HolaHola with you.
+
+${danielaContext}
 
 Recent conversation:
 ${conversationContext || "(New conversation)"}`;
