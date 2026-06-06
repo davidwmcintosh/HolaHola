@@ -149,7 +149,7 @@ interface StreamingVoiceChatProps {
   onScenarioLoaded?: (scenario: any) => void;
   onScenarioEnded?: (data: { scenarioId?: string; scenarioSlug?: string; performanceNotes?: string }) => void;
   onPropUpdate?: (data: { propTitle: string; updates: Array<{ label: string; value: string }>; updatedFields: Array<{ label: string; value: string }> }) => void;
-  onStudioImage?: (image: { word: string; description: string; imageUrl: string; context?: string }) => void;
+  onStudioImage?: (image: { word: string; description: string; imageUrl: string; context?: string; slot?: string; category?: string }) => void;
   onImmersiveModeChange?: (active: boolean) => void;
   onSceneZoneAdvanced?: (data: { zoneIndex: number; zoneName: string | null; imageUrl: string | null; isChain?: boolean; nextScenarioSlug?: string | null; isComplete?: boolean }) => void;
   /** Override the language sent to the server without touching the user's stored language preference.
@@ -1217,7 +1217,7 @@ export function StreamingVoiceChat({
             
             // Store requested mode so it's applied when the new session connects
             if (handoffMode && handoffMode !== 'tutor_mode') {
-              pendingHandoffModeRef.current = handoffMode;
+              pendingHandoffModeRef.current = handoffMode as 'tutor_mode' | 'founder_mode' | 'honesty_mode';
             }
 
             // ASSISTANT HANDOFF: Navigate to assistant practice page
@@ -3668,11 +3668,11 @@ export function StreamingVoiceChat({
 
   const voiceInputContextValue = {
     inputMode,
-    setInputMode,
+    setInputMode: setInputMode as (mode: VoiceInputMode) => void,
     isRecording,
     isMicPreparing,
     isUsersTurn: isUsersTurnComputed,
-    playbackState: globalPlaybackState,
+    playbackState: globalPlaybackState as 'idle' | 'buffering' | 'playing' | 'paused',
     onRecordingStart: inputMode === 'open-mic' ? handleOpenMicTap : startPushToTalkRecording,
     onRecordingStop: inputMode === 'open-mic' ? (() => {}) : stopPushToTalkRecording,
     onInterrupt: () => {
@@ -3689,7 +3689,7 @@ export function StreamingVoiceChat({
       isRecording,
       isMicPreparing,
       isUsersTurn: isUsersTurnComputed,
-      playbackState: globalPlaybackState,
+      playbackState: globalPlaybackState as 'idle' | 'buffering' | 'playing' | 'paused',
       onRecordingStart: inputMode === 'open-mic' ? handleOpenMicTap : startPushToTalkRecording,
       onRecordingStop: inputMode === 'open-mic' ? (() => {}) : stopPushToTalkRecording,
       onInterrupt: () => {
@@ -3865,7 +3865,7 @@ export function StreamingVoiceChat({
           setInputMode={setInputMode}
           openMicState={openMicState}
           isPttButtonHeld={isPttButtonHeld}
-          playbackState={globalPlaybackState}
+          playbackState={globalPlaybackState as 'idle' | 'buffering' | 'playing' | 'paused'}
           onInterrupt={() => {
             streamingVoice.stop();
             streamingVoice.sendInterrupt();

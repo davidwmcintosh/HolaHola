@@ -23,8 +23,9 @@ export interface FormalInformalExample {
 
 export interface CognateEntry {
   english: string;
-  spanish: string;
+  spanish?: string;
   target?: string;
+  native?: string;
   category: string;
   isFalseCognate?: boolean;
   falseCognateNote?: string;
@@ -82,6 +83,7 @@ export interface VerbExample {
 export interface VerbGroup {
   verb: string;
   verbTranslation: string;
+  verbHint?: string;
   examples: VerbExample[];
 }
 
@@ -902,28 +904,6 @@ export const languageChapterData: Record<string, LanguageChapterData> = {
             ]
           }
         ],
-        cognateOpener: [
-          { english: "hotel",        target: "hotel",        spanish: "", category: "Identical in both languages" },
-          { english: "taxi",         target: "t\u00e1xi",        spanish: "", category: "Identical in both languages" },
-          { english: "actor",        target: "ator",         spanish: "", category: "Identical in both languages" },
-          { english: "doctor",       target: "doutor",       spanish: "", category: "Near-identical" },
-          { english: "director",     target: "diretor",      spanish: "", category: "Near-identical" },
-          { english: "color",        target: "cor",          spanish: "", category: "Near-identical" },
-          { english: "animal",       target: "animal",       spanish: "", category: "Identical in both languages" },
-          { english: "hospital",     target: "hospital",     spanish: "", category: "Identical in both languages" },
-          { english: "natural",      target: "natural",      spanish: "", category: "Identical in both languages" },
-          { english: "social",       target: "social",       spanish: "", category: "Identical in both languages" },
-          { english: "tropical",     target: "tropical",     spanish: "", category: "Identical in both languages" },
-          { english: "musical",      target: "musical",      spanish: "", category: "Identical in both languages" },
-          { english: "nation",       target: "na\u00e7\u00e3o",       spanish: "", category: "-tion \u2192 -\u00e7\u00e3o" },
-          { english: "conversation", target: "conversa\u00e7\u00e3o", spanish: "", category: "-tion \u2192 -\u00e7\u00e3o" },
-          { english: "information",  target: "informa\u00e7\u00e3o",  spanish: "", category: "-tion \u2192 -\u00e7\u00e3o" },
-          { english: "artist",       target: "artista",      spanish: "", category: "-ist \u2192 -ista" },
-          { english: "tourist",      target: "turista",      spanish: "", category: "-ist \u2192 -ista" },
-          { english: "powder",       target: "polvo",        spanish: "", category: "False friends", isFalseCognate: true, falseCognateNote: "polvo means octopus in Portuguese" },
-          { english: "to pretend",   target: "pretender",    spanish: "", category: "False friends", isFalseCognate: true, falseCognateNote: "pretender means to intend or to claim" },
-          { english: "constipated",  target: "constipado",   spanish: "", category: "False friends", isFalseCognate: true, falseCognateNote: "constipado means having a cold" }
-        ]
       },
       numbers: {
         welcomeText: "German reverses the ones and tens: 25 is fünfundzwanzig — five-and-twenty. This chapter covers 1 through 1,000, plus how Germans write numbers differently than English speakers.",

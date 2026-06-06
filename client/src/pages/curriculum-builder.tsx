@@ -526,7 +526,7 @@ export default function CurriculumBuilder() {
                                     />
                                     <FormField
                                       control={lessonForm.control}
-                                      name="content"
+                                      name={"content" as any}
                                       render={({ field }) => (
                                         <FormItem>
                                           <FormLabel>Content</FormLabel>

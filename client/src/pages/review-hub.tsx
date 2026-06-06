@@ -850,11 +850,11 @@ export default function ReviewHub() {
         const allItems = Array.isArray(conversationReviewItems)
           ? conversationReviewItems
           : ((conversationReviewItems as any)?.items ?? []);
-        const newItems = allItems.filter(item =>
+        const newItems = allItems.filter((item: any) =>
           now - new Date(item.createdAt).getTime() < 48 * 60 * 60 * 1000
         );
         const displayItems = allItems
-          .filter(item => !dismissedIds.has(item.id))
+          .filter((item: any) => !dismissedIds.has(item.id))
           .slice(0, 5);
 
         const itemTypeConfig: Record<string, { color: string; label: string }> = {
@@ -885,10 +885,10 @@ export default function ReviewHub() {
                 <div className="py-6 text-center text-sm text-muted-foreground" data-testid="text-no-review-items">
                   <MessageSquare className="h-8 w-8 mx-auto mb-2 text-muted-foreground/40" />
                   <p>Items will appear here after your voice chats.</p>
-                  <p className="text-xs mt-1 text-muted-foreground/70">Start a conversation with {getTutorName(tutorGender, language)} to build your review list.</p>
+                  <p className="text-xs mt-1 text-muted-foreground/70">Start a conversation with {getTutorName(language, tutorGender as any)} to build your review list.</p>
                 </div>
               ) : (
-                displayItems.map((item) => {
+                displayItems.map((item: any) => {
                   const typeConf = itemTypeConfig[item.itemType] ?? itemTypeConfig.vocabulary;
                   const isNew = now - new Date(item.createdAt).getTime() < 48 * 60 * 60 * 1000;
                   const isRevealed = revealedIds.has(item.id);

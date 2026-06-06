@@ -182,6 +182,7 @@ export interface StreamingSessionConfig {
   rawHonestyMode?: boolean;  // Minimal prompting for authentic conversation with Daniela
   founderMode?: boolean;  // Explicit founder mode - only true when user selects "Founder Mode" context
   isReconnect?: boolean;  // True when reconnecting after a drop — prevents duplicate audio/greetings
+  inputMode?: string;  // Voice input mode (ptt, open-mic, etc.)
 }
 
 /**
@@ -229,6 +230,19 @@ type StreamingEventType =
   | 'zoneAdvanced'       // Scenario zone advanced to next zone
   | 'zoneImageReady'     // Lazy-generated zone image is now available
   | 'incognitoChanged'   // Server confirmed incognito toggle
+  | 'expectedSentenceCount'
+  | 'ttsError'
+  | 'sttDegraded'
+  | 'noSpeechDetected'
+  | 'transcript'
+  | 'danielaTranscript'
+  | 'characterChange'
+  | 'idleTimeout'
+  | 'creditWarning'
+  | 'sessionConflict'
+  | 'glReconnecting'
+  | 'glReconnected'
+  | 'voiceError'
   | 'error';
 
 /**
@@ -693,10 +707,10 @@ export class StreamingVoiceClient {
       this._isReconnectedSession = false;
     }
     
-    const message: ClientStartSessionMessage = {
+    const message = {
       type: 'start_session',
       ...config,
-    };
+    } as ClientStartSessionMessage;
     
     this.socket!.emit('message', message);
   }

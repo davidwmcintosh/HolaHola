@@ -513,7 +513,7 @@ function MemoryMigrationTab() {
               </div>
               {mainView === 'queue' && (
                 <>
-                  {reviewFilter === 'pending' && memoriesData?.memories?.length > 0 && (
+                  {reviewFilter === 'pending' && (memoriesData?.memories?.length ?? 0) > 0 && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -4506,7 +4506,7 @@ function ImageLibraryTab() {
 
   const previewRefetchMutation = useMutation({
     mutationFn: async ({ word, language, customQuery }: { word: string; language: string; customQuery?: string }) => {
-      return apiRequest("POST", "/api/admin/media/preview-refetch", { word, language, customQuery: customQuery || undefined }) as Promise<{ previewUrl: string; source: string }>;
+      return apiRequest("POST", "/api/admin/media/preview-refetch", { word, language, customQuery: customQuery || undefined }) as unknown as Promise<{ previewUrl: string; source: string }>;
     },
     onSuccess: (data, variables) => {
       setLibraryPreviewUrl(data.previewUrl);
@@ -10555,7 +10555,7 @@ function EditorChatTab() {
           content,
           cursor: tempId,
           createdAt: new Date().toISOString(),
-          metadata: metadataWithTempId,
+          metadata: metadataWithTempId as any,
           pending: true,
           tempId,
         };
@@ -13801,7 +13801,7 @@ const northStarCategoryColors: Record<NorthStarCategory, string> = {
 function NorthStarTab() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const isFounder = user?.role === 'founder' || user?.role === 'admin' || user?.role === 'developer';
+  const isFounder = (user?.role as string) === 'founder' || user?.role === 'admin' || user?.role === 'developer';
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<NorthStarPrinciple>>({});
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);

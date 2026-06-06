@@ -85,6 +85,12 @@ export interface PreteriteConjugationRow {
   meaning: string;
 }
 
+export interface PreteriteConjugationTable {
+  verb: string;
+  verbTranslation: string;
+  rows: Array<{ pronoun: string; form: string; translation: string }>;
+}
+
 /** One vocabulary cluster within a preterite lesson */
 export interface PreteriteCluster {
   anchorItems: BookAnchorItem[];
@@ -95,7 +101,7 @@ export interface PreteriteCluster {
   /** Statement-only image cards — used for "Tomé pollo para la cena." style */
   statementCards?: BookPositiveItem[];
   /** Full verb conjugation table — shown after qaCards */
-  conjugationTable?: PreteriteConjugationRow[];
+  conjugationTable?: PreteriteConjugationRow[] | PreteriteConjugationTable;
   /** Sentence-former columns — shown after conjugation table */
   sentenceColumns?: SentenceColumn[];
   /** Pedagogical note shown AFTER the cards/drills */
@@ -1818,7 +1824,7 @@ export interface GustVocabCluster extends HayVocabCluster {
   /** List of negative sentences shown at the end of the cluster */
   negativeExamples?: string[];
   /** Full verb conjugation table shown at the bottom of the cluster */
-  conjugationTable?: { conjugated: string; translation: string }[];
+  conjugationTable?: { conjugated: string; translation: string }[] | PreteriteConjugationTable;
 }
 
 export interface GustUnitContent {

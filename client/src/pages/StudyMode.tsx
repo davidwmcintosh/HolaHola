@@ -462,7 +462,7 @@ export default function StudyMode() {
         {generateMutation.isError && (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-sm">Something went wrong generating the session.</p>
-            <Button variant="outline" className="mt-4" onClick={() => handleSelectUnit(selectedUnit)}>
+            <Button variant="outline" className="mt-4" onClick={() => selectedUnit && handleSelectUnit(selectedUnit)}>
               Try Again
             </Button>
           </div>

@@ -378,6 +378,7 @@ export interface ScenarioItemData {
   location: string;
   situation: string;
   mood?: string;
+  title?: string;
   imageUrl?: string;
   isLoading?: boolean;
   scenarioId?: string;

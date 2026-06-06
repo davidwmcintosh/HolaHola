@@ -641,6 +641,17 @@ const TIME_VOCAB_ZH: TimeEntry[] = [
   { time: '0:00',  label: '午夜 / 零点 (wǔyè / líng diǎn)',         english: 'It\'s midnight' },
 ];
 
+const TIME_VOCAB_HE: TimeEntry[] = [
+  { time: '12:00', label: 'שתים עשרה (shteim esre)',          english: 'It\'s noon' },
+  { time: '1:00',  label: 'אחת (akhat)',                      english: 'It\'s one o\'clock' },
+  { time: '2:30',  label: 'שתיים וחצי (shtayim va-khetsi)',   english: 'It\'s two-thirty' },
+  { time: '3:15',  label: 'שלוש ורבע (shalosh ve-reva)',      english: 'It\'s quarter past three' },
+  { time: '8:45',  label: 'שמונה ושלושה רבעים (shmone u-shlosh reva\'im)', english: 'It\'s quarter to nine' },
+  { time: '10:10', label: 'עשר ועשר (eser ve-eser)',          english: 'It\'s ten past ten' },
+  { time: '6:00',  label: 'שש (shesh)',                       english: 'It\'s six o\'clock' },
+  { time: '0:00',  label: 'חצות (khatsot)',                   english: 'It\'s midnight' },
+];
+
 const TIME_KEY_PATTERNS: Record<LangCode, [string, string][]> = {
   spanish: [
     ['¿Qué hora es?', 'What time is it?'],
@@ -1458,6 +1469,7 @@ const BODY_PHRASES: Record<LangCode, [string, string][]> = {
     ['我背疼。', 'I have back pain.'],
     ['举起你的右臂。', 'Raise your right arm.'],
   ],
+  hebrew: [],
 };
 
 const BODY_VOCAB_JA: BodyEntry[] = [
@@ -1527,18 +1539,18 @@ const BODY_VOCAB_ZH: BodyEntry[] = [
 ];
 
 const BODY_VOCAB_HE: BodyEntry[] = [
-  { part: 'head',         label: 'ראש (rosh)',                    english: 'head' },
-  { part: 'hair',         label: "שער (se'ar)",                  english: 'hair' },
-  { part: 'shoulder',     label: 'כתף (katef)',                   english: 'shoulder' },
-  { part: 'arm',          label: "זרוע (zero'a)",           english: 'arm' },
-  { part: 'elbow',        label: 'מרפק (marpek)',            english: 'elbow' },
-  { part: 'hand',         label: 'יד (yad)',                           english: 'hand' },
-  { part: 'chest',        label: 'חזה (khaze)',                   english: 'chest' },
-  { part: 'stomach',      label: 'בטן (beten)',                   english: 'stomach' },
-  { part: 'back',         label: 'גב (gav)',                           english: 'back' },
-  { part: 'leg',          label: 'רגל (regel)',                   english: 'leg/foot' },
-  { part: 'knee',         label: 'ברך (berekh)',                  english: 'knee' },
-  { part: 'foot',         label: 'כף רגל (kaf regel)', english: 'foot (sole)' },
+  { key: 'head',         label: 'ראש (rosh)',                    english: 'head' },
+  { key: 'hair',         label: "שער (se'ar)",                  english: 'hair' },
+  { key: 'shoulder',     label: 'כתף (katef)',                   english: 'shoulder' },
+  { key: 'arm',          label: "זרוע (zero'a)",           english: 'arm' },
+  { key: 'elbow',        label: 'מרפק (marpek)',            english: 'elbow' },
+  { key: 'hand',         label: 'יד (yad)',                           english: 'hand' },
+  { key: 'chest',        label: 'חזה (khaze)',                   english: 'chest' },
+  { key: 'stomach',      label: 'בטן (beten)',                   english: 'stomach' },
+  { key: 'back',         label: 'גב (gav)',                           english: 'back' },
+  { key: 'leg',          label: 'רגל (regel)',                   english: 'leg/foot' },
+  { key: 'knee',         label: 'ברך (berekh)',                  english: 'knee' },
+  { key: 'foot',         label: 'כף רגל (kaf regel)', english: 'foot (sole)' },
 ];
 
 export function BodyPartsCard({ language = 'spanish' }: { language?: LangCode }) {
@@ -1805,23 +1817,24 @@ const FACE_DESCRIPTIONS: Record<LangCode, [string, string][]> = {
     ['他/她的眼睛是什么颜色的？', 'What color are her/his eyes?'],
     ['他/她的眉毛很深。', 'She/He has dark eyebrows.'],
   ],
+  hebrew: [],
 };
 
 export function FacePartsCard({ language = 'spanish' }: { language?: LangCode }) {
   
 const FACE_VOCAB_HE: BodyEntry[] = [
-  { part: 'forehead',  label: 'מצח (metsakh)',               english: 'forehead' },
-  { part: 'eye',       label: "עין ('ayin)",                 english: 'eye' },
-  { part: 'eyebrow',   label: 'גבה (gaba)',                   english: 'eyebrow' },
-  { part: 'nose',      label: 'אף (af)',                           english: 'nose' },
-  { part: 'cheek',     label: 'לחי (lekhi)',                  english: 'cheek' },
-  { part: 'ear',       label: "אוזן ('ozen)",           english: 'ear' },
-  { part: 'mouth',     label: 'פה (peh)',                          english: 'mouth' },
-  { part: 'lip',       label: 'שפה (safa)',                   english: 'lip' },
-  { part: 'tooth',     label: 'שן (shen)',                         english: 'tooth' },
-  { part: 'chin',      label: 'סנטר (santar)',           english: 'chin' },
-  { part: 'tongue',    label: 'לשון (lashon)',           english: 'tongue' },
-  { part: 'neck',      label: 'צוואר (tsavar)',     english: 'neck' },
+  { key: 'forehead',  label: 'מצח (metsakh)',               english: 'forehead' },
+  { key: 'eye',       label: "עין ('ayin)",                 english: 'eye' },
+  { key: 'eyebrow',   label: 'גבה (gaba)',                   english: 'eyebrow' },
+  { key: 'nose',      label: 'אף (af)',                           english: 'nose' },
+  { key: 'cheek',     label: 'לחי (lekhi)',                  english: 'cheek' },
+  { key: 'ear',       label: "אוזן ('ozen)",           english: 'ear' },
+  { key: 'mouth',     label: 'פה (peh)',                          english: 'mouth' },
+  { key: 'lip',       label: 'שפה (safa)',                   english: 'lip' },
+  { key: 'tooth',     label: 'שן (shen)',                         english: 'tooth' },
+  { key: 'chin',      label: 'סנטר (santar)',           english: 'chin' },
+  { key: 'tongue',    label: 'לשון (lashon)',           english: 'tongue' },
+  { key: 'neck',      label: 'צוואר (tsavar)',     english: 'neck' },
 ];
 
   const vocab = language === 'french' ? FACE_VOCAB_FR : language === 'portuguese' ? FACE_VOCAB_PT : language === 'german' ? FACE_VOCAB_DE : language === 'italian' ? FACE_VOCAB_IT : language === 'japanese' ? FACE_VOCAB_JA : language === 'korean' ? FACE_VOCAB_KO : language === 'mandarin' ? FACE_VOCAB_ZH : language === 'hebrew' ? FACE_VOCAB_HE : FACE_VOCAB_ES;
@@ -2047,20 +2060,27 @@ const HAND_COUNTING: Record<LangCode, [string, string][]> = {
     ['四 (sì)', 'ring — 无名指 (wúmíngzhǐ)'],
     ['五 (wǔ)', 'pinky — 小指 (xiǎozhǐ)'],
   ],
+  hebrew: [
+    ['אחת (akhat)', 'thumb — אגודל (agudal)'],
+    ['שתיים (shtayim)', 'index — אצבע מורה (etsba mora)'],
+    ['שלוש (shalosh)', 'middle — אצבע אמצעית'],
+    ['ארבע (arba)', 'ring — אצבע טבעת'],
+    ['חמש (khamesh)', 'pinky — אצבע קטנה'],
+  ],
 };
 
 export function HandPartsCard({ language = 'spanish' }: { language?: LangCode }) {
   
 const HAND_VOCAB_HE: BodyEntry[] = [
-  { part: 'thumb',       label: 'אגודל (agudal)',           english: 'thumb' },
-  { part: 'index',       label: 'אצבע מורה (etsba mora)', english: 'index finger' },
-  { part: 'middle',      label: "אצבע אמצעית (etsba emtsa'it)", english: 'middle finger' },
-  { part: 'ring',        label: "אצבע טבעת (etsba taba'at)", english: 'ring finger' },
-  { part: 'pinky',       label: 'אצבע קטנה (etsba ktana)', english: 'little finger' },
-  { part: 'palm',        label: 'כף יד (kaf yad)',                english: 'palm' },
-  { part: 'wrist',       label: 'פרק יד (parak yad)',        english: 'wrist' },
-  { part: 'knuckle',     label: 'קשר אצבע (kesher etsba)', english: 'knuckle' },
-  { part: 'fingernail',  label: 'ציפורן (tsiporen)',   english: 'fingernail' },
+  { key: 'thumb',       label: 'אגודל (agudal)',           english: 'thumb' },
+  { key: 'index',       label: 'אצבע מורה (etsba mora)', english: 'index finger' },
+  { key: 'middle',      label: "אצבע אמצעית (etsba emtsa'it)", english: 'middle finger' },
+  { key: 'ring',        label: "אצבע טבעת (etsba taba'at)", english: 'ring finger' },
+  { key: 'pinky',       label: 'אצבע קטנה (etsba ktana)', english: 'little finger' },
+  { key: 'palm',        label: 'כף יד (kaf yad)',                english: 'palm' },
+  { key: 'wrist',       label: 'פרק יד (parak yad)',        english: 'wrist' },
+  { key: 'knuckle',     label: 'קשר אצבע (kesher etsba)', english: 'knuckle' },
+  { key: 'fingernail',  label: 'ציפורן (tsiporen)',   english: 'fingernail' },
 ];
 
   const vocab = language === 'french' ? HAND_VOCAB_FR : language === 'portuguese' ? HAND_VOCAB_PT : language === 'german' ? HAND_VOCAB_DE : language === 'italian' ? HAND_VOCAB_IT : language === 'japanese' ? HAND_VOCAB_JA : language === 'korean' ? HAND_VOCAB_KO : language === 'mandarin' ? HAND_VOCAB_ZH : language === 'hebrew' ? HAND_VOCAB_HE : HAND_VOCAB_ES;
@@ -2230,6 +2250,7 @@ const TEMP_KEY_EXPRS: Record<LangCode, [string, string][]> = {
     ['几度？(jǐ dù)', 'How many degrees is it?'],
     ['25度。(èrshíwǔ dù)', 'It\'s 25 degrees.'],
   ],
+  hebrew: [],
 };
 
 const TEMP_VOCAB_KO: TempEntry[] = [
@@ -2299,6 +2320,7 @@ const TEMP_CONVERSIONS: Record<LangCode, [string, string][]> = {
     ['0°C = 32°F', '冰点 (bīngdiǎn) — freezing point'],
     ['37°C = 98.6°F', '体温 (tǐwēn) — body temperature'],
   ],
+  hebrew: [],
 };
 
 export function ThermometerVocabCard({ language = 'spanish' }: { language?: LangCode }) {

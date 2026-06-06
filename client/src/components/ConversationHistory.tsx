@@ -290,7 +290,7 @@ export function ConversationHistory({
                       {message.content}
                     </p>
                     <p className="text-xs mt-2 opacity-70">
-                      {parseUTC(message.createdAt as string).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      {parseUTC(String(message.createdAt)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
                   {message.role === "user" && (
@@ -406,7 +406,7 @@ export function ConversationHistory({
                           {result.conversationTitle || 'Untitled Conversation'}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {parseUTC(result.createdAt as string).toLocaleDateString()}
+                          {parseUTC(String(result.createdAt)).toLocaleDateString()}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground line-clamp-2">

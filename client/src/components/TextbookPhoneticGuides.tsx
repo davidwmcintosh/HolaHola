@@ -19,9 +19,9 @@
 // ─── SHARED BASE ──────────────────────────────────────────────────────────────
 
 function PhoneticCard({
-  title, subtitle, color = 'from-indigo-500/10', testId, children,
+  title, subtitle, color = 'from-indigo-500/10', testId, children, className,
 }: {
-  title: string; subtitle?: string; color?: string; testId: string; children: React.ReactNode;
+  title: string; subtitle?: string; color?: string; testId: string; children: React.ReactNode; className?: string;
 }) {
   return (
     <div className={`rounded-lg border bg-card overflow-hidden`} data-testid={testId}>

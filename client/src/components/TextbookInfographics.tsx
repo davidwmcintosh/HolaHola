@@ -1645,7 +1645,9 @@ function renderFrameTemplate(frame: string) {
 
 interface CognateEntry {
   english: string;
-  spanish: string;
+  spanish?: string;
+  target?: string;
+  native?: string;
   category: string;
   isFalseCognate?: boolean;
   falseCognateNote?: string;
@@ -1709,7 +1711,7 @@ export function CognateRecognitionGrid({ cognates, language = 'spanish', classNa
                     {entry.english}
                   </div>
                   <TextAudioPlayButton
-                    text={entry.target ?? entry.spanish}
+                    text={entry.target ?? entry.spanish ?? ''}
                     language={language}
                     size="sm"
                     data-testid={`button-play-cognate-${i}`}
@@ -1749,7 +1751,7 @@ export function CognateRecognitionGrid({ cognates, language = 'spanish', classNa
                     </div>
                   )}
                   <TextAudioPlayButton
-                    text={entry.target ?? entry.spanish}
+                    text={entry.target ?? entry.spanish ?? ''}
                     language={language}
                     size="sm"
                     data-testid={`button-play-false-cognate-${i}`}
@@ -1870,8 +1872,9 @@ export function SentenceFrameGrid({ frames, language, className = '' }: Sentence
 // ── Vocab Q&A Grid (M1) ───────────────────────────────────────────────────────
 
 interface VocabQAItem {
-  word: string;
-  translation: string;
+  word?: string;
+  translation?: string;
+  answerTranslation?: string;
   question: string;
   answer: string;
 }

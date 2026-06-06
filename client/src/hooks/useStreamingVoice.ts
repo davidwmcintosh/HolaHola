@@ -50,6 +50,7 @@ export interface StreamingVoiceState {
   visibleWordCount: number;
   error: string | null;
   metrics: StreamingMetrics | null;
+  activeCharacter: { id: string; displayName: string; role: string; gender: 'male' | 'female' } | null;
 }
 
 /**
@@ -67,6 +68,7 @@ export interface StreamingSessionConfig {
   voiceSpeed?: 'normal' | 'slow';
   rawHonestyMode?: boolean;  // Minimal prompting for authentic conversation with Daniela
   founderMode?: boolean;  // Explicit founder mode flag - only true when user selects "Founder Mode" context
+  inputMode?: string;  // Voice input mode (ptt, open-mic, etc.)
   onResponseComplete?: (conversationId: string) => void;
   /** Called when processing_pending arrives — sets component-level thinking state immediately */
   onProcessingPending?: () => void;
@@ -149,6 +151,7 @@ export interface TutorHandoffInfo {
   isLanguageSwitch: boolean;  // True if this is a cross-language handoff
   requiresGreeting?: boolean; // True if client should request greeting after reconnecting
   isAssistant?: boolean;      // True if switching to assistant tutor (navigate to practice page)
+  mode?: string;              // Optional mode to apply after handoff
 }
 
 /**

@@ -15,10 +15,7 @@ export function ImpersonationBanner({ targetUserEmail, targetUserId }: Impersona
 
   const endImpersonation = useMutation({
     mutationFn: async () => {
-      return apiRequest("/api/admin/end-impersonation", {
-        method: "POST",
-        body: JSON.stringify({ targetUserId }),
-      });
+      return apiRequest("POST", "/api/admin/end-impersonation", { targetUserId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });

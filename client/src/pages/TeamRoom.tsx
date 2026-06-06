@@ -111,8 +111,8 @@ const ARTIFACT_ICONS: Record<string, React.ElementType> = {
 function ArtifactCard({ artifact, guestTutors }: { artifact: RoomArtifact; guestTutors: GuestTutorInfo[] }) {
   const [expanded, setExpanded] = useState(true);
   const { toast } = useToast();
-  const ArtifactIcon = ARTIFACT_ICONS[artifact.artifactType] ?? ARTIFACT_ICONS.default;
-  const creator = getParticipantConfig(artifact.createdBy, guestTutors);
+  const ArtifactIcon = ARTIFACT_ICONS[(artifact.artifactType ?? 'default') as keyof typeof ARTIFACT_ICONS] ?? ARTIFACT_ICONS.default;
+  const creator = getParticipantConfig(artifact.createdBy ?? '', guestTutors);
 
   const handleCopy = () => {
     const c = artifact.content as Record<string, unknown>;
@@ -160,9 +160,9 @@ function ArtifactCard({ artifact, guestTutors }: { artifact: RoomArtifact; guest
     if (artifact.artifactType === "decision") {
       return (
         <div className="space-y-1 text-xs">
-          {c.decision && <p className="font-medium">{String(c.decision)}</p>}
-          {c.rationale && <p className="text-muted-foreground">{String(c.rationale)}</p>}
-          {c.impact && <p className="text-amber-600 dark:text-amber-400">Impact: {String(c.impact)}</p>}
+          {c.decision ? <p className="font-medium">{String(c.decision)}</p> : null}
+          {c.rationale ? <p className="text-muted-foreground">{String(c.rationale)}</p> : null}
+          {c.impact ? <p className="text-amber-600 dark:text-amber-400">Impact: {String(c.impact)}</p> : null}
         </div>
       );
     }
@@ -177,7 +177,7 @@ function ArtifactCard({ artifact, guestTutors }: { artifact: RoomArtifact; guest
             className="w-full rounded-sm border border-border"
             data-testid="browser-screenshot-image"
           />
-          {c.analysis && <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words overflow-hidden">{String(c.analysis)}</p>}
+          {c.analysis ? <p className="text-xs text-muted-foreground whitespace-pre-wrap break-words overflow-hidden">{String(c.analysis)}</p> : null}
           {errors && errors.length > 0 && (
             <div className="text-xs text-destructive space-y-0.5">
               <span className="font-medium">Console errors ({errors.length}):</span>
@@ -204,9 +204,9 @@ function ArtifactCard({ artifact, guestTutors }: { artifact: RoomArtifact; guest
             <span className={`font-semibold ${ratingColor}`}>{rating.replace("_", " ").toUpperCase()}</span>
             <span className="text-muted-foreground">{Number(c.sessionCount) || 0} session(s)</span>
             <span className="text-muted-foreground">Trend: {String(c.performanceTrend || "")}</span>
-            {c.speakingRatio && <span className="text-muted-foreground">Tutor {(c.speakingRatio as any).tutor}% / Student {(c.speakingRatio as any).student}%</span>}
+            {c.speakingRatio ? <span className="text-muted-foreground">Tutor {(c.speakingRatio as any).tutor}% / Student {(c.speakingRatio as any).student}%</span> : null}
           </div>
-          {c.sessionSummary && <p className="text-muted-foreground">{String(c.sessionSummary)}</p>}
+          {c.sessionSummary ? <p className="text-muted-foreground">{String(c.sessionSummary)}</p> : null}
           {patterns && patterns.length > 0 && (
             <div><p className="font-medium mb-1">Patterns:</p>{patterns.map((p, i) => <p key={i} className="text-muted-foreground">• {p}</p>)}</div>
           )}
@@ -415,7 +415,7 @@ function ParticipantCard({ config, isActive, isThinking, handRaise, onMention, o
 function usePTT(onTranscript: (text: string) => void) {
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -425,8 +425,8 @@ function usePTT(onTranscript: (text: string) => void) {
       recognition.continuous = false;
       recognition.interimResults = false;
       recognition.lang = "en-US";
-      recognition.onresult = (e: SpeechRecognitionEvent) => {
-        const transcript = Array.from(e.results).map(r => r[0].transcript).join(" ").trim();
+      recognition.onresult = (e: any) => {
+        const transcript = Array.from(e.results as any[]).map((r: any) => r[0].transcript).join(" ").trim();
         if (transcript) onTranscript(transcript);
       };
       recognition.onend = () => setIsListening(false);

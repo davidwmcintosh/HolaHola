@@ -44,7 +44,7 @@ function _starPts(cx: number, cy: number, r: number): string {
 const _s = (cx: number, cy: number, r: number, fill = "white") =>
   `<polygon points="${_starPts(cx, cy, r)}" fill="${fill}"/>`;
 
-const FLAG_BG: Record<string, string> = (() => {
+const FLAG_BG: Record<string, string | null> = (() => {
   // Spain — red / yellow / red horizontal (1:2:1)
   const spanish = _flag(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 2"><g opacity=".09"><rect width="3" height=".5" fill="#AA151B"/><rect y=".5" width="3" height="1" fill="#F1BF00"/><rect y="1.5" width="3" height=".5" fill="#AA151B"/></g></svg>`);
 

@@ -503,7 +503,7 @@ export class StreamingAudioPlayer {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           await ctx.resume();
-          if (ctx.state === 'running') {
+          if ((ctx.state as string) === 'running') {
             console.log(`[AudioPlayer] AudioContext resumed → running (attempt ${attempt})`);
             return;
           }
@@ -987,7 +987,7 @@ export class StreamingAudioPlayer {
       } catch (resumeErr) {
         console.warn('[AudioPlayer] Failed to resume AudioContext at chunk:', resumeErr);
       }
-      if (ctx.state !== 'running') {
+      if ((ctx.state as string) !== 'running') {
         console.warn(`[AudioPlayer] AudioContext still ${ctx.state} after resume at chunk — audio may not play`);
       }
     }

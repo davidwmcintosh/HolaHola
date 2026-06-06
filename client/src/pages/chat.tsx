@@ -872,12 +872,13 @@ export default function Chat() {
                     });
                   }}
                   onStudioImage={(img) => setStudioImages(prev => {
+                    const typedImg = img as typeof prev[number];
                     if (img.slot === 'scene') {
-                      return [...prev.filter(i => i.slot !== 'scene'), img];
+                      return [...prev.filter(i => i.slot !== 'scene'), typedImg];
                     } else if (img.slot === 'context' && img.category) {
-                      return [...prev.filter(i => !(i.slot === 'context' && i.category === img.category)), img];
+                      return [...prev.filter(i => !(i.slot === 'context' && i.category === img.category)), typedImg];
                     }
-                    return [img];
+                    return [typedImg];
                   })}
                   onImmersiveModeChange={setIsImmersiveMode}
                   onSceneZoneAdvanced={(data) => {

@@ -300,7 +300,7 @@ export function HayUnit({
   const sections = chapter.sections ?? [];
   const totalDrills = sections.reduce((acc, s) => acc + (s.drillCount || 0), 0);
   const firstVocabSection = sections.find(s => s.lessonType === "grammar") ?? sections[0];
-  const firstDrillSectionId = sections.find(s => s.hasDrills && s.drillCount > 0)?.id;
+  const firstDrillSectionId = sections.find(s => s.hasDrills && (s.drillCount ?? 0) > 0)?.id;
 
   return (
     <div

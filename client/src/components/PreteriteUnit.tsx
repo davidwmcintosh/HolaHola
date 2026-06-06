@@ -110,9 +110,9 @@ export function PreteriteUnit({
             )}
 
             {/* Conjugation table */}
-            {cluster.conjugationTable && cluster.conjugationTable.length > 0 && (
+            {cluster.conjugationTable && Array.isArray(cluster.conjugationTable) && cluster.conjugationTable.length > 0 && (
               <PreteriteConjTable
-                rows={cluster.conjugationTable}
+                rows={cluster.conjugationTable as any}
                 language={language}
               />
             )}

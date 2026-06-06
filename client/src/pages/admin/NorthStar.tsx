@@ -49,7 +49,7 @@ const categoryColors: Record<NorthStarCategory, string> = {
 export default function NorthStar() {
   const { toast } = useToast();
   const { user } = useUser();
-  const isFounder = user?.role === 'founder';
+  const isFounder = (user?.role as string) === 'founder';
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<NorthStarPrinciple>>({});
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);

@@ -885,7 +885,7 @@ export default function Settings() {
                         Your {languageNames[selectedPrefLanguage] || selectedPrefLanguage} Proficiency
                       </p>
                       <p className="text-lg font-medium capitalize" data-testid="text-actfl-level">
-                        {langPrefsData.actflLevel.replace(/_/g, ' ').replace(/-/g, ' ')}
+                        {langPrefsData?.actflLevel?.replace(/_/g, ' ').replace(/-/g, ' ')}
                       </p>
                     </div>
                     <Badge variant="secondary">ACTFL</Badge>
@@ -962,7 +962,7 @@ export default function Settings() {
                         <>
                           <AlertTriangle className="h-4 w-4" />
                           <span>
-                            Recommended for {langPrefsData.actflLevel.replace(/_/g, ' ').replace(/-/g, ' ')}: {' '}
+                            Recommended for {langPrefsData?.actflLevel?.replace(/_/g, ' ').replace(/-/g, ' ')}: {' '}
                             <button 
                               className="underline hover:no-underline"
                               onClick={() => handleFlexibilityChange(recommendedFlexibility)}
@@ -1096,15 +1096,15 @@ export default function Settings() {
                       <p className="text-2xl font-bold" data-testid="text-subscription-tier">{currentTier}</p>
                     </div>
                   </div>
-                  {subscription && subscription.status === 'active' && (
+                  {subscription?.status === 'active' && (
                     <Badge variant="default" data-testid="badge-subscription-status">Active</Badge>
                   )}
                 </div>
 
-                {subscription && subscription.status === 'active' && subscription.current_period_end && (
+                {subscription?.status === 'active' && subscription?.current_period_end && (
                   <div>
                     <p className="text-sm text-muted-foreground">
-                      Renews {new Date(subscription.current_period_end * 1000).toLocaleDateString()}
+                      Renews {new Date((subscription?.current_period_end ?? 0) * 1000).toLocaleDateString()}
                     </p>
                   </div>
                 )}
@@ -1120,7 +1120,7 @@ export default function Settings() {
             )}
           </CardContent>
           <CardFooter className="flex gap-2">
-            {subscription && subscription.status === 'active' ? (
+            {subscription?.status === 'active' ? (
               <Button
                 variant="outline"
                 onClick={() => portalMutation.mutate()}
@@ -1138,10 +1138,10 @@ export default function Settings() {
                     <Skeleton className="h-10 w-full" />
                     <Skeleton className="h-10 w-full" />
                   </div>
-                ) : billingData?.products && billingData.products.length > 0 ? (
+                ) : billingData?.products && (billingData?.products?.length ?? 0) > 0 ? (
                   <>
                     <div className="grid gap-2">
-                      {billingData.products
+                      {billingData?.products
                         .filter(p => p.active)
                         .map(product => {
                           const price = getPriceForProduct(product);
@@ -1206,9 +1206,9 @@ export default function Settings() {
                 <Skeleton className="h-16 w-full" />
                 <Skeleton className="h-16 w-full" />
               </div>
-            ) : hourPackages && hourPackages.length > 0 ? (
+            ) : hourPackages && (hourPackages?.length ?? 0) > 0 ? (
               <div className="grid gap-3">
-                {hourPackages.map((pkg) => (
+                {hourPackages?.map((pkg) => (
                   <div
                     key={pkg.tier}
                     className="flex items-center justify-between p-4 rounded-lg border bg-muted/30"
@@ -1248,7 +1248,7 @@ export default function Settings() {
         </Card>}
 
         {/* Institutional Class Packages - Hidden per design update (users purchase via join-class/pricing pages) */}
-        {false && teacherClasses && teacherClasses.length > 0 && (
+        {false && teacherClasses && (teacherClasses?.length ?? 0) > 0 && (
           <Card data-testid="card-class-packages">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1278,7 +1278,7 @@ export default function Settings() {
                           <SelectValue placeholder="Choose a class" />
                         </SelectTrigger>
                         <SelectContent>
-                          {teacherClasses.map((cls) => (
+                          {teacherClasses?.map((cls) => (
                             <SelectItem key={cls.id} value={cls.id}>
                               {cls.name} ({cls.language})
                             </SelectItem>

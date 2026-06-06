@@ -229,6 +229,7 @@ import {
 import { resolveHeFamilyCard } from "./TextbookHebrewWordFamilies";
 
 import { languageChapterData } from "@/data/chapter-intro-content";
+import type { ChapterIntroContent, ConversationStrip, ConversationPanel } from "@/data/chapter-intro-content";
 
 import familyGatheringImg from "@assets/stock_images/family_gathering_aro_0f321ed1.jpg";
 import coffeeShopImg from "@assets/stock_images/coffee_shop_friends__69e794a8.jpg";

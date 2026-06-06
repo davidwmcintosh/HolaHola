@@ -460,7 +460,7 @@ export function startLockoutWatchdog(): ReturnType<typeof setTimeout> {
     // generating a response; 'buffering' means audio is arriving but not yet playing.
     // Both are expected periods of mic silence and should not trigger the watchdog.
     const activeOutputStates = ['playing', 'thinking', 'buffering'];
-    if (isProc && !activeOutputStates.includes(playbackState)) {
+    if (isProc && !activeOutputStates.includes(playbackState ?? '')) {
       reportDiagnostic('lockout_watchdog_8s');
     }
   }, 8000);

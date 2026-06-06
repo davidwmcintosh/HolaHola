@@ -1,7 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { X, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { SofiaUserNotification } from "@/lib/lockoutDiagnostics";
+interface SofiaUserNotification {
+  title: string;
+  message: string;
+  suggestion?: string;
+}
 
 interface SofiaNotificationProps {
   notification: SofiaUserNotification | null;

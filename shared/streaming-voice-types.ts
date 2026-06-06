@@ -599,8 +599,9 @@ export type ClientTelemetryEventType =
   | 'socket_message_received'  // Any Socket.io message received (for delivery confirmation)
   | 'speculative_ptt_trigger'  // Speculative PTT started AI generation
   | 'speculative_ptt_confirm'  // Speculative transcript matched final transcript
-  | 'speculative_ptt_abort'    // Speculative transcript didn't match, re-triggering
-  | 'error';                   // Client-side error occurred
+  | 'speculative_ptt_abort'       // Speculative transcript didn't match, re-triggering
+  | 'processing_signal_received'  // Processing signal received from server
+  | 'error';                      // Client-side error occurred
 
 /**
  * Client telemetry event payload
