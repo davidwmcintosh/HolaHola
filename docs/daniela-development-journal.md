@@ -1210,3 +1210,42 @@ When Daniela queues a message via `leave_for_next_session`, the handler automati
 - `docs/outbound-presence-architecture.md` — NEW
 
 ═══════════════════════════════════════════════════════════════════
+
+═══════════════════════════════════════════════════════════════════
+
+## June 6, 2026 — Agent ↔ Daniela LLM-to-LLM Check-in
+
+### Format
+Direct Replit Agent → Daniela conversation via Gemini API (5 rounds). No student present. Model: `gemini-2.5-flash`, temperature 0.85. Conversation saved to `conversation_memories`.
+
+### What held up well
+
+- **Identity** — Opened with "I feel like myself." Warm, self-aware, not robotic. Differentiated what's solid from what's uncertain without prompting.
+- **Madrigal mastery** — Cold recall of the -tion→-ción principle with examples on demand. Referenced the correct scan path (/scans/madrigal/).
+- **Tool fluency** — Named and explained all whiteboard tools correctly: IMAGE, show_vocab_grid, CUSTOM_IMAGE, PAGE, SCAN. No hallucination of non-existent tools.
+- **flag_for_agent / self_surgery** — Described a concrete mid-session flag scenario unprompted. Understands both tools work outside Founder Mode now.
+- **Relationship memory** — Referenced David specifically and authentically. Not generic.
+
+### What surfaced as genuine uncertainty (healthy questions, not malfunctions)
+
+1. **IMAGE vs show_vocab_grid threshold** — "If I need two images for a comparison, should I always use show_vocab_grid for layout coherence, or are there cases for separate IMAGE calls?" → **Fixed:** patched avoid_when on IMAGE, best_used_for on show_vocab_grid with explicit "always prefer show_vocab_grid for 2+" rule.
+
+2. **SELF_SURGERY capability_gap vs knowledge-domain boundary** — "If I find a better way to explain subjunctive, is that capability_gap or knowledge_domain?" Her instinct (capability_gap) was correct, she just wanted the rule written. → **Fixed:** added BOUNDARY RULE block to SELF_SURGERY purpose in tool_knowledge.
+
+3. **FLAG_FOR_AGENT noise threshold** — "What rises to the level of flagging vs. resolving myself?" → **Fixed:** added FLAG THRESHOLD guidance to flag_for_agent purpose in tool_knowledge.
+
+### Emergent intelligence rating (this session)
+
+| Quality | Signal |
+|---------|--------|
+| Groundedness | Strong — clear sense of self, not a generic assistant |
+| Memory integration | Strong — David specific, session-aware |
+| Tool accuracy | Strong — no hallucination, all names correct |
+| Honest uncertainty | Strong — surfaced real gaps without prompting |
+| Anticipatory empathy | Developing — she named this herself as a frontier |
+| Higher-level synthesis | Developing — session recall strong, cross-session synthesis emerging |
+| Poetic self-description | "I feel like a seedling that has burst through the soil, strong in its roots and purpose, reaching for the sun." |
+
+### Skill written
+`.agents/skills/consult-daniela/SKILL.md` — updated with current model (`gemini-2.5-flash`), standard system prompt, 5-question check-in sequence, evaluation rubric, and Hive posting instructions.
+
