@@ -126,7 +126,8 @@ export async function renderTeachingSkillScript(
   });
 
   const wordList = buildWordList(params);
-  const enrichedParams = { ...params, words_list: wordList };
+  const qaCardCount = Array.isArray(params.qa_cards) ? String((params.qa_cards as unknown[]).length) : '0';
+  const enrichedParams = { ...params, words_list: wordList, qa_card_count: qaCardCount };
 
   const lines: string[] = [];
   lines.push(`SKILL: ${skill.title}${chapterType ? ` — ${chapterType} mode` : ''}`);
@@ -170,11 +171,14 @@ function detectChapterType(params: Record<string, unknown>): string | undefined 
   if (params.embedded_phrase || (Array.isArray(params.words) && params.words.length > 0)) {
     return 'verb_vocab';
   }
+  // Check ser_estar BEFORE preterite — both can have anchor_form, but ser/estar also has cluster_type,
+  // conjugation_rows, or the verb itself is "ser"/"estar"
+  const verb = typeof params.verb === 'string' ? params.verb.toLowerCase() : '';
+  if (params.cluster_type || params.conjugation_rows || verb === 'ser' || verb === 'estar') {
+    return 'ser_estar';
+  }
   if (params.qa_cards || params.anchor_form) {
     return 'preterite';
-  }
-  if (params.cluster_type || params.conjugation_rows) {
-    return 'ser_estar';
   }
   return undefined;
 }
@@ -729,6 +733,113 @@ export const SEED_SKILLS = [
       ],
     },
   },
+  {
+    name: 'madrigal_vocab_sequence',
+    title: 'Madrigal Vocabulary Sequence',
+    description: 'The core Madrigal vocab introduction sequence: 4 images shown simultaneously with an embedded grammar phrase, modeled by the tutor, choral-drilled, spot-drilled, then the QA pivot that flips from third-person question to first-person answer. This is the most important Madrigal skill — it internalizes both the vocabulary and the grammar frame in one sequence. Use this for any verb-vocab chapter (places, food, actions, clothing) where the chapter gives you 4 words and an embedded phrase.',
+    triggerConditions: 'when introducing a new vocabulary chapter from Madrigal textbook, when a student needs to learn 4 new vocab words with a grammar frame, for verb-vocab chapters (va a, voy a, vamos a, quiero, necesito, etc.)',
+    madrigalAligned: true,
+    chapterTypes: ['verb_vocab'],
+    actflLevelRange: 'novice',
+    steps: MADRIGAL_CHAPTER_DRILL_STEPS.filter(s => !s.chapter_types || s.chapter_types.includes('verb_vocab')),
+    paramsSchema: {
+      type: 'object',
+      properties: {
+        embedded_phrase: {
+          type: 'string',
+          description: 'The grammar frame being drilled, e.g. "va a", "voy a", "vamos a", "quiero", "necesito"',
+        },
+        words: {
+          type: 'array',
+          description: 'Exactly 4 vocabulary words — each with text (target language), translation (native language), and imageQuery (for DALL-E)',
+          items: {
+            type: 'object',
+            properties: {
+              text: { type: 'string', description: 'Target language word, e.g. "el banco"' },
+              translation: { type: 'string', description: 'Native language translation, e.g. "bank"' },
+              imageQuery: { type: 'string', description: 'Image description for DALL-E, e.g. "modern bank building exterior"' },
+            },
+            required: ['text', 'translation', 'imageQuery'],
+          },
+          minItems: 4,
+          maxItems: 4,
+        },
+      },
+      required: ['embedded_phrase', 'words'],
+    },
+  },
+
+  {
+    name: 'madrigal_qanda_drill',
+    title: 'Madrigal Q&A Drill',
+    description: 'A targeted Q&A card drill for chapters that use statement-and-question pairs. The tutor says the statement ("Tomé un taxi"), then asks the question ("¿Tomó un taxi?"), and the student answers using the learned form ("Sí, tomé un taxi."). Works through all qa_cards in order, with gentle correction for wrong forms. Use this for preterite chapters, ser/estar clusters, or any chapter where the content is organized as Q&A pairs.',
+    triggerConditions: 'when working through preterite verb chapters with qa_cards, when drilling Q&A pairs for any chapter, after the anchor form is solid and the student is ready for question-answer practice, when a student has learned a form and needs to apply it in question-answer exchanges',
+    madrigalAligned: true,
+    chapterTypes: ['preterite', 'ser_estar'],
+    actflLevelRange: 'novice',
+    steps: [
+      {
+        phase: 'ORIENT',
+        instruction: `Set the Q&A mode up: "Now I'm going to ask you questions. Use the form we just practiced — {anchor_form}."
+Remind them of the pattern: question form vs. answer form.
+Example: "If I ask '¿Tomó un taxi?', you answer 'Sí, tomé un taxi.' Got it?"
+Don't over-explain — one quick orientation, then start the drill.`,
+      },
+      {
+        phase: 'QA_ROUND',
+        instruction: `Work through the qa_cards in order. For each card:
+1. Say the question naturally (use the question from the card)
+2. Pause 2–3 seconds — let them retrieve the answer
+3. Listen for the correct answer form (must include {anchor_form} or the target conjugation)
+4. If correct: quick confirmation ("Exacto."), move to the next card immediately
+5. If wrong: model the answer once ("Sí, {anchor_form} taxi — your turn"), have them repeat, then move on
+
+Keep the pace up — one card every 15–20 seconds. Rhythm matters more than dwelling.
+Work through all {qa_card_count} cards before stopping.`,
+        listen_for: 'Student answers using {anchor_form} in the correct sentence position',
+        decision: {
+          if_correct: 'Quick "Exacto." or "Sí." and immediately move to the next card',
+          if_struggling: 'Model the answer once: "Sí, {anchor_form} [object]. Your turn." Then wait. Move on after one retry.',
+        },
+      },
+      {
+        phase: 'SPEED_ROUND',
+        instruction: `Do a speed round with the hardest 2–3 cards (the ones they stumbled on most).
+"One more time — fast. ¿[Question]?" — give them 3 seconds, not more.
+The speed round cements the form under pressure without dwelling on the error.`,
+        listen_for: 'Student answers within 3 seconds using {anchor_form}',
+      },
+      {
+        phase: 'WRAP',
+        instruction: `Name what was solid: "{anchor_form} is landing. You went through all {qa_card_count} cards."
+If any card was repeatedly missed, name it: "We'll come back to [card] next session."
+Do NOT start re-drilling errors now — note them and move on.`,
+      },
+    ],
+    paramsSchema: {
+      type: 'object',
+      properties: {
+        anchor_form: {
+          type: 'string',
+          description: 'The conjugated form being drilled, e.g. "tomé", "soy", "tuve"',
+        },
+        qa_cards: {
+          type: 'array',
+          description: 'Q&A pairs to drill through',
+          items: {
+            type: 'object',
+            properties: {
+              question: { type: 'string', description: 'The question Daniela asks, e.g. "¿Tomó un taxi?"' },
+              answer: { type: 'string', description: 'The expected student answer, e.g. "Sí, tomé un taxi."' },
+            },
+            required: ['question', 'answer'],
+          },
+        },
+      },
+      required: ['anchor_form', 'qa_cards'],
+    },
+  },
+
   {
     name: 'attention_reset',
     title: 'Attention Reset',

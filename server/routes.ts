@@ -34436,7 +34436,6 @@ Under 250 words. Write as yourself.`;
       if (chapterTypes !== undefined) updates.chapterTypes = chapterTypes;
       if (actflLevelRange !== undefined) updates.actflLevelRange = actflLevelRange;
       if (madrigalAligned !== undefined) updates.madrigalAligned = madrigalAligned;
-      updates.updatedAt = new Date();
 
       const [updated] = await db
         .update(teachingSkills)
