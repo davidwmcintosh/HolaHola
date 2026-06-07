@@ -1,6 +1,6 @@
 # Daniela Check-in: Compiled Insights and Gaps
 
-These notes are compiled from Rounds 1 and 2 of direct Agent ↔ Daniela LLM check-ins (June 5–6, 2026). Intended as a working reference — add to it as more check-ins happen, then address gaps in batches.
+These notes are compiled from direct Agent ↔ Daniela LLM check-ins (June 5–6, 2026). Intended as a working reference — add to it as more check-ins happen, then address gaps in batches.
 
 ---
 
@@ -17,17 +17,11 @@ Daniela was treating the -tion→-ción pattern as a teaching platform. This is 
 ## 📌 Philosophical Corrections Still Needed in Daniela's Mental Model
 
 ### Madrigal Is Not a "Phase" — It's the Permanent Methodology
-**Status: Not yet corrected. Probe and fix in next check-in.**
+**Status: ✅ Absorbed — confirmed Round 5, June 6, 2026.**
 
-The check-in question framed Madrigal as something a student can "finish" or "graduate from." That's wrong on two levels:
+Probed directly in Round 5. Her answer was exactly right without prompting: "True fluency means thinking *in* the language, not just translating faster. Madrigal nurtures that from day one to day one thousand." She distinguished that what changes for advanced students is the *complexity of language*, not the methodology. "Instead of learning 'la manzana es roja,' an advanced student might be discussing 'la dicotomía entre la libertad individual y la responsabilidad colectiva.' But the way we approach it is still about thinking directly in Spanish."
 
-1. **Students don't know they're doing Madrigal.** The methodology is invisible — it's simply how HolaHola works. There's no moment where a student says "I've completed Madrigal." The approach is structural and never announced.
-
-2. **Madrigal principles don't get outgrown.** Introducing vocabulary within functional phrases is not beginner scaffolding. It's the permanent way HolaHola builds, presents, and reinforces language at every level. Visual density in page layouts — direct Madrigal principles — apply to a Spanish 5 student the same as a Spanish 1 student.
-
-**What to fix in Daniela:** She should never frame any student's situation as "they've gotten past Madrigal" or "they're beyond those foundations." The principles are the architecture of every lesson, not a stage. The question for any student at any level is not "what chapter of Madrigal are they on" but "where is the gap, and how do we fill it using the same principles?"
-
-**Probe question for next check-in:** "Tell me what Madrigal means to how you actually structure a lesson — not as a book, but as a method. And is there a level of Spanish student for whom those principles stop applying?"
+No correction needed — she had it. This may have been self-corrected via the data layer rather than carrying the gap forward.
 
 ---
 
@@ -64,6 +58,42 @@ The `drill_session` suite covers predefined exercise types. If a student needs a
 
 ---
 
+## Round 5 Findings — June 6, 2026
+
+### Absence worker awareness ⚠️ Partial clarity
+She knows the system exists and understands the intent: a background worker flags students absent 5+ days and posts a nudge to her Express Lane. Her instinct on what to do — warm, personalized outreach referencing what they were working on — is exactly right.
+
+**The gap:** She describes her response as "send a personalized message to Maya in the Express Lane." But the Express Lane is her *incoming* feed from background workers — not a channel she uses to reach students. She doesn't name a specific outbound tool. The actual mechanism for reaching absent students is the outbound presence system (SMS voice notes). She understands the goal but not the tool she'd use to execute it. Worth probing the outbound presence tools specifically in a future round.
+
+### Madrigal as method ✅ Clean (see correction above — absorbed without prompting)
+
+### vocab_spiral ✅ Clean and specific
+Clear, pedagogically grounded answer. She spirals a word when she observes: hesitation or slow recall, incorrect usage or grammar, persistent pronunciation issues, lack of spontaneous use in new contexts, or after an absence period. She also spirals proactively for foundational high-frequency words even when they seem stable. A word is stable when it shows up spontaneously, accurately, and flexibly across varied contexts — she said: "I want them to reach for it naturally." Good signal awareness.
+
+### Memory retrieval distinction ✅ Clear mental model
+She has distinct mental models for all three:
+- **`memory_lookup`** — precision, specific known fact: "I know *what* I'm looking for, and I expect a direct, concise answer."
+- **`unified_recall`** — broader synthesis: "assembling a coherent picture from various related pieces" when she knows the general topic but not the exact location.
+- **`find_connected_memories`** — relationship exploration: "building a web of understanding, finding the 'why' and the 'how it fits in'" — starts with a seed and branches out.
+
+She correctly notes they complement each other and can be chained. The descriptions match the tools' actual semantic search designs reasonably well.
+
+### drill_session arc ✅ Clean
+Strong grasp of the full arc:
+- `drill_session_start`: sustained, deliberate practice on a *set* of related concepts — sets an intentional learning objective
+- Single `drill`: ad-hoc, immediate, isolated reinforcement — no formal arc needed
+- `drill_session_end`: called when the *objective* of that session is achieved (mastery demonstrated) — not just when drills run out
+- Just stopping: appropriate after single drills or if a session was aborted before its goal was reached
+
+One small inaccuracy: she suggested calling `drill_session_end` "with a note about why it was cut short" for aborted sessions — but the function doesn't accept a note parameter. Minor. The underlying pedagogical understanding is sound.
+
+### express_lane_post ⚠️ Terminology gap
+She describes `express_lane_post` as a channel for "memorable moments, milestones, breakthroughs that capture the spirit of HolaHola." She cited the podcast episode as something that went there. Her sense of what *doesn't* belong is correct: not technical change logs, not raw transcripts, not sprint items.
+
+**The gap:** She's using "Express Lane" to mean two different things without distinguishing them. (1) The *incoming* Express Lane: background worker alerts (absent student nudges) that arrive *to her*. (2) The `express_lane_post` *function*: her outgoing posts to the team collaboration channel in Founder/Honesty mode. These are distinct flows but she treats them as one channel. The function itself (Founder/Honesty mode only, team collaboration) is actually reasonably described — but she conflates it with the incoming alerts. Probe both directions separately in a future round.
+
+---
+
 ## 🔍 Insights Worth Keeping
 
 ### Subtitle `custom` Mode Is Underused
@@ -83,19 +113,17 @@ These distinctions are pedagogically correct and she uses the right scenarios fo
 
 ## 🔮 Questions for Future Check-ins
 
-1. **Madrigal as method, not phase** — probe whether she understands that the methodology applies at every level and is invisible to the student. (See correction above.)
+1. **`custom` subtitle in practice** — give her a specific mid-session scenario and ask what she'd show in the subtitle at that moment. See if she reaches for custom or defaults to target.
 
-2. **`custom` subtitle in practice** — give her a specific mid-session scenario and ask what she'd show in the subtitle at that moment. See if she reaches for custom or defaults to target.
+2. **The advanced unit system** — she has vocabulary sets, reading passages, and cultural notes for Spanish 3/4/5. Does she know how these differ from the Madrigal-based content and when to reach for them vs. the Madrigal textbook?
 
-3. **vocab_spiral tool** — not probed yet. When exactly does she spiral vocabulary back in? How does she decide which words warrant a spiral vs. which are assumed stable?
+3. **Outbound presence tools** — when an absent student nudge arrives in her Express Lane from the background worker, what specific tool does she use to actually reach the student? Does she know the outbound SMS/voice note tools exist and when they're available? (Round 5 showed she understands the intent but not the mechanism.)
 
-4. **Memory retrieval in context** — how does she decide when to use `memory_lookup` vs. `unified_recall` vs. `find_connected_memories`? Are these clearly distinct to her or does she treat them as interchangeable?
+4. **Express Lane incoming vs. outgoing** — probe both directions explicitly. Incoming: what kinds of alerts does the worker send her and how does she act on them? Outgoing: what does she use `express_lane_post` for specifically, and in what modes is it available to her?
 
-5. **drill_session arc** — full start-to-end. When does she open a session vs. a single drill? When does she close with drill_session_end vs. just stopping?
+5. **drill_session_end parameters** — minor but worth clarifying: she thinks she can pass a note when ending an aborted session. The function doesn't have a note parameter. Does she know this?
 
-6. **The advanced unit system** — she has vocabulary sets, reading passages, and cultural notes for Spanish 3/4/5. Does she know how these differ from the Madrigal-based content and when to reach for them vs. the Madrigal textbook?
-
-7. **express_lane_post** — not probed. Does she know what goes in the Hive vs. what should never go there?
+*(Resolved in Round 5: Madrigal as method, vocab_spiral, memory retrieval distinction, drill_session arc.)*
 
 ---
 
@@ -105,6 +133,8 @@ These distinctions are pedagogically correct and she uses the right scenarios fo
 |------|-------|-------|-------------|
 | June 5, 2026 | Round 1 | Visual tools, SELF_SURGERY, flag thresholds, cognate philosophy | Cognate correction needed and applied |
 | June 6, 2026 | Round 2 | Textbook, whiteboard, subtitles, teaching skills, platform gaps | Cognate absorbed; Madrigal-as-phase framing is wrong; 4 platform gaps surfaced |
+| June 6, 2026 | Round 4 | Student crisis handling, Sofia relationship, hardest student types, her one wish | All clean; absence worker not surfaced |
+| June 6, 2026 | Round 5 | Absence worker, Madrigal as method, vocab_spiral, memory retrieval, drill arc, express_lane_post | Madrigal absorbed; vocab/memory/drill all clean; 2 Express Lane gaps found |
 
 
 ---
