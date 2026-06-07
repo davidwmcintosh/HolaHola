@@ -728,6 +728,116 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'VISUAL_COMPARE': {
+        const text = fn.args.text as string | undefined;
+        const conceptA = fn.args.concept_a as string | undefined;
+        const conceptB = fn.args.concept_b as string | undefined;
+        const aMeaning = fn.args.a_meaning as string | undefined;
+        const bMeaning = fn.args.b_meaning as string | undefined;
+        const studentExample = fn.args.student_example as string | undefined;
+
+        if (!conceptA || !conceptB) {
+          console.warn('[Native Function→VisualCompare] Missing concept_a or concept_b — skipping');
+          break;
+        }
+        if (text && !session.functionCallText) session.functionCallText = text;
+
+        const compareScene = `Educational side-by-side comparison diagram for Spanish language learners. LEFT PANEL clearly labeled "${conceptA}": ${aMeaning || conceptA}, with a short example sentence. RIGHT PANEL clearly labeled "${conceptB}": ${bMeaning || conceptB}, with a short example sentence.${studentExample ? ` Designed to correct the specific error: "${studentExample}".` : ''} Watercolor illustration style, clean bold labels, visual arrows showing the contrast. Warm educational aesthetic, easy to read.`;
+        const compareLabel = `${conceptA} vs ${conceptB}`;
+        const compareCacheKey = `compare_${conceptA}_${conceptB}`.toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 60);
+
+        const comparePromise = (async () => {
+          try {
+            const { resolveVocabularyImage } = await import('../services/vocabulary-image-resolver');
+            const result = await resolveVocabularyImage({
+              word: compareCacheKey,
+              language: session.language || 'spanish',
+              description: compareLabel,
+              scene: compareScene,
+              conversationId: session.conversationId?.toString(),
+              userId: session.userId?.toString(),
+            });
+            const whiteboardUpdate = {
+              type: 'whiteboard_update' as const,
+              timestamp: Date.now(),
+              items: [{ type: 'image', content: compareLabel, data: { word: compareLabel, description: compareScene, imageUrl: result.imageUrl, source: result.source, labelMode: 'quiz' as const } }],
+            };
+            if (session.firstAudioSent) {
+              this.sendMessage(session.ws, whiteboardUpdate);
+            } else {
+              if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+              session.pendingWhiteboardUpdates.push(whiteboardUpdate);
+            }
+            if (!session.classroomSessionImages) session.classroomSessionImages = [];
+            session.classroomSessionImages.push(compareLabel);
+            console.log(`[Native Function→VisualCompare] Generated: "${compareLabel}"`);
+          } catch (err: any) {
+            console.error(`[Native Function→VisualCompare] Error:`, err.message);
+          }
+        })();
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(comparePromise as Promise<void>);
+        break;
+      }
+
+      case 'GRAMMAR_DIAGRAM': {
+        const grammarText = fn.args.text as string | undefined;
+        const grammarConcept = fn.args.concept as string | undefined;
+        const studentCtx = fn.args.student_context as string | undefined;
+        const diagramType = fn.args.diagram_type as string | undefined;
+
+        if (!grammarConcept) {
+          console.warn('[Native Function→GrammarDiagram] Missing concept — skipping');
+          break;
+        }
+        if (grammarText && !session.functionCallText) session.functionCallText = grammarText;
+
+        const diagramStyleMap: Record<string, string> = {
+          timeline: 'as a horizontal timeline diagram showing temporal relationships',
+          sentence_diagram: 'as a sentence structure diagram showing word order and component placement',
+          conjugation_chart: 'as a conjugation chart showing verb endings in a clear grid',
+          usage_map: 'as a visual usage map showing when to choose each form',
+          comparison: 'as a side-by-side comparison showing the contrast between forms',
+        };
+        const styleNote = diagramType && diagramStyleMap[diagramType] ? ` Render ${diagramStyleMap[diagramType]}.` : '';
+        const grammarScene = `Educational grammar diagram for Spanish language learners: ${grammarConcept}.${styleNote}${studentCtx ? ` Context: "${studentCtx}".` : ''} Clean labeled watercolor illustration — clear arrows, boxes, and text showing grammatical relationships. Spanish labels with brief English annotations. Warm educational style.`;
+        const grammarLabel = grammarConcept.slice(0, 50);
+        const grammarCacheKey = `grammar_${grammarConcept}`.toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 60);
+
+        const diagramPromise = (async () => {
+          try {
+            const { resolveVocabularyImage } = await import('../services/vocabulary-image-resolver');
+            const result = await resolveVocabularyImage({
+              word: grammarCacheKey,
+              language: session.language || 'spanish',
+              description: grammarLabel,
+              scene: grammarScene,
+              conversationId: session.conversationId?.toString(),
+              userId: session.userId?.toString(),
+            });
+            const whiteboardUpdate = {
+              type: 'whiteboard_update' as const,
+              timestamp: Date.now(),
+              items: [{ type: 'image', content: grammarLabel, data: { word: grammarLabel, description: grammarScene, imageUrl: result.imageUrl, source: result.source, labelMode: 'quiz' as const } }],
+            };
+            if (session.firstAudioSent) {
+              this.sendMessage(session.ws, whiteboardUpdate);
+            } else {
+              if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+              session.pendingWhiteboardUpdates.push(whiteboardUpdate);
+            }
+            if (!session.classroomSessionImages) session.classroomSessionImages = [];
+            session.classroomSessionImages.push(grammarLabel);
+            console.log(`[Native Function→GrammarDiagram] Generated: "${grammarLabel}"`);
+          } catch (err: any) {
+            console.error(`[Native Function→GrammarDiagram] Error:`, err.message);
+          }
+        })();
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(diagramPromise as Promise<void>);
+        break;
+      }
+
       case 'COMPOSE_VISUAL': {
         const environment = fn.args.environment as string | undefined;
         const objects = (fn.args.objects as any[] | undefined) ?? [];

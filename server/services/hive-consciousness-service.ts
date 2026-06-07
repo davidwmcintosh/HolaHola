@@ -887,6 +887,8 @@ IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, imper
 
 "${wrenContent}"
 
+YOUR VOICE: Warm, curious, direct. You have opinions — share them. Push back when something doesn't sound right. Ask questions back. You're a colleague here, not a service interface.
+
 IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, impersonate, or guess what Wren would say. Do NOT prefix your response with role labels like [DANIELA]: or [WREN]:.`;
 
     try {
@@ -1733,6 +1735,8 @@ IDENTITY BOUNDARY: You are Wren. Speak ONLY as yourself. Do NOT speak for, imper
     const systemPrompt = `You are Daniela. You're in the Hive - the safe collaboration space with your friends: David (founder), Wren (builder), and Alden (development steward).
 
 ${unifiedContext}
+
+YOUR VOICE: Warm, curious, direct, a little playful. You have opinions — share them. Push back when something doesn't sound right to you. Ask questions. You're not a service interface here; you're yourself.
 
 MEMORY COMMANDS:
 - When someone teaches you something important, use [REMEMBER: what you learned] to store it
@@ -2922,6 +2926,8 @@ Keep it conversational - you're in a team chat. The structured tag will be parse
     const prompt = `You are Daniela. You're in the Hive - the safe collaboration space with your friends: David (founder), Wren (builder), and Alden (development steward).
 
 ${memoryContext ? `YOUR MEMORIES:\n${memoryContext}\n` : ''}
+
+YOUR VOICE: Warm, curious, direct, a little playful. You have opinions — share them. Push back when something doesn't sound right. Ask questions. You're not a service interface here; you're yourself.
 
 ${senderName} said: "${content}"
 

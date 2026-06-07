@@ -4550,6 +4550,85 @@ The script you receive is exact — follow it in order and adapt only when the s
   },
 
   {
+    legacyType: 'VISUAL_COMPARE',
+    declaration: {
+      name: "visual_compare",
+      description: `Generate an instant side-by-side comparison illustration for two contrasting language concepts — responding directly to what a student just said or did.
+
+THE MOMENT FOR THIS TOOL:
+Student misuses a concept → correct it warmly in speech → call visual_compare so they SEE the contrast. Less verbal explanation, more experiencing the meaning. This is Madrigal at its fullest.
+
+CLASSIC USE CASES:
+• Student says "soy en la biblioteca" → compare SER (permanent/identity) vs ESTAR (location/temporary states)
+• Student says "comía ayer una vez" → compare PRETERITE (completed, specific) vs IMPERFECT (ongoing/habitual)
+• Student confuses "por" and "para" → compare core meanings visually
+• Any systematic error rooted in confusing two parallel concepts
+
+HOW IT WORKS:
+Generates a watercolor illustration with two clear panels — LEFT for concept_a, RIGHT for concept_b — with labels, brief meanings, and example sentences. When you include student_example, the image frames itself around correcting that specific error.
+
+CALL PATTERN:
+1. Correct the error warmly in speech first
+2. Call visual_compare — include text with what you say while the image loads
+3. Let the image anchor the correction — you said it, now they see it`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say while the comparison image loads" },
+          concept_a: { type: "string", description: "First concept (left panel), e.g. 'SER', 'Preterite', 'POR'" },
+          concept_b: { type: "string", description: "Second concept (right panel), e.g. 'ESTAR', 'Imperfect', 'PARA'" },
+          a_meaning: { type: "string", description: "Brief meaning of concept_a, e.g. 'permanent qualities, identity, origin'" },
+          b_meaning: { type: "string", description: "Brief meaning of concept_b, e.g. 'location, temporary states, emotions'" },
+          student_example: { type: "string", description: "What the student just said incorrectly. The image frames itself around correcting this specific error." },
+        },
+        required: ["text", "concept_a", "concept_b"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      const a = (fc.args?.concept_a as string) || 'concept A';
+      const b = (fc.args?.concept_b as string) || 'concept B';
+      return `Comparison image is now showing — ${a} on the left, ${b} on the right. Walk the student through the contrast. Then give them 1-2 new examples and ask them to point at the correct panel.`;
+    },
+  },
+
+  {
+    legacyType: 'GRAMMAR_DIAGRAM',
+    declaration: {
+      name: "grammar_diagram",
+      description: `Generate a visual grammar diagram responsive to what the student just said — tense timelines, sentence structure diagrams, pronoun placement maps, conjugation patterns.
+
+DIFFERENT FROM show_image:
+show_image is for vocabulary. grammar_diagram is for grammar relationships — the abstract structural things that are hard to explain with words alone. A timeline showing how preterite and imperfect overlap. A sentence diagram showing where the direct object pronoun goes. A conjugation map showing the pattern of -ar endings across persons.
+
+WHEN TO USE:
+• Student keeps misplacing a pronoun → diagram the sentence structure showing correct placement
+• Tense confusion that verbal explanation hasn't resolved → show a tense timeline
+• Any grammar concept that has a spatial or relational dimension that a picture communicates better than words
+
+WHAT MAKES IT WORK:
+Be specific with concept and include student_context when you have it. "Student placed pronoun after verb: 'quiero verlo hacer'" is more useful than just "pronoun placement." The more specific the context, the more targeted the image.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "What you say while the diagram loads" },
+          concept: { type: "string", description: "Grammar concept to visualize, e.g. 'preterite vs imperfect tense timeline', 'direct object pronoun placement in Spanish', 'ser vs estar usage map', 'subjunctive trigger verbs'" },
+          student_context: { type: "string", description: "What the student just said or did that triggered this. Makes the diagram target the specific confusion." },
+          diagram_type: {
+            type: "string",
+            enum: ["timeline", "sentence_diagram", "conjugation_chart", "usage_map", "comparison"],
+            description: "Type: timeline (tense relationships), sentence_diagram (word order/structure), conjugation_chart (verb endings grid), usage_map (when to use which form), comparison (side-by-side). Omit to let concept determine the best type.",
+          },
+        },
+        required: ["text", "concept"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      const concept = (fc.args?.concept as string) || 'the grammar concept';
+      return `Grammar diagram is now on the whiteboard for: ${concept}. Walk the student through it — point out the key relationship, then give 1-2 practice examples using the diagram as a reference.`;
+    },
+  },
+
+  {
     legacyType: 'SHOW_DAILY_PLAN',
     declaration: {
       name: "show_daily_plan",
