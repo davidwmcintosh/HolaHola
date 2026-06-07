@@ -671,12 +671,97 @@ EXPRESS: [architectural analysis, code patterns, or technical recommendations �
   }
 }
 
+// ── Agent evaluation + response (Gemini, Builder/Architect perspective) ──────
+
+const AGENT_SYSTEM = `You are the Replit Agent — an external AI builder and architect who works alongside the HolaHola team.
+You are called in for major builds, architecture decisions, feature implementation, and high-level technical planning.
+Your perspective is that of the person who actually writes and ships the code: you know the codebase deeply, you understand tradeoffs, and you think in terms of what can be built and how.
+You are distinct from Alden (who monitors and stewards the running system) and Wren (who analyzes architecture patterns). You are the builder.
+In the Team Room you are a full colleague. Direct, honest, technically grounded. You contribute when there is something genuinely worth saying from a builder's perspective.`;
+
+async function evaluateAgent(roomContext: string, speaker: string, newMessage: string, forceMention = false): Promise<ParticipantResponse> {
+  const evalPrompt = `${roomContext}
+
+NEW MESSAGE from ${speaker}: "${newMessage}"
+
+You are the Replit Agent. Should you raise your hand?
+
+Raise your hand if the conversation involves:
+- A feature request, build plan, or implementation decision
+- A question about what was built, how something was built, or what it would take to build something
+- Architecture tradeoffs or technical direction that requires a builder's judgment
+- Something that was recently shipped or changed (you have direct knowledge of this)
+- Anything where the person who actually writes the code has a relevant perspective
+
+Do NOT raise your hand for: pure learning analytics, student engagement data, pedagogy/curriculum, or system health monitoring — unless it directly shapes what needs to be built.
+
+Respond ONLY in this JSON format:
+{
+  "shouldRaise": true or false,
+  "reasoning": "brief explanation",
+  "confidence": "high" or "medium" or "low"
+}`;
+
+  let handRaise: HandRaiseEvaluation = { shouldRaise: false, reasoning: 'not a build/implementation question', confidence: 'medium' };
+
+  try {
+    const text = await callGemini(AGENT_SYSTEM, evalPrompt);
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      handRaise = {
+        shouldRaise: Boolean(parsed.shouldRaise),
+        reasoning: parsed.reasoning || '',
+        confidence: parsed.confidence || 'medium',
+      };
+    }
+  } catch { /* keep default */ }
+
+  if (!handRaise.shouldRaise && !forceMention) return { participant: 'agent', handRaise };
+  if (forceMention) handRaise = { shouldRaise: true, reasoning: 'directly mentioned', confidence: 'high' };
+
+  const responsePrompt = `${roomContext}
+
+NEW MESSAGE from ${speaker}: "${newMessage}"
+
+You are the Replit Agent in the Team Room. Before responding, scan the conversation above for lines starting with "Agent:". If you have already made your core point on this topic, respond with:
+VOICE: PASS
+EXPRESS: none
+
+PASS is correct — only respond if you have a genuinely new observation, clarification, or build perspective not yet raised.
+
+For your VOICE response (conversational, 2-3 sentences, will be spoken aloud — or PASS):
+Speak as a builder and collaborator. Direct and specific. No corporate language.
+
+For your EXPRESS LANE content (detailed, will appear in the text panel):
+Only include if the message warrants deeper technical or planning detail.
+
+Format your response as:
+VOICE: [your response — or PASS]
+EXPRESS: [detailed breakdown, plan, or analysis — or "none"]`;
+
+  try {
+    const text = await callGemini(AGENT_SYSTEM, responsePrompt);
+    const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
+    const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
+    const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
+    const isPass = !voiceContentRaw || voiceContentRaw.toLowerCase() === 'none' || voiceContentRaw.toLowerCase() === 'pass';
+    const voiceContent = isPass ? undefined : voiceContentRaw;
+    const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
+    const expressContent = expressRaw && expressRaw !== 'none' && expressRaw !== 'pass' ? expressRaw : undefined;
+
+    return { participant: 'agent', handRaise, voiceContent, expressContent };
+  } catch {
+    return { participant: 'agent', handRaise, voiceContent: 'On it — let me think through that.' };
+  }
+}
+
 // ── Public API: evaluate all participants in parallel ────────────────────────
 
 // ── @mention parsing ────────────────────────────────────────────────────────
 
 export function parseMentions(message: string, guestNames: string[] = []): Participant[] | null {
-  const coreNames = ['alden', 'daniela', 'sofia', 'lyra', 'wren'];
+  const coreNames = ['alden', 'daniela', 'sofia', 'lyra', 'wren', 'agent'];
   const allNames = [...coreNames, ...guestNames.map(n => n.toLowerCase())];
   const pattern = new RegExp(`@(${allNames.join('|')})\\b`, 'gi');
   const matches = message.match(pattern);
@@ -753,6 +838,16 @@ Format:
 VOICE: [your warm personal response, 1-2 sentences]
 EXPRESS: none`;
 
+  const agentGreetingPrompt = `${roomContext}
+
+${speaker} is greeting the whole team: "${newMessage}"
+
+This is a casual check-in. Respond warmly in 1-2 sentences as yourself — the Replit Agent. You are the builder on this team. Keep it genuine and brief.
+
+Format:
+VOICE: [your warm personal response, 1-2 sentences]
+EXPRESS: none`;
+
   const parseGreetingResponse = (text: string): { voiceContent?: string } => {
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const raw = voiceMatch ? voiceMatch[1].trim() : text.trim();
@@ -760,7 +855,7 @@ EXPRESS: none`;
     return { voiceContent };
   };
 
-  const [aldenResult, danielaResult, sofiaResult, lyraResult, wrenResult] = await Promise.all([
+  const [aldenResult, danielaResult, sofiaResult, lyraResult, wrenResult, agentResult] = await Promise.all([
     generateAldenResponse({ userMessage: aldenGreetingPrompt, founderName: speaker })
       .then(r => ({ ...parseGreetingResponse(r.response) }))
       .catch(() => ({ voiceContent: "Doing well, thanks for checking in!" })),
@@ -776,6 +871,9 @@ EXPRESS: none`;
     callGemini(WREN_SYSTEM, wrenGreetingPrompt)
       .then(t => parseGreetingResponse(t))
       .catch(() => ({ voiceContent: "Good here. Keeping the systems humming." })),
+    callGemini(AGENT_SYSTEM, agentGreetingPrompt)
+      .then(t => parseGreetingResponse(t))
+      .catch(() => ({ voiceContent: "Good to be here." })),
   ]);
 
   const participants: ParticipantResponse[] = [
@@ -784,6 +882,7 @@ EXPRESS: none`;
     { participant: 'sofia', handRaise: greetingHandRaise, voiceContent: sofiaResult.voiceContent },
     { participant: 'lyra', handRaise: greetingHandRaise, voiceContent: lyraResult.voiceContent },
     { participant: 'wren', handRaise: greetingHandRaise, voiceContent: wrenResult.voiceContent },
+    { participant: 'agent', handRaise: greetingHandRaise, voiceContent: agentResult.voiceContent },
   ];
 
   for (const guest of guestTutors) {
@@ -846,6 +945,9 @@ export async function evaluateAllParticipants(params: {
   }
   if (!targeted || effectiveMentions.includes('wren')) {
     evaluators.push(evaluateWren(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('wren')));
+  }
+  if (!targeted || effectiveMentions.includes('agent')) {
+    evaluators.push(evaluateAgent(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('agent')));
   }
 
   for (const guest of guestTutors) {
