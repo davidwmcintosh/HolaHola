@@ -33684,7 +33684,7 @@ Under 250 words. Write as yourself.`;
       if (speaker === 'David' || speaker === 'david') {
         const { classifyBuildIntent, runBuildPipeline } = await import('./services/alden-build-service');
         const buildIntent = await classifyBuildIntent(content);
-        if (buildIntent.isBuildRequest && buildIntent.confidence !== 'low') {
+        if (buildIntent.isBuildRequest && buildIntent.confidence !== 'low' && !dismissedParticipants.includes('alden')) {
           emitParticipantThinking(id, ['alden', 'daniela']);
           res.json({ message, aiMessages: [], expressLaneItems: [], artifacts: [], mentions: [], allEvaluations: [], buildPipelineStarted: true });
           runBuildPipeline(content, id, room.topic)
@@ -33696,7 +33696,7 @@ Under 250 words. Write as yourself.`;
         // CAP-009: Self-critique pipeline — Daniela-founder reviews Daniela-tutor's real session data
         const { classifyCritiqueIntent, runCritiquePipeline } = await import('./services/daniela-self-critique-service');
         const critiqueIntent = await classifyCritiqueIntent(content);
-        if (critiqueIntent.isCritiqueRequest && critiqueIntent.confidence !== 'low') {
+        if (critiqueIntent.isCritiqueRequest && critiqueIntent.confidence !== 'low' && !dismissedParticipants.includes('daniela')) {
           emitParticipantThinking(id, ['daniela']);
           const ownerEmail = (req as any).user?.email || '';
           res.json({ message, aiMessages: [], expressLaneItems: [], artifacts: [], mentions: [], allEvaluations: [], critiquePipelineStarted: true });
@@ -33709,7 +33709,7 @@ Under 250 words. Write as yourself.`;
         // CAP-009: Browser pipeline — AI team member browses and screenshots the app
         const { classifyBrowseIntent, runBrowserPipeline } = await import('./services/playwright-browser-service');
         const browseIntent = await classifyBrowseIntent(content);
-        if (browseIntent.isBrowseRequest && browseIntent.confidence !== 'low') {
+        if (browseIntent.isBrowseRequest && browseIntent.confidence !== 'low' && !dismissedParticipants.includes((browseIntent.participant || '').toLowerCase())) {
           emitParticipantThinking(id, [browseIntent.participant]);
           res.json({ message, aiMessages: [], expressLaneItems: [], artifacts: [], mentions: [], allEvaluations: [], browsePipelineStarted: true });
           runBrowserPipeline(content, id, room.topic, browseIntent)
@@ -33725,7 +33725,7 @@ Under 250 words. Write as yourself.`;
       const thinkingList = mentions && mentions.length > 0 ? mentions : ['alden', 'daniela', ...guestNames.map((n: string) => n.toLowerCase())];
       emitParticipantThinking(id, thinkingList);
       try {
-        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors, dismissedParticipants });
+        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors, dismissedParticipants: [...new Set([...dismissedParticipants, 'agent'])] });
         const aiMessages = [];
         const expressLaneItems = [];
         const artifacts = [];
@@ -33858,6 +33858,28 @@ Under 250 words. Write as yourself.`;
       emitNewMessage(id, sysMsg);
       res.json({ success: true, guests: metadata.guestTutors });
     } catch (e) { res.status(500).json({ error: e.message }); }
+  });
+
+
+  // Team Room: update invited participants for a session
+  app.patch("/api/team-room/sessions/:id/invited", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { participantId, action } = req.body;
+      if (!participantId || !['add', 'remove'].includes(action)) {
+        return res.status(400).json({ error: 'participantId and action (add|remove) are required' });
+      }
+      const room = await storage.getTeamRoom(id);
+      if (!room) return res.status(404).json({ error: 'Room not found' });
+      const metadata = (room.metadata || {}) as Record<string, unknown>;
+      const defaultAll = ['alden', 'daniela', 'sofia', 'lyra', 'wren', 'agent'];
+      const invited = new Set<string>((metadata.invitedParticipants as string[]) || defaultAll);
+      if (action === 'add') invited.add(participantId.toLowerCase());
+      else invited.delete(participantId.toLowerCase());
+      metadata.invitedParticipants = Array.from(invited);
+      await storage.updateTeamRoomMetadata(id, metadata);
+      res.json({ success: true, invitedParticipants: metadata.invitedParticipants });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
     // Team Room session templates
@@ -34019,7 +34041,7 @@ Under 250 words. Write as yourself.`;
       const thinkingList = mentions && mentions.length > 0 ? mentions : ['alden', 'daniela', ...guestNames.map((n: string) => n.toLowerCase())];
       emitParticipantThinking(id, thinkingList);
       try {
-        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors, dismissedParticipants });
+        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors, dismissedParticipants: [...new Set([...dismissedParticipants, 'agent'])] });
         const aiMessages = [];
         const expressLaneItems = [];
         const artifacts = [];

@@ -13,7 +13,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useToast } from "@/hooks/use-toast";
 import {
   Users, Send, Plus, BrainCircuit, Radio, Code, X, ChevronDown,
-  GraduationCap, Shield, Mic, MicOff, Volume2, VolumeX, FileText,
+  GraduationCap, Shield, Mic, MicOff, Volume2, FileText,
   Table, Lightbulb, CheckSquare, GitBranch, Info, Copy,
   Target, ClipboardList, AtSign, Hand, UserPlus, UserMinus,
   BookOpen, TrendingUp, Cpu, Circle, RotateCcw, Monitor, ScanEye, Terminal,
@@ -332,7 +332,7 @@ function MessageBubble({ message, onPlayVoice, guestTutors }: {
 
 // ── Participant card with visible @ button and hand-raise ─────────────────────
 
-function ParticipantCard({ config, isActive, isThinking, handRaise, onMention, onCallOn, onDisconnect, isDismissed, onToggleDismiss }: {
+function ParticipantCard({ config, isActive, isThinking, handRaise, onMention, onCallOn, onDisconnect, onRemove }: {
   config: ParticipantConfig;
   isActive: boolean;
   isThinking: boolean;
@@ -340,14 +340,13 @@ function ParticipantCard({ config, isActive, isThinking, handRaise, onMention, o
   onMention?: (name: string) => void;
   onCallOn?: (name: string) => void;
   onDisconnect?: () => void;
-  isDismissed?: boolean;
-  onToggleDismiss?: (id: string) => void;
+  onRemove?: () => void;
 }) {
   const Icon = config.Icon;
   const isAI = config.id !== "david" && config.id !== "system";
 
   return (
-    <div className={`flex items-center gap-2 p-2 rounded-md ${isActive ? "bg-muted" : ""} ${isDismissed ? "opacity-40" : ""}`} data-testid={`participant-${config.id}`}>
+    <div className={`flex items-center gap-2 p-2 rounded-md ${isActive ? "bg-muted" : ""}`} data-testid={`participant-${config.id}`}>
       <div className="relative shrink-0">
         <Icon className={`h-5 w-5 ${config.color}`} />
         {isActive && !isThinking && !handRaise && (
@@ -388,25 +387,25 @@ function ParticipantCard({ config, isActive, isThinking, handRaise, onMention, o
       {isThinking && <span className="text-xs text-amber-500 shrink-0 animate-pulse">thinking</span>}
 
       <div className="flex items-center gap-0.5 shrink-0">
-        {isActive && isAI && onToggleDismiss && (
+        {isActive && isAI && onRemove && (
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6"
-                onClick={() => onToggleDismiss(config.id)}
-                data-testid={`button-dismiss-${config.id}`}
+                onClick={onRemove}
+                data-testid={`button-remove-${config.id}`}
               >
-                {isDismissed ? <Volume2 className="h-3.5 w-3.5 text-muted-foreground" /> : <VolumeX className="h-3.5 w-3.5 text-muted-foreground" />}
+                <X className="h-3.5 w-3.5 text-muted-foreground" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">
-              <p className="text-xs">{isDismissed ? `Restore ${config.name}` : `Silence ${config.name} this session`}</p>
+              <p className="text-xs">Remove {config.name} from this session</p>
             </TooltipContent>
           </Tooltip>
         )}
-        {isActive && isAI && !isDismissed && onMention && (
+        {isActive && isAI && onMention && (
           <Button
             variant="ghost"
             size="icon"
@@ -667,7 +666,7 @@ export default function TeamRoom() {
   const [showPastSessions, setShowPastSessions] = useState(false);
   const [showAgentActivity, setShowAgentActivity] = useState(true);
   const [thinkingParticipants, setThinkingParticipants] = useState<Set<string>>(new Set());
-  const [dismissedParticipants, setDismissedParticipants] = useState<Set<string>>(new Set());
+  const [invitedParticipants, setInvitedParticipants] = useState<Set<string>>(new Set(['agent', 'daniela']));
   const [handRaises, setHandRaises] = useState<Record<string, { reasoning: string }>>({});
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
   const [autoPlayVoice, setAutoPlayVoice] = useState(() => {
@@ -765,6 +764,9 @@ export default function TeamRoom() {
     const metadata = (sessionData.room.metadata || {}) as Record<string, unknown>;
     const guests = (metadata.guestTutors || []) as GuestTutorInfo[];
     setGuestTutors(guests);
+    const invited = metadata.invitedParticipants as string[] | undefined;
+    if (invited) setInvitedParticipants(new Set(invited));
+    else setInvitedParticipants(new Set(['agent', 'daniela']));
   }, [sessionData]);
 
   const allMessages = useMemo(() => {
@@ -793,24 +795,34 @@ export default function TeamRoom() {
     },
   });
 
-  const toggleDismiss = useCallback((participantId: string) => {
-    setDismissedParticipants(prev => {
-      const next = new Set(prev);
-      if (next.has(participantId)) { next.delete(participantId); } else { next.add(participantId); }
-      return next;
-    });
-  }, []);
+  const ALL_CORE_AI_IDS = ['alden', 'daniela', 'sofia', 'lyra', 'wren', 'agent'];
+
+  const handleInvite = useCallback(async (participantId: string) => {
+    setInvitedParticipants(prev => new Set([...prev, participantId]));
+    if (activeSessionId) {
+      apiRequest("PATCH", `/api/team-room/sessions/${activeSessionId}/invited`, { participantId, action: 'add' }).catch(() => {});
+    }
+  }, [activeSessionId]);
+
+  const handleRemoveParticipant = useCallback(async (participantId: string) => {
+    setInvitedParticipants(prev => { const next = new Set(prev); next.delete(participantId); return next; });
+    if (activeSessionId) {
+      apiRequest("PATCH", `/api/team-room/sessions/${activeSessionId}/invited`, { participantId, action: 'remove' }).catch(() => {});
+    }
+  }, [activeSessionId]);
 
   const postMessage = useMutation({
-    mutationFn: (content: string) =>
-      apiRequest("POST", `/api/team-room/sessions/${activeSessionId}/messages`, {
+    mutationFn: (content: string) => {
+      const dismissed = ALL_CORE_AI_IDS.filter(id => !invitedParticipants.has(id));
+      return apiRequest("POST", `/api/team-room/sessions/${activeSessionId}/messages`, {
         content,
         speaker: "David",
-        dismissedParticipants: Array.from(dismissedParticipants),
-      }),
+        dismissedParticipants: dismissed,
+      });
+    },
     onMutate: (content) => {
       const allNames = ["alden", "daniela", "sofia", "lyra", "wren", "agent", ...guestTutors.map(g => g.tutorName.toLowerCase())]
-        .filter(n => !dismissedParticipants.has(n));
+        .filter(n => invitedParticipants.has(n) || guestTutors.some(g => g.tutorName.toLowerCase() === n));
       const mentionPattern = new RegExp(`@(${allNames.join("|")})\\b`, "gi");
       const matches = content.match(mentionPattern);
       if (matches && matches.length > 0) {
@@ -927,14 +939,10 @@ export default function TeamRoom() {
 
   const hasExpressContent = expressLaneItems.length > 0 || displayArtifacts.length > 0;
 
+  const ORDERED_CORE_AI_IDS: CoreParticipantId[] = ['agent', 'alden', 'daniela', 'sofia', 'lyra', 'wren'];
   const allParticipantConfigs: ParticipantConfig[] = [
     CORE_PARTICIPANTS.david,
-    CORE_PARTICIPANTS.agent,
-    CORE_PARTICIPANTS.alden,
-    CORE_PARTICIPANTS.daniela,
-    CORE_PARTICIPANTS.sofia,
-    CORE_PARTICIPANTS.lyra,
-    CORE_PARTICIPANTS.wren,
+    ...ORDERED_CORE_AI_IDS.filter(id => invitedParticipants.has(id)).map(id => CORE_PARTICIPANTS[id]),
     ...guestTutors.map((g, i) => ({
       id: g.tutorName.toLowerCase(),
       name: g.tutorName,
@@ -944,6 +952,8 @@ export default function TeamRoom() {
       ...GUEST_COLORS[i % GUEST_COLORS.length],
     })),
   ];
+
+  const uninvitedCoreIds = ORDERED_CORE_AI_IDS.filter(id => !invitedParticipants.has(id));
 
   return (
     <div className="flex h-full bg-background overflow-hidden">
@@ -956,7 +966,7 @@ export default function TeamRoom() {
             <Badge variant="outline" className="text-xs ml-auto">{allParticipantConfigs.length}</Badge>
           </div>
           {activeSessionId && isActive && (
-            <p className="text-xs text-muted-foreground mt-1">Everyone listens to every message. Raised hand = wants to add something. Click the hand to summon them.</p>
+            <p className="text-xs text-muted-foreground mt-1">Only invited participants respond. Click + to add more. Click × to remove.</p>
           )}
         </div>
         <ScrollArea className="flex-1">
@@ -971,10 +981,37 @@ export default function TeamRoom() {
                 onMention={activeSessionId && isActive ? handleMention : undefined}
                 onCallOn={activeSessionId && isActive ? handleCallOn : undefined}
                 onDisconnect={p.isGuest && activeSessionId && isActive ? () => disconnectGuest.mutate(p.name) : undefined}
-                isDismissed={dismissedParticipants.has(p.id)}
-                onToggleDismiss={p.id !== "david" && activeSessionId && isActive ? toggleDismiss : undefined}
+                onRemove={p.id !== "david" && !p.isGuest && activeSessionId && isActive ? () => handleRemoveParticipant(p.id) : undefined}
               />
             ))}
+
+            {activeSessionId && isActive && uninvitedCoreIds.length > 0 && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full justify-start gap-2 text-muted-foreground mt-1" data-testid="button-invite-participant">
+                    <Plus className="h-3.5 w-3.5" />
+                    <span className="text-xs">Invite to session</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent side="right" className="w-48 p-1">
+                  {uninvitedCoreIds.map(id => {
+                    const p = CORE_PARTICIPANTS[id];
+                    const Icon = p.Icon;
+                    return (
+                      <button
+                        key={id}
+                        className="flex items-center gap-2 w-full px-2 py-1.5 rounded text-sm hover-elevate text-left"
+                        onClick={() => handleInvite(id)}
+                        data-testid={`button-invite-${id}`}
+                      >
+                        <Icon className={`h-4 w-4 ${p.color}`} />
+                        <span>{p.name}</span>
+                      </button>
+                    );
+                  })}
+                </PopoverContent>
+              </Popover>
+            )}
 
             {activeSessionId && isActive && (
               <>

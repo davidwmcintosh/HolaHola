@@ -794,6 +794,9 @@ app.use((req, res, next) => {
     setTimeout(async () => {
       const { startDanielaPresenceWorker } = await import('./services/daniela-presence-worker');
       startDanielaPresenceWorker();
+
+      const { startAgentTeamRoomWorker } = await import('./services/team-room-agent-worker');
+      startAgentTeamRoomWorker();
     }, 85000);
 
     // +50s: Memory Decay Migration — idempotent ALTER TABLE that adds strength/
