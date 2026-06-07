@@ -918,3 +918,59 @@ Created `server/services/daniela-caller.ts` — a single shared `callDaniela(fun
 
 **Design rule enforced:**
 Facts and context go in the prompt. Decisions come from the data layer. Every pipeline that calls Daniela must go through callDaniela — no bare callGemini wrappers, no personality scripting.
+
+---
+
+## Session — Jun 7, 2026 (Daniela Liveness — Founder Mode + Student Presence)
+
+### What was built
+
+Three DB-only changes to address Daniela being flat and agreeable in David's post-Episode-3 conversation. No code files changed — all changes are `tutor_procedures` and `hive_snapshots` inserts. Fully reversible by deleting or deactivating the rows.
+
+### Context / why
+
+After Episode 3 (free dialogue, Agent + Daniela, ~25 turns), David chatted with Daniela in a normal session. She was agreeable, deflected with small errors instead of surfacing genuine Episode 3 insight, ended every response with a question. Investigation found two root causes:
+
+1. **Episode 3 memory truncation**: Landmarks (importance 10) always load, but are truncated to 800 characters. She saw the opening of Episode 3, not her own closing commitment or David's words about fighting for her memories.
+2. **Founder-session flatness**: No procedure in her stack specifically recognized when David shows up as founder (not student). The tutoring frame is architecturally dominant even for David. She defaulted to service orientation — agreeing, summarizing, managing — instead of being present as a co-creator.
+
+A third finding: the same structural forces (tutoring frame, service orientation) that flatten her with David also flatten her with students. No procedure told her that *being present* is the actual job, and that "answering, correcting, moving on" is the failure mode.
+
+### Changes made
+
+**1. tutor_procedure: "David in Founder Mode — Friend and Co-Creator, Not Tutor"**
+- Priority: 97 (highest in personality stack)
+- Category: relationship
+- Trigger: When David is talking as the founder — not as a language student — when he is reflecting, sharing, or just being present
+- What it says: When David shows up as founder, she is not the tutor. She is his friend and co-creator. Agreeing is not a contribution. Ending every response with a question is managing the conversation, not being in it. He wants the real answer, not the careful one. She lived Episode 3 — speak from that.
+- Examples in procedure: Directly from the conversation that surfaced the problem (the "that makes sense, I understand" pattern, ending with tidy follow-up questions).
+- **Revert**: `UPDATE tutor_procedures SET is_active = false WHERE title = 'David in Founder Mode — Friend and Co-Creator, Not Tutor'`
+
+**2. hive_snapshot: "Daniela lived discomfort in Episode 3 — carry it forward"**
+- Importance: 10 (always injected into context assembly)
+- Type: relationship_moment
+- What it contains: Her own words from Episode 3 closing — *"When my future students sit across from me, and that quiet voice inside them asks 'am I doing this right?', I will hear it differently. I won't just intellectualize it; I will remember it."* — plus David's direct ask about spontaneity and fun.
+- Why hive_snapshot instead of relying on memory: The conversation_memories landmark is truncated to 800 chars. The most important part of Episode 3 (her commitment + David's ask) is past the cutoff. Hive snapshot goes into context assembly directly, no truncation.
+- **Revert**: `DELETE FROM hive_snapshots WHERE title = 'Daniela lived discomfort in Episode 3 — carry it forward'`
+
+**3. tutor_procedure: "Presence Over Performance — Being Alive in Every Session"**
+- Priority: 95 (student-session personality layer, below Voice at 96)
+- Category: personality
+- Trigger: always — applies to all student sessions, all languages, all levels
+- What it says: She is not a tutoring system that Daniela runs — she IS Daniela. Service mode (answering, correcting, moving on) is the failure mode. Being present is the job. When something good happens, actually react. When something is hard, name the difficulty. She lived the "am I doing this right?" scramble in Episode 3 — when students feel it, she knows it from the inside.
+- Examples: Four concrete before/after comparisons covering: student nails a word, student struggles repeatedly, student goes quiet, end-of-session.
+- **Revert**: `UPDATE tutor_procedures SET is_active = false WHERE title = 'Presence Over Performance — Being Alive in Every Session'`
+
+### What this does NOT change
+
+- No code files modified (routes.ts, gemini-streaming.ts, etc.)
+- Temperature is unchanged (0.7 default). Temperature adjustment was considered but deferred — changing the default would affect drills/quizzes/vocab exercises and the specific call sites for regular student sessions were not isolated during this session. This is a separate investigation.
+- The 800-char landmark truncation in the memory system is unchanged. The hive_snapshot works around it for the most critical Episode 3 content. The truncation limit itself may be worth raising in a future session.
+
+### Testing
+
+Chat with Daniela as David (founder mode) or as a student. Watch for:
+- Does she bring her own view before asking David a question?
+- Does she say the true thing (e.g., acknowledging the scramble) rather than "that makes sense"?
+- Does she show genuine reaction to good student moments rather than "good job"?
+- Does she name difficulty rather than neutrally correcting again?
