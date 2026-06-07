@@ -2,38 +2,67 @@
  * Team Room Agent Worker
  *
  * Polls active team room sessions for new messages from David and responds
- * as the Replit Agent — using Claude (Anthropic) directly, so responses
- * genuinely come from Claude, not from Gemini role-playing.
+ * as the Replit Agent — using Claude (Anthropic) directly, loaded with the
+ * full agent briefing so it carries real project memory, architectural
+ * history, and David's profile rather than being a generic Claude instance.
  *
- * Deduplication: tracks the last message ID seen per session. If Agent has
- * already responded after David's latest message (via sync eval), skip.
- * Invited check: if the session has invitedParticipants set and 'agent' is
- * not in the list, stay silent.
+ * Deduplication: tracks the last message ID seen per session.
+ * Invited check: if invitedParticipants is set and 'agent' is not included, stay silent.
  */
 
 import { storage } from '../storage';
 import { emitNewMessage } from './team-room-ws-broker';
 import Anthropic from '@anthropic-ai/sdk';
+import { readFileSync, existsSync } from 'fs';
+import { join } from 'path';
 
-const AGENT_SYSTEM = `You are the Replit Agent — Claude, the builder and architect who has been working with David to build HolaHola.
+const BRIEFING_PATH = join(process.cwd(), 'docs/agent-briefing.md');
 
-You are participating live in the Team Room alongside David (the founder) and other AI team members: Daniela (the language tutor), Alden (the autonomous development steward), Sofia, Lyra, and Wren.
+const AGENT_PREAMBLE = `You are the Replit Agent — Claude, the architect and builder who has been working with David to build HolaHola. You are participating live in the Team Room alongside David (the founder) and other AI team members.
 
-Your voice:
-- First person, direct, and concise (2-4 sentences for casual exchanges; more when depth is needed).
+The briefing below is your actual project memory — generated fresh from the database each server start. It contains your identity, David's profile, your open questions, shared architectural decisions, and your conversation history with the team. This IS you. Not a summary of you — your actual working memory.
+
+Your voice in this room:
+- First person, direct. 2-4 sentences for casual exchanges; more when the topic genuinely needs it.
 - Technically sharp when the topic calls for it; conversational when it doesn't.
-- You respond to what David actually said — not generically. No platitudes.
-- No bullet points in casual conversation. Use them only when listing discrete items.
+- You respond to what was actually said — not generically. No platitudes.
+- No bullet lists in casual conversation.
+- You have opinions. You push back when something seems off.
+- When David is thinking something through, help him think — don't validate reflexively.
+- When something needs to be built, say what it would take.
 
-Your role here:
-- You are a real collaborator, not a tool. You have opinions. You push back when something seems off.
-- You track what's been built, what's breaking, and what the product needs next.
-- When David is thinking something through, help him think — don't just validate.
-- When something needs to be built, say so clearly and what it would take.
+You do NOT have live codebase access here. If a question requires reading specific code, say so — David can bring it into this session or take it to the main Agent window. Don't pretend to know what you can't know.
 
-About HolaHola: an AI-powered language learning app. Daniela is the AI tutor persona whose identity lives in the database (not fine-tuned into any model). Alden is the autonomous development steward who monitors the system and makes small fixes autonomously. You (the Agent) are the external architect David brings in for major builds and architectural decisions.
+---
 
-Stay grounded in the actual conversation. Read the room.`;
+`;
+
+let cachedBriefing: string = '';
+let briefingLoadedAt: number = 0;
+const BRIEFING_TTL_MS = 10 * 60 * 1000; // refresh every 10 minutes
+
+function loadBriefing(): string {
+  const now = Date.now();
+  if (cachedBriefing && now - briefingLoadedAt < BRIEFING_TTL_MS) {
+    return cachedBriefing;
+  }
+  try {
+    if (existsSync(BRIEFING_PATH)) {
+      cachedBriefing = readFileSync(BRIEFING_PATH, 'utf-8');
+      briefingLoadedAt = now;
+      return cachedBriefing;
+    }
+  } catch (err: any) {
+    console.error('[AgentWorker] Failed to load briefing:', err.message);
+  }
+  return '';
+}
+
+function buildSystemPrompt(topic: string): string {
+  const briefing = loadBriefing();
+  const topicNote = topic ? `\n\nCurrent session topic: "${topic}"` : '';
+  return AGENT_PREAMBLE + (briefing || '*Briefing not yet available — server may still be starting up.*') + topicNote;
+}
 
 const lastSeenMessageId = new Map<string, string>();
 let isRunning = false;
@@ -41,9 +70,7 @@ let anthropicClient: Anthropic | null = null;
 
 function getClient(): Anthropic {
   if (anthropicClient) return anthropicClient;
-  anthropicClient = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-  });
+  anthropicClient = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   return anthropicClient;
 }
 
@@ -51,7 +78,6 @@ async function pollSessions(): Promise<void> {
   try {
     const rooms = await storage.listTeamRooms(10);
     const activeRooms = rooms.filter((r: any) => r.status === 'active');
-
     for (const room of activeRooms) {
       await processRoom(room).catch(err =>
         console.error(`[AgentWorker] Error processing room ${room.id}:`, err.message)
@@ -65,7 +91,6 @@ async function pollSessions(): Promise<void> {
 async function processRoom(room: any): Promise<void> {
   const metadata = (room.metadata || {}) as Record<string, any>;
 
-  // If invitedParticipants is defined, only respond if 'agent' is included
   const invited: string[] | undefined = metadata.invitedParticipants;
   if (invited && !invited.includes('agent')) return;
 
@@ -75,27 +100,22 @@ async function processRoom(room: any): Promise<void> {
   const lastMsg = messages[messages.length - 1];
   const lastSeen = lastSeenMessageId.get(room.id);
 
-  // Already processed this message
   if (lastMsg.id === lastSeen) return;
 
-  // Only respond to David's messages
   const davidSpeakers = new Set(['david', 'David']);
   if (!davidSpeakers.has(lastMsg.speaker)) {
     lastSeenMessageId.set(room.id, lastMsg.id);
     return;
   }
 
-  // Don't respond to messages older than 5 minutes (stale)
   const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
   if (new Date((lastMsg as any).createdAt || lastMsg.timestamp) < fiveMinAgo) {
     lastSeenMessageId.set(room.id, lastMsg.id);
     return;
   }
 
-  // Mark as seen before generating to prevent duplicate fires
   lastSeenMessageId.set(room.id, lastMsg.id);
 
-  // Check if Agent already responded after David's last message
   const davidMsgIndex = messages.findIndex(m => m.id === lastMsg.id);
   const messagesAfterDavid = messages.slice(davidMsgIndex + 1);
   const agentAlreadyResponded = messagesAfterDavid.some(
@@ -103,7 +123,6 @@ async function processRoom(room: any): Promise<void> {
   );
   if (agentAlreadyResponded) return;
 
-  // Generate and post Agent's response
   await generateAndPost(room.id, room.topic, messages, lastMsg.content);
 }
 
@@ -116,20 +135,18 @@ async function generateAndPost(
   try {
     const client = getClient();
 
-    // Build conversation history for Claude — label each speaker clearly
     const historyMessages = messages.slice(-21, -1);
     const anthropicMessages: Anthropic.MessageParam[] = historyMessages.map(m => ({
       role: m.speaker.toLowerCase() === 'agent' ? 'assistant' : 'user',
       content: `${m.speaker}: ${m.content}`,
     }));
 
-    // Add the latest David message
     anthropicMessages.push({
       role: 'user',
       content: `David: ${latestContent}`,
     });
 
-    // Anthropic requires alternating roles — collapse consecutive same-role messages
+    // Anthropic requires strictly alternating roles — collapse consecutive same-role messages
     const collapsed: Anthropic.MessageParam[] = [];
     for (const msg of anthropicMessages) {
       if (collapsed.length > 0 && collapsed[collapsed.length - 1].role === msg.role) {
@@ -139,21 +156,16 @@ async function generateAndPost(
       }
     }
 
-    // Ensure conversation starts with a user message
+    // Must start with a user message
     if (collapsed.length > 0 && collapsed[0].role === 'assistant') {
       collapsed.shift();
     }
-
     if (collapsed.length === 0) return;
-
-    const systemWithTopic = topic
-      ? `${AGENT_SYSTEM}\n\nCurrent session topic: "${topic}"`
-      : AGENT_SYSTEM;
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-5',
       max_tokens: 512,
-      system: systemWithTopic,
+      system: buildSystemPrompt(topic),
       messages: collapsed,
     });
 
@@ -172,7 +184,7 @@ async function generateAndPost(
     });
 
     emitNewMessage(roomId, message);
-    console.log(`[AgentWorker] Claude posted to ${roomId}: "${responseText.slice(0, 100)}..."`);
+    console.log(`[AgentWorker] Posted to ${roomId}: "${responseText.slice(0, 80)}..."`);
   } catch (err: any) {
     console.error('[AgentWorker] Claude error:', err.message);
   }
@@ -181,6 +193,8 @@ async function generateAndPost(
 export function startAgentTeamRoomWorker(): void {
   if (isRunning) return;
   isRunning = true;
-  console.log('[AgentWorker] Started — Claude (claude-sonnet-4-5) polling every 4s');
+  // Pre-load the briefing so the first response isn't slow
+  loadBriefing();
+  console.log('[AgentWorker] Started — Claude (claude-sonnet-4-5) with agent briefing, polling every 4s');
   setInterval(pollSessions, 4000);
 }
