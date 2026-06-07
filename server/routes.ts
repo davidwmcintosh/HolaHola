@@ -33770,6 +33770,68 @@ Under 250 words. Write as yourself.`;
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
+  // Team Room: save session transcript to Agent conversation memory
+  app.post("/api/team-room/sessions/:id/save-memory", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { title, importance = 8, tags = [], saveToSharedLobe = false } = req.body;
+
+      const room = await storage.getTeamRoom(id);
+      if (!room) return res.status(404).json({ error: 'Room not found' });
+
+      const messages = await storage.getRoomMessages(id, 200);
+      if (messages.length === 0) return res.status(400).json({ error: 'No messages in session' });
+
+      // Build full transcript
+      const transcript = messages.map((m: any) => `${m.speaker}: ${m.content}`).join('\n\n');
+
+      // Ask Claude to synthesize a summary
+      const AnthropicLib = (await import('@anthropic-ai/sdk')).default;
+      const client = new AnthropicLib({ apiKey: process.env.ANTHROPIC_API_KEY });
+      const summaryResp = await client.messages.create({
+        model: 'claude-sonnet-4-5',
+        max_tokens: 300,
+        messages: [{
+          role: 'user',
+          content: `Write a concise summary (2-4 sentences) of the key themes and decisions from this Team Room session titled "${room.topic || 'Team Room Session'}". Focus on what was decided, what should carry forward, and why it matters. No bullet points.\n\nTranscript:\n${transcript.slice(-8000)}`,
+        }],
+      });
+      const summary = summaryResp.content
+        .filter((b: any) => b.type === 'text')
+        .map((b: any) => b.text)
+        .join('')
+        .trim();
+
+      // Save to conversation_memories (user-scoped DB, David's userId)
+      const { conversationMemories } = await import('../shared/schema');
+      const participants = [...new Set(messages.map((m: any) => m.speaker))].join(' + ');
+      const userDb = getUserDb();
+      const [memory] = await userDb
+        .insert(conversationMemories)
+        .values({
+          title: title || room.topic || 'Team Room Session',
+          summary,
+          content: transcript,
+          participants,
+          tags,
+          importance,
+          recordedAt: new Date(),
+        })
+        .returning();
+
+      // Optionally write a permanent entry to the shared lobe (editor_insights)
+      if (saveToSharedLobe && summary) {
+        const sharedDb = getSharedDb();
+        await sharedDb.execute(
+          sql`INSERT INTO editor_insights (id, category, title, content, importance, tags)
+              VALUES (gen_random_uuid(), 'shared', ${title || room.topic}, ${summary}, ${importance}, ${tags})`
+        );
+      }
+
+      res.json({ memory, summary });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   app.patch("/api/team-room/sessions/:id/hand-raises/:hrId/acknowledge", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
     try {
       const { hrId } = req.params;

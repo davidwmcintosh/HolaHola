@@ -10,6 +10,9 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
   Users, Send, Plus, BrainCircuit, Radio, Code, X, ChevronDown,
@@ -17,7 +20,7 @@ import {
   Table, Lightbulb, CheckSquare, GitBranch, Info, Copy,
   Target, ClipboardList, AtSign, Hand, UserPlus, UserMinus,
   BookOpen, TrendingUp, Cpu, Circle, RotateCcw, Monitor, ScanEye, Terminal,
-  CheckCircle2, AlertCircle, Clock, Compass,
+  CheckCircle2, AlertCircle, Clock, Compass, BookmarkPlus,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import type { TeamRoom as TeamRoomType, RoomVoiceMessage, RoomArtifact, AgentActivityLog } from "@shared/schema";
@@ -676,6 +679,10 @@ export default function TeamRoom() {
   const [wsMessages, setWsMessages] = useState<RoomVoiceMessage[]>([]);
   const [guestTutors, setGuestTutors] = useState<GuestTutorInfo[]>([]);
   const [showFounderInsights, setShowFounderInsights] = useState(true);
+  const [showSaveMemory, setShowSaveMemory] = useState(false);
+  const [saveMemoryTitle, setSaveMemoryTitle] = useState("");
+  const [saveMemoryImportance, setSaveMemoryImportance] = useState(8);
+  const [saveToSharedLobe, setSaveToSharedLobe] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const expressEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -881,6 +888,21 @@ export default function TeamRoom() {
       setGuestTutors([]);
       setHandRaises({});
     },
+  });
+
+  const saveToMemory = useMutation({
+    mutationFn: (opts: { title: string; importance: number; saveToSharedLobe: boolean }) =>
+      apiRequest("POST", `/api/team-room/sessions/${activeSessionId}/save-memory`, {
+        title: opts.title,
+        importance: opts.importance,
+        tags: ["team-room"],
+        saveToSharedLobe: opts.saveToSharedLobe,
+      }),
+    onSuccess: () => {
+      setShowSaveMemory(false);
+      toast({ title: "Saved to Agent memory", description: "This session will be part of the Agent's context next time." });
+    },
+    onError: (e: any) => toast({ title: "Failed to save", description: e.message, variant: "destructive" }),
   });
 
   const disconnectGuest = useMutation({
@@ -1210,6 +1232,19 @@ export default function TeamRoom() {
                   </div>
                 )}
                 {isActive && (
+                  <Button
+                    variant="outline" size="sm"
+                    onClick={() => {
+                      setSaveMemoryTitle(sessionData?.room?.topic || "");
+                      setShowSaveMemory(true);
+                    }}
+                    data-testid="button-save-memory"
+                  >
+                    <BookmarkPlus className="h-3.5 w-3.5 mr-1" />
+                    Save to Memory
+                  </Button>
+                )}
+                {isActive && (
                   <Button variant="outline" size="sm" onClick={() => closeSession.mutate()} disabled={closeSession.isPending} data-testid="button-close-session">
                     <X className="h-3.5 w-3.5 mr-1" />
                     {closeSession.isPending ? "Closing..." : "End Session"}
@@ -1410,6 +1445,69 @@ export default function TeamRoom() {
           </div>
         </ScrollArea>
       </div>
+
+      {/* Save to Memory dialog */}
+      <Dialog open={showSaveMemory} onOpenChange={setShowSaveMemory}>
+        <DialogContent className="sm:max-w-md" data-testid="dialog-save-memory">
+          <DialogHeader>
+            <DialogTitle>Save session to Agent memory</DialogTitle>
+            <DialogDescription>
+              This saves the full transcript to Agent conversation memory. The Agent will have this context at the start of future sessions.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="memory-title">Title</Label>
+              <Textarea
+                id="memory-title"
+                value={saveMemoryTitle}
+                onChange={e => setSaveMemoryTitle(e.target.value)}
+                placeholder="What was this session about?"
+                className="resize-none"
+                rows={2}
+                data-testid="input-memory-title"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Importance (1–10): <span className="font-semibold">{saveMemoryImportance}</span></Label>
+              <input
+                type="range" min={1} max={10} value={saveMemoryImportance}
+                onChange={e => setSaveMemoryImportance(Number(e.target.value))}
+                className="w-full"
+                data-testid="slider-memory-importance"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="shared-lobe"
+                checked={saveToSharedLobe}
+                onChange={e => setSaveToSharedLobe(e.target.checked)}
+                className="h-4 w-4"
+                data-testid="checkbox-shared-lobe"
+              />
+              <Label htmlFor="shared-lobe" className="cursor-pointer">
+                Also write key decisions to shared lobe
+                <span className="block text-xs text-muted-foreground font-normal">
+                  Permanent shared brain — both Agent and Alden will see this
+                </span>
+              </Label>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="ghost" onClick={() => setShowSaveMemory(false)} data-testid="button-cancel-save-memory">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => saveToMemory.mutate({ title: saveMemoryTitle, importance: saveMemoryImportance, saveToSharedLobe })}
+              disabled={saveToMemory.isPending || !saveMemoryTitle.trim()}
+              data-testid="button-confirm-save-memory"
+            >
+              {saveToMemory.isPending ? "Saving..." : "Save to Memory"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
