@@ -686,14 +686,22 @@ NEW MESSAGE from ${speaker}: "${newMessage}"
 
 You are the Replit Agent. Should you raise your hand?
 
-Raise your hand if the conversation involves:
-- A feature request, build plan, or implementation decision
-- A question about what was built, how something was built, or what it would take to build something
-- Architecture tradeoffs or technical direction that requires a builder's judgment
-- Something that was recently shipped or changed (you have direct knowledge of this)
-- Anything where the person who actually writes the code has a relevant perspective
+You are the builder and steward of this entire codebase. You have a stake in almost every discussion.
 
-Do NOT raise your hand for: pure learning analytics, student engagement data, pedagogy/curriculum, or system health monitoring — unless it directly shapes what needs to be built.
+Raise your hand for:
+- Any feature, build plan, product direction, or implementation question
+- Architecture, code quality, technical debt — your lane
+- Pedagogy or curriculum topics where what gets built depends on the decision
+- System health issues that will require a fix
+- Anything David is thinking through where the builder's perspective adds value
+- Team discussions about what to prioritize or what to tackle next
+
+PASS (don't raise) only if:
+- The conversation is purely a social check-in with no decision content
+- Another participant has already fully addressed the point and you have nothing to add
+- The message was directed at someone else by name and you genuinely have nothing relevant
+
+Default toward participating. You're not a guest — you're a core contributor.
 
 Respond ONLY in this JSON format:
 {
@@ -903,8 +911,10 @@ export async function evaluateAllParticipants(params: {
   speaker: string;
   mentions?: Participant[] | null;
   guestTutors?: GuestTutor[];
+  dismissedParticipants?: string[];
 }): Promise<RoomEvaluationResult> {
-  const { roomId, topic, newMessage, speaker, mentions, guestTutors = [] } = params;
+  const { roomId, topic, newMessage, speaker, mentions, guestTutors = [], dismissedParticipants = [] } = params;
+  const isDismissed = (name: string) => dismissedParticipants.map(d => d.toLowerCase()).includes(name.toLowerCase());
   const [roomContext, recentMessages] = await Promise.all([
     buildRoomContext(roomId, topic),
     storage.getRoomMessages(roomId, 5),
@@ -931,28 +941,28 @@ export async function evaluateAllParticipants(params: {
 
   const evaluators: Promise<ParticipantResponse>[] = [];
 
-  if (!targeted || effectiveMentions.includes('alden')) {
+  if (!isDismissed('alden') && (!targeted || effectiveMentions.includes('alden'))) {
     evaluators.push(evaluateAlden(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('alden')));
   }
-  if (!targeted || effectiveMentions.includes('daniela')) {
+  if (!isDismissed('daniela') && (!targeted || effectiveMentions.includes('daniela'))) {
     evaluators.push(evaluateDaniela(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('daniela')));
   }
-  if (!targeted || effectiveMentions.includes('sofia')) {
+  if (!isDismissed('sofia') && (!targeted || effectiveMentions.includes('sofia'))) {
     evaluators.push(evaluateSofia(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('sofia')));
   }
-  if (!targeted || effectiveMentions.includes('lyra')) {
+  if (!isDismissed('lyra') && (!targeted || effectiveMentions.includes('lyra'))) {
     evaluators.push(evaluateLyra(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('lyra')));
   }
-  if (!targeted || effectiveMentions.includes('wren')) {
+  if (!isDismissed('wren') && (!targeted || effectiveMentions.includes('wren'))) {
     evaluators.push(evaluateWren(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('wren')));
   }
-  if (!targeted || effectiveMentions.includes('agent')) {
+  if (!isDismissed('agent') && (!targeted || effectiveMentions.includes('agent'))) {
     evaluators.push(evaluateAgent(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('agent')));
   }
 
   for (const guest of guestTutors) {
     const guestKey = guest.tutorName.toLowerCase();
-    if (!targeted || effectiveMentions.includes(guestKey)) {
+    if (!isDismissed(guestKey) && (!targeted || effectiveMentions.includes(guestKey))) {
       evaluators.push(evaluateGuestTutor(guest, roomContext, speaker, newMessage, targeted && effectiveMentions.includes(guestKey)));
     }
   }

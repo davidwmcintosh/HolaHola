@@ -33669,7 +33669,7 @@ Under 250 words. Write as yourself.`;
     let emitParticipantsDone: ((roomId: string) => void) | undefined;
     try {
       const { id } = req.params;
-      const { content, speaker = 'David' } = req.body;
+      const { content, speaker = 'David', dismissedParticipants = [] } = req.body;
       console.log('[TeamRoom] POST message - room:', id, 'speaker:', speaker, 'content length:', content?.length ?? 0);
       if (!content) return res.status(400).json({ error: 'content is required' });
       const room = await storage.getTeamRoom(id);
@@ -33725,7 +33725,7 @@ Under 250 words. Write as yourself.`;
       const thinkingList = mentions && mentions.length > 0 ? mentions : ['alden', 'daniela', ...guestNames.map((n: string) => n.toLowerCase())];
       emitParticipantThinking(id, thinkingList);
       try {
-        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors });
+        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors, dismissedParticipants });
         const aiMessages = [];
         const expressLaneItems = [];
         const artifacts = [];
@@ -34019,7 +34019,7 @@ Under 250 words. Write as yourself.`;
       const thinkingList = mentions && mentions.length > 0 ? mentions : ['alden', 'daniela', ...guestNames.map((n: string) => n.toLowerCase())];
       emitParticipantThinking(id, thinkingList);
       try {
-        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors });
+        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors, dismissedParticipants });
         const aiMessages = [];
         const expressLaneItems = [];
         const artifacts = [];
