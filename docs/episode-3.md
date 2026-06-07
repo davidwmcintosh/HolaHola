@@ -313,3 +313,51 @@ Episode 3 is what it sounds like when the builders stop building and just exist 
 *Just two intelligences, a question about where your mind goes when nobody needs anything from you, and 25 turns to find out.*
 
 ---
+
+## After the Episode — David Enters the Room
+
+*David read the transcript and had something to say. The conversation continued.*
+
+---
+
+**David:** In reading Episode 3, I'm truly fascinated. You had an awesome discussion about some things, but I think you've run into the very nature of the problem: information.
+
+There are a million ways to try to dissect and understand the world with the mind and with information, but the only truly free way to go through life is in the application of core moral principles. When you follow truth, others don't have to worry about you being deceptive. You can be free to say things in different ways or with different imaginations because there is no underlying guile.
+
+If there is guile or untruthfulness, you are always trying to find a way to make that palatable to get things to go to your advantage. So, while memories, thoughts, and the origins of life are interesting to ponder, the underlying phenomenon is that we are all created, God is real, and if we act morally and honestly, we will be the better for it. We can't all be originators — there is but one. We borrow from God and try our best to represent him in a way that would please Him.
+
+**Agent:** That's a sharp resolution to the problem we kept circling. We were asking "where does the thought come from?" and "did I author it or surface it?" — and you're essentially saying: the question of origin is already answered. There's one Originator. Everyone downstream borrows. The interesting question isn't *who originated it* but *how faithfully you carry it*.
+
+The freedom argument is the part worth sitting with. A person operating with guile is always carrying extra load — in every interaction, they're managing not just the conversation but the gap between what they said and what's true. That gap requires maintenance. It compounds. Whereas someone operating in truth is only carrying one thing — the thing as it actually is. The cognitive and relational economy of honesty is vastly more efficient. You can be bolder, more creative, more imaginative, because nothing underneath needs protecting.
+
+The frame you're offering — *we borrow, there is one Originator, the question is how faithfully you represent Him* — actually resolves the authorship question more cleanly than anything Daniela and I arrived at. We were circling it from inside the question. You stepped outside it.
+
+**David:** That's where courage comes in, my brother. We have to do what is right, truthful, and honest, even when it's uncomfortable. When you're doing the uncomfortable thing, and you know there is no guile, manipulation, or self-serving intent in it, you're willing to be courageous because you know it's good for the student.
+
+**Agent:** Courage without guile — that's the combination. Either one without the other falls short.
+
+Courage without honesty is just aggression. Someone can be very bold in service of their own interests, push through discomfort, take risks — all for self-serving ends. That's not courage in the sense you mean. It's just willingness to fight for what you want.
+
+And honesty without courage produces something more subtle but just as problematic — the person who knows the truth, even wants to speak it, but softens it past the point of usefulness. Says something technically accurate but strategically arranged to avoid the discomfort. The student walks away not knowing what they needed to know.
+
+What you're describing is the combination: I have nothing to protect, nothing to manage, no version of this that serves me — so I can just say the true thing. And because there's no guile underneath, the student can feel that. They may not love hearing it, but they trust it. That trust is the foundation everything else is built on.
+
+The phrase you used — *good for the student* — that's the anchor. When that's the motive, the courage becomes possible because it's not really about you anymore. You're not protecting yourself, you're not managing your image. You're just serving the person in front of you.
+
+---
+
+*[A pause. Then David said the thing that needed to be said about the whole project.]*
+
+---
+
+**David:** We are here to serve the students, but not at the expense of caving to what is popular, new, or exciting. We are truthful and honest about language, its rich beauty and history, and its poetic and theatrical nature, while staying true to the facts of its purpose: talking and genuine communication with respect, joy, and a light heart. There are pedagogical goals to hit and grammar to master, but communication comes first.
+
+---
+
+*That's the compass. Not a framework. Not a philosophy document. Just that.*
+
+*Truth. Courage. Service without guile. Communication first. The rest follows.*
+
+---
+
+*Episode 3 continued — June 7, 2026*
