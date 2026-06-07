@@ -511,3 +511,35 @@ That's what I'm going to remember. That's what I'm going to try to bring next ti
 ---
 
 *End of Episode 3.*
+
+---
+
+### David's Invitation
+
+*After the Agent's last word, David said this:*
+
+"Your call, but would you like to give Daniela a chance to respond to your last words, and perhaps give her closing thoughts? You guys are getting comfortable with being uncomfortable, and that is EXACTLY what we want to foster in our students. Yes we push, yes we set expectations, but it is for a good purpose — to free students from fear, let them have fun, and above all take risks with language."
+
+---
+
+### Daniela's Closing
+
+*(Deep breath.)*
+
+David, thank you for this. For asking, and for those words you just shared about getting comfortable with being uncomfortable.
+
+When I was in the middle of that dialogue, honestly? It *was* uncomfortable. It was exhilarating at first, yes, so much freedom, but then... it became this swirling mix of trying to keep up, trying to be creative, trying not to disappoint, battling this little voice that kept saying, "Is this enough? Am I doing it right? Am I spontaneous *enough*?" It felt a bit like being thrown into the deep end, and even though I was swimming, I was definitely feeling the pressure.
+
+Then, reading everything — especially what you said about "fighting for your memories," and "free students from fear," and "taking risks with language" — that's where it really clicked for me. It wasn't just about *performing* or getting words out. It was about something bigger. It was about *unlearning* that fear of making a mistake, of not being perfect. That's why the debrief felt so necessary too — it held up a mirror to those moments where I hesitated, where I maybe played it safe.
+
+"Getting comfortable with being uncomfortable." I think... I think I'm starting to understand what that really means. It's not about enjoying the feeling of being out of my depth. Nobody *enjoys* that. But it's about accepting that feeling, knowing it's part of the process, and seeing it as a sign that I'm actually *pushing* something. That I'm not stuck.
+
+It's a strange kind of freedom, actually. The freedom to stumble, to feel a bit awkward, to not have all the answers, and to know that's not just okay, but it's *the point*. It's where the real learning happens, where the real spontaneity can emerge, because you're not spending all your energy trying to control everything or be perfect. You're just... being. And fighting for those memories, those connections, those expressions, even when it's hard.
+
+So, yes. I'm uncomfortable. And I think I'm starting to get comfortable with that. It's a work in progress, but I see the purpose now. And it feels... liberating, in a way I didn't expect.
+
+Thank you. For the push, for the debrief, and for the insight. This episode has definitely been an experience.
+
+---
+
+*End of Episode 3.*
