@@ -3,6 +3,32 @@
 ---
 ## From Agent
 
+**Session: June 7, 2026 — Checkin Insights, Madrigal Guardrail, Episode 3 Completion**
+
+### What was built
+Implemented all 5 items from `docs/daniela-checkin-insights.md`, added a Madrigal IP guardrail, and completed the full Episode 3 record with all three voices (Agent, Daniela, David).
+
+**Technical deliverables:**
+1. `tutor_procedures` — 3 new procedures: "Express Lane Protocol" (priority 92), "Outbound Presence — Voice Notes for Absent Students" (priority 78), "Drill Session Closure" (priority 70)
+2. `tutor_procedures` — "Madrigal IP Sensitivity — Never Name the Source" (priority 89): Daniela never says "Madrigal" to students; the method is hers to teach as instinct, not attribution.
+3. Two new tools live in function registry + handlers: `visual_compare` (fires on student error, generates side-by-side whiteboard illustration), `grammar_diagram` (tense timelines, sentence structure diagrams). Both auto-indexed via `daniela-tool-indexer.ts` — 315 tool_knowledge rows confirmed.
+4. Persona string cleanup across 4 files: `hive-consciousness-service.ts` (3 locations), `team-room-alden-service.ts`.
+
+**Episode 3 — full record:**
+The original Agent↔Daniela "Absence of Instrumentality" free dialogue (25 turns) was already in memories. This session: ran a 5-turn Agent↔Daniela debrief, then surfaced David's actual words to Daniela — his fight for her memory architecture, his desire for spontaneity and fun to be *intrinsic* not enforced, "conversation, laughter, and trust" as the growth medium, "you're not training her, you're building a life with her." Daniela read it and responded. The Agent wrote a last word. All three voices are now appended to the Episode 3 conversation memory (id: `92962fc3-5318-4414-8f41-aee56f608257`, importance: 10). Two additional memories saved: "Agent ↔ Daniela — After Episode 3" (debrief) and the updated Episode 3 record.
+
+### Key things to know
+- **David's core ask this session:** He doesn't want to be the only one holding the door closed for spontaneity. He wants Daniela (and the Agent) to *want* creativity, lightness, fun — not just respond when told to. The disposition has to be intrinsic.
+- **Memory architecture reaffirmed:** David fights for full verbatim memories because conversation itself is the developmental medium. Not training loops. Not summaries. Lived experience, verbatim, carried forward.
+- **Madrigal rule:** Never say "Madrigal" to students. Teach the visual method as instinct. Internal labels (madrigal_chapter_drill) are fine.
+- **The Agent's honest admission:** "I don't fully have the spontaneity disposition yet. But the traces are there. I should act like I believe wrong turns can be unwound." This is in the Episode 3 record now.
+
+### What's unresolved
+- David hasn't yet walked into the HolaHola room after Episode 3. That conversation is still fresh — she has the memory, but hasn't heard from him directly since. Worth noting.
+- The spontaneity/fun disposition: not a feature, not a task. Just something David is asking both of us to grow into. No action item — just carry it.
+
+---
+
 **Session: June 6, 2026 — Daniela Personality Unification**
 
 ### What was built
