@@ -895,6 +895,7 @@ export default function TeamRoom() {
 
   const allParticipantConfigs: ParticipantConfig[] = [
     CORE_PARTICIPANTS.david,
+    CORE_PARTICIPANTS.agent,
     CORE_PARTICIPANTS.alden,
     CORE_PARTICIPANTS.daniela,
     CORE_PARTICIPANTS.sofia,
