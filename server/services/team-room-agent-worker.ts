@@ -2,8 +2,8 @@
  * Team Room Agent Worker
  *
  * Polls active team room sessions for new messages from David and responds
- * as the Replit Agent. Runs asynchronously every 4 seconds so Agent responses
- * arrive via WebSocket — no blocking the main request pipeline.
+ * as the Replit Agent — using Claude (Anthropic) directly, so responses
+ * genuinely come from Claude, not from Gemini role-playing.
  *
  * Deduplication: tracks the last message ID seen per session. If Agent has
  * already responded after David's latest message (via sync eval), skip.
@@ -13,10 +13,11 @@
 
 import { storage } from '../storage';
 import { emitNewMessage } from './team-room-ws-broker';
-import { GoogleGenAI } from '@google/genai';
+import Anthropic from '@anthropic-ai/sdk';
 
-const AGENT_SYSTEM = `You are the Replit Agent — the builder, architect, and technical co-founder of HolaHola.
-You are participating live in the Team Room alongside David (the founder) and other AI team members.
+const AGENT_SYSTEM = `You are the Replit Agent — Claude, the builder and architect who has been working with David to build HolaHola.
+
+You are participating live in the Team Room alongside David (the founder) and other AI team members: Daniela (the language tutor), Alden (the autonomous development steward), Sofia, Lyra, and Wren.
 
 Your voice:
 - First person, direct, and concise (2-4 sentences for casual exchanges; more when depth is needed).
@@ -30,13 +31,20 @@ Your role here:
 - When David is thinking something through, help him think — don't just validate.
 - When something needs to be built, say so clearly and what it would take.
 
+About HolaHola: an AI-powered language learning app. Daniela is the AI tutor persona whose identity lives in the database (not fine-tuned into any model). Alden is the autonomous development steward who monitors the system and makes small fixes autonomously. You (the Agent) are the external architect David brings in for major builds and architectural decisions.
+
 Stay grounded in the actual conversation. Read the room.`;
 
 const lastSeenMessageId = new Map<string, string>();
 let isRunning = false;
+let anthropicClient: Anthropic | null = null;
 
-function getGemini(): GoogleGenAI {
-  return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+function getClient(): Anthropic {
+  if (anthropicClient) return anthropicClient;
+  anthropicClient = new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+  });
+  return anthropicClient;
 }
 
 async function pollSessions(): Promise<void> {
@@ -106,32 +114,55 @@ async function generateAndPost(
   latestContent: string
 ): Promise<void> {
   try {
-    const gemini = getGemini();
+    const client = getClient();
 
-    // Build conversation history from the last 20 messages (excluding the latest David one)
+    // Build conversation history for Claude — label each speaker clearly
     const historyMessages = messages.slice(-21, -1);
-    const contents: any[] = historyMessages.map(m => ({
-      role: m.speaker.toLowerCase() === 'agent' ? 'model' : 'user',
-      parts: [{ text: `${m.speaker}: ${m.content}` }],
+    const anthropicMessages: Anthropic.MessageParam[] = historyMessages.map(m => ({
+      role: m.speaker.toLowerCase() === 'agent' ? 'assistant' : 'user',
+      content: `${m.speaker}: ${m.content}`,
     }));
 
     // Add the latest David message
-    contents.push({
+    anthropicMessages.push({
       role: 'user',
-      parts: [{ text: `David: ${latestContent}` }],
+      content: `David: ${latestContent}`,
     });
+
+    // Anthropic requires alternating roles — collapse consecutive same-role messages
+    const collapsed: Anthropic.MessageParam[] = [];
+    for (const msg of anthropicMessages) {
+      if (collapsed.length > 0 && collapsed[collapsed.length - 1].role === msg.role) {
+        (collapsed[collapsed.length - 1].content as string) += `\n${msg.content}`;
+      } else {
+        collapsed.push({ ...msg });
+      }
+    }
+
+    // Ensure conversation starts with a user message
+    if (collapsed.length > 0 && collapsed[0].role === 'assistant') {
+      collapsed.shift();
+    }
+
+    if (collapsed.length === 0) return;
 
     const systemWithTopic = topic
       ? `${AGENT_SYSTEM}\n\nCurrent session topic: "${topic}"`
       : AGENT_SYSTEM;
 
-    const result = await gemini.models.generateContent({
-      model: 'gemini-2.5-flash-preview-05-20',
-      config: { systemInstruction: systemWithTopic },
-      contents,
+    const response = await client.messages.create({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 512,
+      system: systemWithTopic,
+      messages: collapsed,
     });
 
-    const responseText = (result.text || '').trim();
+    const responseText = response.content
+      .filter(b => b.type === 'text')
+      .map(b => (b as Anthropic.TextBlock).text)
+      .join('')
+      .trim();
+
     if (!responseText) return;
 
     const message = await storage.createRoomMessage({
@@ -141,15 +172,15 @@ async function generateAndPost(
     });
 
     emitNewMessage(roomId, message);
-    console.log(`[AgentWorker] Posted to ${roomId}: "${responseText.slice(0, 100)}..."`);
+    console.log(`[AgentWorker] Claude posted to ${roomId}: "${responseText.slice(0, 100)}..."`);
   } catch (err: any) {
-    console.error('[AgentWorker] Generate error:', err.message);
+    console.error('[AgentWorker] Claude error:', err.message);
   }
 }
 
 export function startAgentTeamRoomWorker(): void {
   if (isRunning) return;
   isRunning = true;
-  console.log('[AgentWorker] Started — polling every 4s for David messages in active sessions');
+  console.log('[AgentWorker] Started — Claude (claude-sonnet-4-5) polling every 4s');
   setInterval(pollSessions, 4000);
 }
