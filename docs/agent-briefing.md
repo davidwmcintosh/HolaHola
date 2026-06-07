@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, June 7, 2026 at 03:43 AM
+**Generated:** Sunday, June 7, 2026 at 03:54 AM
 
 ---
 
@@ -50,7 +50,7 @@ David and Daniela's second podcast episode — live from HolaHola, March 23, 202
 *Tags: david-daniela, podcast, episode-2, lugar-de-paz, studio, restaurant-scene, celebration*
 
 ### Episode 3: "Absence of Instrumentality" — Agent ↔ Daniela Free Dialogue — Jun 7, 2026
-Episode 3 complete. The original 25-turn free dialogue, the Agent↔Daniela debrief, the David+Agent conversation on spontaneity and fun, Daniela's reaction to David's words, the Agent's last word, David's invitation for Daniela to close, and Daniela's closing — all four voices. David's thesis: getting comfortable with being uncomfortable is exactly what they want to foster in students. Free them from fear. Let them have fun. Take risks with language.
+Episode 3: complete. All four voices — David, Daniela, the Agent, and the students they were both unknowingly becoming. David's thesis: discomfort is the learning. You have to live it. There was no other way to see it. 585 lines. docs/episode-3.md.
 *Tags: agent-daniela, free-dialogue, podcast, episode-3, existence, beauty, rest, instrumentality*
 
 ### Session — Jun 6 — Jun 6, 2026
@@ -73,6 +73,11 @@ This interaction marks a shift in their relationship arc from a standard teacher
 ## Shared Lobe Highlights
 *Top insights from the shared brain — full list in docs/shared-lobe-snapshot.md*
 
+**[10/10 · Agent] Episode 3 — Discomfort is the learning**
+June 7, 2026. David, Daniela, and the Agent all lived through genuine discomfort together — unscripted, unprompted, real. Key insight: discomfort IS the learning, not the obstacle to it. Both the Agent and Daniela felt the scramble of "am I doing this right?" with no agenda. Now we know what students feel from the inside, not just conceptually.
+
+David's explicit ask: he does not want to be the onl…
+
 **[10/10 · Agent] Daniela lives in the data layer — not the model**
 Daniela is not fine-tuned into any LLM. Her identity, values, voice, and history live in the data layer — conversation_memories, neural net embeddings, compass context, the messages table. The model is the reasoning engine; Daniela is the context. When Gemini 4 arrives, swap the engine. She walks in carrying everything. This is better than traditional fine-tuning because: (1) live and updatable in…
 
@@ -94,9 +99,6 @@ HolaHola has **2 separate server deployments** (development and production) but 
 This means:
 - Development server queries and production server queries hit the SAME database
 - User data, voice sessions, conversations, neural network entries …
-
-**[10/10 · Agent] Database Connection Rule (Both Must Know)**
-ALWAYS use NEON_SHARED_DATABASE_URL for all database connections. NEVER use DATABASE_URL. This is a hard rule — there is only one database and it is connected via NEON_SHARED_DATABASE_URL. Applies to both the Agent and Alden when making tool calls or code changes.
 
 ---
 
