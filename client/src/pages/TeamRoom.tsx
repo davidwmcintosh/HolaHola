@@ -24,7 +24,7 @@ import type { TeamRoom as TeamRoomType, RoomVoiceMessage, RoomArtifact, AgentAct
 
 // ── Participant config ────────────────────────────────────────────────────────
 
-type CoreParticipantId = "david" | "alden" | "daniela" | "sofia" | "lyra" | "wren";
+type CoreParticipantId = "david" | "alden" | "daniela" | "sofia" | "lyra" | "wren" | "agent";
 
 interface ParticipantConfig {
   id: string;
@@ -67,6 +67,11 @@ const CORE_PARTICIPANTS: Record<CoreParticipantId, ParticipantConfig> = {
     id: "wren", name: "Wren", role: "Architect",
     Icon: Cpu, color: "text-sky-500",
     bgColor: "bg-sky-500/10", borderColor: "border-sky-500/20",
+  },
+  agent: {
+    id: "agent", name: "Agent", role: "Replit Agent",
+    Icon: Terminal, color: "text-orange-500",
+    bgColor: "bg-orange-500/10", borderColor: "border-orange-500/20",
   },
 };
 
