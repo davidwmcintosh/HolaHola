@@ -5,6 +5,7 @@ export interface AldenActivityEvent {
   name?: string;
   success?: boolean;
   summary?: string;
+  reasoning?: string;
   error?: string;
   timestamp: string;
 }

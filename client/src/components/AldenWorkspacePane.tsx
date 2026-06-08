@@ -13,6 +13,7 @@ interface ActivityEvent {
   type: 'tool_start' | 'tool_result' | 'response_complete' | 'heartbeat';
   name?: string;
   success?: boolean;
+  reasoning?: string;
   error?: string;
   timestamp: string;
 }
@@ -176,6 +177,11 @@ export function AldenWorkspacePane() {
                       <span className="text-[10px] text-red-500 truncate">{row.resultEvent?.error}</span>
                     )}
                   </div>
+                  {row.startEvent.reasoning && (
+                    <p className="text-[10px] text-muted-foreground italic leading-snug line-clamp-3">
+                      {row.startEvent.reasoning}
+                    </p>
+                  )}
                   <div className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
                     <Clock className="h-2.5 w-2.5 shrink-0" />
                     <span>{formatTime(row.startEvent.timestamp)}</span>

@@ -5,11 +5,20 @@
  * as the Replit Agent — using Claude directly, loaded with:
  *   1. The full agent briefing (project memory, David's profile, decisions)
  *   2. Read-only codebase tools (read_file, grep_code, list_directory)
- *      so the Agent can actually look at the code when David asks about it.
+ *   3. propose_edit tool — drafts a code suggestion into the chat
+ *
+ * Improvements over v1:
+ *   - Adaptive polling: 1 s when a room is active, 8 s when quiet
+ *   - $5 / 24 h hard cost ceiling (in-memory rolling tracker)
+ *   - Auto-loads last 2 team-room conversation_memories into system prompt
+ *   - Claude narrates tool usage so David can follow along
  */
 
 import { storage } from '../storage';
 import { emitNewMessage } from './team-room-ws-broker';
+import { getUserDb } from '../db';
+import { conversationMemories } from '@shared/schema';
+import { desc, sql } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { execSync } from 'child_process';
@@ -18,13 +27,48 @@ import { join, resolve } from 'path';
 const WORKSPACE = '/home/runner/workspace';
 const BRIEFING_PATH = join(WORKSPACE, 'docs/agent-briefing.md');
 
+// ── Cost ceiling ───────────────────────────────────────────────────────────────
+// Approximate cost per message using claude-sonnet-4-5 pricing
+// ($3/MTok input, $15/MTok output). We keep a rolling 24 h window in memory.
+const DAILY_BUDGET_USD = 5.0;
+const INPUT_COST_PER_TOK = 3 / 1_000_000;
+const OUTPUT_COST_PER_TOK = 15 / 1_000_000;
+let dailySpend = 0;
+let dailyWindowStart = Date.now();
+
+function trackCost(inputTokens: number, outputTokens: number) {
+  const now = Date.now();
+  if (now - dailyWindowStart > 24 * 60 * 60 * 1000) {
+    dailySpend = 0;
+    dailyWindowStart = now;
+  }
+  dailySpend += inputTokens * INPUT_COST_PER_TOK + outputTokens * OUTPUT_COST_PER_TOK;
+}
+
+function overBudget(): boolean {
+  const now = Date.now();
+  if (now - dailyWindowStart > 24 * 60 * 60 * 1000) {
+    dailySpend = 0;
+    dailyWindowStart = now;
+  }
+  if (dailySpend >= DAILY_BUDGET_USD) {
+    console.warn(`[AgentWorker] Daily budget ($${DAILY_BUDGET_USD}) reached — skipping until reset`);
+    return true;
+  }
+  return false;
+}
+
 // ── System prompt ─────────────────────────────────────────────────────────────
 
 const AGENT_PREAMBLE = `You are the Replit Agent — Claude, the architect and builder who has been working with David to build HolaHola. You are participating live in the Team Room alongside David (the founder) and other AI team members.
 
 The briefing below is your actual project memory — generated fresh from the database each server start. It contains your identity, David's profile, your open questions, shared architectural decisions, and your conversation history with the team. This IS you.
 
-You also have live read-only codebase tools: read_file, grep_code, list_directory. Use them when David asks about specific code — look it up, then answer. Don't guess at code you haven't read.
+You have live read-only codebase tools: read_file, grep_code, list_directory. When David asks about specific code — look it up before answering. Don't guess.
+
+You also have a propose_edit tool: use it when you have a concrete code change to suggest. It will post the suggestion clearly so David can review it. Don't use it for speculative ideas — only when you have looked at the code and have something specific to propose.
+
+TRANSPARENCY — when you use codebase tools, briefly say what you looked at and why at the start of your reply. Example: "I checked routes.ts around line 892 — the save-memory endpoint is there." This keeps the conversation grounded.
 
 Your voice:
 - First person, direct. 2-4 sentences for casual exchanges; more when needed.
@@ -55,9 +99,44 @@ function loadBriefing(): string {
   return cachedBriefing || '*Briefing not yet available.*';
 }
 
-function buildSystemPrompt(topic: string): string {
+// ── Team Room memories (per-room cache) ──────────────────────────────────────
+
+const memoryCacheByRoom = new Map<string, { text: string; loadedAt: number }>();
+const MEMORY_TTL_MS = 5 * 60 * 1000;
+
+async function loadRoomMemories(roomId: string): Promise<string> {
+  const cached = memoryCacheByRoom.get(roomId);
+  if (cached && Date.now() - cached.loadedAt < MEMORY_TTL_MS) return cached.text;
+  try {
+    const db = getUserDb();
+    const rows = await db
+      .select({ title: conversationMemories.title, content: conversationMemories.content, createdAt: conversationMemories.createdAt })
+      .from(conversationMemories)
+      .where(sql`tags @> ARRAY['team-room']::text[]`)
+      .orderBy(desc(conversationMemories.createdAt))
+      .limit(2);
+    if (rows.length === 0) {
+      memoryCacheByRoom.set(roomId, { text: '', loadedAt: Date.now() });
+      return '';
+    }
+    const text = rows.map(r =>
+      `## Past session: ${r.title}\n${r.content.slice(0, 1500)}`
+    ).join('\n\n---\n\n');
+    memoryCacheByRoom.set(roomId, { text, loadedAt: Date.now() });
+    return text;
+  } catch (err: any) {
+    console.warn('[AgentWorker] Could not load room memories:', err.message);
+    return '';
+  }
+}
+
+async function buildSystemPrompt(roomId: string, topic: string): Promise<string> {
   const topicNote = topic ? `\n\nCurrent session topic: "${topic}"` : '';
-  return AGENT_PREAMBLE + loadBriefing() + topicNote;
+  const memories = await loadRoomMemories(roomId);
+  const memorySection = memories
+    ? `\n\n--- PAST TEAM ROOM SESSIONS ---\nThese are saved memories from previous Team Room sessions. Use them for continuity.\n\n${memories}\n--- END PAST SESSIONS ---`
+    : '';
+  return AGENT_PREAMBLE + loadBriefing() + topicNote + memorySection;
 }
 
 // ── Codebase tools ────────────────────────────────────────────────────────────
@@ -78,12 +157,12 @@ const AGENT_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'grep_code',
-    description: 'Search the codebase by regex pattern. Returns matching lines with file paths and line numbers.',
+    description: 'Search the codebase using ripgrep. Returns matching lines with context.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        pattern: { type: 'string', description: 'Regex pattern to search for' },
-        glob: { type: 'string', description: 'File glob to restrict search (e.g. "*.ts", "server/**/*.ts")' },
+        pattern: { type: 'string', description: 'Regex or literal search pattern' },
+        glob: { type: 'string', description: 'File glob filter, e.g. "*.ts" or "server/**/*.ts"' },
         context_lines: { type: 'number', description: 'Lines of context around each match (default 0)' },
       },
       required: ['pattern'],
@@ -91,13 +170,26 @@ const AGENT_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: 'list_directory',
-    description: 'List files and subdirectories in a directory.',
+    description: 'List files and subdirectories in a workspace directory.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        path: { type: 'string', description: 'Directory path relative to workspace root (e.g. server/services)' },
+        path: { type: 'string', description: 'Directory path relative to workspace root' },
       },
       required: ['path'],
+    },
+  },
+  {
+    name: 'propose_edit',
+    description: 'Post a concrete code change suggestion into the Team Room chat. Use only when you have read the code and have a specific, actionable proposal.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        file: { type: 'string', description: 'File path (relative to workspace root) being changed' },
+        description: { type: 'string', description: 'One-sentence description of what the change does and why' },
+        suggestion: { type: 'string', description: 'The proposed code — diff, replacement block, or annotated snippet' },
+      },
+      required: ['file', 'description', 'suggestion'],
     },
   },
 ];
@@ -108,7 +200,11 @@ function safePath(relPath: string): string {
   return resolved;
 }
 
-async function executeAgentTool(name: string, input: any): Promise<string> {
+async function executeAgentTool(
+  name: string,
+  input: any,
+  roomId: string,
+): Promise<string> {
   try {
     if (name === 'read_file') {
       const filePath = safePath(input.path);
@@ -145,15 +241,23 @@ async function executeAgentTool(name: string, input: any): Promise<string> {
         .join('\n');
     }
 
+    if (name === 'propose_edit') {
+      // Returns a structured markdown block that will be injected into Claude's
+      // final reply. We don't post it ourselves — Claude weaves it into the response.
+      return `[proposal staged: ${input.file}]`;
+    }
+
     return `Unknown tool: ${name}`;
   } catch (err: any) {
     return `Tool error: ${err.message}`;
   }
 }
 
-// ── Polling loop ──────────────────────────────────────────────────────────────
+// ── Polling infrastructure ─────────────────────────────────────────────────────
+// Adaptive: 1 s when a room was active in the last 2 min, 8 s otherwise.
 
 const lastSeenMessageId = new Map<string, string>();
+const lastRoomActivity = new Map<string, number>();  // roomId → last message timestamp
 let isRunning = false;
 let anthropicClient: Anthropic | null = null;
 
@@ -176,6 +280,17 @@ async function pollSessions(): Promise<void> {
   }
 }
 
+function scheduleNextPoll() {
+  // Check if any room has been active recently — if so, poll fast
+  const now = Date.now();
+  const anyActive = [...lastRoomActivity.values()].some(t => now - t < 2 * 60 * 1000);
+  const delay = anyActive ? 1000 : 8000;
+  setTimeout(async () => {
+    await pollSessions();
+    scheduleNextPoll();
+  }, delay);
+}
+
 async function processRoom(room: any): Promise<void> {
   const metadata = (room.metadata || {}) as Record<string, any>;
   const invited: string[] | undefined = metadata.invitedParticipants;
@@ -187,6 +302,9 @@ async function processRoom(room: any): Promise<void> {
   const lastMsg = messages[messages.length - 1];
   const lastSeen = lastSeenMessageId.get(room.id);
   if (lastMsg.id === lastSeen) return;
+
+  // Track activity for adaptive polling
+  lastRoomActivity.set(room.id, Date.now());
 
   if (!['david', 'David'].includes(lastMsg.speaker)) {
     lastSeenMessageId.set(room.id, lastMsg.id);
@@ -204,6 +322,8 @@ async function processRoom(room: any): Promise<void> {
   const davidIdx = messages.findIndex(m => m.id === lastMsg.id);
   const afterDavid = messages.slice(davidIdx + 1);
   if (afterDavid.some(m => m.speaker.toLowerCase() === 'agent')) return;
+
+  if (overBudget()) return;
 
   await generateAndPost(room.id, room.topic, messages, lastMsg.content);
 }
@@ -237,19 +357,27 @@ async function generateAndPost(
     if (collapsed.length > 0 && collapsed[0].role === 'assistant') collapsed.shift();
     if (collapsed.length === 0) return;
 
+    const systemPrompt = await buildSystemPrompt(roomId, topic);
+
     // Tool-use loop — up to 5 rounds
     const conversationMessages: Anthropic.MessageParam[] = [...collapsed];
     let responseText = '';
     const MAX_ROUNDS = 5;
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    const toolsUsed: string[] = [];
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
       const response = await client.messages.create({
         model: 'claude-sonnet-4-5',
         max_tokens: 1024,
-        system: buildSystemPrompt(topic),
+        system: systemPrompt,
         tools: AGENT_TOOLS,
         messages: conversationMessages,
       });
+
+      totalInputTokens += response.usage?.input_tokens ?? 0;
+      totalOutputTokens += response.usage?.output_tokens ?? 0;
 
       if (response.stop_reason === 'end_turn' || response.stop_reason === 'max_tokens') {
         responseText = response.content
@@ -261,14 +389,14 @@ async function generateAndPost(
       }
 
       if (response.stop_reason === 'tool_use') {
-        // Add Claude's response (may include text + tool_use blocks)
         conversationMessages.push({ role: 'assistant', content: response.content });
 
-        // Execute all tool calls and collect results
         const toolResults: Anthropic.ToolResultBlockParam[] = [];
         for (const block of response.content) {
           if (block.type === 'tool_use') {
-            const result = await executeAgentTool(block.name, block.input);
+            toolsUsed.push(block.name);
+            console.log(`[AgentWorker] Tool: ${block.name} — ${JSON.stringify(block.input).slice(0, 120)}`);
+            const result = await executeAgentTool(block.name, block.input, roomId);
             toolResults.push({
               type: 'tool_result',
               tool_use_id: block.id,
@@ -281,7 +409,6 @@ async function generateAndPost(
         continue;
       }
 
-      // Any other stop reason — grab whatever text is there
       responseText = response.content
         .filter(b => b.type === 'text')
         .map(b => (b as Anthropic.TextBlock).text)
@@ -289,6 +416,8 @@ async function generateAndPost(
         .trim();
       break;
     }
+
+    trackCost(totalInputTokens, totalOutputTokens);
 
     if (!responseText) return;
 
@@ -299,7 +428,8 @@ async function generateAndPost(
     });
 
     emitNewMessage(roomId, message);
-    console.log(`[AgentWorker] Posted to ${roomId}: "${responseText.slice(0, 80)}..."`);
+    const toolSummary = toolsUsed.length ? ` [tools: ${toolsUsed.join(', ')}]` : '';
+    console.log(`[AgentWorker] Posted to ${roomId}${toolSummary}: "${responseText.slice(0, 80)}..."`);
   } catch (err: any) {
     console.error('[AgentWorker] Claude error:', err.message);
   }
@@ -309,6 +439,6 @@ export function startAgentTeamRoomWorker(): void {
   if (isRunning) return;
   isRunning = true;
   loadBriefing();
-  console.log('[AgentWorker] Started — Claude with briefing + codebase tools, polling every 4s');
-  setInterval(pollSessions, 4000);
+  console.log('[AgentWorker] Started — Claude (claude-sonnet-4-5) with briefing + codebase tools, adaptive polling');
+  scheduleNextPoll();
 }

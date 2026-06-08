@@ -196,7 +196,14 @@ Note: Zone type '${s.zoneType}' means ${
       for (const toolUse of toolUseBlocks) {
         toolsUsed.push(toolUse.name);
 
-        aldenActivity.push({ type: 'tool_start', name: toolUse.name, timestamp: new Date().toISOString() });
+        // Extract reasoning: any text block immediately preceding this tool_use block
+        const toolIdx = result.content.indexOf(toolUse as any);
+        const preceding = toolIdx > 0 ? result.content[toolIdx - 1] : null;
+        const reasoning = preceding?.type === 'text' && (preceding as any).text
+          ? (preceding as any).text.trim().slice(0, 300)
+          : undefined;
+
+        aldenActivity.push({ type: 'tool_start', name: toolUse.name, reasoning, timestamp: new Date().toISOString() });
 
         try {
           const toolResult = await executeAldenTool(toolUse.name, (toolUse.input as Record<string, any>) || {}, { conversationId });

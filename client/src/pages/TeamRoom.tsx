@@ -683,6 +683,8 @@ export default function TeamRoom() {
   const [saveMemoryTitle, setSaveMemoryTitle] = useState("");
   const [saveMemoryImportance, setSaveMemoryImportance] = useState(8);
   const [saveToSharedLobe, setSaveToSharedLobe] = useState(false);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [closeAfterSave, setCloseAfterSave] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const expressEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -901,6 +903,10 @@ export default function TeamRoom() {
     onSuccess: () => {
       setShowSaveMemory(false);
       toast({ title: "Saved to Agent memory", description: "This session will be part of the Agent's context next time." });
+      if (closeAfterSave) {
+        setCloseAfterSave(false);
+        closeSession.mutate();
+      }
     },
     onError: (e: any) => toast({ title: "Failed to save", description: e.message, variant: "destructive" }),
   });
@@ -1245,7 +1251,15 @@ export default function TeamRoom() {
                   </Button>
                 )}
                 {isActive && (
-                  <Button variant="outline" size="sm" onClick={() => closeSession.mutate()} disabled={closeSession.isPending} data-testid="button-close-session">
+                  <Button
+                    variant="outline" size="sm"
+                    onClick={() => {
+                      setSaveMemoryTitle(sessionData?.room?.topic || "");
+                      setShowEndConfirm(true);
+                    }}
+                    disabled={closeSession.isPending}
+                    data-testid="button-close-session"
+                  >
                     <X className="h-3.5 w-3.5 mr-1" />
                     {closeSession.isPending ? "Closing..." : "End Session"}
                   </Button>
@@ -1445,6 +1459,42 @@ export default function TeamRoom() {
           </div>
         </ScrollArea>
       </div>
+
+      {/* End Session confirm dialog */}
+      <Dialog open={showEndConfirm} onOpenChange={setShowEndConfirm}>
+        <DialogContent className="sm:max-w-sm" data-testid="dialog-end-confirm">
+          <DialogHeader>
+            <DialogTitle>End session?</DialogTitle>
+            <DialogDescription>
+              Save this session to Agent memory before ending so it carries forward to future conversations.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button
+              onClick={() => {
+                setShowEndConfirm(false);
+                setCloseAfterSave(true);
+                setShowSaveMemory(true);
+              }}
+              data-testid="button-save-and-end"
+            >
+              <BookmarkPlus className="h-4 w-4 mr-2" />
+              Save to Memory &amp; End
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => { setShowEndConfirm(false); closeSession.mutate(); }}
+              disabled={closeSession.isPending}
+              data-testid="button-end-without-save"
+            >
+              End without saving
+            </Button>
+            <Button variant="ghost" onClick={() => setShowEndConfirm(false)} data-testid="button-cancel-end">
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Save to Memory dialog */}
       <Dialog open={showSaveMemory} onOpenChange={setShowSaveMemory}>

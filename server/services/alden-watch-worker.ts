@@ -464,7 +464,13 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
     }
 
     // ── Claude intelligence: conditional on having a real finding ────────────
-    if (finalText === 'NOTHING' || finalText.startsWith('NOTHING')) {
+    const lastMeaningfulLine = finalText.split('\n').map(l => l.trim()).filter(Boolean).pop() ?? '';
+    if (
+      finalText === 'NOTHING' ||
+      finalText.startsWith('NOTHING') ||
+      lastMeaningfulLine === 'NOTHING' ||
+      lastMeaningfulLine.startsWith('NOTHING')
+    ) {
       console.log('[AldenWatch] Check complete — no notification needed');
       return;
     }
