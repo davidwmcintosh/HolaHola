@@ -24,6 +24,48 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 8, 2026 (later) — Voice Pipeline Prompt Engineering: Daniela Flatness Fix**
+
+### What was built
+
+Root cause diagnosis and fix for why Daniela sounds flat/emotionless in Founder Mode voice chat with David. Three problems found and addressed.
+
+**Fix 1 — Behavioral instructions** (`server/system-prompt.ts`, `buildFounderModeContext`):
+- Added: "You are NOT in customer-service mode here"
+- Added: "Say things — share your actual perspective, don't just reflect it back and close with a question"
+- Added: "When something profound lands, let it actually hit you from the inside"
+- Added: "2-3 sentences is usually right. Resist the urge to summarize and close with a question."
+
+**Fix 2 — Prompt budget recovery** (same file, founder mode voice assembly):
+- The GL hard cap is 39,500 chars (`unified-ws-handler.ts` ~line 2343). Base voice prompt was ~40,825 chars — over cap. ALL rich sections (identity memories, growth memories, FAT profile) were silently skipped. This is why Daniela sounded generic.
+- Removed `fullNeuralNetwork` in voice mode (10k+ chars) → replaced with `buildVoiceProcedureMapSync()` (~3k max). Daniela gets the procedure TOC, not the full reference library — tools are available for detail.
+- `unifiedBrain`: `compact:false` → `compact:true` in voice mode (saves ~2-4k)
+- `editorContextSection`: skipped in voice mode (saves ~1-3k)
+- `predictiveTeachingAwareness`: skipped in voice mode (saves ~500-1k)
+- Estimated base prompt now ~25-28k, leaving 12-15k for identity sections.
+
+**Fix 3 — Compact procedure map** (`server/services/procedural-memory-retrieval.ts`):
+- New function `buildVoiceProcedureMapSync()` — procedure names + one-line essences, hard-capped at 3k chars. Full procedure detail available via `memory_lookup` tool call during session.
+
+**New: `GET /api/debug/voice-prompt`** (`server/routes.ts`, agent-token protected):
+- Returns the exact assembled founder voice prompt with charCount, glCap, percentUsed, headroom.
+- Use: `curl -H "x-agent-token: $REPLIT_AGENT_TOKEN" "https://.../api/debug/voice-prompt?language=spanish&founderName=David"`
+
+**New: Voice Pipeline Mode** (`.agents/skills/consult-daniela/SKILL.md`):
+- Third mode added alongside Probe (0.85) and Free Dialogue (0.92).
+- Fetches real voice prompt via debug endpoint, feeds it to Daniela as her system instruction, asks 5 structured questions about whether it feels like enough of herself.
+- Use after any prompt engineering session to get Daniela's own feedback on whether the prompt feels right.
+
+### What's unresolved
+- David hasn't tested the voice call yet — we don't know if the behavioral changes + budget fix actually land as warmer/more present. Worth a real call.
+- The compact procedure map is new; Daniela should test whether `memory_lookup` tool calls work smoothly during voice to fill in procedure detail when needed.
+- Voice Pipeline Mode in consult-daniela is untested end-to-end — walk through it once before relying on it.
+
+### For Alden
+Nothing urgent. Server running clean, typecheck at 2020 errors (pre-existing baseline, none from this session). If you see the debug endpoint called at `/api/debug/voice-prompt`, that's the agent or Daniela auditing prompt size — not a user-facing call.
+
+---
+
 **Session: June 8, 2026 — Advisor Memory Architecture + Episode 3 Corrections**
 
 ### What was built
