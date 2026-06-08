@@ -803,6 +803,9 @@ app.use((req, res, next) => {
 
       const { startAgentSweepWorker } = await import('./services/agent-proactive-sweep-worker');
       startAgentSweepWorker();
+
+      const { startMondayBriefScheduler } = await import('./services/board-meeting-service');
+      startMondayBriefScheduler();
     }, 85000);
 
     // +50s: Memory Decay Migration — idempotent ALTER TABLE that adds strength/

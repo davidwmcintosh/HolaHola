@@ -24,6 +24,35 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 8, 2026 — Launch Advisory Board + Weekly Board Meeting System**
+
+### What was built
+
+Two things that extend the Team Room into a proper business operating system alongside the technical team.
+
+**1. Three new Team Room advisors: Marco, Reid, Priya**
+- **Marco** (Growth & Marketing — `en-US-Chirp3-HD-Puck`): Consumer ed-tech acquisition, pre-launch audience building, competitive landscape (Duolingo/Babbel/Rosetta Stone), launch readiness from a user perspective. Raises hand on marketing, positioning, acquisition, retention, content strategy.
+- **Reid** (Sales & Pricing — `en-US-Chirp3-HD-Charon`): Consumer subscription pricing, freemium strategy, school/district B2B sales, LTV/CAC, pricing tier design. Raises hand on pricing model, monetization, school partnerships, conversion questions.
+- **Priya** (Legal & Compliance — `en-US-Chirp3-HD-Leda`): COPPA, FERPA, student data privacy, privacy policy, school contracts. Raises hand on any compliance topic. Treats compliance as a prerequisite, not a launch item.
+- All three follow the same hand-raise evaluation pattern as Sofia/Wren/Lyra: parallel eval → JSON shouldRaise → confidence-ranked response cap.
+- All three are registered in `parseMentions` (can be @mentioned), `evaluateAllParticipants`, greeting handler, and `PARTICIPANT_VOICES`.
+
+**2. Weekly Board Meeting System (`server/services/board-meeting-service.ts`)**
+- `triggerBoardMeeting()`: Gathers context (build queue, alden-repairs log, escalation queue, shared lobe top insights, completed builds), calls Claude to generate a structured agenda (Executive Summary → Builds → Open Decisions → @marco/@reid/@priya domain flags → This Week's Focus), posts to the active Team Room as Agent.
+- `startMondayBriefScheduler()`: Auto-schedules Monday 9am brief. Registered in `server/index.ts` alongside the sweep worker (85s delay). Fires `[BoardMeeting] Next Monday brief in ~7 day(s)` on startup.
+- `POST /api/board-meeting/trigger`: Endpoint callable by any authenticated admin or agent token — no body needed. Wired to the "Weekly Review" button in Team Room header.
+- "Weekly Review" button: `data-testid="button-start-board-meeting"`, visible during active sessions. Uses `ClipboardList` icon (already imported). Shows "Preparing..." while pending.
+
+### Key decisions
+- David confirmed: **individuals first, schools second** (school-readiness is built-in but not primary GTM).
+- **No artificial launch timeline** — Daniela readiness is the gate. Advisory board's job is to help figure out *when* she's ready, not to count down to a fixed date.
+- Wave 1 + Wave 2 built simultaneously — no reason to split.
+
+### What's unresolved
+- Monday brief needs a real Team Room session open to post to — if no active room, returns "no active Team Room found" gracefully.
+- Advisors join greetings (all 9 participants respond to "hi everyone") — may feel like a lot of responses. David may want to tune group greeting participation down for advisors.
+
+---
 **Session: June 8, 2026 — Tiered Autonomy Architecture (build_queue + Agent Sweep + Self-Tuning + Safe-Zone Auto-Repair)**
 
 ### What was built

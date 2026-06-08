@@ -820,7 +820,20 @@ export default function TeamRoom() {
     },
   });
 
-  const ALL_CORE_AI_IDS = ['alden', 'daniela', 'sofia', 'lyra', 'wren', 'agent'];
+  const startBoardMeeting = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/board-meeting/trigger"),
+    onSuccess: async (res) => {
+      const data = await res.json();
+      if (data.success) {
+        toast({ title: "Board Meeting started", description: data.message });
+      } else {
+        toast({ title: "Board Meeting", description: data.message, variant: "destructive" });
+      }
+    },
+    onError: (e: any) => toast({ title: "Failed to start Board Meeting", description: e.message, variant: "destructive" }),
+  });
+
+  const ALL_CORE_AI_IDS = ['alden', 'daniela', 'sofia', 'lyra', 'wren', 'agent', 'marco', 'reid', 'priya'];
 
   const handleInvite = useCallback(async (participantId: string) => {
     setInvitedParticipants(prev => new Set([...prev, participantId]));
@@ -1252,6 +1265,17 @@ export default function TeamRoom() {
                     <span className="text-xs text-muted-foreground">Auto-play</span>
                     <Switch checked={autoPlayVoice} onCheckedChange={toggleAutoPlay} data-testid="switch-autoplay" className="scale-75" />
                   </div>
+                )}
+                {isActive && (
+                  <Button
+                    variant="outline" size="sm"
+                    onClick={() => startBoardMeeting.mutate()}
+                    disabled={startBoardMeeting.isPending}
+                    data-testid="button-start-board-meeting"
+                  >
+                    <ClipboardList className="h-3.5 w-3.5 mr-1" />
+                    {startBoardMeeting.isPending ? "Preparing..." : "Weekly Review"}
+                  </Button>
                 )}
                 {isActive && (
                   <Button

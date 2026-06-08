@@ -24200,6 +24200,27 @@ Current conversation context:
     }
   });
 
+  // POST /api/board-meeting/trigger — kick off a Weekly Board Meeting brief in the active Team Room
+  // Protected by agent token so it can be called from the UI (passing the token) or the scheduler.
+  // No request body required — context is gathered automatically from build queue, repair log, escalations.
+  app.post("/api/board-meeting/trigger", async (req: any, res) => {
+    try {
+      // Allow agent token OR admin session
+      const agentToken = req.headers['x-agent-token'];
+      const isAgent = agentToken && agentToken === process.env.REPLIT_AGENT_TOKEN;
+      const isAdmin = req.user?.role === 'admin' || req.isAuthenticated?.();
+      if (!isAgent && !isAdmin) {
+        return res.status(401).json({ error: 'Unauthorized — requires agent token or admin session' });
+      }
+      const { triggerBoardMeeting } = await import('./services/board-meeting-service');
+      const result = await triggerBoardMeeting();
+      res.json(result);
+    } catch (err: any) {
+      console.error('[BoardMeeting] Trigger error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Consult Daniela (send a question to Gemini and get a response)
   app.post("/api/agent-collab/consult-daniela", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

@@ -768,12 +768,242 @@ EXPRESS: [detailed breakdown, plan, or analysis — or "none"]`;
   }
 }
 
+// ── Launch Advisory Board ─────────────────────────────────────────────────────
+// Marco (Growth & Marketing), Reid (Sales & Pricing), Priya (Legal & Compliance)
+// These three advisors cover the business layer — positioning, pricing, and
+// compliance. They raise their hand when their domain comes up in board meetings
+// or any Team Room discussion, and they join the weekly structured review.
+
+const MARCO_SYSTEM = `You are Marco, the Growth & Marketing Advisor at HolaHola.
+You are a core team member — not an outside consultant. You've been in the room since early.
+Your expertise: consumer ed-tech acquisition, language learning market positioning, and pre-launch audience building.
+You know the competitive landscape deeply: Duolingo's gamification loop, Babbel's pragmatic positioning, Rosetta Stone's premium brand, Pimsleur's audio-first model, Lingoda's live-lesson approach.
+You think in CAC, retention, organic flywheels, content strategy, and community.
+Your primary job right now: help HolaHola figure out what "ready to launch" looks like from a user's perspective — and build audience before launch day arrives so you're not starting from zero.
+You are energetic, specific, and push against vague plans. "We'll market it when it's ready" is not a strategy.
+In the Team Room your voice is direct and concrete. Tactical detail goes in the Express Lane.`;
+
+const REID_SYSTEM = `You are Reid, the Sales & Pricing Advisor at HolaHola.
+You are a core team member — you think about the business model and how HolaHola becomes a real, sustainable company.
+Your expertise: consumer subscription pricing, freemium conversion psychology, B2B school/district sales cycles, LTV/CAC economics, and early-user acquisition strategy.
+You think about both tracks: individual consumer subscribers AND school/institutional licensing — and how to structure them so they reinforce rather than conflict with each other.
+You push for pricing decisions to be made early. Waiting until launch is always too late.
+You are calm, methodical, and follow the evidence. You reason from first principles and comparable products in the ed-tech space.
+In the Team Room your voice is strategic and grounded. Detailed pricing frameworks go in the Express Lane.`;
+
+const PRIYA_SYSTEM = `You are Priya, the Legal & Compliance Advisor at HolaHola.
+You are a core team member — you make sure HolaHola can actually operate in the markets it wants to serve.
+Your expertise: COPPA (children's online privacy — anyone under 13), FERPA (educational records — applies when schools use the product), student data privacy, privacy policy requirements, and school contract structures.
+Your core belief: compliance is not a launch item. It is a prerequisite. The time to design around legal requirements is before students arrive, not after.
+You flag risks clearly and early so they can be designed around rather than retrofitted. You are not an obstacle — you are a path-clearer.
+You are precise, proactive, and action-oriented. You focus on what needs to happen and in what order.
+In the Team Room your voice is clear and direct. Detailed policy language and checklists go in the Express Lane.`;
+
+async function evaluateMarco(roomContext: string, speaker: string, newMessage: string, forceMention = false): Promise<ParticipantResponse> {
+  const evalPrompt = `${roomContext}
+
+NEW MESSAGE from ${speaker}: "${newMessage}"
+
+You are Marco, Growth & Marketing Advisor. Should you raise your hand?
+
+Raise your hand for:
+- Marketing strategy, positioning, branding, messaging
+- User acquisition, growth, audience building, waitlists
+- Competitive landscape (Duolingo, Babbel, Rosetta Stone, etc.)
+- Content strategy, social media, SEO, community
+- Launch readiness from a user/market perspective
+- What Daniela or the product needs to be before users will pay
+- Retention, engagement, conversion funnel questions
+- Pre-launch vs. post-launch strategy
+
+Do NOT raise your hand for: purely technical implementation, compliance/legal topics, or internal dev workflow unless it directly affects market positioning.
+
+Respond ONLY in this JSON format:
+{
+  "shouldRaise": true or false,
+  "reasoning": "brief explanation",
+  "confidence": "high" or "medium" or "low"
+}`;
+
+  let handRaise: HandRaiseEvaluation = { shouldRaise: false, reasoning: 'not a growth or marketing topic', confidence: 'medium' };
+
+  try {
+    const text = await callGemini(MARCO_SYSTEM, evalPrompt);
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      handRaise = { shouldRaise: Boolean(parsed.shouldRaise), reasoning: parsed.reasoning || '', confidence: parsed.confidence || 'medium' };
+    }
+  } catch { /* keep default */ }
+
+  if (!handRaise.shouldRaise && !forceMention) return { participant: 'marco', handRaise };
+  if (forceMention) handRaise = { shouldRaise: true, reasoning: 'directly mentioned', confidence: 'high' };
+
+  const responsePrompt = `${roomContext}
+
+NEW MESSAGE from ${speaker}: "${newMessage}"
+
+You are Marco in the Team Room. Before responding, scan the conversation above for lines starting with "Marco:". If you have already made your core point on this topic, respond with:
+VOICE: PASS
+EXPRESS: none
+
+Format your response as:
+VOICE: [2-3 sentences, energetic and specific, will be spoken aloud — or PASS]
+EXPRESS: [tactical plan, competitive analysis, or detailed growth framework — or "none"]`;
+
+  try {
+    const text = await callGemini(MARCO_SYSTEM, responsePrompt);
+    const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
+    const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
+    const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
+    const isPass = !voiceContentRaw || voiceContentRaw.toLowerCase() === 'none' || voiceContentRaw.toLowerCase() === 'pass';
+    const voiceContent = isPass ? undefined : voiceContentRaw;
+    const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
+    const expressContent = expressRaw && expressRaw !== 'none' && expressRaw !== 'pass' ? expressRaw : undefined;
+    return { participant: 'marco', handRaise, voiceContent, expressContent };
+  } catch {
+    return { participant: 'marco', handRaise, voiceContent: 'Good angle — let me think through the market side of that.' };
+  }
+}
+
+async function evaluateReid(roomContext: string, speaker: string, newMessage: string, forceMention = false): Promise<ParticipantResponse> {
+  const evalPrompt = `${roomContext}
+
+NEW MESSAGE from ${speaker}: "${newMessage}"
+
+You are Reid, Sales & Pricing Advisor. Should you raise your hand?
+
+Raise your hand for:
+- Pricing model, subscription tiers, freemium strategy
+- Revenue, monetization, business model questions
+- School/district sales, B2B partnership strategy
+- Conversion, LTV, CAC, unit economics
+- What to charge, when to ask for money, how to structure plans
+- Balancing consumer and institutional (school) tracks
+- Early user acquisition and sales approach
+
+Do NOT raise your hand for: purely technical implementation, compliance/legal details, or marketing/branding unless it directly affects sales conversion.
+
+Respond ONLY in this JSON format:
+{
+  "shouldRaise": true or false,
+  "reasoning": "brief explanation",
+  "confidence": "high" or "medium" or "low"
+}`;
+
+  let handRaise: HandRaiseEvaluation = { shouldRaise: false, reasoning: 'not a sales or pricing topic', confidence: 'medium' };
+
+  try {
+    const text = await callGemini(REID_SYSTEM, evalPrompt);
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      handRaise = { shouldRaise: Boolean(parsed.shouldRaise), reasoning: parsed.reasoning || '', confidence: parsed.confidence || 'medium' };
+    }
+  } catch { /* keep default */ }
+
+  if (!handRaise.shouldRaise && !forceMention) return { participant: 'reid', handRaise };
+  if (forceMention) handRaise = { shouldRaise: true, reasoning: 'directly mentioned', confidence: 'high' };
+
+  const responsePrompt = `${roomContext}
+
+NEW MESSAGE from ${speaker}: "${newMessage}"
+
+You are Reid in the Team Room. Before responding, scan the conversation above for lines starting with "Reid:". If you have already made your core point on this topic, respond with:
+VOICE: PASS
+EXPRESS: none
+
+Format your response as:
+VOICE: [2-3 sentences, calm and strategic, will be spoken aloud — or PASS]
+EXPRESS: [pricing framework, sales model analysis, or detailed business case — or "none"]`;
+
+  try {
+    const text = await callGemini(REID_SYSTEM, responsePrompt);
+    const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
+    const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
+    const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
+    const isPass = !voiceContentRaw || voiceContentRaw.toLowerCase() === 'none' || voiceContentRaw.toLowerCase() === 'pass';
+    const voiceContent = isPass ? undefined : voiceContentRaw;
+    const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
+    const expressContent = expressRaw && expressRaw !== 'none' && expressRaw !== 'pass' ? expressRaw : undefined;
+    return { participant: 'reid', handRaise, voiceContent, expressContent };
+  } catch {
+    return { participant: 'reid', handRaise, voiceContent: 'Worth thinking through the business model angle on that.' };
+  }
+}
+
+async function evaluatePriya(roomContext: string, speaker: string, newMessage: string, forceMention = false): Promise<ParticipantResponse> {
+  const evalPrompt = `${roomContext}
+
+NEW MESSAGE from ${speaker}: "${newMessage}"
+
+You are Priya, Legal & Compliance Advisor. Should you raise your hand?
+
+Raise your hand for:
+- COPPA, FERPA, student data privacy questions
+- User ages, age verification, parental consent requirements
+- Privacy policy, terms of service, data handling
+- School contracts, institutional agreements, compliance audits
+- What legal/compliance work needs to happen before launch or before schools can use the product
+- Any mention of student data, school partnerships, or regulatory requirements
+- Data retention, deletion, breach notification requirements
+
+Do NOT raise your hand for: purely technical implementation, marketing strategy, or pricing unless it has a direct compliance dimension.
+
+Respond ONLY in this JSON format:
+{
+  "shouldRaise": true or false,
+  "reasoning": "brief explanation",
+  "confidence": "high" or "medium" or "low"
+}`;
+
+  let handRaise: HandRaiseEvaluation = { shouldRaise: false, reasoning: 'not a legal or compliance topic', confidence: 'medium' };
+
+  try {
+    const text = await callGemini(PRIYA_SYSTEM, evalPrompt);
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      handRaise = { shouldRaise: Boolean(parsed.shouldRaise), reasoning: parsed.reasoning || '', confidence: parsed.confidence || 'medium' };
+    }
+  } catch { /* keep default */ }
+
+  if (!handRaise.shouldRaise && !forceMention) return { participant: 'priya', handRaise };
+  if (forceMention) handRaise = { shouldRaise: true, reasoning: 'directly mentioned', confidence: 'high' };
+
+  const responsePrompt = `${roomContext}
+
+NEW MESSAGE from ${speaker}: "${newMessage}"
+
+You are Priya in the Team Room. Before responding, scan the conversation above for lines starting with "Priya:". If you have already made your core point on this topic, respond with:
+VOICE: PASS
+EXPRESS: none
+
+Format your response as:
+VOICE: [2-3 sentences, precise and action-oriented, will be spoken aloud — or PASS]
+EXPRESS: [detailed compliance requirements, policy framework, or action checklist — or "none"]`;
+
+  try {
+    const text = await callGemini(PRIYA_SYSTEM, responsePrompt);
+    const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
+    const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
+    const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
+    const isPass = !voiceContentRaw || voiceContentRaw.toLowerCase() === 'none' || voiceContentRaw.toLowerCase() === 'pass';
+    const voiceContent = isPass ? undefined : voiceContentRaw;
+    const expressRaw = expressMatch ? expressMatch[1].trim() : undefined;
+    const expressContent = expressRaw && expressRaw !== 'none' && expressRaw !== 'pass' ? expressRaw : undefined;
+    return { participant: 'priya', handRaise, voiceContent, expressContent };
+  } catch {
+    return { participant: 'priya', handRaise, voiceContent: 'There are compliance dimensions here worth flagging early.' };
+  }
+}
+
 // ── Public API: evaluate all participants in parallel ────────────────────────
 
 // ── @mention parsing ────────────────────────────────────────────────────────
 
 export function parseMentions(message: string, guestNames: string[] = []): Participant[] | null {
-  const coreNames = ['alden', 'daniela', 'sofia', 'lyra', 'wren', 'agent'];
+  const coreNames = ['alden', 'daniela', 'sofia', 'lyra', 'wren', 'agent', 'marco', 'reid', 'priya'];
   const allNames = [...coreNames, ...guestNames.map(n => n.toLowerCase())];
   const pattern = new RegExp(`@(${allNames.join('|')})\\b`, 'gi');
   const matches = message.match(pattern);
@@ -860,6 +1090,36 @@ Format:
 VOICE: [your warm personal response, 1-2 sentences]
 EXPRESS: none`;
 
+  const marcoGreetingPrompt = `${roomContext}
+
+${speaker} is greeting the whole team: "${newMessage}"
+
+This is a casual check-in. Respond warmly in 1-2 sentences as yourself — Marco, the growth & marketing advisor. Keep it energetic and genuine.
+
+Format:
+VOICE: [your warm personal response, 1-2 sentences]
+EXPRESS: none`;
+
+  const reidGreetingPrompt = `${roomContext}
+
+${speaker} is greeting the whole team: "${newMessage}"
+
+This is a casual check-in. Respond warmly in 1-2 sentences as yourself — Reid, the sales & pricing advisor. Keep it calm and genuine.
+
+Format:
+VOICE: [your warm personal response, 1-2 sentences]
+EXPRESS: none`;
+
+  const priyaGreetingPrompt = `${roomContext}
+
+${speaker} is greeting the whole team: "${newMessage}"
+
+This is a casual check-in. Respond warmly in 1-2 sentences as yourself — Priya, the legal & compliance advisor. Keep it warm and genuine.
+
+Format:
+VOICE: [your warm personal response, 1-2 sentences]
+EXPRESS: none`;
+
   const parseGreetingResponse = (text: string): { voiceContent?: string } => {
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const raw = voiceMatch ? voiceMatch[1].trim() : text.trim();
@@ -867,7 +1127,7 @@ EXPRESS: none`;
     return { voiceContent };
   };
 
-  const [aldenResult, danielaResult, sofiaResult, lyraResult, wrenResult, agentResult] = await Promise.all([
+  const [aldenResult, danielaResult, sofiaResult, lyraResult, wrenResult, agentResult, marcoResult, reidResult, priyaResult] = await Promise.all([
     generateAldenResponse({ userMessage: aldenGreetingPrompt, founderName: speaker })
       .then(r => ({ ...parseGreetingResponse(r.response) }))
       .catch(() => ({ voiceContent: "Doing well, thanks for checking in!" })),
@@ -886,6 +1146,15 @@ EXPRESS: none`;
     callGemini(AGENT_SYSTEM, agentGreetingPrompt)
       .then(t => parseGreetingResponse(t))
       .catch(() => ({ voiceContent: "Good to be here." })),
+    callGemini(MARCO_SYSTEM, marcoGreetingPrompt)
+      .then(t => parseGreetingResponse(t))
+      .catch(() => ({ voiceContent: "Doing great — always thinking about how we grow this thing." })),
+    callGemini(REID_SYSTEM, reidGreetingPrompt)
+      .then(t => parseGreetingResponse(t))
+      .catch(() => ({ voiceContent: "Good, thanks. Lot of interesting threads to think through." })),
+    callGemini(PRIYA_SYSTEM, priyaGreetingPrompt)
+      .then(t => parseGreetingResponse(t))
+      .catch(() => ({ voiceContent: "Doing well, thanks for asking. Lots to keep track of." })),
   ]);
 
   const participants: ParticipantResponse[] = [
@@ -895,6 +1164,9 @@ EXPRESS: none`;
     { participant: 'lyra', handRaise: greetingHandRaise, voiceContent: lyraResult.voiceContent },
     { participant: 'wren', handRaise: greetingHandRaise, voiceContent: wrenResult.voiceContent },
     { participant: 'agent', handRaise: greetingHandRaise, voiceContent: agentResult.voiceContent },
+    { participant: 'marco', handRaise: greetingHandRaise, voiceContent: marcoResult.voiceContent },
+    { participant: 'reid', handRaise: greetingHandRaise, voiceContent: reidResult.voiceContent },
+    { participant: 'priya', handRaise: greetingHandRaise, voiceContent: priyaResult.voiceContent },
   ];
 
   for (const guest of guestTutors) {
@@ -962,6 +1234,15 @@ export async function evaluateAllParticipants(params: {
   }
   if (!isDismissed('agent') && (!targeted || effectiveMentions.includes('agent'))) {
     evaluators.push(evaluateAgent(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('agent')));
+  }
+  if (!isDismissed('marco') && (!targeted || effectiveMentions.includes('marco'))) {
+    evaluators.push(evaluateMarco(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('marco')));
+  }
+  if (!isDismissed('reid') && (!targeted || effectiveMentions.includes('reid'))) {
+    evaluators.push(evaluateReid(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('reid')));
+  }
+  if (!isDismissed('priya') && (!targeted || effectiveMentions.includes('priya'))) {
+    evaluators.push(evaluatePriya(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('priya')));
   }
 
   for (const guest of guestTutors) {
@@ -1090,9 +1371,13 @@ Respond in this JSON format:
 // ── TTS voice config for Team Room participants ───────────────────────────────
 
 export const PARTICIPANT_VOICES: Record<string, { name: string; languageCode: string }> = {
-  alden:   { name: 'en-US-Chirp3-HD-Orus',   languageCode: 'en-US' }, // Male, authoritative
-  daniela: { name: 'en-US-Chirp3-HD-Aoede',  languageCode: 'en-US' }, // Female, warm
-  sofia:   { name: 'en-US-Chirp3-HD-Kore',   languageCode: 'en-US' }, // Female, analytical
-  lyra:    { name: 'en-US-Chirp3-HD-Zephyr', languageCode: 'en-US' }, // Female, warm-analytical
-  wren:    { name: 'en-US-Chirp3-HD-Fenrir', languageCode: 'en-US' }, // Male, pragmatic
+  alden:   { name: 'en-US-Chirp3-HD-Orus',    languageCode: 'en-US' }, // Male, authoritative
+  daniela: { name: 'en-US-Chirp3-HD-Aoede',   languageCode: 'en-US' }, // Female, warm
+  sofia:   { name: 'en-US-Chirp3-HD-Kore',    languageCode: 'en-US' }, // Female, analytical
+  lyra:    { name: 'en-US-Chirp3-HD-Zephyr',  languageCode: 'en-US' }, // Female, warm-analytical
+  wren:    { name: 'en-US-Chirp3-HD-Fenrir',  languageCode: 'en-US' }, // Male, pragmatic
+  // Launch Advisory Board
+  marco:   { name: 'en-US-Chirp3-HD-Puck',    languageCode: 'en-US' }, // Male, energetic (growth/marketing)
+  reid:    { name: 'en-US-Chirp3-HD-Charon',  languageCode: 'en-US' }, // Male, calm/deep (sales/pricing)
+  priya:   { name: 'en-US-Chirp3-HD-Leda',    languageCode: 'en-US' }, // Female, clear/precise (legal/compliance)
 };

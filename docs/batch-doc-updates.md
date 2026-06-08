@@ -1033,3 +1033,31 @@ Four interconnected systems that give HolaHola's autonomous infrastructure a dec
 - Approve = go build it; Reject = dismiss
 - Alden can now call `queue_build_proposal` when he sees something worth fixing but can't safely do it himself
 - Alden can call `tune_watch_parameters` with evidence-based reasoning to adjust his own check intervals, budget thresholds, and health score triggers (all band-constrained)
+
+---
+
+## Session — Jun 8, 2026 (Launch Advisory Board + Weekly Board Meeting)
+
+### What was built
+
+**Launch Advisory Board — three new Team Room AI participants:**
+
+- **Marco** (Growth & Marketing) — `server/services/team-room-alden-service.ts`. Persona: consumer ed-tech acquisition, pre-launch audience building, competitive landscape. Voice: `en-US-Chirp3-HD-Puck`. Raises on: marketing strategy, user acquisition, launch readiness from user perspective, CAC/retention, content strategy, competitive positioning.
+- **Reid** (Sales & Pricing) — same file. Persona: consumer subscription pricing, freemium strategy, school/district B2B, LTV/CAC economics. Voice: `en-US-Chirp3-HD-Charon`. Raises on: pricing model, monetization, school partnerships, conversion funnel.
+- **Priya** (Legal & Compliance) — same file. Persona: COPPA, FERPA, student data privacy, school contracts. Voice: `en-US-Chirp3-HD-Leda`. Raises on: any compliance topic, age verification, privacy policy, data handling.
+
+**Weekly Board Meeting System:**
+
+- `server/services/board-meeting-service.ts` — new service. `triggerBoardMeeting()` gathers context (build_queue, alden-repairs.md, alden-escalations.md, editor_insights shared lobe, completed builds) → Claude generates structured agenda → posts to active Team Room as Agent.
+- `startMondayBriefScheduler()` — registered in `server/index.ts` (85s delay block). Auto-fires Monday 9am.
+- `POST /api/board-meeting/trigger` — in `server/routes.ts`, accessible by agent token or admin session.
+- "Weekly Review" button in `client/src/pages/TeamRoom.tsx` — active session header, `data-testid="button-start-board-meeting"`.
+
+**Product context:** David confirmed individuals-first GTM, schools-readiness is a built-in feature not primary focus. No artificial timeline — Daniela readiness is the gate. Advisory board's job is to help define "ready" and build audience while building.
+
+### Key files modified
+- `server/services/team-room-alden-service.ts` — 6 edit sites: MARCO/REID/PRIYA_SYSTEM constants, 3 evaluate functions, parseMentions coreNames, evaluateAllParticipants, greeting handler (prompts + Promise.all + participants array), PARTICIPANT_VOICES
+- `server/services/board-meeting-service.ts` — new file (~190 lines)
+- `server/routes.ts` — board meeting trigger endpoint
+- `server/index.ts` — Monday brief scheduler registration
+- `client/src/pages/TeamRoom.tsx` — mutation + button + ALL_CORE_AI_IDS update
