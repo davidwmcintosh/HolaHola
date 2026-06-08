@@ -472,6 +472,43 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
       required: [],
     },
   },
+  {
+    name: "queue_build_proposal",
+    description: "Add a proposal to the build queue for async review by David or the Agent. Use when you identify a fix or improvement that is outside your auto-repair safe zone — schema changes, route changes, auth, billing, or anything requiring complex judgment. Include a full diff if you have one. The proposal is queued, not executed.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        title: { type: "string" as const, description: "Short descriptive title for the proposal." },
+        description: { type: "string" as const, description: "Full description: what's broken or suboptimal, what the fix is, why it matters." },
+        files_affected: {
+          type: "array" as const,
+          items: { type: "string" as const },
+          description: "List of file paths that would be changed.",
+        },
+        diff: { type: "string" as const, description: "The proposed code change (diff, replacement block, or annotated snippet)." },
+        priority: { type: "number" as const, description: "Priority 1-10 (default 5). Use 8-10 only for genuine prod-impacting issues." },
+      },
+      required: ["title", "description"],
+    },
+  },
+  {
+    name: "tune_watch_parameters",
+    description: "Adjust your own watch worker parameters based on observed patterns. Use only when you have specific evidence — e.g., lower check_interval_hours after 7 stable days, raise low_health_threshold after confirming what scores mean. Always include your reasoning in 'reason'.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        check_interval_hours: { type: "number" as const, description: "How often to run a watch cycle (1–6 hours)." },
+        recovery_poll_minutes: { type: "number" as const, description: "How often to poll during hard-pause recovery (5–30 min)." },
+        budget_warn_usd: { type: "number" as const, description: "Tier-1 budget warning threshold in USD (2–8)." },
+        budget_alert_usd: { type: "number" as const, description: "Tier-2 budget alert threshold in USD (3–9)." },
+        low_health_threshold: { type: "number" as const, description: "Health score below which consecutive-low logic triggers (50–85)." },
+        consecutive_low_score_trigger: { type: "number" as const, description: "How many consecutive low-health cycles before alerting (2–5)." },
+        fingerprint_ttl_hours: { type: "number" as const, description: "How long before a fingerprint expires and can re-alert (6–72 hours)." },
+        reason: { type: "string" as const, description: "Required. Your specific, evidence-based justification for this change." },
+      },
+      required: ["reason"],
+    },
+  },
 ];
 
 export async function executeAldenTool(
@@ -1955,6 +1992,79 @@ ${agentSection}`;
         };
       }
 
+      case 'queue_build_proposal': {
+        const { buildQueue: buildQueueTable } = await import('@shared/schema');
+        const bqDb = getUserDb();
+        const [item] = await bqDb.insert(buildQueueTable).values({
+          proposedBy: 'alden',
+          title: toolInput.title,
+          description: toolInput.description,
+          filesAffected: toolInput.files_affected || [],
+          diff: toolInput.diff || null,
+          priority: Math.min(10, Math.max(1, Math.round(toolInput.priority ?? 5))),
+          isSafeZone: false,
+          status: 'pending',
+        }).returning();
+        return { data: { queued: true, id: item.id, title: item.title, priority: item.priority } };
+      }
+
+      case 'tune_watch_parameters': {
+        const BANDS: Record<string, [number, number]> = {
+          check_interval_hours:         [1, 6],
+          recovery_poll_minutes:        [5, 30],
+          budget_warn_usd:              [2, 8],
+          budget_alert_usd:             [3, 9],
+          low_health_threshold:         [50, 85],
+          consecutive_low_score_trigger:[2, 5],
+          fingerprint_ttl_hours:        [6, 72],
+        };
+
+        const updates: Record<string, any> = {};
+        const errors: string[] = [];
+
+        for (const [snake, [min, max]] of Object.entries(BANDS)) {
+          if (toolInput[snake] !== undefined) {
+            const val = Number(toolInput[snake]);
+            if (isNaN(val) || val < min || val > max) {
+              errors.push(`${snake} must be ${min}–${max} (got ${toolInput[snake]})`);
+            } else {
+              // Convert snake_case → camelCase for Drizzle
+              const camel = snake.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+              updates[camel] = val;
+            }
+          }
+        }
+
+        if (errors.length) {
+          return { data: { error: `Band violations: ${errors.join(', ')}` } };
+        }
+        if (Object.keys(updates).length === 0) {
+          return { data: { error: 'No valid parameters provided. Include at least one parameter to change.' } };
+        }
+
+        updates.updatedBy = 'alden';
+        updates.updateReason = String(toolInput.reason || 'Alden adjustment');
+        updates.updatedAt = new Date();
+
+        const { aldenWatchConfig } = await import('@shared/schema');
+        const tuneDb = getUserDb();
+        const existing = await tuneDb.select().from(aldenWatchConfig).limit(1);
+        if (existing.length > 0) {
+          await tuneDb.update(aldenWatchConfig).set(updates);
+        } else {
+          await tuneDb.insert(aldenWatchConfig).values(updates);
+        }
+
+        console.log('[Alden] tune_watch_parameters applied:', Object.keys(updates).filter(k => !['updatedBy','updateReason','updatedAt'].includes(k)));
+        return {
+          data: {
+            tuned: true,
+            changed: Object.keys(updates).filter(k => !['updatedBy','updateReason','updatedAt'].includes(k)),
+            reason: toolInput.reason,
+          },
+        };
+      }
+
       default:
         return { data: { error: `Unknown tool: ${toolName}` } };
     }
@@ -1964,4 +2074,4 @@ ${agentSection}`;
   }
 }
 
-console.log('[Alden Functions] Loaded — 31 tools ready (monitoring + code + shell + memory + notifications + browser + web-fetch + briefing + express-lane-search + agent-notes + ai-cost-report)');
+console.log('[Alden Functions] Loaded — 33 tools ready (monitoring + code + shell + memory + notifications + browser + web-fetch + briefing + express-lane-search + agent-notes + ai-cost-report + build-queue + self-tune)');

@@ -21,7 +21,7 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import Anthropic from '@anthropic-ai/sdk';
 import { getUserDb } from '../db';
-import { aldenNotifications } from '@shared/schema';
+import { aldenNotifications, buildQueue } from '@shared/schema';
 
 const GUARDIAN_MANIFEST_PATH = '/tmp/alden-guardian-manifest.json';
 const REPAIR_LOG_PATH = path.join(process.cwd(), '.local/alden-repairs.md');
@@ -269,6 +269,28 @@ function utcTimestamp(): string {
 }
 
 /**
+ * Queue an issue as a build_queue proposal when Alden can't safely auto-repair it.
+ * This is the "tiered autonomy" path: instead of silently dropping the issue, we
+ * surface it for async review by the Agent or David.
+ */
+async function queueAsProposal(issueDescription: string, reason: string): Promise<void> {
+  try {
+    const db = getUserDb();
+    await db.insert(buildQueue).values({
+      proposedBy: 'alden',
+      title: `Auto-repair deferred: ${issueDescription.substring(0, 80)}`,
+      description: `Alden identified an issue but could not safely auto-repair it.\n\nIssue: ${issueDescription}\n\nReason deferred: ${reason}\n\nThis needs Agent or human review.`,
+      isSafeZone: false,
+      priority: 6,
+      status: 'pending',
+    });
+    console.log('[AutoRepair] Queued as build proposal for review');
+  } catch (err: any) {
+    console.warn('[AutoRepair] Failed to queue proposal:', err.message);
+  }
+}
+
+/**
  * Main entry point. Called from alden-watch-worker when a WARNING or ALERT
  * issue is detected. Returns true if a repair was initiated, false if ineligible.
  */
@@ -282,7 +304,13 @@ export async function attemptAutoRepair(
     const classification = await classifyRepair(issueDescription, recentErrors);
 
     if (!classification.eligible || classification.confidence !== 'high' || !classification.type) {
-      console.log(`[AutoRepair] Ineligible — ${classification.reason} (confidence: ${classification.confidence})`);
+      // Tiered autonomy: if there's a meaningful signal (medium confidence or known type),
+      // queue it for async review instead of silently dropping it.
+      const worthQueuing = classification.confidence === 'medium' || classification.type !== null;
+      if (worthQueuing) {
+        await queueAsProposal(issueDescription, classification.reason);
+      }
+      console.log(`[AutoRepair] Ineligible — ${worthQueuing ? 'queued for review' : 'dropped'}. ${classification.reason}`);
       return false;
     }
 

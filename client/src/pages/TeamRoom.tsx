@@ -20,7 +20,7 @@ import {
   Table, Lightbulb, CheckSquare, GitBranch, Info, Copy,
   Target, ClipboardList, AtSign, Hand, UserPlus, UserMinus,
   BookOpen, TrendingUp, Cpu, Circle, RotateCcw, Monitor, ScanEye, Terminal,
-  CheckCircle2, AlertCircle, Clock, Compass, BookmarkPlus,
+  CheckCircle2, AlertCircle, Clock, Compass, BookmarkPlus, GitPullRequest,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import type { TeamRoom as TeamRoomType, RoomVoiceMessage, RoomArtifact, AgentActivityLog } from "@shared/schema";
@@ -679,6 +679,7 @@ export default function TeamRoom() {
   const [wsMessages, setWsMessages] = useState<RoomVoiceMessage[]>([]);
   const [guestTutors, setGuestTutors] = useState<GuestTutorInfo[]>([]);
   const [showFounderInsights, setShowFounderInsights] = useState(true);
+  const [showBuildQueue, setShowBuildQueue] = useState(true);
   const [showSaveMemory, setShowSaveMemory] = useState(false);
   const [saveMemoryTitle, setSaveMemoryTitle] = useState("");
   const [saveMemoryImportance, setSaveMemoryImportance] = useState(8);
@@ -753,6 +754,21 @@ export default function TeamRoom() {
     staleTime: 60000,
   });
   const founderInsights = founderInsightsData?.insights ?? [];
+
+  const { data: buildQueueItems, refetch: refetchBuildQueue } = useQuery<any[]>({
+    queryKey: ["/api/build-queue", "pending"],
+    queryFn: () => fetch("/api/build-queue?status=pending").then(r => r.json()),
+    refetchInterval: 60000,
+    staleTime: 30000,
+  });
+  const pendingQueue = Array.isArray(buildQueueItems) ? buildQueueItems : [];
+
+  const reviewQueueItem = useMutation({
+    mutationFn: ({ id, status, reviewNote }: { id: string; status: string; reviewNote?: string }) =>
+      apiRequest("PATCH", `/api/build-queue/${id}`, { status, reviewNote, reviewedBy: "david" }),
+    onSuccess: () => { refetchBuildQueue(); toast({ title: "Updated" }); },
+    onError: () => toast({ title: "Failed to update", variant: "destructive" }),
+  });
 
   const { data: agentActivity } = useQuery<AgentActivityLog[]>({
     queryKey: ["/api/agent-activity"],
@@ -1413,6 +1429,64 @@ export default function TeamRoom() {
                   </div>
                 )}
                 <div ref={expressEndRef} />
+              </div>
+            )}
+
+            {/* ── Build Queue ── */}
+            {pendingQueue.length > 0 && (
+              <div className="space-y-2 pt-2 border-t">
+                <button
+                  className="flex items-center gap-1.5 w-full text-left"
+                  onClick={() => setShowBuildQueue(!showBuildQueue)}
+                  data-testid="button-toggle-build-queue"
+                >
+                  <GitPullRequest className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex-1">Build Queue</span>
+                  <Badge variant="outline" className="text-xs">{pendingQueue.length}</Badge>
+                  <ChevronDown className={`h-3 w-3 text-muted-foreground transition-transform ${showBuildQueue ? "" : "-rotate-90"}`} />
+                </button>
+                {showBuildQueue && (
+                  <div className="space-y-2">
+                    {pendingQueue.map((item: any) => (
+                      <div key={item.id} className="rounded-md border p-2.5 space-y-2" data-testid={`build-queue-item-${item.id}`}>
+                        <div className="flex items-start gap-1.5">
+                          <span className={`text-xs font-semibold shrink-0 ${item.priority >= 8 ? 'text-red-500' : item.priority >= 6 ? 'text-amber-500' : 'text-muted-foreground'}`}>
+                            p{item.priority}
+                          </span>
+                          <p className="text-xs font-medium leading-snug flex-1">{item.title}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{item.description}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Badge variant="secondary" className="text-xs">{item.proposedBy}</Badge>
+                          <span className="text-xs text-muted-foreground ml-auto">
+                            {new Date(item.proposedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          </span>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <Button
+                            size="sm"
+                            className="flex-1 text-xs"
+                            onClick={() => reviewQueueItem.mutate({ id: item.id, status: "approved" })}
+                            disabled={reviewQueueItem.isPending}
+                            data-testid={`button-approve-queue-${item.id}`}
+                          >
+                            Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 text-xs"
+                            onClick={() => reviewQueueItem.mutate({ id: item.id, status: "rejected" })}
+                            disabled={reviewQueueItem.isPending}
+                            data-testid={`button-reject-queue-${item.id}`}
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 

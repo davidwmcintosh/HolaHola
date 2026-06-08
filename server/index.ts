@@ -800,6 +800,9 @@ app.use((req, res, next) => {
 
       const { startDanielaDialogueWorker } = await import('./services/agent-daniela-dialogue-worker');
       startDanielaDialogueWorker();
+
+      const { startAgentSweepWorker } = await import('./services/agent-proactive-sweep-worker');
+      startAgentSweepWorker();
     }, 85000);
 
     // +50s: Memory Decay Migration — idempotent ALTER TABLE that adds strength/

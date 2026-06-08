@@ -34652,5 +34652,111 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // ── Build Queue API ────────────────────────────────────────────────────────
+
+  // GET /api/build-queue — list items (optional ?status=pending|approved|done|rejected)
+  app.get("/api/build-queue", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { buildQueue } = await import('@shared/schema');
+      const { eq, desc } = await import('drizzle-orm');
+      const db = getUserDb();
+      const { status } = req.query;
+      const rows = status
+        ? await db.select().from(buildQueue).where(eq(buildQueue.status, status as any)).orderBy(desc(buildQueue.proposedAt))
+        : await db.select().from(buildQueue).orderBy(desc(buildQueue.proposedAt));
+      res.json(rows);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/build-queue — create a new proposal (agent token OR admin)
+  app.post("/api/build-queue", requireAgentToken, async (req: any, res) => {
+    try {
+      const { buildQueue } = await import('@shared/schema');
+      const db = getUserDb();
+      const { title, description, filesAffected, diff, priority, proposedBy } = req.body;
+      if (!title || !description) return res.status(400).json({ error: 'title and description required' });
+      const [item] = await db.insert(buildQueue).values({
+        proposedBy: proposedBy || 'agent',
+        title,
+        description,
+        filesAffected: filesAffected || [],
+        diff: diff || null,
+        priority: Math.min(10, Math.max(1, parseInt(priority, 10) || 5)),
+        isSafeZone: false,
+        status: 'pending',
+      }).returning();
+      res.status(201).json(item);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PATCH /api/build-queue/:id — update status (approve/reject/etc.)
+  app.patch("/api/build-queue/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { buildQueue } = await import('@shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const db = getUserDb();
+      const { status, reviewNote, reviewedBy } = req.body;
+      const validStatuses = ['pending', 'approved', 'executing', 'done', 'rejected'];
+      if (status && !validStatuses.includes(status)) return res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
+      const updates: Record<string, any> = {};
+      if (status) { updates.status = status; updates.reviewedAt = new Date(); }
+      if (reviewNote) updates.reviewNote = reviewNote;
+      if (reviewedBy) updates.reviewedBy = reviewedBy;
+      const [updated] = await db.update(buildQueue).set(updates).where(eq(buildQueue.id, req.params.id)).returning();
+      if (!updated) return res.status(404).json({ error: 'Item not found' });
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Alden Watch Config API ─────────────────────────────────────────────────
+
+  // GET /api/alden/watch-config — current live parameters
+  app.get("/api/alden/watch-config", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req, res) => {
+    try {
+      const { aldenWatchConfig } = await import('@shared/schema');
+      const db = getUserDb();
+      const rows = await db.select().from(aldenWatchConfig).limit(1);
+      res.json(rows[0] || null);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PATCH /api/alden/watch-config — update (agent token; Alden uses tune_watch_parameters tool)
+  app.patch("/api/alden/watch-config", requireAgentToken, async (req: any, res) => {
+    try {
+      const { aldenWatchConfig } = await import('@shared/schema');
+      const db = getUserDb();
+      const updates = { ...req.body, updatedAt: new Date() };
+      const existing = await db.select().from(aldenWatchConfig).limit(1);
+      if (existing.length > 0) {
+        const [row] = await db.update(aldenWatchConfig).set(updates).returning();
+        res.json(row);
+      } else {
+        const [row] = await db.insert(aldenWatchConfig).values(updates).returning();
+        res.json(row);
+      }
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/agent/sweep/trigger — manually trigger the daily Agent sweep
+  app.post("/api/agent/sweep/trigger", requireAgentToken, async (_req, res) => {
+    try {
+      const { triggerSweep } = await import('./services/agent-proactive-sweep-worker');
+      triggerSweep().catch((err: any) => console.error('[SweepTrigger]', err.message));
+      res.json({ ok: true, message: 'Agent sweep triggered (runs async)' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
     // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }

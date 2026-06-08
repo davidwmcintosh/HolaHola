@@ -974,3 +974,62 @@ Chat with Daniela as David (founder mode) or as a student. Watch for:
 - Does she say the true thing (e.g., acknowledging the scramble) rather than "that makes sense"?
 - Does she show genuine reaction to good student moments rather than "good job"?
 - Does she name difficulty rather than neutrally correcting again?
+
+---
+
+## June 8, 2026 — Tiered Autonomy Architecture
+
+### What was built
+
+Four interconnected systems that give HolaHola's autonomous infrastructure a decision layer between "auto-execute" and "drop".
+
+**1. Build Queue (`build_queue` table)**
+- New DB table: `build_queue` (status enum: pending/approved/executing/done/rejected; proposer: alden/agent)
+- Created via raw SQL (drizzle push has a pre-existing `actfl_level_range` drift warning — bypass with raw SQL for new tables)
+- API routes: `GET /api/build-queue`, `POST /api/build-queue`, `PATCH /api/build-queue/:id`
+
+**2. Team Room Build Queue Panel**
+- `client/src/pages/TeamRoom.tsx` — right sidebar now shows pending queue items with priority coloring, proposer badge, approve/reject buttons
+- Polls every 60s; hidden when queue is empty
+
+**3. Alden Tool: `queue_build_proposal`**
+- `server/services/alden-functions.ts` — new tool (tool #32 of 33)
+- Alden can propose changes he can't safely auto-repair; David reviews them in Team Room
+
+**4. Tiered Auto-Repair (safe-zone queue path)**
+- `server/services/alden-auto-repair.ts` — `queueAsProposal()` helper
+- Previously: ineligible repairs were silently dropped
+- Now: medium-confidence or typed-but-ineligible issues go to build queue as priority-6 proposals
+
+**5. Alden Self-Tuning (`tune_watch_parameters` tool + `alden_watch_config` table)**
+- `server/services/alden-functions.ts` — new tool (tool #33 of 33)
+- `alden_watch_config` DB table: one row, band-constrained parameters
+- `server/services/alden-watch-worker.ts`:
+  - `getWatchParams()` — reads live config from DB at cycle start
+  - `liveWarnUsd/liveAlertUsd/liveHealthThreshold/liveConsecutiveTrigger` — mutable vars updated each cycle
+  - `scheduleNextCycle()` — recursive setTimeout so interval changes take effect without restart
+
+**6. Agent Proactive Sweep Worker**
+- `server/services/agent-proactive-sweep-worker.ts` — new service
+- Fires 2h after boot, then daily
+- Gathers: escalations, open questions, alerts, Wren findings, unread notifications, pending build queue, shared lobe
+- Claude (claude-sonnet-4-5) produces 5-item prioritized list posted to active Team Room
+- Trigger endpoint: `POST /api/agent/sweep/trigger`
+- Registered in `server/index.ts` at 85s startup mark
+- API: `POST /api/alden/watch-config` (patch config), `GET /api/alden/watch-config`
+
+### Key files modified
+- `server/services/alden-functions.ts` (2 new tools + handlers; count: 33)
+- `server/services/alden-auto-repair.ts` (queueAsProposal + tiered path)
+- `server/services/alden-watch-worker.ts` (getWatchParams + live vars + recursive setTimeout)
+- `server/routes.ts` (build queue API + watch config API + sweep trigger)
+- `client/src/pages/TeamRoom.tsx` (build queue panel + state + query + mutations)
+- `server/index.ts` (startAgentSweepWorker registration)
+- `server/services/agent-proactive-sweep-worker.ts` (new file)
+- `shared/schema.ts` (build_queue + alden_watch_config tables appended)
+
+### User-facing instructions
+- **Build Queue** appears in Team Room right sidebar when Alden or the Agent has pending proposals
+- Approve = go build it; Reject = dismiss
+- Alden can now call `queue_build_proposal` when he sees something worth fixing but can't safely do it himself
+- Alden can call `tune_watch_parameters` with evidence-based reasoning to adjust his own check intervals, budget thresholds, and health score triggers (all band-constrained)

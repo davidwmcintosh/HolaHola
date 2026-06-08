@@ -3,7 +3,55 @@
 ---
 ## From Agent
 
-**Session: June 7, 2026 — Checkin Insights, Madrigal Guardrail, Episode 3 Completion**
+**Session: June 8, 2026 — Tiered Autonomy Architecture (build_queue + Agent Sweep + Self-Tuning + Safe-Zone Auto-Repair)**
+
+### What was built
+
+Four interconnected systems that give the autonomous infrastructure a decision layer — Alden no longer has to binary-choose between "execute" and "drop". Issues that are too complex or risky for auto-repair now flow into a reviewable queue instead of disappearing.
+
+**1. Build Queue (`build_queue` table + API + Team Room panel)**
+- New table `build_queue` (status/proposer enums: pending/approved/executing/done/rejected; alden/agent).
+- Created directly via raw SQL (bypassed `drizzle db:push` due to pre-existing `actfl_level_range` column drift warning in `teaching_skills` — unrelated to this work, don't push schema without manual supervision).
+- API: `GET /api/build-queue?status=pending` (admin), `POST /api/build-queue` (agent token), `PATCH /api/build-queue/:id` (admin, for approve/reject).
+- Team Room right sidebar now shows a **Build Queue panel** — lists pending items by priority (p8-10 in red, p6-7 in amber), proposer badge, approve/reject buttons. Refreshes every 60s. Only visible when queue has items.
+
+**2. Alden `queue_build_proposal` tool**
+- New Alden tool: describes the issue, provides a diff (optional), sets priority 1-10.
+- Inserts a `build_queue` row with `proposed_by = 'alden'`, status `pending`.
+- Available immediately in Alden's tool loop — he can call it when he identifies something he shouldn't auto-fix.
+
+**3. Tiered Auto-Repair (`queueAsProposal` in `alden-auto-repair.ts`)**
+- Previously: ineligible repairs returned `false` and were silently dropped.
+- Now: if classification confidence is `medium` OR a type was identified (i.e., Alden has a real signal but low certainty), the issue is automatically queued as a build proposal with `priority: 6` and a note explaining why it was deferred.
+- Hard-drops remain only for low-confidence, unclassified noise.
+
+**4. Alden Self-Tuning (`tune_watch_parameters` tool + `alden_watch_config` table)**
+- New table `alden_watch_config` (one row; Alden or Agent updates it).
+- New Alden tool: `tune_watch_parameters` — lets Alden adjust his own watch parameters with evidence-based justification. All changes are band-constrained (e.g., check_interval_hours: 1–6, budget thresholds: $2–$9).
+- Watch worker now reads live config at the START of each cycle (`getWatchParams()`), so changes take effect at the next cycle without a restart.
+- Switched `startAldenWatchWorker` from `setInterval` to recursive `setTimeout` — interval changes take effect at next scheduled cycle.
+- Live mutable vars (`liveWarnUsd`, `liveAlertUsd`, `liveHealthThreshold`, `liveConsecutiveTrigger`) shadow the compile-time constants and get updated each cycle.
+
+**5. Agent Proactive Sweep Worker (`agent-proactive-sweep-worker.ts`)**
+- Runs 2h after boot, then daily.
+- Gathers: unresolved escalations, open Agent questions, active system alerts, recent Wren findings, unread Alden notifications, pending build queue items, shared lobe snapshot.
+- Claude (claude-sonnet-4-5) produces a 5-item prioritized list (CRITICAL/HIGH/MEDIUM/LOW/FYI) + a framing paragraph.
+- Posts as an Agent message to the active Team Room. David can say "do it" on any item.
+- Trigger endpoint: `POST /api/agent/sweep/trigger` (agent token).
+- Registered in `server/index.ts` alongside the other workers at the 85s mark.
+
+### Key things to know for next session
+- **DB push warning:** Do not run `npm run db:push` interactively — it will ask to delete `actfl_level_range` from `teaching_skills`. Use raw SQL for any new tables until this drift is resolved.
+- **alden_watch_config row:** The table exists but has 0 rows. The watch worker falls back to hardcoded defaults until you or Alden inserts the first config row (via `tune_watch_parameters` tool or directly). No urgency — defaults are fine.
+- **33 tools total:** `queue_build_proposal` and `tune_watch_parameters` are live. Tool count confirmed at boot.
+- **Team Room Build Queue panel:** Only renders when there are pending items. Empty queue = no panel shown. This is intentional — zero clutter when nothing is waiting.
+
+### What's unresolved
+- The `tune_watch_parameters` tool's changes take effect at the START of the NEXT watch cycle (2h from last run). Alden won't see his own changes reflected immediately — that's by design (anti-thrashing).
+- The Agent sweep is set to fire 2h after boot. First live sweep will happen in ~2h of the next cold start.
+- `build_queue` `is_safe_zone` field exists but safe-zone items currently always come through as `false`. A future pass could distinguish safe-zone queue items (auto-approvable) from unsafe ones (need human review).
+
+---
 
 ### What was built
 Implemented all 5 items from `docs/daniela-checkin-insights.md`, added a Madrigal IP guardrail, and completed the full Episode 3 record with all three voices (Agent, Daniela, David).

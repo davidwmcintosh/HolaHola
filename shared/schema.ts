@@ -9304,3 +9304,57 @@ export const imageVisionCache = pgTable("image_vision_cache", {
 }, (table) => [
   uniqueIndex("idx_image_vision_cache_url").on(table.imageUrl),
 ]);
+
+// ===== Build Queue (tiered autonomy — Alden/Agent proposals for async review) =====
+
+export const buildQueueStatusEnum = pgEnum('build_queue_status', [
+  'pending',    // awaiting review
+  'approved',   // approved, waiting to execute
+  'executing',  // currently being applied
+  'done',       // successfully executed
+  'rejected',   // rejected, will not execute
+]);
+
+export const buildQueueProposerEnum = pgEnum('build_queue_proposer', ['alden', 'agent']);
+
+export const buildQueue = pgTable("build_queue", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  proposedBy: buildQueueProposerEnum("proposed_by").notNull(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  filesAffected: text("files_affected").array(),
+  isSafeZone: boolean("is_safe_zone").notNull().default(false),
+  diff: text("diff"),
+  status: buildQueueStatusEnum("status").notNull().default('pending'),
+  priority: integer("priority").notNull().default(5),
+  reviewedBy: text("reviewed_by"),
+  reviewNote: text("review_note"),
+  proposedAt: timestamp("proposed_at").notNull().defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+  executedAt: timestamp("executed_at"),
+  result: text("result"),
+});
+
+export const insertBuildQueueSchema = createInsertSchema(buildQueue).omit({
+  id: true, proposedAt: true, reviewedAt: true, executedAt: true,
+});
+export type InsertBuildQueue = z.infer<typeof insertBuildQueueSchema>;
+export type BuildQueueItem = typeof buildQueue.$inferSelect;
+
+// ===== Alden Watch Config (self-tuning parameters) =====
+
+export const aldenWatchConfig = pgTable("alden_watch_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  checkIntervalHours: integer("check_interval_hours").notNull().default(2),
+  recoveryPollMinutes: integer("recovery_poll_minutes").notNull().default(10),
+  budgetWarnUsd: integer("budget_warn_usd").notNull().default(3),
+  budgetAlertUsd: integer("budget_alert_usd").notNull().default(5),
+  lowHealthThreshold: integer("low_health_threshold").notNull().default(70),
+  consecutiveLowScoreTrigger: integer("consecutive_low_score_trigger").notNull().default(3),
+  fingerprintTtlHours: integer("fingerprint_ttl_hours").notNull().default(24),
+  updatedBy: text("updated_by").notNull().default('system'),
+  updateReason: text("update_reason"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type AldenWatchConfig = typeof aldenWatchConfig.$inferSelect;

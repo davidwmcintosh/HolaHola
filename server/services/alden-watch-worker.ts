@@ -11,7 +11,7 @@
 
 import Anthropic from "@anthropic-ai/sdk";
 import { getUserDb } from "../db";
-import { aldenNotifications, aiCostLogs } from "@shared/schema";
+import { aldenNotifications, aiCostLogs, aldenWatchConfig } from "@shared/schema";
 import { sql as drizzleSql, eq, desc, and } from "drizzle-orm";
 import { executeAldenTool, ALDEN_TOOLS } from "./alden-functions";
 import {
@@ -25,13 +25,55 @@ import { costTracker } from "./cost-tracker";
 import { writeEscalation } from "./alden-escalation-log";
 import { founderCollabService } from "./founder-collaboration-service";
 
-const CHECK_INTERVAL_MS = 2 * 60 * 60 * 1000;
-const HEALTH_SCORE_LOW_THRESHOLD = 70;
+const DEFAULT_CHECK_INTERVAL_H   = 2;
+const CHECK_INTERVAL_MS           = DEFAULT_CHECK_INTERVAL_H * 60 * 60 * 1000;
+const HEALTH_SCORE_LOW_THRESHOLD  = 70;
 
-// Cost tier thresholds (24h window)
+// Cost tier thresholds (24h window) — defaults, overridable via alden_watch_config
 const BUDGET_WARN_USD       = 3;   // Tier 1 — notification only (existing behaviour)
 const BUDGET_ALERT_USD      = 5;   // Tier 2 — notification + Hive post
 const BUDGET_HARD_PAUSE_USD = 10;  // Tier 3 — Hive post + skip cycle entirely
+
+/**
+ * Live watch parameters — read from alden_watch_config at the start of each cycle.
+ * Falls back to compile-time defaults if the DB row doesn't exist yet.
+ */
+async function getWatchParams(): Promise<{
+  checkIntervalMs: number;
+  recoveryPollMs: number;
+  budgetWarnUsd: number;
+  budgetAlertUsd: number;
+  lowHealthThreshold: number;
+  consecutiveLowScoreTrigger: number;
+  fingerprintTtlMs: number;
+}> {
+  try {
+    const db = getUserDb();
+    const rows = await db.select().from(aldenWatchConfig).limit(1);
+    const cfg = rows[0];
+    if (!cfg) throw new Error('no config row');
+    return {
+      checkIntervalMs:          (cfg.checkIntervalHours  || DEFAULT_CHECK_INTERVAL_H) * 60 * 60 * 1000,
+      recoveryPollMs:           (cfg.recoveryPollMinutes || 10) * 60 * 1000,
+      budgetWarnUsd:             cfg.budgetWarnUsd        ?? BUDGET_WARN_USD,
+      budgetAlertUsd:            cfg.budgetAlertUsd       ?? BUDGET_ALERT_USD,
+      lowHealthThreshold:        cfg.lowHealthThreshold   ?? HEALTH_SCORE_LOW_THRESHOLD,
+      consecutiveLowScoreTrigger:cfg.consecutiveLowScoreTrigger ?? 3,
+      fingerprintTtlMs:         (cfg.fingerprintTtlHours ?? 24) * 60 * 60 * 1000,
+    };
+  } catch {
+    // Defaults if no config row exists yet
+    return {
+      checkIntervalMs:           CHECK_INTERVAL_MS,
+      recoveryPollMs:            10 * 60 * 1000,
+      budgetWarnUsd:             BUDGET_WARN_USD,
+      budgetAlertUsd:            BUDGET_ALERT_USD,
+      lowHealthThreshold:        HEALTH_SCORE_LOW_THRESHOLD,
+      consecutiveLowScoreTrigger:3,
+      fingerprintTtlMs:          24 * 60 * 60 * 1000,
+    };
+  }
+}
 
 /**
  * DB-backed 24h AI spend — survives process restarts.
@@ -79,6 +121,12 @@ let lastBudgetAlertTime: number | null = null;  // Tier 2 — $5
 
 // Hard-pause state: set when 24h spend crosses $10; cleared when spend drops below
 let hardPauseActive = false;
+
+// Live watch params — updated at the start of each cycle from alden_watch_config
+let liveWarnUsd   = BUDGET_WARN_USD;
+let liveAlertUsd  = BUDGET_ALERT_USD;
+let liveHealthThreshold = HEALTH_SCORE_LOW_THRESHOLD;
+let liveConsecutiveTrigger = 3;
 
 // Last watch cycle timestamp — exposed via /api/admin/alden-status
 let lastWatchCycleTime: number | null = null;
@@ -158,6 +206,15 @@ async function postHiveMessage(content: string, metadata?: Record<string, any>):
 }
 
 async function runWatchCycle() {
+  // Read live config from DB at start of each cycle so Alden's self-tuning takes effect
+  try {
+    const params = await getWatchParams();
+    liveWarnUsd            = params.budgetWarnUsd;
+    liveAlertUsd           = params.budgetAlertUsd;
+    liveHealthThreshold    = params.lowHealthThreshold;
+    liveConsecutiveTrigger = params.consecutiveLowScoreTrigger;
+  } catch { /* keep existing live values if DB read fails */ }
+
   try {
     // ── Pre-flight: hard-pause check (Tier 3 — $10 threshold) ───────────────
     // DB-backed so a restart cannot reset enforcement when real 24h spend is already >$10
@@ -403,16 +460,16 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
     lastWatchCycleTime = Date.now();
 
     // ── Always-on: health score consecutive drop tracking ───────────────────
-    if (currentMetric.healthScore < HEALTH_SCORE_LOW_THRESHOLD) {
+    if (currentMetric.healthScore < liveHealthThreshold) {
       consecutiveLowScoreCycles++;
-      console.log(`[AldenWatch] Health score ${currentMetric.healthScore} below ${HEALTH_SCORE_LOW_THRESHOLD} — consecutive: ${consecutiveLowScoreCycles}`);
-      if (consecutiveLowScoreCycles >= 2) {
+      console.log(`[AldenWatch] Health score ${currentMetric.healthScore} below ${liveHealthThreshold} — consecutive: ${consecutiveLowScoreCycles}`);
+      if (consecutiveLowScoreCycles >= liveConsecutiveTrigger) {
         const fp = 'health_score_persistent_low';
         const isDup = await hasDuplicateActiveIssue(fp);
         if (!isDup) {
           const dbH = getUserDb();
           await dbH.insert(aldenNotifications).values({
-            content: `Health score has been below ${HEALTH_SCORE_LOW_THRESHOLD} for ${consecutiveLowScoreCycles} consecutive watch cycles (current: ${currentMetric.healthScore}). This persistent degradation warrants investigation.`,
+            content: `Health score has been below ${liveHealthThreshold} for ${consecutiveLowScoreCycles} consecutive watch cycles (current: ${currentMetric.healthScore}). This persistent degradation warrants investigation.`,
             triggeredBy: 'alden-watch',
             severity: 'alert',
             read: false,
@@ -432,24 +489,24 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
     // DB-backed spend so cost controls survive restarts
     const { spend } = await getDb24hSpend();
 
-    if (spend >= BUDGET_ALERT_USD) {
-      // Tier 2 — $5: notification + Hive post
+    if (spend >= liveAlertUsd) {
+      // Tier 2 — liveAlertUsd: notification + Hive post
       const sinceLastAlert = lastBudgetAlertTime ? Date.now() - lastBudgetAlertTime : Infinity;
       if (sinceLastAlert > 12 * 60 * 60 * 1000) {
-        console.log(`[AldenWatch] Tier-2 budget: $${spend.toFixed(4)} in 24h (threshold: $${BUDGET_ALERT_USD})`);
+        console.log(`[AldenWatch] Tier-2 budget: $${spend.toFixed(4)} in 24h (threshold: $${liveAlertUsd})`);
         const fp = 'budget_exceeded';
         const isDupAlert = await hasDuplicateActiveIssue(fp);
         if (!isDupAlert) {
           const dbB = getUserDb();
           await dbB.insert(aldenNotifications).values({
-            content: `AI spend in the last 24h has reached $${spend.toFixed(4)}, crossing the $${BUDGET_ALERT_USD} alert threshold. Review the cost breakdown in Lyra's next report.`,
+            content: `AI spend in the last 24h has reached $${spend.toFixed(4)}, crossing the $${liveAlertUsd} alert threshold. Review the cost breakdown in Lyra's next report.`,
             triggeredBy: 'alden-watch',
             severity: 'warning',
             read: false,
             fingerprint: fp,
           });
           await postHiveMessage(
-            `Budget alert (Tier 2): 24h AI spend is $${spend.toFixed(4)}, over the $${BUDGET_ALERT_USD} threshold. Monitoring closely.`,
+            `Budget alert (Tier 2): 24h AI spend is $${spend.toFixed(4)}, over the $${liveAlertUsd} threshold. Monitoring closely.`,
             { tier: 'alert', spendUsd: spend },
           );
           lastBudgetAlertTime = Date.now();
@@ -460,24 +517,24 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
           console.log('[AldenWatch] Budget alert suppressed — already reported and unread');
         }
       }
-    } else if (spend >= BUDGET_WARN_USD) {
-      // Tier 1 — $3: notification + Hive post (early warning)
+    } else if (spend >= liveWarnUsd) {
+      // Tier 1 — liveWarnUsd: notification + Hive post (early warning)
       const sinceLastWarn = lastBudgetWarnTime ? Date.now() - lastBudgetWarnTime : Infinity;
       if (sinceLastWarn > 12 * 60 * 60 * 1000) {
-        console.log(`[AldenWatch] Tier-1 budget warn: $${spend.toFixed(4)} in 24h (threshold: $${BUDGET_WARN_USD})`);
+        console.log(`[AldenWatch] Tier-1 budget warn: $${spend.toFixed(4)} in 24h (threshold: $${liveWarnUsd})`);
         const fp = 'budget_warn';
         const isDupWarn = await hasDuplicateActiveIssue(fp);
         if (!isDupWarn) {
           const dbW = getUserDb();
           await dbW.insert(aldenNotifications).values({
-            content: `AI spend in the last 24h has reached $${spend.toFixed(4)}, crossing the $${BUDGET_WARN_USD} early-warning threshold. No action required yet.`,
+            content: `AI spend in the last 24h has reached $${spend.toFixed(4)}, crossing the $${liveWarnUsd} early-warning threshold. No action required yet.`,
             triggeredBy: 'alden-watch',
             severity: 'info',
             read: false,
             fingerprint: fp,
           });
           await postHiveMessage(
-            `Budget early warning (Tier 1): 24h AI spend is $${spend.toFixed(4)}, passing the $${BUDGET_WARN_USD} watch threshold. No action needed yet — just a heads-up.`,
+            `Budget early warning (Tier 1): 24h AI spend is $${spend.toFixed(4)}, passing the $${liveWarnUsd} watch threshold. No action needed yet — just a heads-up.`,
             { tier: 'warn', spendUsd: spend },
           );
           lastBudgetWarnTime = Date.now();
@@ -666,12 +723,35 @@ async function runHardPauseRecoveryCheck(): Promise<void> {
   }
 }
 
+/**
+ * Recursive setTimeout loop so interval changes from alden_watch_config take effect
+ * at the next cycle without a restart.
+ */
+async function scheduleNextCycle(): Promise<void> {
+  try {
+    const params = await getWatchParams();
+    setTimeout(() => {
+      runWatchCycle().catch(err =>
+        console.warn('[AldenWatch] Cycle failed:', err.message)
+      ).finally(() => scheduleNextCycle());
+    }, params.checkIntervalMs);
+  } catch {
+    // Fallback to default interval if DB read fails
+    setTimeout(() => {
+      runWatchCycle().catch(err =>
+        console.warn('[AldenWatch] Cycle failed:', err.message)
+      ).finally(() => scheduleNextCycle());
+    }, CHECK_INTERVAL_MS);
+  }
+}
+
 export function startAldenWatchWorker() {
   console.log(`[AldenWatch] Starting (interval: 2h, recovery poll: ${RECOVERY_POLL_MIN}min [ALDEN_RECOVERY_POLL_MIN], per-issue-type dedup via fingerprint)`);
-  // Initial check after 5 minutes (let the server settle)
+  // Initial check after 5 minutes (let the server settle), then self-scheduling
   setTimeout(() => {
-    runWatchCycle();
-    setInterval(runWatchCycle, CHECK_INTERVAL_MS);
+    runWatchCycle()
+      .catch(err => console.warn('[AldenWatch] First cycle failed:', err.message))
+      .finally(() => scheduleNextCycle());
   }, 5 * 60 * 1000);
 
   // Lightweight recovery poller — fires every 10 min, no-ops unless hard-paused
