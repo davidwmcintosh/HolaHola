@@ -671,6 +671,38 @@ function InviteTutorPopover({ sessionId, currentGuests, onInvited }: {
   );
 }
 
+// ── Document Session button ───────────────────────────────────────────────────
+// Saves the full session transcript to conversation_memories and indexes each
+// advisor's contributions as advisor_insight embeddings for future session recall.
+function DocumentSessionButton({ sessionId }: { sessionId: string | null }) {
+  const { toast } = useToast();
+  const documentSession = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/team-room/sessions/${sessionId}/document`, {}),
+    onSuccess: (data: any) => {
+      toast({
+        title: "Session documented",
+        description: `Saved to the historic record. ${data.advisorsIndexed?.length ? `${data.advisorsIndexed.join(', ')} indexed for future recall.` : ''}`,
+      });
+    },
+    onError: () => {
+      toast({ title: "Could not document session", variant: "destructive" });
+    },
+  });
+  if (!sessionId) return null;
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => documentSession.mutate()}
+      disabled={documentSession.isPending}
+      data-testid="button-document-session"
+    >
+      <BookmarkPlus className="h-3.5 w-3.5 mr-1" />
+      {documentSession.isPending ? "Saving..." : "Document"}
+    </Button>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function TeamRoom() {
@@ -1320,6 +1352,7 @@ export default function TeamRoom() {
                     {closeSession.isPending ? "Closing..." : "End Session"}
                   </Button>
                 )}
+                <DocumentSessionButton sessionId={activeSessionId} />
                 <Button variant="ghost" size="sm" onClick={() => { setActiveSessionId(null); setExpressLaneItems([]); setSessionArtifacts([]); setSessionSummary(null); setWsMessages([]); setGuestTutors([]); setHandRaises({}); }} data-testid="button-leave-room">
                   Leave
                 </Button>

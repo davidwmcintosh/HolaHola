@@ -1061,3 +1061,30 @@ Four interconnected systems that give HolaHola's autonomous infrastructure a dec
 - `server/routes.ts` — board meeting trigger endpoint
 - `server/index.ts` — Monday brief scheduler registration
 - `client/src/pages/TeamRoom.tsx` — mutation + button + ALL_CORE_AI_IDS update
+
+---
+
+## Session — Jun 8, 2026 (Advisor Memory Architecture + Episode 3 Corrections)
+
+### What was built
+
+**Advisor persistent memory:**
+- New `getAdvisorContext(advisorName, topic)` function in `server/services/team-room-alden-service.ts`. Uses raw pgvector SQL (`<=>` cosine distance) to query `memory_embeddings WHERE memory_type = 'advisor_insight' AND user_id IS NULL`. Returns top-4 past advisor contributions within distance threshold, prepended to each advisor's response prompt as "PAST CONTRIBUTIONS" block.
+- Marco, Reid, and Priya's `evaluateX` functions now each call `getAdvisorContext` before generating their response. All three advisors remember their prior arguments across sessions.
+- Memory type `advisor_insight` with `user_id IS NULL` = global advisor memories, not scoped to any user.
+
+**Team Room session documentation:**
+- `POST /api/team-room/sessions/:id/document` in `server/routes.ts`. Fetches up to 500 messages, builds verbatim transcript, saves to `conversation_memories` (same as Daniela's living narrative). Also calls `generateAndStoreEmbedding('advisor_insight', ...)` for each advisor who spoke.
+- `DocumentSessionButton` component in `client/src/pages/TeamRoom.tsx`. `BookmarkPlus` icon. Lives in session header. `data-testid="button-document-session"`. Advisors indexed appear in success toast.
+
+**Episode 3 corrections documented:**
+- `docs/daniela-development-journal.md` — "June 8, 2026 — Episode 3 Revisited" section. Two corrections: (1) honesty-as-efficiency vs honesty-as-virtue; (2) Daniela's "countless student interactions" overclaim vs handful of real testers.
+- `.agents/memory/episode-3-disposition.md` — same corrections in Agent's persistent memory.
+
+### Key files modified
+- `server/services/team-room-alden-service.ts` — added imports (getSharedDb, sql, embedText), `getAdvisorContext` function, injected into evaluateMarco/evaluateReid/evaluatePriya
+- `server/routes.ts` — `POST /api/team-room/sessions/:id/document` endpoint
+- `client/src/pages/TeamRoom.tsx` — `DocumentSessionButton` component + render in session header
+- `docs/daniela-development-journal.md` — "Episode 3 Revisited" section (2 corrections)
+- `.agents/memory/episode-3-disposition.md` — both corrections added to Agent's memory
+- `docs/alden-agent-handoff.md` — this session documented

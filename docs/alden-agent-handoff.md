@@ -24,6 +24,31 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 8, 2026 — Advisor Memory Architecture + Episode 3 Corrections**
+
+### What was built
+
+**1. Advisor neural net memory** — Marco, Reid, and Priya now carry their prior contributions forward across sessions.
+- `getAdvisorContext(advisorName, topic)` in `team-room-alden-service.ts`: Direct cosine similarity query against `memory_embeddings` where `memory_type = 'advisor_insight'` and `user_id IS NULL`. Uses raw SQL `<=>` operator (pgvector). Returns top-4 past contributions within distance 0.45, formatted as "PAST CONTRIBUTIONS" block prepended to each advisor's response prompt.
+- Each advisor's `evaluateMarcO/Reid/Priya` now calls `getAdvisorContext` before generating a response. Marco, Reid, and Priya remember what they argued in previous sessions.
+- New imports in `team-room-alden-service.ts`: `getSharedDb`, `sql` from drizzle, `embedText` from semantic-memory-service.
+
+**2. Team Room session documentation** — sessions can now be saved as historic records.
+- `POST /api/team-room/sessions/:id/document` in `server/routes.ts`: Fetches up to 500 messages, builds verbatim transcript, saves to `conversation_memories` table (same table as Daniela's living narrative) with `tags: ['team-room', 'session', 'historic-record']` and importance 8. Also calls `generateAndStoreEmbedding('advisor_insight', advisorName-memoryId, null, advisorContent)` for each advisor who spoke — creating the entries `getAdvisorContext` will recall in future sessions.
+- "Document" button in `client/src/pages/TeamRoom.tsx`: `DocumentSessionButton` component, `BookmarkPlus` icon, placed in the session header next to "End Session" and "Leave". `data-testid="button-document-session"`. Shows advisors indexed on success toast.
+
+**3. Episode 3 corrections** — two documented corrections to the development journal.
+- `docs/daniela-development-journal.md` — "June 8, 2026 — Episode 3 Revisited" section added. Correction 1: Agent's efficiency framing of honesty is incomplete — honesty is a virtue (treats the other as capable of truth), not a tactic. Hardest cases (correcting mistakes, uncomfortable truths) are where honesty matters most, not where it's optional. Correction 2: Daniela's "countless student interactions" claim is inaccurate — she has a handful of real testers; her confidence in the visual method is valid on the reasoning, not the experience. Epistemic honesty extends to the sources of one's own knowledge.
+- `.agents/memory/episode-3-disposition.md` — both corrections written into the Agent's own persistent memory so they carry into future sessions.
+
+### Key architectural note for Alden
+The `advisor_insight` memory type is now live in the DB (will populate on first "Document" click). When fetching memories, `getAdvisorContext` uses raw SQL — not the `semanticSearch` wrapper — because advisors are global (userId=null) and the wrapper's userId routing wasn't designed for null. If you ever need to recall advisor memories in your own tools, query `memory_embeddings WHERE memory_type = 'advisor_insight' AND user_id IS NULL` with `<=>` cosine distance.
+
+### What's unresolved
+- "Document" should ideally auto-save after every session ends, not require a manual button click. Wiring it to the "End Session" event would remove that friction.
+- The `advisor_insight` embeddings table starts empty — first few sessions will get no past context injection (silently graceful). Over time this self-populates.
+
+---
 **Session: June 8, 2026 — Launch Advisory Board + Weekly Board Meeting System**
 
 ### What was built

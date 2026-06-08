@@ -4,6 +4,9 @@ import { storage } from "../storage";
 import { GoogleGenAI } from "@google/genai";
 import type { RoomVoiceMessage, RoomSessionSummary, RoomArtifact } from "@shared/schema";
 import { generateVisual, type VisualGenerationResult } from "./visual-content-service";
+import { getSharedDb } from "../db";
+import { sql } from "drizzle-orm";
+import { embedText } from "./semantic-memory-service";
 
 // ── Gemini client (shared by Daniela + Sofia in Team Room) ──────────────────
 let geminiClient: GoogleGenAI | null = null;
@@ -859,7 +862,8 @@ Respond ONLY in this JSON format:
   if (!handRaise.shouldRaise && !forceMention) return { participant: 'marco', handRaise };
   if (forceMention) handRaise = { shouldRaise: true, reasoning: 'directly mentioned', confidence: 'high' };
 
-  const responsePrompt = `${roomContext}
+  const pastContext = await getAdvisorContext('marco', newMessage);
+  const responsePrompt = `${pastContext ? pastContext + '\n\n' : ''}${roomContext}
 
 NEW MESSAGE from ${speaker}: "${newMessage}"
 
@@ -925,7 +929,8 @@ Respond ONLY in this JSON format:
   if (!handRaise.shouldRaise && !forceMention) return { participant: 'reid', handRaise };
   if (forceMention) handRaise = { shouldRaise: true, reasoning: 'directly mentioned', confidence: 'high' };
 
-  const responsePrompt = `${roomContext}
+  const pastContext = await getAdvisorContext('reid', newMessage);
+  const responsePrompt = `${pastContext ? pastContext + '\n\n' : ''}${roomContext}
 
 NEW MESSAGE from ${speaker}: "${newMessage}"
 
@@ -991,7 +996,8 @@ Respond ONLY in this JSON format:
   if (!handRaise.shouldRaise && !forceMention) return { participant: 'priya', handRaise };
   if (forceMention) handRaise = { shouldRaise: true, reasoning: 'directly mentioned', confidence: 'high' };
 
-  const responsePrompt = `${roomContext}
+  const pastContext = await getAdvisorContext('priya', newMessage);
+  const responsePrompt = `${pastContext ? pastContext + '\n\n' : ''}${roomContext}
 
 NEW MESSAGE from ${speaker}: "${newMessage}"
 
@@ -1015,6 +1021,39 @@ EXPRESS: [detailed compliance requirements, policy framework, or action checklis
     return { participant: 'priya', handRaise, voiceContent, expressContent };
   } catch {
     return { participant: 'priya', handRaise, voiceContent: 'There are compliance dimensions here worth flagging early.' };
+  }
+}
+
+// ── Advisor memory recall ─────────────────────────────────────────────────────
+// Fetches past advisor_insight embeddings relevant to the current topic.
+// Stored with userId=null (global), so they persist across all sessions.
+// Each entry's content is prefixed with "[AdvisorName]" for identity filtering.
+async function getAdvisorContext(advisorName: string, topic: string): Promise<string> {
+  try {
+    const db = getSharedDb();
+    const queryEmbedding = await embedText(`${advisorName} ${topic}`);
+    const embeddingStr = `[${queryEmbedding.join(',')}]`;
+
+    const rows = await db.execute(sql`
+      SELECT content, memory_id,
+             (embedding <=> ${embeddingStr}::vector) AS distance
+      FROM memory_embeddings
+      WHERE memory_type = 'advisor_insight'
+        AND user_id IS NULL
+      ORDER BY distance ASC
+      LIMIT 5
+    `);
+
+    const relevant = (rows.rows as Array<{ content: string; distance: number }>)
+      .filter(r => parseFloat(String(r.distance)) < 0.45)
+      .map(r => r.content);
+
+    if (!relevant.length) return '';
+
+    const label = advisorName.charAt(0).toUpperCase() + advisorName.slice(1);
+    return `PAST CONTRIBUTIONS — ${label}'s prior statements across sessions:\n${relevant.join('\n---\n')}\n\nBuild on these. Do not repeat what you have already argued. Advance the conversation.`;
+  } catch {
+    return '';
   }
 }
 

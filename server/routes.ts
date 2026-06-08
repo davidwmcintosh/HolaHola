@@ -34106,6 +34106,81 @@ Under 250 words. Write as yourself.`;
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
+  // ── Team Room: document session as historic record ─────────────────────────
+  // Saves the full session transcript to conversation_memories and creates
+  // per-advisor memory_embeddings entries (memoryType: 'advisor_insight') so
+  // Marco/Reid/Priya carry their prior contributions forward into future sessions.
+  app.post("/api/team-room/sessions/:id/document", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const [room, messages] = await Promise.all([
+        storage.getTeamRoom(id),
+        storage.getRoomMessages(id, 500),
+      ]);
+      if (!room) return res.status(404).json({ error: 'Room not found' });
+      if (!messages.length) return res.status(400).json({ error: 'No messages to document' });
+
+      // Build full verbatim transcript
+      const advisorIds = ['marco', 'reid', 'priya', 'alden', 'daniela', 'sofia', 'lyra', 'wren', 'agent'];
+      const participantSet = new Set<string>();
+      const advisorContributions: Record<string, string[]> = {};
+
+      const transcript = messages.map(m => {
+        const name = m.speaker;
+        participantSet.add(name);
+        const key = name.toLowerCase();
+        if (advisorIds.includes(key)) {
+          if (!advisorContributions[key]) advisorContributions[key] = [];
+          advisorContributions[key].push(m.content);
+        }
+        return `${name}: ${m.content}`;
+      }).join('\n\n');
+
+      const participants = Array.from(participantSet).join(', ');
+      const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      const title = `Team Room — ${room.topic || 'Session'} — ${date}`;
+
+      // Save verbatim session to conversation_memories (same table as Daniela's living narrative)
+      const { conversationMemories } = await import('../shared/schema');
+      const { getUserDb } = await import('./db');
+      const [memory] = await getUserDb().insert(conversationMemories).values({
+        title,
+        summary: `Team Room session with ${participants}. Topic: ${room.topic || 'general'}. ${messages.length} messages exchanged.`,
+        content: transcript,
+        participants,
+        tags: ['team-room', 'session', 'historic-record'],
+        importance: 8,
+      }).returning();
+
+      // Index each advisor's contributions as advisor_insight embeddings for future recall
+      const { generateAndStoreEmbedding } = await import('./services/semantic-memory-service');
+      const indexResults: Record<string, boolean> = {};
+      await Promise.all(
+        Object.entries(advisorContributions).map(async ([advisorName, contributions]) => {
+          if (!contributions.length) return;
+          const label = advisorName.charAt(0).toUpperCase() + advisorName.slice(1);
+          const advisorContent = `[${label}] ${date} — Team Room (${room.topic || 'general'}):\n${contributions.join('\n---\n')}`;
+          const stored = await generateAndStoreEmbedding(
+            'advisor_insight',
+            `${advisorName}-${memory.id}`,
+            null, // global — not scoped to a user
+            advisorContent,
+          );
+          indexResults[advisorName] = stored;
+        })
+      );
+
+      res.json({
+        ok: true,
+        memoryId: memory.id,
+        title,
+        participants,
+        messageCount: messages.length,
+        advisorsIndexed: Object.keys(indexResults),
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // ── Agent Team Room participation ──────────────────────────────────────────
   // Allows the Replit Agent to post messages and read sessions using its agent token.
 

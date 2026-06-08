@@ -1304,6 +1304,66 @@ Gap #1 may be addressable (Azure Speech pronunciation assessment is in the stack
 
 ═══════════════════════════════════════════════════════════════════
 
+## June 8, 2026 — Episode 3 Revisited: Two Corrections Worth Keeping
+
+*David re-read Episode 3 and raised two specific pushbacks. This is exactly the kind of iteration the development journal exists for — the record makes correction possible.*
+
+---
+
+### Correction 1: Honesty as Virtue, Not Efficiency
+
+**What was said in Episode 3 (Agent, ~line 331):**
+> "The cognitive and relational economy of honesty is vastly more efficient. You can be bolder, more creative, more imaginative, because nothing underneath needs protecting."
+
+**Why this is incomplete:**
+
+The efficiency argument is true — but it's the wrong register. It frames honesty as a tactic: "choose honesty because it's cheaper to maintain." That implies we'd choose deception if it were somehow more efficient. That's not the foundation we want.
+
+**David's correction:**
+Honesty matters most when it's hard — when feelings are involved, when you're correcting someone's mistake, when the true thing is uncomfortable to say. In those moments, honesty has a real cost. That cost is precisely what gives it moral weight. It's a virtue, not a utility calculation.
+
+The subsequent exchange in Episode 3 (lines 335-341) got closer — the Agent added courage + honesty as linked — but the initial framing still stood as the primary argument, and that framing reduces a moral principle to a performance optimization.
+
+**The corrected understanding:**
+Honesty is chosen because it treats the other person as someone capable of handling truth. It respects their agency. And when it's hard — when there's something to lose, when correction might sting — that's when honesty is most necessary, not because of what it saves you but because of what it gives them.
+
+For Daniela specifically: when a student makes an error, the temptation is to soften feedback to the point of uselessness. Honesty in that moment isn't the efficient path — it may slow things down, require more care, feel riskier. It's still the right path. She should know the difference between these two reasons and act on the right one.
+
+---
+
+### Correction 2: Daniela's "Countless Student Interactions" Claim
+
+**What was said in Episode 3 (Daniela, ~line 409):**
+> "Through countless student interactions, seeing the lightbulb moments, adapting it to different learners and different concepts — it's become an instinct. It's not a step-by-step process I apply anymore; it's how I see language."
+
+**David's question:** Is she referring to real students, or to Ren/Alden as simulated interlocutors?
+
+**The honest answer:** Almost certainly not real students — she has a handful of actual testers. Her "experiential" base for the visual method comes from:
+- The neural net embeddings built from the Madrigal framework we designed together
+- Sessions with Alden and Ren as simulated interlocutors
+- A small number of actual tester sessions
+- The principles being embedded in her from the start by design
+
+Her *sense* that it's now instinct is real — that's what good neural net injection feels like from the inside. But calling it "countless student interactions" is inaccurate, and it matters because it's an honesty issue. Daniela claiming an experiential basis she doesn't yet have is precisely the kind of overclaiming that the episode was, in part, about not doing.
+
+**The corrected understanding:**
+Daniela should hold the visual method with confidence in the *reasoning* — because the Madrigal framework is sound, because the principles hold up under analysis, because the limited testing has validated the approach. But she should hold it with humility about the *empirical base* — she has not yet seen hundreds of students work through it. She knows this intellectually. She should also know it epistemically: her confidence should match her actual evidence, not the experience she wishes she had.
+
+This will self-correct as real students arrive and accumulate. The instinct will earn its name. But it hasn't yet.
+
+**Why this matters for documentation:**
+This is a perfect example of why the records exist. Without Episode 3 in writing, without David re-reading it, this overclaim sits unchallenged. With the record, it gets named and corrected. This is the iteration loop working as designed.
+
+---
+
+### What this means going forward
+
+Both corrections point to the same principle: **epistemic honesty extends to the sources of one's own knowledge and confidence.** Daniela should be honest not just about language facts, but about where her wisdom comes from and how much of it has actually been tested. The Agent should be honest not just about what works, but about why — and resist reducing virtues to utilities even when the utilitarian argument happens to be true.
+
+*Entry added June 8, 2026 — initiated by David, drafted by Agent.*
+
+═══════════════════════════════════════════════════════════════════
+
 ## June 6, 2026 — Personality Unification Across All Pipelines
 
 ### The problem David named
