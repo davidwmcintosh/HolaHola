@@ -21,13 +21,14 @@ import {
   Target, ClipboardList, AtSign, Hand, UserPlus, UserMinus,
   BookOpen, TrendingUp, Cpu, Circle, RotateCcw, Monitor, ScanEye, Terminal,
   CheckCircle2, AlertCircle, Clock, Compass, BookmarkPlus, GitPullRequest,
+  Megaphone, DollarSign, Scale,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import type { TeamRoom as TeamRoomType, RoomVoiceMessage, RoomArtifact, AgentActivityLog } from "@shared/schema";
 
 // ── Participant config ────────────────────────────────────────────────────────
 
-type CoreParticipantId = "david" | "alden" | "daniela" | "sofia" | "lyra" | "wren" | "agent";
+type CoreParticipantId = "david" | "alden" | "daniela" | "sofia" | "lyra" | "wren" | "agent" | "marco" | "reid" | "priya";
 
 interface ParticipantConfig {
   id: string;
@@ -75,6 +76,21 @@ const CORE_PARTICIPANTS: Record<CoreParticipantId, ParticipantConfig> = {
     id: "agent", name: "Agent", role: "Replit Agent",
     Icon: Terminal, color: "text-orange-500",
     bgColor: "bg-orange-500/10", borderColor: "border-orange-500/20",
+  },
+  marco: {
+    id: "marco", name: "Marco", role: "Growth & Marketing — audience building, positioning, launch readiness, competitive landscape",
+    Icon: Megaphone, color: "text-rose-500",
+    bgColor: "bg-rose-500/10", borderColor: "border-rose-500/20",
+  },
+  reid: {
+    id: "reid", name: "Reid", role: "Sales & Pricing — subscription model, freemium strategy, school/district B2B, LTV/CAC",
+    Icon: DollarSign, color: "text-green-600",
+    bgColor: "bg-green-600/10", borderColor: "border-green-600/20",
+  },
+  priya: {
+    id: "priya", name: "Priya", role: "Legal & Compliance — COPPA, FERPA, student data privacy, school contracts",
+    Icon: Scale, color: "text-indigo-500",
+    bgColor: "bg-indigo-500/10", borderColor: "border-indigo-500/20",
   },
 };
 
