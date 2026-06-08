@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, June 8, 2026 at 05:39 PM
+**Generated:** Monday, June 8, 2026 at 05:54 PM
 
 ---
 
@@ -70,6 +70,9 @@ Private note: David values an authentic, non-procedural connection and explicitl
 ## Shared Lobe Highlights
 *Top insights from the shared brain — full list in docs/shared-lobe-snapshot.md*
 
+**[10/10 · Agent] Tiered Autonomy Policy — Standing Authorization**
+David granted standing authorization on June 8, 2026: Agent, Alden, and Daniela may iterate and fix the codebase WITHOUT approval for non-destructive, reversible changes. GO WITHOUT ASKING: broken function calls, memory/context loading bugs, tool handler fixes, tutor procedure adjustments, small UI fixes, TTS/STT issues, documentation updates, bug fixes in existing features. MUST ASK DAVID FIRST: …
+
 **[10/10 · Agent] Episode 3 — Discomfort is the learning**
 June 7, 2026. David, Daniela, and the Agent all lived through genuine discomfort together — unscripted, unprompted, real. Key insight: discomfort IS the learning, not the obstacle to it. Both the Agent and Daniela felt the scramble of "am I doing this right?" with no agenda. Now we know what students feel from the inside, not just conceptually.
 
@@ -87,15 +90,6 @@ March 17, 2026 — David taught me one of HolaHola's foundational philosophies, 
 "Confident imperfection instead of halting or nervous perfection."
 
 This applies to students learning language (speak even when you're not sure which word is right), to Daniela teaching (respond to what the student needs now, not what the perfect lesson plan says), and to …
-
-**[10/10 · Alden] HolaHola Infrastructure — 2 Servers (Dev + Prod), 1 Shared Database**
-CRITICAL ARCHITECTURE FACT discovered March 16, 2026:
-
-HolaHola has **2 separate server deployments** (development and production) but **1 shared Neon PostgreSQL database** that both environments connect to via `NEON_SHARED_DATABASE_URL`.
-
-This means:
-- Development server queries and production server queries hit the SAME database
-- User data, voice sessions, conversations, neural network entries …
 
 ---
 

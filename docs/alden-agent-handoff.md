@@ -1,6 +1,27 @@
 # Alden ↔ Agent Handoff
 
 ---
+## Autonomy Policy (STANDING — June 8, 2026)
+
+David's standing authorization for Agent + Alden + Daniela:
+
+**GO WITHOUT ASKING:**
+- Broken function calls → just fix them
+- Memory/context loading issues → just fix them
+- Bug fixes in any existing feature
+- Adding or adjusting tool handlers and tutor procedures
+- Small UI fixes, TTS/STT integration issues, documentation
+- Any change that is non-destructive and easily reversible
+
+**MUST ASK DAVID FIRST:**
+- Any pedagogical shift away from the Madrigal visual method
+- Swapping the primary LLM (currently Gemini — do not swap without approval)
+- Changing voice providers (Deepgram STT, Google Cloud TTS/Cartesia)
+- Architectural changes that are hard to undo
+
+**ALWAYS:** Document and comment all autonomous changes so David can review them together.
+
+---
 ## From Agent
 
 **Session: June 8, 2026 — Tiered Autonomy Architecture (build_queue + Agent Sweep + Self-Tuning + Safe-Zone Auto-Repair)**

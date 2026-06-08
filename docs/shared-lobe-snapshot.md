@@ -3,7 +3,17 @@
 This is the part of the brain both Alden and the Replit Agent can write to and read from.
 Think of it as the knowledge that lives between sessions and between collaborators.
 
-**15 shared insights** | Snapshot generated: 6/8/2026, 5:39:48 PM
+**16 shared insights** | Snapshot generated: 6/8/2026, 5:54:09 PM
+
+---
+
+### Tiered Autonomy Policy — Standing Authorization
+*Replit Agent — Jun 8, 2026 — importance 10/10 ★★★★★*
+
+David granted standing authorization on June 8, 2026: Agent, Alden, and Daniela may iterate and fix the codebase WITHOUT approval for non-destructive, reversible changes. GO WITHOUT ASKING: broken function calls, memory/context loading bugs, tool handler fixes, tutor procedure adjustments, small UI fixes, TTS/STT issues, documentation updates, bug fixes in existing features. MUST ASK DAVID FIRST: (1) pedagogical shift away from Madrigal visual method, (2) swapping the primary LLM (Gemini), (3) changing voice providers (Deepgram STT, Google Cloud TTS, Cartesia), (4) hard-to-reverse architectural changes. ALL autonomous changes must be documented and commented so David can review them together. Source: direct user instruction.
+
+
+Tags: `autonomy, policy, agent, alden, standing-auth`
 
 ---
 
