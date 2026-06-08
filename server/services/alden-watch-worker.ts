@@ -33,6 +33,24 @@ const BUDGET_WARN_USD       = 3;   // Tier 1 — notification only (existing beh
 const BUDGET_ALERT_USD      = 5;   // Tier 2 — notification + Hive post
 const BUDGET_HARD_PAUSE_USD = 10;  // Tier 3 — Hive post + skip cycle entirely
 
+/**
+ * DB-backed 24h AI spend — survives process restarts.
+ * Falls back to in-memory costTracker only if the DB query fails.
+ */
+async function getDb24hSpend(): Promise<{ spend: number; source: 'db' | 'memory' }> {
+  try {
+    const db = getUserDb();
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    const rows = await db
+      .select({ total: drizzleSql<number>`coalesce(sum(${aiCostLogs.costUsd}), 0)` })
+      .from(aiCostLogs)
+      .where(drizzleSql`${aiCostLogs.loggedAt} >= ${cutoff}`);
+    return { spend: Number(rows[0]?.total ?? 0), source: 'db' };
+  } catch {
+    return { spend: costTracker.getSummary(24).totalCostUsd, source: 'memory' };
+  }
+}
+
 // Tool-use loop safety cap
 const MAX_TOOL_ITERATIONS = 8;
 
@@ -142,13 +160,14 @@ async function postHiveMessage(content: string, metadata?: Record<string, any>):
 async function runWatchCycle() {
   try {
     // ── Pre-flight: hard-pause check (Tier 3 — $10 threshold) ───────────────
-    const hardBudget = costTracker.checkBudgetThreshold(BUDGET_HARD_PAUSE_USD, 24);
-    if (hardBudget.exceeded) {
+    // DB-backed so a restart cannot reset enforcement when real 24h spend is already >$10
+    const { spend: preflight24hSpend } = await getDb24hSpend();
+    if (preflight24hSpend >= BUDGET_HARD_PAUSE_USD) {
       if (!hardPauseActive) {
         hardPauseActive = true;
-        const msg = `HARD PAUSE: 24h AI spend has reached $${hardBudget.totalCostUsd.toFixed(2)}, crossing the $${BUDGET_HARD_PAUSE_USD} hard limit. Watch cycles are suspended until spend drops below this threshold. No further autonomous AI calls will be made this window.`;
+        const msg = `HARD PAUSE: 24h AI spend has reached $${preflight24hSpend.toFixed(2)}, crossing the $${BUDGET_HARD_PAUSE_USD} hard limit. Watch cycles are suspended until spend drops below this threshold. No further autonomous AI calls will be made this window.`;
         console.warn('[AldenWatch]', msg);
-        await postHiveMessage(msg, { tier: 'hard_pause', spendUsd: hardBudget.totalCostUsd });
+        await postHiveMessage(msg, { tier: 'hard_pause', spendUsd: preflight24hSpend });
         const fp = 'budget_hard_pause';
         const isDup = await hasDuplicateActiveIssue(fp);
         if (!isDup) {
@@ -161,6 +180,8 @@ async function runWatchCycle() {
             fingerprint: fp,
           });
         }
+        lastNotificationFingerprints.push({ fp, ts: Date.now() });
+        if (lastNotificationFingerprints.length > MAX_FP_HISTORY) lastNotificationFingerprints.shift();
       } else {
         console.log('[AldenWatch] Hard pause active — skipping cycle');
       }
@@ -408,8 +429,8 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
     }
 
     // ── Always-on: tiered cost budget controls (24h window) ─────────────────
-    const budget24h = costTracker.getSummary(24);
-    const spend = budget24h.totalCostUsd;
+    // DB-backed spend so cost controls survive restarts
+    const { spend } = await getDb24hSpend();
 
     if (spend >= BUDGET_ALERT_USD) {
       // Tier 2 — $5: notification + Hive post
@@ -432,6 +453,8 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
             { tier: 'alert', spendUsd: spend },
           );
           lastBudgetAlertTime = Date.now();
+          lastNotificationFingerprints.push({ fp, ts: Date.now() });
+          if (lastNotificationFingerprints.length > MAX_FP_HISTORY) lastNotificationFingerprints.shift();
           console.log('[AldenWatch] Tier-2 budget alert queued + Hive post sent');
         } else {
           console.log('[AldenWatch] Budget alert suppressed — already reported and unread');
@@ -458,6 +481,8 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
             { tier: 'warn', spendUsd: spend },
           );
           lastBudgetWarnTime = Date.now();
+          lastNotificationFingerprints.push({ fp, ts: Date.now() });
+          if (lastNotificationFingerprints.length > MAX_FP_HISTORY) lastNotificationFingerprints.shift();
           console.log('[AldenWatch] Tier-1 budget warning queued + Hive post sent');
         }
       }
@@ -624,12 +649,13 @@ async function runHardPauseRecoveryCheck(): Promise<void> {
   if (!hardPauseActive) return;
 
   try {
-    const check = costTracker.checkBudgetThreshold(BUDGET_HARD_PAUSE_USD, 24);
-    if (!check.exceeded) {
+    // DB-backed so recovery is accurate even after a restart
+    const { spend } = await getDb24hSpend();
+    if (spend < BUDGET_HARD_PAUSE_USD) {
       hardPauseActive = false;
-      const msg = `Budget recovered — 24h AI spend is now $${check.totalCostUsd.toFixed(2)}, below the $${BUDGET_HARD_PAUSE_USD} hard limit. Watch cycles are resuming.`;
+      const msg = `Budget recovered — 24h AI spend is now $${spend.toFixed(2)}, below the $${BUDGET_HARD_PAUSE_USD} hard limit. Watch cycles are resuming.`;
       console.log('[AldenWatch]', msg);
-      await postHiveMessage(msg, { tier: 'hard_pause_lifted', spendUsd: check.totalCostUsd });
+      await postHiveMessage(msg, { tier: 'hard_pause_lifted', spendUsd: spend });
       // Immediately kick off a full watch cycle so there is no gap
       runWatchCycle().catch(err =>
         console.warn('[AldenWatch] Post-recovery watch cycle failed:', err.message)
@@ -658,19 +684,7 @@ export function startAldenWatchWorker() {
  * Falls back to in-memory costTracker if the DB query fails.
  */
 export async function getAldenStatus() {
-  let spend: number;
-  try {
-    const db = getUserDb();
-    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
-    const rows = await db
-      .select({ total: drizzleSql<number>`coalesce(sum(${aiCostLogs.costUsd}), 0)` })
-      .from(aiCostLogs)
-      .where(drizzleSql`${aiCostLogs.loggedAt} >= ${cutoff}`);
-    spend = Number(rows[0]?.total ?? 0);
-  } catch {
-    // Fall back to in-memory tracker if DB is unavailable
-    spend = costTracker.getSummary(24).totalCostUsd;
-  }
+  const { spend, source: spendSource } = await getDb24hSpend();
 
   let activeTier: 'nominal' | 'warn' | 'alert' | 'hard_pause';
   if (spend >= BUDGET_HARD_PAUSE_USD) {
@@ -685,7 +699,7 @@ export async function getAldenStatus() {
 
   return {
     spend24hUsd: spend,
-    spendSource: 'db',
+    spendSource,
     thresholds: {
       warn:       BUDGET_WARN_USD,
       alert:      BUDGET_ALERT_USD,
