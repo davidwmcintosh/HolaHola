@@ -766,12 +766,14 @@ export function startAldenWatchWorker() {
 export async function getAldenStatus() {
   const { spend, source: spendSource } = await getDb24hSpend();
 
+  // Use the same effective thresholds that runWatchCycle() uses — live vars when
+  // alden_watch_config is populated, compile-time constants otherwise.
   let activeTier: 'nominal' | 'warn' | 'alert' | 'hard_pause';
   if (spend >= BUDGET_HARD_PAUSE_USD) {
     activeTier = 'hard_pause';
-  } else if (spend >= BUDGET_ALERT_USD) {
+  } else if (spend >= liveAlertUsd) {
     activeTier = 'alert';
-  } else if (spend >= BUDGET_WARN_USD) {
+  } else if (spend >= liveWarnUsd) {
     activeTier = 'warn';
   } else {
     activeTier = 'nominal';
@@ -781,13 +783,17 @@ export async function getAldenStatus() {
     spend24hUsd: spend,
     spendSource,
     thresholds: {
-      warn:       BUDGET_WARN_USD,
-      alert:      BUDGET_ALERT_USD,
-      hard_pause: BUDGET_HARD_PAUSE_USD,
+      warn:              liveWarnUsd,
+      alert:             liveAlertUsd,
+      hard_pause:        BUDGET_HARD_PAUSE_USD,   // always hardcoded — circuit-breaker
+      staticWarn:        BUDGET_WARN_USD,
+      staticAlert:       BUDGET_ALERT_USD,
     },
     activeTier,
     hardPauseActive,
     consecutiveLowScoreCycles,
+    liveHealthThreshold,
+    liveConsecutiveTrigger,
     lastWatchCycleTime,
     lastNotificationFingerprints: lastNotificationFingerprints.slice(-5),
     recoveryPollIntervalMs: RECOVERY_POLL_INTERVAL_MS,

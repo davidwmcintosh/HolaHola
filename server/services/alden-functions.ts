@@ -1997,11 +1997,11 @@ ${agentSection}`;
         const bqDb = getUserDb();
         const [item] = await bqDb.insert(buildQueueTable).values({
           proposedBy: 'alden',
-          title: toolInput.title,
-          description: toolInput.description,
-          filesAffected: toolInput.files_affected || [],
-          diff: toolInput.diff || null,
-          priority: Math.min(10, Math.max(1, Math.round(toolInput.priority ?? 5))),
+          title: args.title,
+          description: args.description,
+          filesAffected: args.files_affected || [],
+          diff: args.diff || null,
+          priority: Math.min(10, Math.max(1, Math.round(args.priority ?? 5))),
           isSafeZone: false,
           status: 'pending',
         }).returning();
@@ -2023,10 +2023,10 @@ ${agentSection}`;
         const errors: string[] = [];
 
         for (const [snake, [min, max]] of Object.entries(BANDS)) {
-          if (toolInput[snake] !== undefined) {
-            const val = Number(toolInput[snake]);
+          if (args[snake] !== undefined) {
+            const val = Number(args[snake]);
             if (isNaN(val) || val < min || val > max) {
-              errors.push(`${snake} must be ${min}–${max} (got ${toolInput[snake]})`);
+              errors.push(`${snake} must be ${min}–${max} (got ${args[snake]})`);
             } else {
               // Convert snake_case → camelCase for Drizzle
               const camel = snake.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
@@ -2043,7 +2043,7 @@ ${agentSection}`;
         }
 
         updates.updatedBy = 'alden';
-        updates.updateReason = String(toolInput.reason || 'Alden adjustment');
+        updates.updateReason = String(args.reason || 'Alden adjustment');
         updates.updatedAt = new Date();
 
         const { aldenWatchConfig } = await import('@shared/schema');
@@ -2060,7 +2060,7 @@ ${agentSection}`;
           data: {
             tuned: true,
             changed: Object.keys(updates).filter(k => !['updatedBy','updateReason','updatedAt'].includes(k)),
-            reason: toolInput.reason,
+            reason: args.reason,
           },
         };
       }
