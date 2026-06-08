@@ -161,7 +161,7 @@ export const updateUserPreferencesSchema = z.object({
   nativeLanguage: z.string().optional(),
   difficultyLevel: z.string().optional(),
   onboardingCompleted: z.boolean().optional(),
-  tutorGender: z.enum(['male', 'female']).optional(),
+  tutorGender: z.enum(['male', 'female', 'no_preference']).optional(),
   tutorPersonality: z.enum(['warm', 'calm', 'energetic', 'professional']).optional(),
   tutorExpressiveness: z.number().min(1).max(5).optional(),
   selfDirectedFlexibility: z.enum(['guided', 'flexible_goals', 'open_exploration', 'free_conversation']).optional(),

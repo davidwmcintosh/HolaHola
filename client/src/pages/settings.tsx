@@ -328,6 +328,41 @@ export default function Settings() {
     contactPrefsMutation.mutate({ phone: e164, phoneConsentSms: consentSms, phoneConsentVoice: consentVoice });
   };
 
+  // ── Tutor voice preference state and mutation ────────────────────────────
+  type TutorGenderPref = 'male' | 'female' | 'no_preference';
+  const resolvedTutorGenderPref = (): TutorGenderPref => {
+    if (user?.tutorGender === 'male') return 'male';
+    if (user?.tutorGender === 'female') return 'female';
+    return 'no_preference';
+  };
+  const [tutorGenderPref, setTutorGenderPref] = useState<TutorGenderPref>(resolvedTutorGenderPref);
+
+  useEffect(() => {
+    setTutorGenderPref(resolvedTutorGenderPref());
+  }, [user?.tutorGender]);
+
+  const tutorGenderMutation = useMutation({
+    mutationFn: async (pref: TutorGenderPref) => {
+      return apiRequest("PUT", "/api/user/preferences", { tutorGender: pref });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ title: "Tutor preference saved" });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save tutor preference",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleTutorGenderPrefChange = (pref: TutorGenderPref) => {
+    setTutorGenderPref(pref);
+    tutorGenderMutation.mutate(pref);
+  };
+
   // ── Native language state and mutation ──────────────────────────────────
   const [nativeLanguage, setNativeLanguage] = useState<string>(user?.nativeLanguage || "english");
   
@@ -691,6 +726,52 @@ export default function Settings() {
               {logoutMutation.isPending ? "Signing out..." : "Sign Out"}
             </Button>
           </CardFooter>
+        </Card>
+
+        {/* Tutor Voice Preference */}
+        <Card data-testid="card-tutor-preference">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <GraduationCap className="h-5 w-5" />
+              Tutor Voice
+            </CardTitle>
+            <CardDescription>
+              Choose whether you prefer a male or female tutor voice. This applies to all conversations.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-3 flex-wrap">
+              <Button
+                data-testid="button-tutor-pref-female"
+                variant={tutorGenderPref === 'female' ? 'default' : 'outline'}
+                onClick={() => handleTutorGenderPrefChange('female')}
+                disabled={tutorGenderMutation.isPending}
+              >
+                Female voice
+              </Button>
+              <Button
+                data-testid="button-tutor-pref-male"
+                variant={tutorGenderPref === 'male' ? 'default' : 'outline'}
+                onClick={() => handleTutorGenderPrefChange('male')}
+                disabled={tutorGenderMutation.isPending}
+              >
+                Male voice
+              </Button>
+              <Button
+                data-testid="button-tutor-pref-none"
+                variant={tutorGenderPref === 'no_preference' ? 'default' : 'ghost'}
+                onClick={() => handleTutorGenderPrefChange('no_preference')}
+                disabled={tutorGenderMutation.isPending}
+              >
+                No preference
+              </Button>
+            </div>
+            {tutorGenderPref === 'no_preference' && (
+              <p className="text-xs text-muted-foreground mt-3">
+                Using the default tutor voice for your language.
+              </p>
+            )}
+          </CardContent>
         </Card>
 
         {/* Contact & Outreach */}

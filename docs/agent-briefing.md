@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, June 8, 2026 at 11:01 PM
+**Generated:** Monday, June 8, 2026 at 11:17 PM
 
 ---
 
@@ -41,24 +41,24 @@
 
 ## Recent Conversation Memories
 
+### Team Room — test 3 — June 8, 2026 — Jun 8, 2026
+Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — test again — June 8, 2026 — Jun 8, 2026
+Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — are we good? — June 8, 2026 — Jun 8, 2026
+Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+*Tags: team-room, session, historic-record*
+
 ### Team Room — one again into the breach — June 8, 2026 — Jun 8, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 ### Team Room — hello again — June 8, 2026 — Jun 8, 2026
 Team Room session with David. Topic: hello again. 2 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — again — June 8, 2026 — Jun 8, 2026
-Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — what's up? — June 8, 2026 — Jun 8, 2026
-Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — Team room test — June 8, 2026 — Jun 8, 2026
-Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 126 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

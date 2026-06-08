@@ -1271,13 +1271,16 @@ export async function registerRoutes(app: Express): Promise<void> {
       // Only super admins can set tutorPersonality and tutorExpressiveness
       const userRole = req.authenticatedUser?.role;
       const isSuperAdmin = userRole === 'developer';
+
+      // Normalize 'no_preference' to null so existing || 'female' fallbacks work throughout the codebase
+      const resolvedTutorGender = tutorGender === 'no_preference' ? null : tutorGender;
       
       const updated = await storage.updateUserPreferences(userId, {
         targetLanguage,
         nativeLanguage,
         difficultyLevel,
         onboardingCompleted,
-        tutorGender,
+        tutorGender: resolvedTutorGender,
         // Only allow super admins to update personality and expressiveness
         // For regular users, these fields are undefined and won't be updated
         tutorPersonality: isSuperAdmin ? tutorPersonality : undefined,

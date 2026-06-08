@@ -15,7 +15,7 @@ type Message = {
   content: string;
 };
 
-type Step = "language" | "experience" | "placement" | "native" | "complete";
+type Step = "language" | "experience" | "placement" | "tutor_gender" | "native" | "complete";
 
 const INITIAL_MESSAGE =
   "Hi! I'm your language learning assistant. I'm excited to help you on your language learning journey! What language would you like to learn? (English, Spanish, French, German, Italian, Portuguese, Japanese, Mandarin Chinese, Korean, or Hebrew)";
@@ -40,6 +40,7 @@ export default function Onboarding() {
   const [placementLoading, setPlacementLoading] = useState(false);
   const [placementDone, setPlacementDone] = useState(false);
   const [assessedLevel, setAssessedLevel] = useState<string | null>(null);
+  const [tutorGenderLoading, setTutorGenderLoading] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -57,6 +58,7 @@ export default function Onboarding() {
       nativeLanguage?: string;
       onboardingCompleted?: boolean;
       selfDirectedPlacementDone?: boolean;
+      tutorGender?: 'male' | 'female' | 'no_preference';
     }) => {
       const result = await apiRequest("PUT", "/api/user/preferences", preferences);
       return result;
@@ -121,7 +123,7 @@ export default function Onboarding() {
     await startPlacement();
   };
 
-  // ── Experience step: "no" branch → novice_low, go to native ────────────────
+  // ── Experience step: "no" branch → novice_low, go to tutor_gender ──────────
   const handleExperienceNo = async () => {
     const langDisplay = targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1);
     setMessages((prev) => [
@@ -129,7 +131,7 @@ export default function Onboarding() {
       { role: "user", content: "No, this is my first time" },
       {
         role: "assistant",
-        content: `Perfect — we'll build a solid foundation from the very beginning. ${langDisplay} is such a rewarding language to learn! Now, what's your native language? This helps me explain things in a way that makes sense to you.`,
+        content: `Perfect — we'll build a solid foundation from the very beginning. ${langDisplay} is such a rewarding language to learn! One quick thing — do you have a preference for your tutor's voice?`,
       },
     ]);
     // Mark placement done with novice_low, no conversation needed
@@ -138,6 +140,35 @@ export default function Onboarding() {
     } catch {
       // Non-fatal: preferences will still be set as completed
     }
+    setStep("tutor_gender");
+  };
+
+  // ── Tutor gender step ────────────────────────────────────────────────────────
+  const handleTutorGenderSelect = async (preference: 'male' | 'female' | 'no_preference') => {
+    setTutorGenderLoading(true);
+    try {
+      if (preference !== 'no_preference') {
+        await updatePreferencesMutation.mutateAsync({ tutorGender: preference });
+      }
+    } catch {
+      // Non-fatal — continue to native language step regardless
+    } finally {
+      setTutorGenderLoading(false);
+    }
+
+    const choiceLabel =
+      preference === 'male' ? 'Male voice' :
+      preference === 'female' ? 'Female voice' :
+      'No preference';
+
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", content: choiceLabel },
+      {
+        role: "assistant",
+        content: "Got it! Last question — what's your native language? This helps me explain things in a way that makes sense to you.",
+      },
+    ]);
     setStep("native");
   };
 
@@ -193,16 +224,16 @@ export default function Onboarding() {
       if (data.complete) {
         setPlacementDone(true);
         setAssessedLevel(data.actflLevel ?? null);
-        // Brief pause so the student reads Daniela's closing, then ask native language
+        // Brief pause so the student reads Daniela's closing, then ask tutor preference
         setTimeout(() => {
           setMessages((prev) => [
             ...prev,
             {
               role: "assistant",
-              content: "Now — what's your native language? That's the last thing I need.",
+              content: "One quick thing before we wrap up — do you have a preference for your tutor's voice?",
             },
           ]);
-          setStep("native");
+          setStep("tutor_gender");
         }, 1800);
       }
     } catch {
@@ -274,8 +305,8 @@ export default function Onboarding() {
     }
   };
 
-  const isLoading = updatePreferencesMutation.isPending || placementLoading;
-  const showInput = step !== "complete" && step !== "experience";
+  const isLoading = updatePreferencesMutation.isPending || placementLoading || tutorGenderLoading;
+  const showInput = step !== "complete" && step !== "experience" && step !== "tutor_gender";
 
   if (!user) {
     return (
@@ -342,6 +373,39 @@ export default function Onboarding() {
               >
                 No, this is my first time
               </Button>
+            </div>
+          )}
+
+          {/* Tutor gender preference step */}
+          {step === "tutor_gender" && (
+            <div className="space-y-2 pt-1">
+              <p className="text-xs text-muted-foreground text-center">You can change this at any time in your settings.</p>
+              <div className="flex gap-3 justify-center flex-wrap">
+                <Button
+                  data-testid="button-tutor-gender-female"
+                  onClick={() => handleTutorGenderSelect('female')}
+                  disabled={isLoading}
+                  variant="outline"
+                >
+                  Female voice
+                </Button>
+                <Button
+                  data-testid="button-tutor-gender-male"
+                  onClick={() => handleTutorGenderSelect('male')}
+                  disabled={isLoading}
+                  variant="outline"
+                >
+                  Male voice
+                </Button>
+                <Button
+                  data-testid="button-tutor-gender-skip"
+                  onClick={() => handleTutorGenderSelect('no_preference')}
+                  disabled={isLoading}
+                  variant="ghost"
+                >
+                  No preference
+                </Button>
+              </div>
             </div>
           )}
 

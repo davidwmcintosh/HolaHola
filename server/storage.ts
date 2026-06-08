@@ -289,7 +289,7 @@ export interface IStorage {
     nativeLanguage?: string;
     difficultyLevel?: string;
     onboardingCompleted?: boolean;
-    tutorGender?: 'male' | 'female';
+    tutorGender?: 'male' | 'female' | null;
     tutorPersonality?: 'warm' | 'calm' | 'energetic' | 'professional';
     tutorExpressiveness?: number;
     selfDirectedFlexibility?: 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation';
@@ -1484,7 +1484,7 @@ export class DatabaseStorage implements IStorage {
     nativeLanguage?: string;
     difficultyLevel?: string;
     onboardingCompleted?: boolean;
-    tutorGender?: 'male' | 'female';
+    tutorGender?: 'male' | 'female' | null;
     tutorPersonality?: 'warm' | 'calm' | 'energetic' | 'professional';
     tutorExpressiveness?: number;
     selfDirectedFlexibility?: 'guided' | 'flexible_goals' | 'open_exploration' | 'free_conversation';
