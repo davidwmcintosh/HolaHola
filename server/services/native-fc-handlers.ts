@@ -6940,18 +6940,25 @@ export class NativeFunctionCallHandler {
           `Source: Daniela (self_surgery — normal session)`,
         ].filter(Boolean).join('\n');
 
-        db.insert(agentNotes).values({
-          fromAgent: 'daniela' as any,
-          toAgent: 'agent',
-          subject,
-          body,
-          sessionLabel: `Daniela knowledge-domain flag — ${new Date().toISOString().substring(0, 10)}`,
-        }).then(() => {
-          console.log(`[Self-Surgery] ✅ Knowledge-domain flag for ${data.targetTable} logged — requires founder review`);
-        }).catch((err: Error) => {
+        try {
+          const inserted = await db.insert(agentNotes).values({
+            fromAgent: 'daniela' as any,
+            toAgent: 'agent',
+            subject,
+            body,
+            sessionLabel: `Daniela knowledge-domain flag — ${new Date().toISOString().substring(0, 10)}`,
+          }).returning({ id: agentNotes.id });
+          const noteId = inserted[0]?.id;
+          console.log(`[Self-Surgery] ✅ Knowledge-domain flag for ${data.targetTable} logged — requires founder review (note ${noteId})`);
+          const ackSuffix = data.acknowledgment ? ` Your note — "${data.acknowledgment}" — has been appended to the report.` : ' You can continue the session normally.';
+          const ackMessage = noteId
+            ? `[SELF_SURGERY ACK] Your knowledge-domain flag for "${data.targetTable}" was received and queued for founder review (note ID: ${noteId}). It will not be applied until reviewed.${ackSuffix}`
+            : `[SELF_SURGERY ACK] Your knowledge-domain flag for "${data.targetTable}" was received and queued for founder review. It will not be applied until reviewed.${ackSuffix}`;
+          return { success: true, noteId, message: ackMessage };
+        } catch (err: any) {
           console.error(`[Self-Surgery] Failed to log knowledge-domain flag to agent_notes:`, err.message);
-        });
-        return;
+          return { success: false, message: `Failed to log knowledge-domain flag: ${err.message}` };
+        }
       }
       
       const priority = Math.max(1, Math.min(100, data.priority || 50));
