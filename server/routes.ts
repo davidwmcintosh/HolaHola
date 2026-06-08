@@ -24185,10 +24185,13 @@ Current conversation context:
   // GET /api/debug/voice-prompt — returns the exact system prompt injected into a founder voice session.
   // Agent-only endpoint (requireAgentToken). Use this to inspect what Daniela actually receives in voice
   // mode, audit prompt size, and feed it to consult-daniela's Voice Pipeline Mode for meta-conversation.
-  // Query params: language (default: spanish), founderName (default: David)
+  // Query params: language (default: english), founderName (default: David)
+  // NOTE: Founder mode is language-agnostic — David can invoke it from any of the 9 language tutors.
+  // The language param here reflects whatever session language David is in at the time.
+  // Default is 'english' since most founder product discussions happen in English.
   app.get("/api/debug/voice-prompt", requireAgentToken, async (req: any, res: any) => {
     try {
-      const language = (req.query.language as string) || 'spanish';
+      const language = (req.query.language as string) || 'english';
       const founderName = (req.query.founderName as string) || 'David';
 
       // Fetch Daniela's self-affirmation notes (notes she wrote to herself in Honesty Mode)

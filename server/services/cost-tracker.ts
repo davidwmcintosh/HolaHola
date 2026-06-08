@@ -21,8 +21,9 @@ const PRICING: Record<string, ModelPricing> = {
   'gemini-2.5-pro':                   { inputPerMillion: 3.50,  outputPerMillion: 10.50, label: 'Gemini Pro'            },
   'gemini-2.0-flash':                 { inputPerMillion: 0.10,  outputPerMillion: 0.40,  label: 'Gemini 2 Flash'        },
   // Gemini Live (real-time voice) — audio tokens included in usageMetadata counts
-  'gemini-3.1-flash-live-preview':    { inputPerMillion: 0.10,  outputPerMillion: 0.40,  label: 'Gemini Live Flash'     },
-  'gemini-2.0-flash-live-001':        { inputPerMillion: 0.10,  outputPerMillion: 0.40,  label: 'Gemini 2 Flash Live'   },
+  'gemini-3.1-flash-live-preview':              { inputPerMillion: 0.10,  outputPerMillion: 0.40,  label: 'Gemini Live 3.1'       },
+  'gemini-2.5-flash-native-audio-preview-12-2025': { inputPerMillion: 0.10, outputPerMillion: 0.40, label: 'Gemini Live 3.5 (Native Audio)' },
+  'gemini-2.0-flash-live-001':                  { inputPerMillion: 0.10,  outputPerMillion: 0.40,  label: 'Gemini 2 Flash Live'   },
   // Claude Haiku
   'claude-3-haiku-20240307':      { inputPerMillion: 0.25,  outputPerMillion: 1.25,  label: 'Claude Haiku'       },
   'claude-3-5-haiku-20241022':    { inputPerMillion: 0.80,  outputPerMillion: 4.00,  label: 'Claude Haiku 3.5'   },
