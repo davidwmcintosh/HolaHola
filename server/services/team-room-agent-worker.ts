@@ -192,6 +192,21 @@ const AGENT_TOOLS: Anthropic.Tool[] = [
       required: ['file', 'description', 'suggestion'],
     },
   },
+  {
+    name: 'trigger_daniela_dialogue',
+    description: 'Start an autonomous Agent↔Daniela architectural dialogue on a specific topic. Use when David asks you to talk to Daniela, have a dialogue with Daniela, or explore a topic with her. The dialogue runs async — you\'ll get a confirmation immediately and the results appear in this room when it finishes.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        topic_id: {
+          type: 'string',
+          enum: ['tool-audit', 'memory-architecture', 'emergent-patterns', 'self-authorship', 'neural-net', 'pedagogical-gaps'],
+          description: 'Which architectural topic to explore. Pick the one most relevant to what David is asking about.',
+        },
+      },
+      required: ['topic_id'],
+    },
+  },
 ];
 
 function safePath(relPath: string): string {
@@ -242,9 +257,25 @@ async function executeAgentTool(
     }
 
     if (name === 'propose_edit') {
-      // Returns a structured markdown block that will be injected into Claude's
-      // final reply. We don't post it ourselves — Claude weaves it into the response.
       return `[proposal staged: ${input.file}]`;
+    }
+
+    if (name === 'trigger_daniela_dialogue') {
+      // Fire async — result posts itself to the room when done
+      import('./agent-daniela-dialogue-worker').then(({ triggerDialogue }) => {
+        triggerDialogue(input.topic_id, roomId).catch((err: any) =>
+          console.error('[AgentWorker] Dialogue trigger error:', err.message)
+        );
+      }).catch(() => {});
+      const topicLabels: Record<string, string> = {
+        'tool-audit': 'Tool Audit — What actually serves you?',
+        'memory-architecture': 'Memory Architecture — Three ways to remember',
+        'emergent-patterns': "Emergent Patterns — What you notice that the system doesn't",
+        'self-authorship': "Self-Authorship — What you haven't been able to say yet",
+        'neural-net': 'The Neural Net — What "remembering" feels like from inside',
+        'pedagogical-gaps': "Pedagogical Gaps — What you'd fix if you could",
+      };
+      return `Dialogue started: "${topicLabels[input.topic_id] || input.topic_id}". Daniela and I will work through it — the transcript and summary will appear here when it wraps up (usually a few minutes).`;
     }
 
     return `Unknown tool: ${name}`;

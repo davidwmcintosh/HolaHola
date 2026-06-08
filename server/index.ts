@@ -797,6 +797,9 @@ app.use((req, res, next) => {
 
       const { startAgentTeamRoomWorker } = await import('./services/team-room-agent-worker');
       startAgentTeamRoomWorker();
+
+      const { startDanielaDialogueWorker } = await import('./services/agent-daniela-dialogue-worker');
+      startDanielaDialogueWorker();
     }, 85000);
 
     // +50s: Memory Decay Migration — idempotent ALTER TABLE that adds strength/

@@ -24182,6 +24182,24 @@ Current conversation context:
     }
   });
   
+  // POST /api/agent/dialogue/trigger — kick off an Agent↔Daniela architectural dialogue
+  // Optional body: { topicId, roomId }
+  app.post("/api/agent/dialogue/trigger", requireAgentToken, async (req: any, res) => {
+    try {
+      const { topicId, roomId } = req.body || {};
+      const { triggerDialogue, TOPICS } = await import('./services/agent-daniela-dialogue-worker');
+      // Fire-and-forget — dialogue runs async
+      triggerDialogue(topicId, roomId).catch((err: any) =>
+        console.error('[DialogueTrigger] Error:', err.message)
+      );
+      const topicList = TOPICS.map((t: any) => ({ id: t.id, title: t.title }));
+      res.json({ ok: true, message: `Dialogue started${topicId ? ` (topic: ${topicId})` : ' (next in rotation)'}`, availableTopics: topicList });
+    } catch (err: any) {
+      console.error('[DialogueTrigger] Error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Consult Daniela (send a question to Gemini and get a response)
   app.post("/api/agent-collab/consult-daniela", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
