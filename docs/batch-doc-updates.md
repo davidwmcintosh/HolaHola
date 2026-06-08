@@ -1132,3 +1132,47 @@ Three-part fix for Daniela being flat/emotionless in Founder Mode voice chat.
 - `server/services/procedural-memory-retrieval.ts` — new `buildVoiceProcedureMapSync()`
 - `server/routes.ts` — new `GET /api/debug/voice-prompt` endpoint
 - `.agents/skills/consult-daniela/SKILL.md` — Voice Pipeline Mode added
+
+---
+
+## Task #61 — ACTFL Placement Assessment System (June 8, 2026)
+
+### What was built
+A complete conversational placement assessment system for new students during onboarding, plus a Command Center test panel.
+
+### How it works
+**Onboarding flow change:**
+1. Student picks a language → asked "Have you studied [language] before?"
+2. **No experience** → instantly placed at Novice Low (no conversation needed), continues to next step
+3. **Prior experience** → Daniela conducts an 8–12 exchange natural conversation, sampling vocabulary and structures across ACTFL bands, then outputs a placement result via `<PLACEMENT_DONE level="..."/>` sentinel tag
+4. Result is written to `users.actflLevel`, `users.actflAssessed`, `users.assessmentSource`, `users.selfDirectedPlacementDone`
+
+**Services created:**
+- `server/services/placement-chat-service.ts` — in-memory session store (30-min TTL), Gemini conversation, sentinel detection, DB writes on finish
+- Exports: `startPlacementSession`, `sendPlacementMessage`, `writeNovicePlacement`
+
+**API routes added** (all in `server/routes.ts` ~line 9098):
+- `POST /api/placement/start` — begin a session
+- `POST /api/placement/message` — exchange message with Daniela
+- `POST /api/placement/novice` — skip assessment, set Novice Low
+
+**Daniela tool added:** `set_actfl_level` — writes ACTFL placement result to user profile. Handler in `native-fc-handlers.ts` (`SET_ACTFL_LEVEL` case). Auto-indexed via `daniela-tool-indexer.ts`.
+
+**Command Center test panel:** `client/src/pages/admin/OnboardingTester.tsx` — "Test Placement Assessment" card with language selector, embedded chat, result badge. Uses `testMode: true` (no DB writes).
+
+**Onboarding dialogue config:** `server/onboarding-dialogue-config.ts` — `step5` added (experience question text for "yes" and "no" branches). Config is file-persisted with reset-to-defaults support.
+
+### Key files modified
+- `server/services/placement-chat-service.ts` — NEW: placement session management
+- `server/services/daniela-function-registry.ts` — `set_actfl_level` tool added
+- `server/services/native-fc-handlers.ts` — `SET_ACTFL_LEVEL` case + `users` schema import
+- `server/onboarding-dialogue-config.ts` — step5 added, pre-existing TS error fixed
+- `client/src/pages/onboarding.tsx` — experience + placement steps added
+- `server/routes.ts` — 3 placement routes added (~line 9098)
+- `client/src/pages/admin/OnboardingTester.tsx` — Test Placement Assessment card added
+
+### How to test
+1. Go to Admin → Command Center → Onboarding tab
+2. Click "Test Placement Assessment" → select a language → Start
+3. Chat with Daniela for ~5–10 exchanges — she'll assess and show the ACTFL result badge
+4. (Full flow) Launch Onboarding Test → go to /chat → when asked about experience, say "yes" → complete the placement conversation

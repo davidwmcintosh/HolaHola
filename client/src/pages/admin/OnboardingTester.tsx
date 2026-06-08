@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import {
@@ -33,6 +35,9 @@ import {
   Save,
   RotateCcw,
   Pencil,
+  Send,
+  Loader2,
+  FlaskConical,
 } from "lucide-react";
 
 const SNAPSHOT_KEY = "onboarding_tester_snapshot";
@@ -56,6 +61,7 @@ interface DialogueConfig {
   step2: { success: string; retry: string };
   step3: { success: string; retry: string };
   step4: { opener: string };
+  step5?: { question: string; noExperience: string; yesExperience: string };
 }
 
 const STEP_META = [
@@ -100,6 +106,13 @@ const STEP_META = [
   },
 ];
 
+const SUPPORTED_LANGUAGES = [
+  "spanish", "french", "german", "italian", "portuguese",
+  "japanese", "mandarin", "korean", "hebrew", "english",
+];
+
+type PlacementMsg = { role: "assistant" | "user"; content: string };
+
 export function OnboardingTesterContent() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -107,6 +120,20 @@ export function OnboardingTesterContent() {
   const [testActive, setTestActive] = useState(false);
   const [dialogueDraft, setDialogueDraft] = useState<DialogueConfig | null>(null);
   const [editMode, setEditMode] = useState(false);
+
+  // ── Placement tester state ─────────────────────────────────────────────────
+  const [placementLang, setPlacementLang] = useState("spanish");
+  const [placementSessionId, setPlacementSessionId] = useState<string | null>(null);
+  const [placementMsgs, setPlacementMsgs] = useState<PlacementMsg[]>([]);
+  const [placementInput, setPlacementInput] = useState("");
+  const [placementLoading, setPlacementLoading] = useState(false);
+  const [placementComplete, setPlacementComplete] = useState(false);
+  const [placementLevel, setPlacementLevel] = useState<string | null>(null);
+  const placementEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    placementEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [placementMsgs]);
 
   useEffect(() => {
     const saved = localStorage.getItem(SNAPSHOT_KEY);
@@ -219,6 +246,59 @@ export function OnboardingTesterContent() {
     });
     setEditMode(true);
   }
+
+  // ── Placement test handlers ────────────────────────────────────────────────
+  const handleStartPlacement = async () => {
+    setPlacementLoading(true);
+    setPlacementMsgs([]);
+    setPlacementSessionId(null);
+    setPlacementComplete(false);
+    setPlacementLevel(null);
+    try {
+      const res = await apiRequest("POST", "/api/placement/start", {
+        language: placementLang,
+        testMode: true,
+      });
+      const data = await res.json();
+      setPlacementSessionId(data.sessionId);
+      setPlacementMsgs([{ role: "assistant", content: data.message }]);
+    } catch {
+      toast({ variant: "destructive", title: "Could not start placement session" });
+    } finally {
+      setPlacementLoading(false);
+    }
+  };
+
+  const handleSendPlacement = async () => {
+    if (!placementSessionId || !placementInput.trim()) return;
+    const userMsg = placementInput.trim();
+    setPlacementInput("");
+    setPlacementMsgs((prev) => [...prev, { role: "user", content: userMsg }]);
+    setPlacementLoading(true);
+    try {
+      const res = await apiRequest("POST", "/api/placement/message", {
+        sessionId: placementSessionId,
+        message: userMsg,
+      });
+      const data = await res.json();
+      setPlacementMsgs((prev) => [...prev, { role: "assistant", content: data.message }]);
+      if (data.complete) {
+        setPlacementComplete(true);
+        setPlacementLevel(data.actflLevel ?? null);
+      }
+    } catch {
+      toast({ variant: "destructive", title: "Message failed", description: "Please try again." });
+    } finally {
+      setPlacementLoading(false);
+    }
+  };
+
+  const handlePlacementKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSendPlacement();
+    }
+  };
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -351,9 +431,132 @@ export function OnboardingTesterContent() {
                 </AlertDialogContent>
               </AlertDialog>
               <p className="text-xs text-muted-foreground mt-2">
-                After clicking, you'll be taken to /chat. Go through all 4 steps, then return here to restore your real preferences.
+                After clicking, you'll be taken to /chat. Go through all steps, then return here to restore your real preferences.
               </p>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* ── Placement Assessment Tester ── */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <FlaskConical className="w-4 h-4 text-muted-foreground" />
+            <div>
+              <CardTitle className="text-base">Test Placement Assessment</CardTitle>
+              <CardDescription className="mt-0.5">
+                Run the ACTFL placement conversation in test mode — no DB writes, safe to experiment.
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Language selector + start button */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Label className="text-sm shrink-0">Language:</Label>
+              <Select value={placementLang} onValueChange={setPlacementLang} disabled={placementLoading || !!placementSessionId}>
+                <SelectTrigger className="w-36" data-testid="select-placement-language">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <SelectItem key={lang} value={lang} className="capitalize">
+                      {lang.charAt(0).toUpperCase() + lang.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              size="sm"
+              onClick={handleStartPlacement}
+              disabled={placementLoading}
+              data-testid="button-start-placement-test"
+            >
+              {placementLoading && !placementSessionId ? (
+                <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+              ) : (
+                <Play className="w-3 h-3 mr-1.5" />
+              )}
+              {placementSessionId ? "Restart" : "Start Placement Test"}
+            </Button>
+          </div>
+
+          {/* Placement result badge */}
+          {placementComplete && placementLevel && (
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-green-500" />
+              <span className="text-sm font-medium">Assessment complete:</span>
+              <Badge variant="secondary" data-testid="badge-placement-result" className="capitalize">
+                {placementLevel.replace(/_/g, " ")}
+              </Badge>
+              <span className="text-xs text-muted-foreground">(test mode — not saved)</span>
+            </div>
+          )}
+
+          {/* Chat window */}
+          {placementSessionId && (
+            <div className="space-y-3">
+              <div
+                className="space-y-3 max-h-72 overflow-y-auto p-3 border rounded-md bg-muted/20"
+                data-testid="placement-chat-window"
+              >
+                {placementMsgs.map((msg, idx) => (
+                  <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
+                        msg.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-background border"
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
+                  </div>
+                ))}
+                {placementLoading && (
+                  <div className="flex justify-start">
+                    <div className="bg-background border rounded-lg px-3 py-2">
+                      <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />
+                    </div>
+                  </div>
+                )}
+                <div ref={placementEndRef} />
+              </div>
+
+              {!placementComplete && (
+                <div className="flex gap-2">
+                  <Input
+                    data-testid="input-placement-message"
+                    placeholder="Reply to Daniela…"
+                    value={placementInput}
+                    onChange={(e) => setPlacementInput(e.target.value)}
+                    onKeyPress={handlePlacementKeyPress}
+                    disabled={placementLoading}
+                  />
+                  <Button
+                    size="icon"
+                    onClick={handleSendPlacement}
+                    disabled={!placementInput.trim() || placementLoading}
+                    data-testid="button-send-placement-message"
+                  >
+                    {placementLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {!placementSessionId && (
+            <p className="text-xs text-muted-foreground">
+              Select a language and click Start to open a placement conversation. Daniela will chat naturally for 8–12 exchanges, then determine the student's ACTFL level. In test mode, no data is written to the database.
+            </p>
           )}
         </CardContent>
       </Card>

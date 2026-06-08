@@ -9092,6 +9092,66 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // ─── PLACEMENT CHAT ENDPOINTS ────────────────────────────────────────────────
+  // Text-based ACTFL placement conversation for new students during onboarding.
+  // Uses Gemini to conduct a natural conversation and determine the student's level.
+
+  // POST /api/placement/start — begin a placement session
+  app.post("/api/placement/start", isAuthenticated, async (req: any, res: any) => {
+    try {
+      const userId = getRequestUserId(req);
+      const { language, testMode = false } = req.body;
+      if (!language || typeof language !== 'string') {
+        return res.status(400).json({ message: "language is required" });
+      }
+      const { startPlacementSession } = await import('./services/placement-chat-service');
+      const result = await startPlacementSession({
+        userId: testMode ? null : userId,
+        language: language.toLowerCase().trim(),
+        testMode,
+      });
+      res.json(result);
+    } catch (err: any) {
+      console.error('[Placement] start error:', err.message);
+      res.status(500).json({ message: "Failed to start placement session" });
+    }
+  });
+
+  // POST /api/placement/message — send a student message, get Daniela's reply
+  app.post("/api/placement/message", isAuthenticated, async (req: any, res: any) => {
+    try {
+      const { sessionId, message } = req.body;
+      if (!sessionId || !message) {
+        return res.status(400).json({ message: "sessionId and message are required" });
+      }
+      const { sendPlacementMessage } = await import('./services/placement-chat-service');
+      const result = await sendPlacementMessage(sessionId, message);
+      res.json(result);
+    } catch (err: any) {
+      console.error('[Placement] message error:', err.message);
+      if (err.message?.includes('not found or expired')) {
+        return res.status(404).json({ message: "Placement session not found or expired" });
+      }
+      res.status(500).json({ message: "Failed to process placement message" });
+    }
+  });
+
+  // POST /api/placement/novice — skip placement, set novice_low (no prior experience path)
+  app.post("/api/placement/novice", isAuthenticated, async (req: any, res: any) => {
+    try {
+      const userId = getRequestUserId(req);
+      const { language } = req.body;
+      if (!language) return res.status(400).json({ message: "language is required" });
+      const { writeNovicePlacement } = await import('./services/placement-chat-service');
+      await writeNovicePlacement(userId, language);
+      res.json({ ok: true, actflLevel: 'novice_low' });
+    } catch (err: any) {
+      console.error('[Placement] novice error:', err.message);
+      res.status(500).json({ message: "Failed to set novice level" });
+    }
+  });
+  // ─────────────────────────────────────────────────────────────────────────────
+
   // Admin: list recent Daniela outbound calls for call quality review
   app.get("/api/admin/outbound-calls", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
     try {

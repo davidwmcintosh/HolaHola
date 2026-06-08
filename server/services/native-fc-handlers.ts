@@ -1,5 +1,5 @@
 import { sql, eq, and, desc, ilike, or } from "drizzle-orm";
-import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes } from "@shared/schema";
+import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes, users } from "@shared/schema";
 import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
 import { getCharacter } from "./character-registry";
@@ -3341,6 +3341,37 @@ export class NativeFunctionCallHandler {
         if (level) {
           console.log(`[Native Function→ActflUpdate] Level: ${level}, confidence: ${confidence}, direction: ${direction}`);
           session.actflUpdate = { level, confidence, direction, reason };
+        }
+        break;
+      }
+
+      case 'SET_ACTFL_LEVEL': {
+        if (session.isIncognito) {
+          console.log(`[Native Function→SetActflLevel] INCOGNITO - skipping placement write`);
+          break;
+        }
+        const placementLevel = fn.args.level as string | undefined;
+        const placementReasoning = fn.args.reasoning as string | undefined;
+        
+        if (placementLevel && session.userId) {
+          (async () => {
+            try {
+              const db = getSharedDb();
+              await db
+                .update(users)
+                .set({
+                  actflLevel: placementLevel,
+                  actflAssessed: true,
+                  assessmentSource: 'placement_test',
+                  selfDirectedPlacementDone: true,
+                  lastAssessmentDate: new Date(),
+                })
+                .where(eq(users.id, String(session.userId)));
+              console.log(`[Native Function→SetActflLevel] Wrote placement level "${placementLevel}" for userId=${session.userId}. Reasoning: ${placementReasoning || 'not provided'}`);
+            } catch (err: any) {
+              console.error(`[Native Function→SetActflLevel] DB write failed:`, err.message);
+            }
+          })();
         }
         break;
       }

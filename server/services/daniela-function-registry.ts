@@ -127,6 +127,33 @@ const registry: DanielaFunctionEntry[] = [
     },
   },
   {
+    legacyType: 'SET_ACTFL_LEVEL',
+    declaration: {
+      name: "set_actfl_level",
+      description: "Set the student's baseline ACTFL placement level. Use this after a placement conversation or when establishing an initial level for a new student. Unlike actfl_update (which tracks incremental progress), this permanently marks the student as assessed and sets selfDirectedPlacementDone. Only call this when you have strong signal — it anchors the student's starting point.",
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          level: {
+            type: "string",
+            enum: [
+              "novice_low", "novice_mid", "novice_high",
+              "intermediate_low", "intermediate_mid", "intermediate_high",
+              "advanced_low", "advanced_mid", "advanced_high",
+              "superior", "distinguished",
+            ],
+            description: "The ACTFL level being set as the student's baseline placement",
+          },
+          reasoning: {
+            type: "string",
+            description: "Brief explanation of what evidence led to this placement",
+          },
+        },
+        required: ["level"],
+      },
+    },
+  },
+  {
     legacyType: 'SYLLABUS_PROGRESS',
     declaration: {
       name: "syllabus_progress",

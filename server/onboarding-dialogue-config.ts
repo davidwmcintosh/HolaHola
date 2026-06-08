@@ -17,6 +17,11 @@ export interface OnboardingDialogue {
   step4: {
     opener: string;
   };
+  step5: {
+    question: string;
+    noExperience: string;
+    yesExperience: string;
+  };
 }
 
 export const DEFAULT_DIALOGUE: OnboardingDialogue = {
@@ -35,6 +40,11 @@ export const DEFAULT_DIALOGUE: OnboardingDialogue = {
   step4: {
     opener: "Almost done, {{name}}! Last question: what's bringing you to {{language}}? (Travel, family, work, curiosity — whatever feels true.)",
   },
+  step5: {
+    question: "One more thing — have you studied {{language}} before, or is this your first time?",
+    noExperience: "Perfect! We'll start from the very beginning and build a solid foundation together.",
+    yesExperience: "Wonderful! Let's have a quick conversation so I can understand exactly where you are — that way I can meet you right at your level.",
+  },
 };
 
 const CONFIG_PATH = path.join(process.cwd(), "server", "onboarding-dialogue.json");
@@ -46,8 +56,8 @@ export function getOnboardingDialogue(): OnboardingDialogue {
   try {
     if (fs.existsSync(CONFIG_PATH)) {
       const raw = fs.readFileSync(CONFIG_PATH, "utf-8");
-      _cache = { ...DEFAULT_DIALOGUE, ...JSON.parse(raw) };
-      return _cache;
+      _cache = { ...DEFAULT_DIALOGUE, ...JSON.parse(raw) } as OnboardingDialogue;
+      return _cache as OnboardingDialogue;
     }
   } catch (err) {
     console.warn("[OnboardingDialogue] Could not load config file — using defaults:", err);
@@ -63,6 +73,7 @@ export function updateOnboardingDialogue(updates: Partial<OnboardingDialogue>): 
     step2: { ...current.step2, ...(updates.step2 ?? {}) },
     step3: { ...current.step3, ...(updates.step3 ?? {}) },
     step4: { ...current.step4, ...(updates.step4 ?? {}) },
+    step5: { ...current.step5, ...(updates.step5 ?? {}) },
   };
   try {
     fs.writeFileSync(CONFIG_PATH, JSON.stringify(_cache, null, 2), "utf-8");
