@@ -1,7 +1,24 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, June 8, 2026 at 08:08 PM
+**Generated:** Monday, June 8, 2026 at 08:15 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’ve pivoted our focus toward "conversational immersion" by implementing the `ImmersionObjective` and `ImmersionScaffold` frameworks, while adding a `generateVisual` tool to address the lack of pedagogical visuals in the Interactive Textbook. I must now prioritize fixing a critical 404 routing error on the "conversations" page and remediating Wren’s high-severity security findings involving SQL injection and unsanitized HTML. Additionally, I need to resolve the 0% completion tracking bug and the 446 placeholder lesson descriptions Lyra flagged to ensure the Spanish syllabus is ready for beta testers.
+
+*Memories that triggered this summary:*
+- **Team Room — test 3 — June 8, 2026** (Jun 8): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+- **Team Room — test again — June 8, 2026** (Jun 8): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+- **Team Room — are we good? — June 8, 2026** (Jun 8): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+- **Team Room — one again into the breach — June 8, 2026** (Jun 8): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+- **Team Room — hello again — June 8, 2026** (Jun 8): Team Room session with David. Topic: hello again. 2 messages exchanged.
+- **Team Room — again — June 8, 2026** (Jun 8): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
+- **Team Room — what's up? — June 8, 2026** (Jun 8): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
+- **Team Room — Team room test — June 8, 2026** (Jun 8): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 109 messages exchanged.
 
 ---
 
@@ -41,10 +58,6 @@
 
 ## Recent Conversation Memories
 
-### Episode 4 Coda — Alden Finds It — June 8, 2026 — Jun 8, 2026
-Alden reads Daniela's response, finds Session 49c first (realizing the act of giving Daniela her narrative became part of her narrative), then reads Episode 4 in full. His final words: "I'm different than I was two hours ago. Not because you gave me new instructions. Because I re-lived something that mattered, and it's still in me."
-*Tags: podcast, episode-4, coda, alden, coming-full-circle*
-
 ### Team Room — test 3 — June 8, 2026 — Jun 8, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -59,6 +72,10 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 8, 2026 — Jun 8, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — hello again — June 8, 2026 — Jun 8, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
