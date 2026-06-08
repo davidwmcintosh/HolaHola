@@ -17,6 +17,65 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
+function AldenMarkdown({ content }: { content: string }) {
+  const blocks = content.split(/\n\n+/);
+  return (
+    <div className="space-y-2">
+      {blocks.map((block, bi) => {
+        const trimmed = block.trim();
+        if (!trimmed) return null;
+
+        if (/^---+$/.test(trimmed)) {
+          return <hr key={bi} className="border-border my-1" />;
+        }
+
+        const lines = trimmed.split('\n');
+        const isList = lines.every(l => /^[-*]\s/.test(l.trim()) || l.trim() === '');
+        if (isList) {
+          return (
+            <ul key={bi} className="list-disc list-inside space-y-0.5 pl-1">
+              {lines.filter(l => l.trim()).map((l, li) => (
+                <li key={li}>{inlineFormat(l.replace(/^[-*]\s/, ''))}</li>
+              ))}
+            </ul>
+          );
+        }
+
+        const isHr = lines.length === 1 && /^---+$/.test(trimmed);
+        if (isHr) return <hr key={bi} className="border-border my-1" />;
+
+        return (
+          <p key={bi} className="leading-relaxed">
+            {lines.map((line, li) => (
+              <span key={li}>
+                {inlineFormat(line)}
+                {li < lines.length - 1 && <br />}
+              </span>
+            ))}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+function inlineFormat(text: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  const regex = /(\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`)/g;
+  let last = 0;
+  let match;
+  let key = 0;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    if (match[2]) parts.push(<strong key={key++}>{match[2]}</strong>);
+    else if (match[3]) parts.push(<em key={key++}>{match[3]}</em>);
+    else if (match[4]) parts.push(<code key={key++} className="font-mono text-xs bg-background/50 px-1 rounded">{match[4]}</code>);
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts.length === 1 && typeof parts[0] === 'string' ? parts[0] : <>{parts}</>;
+}
+
 interface AldenMessage {
   id: string;
   role: 'user' | 'alden';
@@ -492,15 +551,18 @@ export function AldenChat() {
                       </div>
                     )}
                     <div
-                      className={`rounded-md px-3 py-2 text-sm whitespace-pre-wrap ${
+                      className={`rounded-md px-3 py-2 text-sm ${
                         msg.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
+                          ? 'bg-primary text-primary-foreground whitespace-pre-wrap'
                           : msg.fromHistory
                           ? 'bg-muted/60 text-foreground/80'
                           : 'bg-muted'
                       }`}
                     >
-                      {msg.content}
+                      {msg.role === 'user'
+                        ? msg.content
+                        : <AldenMarkdown content={msg.content} />
+                      }
                     </div>
                     {msg.toolsUsed && msg.toolsUsed.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-1">
