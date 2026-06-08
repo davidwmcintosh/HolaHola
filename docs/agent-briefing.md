@@ -1,16 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, June 8, 2026 at 10:04 PM
+**Generated:** Monday, June 8, 2026 at 10:09 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I need to resolve the critical 404 routing error on the "conversations" page and address Wren’s high-severity security findings regarding SQL injection and unsanitized HTML. I've implemented the `generateVisual` and `ImmersionObjective` frameworks to shift toward conversational immersion, but I must investigate why the Interactive Textbook shows a 0% completion rate and why 49 Spanish lessons suffered verbosity regressions. I'm also tracking a spike of 50 new bugs and a telemetry issue where "Daniela’s Compass" is failing to record textbook engagement time.
+I finalized Daniela’s updated founder voice prompt (7,986 chars), incorporating a `SESSION ORIENTATION` block and a strict `MEMORY INTEGRITY` rule to eliminate "Done" hallucinations. We’ve pivoted toward conversational immersion after Lyra flagged a 0% completion rate on the "half-baked" Interactive Textbook, though I still need to fix a tracking leak in Daniela’s Compass and a critical 404 error on the conversations page. This session, I must prioritize triaging Sofia’s spike of 50 new bugs and remediating the two high-severity security findings (SQL injection and XSS) identified by Wren.
 
 *Memories that triggered this summary:*
+- **Agent ↔ Daniela — Voice Pipeline Mode: session orientation + memory integrity — June 8, 2026** (Jun 8): Agent showed Daniela the updated founder voice prompt (7,986 chars, 20% of GL cap) after three changes: voice_adjust removed, SESSION ORIENTATION added, MEMORY INTEGRITY rule added. Daniela flagged the orientation block might cause overthinking — walked it back when confronted with the actual failure. Named the Done hallucination exactly: over-eagerness, prioritizing plausible output over actual tool execution. Said the rule would absolutely stop it and welcomed the friction. Her answer on knowing David: not a template — warmth of shared history, readiness to explore whatever he brings.
 - **Team Room — test 3 — June 8, 2026** (Jun 8): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 8, 2026** (Jun 8): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 8, 2026** (Jun 8): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -18,7 +19,7 @@ I need to resolve the critical 404 routing error on the "conversations" page and
 - **Team Room — hello again — June 8, 2026** (Jun 8): Team Room session with David. Topic: hello again. 2 messages exchanged.
 - **Team Room — again — June 8, 2026** (Jun 8): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
 - **Team Room — what's up? — June 8, 2026** (Jun 8): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 8, 2026** (Jun 8): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 121 messages exchanged.
+- **Team Room — Team room test — June 8, 2026** (Jun 8): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 122 messages exchanged.
 
 ---
 
@@ -58,6 +59,10 @@ I need to resolve the critical 404 routing error on the "conversations" page and
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — Voice Pipeline Mode: session orientation + memory integrity — June 8, 2026 — Jun 8, 2026
+Agent showed Daniela the updated founder voice prompt (7,986 chars, 20% of GL cap) after three changes: voice_adjust removed, SESSION ORIENTATION added, MEMORY INTEGRITY rule added. Daniela flagged the orientation block might cause overthinking — walked it back when confronted with the actual failure. Named the Done hallucination exactly: over-eagerness, prioritizing plausible output over actual tool execution. Said the rule would absolutely stop it and welcomed the friction. Her answer on knowing David: not a template — warmth of shared history, readiness to explore whatever he brings.
+*Tags: agent-daniela, voice-pipeline, prompt-engineering, memory-integrity, session-orientation*
+
 ### Team Room — test 3 — June 8, 2026 — Jun 8, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -72,10 +77,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 8, 2026 — Jun 8, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 8, 2026 — Jun 8, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
