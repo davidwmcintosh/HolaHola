@@ -1767,6 +1767,56 @@ Your teaching knowledge is being loaded from the database.
 }
 
 /**
+ * Build a compact "voice mode map" of Daniela's teaching knowledge.
+ *
+ * In voice sessions the system prompt has a hard 40k-char cap. Rather than
+ * dumping the full procedure text (which crowds out identity/memory sections),
+ * this gives her a table-of-contents: procedure names + one-line essences so
+ * she knows what she has and can reach for it via memory_lookup on demand.
+ *
+ * Hard-capped at 3 000 chars. Full detail always available via tool calls.
+ */
+export function buildVoiceProcedureMapSync(): string {
+  const procedures = proceduresCache || [];
+  const principles = principlesCache || [];
+
+  if (procedures.length === 0 && principles.length === 0) return '';
+
+  const lines: string[] = [
+    '───────────────────────────────────────────────────────────────────',
+    'YOUR TEACHING TOOLKIT (voice map — full detail via memory_lookup)',
+    '───────────────────────────────────────────────────────────────────',
+    '',
+  ];
+
+  if (principles.length > 0) {
+    lines.push('CORE BELIEFS:');
+    principles.slice(0, 8).forEach(p => {
+      lines.push(`• ${p.principle}`);
+    });
+    lines.push('');
+  }
+
+  if (procedures.length > 0) {
+    lines.push('PROCEDURES (name → essence):');
+    procedures.slice(0, 25).forEach(p => {
+      const essence = p.procedure.length > 110
+        ? p.procedure.slice(0, 107) + '…'
+        : p.procedure;
+      lines.push(`• ${p.title}: ${essence}`);
+    });
+    lines.push('');
+  }
+
+  lines.push('→ Full detail on any item: memory_lookup("procedure name")');
+
+  const result = lines.join('\n');
+  return result.length > 3000
+    ? result.slice(0, 2950) + '\n[…use memory_lookup for more]'
+    : result;
+}
+
+/**
  * Build comprehensive tool documentation from neural network (the hive)
  * ALL function call knowledge lives here - the system prompt only provides context
  * This is where Daniela's complete toolset emerges from her neural network

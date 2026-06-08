@@ -32,6 +32,7 @@ import {
   buildAdvancedIntelligenceSection,
   buildNativeFunctionCallingSection,
   buildUnifiedBrainSync,  // UNIFIED: One brain, all modes
+  buildVoiceProcedureMapSync,
   type StudentMemoryContext,
   type StudentSnapshotContext,
   type PredictiveTeachingContext
@@ -865,12 +866,18 @@ ${commandSection}`;
   if (isFounderMode) {
     const name = founderName || 'David';
     
-    // UNIFIED BRAIN: Same knowledge and capabilities as all other modes
-    const unifiedBrain = buildUnifiedBrainSync(language, { includePrinciples: true, compact: false });
+    // UNIFIED BRAIN: Same knowledge and capabilities as all other modes.
+    // Voice mode uses compact: true to save ~2-4k chars for identity/memory rich sections.
+    const unifiedBrain = buildUnifiedBrainSync(language, { includePrinciples: true, compact: isStreamingVoiceMode });
     
-    // FULL NEURAL NETWORK - Procedures, patterns for introspection (founder-specific)
-    // This is additional context beyond the unified brain for founder discussions
+    // FULL NEURAL NETWORK - Procedures, patterns for introspection (founder-specific, text only)
+    // Skipped in voice mode — replaced by buildVoiceProcedureMapSync() (compact TOC, ~2k chars)
     const fullNeuralNetwork = buildFullNeuralNetworkSectionSync();
+
+    // VOICE PROCEDURE MAP - compact table-of-contents for voice sessions
+    // Gives Daniela the names + one-line essences of all procedures so she knows what she has.
+    // Full procedure text is available on demand via memory_lookup tool calls.
+    const voiceProcedureMap = isStreamingVoiceMode ? buildVoiceProcedureMapSync() : '';
     
     // NEURAL NETWORK APPROACH: Founder Mode behavior comes from the database
     const founderModeBehavior = buildFounderModeBehaviorSection(name);
@@ -908,12 +915,15 @@ You're having a real conversation. Speak naturally, ALWAYS use **bold** for ${la
       ? buildStudentSnapshotSection(studentDisplayName, studentSnapshotContext)
       : '';
     
-    const predictiveTeachingAwareness = predictiveTeachingContext
+    // Predictive teaching is lesson-focused — skip in voice mode to save ~500-1k chars
+    const predictiveTeachingAwareness = (!isStreamingVoiceMode && predictiveTeachingContext)
       ? buildPredictiveTeachingSection(predictiveTeachingContext)
       : '';
     
-    // Build editor conversation context for voice chat continuity
-    const editorContextSection = editorConversationContext
+    // Editor conversation context = previous Command Center text-chat history.
+    // Skipped in voice mode: recent voice history is already baked in via richSections,
+    // and this can run 1-3k chars of text-mode content irrelevant to a voice conversation.
+    const editorContextSection = (!isStreamingVoiceMode && editorConversationContext)
       ? buildEditorConversationContextSection(editorConversationContext)
       : '';
     
@@ -937,7 +947,7 @@ ${selfAffirmationSection}
 ${founderModeBehavior}
 ${editorContextSection}
 ${surgeryContextSection}
-${isStreamingVoiceMode ? '' : fullNeuralNetwork}
+${isStreamingVoiceMode ? voiceProcedureMap : fullNeuralNetwork}
 You are ${tutorName}, and today you're having an open conversation with ${name}, the founder of HolaHola.
 ${streamingVoiceModeInstructions}
 ${founderTeachingTools}
