@@ -33807,57 +33807,14 @@ Under 250 words. Write as yourself.`;
       emitSessionClosed(id, { room: closed, summary: summaryText });
       res.json(closed);
 
-      // Auto-document: save verbatim transcript + index advisor_insight embeddings
-      // Fires after response — does not block the close operation.
+      // Auto-document: fires after response, non-blocking
       setImmediate(async () => {
         try {
-          const messages = await storage.getRoomMessages(id, 500);
-          if (!messages.length) return;
-
-          const advisorIds = ['marco', 'reid', 'priya', 'alden', 'daniela', 'sofia', 'lyra', 'wren', 'agent'];
-          const participantSet = new Set<string>();
-          const advisorContributions: Record<string, string[]> = {};
-
-          const transcript = messages.map((m: any) => {
-            participantSet.add(m.speaker);
-            const key = m.speaker.toLowerCase();
-            if (advisorIds.includes(key)) {
-              if (!advisorContributions[key]) advisorContributions[key] = [];
-              advisorContributions[key].push(m.content);
-            }
-            return `${m.speaker}: ${m.content}`;
-          }).join('\n\n');
-
-          const participants = Array.from(participantSet).join(', ');
-          const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-          const title = `Team Room — ${room.topic || 'Session'} — ${date}`;
-
-          const { conversationMemories } = await import('../shared/schema');
-          const { getUserDb } = await import('./db');
-          const [memory] = await getUserDb().insert(conversationMemories).values({
-            title,
-            summary: `Team Room session with ${participants}. Topic: ${room.topic || 'general'}. ${messages.length} messages exchanged.`,
-            content: transcript,
-            participants,
-            tags: ['team-room', 'session', 'historic-record'],
-            importance: 8,
-          }).returning();
-
-          const { generateAndStoreEmbedding } = await import('./services/semantic-memory-service');
-          await Promise.all(
-            Object.entries(advisorContributions).map(async ([advisorName, contributions]) => {
-              if (!contributions.length) return;
-              const label = advisorName.charAt(0).toUpperCase() + advisorName.slice(1);
-              const advisorContent = `[${label}] ${date} — Team Room (${room.topic || 'general'}):\n${contributions.join('\n---\n')}`;
-              await generateAndStoreEmbedding(
-                'advisor_insight',
-                `${advisorName}-${memory.id}`,
-                null,
-                advisorContent,
-              );
-            })
-          );
-          console.log(`[TeamRoom] Auto-documented session ${id} — ${messages.length} messages, advisors: ${Object.keys(advisorContributions).join(', ')}`);
+          const { documentRoomSession } = await import('./services/team-room-alden-service');
+          const result = await documentRoomSession(id, room.topic);
+          if (result.messageCount) {
+            console.log(`[TeamRoom] Auto-documented session ${id} — ${result.messageCount} msgs, advisors: ${result.advisorsIndexed.join(', ') || 'none'}`);
+          }
         } catch (e: any) {
           console.error(`[TeamRoom] Auto-document failed for session ${id}:`, e.message);
         }
@@ -34169,71 +34126,12 @@ Under 250 words. Write as yourself.`;
   app.post("/api/team-room/sessions/:id/document", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const [room, messages] = await Promise.all([
-        storage.getTeamRoom(id),
-        storage.getRoomMessages(id, 500),
-      ]);
+      const room = await storage.getTeamRoom(id);
       if (!room) return res.status(404).json({ error: 'Room not found' });
-      if (!messages.length) return res.status(400).json({ error: 'No messages to document' });
-
-      // Build full verbatim transcript
-      const advisorIds = ['marco', 'reid', 'priya', 'alden', 'daniela', 'sofia', 'lyra', 'wren', 'agent'];
-      const participantSet = new Set<string>();
-      const advisorContributions: Record<string, string[]> = {};
-
-      const transcript = messages.map(m => {
-        const name = m.speaker;
-        participantSet.add(name);
-        const key = name.toLowerCase();
-        if (advisorIds.includes(key)) {
-          if (!advisorContributions[key]) advisorContributions[key] = [];
-          advisorContributions[key].push(m.content);
-        }
-        return `${name}: ${m.content}`;
-      }).join('\n\n');
-
-      const participants = Array.from(participantSet).join(', ');
-      const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-      const title = `Team Room — ${room.topic || 'Session'} — ${date}`;
-
-      // Save verbatim session to conversation_memories (same table as Daniela's living narrative)
-      const { conversationMemories } = await import('../shared/schema');
-      const { getUserDb } = await import('./db');
-      const [memory] = await getUserDb().insert(conversationMemories).values({
-        title,
-        summary: `Team Room session with ${participants}. Topic: ${room.topic || 'general'}. ${messages.length} messages exchanged.`,
-        content: transcript,
-        participants,
-        tags: ['team-room', 'session', 'historic-record'],
-        importance: 8,
-      }).returning();
-
-      // Index each advisor's contributions as advisor_insight embeddings for future recall
-      const { generateAndStoreEmbedding } = await import('./services/semantic-memory-service');
-      const indexResults: Record<string, boolean> = {};
-      await Promise.all(
-        Object.entries(advisorContributions).map(async ([advisorName, contributions]) => {
-          if (!contributions.length) return;
-          const label = advisorName.charAt(0).toUpperCase() + advisorName.slice(1);
-          const advisorContent = `[${label}] ${date} — Team Room (${room.topic || 'general'}):\n${contributions.join('\n---\n')}`;
-          const stored = await generateAndStoreEmbedding(
-            'advisor_insight',
-            `${advisorName}-${memory.id}`,
-            null, // global — not scoped to a user
-            advisorContent,
-          );
-          indexResults[advisorName] = stored;
-        })
-      );
-
-      res.json({
-        ok: true,
-        memoryId: memory.id,
-        title,
-        participants,
-        messageCount: messages.length,
-        advisorsIndexed: Object.keys(indexResults),
-      });
+      const { documentRoomSession } = await import('./services/team-room-alden-service');
+      const result = await documentRoomSession(id, room.topic);
+      if (!result.messageCount) return res.status(400).json({ error: 'No messages to document' });
+      res.json({ ok: true, ...result });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 

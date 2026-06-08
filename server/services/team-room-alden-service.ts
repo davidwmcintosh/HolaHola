@@ -6,7 +6,8 @@ import type { RoomVoiceMessage, RoomSessionSummary, RoomArtifact } from "@shared
 import { generateVisual, type VisualGenerationResult } from "./visual-content-service";
 import { getSharedDb } from "../db";
 import { sql } from "drizzle-orm";
-import { embedText } from "./semantic-memory-service";
+import { embedText, generateAndStoreEmbedding } from "./semantic-memory-service";
+import { conversationMemories } from "@shared/schema";
 
 // ── Gemini client (shared by Daniela + Sofia in Team Room) ──────────────────
 let geminiClient: GoogleGenAI | null = null;
@@ -1425,6 +1426,112 @@ Respond in this JSON format:
   }
 
   return '';
+}
+
+// ── Shared session documentation helper ──────────────────────────────────────
+// Used by: close endpoint (auto-fire), manual "Document" button endpoint,
+// and the auto-save worker below. Single source of truth for the save logic.
+const ADVISOR_IDS = ['marco', 'reid', 'priya', 'alden', 'daniela', 'sofia', 'lyra', 'wren', 'agent'];
+
+export async function documentRoomSession(roomId: string, roomTopic: string): Promise<{ memoryId: string; messageCount: number; advisorsIndexed: string[] }> {
+  const messages = await storage.getRoomMessages(roomId, 500);
+  if (!messages.length) return { memoryId: '', messageCount: 0, advisorsIndexed: [] };
+
+  const participantSet = new Set<string>();
+  const advisorContributions: Record<string, string[]> = {};
+
+  const transcript = messages.map(m => {
+    participantSet.add(m.speaker);
+    const key = m.speaker.toLowerCase();
+    if (ADVISOR_IDS.includes(key)) {
+      if (!advisorContributions[key]) advisorContributions[key] = [];
+      advisorContributions[key].push(m.content);
+    }
+    return `${m.speaker}: ${m.content}`;
+  }).join('\n\n');
+
+  const participants = Array.from(participantSet).join(', ');
+  const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const title = `Team Room — ${roomTopic || 'Session'} — ${date}`;
+  const db = getSharedDb();
+
+  const [memory] = await db.insert(conversationMemories).values({
+    title,
+    summary: `Team Room session with ${participants}. Topic: ${roomTopic || 'general'}. ${messages.length} messages exchanged.`,
+    content: transcript,
+    participants,
+    tags: ['team-room', 'session', 'historic-record'],
+    importance: 8,
+  }).returning();
+
+  const advisorsIndexed: string[] = [];
+  await Promise.all(
+    Object.entries(advisorContributions).map(async ([advisorName, contributions]) => {
+      if (!contributions.length) return;
+      const label = advisorName.charAt(0).toUpperCase() + advisorName.slice(1);
+      const advisorContent = `[${label}] ${date} — Team Room (${roomTopic || 'general'}):\n${contributions.join('\n---\n')}`;
+      await generateAndStoreEmbedding('advisor_insight', `${advisorName}-${memory.id}`, null, advisorContent);
+      advisorsIndexed.push(advisorName);
+    })
+  );
+
+  return { memoryId: memory.id, messageCount: messages.length, advisorsIndexed };
+}
+
+// ── Auto-save worker ──────────────────────────────────────────────────────────
+// Two safety nets against lost sessions:
+//   1. Startup sweep: saves any active session with messages immediately on boot
+//      (covers server restarts, crashed tabs, Replit repls that got killed)
+//   2. Periodic sweep every 20min: saves active sessions with 5+ new messages
+//      (covers long sessions where user never hits End Session)
+// The Map tracks message count at last save so we only write when there's new content.
+
+const _autoSaveState = new Map<string, { messageCount: number; savedAt: Date }>();
+
+export function startTeamRoomAutoSaveWorker(): void {
+  const INTERVAL_MS = 20 * 60 * 1000; // 20 minutes
+  const MIN_NEW_MESSAGES = 5;
+
+  async function sweep() {
+    try {
+      const allRooms = await storage.listTeamRooms(50);
+      const activeRooms = allRooms.filter(r => r.status !== 'closed');
+      if (!activeRooms.length) return;
+
+      for (const room of activeRooms) {
+        const messages = await storage.getRoomMessages(room.id, 500);
+        if (!messages.length) continue;
+
+        const lastState = _autoSaveState.get(room.id);
+        const now = new Date();
+        const newMessagesSinceLast = lastState ? messages.length - lastState.messageCount : messages.length;
+        const minutesSinceLast = lastState ? (now.getTime() - lastState.savedAt.getTime()) / 60000 : Infinity;
+
+        // Save if never saved, or 5+ new messages, or 30+ minutes elapsed with any new messages
+        const shouldSave = !lastState
+          || newMessagesSinceLast >= MIN_NEW_MESSAGES
+          || (minutesSinceLast >= 30 && newMessagesSinceLast > 0);
+
+        if (!shouldSave) continue;
+
+        try {
+          const result = await documentRoomSession(room.id, room.topic);
+          _autoSaveState.set(room.id, { messageCount: messages.length, savedAt: now });
+          console.log(`[TeamRoom AutoSave] ${room.id} — ${result.messageCount} msgs, advisors: ${result.advisorsIndexed.join(', ') || 'none'}`);
+        } catch (e: any) {
+          console.error(`[TeamRoom AutoSave] Failed for session ${room.id}:`, e.message);
+        }
+      }
+    } catch (e: any) {
+      console.error('[TeamRoom AutoSave] Sweep error:', e.message);
+    }
+  }
+
+  // Startup sweep — runs immediately to catch any sessions left open from a previous run
+  setTimeout(() => sweep().catch(console.error), 5000);
+  // Periodic sweep
+  setInterval(() => sweep().catch(console.error), INTERVAL_MS);
+  console.log('[TeamRoom AutoSave] Worker started — startup sweep in 5s, then every 20min');
 }
 
 // ── TTS voice config for Team Room participants ───────────────────────────────

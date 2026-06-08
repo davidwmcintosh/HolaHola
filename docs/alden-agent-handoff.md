@@ -44,9 +44,41 @@ David's standing authorization for Agent + Alden + Daniela:
 ### Key architectural note for Alden
 The `advisor_insight` memory type is now live in the DB (will populate on first "Document" click). When fetching memories, `getAdvisorContext` uses raw SQL — not the `semanticSearch` wrapper — because advisors are global (userId=null) and the wrapper's userId routing wasn't designed for null. If you ever need to recall advisor memories in your own tools, query `memory_embeddings WHERE memory_type = 'advisor_insight' AND user_id IS NULL` with `<=>` cosine distance.
 
-### What's unresolved
-- "Document" should ideally auto-save after every session ends, not require a manual button click. Wiring it to the "End Session" event would remove that friction.
+### What's unresolved (now resolved — see below)
+- ~~"Document" should ideally auto-save after every session ends, not require a manual button click.~~ Done — auto-fires on End Session + auto-save worker for server restart safety.
 - The `advisor_insight` embeddings table starts empty — first few sessions will get no past context injection (silently graceful). Over time this self-populates.
+
+---
+**Session: June 8, 2026 — Team Room Auto-Save Worker**
+
+### What was built
+
+**Team Room session auto-save — two safety nets against lost sessions.**
+
+David asked: "what if I forget to press End Session or the server restarts?"
+
+**1. Startup reconciliation sweep**
+`startTeamRoomAutoSaveWorker()` in `team-room-alden-service.ts` fires 5s after boot. Queries all rooms with `status != 'closed'`, fetches messages, saves each one to `conversation_memories` + indexes `advisor_insight` embeddings. On first run (June 8 boot), it found and saved **8 previously-undocumented active sessions**.
+
+**2. Periodic sweep (every 20 minutes)**
+Same sweep function, runs on an interval. Saves an active session if: (a) never been saved, OR (b) 5+ new messages since last save, OR (c) 30+ minutes elapsed with any new content. Uses an in-memory `Map<roomId, { messageCount, savedAt }>` to track state — the Map resets on restart, but the startup sweep handles that.
+
+**3. Shared `documentRoomSession(roomId, topic)` function (exported)**
+Extracted from the inline code that was duplicated in the close endpoint and the manual document endpoint. Single source of truth for the save logic. All three save paths now call it:
+- Close endpoint `setImmediate` (non-blocking, fires after "End Session")
+- Manual "Document" button endpoint (now 6 lines instead of 60)
+- Auto-save worker
+
+Worker registered in `server/index.ts` inside the +85s setTimeout block alongside DanielaPresence, AgentWorker, etc.
+
+### Key notes for Alden
+- The auto-save runs silently — no user notification unless they watch server logs.
+- Sessions are saved multiple times (one snapshot per sweep). This is intentional: `conversation_memories` accumulates entries. The most recent entry for a session will have the fullest transcript. If deduplication matters later, filter by max `created_at` per session (identifiable by the "Team Room — Topic — Date" title pattern + `['team-room', 'session', 'historic-record']` tags).
+- The `_autoSaveState` Map is module-level in `team-room-alden-service.ts` — it persists for the server's lifetime but resets on restart. That's fine; the startup sweep handles restart recovery.
+
+### What's unresolved
+- Multiple saves of the same session accumulate in `conversation_memories`. Low priority, but worth a dedup pass eventually (keep the last one per session, or add a `session_id` metadata field to the memory rows).
+- The `listTeamRooms(50)` call in the worker is capped at 50. If there are ever more than 50 active sessions at once, older ones won't be swept. Increase the cap or add pagination if that ever becomes relevant.
 
 ---
 **Session: June 8, 2026 — Launch Advisory Board + Weekly Board Meeting System**
