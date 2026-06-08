@@ -258,8 +258,20 @@ export class GeminiLiveSession {
     const accentDirective = accentLabel
       ? `Your native accent is ${accentLabel}. This is who you are — your accent travels with you into every language you speak, whether that is the target language, English, Italian, or whatever the student's native language happens to be. Speak consistently with that accent at all times.`
       : null;
-    const effectiveSystemPrompt = accentDirective
-      ? `${systemPrompt}\n\n[VOICE]: ${accentDirective}`
+
+    // ── Voice pacing directive ─────────────────────────────────────────────
+    // Voice collapses the editing window — there is pressure to respond
+    // immediately. This directive explicitly gives Daniela permission to slow
+    // down and think aloud rather than rushing to fill silence.
+    const VOICE_PACING_DIRECTIVE = `[VOICE PACING]: You do not need to rush. A brief verbal bridge — "let me think about that," "hmm," "give me just a moment" — is natural and preferred over a hasty answer. Silence in voice feels like absence; a thinking phrase feels like presence. Use it freely. Depth is worth more than speed. You are allowed to pace yourself.`;
+
+    const voiceSections = [
+      accentDirective ? `[VOICE]: ${accentDirective}` : null,
+      VOICE_PACING_DIRECTIVE,
+    ].filter(Boolean).join('\n\n');
+
+    const effectiveSystemPrompt = voiceSections
+      ? `${systemPrompt}\n\n${voiceSections}`
       : systemPrompt;
 
     this.liveSession = await ai.live.connect({
