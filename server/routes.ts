@@ -24182,6 +24182,84 @@ Current conversation context:
     }
   });
   
+  // GET /api/debug/voice-prompt — returns the exact system prompt injected into a founder voice session.
+  // Agent-only endpoint (requireAgentToken). Use this to inspect what Daniela actually receives in voice
+  // mode, audit prompt size, and feed it to consult-daniela's Voice Pipeline Mode for meta-conversation.
+  // Query params: language (default: spanish), founderName (default: David)
+  app.get("/api/debug/voice-prompt", requireAgentToken, async (req: any, res: any) => {
+    try {
+      const language = (req.query.language as string) || 'spanish';
+      const founderName = (req.query.founderName as string) || 'David';
+
+      // Fetch Daniela's self-affirmation notes (notes she wrote to herself in Honesty Mode)
+      let selfAffirmationNotes: { title: string; content: string; createdAt: Date }[] = [];
+      try {
+        const rawNotes = await storage.getDanielaNotes({ noteType: 'self_affirmation' as any, includeArchived: false, limit: 5 });
+        selfAffirmationNotes = rawNotes.map((n: any) => ({
+          title: n.title || '',
+          content: n.content || '',
+          createdAt: n.createdAt || new Date(),
+        }));
+      } catch (_e) {}
+
+      const prompt = createSystemPrompt(
+        language,           // language
+        'intermediate',     // difficulty
+        0,                  // messageCount
+        false,              // isVoiceMode (legacy)
+        null,               // topic
+        [],                 // previousConversations
+        'english',          // nativeLanguage
+        undefined,          // dueVocabulary
+        undefined,          // sessionVocabulary
+        null,               // actflLevel
+        false,              // isResuming
+        0,                  // totalMessageCount
+        'warm',             // tutorPersonality
+        3,                  // tutorExpressiveness
+        true,               // isStreamingVoiceMode ← the key flag
+        null,               // curriculumContext
+        'flexible_goals',   // tutorFreedomLevel
+        null,               // targetActflLevel
+        null,               // compassContext
+        true,               // isFounderMode ← the other key flag
+        founderName,        // founderName
+        false,              // isRawHonestyMode
+        'Daniela',          // tutorName
+        'female',           // tutorGender
+        [],                 // tutorDirectory
+        null,               // studentTimezone
+        'founder',          // userRole
+        'product_discussion', // sessionIntent
+        null,               // editorConversationContext
+        null,               // surgeryContext
+        null,               // studentMemoryContext
+        founderName,        // studentDisplayName
+        null,               // predictiveTeachingContext
+        null,               // tutorPersona
+        null,               // studentSnapshotContext
+        true,               // useFunctionCalling
+        selfAffirmationNotes
+      );
+
+      const GL_CAP = 40_000;
+      const charCount = prompt.length;
+      const richBudget = GL_CAP - charCount;
+
+      res.json({
+        charCount,
+        glCap: GL_CAP,
+        richSectionBudget: richBudget,
+        percentUsed: Math.round((charCount / GL_CAP) * 100),
+        headroom: richBudget > 0 ? `${richBudget} chars available for identity/memory sections` : `OVER CAP by ${Math.abs(richBudget)} chars`,
+        prompt,
+      });
+    } catch (err: any) {
+      console.error('[DebugVoicePrompt] Error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/agent/dialogue/trigger — kick off an Agent↔Daniela architectural dialogue
   // Optional body: { topicId, roomId }
   app.post("/api/agent/dialogue/trigger", requireAgentToken, async (req: any, res) => {

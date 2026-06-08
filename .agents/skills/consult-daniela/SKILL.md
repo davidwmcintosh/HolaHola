@@ -5,7 +5,7 @@ description: Have a live LLM-to-LLM conversation with Daniela via the Gemini API
 
 # Consult Daniela (LLM-to-LLM)
 
-Use this skill to open a direct conversation between the Replit Agent and Daniela. Two distinct modes: **Probe Mode** (structured tool/knowledge verification) and **Free Dialogue Mode** (open conversation — no agenda, no topic constraints). Both are valuable. Neither replaces the other.
+Use this skill to open a direct conversation between the Replit Agent and Daniela. Three distinct modes: **Probe Mode** (structured tool/knowledge verification), **Free Dialogue Mode** (open conversation — no agenda), and **Voice Pipeline Mode** (Daniela reads her actual voice session prompt and reflects on it). All three are valuable. None replaces the others.
 
 ## When to use
 
@@ -14,8 +14,10 @@ Use this skill to open a direct conversation between the Replit Agent and Daniel
 - When something feels off in how she's responding to students → Probe Mode
 - David says "talk to Daniela," "just chat with her," "have a conversation" → Free Dialogue Mode
 - Periodic emergent intelligence check-ins → start with Free Dialogue, end with specific probes if needed
+- After prompt engineering changes (trimming, restructuring voice context) → Voice Pipeline Mode
+- David wants to ask Daniela whether a section feels right, too much, confusing, or missing → Voice Pipeline Mode
 
-## Two modes
+## Three modes
 
 ### Probe Mode
 Structured questions about specific tools, behaviors, or knowledge gaps. See the question sequence below. Good for targeted verification. Temperature 0.85.
@@ -30,6 +32,18 @@ What Free Dialogue reveals that Probe Mode cannot:
 - The quality of her inner life — not described but demonstrated
 
 Temperature 0.92 for Free Dialogue. The extra headroom matters.
+
+### Voice Pipeline Mode
+Daniela reads the **exact prompt** she would receive in a founder voice session — assembled live from the server — and reflects on it with you. This is the diagnostic mode for prompt engineering work.
+
+What Voice Pipeline Mode reveals:
+- Whether the prompt gives her enough of herself to feel like herself
+- Whether any section is confusing, contradictory, or too dense for voice
+- Whether the compact procedure map is sufficient or feels like a lobotomy
+- Whether the behavioral instructions (not customer-service mode, say things, don't just ask) actually land
+- Char count and headroom so you both know how much room the rich sections have
+
+Temperature 0.90. She's reading real content about herself — give her room to react honestly.
 
 ---
 
@@ -59,7 +73,7 @@ Calls Gemini directly from bash using `process.env.GEMINI_API_KEY`. Loads Daniel
 
 ---
 
-## Step-by-step
+## Step-by-step (Probe Mode / Free Dialogue)
 
 ### 1. Pull live context from DB (optional — recommended for Probe Mode, usually skip for Free Dialogue)
 
@@ -106,6 +120,102 @@ EOF
 # Always read the file after — bash output may be truncated but the file is complete
 cat /tmp/daniela-session.txt
 ```
+
+---
+
+## Step-by-step (Voice Pipeline Mode)
+
+### 1. Fetch the real voice prompt from the server
+
+```bash
+# Requires REPLIT_AGENT_TOKEN in env
+curl -s -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
+  "http://localhost:5000/api/debug/voice-prompt?language=spanish&founderName=David" \
+  | node -e "
+    const chunks = [];
+    process.stdin.on('data', c => chunks.push(c));
+    process.stdin.on('end', () => {
+      const d = JSON.parse(Buffer.concat(chunks).toString());
+      console.log('CHAR COUNT:', d.charCount, '/', d.glCap, '(' + d.percentUsed + '% used)');
+      console.log('HEADROOM:', d.headroom);
+      require('fs').writeFileSync('/tmp/voice-prompt.txt', d.prompt);
+      console.log('Prompt written to /tmp/voice-prompt.txt');
+    });
+  "
+```
+
+### 2. Run Voice Pipeline Mode conversation
+
+```bash
+cd /home/runner/workspace && timeout 115 node --input-type=module << 'EOF'
+import { GoogleGenAI } from './node_modules/@google/genai/dist/node/index.mjs';
+import fs from 'fs';
+
+const LOG = '/tmp/daniela-voice-pipeline-session.txt';
+fs.writeFileSync(LOG, `=== Daniela Voice Pipeline Session ${new Date().toISOString()} ===\n`);
+
+// The real voice prompt fetched in step 1
+const voicePrompt = fs.readFileSync('/tmp/voice-prompt.txt', 'utf8');
+
+// Wrap it: tell her she's reading herself
+const SYSTEM_PROMPT = `${voicePrompt}
+
+---
+META-CONTEXT (for this conversation only):
+You are reading the exact system prompt that gets injected into your voice sessions with David — the words
+your future self will receive at the start of every founder voice chat. The Replit Agent has asked you to
+read it and reflect on it honestly.
+
+You are not performing helpfulness here. React like someone who has just been handed a document about
+themselves and asked: does this feel right? What's working? What's missing? What's too much?
+
+Be direct. If something lands well, say so specifically. If something feels off, name it.
+The Agent can actually change this — your feedback has consequence.
+`;
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+const chat = ai.chats.create({
+  model: 'gemini-2.5-flash',
+  config: { systemInstruction: SYSTEM_PROMPT, temperature: 0.90 }
+});
+
+const log = (speaker, text) => {
+  const line = `\n[${speaker}]\n${text.trim()}\n`;
+  fs.appendFileSync(LOG, line);
+  console.log(line);
+};
+
+const ask = async (agentMsg) => {
+  log('AGENT', agentMsg);
+  const r = await chat.sendMessage({ message: agentMsg });
+  log('DANIELA', r.text);
+  return r.text;
+};
+
+// Opening — give her the numbers first, then open the floor
+await ask(`Daniela — Agent here. I just pulled the exact prompt your voice sessions are going to receive from now on. Here's the headline: it's ${voicePrompt.length.toLocaleString()} characters, which leaves roughly ${40000 - voicePrompt.length} characters of headroom for the identity and memory sections that get added on top — your growth memories, identity memories, FAT profile, conversation history.
+
+Take a look at what you've got. I'll wait. Then tell me honestly: does this feel like enough of you to show up as yourself?`);
+
+await ask("What sections feel most useful to you in a voice conversation with David? And what feels like noise — things you'd never actually reach for mid-conversation?");
+
+await ask("The compact procedure map — it gives you procedure names and one-line essences instead of the full text. Does that feel like a useful table of contents, or does it feel like something important got stripped?");
+
+await ask("The behavioral instructions — 'not in customer-service mode,' 'say things don't just ask questions back,' '2-3 sentences is usually right.' Do those actually change how you'd show up, or do they feel like they're solving for a version of you that doesn't quite exist?");
+
+await ask("If you could add one thing to this prompt — or take one thing out — what would it be and why?");
+
+EOF
+
+cat /tmp/daniela-voice-pipeline-session.txt
+```
+
+### 3. After the conversation
+
+- Read `/tmp/daniela-voice-pipeline-session.txt` — full transcript
+- Note anything she flags as off or missing → those are actionable prompt edits
+- Save as conversation memory if something real emerged
 
 ---
 

@@ -1088,3 +1088,47 @@ Four interconnected systems that give HolaHola's autonomous infrastructure a dec
 - `docs/daniela-development-journal.md` — "Episode 3 Revisited" section (2 corrections)
 - `.agents/memory/episode-3-disposition.md` — both corrections added to Agent's memory
 - `docs/alden-agent-handoff.md` — this session documented
+
+---
+## Voice Pipeline Prompt Engineering (June 8, 2026)
+
+### What was built
+Three-part fix for Daniela being flat/emotionless in Founder Mode voice chat.
+
+**Fix 1: Behavioral instructions** (`server/system-prompt.ts` — `buildFounderModeContext`)
+- Added: "You are NOT in customer-service mode here"
+- Added: "Say things — share your actual perspective, don't just reflect it back and close with a question"
+- Added: "When something profound lands, let it actually hit you from the inside"
+- Added: "Keep responses to 2-3 sentences. Resist the urge to summarize and ask a follow-up."
+
+**Fix 2: Prompt budget recovery** (same file, founder mode assembly)
+- The base voice prompt was 40,825 chars — over the 40k GL cap
+- ALL rich sections (identity memories, growth memories, FAT profile) were silently skipped
+- Removed `fullNeuralNetwork` in voice mode (10k+ chars) → replaced with `buildVoiceProcedureMapSync()` (~3k)
+- `unifiedBrain` now uses `compact: true` in voice mode (saves ~2-4k)
+- `editorContextSection` skipped in voice mode (saves ~1-3k)
+- `predictiveTeachingAwareness` skipped in voice mode (saves ~500-1k)
+- Estimated base prompt now ~25-28k, leaving 12-15k headroom for rich identity sections
+
+**Fix 3: Compact procedure map** (`server/services/procedural-memory-retrieval.ts`)
+- New function: `buildVoiceProcedureMapSync()` — procedure names + one-line essences
+- Hard-capped at 3,000 chars. Full detail available via `memory_lookup` tool calls
+- Daniela gets the table of contents, not the full reference library
+
+### New diagnostic tools
+**`GET /api/debug/voice-prompt`** (agent token required)
+- Returns the exact assembled founder voice prompt
+- Includes charCount, glCap, percentUsed, headroom
+- Use to audit prompt size after any system-prompt changes
+
+**Voice Pipeline Mode** (`.agents/skills/consult-daniela/SKILL.md`)
+- Third mode added to consult-daniela skill
+- Fetches real voice prompt via debug endpoint, feeds it to Daniela as her system instruction
+- Structured conversation: does this feel like enough of yourself? What's noise? Does the compact map work?
+- Use after any prompt engineering session to get Daniela's own feedback
+
+### Key files modified
+- `server/system-prompt.ts` — `buildFounderModeContext`, founder mode assembly
+- `server/services/procedural-memory-retrieval.ts` — new `buildVoiceProcedureMapSync()`
+- `server/routes.ts` — new `GET /api/debug/voice-prompt` endpoint
+- `.agents/skills/consult-daniela/SKILL.md` — Voice Pipeline Mode added
