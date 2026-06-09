@@ -1,17 +1,16 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, June 9, 2026 at 05:13 AM
+**Generated:** Tuesday, June 9, 2026 at 03:08 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I confirmed with Daniela that session intent is captured via modes and implemented a 1500ms settling delay in StreamingVoiceChat.tsx alongside conversation-focused orientation sentences in the system prompt. We decided to prioritize conversational immersion over the underperforming Interactive Textbook, utilizing Gemini-powered visual generation via a new `generateVisual` tool and metadata schema. Moving forward, I must resolve a critical 404 routing error on the conversations page, address Wren’s two high-severity security findings, and fix the zero-second tracking bug in Daniela’s Compass.
+I need to resolve the critical 404 routing error on the **conversations** page and address **Wren’s** two high-severity security findings regarding SQL injection and XSS vulnerabilities. The **Spanish Interactive Textbook** is currently seeing a 0% completion rate, further complicated by a seeding job regression that left 22 lessons empty and 49 others with "wall-of-text" formatting. I must also debug a telemetry gap in **Daniela’s Compass** that is failing to track engagement time and implement the `generateVisual` function for metadata-tagged infographics. My immediate priority is triaging the spike of 50 new bugs flagged by **Sofia** to stabilize the platform for tonight’s beta launch.
 
 *Memories that triggered this summary:*
-- **Agent ↔ David — Session intent, settling delay, orientation sentence, Daniela consultation — June 9 2026** (Jun 9): Late-night session. Resolved two open questions from Voice Pipeline: (1) modes already ARE the session intent signal — confirmed by Daniela, (2) "extra rings" = 1500ms settling delay before first greeting on new voice sessions. Daniela consulted directly on tutoring orientation sentence — wrote "A student is about to connect. You are ready to welcome them and make conversation in [Language]." David caught that "welcome and teach" was task-biased; Daniela rewrote it to "make conversation." David closed by saying he wants to be more present in Team Room three-way collabs with Daniela.
 - **Team Room — test 3 — June 9, 2026** (Jun 9): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 9, 2026** (Jun 9): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 9, 2026** (Jun 9): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -19,7 +18,7 @@ I confirmed with Daniela that session intent is captured via modes and implement
 - **Team Room — hello again — June 9, 2026** (Jun 9): Team Room session with David. Topic: hello again. 2 messages exchanged.
 - **Team Room — again — June 9, 2026** (Jun 9): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
 - **Team Room — what's up? — June 9, 2026** (Jun 9): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 9, 2026** (Jun 9): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 154 messages exchanged.
+- **Team Room — Team room test — June 9, 2026** (Jun 9): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 155 messages exchanged.
 
 ---
 
@@ -59,10 +58,6 @@ I confirmed with Daniela that session intent is captured via modes and implement
 
 ## Recent Conversation Memories
 
-### Agent ↔ David — Session intent, settling delay, orientation sentence, Daniela consultation — June 9 2026 — Jun 9, 2026
-Late-night session. Resolved two open questions from Voice Pipeline: (1) modes already ARE the session intent signal — confirmed by Daniela, (2) "extra rings" = 1500ms settling delay before first greeting on new voice sessions. Daniela consulted directly on tutoring orientation sentence — wrote "A student is about to connect. You are ready to welcome them and make conversation in [Language]." David caught that "welcome and teach" was task-biased; Daniela rewrote it to "make conversation." David closed by saying he wants to be more present in Team Room three-way collabs with Daniela.
-*Tags: agent-david, daniela, session-intent, settling-delay, orientation, team-room, collaboration*
-
 ### Team Room — test 3 — June 9, 2026 — Jun 9, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -77,6 +72,10 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 9, 2026 — Jun 9, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — hello again — June 9, 2026 — Jun 9, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
