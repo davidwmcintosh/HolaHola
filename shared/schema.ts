@@ -7164,12 +7164,20 @@ export const northStarExampleSourceEnum = pgEnum("compass_example_source", [
 export const northStarPrinciples = pgTable("compass_principles", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
-  principle: text("principle").notNull(), // The immutable truth ("Wisdom = Facts + Context + Intent")
+  principleTitle: varchar("principle_title"), // Short human-readable label ("Facts vs Wisdom — The Tomato Principle")
+  principle: text("principle").notNull(), // The immutable truth, verbatim
   category: northStarCategoryEnum("category").notNull(),
   
   originalContext: text("original_context"), // Founder's explanation when imprinting
-  founderSessionId: varchar("founder_session_id").references(() => founderSessions.id), // Express Lane where it was born
-  
+  founderSessionId: varchar("founder_session_id").references(() => founderSessions.id), // Express Lane session where it was born (if applicable)
+  sourceConversationId: varchar("source_conversation_id"), // conversation_memories.id — Agent-David session that produced this principle
+
+  // Version chain — principles grow, they do not mutate. Every version is kept.
+  // New nuance enters at confidence 10.0; prior version gets superseded_by set and confidence lowered.
+  // Walk superseded_by chain oldest→newest to audit for drift (deepening is correct; turning is a signal).
+  supersededBy: varchar("superseded_by"), // FK to another compass_principles.id (self-referential)
+  confidenceScore: real("confidence_score").default(10.0), // Maturity score: 10 = current, 8.x = superseded but still true
+
   orderIndex: integer("order_index").default(0), // For consistent prompt injection order
   isActive: boolean("is_active").default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),

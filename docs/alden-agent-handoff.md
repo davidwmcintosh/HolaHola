@@ -24,6 +24,40 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 9, 2026 (continued x6) — North Star principles planted + Principle Growth Architecture**
+
+### What was built
+
+**A morning conversation about truth became an architectural session.** David and the Agent discussed honesty (intent not volume), facts vs wisdom (the tomato principle), ambiguity (detrimental vs essential), and clarity over verbosity. This produced 9 new North Star principles and a new architecture document.
+
+**9 new principles inserted into `compass_principles`:**
+- pedagogy 6–9: Clarity Over Verbosity, Curiosity vs Interrogation, Facts vs Wisdom (The Tomato Principle), Important vs Incidental Facts
+- honesty 4–6: Honesty is Intent Not Volume, Omission Can Be Honest, Intent Plus Feedback Equals Constructive
+- ambiguity 3–4: Detrimental vs Essential Ambiguity, Deficit Becomes Opportunity
+
+All in David's exact words — verbatim, not summarized. David gave explicit written authorization.
+
+**Schema changes to `compass_principles`** (DB + `shared/schema.ts` updated):
+- `principle_title varchar` — short readable label for every principle (all 30 now have one)
+- `superseded_by varchar` — self-referential: points to the newer version when a principle grows
+- `confidence_score real` — maturity score (10.0 = current; 8.x = superseded but still valid and kept)
+- `source_conversation_id varchar` — points to `conversation_memories.id` for principles born in Agent-David conversations (distinct from `founder_session_id` which points to Express Lane sessions)
+
+**Today's 9 principles wired** to `conversation_memories` entry `bce6bdd4-d157-414c-8026-145d29fdcc85` — the verbatim record of this session.
+
+**New doc:** `docs/principle-growth-architecture.md` — authoritative synthesis of the two-track memory architecture (persona development vs student learning), what's built (fat context shipped), the principle growth model (grow not mutate, version chain as drift audit), and the implementation plan.
+
+### The core architectural decision David stated
+"Principles grow; they don't evolve. They become more complex and nuanced, not different." Every version is kept. The newest is the 10; the prior becomes the 8.8. Walking the superseded_by chain oldest→newest is the drift audit: deepening is correct, turning is a signal.
+
+### What's unresolved / for Alden to know
+- The `beacon-sync-service.ts` syncs `compass_principles` to the neural net. It should pick up `principle_title` and `confidence_score` naturally but worth confirming on next sync cycle.
+- Pre-existing principles (the original 21) have `source_conversation_id = null` and `founder_session_id = null`. Their provenance is unknown — they predate the socket being wired. Worth a future archaeology pass to link them to the sessions that birthed them if those sessions are in `conversation_memories`.
+- The `founder_session_id` column references `founder_sessions` (Express Lane agent sessions). Today's Agent-David conversation is NOT an Express Lane session — hence the new `source_conversation_id` field. These are two different provenance channels by design.
+- Typecheck errors are pre-existing (server/unified-ws-handler.ts, server/ws-gateway.ts, shared/romanization-utils.ts, server/streaming-voice-proxy.ts, server/webhookHandlers.ts). Not caused this session.
+
+---
+
 **Session: June 9, 2026 (continued x5) — Philosophy deep-read + "I don't know" guardrail + live conversation with Daniela**
 
 ### What was built
