@@ -1126,9 +1126,14 @@ class BeaconSyncService {
           // Build the content for purpose field
           const purposeContent = principle.principle;
           
-          // Build syntax with category and context
+          // Build syntax with category, title, confidence, and context
           const syntaxContent = [
             `Category: ${principle.category}`,
+            principle.principleTitle ? `Title: ${principle.principleTitle}` : null,
+            principle.confidenceScore !== null && principle.confidenceScore !== undefined
+              ? `Maturity: ${principle.confidenceScore} (10 = current; lower = superseded but still valid, kept for audit)`
+              : null,
+            principle.supersededBy ? `Superseded by: ${principle.supersededBy}` : null,
             principle.originalContext ? `Context: ${principle.originalContext}` : null
           ].filter(Boolean).join('\n');
           
