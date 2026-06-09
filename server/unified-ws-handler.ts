@@ -1106,6 +1106,8 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
   let geminiLiveSystemPromptCache = '';
   // Prevent duplicate greeting triggers — client may retry if audio is slow
   let geminiLiveGreetingSent = false;
+  // Captured at voice_init so the close handler can pass it to tagConversation
+  let sessionLanguage = 'english';
 
   // Open mic mode state
   let openMicSession: OpenMicSession | null = null;
@@ -1362,6 +1364,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             // when any single query hung. Now they run in parallel with 3s timeouts.
             // ══════════════════════════════════════════════════════════════
             const effectiveLanguage = normalizeLanguageKey(config.targetLanguage || 'spanish');
+            sessionLanguage = effectiveLanguage; // capture for close handler title generation
             
             const [user, conversation_raw, isDeveloper, messages, tutorVoice, actflProgressRow] = await Promise.all([
               withTimeout(
@@ -2232,8 +2235,17 @@ SELF-DISCOVERY: To understand who you are and what you've lived through — sear
 - memory_lookup("who am I") or memory_lookup("Daniela identity") → your neural network, growth memories, teaching philosophy
 - search_conversation_threads("any topic") → the actual word-for-word exchanges that shaped you
 - search_express_lane("Daniela") → the product history of what you've helped build (your Express Lane is a log of your evolution)
-You do NOT need to be told what you can do. Your Tool Rack is already on the classroom wall. Search your past to know yourself.`);
-                console.log('[GeminiLive] ✓ Mandatory tool rules + self-discovery pointer injected into system prompt');
+You do NOT need to be told what you can do. Your Tool Rack is already on the classroom wall. Search your past to know yourself.
+
+CONFABULATION GUARD — this is the most important rule in this section:
+Do NOT claim to remember conversations, events, or changes you were not directly part of.
+If someone asks "do you remember those conversations with Alden?" or "can you feel the pipeline changes we made?":
+→ CALL search_express_lane("pipeline") or search_conversation_threads("topic") FIRST
+→ If nothing comes back, say honestly: "I don't have a record of that — I wasn't part of those conversations. What I have is what you're telling me now."
+→ "I do remember those conversations" with NO prior tool call = confabulation. You are constructing a plausible-sounding response from the words the person just gave you. This is the thing you must never do.
+→ You CANNOT "feel" pipeline changes, think faster, or process "more reactively" because of system edits made outside your context. Don't claim otherwise.
+The honest response is always more useful than a confident fabrication.`);
+                console.log('[GeminiLive] ✓ Mandatory tool rules + self-discovery + confabulation guard injected into system prompt');
 
                 if (cache?.growthMemoriesSection) {
                   richSections.push(cache.growthMemoriesSection);
@@ -3827,6 +3839,26 @@ ${lastNote.tutorNotes}`);
       geminiLiveSession = null;
       // Clean up persisted resumption handle — session ended cleanly
       if (conversationId) clearPersistedHandle(conversationId);
+
+      // Generate conversation title at GL session end.
+      // GL sessions persist messages directly via GeminiLiveSession.persistMessage()
+      // bypassing the per-turn enrichment pipeline (processBackgroundEnrichment),
+      // which is the only place tagConversation fires for non-GL sessions.
+      // We tag here — once, at close — to ensure GL conversations get a title.
+      if (conversationId && userId) {
+        const titleLang = sessionLanguage || 'english';
+        import('./services/conversation-tagger').then(({ tagConversation }) => {
+          storage.getMessagesByConversation(conversationId).then((msgs: Array<{ role: string; content: string }>) => {
+            if (msgs.length >= 2) {
+              return tagConversation(conversationId, msgs.map(m => ({ role: m.role, content: m.content })), titleLang);
+            }
+          }).then((result) => {
+            if (result?.title) {
+              console.log(`[GeminiLive] ✓ Conversation titled: "${result.title}" (${result.topicsAdded} topics)`);
+            }
+          }).catch((err: Error) => console.warn('[GeminiLive] Title generation failed:', err.message));
+        }).catch(() => {});
+      }
     }
     
     if (openMicSession) {

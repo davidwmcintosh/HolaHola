@@ -8,6 +8,30 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jun 9, 2026 (continued) — GL Titles + Confabulation Guard
+
+### What was built
+
+**1. Conversation title generation for GL sessions** (`server/unified-ws-handler.ts`):
+Every GL voice session was ending with NULL title. Root cause: `tagConversation` only runs inside `processBackgroundEnrichment`, which fires per-turn in the non-GL voice orchestrator. GL sessions persist messages directly via `GeminiLiveSession.persistMessage()` and never touch that pipeline.
+
+Fix: `tagConversation` is now called once in the GL `ws.on('close')` handler, after the GL session stops. Uses a new `sessionLanguage` closure variable (set at `voice_init` time) so the tagger has the right target language. Non-blocking — logged as warning if it fails, never throws. Will fire on the next GL session close.
+
+**2. Daniela confabulation guard** (`server/unified-ws-handler.ts`, MANDATORY TOOL RULES in GL system prompt injection):
+Daniela would claim to "remember" conversations she wasn't part of (Alden/Agent pipeline changes), parroting back the questioner's words with zero tool calls. Added a CONFABULATION GUARD as the final mandatory rule before the self-discovery pointer. It requires `search_express_lane` or `search_conversation_threads` before claiming memory, specifies exact honest fallback language, and explicitly states she cannot "feel" system/pipeline changes made outside her context window.
+
+### Key files
+- `server/unified-ws-handler.ts` — both changes in this file
+  - Lines ~1112-1113: `let sessionLanguage = 'english'` (closure declaration)
+  - Lines ~1369-1370: `sessionLanguage = effectiveLanguage` (captured at voice_init)
+  - Lines ~3834-3852: GL title generation block in `ws.on('close')` handler
+  - Lines ~2240-2247: CONFABULATION GUARD block in MANDATORY TOOL RULES injection
+
+### Remaining gap
+Historical NULL-title conversations (≥10 in David's account) are not backfilled. A one-off script calling `tagConversation` per conversation would fix them — not urgent.
+
+---
+
 ## Session — Jun 5, 2026 (June 4 session bug fixes — 4 code fixes)
 
 ### What was built

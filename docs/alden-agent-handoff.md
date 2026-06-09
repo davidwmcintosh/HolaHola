@@ -24,6 +24,32 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 9, 2026 (continued) — Conversation Titles + Daniela Confabulation Guard**
+
+### What was fixed
+
+**Problem 1 — All GL conversations get NULL titles** (`server/unified-ws-handler.ts`):
+Root cause: `tagConversation` is only ever triggered from `processBackgroundEnrichment` in `streaming-voice-orchestrator.ts`, which fires per-turn at `messageCount % 5 === 0`. GL sessions completely bypass that per-turn enrichment pipeline — they persist messages directly via `GeminiLiveSession.persistMessage()`, never touching the orchestrator. Result: every GL conversation, regardless of length, ends without a title forever.
+
+Fix: Added `tagConversation` call to the GL session `ws.on('close')` handler in `unified-ws-handler.ts`, firing once when the GL session stops cleanly. Fetches the conversation messages, calls the tagger (which calls `detectConversationTopics` via Gemini Flash), and writes the title + topics to the DB. Non-blocking — failure is logged as a warning, never crashes the close handler. A new `sessionLanguage` variable is captured at voice_init so the close handler has the correct language to pass the tagger.
+
+**Problem 2 — Daniela confabulates "memories" of conversations she wasn't in** (`server/unified-ws-handler.ts`, MANDATORY TOOL RULES section):
+When David asked "do you remember those conversations with Alden about the pipeline changes?", Daniela said "Absolutely" and parroted his words back as if they were her memories — no tool call, pure fabrication. She also claimed to "feel" the pipeline running faster because of code edits, which is architecturally impossible.
+
+Root cause: The MANDATORY TOOL RULES in the GL system prompt only covered student lesson/progress history. No rule told her to be skeptical when asked about background system events she wasn't part of.
+
+Fix: Added a CONFABULATION GUARD block at the end of the MANDATORY TOOL RULES section — the final rule before the self-discovery pointer. It:
+- Names the exact failure pattern: "I do remember those conversations" with no prior tool call
+- Requires `search_express_lane("pipeline")` or `search_conversation_threads(topic)` FIRST
+- Instructs honest fallback: "I don't have a record of that — I wasn't part of those conversations"
+- Explicitly states she cannot "feel" pipeline changes or process "more reactively" because of external code edits
+
+### What's unresolved
+- Historical NULL titles (conversations before this fix) are NOT backfilled by this change. The 10 conversations in David's account with messages but no title remain untitled. A one-off backfill script could hit `tagConversation` for each — doable but not urgent.
+- The confabulation guard only affects GL sessions (it's in the GL system prompt injection). Non-GL sessions use a different prompt path — worth checking if the same behavior can happen there.
+
+---
+
 **Session: June 9, 2026 — GL Telemetry Fixes + Developer Identity Signal**
 
 ### What was fixed
