@@ -7368,6 +7368,18 @@ export const conversationMemories = pgTable("conversation_memories", {
   tags: text("tags").array().default(sql`'{}'::text[]`),
   importance: integer("importance").default(7), // 1-10
 
+  // Memory chaining — memories correlate and corroborate, they are not isolated events.
+  // extends_memory_id: this conversation grew from / added nuance to the referenced memory.
+  // Walk the chain oldest→newest to see how understanding of a theme accumulated over time.
+  // The older memory is not superseded (still true) — it is the origin; this one is the expansion.
+  extendsMemoryId: varchar("extends_memory_id"), // conversation_memories.id this one grew from
+
+  // theme_tags: thematic thread labels for grouping related memories across time.
+  // Distinct from tags (which are session-specific). theme_tags are shared vocabulary
+  // across memories in the same thread (e.g. "cultural-authenticity-music", "honesty-as-intent").
+  // Query: "give me all memories with theme_tag X, oldest first" = the arc of that understanding.
+  themeTags: text("theme_tags").array().default(sql`'{}'::text[]`),
+
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

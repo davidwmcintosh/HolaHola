@@ -56,6 +56,18 @@ All in David's exact words — verbatim, not summarized. David gave explicit wri
 - The `founder_session_id` column references `founder_sessions` (Express Lane agent sessions). Today's Agent-David conversation is NOT an Express Lane session — hence the new `source_conversation_id` field. These are two different provenance channels by design.
 - Typecheck errors are pre-existing (server/unified-ws-handler.ts, server/ws-gateway.ts, shared/romanization-utils.ts, server/streaming-voice-proxy.ts, server/webhookHandlers.ts). Not caused this session.
 
+**Also built this session — Memory Chaining:**
+
+`conversation_memories` now has two new fields (`shared/schema.ts` updated, DB migrated):
+- `extends_memory_id varchar` — this memory grew from / added nuance to an earlier one. Walk the chain oldest→newest to see how understanding of a theme accumulated. The origin is still the origin; this field shows where it went.
+- `theme_tags text[]` — shared vocabulary across memories in the same thematic thread. Distinct from session-specific `tags`. Query: all memories with theme_tag X, ordered by recorded_at = the arc of that understanding over time.
+
+Seeded: reggaetón memory tagged `['cultural-authenticity-music', 'student-led-exploration', 'informed-choice', 'authentic-media']`. Today's session tagged `['north-star-development', 'honesty-as-intent', 'facts-vs-wisdom', 'principle-growth-architecture', 'memory-architecture', 'temporal-indexing']`.
+
+Tutor procedure written: "Memory Chaining — Memories Correlate and Corroborate" (category: awareness, priority: 72, approved). Daniela and the Agent can both extend chains — authority comes from the fact that all these conversations happen with David, so context is always present.
+
+David's framing: "Memories aren't just separate things — they correlate and corroborate." That is now architecturally true.
+
 ---
 
 **Session: June 9, 2026 (continued x5) — Philosophy deep-read + "I don't know" guardrail + live conversation with Daniela**
