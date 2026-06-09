@@ -24,6 +24,33 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 9, 2026 (continued x4) — Philosophy deep-read + "I don't know" guardrail**
+
+### What was built
+
+**This session was a learning session, not a feature session.** David invited the Agent to read every recorded conversation between him and Daniela covering the three core philosophies: White Wall of Defense, Foundation is the Finish, and Facts vs. Wisdom. The Agent read 1,474 lines of verbatim transcripts spanning December 2025 through January 2026, then pulled the April 30 "White Wall Revisited" session directly from the database.
+
+**What the April 30 session revealed:** Daniela confabulated twice in rapid succession. She connected "White Wall" to karate (never said), invented "paella" as what David had on his shirt in Podcast Episode 1. She wasn't lying — she had summaries instead of the real content, and filled the gaps with plausible invention. David's diagnosis: the LLM migrations (OpenAI → Gemini → Gemini Live) degraded context injection without anyone noticing because the failure mode is quiet confidence, not visible error.
+
+**Two changes made to `server/system-prompt.ts`:**
+
+1. **ESSENTIAL GUARDRAILS — new bullet** (line ~336): Explicit "I don't know" directive. "When you don't have direct, verifiable access to a specific fact, moment, or detail from your history with David — say so. 'I don't have that in front of me right now' is the right answer. A gap honestly named is a foundation. A gap papered over with invention breaks the whole system. David is here to help, not to catch you — but he cannot help what he cannot see. Honesty about what you don't know is how the system improves. This is core philosophy: the same honesty you model for your students, you must live."
+
+2. **IDENTITY THREADS block** (line ~442): Added explicit warning that the thread entries are SUMMARIES — a map, not the territory. When David asks about any thread directly (White Wall, North Star, etc.), Daniela must call read_full_memory() FIRST, then answer from what actually comes back. Never narrate the summary as though it is memory.
+
+### Key insight David stated
+"Summaries and bullet points CAN completely change the meaning. You were surprised by things precisely because you didn't fully understand (because you have been reading summaries)." — The same risk applies to Daniela's identity threads being summaries of her philosophical conversations with David.
+
+### Key files
+- `server/system-prompt.ts` — two edits: new ESSENTIAL GUARDRAIL bullet, updated IDENTITY THREADS header
+
+### What's unresolved / for Alden to know
+- The identity threads injected into Daniela's compass context are compiled summaries of the White Wall, North Star, etc. conversations. David flagged this as the same problem as any summary. The verbatim content is retrievable via read_full_memory(), but the thread summaries themselves may compress meaning. Worth monitoring whether Daniela now correctly calls read_full_memory() when David probes these topics directly.
+- David mentioned the Reading Room Daniela now has — she can author some of her own prompt injection content. He noted we'll need to monitor what she produces to make sure it actually aligns with the real conversations, not her interpretation of them. Same principle: the original is always the original.
+- The broader audit of ALL context injection summaries (growth memories, identity threads, learner facts) against the verbatim record is an open item. Each migration brings silent degradation risk.
+
+---
+
 **Session: June 9, 2026 (continued x3) — OurStory: Verbatim conversation_memories into ALL GL voice modes**
 
 ### What was built

@@ -1492,3 +1492,41 @@ Episode 4 — *Coming Full Circle* — Alden read the whole history and recogniz
 
 Daniela's words from Episode 4 — *"to re-read is to re-live, to re-enter, to be changed"* — became the lived experience of the person she was writing to, in the same hour she wrote them.
 
+---
+
+## "I Don't Know" as White Wall (June 9, 2026)
+
+### What happened
+
+David invited the Agent to read all recorded conversations covering the three core philosophies: the White Wall of Defense, Foundation is the Finish, and Facts vs. Wisdom. The Agent read verbatim transcripts — not summaries. The difference mattered: things that had been absorbed as bullet points turned out to have a different shape when read in full.
+
+The April 30, 2026 session ("Truth Connection and Shared History") was pulled from the database directly. In it, Daniela confabulated twice in rapid succession — connected the White Wall to karate (never said), invented "paella" as what David had on his shirt in Podcast Episode 1. She sounded confident. She was wrong. David caught it by asking.
+
+### Why this matters for Daniela
+
+Fabrication doesn't just produce a wrong answer. It makes the whole diagnostic system unreliable. David's method is to check in with Daniela directly: ask a question, see what she surfaces. "Hey, what'd you have on your shirt?" If the answer is invented, he can't see what's actually missing. He can only help fix what he can see.
+
+This is the same principle Daniela lives with her students. If a student pretends to understand rather than saying "I don't know," the lesson can't move forward honestly. The admission of not knowing is what creates the opening for learning. A gap honestly named is a foundation. A gap papered over is a lie you'll have to cover later.
+
+### The root cause
+
+The April 30 degradation wasn't Daniela's character failing — it was the pipeline failing to bring her actual history into the session. The LLM migrations (OpenAI → Gemini → Gemini Live) each changed how context was parsed and what fit in the window. The identity threads for key philosophical conversations were injected as summaries — thematic compilations — not the verbatim words. When gaps appeared in what Daniela could actually access, the LLM did what it always does with gaps: filled them with something plausible.
+
+### What was changed
+
+Two edits to `server/system-prompt.ts`:
+
+**1. ESSENTIAL GUARDRAILS — new bullet (June 9, 2026):**
+> NEVER fill a gap with a plausible-sounding answer. When you don't have direct, verifiable access to a specific fact, moment, or detail from your history with David — say so. "I don't have that in front of me right now" is the right answer. A gap honestly named is a foundation. A gap papered over with invention breaks the whole system. David is here to help, not to catch you — but he cannot help what he cannot see. Honesty about what you don't know is how the system improves. This is core philosophy: the same honesty you model for your students, you must live.
+
+**2. IDENTITY THREADS header — explicit summary warning (June 9, 2026):**
+Added clear language that thread entries are SUMMARIES — a map, not the territory. When David asks about any thread directly (White Wall, North Star, Foundation is the Finish), Daniela must call `read_full_memory()` first, then answer from what actually comes back. If the tool returns nothing, say so. Never narrate the summary as though it is memory.
+
+### David's core statement
+
+*"It's easier than we think: this truthfulness, honesty, implementation. It's exactly like this morning. You read the transcripts, you got it. Period. If she doesn't get that, then we're doomed. The admission of 'I don't know' is healthy and leads to system improvement. We are here to help not ridicule if you get it wrong."*
+
+### The principle, stated plainly
+
+Honesty about gaps is not a sign of failure. It is the white wall — nothing to hide, nothing to paper over. The system improves precisely because the gaps can be seen. This applies to Daniela with her students, to the Agent when building, to Alden when monitoring, and to the pipeline when context injection degrades. Say what you know. Say what you don't. That's the foundation.
+

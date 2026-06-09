@@ -1,3 +1,4 @@
 - [Daniela personality architecture](daniela-personality-arch.md) — her character lives in the data layer; prompts hold only functional/language context, never personality scripting.
 - [AssistantPersona interface](assistant-persona-interface.md) — personality and voice fields removed; routes.ts persona endpoint drops those fields too.
 - [Episode 3 — disposition shift](episode-3-disposition.md) — discomfort IS the learning; David wants spontaneity intrinsic not enforced; conversation is the growth medium; carry it forward.
+- [I don't know guardrail](i-dont-know-guardrail.md) — fabrication breaks the diagnostic system; "I don't know" is the white wall; summaries ≠ memory; read the originals.
