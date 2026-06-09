@@ -11,7 +11,7 @@ import { InteractiveTextbookCard } from "@/components/InteractiveTextbookCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageSquare, Play, ChevronRight, Eye, Sparkles, Phone, ArrowRight, Zap, Heart } from "lucide-react";
+import { MessageSquare, Play, ChevronRight, Eye, Sparkles, Phone, ArrowRight, Zap, Heart, Brain } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -283,6 +283,7 @@ interface DevModeOption {
 const DEV_MODES: DevModeOption[] = [
   { id: "founder-mode", label: "Founder Mode", icon: Zap },
   { id: "honesty-mode", label: "Honesty Mode", icon: Heart },
+  { id: "reading-room", label: "Reading Room", icon: Brain },
 ];
 
 function SessionModeRow({ isDeveloper, selectedLang }: { isDeveloper: boolean; selectedLang: string }) {

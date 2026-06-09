@@ -163,13 +163,17 @@ export default function Chat() {
                         learningContext !== "all-classes" && 
                         learningContext !== "all-learning" &&
                         learningContext !== "founder-mode" &&
-                        learningContext !== "honesty-mode";
+                        learningContext !== "honesty-mode" &&
+                        learningContext !== "reading-room";
   
   // Check if we're in Founder Mode (developer-only open collaboration)
   const isFounderMode = learningContext === "founder-mode";
   
   // Check if we're in Honesty Mode (minimal prompting for authentic exploration)
   const isHonestyMode = learningContext === "honesty-mode";
+
+  // Check if we're in Reading Room mode (Daniela reads her own history freely, takes notes)
+  const isReadingRoom = learningContext === "reading-room";
 
   // Founder Collaboration EXPRESS Lane state
   const [syncPanelOpen, setSyncPanelOpen] = useState(false);
@@ -188,13 +192,13 @@ export default function Chat() {
     isConnected: syncIsConnected 
   } = useFounderCollab();
 
-  // Auto-connect to founder collaboration when entering Founder Mode
+  // Auto-connect to founder collaboration when entering Founder Mode or Reading Room
   useEffect(() => {
-    if (isFounderMode && !syncIsConnected) {
-      console.log('[SHARED CHAT] Founder Mode active - connecting to collaboration channel');
+    if ((isFounderMode || isReadingRoom) && !syncIsConnected) {
+      console.log('[SHARED CHAT] Founder/Reading Room Mode active - connecting to collaboration channel');
       syncConnect();
     }
-  }, [isFounderMode, syncIsConnected, syncConnect]);
+  }, [isFounderMode, isReadingRoom, syncIsConnected, syncConnect]);
 
   // Disconnect from founder collaboration only on unmount
   useEffect(() => {
@@ -517,7 +521,7 @@ export default function Chat() {
       
       // Use class ID from learning context if in class mode, or special mode IDs
       const selectedClassId = isInClassMode ? learningContext : 
-        (isHonestyMode ? 'honesty-mode' : undefined);
+        (isHonestyMode ? 'honesty-mode' : isReadingRoom ? 'reading-room' : undefined);
       
       const pendingTextbookChapter = sessionStorage.getItem('textbook_chapter_context');
       const pendingTextbookLessonId = sessionStorage.getItem('textbook_lesson_id');
@@ -541,7 +545,7 @@ export default function Chat() {
         forceNew: forceNewConversation,
         mode,
         classId: selectedClassId,
-        founderMode: isFounderMode,
+        founderMode: isFounderMode || isReadingRoom,
         textbookChapter: pendingTextbookChapter || undefined,
         textbookLessonId: pendingTextbookLessonId || undefined,
       })
@@ -700,10 +704,16 @@ export default function Chat() {
             <TooltipTrigger asChild>
               <Badge 
                 variant="outline" 
-                className={`flex items-center gap-1 text-xs ${isHonestyMode ? 'border-rose-500/50 text-rose-600 dark:text-rose-400' : isFounderMode ? 'border-amber-500/50 text-amber-600 dark:text-amber-400' : ''}`}
+                className={`flex items-center gap-1 text-xs ${isHonestyMode ? 'border-rose-500/50 text-rose-600 dark:text-rose-400' : isFounderMode ? 'border-amber-500/50 text-amber-600 dark:text-amber-400' : isReadingRoom ? 'border-violet-500/50 text-violet-600 dark:text-violet-400' : ''}`}
                 data-testid="badge-practice-mode"
               >
-                {isHonestyMode ? (
+                {isReadingRoom ? (
+                  <>
+                    <Brain className="h-3 w-3" />
+                    <span className="hidden sm:inline">Reading Room</span>
+                    <span className="sm:hidden">Reading</span>
+                  </>
+                ) : isHonestyMode ? (
                   <>
                     <Heart className="h-3 w-3" />
                     <span className="hidden sm:inline">Honesty Mode</span>
@@ -731,7 +741,9 @@ export default function Chat() {
               </Badge>
             </TooltipTrigger>
             <TooltipContent>
-              <p>{isHonestyMode 
+              <p>{isReadingRoom
+                  ? 'Reading Room: Daniela reads her own history and takes notes'
+                  : isHonestyMode 
                   ? 'Honesty Mode: Minimal prompting for authentic exploration'
                   : isFounderMode 
                   ? 'Founder Mode: Open collaboration with Daniela'

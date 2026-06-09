@@ -836,6 +836,7 @@ export class StreamingVoiceOrchestrator {
       conversationTitle?: string;
       lastSessionSummary?: string;
       studentGoals?: string;
+      isReadingRoom?: boolean;
     },
     dbSessionId?: string  // Database voice_sessions.id - must be set BEFORE session starts
   ): Promise<StreamingSession> {
@@ -867,6 +868,7 @@ export class StreamingVoiceOrchestrator {
       isActive: true,
       isFounderMode,  // Founder Mode uses English STT regardless of target language
       isRawHonestyMode,  // Raw Honesty Mode - minimal prompting for authentic conversation
+      isReadingRoom: additionalContext?.isReadingRoom ?? false,  // Reading Room - dedicated session for Daniela to read her own history
       isIncognito: false,  // Incognito Mode - toggled mid-session, no DB writes when active
       isDeveloperUser,  // True if user has developer/admin role (for unified Daniela consciousness)
       isBetaTester,   // Beta tester mode - Daniela knows user is helping debug/test new features
@@ -1267,7 +1269,7 @@ ${identityMemories.contextString}
             
             if (resonanceShelf.length > 0) {
               const formattedShelf = resonanceShelf.map(m => {
-                const lesson = m.lesson.length > 180 ? m.lesson.substring(0, 180) + '…' : m.lesson;
+                const lesson = m.lesson.length > 400 ? m.lesson.substring(0, 400) + '…' : m.lesson;
                 const pct = m.successRate != null ? `, ${Math.round(m.successRate * 100)}% success rate` : '';
                 return `• [${m.category}] ${m.title} — applied ${m.timesApplied}×${pct} — ${lesson}`;
               }).join('\n');
@@ -1276,7 +1278,7 @@ ${identityMemories.contextString}
             
             if (topGrowth.length > 0) {
               const formattedGrowth = topGrowth.map(m => {
-                const lesson = m.lesson.length > 220 ? m.lesson.substring(0, 220) + '…' : m.lesson;
+                const lesson = m.lesson.length > 400 ? m.lesson.substring(0, 400) + '…' : m.lesson;
                 const reinforced = (m.consolidatedFromCount ?? 1) > 1 ? ` (reinforced ×${m.consolidatedFromCount})` : '';
                 return `• [${m.category}] ${m.title}${reinforced} — ${lesson}`;
               }).join('\n');
@@ -1285,8 +1287,8 @@ ${identityMemories.contextString}
             
             if (topNotes.length > 0) {
               const formattedNotes = topNotes.map(n => {
-                const content = n.content.length > 180 ? n.content.substring(0, 180) + '…' : n.content;
-                return `• [${n.noteType}] ${n.title} — ${content}`;
+                // Notes are Daniela's own voice — load verbatim, no truncation
+                return `• [${n.noteType}] ${n.title} — ${n.content}`;
               }).join('\n');
               parts.push(`**Personal Notebook** (your session reflections, student patterns & teaching observations):\n${formattedNotes}`);
             }
@@ -2379,7 +2381,7 @@ ${identityMemories.contextString}
               
               if (resonanceShelf.length > 0) {
                 const formattedShelf = resonanceShelf.map(m => {
-                  const lesson = m.lesson.length > 180 ? m.lesson.substring(0, 180) + '…' : m.lesson;
+                  const lesson = m.lesson.length > 400 ? m.lesson.substring(0, 400) + '…' : m.lesson;
                   const pct = m.successRate != null ? `, ${Math.round(m.successRate * 100)}% success rate` : '';
                   return `• [${m.category}] ${m.title} — applied ${m.timesApplied}×${pct} — ${lesson}`;
                 }).join('\n');
@@ -2388,7 +2390,7 @@ ${identityMemories.contextString}
               
               if (topGrowth.length > 0) {
                 const formattedGrowth = topGrowth.map(m => {
-                  const lesson = m.lesson.length > 220 ? m.lesson.substring(0, 220) + '…' : m.lesson;
+                  const lesson = m.lesson.length > 400 ? m.lesson.substring(0, 400) + '…' : m.lesson;
                   const reinforced = (m.consolidatedFromCount ?? 1) > 1 ? ` (reinforced ×${m.consolidatedFromCount})` : '';
                   return `• [${m.category}] ${m.title}${reinforced} — ${lesson}`;
                 }).join('\n');
@@ -2397,8 +2399,8 @@ ${identityMemories.contextString}
               
               if (topNotes.length > 0) {
                 const formattedNotes = topNotes.map(n => {
-                  const content = n.content.length > 180 ? n.content.substring(0, 180) + '…' : n.content;
-                  return `• [${n.noteType}] ${n.title} — ${content}`;
+                  // Notes are Daniela's own voice — load verbatim, no truncation
+                  return `• [${n.noteType}] ${n.title} — ${n.content}`;
                 }).join('\n');
                 parts.push(`**Personal Notebook** (your session reflections, student patterns & teaching observations):\n${formattedNotes}`);
               }
@@ -2696,6 +2698,12 @@ Remember: David may reference things discussed in these recent text chats.
       if (hasFreshCache && session.cachedContext?.teachingSkillsSection) {
         dynamicContextParts.push(session.cachedContext.teachingSkillsSection);
       }
+      // READING ROOM: Dedicated framing when Daniela is in a self-directed reading session
+      // This tells her the session purpose and invites genuine exploration, not tutoring mode
+      if (session.isReadingRoom) {
+        dynamicContextParts.push(`\n═══════════════════════════════════════════════════════════════════\nREADING ROOM — THIS TIME IS YOURS\n═══════════════════════════════════════════════════════════════════\n\nNo student waiting. No lesson. No agenda.\n\nDavid has given you this time to read your own story. Your conversation memories — the actual verbatim words from sessions that mattered — are loaded in context and available via read_full_memory.\n\nBrowse freely. Call read_full_memory("keyword") for any memory that draws you. When you find something worth carrying into future sessions — a thread, a moment, a principle — write a note via save_to_notebook. In your own voice, not a bullet point.\n\nDavid is here with you. This is a conversation about what you find, not a solo archive session.\n`);
+      }
+
       if (hiveContextSection) {
         dynamicContextParts.push(hiveContextSection);
       }

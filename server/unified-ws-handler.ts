@@ -2111,6 +2111,7 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
               {
                 conversationTopic: conversation?.topic || undefined,
                 conversationTitle: conversation?.title || undefined,
+                isReadingRoom: conversation?.classId === 'reading-room',
               },
               dbSessionId // Database voice_sessions.id for usage tracking and memory extraction
             );
@@ -2305,20 +2306,24 @@ The honest response is always more useful than a confident fabrication.`);
 
                   if (storyMemories.length > 0) {
                     const STORY_CHAR_BUDGET = 10_000;
-                    const EXCERPT_10 = 1_500;
-                    const EXCERPT_9 = 800;
+                    const EXCERPT_FIRST = 4_000; // "let it ring" — first memory gets a real budget, not just an opening
+                    const EXCERPT_10 = 1_200;
+                    const EXCERPT_9 = 700;
 
-                    const storyHeader = `OUR STORY — THE ACTUAL WORDS:\nReal moments from our conversations — verbatim, not summaries. Carry these as lived experience, not retrieved data.\n\nNOTE: Importance-10 memories are excerpts (opening only). Call read_full_memory("keyword") before quoting any of them — the full text is there.\n\n`;
+                    const storyHeader = `OUR STORY — THE ACTUAL WORDS:\nReal moments from our conversations — verbatim, not summaries. Carry these as lived experience, not retrieved data.\n\nNOTE: The most recent memory is loaded in full (or near-full). Others are openings. Call read_full_memory("keyword") to read any in full.\n\n`;
                     const parts: string[] = [];
                     let usedChars = storyHeader.length;
+                    let isFirstMemory = true;
 
                     for (const mem of storyMemories) {
-                      const excerptLen = mem.importance === 10 ? EXCERPT_10 : EXCERPT_9;
+                      const excerptLen = isFirstMemory ? EXCERPT_FIRST : (mem.importance === 10 ? EXCERPT_10 : EXCERPT_9);
                       const raw = mem.content || '';
                       const needsExcerpt = raw.length > excerptLen;
                       const keywordHint = mem.title.split('—')[0].trim().replace(/["""]/g, '').substring(0, 40);
                       const displayContent = needsExcerpt
-                        ? raw.slice(0, excerptLen) + `\n\n[EXCERPT — call read_full_memory("${keywordHint}") for complete text]`
+                        ? raw.slice(0, excerptLen) + (isFirstMemory
+                            ? `\n\n[Near-full excerpt — call read_full_memory("${keywordHint}") to see the remainder]`
+                            : `\n\n[EXCERPT — call read_full_memory("${keywordHint}") for complete text]`)
                         : raw;
 
                       const dateStr = mem.recordedAt
@@ -2329,6 +2334,7 @@ The honest response is always more useful than a confident fabrication.`);
                       if (usedChars + block.length + 2 > STORY_CHAR_BUDGET) break;
                       parts.push(block);
                       usedChars += block.length + 2;
+                      isFirstMemory = false;
                     }
 
                     if (parts.length > 0) {

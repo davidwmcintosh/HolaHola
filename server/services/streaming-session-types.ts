@@ -27,6 +27,7 @@ export interface StreamingSession {
   isActive: boolean;
   isFounderMode: boolean;
   isRawHonestyMode: boolean;
+  isReadingRoom: boolean;
   isIncognito: boolean;
   isDeveloperUser: boolean;
   isBetaTester: boolean;

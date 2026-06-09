@@ -321,6 +321,7 @@ function buildCallSession(userId: string, ctx: CallContext, twilioWs: WebSocket)
     isActive: true,
     isFounderMode: false,
     isRawHonestyMode: false,
+    isReadingRoom: false,
     isIncognito: false,
     isDeveloperUser: false,
     isBetaTester: false,

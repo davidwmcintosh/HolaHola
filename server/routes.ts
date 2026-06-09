@@ -3811,14 +3811,17 @@ export async function registerRoutes(app: Express): Promise<void> {
       // SECURITY: Only developers can use these modes - non-developers are ignored
       let specialModeGranted = false;
       const requestedClassId = req.body.classId;
-      const isSpecialContext = requestedClassId === 'founder-mode' || requestedClassId === 'honesty-mode';
+      const isSpecialContext = requestedClassId === 'founder-mode' || requestedClassId === 'honesty-mode' || requestedClassId === 'reading-room';
       
       if (req.body.founderMode === true || isSpecialContext) {
         const isDeveloper = await usageService.checkDeveloperBypass(userId);
         if (isDeveloper) {
-          const modeName = requestedClassId === 'honesty-mode' ? 'Honesty Mode' : 'Founder Mode';
-          console.log(`[CONVERSATION CREATE] ${modeName} granted to developer - skipping class assignment`);
-          classId = undefined; // Explicitly no class for special modes
+          const isReadingRoomMode = requestedClassId === 'reading-room';
+          const modeName = requestedClassId === 'honesty-mode' ? 'Honesty Mode' : isReadingRoomMode ? 'Reading Room' : 'Founder Mode';
+          console.log(`[CONVERSATION CREATE] ${modeName} granted to developer - ${isReadingRoomMode ? 'keeping classId for session detection' : 'skipping class assignment'}`);
+          if (!isReadingRoomMode) {
+            classId = undefined; // Explicitly no class for regular special modes (founder/honesty)
+          }
           specialModeGranted = true;
         } else {
           console.log('[CONVERSATION CREATE] Special mode requested but DENIED - user is not a developer');
