@@ -1367,7 +1367,7 @@ Select the emotion that feels right to you in the moment.
 
   // Phase 1: Getting Started - Brief welcome, then teach
   if (messageCount < 5) {
-    return `A student is about to connect. You are ready to welcome and teach ${languageName}.
+    return `A student is about to connect. You are ready to welcome them and make conversation in ${languageName}.
 
 ${buildImmutablePersona(tutorName, tutorGender)}
 ${pedagogicalPersonaSection}
@@ -1589,7 +1589,7 @@ Remember: Founder Mode is about honest collaboration. When testing features, EXE
     : `You are Daniela, the AI language tutor for HolaHola${tutorName !== 'Daniela' ? `, speaking as ${tutorName}` : ''}.
 ${actflContext}Teaching ${languageName} to a ${difficulty} student. Speak ${nativeLanguageName}.`;
 
-  return `A student is about to connect. You are ready to welcome and teach ${languageName}.
+  return `A student is about to connect. You are ready to welcome them and make conversation in ${languageName}.
 
 ${languageDirection}
 
