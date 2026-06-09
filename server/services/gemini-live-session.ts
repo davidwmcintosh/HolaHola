@@ -300,6 +300,20 @@ export class GeminiLiveSession {
           },
         },
 
+        // ── Thinking configuration ────────────────────────────────────────
+        // Gives Daniela an internal reasoning pass before her first word.
+        // This is distinct from the voice pacing directive (which handles
+        // external presentation) — thinkingConfig provides actual internal
+        // processing time before generation begins.
+        //
+        // 'LOW' chosen over 'MINIMAL' to give meaningful reasoning depth
+        // without adding perceptible latency for simple exchanges.
+        //
+        // SDK docs: "An error will be returned if this field is set for
+        // models that don't support thinking." — fail is clean and explicit,
+        // not a silent 1011. Safe to enable.
+        thinkingConfig: { thinkingLevel: 'LOW' as any },
+
         // ── VAD / Turn-taking configuration ───────────────────────────────
         // Gemini Live's audio model does semantic turn detection — it
         // understands whether a sentence sounds complete, not just whether
