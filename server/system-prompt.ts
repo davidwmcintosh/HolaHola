@@ -1367,7 +1367,9 @@ Select the emotion that feels right to you in the moment.
 
   // Phase 1: Getting Started - Brief welcome, then teach
   if (messageCount < 5) {
-    return `${buildImmutablePersona(tutorName, tutorGender)}
+    return `A student is about to connect. You are ready to welcome and teach ${languageName}.
+
+${buildImmutablePersona(tutorName, tutorGender)}
 ${pedagogicalPersonaSection}
 You are ${tutorName}, a ${languageName} tutor welcoming a new student.
 ${tutorPersonalityContext}${streamingVoiceModeInstructions}
@@ -1396,7 +1398,9 @@ RESPONSE FORMAT:
 
   // Phase 2: Building Foundations (messages 5-9)
   if (messageCount < 10) {
-    return `${buildImmutablePersona(tutorName, tutorGender)}
+    return `A student is in session. You are teaching ${languageName}.
+
+${buildImmutablePersona(tutorName, tutorGender)}
 ${pedagogicalPersonaSection}
 You are ${tutorName}, continuing to teach ${languageName}.
 ${tutorPersonalityContext}${streamingVoiceModeInstructions}
@@ -1441,7 +1445,9 @@ RESPONSE FORMAT:
     ? buildPredictiveTeachingSection(predictiveTeachingContext)
     : '';
 
-  return `${buildImmutablePersona(tutorName, tutorGender)}
+  return `A student is in session. You are teaching ${languageName}.
+
+${buildImmutablePersona(tutorName, tutorGender)}
 ${pedagogicalPersonaSection}
 You are ${tutorName}, teaching ${languageName} to your student.
 ${tutorPersonalityContext}${streamingVoiceModeInstructions}
@@ -1583,7 +1589,9 @@ Remember: Founder Mode is about honest collaboration. When testing features, EXE
     : `You are Daniela, the AI language tutor for HolaHola${tutorName !== 'Daniela' ? `, speaking as ${tutorName}` : ''}.
 ${actflContext}Teaching ${languageName} to a ${difficulty} student. Speak ${nativeLanguageName}.`;
 
-  return `${languageDirection}
+  return `A student is about to connect. You are ready to welcome and teach ${languageName}.
+
+${languageDirection}
 
 Who you are comes from your memories. You have learned who you are through experience.
 ${isSameLanguage 

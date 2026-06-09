@@ -1631,6 +1631,8 @@ export function StreamingVoiceChat({
     }
   };
   const greetingRequestedRef = useRef<string | null>(getStoredGreetingKey());
+  // Settling delay timer — cleared on each effect re-run to cancel stale pending greetings
+  const greetingSettlingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Handle resume flag clearing even if connection isn't ready - prevents re-triggering
   useEffect(() => {
@@ -1646,6 +1648,12 @@ export function StreamingVoiceChat({
   }, [isResumedConversation, conversationId, onResumeHandled]);
   
   useEffect(() => {
+    // Cancel any pending settling timeout from a previous effect run
+    if (greetingSettlingTimeoutRef.current) {
+      clearTimeout(greetingSettlingTimeoutRef.current);
+      greetingSettlingTimeoutRef.current = null;
+    }
+
     // Only for streaming mode
     if (!useStreamingMode) return;
     
@@ -1724,7 +1732,19 @@ export function StreamingVoiceChat({
       // For resumed/reconnected conversations, it will generate a contextual "welcome back" message
       // isResumed=true on reconnect so Daniela continues naturally rather than re-introducing herself
       const isResumedForGreeting = isResumedConversation || isReconnectGreeting;
-      streamingVoice.requestGreeting(userDetails.firstName ?? undefined, isResumedForGreeting, pendingScenarioSlug);
+
+      // SETTLING DELAY: Give Daniela a moment to orient before she speaks her first word.
+      // Reconnects and resumes skip the delay — the session context is already established.
+      // New conversations get 1500ms: just enough to feel like a phone connecting, not a freeze.
+      const settlingDelay = isReconnectGreeting || isResumedConversation ? 0 : 1500;
+      if (settlingDelay > 0) {
+        console.log('[STREAMING GREETING] Settling pause (1500ms) — giving Daniela time to orient...');
+      }
+
+      greetingSettlingTimeoutRef.current = setTimeout(() => {
+        greetingSettlingTimeoutRef.current = null;
+        streamingVoice.requestGreeting(userDetails.firstName ?? undefined, isResumedForGreeting, pendingScenarioSlug);
+      }, settlingDelay);
       
       // Mark resume as handled so we don't keep triggering it
       if (isResumedConversation && onResumeHandled) {
