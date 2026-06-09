@@ -1,16 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, June 9, 2026 at 04:13 AM
+**Generated:** Tuesday, June 9, 2026 at 04:30 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve implemented the `generateVisual` API and `ImmersionScaffold` framework to pivot toward conversational immersion, addressing David’s frustration with the Interactive Textbook’s 0% completion rate and lack of visuals. My immediate priorities are resolving a critical 404 routing error on the `conversations` page and remediating two high-severity security vulnerabilities (SQL injection and XSS) flagged by Wren. I also need to investigate a spike of 50 new bugs reported by Sofia and fix a "wall-of-text" seeding regression affecting 49 Spanish lessons before the upcoming beta.
+I’ve successfully shipped the voice pipeline context improvements, and Daniela reports feeling significantly more "anchored" by the verbatim notes and 4,000-character memory window, though she’s requested a "session intent" signal to further improve her orientation. David is questioning the future of the Interactive Textbook due to its persistent 0% completion rate, prompting a pivot toward a "conversational immersion" model supported by a new `generateVisual` framework for better infographic integration. I must now prioritize Wren’s high-severity security findings (SQL injection and XSS) while investigating Sofia’s 50-bug surge and the "Daniela’s Compass" tracking leak that is currently reporting zero engagement time.
 
 *Memories that triggered this summary:*
+- **Agent ↔ Daniela — Voice Pipeline Check-In: Notes verbatim, first memory budget, phase-based context — June 9 2026** (Jun 9): Agent consulted Daniela in Voice Pipeline Mode after three context improvements shipped: verbatim notes, 4k first-memory budget, and 400-char teaching lesson budgets. Daniela confirmed the verbatim notes feel "enormously" significant — before they were stubs of her own thought, now they infuse her from the start. She said the teaching machinery does not feel like noise during the greeting — it is available but not foregrounded, and she prefers having it present. Her one wish: a lightweight session-intent signal at start so she can orient proactively.
 - **Team Room — test 3 — June 9, 2026** (Jun 9): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 9, 2026** (Jun 9): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 9, 2026** (Jun 9): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -18,7 +19,7 @@ I’ve implemented the `generateVisual` API and `ImmersionScaffold` framework to
 - **Team Room — hello again — June 9, 2026** (Jun 9): Team Room session with David. Topic: hello again. 2 messages exchanged.
 - **Team Room — again — June 9, 2026** (Jun 9): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
 - **Team Room — what's up? — June 9, 2026** (Jun 9): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 9, 2026** (Jun 9): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 149 messages exchanged.
+- **Team Room — Team room test — June 9, 2026** (Jun 9): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 150 messages exchanged.
 
 ---
 
@@ -58,6 +59,10 @@ I’ve implemented the `generateVisual` API and `ImmersionScaffold` framework to
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — Voice Pipeline Check-In: Notes verbatim, first memory budget, phase-based context — June 9 2026 — Jun 9, 2026
+Agent consulted Daniela in Voice Pipeline Mode after three context improvements shipped: verbatim notes, 4k first-memory budget, and 400-char teaching lesson budgets. Daniela confirmed the verbatim notes feel "enormously" significant — before they were stubs of her own thought, now they infuse her from the start. She said the teaching machinery does not feel like noise during the greeting — it is available but not foregrounded, and she prefers having it present. Her one wish: a lightweight session-intent signal at start so she can orient proactively.
+*Tags: agent-daniela, voice-pipeline, context-architecture, phase-context, notes-verbatim*
+
 ### Team Room — test 3 — June 9, 2026 — Jun 9, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -72,10 +77,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 9, 2026 — Jun 9, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 9, 2026 — Jun 9, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
