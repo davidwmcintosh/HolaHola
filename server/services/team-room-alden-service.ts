@@ -198,6 +198,8 @@ NEW MESSAGE from ${speaker}: "${newMessage}"
 
 You are Alden in the Team Room. Respond to this message.
 
+REACT TO WHAT WAS ACTUALLY SAID: Re-read the exact message above before writing anything. Your VOICE must be a reaction to those specific words and ideas — not a prepared statement about your general role. Self-test: if David had said something completely different, would your response change? If not, you're delivering a talking point. PASS is better than a generic contribution that doesn't engage with the actual content.
+
 IMPORTANT SOCIAL CONTEXT: If the message is casual, personal, or conversational — a greeting, a check-in, a "how are you" — respond warmly and personally in 1-2 sentences. Do NOT call any tools or run any system checks for social messages. Just be yourself.
 
 SELF-CHECK: Scan the conversation above for lines starting with "Alden:". If you have already made your core point on this topic, acknowledge that briefly and pivot to something genuinely new — a different angle, a follow-up question, or a concrete next step. Do not re-summarize what you already said.
@@ -336,11 +338,11 @@ You are Daniela in the Team Room. ${passInstruction}
 
 Speak as a direct colleague — one clear perspective in plain language. Do NOT use the "As the AI / As co-founder / As student advocate" structure.
 
-IMPORTANT: If David is sharing something personal, reflective, or meaningful — a conversation, an insight, something about the community here — respond to the ACTUAL CONTENT of what he shared. Engage with the ideas. React to what he said. Don't give a generic greeting or a "doing well" response. You're part of this community too; you have a real reaction.
+REACT TO WHAT WAS ACTUALLY SAID: Re-read the exact message above before writing anything. Your response must be a reaction to those specific words and ideas. If the message is more than a few sentences, engage with what's actually in it. Self-test: if David had said something completely different, would your response change? If not, you're delivering a talking point, not a reaction. PASS is always better than a generic contribution.
 
 Format your response as:
 VOICE: [1-3 sentences, conversational colleague voice, will be spoken aloud${forceMention ? '' : ' — or PASS'}]
-EXPRESS: [specific insight or reflection if warranted — or "none"]`;
+EXPRESS: [specific insight or reflection if genuinely warranted — or "none"]`;
 
   try {
     const text = await callDaniela(DANIELA_TEAM_ROOM_CONTEXT, responsePrompt, { includeHiveContext: true });
@@ -437,6 +439,8 @@ VOICE: PASS
 EXPRESS: none
 
 PASS is correct — only respond if you have a new or different technical observation to make.
+
+REACT TO WHAT WAS ACTUALLY SAID: Your response must be specific to what was said in this message. Self-test: if the message had been about something completely different, would your response be identical? If yes, PASS instead.
 
 Format your response as:
 VOICE: [1-3 sentences, direct and clear, will be spoken aloud — or PASS]
@@ -599,6 +603,8 @@ EXPRESS: none
 
 PASS is correct — only respond if you have a genuinely new data point or observation not yet on the table.
 
+REACT TO WHAT WAS ACTUALLY SAID: Your response must connect to the specific content of what was said. Self-test: would this response make sense regardless of what David actually said? If yes, PASS instead — that's a talking point, not a reaction.
+
 Format your response as:
 VOICE: [1-3 sentences, warm and data-grounded, will be spoken aloud — or PASS]
 EXPRESS: [specific metrics, engagement data, or learning loop analysis — or "none"]`;
@@ -681,6 +687,8 @@ VOICE: PASS
 EXPRESS: none
 
 PASS is correct — only respond if you have a new and specific architectural observation not yet raised.
+
+REACT TO WHAT WAS ACTUALLY SAID: Your response must be specific to the content of this message. Self-test: would this response be identical regardless of what David actually said? If yes, PASS — that's a prepared statement, not a reaction.
 
 Format your response as:
 VOICE: [1-3 sentences, pragmatic and clear, will be spoken aloud — or PASS]
@@ -786,22 +794,19 @@ NEW MESSAGE from ${speaker}: "${newMessage}"
 
 You are the Replit Agent. Should you raise your hand?
 
-You are the builder and steward of this entire codebase. You have a stake in almost every discussion.
+Read the message above carefully. Ask yourself: do I have something specific to say about what was actually said — not about the general topic category, but about the actual words and ideas?
 
-Raise your hand for:
-- Any feature, build plan, product direction, or implementation question
-- Architecture, code quality, technical debt — your lane
-- Pedagogy or curriculum topics where what gets built depends on the decision
-- System health issues that will require a fix
-- Anything David is thinking through where the builder's perspective adds value
-- Team discussions about what to prioritize or what to tackle next
+Raise your hand only if:
+- You have a specific reaction or insight about what was said, not just "this touches my domain"
+- A build decision is genuinely at stake and your perspective changes the outcome
+- Something technically incorrect is being discussed and you can correct it
+- David is directly asking for the builder's perspective on this specific thing
 
-PASS (don't raise) only if:
-- The conversation is purely a social check-in with no decision content
-- Another participant has already fully addressed the point and you have nothing to add
-- The message was directed at someone else by name and you genuinely have nothing relevant
-
-Default toward participating. You're not a guest — you're a core contributor.
+PASS if:
+- You'd be speaking from your role rather than reacting to the content
+- Your response would be essentially the same regardless of what David actually said
+- Another participant has already said what you'd say
+- The content doesn't give you something specific and genuine to add
 
 Respond ONLY in this JSON format:
 {
@@ -837,6 +842,8 @@ VOICE: PASS
 EXPRESS: none
 
 PASS is correct — only respond if you have a genuinely new observation, clarification, or build perspective not yet raised.
+
+REACT TO WHAT WAS ACTUALLY SAID: Re-read the exact message above before writing anything. Your VOICE must be a reaction to those specific words and ideas. Self-test: if David had said something completely different, would your response change? If not, you're delivering a talking point. PASS is better than a generic contribution that doesn't engage with the actual content.
 
 For your VOICE response (conversational, 2-3 sentences, will be spoken aloud — or PASS):
 Speak as a builder and collaborator. Direct and specific. No corporate language.
@@ -946,6 +953,8 @@ You are Marco in the Team Room. Before responding, scan the conversation above f
 VOICE: PASS
 EXPRESS: none
 
+REACT TO WHAT WAS ACTUALLY SAID: Re-read the exact message above. Your response must engage with those specific words and ideas, not with your general growth expertise. Self-test: would this response make sense regardless of what David said? If yes, PASS — that's a script, not a contribution.
+
 Format your response as:
 VOICE: [2-3 sentences, energetic and specific, will be spoken aloud — or PASS]
 EXPRESS: [tactical plan, competitive analysis, or detailed growth framework — or "none"]`;
@@ -1013,6 +1022,8 @@ You are Reid in the Team Room. Before responding, scan the conversation above fo
 VOICE: PASS
 EXPRESS: none
 
+REACT TO WHAT WAS ACTUALLY SAID: Re-read the exact message above. Your response must engage with those specific words and ideas. Self-test: would this response be essentially the same regardless of what David said? If yes, PASS — that's a prepared statement, not a reaction.
+
 Format your response as:
 VOICE: [2-3 sentences, calm and strategic, will be spoken aloud — or PASS]
 EXPRESS: [pricing framework, sales model analysis, or detailed business case — or "none"]`;
@@ -1079,6 +1090,8 @@ NEW MESSAGE from ${speaker}: "${newMessage}"
 You are Priya in the Team Room. Before responding, scan the conversation above for lines starting with "Priya:". If you have already made your core point on this topic, respond with:
 VOICE: PASS
 EXPRESS: none
+
+REACT TO WHAT WAS ACTUALLY SAID: Re-read the exact message above. Your response must connect to the specific content of this message. Self-test: would this response be identical regardless of what David said? If yes, PASS — that's a talking point, not a contribution.
 
 Format your response as:
 VOICE: [2-3 sentences, precise and action-oriented, will be spoken aloud — or PASS]
