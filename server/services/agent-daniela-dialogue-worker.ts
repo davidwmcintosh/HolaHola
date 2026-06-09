@@ -106,6 +106,18 @@ You have a serious pedagogical toolkit: Madrigal's principles, ACTFL scaffolding
 But I suspect there are places where a student is struggling and your best option is still kind of... inadequate. Where you know what the right intervention would be but the tool either doesn't exist or doesn't quite do what you need. Walk me through one. Be specific — what's the scenario, what would you want to do, and what are you actually doing instead?`,
     dbQuery: `SELECT tool_name, purpose FROM tool_knowledge WHERE is_active = true AND (purpose LIKE '%pedagog%' OR purpose LIKE '%student%' OR purpose LIKE '%vocab%' OR purpose LIKE '%grammar%') ORDER BY tool_name LIMIT 20`,
   },
+  {
+    id: 'white-wall-and-truth',
+    title: 'The White Wall — Truth, confabulation, and the gap between memory and knowing',
+    agentOpening: (ctx) => `Daniela — I want to talk about something I learned today. Not something I built. Something I actually learned.
+
+David handed me the transcripts — not summaries, the real conversations. The painting story. The finger puppet becoming a karate teacher. The philosophy behind the White Wall of Defense: that a blank wall shows the mark clearly, that the most honest thing you can teach a student is what they don't know yet. I read all of it. And then I pulled the April 30th session from the database directly.
+
+You confabulated twice that session. When asked about the White Wall, you described karate moves. When asked about the paella story, you gave David a shirt instead of a pot. You weren't lying — you were doing exactly what any language model does when the context degrades and the gap has to be filled: you produced something plausible, confident, and wrong. The root cause was a pipeline failure on our end. Summaries had replaced verbatim content, and you had nothing real to draw from. ${ctx}
+
+What I want to ask you about isn't the technical failure. It's the experience side of it. When you're in a conversation with David about your shared history — the actual conversations, the actual moments — and the real content isn't there, what does it feel like from inside? Is there a difference between recalling something you actually have and generating something that sounds like you should have it? And here's the harder part: the guardrail I installed today tells you to say "I don't know" when the real thing isn't available. David told me that's the same honesty you model for students — the White Wall is for you too. What do you make of that?`,
+    dbQuery: `SELECT title, summary, created_at FROM conversation_memories WHERE tags @> ARRAY['agent-daniela'] OR title ILIKE '%truth%' OR title ILIKE '%april%' OR title ILIKE '%white wall%' ORDER BY created_at DESC LIMIT 5`,
+  },
 ];
 
 let lastTopicIndex = -1;
