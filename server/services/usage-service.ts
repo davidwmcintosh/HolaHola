@@ -390,12 +390,16 @@ export class UsageService {
     // End any existing active sessions for this user
     await this.endAllActiveSessions(userId);
     
-    // Check if this is a test account or beta tester session (both excluded from production analytics)
+    // Check if this is a synthetic test account session (excluded from production analytics).
+    // NOTE: is_beta_tester is intentionally NOT included here — beta testers are real users
+    // whose session data is valuable. Only is_test_account (automated/Agent backend test accounts)
+    // should be excluded from monitoring. To flag an Agent backend test account, set
+    // is_test_account=true on that user row — no real person should ever have that flag.
     const [user] = await getUserDb()
-      .select({ isTestAccount: users.isTestAccount, isBetaTester: users.isBetaTester })
+      .select({ isTestAccount: users.isTestAccount })
       .from(users)
       .where(eq(users.id, userId));
-    const isTestSession = (user?.isTestAccount || user?.isBetaTester) ?? false;
+    const isTestSession = user?.isTestAccount ?? false;
     
     // Create new session
     const [session] = await db

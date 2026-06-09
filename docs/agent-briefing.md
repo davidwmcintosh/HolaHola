@@ -1,14 +1,14 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, June 9, 2026 at 12:38 AM
+**Generated:** Tuesday, June 9, 2026 at 12:56 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I've established the Conversational Immersion framework and the `generateVisual` system, but I must now resolve a 404 routing error on the "conversations" page and a telemetry bug in Daniela’s Compass causing 0% textbook completion. I am prioritizing Wren’s high-severity security findings regarding SQL injection and XSS while triaging a sudden spike of 50 new bugs. Additionally, I need to address seeding regressions that reverted Spanish lesson intros to an unreadable "wall-of-text" format.
+I need to fix the critical 404 routing error on the Conversations page and investigate a tracking leak in Daniela’s Compass that is reporting zero seconds for all textbook interactions. I must prioritize remediating Wren’s two high-severity security findings regarding SQL injection and XSS while triaging a recent surge of 50 new bugs. Based on Lyra’s report of a 0% completion rate for the Interactive Textbook and 446 placeholder descriptions, I have begun implementing the `generateVisual` and `ImmersionScaffold` frameworks to shift our focus toward Daniela’s conversational immersion.
 
 *Memories that triggered this summary:*
 - **Team Room — test 3 — June 9, 2026** (Jun 9): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
