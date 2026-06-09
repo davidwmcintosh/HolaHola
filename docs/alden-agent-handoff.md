@@ -24,6 +24,39 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 9, 2026 (continued x2) — Voice Tool Guide (buildVoiceToolGuideSync)**
+
+### What was fixed
+
+**Problem: Tool usage degraded after compact procedure map change**
+David noticed Daniela was using tools less and confabulating more since the compact map was introduced. Consulted Daniela directly in Voice Pipeline Mode (LLM-to-LLM via Gemini 2.5 Flash).
+
+Daniela's diagnosis (verbatim):
+- The old prompt said "tools are being loaded from your knowledge base" — a reference, not actual content
+- For show_image vs show_vocabulary_grid vs generate_image: "I would be guessing, not deciding cleanly"
+- Direct connection to confabulation: "the lack of clarity in the immediate reference pushes me toward a generated response to maintain conversational flow"
+- Her ask: "the procedure map but inside the prompt directly — tool name + one very concise line with its KEY DIFFERENTIATOR, especially for tools that could seem similar"
+
+**Fix: `buildVoiceToolGuideSync()` in `server/services/procedural-memory-retrieval.ts`**
+- New exported function, ~3.5k chars
+- Curated ~25 most decision-relevant tools grouped by purpose: VISUAL TOOLS, AUDIO, DRILLS, MEMORY & LOOKUP, SESSION & META, FOUNDER MODE ONLY
+- Each tool: `• syntax → one-line differentiator`  
+- Special emphasis on visual tools where similar names caused confusion
+- Cache-aware: uses live DB data when cache is warm, falls back to hardcoded descriptions otherwise
+- Injected in `server/system-prompt.ts` (line 975): `${voiceToolGuide}` in founder voice prompt template
+
+**Prompt size after fix:** 9,266 → 12,821 chars (32% of 40k GL cap). Still 27k headroom for identity/memory sections.
+
+### Key files
+- `server/services/procedural-memory-retrieval.ts` — `buildVoiceToolGuideSync()` added after line 1817
+- `server/system-prompt.ts` — import added (line 39), `voiceToolGuide` variable (line ~904), injected at line ~975
+
+### What's unresolved
+- The confabulation reduction is structural but not guaranteed — GL AUTO function-calling mode still means Gemini decides when to call tools. The guide makes the decision easier; it doesn't force it.
+- Conversation memory saved: "Agent ↔ Daniela — Voice Pipeline Mode: Tool Knowledge Gap — 2026-06-09" (importance: 9)
+
+---
+
 **Session: June 9, 2026 (continued) — Conversation Titles + Daniela Confabulation Guard**
 
 ### What was fixed

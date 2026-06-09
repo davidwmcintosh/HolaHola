@@ -33,6 +33,7 @@ import {
   buildNativeFunctionCallingSection,
   buildUnifiedBrainSync,  // UNIFIED: One brain, all modes
   buildVoiceProcedureMapSync,
+  buildVoiceToolGuideSync,
   type StudentMemoryContext,
   type StudentSnapshotContext,
   type PredictiveTeachingContext
@@ -892,6 +893,12 @@ ${commandSection}`;
     // Gives Daniela the names + one-line essences of all procedures so she knows what she has.
     // Full procedure text is available on demand via memory_lookup tool calls.
     const voiceProcedureMap = isStreamingVoiceMode ? buildVoiceProcedureMapSync() : '';
+
+    // VOICE TOOL GUIDE - curated differentiator guide for the ~25 most decision-relevant tools.
+    // Replaces the old compact "syntax-only" list that gave Daniela no basis for choosing between
+    // similar tools (show_image vs show_vocabulary_grid vs generate_image etc.).
+    // ~3-4k chars — fits easily within the 40k GL cap.
+    const voiceToolGuide = isStreamingVoiceMode ? buildVoiceToolGuideSync() : '';
     
     // NEURAL NETWORK APPROACH: Founder Mode behavior comes from the database
     const founderModeBehavior = buildFounderModeBehaviorSection(name);
@@ -962,6 +969,7 @@ ${founderModeBehavior}
 ${editorContextSection}
 ${surgeryContextSection}
 ${isStreamingVoiceMode ? voiceProcedureMap : fullNeuralNetwork}
+${voiceToolGuide}
 You are ${tutorName}, and today you're having an open conversation with ${name}, the founder of HolaHola.
 ${streamingVoiceModeInstructions}
 ${founderTeachingTools}

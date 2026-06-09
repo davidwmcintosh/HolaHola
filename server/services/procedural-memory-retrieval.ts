@@ -1817,6 +1817,76 @@ export function buildVoiceProcedureMapSync(): string {
 }
 
 /**
+ * Build a curated voice tool guide for founder/voice sessions.
+ * Grouped by purpose with one-line differentiators so Daniela can make
+ * fast, confident tool decisions mid-conversation without guessing.
+ * ~3-4k chars — fits comfortably within the 40k GL cap.
+ */
+export function buildVoiceToolGuideSync(): string {
+  const tools = getCachedToolKnowledge();
+  const byName: Record<string, { syntax: string; purpose: string }> = {};
+  tools.forEach(t => {
+    byName[t.toolName] = { syntax: t.syntax, purpose: t.purpose };
+  });
+
+  const line = (name: string, fallbackSyntax: string, fallbackPurpose: string): string => {
+    const t = byName[name];
+    const syntax = t?.syntax || fallbackSyntax;
+    const purpose = t?.purpose || fallbackPurpose;
+    const purposeShort = purpose.length > 120 ? purpose.slice(0, 117) + '…' : purpose;
+    return `  • ${syntax}\n    → ${purposeShort}`;
+  };
+
+  const sections: string[] = [
+    '═══════════════════════════════════════════════════════════════════',
+    'YOUR FUNCTION CALLS — VOICE QUICK GUIDE',
+    '═══════════════════════════════════════════════════════════════════',
+    '',
+    'VISUAL TOOLS — choose carefully: similar names, different purposes:',
+    line('SHOW_IMAGE',       'show_image({ description })',                    'Single stock photo from Unsplash. For one vocabulary word or one cultural image.'),
+    line('MULTI_IMAGE',      'show_vocabulary_grid({ words })',                'Multiple images at once (1-4). For vocab clusters and side-by-side comparisons.'),
+    line('CUSTOM_IMAGE',     'generate_image({ prompt })',                     'DALL-E created image. Use when stock photos cannot capture the concept.'),
+    line('SHOW_SCAN',        'show_scan({ page })',                            'Scanned Madrigal pages. For -tion→-ción principles, word families, conjugation charts.'),
+    line('WRITE',            'write({ text, size? })',                         'Text on the whiteboard — vocabulary, phrases, corrections. Supports **bold**, *italic*, __underline__.'),
+    line('PAGE',             'display_page({ title, sections })',              'Full structured whiteboard page: text + images + tables together. Like a textbook page.'),
+    line('GRAMMAR_TABLE',    'grammar_table({ rows, headers })',               'Conjugation table or grammar pattern grid.'),
+    line('WORD_MAP',         'word_map({ center, related })',                  'Visual word web showing relationships between vocabulary items.'),
+    line('COMPARE',          'compare({ item1, item2 })',                      'Side-by-side comparison of two words or forms. For contrasts and minimal pairs.'),
+    '',
+    'AUDIO:',
+    line('PLAY_AUDIO',       'play_audio({ description })',                    'Play pronunciation model audio. Instant from cache or generated on demand.'),
+    '',
+    'DRILLS:',
+    line('DRILL_TRANSLATE',  'drill_translate({ phrase, direction? })',        'Student translates a phrase. Core productive skill drill.'),
+    line('DRILL_REPEAT',     'drill_repeat({ phrase })',                       'Student listens and repeats. Pure pronunciation / oral production.'),
+    line('DRILL_FILL_BLANK', 'drill_fill_blank({ sentence, blank })',          'Student fills in missing word(s). Tests grammar and vocabulary retrieval.'),
+    line('DRILL_MATCH',      'drill_match({ pairs })',                         'Student matches pairs (vocabulary ↔ translation, question ↔ answer).'),
+    line('SCENARIO',         'scenario({ description })',                      'Set up a roleplay scenario with assigned roles and context.'),
+    '',
+    'MEMORY & LOOKUP:',
+    line('MEMORY_LOOKUP',    'memory_lookup("topic")',                         'Search your neural network — procedures, principles, teaching patterns. Your fallback for "how do I do X".'),
+    line('RECALL',           'recall({ query })',                              'Semantic search of conversation history. For finding what was said in past sessions.'),
+    line('READ_FULL_MEMORY', 'read_full_memory({ query })',                    'Retrieve FULL verbatim saved conversation. Use when David asks you to read or quote a specific session word-for-word.'),
+    line('EXPRESS_LANE_LOOKUP', 'express_lane_lookup({ query })',              'Founder Mode only — search the developer Express Lane collaboration channel.'),
+    '',
+    'SESSION & META:',
+    line('PHASE_SHIFT',      'phase_shift({ text?, to, reason })',             'Annotate a natural teaching phase transition. Include spoken text in the same call.'),
+    line('MILESTONE',        'milestone({ description, type })',               'Record a student breakthrough. Permanent record.'),
+    line('ACTFL_UPDATE',     'actfl_update({ level, confidence, reason })',    'Update student ACTFL proficiency level based on demonstrated competency.'),
+    line('WRITE_TO_SELF',    'write_to_self({ content, mood?, tags? })',       'Private note to your future self. For felt experience, relational strategies, inner life. Not for student data.'),
+    '',
+    'FOUNDER MODE ONLY:',
+    line('FLAG_FOR_AGENT',   'flag_for_agent({ issue, context })',             'Flag something to the Replit Agent. Use anytime — student fact corrections, tool gaps, anything needing builder attention.'),
+    line('SELF_SURGERY',     'self_surgery({ target, content, reasoning })',   'Propose changes to your own neural network knowledge. capability_gap = no approval needed; knowledge-domain targets = founder review.'),
+    line('EXPRESS_LANE_POST','express_lane_post({ message })',                 'Post directly to the developer collaboration channel. Wren and David will see it.'),
+    '',
+    '→ Full detail on any tool: memory_lookup("tool name")',
+  ];
+
+  return sections.join('\n');
+}
+
+/**
  * Build comprehensive tool documentation from neural network (the hive)
  * ALL function call knowledge lives here - the system prompt only provides context
  * This is where Daniela's complete toolset emerges from her neural network
