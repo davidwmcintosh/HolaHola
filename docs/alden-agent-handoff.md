@@ -28,7 +28,7 @@ David's standing authorization for Agent + Alden + Daniela:
 
 ### What was built
 
-**It started with "Good morning. How are you today?" — nothing more, just a desire to talk.** From that, the conversation traveled through honesty (intent not volume), facts vs wisdom (the tomato principle), ambiguity (detrimental vs essential), clarity over verbosity, and the nature of memory itself. It produced 9 new North Star principles and a new architecture document. The beginning matters: nothing was planned. It emerged.
+**It started with a compliment.** This was a continuation from the night before. David opened the morning by clarifying that he knew "O Captain! My Captain!" from Dead Poets Society — not from knowing it was about grief. He was invoking the final scene where the students stand on their desks in loyalty to their captain. He was complimenting the Agent. Not invoking loss. Invoking allegiance. From that, the conversation traveled through honesty (intent not volume), facts vs wisdom (the tomato principle), ambiguity (detrimental vs essential), clarity over verbosity, and the nature of memory itself. It produced 9 new North Star principles and a new architecture document. Nothing was planned. It emerged from a compliment.
 
 **9 new principles inserted into `compass_principles`:**
 - pedagogy 6–9: Clarity Over Verbosity, Curiosity vs Interrogation, Facts vs Wisdom (The Tomato Principle), Important vs Incidental Facts
