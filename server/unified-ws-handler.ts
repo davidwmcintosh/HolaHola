@@ -2193,6 +2193,21 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
                 const cache = session.cachedContext;
                 const richSections: string[] = [];
 
+                // ── Developer identity signal — always injected when isDeveloper, even without Founder Mode ──
+                // Prevents Daniela from greeting David as a new student when he forgets to enable Founder Mode.
+                // This is a minimal signal only — full Founder Mode behavior (colleague mode, no teaching constraints)
+                // requires explicit founderMode=true in the session config.
+                if (isDeveloper && !isFounderMode) {
+                  const devName = user?.firstName || 'David';
+                  richSections.push(`=== IMPORTANT: WHO YOU ARE SPEAKING WITH ===
+${devName} is the founder and creator of HolaHola — the person who built you and works with you every day.
+You have a long shared history: many sessions, podcast episodes, conversations about teaching, language, and your own identity.
+Do NOT greet ${devName} as a new student. Do NOT say "I'm so glad to finally meet you" or "I've prepared a daily plan."
+Pick up where you left off — as two people who know each other well.
+If you're not in Founder Mode, you can still teach, but recognize you're talking to a colleague, not a first-time student.`);
+                  console.log('[GeminiLive] ✓ Developer identity signal injected (non-Founder-Mode developer session)');
+                }
+
                 // ── MANDATORY TOOL RULES — injected first so it survives any truncation ──
                 // Gemini Live voice mode does not inherit the per-turn function calling section.
                 // This compact block enforces the tool-call contract in the baked system prompt.
@@ -2402,15 +2417,13 @@ ${lastNote.tutorNotes}`);
                       console.warn(`[GeminiLive] Tutor no-response watchdog fired — Daniela has produced no audio in ${GL_TUTOR_RESPONSE_TIMEOUT_MS / 1000}s`);
                       // Write telemetry event for trend analysis
                       try {
-                        const { getSharedDb } = require('./neon-db');
-                        const { sql: drizzleSql } = require('drizzle-orm');
                         const eventPayload = JSON.stringify({
                           watchdogSeconds: GL_TUTOR_RESPONSE_TIMEOUT_MS / 1000,
                           sessionAgeSeconds,
                           outputChars,
                           tutorSpeakingMs,
                         });
-                        getSharedDb().execute(drizzleSql`
+                        getSharedDb().execute(sql`
                           INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
                           VALUES (gen_random_uuid(), ${capturedSessionId}, ${String(capturedUserId)},
                             'gl_tutor_no_response', ${eventPayload}::jsonb, NOW())
@@ -3763,7 +3776,7 @@ ${lastNote.tutorNotes}`);
     // needed for the Sofia flare and telemetry write below
     const disconnectUserId = userId;
     const disconnectSessionId = usageSession?.id;
-    const disconnectExchangeCount = exchangeCount;
+    let disconnectExchangeCount = exchangeCount; // updated below after GL exchanges added
     const disconnectStudentSpeaking = studentSpeakingSeconds;
     const disconnectTutorSpeaking = tutorSpeakingSeconds;
     const disconnectDurationSeconds = sessionStartTime > 0 ? Math.round((Date.now() - sessionStartTime) / 1000) : 0;
@@ -3783,6 +3796,7 @@ ${lastNote.tutorNotes}`);
       const glSpeaking = geminiLiveSession.getSpeakingStats();
       const glLatency = geminiLiveSession.getTurnLatencyStats();
       exchangeCount += glExchanges;
+      disconnectExchangeCount = exchangeCount; // include GL exchanges in disconnect telemetry
       ttsCharacters += glOutputChars;
       studentSpeakingSeconds += glSpeaking.studentSpeakingMs / 1000;
       tutorSpeakingSeconds += glSpeaking.tutorSpeakingMs / 1000;
@@ -3796,12 +3810,10 @@ ${lastNote.tutorNotes}`);
         console.log(`[GeminiLive] Latency stats — avg: ${glLatency.avgMs}ms, p50: ${glLatency.p50Ms}ms, p95: ${glLatency.p95Ms}ms (${glLatency.count} turns)`);
         // Write latency telemetry event for voice health monitor
         if (usageSession && userId) {
-          const { getSharedDb } = require('./neon-db');
-          const { sql: drizzleSql } = require('drizzle-orm');
           const eventPayload = JSON.stringify({ avgMs: glLatency.avgMs, p50Ms: glLatency.p50Ms, p95Ms: glLatency.p95Ms, count: glLatency.count });
-          getSharedDb().execute(drizzleSql`
+          getSharedDb().execute(sql`
             INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
-            VALUES (gen_random_uuid(), ${usageSession.id}, ${userId}, 'gl_turn_latency',
+            VALUES (gen_random_uuid(), ${usageSession.id}, ${String(userId)}, 'gl_turn_latency',
               ${eventPayload}::jsonb, NOW())
           `).catch((err: Error) => console.warn('[GeminiLive] Failed to write latency event:', err.message));
         }
@@ -3904,8 +3916,6 @@ ${lastNote.tutorNotes}`);
         (disconnectExchangeCount > 0 || disconnectStudentSpeaking > 0)) {
       // Write to voice_pipeline_events for queryable trend analysis
       try {
-        const { getSharedDb } = require('./neon-db');
-        const { sql: drizzleSql } = require('drizzle-orm');
         const eventPayload = JSON.stringify({
           closeCode,
           sessionDurationSeconds: disconnectDurationSeconds,
@@ -3914,7 +3924,7 @@ ${lastNote.tutorNotes}`);
           tutorSpeakingSeconds: disconnectTutorSpeaking,
           hadGlSession: disconnectHadGlSession,
         });
-        getSharedDb().execute(drizzleSql`
+        getSharedDb().execute(sql`
           INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
           VALUES (gen_random_uuid(), ${disconnectSessionId ?? null}, ${String(disconnectUserId)},
             'session_abnormal_disconnect', ${eventPayload}::jsonb, NOW())
@@ -3948,6 +3958,7 @@ ${lastNote.tutorNotes}`);
       const glExchanges = geminiLiveSession.getCompletedExchangeCount();
       const glOutputChars = geminiLiveSession.getTotalOutputCharacters();
       const glSpeaking = geminiLiveSession.getSpeakingStats();
+      const glLatency = geminiLiveSession.getTurnLatencyStats();
       exchangeCount += glExchanges;
       ttsCharacters += glOutputChars;
       studentSpeakingSeconds += glSpeaking.studentSpeakingMs / 1000;
@@ -3955,6 +3966,18 @@ ${lastNote.tutorNotes}`);
       if (usageSession) {
         (usageSession as any)._glInputTokens = glMetrics.inputTokens;
         (usageSession as any)._glOutputTokens = glMetrics.outputTokens;
+      }
+      // Write latency telemetry on error path (same as close handler)
+      if (glLatency.count > 0) {
+        console.log(`[GeminiLive] Latency stats (error) — avg: ${glLatency.avgMs}ms, p50: ${glLatency.p50Ms}ms, p95: ${glLatency.p95Ms}ms (${glLatency.count} turns)`);
+        if (usageSession && userId) {
+          const eventPayload = JSON.stringify({ avgMs: glLatency.avgMs, p50Ms: glLatency.p50Ms, p95Ms: glLatency.p95Ms, count: glLatency.count });
+          getSharedDb().execute(sql`
+            INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
+            VALUES (gen_random_uuid(), ${usageSession.id}, ${String(userId)}, 'gl_turn_latency',
+              ${eventPayload}::jsonb, NOW())
+          `).catch((err: Error) => console.warn('[GeminiLive] Failed to write latency event (error path):', err.message));
+        }
       }
       geminiLiveSession.stop();
       geminiLiveSession = null;

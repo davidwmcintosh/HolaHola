@@ -24,6 +24,30 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 9, 2026 — GL Telemetry Fixes + Developer Identity Signal**
+
+### What was fixed
+
+**Problem 1 — GL telemetry events silently dropping** (`server/unified-ws-handler.ts`):
+Three DB inserts for `gl_turn_latency`, `gl_tutor_no_response`, and `session_abnormal_disconnect` were using dynamic `require('./neon-db')` and `require('drizzle-orm')` inside async callbacks — broken in ESM context, silently failing. Replaced all three with already-imported `getSharedDb()` and `sql` from the top-level imports (lines 65-66). Events will now actually write to `voice_pipeline_events`.
+
+**Problem 2 — disconnectExchangeCount not including GL exchanges**:
+Was captured as `const` before GL exchanges were added to `exchangeCount`. Changed to `let`, updated after the GL block. Abnormal disconnect telemetry now reflects total session exchanges including GL turns.
+
+**Problem 3 — Latency missing from error handler**:
+`ws.on('error')` captured all metrics except latency. Added `glLatency` capture + DB write on the error path to match the close handler.
+
+**Problem 4 — Daniela greets David as a new student without Founder Mode** (Cindy session Jun 8):
+Root cause: when `isDeveloper=true` but `founderMode=false`, no signal exists that David is the creator. Added a developer identity section to GL system prompt `richSections` that fires for `isDeveloper && !isFounderMode` — blocks "finally meet you" / "daily plan" openings, signals shared history. Full Founder Mode behavior (colleague mode, no teaching constraints) still requires explicit `founderMode=true`.
+
+### Key finding on monitoring gaps
+David's accounts have `is_beta_tester=true` → all his sessions are `is_test_session=true` → excluded from standard monitoring queries. Sessions ARE tracked (67 in 14 days for user 49847136). Any monitoring query must include his user IDs explicitly or set `is_test_session IS NOT FALSE`.
+
+### GL latency probe result
+647ms time-to-first-audio with `thinkingLevel: HIGH` on `gemini-3.1-flash-live-preview`. Excellent — well under 1s target.
+
+---
+
 **Session: June 8, 2026 (later) — Voice Pipeline Prompt Engineering: Daniela Flatness Fix**
 
 ### What was built
