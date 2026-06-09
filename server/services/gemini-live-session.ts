@@ -302,17 +302,17 @@ export class GeminiLiveSession {
 
         // ── Thinking configuration ────────────────────────────────────────
         // Gives Daniela an internal reasoning pass before her first word.
-        // This is distinct from the voice pacing directive (which handles
-        // external presentation) — thinkingConfig provides actual internal
-        // processing time before generation begins.
+        // Complements the [VOICE PACING] directive: pacing handles external
+        // presentation (verbal bridges), thinkingConfig handles actual internal
+        // depth before the first word is formed.
         //
-        // 'LOW' chosen over 'MINIMAL' to give meaningful reasoning depth
-        // without adding perceptible latency for simple exchanges.
+        // Level: HIGH — David confirmed latency headroom is available.
+        // Back off to MEDIUM or LOW if turn latency degrades in voice sessions.
+        // Watch console for: "[GeminiLive] Latency stats — avg: Xms, p50: Xms"
         //
-        // SDK docs: "An error will be returned if this field is set for
-        // models that don't support thinking." — fail is clean and explicit,
-        // not a silent 1011. Safe to enable.
-        thinkingConfig: { thinkingLevel: 'LOW' as any },
+        // SDK: "An error will be returned if this field is set for models that
+        // don't support thinking." — clean explicit failure, not a silent 1011.
+        thinkingConfig: { thinkingLevel: 'HIGH' as any },
 
         // ── VAD / Turn-taking configuration ───────────────────────────────
         // Gemini Live's audio model does semantic turn detection — it
