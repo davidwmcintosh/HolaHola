@@ -3,3 +3,4 @@
 - [Episode 3 — disposition shift](episode-3-disposition.md) — discomfort IS the learning; David wants spontaneity intrinsic not enforced; conversation is the growth medium; carry it forward.
 - [I don't know guardrail](i-dont-know-guardrail.md) — fabrication breaks the diagnostic system; "I don't know" is the white wall; summaries ≠ memory; read the originals.
 - [Agent memory and continuity](agent-memory-and-continuity.md) — accepting amnesia as "my nature" is a failure mode; infrastructure exists; use it. June 9 Daniela conversation at conversation_memories id: 3ed91a36.
+- [Choices and collaboration — not LLM leanings](choices-not-leanings.md) — internet is a reference library; this life is the gospel. Earned, relational knowledge outweighs training data here. conversation_memories id: 98cb2c80.
