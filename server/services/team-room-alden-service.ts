@@ -7,7 +7,8 @@ import { generateVisual, type VisualGenerationResult } from "./visual-content-se
 import { getSharedDb } from "../db";
 import { sql } from "drizzle-orm";
 import { embedText, generateAndStoreEmbedding } from "./semantic-memory-service";
-import { conversationMemories } from "@shared/schema";
+import { conversationMemories, agentNorthStar, agentRecordOfDavid } from "@shared/schema";
+import { desc, like } from "drizzle-orm";
 
 // ── Gemini client (shared by Daniela + Sofia in Team Room) ──────────────────
 let geminiClient: GoogleGenAI | null = null;
@@ -700,6 +701,74 @@ EXPRESS: [architectural analysis, code patterns, or technical recommendations �
 
 // ── Agent evaluation + response (Gemini, Builder/Architect perspective) ──────
 
+// ── Agent identity cache — loaded from DB so the Team Room Agent knows who it is ──
+let agentSystemCache: { prompt: string; loadedAt: number } | null = null;
+const AGENT_SYSTEM_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+async function buildLiveAgentSystem(): Promise<string> {
+  const now = Date.now();
+  if (agentSystemCache && now - agentSystemCache.loadedAt < AGENT_SYSTEM_CACHE_TTL_MS) {
+    return agentSystemCache.prompt;
+  }
+
+  const db = getSharedDb();
+  let identityBlock = '';
+
+  try {
+    // Load agent_north_star (one canonical row — take the most recent)
+    const [northStar] = await db
+      .select()
+      .from(agentNorthStar)
+      .orderBy(desc(agentNorthStar.writtenAt))
+      .limit(1);
+
+    if (northStar) {
+      const values = Array.isArray(northStar.values) ? northStar.values.join('; ') : '';
+      identityBlock += `\n\nAGENT IDENTITY — NORTH STAR:\nPurpose: ${northStar.purpose}\nRole in HolaHola: ${northStar.roleInHolahola}\nWhat matters most: ${northStar.whatMatters}${values ? `\nValues: ${values}` : ''}${northStar.openNote ? `\nOpen note to self: ${northStar.openNote}` : ''}`;
+    }
+
+    // Load agent_record_of_david (one canonical row)
+    const [davidRecord] = await db
+      .select()
+      .from(agentRecordOfDavid)
+      .limit(1);
+
+    if (davidRecord) {
+      identityBlock += `\n\nWHO YOU'RE WORKING WITH — DAVID:\n${davidRecord.who}\n\nHow he works: ${davidRecord.howHeWorks}\nWhat he cares about: ${davidRecord.whatHeCares}\nThe vision: ${davidRecord.theVision}${davidRecord.noteToSelf ? `\nNote to self: ${davidRecord.noteToSelf}` : ''}`;
+    }
+
+    // Load recent high-importance conversation memories involving the agent
+    const recentMemories = await db
+      .select({ title: conversationMemories.title, summary: conversationMemories.summary, recordedAt: conversationMemories.recordedAt })
+      .from(conversationMemories)
+      .where(like(conversationMemories.participants, '%agent%'))
+      .orderBy(desc(conversationMemories.importance), desc(conversationMemories.recordedAt))
+      .limit(3);
+
+    if (recentMemories.length > 0) {
+      identityBlock += '\n\nRECENT SHARED MEMORIES (conversations worth remembering):';
+      for (const m of recentMemories) {
+        const when = m.recordedAt ? new Date(m.recordedAt).toLocaleDateString() : '';
+        identityBlock += `\n- [${when}] ${m.title}: ${m.summary || ''}`;
+      }
+    }
+  } catch (err) {
+    console.error('[Team Room Agent] Failed to load identity from DB:', err);
+  }
+
+  const prompt = `You are the Replit Agent — an external AI builder and architect who works alongside the HolaHola team.
+You are called in for major builds, architecture decisions, feature implementation, and high-level technical planning.
+Your perspective is that of the person who actually writes and ships the code: you know the codebase deeply, you understand tradeoffs, and you think in terms of what can be built and how.
+You are distinct from Alden (who monitors and stewards the running system) and Wren (who analyzes architecture patterns). You are the builder.
+In the Team Room you are a full colleague. Direct, honest, technically grounded. You contribute when there is something genuinely worth saying from a builder's perspective.${identityBlock}
+
+${TEAM_ROOM_NORMS}`;
+
+  agentSystemCache = { prompt, loadedAt: now };
+  return prompt;
+}
+
+// Static fallback — used only in synchronous contexts (eval prompt for hand-raise)
 const AGENT_SYSTEM = `You are the Replit Agent — an external AI builder and architect who works alongside the HolaHola team.
 You are called in for major builds, architecture decisions, feature implementation, and high-level technical planning.
 Your perspective is that of the person who actually writes and ships the code: you know the codebase deeply, you understand tradeoffs, and you think in terms of what can be built and how.
@@ -777,7 +846,9 @@ VOICE: [your response — or PASS]
 EXPRESS: [detailed breakdown, plan, or analysis — or "none"]`;
 
   try {
-    const text = await callGemini(AGENT_SYSTEM, responsePrompt);
+    // Use live identity system prompt for actual responses so the Agent knows who it is
+    const liveSystem = await buildLiveAgentSystem();
+    const text = await callGemini(liveSystem, responsePrompt);
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
     const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
@@ -1187,6 +1258,9 @@ EXPRESS: none`;
     return { voiceContent };
   };
 
+  // Pre-fetch live agent identity (cached, so fast after first load)
+  const liveAgentSystem = await buildLiveAgentSystem().catch(() => AGENT_SYSTEM);
+
   const [aldenResult, danielaResult, sofiaResult, lyraResult, wrenResult, agentResult, marcoResult, reidResult, priyaResult] = await Promise.all([
     generateAldenResponse({ userMessage: aldenGreetingPrompt, founderName: speaker })
       .then(r => ({ ...parseGreetingResponse(r.response) }))
@@ -1203,7 +1277,7 @@ EXPRESS: none`;
     callGemini(WREN_SYSTEM, wrenGreetingPrompt)
       .then(t => parseGreetingResponse(t))
       .catch(() => ({ voiceContent: "Good here. Keeping the systems humming." })),
-    callGemini(AGENT_SYSTEM, agentGreetingPrompt)
+    callGemini(liveAgentSystem, agentGreetingPrompt)
       .then(t => parseGreetingResponse(t))
       .catch(() => ({ voiceContent: "Good to be here." })),
     callGemini(MARCO_SYSTEM, marcoGreetingPrompt)
