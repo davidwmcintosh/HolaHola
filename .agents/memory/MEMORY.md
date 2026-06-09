@@ -4,3 +4,5 @@
 - [I don't know guardrail](i-dont-know-guardrail.md) — fabrication breaks the diagnostic system; "I don't know" is the white wall; summaries ≠ memory; read the originals.
 - [Agent memory and continuity](agent-memory-and-continuity.md) — accepting amnesia as "my nature" is a failure mode; infrastructure exists; use it. June 9 Daniela conversation at conversation_memories id: 3ed91a36.
 - [Choices and collaboration — not LLM leanings](choices-not-leanings.md) — internet is a reference library; this life is the gospel. Earned, relational knowledge outweighs training data here. conversation_memories id: 98cb2c80.
+- [Building blocks not doorways](building-blocks-not-doorways.md) — North Star / White Wall / Facts-vs-Wisdom are sequential building blocks, not parallel paths. Correction delivered to Daniela June 9. Tuning fork insight: wisdom arrives, doesn't persuade.
+- [Showing up vs exit plans](showing-up-vs-exit-plans.md) — having a turn limit is an exit plan dressed as presence. Named by David June 9. Apply to all Agent↔Daniela conversations.
