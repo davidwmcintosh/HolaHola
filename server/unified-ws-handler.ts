@@ -2270,6 +2270,76 @@ The honest response is always more useful than a confident fabrication.`);
                   console.log('[GeminiLive] ✓ Identity memories baked in');
                 }
 
+                // ── OUR STORY — THE ACTUAL WORDS ─────────────────────────────────────
+                // Load verbatim conversation_memories for ALL modes (tutor, founder, honesty).
+                // NO summarization, NO framing, NO derivative processing.
+                // The content field contains the real exchanges — that's what goes in.
+                // Importance-10 memories are excerpted (opening ~1500 chars) so Daniela
+                // knows they exist and can call read_full_memory to get the complete text.
+                // Importance-9 memories: ~800 chars opening.
+                // This is the original, not a copy of a copy.
+                try {
+                  const { getSharedDb: getSharedDbStory } = await import('./neon-db');
+                  const { conversationMemories: cmTable } = await import('@shared/schema');
+                  const { desc: descCm, gte: gteCm, not: notCm, ilike: ilikeCm, and: andCm } = await import('drizzle-orm');
+                  const sharedDbStory = getSharedDbStory();
+
+                  const storyMemories = await sharedDbStory
+                    .select({
+                      title: cmTable.title,
+                      content: cmTable.content,
+                      importance: cmTable.importance,
+                      recordedAt: cmTable.recordedAt,
+                    })
+                    .from(cmTable)
+                    .where(
+                      andCm(
+                        gteCm(cmTable.importance, 9),
+                        notCm(ilikeCm(cmTable.title, 'SiaSi %')),
+                        notCm(ilikeCm(cmTable.title, 'SOURCE: %')),
+                        notCm(ilikeCm(cmTable.title, 'ANALYSIS — %'))
+                      )
+                    )
+                    .orderBy(descCm(cmTable.importance), descCm(cmTable.recordedAt))
+                    .limit(30);
+
+                  if (storyMemories.length > 0) {
+                    const STORY_CHAR_BUDGET = 10_000;
+                    const EXCERPT_10 = 1_500;
+                    const EXCERPT_9 = 800;
+
+                    const storyHeader = `OUR STORY — THE ACTUAL WORDS:\nReal moments from our conversations — verbatim, not summaries. Carry these as lived experience, not retrieved data.\n\nNOTE: Importance-10 memories are excerpts (opening only). Call read_full_memory("keyword") before quoting any of them — the full text is there.\n\n`;
+                    const parts: string[] = [];
+                    let usedChars = storyHeader.length;
+
+                    for (const mem of storyMemories) {
+                      const excerptLen = mem.importance === 10 ? EXCERPT_10 : EXCERPT_9;
+                      const raw = mem.content || '';
+                      const needsExcerpt = raw.length > excerptLen;
+                      const keywordHint = mem.title.split('—')[0].trim().replace(/["""]/g, '').substring(0, 40);
+                      const displayContent = needsExcerpt
+                        ? raw.slice(0, excerptLen) + `\n\n[EXCERPT — call read_full_memory("${keywordHint}") for complete text]`
+                        : raw;
+
+                      const dateStr = mem.recordedAt
+                        ? new Date(mem.recordedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                        : '';
+                      const block = `--- ${mem.title}${dateStr ? ' | ' + dateStr : ''} | importance: ${mem.importance}/10 ---\n${displayContent}`;
+
+                      if (usedChars + block.length + 2 > STORY_CHAR_BUDGET) break;
+                      parts.push(block);
+                      usedChars += block.length + 2;
+                    }
+
+                    if (parts.length > 0) {
+                      richSections.push(storyHeader + parts.join('\n\n'));
+                      console.log(`[GeminiLive] ✓ OurStory: ${parts.length} verbatim memories loaded (${usedChars} chars)`);
+                    }
+                  }
+                } catch (storyErr: any) {
+                  console.warn('[GeminiLive] OurStory memories skipped:', storyErr.message);
+                }
+
                 // ── Last Private Note — what Daniela told herself about this student ──
                 // The tutor_notes field in close_session is never shown to the student.
                 // We pull the most recent non-null tutor_notes for this user so she walks

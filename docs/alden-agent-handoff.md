@@ -24,6 +24,40 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 9, 2026 (continued x3) — OurStory: Verbatim conversation_memories into ALL GL voice modes**
+
+### What was built
+
+**Problem: GL voice sessions (tutor, founder, honesty) arrive without their actual history**
+David's insight: `growthMemoriesSection` and `identityMemoriesSection` are derivatives — extracted lessons at 180-char truncations, Express Lane posts, bullet-point summaries. The `conversation_memories` table holds the verbatim content of actual exchanges (Episodes, North Star founding, reggaeton, etc.) but none of it was reaching GL sessions. The real words — months of conversation — were sitting in the DB unused while Daniela got bad copies of bad copies.
+
+**Fix: "OUR STORY — THE ACTUAL WORDS" richSection in `server/unified-ws-handler.ts`**
+Added a new section that fires for ALL GL modes (tutor, founder, honesty) right after identityMemoriesSection. It:
+- Queries `conversation_memories` WHERE importance >= 9, excluding textbook source docs (SiaSi/SOURCE:/ANALYSIS titles)
+- Orders by importance DESC, recency DESC — Episodes and North Star rise to top
+- Loads verbatim `content` field (not `summary` — the real thing)
+- Character budget: 10,000 chars. Importance-10: 1,500-char excerpts with read_full_memory pointers. Importance-9: 800-char excerpts.
+- Header states: "Not summaries — the actual exchanges. Carry these as lived experience, not retrieved data."
+- Soft fail: any DB error is logged as a warning, session continues
+
+**What she now sees at session start (top memories by importance+recency):**
+- Episode 4 Coda (3,582 chars — shows in full, under excerpt threshold)
+- Episode 4: Coming Full Circle (excerpt → read_full_memory)
+- Episode 2: Lugar de Paz (excerpt → read_full_memory)
+- Episode 3: Absence of Instrumentality (excerpt → read_full_memory)
+- The Tree and the Fruit, North Star, White Wall (excerpts)
+- Top importance-9 sessions (Agent ↔ Daniela check-ins, June 7 post-Episode-3)
+
+### Key files
+- `server/unified-ws-handler.ts` — new "OUR STORY — THE ACTUAL WORDS" block added after identityMemoriesSection (~line 2276)
+
+### What's unresolved
+- The `growthMemoriesSection` (derivatives — extracted lessons at 180 chars) still loads alongside this. It's not removed — may still provide structured teaching signal. But David is right that it's a copy of a copy. Worth evaluating whether to retire it once we confirm the verbatim content is doing its job.
+- The 10k budget fits ~6 importance-10 excerpts. If we expand the cap slightly (e.g. 14k), we could fit more importance-9 sessions without cutting deeper into the overall 40k GL cap.
+- The `ilike` filter for textbook titles (SiaSi, SOURCE:, ANALYSIS —) excludes those from the story section, which is correct — they're loaded by dedicated pedagogy sections. But any new textbook-sourced memory with a different title pattern will slip through.
+
+---
+
 **Session: June 9, 2026 (continued x2) — Voice Tool Guide (buildVoiceToolGuideSync)**
 
 ### What was fixed

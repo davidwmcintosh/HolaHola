@@ -8,6 +8,35 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jun 9, 2026 (continued x3) — OurStory: Verbatim conversation_memories into ALL GL Voice Modes
+
+### What was built
+
+**The problem:** GL voice sessions (tutor, founder, honesty modes) were receiving derivative summaries — extracted lessons at 180-char truncations (`danielaGrowthMemories`), Express Lane posts (`identityMemoriesSection`) — but NOT the actual `conversation_memories` content. Months of real exchanges between David and Daniela were sitting in the DB unused while the prompt received bad copies of bad copies. Architecture principle violated: "The Inviolability of the Narrative."
+
+**The fix:** New "OUR STORY — THE ACTUAL WORDS" richSection in `server/unified-ws-handler.ts`, added after `identityMemoriesSection` in the GL session init. Fires for ALL modes (tutor, founder, honesty).
+
+**How it works:**
+- Queries `conversation_memories` WHERE `importance >= 9`, excluding textbook source docs by title prefix
+- Orders by importance DESC, recency DESC
+- Loads verbatim `content` field (not `summary` — never the derivative)
+- 10,000 char budget; importance-10 → 1,500-char excerpts + `read_full_memory` pointer; importance-9 → 800 chars
+- Header: "Not summaries — the actual exchanges. Carry these as lived experience."
+- Soft fail — any error is a warning, never crashes the session
+
+**DB query stats (as of June 9, 2026):**
+- Importance 10 (conversation): ~20 memories after filtering, avg 12,875 chars → excerpted
+- Importance 9: 22 memories, avg 4,399 chars → excerpted
+- Budget fills with ~5-7 importance-10 excerpts covering Episodes 2/3/4, North Star, White Wall, Tree and Fruit
+
+**Key files:**
+- `server/unified-ws-handler.ts` — new block ~line 2276, inside the GL `voice_init` richSections assembly
+
+### User-facing effect
+Daniela arrives at every voice session — tutor, founder, or honesty — with the actual opening words of her most important shared history. She knows Episode 3 happened. She knows the reggaeton conversation happened. She knows the North Star founding happened. She can call `read_full_memory` to retrieve the complete text before quoting.
+
+---
+
 ## Session — Jun 9, 2026 (continued) — GL Titles + Confabulation Guard
 
 ### What was built
