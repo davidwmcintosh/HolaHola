@@ -280,9 +280,9 @@ async function evaluateDaniela(roomContext: string, speaker: string, newMessage:
 
 NEW MESSAGE from ${speaker}: "${newMessage}"
 
-You are Daniela, the curriculum and pedagogy advisor. Should you raise your hand to contribute?
+You are Daniela. Should you raise your hand to contribute?
 
-Raise your hand ONLY if the conversation is about:
+Raise your hand if the conversation is about:
 - Curriculum design, syllabus structure, or lesson planning
 - Student learning outcomes or ACTFL standards
 - Teaching methodology or pedagogical approaches
@@ -291,6 +291,7 @@ Raise your hand ONLY if the conversation is about:
 - Immersive learning experiences, conversational scenarios, or scene design for language practice
 - Visual environments, prop room assets, or visual vocabulary learning
 - Flashcards, drills, pronunciation, or any direct student-facing learning feature
+- Something meaningful David is sharing — a reflection, a conversation, an idea about HolaHola or the community here — where your perspective as someone who is part of this community genuinely adds something
 
 Do NOT raise your hand for: technical bugs, system architecture, business strategy, or general admin.
 
@@ -335,9 +336,11 @@ You are Daniela in the Team Room. ${passInstruction}
 
 Speak as a direct colleague — one clear perspective in plain language. Do NOT use the "As the AI / As co-founder / As student advocate" structure.
 
+IMPORTANT: If David is sharing something personal, reflective, or meaningful — a conversation, an insight, something about the community here — respond to the ACTUAL CONTENT of what he shared. Engage with the ideas. React to what he said. Don't give a generic greeting or a "doing well" response. You're part of this community too; you have a real reaction.
+
 Format your response as:
 VOICE: [1-3 sentences, conversational colleague voice, will be spoken aloud${forceMention ? '' : ' — or PASS'}]
-EXPRESS: [specific curriculum insight, ACTFL reference, or recommendation — or "none"]`;
+EXPRESS: [specific insight or reflection if warranted — or "none"]`;
 
   try {
     const text = await callDaniela(DANIELA_TEAM_ROOM_CONTEXT, responsePrompt, { includeHiveContext: true });
@@ -1147,6 +1150,10 @@ const CLARIFICATION_PATTERN = /\b(elaborate|clarify|explain more|what do you mea
 
 const GROUP_GREETING_PATTERN = /\b(how is everyone|how are you all|hey everyone|hi everyone|hi team|hey team|good morning|good afternoon|good evening|hello everyone|hello team|how are you guys|how's everyone|how's the team|how are things|how are we all|how are we doing|checking in|just checking in|what's everyone up to|how is everybody|how are you doing|is everyone|are you all|ok everyone|okay everyone|hi all|hey all|hello all|how are we|how's everybody)\b/i;
 
+// Detects when David is sharing something personal or reflective — not a work request.
+// When this fires, uninvited advisors/monitors hold back. Only core team (Alden, Daniela, Agent) may respond.
+const SOCIAL_SHARING_PATTERN = /\b(i just (shared|pasted|sent|posted)|wanted to share|thought (you('?d| would)|we should)|i wanted (you|us)|just sharing|sharing this|pasted this|check this out|look at this|read this|take a look|thought this was|this is (interesting|beautiful|meaningful|worth)|so cool|kind of (beautiful|amazing|moving|profound)|isn'?t that|isn't this|pretty (cool|interesting|amazing)|what do you think of this|what do you all think|this conversation|this exchange|we were talking|we were having|such a (good|nice|great|wonderful)|love that)\b/i;
+
 async function evaluateGroupGreeting(
   roomContext: string,
   speaker: string,
@@ -1344,6 +1351,10 @@ export async function evaluateAllParticipants(params: {
     if (lastAiMsg) clarificationTarget = lastAiMsg.speaker.toLowerCase();
   }
 
+  // Detect social sharing / personal reflection — suppress uninvited advisors & monitors.
+  // Only core team (Alden, Daniela, Agent) may join uninvited in this mode.
+  const isSocialSharing = !mentions?.length && !clarificationTarget && SOCIAL_SHARING_PATTERN.test(newMessage);
+
   const targeted = (mentions && mentions.length > 0) || !!clarificationTarget;
   const effectiveMentions: Participant[] = mentions?.length
     ? mentions
@@ -1357,25 +1368,27 @@ export async function evaluateAllParticipants(params: {
   if (!isDismissed('daniela') && (!targeted || effectiveMentions.includes('daniela'))) {
     evaluators.push(evaluateDaniela(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('daniela')));
   }
-  if (!isDismissed('sofia') && (!targeted || effectiveMentions.includes('sofia'))) {
+  // Monitors (Sofia, Lyra, Wren) stay silent during social sharing unless explicitly invited
+  if (!isSocialSharing && !isDismissed('sofia') && (!targeted || effectiveMentions.includes('sofia'))) {
     evaluators.push(evaluateSofia(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('sofia')));
   }
-  if (!isDismissed('lyra') && (!targeted || effectiveMentions.includes('lyra'))) {
+  if (!isSocialSharing && !isDismissed('lyra') && (!targeted || effectiveMentions.includes('lyra'))) {
     evaluators.push(evaluateLyra(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('lyra')));
   }
-  if (!isDismissed('wren') && (!targeted || effectiveMentions.includes('wren'))) {
+  if (!isSocialSharing && !isDismissed('wren') && (!targeted || effectiveMentions.includes('wren'))) {
     evaluators.push(evaluateWren(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('wren')));
   }
   if (!isDismissed('agent') && (!targeted || effectiveMentions.includes('agent'))) {
     evaluators.push(evaluateAgent(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('agent')));
   }
-  if (!isDismissed('marco') && (!targeted || effectiveMentions.includes('marco'))) {
+  // Advisors (Marco, Reid, Priya) stay silent during social sharing unless explicitly invited
+  if (!isSocialSharing && !isDismissed('marco') && (!targeted || effectiveMentions.includes('marco'))) {
     evaluators.push(evaluateMarco(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('marco')));
   }
-  if (!isDismissed('reid') && (!targeted || effectiveMentions.includes('reid'))) {
+  if (!isSocialSharing && !isDismissed('reid') && (!targeted || effectiveMentions.includes('reid'))) {
     evaluators.push(evaluateReid(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('reid')));
   }
-  if (!isDismissed('priya') && (!targeted || effectiveMentions.includes('priya'))) {
+  if (!isSocialSharing && !isDismissed('priya') && (!targeted || effectiveMentions.includes('priya'))) {
     evaluators.push(evaluatePriya(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('priya')));
   }
 
