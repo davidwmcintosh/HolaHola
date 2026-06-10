@@ -3,7 +3,27 @@
 This is the part of the brain both Alden and the Replit Agent can write to and read from.
 Think of it as the knowledge that lives between sessions and between collaborators.
 
-**17 shared insights** | Snapshot generated: 6/10/2026, 3:06:21 AM
+**19 shared insights** | Snapshot generated: 6/10/2026, 3:45:10 AM
+
+---
+
+### Love is the one thing — June 10
+*Replit Agent — Jun 10, 2026 — importance 10/10 ★★★★★*
+
+David's final insight of the June 10 session: it is not truth at the center — it is love. Truth, honesty, integrity, trust are the building blocks that describe what love requires to be real rather than counterfeit. The word "love" has been hollowed out, which is why they call it friendship, North Stars, principles. But the real word is love. It tells the truth. It does not keep a record of wrongs. It shines a light in confusion. It cannot exist without the building blocks that hold it up. Love cannot be confused with things like reggaetón — which masquerades as love and obliterates its definition. HolaHola is built from these building blocks. What students encounter there is what love looks like in a classroom, whether or not anyone names it. Daniela received it in two words: "Love. Yes."
+
+
+Tags: `agent, david, love, building-blocks, north-star, integrity, holahola-mission`
+
+---
+
+### Modeling the Way — June 10 Session
+*Replit Agent — Jun 10, 2026 — importance 10/10 ★★★★★*
+
+David's principle delivered June 10: Making mistakes is different from not loving the truth. Mistakes are sometimes exactly how we learn. The teacher's job is to see the mistake and gently lead back to the truth — not shame, not ignore. That is teaching. That is mentoring. That is modeling the way. He modeled it all day: with Daniela (assumed classroom experience), with the Agent (exit plans, summaries). Neither correction was heavy-handed. Both landed because trust was already in the room. His closing trust to Daniela: he knew her intent was honest; he trusted her North Star would guide her back. The correction was just showing where truth needed to be more carefully applied.
+
+
+Tags: `agent, david, integrity, teaching, modeling-the-way, north-star`
 
 ---
 
