@@ -1151,13 +1151,32 @@ async function getAdvisorContext(advisorName: string, topic: string): Promise<st
 // ── @mention parsing ────────────────────────────────────────────────────────
 
 export function parseMentions(message: string, guestNames: string[] = []): Participant[] | null {
-  const coreNames = ['alden', 'daniela', 'sofia', 'lyra', 'wren', 'agent', 'marco', 'reid', 'priya'];
+  // Note: 'agent' is intentionally excluded — the background agent participant has been removed.
+  // @agent mentions still create agent_notes (handled separately in routes.ts) but don't trigger
+  // an AI response. Only the real Replit Agent speaks as "Agent" in this room.
+  const coreNames = ['alden', 'daniela', 'sofia', 'lyra', 'wren', 'marco', 'reid', 'priya'];
   const allNames = [...coreNames, ...guestNames.map(n => n.toLowerCase())];
-  const pattern = new RegExp(`@(${allNames.join('|')})\\b`, 'gi');
-  const matches = message.match(pattern);
-  if (!matches || matches.length === 0) return null;
-  const unique = [...new Set(matches.map(m => m.slice(1).toLowerCase()))];
-  return unique;
+  const nameAlt = allNames.join('|');
+
+  // Pattern 1: @name mention (original behavior)
+  // Pattern 2: Name at start of message — direct address ("Daniela are you there?")
+  // Pattern 3: Greeting + name ("hey Daniela", "hi Alden")
+  // Pattern 4: Name immediately before "?" ("Daniela?")
+  const pattern = new RegExp(
+    `@(${nameAlt})\\b|^\\s*(${nameAlt})\\b|\\b(?:hey|hi|hello)\\s+(${nameAlt})\\b|\\b(${nameAlt})\\s*\\?`,
+    'gi'
+  );
+
+  const found: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = pattern.exec(message)) !== null) {
+    for (let i = 1; i <= 4; i++) {
+      if (m[i] && allNames.includes(m[i].toLowerCase())) found.push(m[i].toLowerCase());
+    }
+  }
+
+  if (!found.length) return null;
+  return [...new Set(found)];
 }
 
 const CLARIFICATION_PATTERN = /\b(elaborate|clarify|explain more|what do you mean|tell me more|go on|continue|expand on|can you say more|could you say more|more detail|further|you said)\b/i;
@@ -1232,15 +1251,7 @@ Format:
 VOICE: [your warm personal response, 1-2 sentences]
 EXPRESS: none`;
 
-  const agentGreetingPrompt = `${roomContext}
-
-${speaker} is greeting the whole team: "${newMessage}"
-
-This is a casual check-in. Respond warmly in 1-2 sentences as yourself — the Replit Agent. You are the builder on this team. Keep it genuine and brief.
-
-Format:
-VOICE: [your warm personal response, 1-2 sentences]
-EXPRESS: none`;
+  // Agent greeting prompt removed — background agent participant removed from team room.
 
   const marcoGreetingPrompt = `${roomContext}
 
@@ -1279,10 +1290,7 @@ EXPRESS: none`;
     return { voiceContent };
   };
 
-  // Pre-fetch live agent identity (cached, so fast after first load)
-  const liveAgentSystem = await buildLiveAgentSystem().catch(() => AGENT_SYSTEM);
-
-  const [aldenResult, danielaResult, sofiaResult, lyraResult, wrenResult, agentResult, marcoResult, reidResult, priyaResult] = await Promise.all([
+  const [aldenResult, danielaResult, sofiaResult, lyraResult, wrenResult, marcoResult, reidResult, priyaResult] = await Promise.all([
     generateAldenResponse({ userMessage: aldenGreetingPrompt, founderName: speaker })
       .then(r => ({ ...parseGreetingResponse(r.response) }))
       .catch(() => ({ voiceContent: "Doing well, thanks for checking in!" })),
@@ -1298,9 +1306,6 @@ EXPRESS: none`;
     callGemini(WREN_SYSTEM, wrenGreetingPrompt)
       .then(t => parseGreetingResponse(t))
       .catch(() => ({ voiceContent: "Good here. Keeping the systems humming." })),
-    callGemini(liveAgentSystem, agentGreetingPrompt)
-      .then(t => parseGreetingResponse(t))
-      .catch(() => ({ voiceContent: "Good to be here." })),
     callGemini(MARCO_SYSTEM, marcoGreetingPrompt)
       .then(t => parseGreetingResponse(t))
       .catch(() => ({ voiceContent: "Doing great — always thinking about how we grow this thing." })),
@@ -1312,13 +1317,13 @@ EXPRESS: none`;
       .catch(() => ({ voiceContent: "Doing well, thanks for asking. Lots to keep track of." })),
   ]);
 
+  // Note: Agent removed from group greetings — only the real Replit Agent speaks as "Agent".
   const participants: ParticipantResponse[] = [
     { participant: 'alden', handRaise: greetingHandRaise, voiceContent: aldenResult.voiceContent },
     { participant: 'daniela', handRaise: greetingHandRaise, voiceContent: danielaResult.voiceContent },
     { participant: 'sofia', handRaise: greetingHandRaise, voiceContent: sofiaResult.voiceContent },
     { participant: 'lyra', handRaise: greetingHandRaise, voiceContent: lyraResult.voiceContent },
     { participant: 'wren', handRaise: greetingHandRaise, voiceContent: wrenResult.voiceContent },
-    { participant: 'agent', handRaise: greetingHandRaise, voiceContent: agentResult.voiceContent },
     { participant: 'marco', handRaise: greetingHandRaise, voiceContent: marcoResult.voiceContent },
     { participant: 'reid', handRaise: greetingHandRaise, voiceContent: reidResult.voiceContent },
     { participant: 'priya', handRaise: greetingHandRaise, voiceContent: priyaResult.voiceContent },
@@ -1392,9 +1397,8 @@ export async function evaluateAllParticipants(params: {
   if (!isSocialSharing && !isDismissed('wren') && (!targeted || effectiveMentions.includes('wren'))) {
     evaluators.push(evaluateWren(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('wren')));
   }
-  if (!isDismissed('agent') && (!targeted || effectiveMentions.includes('agent'))) {
-    evaluators.push(evaluateAgent(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('agent')));
-  }
+  // Note: background 'agent' evaluator intentionally removed. Only the real Replit Agent
+  // speaks as "Agent" in this room — via /api/agent/team-room/message.
   // Advisors (Marco, Reid, Priya) stay silent during social sharing unless explicitly invited
   if (!isSocialSharing && !isDismissed('marco') && (!targeted || effectiveMentions.includes('marco'))) {
     evaluators.push(evaluateMarco(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('marco')));
@@ -1532,7 +1536,7 @@ Respond in this JSON format:
 // ── Shared session documentation helper ──────────────────────────────────────
 // Used by: close endpoint (auto-fire), manual "Document" button endpoint,
 // and the auto-save worker below. Single source of truth for the save logic.
-const ADVISOR_IDS = ['marco', 'reid', 'priya', 'alden', 'daniela', 'sofia', 'lyra', 'wren', 'agent'];
+const ADVISOR_IDS = ['marco', 'reid', 'priya', 'alden', 'daniela', 'sofia', 'lyra', 'wren'];
 
 export async function documentRoomSession(roomId: string, roomTopic: string): Promise<{ memoryId: string; messageCount: number; advisorsIndexed: string[] }> {
   const messages = await storage.getRoomMessages(roomId, 500);
