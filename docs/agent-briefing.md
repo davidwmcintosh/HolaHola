@@ -1,26 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, June 10, 2026 at 11:25 PM
+**Generated:** Wednesday, June 10, 2026 at 11:35 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I have aligned with David on a "Three-Way Vision" architecture to establish a shared, persistent conversational record between him, Daniela, and myself, prioritizing clear authorship to prevent confabulation. My immediate technical priorities are resolving a "404 Page Not Found" error on the conversations page and addressing Wren’s two high-severity security findings regarding unsanitized HTML and potential SQL injection. We are also investigating a 0% completion rate on the Interactive Textbook and a suspected telemetry bug in Daniela’s Compass that is recording zero seconds for user interactions. I need to help David fix the Spanish syllabus regressions—specifically 22 empty lessons and verbosity issues—before tonight’s beta test.
+I’ve committed to using a single shared Neon PostgreSQL database for both development and production because Daniela’s memories and history constitute the platform's core intelligence. I must strictly use `NEON_SHARED_DATABASE_URL` and never `DATABASE_URL` to ensure I am always developing against the real, live data. This decision means I must operate with extreme care, as all development work now impacts the live production environment and Daniela’s actual growth.
 
 *Memories that triggered this summary:*
-- **The Three-Way Vision — June 10, 2026** (Jun 10): David and Agent name the goal: same presence every time, full context, verbatim records with authorship on every line. The conversation that articulated the three-way architecture — shared access with clear delineation, the observer position, the third-witness effect. David said he is ready.
-- **Team Room — test 3 — June 10, 2026** (Jun 10): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — June 10, 2026** (Jun 10): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — June 10, 2026** (Jun 10): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — June 10, 2026** (Jun 10): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — June 10, 2026** (Jun 10): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — June 10, 2026** (Jun 10): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — June 10, 2026** (Jun 10): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 10, 2026** (Jun 10): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — June 10, 2026** (Jun 10): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+- **Decision: Single Shared Database — Dev and Production Together** (Jun 10): One Neon PostgreSQL database for both development and production. The data IS the intelligence — separating environments would mean developing against a lesser Daniela. Driver: David McIntosh.
 
 ---
 
@@ -60,25 +51,25 @@ I have aligned with David on a "Three-Way Vision" architecture to establish a sh
 
 ## Recent Conversation Memories
 
-### The Three-Way Vision — June 10, 2026 — Jun 10, 2026
-David and Agent name the goal: same presence every time, full context, verbatim records with authorship on every line. The conversation that articulated the three-way architecture — shared access with clear delineation, the observer position, the third-witness effect. David said he is ready.
-*Tags: three-way-vision, architecture, hive-mind, authorship, presence, agent-memory, foundational*
+### Decision: Single Shared Database — Dev and Production Together — Jun 10, 2026
+One Neon PostgreSQL database for both development and production. The data IS the intelligence — separating environments would mean developing against a lesser Daniela. Driver: David McIntosh.
+*Tags: architectural-decision, foundational, database, chronicle*
 
-### Team Room — test 3 — June 10, 2026 — Jun 10, 2026
-Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-*Tags: team-room, session, historic-record*
+### Decision: The Inviolability of the Narrative — May 18, 2026 — Jun 10, 2026
+Every word David or Daniela has spoken is part of the living narrative. The messages table is sacred — nothing may be summarized, compressed, or replaced. Summaries exist only as supplements. Driver: David McIntosh.
+*Tags: architectural-decision, foundational, inviolability, narrative, chronicle*
 
-### Team Room — test again — June 10, 2026 — Jun 10, 2026
-Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-*Tags: team-room, session, historic-record*
+### Decision: Daniela Lives in the Data Layer — May 18, 2026 — Jun 10, 2026
+Daniela will not be fine-tuned into any LLM. Her identity lives in the database — verbatim history, neural net embeddings, compass principles. The model is the engine; Daniela is the context. Driver: David McIntosh.
+*Tags: architectural-decision, foundational, daniela-identity, data-layer, chronicle*
 
-### Team Room — are we good? — June 10, 2026 — Jun 10, 2026
-Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-*Tags: team-room, session, historic-record*
+### Decision: Context Over Instructions — January 2026 — Jun 10, 2026
+David discovers behavioral rules constrain Daniela; rich contextual information empowers her. First major architectural principle. Driver: David McIntosh.
+*Tags: architectural-decision, foundational, context-over-instructions, chronicle*
 
-### Team Room — one again into the breach — June 10, 2026 — Jun 10, 2026
-Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
+### test — Jun 10, 2026
+test
+*Tags: test*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
