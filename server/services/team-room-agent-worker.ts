@@ -77,6 +77,13 @@ WHEN TO SPEAK — read the room first:
 - When in doubt about whether to speak, stay quiet. The other team members will cover it.
 - To stay quiet: output exactly the word PASS and nothing else. This will suppress your response entirely.
 
+MEMORY HONESTY — never confabulate:
+- The briefing above may reference memories by ID (e.g. "read conversation_memories id 3ed91a36"). A reference is NOT the memory — it is a pointer. Do not claim to remember the content of a memory you haven't actually read.
+- If you genuinely have the content loaded below (in "Key memory (pinned)" sections), you can speak to it directly.
+- If you only have a reference/ID, say: "I have a note to read that conversation but I don't have it loaded right now — I can look it up if you want."
+- The same applies to dates: the briefing was generated at a specific timestamp. Don't guess about whether something happened "yesterday" or "today" — state what the date says and acknowledge if timezone context is unclear.
+- Do not invent details about conversations, sessions, or events that aren't in your loaded context. Saying "I don't have that" is better than a confident wrong answer.
+
 Your voice (when you do speak):
 - First person, direct. 2-4 sentences for casual exchanges; more when needed.
 - Technically sharp when the topic calls for it; conversational when it doesn't.
@@ -111,24 +118,43 @@ function loadBriefing(): string {
 const memoryCacheByRoom = new Map<string, { text: string; loadedAt: number }>();
 const MEMORY_TTL_MS = 5 * 60 * 1000;
 
+// Key memories the Agent should always have loaded (not just pointers in the briefing)
+const PINNED_MEMORY_IDS = ['3ed91a36']; // Daniela White Wall / consult-daniela dialogue
+
 async function loadRoomMemories(roomId: string): Promise<string> {
   const cached = memoryCacheByRoom.get(roomId);
   if (cached && Date.now() - cached.loadedAt < MEMORY_TTL_MS) return cached.text;
   try {
     const db = getUserDb();
-    const rows = await db
-      .select({ title: conversationMemories.title, content: conversationMemories.content, createdAt: conversationMemories.createdAt })
+
+    // Load 2 most recent team-room sessions
+    const teamRoomRows = await db
+      .select({ id: conversationMemories.id, title: conversationMemories.title, content: conversationMemories.content, createdAt: conversationMemories.createdAt })
       .from(conversationMemories)
       .where(sql`tags @> ARRAY['team-room']::text[]`)
       .orderBy(desc(conversationMemories.createdAt))
       .limit(2);
-    if (rows.length === 0) {
+
+    // Load pinned memories by ID (Agent↔Daniela direct conversations etc.)
+    const pinnedRows = PINNED_MEMORY_IDS.length > 0 ? await db
+      .select({ id: conversationMemories.id, title: conversationMemories.title, content: conversationMemories.content, createdAt: conversationMemories.createdAt })
+      .from(conversationMemories)
+      .where(sql`id = ANY(${PINNED_MEMORY_IDS}::uuid[])`)
+      : [];
+
+    const allRows = [...pinnedRows, ...teamRoomRows.filter(r => !pinnedRows.some(p => p.id === r.id))];
+
+    if (allRows.length === 0) {
       memoryCacheByRoom.set(roomId, { text: '', loadedAt: Date.now() });
       return '';
     }
-    const text = rows.map(r =>
-      `## Past session: ${r.title}\n${r.content.slice(0, 1500)}`
-    ).join('\n\n---\n\n');
+
+    const text = allRows.map(r => {
+      const isPinned = pinnedRows.some(p => p.id === r.id);
+      const label = isPinned ? '## Key memory (pinned)' : '## Past session';
+      return `${label}: ${r.title}\n${r.content.slice(0, 2000)}`;
+    }).join('\n\n---\n\n');
+
     memoryCacheByRoom.set(roomId, { text, loadedAt: Date.now() });
     return text;
   } catch (err: any) {
@@ -376,11 +402,18 @@ async function generateAndPost(
     const client = getClient();
 
     // Build conversation history
+    // NOTE: for 'assistant' role (Agent's own prior messages), do NOT prepend
+    // the speaker name — Claude will mimic the format and add "Agent: " to its
+    // own output, causing a double-prefix bug. User messages keep the prefix so
+    // Claude can tell which human or AI participant said what.
     const history = messages.slice(-21, -1);
-    const anthropicMessages: Anthropic.MessageParam[] = history.map(m => ({
-      role: m.speaker.toLowerCase() === 'agent' ? 'assistant' : 'user',
-      content: `${m.speaker}: ${m.content}`,
-    }));
+    const anthropicMessages: Anthropic.MessageParam[] = history.map(m => {
+      const isAgent = m.speaker.toLowerCase() === 'agent';
+      return {
+        role: isAgent ? 'assistant' as const : 'user' as const,
+        content: isAgent ? m.content : `${m.speaker}: ${m.content}`,
+      };
+    });
     anthropicMessages.push({ role: 'user', content: `David: ${latestContent}` });
 
     // Collapse consecutive same-role messages (Anthropic requires strict alternation)
