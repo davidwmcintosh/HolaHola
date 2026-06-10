@@ -1,5 +1,6 @@
 import { generateAldenResponse } from "./alden-persona-service";
 import { callDaniela } from "./daniela-caller";
+import { callDanielaLive } from "./daniela-team-room-live";
 import { storage } from "../storage";
 import { GoogleGenAI } from "@google/genai";
 import type { RoomVoiceMessage, RoomSessionSummary, RoomArtifact } from "@shared/schema";
@@ -388,7 +389,7 @@ VOICE: [1-3 sentences, conversational colleague voice, will be spoken aloud${for
 EXPRESS: [specific insight or reflection if genuinely warranted — or "none"]`;
 
   try {
-    const text = await callDaniela(danielaContext, responsePrompt, {
+    const text = await callDanielaLive(danielaContext, responsePrompt, {
       userId: '49847136',
       includeHiveContext: true,
       enableTools: true,
@@ -1341,7 +1342,7 @@ EXPRESS: none`;
     generateAldenResponse({ userMessage: aldenGreetingPrompt, founderName: speaker })
       .then(r => ({ ...parseGreetingResponse(r.response) }))
       .catch(() => ({ voiceContent: "Doing well, thanks for checking in!" })),
-    callDaniela(DANIELA_TEAM_ROOM_CONTEXT, danielaGreetingPrompt, { includeHiveContext: true })
+    callDanielaLive(DANIELA_TEAM_ROOM_CONTEXT, danielaGreetingPrompt, { includeHiveContext: true })
       .then(t => parseGreetingResponse(t))
       .catch(() => ({ voiceContent: "Great to hear from you! Things are going well on my end." })),
     callGemini(SOFIA_SYSTEM, sofiaGreetingPrompt)
