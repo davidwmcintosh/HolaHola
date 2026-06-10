@@ -764,6 +764,14 @@ export default function TeamRoom() {
       const speaker = msg.speaker.toLowerCase();
       if (speaker !== "david" && speaker !== "system") {
         if (autoPlayVoice) queueParticipantVoice(msg.content, msg.speaker, msg.audioUrl || undefined);
+        // Clear this participant's thinking indicator the moment their message arrives
+        // (don't wait for participants_done — removes phantom thinking blip)
+        setThinkingParticipants(prev => {
+          if (!prev.has(speaker)) return prev;
+          const next = new Set(prev);
+          next.delete(speaker);
+          return next;
+        });
         setHandRaises(prev => {
           if (!prev[speaker]) return prev;
           const next = { ...prev };
@@ -924,7 +932,13 @@ export default function TeamRoom() {
         const mentioned = new Set(matches.map(m => m.slice(1).toLowerCase()));
         setThinkingParticipants(mentioned);
       } else {
-        setThinkingParticipants(new Set(allNames));
+        // Show only alden+daniela as thinking — the server WS event will refine this
+        // immediately. Showing all names causes phantom blips for people who never respond.
+        const coreThinking = new Set(
+          ["alden", "daniela", ...guestTutors.map(g => g.tutorName.toLowerCase())]
+            .filter(n => invitedParticipants.has(n) || guestTutors.some(g => g.tutorName.toLowerCase() === n))
+        );
+        setThinkingParticipants(coreThinking);
       }
     },
     onSuccess: async (res) => {

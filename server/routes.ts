@@ -34424,7 +34424,7 @@ Under 250 words. Write as yourself.`;
       const thinkingList = mentions && mentions.length > 0 ? mentions : ['alden', 'daniela', ...guestNames.map((n: string) => n.toLowerCase())];
       emitParticipantThinking(id, thinkingList);
       try {
-        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors, dismissedParticipants: [...new Set([...dismissedParticipants, 'agent'])] });
+        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors, dismissedParticipants: ['agent'] });
         const aiMessages = [];
         const expressLaneItems = [];
         const artifacts = [];
