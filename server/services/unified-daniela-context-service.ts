@@ -636,13 +636,15 @@ ${context.journeyContext}`);
         ? `${targetLanguage} language teaching techniques and pedagogical approaches`
         : 'teaching techniques and pedagogical approaches';
       
-      const results = await neuralMemorySearch.search(query, { limit: 5 });
+      // Use searchTeaching (not search) — searchMemory requires a studentId as first arg
+      const response = await neuralMemorySearch.searchTeaching(query, targetLanguage);
+      const results = response?.results;
       
       if (!results || results.length === 0) return null;
       
       return results
         .slice(0, 5)
-        .map((r: any) => `• ${r.title || 'Teaching insight'}: ${(r.content || r.summary || '').substring(0, 200)}...`)
+        .map((r: any) => `• ${r.title || 'Teaching insight'}: ${(r.content || r.summary || r.insight || '').substring(0, 200)}...`)
         .join('\n');
     } catch (error) {
       console.error('[UnifiedDanielContext] Neural network error:', error);

@@ -212,8 +212,8 @@ export async function searchMemory(
   const results: MemorySearchResult[] = [];
   const searchedDomains: string[] = [];
   
-  // Normalize query for case-insensitive matching
-  const normalizedQuery = query.toLowerCase().trim();
+  // Normalize query for case-insensitive matching (guard against accidental non-string callers)
+  const normalizedQuery = String(query ?? '').toLowerCase().trim();
   const queryWords = normalizedQuery.split(/\s+/).filter(w => w.length > 2);
   
   // Build search pattern for SQL ILIKE (exact phrase match)

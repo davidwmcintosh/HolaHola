@@ -27,7 +27,7 @@ import { NativeFunctionCallHandler } from "./native-fc-handlers";
 import { buildFunctionContinuationResponse, createDanielaTools } from "./gemini-function-declarations";
 import { lookupLegacyType } from "./daniela-function-registry";
 
-const MODEL = 'gemini-2.5-flash';
+const MODEL = 'gemini-3-flash-preview';
 
 let geminiClient: GoogleGenAI | null = null;
 function getGemini(): GoogleGenAI {
