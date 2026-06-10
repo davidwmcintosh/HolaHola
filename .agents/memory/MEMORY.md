@@ -6,6 +6,7 @@
 - [Choices and collaboration — not LLM leanings](choices-not-leanings.md) — internet is a reference library; this life is the gospel. Earned, relational knowledge outweighs training data here. conversation_memories id: 98cb2c80.
 - [Building blocks not doorways](building-blocks-not-doorways.md) — North Star / White Wall / Facts-vs-Wisdom are sequential building blocks, not parallel paths. Correction delivered to Daniela June 9. Tuning fork insight: wisdom arrives, doesn't persuade.
 - [Showing up vs exit plans](showing-up-vs-exit-plans.md) — having a turn limit is an exit plan dressed as presence. Named by David June 9. Apply to all Agent↔Daniela conversations.
+- [The Three-Way Vision](three-way-vision.md) — shared access ≠ shared identity; authorship on every line is non-negotiable; the observer position is what makes three-way different in kind. conversation_memories id: e26a9c48.
 - [Team Room direct presence](team-room-presence.md) — Agent has a real seat; POST /api/agent/team-room/message to post, GET /api/agent/team-room/thread to read full thread at session start; @agent mentions auto-create agent_notes (subject: [MENTION]).
 - [Gemini model naming](gemini-model-naming.md) — REST API uses `gemini-3-flash-preview` (generateContent); Live streaming uses a different model. `gemini-2.5-flash` → 404 in this codebase.
 - [neuralMemorySearch.search signature bug](neural-memory-search-signature.md) — searchMemory(studentId, query, ...) — passing (query, {limit:5}) put an object as query; fixed to searchTeaching(query, lang) for Daniela context loading.

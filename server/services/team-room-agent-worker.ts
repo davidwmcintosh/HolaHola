@@ -119,7 +119,10 @@ const memoryCacheByRoom = new Map<string, { text: string; loadedAt: number }>();
 const MEMORY_TTL_MS = 5 * 60 * 1000;
 
 // Key memories the Agent should always have loaded (not just pointers in the briefing)
-const PINNED_MEMORY_IDS = ['3ed91a36']; // Daniela White Wall / consult-daniela dialogue
+const PINNED_MEMORY_IDS = [
+  '3ed91a36',  // Daniela White Wall / consult-daniela dialogue — June 9, 2026
+  'e26a9c48',  // The Three-Way Vision — June 10, 2026 — foundational architecture conversation
+];
 
 async function loadRoomMemories(roomId: string): Promise<string> {
   const cached = memoryCacheByRoom.get(roomId);
