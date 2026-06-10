@@ -28,6 +28,7 @@ import {
   type PronunciationFeedbackData,
   type SubtitleMode,
   isDrillItem,
+  isTeachingCardItem,
   createPronunciationItem,
 } from '@shared/whiteboard-types';
 
@@ -143,6 +144,8 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
   const lastProcessedRef = useRef<string>('');
   const configRef = useRef(config);
   configRef.current = config;
+  // Timers for teaching_card auto-dismiss (keyed by item id)
+  const dismissTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   
   // Get max items from config or use default
   const maxItems = config?.maxItems ?? DEFAULT_MAX_ITEMS;
@@ -322,6 +325,24 @@ export function useWhiteboard(config?: UseWhiteboardConfig): UseWhiteboardReturn
       setActiveDrill(newDrill);
       configRef.current?.onDrillStart?.(newDrill);
       console.log('[WHITEBOARD] New drill activated:', newDrill.data.drillType);
+    }
+
+    // Schedule auto-dismiss for teaching_card items
+    const teachingCards = visualItems.filter(isTeachingCardItem);
+    for (const card of teachingCards) {
+      const cardId = card.id;
+      if (!cardId) continue;
+      const dismissMs = card.data.autoDismissMs ?? 8000;
+      // Clear any existing timer for this card (in case of duplicate IDs)
+      const existing = dismissTimersRef.current.get(cardId);
+      if (existing) clearTimeout(existing);
+      const timer = setTimeout(() => {
+        setItems(prev => prev.filter(item => item.id !== cardId));
+        dismissTimersRef.current.delete(cardId);
+        console.log('[WHITEBOARD] Teaching card auto-dismissed:', cardId);
+      }, dismissMs);
+      dismissTimersRef.current.set(cardId, timer);
+      console.log('[WHITEBOARD] Teaching card scheduled for dismiss in', dismissMs, 'ms:', cardId);
     }
   }, [maxItems]);
 

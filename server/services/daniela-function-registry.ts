@@ -3786,6 +3786,40 @@ Best for: Starting a focused study session, following a structured curriculum, d
       return result || `Could not load textbook page. Try search_textbook to find the right lesson ID.`;
     },
   },
+  // === TEACHING CARD ===
+  {
+    legacyType: 'TEACHING_CARD',
+    declaration: {
+      name: "show_teaching_card",
+      description: `Show a temporary teaching card — a sticky note that appears on the student's right panel and auto-dismisses after a few seconds.
+
+Use this for quick vocabulary or grammar reminders mid-conversation. The card appears without breaking conversational flow, then vanishes automatically.
+
+Examples of when to use:
+- Student stumbles on a conjugation → show the correct form + example
+- Student forgets a vocab word → show word + translation
+- Quick grammar rule reminder → show the rule + 1-2 examples
+
+Never use for long explanations — keep it to one thing at a time.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          word: { type: "string", description: "The vocabulary word, phrase, or conjugated form to highlight" },
+          translation: { type: "string", description: "English meaning or translation" },
+          grammar_rule: { type: "string", description: "A short grammar note (one sentence max)" },
+          examples: {
+            type: "array",
+            items: { type: "string" },
+            description: "1-3 short example sentences showing the word/rule in context",
+          },
+          duration_ms: {
+            type: "number",
+            description: "How long to show the card in milliseconds (default: 8000). Use longer for complex content.",
+          },
+        },
+      },
+    },
+  },
   // === RIGHT PANE CONTROL ===
   {
     legacyType: 'SET_RIGHT_PANE',

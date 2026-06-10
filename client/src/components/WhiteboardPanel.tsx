@@ -22,13 +22,14 @@ export function WhiteboardPanel({
   onToggleCollapse,
 }: WhiteboardPanelProps) {
   const hasTextbookPage = items.some(item => item.type === 'textbook_page');
+  const hasTeachingCard = items.some(item => item.type === 'teaching_card');
 
   useEffect(() => {
-    if (hasTextbookPage && isCollapsed) {
+    if ((hasTextbookPage || hasTeachingCard) && isCollapsed) {
       onToggleCollapse();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasTextbookPage]);
+  }, [hasTextbookPage, hasTeachingCard]);
 
   if (isCollapsed) {
     return (

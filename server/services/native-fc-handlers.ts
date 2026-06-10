@@ -2580,6 +2580,34 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'TEACHING_CARD': {
+        const tcWord = fn.args.word as string | undefined;
+        const tcTranslation = fn.args.translation as string | undefined;
+        const tcGrammarRule = fn.args.grammar_rule as string | undefined;
+        const tcExamples = fn.args.examples as string[] | undefined;
+        const tcDurationMs = (fn.args.duration_ms as number | undefined) ?? 8000;
+        const tcContent = tcWord || tcGrammarRule || 'Teaching note';
+        console.log(`[Native Function→TeachingCard] word="${tcWord}" translation="${tcTranslation}" duration=${tcDurationMs}ms`);
+        this.sendMessage(session.ws, {
+          type: 'whiteboard_update',
+          timestamp: Date.now(),
+          items: [{
+            type: 'teaching_card',
+            id: `tc-${Date.now()}`,
+            content: tcContent,
+            timestamp: Date.now(),
+            data: {
+              word: tcWord,
+              translation: tcTranslation,
+              grammarRule: tcGrammarRule,
+              examples: tcExamples,
+              autoDismissMs: tcDurationMs,
+            },
+          }],
+        });
+        break;
+      }
+
       case 'SET_RIGHT_PANE': {
         const rpMode = (fn.args.mode as string | undefined) || 'whiteboard';
         console.log(`[Native Function→SetRightPane] mode=${rpMode}`);

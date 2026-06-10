@@ -1229,3 +1229,31 @@ A complete conversational placement assessment system for new students during on
 2. Click "Test Placement Assessment" → select a language → Start
 3. Chat with Daniela for ~5–10 exchanges — she'll assess and show the ACTFL result badge
 4. (Full flow) Launch Onboarding Test → go to /chat → when asked about experience, say "yes" → complete the placement conversation
+
+---
+
+## show_teaching_card tool (June 10, 2026)
+
+### What was built
+Daniela's first "director UI" tool: `show_teaching_card`. When Daniela calls it mid-conversation, a "Quick Note" card appears in the student's right panel (WhiteboardPanel) and auto-dismisses after a configurable duration (default 8 seconds).
+
+### How it works
+1. **Daniela calls `show_teaching_card`** with optional fields: `word`, `translation`, `grammar_rule`, `examples[]`, `duration_ms`
+2. **Server** (`native-fc-handlers.ts` `TEACHING_CARD` case) sends a `whiteboard_update` WebSocket message with a `teaching_card` item including `autoDismissMs`
+3. **Client** (`useWhiteboard.ts` `addOrUpdateItems`) detects `teaching_card` items, schedules their removal via `setTimeout`, and filters them out after `autoDismissMs`
+4. **WhiteboardPanel** auto-expands when a `teaching_card` is added (same behavior as `textbook_page`)
+5. **Whiteboard.tsx** renders `TeachingCardItemDisplay` — amber Zap icon, bold word/translation, optional grammar rule, bullet examples
+
+### Key files
+- `shared/whiteboard-types.ts` — `TeachingCardItemData`, `TeachingCardItem`, `isTeachingCardItem`, union updated
+- `server/services/daniela-function-registry.ts` — `show_teaching_card` tool definition (auto-indexed at next server start)
+- `server/services/native-fc-handlers.ts` — `TEACHING_CARD` case
+- `client/src/hooks/useWhiteboard.ts` — `dismissTimersRef`, auto-dismiss scheduling in `addOrUpdateItems`
+- `client/src/components/Whiteboard.tsx` — `TeachingCardItemDisplay` component
+- `client/src/components/WhiteboardPanel.tsx` — `hasTeachingCard` auto-expand
+
+### Usage (for Daniela)
+- **Best for:** Student stumbles on a conjugation, forgets a vocab word, or needs a quick grammar reminder
+- **One thing at a time:** Use `word` + `translation` for vocab, or `grammar_rule` + `examples` for grammar — not both
+- **Duration:** Default 8s; increase via `duration_ms` for complex content
+- **Auto-indexed:** Tool registration, `tool_knowledge` row, and embedding all happen automatically at next server start

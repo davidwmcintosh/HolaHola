@@ -73,7 +73,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'sentence_table' | 'textbook_search' | 'overlay_panel' | 'daily_plan' | 'textbook_page';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'sentence_table' | 'textbook_search' | 'overlay_panel' | 'daily_plan' | 'textbook_page' | 'teaching_card';
 
 /**
  * Drill types for inline micro-exercises
@@ -1086,6 +1086,27 @@ export interface TextbookPageItem extends WhiteboardItemBase {
   data: TextbookPageItemData;
 }
 
+// ─── Teaching Card ─────────────────────────────────────────────────────────────
+
+/**
+ * A temporary "sticky note" teaching card — appears on the student's screen
+ * mid-conversation and auto-dismisses. Ideal for quick vocab/grammar reminders
+ * without breaking conversational flow.
+ */
+export interface TeachingCardItemData {
+  word?: string;
+  translation?: string;
+  grammarRule?: string;
+  examples?: string[];
+  autoDismissMs?: number;
+}
+
+export interface TeachingCardItem extends WhiteboardItemBase {
+  type: 'teaching_card';
+  content: string;
+  data: TeachingCardItemData;
+}
+
 // ─── Overlay Panel ─────────────────────────────────────────────────────────────
 
 /**
@@ -1216,7 +1237,8 @@ export type WhiteboardItem =
   | TextbookSearchItem
   | OverlayPanelItem
   | DailyPlanItem
-  | TextbookPageItem;
+  | TextbookPageItem
+  | TeachingCardItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -3036,6 +3058,10 @@ export function isTextbookSearchItem(item: WhiteboardItem): item is TextbookSear
 
 export function isTextbookPageItem(item: WhiteboardItem): item is TextbookPageItem {
   return item.type === 'textbook_page';
+}
+
+export function isTeachingCardItem(item: WhiteboardItem): item is TeachingCardItem {
+  return item.type === 'teaching_card';
 }
 
 /**

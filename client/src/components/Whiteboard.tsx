@@ -97,8 +97,8 @@ import type {
   TextbookSearchItem,
   TextbookPageItem,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isSceneCanvasItem, isSentenceTableItem, isTextbookSearchItem, isTextbookPageItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions, isDailyPlanItem } from "@shared/whiteboard-types";
-import type { DailyPlanItem, DailyPlanAgendaItem } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isSceneCanvasItem, isSentenceTableItem, isTextbookSearchItem, isTextbookPageItem, isTeachingCardItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions, isDailyPlanItem } from "@shared/whiteboard-types";
+import type { DailyPlanItem, DailyPlanAgendaItem, TeachingCardItem } from "@shared/whiteboard-types";
 import { SceneCanvas } from "@/components/SceneCanvas";
 import type { CognatePair, FalseFriendOption } from "@shared/whiteboard-types";
 import type { ToneItem } from "@shared/whiteboard-types";
@@ -3905,6 +3905,52 @@ function TextbookSearchItemDisplay({ item, index }: { item: TextbookSearchItem; 
   );
 }
 
+// ─── Teaching Card ────────────────────────────────────────────────────────────
+
+function TeachingCardItemDisplay({ item, index }: { item: TeachingCardItem; index: number }) {
+  const { data } = item;
+  const durationMs = data.autoDismissMs ?? 8000;
+  return (
+    <div
+      className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300"
+      data-testid={`whiteboard-item-teaching-card-${index}`}
+    >
+      <div className="flex items-center gap-2 pb-1 border-b border-border/50">
+        <Zap className="h-4 w-4 text-amber-500 shrink-0" />
+        <span className="text-xs font-semibold uppercase tracking-wide text-amber-600 dark:text-amber-400">
+          Quick Note
+        </span>
+        <span className="ml-auto text-xs text-muted-foreground">
+          {Math.round(durationMs / 1000)}s
+        </span>
+      </div>
+      {data.word && (
+        <div className="flex items-baseline gap-2 flex-wrap">
+          <span className="text-xl font-bold text-foreground">{data.word}</span>
+          {data.translation && (
+            <span className="text-sm text-muted-foreground">— {data.translation}</span>
+          )}
+        </div>
+      )}
+      {data.grammarRule && !data.word && (
+        <p className="text-sm text-foreground">{data.grammarRule}</p>
+      )}
+      {data.grammarRule && data.word && (
+        <p className="text-xs text-muted-foreground italic">{data.grammarRule}</p>
+      )}
+      {data.examples && data.examples.length > 0 && (
+        <ul className="space-y-1">
+          {data.examples.map((ex, i) => (
+            <li key={i} className="text-xs text-foreground/80 before:content-['›'] before:mr-1.5 before:text-amber-500">
+              {ex}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 // ─── Textbook Page Card ────────────────────────────────────────────────────────
 
 function TextbookPageItemDisplay({ item, index }: { item: TextbookPageItem; index: number }) {
@@ -4231,6 +4277,10 @@ const WhiteboardItemDisplay = ({
 
   if (isTextbookPageItem(item)) {
     return <TextbookPageItemDisplay item={item} index={index} />;
+  }
+
+  if (isTeachingCardItem(item)) {
+    return <TeachingCardItemDisplay item={item} index={index} />;
   }
   
   return <TextItemDisplay item={item} index={index} />;
