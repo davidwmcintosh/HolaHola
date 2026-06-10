@@ -5284,7 +5284,7 @@ function ImageLibraryTab() {
               Generate Illustration
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Create a custom DALL-E illustration for teaching concepts, scenarios, or cultural scenes. The image will be archived to permanent storage and added to the library — Daniela will reuse it automatically when teaching similar concepts.
+              Create a custom AI-generated illustration for teaching concepts, scenarios, or cultural scenes. The image will be archived to permanent storage and added to the library — Daniela will reuse it automatically when teaching similar concepts.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-4 py-4">
@@ -5552,7 +5552,7 @@ function SceneAndPropImageSections() {
                     <p className="text-[11px] text-white truncate flex-1 min-w-0">{label}</p>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       <button
-                        title={hasImage ? 'Regenerate (replace with new DALL-E image)' : 'Generate image'}
+                        title={hasImage ? 'Regenerate (replace with new AI image)' : 'Generate image'}
                         className="text-white/80 hover:text-white transition-colors"
                         onClick={e => { e.stopPropagation(); regenerateScene(img.name); }}
                         disabled={isBusy}
@@ -7134,7 +7134,7 @@ function VocabImagesSection() {
               <Card className="bg-muted/30">
                 <CardContent className="p-4 space-y-2">
                   <p className="text-sm font-medium">Numbers &amp; Days</p>
-                  <p className="text-xs text-muted-foreground">Bust stale number/day images. Numbers regenerate as crisp server-generated SVGs (no DALL-E); days use scene illustrations.</p>
+                  <p className="text-xs text-muted-foreground">Bust stale number/day images. Numbers regenerate as crisp server-generated SVGs; days use AI scene illustrations.</p>
                   <Button
                     size="sm"
                     variant="outline"
@@ -7469,7 +7469,7 @@ function ScenarioZonesSection() {
           <CardHeader>
             <CardTitle className="text-base">Zone Images</CardTitle>
             <CardDescription>
-              Generate DALL-E images for all scenario zones that don't have one yet. Each image depicts the zone environment.
+              Generate AI images for all scenario zones that don't have one yet. Each image depicts the zone environment.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

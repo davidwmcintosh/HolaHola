@@ -17,8 +17,8 @@ const REFERENCE_CAPABLE_ENGINES = ["gemini-imagen-ref"];
 
 const ENGINES = [
   {
-    id: "dall-e-3",
-    label: "DALL-E 3",
+    id: "gemini-image",
+    label: "Gemini Image Gen",
     sublabel: "Current scene pipeline",
     color: "bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-800",
     badgeClass: "bg-green-600 text-white",
