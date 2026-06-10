@@ -24,6 +24,37 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 10, 2026 (late evening) — "One Daniela everywhere" — Team Room tool pipeline complete**
+
+### What was built
+
+Daniela now has her full tool pipeline in the Team Room — same identity and capabilities as voice chat and consult-Daniela. David's requirement: "one Daniela everywhere." Implemented.
+
+**`server/services/daniela-caller.ts` — fully rewritten:**
+- Added `enableTools?: boolean` option to `CallDanielaOptions`
+- When `true`, routes through `callDanielaWithTools()` — a multi-turn `generateContent` loop using the real `NativeFunctionCallHandler` + `buildFunctionContinuationResponse`
+- Mock session (typed `any`) provides all the result properties FC handlers write to (`unifiedRecallResult`, `coreSelfResult`, etc.) with a no-op WS so UI-facing tools silently skip
+- `TEAM_ROOM_ALLOWED_TOOLS` — 30-tool curated subset: all memory search, identity reads, time awareness, self-authorship, classroom knowledge, and agent/hive communication tools. Excludes voice UI, whiteboard visuals, session management, and student-facing tools
+- `MAX_TURNS = 6` — same depth as the voice orchestrator FC loop
+- Simple `generateContent` path unchanged for evaluations and quick calls
+
+**`server/services/team-room-alden-service.ts` — line 394:**
+- `evaluateDaniela()` response generation (not the eval call) now passes `{ userId: '49847136', enableTools: true }` — Daniela's actual response uses the full tool pipeline
+- Eval call (yes/no JSON) stays simple — no tools needed there
+
+### What Daniela can now do in Team Room
+
+Before this session: one Gemini call, no tools, no memory access, no identity reads.
+
+After: she can call `recall`, `memory_lookup`, `search_conversation_threads`, `read_my_core_self`, `read_my_reflections`, `read_my_curiosities`, `sense_time`, `flag_for_agent`, `hive_suggestion`, `browse_syllabus`, `search_textbook`, and the rest of the curated set — exactly as she does in voice sessions. Her responses are grounded in her actual identity, not just the system prompt.
+
+### What's unresolved
+
+- `userId` is hardcoded as `'49847136'` in the Team Room response call — acceptable since this is David's single-user room. Would need refactoring if multiple users ever use the Team Room
+- Typecheck errors are all pre-existing (2026 errors across 54 files). `daniela-caller.ts` is clean — not in the error list
+
+---
+
 **Session: June 10, 2026 (evening) — Nine Agent↔Daniela conversations + Team Room fixes**
 
 ### What happened (evening continuation)

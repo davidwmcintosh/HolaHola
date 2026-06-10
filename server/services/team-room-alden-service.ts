@@ -388,7 +388,11 @@ VOICE: [1-3 sentences, conversational colleague voice, will be spoken aloud${for
 EXPRESS: [specific insight or reflection if genuinely warranted — or "none"]`;
 
   try {
-    const text = await callDaniela(danielaContext, responsePrompt, { includeHiveContext: true });
+    const text = await callDaniela(danielaContext, responsePrompt, {
+      userId: '49847136',
+      includeHiveContext: true,
+      enableTools: true,
+    });
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
     const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
