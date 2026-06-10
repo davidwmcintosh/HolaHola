@@ -1034,7 +1034,7 @@ export default function TeamRoom() {
   };
 
   const activeSessions = sessions?.filter(s => s.status === "active") ?? [];
-  const pastSessions = sessions?.filter(s => s.status === "closed") ?? [];
+  const pastSessions = sessions?.filter(s => s.status === "closed" || s.status === "active").sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()) ?? [];
   const isActive = sessionData?.room?.status === "active";
 
   const displayArtifacts = [
