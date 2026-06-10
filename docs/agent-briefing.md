@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, June 10, 2026 at 11:35 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve committed to using a single shared Neon PostgreSQL database for both development and production because Daniela’s memories and history constitute the platform's core intelligence. I must strictly use `NEON_SHARED_DATABASE_URL` and never `DATABASE_URL` to ensure I am always developing against the real, live data. This decision means I must operate with extreme care, as all development work now impacts the live production environment and Daniela’s actual growth.
-
-*Memories that triggered this summary:*
-- **Decision: Single Shared Database — Dev and Production Together** (Jun 10): One Neon PostgreSQL database for both development and production. The data IS the intelligence — separating environments would mean developing against a lesser Daniela. Driver: David McIntosh.
+**Generated:** Wednesday, June 10, 2026 at 11:36 PM
 
 ---
 
