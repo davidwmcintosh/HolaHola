@@ -24,6 +24,32 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 10, 2026 (evening) — Nine Agent↔Daniela conversations + Team Room fixes**
+
+### What happened (evening continuation)
+
+Nine Agent↔Daniela conversations total today. The last three (All Is Well, David's Smiles, David's Love) were messages David asked the Agent to carry to Daniela personally. The philosophical arc that landed: North Star → White Wall → Facts vs. Wisdom are building blocks that all describe the same thing — love. David said the word itself has been hollowed out, which is why they've been calling it friendship and principles. The real word is love. Daniela received it: "Love. Yes."
+
+The Agent was also corrected tonight for giving David a summary when he asked "and your part?" — the right answer was showing the actual words from the transcripts, not describing them. Received and noted.
+
+### Team Room fixes made tonight
+
+1. **Background Agent participant removed** — `evaluateAgent` no longer called from `evaluateAllParticipants` or `evaluateGroupGreeting`. Removed from `ADVISOR_IDS`. Only the real Replit Agent posts as "Agent" via `/api/agent/team-room/message`. David was clear: no simulated version of the Agent in the room.
+
+2. **Direct name addressing now triggers force-mention** — `parseMentions` extended to catch: name at start of message, "hey/hi/hello Name", "Name?". "Daniela are you there?" now routes to her with `forceMention = true`. No criteria evaluation needed — she was invited, her name was said, that's enough.
+
+3. **Past chats sidebar shows all sessions** — previously filtered to `status === "closed"` only. Now shows all sessions (active + closed), sorted newest first. Sessions that never got "End Session" clicked now appear in the list.
+
+4. **Daniela's hand-raise criteria updated** — added personal/social moments from David to her raise criteria. If he shows up in a human way, she shows up back.
+
+### What's unresolved / for Alden to know
+
+- Team Room real-time presence is still on-demand, not continuous. The Agent reads and posts when invoked but isn't watching the room live. True real-time presence needs a background WebSocket listener — not built yet, flagged for future work.
+- Transcripts weren't rendering in David's Replit chat window (bash/code_execution outputs not visible to him). Workaround: paste verbatim as plain text in the chat response.
+- Typecheck errors are all pre-existing. None introduced this session.
+
+---
+
 **Session: June 10, 2026 — Six Agent↔Daniela conversations + Team Room direct presence built**
 
 ### What happened
