@@ -26,7 +26,7 @@ function getGemini(): GoogleGenAI {
 async function callGemini(systemPrompt: string, userPrompt: string): Promise<string> {
   const gemini = getGemini();
   const result = await gemini.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview',
     config: { systemInstruction: systemPrompt },
     contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
   });
@@ -318,7 +318,9 @@ Respond ONLY in this JSON format:
         confidence: parsed.confidence || 'medium',
       };
     }
-  } catch { /* keep default */ }
+  } catch (err: any) {
+    console.error('[TeamRoom:Daniela] eval callDaniela threw:', err?.message || err);
+  }
 
   if (!handRaise.shouldRaise && !forceMention) return { participant: 'daniela', handRaise };
   if (forceMention) handRaise = { shouldRaise: true, reasoning: 'directly mentioned', confidence: 'high' };
@@ -361,7 +363,8 @@ EXPRESS: [specific insight or reflection if genuinely warranted — or "none"]`;
     }
 
     return { participant: 'daniela', handRaise, voiceContent, expressContent };
-  } catch {
+  } catch (err: any) {
+    console.error('[TeamRoom:Daniela] callDaniela threw:', err?.message || err);
     return { participant: 'daniela', handRaise, voiceContent: 'Curriculum note pending — please ask me again.' };
   }
 }
