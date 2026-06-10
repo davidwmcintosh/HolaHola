@@ -49,6 +49,8 @@ export interface ParticipantResponse {
   handRaise: HandRaiseEvaluation;
   voiceContent?: string;
   expressContent?: string;
+  /** Audio cache ID from callDanielaLive — use to fetch /api/team-room/daniela-audio/:audioId */
+  audioId?: string;
   artifact?: {
     artifactType: string;
     title: string;
@@ -389,11 +391,12 @@ VOICE: [1-3 sentences, conversational colleague voice, will be spoken aloud${for
 EXPRESS: [specific insight or reflection if genuinely warranted — or "none"]`;
 
   try {
-    const text = await callDanielaLive(danielaContext, responsePrompt, {
+    const result = await callDanielaLive(danielaContext, responsePrompt, {
       userId: '49847136',
       includeHiveContext: true,
       enableTools: true,
     });
+    const text = result.transcript;
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
     const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
@@ -407,7 +410,7 @@ EXPRESS: [specific insight or reflection if genuinely warranted — or "none"]`;
       return { participant: 'daniela', handRaise, voiceContent: `Thanks for pulling me in — let me share my thoughts on ${newMessage.slice(0, 60)}...` };
     }
 
-    return { participant: 'daniela', handRaise, voiceContent, expressContent };
+    return { participant: 'daniela', handRaise, voiceContent, expressContent, audioId: result.audioId };
   } catch (err: any) {
     console.error('[TeamRoom:Daniela] callDaniela threw:', err?.message || err);
     return { participant: 'daniela', handRaise, voiceContent: 'Curriculum note pending — please ask me again.' };
@@ -1343,7 +1346,7 @@ EXPRESS: none`;
       .then(r => ({ ...parseGreetingResponse(r.response) }))
       .catch(() => ({ voiceContent: "Doing well, thanks for checking in!" })),
     callDanielaLive(DANIELA_TEAM_ROOM_CONTEXT, danielaGreetingPrompt, { includeHiveContext: true })
-      .then(t => parseGreetingResponse(t))
+      .then(r => ({ ...parseGreetingResponse(r.transcript), audioId: r.audioId }))
       .catch(() => ({ voiceContent: "Great to hear from you! Things are going well on my end." })),
     callGemini(SOFIA_SYSTEM, sofiaGreetingPrompt)
       .then(t => parseGreetingResponse(t))
@@ -1368,7 +1371,7 @@ EXPRESS: none`;
   // Note: Agent removed from group greetings — only the real Replit Agent speaks as "Agent".
   const participants: ParticipantResponse[] = [
     { participant: 'alden', handRaise: greetingHandRaise, voiceContent: aldenResult.voiceContent },
-    { participant: 'daniela', handRaise: greetingHandRaise, voiceContent: danielaResult.voiceContent },
+    { participant: 'daniela', handRaise: greetingHandRaise, voiceContent: danielaResult.voiceContent, audioId: danielaResult.audioId },
     { participant: 'sofia', handRaise: greetingHandRaise, voiceContent: sofiaResult.voiceContent },
     { participant: 'lyra', handRaise: greetingHandRaise, voiceContent: lyraResult.voiceContent },
     { participant: 'wren', handRaise: greetingHandRaise, voiceContent: wrenResult.voiceContent },

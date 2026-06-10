@@ -493,18 +493,27 @@ function usePTT(onTranscript: (text: string) => void) {
 
 // ── Voice playback — queue-based so participants speak one at a time ──────────
 
-const _audioQueue: Array<{ text: string; speaker: string }> = [];
+// audioUrl: when set (Daniela only), fetch directly instead of calling TTS.
+// This is the actual Gemini Live voice — same PCM16 source as /chat, served as WAV.
+const _audioQueue: Array<{ text: string; speaker: string; audioUrl?: string }> = [];
 let _audioPlaying = false;
 
 async function _processAudioQueue() {
   if (_audioPlaying || _audioQueue.length === 0) return;
   _audioPlaying = true;
-  const { text, speaker } = _audioQueue.shift()!;
+  const { text, speaker, audioUrl } = _audioQueue.shift()!;
   try {
-    const res = await fetch("/api/team-room/voice/tts", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, speaker }),
-    });
+    let res: Response;
+    if (audioUrl) {
+      // Daniela: serve pre-generated Gemini Live WAV audio directly
+      res = await fetch(audioUrl);
+    } else {
+      // All other participants: synthesize via Google TTS
+      res = await fetch("/api/team-room/voice/tts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, speaker }),
+      });
+    }
     if (!res.ok) { _audioPlaying = false; _processAudioQueue(); return; }
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
@@ -515,8 +524,8 @@ async function _processAudioQueue() {
   } catch { _audioPlaying = false; _processAudioQueue(); }
 }
 
-function queueParticipantVoice(text: string, speaker: string) {
-  _audioQueue.push({ text, speaker });
+function queueParticipantVoice(text: string, speaker: string, audioUrl?: string) {
+  _audioQueue.push({ text, speaker, audioUrl });
   _processAudioQueue();
 }
 
@@ -754,7 +763,7 @@ export default function TeamRoom() {
       });
       const speaker = msg.speaker.toLowerCase();
       if (speaker !== "david" && speaker !== "system") {
-        if (autoPlayVoice) queueParticipantVoice(msg.content, msg.speaker);
+        if (autoPlayVoice) queueParticipantVoice(msg.content, msg.speaker, msg.audioUrl || undefined);
         setHandRaises(prev => {
           if (!prev[speaker]) return prev;
           const next = { ...prev };

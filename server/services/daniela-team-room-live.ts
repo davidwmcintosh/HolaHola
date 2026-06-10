@@ -18,7 +18,12 @@
  *   (causes 1011 "Internal error"). AUDIO + outputAudioTranscription is the only
  *   way to get text back from the Live model.
  *
- * Audio PCM16 is received and silently discarded — Team Room is text-based.
+ * Audio pipeline (mirrors /chat):
+ *   Gemini Live → PCM16 chunks (24kHz mono) → assembled → WAV buffer → cached
+ *   in-memory with 10-min TTL → served via GET /api/team-room/daniela-audio/:id
+ *   Frontend fetches the WAV and plays it with new Audio(url) — skipping TTS.
+ *   Same audio SOURCE as /chat; transport differs (queued REST vs streaming WS)
+ *   because Team Room is sequential by design.
  */
 
 import { GoogleGenAI, Modality, type LiveServerMessage } from '@google/genai';
@@ -35,6 +40,71 @@ export interface DanielaLiveOptions {
   includeHiveContext?: boolean;
   includeNeuralNetwork?: boolean;
   enableTools?: boolean;
+}
+
+export interface DanielaLiveResult {
+  transcript: string;
+  /** UUID key into the in-memory audio cache — fetch via GET /api/team-room/daniela-audio/:audioId */
+  audioId?: string;
+}
+
+// ── In-memory audio cache (PCM16 → WAV, 10-min TTL) ─────────────────────────
+
+interface CachedAudio { buf: Buffer; exp: number; }
+const _audioCache = new Map<string, CachedAudio>();
+const AUDIO_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+/** Store a WAV buffer and return the UUID key. */
+function cacheAudio(wav: Buffer): string {
+  // Purge stale entries lazily on every write
+  const now = Date.now();
+  for (const [k, v] of _audioCache) {
+    if (v.exp < now) _audioCache.delete(k);
+  }
+  const id = `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  _audioCache.set(id, { buf: wav, exp: now + AUDIO_TTL_MS });
+  return id;
+}
+
+/** Retrieve a cached WAV buffer by ID. Returns null if expired or not found. */
+export function getDanielaAudio(id: string): Buffer | null {
+  const entry = _audioCache.get(id);
+  if (!entry) return null;
+  if (entry.exp < Date.now()) { _audioCache.delete(id); return null; }
+  return entry.buf;
+}
+
+// ── PCM16 → WAV conversion (same source format as /chat) ─────────────────────
+// /chat pipeline: Gemini Live PCM16 (24kHz) → pcm16ToF32le() → audio_chunk WS
+// Team Room:      Gemini Live PCM16 (24kHz) → pcm16ToWav()   → cached WAV
+// Same audio SOURCE; different transport (streaming WS vs queued REST).
+
+const AUDIO_OUTPUT_SAMPLE_RATE = 24000; // matches gemini-live-session.ts
+
+function pcm16ToWav(pcm16Chunks: Buffer[]): Buffer {
+  const pcmData = Buffer.concat(pcm16Chunks);
+  const numChannels = 1;
+  const bitsPerSample = 16;
+  const byteRate = AUDIO_OUTPUT_SAMPLE_RATE * numChannels * (bitsPerSample / 8);
+  const blockAlign = numChannels * (bitsPerSample / 8);
+  const dataSize = pcmData.length;
+
+  const header = Buffer.allocUnsafe(44);
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + dataSize, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);              // PCM chunk size
+  header.writeUInt16LE(1, 20);               // PCM format
+  header.writeUInt16LE(numChannels, 22);
+  header.writeUInt32LE(AUDIO_OUTPUT_SAMPLE_RATE, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(dataSize, 40);
+
+  return Buffer.concat([header, pcmData]);
 }
 
 // ── Same tool allow-list as daniela-caller.ts ──────────────────────────────
@@ -119,7 +189,7 @@ export async function callDanielaLive(
   functionalContext: string,
   userPrompt: string,
   options: DanielaLiveOptions = {},
-): Promise<string> {
+): Promise<DanielaLiveResult> {
   const {
     userId = '49847136',
     includeHiveContext = false,
@@ -146,8 +216,9 @@ export async function callDanielaLive(
   const mockSession = buildMockSession(userId);
   const fcHandler = buildFcHandler();
 
-  return new Promise<string>((resolve, reject) => {
+  return new Promise<DanielaLiveResult>((resolve, reject) => {
     let transcript = '';
+    const audioPcm16Chunks: Buffer[] = []; // collect raw PCM16 chunks (24kHz mono)
     let resolved = false;
     let liveSession: any = null;
 
@@ -156,7 +227,20 @@ export async function callDanielaLive(
       resolved = true;
       clearTimeout(safetyTimer);
       try { liveSession?.close(); } catch { /* ignore */ }
-      resolve(text.trim() || '');
+
+      // Build WAV from collected PCM16 chunks and cache it
+      let audioId: string | undefined;
+      if (audioPcm16Chunks.length > 0) {
+        try {
+          const wav = pcm16ToWav(audioPcm16Chunks);
+          audioId = cacheAudio(wav);
+          console.log(`[DanielaLive] Audio cached: ${audioId} (${wav.length} bytes, ${audioPcm16Chunks.length} chunks)`);
+        } catch (err) {
+          console.warn('[DanielaLive] Failed to build WAV:', (err as Error).message);
+        }
+      }
+
+      resolve({ transcript: text.trim() || '', audioId });
     };
 
     const safetyTimer = setTimeout(() => {
@@ -193,6 +277,17 @@ export async function callDanielaLive(
               done('');
             }
             return;
+          }
+
+          // ── Audio output — collect PCM16 chunks (mirrors /chat pipeline) ────
+          // /chat: inlineData.data → pcm16ToF32le() → audio_chunk WS message
+          // Team Room: inlineData.data → collected here → pcm16ToWav() in done()
+          if (msg.serverContent?.modelTurn?.parts) {
+            for (const part of msg.serverContent.modelTurn.parts) {
+              if (part.inlineData?.data && part.inlineData.mimeType?.includes('audio')) {
+                audioPcm16Chunks.push(Buffer.from(part.inlineData.data, 'base64'));
+              }
+            }
           }
 
           // ── outputTranscription — accumulate Daniela's response text ─────
