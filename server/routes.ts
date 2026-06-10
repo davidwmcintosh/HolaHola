@@ -25555,6 +25555,76 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
   
+  // Agent posts directly to the Team Room — no go-between needed.
+  // The Agent's message appears as speaker "Agent" in the live room.
+  app.post("/api/agent/team-room/message", requireAgentToken, async (req: any, res) => {
+    try {
+      const { content, roomId } = req.body;
+      if (!content) return res.status(400).json({ error: 'content is required' });
+
+      // Resolve room: use provided roomId or fall back to most recently active room
+      let targetRoomId = roomId;
+      if (!targetRoomId) {
+        const rooms = await storage.listTeamRooms(1);
+        if (!rooms.length) return res.status(404).json({ error: 'No team rooms found' });
+        targetRoomId = rooms[0].id;
+      }
+
+      const room = await storage.getTeamRoom(targetRoomId);
+      if (!room) return res.status(404).json({ error: 'Room not found' });
+
+      const message = await storage.createRoomMessage({ roomId: targetRoomId, speaker: 'Agent', content });
+
+      // Broadcast via WebSocket so the room updates live
+      const { emitNewMessage } = await import('./services/team-room-ws-broker');
+      emitNewMessage(targetRoomId, message);
+
+      logAgentAction('team_room_post', '/api/agent/team-room/message', true, content.substring(0, 60));
+      res.json({ success: true, messageId: message.id, roomId: targetRoomId, timestamp: message.createdAt });
+    } catch (error: any) {
+      console.error('[Agent API] Error posting to Team Room:', error);
+      logAgentAction('team_room_post', '/api/agent/team-room/message', false, error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Agent reads the full Team Room thread — the actual messages, not a summary.
+  // Call this at session start to know what's been happening in the room.
+  app.get("/api/agent/team-room/thread", requireAgentToken, async (req: any, res) => {
+    try {
+      const roomId = req.query.roomId as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 50;
+
+      let targetRoomId = roomId;
+      if (!targetRoomId) {
+        const rooms = await storage.listTeamRooms(1);
+        if (!rooms.length) return res.status(404).json({ error: 'No team rooms found' });
+        targetRoomId = rooms[0].id;
+      }
+
+      const room = await storage.getTeamRoom(targetRoomId);
+      if (!room) return res.status(404).json({ error: 'Room not found' });
+
+      const messages = await storage.getRoomMessages(targetRoomId, limit);
+
+      logAgentAction('team_room_read', '/api/agent/team-room/thread', true, `${messages.length} messages from room: ${room.topic || targetRoomId}`);
+      res.json({
+        roomId: targetRoomId,
+        topic: room.topic,
+        messageCount: messages.length,
+        messages: messages.map((m: any) => ({
+          id: m.id,
+          speaker: m.speaker,
+          content: m.content,
+          createdAt: m.createdAt,
+        })),
+      });
+    } catch (error: any) {
+      console.error('[Agent API] Error reading Team Room thread:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Agent narration - auto-announce significant changes to Express Lane
   app.post("/api/agent/hive/narrate", requireAgentToken, async (req: any, res) => {
     try {
@@ -33865,6 +33935,25 @@ Under 250 words. Write as yourself.`;
       const { emitNewMessage, emitExpressLane, emitArtifact, emitParticipantThinking, emitParticipantsDone: _done } = await import('./services/team-room-ws-broker');
       emitParticipantsDone = _done;
       emitNewMessage(id, message);
+
+      // @agent mention detection — when anyone @mentions the Agent in the Team Room,
+      // auto-create an agent_note so the Replit Agent sees it at session start
+      // without needing Alden as a go-between.
+      if (/@agent\b/i.test(content)) {
+        try {
+          const { agentNotes } = await import('@shared/schema');
+          await getUserDb().insert(agentNotes).values({
+            fromAgent: 'alden',
+            toAgent: 'agent',
+            subject: `[MENTION] @agent mentioned in Team Room by ${speaker}`,
+            body: `Room: ${room.topic || id}\n\nMessage:\n${content}`,
+            sessionLabel: 'team-room-mention',
+          });
+          console.log(`[TeamRoom] @agent mention detected from ${speaker} — agent_note created`);
+        } catch (mentionErr) {
+          console.error('[TeamRoom] Failed to create agent mention note:', mentionErr);
+        }
+      }
 
       // CAP-008: Build pipeline — fires for feature/bug requests from the founder
       if (speaker === 'David' || speaker === 'david') {
