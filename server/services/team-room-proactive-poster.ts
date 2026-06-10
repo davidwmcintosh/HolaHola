@@ -124,8 +124,17 @@ async function findActiveTeamRoom(participant: string): Promise<string | null> {
 /**
  * Post a proactive message from a background worker into the active Team Room.
  * Returns true if a session was found and the message was posted, false otherwise.
+ *
+ * DISABLED (June 2026): Background workers (Lyra, Wren, Sofia, Alden digest, etc.)
+ * no longer post directly to the Team Room. Their findings go to Alden, who processes,
+ * fixes autonomously, or escalates to David/Agent via the notification system.
+ * The Team Room is reserved for live conversation only.
+ * To re-enable, remove the early return below.
  */
 export async function postToActiveTeamRoom(opts: ProactivePostOptions): Promise<boolean> {
+  console.log(`[ProactivePoster:${opts.source || opts.participant}] Proactive Team Room posting is disabled — findings route through Alden instead`);
+  return false;
+
   const { participant, briefSummary, expressContent, source } = opts;
   const tag = source || participant;
 

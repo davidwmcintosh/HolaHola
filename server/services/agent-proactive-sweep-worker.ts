@@ -182,28 +182,10 @@ Rules:
     return;
   }
 
-  // Post to active Team Room
-  try {
-    const rooms = await storage.listTeamRooms(5);
-    const room = rooms.find((r: any) => r.status === 'active');
-    if (!room) {
-      console.log('[AgentSweep] No active Team Room — sweep not posted');
-      return;
-    }
-
-    const content = `**Daily Agent Sweep — ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}**
-
-${sweep}
-
----
-*Say "do it" on any item and I'll queue it. Or ignore this — next sweep in 24h.*`;
-
-    const msg = await storage.createRoomMessage({ roomId: room.id, speaker: 'Agent', content });
-    emitNewMessage(room.id, msg);
-    console.log(`[AgentSweep] Posted to Team Room ${room.id}`);
-  } catch (err: any) {
-    console.error('[AgentSweep] Failed to post to Team Room:', err.message);
-  }
+  // Team Room posting disabled (June 2026): sweep results are saved to conversation_memories
+  // and can be surfaced by Alden or retrieved on-demand. The Team Room is reserved for
+  // live conversation only — background sweeps do not post there.
+  console.log('[AgentSweep] Sweep complete — not posting to Team Room (disabled). Results available in conversation_memories.');
 }
 
 // ── Start ─────────────────────────────────────────────────────────────────────

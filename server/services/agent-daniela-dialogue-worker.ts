@@ -387,21 +387,11 @@ async function postDialogueToTeamRoom(roomId: string, topic: DialogueTopic, tran
       .join('\n')
       .slice(0, 300);
 
-    const content = `I just finished a dialogue with Daniela about: **${topic.title}**
-
-The full transcript is saved to Agent memory. Here's a taste of where it went:
-
-${excerpt}...
-
-(Full conversation available in conversation_memories tagged 'architecture-dialogue')`;
-
-    const message = await storage.createRoomMessage({
-      roomId,
-      speaker: 'Agent',
-      content,
-    });
-    emitNewMessage(roomId, message);
-    console.log(`[DanielaDialogue] Posted summary to room ${roomId}`);
+    // Team Room posting disabled (June 2026): dialogue transcripts are saved to
+    // conversation_memories and are available to both Agent and Daniela on-demand.
+    // Background dialogues do not post to the Team Room — that space is for live
+    // conversation only.
+    console.log(`[DanielaDialogue] Dialogue complete — transcript saved to conversation_memories, not posted to Team Room (disabled).`);
   } catch (err: any) {
     console.error('[DanielaDialogue] Failed to post to Team Room:', err.message);
   }
