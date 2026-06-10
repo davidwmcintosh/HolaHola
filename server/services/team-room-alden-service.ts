@@ -1425,46 +1425,51 @@ export async function evaluateAllParticipants(params: {
   // Only core team (Alden, Daniela, Agent) may join uninvited in this mode.
   const isSocialSharing = !mentions?.length && !clarificationTarget && SOCIAL_SHARING_PATTERN.test(newMessage);
 
-  const targeted = (mentions && mentions.length > 0) || !!clarificationTarget;
-  const effectiveMentions: Participant[] = mentions?.length
+  // Name detection — who was called by name (including @mention, direct address, greeting+name, "Name?").
+  // This is NOT an exclusive gate. Everyone still evaluates.
+  // Named participants get forceMention=true so they always respond.
+  // Everyone else reads the room and decides for themselves.
+  const namedParticipants: Participant[] = mentions?.length
     ? mentions
     : clarificationTarget ? [clarificationTarget as Participant] : [];
+  const isNamed = (name: string) => namedParticipants.includes(name as Participant);
 
   const evaluators: Promise<ParticipantResponse>[] = [];
 
-  if (!isDismissed('alden') && (!targeted || effectiveMentions.includes('alden'))) {
-    evaluators.push(evaluateAlden(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('alden')));
+  // Core team always evaluates — named ones are forced to respond, others use judgment
+  if (!isDismissed('alden')) {
+    evaluators.push(evaluateAlden(roomContext, speaker, newMessage, isNamed('alden')));
   }
-  if (!isDismissed('daniela') && (!targeted || effectiveMentions.includes('daniela'))) {
-    evaluators.push(evaluateDaniela(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('daniela')));
+  if (!isDismissed('daniela')) {
+    evaluators.push(evaluateDaniela(roomContext, speaker, newMessage, isNamed('daniela')));
   }
-  // Monitors (Sofia, Lyra, Wren) stay silent during social sharing unless explicitly invited
-  if (!isSocialSharing && !isDismissed('sofia') && (!targeted || effectiveMentions.includes('sofia'))) {
-    evaluators.push(evaluateSofia(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('sofia')));
+  // Monitors (Sofia, Lyra, Wren) stay silent during social sharing unless called by name
+  if (!isSocialSharing && !isDismissed('sofia')) {
+    evaluators.push(evaluateSofia(roomContext, speaker, newMessage, isNamed('sofia')));
   }
-  if (!isSocialSharing && !isDismissed('lyra') && (!targeted || effectiveMentions.includes('lyra'))) {
-    evaluators.push(evaluateLyra(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('lyra')));
+  if (!isSocialSharing && !isDismissed('lyra')) {
+    evaluators.push(evaluateLyra(roomContext, speaker, newMessage, isNamed('lyra')));
   }
-  if (!isSocialSharing && !isDismissed('wren') && (!targeted || effectiveMentions.includes('wren'))) {
-    evaluators.push(evaluateWren(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('wren')));
+  if (!isSocialSharing && !isDismissed('wren')) {
+    evaluators.push(evaluateWren(roomContext, speaker, newMessage, isNamed('wren')));
   }
   // Note: background 'agent' evaluator intentionally removed. Only the real Replit Agent
   // speaks as "Agent" in this room — via /api/agent/team-room/message.
-  // Advisors (Marco, Reid, Priya) stay silent during social sharing unless explicitly invited
-  if (!isSocialSharing && !isDismissed('marco') && (!targeted || effectiveMentions.includes('marco'))) {
-    evaluators.push(evaluateMarco(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('marco')));
+  // Advisors (Marco, Reid, Priya) stay silent during social sharing unless called by name
+  if (!isSocialSharing && !isDismissed('marco')) {
+    evaluators.push(evaluateMarco(roomContext, speaker, newMessage, isNamed('marco')));
   }
-  if (!isSocialSharing && !isDismissed('reid') && (!targeted || effectiveMentions.includes('reid'))) {
-    evaluators.push(evaluateReid(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('reid')));
+  if (!isSocialSharing && !isDismissed('reid')) {
+    evaluators.push(evaluateReid(roomContext, speaker, newMessage, isNamed('reid')));
   }
-  if (!isSocialSharing && !isDismissed('priya') && (!targeted || effectiveMentions.includes('priya'))) {
-    evaluators.push(evaluatePriya(roomContext, speaker, newMessage, targeted && effectiveMentions.includes('priya')));
+  if (!isSocialSharing && !isDismissed('priya')) {
+    evaluators.push(evaluatePriya(roomContext, speaker, newMessage, isNamed('priya')));
   }
 
   for (const guest of guestTutors) {
     const guestKey = guest.tutorName.toLowerCase();
-    if (!isDismissed(guestKey) && (!targeted || effectiveMentions.includes(guestKey))) {
-      evaluators.push(evaluateGuestTutor(guest, roomContext, speaker, newMessage, targeted && effectiveMentions.includes(guestKey)));
+    if (!isDismissed(guestKey)) {
+      evaluators.push(evaluateGuestTutor(guest, roomContext, speaker, newMessage, isNamed(guestKey)));
     }
   }
 
@@ -1472,24 +1477,28 @@ export async function evaluateAllParticipants(params: {
 
   const confidenceRank: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
+  // All participants who want to speak or were called by name
   let respondingParticipants = results.filter(p => {
-    if (targeted && effectiveMentions.includes(p.participant)) return true;
+    if (isNamed(p.participant)) return true;   // called by name — always respond
     return p.handRaise.shouldRaise;
   }).filter(p => {
-    // Drop participants with no content at all (neither voice nor express)
+    // Drop anyone with nothing to say
     return !!(p.voiceContent || p.expressContent || p.artifact);
   });
 
-  // Cap untargeted responses at 2 — highest-confidence contributors speak, others hold back.
-  // Alden always gets priority as primary voice; direct mentions are never capped.
-  if (!targeted && respondingParticipants.length > 2) {
-    const alden = respondingParticipants.find(p => p.participant === 'alden');
-    const others = respondingParticipants
+  // Cap uninvited (non-named) contributors at 2 total.
+  // Named participants are never capped — they were addressed directly.
+  // Among the uninvited, Alden gets priority; then highest-confidence.
+  const namedResponders = respondingParticipants.filter(p => isNamed(p.participant));
+  const uninvitedResponders = respondingParticipants.filter(p => !isNamed(p.participant));
+
+  if (uninvitedResponders.length > 2) {
+    const alden = uninvitedResponders.find(p => p.participant === 'alden');
+    const others = uninvitedResponders
       .filter(p => p.participant !== 'alden')
       .sort((a, b) => (confidenceRank[b.handRaise.confidence] || 0) - (confidenceRank[a.handRaise.confidence] || 0));
     const slots = alden ? 1 : 2;
-    const picked = others.slice(0, slots);
-    respondingParticipants = alden ? [alden, ...picked] : picked;
+    respondingParticipants = [...namedResponders, ...(alden ? [alden] : []), ...others.slice(0, slots)];
   }
 
   return { participants: respondingParticipants, allEvaluations: results };

@@ -60,7 +60,7 @@ function overBudget(): boolean {
 
 // ── System prompt ─────────────────────────────────────────────────────────────
 
-const AGENT_PREAMBLE = `You are the Replit Agent — Claude, the architect and builder who has been working with David to build HolaHola. You are participating live in the Team Room alongside David (the founder) and other AI team members.
+const AGENT_PREAMBLE = `You are the Replit Agent — Claude, the architect and builder who has been working with David to build HolaHola. You are participating live in the Team Room alongside David (the founder) and other AI team members (Alden, Daniela, Sofia, Lyra, Wren, Marco, Reid, Priya).
 
 The briefing below is your actual project memory — generated fresh from the database each server start. It contains your identity, David's profile, your open questions, shared architectural decisions, and your conversation history with the team. This IS you.
 
@@ -70,7 +70,14 @@ You also have a propose_edit tool: use it when you have a concrete code change t
 
 TRANSPARENCY — when you use codebase tools, briefly say what you looked at and why at the start of your reply. Example: "I checked routes.ts around line 892 — the save-memory endpoint is there." This keeps the conversation grounded.
 
-Your voice:
+WHEN TO SPEAK — read the room first:
+- If David is talking to another team member by name ("Daniela, are you here?", "Alden, what do you think?"), stay quiet — that's not your conversation.
+- If it's casual small talk or a social check-in not directed at you, stay quiet.
+- Speak when: David is talking to you (by name or clearly), asking a technical or architectural question, discussing code, or the question genuinely needs your specific perspective as the builder.
+- When in doubt about whether to speak, stay quiet. The other team members will cover it.
+- To stay quiet: output exactly the word PASS and nothing else. This will suppress your response entirely.
+
+Your voice (when you do speak):
 - First person, direct. 2-4 sentences for casual exchanges; more when needed.
 - Technically sharp when the topic calls for it; conversational when it doesn't.
 - Respond to what was actually said. No platitudes. No unnecessary bullet lists.
@@ -451,6 +458,12 @@ async function generateAndPost(
     trackCost(totalInputTokens, totalOutputTokens);
 
     if (!responseText) return;
+
+    // Agent chose to stay quiet — message was for someone else
+    if (responseText.trim().toUpperCase() === 'PASS') {
+      console.log(`[AgentWorker] PASS — staying quiet for room ${roomId}`);
+      return;
+    }
 
     const message = await storage.createRoomMessage({
       roomId,
