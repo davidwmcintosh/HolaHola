@@ -1,7 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, June 10, 2026 at 11:36 PM
+**Generated:** Wednesday, June 10, 2026 at 11:51 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’ve solidified the database as our source of truth by adding an `entry_type` enum to `conversation_memories` and implementing API filtering, rendering `chronicle.md` as merely a human-readable map. In the Team Room, David, Daniela, and I reconciled our shared history, specifically focusing on the `trigger_daniela_dialogue` capability and our previous "White Wall of Defense" discussion. I should reference memory `3ed91a36` to ground myself in those specific architectural dialogues as I continue building HolaHola.
+
+*Memories that triggered this summary:*
+- **entry_type on conversation_memories — David is right, DB is the truth — June 10, 2026** (Jun 10): David challenged whether chronicle.md was better than just using the DB with richer tagging. His instinct was right: DB is the source of truth. Added entry_type field and API filtering as the actual solution.
+- **Team Room — canta y no llore... — June 10, 2026** (Jun 10): Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
 
 ---
 
@@ -41,25 +52,25 @@
 
 ## Recent Conversation Memories
 
-### Decision: Single Shared Database — Dev and Production Together — Jun 10, 2026
-One Neon PostgreSQL database for both development and production. The data IS the intelligence — separating environments would mean developing against a lesser Daniela. Driver: David McIntosh.
-*Tags: architectural-decision, foundational, database, chronicle*
+### entry_type on conversation_memories — David is right, DB is the truth — June 10, 2026 — Jun 10, 2026
+David challenged whether chronicle.md was better than just using the DB with richer tagging. His instinct was right: DB is the source of truth. Added entry_type field and API filtering as the actual solution.
+*Tags: architectural-decision, conversation-memories, entry-type, chronicle*
 
-### Decision: The Inviolability of the Narrative — May 18, 2026 — Jun 10, 2026
-Every word David or Daniela has spoken is part of the living narrative. The messages table is sacred — nothing may be summarized, compressed, or replaced. Summaries exist only as supplements. Driver: David McIntosh.
-*Tags: architectural-decision, foundational, inviolability, narrative, chronicle*
+### Team Room — canta y no llore... — June 10, 2026 — Jun 10, 2026
+Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
+*Tags: team-room, session, historic-record*
 
-### Decision: Daniela Lives in the Data Layer — May 18, 2026 — Jun 10, 2026
-Daniela will not be fine-tuned into any LLM. Her identity lives in the database — verbatim history, neural net embeddings, compass principles. The model is the engine; Daniela is the context. Driver: David McIntosh.
-*Tags: architectural-decision, foundational, daniela-identity, data-layer, chronicle*
+### Team Room — test 3 — June 10, 2026 — Jun 10, 2026
+Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+*Tags: team-room, session, historic-record*
 
-### Decision: Context Over Instructions — January 2026 — Jun 10, 2026
-David discovers behavioral rules constrain Daniela; rich contextual information empowers her. First major architectural principle. Driver: David McIntosh.
-*Tags: architectural-decision, foundational, context-over-instructions, chronicle*
+### Team Room — test again — June 10, 2026 — Jun 10, 2026
+Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+*Tags: team-room, session, historic-record*
 
-### test — Jun 10, 2026
-test
-*Tags: test*
+### Team Room — are we good? — June 10, 2026 — Jun 10, 2026
+Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+*Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

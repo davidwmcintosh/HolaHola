@@ -29988,11 +29988,32 @@ ${memoryContext}
     try {
       const { conversationMemories } = await import('../shared/schema');
       const limit = parseInt(req.query.limit as string) || 20;
-      const memories = await getUserDb()
+      const entryType = req.query.entry_type as string | undefined;
+      const tag = req.query.tag as string | undefined;
+
+      let query = getUserDb()
         .select()
         .from(conversationMemories)
         .orderBy(desc(conversationMemories.recordedAt))
         .limit(limit);
+
+      const conditions: any[] = [];
+      if (entryType) {
+        conditions.push(eq(conversationMemories.entryType, entryType as any));
+      }
+      if (tag) {
+        conditions.push(sql`${tag} = ANY(${conversationMemories.tags})`);
+      }
+
+      const memories = conditions.length > 0
+        ? await getUserDb()
+            .select()
+            .from(conversationMemories)
+            .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+            .orderBy(desc(conversationMemories.recordedAt))
+            .limit(limit)
+        : await query;
+
       res.json({ memories });
     } catch (error: any) {
       console.error('[Conversation Memories] Fetch error:', error);

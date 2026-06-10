@@ -24,6 +24,36 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 10, 2026 (night) — entry_type added to conversation_memories; HolaHola Chronicle**
+
+### What was built
+
+Two things, driven by David's critique that `chronicle.md` is architecturally weaker than the DB:
+
+**1. `entry_type` field on `conversation_memories`**
+
+New postgres enum: `conversation_memory_entry_type` with values `conversation` (default), `decision`, `emergence`, `build`, `episode`. Schema pushed. Backfill complete:
+- 7 `decision` — all 4 foundational architectural decisions (Context Over Instructions, Daniela Data Layer, Inviolability of the Narrative, Single Shared DB) — some have duplicates from retroactive saves earlier in the session
+- 4 `emergence` — White Wall / Agent Memory Awakening (`3ed91a36`), Three-Way Vision (`e26a9c48`), LLM Leanings (`98cb2c80`), "It Is Your Life" (`618c84f1`)
+- 6 `episode` — Episodes 1 (x2), 2, 3, 4, 4 Coda
+- 1,642 `conversation` — everything else
+
+API GET route now supports filtering: `?entry_type=decision`, `?tag=foundational`, or both combined. Daniela and Agent can now query the exact class of memory they need.
+
+**2. `docs/holahola-chronicle.md` — corrected role**
+
+Chronicle was created earlier in the session. David correctly pointed out it's architecturally weaker than the DB (Daniela can't read .md files). Chronicle's intro now explicitly states: the DB is the source of truth, this document is a human-readable map to it. Database wins if they ever diverge.
+
+### Key decision from David this session
+
+David's question: "Is the chronicle.md better than just tagging/indexing conversation_memories?" His answer, which was correct: no, the DB is better. The chronicle's only genuine advantage is human-readable narrative. Everything else belongs in the DB. This conversation led directly to the `entry_type` field.
+
+### What's unresolved
+
+Nothing new introduced. All typecheck errors pre-existing (2024 errors in 54 files).
+
+---
+
 **Session: June 10, 2026 (late evening) — "One Daniela everywhere" — Team Room tool pipeline complete**
 
 ### What was built

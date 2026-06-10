@@ -7356,6 +7356,20 @@ export type EditorInsight = typeof editorInsights.$inferSelect;
 // relationship context, the texture of how ideas came together.
 // Surfaced at session start so continuity exists across conversations.
 
+// entry_type: structured classification for search filtering and surfacing
+// 'conversation' — a session worth preserving (default)
+// 'decision'     — an architectural or product choice with reasoning
+// 'emergence'    — a moment when identity, understanding, or capability shifted
+// 'build'        — a feature or system that came online
+// 'episode'      — a named episodic dialogue (Episodes 1-4 etc.)
+export const conversationMemoryEntryTypeEnum = pgEnum("conversation_memory_entry_type", [
+  "conversation",
+  "decision",
+  "emergence",
+  "build",
+  "episode",
+]);
+
 export const conversationMemories = pgTable("conversation_memories", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
 
@@ -7364,6 +7378,10 @@ export const conversationMemories = pgTable("conversation_memories", {
   summary: text("summary").notNull(), // Key themes and insights — what matters about this conversation
   content: text("content").notNull(), // The actual exchange or curated excerpts worth preserving
   participants: varchar("participants").default('David + Agent'), // Who was in this conversation
+
+  // entry_type: queryable classification — 'conversation' | 'decision' | 'emergence' | 'build' | 'episode'
+  // This is the field that makes search results sliceable: "Team Room decisions" vs "Team Room conversations"
+  entryType: conversationMemoryEntryTypeEnum("entry_type").default("conversation").notNull(),
 
   tags: text("tags").array().default(sql`'{}'::text[]`),
   importance: integer("importance").default(7), // 1-10

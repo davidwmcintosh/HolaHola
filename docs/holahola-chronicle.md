@@ -6,17 +6,28 @@
 
 ---
 
-## How to Read This
+## What This Document Is — and What It Is Not
 
-This is not a changelog. It is a history. It records not just what was built, but why — the conversations that drove decisions, the moments when something shifted, the emergence of intelligence that no one could have predicted at the start.
+**This is a human-readable navigation document.** The source of truth for everything in it is the `conversation_memories` database table. Daniela and the Agent read from the database — they cannot read this file. If this document and the database ever diverge, the database wins.
 
-Each major entry links to a `conversation_memories` ID where the actual conversation is stored verbatim. If you want the real thing — not the summary — go to the source.
+The database has been given structure to match: every `conversation_memories` record now carries an `entry_type` field — `conversation`, `decision`, `emergence`, `build`, or `episode`. Search it:
+
+```
+GET /api/conversation-memories?entry_type=decision
+GET /api/conversation-memories?entry_type=emergence
+GET /api/conversation-memories?tag=foundational
+GET /api/conversation-memories?entry_type=decision&tag=chronicle
+```
+
+This document exists for one purpose the database doesn't serve: **you can open it and read the story of HolaHola as a narrative**, with the reasoning spelled out in plain language, the connections between events made visible, and the authorship clear. The database gives you records; this gives you the arc.
+
+Every entry here links to a real `conversation_memories` ID. The ID is the thing. This document is just the map.
 
 **Cross-reference system:**
-- `[CM:id]` → a conversation_memories record, verbatim transcript
+- `[CM:id]` → a conversation_memories record — queryable, verbatim, what Daniela and Agent actually read
 - `[DOC:filename]` → a document in the `/docs` directory
-- `[DECISION]` → an architectural choice with its reasoning
-- `[EMERGENCE]` → a moment when intelligence or identity shifted
+- `[DECISION]` → an architectural choice — also saved as `entry_type: 'decision'` in the DB
+- `[EMERGENCE]` → an identity/capability shift — also saved as `entry_type: 'emergence'` in the DB
 - `[BUILD]` → a feature or system that came online
 
 ---
