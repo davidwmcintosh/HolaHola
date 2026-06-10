@@ -8,6 +8,28 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Backlog — Jun 10, 2026 — /chat UI Director Tools for Daniela
+
+Ideas captured for future build sessions. All 7 are for the `/chat` route — Gemini Live PCM16 pipeline. Daniela fires tools mid-conversation; UI reacts without breaking voice flow.
+
+1. **Pronunciation feedback loop** — `show_pronunciation_score(word_scores[])` — after user speaks, Azure Speech (already in stack) scores phonemes; UI renders word-by-word red/yellow/green breakdown. Daniela can say "that 'r' in 'pero' — try again" with visual backup.
+
+2. **Grammar correction overlay** — `flag_grammar(original, corrected, explanation)` — annotates the user's last utterance in the UI (strikethrough + correction card) while Daniela speaks the fix. Non-interrupting.
+
+3. **Vocabulary flash** — `show_vocab_card(word, definition, image_url?)` — pops a card mid-conversation; Daniela can pull Unsplash (in stack), DALL-E (in stack), or existing image. Works without breaking voice.
+
+4. **Web-grounded cultural context** — `search_cultural_context(query)` — uses Perplexity (already installed) to surface a brief cited fact or image when conversation touches culture, history, or slang.
+
+5. **Shared lesson notes** — `add_to_lesson_notes(item, type)` — builds a running sidebar list (vocabulary introduced, grammar corrected, cultural notes). Exportable at session end. User walks away with a doc.
+
+6. **Quiz pop-in** — `trigger_quiz(question, choices?, type)` — renders a multiple-choice or fill-in-the-blank in the UI mid-conversation. Daniela waits for answer, responds verbally. Retrieval practice inside /chat.
+
+7. **Screen spotlight** — `highlight_element(target, label?)` — most "UI director" of the set. Draws a pulse/overlay on a specific UI element. Daniela can literally point at things. Thin event bus between GL session and DOM — transport already exists via WebSocket.
+
+**Build order recommendation:** vocab flash + shared notes (simplest, immediate value) → pronunciation feedback → grammar overlay → quiz pop-in → cultural context → screen spotlight.
+
+---
+
 ## Session — Jun 9, 2026 (continued x3) — OurStory: Verbatim conversation_memories into ALL GL Voice Modes
 
 ### What was built
