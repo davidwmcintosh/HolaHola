@@ -95,8 +95,9 @@ import type {
   DialogueLine,
   SentenceTableItem,
   TextbookSearchItem,
+  TextbookPageItem,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isSceneCanvasItem, isSentenceTableItem, isTextbookSearchItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions, isDailyPlanItem } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isSceneCanvasItem, isSentenceTableItem, isTextbookSearchItem, isTextbookPageItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions, isDailyPlanItem } from "@shared/whiteboard-types";
 import type { DailyPlanItem, DailyPlanAgendaItem } from "@shared/whiteboard-types";
 import { SceneCanvas } from "@/components/SceneCanvas";
 import type { CognatePair, FalseFriendOption } from "@shared/whiteboard-types";
@@ -3904,6 +3905,84 @@ function TextbookSearchItemDisplay({ item, index }: { item: TextbookSearchItem; 
   );
 }
 
+// ─── Textbook Page Card ────────────────────────────────────────────────────────
+
+function TextbookPageItemDisplay({ item, index }: { item: TextbookPageItem; index: number }) {
+  const { data } = item;
+  return (
+    <div className="space-y-3" data-testid={`whiteboard-item-textbook-page-${index}`}>
+      <div className="flex items-center gap-2 pb-1.5 border-b border-border/50">
+        <BookOpen className="h-4 w-4 text-primary shrink-0" />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-foreground truncate">
+            {data.lessonId}
+          </p>
+          {data.actflLevel && (
+            <p className="text-xs text-muted-foreground">{data.actflLevel}</p>
+          )}
+        </div>
+      </div>
+
+      {data.vocabulary && data.vocabulary.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Vocabulary
+          </p>
+          <div className="space-y-1">
+            {data.vocabulary.map((v, i) => (
+              <div key={i} className="flex items-baseline gap-2">
+                <span className="text-sm font-medium text-foreground">{v.word}</span>
+                {v.translation && (
+                  <span className="text-xs text-muted-foreground">{v.translation}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {data.grammarPattern && (
+        <div className="space-y-1">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Grammar Pattern
+          </p>
+          <p className="text-sm text-foreground/90 leading-relaxed">{data.grammarPattern}</p>
+        </div>
+      )}
+
+      {data.examples && data.examples.length > 0 && (
+        <div className="space-y-1.5">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Key Examples
+          </p>
+          <div className="space-y-2">
+            {data.examples.map((e, i) => (
+              <div key={i} className="space-y-0.5">
+                <p className="text-sm font-medium text-foreground">{e.target}</p>
+                {e.translation && (
+                  <p className="text-xs text-muted-foreground">{e.translation}</p>
+                )}
+                {e.note && (
+                  <p className="text-xs text-muted-foreground/70 italic">{e.note}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {data.sentencePatterns && (
+        <div className="space-y-1">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Sentence Patterns
+          </p>
+          <p className="text-sm text-foreground/80 leading-relaxed">{data.sentencePatterns}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Daily Plan Card ──────────────────────────────────────────────────────────
 
 function agendaIcon(type: DailyPlanAgendaItem['type']) {
@@ -4148,6 +4227,10 @@ const WhiteboardItemDisplay = ({
 
   if (isDailyPlanItem(item)) {
     return <DailyPlanCard item={item} index={index} />;
+  }
+
+  if (isTextbookPageItem(item)) {
+    return <TextbookPageItemDisplay item={item} index={index} />;
   }
   
   return <TextItemDisplay item={item} index={index} />;

@@ -73,7 +73,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'sentence_table' | 'textbook_search' | 'overlay_panel' | 'daily_plan';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'sentence_table' | 'textbook_search' | 'overlay_panel' | 'daily_plan' | 'textbook_page';
 
 /**
  * Drill types for inline micro-exercises
@@ -1046,6 +1046,46 @@ export interface TextbookSearchItem extends WhiteboardItemBase {
   data: TextbookSearchItemData;
 }
 
+// ─── Textbook Page ─────────────────────────────────────────────────────────────
+
+/**
+ * A single vocabulary entry on a textbook page.
+ */
+export interface TextbookPageVocabItem {
+  word: string;
+  translation?: string;
+}
+
+/**
+ * A key example sentence from the textbook page.
+ */
+export interface TextbookPageExample {
+  target: string;
+  translation?: string;
+  note?: string;
+}
+
+/**
+ * Structured content for a loaded textbook lesson page.
+ * Sent when Daniela calls start_textbook_page — the student sees the same
+ * lesson content Daniela is teaching from.
+ */
+export interface TextbookPageItemData {
+  lessonId: string;
+  actflLevel?: string;
+  focus: 'full_page' | 'vocabulary' | 'grammar' | 'examples';
+  vocabulary?: TextbookPageVocabItem[];
+  grammarPattern?: string;
+  examples?: TextbookPageExample[];
+  sentencePatterns?: string;
+}
+
+export interface TextbookPageItem extends WhiteboardItemBase {
+  type: 'textbook_page';
+  content: string;
+  data: TextbookPageItemData;
+}
+
 // ─── Overlay Panel ─────────────────────────────────────────────────────────────
 
 /**
@@ -1175,7 +1215,8 @@ export type WhiteboardItem =
   | SentenceTableItem
   | TextbookSearchItem
   | OverlayPanelItem
-  | DailyPlanItem;
+  | DailyPlanItem
+  | TextbookPageItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -2991,6 +3032,10 @@ export function isSentenceTableItem(item: WhiteboardItem): item is SentenceTable
 
 export function isTextbookSearchItem(item: WhiteboardItem): item is TextbookSearchItem {
   return item.type === 'textbook_search';
+}
+
+export function isTextbookPageItem(item: WhiteboardItem): item is TextbookPageItem {
+  return item.type === 'textbook_page';
 }
 
 /**

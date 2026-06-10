@@ -2580,6 +2580,19 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'SET_RIGHT_PANE': {
+        const rpMode = (fn.args.mode as string | undefined) || 'whiteboard';
+        console.log(`[Native Function→SetRightPane] mode=${rpMode}`);
+        if (rpMode === 'whiteboard') {
+          this.sendMessage(session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{ type: 'clear' }],
+          });
+        }
+        break;
+      }
+
       case 'TAKE_NOTE': {
         if (session.isIncognito) {
           console.log(`[Native Function→TakeNote] INCOGNITO - skipping note persistence`);
@@ -7968,6 +7981,49 @@ export class NativeFunctionCallHandler {
         }
       }
       session.textbookPageResult = parts.join('\n\n');
+
+      // Send visual to client right pane — student sees the same page Daniela teaches from
+      const rawVocab = row.vocabularyList as any;
+      const parsedVocab: Array<{word: string; translation?: string}> = [];
+      if (rawVocab && Array.isArray(rawVocab)) {
+        rawVocab.forEach((v: any) => {
+          if (typeof v === 'string') parsedVocab.push({ word: v });
+          else if (v && typeof v === 'object') parsedVocab.push({ word: v.word || v.term || String(v), translation: v.translation || v.meaning });
+        });
+      }
+      const rawEx = row.grammarExamples as any;
+      const parsedExamples: Array<{target: string; translation?: string; note?: string}> = [];
+      if (rawEx && Array.isArray(rawEx)) {
+        rawEx.forEach((e: any) => {
+          if (typeof e === 'string') parsedExamples.push({ target: e });
+          else if (e && typeof e === 'object') parsedExamples.push({ target: e.target || e.phrase || '', translation: e.translation, note: e.note });
+        });
+      }
+      const rawMicro = row.microCycleData as any;
+      const sentencePatterns = rawMicro
+        ? (typeof rawMicro === 'string' ? rawMicro : Array.isArray(rawMicro) ? rawMicro.map((m: any) => typeof m === 'string' ? m : JSON.stringify(m)).join(' | ') : JSON.stringify(rawMicro))
+        : undefined;
+
+      this.sendMessage(session.ws, {
+        type: 'whiteboard_update',
+        timestamp: Date.now(),
+        items: [{
+          type: 'textbook_page',
+          content: `Lesson: ${lessonId}`,
+          id: `textbook-page-${lessonId}`,
+          timestamp: Date.now(),
+          data: {
+            lessonId,
+            actflLevel: row.actflLevel || undefined,
+            focus: (focus === 'vocabulary' || focus === 'grammar' || focus === 'examples') ? focus as any : 'full_page' as const,
+            vocabulary: parsedVocab.length > 0 ? parsedVocab : undefined,
+            grammarPattern: row.grammarExplanation || undefined,
+            examples: parsedExamples.length > 0 ? parsedExamples : undefined,
+            sentencePatterns,
+          },
+        }],
+      });
+
       // Log page-started event (fire-and-forget)
       if (!session.isIncognito && session.userId) {
         db.insert(lessonPageEvents).values({

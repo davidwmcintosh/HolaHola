@@ -3786,6 +3786,32 @@ Best for: Starting a focused study session, following a structured curriculum, d
       return result || `Could not load textbook page. Try search_textbook to find the right lesson ID.`;
     },
   },
+  // === RIGHT PANE CONTROL ===
+  {
+    legacyType: 'SET_RIGHT_PANE',
+    declaration: {
+      name: "set_right_pane",
+      description: `Control what the student sees in the right panel of the classroom.
+
+Use this to switch the right pane between modes:
+- 'whiteboard': Return to the standard whiteboard for vocabulary and notes
+- 'textbook': Bring the active lesson page back into view (use after start_textbook_page)
+
+Daniela sets what's visible — the student doesn't need to navigate.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          mode: {
+            type: "string",
+            enum: ["whiteboard", "textbook"],
+            description: "The content mode to show in the right panel.",
+          },
+        },
+        required: ["mode"],
+      },
+    },
+    buildContinuationResponse: () => `Right pane updated.`,
+  },
   {
     legacyType: 'LOG_PAGE_EVENT',
     declaration: {

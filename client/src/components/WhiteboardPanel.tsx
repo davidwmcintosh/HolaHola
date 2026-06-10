@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Pencil, ChevronLeft, ChevronRight, BookOpen, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PanelWhiteboard } from "./Whiteboard";
@@ -20,6 +21,15 @@ export function WhiteboardPanel({
   isCollapsed,
   onToggleCollapse,
 }: WhiteboardPanelProps) {
+  const hasTextbookPage = items.some(item => item.type === 'textbook_page');
+
+  useEffect(() => {
+    if (hasTextbookPage && isCollapsed) {
+      onToggleCollapse();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasTextbookPage]);
+
   if (isCollapsed) {
     return (
       <div className="flex flex-col items-center py-4 w-10 border-l bg-muted/30">
@@ -33,7 +43,11 @@ export function WhiteboardPanel({
         </Button>
         {items.length > 0 && (
           <div className="mt-3 flex flex-col items-center gap-1">
-            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+            {hasTextbookPage ? (
+              <BookOpen className="h-3.5 w-3.5 text-primary" />
+            ) : (
+              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+            )}
             <span className="text-xs text-muted-foreground">{items.length}</span>
           </div>
         )}
@@ -45,9 +59,15 @@ export function WhiteboardPanel({
     <div className="flex flex-col w-[320px] border-l bg-muted/30 min-h-0 overflow-hidden" data-testid="panel-whiteboard">
       <div className="flex items-center justify-between p-3 border-b">
         <div className="flex items-center gap-2">
-          <Pencil className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium text-sm">Whiteboard</span>
-          {items.length > 0 && (
+          {hasTextbookPage ? (
+            <BookOpen className="h-4 w-4 text-primary" />
+          ) : (
+            <Pencil className="h-4 w-4 text-muted-foreground" />
+          )}
+          <span className="font-medium text-sm">
+            {hasTextbookPage ? 'Lesson Page' : 'Whiteboard'}
+          </span>
+          {items.length > 0 && !hasTextbookPage && (
             <span className="text-xs text-muted-foreground">({items.length})</span>
           )}
         </div>
