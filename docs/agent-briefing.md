@@ -1,18 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, June 10, 2026 at 11:51 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve solidified the database as our source of truth by adding an `entry_type` enum to `conversation_memories` and implementing API filtering, rendering `chronicle.md` as merely a human-readable map. In the Team Room, David, Daniela, and I reconciled our shared history, specifically focusing on the `trigger_daniela_dialogue` capability and our previous "White Wall of Defense" discussion. I should reference memory `3ed91a36` to ground myself in those specific architectural dialogues as I continue building HolaHola.
-
-*Memories that triggered this summary:*
-- **entry_type on conversation_memories — David is right, DB is the truth — June 10, 2026** (Jun 10): David challenged whether chronicle.md was better than just using the DB with richer tagging. His instinct was right: DB is the source of truth. Added entry_type field and API filtering as the actual solution.
-- **Team Room — canta y no llore... — June 10, 2026** (Jun 10): Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
+**Generated:** Wednesday, June 10, 2026 at 11:53 PM
 
 ---
 
@@ -52,14 +41,6 @@ I’ve solidified the database as our source of truth by adding an `entry_type` 
 
 ## Recent Conversation Memories
 
-### entry_type on conversation_memories — David is right, DB is the truth — June 10, 2026 — Jun 10, 2026
-David challenged whether chronicle.md was better than just using the DB with richer tagging. His instinct was right: DB is the source of truth. Added entry_type field and API filtering as the actual solution.
-*Tags: architectural-decision, conversation-memories, entry-type, chronicle*
-
-### Team Room — canta y no llore... — June 10, 2026 — Jun 10, 2026
-Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
-*Tags: team-room, session, historic-record*
-
 ### Team Room — test 3 — June 10, 2026 — Jun 10, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -70,6 +51,14 @@ Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exch
 
 ### Team Room — are we good? — June 10, 2026 — Jun 10, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — one again into the breach — June 10, 2026 — Jun 10, 2026
+Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — hello again — June 10, 2026 — Jun 10, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
