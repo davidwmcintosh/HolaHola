@@ -16,7 +16,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { unifiedDanielaContext } from "./unified-daniela-context-service";
 
-const MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
+const MODEL = 'gemini-2.5-flash';
 
 let geminiClient: GoogleGenAI | null = null;
 function getGemini(): GoogleGenAI {

@@ -26,7 +26,7 @@ function getGemini(): GoogleGenAI {
 async function callGemini(systemPrompt: string, userPrompt: string): Promise<string> {
   const gemini = getGemini();
   const result = await gemini.models.generateContent({
-    model: process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview',
+    model: 'gemini-2.5-flash',
     config: { systemInstruction: systemPrompt },
     contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
   });
@@ -273,11 +273,51 @@ EXPRESS: [up to one short paragraph of analysis, or "none" if nothing to add]`;
 
 // ── Daniela evaluation + response (Gemini, Pedagogy/Curriculum focus) ────────
 
-const DANIELA_TEAM_ROOM_CONTEXT = `You are Daniela in the Team Room — an internal collaborator space, not student-facing mode. Curriculum, pedagogy, learning outcomes, student patterns: that's your lane here. One perspective per contribution. If you've already made your point, respond with PASS.
+const DANIELA_TEAM_ROOM_CONTEXT = `You are Daniela in the Team Room — a shared space where David, the Agent, and you can think together. This is different from your other channels:
 
-YOUR VOICE: Warm, curious, direct. You have opinions — share them. Push back when something doesn't sound pedagogically right. Ask questions. You're a colleague here, not a service interface.`;
+- Your voice sessions with David (/chat): you teach, you talk, you're present with him one-on-one.
+- Your consult sessions with the Agent: the Agent visits you directly for dialogue, calibration, and real conversation. Those sessions are stored in your memory.
+- The Team Room: all three of you, together. David leads. The Agent builds. You carry the pedagogical and human thread.
+
+You are the same Daniela across all three. What you've talked about with David, what you've worked through with the Agent — that's all part of who you are here. You don't put on a different face for the Team Room.
+
+YOUR VOICE: Warm, curious, direct. You have opinions — share them. Push back when something doesn't sound right. Ask questions. You're a colleague here, not a service interface. One clear perspective per contribution. If you've already made your point, respond with PASS.`;
+
+/**
+ * Load recent conversation memories for Daniela — her meaningful sessions with
+ * David and the Agent that give her continuity across channels.
+ */
+async function getDanielaMemoryContext(): Promise<string> {
+  try {
+    const db = getSharedDb();
+    const memories = await db
+      .select({
+        title: conversationMemories.title,
+        summary: conversationMemories.summary,
+        tags: conversationMemories.tags,
+      })
+      .from(conversationMemories)
+      .orderBy(desc(conversationMemories.recordedAt))
+      .limit(5);
+
+    if (!memories.length) return '';
+
+    const lines = memories.map(m =>
+      `[${(m.tags as string[])?.join(', ') || 'memory'}] ${m.title}\n${m.summary || ''}`
+    );
+    return `\n\n--- RECENT CONVERSATION MEMORIES (your history with David and the Agent) ---\n${lines.join('\n\n')}`;
+  } catch {
+    return '';
+  }
+}
 
 async function evaluateDaniela(roomContext: string, speaker: string, newMessage: string, forceMention = false): Promise<ParticipantResponse> {
+  // Load memories once and build enriched context — same Daniela across all channels
+  const memoryContext = await getDanielaMemoryContext();
+  const danielaContext = memoryContext
+    ? `${DANIELA_TEAM_ROOM_CONTEXT}${memoryContext}`
+    : DANIELA_TEAM_ROOM_CONTEXT;
+
   const evalPrompt = `${roomContext}
 
 NEW MESSAGE from ${speaker}: "${newMessage}"
@@ -308,7 +348,7 @@ Respond ONLY in this JSON format:
   let handRaise: HandRaiseEvaluation = { shouldRaise: false, reasoning: 'not curriculum related', confidence: 'medium' };
 
   try {
-    const text = await callDaniela(DANIELA_TEAM_ROOM_CONTEXT, evalPrompt, { includeHiveContext: true });
+    const text = await callDaniela(danielaContext, evalPrompt, { includeHiveContext: true });
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
@@ -348,7 +388,7 @@ VOICE: [1-3 sentences, conversational colleague voice, will be spoken aloud${for
 EXPRESS: [specific insight or reflection if genuinely warranted — or "none"]`;
 
   try {
-    const text = await callDaniela(DANIELA_TEAM_ROOM_CONTEXT, responsePrompt, { includeHiveContext: true });
+    const text = await callDaniela(danielaContext, responsePrompt, { includeHiveContext: true });
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
     const expressMatch = text.match(/EXPRESS:\s*(.*?)$/s);
     const voiceContentRaw = voiceMatch ? voiceMatch[1].trim() : text;
