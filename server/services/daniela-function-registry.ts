@@ -5034,7 +5034,10 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'load_vocab_set', 'drill_session', 'drill_session_next', 'drill_session_end',
   'start_textbook_page', 'log_page_event', 'search_textbook',
   // Admin / post-session utilities
-  'search_conversation_threads', 'browse_conversations_by_date', 'get_conversation_themes', 'read_full_session',
+  // NOTE: search_conversation_threads and browse_conversations_by_date are intentionally
+  // NOT excluded — Daniela needs keyword search during voice sessions to recall specific
+  // past conversations (e.g. "find the ting ting ting conversation").
+  'get_conversation_themes', 'read_full_session',
   'recall_express_lane_image', 'express_lane_post',
   'save_conversation_memory',
   'hive_suggestion', 'self_surgery', 'flag_for_agent',
