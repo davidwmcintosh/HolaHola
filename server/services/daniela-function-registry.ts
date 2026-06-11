@@ -3881,6 +3881,159 @@ Add notes proactively — not every word, but the ones that came up organically 
     },
   },
 
+  // === PRONUNCIATION SCORE ===
+  {
+    legacyType: 'PRONUNCIATION_SCORE',
+    declaration: {
+      name: "show_pronunciation_score",
+      description: `Show a pronunciation score card on the student's screen with word-by-word feedback after they attempt a phrase.
+
+Use this when the student tries to say something and you want to give visual feedback on their pronunciation. Score each word based on what you heard.
+
+Score guidelines:
+- 80-100: word was clear and accurate
+- 50-79: understandable but needs refinement
+- 0-49: difficult to understand, needs practice
+
+Examples:
+- Student says "Buenos días" with a rough 'd' → show_pronunciation_score with scores for each word
+- After a tongue-twister → show which syllables they nailed vs. stumbled on
+- During a repeat-after-me drill → give immediate visual reinforcement`,
+      parametersJsonSchema: {
+        type: "object",
+        required: ["phrase", "word_scores", "overall_score"],
+        properties: {
+          phrase: { type: "string", description: "The full phrase the student attempted" },
+          word_scores: {
+            type: "array",
+            description: "Score for each word (0-100)",
+            items: {
+              type: "object",
+              required: ["word", "score"],
+              properties: {
+                word: { type: "string", description: "The word" },
+                score: { type: "number", description: "Score 0-100" },
+                tip: { type: "string", description: "Optional quick tip for this word" },
+              },
+            },
+          },
+          overall_score: { type: "number", description: "Overall score for the full phrase (0-100)" },
+          encouragement: { type: "string", description: "Short encouraging message (1 sentence max)" },
+        },
+      },
+    },
+  },
+
+  // === GRAMMAR FLAG ===
+  {
+    legacyType: 'GRAMMAR_FLAG',
+    declaration: {
+      name: "flag_grammar",
+      description: `Show a grammar correction card on the student's screen — the original utterance with a correction and one-sentence explanation.
+
+Use this when the student makes a grammar mistake you want to flag visually. Keep the explanation SHORT. The card auto-dismisses after a few seconds.
+
+Examples:
+- Student says "Yo soy 25 años" → flag_grammar: original="Yo soy 25 años" corrected="Tengo 25 años" explanation="'Tener' expresses age in Spanish, not 'ser'"
+- Student uses wrong tense → show the correct form side-by-side with a one-line rule`,
+      parametersJsonSchema: {
+        type: "object",
+        required: ["original", "corrected", "explanation"],
+        properties: {
+          original: { type: "string", description: "What the student said (the incorrect version)" },
+          corrected: { type: "string", description: "The corrected version" },
+          explanation: { type: "string", description: "One-sentence explanation of the rule" },
+          rule_label: { type: "string", description: "Short grammar rule label, e.g. 'Ser vs. Tener', 'Preterite vs. Imperfect'" },
+        },
+      },
+    },
+  },
+
+  // === QUIZ POP-IN ===
+  {
+    legacyType: 'QUIZ_PRESENTED',
+    declaration: {
+      name: "present_quiz",
+      description: `Present a quick multiple-choice question on the student's screen mid-conversation.
+
+Use this for quick knowledge checks — comprehension, vocabulary recall, or grammar selection. Keep it fast and fun. Max 4 options. The student taps an answer and gets immediate feedback.
+
+Examples:
+- After teaching a word: "Which of these means 'butterfly'?"
+- Grammar: "Which verb form is correct here?"
+- Culture: "What's the traditional meal for Day of the Dead?"`,
+      parametersJsonSchema: {
+        type: "object",
+        required: ["question", "options", "correct_index"],
+        properties: {
+          question: { type: "string", description: "The quiz question" },
+          options: {
+            type: "array",
+            description: "Answer choices (2-4 options)",
+            items: { type: "string" },
+          },
+          correct_index: { type: "number", description: "0-based index of the correct answer" },
+          explanation: { type: "string", description: "Brief explanation shown after answering (optional)" },
+        },
+      },
+    },
+  },
+
+  // === CULTURAL CONTEXT ===
+  {
+    legacyType: 'CULTURAL_CONTEXT',
+    declaration: {
+      name: "show_cultural_context",
+      description: `Show a cultural context card on the student's screen — a grounded cultural note about a word, phrase, or topic you just mentioned.
+
+Use this when you naturally mention something culturally interesting and want to anchor it visually. The card stays until the student dismisses it.
+
+Examples:
+- Mentioning "sobremesa" → cultural note about the Spanish tradition of lingering at the table after meals
+- Teaching a regional greeting → geographic/cultural note about where and when it's used
+- After a cultural idiom → the real-world context that makes it make sense`,
+      parametersJsonSchema: {
+        type: "object",
+        required: ["title", "text"],
+        properties: {
+          title: { type: "string", description: "Short title for the cultural note (e.g. 'La Sobremesa')" },
+          text: { type: "string", description: "The cultural explanation (2-4 sentences)" },
+          category: { type: "string", description: "Category: 'custom' | 'food' | 'gesture' | 'holiday' | 'language' | 'history' | 'art'" },
+          source_url: { type: "string", description: "Optional URL for further reading" },
+        },
+      },
+    },
+  },
+
+  // === SPOTLIGHT ===
+  {
+    legacyType: 'SPOTLIGHT',
+    declaration: {
+      name: "spotlight_element",
+      description: `Dim the screen and show a message bubble directing the student's attention — a gentle "look here" moment.
+
+Use this sparingly: for onboarding, feature callouts, or a teaching moment where you want the student to notice something specific.
+
+Available zones:
+- "whiteboard" — the right-side visual/whiteboard panel
+- "microphone" — the mic/PTT button
+- "notes" — the session notes panel
+- "subtitles" — the subtitle bar
+- "screen" — a general full-screen callout (no specific highlight)
+
+The spotlight dismisses on tap or after the timeout.`,
+      parametersJsonSchema: {
+        type: "object",
+        required: ["zone", "message"],
+        properties: {
+          zone: { type: "string", description: "UI zone to highlight: 'whiteboard' | 'microphone' | 'notes' | 'subtitles' | 'screen'" },
+          message: { type: "string", description: "The message to show (1-2 sentences)" },
+          duration_ms: { type: "number", description: "How long to show the spotlight in milliseconds (default: 8000)" },
+        },
+      },
+    },
+  },
+
   // === RIGHT PANE CONTROL ===
   {
     legacyType: 'SET_RIGHT_PANE',

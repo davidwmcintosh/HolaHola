@@ -16,7 +16,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Loader2, EyeOff, VolumeX, Flag, BookOpen, X, Download } from "lucide-react";
+import { Mic, MicOff, Loader2, EyeOff, VolumeX, Flag, BookOpen, X, Download, Globe, Sparkles } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Message, type User } from "@shared/schema";
@@ -330,6 +330,37 @@ export function StreamingVoiceChat({
   // Lesson notes — accumulate throughout the session as Daniela adds them
   const [lessonNotes, setLessonNotes] = useState<LessonNote[]>([]);
   const [lessonNotesOpen, setLessonNotesOpen] = useState(false);
+
+  // Pronunciation score — temporary floating overlay
+  const [pronunciationScore, setPronunciationScore] = useState<{
+    id: string; phrase: string;
+    wordScores: Array<{ word: string; score: number; tip?: string }>;
+    overallScore: number; encouragement?: string;
+  } | null>(null);
+  const pronunciationScoreTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Grammar flag — temporary auto-dismissing correction card
+  const [grammarFlag, setGrammarFlag] = useState<{
+    id: string; original: string; corrected: string; explanation: string; ruleLabel?: string;
+  } | null>(null);
+  const grammarFlagTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Quiz — interactive overlay with multiple-choice options
+  const [activeQuiz, setActiveQuiz] = useState<{
+    id: string; question: string; options: string[]; correctIndex: number; explanation?: string;
+    selectedIndex?: number; showResult?: boolean;
+  } | null>(null);
+
+  // Cultural context — persistent floating card until dismissed
+  const [culturalContext, setCulturalContext] = useState<{
+    id: string; title: string; text: string; category?: string; sourceUrl?: string;
+  } | null>(null);
+
+  // Spotlight — full-screen dimmed overlay directing attention
+  const [spotlight, setSpotlight] = useState<{
+    id: string; zone: string; message: string; durationMs: number;
+  } | null>(null);
+  const spotlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // Sync whiteboard items to parent for desktop panel rendering
   const onWhiteboardItemsChangeRef = useRef(onWhiteboardItemsChange);
@@ -1004,6 +1035,27 @@ export function StreamingVoiceChat({
           onLessonNoteAdded: (note) => {
             setLessonNotes(prev => [...prev, note as LessonNote]);
             setLessonNotesOpen(true);
+          },
+          onPronunciationScoreShown: (data) => {
+            if (pronunciationScoreTimerRef.current) clearTimeout(pronunciationScoreTimerRef.current);
+            setPronunciationScore(data);
+            pronunciationScoreTimerRef.current = setTimeout(() => setPronunciationScore(null), 8000);
+          },
+          onGrammarFlagShown: (data) => {
+            if (grammarFlagTimerRef.current) clearTimeout(grammarFlagTimerRef.current);
+            setGrammarFlag(data);
+            grammarFlagTimerRef.current = setTimeout(() => setGrammarFlag(null), 6000);
+          },
+          onQuizPresented: (data) => {
+            setActiveQuiz({ ...data, selectedIndex: undefined, showResult: false });
+          },
+          onCulturalContextShown: (data) => {
+            setCulturalContext(data);
+          },
+          onSpotlightShown: (data) => {
+            if (spotlightTimerRef.current) clearTimeout(spotlightTimerRef.current);
+            setSpotlight(data);
+            spotlightTimerRef.current = setTimeout(() => setSpotlight(null), data.durationMs);
           },
           onWhiteboardUpdate: (items, shouldClear) => {
             const imageItems = items.filter((item: any) => item.type === 'image' && item.data?.imageUrl);
@@ -3881,6 +3933,160 @@ export function StreamingVoiceChat({
             )}
           </div>
         )}
+
+        {/* Pronunciation Score — temporary word-by-word feedback overlay */}
+        {pronunciationScore && (
+          <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-40 w-80 max-w-[calc(100vw-1.5rem)]">
+            <div className="bg-card border rounded-md shadow-md p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs font-semibold flex-1 truncate">{pronunciationScore.phrase}</span>
+                <span className={`text-xs font-bold shrink-0 ${pronunciationScore.overallScore >= 80 ? 'text-emerald-500' : pronunciationScore.overallScore >= 50 ? 'text-amber-500' : 'text-red-500'}`}>
+                  {pronunciationScore.overallScore}%
+                </span>
+                <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0" data-testid="button-pronunciation-dismiss" onClick={() => { if (pronunciationScoreTimerRef.current) clearTimeout(pronunciationScoreTimerRef.current); setPronunciationScore(null); }}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {pronunciationScore.wordScores.map((ws, i) => (
+                  <div
+                    key={i}
+                    title={ws.tip}
+                    data-testid={`pronunciation-word-${i}`}
+                    className={`flex flex-col items-center px-2 py-1 rounded text-xs ${ws.score >= 80 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : ws.score >= 50 ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400' : 'bg-red-500/15 text-red-600 dark:text-red-400'}`}
+                  >
+                    <span className="font-medium">{ws.word}</span>
+                    <span className="text-[10px] opacity-70">{ws.score}%</span>
+                  </div>
+                ))}
+              </div>
+              {pronunciationScore.encouragement && (
+                <p className="text-xs text-muted-foreground mt-2">{pronunciationScore.encouragement}</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Grammar Flag — temporary correction card */}
+        {grammarFlag && (
+          <div className="absolute bottom-28 left-1/2 -translate-x-1/2 z-40 w-80 max-w-[calc(100vw-1.5rem)]">
+            <div className="bg-card border rounded-md shadow-md p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                {grammarFlag.ruleLabel && (
+                  <span className="text-[10px] font-semibold text-amber-500 uppercase tracking-wide">{grammarFlag.ruleLabel}</span>
+                )}
+                <Button size="icon" variant="ghost" className="h-5 w-5 ml-auto" data-testid="button-grammar-flag-dismiss" onClick={() => { if (grammarFlagTimerRef.current) clearTimeout(grammarFlagTimerRef.current); setGrammarFlag(null); }}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-xs text-muted-foreground line-through">{grammarFlag.original}</p>
+                <p className="text-sm font-semibold text-foreground">{grammarFlag.corrected}</p>
+                <p className="text-xs text-muted-foreground">{grammarFlag.explanation}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quiz Pop-in — interactive multiple-choice overlay */}
+        {activeQuiz && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" data-testid="quiz-overlay">
+            <div className="bg-card border rounded-md shadow-xl p-4 w-80 max-w-[calc(100vw-2rem)] mx-4">
+              <p className="text-sm font-semibold mb-3" data-testid="quiz-question">{activeQuiz.question}</p>
+              <div className="space-y-2">
+                {activeQuiz.options.map((option, i) => {
+                  const isSelected = activeQuiz.selectedIndex === i;
+                  const isCorrect = i === activeQuiz.correctIndex;
+                  const showResult = activeQuiz.showResult;
+                  return (
+                    <button
+                      key={i}
+                      data-testid={`quiz-option-${i}`}
+                      disabled={showResult}
+                      onClick={() => {
+                        if (showResult) return;
+                        setActiveQuiz(prev => prev ? { ...prev, selectedIndex: i, showResult: true } : null);
+                        setTimeout(() => setActiveQuiz(null), 3000);
+                      }}
+                      className={`w-full text-left text-xs px-3 py-2.5 rounded-md border transition-colors ${
+                        showResult
+                          ? isCorrect
+                            ? 'bg-emerald-500/20 border-emerald-500 text-emerald-600 dark:text-emerald-400'
+                            : isSelected
+                              ? 'bg-red-500/20 border-red-500 text-red-600 dark:text-red-400'
+                              : 'bg-muted/30 border-transparent text-muted-foreground'
+                          : 'bg-muted/40 border-muted hover:bg-muted cursor-pointer'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  );
+                })}
+              </div>
+              {activeQuiz.showResult && activeQuiz.explanation && (
+                <p className="text-xs text-muted-foreground mt-3 pt-2 border-t">{activeQuiz.explanation}</p>
+              )}
+              {!activeQuiz.showResult && (
+                <Button size="sm" variant="ghost" className="w-full mt-3 text-xs text-muted-foreground" data-testid="button-quiz-skip" onClick={() => setActiveQuiz(null)}>
+                  Skip
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Cultural Context — persistent floating card (top-left, opposite side from notes) */}
+        {culturalContext && (
+          <div className="absolute top-3 left-3 z-40 w-72 max-w-[calc(50vw-1rem)]" data-testid="cultural-context-panel">
+            <div className="bg-card border rounded-md shadow-md p-3">
+              <div className="flex items-start gap-2">
+                <Globe className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold leading-tight">{culturalContext.title}</p>
+                  {culturalContext.category && (
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide mt-0.5">{culturalContext.category}</p>
+                  )}
+                </div>
+                <Button size="icon" variant="ghost" className="h-5 w-5 shrink-0" data-testid="button-cultural-context-dismiss" onClick={() => setCulturalContext(null)}>
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{culturalContext.text}</p>
+              {culturalContext.sourceUrl && (
+                <a
+                  href={culturalContext.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-blue-500 hover:underline mt-1.5 block truncate"
+                  data-testid="cultural-context-source-link"
+                >
+                  {culturalContext.sourceUrl}
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Spotlight — full-screen dimmed overlay with message bubble */}
+        {spotlight && (
+          <div
+            className="absolute inset-0 z-50 bg-black/65 flex items-center justify-center"
+            onClick={() => { if (spotlightTimerRef.current) clearTimeout(spotlightTimerRef.current); setSpotlight(null); }}
+            data-testid="spotlight-overlay"
+          >
+            <div className="bg-card border rounded-md shadow-xl px-6 py-5 max-w-xs mx-4 text-center" onClick={e => e.stopPropagation()}>
+              <Sparkles className="h-6 w-6 text-blue-400 mx-auto mb-3" />
+              <p className="text-sm font-medium leading-snug">{spotlight.message}</p>
+              {spotlight.zone !== 'screen' && (
+                <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wide">{spotlight.zone}</p>
+              )}
+              <Button size="sm" variant="ghost" className="mt-3 text-xs text-muted-foreground" data-testid="button-spotlight-dismiss" onClick={() => { if (spotlightTimerRef.current) clearTimeout(spotlightTimerRef.current); setSpotlight(null); }}>
+                Got it
+              </Button>
+            </div>
+          </div>
+        )}
+
         <VoiceChatViewManager
           conversationId={conversationId}
           messages={messages}

@@ -244,6 +244,11 @@ type StreamingEventType =
   | 'glReconnected'
   | 'voiceError'
   | 'lessonNoteAdded'
+  | 'pronunciationScoreShown'
+  | 'grammarFlagShown'
+  | 'quizPresented'
+  | 'culturalContextShown'
+  | 'spotlightShown'
   | 'error';
 
 /**
@@ -1281,6 +1286,26 @@ export class StreamingVoiceClient {
         case 'lesson_note_added':
           // Lesson note added by Daniela — accumulates in session notes panel
           this.emit('lessonNoteAdded', message as { type: string; timestamp: number; note: any });
+          break;
+
+        case 'pronunciation_score_shown':
+          this.emit('pronunciationScoreShown', message as { type: string; timestamp: number; data: any });
+          break;
+
+        case 'grammar_flag_shown':
+          this.emit('grammarFlagShown', message as { type: string; timestamp: number; data: any });
+          break;
+
+        case 'quiz_presented':
+          this.emit('quizPresented', message as { type: string; timestamp: number; data: any });
+          break;
+
+        case 'cultural_context_shown':
+          this.emit('culturalContextShown', message as { type: string; timestamp: number; data: any });
+          break;
+
+        case 'spotlight_shown':
+          this.emit('spotlightShown', message as { type: string; timestamp: number; data: any });
           break;
           
         case 'vad_speech_started':

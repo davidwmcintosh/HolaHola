@@ -96,11 +96,59 @@ Ideas queued for future build sessions. All are for the `/chat` route — Gemini
 
 **Already built (Jun 11):** `show_vocab_card` and `add_to_lesson_notes` — see session entry above.
 
-**Remaining 5:**
+**All 7 UI Director tools built (Jun 11, 2026).** See session entry above for tools 1-2. Below is a summary of tools 3-7.
 
-1. **Pronunciation feedback loop** — `show_pronunciation_score(word_scores[])` — after user speaks, Azure Speech (already in stack) scores phonemes; UI renders word-by-word red/yellow/green breakdown. Daniela can say "that 'r' in 'pero' — try again" with visual backup.
+---
 
-2. **Grammar correction overlay** — `flag_grammar(original, corrected, explanation)` — annotates the user's last utterance in the UI (strikethrough + correction card) while Daniela speaks the fix. Non-interrupting.
+## Session — Jun 11, 2026 (continued) — UI Director: Tools 3-7
+
+### What was built
+
+Five more Daniela mid-session tools for the `/chat` Gemini Live route. All use dedicated WS message types (not `whiteboard_update`) dispatched through the full pipeline: registry → handler → WS → streamingVoiceClient event → useStreamingVoice callback → StreamingVoiceChat state → UI overlay.
+
+**3. `show_pronunciation_score`** → `pronunciation_score_shown`
+
+Floating card at bottom-center of the screen. Shows the phrase attempted + word-by-word colored chips (green ≥80, amber 50-79, red <49), overall %, and optional encouragement. Auto-dismisses after 8 seconds.
+
+**4. `flag_grammar`** → `grammar_flag_shown`
+
+Floating correction card at bottom-center. Shows: rule label (amber, e.g. "Ser vs. Tener") + strikethrough original + corrected form in bold + one-sentence explanation. Auto-dismisses after 6 seconds.
+
+**5. `present_quiz`** → `quiz_presented`
+
+Full-screen blurred overlay (highest z-index). Multiple-choice buttons (2-4 options). On selection: correct answer turns green, wrong selection turns red, other options grey out. Explanation shown below if provided. Auto-clears 3s after answer. Skip button exits early.
+
+**6. `show_cultural_context`** → `cultural_context_shown`
+
+Persistent floating card at top-left (opposite corner from Session Notes). Globe icon, title, optional category badge, 2-4 sentence explanation, optional source URL link. Stays until student dismisses it.
+
+**7. `spotlight_element`** → `spotlight_shown`
+
+Full-screen dimmed overlay (65% black). Centered message card with a Sparkles icon, zone label, and "Got it" dismiss button. Also dismisses on background tap or after `duration_ms` (default 8s). Zones: `whiteboard`, `microphone`, `notes`, `subtitles`, `screen`.
+
+### Files modified (this batch)
+
+| File | Change |
+|---|---|
+| `server/services/daniela-function-registry.ts` | 5 new tool entries (PRONUNCIATION_SCORE, GRAMMAR_FLAG, QUIZ_PRESENTED, CULTURAL_CONTEXT, SPOTLIGHT) |
+| `server/services/native-fc-handlers.ts` | 5 new handler cases sending respective WS message types |
+| `client/src/lib/streamingVoiceClient.ts` | 5 new `ClientEventMap` types + 5 new `case` dispatches |
+| `client/src/hooks/useStreamingVoice.ts` | 5 new `StreamingSessionConfig` callbacks + 5 `handleXxx` useCallbacks + wired to connect/disconnect dep arrays |
+| `client/src/components/StreamingVoiceChat.tsx` | 5 state vars + 3 timer refs + 5 UI overlays + Globe/Sparkles icon imports |
+
+Tool auto-indexer: **148 tools total** now registered across all 3 layers. 7 added this session.
+
+---
+
+## Backlog — previously "Remaining 5"
+
+**All 7 UI Director tools are now complete.** No remaining items from the original backlog.
+
+---
+
+## Old backlog item (for reference):
+
+Originally queued but now built:
 
 3. **Vocabulary flash** — `show_vocab_card(word, definition, image_url?)` — pops a card mid-conversation; Daniela can pull Unsplash (in stack), DALL-E (in stack), or existing image. Works without breaking voice.
 

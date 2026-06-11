@@ -78,6 +78,16 @@ export interface StreamingSessionConfig {
   onWhiteboardUpdate?: (items: any[], shouldClear: boolean) => void;
   /** Called when Daniela adds an item to the session lesson notes */
   onLessonNoteAdded?: (note: { id: string; type: string; content: string; detail?: string; timestamp: number }) => void;
+  /** Called when Daniela shows a pronunciation score card */
+  onPronunciationScoreShown?: (data: { id: string; phrase: string; wordScores: Array<{ word: string; score: number; tip?: string }>; overallScore: number; encouragement?: string; timestamp: number }) => void;
+  /** Called when Daniela flags a grammar correction */
+  onGrammarFlagShown?: (data: { id: string; original: string; corrected: string; explanation: string; ruleLabel?: string; timestamp: number }) => void;
+  /** Called when Daniela presents a quiz */
+  onQuizPresented?: (data: { id: string; question: string; options: string[]; correctIndex: number; explanation?: string; timestamp: number }) => void;
+  /** Called when Daniela shows a cultural context card */
+  onCulturalContextShown?: (data: { id: string; title: string; text: string; category?: string; sourceUrl?: string; timestamp: number }) => void;
+  /** Called when Daniela spotlights a UI element */
+  onSpotlightShown?: (data: { id: string; zone: string; message: string; durationMs: number; timestamp: number }) => void;
   /** Called when VAD detects speech start (open mic mode) */
   onVadSpeechStarted?: () => void;
   /** Called when VAD detects utterance end (open mic mode) */
@@ -1392,6 +1402,36 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       sessionConfigRef.current.onLessonNoteAdded(message.note);
     }
   }, []);
+
+  const handlePronunciationScoreShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
+    if (sessionConfigRef.current?.onPronunciationScoreShown && message.data) {
+      sessionConfigRef.current.onPronunciationScoreShown(message.data);
+    }
+  }, []);
+
+  const handleGrammarFlagShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
+    if (sessionConfigRef.current?.onGrammarFlagShown && message.data) {
+      sessionConfigRef.current.onGrammarFlagShown(message.data);
+    }
+  }, []);
+
+  const handleQuizPresented = useCallback((message: { type: string; timestamp: number; data: any }) => {
+    if (sessionConfigRef.current?.onQuizPresented && message.data) {
+      sessionConfigRef.current.onQuizPresented(message.data);
+    }
+  }, []);
+
+  const handleCulturalContextShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
+    if (sessionConfigRef.current?.onCulturalContextShown && message.data) {
+      sessionConfigRef.current.onCulturalContextShown(message.data);
+    }
+  }, []);
+
+  const handleSpotlightShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
+    if (sessionConfigRef.current?.onSpotlightShown && message.data) {
+      sessionConfigRef.current.onSpotlightShown(message.data);
+    }
+  }, []);
   
   /**
    * Handle pronunciation coaching feedback from server
@@ -1760,6 +1800,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('responseComplete', handleResponseComplete);
       clientRef.current.on('whiteboardUpdate', handleWhiteboardUpdate);  // Enriched whiteboard items
       clientRef.current.on('lessonNoteAdded', handleLessonNoteAdded);  // Session lesson notes
+      clientRef.current.on('pronunciationScoreShown', handlePronunciationScoreShown);
+      clientRef.current.on('grammarFlagShown', handleGrammarFlagShown);
+      clientRef.current.on('quizPresented', handleQuizPresented);
+      clientRef.current.on('culturalContextShown', handleCulturalContextShown);
+      clientRef.current.on('spotlightShown', handleSpotlightShown);
       clientRef.current.on('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.on('error', handleError);
       clientRef.current.on('ttsError', handleTtsError);
@@ -1851,7 +1896,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleLessonNoteAdded, handlePronunciationCoaching, handleError, handleIdleTimeout, handleCreditWarning, handleSessionConflict, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange, handleIncognitoChanged]);
+  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleLessonNoteAdded, handlePronunciationCoaching, handleError, handleIdleTimeout, handleCreditWarning, handleSessionConflict, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange, handleIncognitoChanged, handlePronunciationScoreShown, handleGrammarFlagShown, handleQuizPresented, handleCulturalContextShown, handleSpotlightShown]);
   
   /**
    * Disconnect from streaming voice service
@@ -1878,6 +1923,11 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('responseComplete', handleResponseComplete);
       clientRef.current.off('whiteboardUpdate', handleWhiteboardUpdate);  // Enriched whiteboard items
       clientRef.current.off('lessonNoteAdded', handleLessonNoteAdded);  // Session lesson notes
+      clientRef.current.off('pronunciationScoreShown', handlePronunciationScoreShown);
+      clientRef.current.off('grammarFlagShown', handleGrammarFlagShown);
+      clientRef.current.off('quizPresented', handleQuizPresented);
+      clientRef.current.off('culturalContextShown', handleCulturalContextShown);
+      clientRef.current.off('spotlightShown', handleSpotlightShown);
       clientRef.current.off('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.off('error', handleError);
       clientRef.current.off('noSpeechDetected', handleNoSpeechDetected);  // Empty PTT reset
@@ -1929,7 +1979,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       tutorSwitchTimeoutRef.current = null;
     }
     setIsSwitchingTutor(false);
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleLessonNoteAdded, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleIncognitoChanged, subtitles]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleLessonNoteAdded, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleIncognitoChanged, handlePronunciationScoreShown, handleGrammarFlagShown, handleQuizPresented, handleCulturalContextShown, handleSpotlightShown, subtitles]);
   
   /**
    * Send audio for processing

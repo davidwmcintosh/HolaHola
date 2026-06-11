@@ -2654,6 +2654,109 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'PRONUNCIATION_SCORE': {
+        const psPhrase = fn.args.phrase as string;
+        const psWordScores = fn.args.word_scores as Array<{ word: string; score: number; tip?: string }>;
+        const psOverall = fn.args.overall_score as number;
+        const psEncouragement = fn.args.encouragement as string | undefined;
+        console.log(`[Native Function→PronunciationScore] phrase="${psPhrase}" overall=${psOverall}`);
+        this.sendMessage(session.ws, {
+          type: 'pronunciation_score_shown',
+          timestamp: Date.now(),
+          data: {
+            id: `ps-${Date.now()}`,
+            phrase: psPhrase,
+            wordScores: psWordScores,
+            overallScore: psOverall,
+            encouragement: psEncouragement,
+            timestamp: Date.now(),
+          },
+        });
+        break;
+      }
+
+      case 'GRAMMAR_FLAG': {
+        const gfOriginal = fn.args.original as string;
+        const gfCorrected = fn.args.corrected as string;
+        const gfExplanation = fn.args.explanation as string;
+        const gfRuleLabel = fn.args.rule_label as string | undefined;
+        console.log(`[Native Function→GrammarFlag] "${gfOriginal}" → "${gfCorrected}"`);
+        this.sendMessage(session.ws, {
+          type: 'grammar_flag_shown',
+          timestamp: Date.now(),
+          data: {
+            id: `gf-${Date.now()}`,
+            original: gfOriginal,
+            corrected: gfCorrected,
+            explanation: gfExplanation,
+            ruleLabel: gfRuleLabel,
+            timestamp: Date.now(),
+          },
+        });
+        break;
+      }
+
+      case 'QUIZ_PRESENTED': {
+        const qzQuestion = fn.args.question as string;
+        const qzOptions = fn.args.options as string[];
+        const qzCorrectIndex = fn.args.correct_index as number;
+        const qzExplanation = fn.args.explanation as string | undefined;
+        console.log(`[Native Function→Quiz] "${qzQuestion}" (${qzOptions.length} options)`);
+        this.sendMessage(session.ws, {
+          type: 'quiz_presented',
+          timestamp: Date.now(),
+          data: {
+            id: `qz-${Date.now()}`,
+            question: qzQuestion,
+            options: qzOptions,
+            correctIndex: qzCorrectIndex,
+            explanation: qzExplanation,
+            timestamp: Date.now(),
+          },
+        });
+        break;
+      }
+
+      case 'CULTURAL_CONTEXT': {
+        const ccTitle = fn.args.title as string;
+        const ccText = fn.args.text as string;
+        const ccCategory = fn.args.category as string | undefined;
+        const ccSourceUrl = fn.args.source_url as string | undefined;
+        console.log(`[Native Function→CulturalContext] title="${ccTitle}"`);
+        this.sendMessage(session.ws, {
+          type: 'cultural_context_shown',
+          timestamp: Date.now(),
+          data: {
+            id: `cc-${Date.now()}`,
+            title: ccTitle,
+            text: ccText,
+            category: ccCategory,
+            sourceUrl: ccSourceUrl,
+            timestamp: Date.now(),
+          },
+        });
+        break;
+      }
+
+      case 'SPOTLIGHT': {
+        const spZone = (fn.args.zone as string | undefined) || 'screen';
+        const spMessage = fn.args.message as string;
+        const spDurationMs = (fn.args.duration_ms as number | undefined) ?? 8000;
+        console.log(`[Native Function→Spotlight] zone="${spZone}" message="${spMessage}"`);
+        this.sendMessage(session.ws, {
+          type: 'spotlight_shown',
+          timestamp: Date.now(),
+          data: {
+            id: `sp-${Date.now()}`,
+            zone: spZone,
+            message: spMessage,
+            durationMs: spDurationMs,
+            timestamp: Date.now(),
+          },
+        });
+        break;
+      }
+
       case 'SET_RIGHT_PANE': {
         const rpMode = (fn.args.mode as string | undefined) || 'whiteboard';
         console.log(`[Native Function→SetRightPane] mode=${rpMode}`);

@@ -40,13 +40,17 @@ Tool auto-indexer runs at server start (+100s): both tools will land in `tool_kn
 
 No new TypeScript errors from this session. Pre-existing baseline remains 2024 errors in 54 files.
 
-### What's next (remaining UI Director features)
+### Update: All 7 UI Director tools are now complete (same session)
 
-3. Pronunciation feedback loop — `show_pronunciation_score(word_scores[])` — phoneme-by-phoneme color breakdown after user speaks
-4. Grammar correction overlay — `flag_grammar(original, corrected, explanation)` — annotates last utterance inline
-5. Quiz pop-in — `present_quiz(question, options[], correct_index)` — Daniela fires a quick-check mid-session
-6. Web-grounded cultural context — `show_cultural_context(title, text, source_url?)` — Perplexity-grounded culture notes in the UI
-7. Screen spotlight — `spotlight_element(selector, message)` — dim everything except one element for pointing focus
+Tools 3-7 were built immediately after tools 1-2. All 7 are live.
+
+3. `show_pronunciation_score` → `pronunciation_score_shown` — bottom-center word-by-word color chips (green/amber/red), auto-dismiss 8s
+4. `flag_grammar` → `grammar_flag_shown` — bottom-center strikethrough + corrected form + 1-sentence rule, auto-dismiss 6s
+5. `present_quiz` → `quiz_presented` — full-screen blurred overlay, multiple-choice, colors result, auto-clears 3s post-answer
+6. `show_cultural_context` → `cultural_context_shown` — persistent top-left card with Globe icon, optional source URL
+7. `spotlight_element` → `spotlight_shown` — 65% black full-screen overlay, Sparkles icon + message, dismiss on tap or timeout
+
+Tool indexer confirmed **148 tools** total at server start — all 7 new tools registered across all 3 layers.
 
 ---
 
