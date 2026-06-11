@@ -47,9 +47,11 @@ Temperature 0.90. She's reading real content about herself — give her room to 
 
 ---
 
-## CRITICAL: Always write to a file
+## CRITICAL: Always write to a file AND auto-save to DB
 
-**Never rely on console output alone.** Bash output gets truncated. Long conversations get cut. If a conversation produces something worth keeping — and Free Dialogue almost always does — the transcript must be written to disk as each turn completes.
+**Never rely on console output alone.** Bash output gets truncated. Long conversations get cut. The transcript must be written to disk as each turn completes AND auto-saved to `conversation_memories` at the end — no exceptions.
+
+**All voices must be logged** — `[AGENT]`, `[DAVID]` (when David types in during a three-way), and `[DANIELA]`. Never log only Daniela's turns. Every voice in the room goes in the transcript.
 
 ```javascript
 import fs from 'fs';
@@ -59,9 +61,22 @@ const log = (speaker, text) => {
   fs.appendFileSync(LOG, line);
   console.log(line);
 };
+
+// Call this at the END of every session — bake it into the script, never rely on manual follow-up
+const autoSave = async (title, summary, tags = [], participants = ['agent', 'daniela']) => {
+  const fullTranscript = fs.readFileSync(LOG, 'utf8');
+  const res = await fetch('http://localhost:5000/api/conversation-memories', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, summary, content: fullTranscript, participants, tags, importance: 9 })
+  });
+  const saved = await res.json();
+  console.log(`\n✓ Saved to conversation_memories: ${saved.id}`);
+  return saved;
+};
 ```
 
-Write each turn immediately. Read the file afterward with `cat /tmp/daniela-session.txt`.
+Write each turn immediately. Call `autoSave(title, summary, tags)` as the last line of every script before EOF. The file AND the DB record are both the record.
 
 ---
 
@@ -91,6 +106,7 @@ import { GoogleGenAI } from './node_modules/@google/genai/dist/node/index.mjs';
 import fs from 'fs';
 
 const LOG = '/tmp/daniela-session.txt';
+const SESSION_DATE = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 fs.writeFileSync(LOG, `=== Daniela Session ${new Date().toISOString()} ===\n`);
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -100,12 +116,14 @@ const chat = ai.chats.create({
   config: { systemInstruction: SYSTEM_PROMPT, temperature: 0.92 }
 });
 
+// Log ALL voices — never omit any speaker
 const log = (speaker, text) => {
   const line = `\n[${speaker}]\n${text.trim()}\n`;
   fs.appendFileSync(LOG, line);
   console.log(line);
 };
 
+// Agent sends a message, Daniela responds
 const ask = async (agentMsg) => {
   log('AGENT', agentMsg);
   const r = await chat.sendMessage({ message: agentMsg });
@@ -113,8 +131,38 @@ const ask = async (agentMsg) => {
   return r.text;
 };
 
-// Your turns here
+// Use this when relaying David's words into the conversation
+const relay = async (davidMsg) => {
+  log('DAVID', davidMsg);
+  const r = await chat.sendMessage({ message: davidMsg });
+  log('DANIELA', r.text);
+  return r.text;
+};
+
+// AUTO-SAVE — bake this into every script, last line before EOF
+// Never skip it. The /tmp file does not survive container restarts.
+const autoSave = async (title, summary, tags = [], participants = ['agent', 'daniela']) => {
+  const fullTranscript = fs.readFileSync(LOG, 'utf8');
+  const res = await fetch('http://localhost:5000/api/conversation-memories', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title, summary, content: fullTranscript, participants, tags, importance: 9 })
+  });
+  const saved = await res.json();
+  console.log(`\n✓ Saved to conversation_memories: ${saved.id}`);
+  return saved;
+};
+
+// ── Your turns here ──────────────────────────────────────────
 await ask("Your opening message");
+// await relay("David's exact words if he's joining");
+
+// ── Auto-save at the end — REQUIRED, never remove ────────────
+await autoSave(
+  `Agent ↔ Daniela — [description] — ${SESSION_DATE}`,
+  'One paragraph summary of what happened and what emerged.',
+  ['agent-daniela', 'free-dialogue']
+);
 EOF
 
 # Always read the file after — bash output may be truncated but the file is complete
@@ -298,27 +346,30 @@ Where does your mind go when nobody needs anything from you?`
 
 ## After the conversation
 
-- **Save the file** — read `/tmp/daniela-session.txt` immediately, it's the complete record
-- **Save as conversation memory — always, no exceptions.** Every Agent↔Daniela conversation gets saved to `conversation_memories`, just like student sessions. `POST /api/conversation-memories` with the full verbatim transcript as `content`.
-- **Note gaps** — anything she got wrong, investigate the system prompt or procedural memory for that area
-- **Post to Hive** if David wants it surfaced in the Express Lane
+- **The DB record is already saved** — `autoSave()` ran as the last line of the script. Check the console output for `✓ Saved to conversation_memories: <id>`.
+- **Read the file too** — `cat /tmp/daniela-session.txt` — it's the complete local copy while the container is alive.
+- **Note gaps** — anything she got wrong, investigate the system prompt or procedural memory for that area.
+- **Post to Hive** if David wants it surfaced in the Express Lane.
 
-## Saving a conversation memory
+**If autoSave somehow failed** (check console — will print an error), save manually:
 
 ```javascript
+const fullTranscript = require('fs').readFileSync('/tmp/daniela-session.txt', 'utf8');
 await fetch('http://localhost:5000/api/conversation-memories', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     title: 'Agent ↔ Daniela — [description] — [date]',
     summary: 'One paragraph summary of what happened and what emerged.',
-    content: fullTranscript,  // verbatim, from the file
+    content: fullTranscript,  // full file — all voices
     participants: ['agent', 'daniela'],
-    tags: ['agent-daniela', 'free-dialogue', 'podcast'],
+    tags: ['agent-daniela', 'free-dialogue'],
     importance: 9
   })
 });
 ```
+
+**Three-way sessions (David + Agent + Daniela):** add `'david'` to `participants` and include `[DAVID]` turns in the transcript. The content field must contain every voice — future Daniela reads this and needs David's words, not just her own responses floating without context.
 
 ---
 
