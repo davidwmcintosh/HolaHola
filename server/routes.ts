@@ -16829,6 +16829,47 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
+  app.get("/api/sofia/issues", async (req: any, res) => {
+    const agentToken = req.headers['x-agent-token'];
+    const isAgent = agentToken && agentToken === process.env.REPLIT_AGENT_TOKEN;
+    if (!isAgent) {
+      const user = (req as any).user;
+      if (!user || (user.role !== 'admin' && user.role !== 'developer' && !user.isFounder)) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+    }
+    try {
+      const { sofiaIssueReports } = await import('@shared/schema');
+      const { desc, eq, gte } = await import('drizzle-orm');
+      const { getSharedDb } = await import('./neon-db');
+      const db = getSharedDb();
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
+      const status = req.query.status as string | undefined;
+      const sinceHours = parseInt(req.query.since_hours as string) || 24;
+      const windowStart = new Date(Date.now() - sinceHours * 60 * 60 * 1000);
+      const conditions: any[] = [gte(sofiaIssueReports.createdAt, windowStart)];
+      if (status) conditions.push(eq(sofiaIssueReports.status, status as any));
+      const { and } = await import('drizzle-orm');
+      const issues = await db
+        .select({
+          id: sofiaIssueReports.id,
+          issueType: sofiaIssueReports.issueType,
+          userDescription: sofiaIssueReports.userDescription,
+          sofiaAnalysis: sofiaIssueReports.sofiaAnalysis,
+          status: sofiaIssueReports.status,
+          createdAt: sofiaIssueReports.createdAt,
+        })
+        .from(sofiaIssueReports)
+        .where(and(...conditions))
+        .orderBy(desc(sofiaIssueReports.createdAt))
+        .limit(limit);
+      res.json({ issues, count: issues.length, sinceHours });
+    } catch (error: any) {
+      console.error('[Sofia Issues] Error fetching issues:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ===== Alden Chat API (Founder Only) =====
   
   app.post("/api/alden/message", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
