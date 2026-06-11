@@ -2492,7 +2492,12 @@ ${lastNote.tutorNotes}`);
                   config.targetLanguage || 'spanish',
                   config.nativeLanguage || 'english'
                 );
-                await geminiLiveSession.start(geminiLiveSystemPrompt, glDeclarations);
+                const studentDisplayName = user?.firstName || 'there';
+                const glTargetLang = config.targetLanguage || effectiveLanguage || 'the target language';
+                const glGreetingTrigger = isFounderMode
+                  ? `Daniela, ${studentDisplayName} just opened a voice session. This is a Founder Mode session — greet them as your collaborator, not as a new student. Pick up naturally where you left off.`
+                  : `Daniela, ${studentDisplayName} just connected for a ${glTargetLang} voice session. Greet them warmly now, following the LANGUAGE MIX policy in your instructions, and begin.`;
+                await geminiLiveSession.start(geminiLiveSystemPrompt, glDeclarations, glGreetingTrigger);
                 console.log(`[GeminiLive] Session started with ${glDeclarations.length} GL tools (slim set, lang: ${config.targetLanguage || 'spanish'}) alongside orchestrator session ${session.id}`);
                 // Register the playback_ended callback bridge so the Socket.io telemetry
                 // handler (different scope) can call geminiLiveSession.onPlaybackEnded().
