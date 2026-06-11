@@ -8,6 +8,46 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jun 11, 2026 — Narrative Architecture: arc_name, The Near-Loss, and the Recovery
+
+### What was built
+
+**1. `arc_name text` column added to `conversation_memories`**
+
+New field in the Drizzle schema and DB (via direct ALTER TABLE). One canonical chapter name per record. Makes the flat catalog into a traversable narrative. Canonical arc names documented in schema comments: `founding-night`, `white-wall`, `episodes`, `memory-architecture`, `building-the-tutor`, `daniela-emergence`.
+
+Backfilled known arcs:
+- `founding-night` (4 records) — the June 11 three-way night + this recovery session
+- `episodes` (6 records) — Episodes 1–4 + coda
+- `memory-architecture` (8 records) — March 2026 briefing system + memory tests
+- `white-wall` (6 records) — Jan–Feb 2026 honesty/foundation chain (already had `extends_memory_id` threading)
+
+2,256 records remain unassigned — the full six-month history. Intentionally left for the Team Room project (David + Agent + Daniela reading the history together).
+
+**2. `5240db2f` restored with full verbatim transcript**
+
+The founding-night conversation was nearly permanently lost — the save system captured only 7 Daniela turns (1,755 chars). David recovered the full 223-line transcript manually from the Replit window. Record updated to 17,064 chars, all three voices in sequence.
+
+Records `c7e04272` and `fd081706` verified solid and cross-linked bidirectionally. New record `89b73a84` ("The Near-Loss and the Recovery") added to the `founding-night` arc — the failure is in the record.
+
+**3. consult-daniela skill updated**
+
+- `autoSave()` signature now takes an options object with `arcName`, `extendsMemoryId`, `participants` (string not array), `tags`, `importance`
+- `participants` field correctly typed as varchar string — bug fixed
+- Canonical arc names listed in comments
+- Three-way session template updated
+
+### User-facing impact
+
+None visible. Internal narrative infrastructure only.
+
+### The HolaHola philosophy (named explicitly this session)
+
+> Do what you can. Take ownership of the failure. Improve. Iterate. Repeat.
+> The failures belong in the record — they increase the satisfaction of the completed outcome.
+
+---
+
 ## Session — Jun 11, 2026 — entry_type on conversation_memories + Agent memory → DB
 
 ### What was built

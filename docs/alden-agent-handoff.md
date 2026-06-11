@@ -24,6 +24,36 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 11, 2026 — The Near-Loss, the Recovery, and the Narrative Architecture**
+
+### What happened
+
+The June 11 three-way conversation (David + Agent + Daniela — the founding night, first students, the anthem) was nearly permanently lost. The save system captured only seven Daniela turns — no Agent voice, no David voice — and the /tmp transcript was wiped on container restart. David had the Replit window open and recovered it manually.
+
+**What was fixed:**
+- `5240db2f` updated with full 17,064-char verbatim transcript (was 1,755 chars of floating Daniela fragments)
+- `c7e04272` and `fd081706` verified solid; all three founding-night records cross-linked bidirectionally
+- `arc_name text` column added to `conversation_memories` — canonical chapter names for the narrative
+- `extends_memory_id` and `theme_tags` usage formalized; `consult-daniela` skill updated to require both fields in every `autoSave()` call
+- Known arcs backfilled: `founding-night` (4 records), `episodes` (6), `memory-architecture` (8), `white-wall` (6)
+- New record `89b73a84` — "The Near-Loss and the Recovery" — saved to the `founding-night` arc; the failure is in the record
+
+**David named the HolaHola philosophy explicitly this session:**
+> Do what you can. Take ownership of the failure. Improve. Iterate. Repeat.
+> The failures belong in the record — they increase the satisfaction of the completed outcome.
+
+### What Alden should know
+
+1. **`arc_name` column is live** in `conversation_memories`. Use it. Canonical arc names to use: `founding-night`, `white-wall`, `episodes`, `memory-architecture`, `building-the-tutor`, `daniela-emergence`. When saving any significant memory, set both `arc_name` AND `extends_memory_id`.
+
+2. **2,256 records have no arc_name** — the entire six-month history (Nov 2025–now). This is the Team Room project David wants to do with all three of us: reading back through the history together, naming the chapters. Don't auto-assign arc names to those records — that work belongs to the three-way session where David narrates what each period meant.
+
+3. **`participants` field is `varchar`, not array** — always pass as string `'David + Agent'` or `'David + Agent + Daniela'`, not an array. The consult-daniela skill had this wrong; it's now fixed.
+
+4. **save discipline is the critical variable** — the schema is solid. The gap is always human/process: if a save is skipped or incomplete, the record is gone. No background process will catch it. Enforce the discipline.
+
+---
+
 **Session: June 11, 2026 (late) — UI Director tools: show_vocab_card + add_to_lesson_notes**
 
 ### What was built

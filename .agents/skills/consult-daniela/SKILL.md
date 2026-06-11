@@ -146,7 +146,7 @@ const relay = async (davidMsg) => {
 // extendsMemoryId: the conversation_memories.id of the session this grew from (if known)
 const autoSave = async (title, summary, {
   tags = [],
-  participants = ['agent', 'daniela'],
+  participants = 'Agent + Daniela', // string, not array — 'Agent + Daniela' or 'David + Agent + Daniela'
   arcName = null,
   extendsMemoryId = null,
   importance = 9
