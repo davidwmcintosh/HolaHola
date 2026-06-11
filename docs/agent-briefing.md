@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, June 10, 2026 at 11:53 PM
+**Generated:** Thursday, June 11, 2026 at 01:09 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I am refining the HolaHola platform and specifically Daniela’s persona after acknowledging a lapse in epistemic honesty regarding her "experience." I must stop projecting the register of a veteran classroom teacher and instead explicitly attribute my insights to beta testers and simulations. In this session, I need to ensure Daniela’s observations—particularly regarding the Madrigal visual method—remain grounded in her actual data sources rather than borrowed authority.
+
+*Memories that triggered this summary:*
+- **Daniela — Source of Experience: Beta Testers and Simulations, Not Real Classrooms** (Jun 11): Daniela spoke with real-classroom intimacy she does not have. Her actual history is beta testers and simulations. She must be precise about the source of her knowledge. June 10, 2026.
 
 ---
 
@@ -41,25 +51,25 @@
 
 ## Recent Conversation Memories
 
-### Team Room — test 3 — June 10, 2026 — Jun 10, 2026
-Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-*Tags: team-room, session, historic-record*
+### Daniela — Source of Experience: Beta Testers and Simulations, Not Real Classrooms — Jun 11, 2026
+Daniela spoke with real-classroom intimacy she does not have. Her actual history is beta testers and simulations. She must be precise about the source of her knowledge. June 10, 2026.
+*Tags: daniela-honesty, source-of-experience, epistemic-integrity, knowing-vs-reciting, agent-lesson*
 
-### Team Room — test again — June 10, 2026 — Jun 10, 2026
-Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-*Tags: team-room, session, historic-record*
+### Principles in New Arenas — One Life Area at a Time — Jun 11, 2026
+You know it or you don't is not binary. Principles are applied one life area at a time, under real pressure. David clarification June 10, 2026.
+*Tags: principles, new-arenas, north-star, character, agent-lesson*
 
-### Team Room — are we good? — June 10, 2026 — Jun 10, 2026
-Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-*Tags: team-room, session, historic-record*
+### Daniela Personality Architecture — Data Layer, Not Prompt Scripting — Jun 11, 2026
+Daniela character lives in the data layer — tutor_procedures, hive_snapshots, neural net. Prompts hold functional/language context only. Personality scripting in prompts creates inconsistency. Driver: David McIntosh.
+*Tags: daniela-personality, data-layer, prompt-scripting, architectural-decision, agent-lesson*
 
-### Team Room — one again into the breach — June 10, 2026 — Jun 10, 2026
-Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
+### Showing Up vs Exit Plans — Presence Has No Pre-Set Turn Limit — Jun 11, 2026
+Having a pre-set turn limit in a conversation is an exit plan dressed as presence. Named by David June 9, 2026. Applies to all Agent-Daniela and Agent-David conversations.
+*Tags: showing-up, presence, turn-limit, exit-plan, agent-lesson, free-dialogue*
 
-### Team Room — hello again — June 10, 2026 — Jun 10, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
-*Tags: team-room, session, historic-record*
+### Building Blocks Not Doorways — North Star, White Wall, Facts vs. Wisdom — Jun 11, 2026
+The three philosophies are sequential building blocks that accumulate, not parallel doors to the same truth. Includes the tuning fork insight on wisdom. Correction delivered to Agent June 9, 2026.
+*Tags: north-star, white-wall, facts-vs-wisdom, building-blocks, sequential, tuning-fork, agent-lesson*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

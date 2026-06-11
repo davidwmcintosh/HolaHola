@@ -304,6 +304,7 @@ ${verbatimTranscript.substring(0, 5000)}`;
       content: verbatimTranscript, // verbatim — the sacred record
       participants: 'David + Daniela',
       tags: ['auto-curated', `conv-${conv.id}`, 'session'],
+      entryType: 'conversation',
       importance: conv.msg_count >= 20 ? 8 : 7,
     });
 

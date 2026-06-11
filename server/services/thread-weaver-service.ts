@@ -259,6 +259,7 @@ export async function weaveThread(spec: ThreadSpec, overwrite = false): Promise<
       participants: 'David + Daniela',
       importance: spec.importance,
       tags: [...spec.tags, 'thread', 'woven'],
+      entryType: 'conversation',
       recordedAt: new Date(),
     })
     .returning({ id: conversationMemories.id });

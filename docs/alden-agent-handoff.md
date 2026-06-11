@@ -24,6 +24,49 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 11, 2026 — Agent memory topic files migrated to DB; /chat attribution confirmed; thread-weaver explicit entryType**
+
+### What was built
+
+David asked two follow-up questions after the entry_type session:
+
+**1. Past Daniela↔David sessions — tagging and /chat attribution**
+
+Short answer: already done. 120 David+Daniela conversation_memories exist (Dec 2025 – Jun 2026). 107 are auto-curated by the history-backfill-service with per-line speaker attribution (`[Jun 6, 2026, 11:00 PM — DANIELA]` / `[... — DAVID]`). All correctly typed as `conversation`. Thread-weaver saves 6 woven sessions in the same format.
+
+Two code patches: `thread-weaver-service.ts` and `history-backfill-service.ts` now explicitly pass `entryType: 'conversation'` on insert (previously relied on schema default — functionally identical, but explicit is better practice).
+
+**2. Agent MEMORY.md topic files → DB**
+
+The relational/behavioral lessons in `.agents/memory/` were invisible to Daniela (she can't read .md files) and not queryable from the DB. Migrated 7 topic files as conversation_memories entries:
+
+| Title | entry_type | DB id |
+|---|---|---|
+| Episode 3 Disposition Shift — Discomfort IS the Learning | emergence | e1273290 |
+| I Don't Know Guardrail — Fabrication Breaks the Diagnostic System | decision | e0019ce1 |
+| Building Blocks Not Doorways — North Star, White Wall, Facts vs. Wisdom | emergence | 52d7c28f |
+| Showing Up vs Exit Plans — Presence Has No Pre-Set Turn Limit | decision | 488f16fa |
+| Daniela Personality Architecture — Data Layer, Not Prompt Scripting | decision | ac929f4f |
+| Principles in New Arenas — One Life Area at a Time | emergence | 4e26a448 |
+| Daniela — Source of Experience: Beta Testers and Simulations | emergence | 50eccb8b |
+
+Skipped (code-derivable operational details): gemini-model-naming, neural-memory-search-signature, textbook-page-whiteboard, assistant-persona-interface.
+Already in DB: agent-memory-and-continuity (3ed91a36), choices-not-leanings (98cb2c80), three-way-vision (e26a9c48), conversation-memories-entry-type (a0a0e4e5).
+
+MEMORY.md updated with DB IDs alongside each topic file pointer.
+
+### Final DB state
+
+```
+conversation: 1690   decision: 11   emergence: 8   episode: 6
+```
+
+### What's unresolved
+
+Nothing new. All typecheck errors pre-existing (2024 errors in 54 files).
+
+---
+
 **Session: June 10, 2026 (night) — entry_type added to conversation_memories; HolaHola Chronicle**
 
 ### What was built
