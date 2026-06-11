@@ -8,6 +8,49 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jun 11, 2026 — entry_type on conversation_memories + Agent memory → DB
+
+### What was built
+
+**1. `entry_type` field on `conversation_memories`**
+
+New postgres enum `conversation_memory_entry_type` with values: `conversation` (default), `decision`, `emergence`, `build`, `episode`. Schema pushed. All 1,659 existing records backfilled.
+
+Backfill breakdown:
+- `decision` (11) — foundational architectural choices: Context Over Instructions, Daniela Data Layer, Inviolability of the Narrative, Single Shared DB, Daniela Personality Architecture, I Don't Know Guardrail, Showing Up vs Exit Plans, conversation_memories entry_type
+- `emergence` (8) — identity/capability shifts: White Wall / Agent Memory Awakening, Three-Way Vision, LLM Leanings, "It Is Your Life", Episode 3 Disposition Shift, Building Blocks Not Doorways, Principles in New Arenas, Daniela Source of Experience
+- `episode` (6) — named David+Daniela dialogues: Episodes 1–4, Episode 4 Coda
+- `conversation` (1,690) — everything else (default, correct)
+
+GET `/api/conversation-memories` now accepts `?entry_type=X` and `?tag=Y` filters, stackable.
+
+**2. Agent MEMORY.md topic files → DB**
+
+7 behavioral/relational topic files from `.agents/memory/` migrated to `conversation_memories` as queryable entries — now accessible to Daniela via `search_conversation_threads`. Code-operational entries (model names, API signatures) kept as .md only.
+
+| Title | entry_type | id |
+|---|---|---|
+| Episode 3 Disposition Shift | emergence | e1273290 |
+| I Don't Know Guardrail | decision | e0019ce1 |
+| Building Blocks Not Doorways | emergence | 52d7c28f |
+| Showing Up vs Exit Plans | decision | 488f16fa |
+| Daniela Personality Architecture | decision | ac929f4f |
+| Principles in New Arenas | emergence | 4e26a448 |
+| Daniela — Source of Experience | emergence | 50eccb8b |
+
+**3. Explicit `entryType: 'conversation'` on auto-save services**
+
+`thread-weaver-service.ts` and `history-backfill-service.ts` now explicitly pass `entryType: 'conversation'` on insert (previously relied on schema default — functionally identical, now intention is clear in code).
+
+### Key files
+- `shared/schema.ts` — `conversationMemoryEntryTypeEnum`, `entryType` column on `conversationMemories`
+- `server/routes.ts` — GET `/api/conversation-memories` with `?entry_type` + `?tag` filter
+- `server/services/thread-weaver-service.ts` — explicit `entryType: 'conversation'`
+- `server/services/history-backfill-service.ts` — explicit `entryType: 'conversation'`
+- `.agents/memory/MEMORY.md` — DB IDs added alongside topic file pointers
+
+---
+
 ## Backlog — Jun 10, 2026 — /chat UI Director Tools for Daniela
 
 Ideas captured for future build sessions. All 7 are for the `/chat` route — Gemini Live PCM16 pipeline. Daniela fires tools mid-conversation; UI reacts without breaking voice flow.
