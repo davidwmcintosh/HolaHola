@@ -793,7 +793,8 @@ export interface IStorage {
   
   // Get voice for a specific language and gender.
   // Pass preferredProvider (e.g. 'gemini-live') to try that provider first before falling back.
-  getTutorVoice(language: string, gender: 'male' | 'female', preferredProvider?: string): Promise<TutorVoice | undefined>;
+  // Pass modelVariant (e.g. 'gemini-3.1-flash-live-preview') to prefer a model-specific voice record over the base record.
+  getTutorVoice(language: string, gender: 'male' | 'female', preferredProvider?: string, modelVariant?: string): Promise<TutorVoice | undefined>;
   
   // Get all configured voices
   getAllTutorVoices(): Promise<TutorVoice[]>;
@@ -5939,14 +5940,43 @@ export class DatabaseStorage implements IStorage {
 
   // ===== Tutor Voice Management =====
 
-  async getTutorVoice(language: string, gender: 'male' | 'female', preferredProvider?: string): Promise<TutorVoice | undefined> {
+  async getTutorVoice(language: string, gender: 'male' | 'female', preferredProvider?: string, modelVariant?: string): Promise<TutorVoice | undefined> {
     // IMPORTANT: Filter by role='tutor' to get main Cartesia tutor, not Google assistant
     //
     // Each language+gender pair may have multiple active rows — one per provider
     // (e.g. 'google' + 'gemini-live' both active).  When a preferred provider is
     // supplied (e.g. 'gemini-live' when that feature flag is on) we try it first;
     // if no match we fall back to any active tutor voice so the session always starts.
-    if (preferredProvider) {
+    //
+    // Per-model voice preferences: when modelVariant is supplied (e.g. 'gemini-3.1-flash-live-preview'),
+    // prefer a model-specific record (model_variant = value) over the base record (model_variant IS NULL).
+    if (preferredProvider && modelVariant) {
+      // 1. Try exact match: provider + model_variant
+      const exact = await getSharedDb().select().from(tutorVoices).where(
+        and(
+          eq(tutorVoices.language, language),
+          eq(tutorVoices.gender, gender),
+          eq(tutorVoices.role, 'tutor'),
+          eq(tutorVoices.isActive, true),
+          eq(tutorVoices.provider, preferredProvider),
+          eq(tutorVoices.modelVariant, modelVariant)
+        )
+      ).orderBy(desc(tutorVoices.updatedAt)).limit(1);
+      if (exact[0]) return exact[0];
+      // 2. Fall back to provider base (model_variant IS NULL)
+      const base = await getSharedDb().select().from(tutorVoices).where(
+        and(
+          eq(tutorVoices.language, language),
+          eq(tutorVoices.gender, gender),
+          eq(tutorVoices.role, 'tutor'),
+          eq(tutorVoices.isActive, true),
+          eq(tutorVoices.provider, preferredProvider),
+          isNull(tutorVoices.modelVariant)
+        )
+      ).orderBy(desc(tutorVoices.updatedAt)).limit(1);
+      if (base[0]) return base[0];
+      // 3. Fall through to any-provider below
+    } else if (preferredProvider) {
       const preferred = await getSharedDb().select().from(tutorVoices).where(
         and(
           eq(tutorVoices.language, language),

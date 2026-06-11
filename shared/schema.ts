@@ -398,6 +398,7 @@ export const tutorVoices = pgTable("tutor_voices", {
   
   // ========== GEMINI TTS SETTINGS ==========
   geminiLanguageCode: varchar("gemini_language_code"), // BCP-47 accent variant (e.g., 'es-MX', 'en-GB', 'pt-BR')
+  modelVariant: varchar("model_variant"), // null = applies to all GL model variants; specific = per-model voice preference (e.g. 'gemini-3.1-flash-live-preview')
   
   // ========== GOOGLE CLOUD TTS SETTINGS ==========
   googlePitch: real("google_pitch").default(0), // -10.0 to +10.0 semitones

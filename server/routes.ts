@@ -21997,10 +21997,23 @@ Current conversation context:
         return;
       }
       
-      // Default: fetch main tutor voice (Cartesia)
+      // Default: fetch main tutor voice
+      // modelVariant (e.g. 'gemini-3.1-flash-live-preview') enables per-model voice preferences.
+      // Fetch the base record first, then check for a model-specific override if the voice is gemini-live.
+      const { modelVariant } = req.query;
+      const mv = modelVariant && typeof modelVariant === 'string' ? modelVariant : undefined;
       const voice = await storage.getTutorVoice(language.toLowerCase(), gender.toLowerCase());
       if (!voice) {
         return res.status(404).json({ error: `No voice configured for ${language} ${gender}` });
+      }
+      
+      // Per-model voice preference: if the base record is gemini-live and a modelVariant was
+      // requested, check for a model-specific record and return it if found.
+      if (mv && voice.provider === 'gemini-live') {
+        const variantVoice = await storage.getTutorVoice(language.toLowerCase(), gender.toLowerCase(), 'gemini-live', mv);
+        if (variantVoice) {
+          return res.json(variantVoice);
+        }
       }
       
       res.json(voice);
@@ -22014,16 +22027,16 @@ Current conversation context:
   app.patch("/api/admin/voices/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
       const { id } = req.params;
-      const { speakingRate, personality, expressiveness, emotion, pedagogicalFocus, teachingStyle, errorTolerance, voiceId, voiceName } = req.body;
+      const { speakingRate, personality, expressiveness, emotion, pedagogicalFocus, teachingStyle, errorTolerance, voiceId, voiceName, modelVariant } = req.body;
       
-      // Get existing voice first
+      // Get existing voice first (the base record referenced by id)
       const voices = await storage.getAllTutorVoices();
       const existingVoice = voices.find((v: any) => v.id === id);
       if (!existingVoice) {
         return res.status(404).json({ error: "Voice not found" });
       }
       
-      // Validate and merge updates
+      // Validate and build updates
       const updates: any = {};
       if (speakingRate !== undefined) {
         updates.speakingRate = Math.max(0.7, Math.min(1.3, parseFloat(speakingRate)));
@@ -22068,7 +22081,45 @@ Current conversation context:
           : voiceId.trim();
       }
       
-      // Use upsert with existing voice data plus updates
+      // Per-model voice preference: when modelVariant is supplied, create/update a model-specific
+      // record instead of modifying the base record. This lets GL 3.1 and 2.5 have independent voices.
+      if (modelVariant && typeof modelVariant === 'string' && modelVariant.trim()) {
+        const mv = modelVariant.trim();
+        const { getSharedDb } = await import('./db');
+        const { tutorVoices: tvTable } = await import('../shared/schema');
+        const { eq, and } = await import('drizzle-orm');
+        
+        // Find an existing model-variant record for this language/gender/role/provider/modelVariant
+        const existingVariant = await getSharedDb().select().from(tvTable).where(
+          and(
+            eq(tvTable.language, existingVoice.language),
+            eq(tvTable.gender, existingVoice.gender),
+            eq(tvTable.role, existingVoice.role),
+            eq(tvTable.provider, existingVoice.provider),
+            eq(tvTable.modelVariant, mv)
+          )
+        ).limit(1);
+        
+        if (existingVariant[0]) {
+          // Update the existing model-variant record
+          const updated = await getSharedDb().update(tvTable)
+            .set({ ...updates, updatedAt: new Date() })
+            .where(eq(tvTable.id, existingVariant[0].id))
+            .returning();
+          await storage.logAdminAction({ actorId: getRequestUserId(req)!, action: 'update_tutor_voice', targetType: 'tutor_voice', targetId: existingVariant[0].id, metadata: { ...updates, modelVariant: mv }, ipAddress: req.ip, userAgent: req.get('user-agent') });
+          return res.json(updated[0]);
+        } else {
+          // Clone the base record with the model variant applied
+          const { id: _omitId, createdAt: _omitCreated, updatedAt: _omitUpdated, ...baseFields } = existingVoice;
+          const newRecord = await getSharedDb().insert(tvTable)
+            .values({ ...baseFields, ...updates, modelVariant: mv, isActive: true, createdAt: new Date(), updatedAt: new Date() })
+            .returning();
+          await storage.logAdminAction({ actorId: getRequestUserId(req)!, action: 'create_tutor_voice_variant', targetType: 'tutor_voice', targetId: newRecord[0].id, metadata: { ...updates, modelVariant: mv, clonedFrom: id }, ipAddress: req.ip, userAgent: req.get('user-agent') });
+          return res.json(newRecord[0]);
+        }
+      }
+      
+      // Base record save (no modelVariant): update the record directly
       const updatedVoice = await storage.upsertTutorVoice({
         ...existingVoice,
         ...updates,

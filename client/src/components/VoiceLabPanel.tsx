@@ -48,6 +48,7 @@ interface TutorVoice {
   elSpeakerBoost?: boolean;
   googlePitch?: number;
   googleVolumeGainDb?: number;
+  modelVariant?: string | null;
 }
 
 interface CartesiaVoice {
@@ -167,6 +168,8 @@ export function VoiceLabPanel({
   
   // Accent variant state (for Gemini TTS language code)
   const [selectedAccent, setSelectedAccent] = useState<string>('');
+  // GL model selection — must be declared here so it can be used in the currentVoice query key
+  const [selectedGlModel, setSelectedGlModel] = useState<string>(GL_MODELS[0].value);
 
   // Fetch accent variants for language
   const { data: accentVariants } = useQuery<Record<string, { label: string; code: string; googleSupported: boolean; geminiLiveSupported: boolean; gl31Status: 'working' | 'broken' | 'untested' }[]>>({
@@ -176,13 +179,19 @@ export function VoiceLabPanel({
   const languageAccents = accentVariants?.[language] || [];
 
   // Fetch current tutor voice (main tutor for role='tutor', assistant for role='assistant')
+  // Include selectedGlModel in the query key so switching GL models triggers a refetch,
+  // picking up per-model voice preferences when they exist.
   const { data: currentVoice, isLoading: isLoadingVoice } = useQuery<TutorVoice>({
-    queryKey: ['/api/admin/voices/current', language, tutorGender, role],
+    queryKey: ['/api/admin/voices/current', language, tutorGender, role, selectedGlModel],
     queryFn: async () => {
-      const endpoint = isAssistant 
-        ? `/api/admin/voices/current?language=${language}&gender=${tutorGender}&role=assistant`
-        : `/api/admin/voices/current?language=${language}&gender=${tutorGender}`;
-      const res = await fetch(endpoint);
+      if (isAssistant) {
+        const res = await fetch(`/api/admin/voices/current?language=${language}&gender=${tutorGender}&role=assistant`);
+        if (!res.ok) throw new Error('Failed to fetch voice');
+        return res.json();
+      }
+      const params = new URLSearchParams({ language, gender: tutorGender });
+      if (selectedGlModel) params.set('modelVariant', selectedGlModel);
+      const res = await fetch(`/api/admin/voices/current?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to fetch voice');
       return res.json();
     },
@@ -232,8 +241,6 @@ export function VoiceLabPanel({
     .map(v => ({ id: v.id, name: `${v.name} — ${v.description}`, description: 'Gemini Live', language: '', gender: v.gender }));
   // GL voice selection for the audition — separate from the main TTS voice picker
   const [selectedGlVoiceId, setSelectedGlVoiceId] = useState<string>('');
-  // GL model selection for audition (and session override)
-  const [selectedGlModel, setSelectedGlModel] = useState<string>(GL_MODELS[0].value);
 
   const langCodeMap: Record<string, string> = {
     english: 'en', spanish: 'es', french: 'fr', german: 'de',
@@ -351,6 +358,8 @@ export function VoiceLabPanel({
   };
 
   // Save changes permanently to database
+  // For gemini-live voices, pass modelVariant so the save creates/updates a model-specific
+  // record rather than overwriting the base record — enabling per-model voice preferences.
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!currentVoice) throw new Error('No voice to update');
@@ -361,6 +370,9 @@ export function VoiceLabPanel({
         emotion,
         ...(selectedVoiceId && selectedVoiceId !== currentVoice.voiceId ? { voiceId: selectedVoiceId } : {}),
         ...(isElevenLabs ? { elStability, elSimilarityBoost, elStyle } : {}),
+        // Per-model voice preference: pass modelVariant for gemini-live voices so the
+        // backend saves to a model-specific record instead of the shared base record.
+        ...(isGeminiLive && selectedGlModel ? { modelVariant: selectedGlModel } : {}),
       });
       return res.json();
     },
@@ -585,9 +597,19 @@ export function VoiceLabPanel({
                 <Volume2 className="h-5 w-5 text-primary" />
               </div>
               <div className="flex-1">
-                <p className="font-medium">{currentVoice.voiceName}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">{currentVoice.voiceName}</p>
+                  {currentVoice.modelVariant && (
+                    <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                      {GL_MODELS.find(m => m.value === currentVoice.modelVariant)?.badge ?? currentVoice.modelVariant}
+                    </Badge>
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground capitalize">
                   {currentVoice.language} · {currentVoice.gender}
+                  {isGeminiLive && !currentVoice.modelVariant && (
+                    <span className="ml-1 text-xs opacity-60">· base (all models)</span>
+                  )}
                 </p>
               </div>
               {selectedVoiceId && selectedVoiceId !== currentVoice.voiceId && (
