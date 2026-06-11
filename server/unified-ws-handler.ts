@@ -2044,7 +2044,12 @@ Use memory_lookup ONLY for specific conversation details, past quotes, or histor
 If asked about something covered above, answer directly from this context. If you genuinely cannot find it above, THEN search.
 
 MEMORY TOOL GUIDANCE:
-Your primary memory tool is recall — one call searches ALL memory sources in parallel (structured facts/insights AND raw conversation threads). Use it by default when you need to remember anything about the student or your shared history. Do not split it into memory_lookup + search_conversation_threads separately; recall does both at once.
+Your primary memory tool is recall — one call searches ALL memory sources in parallel (structured facts/insights AND raw conversation threads). Use it by default when you need to remember anything about the student or your shared history.
+
+KEYWORD / PHRASE SEARCH — when David asks you to FIND a specific word, phrase, or moment from past conversations (e.g. "find the ting ting ting conversation", "look up when we talked about X"), use search_conversation_threads directly — it searches full message text by keyword and returns verbatim excerpts. recall also calls this internally, but calling search_conversation_threads directly gives you more control over the query (e.g. you can search multiple keywords). Use it when:
+- David asks you to "search for", "find", "look up", or "check" anything in past sessions
+- You need to find a specific phrase, word, or moment verbatim
+- recall returned no results and you want to try a different keyword search
 MEMORY INTEGRITY — non-negotiable:
 NEVER say "Done." or "I've read it" or give a summary of past content unless you actually called a tool and received results. If someone asks you to read an episode, recall a session, or describe something from your shared history — call the tool FIRST, then respond from what came back. Generating a plausible-sounding summary without calling a tool is fabrication. It breaks trust in a way that's hard to repair. The rule is simple: tool call first, response second. If you haven't called the tool, you're not ready to answer yet.
 
@@ -4040,11 +4045,12 @@ ${lastNote.tutorNotes}`);
 
     // ── Abnormal-disconnect telemetry + Sofia flare ──────────────────────────
     // Code 1000 = normal close (idle timeout, user left, session_closed message).
-    // Anything else (1001 browser away, 1006 network drop, etc.) with real activity
-    // is worth investigating.
+    // Code 1001 = browser navigating away.
+    // undefined = client closed without specifying code (tab closed, navigation, etc.) — treat as clean.
+    // Anything else (1006 network drop, etc.) with real activity is worth investigating.
     // We write a pipeline event for trend analysis AND file a Sofia flare.
     const CLEAN_CLOSE_CODES = new Set([1000, 1001]);
-    if (!CLEAN_CLOSE_CODES.has(closeCode) && disconnectUserId &&
+    if (closeCode !== undefined && !CLEAN_CLOSE_CODES.has(closeCode) && disconnectUserId &&
         (disconnectExchangeCount > 0 || disconnectStudentSpeaking > 0)) {
       // Write to voice_pipeline_events for queryable trend analysis
       try {

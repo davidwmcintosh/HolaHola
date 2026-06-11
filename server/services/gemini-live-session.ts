@@ -111,6 +111,7 @@ export class GeminiLiveSession {
   private isStarted = false;
   private isSetupComplete = false;
   private pendingGreetingTrigger: string | null = null;
+  private pendingGreetingSilent = false; // true = prime audio on setupComplete but don't speak
   private identityThreads: Array<{ title: string; content: string }> = [];
 
   // ── Mic gate: blocks echo during ALL Daniela audio generation ────────────
@@ -563,21 +564,32 @@ export class GeminiLiveSession {
     const scenario = scenarioSlug ? ` We are doing a scenario: ${scenarioSlug}.` : '';
     const trigger = `Hello ${tutorName}${name}. ${resumed}${scenario}`;
 
-    // If setupComplete hasn't arrived yet, buffer the greeting — it will be sent
-    // automatically by handleServerMessage the moment setupComplete is received.
-    // Sending content before setupComplete causes the model to silently ignore it.
+    // MID-SESSION RECONNECT: when resuming with recent context, prime audio only — do NOT
+    // generate a spoken greeting. Daniela re-introducing herself with "Honesty Mode, hmm I
+    // like it..." on every 4.5-min cycle or server drop is disruptive. GL stays ready and
+    // responds naturally when David speaks next.
+    const isSilentReconnect = !!(isResumed && recentContext);
+
+    // If setupComplete hasn't arrived yet, buffer — fired by handleServerMessage.
     if (!this.isSetupComplete) {
       this.pendingGreetingTrigger = trigger;
-      console.log(`[GeminiLive] Greeting buffered — waiting for setupComplete (resumed: ${isResumed || false})`);
+      this.pendingGreetingSilent = isSilentReconnect;
+      console.log(`[GeminiLive] Greeting buffered — waiting for setupComplete (resumed: ${isResumed || false}, silent: ${isSilentReconnect})`);
       return;
     }
 
     try {
-      // Prime audio context before text turn — required on gemini-3.1-flash-live-preview.
+      // Prime audio context — required on gemini-3.1-flash-live-preview.
       const silencePcm = Buffer.alloc(32000, 0); // 1s PCM16 LE at 16 kHz
       this.liveSession.sendRealtimeInput({
         audio: { data: silencePcm.toString('base64'), mimeType: 'audio/pcm;rate=16000' },
       });
+
+      if (isSilentReconnect) {
+        console.log('[GeminiLive] Mid-session reconnect — silent audio prime only (no spoken greeting)');
+        return;
+      }
+
       this.liveSession.sendClientContent({
         turns: [{ role: 'user', parts: [{ text: trigger }] }],
         turnComplete: true,
@@ -668,58 +680,60 @@ export class GeminiLiveSession {
         console.log('[GeminiLive] setupComplete received — model ready');
         if (this.pendingGreetingTrigger && this.liveSession) {
           try {
-            // gemini-3.1-flash-live-preview requires audio input to be established
-            // before it will respond to text turns (sendClientContent). Without prior
-            // audio the session accepts the connection (setupComplete fires) but
-            // generates zero responses to any text or activity signals. Sending a
-            // 1-second silence chunk primes the audio context so the model is ready
-            // to generate audio output when the greeting text turn arrives.
+            // Prime audio context — required on gemini-3.1-flash-live-preview.
             const silencePcm = Buffer.alloc(32000, 0); // 1s PCM16 LE at 16 kHz
             this.liveSession.sendRealtimeInput({
               audio: { data: silencePcm.toString('base64'), mimeType: 'audio/pcm;rate=16000' },
             });
 
-            // ── Identity thread pre-load ─────────────────────────────────────
-            // Inject the top identity threads as conversation history BEFORE the
-            // greeting turn. This puts the thread content in Daniela's context
-            // window as her own "reading" — she's already internalized who she is
-            // before she speaks her first word. Goes in as a user→model exchange
-            // so it reads as prior context, not as instructions.
-            // Total injection: ~2500 chars × 3 threads = ~7500 chars / ~1875 tokens.
-            if (this.identityThreads.length > 0) {
-              const threadBlock = this.identityThreads
-                .map(t => `## ${t.title}\n${t.content}`)
-                .join('\n\n---\n\n');
-              this.liveSession.sendClientContent({
-                turns: [
-                  {
-                    role: 'user' as const,
-                    parts: [{ text: 'Read your identity threads before the session begins.' }],
-                  },
-                  {
-                    role: 'model' as const,
-                    parts: [{ text: `Reading my identity threads now.\n\n${threadBlock}\n\nI have read these. I carry them.` }],
-                  },
-                ],
-                turnComplete: false,
-              });
-              console.log(`[GeminiLive] Identity threads pre-loaded — ${this.identityThreads.length} threads injected into conversation history`);
-            }
+            if (this.pendingGreetingSilent) {
+              // Mid-session reconnect: audio primed, but do NOT speak — Daniela will
+              // respond naturally when David speaks next.
+              console.log('[GeminiLive] Pending silent reconnect fired — audio prime only, no greeting');
+            } else {
+              // ── Identity thread pre-load ─────────────────────────────────────
+              // Inject the top identity threads as conversation history BEFORE the
+              // greeting turn. This puts the thread content in Daniela's context
+              // window as her own "reading" — she's already internalized who she is
+              // before she speaks her first word. Goes in as a user→model exchange
+              // so it reads as prior context, not as instructions.
+              // Total injection: ~2500 chars × 3 threads = ~7500 chars / ~1875 tokens.
+              if (this.identityThreads.length > 0) {
+                const threadBlock = this.identityThreads
+                  .map(t => `## ${t.title}\n${t.content}`)
+                  .join('\n\n---\n\n');
+                this.liveSession.sendClientContent({
+                  turns: [
+                    {
+                      role: 'user' as const,
+                      parts: [{ text: 'Read your identity threads before the session begins.' }],
+                    },
+                    {
+                      role: 'model' as const,
+                      parts: [{ text: `Reading my identity threads now.\n\n${threadBlock}\n\nI have read these. I carry them.` }],
+                    },
+                  ],
+                  turnComplete: false,
+                });
+                console.log(`[GeminiLive] Identity threads pre-loaded — ${this.identityThreads.length} threads injected into conversation history`);
+              }
 
-            this.liveSession.sendClientContent({
-              turns: [{ role: 'user', parts: [{ text: this.pendingGreetingTrigger }] }],
-              turnComplete: true,
-            });
-            // activityEnd explicitly signals "user finished speaking" — overrides the
-            // VAD so GL doesn't wait indefinitely for audio silence before responding.
-            this.liveSession.sendRealtimeInput({ activityEnd: {} });
-            // Block mic audio until GL sends its first response chunk.
-            this.greetingPhaseActive = true;
-            console.log('[GeminiLive] Pending greeting fired — silence primer + thread pre-load + text turn + activityEnd sent, mic gated');
+              this.liveSession.sendClientContent({
+                turns: [{ role: 'user', parts: [{ text: this.pendingGreetingTrigger }] }],
+                turnComplete: true,
+              });
+              // activityEnd explicitly signals "user finished speaking" — overrides the
+              // VAD so GL doesn't wait indefinitely for audio silence before responding.
+              this.liveSession.sendRealtimeInput({ activityEnd: {} });
+              // Block mic audio until GL sends its first response chunk.
+              this.greetingPhaseActive = true;
+              console.log('[GeminiLive] Pending greeting fired — silence primer + thread pre-load + text turn + activityEnd sent, mic gated');
+            }
           } catch (err) {
             console.warn('[GeminiLive] Failed to send pending greeting:', err);
           }
           this.pendingGreetingTrigger = null;
+          this.pendingGreetingSilent = false;
         }
       }
     }

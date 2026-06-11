@@ -5033,6 +5033,20 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'init_conjugation_table', 'fill_conjugation', 'clear_conjugation_table',
   'load_vocab_set', 'drill_session', 'drill_session_next', 'drill_session_end',
   'start_textbook_page', 'log_page_event', 'search_textbook',
+  // Textbook / Director UI cards — text-mode display only, no voice utility
+  'show_teaching_card', 'show_vocab_card', 'add_to_lesson_notes',
+  'show_pronunciation_score', 'flag_grammar', 'present_quiz',
+  'show_cultural_context', 'spotlight_element', 'set_right_pane',
+  'show_sentence_table', 'pull_lesson_content',
+  'show_vocab_grid', 'swap_vocab_image', 'show_sentence_builder',
+  'show_textbook_section', 'visual_compare', 'grammar_diagram',
+  'invoke_teaching_skill', 'show_daily_plan',
+  // Scenario props — UI-only (scenario/load_scenario/advance_scene kept for voice role-play)
+  'show_menu', 'show_bill', 'update_prop',
+  // Behavioral tracking — background, not needed during a voice turn
+  'record_pattern_signal',
+  // Session-close admin — not needed mid-turn in voice
+  'take_note', 'close_session',
   // Admin / post-session utilities
   // NOTE: search_conversation_threads and browse_conversations_by_date are intentionally
   // NOT excluded — Daniela needs keyword search during voice sessions to recall specific
