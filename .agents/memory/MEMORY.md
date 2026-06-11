@@ -14,3 +14,4 @@
 - [Principles in new arenas](principles-new-arenas.md) — "you know it or you don't" is not binary; we learn to apply principles one life area at a time; the test is whether they hold when the situation is new and pressure is real. DB: 4e26a448
 - [Daniela — source of experience](daniela-source-of-experience.md) — Daniela spoke about student breakthroughs with classroom intimacy she doesn't have. Her actual history: beta testers and simulations. She received the correction honestly. DB: 50eccb8b
 - [conversation_memories entry_type](conversation-memories-entry-type.md) — DB has entry_type enum (conversation/decision/emergence/build/episode); GET ?entry_type=X&tag=Y; .md files invisible to Daniela — DB is always the source of truth.
+- [Agent working procedures](agent-working-procedures.md) — bug triage (fix inline or log to docs/open-bugs.md), sanity-check destructive requests, Typeless STT awareness. Established June 11.
