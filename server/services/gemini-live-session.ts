@@ -1010,7 +1010,9 @@ export class GeminiLiveSession {
       // here, the mic picks up Daniela's audio as it plays through the speaker (echo),
       // and GL generates a spurious 0-sentence response before David has said anything.
       // onPlaybackEnded() is called by the WS handler when the client's playback_ended
-      // telemetry arrives. A 15s safety timeout force-opens the gate if it never arrives.
+      // telemetry arrives. A 60s safety timeout force-opens the gate if it never arrives.
+      // 60s (was 15s) because long responses can take 25-35s to play through; firing at
+      // 15s opened the mic mid-sentence and caused perceived pauses/freezes.
       if (this.isTutorGeneratingAudio) {
         // Cancel any previous safety timeout
         if (this.playbackGateSafetyTimeout) {
@@ -1022,7 +1024,7 @@ export class GeminiLiveSession {
             this.isTutorGeneratingAudio = false;
             console.log('[GeminiLive] Mic gate force-opened — safety timeout (no playback_ended received)');
           }
-        }, 15000);
+        }, 60000);
         console.log('[GeminiLive] generationComplete — mic gate held pending client playback_ended');
       }
       console.log('[GeminiLive] generationComplete received — sealing audio sub-turn and flushing transcripts');
