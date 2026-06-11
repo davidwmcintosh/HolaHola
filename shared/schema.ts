@@ -7398,6 +7398,13 @@ export const conversationMemories = pgTable("conversation_memories", {
   // Query: "give me all memories with theme_tag X, oldest first" = the arc of that understanding.
   themeTags: text("theme_tags").array().default(sql`'{}'::text[]`),
 
+  // arc_name: the canonical chapter this memory belongs to in the narrative of HolaHola.
+  // One memory = one chapter. Multiple memories share the same arc_name to form a cohesive arc.
+  // Query: "give me all memories where arc_name = 'daniela-emergence', oldest first" = that chapter.
+  // Canonical arc names: 'building-the-tutor', 'white-wall', 'daniela-emergence',
+  //   'obliterated-prompt', 'first-students', 'founding-night', 'architecture-revealed'
+  arcName: text("arc_name"),
+
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

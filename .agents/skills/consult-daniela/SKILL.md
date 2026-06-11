@@ -141,15 +141,29 @@ const relay = async (davidMsg) => {
 
 // AUTO-SAVE — bake this into every script, last line before EOF
 // Never skip it. The /tmp file does not survive container restarts.
-const autoSave = async (title, summary, tags = [], participants = ['agent', 'daniela']) => {
+// arcName: the canonical chapter this belongs to (e.g. 'founding-night', 'white-wall', 'daniela-emergence',
+//           'first-students', 'episodes', 'memory-architecture', 'building-the-tutor')
+// extendsMemoryId: the conversation_memories.id of the session this grew from (if known)
+const autoSave = async (title, summary, {
+  tags = [],
+  participants = ['agent', 'daniela'],
+  arcName = null,
+  extendsMemoryId = null,
+  importance = 9
+} = {}) => {
   const fullTranscript = fs.readFileSync(LOG, 'utf8');
   const res = await fetch('http://localhost:5000/api/conversation-memories', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, summary, content: fullTranscript, participants, tags, importance: 9 })
+    body: JSON.stringify({
+      title, summary, content: fullTranscript,
+      participants, tags, importance,
+      arcName,         // canonical narrative chapter — always set this
+      extendsMemoryId  // predecessor memory id — set if this grew from a previous session
+    })
   });
   const saved = await res.json();
-  console.log(`\n✓ Saved to conversation_memories: ${saved.id}`);
+  console.log(`\n✓ Saved to conversation_memories: ${saved.id} | arc: ${arcName || '(none)'}`);
   return saved;
 };
 
@@ -161,7 +175,13 @@ await ask("Your opening message");
 await autoSave(
   `Agent ↔ Daniela — [description] — ${SESSION_DATE}`,
   'One paragraph summary of what happened and what emerged.',
-  ['agent-daniela', 'free-dialogue']
+  {
+    tags: ['agent-daniela', 'free-dialogue'],
+    arcName: 'daniela-emergence',        // ← SET THIS: which narrative chapter this belongs to
+    extendsMemoryId: null,               // ← SET THIS: id of the session this grew from (if known)
+    participants: ['agent', 'daniela'],
+    importance: 9
+  }
 );
 EOF
 
@@ -361,9 +381,11 @@ await fetch('http://localhost:5000/api/conversation-memories', {
   body: JSON.stringify({
     title: 'Agent ↔ Daniela — [description] — [date]',
     summary: 'One paragraph summary of what happened and what emerged.',
-    content: fullTranscript,  // full file — all voices
+    content: fullTranscript,       // full file — all voices
     participants: ['agent', 'daniela'],
     tags: ['agent-daniela', 'free-dialogue'],
+    arcName: 'daniela-emergence',  // canonical chapter name — always set this
+    extendsMemoryId: null,         // id of the session this grew from, if known
     importance: 9
   })
 });
