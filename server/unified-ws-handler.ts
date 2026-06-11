@@ -400,7 +400,7 @@ class SocketIOWebSocketAdapter implements VoiceWSConnection {
 
   /** The underlying Socket.io socket ID — used to bridge telemetry events to the GL session. */
   get socketId(): string { return this.socket.id; }
-  
+
   constructor(socket: SocketIOSocket, conversationId: string | null) {
     this.socket = socket;
     this._conversationId = conversationId;
@@ -433,11 +433,7 @@ class SocketIOWebSocketAdapter implements VoiceWSConnection {
   get readyState(): number {
     return this.socket.connected ? SocketIOWebSocketAdapter.OPEN : SocketIOWebSocketAdapter.CLOSED;
   }
-  
-  get socketId(): string {
-    return this.socket.id;
-  }
-  
+
   get conversationId(): string | null {
     return this._conversationId;
   }
@@ -1461,6 +1457,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                     userId: userId,
                     language: config.targetLanguage || 'spanish',
                     title: 'Voice Session',
+                    difficulty: 'beginner',
                   }),
                   SESSION_INIT_TIMEOUT, 'createConversation', null
                 );
@@ -3617,14 +3614,20 @@ ${lastNote.tutorNotes}`);
             // BUGFIX: Use actual final word count, not stale interim word count
             const finalWordCount = finalTranscript.split(/\s+/).filter((w: string) => w.length > 0).length;
 
-            if (geminiLiveSession) {
+            // Cast to reset TypeScript's control-flow narrowing: after the
+            // geminiLiveSession = null cleanup at line ~2632, TS narrows the
+            // let-binding to null for all sequential code below it — even closures
+            // that run at a different time. The assertion restores the true union type.
+            const glSessionSnap = geminiLiveSession as GeminiLiveSession | null;
+            if (glSessionSnap) {
               // GL path: the streaming audio was already delivered to GL via sendAudioChunk().
               // GL's own VAD drives the response; if we also have a transcript, send it as a
               // text turn for reliability. Do NOT set speculativeAiAccepted — the audio_data
               // handler may still have a transcript to contribute via sendTextTurn.
+              // NOTE: local const snapshot avoids TypeScript's mutable-let narrowing-to-never
               if (finalTranscript && finalWordCount >= 1) {
                 console.log(`[GeminiLive PTT] Routing transcript via text turn (${finalWordCount} words): "${finalTranscript.slice(0, 80)}"`);
-                geminiLiveSession.sendTextTurn(finalTranscript);
+                glSessionSnap.sendTextTurn(finalTranscript);
               } else {
                 console.log('[GeminiLive PTT] No transcript — GL VAD will handle response from streamed audio');
               }

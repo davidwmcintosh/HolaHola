@@ -231,14 +231,19 @@ function handleStreamingVoiceConnection(ws: WS, req: IncomingMessage) {
             tutorGender // Tutor gender for grammatical agreement
           );
 
-          session = orchestrator.createSession(
+          session = await orchestrator.createSession(
             ws,
-            parseInt(userId!),
+            userId!,
             config,
             systemPrompt,
             conversationHistory,
             voiceId
           );
+
+          if (!session) {
+            sendError(ws, 'UNKNOWN', 'Session creation failed', false);
+            return;
+          }
 
           console.log(`[Streaming Voice] Session started: ${session.id}`);
           
