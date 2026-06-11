@@ -5014,43 +5014,23 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] =
  *     request_text_input, add_curiosity, read_my_curiosities
  */
 const GL_EXCLUDED_TOOLS = new Set<string>([
-  // Visual UI widgets — no voice utility
-  'change_classroom_photo', 'change_classroom_window',
-  'hold_whiteboard', 'compose_visual_scene',
-  'search_visual_library', 'get_scene_zones', 'remove_from_scene', 'move_in_scene',
-  'set_clock', 'set_calendar', 'clear_calendar',
-  'set_body_part', 'clear_body_diagram', 'set_face_part', 'clear_face_diagram',
-  'set_hand_part', 'clear_hand_diagram',
-  'set_thermometer', 'clear_thermometer',
-  'set_emotion', 'clear_emotion',
-  'set_weather', 'clear_weather',
-  'highlight_country', 'clear_world_map',
-  'enter_immersive', 'exit_immersive',
-  // Text-mode exercises
-  'phonetic', 'stroke', 'tone', 'pronunciation_tag',
-  'culture', 'context', 'reading', 'compare', 'word_map',
-  'play_audio', 'summary', 'write',
-  'init_conjugation_table', 'fill_conjugation', 'clear_conjugation_table',
-  'load_vocab_set', 'drill_session', 'drill_session_next', 'drill_session_end',
-  'start_textbook_page', 'log_page_event', 'search_textbook',
-  // Behavioral tracking — background signal, no conversational utility
+  // Background behavioral signal — fires silently, never a conversational act
   'record_pattern_signal',
-  // Session teardown — admin only, must not be triggered during an active voice turn
+
+  // Session teardown — admin-only; must not fire during an active voice turn
   'close_session',
-  // Admin / post-session utilities
+
+  // Post-session bulk operations — not meaningful mid-conversation
+  'save_conversation_memory',
+  'get_conversation_themes',
+  'read_full_session',
+
+  // Pure server-side logging — no output reaches the student
+  'log_page_event',
+
   // NOTE: search_conversation_threads and browse_conversations_by_date are intentionally
   // NOT excluded — Daniela needs keyword search during voice sessions to recall specific
   // past conversations (e.g. "find the ting ting ting conversation").
-  'get_conversation_themes', 'read_full_session',
-  'recall_express_lane_image', 'express_lane_post',
-  'save_conversation_memory',
-  'hive_suggestion', 'self_surgery', 'flag_for_agent',
-  'record_student_consent', 'dismiss_absence_nudge', 'first_meeting_complete',
-  'mark_lesson_covered',
-  'set_memory_pin', 'correct_memory', 'forget_memory',
-  'set_learning_goal', 'advance_capability',
-  'browse_syllabus', 'recommend_next', 'review_due_vocab',
-  'request_text_input', 'add_curiosity', 'read_my_curiosities',
 ]);
 
 export const DANIELA_GL_FUNCTION_DECLARATIONS: FunctionDeclaration[] =
