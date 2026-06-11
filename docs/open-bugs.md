@@ -23,4 +23,5 @@ The object passed to `storage.createConversation()` omits `difficulty`, which is
 
 ## Resolved
 
-*(none yet)*
+**2026-06-11 — `shared/romanization-utils.ts:290–357` — Duplicate keys in Chinese romanization map — FIXED**
+9 duplicate keys (`高兴`, `哪`, `只`, `关`, `字`, `学`, `号`, `吃`, `说`) in the Mandarin character lookup object added by the placement task merge. TypeScript warns; esbuild (production build) errors — this was the cause of the deployment build failure. Fixed by removing the redundant later occurrences. Build now passes.

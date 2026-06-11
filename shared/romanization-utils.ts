@@ -287,7 +287,7 @@ const PINYIN_MAP: Record<string, string> = {
   '学习': 'xué xí', '工作': 'gōng zuò', '休息': 'xiū xi',
   '吃饭': 'chī fàn', '喝水': 'hē shuǐ', '睡觉': 'shuì jiào',
   '漂亮': 'piào liang', '好看': 'hǎo kàn', '难看': 'nán kàn',
-  '高兴': 'gāo xìng', '开心': 'kāi xīn', '难过': 'nán guò',
+  '开心': 'kāi xīn', '难过': 'nán guò',
   '便宜': 'pián yi', '贵的': 'guì de', '大的': 'dà de', '小的': 'xiǎo de',
   '热的': 'rè de', '冷的': 'lěng de', '快一': 'kuài yī', '慢一': 'màn yī',
   // Food
@@ -311,7 +311,7 @@ const PINYIN_MAP: Record<string, string> = {
   '猫': 'māo', '花': 'huā', '树': 'shù', '山': 'shān', '河': 'hé',
   '国': 'guó', '城': 'chéng', '路': 'lù', '门': 'mén', '房': 'fáng',
   // Question words
-  '什': 'shén', '么': 'me', '哪': 'nǎ', '谁': 'shéi', '哪': 'nǎ',
+  '什': 'shén', '么': 'me', '哪': 'nǎ', '谁': 'shéi',
   '怎': 'zěn', '几': 'jǐ',
   // Adjectives
   '好': 'hǎo', '大': 'dà', '小': 'xiǎo', '多': 'duō', '少': 'shǎo',
@@ -340,17 +340,17 @@ const PINYIN_MAP: Record<string, string> = {
   '上': 'shàng', '下': 'xià', '左': 'zuǒ', '右': 'yòu',
   '前': 'qián', '后': 'hòu', '里': 'lǐ', '外': 'wài', '中': 'zhōng',
   // Classifiers (measure words)
-  '个': 'gè', '只': 'zhī', '本': 'běn', '张': 'zhāng', '条': 'tiáo',
+  '个': 'gè', '本': 'běn', '张': 'zhāng', '条': 'tiáo',
   '块': 'kuài', '瓶': 'píng', '杯': 'bēi', '碗': 'wǎn', '盘': 'pán',
   // Additional common characters
-  '请': 'qǐng', '谢': 'xiè', '关': 'guān', '系': 'xi', '问': 'wèn',
+  '请': 'qǐng', '谢': 'xiè', '系': 'xi', '问': 'wèn',
   '意': 'yì', '思': 'si', '身': 'shēn', '体': 'tǐ', '名': 'míng',
-  '字': 'zì', '语': 'yǔ', '话': 'huà', '文': 'wén', '字': 'zì',
+  '字': 'zì', '语': 'yǔ', '话': 'huà', '文': 'wén',
   '幸': 'xìng', '见': 'jiàn', '朋': 'péng', '友': 'you', '同': 'tóng',
-  '学': 'xué', '生': 'shēng', '师': 'shī', '校': 'xiào', '院': 'yuàn',
+  '生': 'shēng', '师': 'shī', '校': 'xiào', '院': 'yuàn',
   '店': 'diàn', '行': 'xíng', '司': 'sī', '公': 'gōng', '室': 'shì',
-  '间': 'jiān', '号': 'hào', '层': 'céng', '楼': 'lóu', '街': 'jiē',
-  '吃': 'chī', '住': 'zhù', '用': 'yòng', '玩': 'wán', '说': 'shuō',
+  '间': 'jiān', '层': 'céng', '楼': 'lóu', '街': 'jiē',
+  '住': 'zhù', '用': 'yòng', '玩': 'wán',
   '唱': 'chàng', '跳': 'tiào', '画': 'huà', '拍': 'pāi', '找': 'zhǎo',
 };
 
