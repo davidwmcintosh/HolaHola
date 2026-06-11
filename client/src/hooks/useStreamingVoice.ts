@@ -76,6 +76,8 @@ export interface StreamingSessionConfig {
   onNoSpeechDetected?: () => void;
   /** Called when server sends whiteboard updates (e.g., enriched WORD_MAP items) */
   onWhiteboardUpdate?: (items: any[], shouldClear: boolean) => void;
+  /** Called when Daniela adds an item to the session lesson notes */
+  onLessonNoteAdded?: (note: { id: string; type: string; content: string; detail?: string; timestamp: number }) => void;
   /** Called when VAD detects speech start (open mic mode) */
   onVadSpeechStarted?: () => void;
   /** Called when VAD detects utterance end (open mic mode) */
@@ -1384,6 +1386,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       sessionConfigRef.current.onWhiteboardUpdate(message.items, message.shouldClear || false);
     }
   }, []);
+
+  const handleLessonNoteAdded = useCallback((message: { type: string; timestamp: number; note: any }) => {
+    if (sessionConfigRef.current?.onLessonNoteAdded && message.note) {
+      sessionConfigRef.current.onLessonNoteAdded(message.note);
+    }
+  }, []);
   
   /**
    * Handle pronunciation coaching feedback from server
@@ -1751,6 +1759,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('wordTimingFinal', handleWordTimingFinal);  // Progressive streaming
       clientRef.current.on('responseComplete', handleResponseComplete);
       clientRef.current.on('whiteboardUpdate', handleWhiteboardUpdate);  // Enriched whiteboard items
+      clientRef.current.on('lessonNoteAdded', handleLessonNoteAdded);  // Session lesson notes
       clientRef.current.on('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.on('error', handleError);
       clientRef.current.on('ttsError', handleTtsError);
@@ -1842,7 +1851,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleIdleTimeout, handleCreditWarning, handleSessionConflict, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange, handleIncognitoChanged]);
+  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleLessonNoteAdded, handlePronunciationCoaching, handleError, handleIdleTimeout, handleCreditWarning, handleSessionConflict, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange, handleIncognitoChanged]);
   
   /**
    * Disconnect from streaming voice service
@@ -1868,6 +1877,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('wordTimingFinal', handleWordTimingFinal);  // Progressive streaming
       clientRef.current.off('responseComplete', handleResponseComplete);
       clientRef.current.off('whiteboardUpdate', handleWhiteboardUpdate);  // Enriched whiteboard items
+      clientRef.current.off('lessonNoteAdded', handleLessonNoteAdded);  // Session lesson notes
       clientRef.current.off('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.off('error', handleError);
       clientRef.current.off('noSpeechDetected', handleNoSpeechDetected);  // Empty PTT reset
@@ -1919,7 +1929,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       tutorSwitchTimeoutRef.current = null;
     }
     setIsSwitchingTutor(false);
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleIncognitoChanged, subtitles]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleLessonNoteAdded, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleIncognitoChanged, subtitles]);
   
   /**
    * Send audio for processing

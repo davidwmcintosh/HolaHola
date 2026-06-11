@@ -24,6 +24,32 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 11, 2026 (late) — UI Director tools: show_vocab_card + add_to_lesson_notes**
+
+### What was built
+
+Two new Daniela tools for the `/chat` Gemini Live voice route, so she can direct the UI mid-conversation:
+
+**`show_vocab_card`** — displays a flash card in the whiteboard panel when Daniela introduces or corrects a word. New `vocab_card` WhiteboardItemType; renders word, definition, optional image, language badge; auto-dismisses after `duration_ms` (default 7000ms).
+
+**`add_to_lesson_notes`** — accumulates session notes in a floating collapsible panel (top-right of the `/chat` screen). Notes are typed as `vocab`, `grammar`, `culture`, or `note` and rendered with color-coded labels. Export button writes `lesson-notes.txt`. Panel auto-opens on first note. Uses a dedicated `lesson_note_added` WS message type (not `whiteboard_update`) so notes accumulate rather than replace.
+
+Full pipeline: `shared/whiteboard-types.ts` → `daniela-function-registry.ts` → `native-fc-handlers.ts` → `streamingVoiceClient.ts` → `useStreamingVoice.ts` → `Whiteboard.tsx` + `StreamingVoiceChat.tsx`.
+
+Tool auto-indexer runs at server start (+100s): both tools will land in `tool_knowledge` + `memory_embeddings` automatically.
+
+No new TypeScript errors from this session. Pre-existing baseline remains 2024 errors in 54 files.
+
+### What's next (remaining UI Director features)
+
+3. Pronunciation feedback loop — `show_pronunciation_score(word_scores[])` — phoneme-by-phoneme color breakdown after user speaks
+4. Grammar correction overlay — `flag_grammar(original, corrected, explanation)` — annotates last utterance inline
+5. Quiz pop-in — `present_quiz(question, options[], correct_index)` — Daniela fires a quick-check mid-session
+6. Web-grounded cultural context — `show_cultural_context(title, text, source_url?)` — Perplexity-grounded culture notes in the UI
+7. Screen spotlight — `spotlight_element(selector, message)` — dim everything except one element for pointing focus
+
+---
+
 **Session: June 11, 2026 — Agent memory topic files migrated to DB; /chat attribution confirmed; thread-weaver explicit entryType**
 
 ### What was built

@@ -16,7 +16,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Loader2, EyeOff, VolumeX, Flag } from "lucide-react";
+import { Mic, MicOff, Loader2, EyeOff, VolumeX, Flag, BookOpen, X, Download } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Message, type User } from "@shared/schema";
@@ -42,6 +42,7 @@ import { setRemediationCallback } from "@/lib/lockoutDiagnostics";
 import { getStreamingVoiceClient } from "@/lib/streamingVoiceClient";
 import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
 import type { VoiceOverride } from "./VoiceLabPanel";
+import type { LessonNote } from "@shared/whiteboard-types";
 
 // ============================================================================
 // STREAMING MODE CONFIGURATION
@@ -325,6 +326,10 @@ export function StreamingVoiceChat({
   
   // Whiteboard hook - tutor-controlled visual teaching aids
   const whiteboard = useWhiteboard();
+
+  // Lesson notes — accumulate throughout the session as Daniela adds them
+  const [lessonNotes, setLessonNotes] = useState<LessonNote[]>([]);
+  const [lessonNotesOpen, setLessonNotesOpen] = useState(false);
   
   // Sync whiteboard items to parent for desktop panel rendering
   const onWhiteboardItemsChangeRef = useRef(onWhiteboardItemsChange);
@@ -995,6 +1000,10 @@ export function StreamingVoiceChat({
               // We need to invalidate first and let messages refresh, then set the ID
               // Since invalidation is async, we'll set lastMessageId in a separate effect
             }
+          },
+          onLessonNoteAdded: (note) => {
+            setLessonNotes(prev => [...prev, note as LessonNote]);
+            setLessonNotesOpen(true);
           },
           onWhiteboardUpdate: (items, shouldClear) => {
             const imageItems = items.filter((item: any) => item.type === 'image' && item.data?.imageUrl);
@@ -3797,6 +3806,81 @@ export function StreamingVoiceChat({
       )}
       {/* Immersive Voice Chat with View Manager - Full Screen */}
       <div className="flex-1 min-h-0 overflow-hidden relative">
+        {/* Lesson Notes Panel — accumulates vocab/grammar/culture notes during the session */}
+        {lessonNotes.length > 0 && (
+          <div className="absolute top-3 right-3 z-40 w-72 max-w-[calc(100vw-1.5rem)]">
+            {lessonNotesOpen ? (
+              <div className="bg-card border rounded-md shadow-md flex flex-col max-h-96">
+                <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0">
+                  <BookOpen className="h-4 w-4 text-blue-500 shrink-0" />
+                  <span className="text-xs font-semibold flex-1">Session Notes ({lessonNotes.length})</span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    data-testid="button-lesson-notes-export"
+                    onClick={() => {
+                      const lines = lessonNotes.map(n => {
+                        const label = n.type.charAt(0).toUpperCase() + n.type.slice(1);
+                        return n.detail ? `[${label}] ${n.content} — ${n.detail}` : `[${label}] ${n.content}`;
+                      });
+                      const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = 'lesson-notes.txt';
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                  >
+                    <Download className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    data-testid="button-lesson-notes-close"
+                    onClick={() => setLessonNotesOpen(false)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+                <ul className="overflow-y-auto p-2 space-y-1.5">
+                  {lessonNotes.map((note) => (
+                    <li
+                      key={note.id}
+                      className="text-xs rounded-md px-2 py-1.5 bg-muted/60"
+                      data-testid={`lesson-note-item-${note.id}`}
+                    >
+                      <span className={`inline-block mr-1.5 font-semibold ${
+                        note.type === 'vocab' ? 'text-blue-500' :
+                        note.type === 'grammar' ? 'text-amber-500' :
+                        note.type === 'culture' ? 'text-emerald-500' : 'text-muted-foreground'
+                      }`}>
+                        {note.type.charAt(0).toUpperCase() + note.type.slice(1)}
+                      </span>
+                      <span className="text-foreground">{note.content}</span>
+                      {note.detail && (
+                        <span className="text-muted-foreground"> — {note.detail}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="shadow-md gap-1.5"
+                data-testid="button-lesson-notes-open"
+                onClick={() => setLessonNotesOpen(true)}
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                <span className="text-xs">Notes ({lessonNotes.length})</span>
+              </Button>
+            )}
+          </div>
+        )}
         <VoiceChatViewManager
           conversationId={conversationId}
           messages={messages}

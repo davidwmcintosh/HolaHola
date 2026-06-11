@@ -97,8 +97,8 @@ import type {
   TextbookSearchItem,
   TextbookPageItem,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isSceneCanvasItem, isSentenceTableItem, isTextbookSearchItem, isTextbookPageItem, isTeachingCardItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions, isDailyPlanItem } from "@shared/whiteboard-types";
-import type { DailyPlanItem, DailyPlanAgendaItem, TeachingCardItem } from "@shared/whiteboard-types";
+import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isSceneCanvasItem, isSentenceTableItem, isTextbookSearchItem, isTextbookPageItem, isTeachingCardItem, isVocabCardItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions, isDailyPlanItem } from "@shared/whiteboard-types";
+import type { DailyPlanItem, DailyPlanAgendaItem, TeachingCardItem, VocabCardItem } from "@shared/whiteboard-types";
 import { SceneCanvas } from "@/components/SceneCanvas";
 import type { CognatePair, FalseFriendOption } from "@shared/whiteboard-types";
 import type { ToneItem } from "@shared/whiteboard-types";
@@ -3905,6 +3905,41 @@ function TextbookSearchItemDisplay({ item, index }: { item: TextbookSearchItem; 
   );
 }
 
+// ─── Vocab Card ───────────────────────────────────────────────────────────────
+
+function VocabCardItemDisplay({ item, index }: { item: VocabCardItem; index: number }) {
+  const { data } = item;
+  return (
+    <div
+      className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300"
+      data-testid={`whiteboard-item-vocab-card-${index}`}
+    >
+      <div className="flex items-center gap-2 pb-1 border-b border-border/50">
+        <BookOpen className="h-4 w-4 text-blue-500 shrink-0" />
+        <span className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+          Vocabulary
+        </span>
+        {data.language && (
+          <span className="ml-auto text-xs text-muted-foreground uppercase">{data.language}</span>
+        )}
+      </div>
+      <div className="flex items-start gap-3">
+        {data.imageUrl && (
+          <img
+            src={data.imageUrl}
+            alt={data.word}
+            className="w-16 h-16 object-cover rounded-md shrink-0"
+          />
+        )}
+        <div className="space-y-1 min-w-0">
+          <p className="text-2xl font-bold text-foreground leading-tight">{data.word}</p>
+          <p className="text-sm text-muted-foreground">{data.definition}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Teaching Card ────────────────────────────────────────────────────────────
 
 function TeachingCardItemDisplay({ item, index }: { item: TeachingCardItem; index: number }) {
@@ -4281,6 +4316,10 @@ const WhiteboardItemDisplay = ({
 
   if (isTeachingCardItem(item)) {
     return <TeachingCardItemDisplay item={item} index={index} />;
+  }
+
+  if (isVocabCardItem(item)) {
+    return <VocabCardItemDisplay item={item} index={index} />;
   }
   
   return <TextItemDisplay item={item} index={index} />;

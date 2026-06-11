@@ -243,6 +243,7 @@ type StreamingEventType =
   | 'glReconnecting'
   | 'glReconnected'
   | 'voiceError'
+  | 'lessonNoteAdded'
   | 'error';
 
 /**
@@ -1275,6 +1276,11 @@ export class StreamingVoiceClient {
         case 'whiteboard_update':
           // Whiteboard content from tutor
           this.emit('whiteboardUpdate', message as StreamingWhiteboardMessage);
+          break;
+
+        case 'lesson_note_added':
+          // Lesson note added by Daniela — accumulates in session notes panel
+          this.emit('lessonNoteAdded', message as { type: string; timestamp: number; note: any });
           break;
           
         case 'vad_speech_started':

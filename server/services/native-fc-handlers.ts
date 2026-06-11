@@ -2608,6 +2608,52 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'VOCAB_CARD': {
+        const vcWord = fn.args.word as string;
+        const vcDefinition = fn.args.definition as string;
+        const vcImageUrl = fn.args.image_url as string | undefined;
+        const vcLanguage = fn.args.language as string | undefined;
+        const vcDurationMs = (fn.args.duration_ms as number | undefined) ?? 7000;
+        console.log(`[Native Function→VocabCard] word="${vcWord}" definition="${vcDefinition}" duration=${vcDurationMs}ms`);
+        this.sendMessage(session.ws, {
+          type: 'whiteboard_update',
+          timestamp: Date.now(),
+          items: [{
+            type: 'vocab_card',
+            id: `vc-${Date.now()}`,
+            content: vcWord,
+            timestamp: Date.now(),
+            data: {
+              word: vcWord,
+              definition: vcDefinition,
+              imageUrl: vcImageUrl,
+              language: vcLanguage,
+              autoDismissMs: vcDurationMs,
+            },
+          }],
+        });
+        break;
+      }
+
+      case 'LESSON_NOTE': {
+        const lnType = (fn.args.type as string | undefined) || 'note';
+        const lnContent = fn.args.content as string;
+        const lnDetail = fn.args.detail as string | undefined;
+        console.log(`[Native Function→LessonNote] type="${lnType}" content="${lnContent}"`);
+        this.sendMessage(session.ws, {
+          type: 'lesson_note_added',
+          timestamp: Date.now(),
+          note: {
+            id: `ln-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            type: lnType,
+            content: lnContent,
+            detail: lnDetail,
+            timestamp: Date.now(),
+          },
+        });
+        break;
+      }
+
       case 'SET_RIGHT_PANE': {
         const rpMode = (fn.args.mode as string | undefined) || 'whiteboard';
         console.log(`[Native Function→SetRightPane] mode=${rpMode}`);

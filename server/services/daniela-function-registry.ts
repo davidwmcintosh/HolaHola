@@ -3820,6 +3820,67 @@ Never use for long explanations — keep it to one thing at a time.`,
       },
     },
   },
+  // === VOCAB CARD ===
+  {
+    legacyType: 'VOCAB_CARD',
+    declaration: {
+      name: "show_vocab_card",
+      description: `Show a vocabulary flash card on the student's screen with a word, definition, and optional image.
+
+Use this mid-conversation to reinforce a word you just introduced or corrected. The card appears instantly without interrupting voice flow and auto-dismisses.
+
+Examples:
+- You introduce "mariposa" → show_vocab_card with word="mariposa", definition="butterfly"
+- Student mispronounces "lluvia" → show the word with definition to anchor it visually
+- Teaching a new phrase → show the phrase with its English meaning
+
+Keep definitions short — one line max. Do NOT use this for grammar rules; use show_teaching_card for those.`,
+      parametersJsonSchema: {
+        type: "object",
+        required: ["word", "definition"],
+        properties: {
+          word: { type: "string", description: "The vocabulary word or phrase in the target language" },
+          definition: { type: "string", description: "Short English definition or translation (one line max)" },
+          image_url: { type: "string", description: "Optional image URL to show alongside the card" },
+          language: { type: "string", description: "Target language code (e.g. 'es', 'fr') — defaults to current session language" },
+          duration_ms: { type: "number", description: "How long to show the card in milliseconds (default: 7000)" },
+        },
+      },
+    },
+  },
+
+  // === LESSON NOTES ===
+  {
+    legacyType: 'LESSON_NOTE',
+    declaration: {
+      name: "add_to_lesson_notes",
+      description: `Add an item to the student's running lesson notes panel — a persistent list that builds up throughout the session.
+
+Use this to capture vocabulary introduced, grammar points corrected, or cultural facts mentioned. The student can export these at session end.
+
+Note types:
+- "vocab": A word or phrase worth remembering (word + translation)
+- "grammar": A grammar rule or correction (rule + brief example)
+- "culture": A cultural fact, idiom origin, or real-world context note
+- "note": Anything else worth capturing
+
+Add notes proactively — not every word, but the ones that came up organically in conversation and are worth keeping. Don't wait to be asked.`,
+      parametersJsonSchema: {
+        type: "object",
+        required: ["type", "content"],
+        properties: {
+          type: {
+            type: "string",
+            enum: ["vocab", "grammar", "culture", "note"],
+            description: "Category of the note",
+          },
+          content: { type: "string", description: "Main text: the word, rule, or fact" },
+          detail: { type: "string", description: "Supporting detail: translation, example sentence, or explanation" },
+        },
+      },
+    },
+  },
+
   // === RIGHT PANE CONTROL ===
   {
     legacyType: 'SET_RIGHT_PANE',

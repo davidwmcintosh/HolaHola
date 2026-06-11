@@ -51,9 +51,52 @@ GET `/api/conversation-memories` now accepts `?entry_type=X` and `?tag=Y` filter
 
 ---
 
-## Backlog — Jun 10, 2026 — /chat UI Director Tools for Daniela
+## Session — Jun 11, 2026 — UI Director: Vocab Flash + Session Lesson Notes
 
-Ideas captured for future build sessions. All 7 are for the `/chat` route — Gemini Live PCM16 pipeline. Daniela fires tools mid-conversation; UI reacts without breaking voice flow.
+### What was built
+
+Two new UI Director tools for the `/chat` Gemini Live voice route. Daniela can fire both mid-conversation without interrupting voice flow.
+
+**1. `show_vocab_card` → VOCAB_CARD**
+
+New whiteboard item type `vocab_card`. Daniela fires this when she introduces or corrects a vocabulary word. A clean flash card renders in the whiteboard panel: large word, definition, optional image, language badge. Auto-dismisses.
+
+Tool parameters: `word` (required), `definition` (required), `image_url?`, `language?`, `duration_ms?` (default 7000ms).
+
+**2. `add_to_lesson_notes` → LESSON_NOTE**
+
+New message type `lesson_note_added` (separate from `whiteboard_update` — notes accumulate, not replace). Daniela fires this proactively throughout the session. A collapsible panel appears in the top-right corner of the `/chat` UI, building a list of notes by type:
+
+- **vocab** — word + translation (blue label)
+- **grammar** — rule + example (amber label)
+- **culture** — fact, idiom origin, context (emerald label)
+- **note** — anything else (muted label)
+
+Export button downloads the full session notes as `lesson-notes.txt`. Panel collapses to a "Notes (N)" button when closed, appears automatically when the first note arrives.
+
+### Pipeline (full stack)
+
+| Layer | File | Change |
+|---|---|---|
+| Type system | `shared/whiteboard-types.ts` | `WhiteboardItemType` += `vocab_card`, `VocabCardItemData`, `VocabCardItem`, `isVocabCardItem`, `LessonNote`, `LessonNoteType` |
+| Tool registry | `server/services/daniela-function-registry.ts` | Added `VOCAB_CARD` + `LESSON_NOTE` entries |
+| Handler | `server/services/native-fc-handlers.ts` | `VOCAB_CARD` case (sends `whiteboard_update`), `LESSON_NOTE` case (sends `lesson_note_added`) |
+| WS client | `client/src/lib/streamingVoiceClient.ts` | `lessonNoteAdded` event in `ClientEventMap`, `case 'lesson_note_added':` dispatch |
+| Voice hook | `client/src/hooks/useStreamingVoice.ts` | `onLessonNoteAdded` callback in `StreamingSessionConfig`, `handleLessonNoteAdded` callback, registered/deregistered |
+| Whiteboard | `client/src/components/Whiteboard.tsx` | `VocabCardItemDisplay` component, rendering case |
+| Chat UI | `client/src/components/StreamingVoiceChat.tsx` | `lessonNotes` state, `LessonNotesPanel` component, export button |
+
+Tool auto-indexer picks up both tools at server start (+100s): `daniela_tool` embedding + `tool_knowledge` row + `tool_knowledge` embedding — all automatic, no manual indexing.
+
+---
+
+## Backlog — Jun 10, 2026 — /chat UI Director Tools for Daniela (remaining)
+
+Ideas queued for future build sessions. All are for the `/chat` route — Gemini Live PCM16 pipeline. Daniela fires tools mid-conversation; UI reacts without breaking voice flow.
+
+**Already built (Jun 11):** `show_vocab_card` and `add_to_lesson_notes` — see session entry above.
+
+**Remaining 5:**
 
 1. **Pronunciation feedback loop** — `show_pronunciation_score(word_scores[])` — after user speaks, Azure Speech (already in stack) scores phonemes; UI renders word-by-word red/yellow/green breakdown. Daniela can say "that 'r' in 'pero' — try again" with visual backup.
 

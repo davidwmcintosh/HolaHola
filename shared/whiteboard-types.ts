@@ -73,7 +73,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'sentence_table' | 'textbook_search' | 'overlay_panel' | 'daily_plan' | 'textbook_page' | 'teaching_card';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'sentence_table' | 'textbook_search' | 'overlay_panel' | 'daily_plan' | 'textbook_page' | 'teaching_card' | 'vocab_card';
 
 /**
  * Drill types for inline micro-exercises
@@ -1107,6 +1107,34 @@ export interface TeachingCardItem extends WhiteboardItemBase {
   data: TeachingCardItemData;
 }
 
+// ─── Vocab Card ───────────────────────────────────────────────────────────────
+
+export interface VocabCardItemData {
+  word: string;
+  definition: string;
+  imageUrl?: string;
+  language?: string;
+  autoDismissMs?: number;
+}
+
+export interface VocabCardItem extends WhiteboardItemBase {
+  type: 'vocab_card';
+  content: string;
+  data: VocabCardItemData;
+}
+
+// ─── Lesson Note ──────────────────────────────────────────────────────────────
+
+export type LessonNoteType = 'vocab' | 'grammar' | 'culture' | 'note';
+
+export interface LessonNote {
+  id: string;
+  type: LessonNoteType;
+  content: string;
+  detail?: string;
+  timestamp: number;
+}
+
 // ─── Overlay Panel ─────────────────────────────────────────────────────────────
 
 /**
@@ -1238,7 +1266,8 @@ export type WhiteboardItem =
   | OverlayPanelItem
   | DailyPlanItem
   | TextbookPageItem
-  | TeachingCardItem;
+  | TeachingCardItem
+  | VocabCardItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -3062,6 +3091,10 @@ export function isTextbookPageItem(item: WhiteboardItem): item is TextbookPageIt
 
 export function isTeachingCardItem(item: WhiteboardItem): item is TeachingCardItem {
   return item.type === 'teaching_card';
+}
+
+export function isVocabCardItem(item: WhiteboardItem): item is VocabCardItem {
+  return item.type === 'vocab_card';
 }
 
 /**
