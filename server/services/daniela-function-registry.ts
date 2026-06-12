@@ -1263,9 +1263,10 @@ Call this when you're done with the grammar drill and want to return to the scen
     legacyType: 'SET_CALENDAR',
     declaration: {
       name: "set_calendar",
-      description: `Show a month calendar on the canvas. Useful for teaching days, dates, months, and scheduling vocabulary.
+      description: `Show a month calendar on the canvas, or remove it. Useful for teaching days, dates, months, and scheduling vocabulary.
 
 The calendar highlights a specific day and/or day-of-week column. Use it with date and calendar vocabulary lessons.
+Pass action="clear" to remove the calendar when the vocabulary segment is done.
 
 Always pass day names in the student's TARGET language. Short 2-letter abbreviations work best.
 
@@ -1275,27 +1276,26 @@ Spanish example:
 French example:
   set_calendar({ month: "mars", monthNumber: 3, year: 2026, dayNames: ["Lu","Ma","Me","Je","Ve","Sa","Di"], highlightDay: 15 })
 
-Japanese example:
-  set_calendar({ month: "3月", monthNumber: 3, year: 2026, dayNames: ["月","火","水","木","金","土","日"], highlightDay: 15, startDow: 0 })
-
 Works standalone (fills the canvas) or alongside an active scene (appears as a side panel).`,
       parametersJsonSchema: {
         type: "object",
         properties: {
-          text: { type: "string", description: "What you say as the calendar appears." },
-          month: { type: "string", description: "Month display name in the target language, e.g. 'marzo', 'mars', '3月'" },
-          monthNumber: { type: "number", description: "Month number 1-12" },
-          year: { type: "number", description: "4-digit year, e.g. 2026" },
-          dayNames: { type: "array", items: { type: "string" }, description: "7 short day-name labels in the target language starting from startDow (Mon-first by default), e.g. ['Lu','Ma','Mi','Ju','Vi','Sa','Do']" },
+          action: { type: "string", enum: ["set", "clear"], description: "Omit or 'set' to show the calendar; 'clear' to remove it." },
+          text: { type: "string", description: "What you say as the calendar appears or is cleared." },
+          month: { type: "string", description: "Month display name in the target language, e.g. 'marzo', 'mars', '3月'. Required when action='set'." },
+          monthNumber: { type: "number", description: "Month number 1-12. Required when action='set'." },
+          year: { type: "number", description: "4-digit year, e.g. 2026. Required when action='set'." },
+          dayNames: { type: "array", items: { type: "string" }, description: "7 short day-name labels in the target language starting from startDow (Mon-first by default), e.g. ['Lu','Ma','Mi','Ju','Vi','Sa','Do']. Required when action='set'." },
           highlightDay: { type: "number", description: "Day of month to highlight (1-31), e.g. 15" },
           highlightDowIndex: { type: "number", description: "0-based index into dayNames array — highlights the entire day-of-week column, e.g. 0 for Monday in a Mon-first calendar" },
           markedDays: { type: "array", items: { type: "number" }, description: "Additional days to mark with a lighter accent, e.g. [1, 8, 15, 22, 29] for every Monday" },
           startDow: { type: "number", description: "First day of week: 1 = Monday (default, most of the world), 0 = Sunday (US, Japan, some others)" },
         },
-        required: ["month", "monthNumber", "year", "dayNames"],
+        required: [],
       },
     },
     buildContinuationResponse: ({ fc }) => {
+      if (fc.args.action === 'clear') return `Calendar cleared.`;
       return `Calendar showing ${fc.args.month} ${fc.args.year}${fc.args.highlightDay ? `, day ${fc.args.highlightDay} highlighted` : ""}. Continue with the vocabulary.`;
     },
   },
@@ -1304,7 +1304,7 @@ Works standalone (fills the canvas) or alongside an active scene (appears as a s
     legacyType: 'SET_BODY_PART',
     declaration: {
       name: "set_body_part",
-      description: `Show a labeled human body diagram on the canvas and highlight specific body parts.
+      description: `Show a labeled human body diagram on the canvas and highlight specific body parts, or remove it.
 Use this for body-part vocabulary lessons at any level.
 
 The diagram shows a front-view human silhouette. Highlighted parts glow and their
@@ -1322,52 +1322,37 @@ Supported part slugs (use EXACTLY these — aliases like "eyes", "hands", "legs"
   feet, left_foot, right_foot
 
 Use labels to pass the target-language name for each highlighted part.
+Pass action="clear" to remove the diagram after the vocabulary segment.
 
 Example for Spanish body-parts lesson:
   set_body_part(
     ["head", "eyes", "nose", "mouth", "ears"],
     { "head":"la cabeza", "eyes":"los ojos", "nose":"la nariz", "mouth":"la boca", "ear":"las orejas" }
-  )
-
-Build up from one part at a time for Novice students; show a group for Intermediate review.`,
+  )`,
       parametersJsonSchema: {
         type: "object",
         properties: {
-          text: { type: "string", description: "What you say as the diagram appears." },
-          parts: { type: "array", items: { type: "string" }, description: "List of part slugs to highlight, e.g. ['head','eyes','nose']" },
+          action: { type: "string", enum: ["set", "clear"], description: "Omit or 'set' to show the diagram; 'clear' to remove it." },
+          text: { type: "string", description: "What you say as the diagram appears or is cleared." },
+          parts: { type: "array", items: { type: "string" }, description: "List of part slugs to highlight, e.g. ['head','eyes','nose']. Required when action='set'." },
           labels: { type: "object", additionalProperties: { type: "string" }, description: "Part slug → target-language label, e.g. { 'head': 'la cabeza', 'eyes': 'los ojos' }" },
           native_labels: { type: "object", additionalProperties: { type: "string" }, description: "Part slug → student's native-language label, e.g. { 'head': 'head', 'eyes': 'eyes' }. Include both so students see the target word and their native word simultaneously." },
         },
-        required: ["parts"],
+        required: [],
       },
     },
     buildContinuationResponse: ({ fc }) => {
+      if (fc.args.action === 'clear') return `Body diagram cleared.`;
       const parts = (fc.args.parts as string[]) ?? [];
       return `Body diagram showing: ${parts.join(', ')}. Continue teaching the vocabulary.`;
     },
   },
 
   {
-    legacyType: 'CLEAR_BODY_DIAGRAM',
-    declaration: {
-      name: "clear_body_diagram",
-      description: `Remove the body diagram from the canvas. Call this after the body-parts vocabulary segment.`,
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          text: { type: "string", description: "What you say as the diagram is cleared." },
-        },
-        required: [],
-      },
-    },
-    buildContinuationResponse: () => `Body diagram cleared.`,
-  },
-
-  {
     legacyType: 'SET_FACE_PART',
     declaration: {
       name: "set_face_part",
-      description: `Show a labeled face close-up diagram and highlight specific facial features.
+      description: `Show a labeled face close-up diagram and highlight specific facial features, or remove it.
 Use this when teaching face-part vocabulary (nose, lips, chin, cheeks, eyebrows, teeth, etc.).
 
 The diagram shows a large front-view face. Highlighted parts glow and labels appear below.
@@ -1382,6 +1367,7 @@ Supported part slugs:
   left_ear, right_ear, ears
 
 Use labels to pass the target-language name for each highlighted part.
+Pass action="clear" to remove the face diagram after the vocabulary segment.
 
 Example for Spanish face lesson:
   set_face_part(
@@ -1391,41 +1377,27 @@ Example for Spanish face lesson:
       parametersJsonSchema: {
         type: "object",
         properties: {
-          text: { type: "string", description: "What you say as the diagram appears." },
-          parts: { type: "array", items: { type: "string" }, description: "List of face part slugs to highlight, e.g. ['nose','lips','chin']" },
+          action: { type: "string", enum: ["set", "clear"], description: "Omit or 'set' to show the diagram; 'clear' to remove it." },
+          text: { type: "string", description: "What you say as the diagram appears or is cleared." },
+          parts: { type: "array", items: { type: "string" }, description: "List of face part slugs to highlight, e.g. ['nose','lips','chin']. Required when action='set'." },
           labels: { type: "object", additionalProperties: { type: "string" }, description: "Part slug → target-language label, e.g. { 'nose': 'la nariz', 'lips': 'los labios' }" },
           native_labels: { type: "object", additionalProperties: { type: "string" }, description: "Part slug → student's native-language label, e.g. { 'nose': 'nose', 'lips': 'lips' }. Include both so students see both languages simultaneously." },
         },
-        required: ["parts"],
+        required: [],
       },
     },
     buildContinuationResponse: ({ fc }) => {
+      if (fc.args.action === 'clear') return `Face diagram cleared.`;
       const parts = (fc.args.parts as string[]) ?? [];
       return `Face diagram showing: ${parts.join(', ')}. Continue teaching the vocabulary.`;
     },
   },
 
   {
-    legacyType: 'CLEAR_FACE_DIAGRAM',
-    declaration: {
-      name: "clear_face_diagram",
-      description: `Remove the face close-up diagram from the canvas.`,
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          text: { type: "string", description: "What you say as the diagram is cleared." },
-        },
-        required: [],
-      },
-    },
-    buildContinuationResponse: () => `Face diagram cleared.`,
-  },
-
-  {
     legacyType: 'SET_HAND_PART',
     declaration: {
       name: "set_hand_part",
-      description: `Show a labeled hand close-up diagram and highlight specific hand parts.
+      description: `Show a labeled hand close-up diagram and highlight specific hand parts, or remove it.
 Use this when teaching hand/finger vocabulary (thumb, fingers, palm, knuckles, fingernails, wrist).
 
 The diagram shows a dorsal (back-of-hand) view. Highlighted parts glow and labels appear below.
@@ -1437,6 +1409,7 @@ Supported part slugs:
   palm, wrist, knuckles, fingernails
 
 Use labels to pass the target-language name for each highlighted part.
+Pass action="clear" to remove the hand diagram after the vocabulary segment.
 
 Example for Spanish hand lesson:
   set_hand_part(
@@ -1446,42 +1419,28 @@ Example for Spanish hand lesson:
       parametersJsonSchema: {
         type: "object",
         properties: {
-          text: { type: "string", description: "What you say as the diagram appears." },
-          parts: { type: "array", items: { type: "string" }, description: "List of hand part slugs to highlight, e.g. ['thumb','index_finger','palm']" },
+          action: { type: "string", enum: ["set", "clear"], description: "Omit or 'set' to show the diagram; 'clear' to remove it." },
+          text: { type: "string", description: "What you say as the diagram appears or is cleared." },
+          parts: { type: "array", items: { type: "string" }, description: "List of hand part slugs to highlight, e.g. ['thumb','index_finger','palm']. Required when action='set'." },
           labels: { type: "object", additionalProperties: { type: "string" }, description: "Part slug → target-language label, e.g. { 'thumb': 'el pulgar', 'palm': 'la palma' }" },
           native_labels: { type: "object", additionalProperties: { type: "string" }, description: "Part slug → student's native-language label, e.g. { 'thumb': 'thumb', 'palm': 'palm' }. Include both so students see both languages simultaneously." },
           hand: { type: "string", enum: ["left", "right"], description: "Which hand to show (default: right)" },
         },
-        required: ["parts"],
+        required: [],
       },
     },
     buildContinuationResponse: ({ fc }) => {
+      if (fc.args.action === 'clear') return `Hand diagram cleared.`;
       const parts = (fc.args.parts as string[]) ?? [];
       return `Hand diagram showing: ${parts.join(', ')}. Continue teaching the vocabulary.`;
     },
   },
 
   {
-    legacyType: 'CLEAR_HAND_DIAGRAM',
-    declaration: {
-      name: "clear_hand_diagram",
-      description: `Remove the hand close-up diagram from the canvas.`,
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          text: { type: "string", description: "What you say as the diagram is cleared." },
-        },
-        required: [],
-      },
-    },
-    buildContinuationResponse: () => `Hand diagram cleared.`,
-  },
-
-  {
     legacyType: 'SET_THERMOMETER',
     declaration: {
       name: "set_thermometer",
-      description: `Show an animated thermometer on the canvas set to a specific temperature.
+      description: `Show an animated thermometer on the canvas set to a specific temperature, or remove it.
 The mercury fill animates up/down and changes color (blue ≤ 0°C, green 1-15, orange 16-30, red > 30).
 
 Use this when teaching weather/temperature vocabulary:
@@ -1489,44 +1448,31 @@ Use this when teaching weather/temperature vocabulary:
   "Hace calor" → set_thermometer(35, "Hace mucho calor — It's very hot")
   "Está fresco" → set_thermometer(12, "Está fresco — It's cool")
 
-Always give temperature in Celsius. Set showFahrenheit: true for US audiences.`,
+Always give temperature in Celsius. Set showFahrenheit: true for US audiences.
+Pass action="clear" to remove the thermometer when the vocabulary segment is done.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
-          text: { type: "string", description: "What you say as the thermometer appears." },
-          celsius: { type: "number", description: "Temperature in Celsius, range -30 to 60." },
+          action: { type: "string", enum: ["set", "clear"], description: "Omit or 'set' to show the thermometer; 'clear' to remove it from the canvas." },
+          text: { type: "string", description: "What you say as the thermometer appears or is cleared." },
+          celsius: { type: "number", description: "Temperature in Celsius, range -30 to 60. Required when action='set'." },
           labelText: { type: "string", description: "Optional spoken description shown below the thermometer, e.g. 'Hace mucho calor — It\\'s very hot'" },
           showFahrenheit: { type: "boolean", description: "If true, also show the Fahrenheit equivalent. Default: false" },
-        },
-        required: ["celsius"],
-      },
-    },
-    buildContinuationResponse: ({ fc }) => {
-      return `Thermometer set to ${fc.args.celsius}°C. Continue with weather/temperature vocabulary.`;
-    },
-  },
-
-  {
-    legacyType: 'CLEAR_THERMOMETER',
-    declaration: {
-      name: "clear_thermometer",
-      description: `Remove the thermometer from the canvas.`,
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          text: { type: "string", description: "What you say as the thermometer is cleared." },
         },
         required: [],
       },
     },
-    buildContinuationResponse: () => `Thermometer cleared.`,
+    buildContinuationResponse: ({ fc }) => {
+      if (fc.args.action === 'clear') return `Thermometer cleared.`;
+      return `Thermometer set to ${fc.args.celsius}°C. Continue with weather/temperature vocabulary.`;
+    },
   },
 
   {
     legacyType: 'SET_EMOTION',
     declaration: {
       name: "set_emotion",
-      description: `Show an expressive face on the canvas to teach emotion vocabulary.
+      description: `Show an expressive face on the canvas to teach emotion vocabulary, or remove it.
 The face is an SVG character — no image generation needed.
 
 Available emotions (pass the slug exactly):
@@ -1538,98 +1484,67 @@ Examples:
   set_emotion("happy", "feliz")       → smiling yellow face + label "feliz"
   set_emotion("sad", "triste")        → frowning blue face + label "triste"
   set_emotion("excited", "emocionado")
-  set_emotion("afraid", "asustado")
-  set_emotion("confused", "confundido")
 
-Rotate through emotions to practice a set: show each face, say the word, ask the student to repeat.`,
+Rotate through emotions to practice a set: show each face, say the word, ask the student to repeat.
+Pass action="clear" to remove the emotion face when done.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
-          text: { type: "string", description: "What you say — include the emotion word naturally." },
-          emotion: { type: "string", description: "Emotion slug: happy|excited|sad|angry|surprised|afraid|confused|tired|nervous|disgusted|bored" },
+          action: { type: "string", enum: ["set", "clear"], description: "Omit or 'set' to show the emotion face; 'clear' to remove it." },
+          text: { type: "string", description: "What you say — include the emotion word naturally, or what you say as it's cleared." },
+          emotion: { type: "string", description: "Emotion slug: happy|excited|sad|angry|surprised|afraid|confused|tired|nervous|disgusted|bored. Required when action='set'." },
           label: { type: "string", description: "Target-language word for the emotion, e.g. 'feliz', 'triste', 'enojado'" },
-        },
-        required: ["emotion"],
-      },
-    },
-    buildContinuationResponse: ({ fc }) => {
-      return `Emotion face showing: ${fc.args.emotion}${fc.args.label ? ` (${fc.args.label})` : ''}. Continue teaching emotion vocabulary.`;
-    },
-  },
-
-  {
-    legacyType: 'CLEAR_EMOTION',
-    declaration: {
-      name: "clear_emotion",
-      description: `Remove the emotion face from the canvas.`,
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          text: { type: "string", description: "What you say as the emotion face is cleared." },
         },
         required: [],
       },
     },
-    buildContinuationResponse: () => `Emotion face cleared.`,
+    buildContinuationResponse: ({ fc }) => {
+      if (fc.args.action === 'clear') return `Emotion face cleared.`;
+      return `Emotion face showing: ${fc.args.emotion}${fc.args.label ? ` (${fc.args.label})` : ''}. Continue teaching emotion vocabulary.`;
+    },
   },
 
   {
     legacyType: 'SET_WEATHER',
     declaration: {
       name: "set_weather",
-      description: `Show a weather condition icon on the canvas to teach weather vocabulary.
+      description: `Show a weather condition icon on the canvas to teach weather vocabulary, or remove it.
 The icon is an SVG — no image generation needed.
 
 Available conditions (pass the slug exactly):
   sunny, cloudy, partly_cloudy, rainy, stormy, snowy, windy, foggy, hot, cold
 
 Background color adapts automatically (sunny = warm yellow, rainy = grey-blue, snowy = icy blue, etc.)
-
-Always pass the target-language description as label.
+Pass action="clear" to remove the weather icon when the vocabulary segment is done.
 
 Examples:
   set_weather("sunny", "hace sol")
   set_weather("rainy", "está lloviendo")
   set_weather("stormy", "hay tormenta")
-  set_weather("snowy", "está nevando", -3)      ← celsius optional
-  set_weather("hot", "hace mucho calor", 38)`,
+  set_weather("snowy", "está nevando", -3)      ← celsius optional`,
       parametersJsonSchema: {
         type: "object",
         properties: {
-          text: { type: "string", description: "What you say as the weather icon appears." },
-          condition: { type: "string", description: "Weather slug: sunny|cloudy|partly_cloudy|rainy|stormy|snowy|windy|foggy|hot|cold" },
+          action: { type: "string", enum: ["set", "clear"], description: "Omit or 'set' to show the weather icon; 'clear' to remove it." },
+          text: { type: "string", description: "What you say as the weather icon appears or is cleared." },
+          condition: { type: "string", description: "Weather slug: sunny|cloudy|partly_cloudy|rainy|stormy|snowy|windy|foggy|hot|cold. Required when action='set'." },
           label: { type: "string", description: "Target-language weather description, e.g. 'hace sol', 'está lloviendo', 'nieva'" },
           celsius: { type: "number", description: "Optional temperature in Celsius to show as a badge." },
-        },
-        required: ["condition"],
-      },
-    },
-    buildContinuationResponse: ({ fc }) => {
-      return `Weather icon showing: ${fc.args.condition}${fc.args.label ? ` (${fc.args.label})` : ''}. Continue with weather vocabulary.`;
-    },
-  },
-
-  {
-    legacyType: 'CLEAR_WEATHER',
-    declaration: {
-      name: "clear_weather",
-      description: `Remove the weather icon from the canvas.`,
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          text: { type: "string", description: "What you say as the weather icon is cleared." },
         },
         required: [],
       },
     },
-    buildContinuationResponse: () => `Weather icon cleared.`,
+    buildContinuationResponse: ({ fc }) => {
+      if (fc.args.action === 'clear') return `Weather icon cleared.`;
+      return `Weather icon showing: ${fc.args.condition}${fc.args.label ? ` (${fc.args.label})` : ''}. Continue with weather vocabulary.`;
+    },
   },
 
   {
     legacyType: 'HIGHLIGHT_COUNTRY',
     declaration: {
       name: "highlight_country",
-      description: `Show a map of Spanish-speaking countries and highlight one or more of them.
+      description: `Show a map of Spanish-speaking countries and highlight one or more of them, or remove the map.
 The map covers Latin America + Spain + the Philippines + Equatorial Guinea.
 
 Use this for geography, cultural, and sociolinguistic vocabulary:
@@ -1644,55 +1559,23 @@ Available country slugs:
   equatorial_guinea, philippines, western_sahara
 
 Pass labels as the country's name in the target language (or translation if teaching that vocabulary).
-
-Example:
-  highlight_country(["mexico","colombia","argentina"], { "mexico":"México","colombia":"Colombia","argentina":"Argentina" })`,
+Pass action="clear" to remove the map when done.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
-          text: { type: "string", description: "What you say as the map appears." },
-          countries: { type: "array", items: { type: "string" }, description: "List of country slugs to highlight, e.g. ['mexico','spain','colombia']" },
+          action: { type: "string", enum: ["highlight", "clear"], description: "Omit or 'highlight' to show the map; 'clear' to remove it." },
+          text: { type: "string", description: "What you say as the map appears or is cleared." },
+          countries: { type: "array", items: { type: "string" }, description: "List of country slugs to highlight, e.g. ['mexico','spain','colombia']. Required when action='highlight'." },
           labels: { type: "object", additionalProperties: { type: "string" }, description: "Country slug → target-language label, e.g. { 'mexico': 'México', 'spain': 'España' }" },
         },
-        required: ["countries"],
+        required: [],
       },
     },
     buildContinuationResponse: ({ fc }) => {
+      if (fc.args.action === 'clear') return `World map cleared.`;
       const countries = (fc.args.countries as string[]) ?? [];
       return `World map highlighting: ${countries.join(', ')}. Continue with geography/cultural vocabulary.`;
     },
-  },
-
-  {
-    legacyType: 'CLEAR_WORLD_MAP',
-    declaration: {
-      name: "clear_world_map",
-      description: `Remove the world map from the canvas.`,
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          text: { type: "string", description: "What you say as the map is cleared." },
-        },
-        required: [],
-      },
-    },
-    buildContinuationResponse: () => `World map cleared.`,
-  },
-
-  {
-    legacyType: 'CLEAR_CALENDAR',
-    declaration: {
-      name: "clear_calendar",
-      description: `Remove the calendar from the canvas. Call this when the date/calendar vocabulary segment is done.`,
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          text: { type: "string", description: "What you say as the calendar is cleared." },
-        },
-        required: [],
-      },
-    },
-    buildContinuationResponse: () => `Calendar cleared.`,
   },
 
   // === IMMERSIVE MODE ===

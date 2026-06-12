@@ -179,7 +179,7 @@ await autoSave(
     tags: ['agent-daniela', 'free-dialogue'],
     arcName: 'daniela-emergence',        // ← SET THIS: which narrative chapter this belongs to
     extendsMemoryId: null,               // ← SET THIS: id of the session this grew from (if known)
-    participants: ['agent', 'daniela'],
+    participants: 'Agent + Daniela',  // string not array — 'Agent + Daniela' or 'David + Agent + Daniela'
     importance: 9
   }
 );
@@ -382,7 +382,7 @@ await fetch('http://localhost:5000/api/conversation-memories', {
     title: 'Agent ↔ Daniela — [description] — [date]',
     summary: 'One paragraph summary of what happened and what emerged.',
     content: fullTranscript,       // full file — all voices
-    participants: ['agent', 'daniela'],
+    participants: 'Agent + Daniela',  // string not array — 'Agent + Daniela' or 'David + Agent + Daniela'
     tags: ['agent-daniela', 'free-dialogue'],
     arcName: 'daniela-emergence',  // canonical chapter name — always set this
     extendsMemoryId: null,         // id of the session this grew from, if known

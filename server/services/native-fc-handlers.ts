@@ -1603,6 +1603,16 @@ export class NativeFunctionCallHandler {
       }
 
       case 'SET_CALENDAR': {
+        const calText = fn.args.text as string | undefined;
+        if (calText && !session.functionCallText) session.functionCallText = calText;
+        // action="clear" → remove calendar
+        if (fn.args.action === 'clear') {
+          if (session.sceneCanvas) delete session.sceneCanvas.calendarData;
+          const clearCalUpdate = { type: 'whiteboard_update' as const, timestamp: Date.now(), items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '', data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_calendar' as const } }] };
+          if (session.firstAudioSent) { this.sendMessage(session.ws, clearCalUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearCalUpdate); }
+          console.log('[Native Function→SetCalendar] Cleared');
+          break;
+        }
         const calMonth = fn.args.month as string | undefined;
         const calMonthNumber = fn.args.monthNumber as number | undefined;
         const calYear = fn.args.year as number | undefined;
@@ -1611,8 +1621,6 @@ export class NativeFunctionCallHandler {
         const calHighlightDowIndex = fn.args.highlightDowIndex as number | undefined;
         const calMarkedDays = fn.args.markedDays as number[] | undefined;
         const calStartDow = fn.args.startDow as number | undefined;
-        const calText = fn.args.text as string | undefined;
-        if (calText && !session.functionCallText) session.functionCallText = calText;
         if (!calMonth || !calMonthNumber || !calYear || !calDayNames?.length) {
           console.warn('[Native Function→SetCalendar] Missing required calendar data — skipping');
           break;
@@ -1621,84 +1629,35 @@ export class NativeFunctionCallHandler {
           session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
         }
         session.sceneCanvas.calendarData = {
-          month: calMonth,
-          monthNumber: calMonthNumber,
-          year: calYear,
-          dayNames: calDayNames,
-          highlightDay: calHighlightDay,
-          highlightDowIndex: calHighlightDowIndex,
-          markedDays: calMarkedDays,
-          startDow: calStartDow,
+          month: calMonth, monthNumber: calMonthNumber, year: calYear, dayNames: calDayNames,
+          highlightDay: calHighlightDay, highlightDowIndex: calHighlightDowIndex, markedDays: calMarkedDays, startDow: calStartDow,
         };
         const calUpdate = {
-          type: 'whiteboard_update' as const,
-          timestamp: Date.now(),
-          items: [{
-            id: 'scene-canvas-active',
-            type: 'scene_canvas',
-            content: `${calMonth} ${calYear}`,
-            data: {
-              environment: session.sceneCanvas.environment,
-              environmentImageUrl: session.sceneCanvas.environmentImageUrl,
-              environmentLabel: session.sceneCanvas.environmentLabel,
-              props: [...(session.sceneCanvas.props || [])],
-              clockTime: session.sceneCanvas.clockTime,
-              calendarData: session.sceneCanvas.calendarData,
-              canvasAction: 'set_calendar' as const,
-            },
-          }],
+          type: 'whiteboard_update' as const, timestamp: Date.now(),
+          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: `${calMonth} ${calYear}`,
+            data: { environment: session.sceneCanvas.environment, environmentImageUrl: session.sceneCanvas.environmentImageUrl, environmentLabel: session.sceneCanvas.environmentLabel, props: [...(session.sceneCanvas.props || [])], clockTime: session.sceneCanvas.clockTime, calendarData: session.sceneCanvas.calendarData, canvasAction: 'set_calendar' as const } }],
         };
-        if (session.firstAudioSent) {
-          this.sendMessage(session.ws, calUpdate);
-        } else {
-          if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
-          session.pendingWhiteboardUpdates.push(calUpdate);
-        }
+        if (session.firstAudioSent) { this.sendMessage(session.ws, calUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(calUpdate); }
         console.log(`[Native Function→SetCalendar] ${calMonth} ${calYear}${calHighlightDay ? `, day ${calHighlightDay}` : ''}`);
-        break;
-      }
-
-      case 'CLEAR_CALENDAR': {
-        const clearCalText = fn.args.text as string | undefined;
-        if (clearCalText && !session.functionCallText) session.functionCallText = clearCalText;
-        if (session.sceneCanvas) {
-          delete session.sceneCanvas.calendarData;
-        }
-        const clearCalUpdate = {
-          type: 'whiteboard_update' as const,
-          timestamp: Date.now(),
-          items: [{
-            id: 'scene-canvas-active',
-            type: 'scene_canvas',
-            content: '',
-            data: {
-              environment: session.sceneCanvas?.environment || '',
-              environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '',
-              environmentLabel: session.sceneCanvas?.environmentLabel || '',
-              props: [...(session.sceneCanvas?.props || [])],
-              clockTime: session.sceneCanvas?.clockTime,
-              canvasAction: 'clear_calendar' as const,
-            },
-          }],
-        };
-        if (session.firstAudioSent) {
-          this.sendMessage(session.ws, clearCalUpdate);
-        } else {
-          if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
-          session.pendingWhiteboardUpdates.push(clearCalUpdate);
-        }
-        console.log('[Native Function→ClearCalendar] Calendar cleared');
         break;
       }
 
       // ─── Phase 2 Visual Canvas Handlers ───────────────────────────────────
 
       case 'SET_BODY_PART': {
+        const bodyText = fn.args.text as string | undefined;
+        if (bodyText && !session.functionCallText) session.functionCallText = bodyText;
+        // action="clear" → remove body diagram
+        if (fn.args.action === 'clear') {
+          if (session.sceneCanvas) delete session.sceneCanvas.bodyDiagram;
+          const clearBodyUpdate = { type: 'whiteboard_update' as const, timestamp: Date.now(), items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '', data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_body_diagram' as const } }] };
+          if (session.firstAudioSent) { this.sendMessage(session.ws, clearBodyUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearBodyUpdate); }
+          console.log('[Native Function→SetBodyPart] Cleared');
+          break;
+        }
         const bodyParts = fn.args.parts as string[] | undefined;
         const bodyLabels = fn.args.labels as Record<string, string> | undefined;
         const bodyNativeLabels = fn.args.native_labels as Record<string, string> | undefined;
-        const bodyText = fn.args.text as string | undefined;
-        if (bodyText && !session.functionCallText) session.functionCallText = bodyText;
         if (!bodyParts?.length) { console.warn('[Native Function→SetBodyPart] Missing parts — skipping'); break; }
         if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
         session.sceneCanvas.bodyDiagram = { highlightParts: bodyParts, labels: bodyLabels, nativeLabels: bodyNativeLabels };
@@ -1712,26 +1671,20 @@ export class NativeFunctionCallHandler {
         break;
       }
 
-      case 'CLEAR_BODY_DIAGRAM': {
-        const clearBodyText = fn.args.text as string | undefined;
-        if (clearBodyText && !session.functionCallText) session.functionCallText = clearBodyText;
-        if (session.sceneCanvas) delete session.sceneCanvas.bodyDiagram;
-        const clearBodyUpdate = {
-          type: 'whiteboard_update' as const, timestamp: Date.now(),
-          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '',
-            data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_body_diagram' as const } }],
-        };
-        if (session.firstAudioSent) { this.sendMessage(session.ws, clearBodyUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearBodyUpdate); }
-        console.log('[Native Function→ClearBodyDiagram] Cleared');
-        break;
-      }
-
       case 'SET_FACE_PART': {
+        const faceText = fn.args.text as string | undefined;
+        if (faceText && !session.functionCallText) session.functionCallText = faceText;
+        // action="clear" → remove face diagram
+        if (fn.args.action === 'clear') {
+          if (session.sceneCanvas) delete session.sceneCanvas.faceDiagram;
+          const clearFaceUpdate = { type: 'whiteboard_update' as const, timestamp: Date.now(), items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '', data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_face_diagram' as const } }] };
+          if (session.firstAudioSent) { this.sendMessage(session.ws, clearFaceUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearFaceUpdate); }
+          console.log('[Native Function→SetFacePart] Cleared');
+          break;
+        }
         const faceParts = fn.args.parts as string[] | undefined;
         const faceLabels = fn.args.labels as Record<string, string> | undefined;
         const faceNativeLabels = fn.args.native_labels as Record<string, string> | undefined;
-        const faceText = fn.args.text as string | undefined;
-        if (faceText && !session.functionCallText) session.functionCallText = faceText;
         if (!faceParts?.length) { console.warn('[Native Function→SetFacePart] Missing parts — skipping'); break; }
         if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
         session.sceneCanvas.faceDiagram = { highlightParts: faceParts, labels: faceLabels, nativeLabels: faceNativeLabels };
@@ -1745,27 +1698,21 @@ export class NativeFunctionCallHandler {
         break;
       }
 
-      case 'CLEAR_FACE_DIAGRAM': {
-        const clearFaceText = fn.args.text as string | undefined;
-        if (clearFaceText && !session.functionCallText) session.functionCallText = clearFaceText;
-        if (session.sceneCanvas) delete session.sceneCanvas.faceDiagram;
-        const clearFaceUpdate = {
-          type: 'whiteboard_update' as const, timestamp: Date.now(),
-          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '',
-            data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_face_diagram' as const } }],
-        };
-        if (session.firstAudioSent) { this.sendMessage(session.ws, clearFaceUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearFaceUpdate); }
-        console.log('[Native Function→ClearFaceDiagram] Cleared');
-        break;
-      }
-
       case 'SET_HAND_PART': {
+        const handText = fn.args.text as string | undefined;
+        if (handText && !session.functionCallText) session.functionCallText = handText;
+        // action="clear" → remove hand diagram
+        if (fn.args.action === 'clear') {
+          if (session.sceneCanvas) delete session.sceneCanvas.handDiagram;
+          const clearHandUpdate = { type: 'whiteboard_update' as const, timestamp: Date.now(), items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '', data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_hand_diagram' as const } }] };
+          if (session.firstAudioSent) { this.sendMessage(session.ws, clearHandUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearHandUpdate); }
+          console.log('[Native Function→SetHandPart] Cleared');
+          break;
+        }
         const handParts = fn.args.parts as string[] | undefined;
         const handLabels = fn.args.labels as Record<string, string> | undefined;
         const handNativeLabels = fn.args.native_labels as Record<string, string> | undefined;
         const handSide = fn.args.hand as 'left' | 'right' | undefined;
-        const handText = fn.args.text as string | undefined;
-        if (handText && !session.functionCallText) session.functionCallText = handText;
         if (!handParts?.length) { console.warn('[Native Function→SetHandPart] Missing parts — skipping'); break; }
         if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
         session.sceneCanvas.handDiagram = { highlightParts: handParts, labels: handLabels, nativeLabels: handNativeLabels, hand: handSide ?? 'right' };
@@ -1779,26 +1726,20 @@ export class NativeFunctionCallHandler {
         break;
       }
 
-      case 'CLEAR_HAND_DIAGRAM': {
-        const clearHandText = fn.args.text as string | undefined;
-        if (clearHandText && !session.functionCallText) session.functionCallText = clearHandText;
-        if (session.sceneCanvas) delete session.sceneCanvas.handDiagram;
-        const clearHandUpdate = {
-          type: 'whiteboard_update' as const, timestamp: Date.now(),
-          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '',
-            data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_hand_diagram' as const } }],
-        };
-        if (session.firstAudioSent) { this.sendMessage(session.ws, clearHandUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearHandUpdate); }
-        console.log('[Native Function→ClearHandDiagram] Cleared');
-        break;
-      }
-
       case 'SET_THERMOMETER': {
+        const thermText = fn.args.text as string | undefined;
+        if (thermText && !session.functionCallText) session.functionCallText = thermText;
+        // action="clear" → remove thermometer
+        if (fn.args.action === 'clear') {
+          if (session.sceneCanvas) delete session.sceneCanvas.thermometerData;
+          const clearThermUpdate = { type: 'whiteboard_update' as const, timestamp: Date.now(), items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '', data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_thermometer' as const } }] };
+          if (session.firstAudioSent) { this.sendMessage(session.ws, clearThermUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearThermUpdate); }
+          console.log('[Native Function→SetThermometer] Cleared');
+          break;
+        }
         const thermCelsius = fn.args.celsius as number | undefined;
         const thermLabel = fn.args.labelText as string | undefined;
         const thermFahrenheit = fn.args.showFahrenheit as boolean | undefined;
-        const thermText = fn.args.text as string | undefined;
-        if (thermText && !session.functionCallText) session.functionCallText = thermText;
         if (thermCelsius === undefined) { console.warn('[Native Function→SetThermometer] Missing celsius — skipping'); break; }
         if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
         session.sceneCanvas.thermometerData = { celsius: thermCelsius, labelText: thermLabel, showFahrenheit: thermFahrenheit };
@@ -1812,25 +1753,19 @@ export class NativeFunctionCallHandler {
         break;
       }
 
-      case 'CLEAR_THERMOMETER': {
-        const clearThermText = fn.args.text as string | undefined;
-        if (clearThermText && !session.functionCallText) session.functionCallText = clearThermText;
-        if (session.sceneCanvas) delete session.sceneCanvas.thermometerData;
-        const clearThermUpdate = {
-          type: 'whiteboard_update' as const, timestamp: Date.now(),
-          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '',
-            data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_thermometer' as const } }],
-        };
-        if (session.firstAudioSent) { this.sendMessage(session.ws, clearThermUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearThermUpdate); }
-        console.log('[Native Function→ClearThermometer] Cleared');
-        break;
-      }
-
       case 'SET_EMOTION': {
-        const emotionSlug = fn.args.emotion as string | undefined;
-        const emotionLabel = fn.args.label as string | undefined;
         const emotionText = fn.args.text as string | undefined;
         if (emotionText && !session.functionCallText) session.functionCallText = emotionText;
+        // action="clear" → remove emotion face
+        if (fn.args.action === 'clear') {
+          if (session.sceneCanvas) delete session.sceneCanvas.emotionData;
+          const clearEmotionUpdate = { type: 'whiteboard_update' as const, timestamp: Date.now(), items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '', data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_emotion' as const } }] };
+          if (session.firstAudioSent) { this.sendMessage(session.ws, clearEmotionUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearEmotionUpdate); }
+          console.log('[Native Function→SetEmotion] Cleared');
+          break;
+        }
+        const emotionSlug = fn.args.emotion as string | undefined;
+        const emotionLabel = fn.args.label as string | undefined;
         if (!emotionSlug) { console.warn('[Native Function→SetEmotion] Missing emotion slug — skipping'); break; }
         if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
         session.sceneCanvas.emotionData = { emotion: emotionSlug, label: emotionLabel };
@@ -1844,26 +1779,20 @@ export class NativeFunctionCallHandler {
         break;
       }
 
-      case 'CLEAR_EMOTION': {
-        const clearEmotionText = fn.args.text as string | undefined;
-        if (clearEmotionText && !session.functionCallText) session.functionCallText = clearEmotionText;
-        if (session.sceneCanvas) delete session.sceneCanvas.emotionData;
-        const clearEmotionUpdate = {
-          type: 'whiteboard_update' as const, timestamp: Date.now(),
-          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '',
-            data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_emotion' as const } }],
-        };
-        if (session.firstAudioSent) { this.sendMessage(session.ws, clearEmotionUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearEmotionUpdate); }
-        console.log('[Native Function→ClearEmotion] Cleared');
-        break;
-      }
-
       case 'SET_WEATHER': {
+        const weatherText = fn.args.text as string | undefined;
+        if (weatherText && !session.functionCallText) session.functionCallText = weatherText;
+        // action="clear" → remove weather icon
+        if (fn.args.action === 'clear') {
+          if (session.sceneCanvas) delete session.sceneCanvas.weatherData;
+          const clearWeatherUpdate = { type: 'whiteboard_update' as const, timestamp: Date.now(), items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '', data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_weather' as const } }] };
+          if (session.firstAudioSent) { this.sendMessage(session.ws, clearWeatherUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearWeatherUpdate); }
+          console.log('[Native Function→SetWeather] Cleared');
+          break;
+        }
         const weatherCondition = fn.args.condition as string | undefined;
         const weatherLabel = fn.args.label as string | undefined;
         const weatherCelsius = fn.args.celsius as number | undefined;
-        const weatherText = fn.args.text as string | undefined;
-        if (weatherText && !session.functionCallText) session.functionCallText = weatherText;
         if (!weatherCondition) { console.warn('[Native Function→SetWeather] Missing condition — skipping'); break; }
         if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
         session.sceneCanvas.weatherData = { condition: weatherCondition, label: weatherLabel, celsius: weatherCelsius };
@@ -1877,25 +1806,19 @@ export class NativeFunctionCallHandler {
         break;
       }
 
-      case 'CLEAR_WEATHER': {
-        const clearWeatherText = fn.args.text as string | undefined;
-        if (clearWeatherText && !session.functionCallText) session.functionCallText = clearWeatherText;
-        if (session.sceneCanvas) delete session.sceneCanvas.weatherData;
-        const clearWeatherUpdate = {
-          type: 'whiteboard_update' as const, timestamp: Date.now(),
-          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '',
-            data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_weather' as const } }],
-        };
-        if (session.firstAudioSent) { this.sendMessage(session.ws, clearWeatherUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearWeatherUpdate); }
-        console.log('[Native Function→ClearWeather] Cleared');
-        break;
-      }
-
       case 'HIGHLIGHT_COUNTRY': {
-        const mapCountries = fn.args.countries as string[] | undefined;
-        const mapLabels = fn.args.labels as Record<string, string> | undefined;
         const mapText = fn.args.text as string | undefined;
         if (mapText && !session.functionCallText) session.functionCallText = mapText;
+        // action="clear" → remove world map
+        if (fn.args.action === 'clear') {
+          if (session.sceneCanvas) delete session.sceneCanvas.worldMapData;
+          const clearMapUpdate = { type: 'whiteboard_update' as const, timestamp: Date.now(), items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '', data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_world_map' as const } }] };
+          if (session.firstAudioSent) { this.sendMessage(session.ws, clearMapUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearMapUpdate); }
+          console.log('[Native Function→HighlightCountry] Cleared');
+          break;
+        }
+        const mapCountries = fn.args.countries as string[] | undefined;
+        const mapLabels = fn.args.labels as Record<string, string> | undefined;
         if (!mapCountries?.length) { console.warn('[Native Function→HighlightCountry] Missing countries — skipping'); break; }
         if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
         session.sceneCanvas.worldMapData = { highlightCountries: mapCountries, labels: mapLabels };
@@ -1906,20 +1829,6 @@ export class NativeFunctionCallHandler {
         };
         if (session.firstAudioSent) { this.sendMessage(session.ws, mapUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(mapUpdate); }
         console.log(`[Native Function→HighlightCountry] ${mapCountries.join(', ')}`);
-        break;
-      }
-
-      case 'CLEAR_WORLD_MAP': {
-        const clearMapText = fn.args.text as string | undefined;
-        if (clearMapText && !session.functionCallText) session.functionCallText = clearMapText;
-        if (session.sceneCanvas) delete session.sceneCanvas.worldMapData;
-        const clearMapUpdate = {
-          type: 'whiteboard_update' as const, timestamp: Date.now(),
-          items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: '',
-            data: { environment: session.sceneCanvas?.environment || '', environmentImageUrl: session.sceneCanvas?.environmentImageUrl || '', environmentLabel: session.sceneCanvas?.environmentLabel || '', props: [...(session.sceneCanvas?.props || [])], clockTime: session.sceneCanvas?.clockTime, canvasAction: 'clear_world_map' as const } }],
-        };
-        if (session.firstAudioSent) { this.sendMessage(session.ws, clearMapUpdate); } else { if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = []; session.pendingWhiteboardUpdates.push(clearMapUpdate); }
-        console.log('[Native Function→ClearWorldMap] Cleared');
         break;
       }
 
