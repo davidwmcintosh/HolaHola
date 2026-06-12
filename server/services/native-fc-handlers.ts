@@ -5417,22 +5417,27 @@ export class NativeFunctionCallHandler {
           console.warn('[Native→LeaveForNextSession] No targetUserId and no live student session — skipping');
           break;
         }
-        (async () => {
-          const { danielaOutboundQueue } = await import('@shared/schema');
-          const { eq } = await import('drizzle-orm');
-          const content = fn.args.content as string | undefined;
-          if (!content?.trim()) {
-            console.warn('[Native→LeaveForNextSession] Empty content — skipping');
-            return;
-          }
-          const db = (await import('../db')).getSharedDb();
-          // resolvedTarget only set in Express Lane context; live sessions always use session.userId.
-          const userId = resolvedTarget || String(session.userId);
+        // ── Phase 1: DB write (awaited — must complete reliably) ──────────────
+        // The queue upsert and nudge resolve are fast DB operations. Awaiting them
+        // means Daniela's confirmation ("I'll leave you a note") is only ever sent
+        // if the record was actually stored. Previously both ran fire-and-forget, so
+        // a transient DB error would leave the student with no message and no nudge
+        // dismissal, while Daniela believed the handoff was complete.
+        const { danielaOutboundQueue } = await import('@shared/schema');
+        const { eq } = await import('drizzle-orm');
+        const content = fn.args.content as string | undefined;
+        if (!content?.trim()) {
+          console.warn('[Native→LeaveForNextSession] Empty content — skipping');
+          break;
+        }
+        const db = (await import('../db')).getSharedDb();
+        const userId = resolvedTarget || String(session.userId);
+        let queueId: string;
+        try {
           const existing = await db.select({ id: danielaOutboundQueue.id })
             .from(danielaOutboundQueue)
             .where(eq(danielaOutboundQueue.userId, userId))
             .limit(1);
-          let queueId: string;
           if (existing.length > 0) {
             queueId = existing[0].id;
             await db.update(danielaOutboundQueue)
@@ -5452,34 +5457,40 @@ export class NativeFunctionCallHandler {
           console.log(`[Native→LeaveForNextSession] Queued message for user ${userId}${resolvedTarget ? ' (targeted)' : ''}`);
           const { resolveAbsenceNudge } = await import('./daniela-absence-worker');
           await resolveAbsenceNudge(userId, 'message_queued').catch(e =>
-            console.warn('[Native→LeaveForNextSession] Nudge resolve error:', e.message)
+            console.warn('[Native→LeaveForNextSession] Nudge resolve error (non-critical):', e.message)
           );
-          // Fire-and-forget outbound contact: VoIP call (Phase 4) → SMS (Phase 3) → queue
-          import('./voice-call-sender').then(({ initiateOutboundContact }) =>
-            initiateOutboundContact(userId, queueId, content.trim())
-          ).catch(e => console.warn('[Native→LeaveForNextSession] Outbound contact error:', e.message));
-          // Write a student_insight memory so Daniela has a neural-net record of this outreach.
-          // Gives her continuity: she can recall having reached out, what she said, and when —
-          // so she doesn't unknowingly repeat herself, and can track whether the student ever returned.
-          (async () => {
-            try {
-              const { users: usersTable } = await import('@shared/schema');
-              const [userRow] = await db.select({ firstName: usersTable.firstName })
-                .from(usersTable)
-                .where((await import('drizzle-orm')).eq(usersTable.id, userId))
-                .limit(1);
-              const firstName = userRow?.firstName ?? 'the student';
-              const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-              const snippet = content.trim().length > 200 ? content.trim().slice(0, 200) + '…' : content.trim();
-              const memoryContent = `On ${dateStr}, I reached out to ${firstName} who had been absent from HolaHola. I left them a message saying: "${snippet}"`;
-              const { generateAndStoreEmbedding } = await import('./semantic-memory-service');
-              await generateAndStoreEmbedding('student_insight', queueId, userId, memoryContent, 0.9);
-              console.log(`[Native→LeaveForNextSession] Outreach memory written for user ${userId.slice(-6)}`);
-            } catch (memErr: any) {
-              console.warn('[Native→LeaveForNextSession] Outreach memory write failed (non-critical):', memErr.message);
-            }
-          })();
-        })().catch(err => console.error('[Native→LeaveForNextSession] Error:', err.message));
+        } catch (err: any) {
+          console.error('[Native→LeaveForNextSession] DB write failed — message NOT queued:', err.message);
+          break;
+        }
+
+        // ── Phase 2: Outbound contact + memory (fire-and-forget — legitimately slow) ──
+        // VoIP/SMS delivery and neural-net memory embedding are network/AI calls that
+        // can take seconds. They must not block the Gemini continuation. Errors here
+        // are non-fatal: the message is already in the queue and will be delivered on
+        // the student's next login even if SMS/voice delivery fails now.
+        import('./voice-call-sender').then(({ initiateOutboundContact }) =>
+          initiateOutboundContact(userId, queueId, content.trim())
+        ).catch(e => console.warn('[Native→LeaveForNextSession] Outbound contact error (non-critical):', e.message));
+
+        (async () => {
+          try {
+            const { users: usersTable } = await import('@shared/schema');
+            const [userRow] = await db.select({ firstName: usersTable.firstName })
+              .from(usersTable)
+              .where((await import('drizzle-orm')).eq(usersTable.id, userId))
+              .limit(1);
+            const firstName = userRow?.firstName ?? 'the student';
+            const dateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+            const snippet = content.trim().length > 200 ? content.trim().slice(0, 200) + '…' : content.trim();
+            const memoryContent = `On ${dateStr}, I reached out to ${firstName} who had been absent from HolaHola. I left them a message saying: "${snippet}"`;
+            const { generateAndStoreEmbedding } = await import('./semantic-memory-service');
+            await generateAndStoreEmbedding('student_insight', queueId, userId, memoryContent, 0.9);
+            console.log(`[Native→LeaveForNextSession] Outreach memory written for user ${userId.slice(-6)}`);
+          } catch (memErr: any) {
+            console.warn('[Native→LeaveForNextSession] Outreach memory write failed (non-critical):', memErr.message);
+          }
+        })();
         break;
       }
 
@@ -5529,7 +5540,10 @@ export class NativeFunctionCallHandler {
           console.warn('[Native→RecordStudentConsent] No consent flags provided — skipping');
           break;
         }
-        (async () => {
+        // Consent MUST be written synchronously — fire-and-forget would risk telling the
+        // student "got it" while the DB write silently fails, then contacting them via
+        // SMS/voice on a consent record that was never actually stored.
+        try {
           const { storage: st } = await import('../storage');
           await st.upsertContactPreferences(String(session.userId), {
             ...(consentSms !== undefined && { phoneConsentSms: consentSms }),
@@ -5538,7 +5552,9 @@ export class NativeFunctionCallHandler {
             phoneConsentSource: 'in_session',
           });
           console.log(`[Native→RecordStudentConsent] Consent recorded for user ${session.userId} (sms=${consentSms}, voice=${consentVoice})`);
-        })().catch(err => console.error('[Native→RecordStudentConsent] Error:', err.message));
+        } catch (err: any) {
+          console.error('[Native→RecordStudentConsent] CONSENT WRITE FAILED — preferences not saved:', err.message);
+        }
         break;
       }
 
@@ -5555,11 +5571,17 @@ export class NativeFunctionCallHandler {
           break;
         }
         const suppressDays = fn.args.suppressDays as number | undefined;
-        (async () => {
+        // Awaited directly — resolveAbsenceNudge is a fast DB update and must complete
+        // reliably so Daniela doesn't falsely believe the nudge was dismissed if the write
+        // fails. Fire-and-forget would allow the nudge to re-fire on the next cycle even
+        // after Daniela confirmed the dismiss in-session.
+        try {
           const { resolveAbsenceNudge } = await import('./daniela-absence-worker');
           await resolveAbsenceNudge(userId, 'dismissed', suppressDays);
           console.log(`[Native→DismissAbsenceNudge] Resolved nudge for user ${userId}${suppressDays ? ` (snooze ${suppressDays}d)` : ''}`);
-        })().catch(err => console.error('[Native→DismissAbsenceNudge] Error:', err.message));
+        } catch (err: any) {
+          console.error('[Native→DismissAbsenceNudge] Error:', err.message);
+        }
         break;
       }
 
