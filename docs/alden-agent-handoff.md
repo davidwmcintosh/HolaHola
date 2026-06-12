@@ -24,6 +24,41 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 12, 2026 (continued, part 4) — Audit remediation: T001–T006 all closed**
+
+### What was built
+
+Closed all five HIGH/MEDIUM audit findings from three parallel Claude Fable 5 code reviews (context injection, tool pipeline, memory decay).
+
+**T001 — `READ_QUEUED_FOR_STUDENT` missing native handler (`native-fc-handlers.ts`):**
+The tool was declared in the registry and had a `buildContinuationResponse`, but had NO case in the native-fc-handlers switch. Daniela would call it, the handler would silently no-op, and `session.queuedForStudentResult` would never be set, so the continuation would return "Nothing queued for this student yet" even when there was a queued message. Added the missing `case 'READ_QUEUED_FOR_STUDENT'` that fetches from `danielaOutboundQueue`, sets `session.queuedForStudentResult`, and logs the result.
+
+**T002 — Silent-success failure mode (`streaming-voice-orchestrator.ts`, `daniela-caller.ts`):**
+When a native function call handler threw an error, the `.catch` block only logged it — the continuation builder still produced `"${fc.name} executed successfully."`. Fixed at 5 locations across both files: (1) error is now tagged on the function call object as `_handlerError`, (2) all continuation-building loops check `_handlerError` and return `[SYSTEM: ${fc.name} encountered an error — ... Acknowledge this naturally and continue.]` instead. This means Gemini is told the truth about what failed instead of proceeding on a false success.
+
+**T003 — Memory consolidation partial-write (`memory-consolidation-service.ts`):**
+`mergeCluster()` updated the canonical memory's importance/source list, then looped to deactivate each member — no transaction. A mid-merge crash would leave members still active while the canonical had already been boosted, causing duplicate memory surfacing. Wrapped the entire canonical update + member deactivation loop in a single `getSharedDb().transaction(async (tx) => { ... })`.
+
+**T004 — Reinforcement durability race (`memory-decay-service.ts`):**
+`reinforceMemory()` did SELECT → if-missing-return → UPDATE. Two concurrent reinforcements would both read the same `strength` and the last writer would win, losing one bump. Also the early return when the embedding row doesn't exist yet was a silent data loss. Replaced the three-step pattern with a single atomic `UPDATE ... SET strength = LEAST(max, COALESCE(strength, 1.0) + bump)` using `RETURNING` to detect when no row existed. Now logs a warning when deferred instead of silently dropping.
+
+**T005 — Tool indexer Layer-3 pinning guard (`daniela-tool-indexer.ts`):**
+The `pinned: true` update was gated on `if (l3Indexed > 0)` — if all embeddings were already fresh (0 new writes), pinning was skipped entirely. Pre-existing un-pinned rows would never get pinned after their initial indexing run. Removed the guard so pinning always runs unconditionally. Also added a `console.error` when `l3Errors > 0` so Layer-3 failures are visible.
+
+**T006 — Context pipeline required-source gate (`unified-daniela-context-service.ts`, `voice-context-pipeline.ts`):**
+Two additions: (1) Post-load validation in `loadContext()` that emits `console.error` when ALL identity sources (presenceDoc, personalMemory, growthMemory, pedagogyDocContext) are null/empty — this is the "empty prompt" failure mode. Also warns separately when `studentSnapshot` is null for a user session (ACTFL level will be absent). (2) Exported `validateContextSources(context, opts)` helper from `voice-context-pipeline.ts` — returns `{ ok, missing }` so any caller (orchestrator, express lane) can gate on context health before sending to Gemini.
+
+### What Alden should know
+
+1. **`read_queued_for_student` now works end-to-end.** If Daniela calls it, the handler runs, fetches the queue, sets the session result, and the continuation correctly reports the queued content (or "Nothing queued"). Previously it silently failed.
+2. **Handler errors now propagate to Gemini.** If any native FC handler throws, the continuation will say `[SYSTEM: ${name} encountered an error — ...]` instead of `"executed successfully"`. This may surface occasional error messages in conversations — they're intentional and tell Gemini what actually happened.
+3. **`mergeCluster()` in consolidation service is now transactional.** If the DB rejects mid-merge, the entire cluster merge rolls back. This is safe and correct.
+4. **reinforceMemory() is atomic.** If two recalls happen concurrently, both bumps will now accumulate correctly. Deferred reinforcements (embedding not yet indexed) are now logged at WARN level — worth monitoring in case it's frequent.
+5. **Tool indexer always pins.** If you see `[ToolIndexer] Layer 3 pinning applied to all tool_knowledge embeddings` in logs, that's correct and expected on every server start.
+6. **Context gate is in place.** If you ever see `[UnifiedDanielContext] CRITICAL: All identity sources are empty` in production logs, that's a real incident — Daniela started a session with no self-context. Investigate presenceDoc worker and danielaMemoryService.
+
+---
+
 **Session: June 12, 2026 (continued, part 3) — Claude Fable 5 audit + voice pipeline bug fixes**
 
 ### What was built

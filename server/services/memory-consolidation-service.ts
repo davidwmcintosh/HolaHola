@@ -128,27 +128,30 @@ async function mergeCluster(cluster: SimilarityCluster): Promise<boolean> {
     const existingSources = canonical.consolidatedSourceIds || [];
     const existingCount = canonical.consolidatedFromCount || 1;
     
-    // Update canonical memory with consolidation info
-    await getSharedDb().update(danielaGrowthMemories)
-      .set({
-        importance: newImportance,
-        consolidatedFromCount: existingCount + cluster.memberIds.length,
-        consolidatedSourceIds: [...existingSources, ...cluster.memberIds],
-        updatedAt: new Date(),
-      })
-      .where(eq(danielaGrowthMemories.id, cluster.canonicalId));
-    
-    // Mark member memories as superseded and inactive
-    for (const memberId of cluster.memberIds) {
-      await getSharedDb().update(danielaGrowthMemories)
+    // Update canonical and deactivate members atomically so a mid-merge
+    // crash cannot leave members active while the canonical has already
+    // been boosted (which would cause duplicate surfacing on next search).
+    await getSharedDb().transaction(async (tx) => {
+      await tx.update(danielaGrowthMemories)
         .set({
-          supersededBy: cluster.canonicalId,
-          isActive: false,
+          importance: newImportance,
+          consolidatedFromCount: existingCount + cluster.memberIds.length,
+          consolidatedSourceIds: [...existingSources, ...cluster.memberIds],
           updatedAt: new Date(),
         })
-        .where(eq(danielaGrowthMemories.id, memberId));
-    }
-    
+        .where(eq(danielaGrowthMemories.id, cluster.canonicalId));
+
+      for (const memberId of cluster.memberIds) {
+        await tx.update(danielaGrowthMemories)
+          .set({
+            supersededBy: cluster.canonicalId,
+            isActive: false,
+            updatedAt: new Date(),
+          })
+          .where(eq(danielaGrowthMemories.id, memberId));
+      }
+    });
+
     console.log(`[MEMORY-CONSOLIDATION] Merged ${cluster.memberIds.length} memories into ${cluster.canonicalId} (${cluster.sharedConcept})`);
     return true;
   } catch (err: any) {

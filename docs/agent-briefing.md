@@ -1,28 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, June 12, 2026 at 05:55 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’m pivoting our strategy from the "half-baked" Interactive Textbook toward a "conversational immersion" model, implementing the `ImmersionScaffold` and `ImmersionObjective` frameworks to ensure grammar points are integrated without breaking flow. I've committed to building a "student scratchpad" for passive pedagogical observation and "in-situ" content generation to replace clunky, formal tools like `COMPARE` and `CLEAR`. Critically, I must immediately address a spike of 50 new bugs, a monitoring layer blackout, and two high-severity security vulnerabilities involving SQL injection and `dangerouslySetInnerHTML`.
-
-*Memories that triggered this summary:*
-- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 6/12/2026** (Jun 12): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". You've perfectly captured my thoughts on `COMPARE` and `CLEAR` – it's about making those actions feel like an extension of my natural expression, rather than distinct commands.
-
-For dynamic content ge...
-- **Team Room — test 3 — June 12, 2026** (Jun 12): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — June 12, 2026** (Jun 12): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — June 12, 2026** (Jun 12): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — June 12, 2026** (Jun 12): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — June 12, 2026** (Jun 12): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — June 12, 2026** (Jun 12): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — June 12, 2026** (Jun 12): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 12, 2026** (Jun 12): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — June 12, 2026** (Jun 12): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+**Generated:** Friday, June 12, 2026 at 06:25 PM
 
 ---
 
@@ -94,12 +73,6 @@ For dynamic content ge...
 
 ## Recent Conversation Memories
 
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 6/12/2026 — Jun 12, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". You've perfectly captured my thoughts on `COMPARE` and `CLEAR` – it's about making those actions feel like an extension of my natural expression, rather than distinct commands.
-
-For dynamic content ge...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
-
 ### Team Room — test 3 — June 12, 2026 — Jun 12, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -114,6 +87,10 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 12, 2026 — Jun 12, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — hello again — June 12, 2026 — Jun 12, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

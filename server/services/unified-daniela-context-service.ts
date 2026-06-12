@@ -263,6 +263,34 @@ class UnifiedDanielaContextService {
     const loadedSources = contextKeys.filter((_, i) => results[i] && results[i].length > 0);
     console.log(`[UnifiedDanielContext] Loaded ${loadedSources.length} context sources: ${loadedSources.join(', ')}`);
 
+    // ── Required-source gate ───────────────────────────────────────────────
+    // Identity sources are Daniela's self-context: presenceDoc, personalMemory,
+    // growthMemory, and pedagogyDocContext.  If ALL are absent, Gemini will
+    // receive a nearly-empty system prompt and respond as a generic LLM.
+    // This is a critical failure mode — surface it loudly so it is never silent.
+    const identityPresent = !!(
+      context.presenceDoc ||
+      context.personalMemory ||
+      context.growthMemory ||
+      context.pedagogyDocContext
+    );
+    if (!identityPresent) {
+      console.error(
+        `[UnifiedDanielContext] CRITICAL: All identity sources are empty for channel=${channel}, ` +
+        `userId=${userId ?? 'system'}. Gemini will proceed without Daniela identity context. ` +
+        `Check presenceDoc worker, danielaMemoryService, memoryInsightExtractionService, and buildPedagogyDocContext.`
+      );
+    }
+
+    // Student-specific gate: if a userId was supplied but studentSnapshot is
+    // null, ACTFL level and student facts will be absent from the prompt.
+    if (userId && includeStudentSnapshot && !context.studentSnapshot) {
+      console.warn(
+        `[UnifiedDanielContext] WARNING: studentSnapshot is null for userId=${userId} ` +
+        `— ACTFL level and learner facts will be absent. Check buildStudentContext.`
+      );
+    }
+
     return context;
   }
 

@@ -280,18 +280,22 @@ export async function runDanielaToolIndexer(): Promise<void> {
     }
   }
 
-  // Pin all tool_knowledge embeddings
-  if (l3Indexed > 0) {
-    try {
-      await db
-        .update(memoryEmbeddings)
-        .set({ pinned: true })
-        .where(eq(memoryEmbeddings.memoryType, MEMORY_TYPE_KNOWLEDGE));
-    } catch (err: any) {
-      console.warn('[ToolIndexer] Could not pin tool_knowledge embeddings:', err.message);
-    }
+  // Pin all tool_knowledge embeddings unconditionally — even when no new
+  // embeddings were written this run, pre-existing rows may be un-pinned
+  // (e.g. after a migration that reset the column).
+  try {
+    await db
+      .update(memoryEmbeddings)
+      .set({ pinned: true })
+      .where(eq(memoryEmbeddings.memoryType, MEMORY_TYPE_KNOWLEDGE));
+    console.log(`[ToolIndexer] Layer 3 pinning applied to all tool_knowledge embeddings`);
+  } catch (err: any) {
+    console.warn('[ToolIndexer] Could not pin tool_knowledge embeddings:', err.message);
   }
 
   console.log(`[ToolIndexer] Layer 3 (tool_knowledge embeds) — ${l3Indexed} indexed, ${l3Skipped} already fresh, ${l3Errors} errors`);
+  if (l3Errors > 0) {
+    console.error(`[ToolIndexer] WARNING: ${l3Errors} Layer-3 embedding error(s) — some tools may not be semantically searchable. Check logs above for details.`);
+  }
   console.log(`[ToolIndexer] Pipeline complete — all 3 layers synced for ${tools.length} tools`);
 }

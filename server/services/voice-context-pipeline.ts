@@ -241,6 +241,55 @@ export async function fetchStudentIntelligence(
   }
 }
 
+/**
+ * Required-source gate for voice/chat context.
+ *
+ * Call after loading a UnifiedDanielaContext to verify the three required
+ * source families are present before handing control to Gemini.
+ *
+ * Returns { ok, missing } so callers can decide whether to abort, retry,
+ * or proceed with a logged warning.
+ */
+export function validateContextSources(
+  context: {
+    presenceDoc?: string | null;
+    personalMemory?: string;
+    growthMemory?: string;
+    pedagogyDocContext?: string | null;
+    studentSnapshot?: string | null;
+  },
+  opts: { userId?: string | number; channel?: string } = {},
+): { ok: boolean; missing: string[] } {
+  const missing: string[] = [];
+
+  // Identity: at least one of Daniela's self-context sources must be present.
+  const identityPresent = !!(
+    context.presenceDoc ||
+    context.personalMemory ||
+    context.growthMemory ||
+    context.pedagogyDocContext
+  );
+  if (!identityPresent) {
+    missing.push('identity (presenceDoc / personalMemory / growthMemory / pedagogyDocContext)');
+  }
+
+  // Student context: if a userId is provided, ACTFL level and learner facts
+  // live in studentSnapshot.  Flag absence so callers can decide to retry.
+  if (opts.userId && context.studentSnapshot === null) {
+    missing.push('studentSnapshot (ACTFL level / learner facts)');
+  }
+
+  const ok = missing.length === 0;
+  if (!ok) {
+    console.warn(
+      `[ContextGate] Required source(s) missing for channel=${opts.channel ?? 'unknown'}, ` +
+      `userId=${opts.userId ?? 'system'}: ${missing.join('; ')}. ` +
+      `Proceeding without them — Gemini may respond without Daniela identity or student data.`
+    );
+  }
+  return { ok, missing };
+}
+
 export function assembleDynamicPreamble(
   parts: string[],
   label: string = '',

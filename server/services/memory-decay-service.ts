@@ -68,27 +68,30 @@ export function computeDecayMultiplier(
 export async function reinforceMemory(memoryType: string, memoryId: string): Promise<void> {
   const db = getSharedDb();
   try {
-    const [row] = await db
-      .select({ strength: memoryEmbeddings.strength, pinned: memoryEmbeddings.pinned })
-      .from(memoryEmbeddings)
+    // Atomic read-modify-write: a single UPDATE with COALESCE avoids the
+    // concurrent-recall race where two overlapping calls both read the same
+    // strength and the last writer wins.  RETURNING lets us detect whether
+    // the embedding row exists yet (0 rows = not indexed, reinforcement deferred).
+    const updated = await db
+      .update(memoryEmbeddings)
+      .set({
+        strength: sql`LEAST(${STRENGTH_MAX}::numeric, COALESCE(strength, 1.0) + ${REINFORCE_BUMP}::numeric)`,
+        lastReinforcedAt: new Date(),
+      })
       .where(and(
         eq(memoryEmbeddings.memoryType, memoryType),
         eq(memoryEmbeddings.memoryId, memoryId),
       ))
-      .limit(1);
+      .returning({ strength: memoryEmbeddings.strength });
 
-    if (!row) return; // embedding not yet indexed — skip
+    if (updated.length === 0) {
+      // Embedding not yet indexed — bump will happen naturally once indexed.
+      // Log so this gap is visible rather than silently dropped.
+      console.warn(`[MemoryDecay] reinforceMemory: no embedding row yet for ${memoryType}/${memoryId} — reinforcement deferred until indexed`);
+      return;
+    }
 
-    const newStrength = Math.min(STRENGTH_MAX, (row.strength ?? 1.0) + REINFORCE_BUMP);
-    await db
-      .update(memoryEmbeddings)
-      .set({ strength: newStrength, lastReinforcedAt: new Date() })
-      .where(and(
-        eq(memoryEmbeddings.memoryType, memoryType),
-        eq(memoryEmbeddings.memoryId, memoryId),
-      ));
-
-    console.log(`[MemoryDecay] Reinforced ${memoryType}/${memoryId} → strength ${newStrength.toFixed(2)}`);
+    console.log(`[MemoryDecay] Reinforced ${memoryType}/${memoryId} → strength ${(updated[0].strength ?? 0).toFixed(2)}`);
   } catch (err: any) {
     console.warn(`[MemoryDecay] reinforceMemory failed (non-fatal): ${err.message}`);
   }

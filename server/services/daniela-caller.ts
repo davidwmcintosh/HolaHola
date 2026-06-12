@@ -216,6 +216,8 @@ async function callDanielaWithTools(
       console.log(`[callDaniela:tools] Executing FC: ${fc.name} (${legacyType})`);
       await fcHandler.handle(mockSession.id, mockSession, extractedFc).catch(err => {
         console.warn(`[callDaniela:tools] FC handler error for ${fc.name}:`, err.message);
+        // Tag so continuation builder reports failure instead of false "success".
+        (extractedFc as any)._handlerError = (err as Error).message || String(err);
       });
     }
 
@@ -242,9 +244,12 @@ async function callDanielaWithTools(
           ?.map((p: any) => p.text || '')
           .join('\n') || `${fc.name} executed.`;
       } else {
+        const callerHandlerError = (extractedFc as any)._handlerError as string | undefined;
         responseText = (typeof builderResult === 'string' && builderResult)
           ? builderResult
-          : `${fc.name} executed successfully.`;
+          : callerHandlerError
+            ? `[SYSTEM: ${fc.name} encountered an error — ${callerHandlerError}. Acknowledge this naturally and continue.]`
+            : `${fc.name} executed successfully.`;
       }
 
       functionResponseParts.push({

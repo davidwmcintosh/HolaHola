@@ -2937,6 +2937,9 @@ Remember: David may reference things discussed in these recent text chats.
             // Process the function call (voice adjustments, phase shifts, etc.)
             await this.fcHandler.handle(sessionId, session, fn).catch(err => {
               console.error(`[Native Function Call] Error handling ${fn.name}:`, err.message);
+              // Tag the error on the fn object so the continuation builder can
+              // report failure text to Gemini instead of a false "success".
+              (fn as any)._handlerError = (err as Error).message || String(err);
             });
           }
           
@@ -4830,9 +4833,12 @@ Remember: David may reference things discussed in these recent text chats.
             continue;
           }
           
+          const handlerError = (fc as any)._handlerError as string | undefined;
           const responseText = (typeof registryResult === 'string')
             ? registryResult
-            : `${fc.name} executed successfully. Continue the conversation.`;
+            : handlerError
+              ? `[SYSTEM: ${fc.name} encountered an error — ${handlerError}. Acknowledge this naturally and continue.]`
+              : `${fc.name} executed successfully. Continue the conversation.`;
           
           functionResponseParts.push({
             functionResponse: {
@@ -7388,9 +7394,12 @@ Remember: David may reference things discussed in these recent text chats.
             continue;
           }
           
+          const handlerErrorOpenMic = (fc as any)._handlerError as string | undefined;
           const responseText = (typeof registryResult === 'string')
             ? registryResult
-            : `${fc.name} executed successfully. Continue the conversation.`;
+            : handlerErrorOpenMic
+              ? `[SYSTEM: ${fc.name} encountered an error — ${handlerErrorOpenMic}. Acknowledge this naturally and continue.]`
+              : `${fc.name} executed successfully. Continue the conversation.`;
           
           functionResponsePartsOpenMic.push({
             functionResponse: {
@@ -7631,7 +7640,10 @@ Remember: David may reference things discussed in these recent text chats.
                   : `No words due for review. All caught up!`;
                 delete session.lastDueVocab;
               } else {
-                responseText = `${fc.name} executed successfully. Continue the conversation.`;
+                const recursiveHandlerError = (fc as any)._handlerError as string | undefined;
+                responseText = recursiveHandlerError
+                  ? `[SYSTEM: ${fc.name} encountered an error — ${recursiveHandlerError}. Acknowledge this naturally and continue.]`
+                  : `${fc.name} executed successfully. Continue the conversation.`;
               }
               recursiveResponseParts.push({
                 functionResponse: {
@@ -9178,7 +9190,10 @@ Remember: David may reference things discussed in these recent text chats.
         }> = [];
         
         for (const fc of greetingFunctionCalls) {
-          let responseText = 'Function executed successfully.';
+          const greetingHandlerError = (fc as any)._handlerError as string | undefined;
+          let responseText = greetingHandlerError
+            ? `[SYSTEM: ${fc.name} encountered an error — ${greetingHandlerError}. Acknowledge this naturally and continue.]`
+            : 'Function executed successfully.';
           
           if (fc.legacyType === 'UNIFIED_RECALL' || fc.name === 'recall') {
             const query = fc.args.query as string;

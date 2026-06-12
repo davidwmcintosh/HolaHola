@@ -5458,6 +5458,32 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'READ_QUEUED_FOR_STUDENT': {
+        // Fetch the oldest undelivered item Daniela left for this student
+        // and cache it on session so buildContinuationResponse can read it.
+        if (!session.userId) {
+          console.warn('[Native→ReadQueuedForStudent] No session userId — skipping');
+          break;
+        }
+        try {
+          const { danielaOutboundQueue } = await import('@shared/schema');
+          const { eq, asc } = await import('drizzle-orm');
+          const db = (await import('../db')).getSharedDb();
+          const [item] = await db.select()
+            .from(danielaOutboundQueue)
+            .where(eq(danielaOutboundQueue.userId, String(session.userId)))
+            .orderBy(asc(danielaOutboundQueue.createdAt))
+            .limit(1);
+          session.queuedForStudentResult = item
+            ? `[SYSTEM: You left this for David (written ${item.createdAt.toLocaleDateString()}, ${item.deliveredAt ? 'already delivered' : 'not yet delivered'}):\n\n"${item.content}"]`
+            : null;
+          console.log(`[Native→ReadQueuedForStudent] ${item ? 'Found queued message' : 'No queued message'} for user ${String(session.userId).slice(-6)}`);
+        } catch (err: any) {
+          console.error('[Native→ReadQueuedForStudent] Error:', err.message);
+        }
+        break;
+      }
+
       case 'RECORD_STUDENT_CONSENT': {
         // Only valid in live student sessions (session.userId must be set)
         if (!session.userId) {
