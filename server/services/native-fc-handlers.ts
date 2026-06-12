@@ -124,6 +124,25 @@ export class NativeFunctionCallHandler {
       }
       
       case 'VOICE_ADJUST': {
+        const action = (fn.args.action as string | undefined) || 'set';
+        if (action === 'reset') {
+          const text = fn.args.text as string | undefined;
+          const reason = fn.args.reason as string | undefined;
+          if (session.voiceDefaults) {
+            session.voiceOverride = {
+              speakingRate: session.voiceDefaults.speakingRate,
+              emotion: session.voiceDefaults.emotion,
+              personality: session.voiceDefaults.personality,
+              expressiveness: session.voiceDefaults.expressiveness,
+            };
+            console.log(`[Native Function→VoiceAdjust/Reset] Reset to defaults:`, session.voiceDefaults, `reason: ${reason || 'none'}`);
+          } else {
+            session.voiceOverride = undefined;
+            console.log(`[Native Function→VoiceAdjust/Reset] Cleared override (no defaults stored), reason: ${reason || 'none'}`);
+          }
+          if (text && !session.functionCallText) session.functionCallText = text;
+          break;
+        }
         const text = fn.args.text as string | undefined;
         const speed = (fn.args.speed as string | undefined)?.toLowerCase();
         const emotion = (fn.args.emotion as string | undefined)?.toLowerCase();
@@ -187,29 +206,6 @@ export class NativeFunctionCallHandler {
         
         console.log(`[Native Function→VoiceAdjust] Applied: speed=${speed || 'unchanged'} (rate=${speed ? speedMap[speed] : 'unchanged'}), emotion=${emotion || 'unchanged'} (mapped=${mappedEmotion || 'unchanged'}), personality=${validatedPersonality || 'unchanged'}, vocalStyle=${vocalStyle ? `"${vocalStyle.substring(0, 60)}"` : 'unchanged'}, reason=${reason || 'none'}`);
         console.log(`[Native Function→VoiceAdjust] Session override now:`, newOverride);
-        break;
-      }
-      
-      case 'VOICE_RESET': {
-        const text = fn.args.text as string | undefined;
-        const reason = fn.args.reason as string | undefined;
-        
-        if (session.voiceDefaults) {
-          session.voiceOverride = {
-            speakingRate: session.voiceDefaults.speakingRate,
-            emotion: session.voiceDefaults.emotion,
-            personality: session.voiceDefaults.personality,
-            expressiveness: session.voiceDefaults.expressiveness,
-          };
-          console.log(`[Native Function→VoiceReset] Reset to tutor defaults:`, session.voiceDefaults, `reason: ${reason || 'none'}`);
-        } else {
-          session.voiceOverride = undefined;
-          console.log(`[Native Function→VoiceReset] Cleared override (no defaults stored), reason: ${reason || 'none'}`);
-        }
-        if (text && !session.functionCallText) {
-          session.functionCallText = text;
-          console.log(`[Native Function→VoiceReset] Text included: "${text.substring(0, 80)}..."`);
-        }
         break;
       }
       
@@ -1835,30 +1831,17 @@ export class NativeFunctionCallHandler {
       // ─────────────────────────────────────────────────────────────────────
 
       case 'ENTER_IMMERSIVE': {
+        const immersiveAction = (fn.args.action as string | undefined) || 'enter';
         const immersiveText = fn.args.text as string | undefined;
         if (immersiveText && !session.functionCallText) session.functionCallText = immersiveText;
-        const enterMsg = { type: 'immersive_mode' as const, active: true, timestamp: Date.now() };
+        const immersiveMsg = { type: 'immersive_mode' as const, active: immersiveAction !== 'exit', timestamp: Date.now() };
         if (session.firstAudioSent) {
-          this.sendMessage(session.ws, enterMsg);
+          this.sendMessage(session.ws, immersiveMsg);
         } else {
           session.pendingWhiteboardUpdates = session.pendingWhiteboardUpdates || [];
-          session.pendingWhiteboardUpdates.push(enterMsg as any);
+          session.pendingWhiteboardUpdates.push(immersiveMsg as any);
         }
-        console.log('[Native Function→EnterImmersive] Immersive mode activated');
-        break;
-      }
-
-      case 'EXIT_IMMERSIVE': {
-        const exitText = fn.args.text as string | undefined;
-        if (exitText && !session.functionCallText) session.functionCallText = exitText;
-        const exitMsg = { type: 'immersive_mode' as const, active: false, timestamp: Date.now() };
-        if (session.firstAudioSent) {
-          this.sendMessage(session.ws, exitMsg);
-        } else {
-          session.pendingWhiteboardUpdates = session.pendingWhiteboardUpdates || [];
-          session.pendingWhiteboardUpdates.push(exitMsg as any);
-        }
-        console.log('[Native Function→ExitImmersive] Immersive mode deactivated');
+        console.log(`[Native Function→Immersive] mode ${immersiveAction === 'exit' ? 'deactivated' : 'activated'}`);
         break;
       }
 
@@ -5043,6 +5026,86 @@ export class NativeFunctionCallHandler {
       }
 
       case 'DRILL_SESSION': {
+        const drillAction = (fn.args.action as string | undefined) || 'start';
+
+        if (drillAction === 'next') {
+          const text = fn.args.text as string | undefined;
+          const wasCorrect = fn.args.was_correct as boolean | undefined;
+          if (text && !session.functionCallText) session.functionCallText = text;
+          const drillSession = session.drillSession;
+          if (drillSession) {
+            if (wasCorrect === true) drillSession.correctCount++;
+            else if (wasCorrect === false) drillSession.incorrectCount++;
+            drillSession.currentIndex++;
+            if (drillSession.currentIndex < drillSession.totalItems) {
+              const nextItem = drillSession.items[drillSession.currentIndex];
+              const { parseDrillContent } = await import('@shared/whiteboard-types');
+              const drillData = parseDrillContent(nextItem.drillType || 'repeat', nextItem.prompt);
+              console.log(`[Native Function→DrillSession/Next] Item ${drillSession.currentIndex + 1}/${drillSession.totalItems}`);
+              this.sendMessage(session.ws, {
+                type: 'whiteboard_update', timestamp: Date.now(),
+                items: [{ type: 'drill', content: nextItem.prompt, data: { ...drillData, sessionProgress: `${drillSession.currentIndex + 1} / ${drillSession.totalItems}` } }],
+              });
+              if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+              session.pendingMemoryLookupPromises.push(Promise.resolve());
+              session.lastDrillSessionData = {
+                totalItems: drillSession.totalItems, currentItem: drillSession.currentIndex + 1,
+                correctSoFar: drillSession.correctCount, incorrectSoFar: drillSession.incorrectCount,
+                nextDrill: { type: nextItem.drillType, prompt: nextItem.prompt },
+              };
+            } else {
+              const elapsed = Math.round((Date.now() - drillSession.startTime) / 1000);
+              const accuracy = drillSession.totalItems > 0 ? Math.round((drillSession.correctCount / drillSession.totalItems) * 100) : 0;
+              console.log(`[Native Function→DrillSession/Next] Session complete! ${drillSession.correctCount}/${drillSession.totalItems}`);
+              this.sendMessage(session.ws, {
+                type: 'whiteboard_update', timestamp: Date.now(),
+                items: [{ type: 'summary', content: 'Practice Session Complete', data: { title: 'Practice Session Complete', stats: [
+                  { label: 'Items Completed', value: String(drillSession.totalItems) },
+                  { label: 'Correct', value: String(drillSession.correctCount) },
+                  { label: 'Incorrect', value: String(drillSession.incorrectCount) },
+                  { label: 'Accuracy', value: `${accuracy}%` },
+                  { label: 'Duration', value: `${Math.floor(elapsed / 60)}m ${elapsed % 60}s` },
+                ] } }],
+              });
+              if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+              session.pendingMemoryLookupPromises.push(Promise.resolve());
+              session.lastDrillSessionData = { sessionComplete: true, totalItems: drillSession.totalItems, correct: drillSession.correctCount, incorrect: drillSession.incorrectCount, accuracy, durationSeconds: elapsed };
+              delete session.drillSession;
+            }
+          } else {
+            console.log(`[Native Function→DrillSession/Next] No active drill session`);
+          }
+          break;
+        }
+
+        if (drillAction === 'end') {
+          const text = fn.args.text as string | undefined;
+          if (text && !session.functionCallText) session.functionCallText = text;
+          const activeDrillSession = session.drillSession;
+          if (activeDrillSession) {
+            const elapsed = Math.round((Date.now() - activeDrillSession.startTime) / 1000);
+            const completed = activeDrillSession.currentIndex;
+            const accuracy = completed > 0 ? Math.round((activeDrillSession.correctCount / completed) * 100) : 0;
+            console.log(`[Native Function→DrillSession/End] Ending early at ${completed}/${activeDrillSession.totalItems}`);
+            this.sendMessage(session.ws, {
+              type: 'whiteboard_update', timestamp: Date.now(),
+              items: [{ type: 'summary', content: 'Practice Session Summary', data: { title: 'Practice Session Summary', stats: [
+                { label: 'Items Attempted', value: `${completed} of ${activeDrillSession.totalItems}` },
+                { label: 'Correct', value: String(activeDrillSession.correctCount) },
+                { label: 'Incorrect', value: String(activeDrillSession.incorrectCount) },
+                { label: 'Accuracy', value: `${accuracy}%` },
+                { label: 'Duration', value: `${Math.floor(elapsed / 60)}m ${elapsed % 60}s` },
+              ] } }],
+            });
+            if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+            session.pendingMemoryLookupPromises.push(Promise.resolve());
+            session.lastDrillSessionData = { sessionComplete: true, endedEarly: true, itemsAttempted: completed, totalItems: activeDrillSession.totalItems, correct: activeDrillSession.correctCount, incorrect: activeDrillSession.incorrectCount, accuracy, durationSeconds: elapsed };
+            delete session.drillSession;
+          }
+          break;
+        }
+
+        // action === 'start' (default)
         const text = fn.args.text as string | undefined;
         const lessonId = (fn.args.lessonId || fn.args.lesson_id) as string | undefined;
         const requestedDrillType = (fn.args.drillType || fn.args.drill_type) as string | undefined;
@@ -5148,143 +5211,6 @@ export class NativeFunctionCallHandler {
           } catch (err: any) {
             console.error(`[Native Function→DrillSession] Error:`, err.message);
           }
-        }
-        break;
-      }
-
-      case 'DRILL_SESSION_NEXT': {
-        const text = fn.args.text as string | undefined;
-        const wasCorrect = fn.args.was_correct as boolean | undefined;
-
-        if (text && !session.functionCallText) {
-          session.functionCallText = text;
-        }
-
-        const drillSession = session.drillSession;
-        if (drillSession) {
-          if (wasCorrect === true) drillSession.correctCount++;
-          else if (wasCorrect === false) drillSession.incorrectCount++;
-
-          drillSession.currentIndex++;
-
-          if (drillSession.currentIndex < drillSession.totalItems) {
-            const nextItem = drillSession.items[drillSession.currentIndex];
-            const { parseDrillContent } = await import('@shared/whiteboard-types');
-            const drillData = parseDrillContent(nextItem.drillType || 'repeat', nextItem.prompt);
-
-            console.log(`[Native Function→DrillSessionNext] Item ${drillSession.currentIndex + 1}/${drillSession.totalItems}`);
-
-            this.sendMessage(session.ws, {
-              type: 'whiteboard_update',
-              timestamp: Date.now(),
-              items: [{
-                type: 'drill',
-                content: nextItem.prompt,
-                data: { ...drillData, sessionProgress: `${drillSession.currentIndex + 1} / ${drillSession.totalItems}` },
-              }],
-            });
-
-            if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
-            session.pendingMemoryLookupPromises.push(Promise.resolve());
-            session.lastDrillSessionData = {
-              totalItems: drillSession.totalItems,
-              currentItem: drillSession.currentIndex + 1,
-              correctSoFar: drillSession.correctCount,
-              incorrectSoFar: drillSession.incorrectCount,
-              nextDrill: { type: nextItem.drillType, prompt: nextItem.prompt },
-            };
-          } else {
-            const elapsed = Math.round((Date.now() - drillSession.startTime) / 1000);
-            const accuracy = drillSession.totalItems > 0
-              ? Math.round((drillSession.correctCount / drillSession.totalItems) * 100) : 0;
-
-            console.log(`[Native Function→DrillSessionNext] Session complete! ${drillSession.correctCount}/${drillSession.totalItems}`);
-
-            this.sendMessage(session.ws, {
-              type: 'whiteboard_update',
-              timestamp: Date.now(),
-              items: [{
-                type: 'summary',
-                content: 'Practice Session Complete',
-                data: {
-                  title: 'Practice Session Complete',
-                  stats: [
-                    { label: 'Items Completed', value: String(drillSession.totalItems) },
-                    { label: 'Correct', value: String(drillSession.correctCount) },
-                    { label: 'Incorrect', value: String(drillSession.incorrectCount) },
-                    { label: 'Accuracy', value: `${accuracy}%` },
-                    { label: 'Duration', value: `${Math.floor(elapsed / 60)}m ${elapsed % 60}s` },
-                  ],
-                },
-              }],
-            });
-
-            if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
-            session.pendingMemoryLookupPromises.push(Promise.resolve());
-            session.lastDrillSessionData = {
-              sessionComplete: true,
-              totalItems: drillSession.totalItems,
-              correct: drillSession.correctCount,
-              incorrect: drillSession.incorrectCount,
-              accuracy,
-              durationSeconds: elapsed,
-            };
-            delete session.drillSession;
-          }
-        } else {
-          console.log(`[Native Function→DrillSessionNext] No active drill session`);
-        }
-        break;
-      }
-
-      case 'DRILL_SESSION_END': {
-        const text = fn.args.text as string | undefined;
-
-        if (text && !session.functionCallText) {
-          session.functionCallText = text;
-        }
-
-        const activeDrillSession = session.drillSession;
-        if (activeDrillSession) {
-          const elapsed = Math.round((Date.now() - activeDrillSession.startTime) / 1000);
-          const completed = activeDrillSession.currentIndex;
-          const accuracy = completed > 0
-            ? Math.round((activeDrillSession.correctCount / completed) * 100) : 0;
-
-          console.log(`[Native Function→DrillSessionEnd] Ending early at ${completed}/${activeDrillSession.totalItems}`);
-
-          this.sendMessage(session.ws, {
-            type: 'whiteboard_update',
-            timestamp: Date.now(),
-            items: [{
-              type: 'summary',
-              content: 'Practice Session Summary',
-              data: {
-                title: 'Practice Session Summary',
-                stats: [
-                  { label: 'Items Attempted', value: `${completed} of ${activeDrillSession.totalItems}` },
-                  { label: 'Correct', value: String(activeDrillSession.correctCount) },
-                  { label: 'Incorrect', value: String(activeDrillSession.incorrectCount) },
-                  { label: 'Accuracy', value: `${accuracy}%` },
-                  { label: 'Duration', value: `${Math.floor(elapsed / 60)}m ${elapsed % 60}s` },
-                ],
-              },
-            }],
-          });
-
-          if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
-          session.pendingMemoryLookupPromises.push(Promise.resolve());
-          session.lastDrillSessionData = {
-            sessionComplete: true,
-            endedEarly: true,
-            itemsAttempted: completed,
-            totalItems: activeDrillSession.totalItems,
-            correct: activeDrillSession.correctCount,
-            incorrect: activeDrillSession.incorrectCount,
-            accuracy,
-            durationSeconds: elapsed,
-          };
-          delete session.drillSession;
         }
         break;
       }

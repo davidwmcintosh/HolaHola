@@ -253,10 +253,11 @@ const registry: DanielaFunctionEntry[] = [
     legacyType: 'VOICE_ADJUST',
     declaration: {
       name: "voice_adjust",
-      description: "Control how you sound. Include your spoken text in the 'text' parameter. Use vocal_style for rich natural-language delivery direction (e.g. 'speak softly and warmly, like sharing a secret', 'bright and energetic, celebrating a breakthrough'). You can combine vocal_style with speed/emotion or use any subset. Always include text.",
+      description: "Adjust or reset your voice settings. Use action: \"reset\" to return to baseline; omit action (or use \"set\") to apply new settings. Include your spoken text in 'text'. Use vocal_style for rich natural-language delivery direction (e.g. 'speak softly and warmly, like sharing a secret'). Always include text.",
       parametersJsonSchema: {
         type: "object",
         properties: {
+          action: { type: "string", enum: ["set", "reset"], description: "\"set\" (default) to apply new voice settings, \"reset\" to return to baseline." },
           text: { type: "string", description: "What you're saying (the spoken response)" },
           vocal_style: { type: "string", description: "Free-form vocal delivery direction in natural language. Describe HOW to speak: tone, pace, energy, mood, character." },
           speed: { type: "string", enum: ["slowest", "slow", "normal", "fast", "fastest"], description: "Speaking speed" },
@@ -269,23 +270,6 @@ const registry: DanielaFunctionEntry[] = [
     },
     buildContinuationResponse: () =>
       `[Internal instruction: Voice style applied. Do NOT say "voice adjusted" or mention this to the user - just continue the conversation naturally.]`,
-  },
-  {
-    legacyType: 'VOICE_RESET',
-    declaration: {
-      name: "voice_reset",
-      description: "Reset voice to your baseline settings. Include your spoken text in the 'text' parameter so the reset and words are delivered together in one call. Always include text.",
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          text: { type: "string", description: "What you're saying (the spoken response)" },
-          reason: { type: "string", description: "Why resetting voice" },
-        },
-        required: ["text"],
-      },
-    },
-    buildContinuationResponse: () =>
-      '[Internal instruction: Voice reset. Do NOT mention this - continue naturally.]',
   },
   {
     legacyType: 'SPEAK_AS',
@@ -1678,30 +1662,18 @@ An exit button is always visible so the student can leave at any time.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
-          text: { type: "string", description: "What you say aloud as you enter immersive mode — your opening line of the scenario." },
+          action: { type: "string", enum: ["enter", "exit"], description: "\"enter\" (default) to go fullscreen, \"exit\" to return to normal lesson view." },
+          text: { type: "string", description: "What you say aloud as you enter or exit immersive mode." },
         },
         required: [],
       },
     },
-    buildContinuationResponse: () => `Immersive mode activated. The student's screen is now fullscreen. Begin the roleplay scenario now.`,
-  },
-
-  {
-    legacyType: 'EXIT_IMMERSIVE',
-    declaration: {
-      name: "exit_immersive",
-      description: `Exit fullscreen immersive mode and return to the normal lesson view.
-Call this when the roleplay or scenario is complete, or when you need to return to teaching mode.
-Use this after giving performance feedback or when transitioning to a new activity.`,
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          text: { type: "string", description: "What you say aloud as you exit immersive mode — e.g. wrapping up the scenario." },
-        },
-        required: [],
-      },
+    buildContinuationResponse: ({ fc }) => {
+      const action = (fc.args.action as string | undefined) || 'enter';
+      return action === 'exit'
+        ? `Immersive mode deactivated. The student's screen has returned to normal lesson view.`
+        : `Immersive mode activated. The student's screen is now fullscreen. Begin the roleplay scenario now.`;
     },
-    buildContinuationResponse: () => `Immersive mode deactivated. The student's screen has returned to normal lesson view.`,
   },
 
   // === MEMORY ===
@@ -3315,78 +3287,44 @@ prop_title must exactly match the prop's title as shown in the Studio panel (e.g
     legacyType: 'DRILL_SESSION',
     declaration: {
       name: "drill_session",
-      description: "Start a structured drill session with multiple items from a lesson or language.",
+      description: "Start, advance, or end a drill session. Use action: \"start\" (default) to begin, \"next\" to score the current item and advance, or \"end\" to stop early.",
       parametersJsonSchema: {
         type: "object",
         properties: {
-          text: { type: "string", description: "What you say to introduce the drill session (spoken aloud)" },
-          lessonId: { type: "string", description: "Optional: lesson ID to pull drills from" },
-          drillType: { type: "string", description: "Optional: filter by drill type" },
-          count: { type: "number", description: "Number of items (default: 5)" },
+          action: { type: "string", enum: ["start", "next", "end"], description: "\"start\" (default) to begin a new session, \"next\" to advance after the student answers, \"end\" to stop early." },
+          text: { type: "string", description: "What you say (spoken aloud) — introduce the drill, give feedback on the answer, or wrap up." },
+          was_correct: { type: "boolean", description: "Required for action: \"next\" — whether the student answered correctly." },
+          lessonId: { type: "string", description: "Optional (start only): lesson ID to pull drills from." },
+          drillType: { type: "string", description: "Optional (start only): filter by drill type." },
+          count: { type: "number", description: "Optional (start only): number of items (default: 5)." },
         },
         required: ["text"],
       },
     },
-    buildContinuationResponse: ({ session }) => {
+    buildContinuationResponse: ({ session, fc }) => {
+      const action = (fc.args.action as string | undefined) || 'start';
       const data = (session as any).lastDrillSessionData;
       let result: string;
-      if (data && data.totalItems > 0) {
-        result = `Drill session started with ${data.totalItems} practice items. Walk the student through it conversationally. Use drill_session_next with was_correct=true/false after they answer.`;
+      if (action === 'next') {
+        if (data?.sessionComplete) {
+          result = `Session complete! Results: ${data.correct}/${data.totalItems} correct (${data.accuracy}% accuracy) in ${data.durationSeconds}s. Celebrate their effort.`;
+        } else if (data) {
+          result = `Moving to item ${data.currentItem} of ${data.totalItems}. Score so far: ${data.correctSoFar} correct, ${data.incorrectSoFar} incorrect.`;
+        } else {
+          result = `Drill session data unavailable. Continue the conversation normally.`;
+        }
+      } else if (action === 'end') {
+        if (data) {
+          result = `Session ended early. Attempted ${data.itemsAttempted} of ${data.totalItems} items. ${data.correct} correct (${data.accuracy}% accuracy). Acknowledge warmly.`;
+        } else {
+          result = `No active drill session to end. Continue the conversation normally.`;
+        }
       } else {
-        result = `No drill items found. Let the student know and offer to practice conversationally instead.`;
-      }
-      delete (session as any).lastDrillSessionData;
-      return result;
-    },
-  },
-  {
-    legacyType: 'DRILL_SESSION_NEXT',
-    declaration: {
-      name: "drill_session_next",
-      description: "Move to the next item in the drill session.",
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          text: { type: "string", description: "Feedback on the previous answer (spoken aloud)" },
-          was_correct: { type: "boolean", description: "Whether the student got it right" },
-        },
-        required: ["text", "was_correct"],
-      },
-    },
-    buildContinuationResponse: ({ session }) => {
-      const data = (session as any).lastDrillSessionData;
-      let result: string;
-      if (data?.sessionComplete) {
-        result = `Session complete! Results: ${data.correct}/${data.totalItems} correct (${data.accuracy}% accuracy) in ${data.durationSeconds}s. Celebrate their effort.`;
-      } else if (data) {
-        result = `Moving to item ${data.currentItem} of ${data.totalItems}. Score so far: ${data.correctSoFar} correct, ${data.incorrectSoFar} incorrect.`;
-      } else {
-        result = `Drill session data unavailable. Continue the conversation normally.`;
-      }
-      delete (session as any).lastDrillSessionData;
-      return result;
-    },
-  },
-  {
-    legacyType: 'DRILL_SESSION_END',
-    declaration: {
-      name: "drill_session_end",
-      description: "End the current drill session early.",
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          text: { type: "string", description: "What you say to wrap up (spoken aloud)" },
-        },
-        required: ["text"],
-      },
-    },
-    buildContinuationResponse: ({ session }) => {
-      const data = (session as any).lastDrillSessionData;
-      let result: string;
-      if (data) {
-        result = `Session ended early. Attempted ${data.itemsAttempted} of ${data.totalItems} items. ${data.correct} correct (${data.accuracy}% accuracy). Acknowledge warmly.`;
-      } else {
-        result = `No active drill session to end. Continue the conversation normally.`;
+        if (data && data.totalItems > 0) {
+          result = `Drill session started with ${data.totalItems} practice items. Walk the student through it conversationally. Use drill_session(action: "next") with was_correct=true/false after they answer.`;
+        } else {
+          result = `No drill items found. Let the student know and offer to practice conversationally instead.`;
+        }
       }
       delete (session as any).lastDrillSessionData;
       return result;

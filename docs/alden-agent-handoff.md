@@ -24,6 +24,31 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 12, 2026 (continued, part 2) — Voice/immersive/drill consolidation**
+
+### What was built
+
+Three more set/toggle/flow tool groups merged into single tools. Same `action` param pattern as the earlier session.
+
+**Tools merged (4 removed):**
+- `voice_adjust` + `voice_reset` → `voice_adjust(action: "set"|"reset")` — reset logic now lives inside the VOICE_ADJUST handler case; VOICE_RESET case removed.
+- `enter_immersive` + `exit_immersive` → `enter_immersive(action: "enter"|"exit")` — single message with `active: immersiveAction !== 'exit'`; EXIT_IMMERSIVE case removed.
+- `drill_session` + `drill_session_next` + `drill_session_end` → `drill_session(action: "start"|"next"|"end")` — the three sequential steps of one flow are now dispatched inside a single DRILL_SESSION handler; DRILL_SESSION_NEXT and DRILL_SESSION_END cases removed. The `was_correct` param (previously required on drill_session_next) is now optional on drill_session and only meaningful when action is "next".
+
+**Tool count: 142 → 138.** Cumulative this session: 153 → 138 (−15 tools).
+
+**Image tools audited and left alone:** `show_image` (single vocab word), `show_vocab_grid` (4-6 word grid, AI-generated), `compose_visual_scene` (preposition/zone scenes), `visual_compare` (contrast correction moment) are genuinely distinct — no overlap, no merge needed. `generate_image` doesn't appear to exist as a named tool; its function is likely inside show_vocab_grid.
+
+**Files changed:** `server/services/daniela-function-registry.ts`, `server/services/native-fc-handlers.ts`
+
+### What Alden should know
+
+1. **`voice_adjust` now handles both set and reset** — the old `VOICE_RESET` legacyType will never be routed to again. If Daniela calls `voice_reset` on an old GL session that still has the old tool definition cached, it will fall through to an unhandled case silently — harmless, just a no-op log.
+2. **`drill_session` is now the entire drill flow** — start, advance, end. The `buildContinuationResponse` is action-aware so feedback messages are routed correctly.
+3. **Typecheck errors:** still 2008 across 51 files — all pre-existing, none from this work.
+
+---
+
 **Session: June 12, 2026 (continued) — Memory tool consolidation, Daniela consultation**
 
 ### What was built
