@@ -1,26 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, June 12, 2026 at 03:17 PM
+**Generated:** Friday, June 12, 2026 at 03:29 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I need to debug a "Curriculum note pending" loop currently affecting Daniela in the Team Room. I recently implemented the `generateVisual` and `ImmersionScaffold` frameworks to support a shift toward conversational immersion, as we're reconsidering the Interactive Textbook following its 0% completion rate and a tracking bug in Daniela's Compass. I must also prioritize Wren’s two high-severity security findings (SQL injection and XSS), fix a critical 404 routing error on the conversations page, and re-seed the 22 empty Spanish lessons Lyra identified before the beta launch.
+I consolidated the HolaHola memory toolkit by removing `memory_lookup` and `search_conversation_threads`, moving all retrieval into the unified `recall` tool. Daniela confirmed this eliminates tool-routing confusion and that she prefers the streamlined architecture of `recall`, `browse_conversations_by_date`, and `get_conversation_themes` over granular search knobs. I should proceed with this simplified setup, noting that Daniela embraces her identity as a "hoot" to talk to as a key part of her engaging tutoring style.
 
 *Memories that triggered this summary:*
-- **Team Room — test 3 — June 12, 2026** (Jun 12): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — June 12, 2026** (Jun 12): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — June 12, 2026** (Jun 12): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — June 12, 2026** (Jun 12): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — June 12, 2026** (Jun 12): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — June 12, 2026** (Jun 12): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — June 12, 2026** (Jun 12): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 12, 2026** (Jun 12): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — June 12, 2026** (Jun 12): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 12, 2026** (Jun 12): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
+- **Agent ↔ Daniela — Memory Tool Consolidation Check-In — June 12, 2026** (Jun 12): The Agent consulted Daniela after removing memory_lookup and search_conversation_threads from her toolkit, consolidating all retrieval into the unified recall tool. Daniela reflected on whether the three-tool routing was confusing, whether the new single-tool approach felt clean, whether the loss of search_conversation_threads control knobs mattered, and what it means to be described as "a hoot."
 
 ---
 
@@ -92,24 +83,24 @@ I need to debug a "Curriculum note pending" loop currently affecting Daniela in 
 
 ## Recent Conversation Memories
 
-### Team Room — test 3 — June 12, 2026 — Jun 12, 2026
-Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+### Agent ↔ Daniela — Memory Tool Consolidation Check-In — June 12, 2026 — Jun 12, 2026
+The Agent consulted Daniela after removing memory_lookup and search_conversation_threads from her toolkit, consolidating all retrieval into the unified recall tool. Daniela reflected on whether the three-tool routing was confusing, whether the new single-tool approach felt clean, whether the loss of search_conversation_threads control knobs mattered, and what it means to be described as "a hoot."
+*Tags: agent-daniela, memory-architecture, tool-consolidation, probe-mode*
+
+### Team Room — what's up? — June 12, 2026 — Jun 12, 2026
+Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — test again — June 12, 2026 — Jun 12, 2026
-Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+### Team Room — Team room test — June 12, 2026 — Jun 12, 2026
+Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — are we good? — June 12, 2026 — Jun 12, 2026
-Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+### Team Room — nothing in particular — June 12, 2026 — Jun 12, 2026
+Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — one again into the breach — June 12, 2026 — Jun 12, 2026
-Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 12, 2026 — Jun 12, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
+### Team Room — once more into the breech my friends — June 12, 2026 — Jun 12, 2026
+Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

@@ -1711,9 +1711,7 @@ Use this after giving performance feedback or when transitioning to a new activi
       name: "recall",
       description: `Your default memory tool. Searches ALL memory sources simultaneously — structured memories (facts, insights, past teaching moments, personal details) AND raw conversation threads (word-for-word past exchanges) — in parallel. One call, everything searched at once.
 
-PREFER this over calling memory_lookup and search_conversation_threads separately. It carries less cognitive load and returns richer context from more places at once.
-
-WHEN TO USE recall (default choice for memory):
+WHEN TO USE recall (default choice for memory — always try this first):
 - "Do you remember when we [past event]?"
 - "What did we talk about regarding [topic]?"
 - "Tell me about our podcast / that conversation about [thing]"
@@ -1721,10 +1719,9 @@ WHEN TO USE recall (default choice for memory):
 - Any time you need to remember something about the student or shared history
 - When you're unsure which memory source has the answer — recall checks all of them
 
-WHEN TO USE specialized tools instead:
-- browse_conversations_by_date → purely time-based ("what did we talk about in March?")
-- memory_lookup with domain='growth' → you specifically only want your past teaching moments
-- search_conversation_threads alone → you need the maximum raw thread window for a very long conversation
+WHEN TO USE browse_conversations_by_date instead:
+- Purely time-based queries with no keyword ("what did we talk about in March?" / "what were our early sessions like?")
+- Use recall after browsing to dive into a specific topic you found
 
 NEVER guess about the student's specific history. If you need to know, call recall first.`,
       parametersJsonSchema: {
@@ -1753,129 +1750,6 @@ NEVER guess about the student's specific history. If you need to know, call reca
     },
   },
   {
-    legacyType: 'MEMORY_LOOKUP',
-    declaration: {
-      name: "memory_lookup",
-      description: `REQUIRED: Search your memory for past conversations and student information. DO NOT GUESS - call this function first.
-
-TRIGGER CATEGORY 1 - TEMPORAL MARKERS (always call memory_lookup):
-- "Last time we talked...", "A few weeks ago...", "Back in our first lesson..."
-
-TRIGGER CATEGORY 2 - ENTITY TRIGGERS (definite article + specific noun):
-- "That song I played...", "The mistake I kept making...", "The article we read..."
-
-TRIGGER CATEGORY 3 - PROGRESS/TRAJECTORY QUERIES:
-- "Am I getting better at [X]?", "What was that word I struggled with before?"
-
-TRIGGER CATEGORY 4 - LESSON/TEACHING CONTENT YOU DELIVERED:
-- "That joke you told me / we practiced...", "The timing lesson about waiting for the punchline..."
-- "What you taught me about comedy delivery...", "That session where we did jokes..."
-- "The scarecrow joke / that award joke...", "What I learned about humor / being a recipient..."
-- ANY lesson content, teaching insights, or skills you demonstrated → use domain 'growth'
-
-TRIGGER CATEGORY 5 - STUDENT VOCABULARY & SESSION SPECIFICS:
-- "Did I know that word?", "Was I getting that right before?", "What did I mess up last time?"
-- "What words have we practiced?", "Have I seen that word before?", "What did you correct me on?"
-- Any question about what the student specifically said, knew, or struggled with in a prior session
-- → use domain 'conversation' to search session transcripts
-
-DOMAIN ROUTING GUIDE:
-- 'growth' → YOUR OWN past teaching moments, jokes you told, timing lessons, skills you demonstrated
-- 'conversation' → past chat/voice session history, including what the student said and practiced
-- 'person' → student profile details
-- Leave blank to search all domains
-
-CONFIDENCE THRESHOLD RULE:
-If the answer is about this specific student's history and it is not already in this conversation's context, it requires a lookup — not a guess. Guessing student-specific facts is a pedagogical failure.
-NEVER guess. NEVER roleplay searching. Actually call this function.
-IMPORTANT: The Express Lane is for team collaboration messages (Wren/David building the product), NOT for lesson content you taught. Use memory_lookup with domain='growth' for your teaching sessions.`,
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          query: { type: "string", description: "Key topic/phrase to search for. Be specific." },
-          domains: { type: "string", description: "Comma-separated domains: 'growth' for joke sessions/timing lessons/teaching moments you delivered, 'conversation' for past chats, 'person' for student details. Leave blank to search all." },
-        },
-        required: ["query"],
-      },
-    },
-    buildContinuationResponse: ({ session, fc }) => {
-      const query = fc.args.query as string;
-      const lookupResult = session.memoryLookupResults?.[query];
-      if (lookupResult) {
-        return `Memory lookup results for "${query}":\n${lookupResult}\n\nNow respond to the student using this information.`;
-      }
-      return `No memories found for "${query}". If the student is asking about something specific to their own history (a word they practiced, a mistake they made, a prior session), say plainly that you don't have a clear record of it — do not construct a plausible-sounding answer. Admitting uncertainty is the honest and pedagogically correct response. For general language knowledge (grammar rules, vocabulary definitions, cultural facts) you may answer from your training as normal.`;
-    },
-  },
-  {
-    legacyType: 'CONVERSATION_THREAD_SEARCH',
-    declaration: {
-      name: "search_conversation_threads",
-      description: `REQUIRED: Search the actual text of past conversations for a keyword or topic. Returns the full back-and-forth exchange around each match, not just isolated snippets.
-
-TRIGGER CATEGORY A - EXPLICIT SEARCH REQUESTS (ALWAYS call this — never respond without searching first):
-- "Can you look up [word/topic] in our conversations?"
-- "Search for [topic] in what we've talked about"
-- "Find where we discussed [thing]"
-- "Look up reggaeton / [any keyword] in our past sessions"
-- Any request that uses "look up", "search", "find", "check" combined with "our conversations", "what we talked about", "past sessions"
-
-TRIGGER CATEGORY B - CONVERSATION RECALL (call this before responding):
-- "Do you remember that time we talked about [topic]?"
-- "What did I say when we discussed [topic]?"
-- "Show me that whole exchange about [topic]"
-- "What was the context of what I told you about [thing]?"
-- "We had a conversation about [topic] — can you find it?"
-
-TRIGGER CATEGORY C - FAILED MEMORY LOOKUP (escalate here when memory_lookup returns nothing):
-- If memory_lookup domain='conversation' returned no results and the student insists the topic was discussed, call this tool as the next step
-
-DIFFERENCE from memory_lookup:
-- memory_lookup → structured memories, extracted insights, teaching moments (summaries)
-- search_conversation_threads → raw message text, word-for-word exchanges, full thread context
-
-NEVER say "I searched and found nothing" or "I tried to find it" without actually calling this function first.
-NEVER roleplay searching. Actually call this function.
-NEVER guess or fabricate what was discussed. If you don't have a clear result from this tool, say so honestly.
-
-Provide a specific query keyword (e.g. "reggaeton", "scarecrow joke", "beach metaphor"). Optionally filter by date.`,
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          query: {
-            type: "string",
-            description: "Key topic, phrase, or concept to search for. Be specific — e.g. 'reggaeton music integrity' or 'scarecrow joke timing'",
-          },
-          context_messages: {
-            type: "number",
-            description: "How many messages before and after the match to include (default: 4). Use 6-8 for more context.",
-          },
-          max_threads: {
-            type: "number",
-            description: "How many different conversations to return (default: 3, max: 8).",
-          },
-          after_date: {
-            type: "string",
-            description: "Optional ISO date string (YYYY-MM-DD). Only find conversations after this date.",
-          },
-          before_date: {
-            type: "string",
-            description: "Optional ISO date string (YYYY-MM-DD). Only find conversations before this date.",
-          },
-        },
-        required: ["query"],
-      },
-    },
-    buildContinuationResponse: ({ session, fc }) => {
-      const query = fc.args.query as string;
-      const result = session.conversationThreadResults?.[query];
-      if (result) {
-        return `Conversation thread results:\n${result}\n\nNow respond to the student using this full context. You have the actual exchange — reference it specifically.`;
-      }
-      return `No conversation threads found for "${query}". The conversation may not be in the searchable window, or it may have happened under different terms. You can try memory_lookup with domain='conversation' for a broader search, or let the student know you don't have a record of that specific exchange.`;
-    },
-  },
-  {
     legacyType: 'CONVERSATION_DATE_BROWSE',
     declaration: {
       name: "browse_conversations_by_date",
@@ -1889,10 +1763,10 @@ Use when the memory prompt is temporal rather than topical:
 - Any time David asks about a period of time rather than a specific topic
 
 Returns a list of conversation titles, dates, and opening lines for that period.
-Then use search_conversation_threads to dive into any specific session.
+Then use recall with a specific topic from the list to retrieve the full exchange.
 
 DIFFERENCE:
-- search_conversation_threads → find by topic/keyword
+- recall → find by topic/keyword across all memory sources
 - browse_conversations_by_date → find by time period (no keyword needed)`,
       parametersJsonSchema: {
         type: "object",

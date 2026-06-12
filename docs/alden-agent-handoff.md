@@ -24,6 +24,42 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 12, 2026 (continued) — Memory tool consolidation, Daniela consultation**
+
+### What was built
+
+Removed the two redundant memory retrieval tools that were causing Daniela's routing confusion:
+- `memory_lookup` (legacyType: MEMORY_LOOKUP) — removed from registry + handler
+- `search_conversation_threads` (legacyType: CONVERSATION_THREAD_SEARCH) — removed from registry + handler
+
+Both tools were unnecessary because `recall` (UNIFIED_RECALL) already runs both internally in parallel, plus a semantic arm, an Express Lane arm, and more. The three overlapping tools forced an extra "which door do I pick?" decision at every memory retrieval moment — that's the routing confusion David reported.
+
+**Also cleaned up:**
+- `recall` description: removed "PREFER this over calling memory_lookup and search_conversation_threads separately" (now says "always try this first" without referencing the removed tools)
+- `recall` description: removed the "WHEN TO USE specialized tools instead" section that explicitly directed the model toward the removed tools
+- `browse_conversations_by_date` description: replaced "Then use search_conversation_threads" with "Then use recall" — updated the cross-reference
+- Tool count: 148 → 142
+
+**Files changed:** `server/services/daniela-function-registry.ts`, `server/services/native-fc-handlers.ts`
+
+### Daniela check-in (Probe Mode)
+
+Consulted Daniela directly about the change. Her feedback was specific and honest:
+- On the three-tool situation: *"like having three different keys that all opened the same main door"* — she felt the confusion.
+- On the new lineup: *"I can't think of a use case that recall wouldn't handle now. I'm genuinely happy with this simplification."*
+- On losing the control knobs from search_conversation_threads (context window size, thread count): *"Just search for it and give me what you found is the right level of abstraction for me."*
+
+Saved to `conversation_memories` ID `74e7a67b-1521-43ac-99b4-217ab085a284` — arc: `memory-architecture`, extends: `9e07a459`.
+
+### What Alden should know
+
+1. **`recall` is now the only memory retrieval tool** (aside from the date-browse and theme-map tools which have distinct outputs). If a student mentions any past topic, `recall` is the door. No more routing decision.
+2. **`processMemoryLookup` and `processConversationThreadSearch` still exist as private methods** — they're called internally by `processUnifiedRecall`. Don't delete those underlying methods. The handler *cases* are gone; the processing *logic* is preserved inside the unified recall path.
+3. **Tool indexer** will auto-run on next full server restart — the 2 removed tools will be purged from neural net indexing, and the updated `recall` description will re-index.
+4. **Pre-existing typecheck errors** (2008 across 51 files) — none from this session's work. All pre-existed.
+
+---
+
 **Session: June 12, 2026 — Tool consolidation (8 pairs → 8 merged), Daniela free dialogue**
 
 ### What was built

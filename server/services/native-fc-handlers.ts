@@ -1894,54 +1894,6 @@ export class NativeFunctionCallHandler {
         break;
       }
       
-      case 'MEMORY_LOOKUP': {
-        const query = fn.args.query as string | undefined;
-        const domainsStr = fn.args.domains as string | undefined;
-        
-        if (query) {
-          const rawDomains = domainsStr 
-            ? domainsStr.split(',').map(d => d.trim().toLowerCase())
-            : [];
-          
-          console.log(`[Native Function→MemoryLookup] Query: "${query.substring(0, 50)}..." domains: ${rawDomains.length > 0 ? rawDomains.join(',') : 'all'}`);
-          
-          const lookupPromise = this.processMemoryLookup(session, query, rawDomains).catch(err => {
-            console.error(`[Native Function→MemoryLookup] Error:`, err.message);
-          });
-          
-          if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
-          session.pendingMemoryLookupPromises.push(lookupPromise);
-        }
-        break;
-      }
-      
-      case 'CONVERSATION_THREAD_SEARCH': {
-        const ctQuery = fn.args.query as string | undefined;
-        if (ctQuery) {
-          // Default to 10 messages of context before/after each match (was 4).
-          // A 20-message conversation with contextMessages=10 returns up to 21 messages
-          // around the first match — enough to cover most full conversations in one result.
-          const contextMessages = (fn.args.context_messages as number | undefined) ?? 10;
-          const maxThreads = Math.min((fn.args.max_threads as number | undefined) ?? 6, 10);
-          const afterDateStr = fn.args.after_date as string | undefined;
-          const beforeDateStr = fn.args.before_date as string | undefined;
-          const afterDate = afterDateStr ? new Date(afterDateStr) : undefined;
-          const beforeDate = beforeDateStr ? new Date(beforeDateStr) : undefined;
-          
-          console.log(`[Native Function→ConversationThreadSearch] Query: "${ctQuery.substring(0, 60)}" context=${contextMessages} threads=${maxThreads}`);
-          
-          const threadSearchPromise = this.processConversationThreadSearch(
-            session, ctQuery, contextMessages, maxThreads, afterDate, beforeDate
-          ).catch(err => {
-            console.error(`[Native Function→ConversationThreadSearch] Error:`, err.message);
-          });
-          
-          if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
-          session.pendingMemoryLookupPromises.push(threadSearchPromise);
-        }
-        break;
-      }
-      
       case 'UNIFIED_RECALL': {
         const urQuery = fn.args.query as string | undefined;
         if (urQuery) {
