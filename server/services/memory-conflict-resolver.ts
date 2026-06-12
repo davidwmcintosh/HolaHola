@@ -123,7 +123,7 @@ Respond ONLY with this JSON:
   try {
     const client = getClient();
     const response = await client.messages.create({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-fable-5',
       max_tokens: 300,
       messages: [{ role: 'user', content: prompt }],
     });

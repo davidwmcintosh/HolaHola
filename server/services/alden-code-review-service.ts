@@ -119,7 +119,7 @@ Review this proposed change. Check:
 Be direct and specific. If revising, explain exactly what should be different. If escalating, explain what makes it beyond autonomous approval.`;
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-5',
+    model: 'claude-fable-5',
     max_tokens: 1024,
     system: `You are Alden, HolaHola's platform architect. You review code changes from the AI team with architectural judgment. Respond ONLY with a JSON object: { "decision": "approve"|"revise"|"escalate", "reason": "...", "revisionGuidance": "..." (if revise), "escalationSummary": "..." (if escalate) }`,
     messages: [{ role: 'user', content: prompt }],

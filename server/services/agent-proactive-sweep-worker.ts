@@ -151,7 +151,7 @@ async function runSweep(): Promise<void> {
     const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const resp = await claude.messages.create({
-      model: 'claude-sonnet-4-5',
+      model: 'claude-fable-5',
       max_tokens: 800,
       system: `You are the Replit Agent — the external builder of HolaHola. You run a daily proactive sweep of system signals and produce a short prioritized action list for David.
 

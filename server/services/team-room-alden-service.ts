@@ -113,11 +113,13 @@ export { generateVisual, type VisualGenerationResult } from "./visual-content-se
 // ── Room context builder ─────────────────────────────────────────────────────
 
 async function buildRoomContext(roomId: string, topic: string): Promise<string> {
-  const [messages, artifacts, summaries] = await Promise.all([
+  const [messages, allArtifacts, summaries] = await Promise.all([
     storage.getRoomMessages(roomId, 20),
     storage.getRoomArtifacts(roomId),
     storage.getLatestSummaryByTopic(topic),
   ]);
+  // Cap artifacts to avoid unbounded context growth — getRoomArtifacts returns newest-first
+  const artifacts = allArtifacts.slice(0, 10);
 
   let context = `TEAM ROOM CONTEXT\nTopic: ${topic}\n\n`;
 
@@ -188,8 +190,11 @@ Do NOT raise your hand if you have nothing specific to add or if another partici
         confidence: parsed.confidence || 'medium',
       };
     }
-  } catch {
-    handRaise = { shouldRaise: true, reasoning: 'evaluation failed', confidence: 'low' };
+  } catch (evalErr: any) {
+    // Fail closed: don't let API errors cause Alden to speak on every message.
+    // An evaluation failure should suppress the response, not force it.
+    console.error('[TeamRoom] evaluateAlden failed — suppressing hand raise:', evalErr?.message);
+    handRaise = { shouldRaise: false, reasoning: 'evaluation failed', confidence: 'low' };
   }
 
   if (!handRaise.shouldRaise && !forceMention) return { participant: 'alden', handRaise };
@@ -245,7 +250,8 @@ EXPRESS: [up to one short paragraph of analysis, or "none" if nothing to add]`;
     let artifact: any = undefined;
     const artifactTypeMatch = raw.match(/ARTIFACT_TYPE:\s*(.*?)(?=\n|$)/);
     const artifactTitleMatch = raw.match(/ARTIFACT_TITLE:\s*(.*?)(?=\n|$)/);
-    const artifactDataMatch = raw.match(/ARTIFACT_DATA:\s*(\{[\s\S]*?\})/);
+    // Greedy match to handle nested JSON objects (lazy *? stops at first } — breaks on nesting)
+    const artifactDataMatch = raw.match(/ARTIFACT_DATA:\s*(\{[\s\S]*\})/);
 
     if (artifactTypeMatch && artifactTitleMatch && artifactDataMatch) {
       try {

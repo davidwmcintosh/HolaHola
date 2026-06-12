@@ -28,11 +28,11 @@ const WORKSPACE = '/home/runner/workspace';
 const BRIEFING_PATH = join(WORKSPACE, 'docs/agent-briefing.md');
 
 // ── Cost ceiling ───────────────────────────────────────────────────────────────
-// Approximate cost per message using claude-sonnet-4-5 pricing
-// ($3/MTok input, $15/MTok output). We keep a rolling 24 h window in memory.
+// Approximate cost per message using claude-fable-5 pricing
+// ($10/MTok input, $50/MTok output). We keep a rolling 24 h window in memory.
 const DAILY_BUDGET_USD = 5.0;
-const INPUT_COST_PER_TOK = 3 / 1_000_000;
-const OUTPUT_COST_PER_TOK = 15 / 1_000_000;
+const INPUT_COST_PER_TOK = 10 / 1_000_000;
+const OUTPUT_COST_PER_TOK = 50 / 1_000_000;
 let dailySpend = 0;
 let dailyWindowStart = Date.now();
 
@@ -443,7 +443,7 @@ async function generateAndPost(
 
     for (let round = 0; round < MAX_ROUNDS; round++) {
       const response = await client.messages.create({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-fable-5',
         max_tokens: 1024,
         system: systemPrompt,
         tools: AGENT_TOOLS,
@@ -519,6 +519,6 @@ export function startAgentTeamRoomWorker(): void {
   if (isRunning) return;
   isRunning = true;
   loadBriefing();
-  console.log('[AgentWorker] Started — Claude (claude-sonnet-4-5) with briefing + codebase tools, adaptive polling');
+  console.log('[AgentWorker] Started — Claude (claude-fable-5) with briefing + codebase tools, adaptive polling');
   scheduleNextPoll();
 }

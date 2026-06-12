@@ -391,7 +391,7 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
 
     for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
       const response = await client.messages.create({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-fable-5',
         max_tokens: 600,
         tools: ALDEN_TOOLS,
         messages: loopMessages,
@@ -450,7 +450,7 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
     }
 
     // Track combined token cost for the entire loop
-    costTracker.track('claude-sonnet-4-5', totalInputTokens, totalOutputTokens, 'alden-watch');
+    costTracker.track('claude-fable-5', totalInputTokens, totalOutputTokens, 'alden-watch');
 
     // Save this cycle to rolling history (capped at MAX_CYCLE_HISTORY)
     cycleHistory.push(currentMetric);
@@ -654,7 +654,7 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
  */
 async function checkAndPostRepairProposal(client: Anthropic, messages: string[]): Promise<void> {
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-5',
+    model: 'claude-fable-5',
     max_tokens: 400,
     messages: [{
       role: 'user',
@@ -663,7 +663,7 @@ async function checkAndPostRepairProposal(client: Anthropic, messages: string[])
   });
 
   if (response.usage) {
-    costTracker.track('claude-sonnet-4-5', response.usage.input_tokens, response.usage.output_tokens, 'alden-repair-proposal');
+    costTracker.track('claude-fable-5', response.usage.input_tokens, response.usage.output_tokens, 'alden-repair-proposal');
   }
 
   const proposal = (response.content[0] as any)?.text?.trim() || 'UNRELATED';

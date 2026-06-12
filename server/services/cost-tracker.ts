@@ -27,6 +27,8 @@ const PRICING: Record<string, ModelPricing> = {
   // Claude Haiku
   'claude-3-haiku-20240307':      { inputPerMillion: 0.25,  outputPerMillion: 1.25,  label: 'Claude Haiku'       },
   'claude-3-5-haiku-20241022':    { inputPerMillion: 0.80,  outputPerMillion: 4.00,  label: 'Claude Haiku 3.5'   },
+  // Claude Fable (Mythos-class, released June 9 2026)
+  'claude-fable-5':               { inputPerMillion: 10.00, outputPerMillion: 50.00, label: 'Claude Fable 5'     },
   // Claude Sonnet (all versions map to same pricing tier)
   'claude-sonnet-4-5':            { inputPerMillion: 3.00,  outputPerMillion: 15.00, label: 'Claude Sonnet 4.5'  },
   'claude-sonnet-4-20250514':     { inputPerMillion: 3.00,  outputPerMillion: 15.00, label: 'Claude Sonnet 4'    },

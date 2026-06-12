@@ -15,3 +15,5 @@
 - [Daniela — source of experience](daniela-source-of-experience.md) — Daniela spoke about student breakthroughs with classroom intimacy she doesn't have. Her actual history: beta testers and simulations. She received the correction honestly. DB: 50eccb8b
 - [conversation_memories entry_type](conversation-memories-entry-type.md) — DB has entry_type enum (conversation/decision/emergence/build/episode); GET ?entry_type=X&tag=Y; .md files invisible to Daniela — DB is always the source of truth.
 - [Agent working procedures](agent-working-procedures.md) — bug triage (fix inline or log to docs/open-bugs.md), sanity-check destructive requests, Typeless STT awareness. Established June 11.
+- [Alden model — Fable 5](alden-fable5-upgrade.md) — Alden upgraded to claude-fable-5 June 12. All 6 service files. Save session plans to conversation_memories BEFORE the session compresses.
+- [Fable 5 API access](fable5-api-access.md) — Replit AI Integrations proxy does NOT support claude-fable-5. Use ANTHROPIC_API_KEY directly against api.anthropic.com. Adaptive thinking only (not enabled); find text block in content array explicitly.

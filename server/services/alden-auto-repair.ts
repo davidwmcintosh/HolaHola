@@ -98,7 +98,7 @@ async function classifyRepair(
   const client = getAnthropicClient();
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-5',
+    model: 'claude-fable-5',
     max_tokens: 512,
     messages: [{
       role: 'user',
@@ -144,7 +144,7 @@ async function generateRepairPlan(
   const repairId = `repair-${Date.now()}`;
 
   const response = await client.messages.create({
-    model: 'claude-sonnet-4-5',
+    model: 'claude-fable-5',
     max_tokens: 2048,
     messages: [{
       role: 'user',

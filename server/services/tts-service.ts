@@ -786,7 +786,9 @@ export function addCartesiaPhonemesToText(text: string, targetLanguage?: string)
       console.log(`[Streaming Phonemes] Quoted "${word}" → <<${phonemes}>>`);
       return `<<${phonemes}>>`;
     }
-    return word;
+    // Return the full match (including surrounding quotes) to avoid stripping
+    // quote characters from words that have no phoneme substitution.
+    return match;
   });
 
   // PASS 2: Process UNQUOTED multi-word phrases FIRST (before single words)

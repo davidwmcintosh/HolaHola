@@ -430,7 +430,9 @@ export class LyraAnalyticsService {
           / GREATEST(COUNT(DISTINCT u.id) FILTER (WHERE EXISTS (
             SELECT 1 FROM conversations c WHERE c.user_id = u.id
           )), 1), 1
-        ) as return_rate_7d
+        ) as return_rate_7d  -- NOTE: Despite the name, this has no 7-day window.
+                              -- It counts users with 2+ conversations at any time (ever),
+                              -- not specifically within the last 7 days. Rename if/when fixed.
       FROM real_users u
     `);
 
@@ -1004,7 +1006,7 @@ export class LyraAnalyticsService {
 
     try {
       const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-fable-5',
         max_tokens: 4096,
         messages: [
           {
@@ -1034,7 +1036,7 @@ Write your analysis as Lyra. Sign off with your name. Keep it 4-6 paragraphs —
       });
 
       if (response.usage) {
-        costTracker.track('claude-sonnet-4-5', response.usage.input_tokens, response.usage.output_tokens, 'lyra-analysis');
+        costTracker.track('claude-fable-5', response.usage.input_tokens, response.usage.output_tokens, 'lyra-analysis');
       }
 
       const textBlock = response.content.find(b => b.type === 'text');

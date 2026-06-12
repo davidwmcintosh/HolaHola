@@ -1758,7 +1758,7 @@ Remember: David may reference things discussed in these recent text chats.
         durationMs: metrics.sttLatencyMs 
       });
       
-      console.log(`[Streaming Orchestrator] STT: "${transcript}" (${metrics.sttLatencyMs}ms, conf: ${(pronunciationConfidence * 100).toFixed(0)}%, Cartesia: ${cartesiaWarmupTime >= 0 ? cartesiaWarmupTime + 'ms' : 'fallback'})`);
+      console.log(`[Streaming Orchestrator] STT: "${transcript}" (${metrics.sttLatencyMs}ms, conf: ${(pronunciationConfidence * 100).toFixed(0)}%, TTS warmup: ${ttsWarmupTime >= 0 ? ttsWarmupTime + 'ms' : 'fallback'})`);
       
       // Emit STT completion event for diagnostics
       voiceDiagnostics.emit({

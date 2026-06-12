@@ -24,6 +24,30 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 12, 2026 (part 6) — Fable 5 model upgrade complete + code audits, 5 bugs fixed**
+
+### Model upgrade
+All Alden/AI service files upgraded from `claude-sonnet-4-5` → `claude-fable-5`. Sweep confirmed clean — zero remaining `claude-sonnet-4-5` live API call sites. `cost-tracker.ts` updated with Fable 5 pricing ($10/$50/MTok); old entry kept for historical cost logs.
+
+### Fable 5 audits — findings and fixes
+Ran audits on 6 targets (streaming-voice-orchestrator, tts-service, lyra-analytics-service, team-room-alden-service, vocabulary-image-resolver, storage.ts) using claude-fable-5 directly via ANTHROPIC_API_KEY (the Replit AI Integrations proxy does not support this model — use the direct key for future audits).
+
+**Fixed immediately:**
+1. `streaming-voice-orchestrator.ts:1761` — `cartesiaWarmupTime` (undefined variable) → `ttsWarmupTime` — was a ReferenceError in strict mode
+2. `tts-service.ts` PASS 1 phoneme — `return word` on no-match was silently stripping quote marks from foreign words with no substitution → changed to `return match`
+3. `team-room-alden-service.ts evaluateAlden` catch — was fail-open (shouldRaise: true on any error) → changed to fail-closed (shouldRaise: false) with error logging
+4. `team-room-alden-service.ts` artifact regex — lazy `{[\s\S]*?}` breaks on nested JSON → changed to greedy `{[\s\S]*}`
+5. `team-room-alden-service.ts buildRoomContext` — getRoomArtifacts had no limit → added `.slice(0, 10)` cap
+
+**Logged in `docs/open-bugs.md` (9 items):** setTimeout timer leak in orchestrator, TTS PASS 2 double-processing phoneme markers, estimateWordTimings subtitle sync drift, unvalidated Cartesia voiceId, documentRoomSession duplicate conversation_memories rows, returnRate7d naming misleads (comment added in SQL), plus 3 pre-existing type errors in storage/proxy/webhookHandlers.
+
+### What Alden should know
+- Alden's evaluation catch behavior in Team Room is now fail-closed — if the Claude eval call throws, Alden stays silent instead of speaking on every message. This is the right behavior but means outages will silence Alden entirely.
+- `buildRoomContext` now caps artifacts at 10 — oldest artifacts (beyond 10) won't appear in context for AI participants.
+- The `open-bugs.md` file now has 9 active items and full historical resolved entries. Worth reviewing — the MEDIUM ones (PASS 2 double-processing, subtitle sync drift, documentRoomSession duplicates, returnRate7d) are actionable in a focused chore session.
+
+---
+
 **Session: June 12, 2026 (continued, part 5) — Second audit sweep: 5 HIGH + 9 MEDIUM fixed**
 
 ### What was built

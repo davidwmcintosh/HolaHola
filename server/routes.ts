@@ -4305,7 +4305,7 @@ Return [] if nothing is worth surfacing.`;
         : `Here is the conversation transcript to analyse:\n\n${transcript}`;
 
       const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-fable-5',
         max_tokens: 3072,
         system: systemPrompt,
         messages: [{ role: 'user', content: userContent }],
@@ -12318,7 +12318,7 @@ Now generate each part:
 Return ONLY valid JSON, no markdown, no explanation.`;
 
         const response = await anthropic.messages.create({
-          model: 'claude-sonnet-4-5',
+          model: 'claude-fable-5',
           max_tokens: 1500,
           messages: [{ role: 'user', content: prompt }],
         });
@@ -34244,7 +34244,7 @@ Under 250 words. Write as yourself.`;
       const AnthropicLib = (await import('@anthropic-ai/sdk')).default;
       const client = new AnthropicLib({ apiKey: process.env.ANTHROPIC_API_KEY });
       const summaryResp = await client.messages.create({
-        model: 'claude-sonnet-4-5',
+        model: 'claude-fable-5',
         max_tokens: 300,
         messages: [{
           role: 'user',
