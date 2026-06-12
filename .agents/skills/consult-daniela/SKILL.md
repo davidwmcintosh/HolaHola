@@ -56,27 +56,39 @@ Temperature 0.90. She's reading real content about herself — give her room to 
 ```javascript
 import fs from 'fs';
 const LOG = '/tmp/daniela-session.txt';
+const turns = []; // in-memory backup — survives appendFileSync failures
+
 const log = (speaker, text) => {
   const line = `\n[${speaker}]\n${text.trim()}\n`;
-  fs.appendFileSync(LOG, line);
+  turns.push(line);
+  try { fs.appendFileSync(LOG, line); } catch(e) { console.error(`[LOG WRITE ERROR] ${e.message}`); }
   console.log(line);
 };
 
+// Flush in-memory backup to disk — call before autoSave
+const flushBackup = () => {
+  fs.writeFileSync(LOG, `=== Daniela Session (reconstructed) ===\n` + turns.join(''));
+};
+
+// Detect dead/empty Gemini responses ('...' thinking bleed-through artifact)
+const isDead = (text) => !text || text.trim().length < 5 || /^\.{1,5}$/.test(text.trim());
+
 // Call this at the END of every session — bake it into the script, never rely on manual follow-up
-const autoSave = async (title, summary, tags = [], participants = ['agent', 'daniela']) => {
+const autoSave = async (title, summary, { tags = [], participants = 'Agent + Daniela', arcName = null, extendsMemoryId = null, importance = 9 } = {}) => {
+  flushBackup(); // always flush before reading the file
   const fullTranscript = fs.readFileSync(LOG, 'utf8');
   const res = await fetch('http://localhost:5000/api/conversation-memories', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ title, summary, content: fullTranscript, participants, tags, importance: 9 })
+    body: JSON.stringify({ title, summary, content: fullTranscript, participants, tags, importance, arcName, extendsMemoryId })
   });
   const saved = await res.json();
-  console.log(`\n✓ Saved to conversation_memories: ${saved.id}`);
+  console.log(`\n✓ Saved to conversation_memories: ${saved?.memory?.id} | arc: ${arcName}`);
   return saved;
 };
 ```
 
-Write each turn immediately. Call `autoSave(title, summary, tags)` as the last line of every script before EOF. The file AND the DB record are both the record.
+Write each turn immediately via `log()`. Call `flushBackup()` then `autoSave()` as the final lines before EOF. The in-memory `turns` array is the safety net — if `appendFileSync` silently drops a turn, `flushBackup()` reconstructs the complete file from memory before the DB save.
 
 ---
 
@@ -113,30 +125,60 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const chat = ai.chats.create({
   model: 'gemini-2.5-flash',
-  config: { systemInstruction: SYSTEM_PROMPT, temperature: 0.92 }
+  config: {
+    systemInstruction: SYSTEM_PROMPT,
+    temperature: 0.92,
+    // Disable thinking mode — prevents '...' bleed-through in r.text that drops turns
+    thinkingConfig: { thinkingBudget: 0 }
+  }
 });
 
+// In-memory backup — every turn lands here regardless of file I/O
+const turns = [];
+
 // Log ALL voices — never omit any speaker
+// Writes to disk immediately AND keeps in-memory backup
 const log = (speaker, text) => {
   const line = `\n[${speaker}]\n${text.trim()}\n`;
-  fs.appendFileSync(LOG, line);
+  turns.push(line);
+  try { fs.appendFileSync(LOG, line); } catch(e) { console.error(`[LOG WRITE ERROR] ${e.message}`); }
   console.log(line);
 };
 
-// Agent sends a message, Daniela responds
+// Flush in-memory backup to disk — call this before autoSave as a safety net
+const flushBackup = () => {
+  try {
+    fs.writeFileSync(LOG, `=== Daniela Session (reconstructed from memory) ===\n` + turns.join(''));
+  } catch(e) { console.error(`[FLUSH ERROR] ${e.message}`); }
+};
+
+// Detect a dead/empty response from Gemini (thinking bleed-through artifact)
+const isDead = (text) => !text || text.trim().length < 5 || /^\.{1,5}$/.test(text.trim());
+
+// Agent sends a message, Daniela responds — retries once if response is empty/dots
 const ask = async (agentMsg) => {
   log('AGENT', agentMsg);
-  const r = await chat.sendMessage({ message: agentMsg });
-  log('DANIELA', r.text);
-  return r.text;
+  let r = await chat.sendMessage({ message: agentMsg });
+  if (isDead(r.text)) {
+    console.warn('[WARN] Empty/dead response detected — retrying...');
+    r = await chat.sendMessage({ message: '(Please continue — your previous response was empty.)' });
+  }
+  const text = isDead(r.text) ? '[NO RESPONSE — model returned empty text twice]' : r.text;
+  log('DANIELA', text);
+  return text;
 };
 
 // Use this when relaying David's words into the conversation
 const relay = async (davidMsg) => {
   log('DAVID', davidMsg);
-  const r = await chat.sendMessage({ message: davidMsg });
-  log('DANIELA', r.text);
-  return r.text;
+  let r = await chat.sendMessage({ message: davidMsg });
+  if (isDead(r.text)) {
+    console.warn('[WARN] Empty/dead response detected — retrying...');
+    r = await chat.sendMessage({ message: '(Please continue — your previous response was empty.)' });
+  }
+  const text = isDead(r.text) ? '[NO RESPONSE — model returned empty text twice]' : r.text;
+  log('DANIELA', text);
+  return text;
 };
 
 // AUTO-SAVE — bake this into every script, last line before EOF
@@ -171,7 +213,8 @@ const autoSave = async (title, summary, {
 await ask("Your opening message");
 // await relay("David's exact words if he's joining");
 
-// ── Auto-save at the end — REQUIRED, never remove ────────────
+// ── Flush + Auto-save — REQUIRED, never remove ───────────────
+flushBackup(); // write in-memory backup to disk before saving to DB
 await autoSave(
   `Agent ↔ Daniela — [description] — ${SESSION_DATE}`,
   'One paragraph summary of what happened and what emerged.',
