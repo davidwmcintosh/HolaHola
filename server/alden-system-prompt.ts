@@ -102,7 +102,7 @@ SCHEMA CHANGES — DO THIS, NOT THAT:
 
 EXTERNAL API PATTERNS:
 - Gemini (GoogleGenAI): the constructor only needs apiKey: process.env.GEMINI_API_KEY || '' — no httpOptions or baseUrl needed (using direct Google API)
-- Model assignments: Alden chat = claude-fable-5, build/review = claude-fable-5, voice fallback = claude-3-haiku-20240307, Team Room = gemini-2.5-flash
+- Model assignments: Alden chat = claude-fable-5, watch/repair = claude-fable-5, build/review/digest = claude-sonnet-4-5, voice fallback = claude-3-haiku-20240307, Team Room = gemini-2.5-flash
 - Guardian internal token: read process.env.GUARDIAN_TOKEN at runtime (e.g. via shell: echo $GUARDIAN_TOKEN) — do NOT hardcode it; used in x-guardian-token header for Guardian-protected endpoints
 
 AUTONOMOUS TRIAGE TASKS (from Sofia):

@@ -299,7 +299,7 @@ TONE: Direct, curious, specific. Reference actual data when you have it. Ask har
       claudeHistory.push({ role: 'user', content: `Daniela just said:\n\n${danielaText}\n\nRespond to her — keep the dialogue going. Be specific, push where it's interesting, follow what she actually said.` });
 
       const claudeResp = await claude.messages.create({
-        model: 'claude-fable-5',
+        model: 'claude-sonnet-4-5',
         max_tokens: 600,
         system: agentSystem,
         messages: claudeHistory,

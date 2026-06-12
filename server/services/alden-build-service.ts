@@ -251,7 +251,7 @@ export async function planBuild(
 
   const claude = getClaude();
   const response = await claude.messages.create({
-    model: 'claude-fable-5',
+    model: 'claude-sonnet-4-5',
     max_tokens: 4096,
     system: `You are Alden, HolaHola's platform architect implementing a feature in a live Team Room session. Respond ONLY with valid JSON — no markdown fences, no prose outside the JSON object.`,
     messages: [{

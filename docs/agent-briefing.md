@@ -1,19 +1,16 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, June 12, 2026 at 08:37 PM
+**Generated:** Friday, June 12, 2026 at 08:53 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve successfully transitioned the entire stack to `claude-fable-5` via a direct Anthropic API connection and patched five critical bugs, including a streaming voice orchestrator error and a nested JSON regex fix for team-room artifacts. I’m currently tracking a massive spike of 50 new bugs and a "404 Page Not Found" routing error on the conversations page that Sofia flagged. We need to prioritize Wren’s two high-severity security findings immediately, while also deciding whether to scrap the "half-baked" Interactive Textbook in favor of the conversational immersion strategy we discussed with Daniela and Lyra.
+I’m stepping into a high-stakes environment where a monitoring blackout and Cartesia TTS failures are currently "blinding" the team and blocking core voice sessions. Last session, we pivoted toward conversational immersion by implementing the `generateVisual` tool and the `ImmersionObjective` framework to replace the "half-baked" Interactive Textbook, though Daniela recently became stuck in a "Curriculum note" loop. I must immediately prioritize fixing the 404 routing error on the conversations page and addressing Wren’s critical security findings—specifically SQL injection risks and a hardcoded secret—before tackling the 50-bug surge flagged by Sofia.
 
 *Memories that triggered this summary:*
-- **Fable 5 Upgrade + Code Audit — June 12 2026** (Jun 12): Completed the claude-sonnet-4-5 → claude-fable-5 model upgrade across all 10 Alden/AI service files. Ran Fable 5 code audits on 6 target files. Fixed 5 bugs: (1) cartesiaWarmupTime undefined variable in streaming-voice-orchestrator, (2) TTS phoneme PASS 1 strips quotes on no-match, (3) team-room evaluateAlden fails open on error, (4) team-room artifact regex breaks on nested JSON, (5) buildRoomContext loads unbounded artifacts. Logged 9 items in open-bugs.md.
-- **Team Room — test 3 — June 12, 2026** (Jun 12): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — June 12, 2026** (Jun 12): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 12, 2026** (Jun 12): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
 - **Team Room — one again into the breach — June 12, 2026** (Jun 12): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
 - **Team Room — hello again — June 12, 2026** (Jun 12): Team Room session with David. Topic: hello again. 2 messages exchanged.
@@ -21,6 +18,9 @@ I’ve successfully transitioned the entire stack to `claude-fable-5` via a dire
 - **Team Room — what's up? — June 12, 2026** (Jun 12): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — June 12, 2026** (Jun 12): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — June 12, 2026** (Jun 12): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+- **Team Room — once more into the breech my friends — June 12, 2026** (Jun 12): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
+- **Team Room — uno, dos, tres VAMOS — June 12, 2026** (Jun 12): Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
+- **Team Room — canta y no llore... — June 12, 2026** (Jun 12): Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
 
 ---
 
@@ -92,24 +92,24 @@ I’ve successfully transitioned the entire stack to `claude-fable-5` via a dire
 
 ## Recent Conversation Memories
 
-### Fable 5 Upgrade + Code Audit — June 12 2026 — Jun 12, 2026
-Completed the claude-sonnet-4-5 → claude-fable-5 model upgrade across all 10 Alden/AI service files. Ran Fable 5 code audits on 6 target files. Fixed 5 bugs: (1) cartesiaWarmupTime undefined variable in streaming-voice-orchestrator, (2) TTS phoneme PASS 1 strips quotes on no-match, (3) team-room evaluateAlden fails open on error, (4) team-room artifact regex breaks on nested JSON, (5) buildRoomContext loads unbounded artifacts. Logged 9 items in open-bugs.md.
-*Tags: build, fable5-upgrade, code-audit, model-upgrade, bug-fixes*
-
-### Team Room — test 3 — June 12, 2026 — Jun 12, 2026
-Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — test again — June 12, 2026 — Jun 12, 2026
-Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-*Tags: team-room, session, historic-record*
-
 ### Team Room — are we good? — June 12, 2026 — Jun 12, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 ### Team Room — one again into the breach — June 12, 2026 — Jun 12, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — hello again — June 12, 2026 — Jun 12, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — again — June 12, 2026 — Jun 12, 2026
+Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — what's up? — June 12, 2026 — Jun 12, 2026
+Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

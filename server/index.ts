@@ -804,6 +804,9 @@ app.use((req, res, next) => {
       const { startAgentSweepWorker } = await import('./services/agent-proactive-sweep-worker');
       startAgentSweepWorker();
 
+      const { startAgentSessionAutosave } = await import('./services/agent-session-autosave');
+      startAgentSessionAutosave();
+
       const { startMondayBriefScheduler } = await import('./services/board-meeting-service');
       startMondayBriefScheduler();
 

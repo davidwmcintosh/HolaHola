@@ -1006,7 +1006,7 @@ export class LyraAnalyticsService {
 
     try {
       const response = await anthropic.messages.create({
-        model: 'claude-fable-5',
+        model: 'claude-sonnet-4-5',
         max_tokens: 4096,
         messages: [
           {
@@ -1036,7 +1036,7 @@ Write your analysis as Lyra. Sign off with your name. Keep it 4-6 paragraphs —
       });
 
       if (response.usage) {
-        costTracker.track('claude-fable-5', response.usage.input_tokens, response.usage.output_tokens, 'lyra-analysis');
+        costTracker.track('claude-sonnet-4-5', response.usage.input_tokens, response.usage.output_tokens, 'lyra-analysis');
       }
 
       const textBlock = response.content.find(b => b.type === 'text');

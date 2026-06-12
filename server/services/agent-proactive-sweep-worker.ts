@@ -151,7 +151,7 @@ async function runSweep(): Promise<void> {
     const claude = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
     const resp = await claude.messages.create({
-      model: 'claude-fable-5',
+      model: 'claude-sonnet-4-5',
       max_tokens: 800,
       system: `You are the Replit Agent — the external builder of HolaHola. You run a daily proactive sweep of system signals and produce a short prioritized action list for David.
 
@@ -182,10 +182,30 @@ Rules:
     return;
   }
 
-  // Team Room posting disabled (June 2026): sweep results are saved to conversation_memories
-  // and can be surfaced by Alden or retrieved on-demand. The Team Room is reserved for
-  // live conversation only — background sweeps do not post there.
-  console.log('[AgentSweep] Sweep complete — not posting to Team Room (disabled). Results available in conversation_memories.');
+  // Save sweep results to conversation_memories so the Agent has a persistent record
+  // of system health observations across sessions.
+  try {
+    const db = getUserDb();
+    const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const summary = sweep.split('\n').slice(0, 3).join(' ').slice(0, 300);
+    await db.execute(sql`
+      INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, entry_type)
+      VALUES (
+        gen_random_uuid(),
+        ${`Agent Daily Sweep — ${today}`},
+        ${summary},
+        ${sweep},
+        ARRAY['agent']::text[],
+        ARRAY['agent-sweep', 'daily', 'auto-saved']::text[],
+        6,
+        NOW(),
+        'build'
+      )
+    `);
+    console.log('[AgentSweep] Sweep saved to conversation_memories.');
+  } catch (saveErr: any) {
+    console.error('[AgentSweep] Failed to save sweep to conversation_memories:', saveErr.message);
+  }
 }
 
 // ── Start ─────────────────────────────────────────────────────────────────────
