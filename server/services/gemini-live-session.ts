@@ -128,6 +128,10 @@ export class GeminiLiveSession {
   // Safety timeout: force-opens the mic gate if onPlaybackEnded() never arrives
   // (e.g., the client disconnects mid-playback or the telemetry event is dropped).
   private playbackGateSafetyTimeout: ReturnType<typeof setTimeout> | null = null;
+  // Safety timeout: force-clears greetingPhaseActive if the greeting produces no audio
+  // (content filter, text-only response, error) so the mic doesn't stay permanently blocked.
+  // 15s is generous — greeting audio typically arrives within 1-2s.
+  private greetingWatchdogTimer: NodeJS.Timeout | null = null;
 
   // ── Auto-reconnect ─────────────────────────────────────────────────────────
   // When the GL WebSocket closes unexpectedly (1011 internal error, 1006 network
@@ -157,6 +161,15 @@ export class GeminiLiveSession {
   private pendingInputSaved = false;     // True once user message has been persisted for this turn
   private pendingOutputTranscript = '';  // Accumulates Daniela's reply across all sub-turns
   private transcriptFlushTimer: NodeJS.Timeout | null = null;
+  // Guard: prevents concurrent flushTranscripts() calls (e.g. 800ms debounce fires before
+  // generationComplete, then generationComplete also calls flush) from double-incrementing
+  // completedExchanges or sending response_complete twice.
+  private isFlushInProgress = false;
+  // Typed field for inline media parts that must be sent via realtimeInput after tool response
+  // (GL tool response payloads cannot carry binary inlineData — causes 1007 session crash).
+  // Using a typed array + push ensures batched tool calls (functionCalls[]) don't overwrite
+  // each other's pending parts; each call appends and all are sent together.
+  private pendingInlineParts: Array<{ mimeType: string; data: string }> = [];
 
   /**
    * Optional callback fired with the completed user transcript after each GL turn.
@@ -432,6 +445,10 @@ export class GeminiLiveSession {
                 clearTimeout(this.playbackGateSafetyTimeout);
                 this.playbackGateSafetyTimeout = null;
               }
+              if (this.greetingWatchdogTimer) {
+                clearTimeout(this.greetingWatchdogTimer);
+                this.greetingWatchdogTimer = null;
+              }
               this.pendingInputTranscript = '';
               this.pendingInputSaved = false;
               this.pendingOutputTranscript = '';
@@ -596,6 +613,17 @@ export class GeminiLiveSession {
       });
       this.liveSession.sendRealtimeInput({ activityEnd: {} });
       this.greetingPhaseActive = true;
+      // Safety: if greeting produces no audio (content filter / text-only / error),
+      // greetingPhaseActive would never be cleared and the mic stays permanently blocked.
+      // Force-clear after 15s — greeting audio normally arrives within 1-2s.
+      if (this.greetingWatchdogTimer) clearTimeout(this.greetingWatchdogTimer);
+      this.greetingWatchdogTimer = setTimeout(() => {
+        this.greetingWatchdogTimer = null;
+        if (this.greetingPhaseActive) {
+          this.greetingPhaseActive = false;
+          console.warn('[GeminiLive] Greeting watchdog fired — greetingPhaseActive cleared (no audio in 15s)');
+        }
+      }, 15000);
       console.log(`[GeminiLive] Greeting trigger sent (resumed: ${isResumed || false}) — silence primer + activityEnd, mic gated`);
     } catch (err) {
       console.warn('[GeminiLive] Failed to send greeting trigger:', err);
@@ -630,6 +658,10 @@ export class GeminiLiveSession {
     if (this.transcriptFlushTimer) {
       clearTimeout(this.transcriptFlushTimer);
       this.transcriptFlushTimer = null;
+    }
+    if (this.greetingWatchdogTimer) {
+      clearTimeout(this.greetingWatchdogTimer);
+      this.greetingWatchdogTimer = null;
     }
     if (this.liveSession) {
       try {
@@ -727,6 +759,14 @@ export class GeminiLiveSession {
               this.liveSession.sendRealtimeInput({ activityEnd: {} });
               // Block mic audio until GL sends its first response chunk.
               this.greetingPhaseActive = true;
+              if (this.greetingWatchdogTimer) clearTimeout(this.greetingWatchdogTimer);
+              this.greetingWatchdogTimer = setTimeout(() => {
+                this.greetingWatchdogTimer = null;
+                if (this.greetingPhaseActive) {
+                  this.greetingPhaseActive = false;
+                  console.warn('[GeminiLive] Greeting watchdog fired — greetingPhaseActive cleared (no audio in 15s)');
+                }
+              }, 15000);
               console.log('[GeminiLive] Pending greeting fired — silence primer + thread pre-load + text turn + activityEnd sent, mic gated');
             }
           } catch (err) {
@@ -965,6 +1005,12 @@ export class GeminiLiveSession {
     //     model has truly stopped generating (no more turnComplete events incoming).
     //     This produces one DB row per utterance instead of one per phrase.
     if (msg.serverContent?.turnComplete) {
+      // H1 fix: clear greeting gate on turnComplete (covers no-audio greeting paths).
+      if (this.greetingPhaseActive) {
+        this.greetingPhaseActive = false;
+        if (this.greetingWatchdogTimer) { clearTimeout(this.greetingWatchdogTimer); this.greetingWatchdogTimer = null; }
+        console.log('[GeminiLive] turnComplete — greeting gate cleared (no audio path)');
+      }
       // ── Audio: close current sentence, prepare next ──────────────────────
       if (this.hadAudioInCurrentSubturn) {
         this.sendWsMessage(this.session.ws, {
@@ -1004,6 +1050,14 @@ export class GeminiLiveSession {
     //  3. Flush transcripts immediately — generationComplete is a definitive end-of-response
     //     signal, so there is no value in waiting for more sub-turns.
     if ((msg.serverContent as any)?.generationComplete) {
+      // H1 fix: clear greeting gate on generationComplete — handles the case where the
+      // greeting turn produces no audio (content filter, text-only, error), which would
+      // otherwise leave greetingPhaseActive=true permanently and block all mic input.
+      if (this.greetingPhaseActive) {
+        this.greetingPhaseActive = false;
+        if (this.greetingWatchdogTimer) { clearTimeout(this.greetingWatchdogTimer); this.greetingWatchdogTimer = null; }
+        console.log('[GeminiLive] generationComplete — greeting gate cleared (no audio path)');
+      }
       // Gate stays closed (isTutorGeneratingAudio = true) until the CLIENT signals
       // playback_ended. generationComplete fires when GL finishes generating, but the
       // client hasn't started playing yet — audio is still buffered. If we open the gate
@@ -1181,9 +1235,13 @@ export class GeminiLiveSession {
               const inlineParts = parts.filter((p: any) => p.inlineData);
               toolResponsePayload = { result: textOnly || 'done' };
               console.log(`[GeminiLive] Tool ${fcName}: multimodal — returning ${toolResponsePayload.result.length} chars text + ${inlineParts.length} inline part(s) via realtimeInput`);
-              // Queue inline parts to send after tool response is dispatched
+              // Queue inline parts to send after tool response is dispatched.
+              // H4 fix: push onto typed array instead of overwriting — batched tool calls
+              // (functionCalls[]) would otherwise silently drop earlier calls' images.
               if (inlineParts.length > 0 && this.liveSession) {
-                (this as any)._pendingInlineParts = inlineParts;
+                for (const p of inlineParts) {
+                  this.pendingInlineParts.push({ mimeType: (p as any).inlineData.mimeType, data: (p as any).inlineData.data });
+                }
               }
             } else {
               const text = JSON.stringify(continuationText);
@@ -1222,15 +1280,21 @@ export class GeminiLiveSession {
 
         // Send any queued inline image parts (vision) as realtimeInput after tool response.
         // These were stripped from the tool response payload to prevent 1007 crashes.
-        const pendingInline = (this as any)._pendingInlineParts as any[] | undefined;
-        if (pendingInline?.length && this.liveSession) {
-          (this as any)._pendingInlineParts = undefined;
-          for (const part of pendingInline) {
+        // H4 fix: use typed class field (not (this as any)) and re-check liveSession
+        // before each send — sendToolResponse() yields to the event loop and a reconnect
+        // could null liveSession between the batch send and the inline parts loop.
+        if (this.pendingInlineParts.length > 0) {
+          const partsToSend = this.pendingInlineParts.splice(0);
+          for (const part of partsToSend) {
+            if (!this.liveSession) {
+              console.warn('[GeminiLive] liveSession gone before inline parts could be sent — dropping remaining parts');
+              break;
+            }
             try {
               this.liveSession.sendRealtimeInput({
-                mediaChunks: [{ mimeType: part.inlineData.mimeType, data: part.inlineData.data }],
+                mediaChunks: [{ mimeType: part.mimeType, data: part.data }],
               });
-              console.log(`[GeminiLive] Vision inline data sent via realtimeInput (${part.inlineData.mimeType})`);
+              console.log(`[GeminiLive] Vision inline data sent via realtimeInput (${part.mimeType})`);
             } catch (vErr) {
               console.warn('[GeminiLive] Failed to send vision inline data:', (vErr as Error).message);
             }
@@ -1335,6 +1399,22 @@ export class GeminiLiveSession {
    * one row per transcription chunk / sub-turn.
    */
   private async flushTranscripts(): Promise<void> {
+    // H3 fix: prevent concurrent flushes (e.g. 800ms debounce fires before generationComplete
+    // arrives, then generationComplete also calls flush — both paths otherwise double-increment
+    // completedExchanges and send response_complete twice).
+    if (this.isFlushInProgress) {
+      console.log('[GeminiLive] flushTranscripts: concurrent call suppressed');
+      return;
+    }
+    this.isFlushInProgress = true;
+    try {
+      await this._doFlushTranscripts();
+    } finally {
+      this.isFlushInProgress = false;
+    }
+  }
+
+  private async _doFlushTranscripts(): Promise<void> {
     // Capture state before async operations
     const totalSentences = this.currentSentenceIndex;  // how many PCM sentences were sent
     const flushTurnId = this.currentTurnId;            // turnId client associates with this response

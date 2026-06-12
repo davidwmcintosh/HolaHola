@@ -24,6 +24,39 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 12, 2026 (continued, part 3) — Claude Fable 5 audit + voice pipeline bug fixes**
+
+### What was built
+
+Ran Claude Fable 5 code audits on the voice pipeline and context injection layer, then fixed all HIGH severity bugs found.
+
+**Voice pipeline fixes (`gemini-live-session.ts`):**
+
+- **H1 — Greeting gate permanently stuck (HIGH):** `greetingPhaseActive` was only cleared when audio arrived. If the greeting produced no audio (content filter, text-only, GL error), the mic stayed permanently blocked for the entire session — David speaks but Daniela never hears. Fixed by: (a) adding 15s `greetingWatchdogTimer` whenever `greetingPhaseActive` is set, (b) clearing the gate on `generationComplete` and `turnComplete` signals, (c) cancelling watchdog in `stop()` and reconnect.
+
+- **H3 — Double-flush race (MEDIUM-HIGH):** If the 800ms debounce fired before `generationComplete` arrived, two concurrent `flushTranscripts()` calls would double-increment `completedExchanges` and send `response_complete` twice to the client. Fixed by adding `isFlushInProgress` semaphore with try/finally.
+
+- **H4a/b/c — `_pendingInlineParts` untyped + TOCTOU + batch overwrite (HIGH):** Inline image parts for GL tool responses were stored as `(this as any)._pendingInlineParts` — untyped escape hatch, overwritten by batched tool calls (silently dropping all but the last call's images), and not guarded against `liveSession` nulling between sendToolResponse and the send loop. Fixed by promoting to typed class field `pendingInlineParts: Array<{mimeType, data}>`, using `push()` pattern, and adding per-iteration `liveSession` null check with early break.
+
+**Audit findings NOT yet fixed (logged in `docs/claude-fable5-audit-june12.md`):**
+
+- Context injection token budget has no global cap — pedagogy doc alone can be 10–40k tokens
+- TOC includes full UUIDs per lesson (~600 tokens of noise for a full course)
+- Neural net context uses a static query (same top-5 results every session)
+- Voice summary quality poor (first 100 chars of pleasantry, no user turns)
+- Passive memory keyword matching is substring-based (false positives: `son` fires on "lesson")
+- "[Context acknowledged]" preamble turn could cause TTS to speak it aloud mid-voice session
+- Medium bugs: reconnectAttempts can exhaust faster than intended; identity threads miss on very fast GL connections
+
+### What Alden should know
+
+1. `flushTranscripts()` is now a thin wrapper that delegates to `_doFlushTranscripts()` with an `isFlushInProgress` guard. If you see `flushTranscripts: concurrent call suppressed` in logs it means a double-flush was caught — normal behavior, not an error.
+2. `greetingPhaseActive` is now always cleared by `generationComplete`/`turnComplete` even if no audio arrives — the greeting watchdog is a belt-and-suspenders backup. If you see `Greeting watchdog fired` in logs it means a greeting turn produced no audio, worth investigating.
+3. `pendingInlineParts` is now a proper typed field on `GeminiLiveSession`. The old `(this as any)._pendingInlineParts` pattern is gone.
+4. Full audit report: `docs/claude-fable5-audit-june12.md`
+
+---
+
 **Session: June 12, 2026 (continued, part 2) — Voice/immersive/drill consolidation**
 
 ### What was built
