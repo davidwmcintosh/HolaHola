@@ -17,8 +17,8 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { getSharedDb } from "../db";
-import { users } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { users, conversations } from "@shared/schema";
+import { eq, and, desc } from "drizzle-orm";
 import crypto from "crypto";
 
 const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
@@ -192,10 +192,12 @@ export function getPlacementSession(sessionId: string): PlacementSession | undef
   return sessions.get(sessionId);
 }
 
-// ─── Write placement result to users table ────────────────────────────────────
+// ─── Write placement result to users AND conversations tables ─────────────────
 async function writePlacementResult(userId: string, language: string, level: string): Promise<void> {
   try {
     const db = getSharedDb();
+
+    // 1. Update users table
     await db
       .update(users)
       .set({
@@ -206,6 +208,27 @@ async function writePlacementResult(userId: string, language: string, level: str
         lastAssessmentDate: new Date(),
       })
       .where(eq(users.id, userId));
+
+    // 2. Update the most recent conversation for this user (language placement
+    //    sessions may not have a dedicated conversationId, so we update the
+    //    latest one to carry the assessed level forward into context).
+    const [latestConv] = await db
+      .select({ id: conversations.id })
+      .from(conversations)
+      .where(and(eq(conversations.userId, userId), eq(conversations.language, language)))
+      .orderBy(desc(conversations.createdAt))
+      .limit(1);
+
+    if (latestConv) {
+      await db
+        .update(conversations)
+        .set({ actflLevel: level })
+        .where(eq(conversations.id, latestConv.id));
+      console.log(`[PlacementChat] Wrote ACTFL level "${level}" to conversations row ${latestConv.id}`);
+    } else {
+      console.log(`[PlacementChat] No conversation found for userId=${userId} lang=${language} — skipping conversation update`);
+    }
+
     console.log(`[PlacementChat] Wrote ACTFL level "${level}" for userId=${userId} (${language})`);
   } catch (err: any) {
     console.error(`[PlacementChat] DB write failed for userId=${userId}:`, err.message);

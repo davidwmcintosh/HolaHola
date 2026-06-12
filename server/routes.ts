@@ -9130,7 +9130,18 @@ Return ONLY the ${targetLanguage} phrase:`;
       if (!sessionId || !message) {
         return res.status(400).json({ message: "sessionId and message are required" });
       }
-      const { sendPlacementMessage } = await import('./services/placement-chat-service');
+      const { sendPlacementMessage, getPlacementSession } = await import('./services/placement-chat-service');
+      // Ownership check: non-testMode sessions must belong to the requesting user
+      const session = getPlacementSession(sessionId);
+      if (!session) {
+        return res.status(404).json({ message: "Placement session not found or expired" });
+      }
+      if (session.userId !== null) {
+        const requestingUserId = getRequestUserId(req);
+        if (session.userId !== requestingUserId) {
+          return res.status(403).json({ message: "Access denied: session belongs to another user" });
+        }
+      }
       const result = await sendPlacementMessage(sessionId, message);
       res.json(result);
     } catch (err: any) {
