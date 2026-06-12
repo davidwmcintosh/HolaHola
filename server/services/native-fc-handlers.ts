@@ -3386,11 +3386,14 @@ export class NativeFunctionCallHandler {
         }
         const placementLevel = fn.args.level as string | undefined;
         const placementReasoning = fn.args.reasoning as string | undefined;
+        // language param added to tool contract — defaults to session language when omitted
+        const placementLanguage = (fn.args.language as string | undefined) || session.targetLanguage || 'spanish';
         
         if (placementLevel && session.userId) {
           (async () => {
             try {
               const db = getSharedDb();
+              // 1. Write to user profile
               await db
                 .update(users)
                 .set({
@@ -3401,7 +3404,16 @@ export class NativeFunctionCallHandler {
                   lastAssessmentDate: new Date(),
                 })
                 .where(eq(users.id, String(session.userId)));
-              console.log(`[Native Function→SetActflLevel] Wrote placement level "${placementLevel}" for userId=${session.userId}. Reasoning: ${placementReasoning || 'not provided'}`);
+              // 2. Write to active conversation record so the assessment level is
+              //    co-located with the conversation evidence that produced it
+              if (session.conversationId) {
+                const { conversations } = await import('@shared/schema');
+                await db
+                  .update(conversations)
+                  .set({ actflLevel: placementLevel })
+                  .where(eq(conversations.id, String(session.conversationId)));
+              }
+              console.log(`[Native Function→SetActflLevel] Wrote placement level "${placementLevel}" for userId=${session.userId}, language=${placementLanguage}. Reasoning: ${placementReasoning || 'not provided'}`);
             } catch (err: any) {
               console.error(`[Native Function→SetActflLevel] DB write failed:`, err.message);
             }

@@ -9721,7 +9721,19 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // ===== Class Enrollments =====
-  
+
+  // Get current user's active class enrollments (used by onboarding to detect school enrollment)
+  app.get("/api/user/class-enrollments", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req)!;
+      const enrollments = await storage.getStudentEnrollments(userId);
+      res.json(enrollments.map((e) => ({ id: e.id, classId: e.classId, isActive: e.isActive })));
+    } catch (error: any) {
+      console.error("Error fetching user class enrollments:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Join a class with join code (students)
   app.post("/api/student/enroll", isAuthenticated, async (req: any, res) => {
     try {
@@ -10701,7 +10713,36 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  // Reset student progress within a class (teacher can reset student's class-specific data)
+  // Teacher-triggered placement reset: marks enrollment placementChecked=false so the student
+  // is prompted for placement assessment at their next session start.
+  app.post("/api/teacher/classes/:classId/students/:studentId/trigger-placement", isAuthenticated, async (req: any, res) => {
+    try {
+      const teacherId = getRequestUserId(req)!;
+      const { classId, studentId } = req.params;
+
+      const teacherClass = await storage.getTeacherClass(classId);
+      if (!teacherClass || teacherClass.teacherId !== teacherId) {
+        return res.status(404).json({ error: "Class not found" });
+      }
+
+      const isEnrolled = await storage.isStudentEnrolled(classId, studentId);
+      if (!isEnrolled) {
+        return res.status(404).json({ error: "Student not found in this class" });
+      }
+
+      await getSharedDb()
+        .update(classEnrollments)
+        .set({ placementChecked: false, placementActflResult: null })
+        .where(and(eq(classEnrollments.classId, classId), eq(classEnrollments.studentId, studentId)));
+
+      console.log(`[TeacherPlacement] Teacher ${teacherId} triggered placement reset for student ${studentId} in class ${classId}`);
+      res.json({ success: true, message: "Placement assessment will be triggered at student's next session" });
+    } catch (error: any) {
+      console.error("Error triggering placement reset:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/teacher/classes/:classId/students/:studentId/reset", isAuthenticated, async (req: any, res) => {
     try {
       const teacherId = getRequestUserId(req)!;

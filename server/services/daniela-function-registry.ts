@@ -144,6 +144,10 @@ const registry: DanielaFunctionEntry[] = [
             ],
             description: "The ACTFL level being set as the student's baseline placement",
           },
+          language: {
+            type: "string",
+            description: "The language being assessed (e.g., 'spanish', 'french'). Defaults to the current session language if omitted.",
+          },
           reasoning: {
             type: "string",
             description: "Brief explanation of what evidence led to this placement",

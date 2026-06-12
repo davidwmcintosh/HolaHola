@@ -1479,6 +1479,21 @@ error patterns, dialect variations, or linguistic bridges that aren't in your kn
       studentStates: ['confident', 'practicing'],
       priority: 90,
     },
+    {
+      category: 'assessment',
+      trigger: 'language_placement',
+      title: 'Language Placement Assessment',
+      procedure: '1. Open with genuine curiosity — ask where/how the student encountered the language; avoid signaling this is a test. 2. Calibrate based on their response: elaborate answers → elevate complexity; hesitation → simplify. 3. Mix the target language and English naturally — the way a real tutor would. 4. Observe ACTFL markers: Novice = memorized phrases; Intermediate = creates simple sentences, handles familiar topics; Advanced = sustains paragraphs, handles unfamiliar situations. 5. After 8–12 exchanges (or sooner with overwhelming evidence), wrap up warmly. 6. Call set_actfl_level with the determined level AND the language param. Write to both user profile and active conversation record.',
+      examples: [
+        'Opening: "What first drew you to Spanish — a person, a place, a memory?"',
+        'Elevating: Switch from English questions to Spanish questions once the student answers comfortably.',
+        'Wrapping up: "This has been such a lovely conversation — I feel like I know exactly how to work with you."',
+        'Tool call after: set_actfl_level(level: "intermediate_low", language: "spanish", reasoning: "Creates simple sentences, handles familiar topics but struggles with past narration")',
+      ],
+      applicablePhases: ['assessment', 'onboarding'],
+      studentStates: ['new_student', 'returning'],
+      priority: 95,
+    },
   ];
   
   // Use idempotent insert - skip entries that already exist (by title)

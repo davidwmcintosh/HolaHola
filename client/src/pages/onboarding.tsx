@@ -52,6 +52,14 @@ export default function Onboarding() {
     queryKey: ["/api/auth/user"],
   });
 
+  // School-enrolled students skip the self-directed placement flow entirely —
+  // their teacher manages placement via the class management panel.
+  const { data: enrollments } = useQuery<{ id: string; classId: string; isActive: boolean }[]>({
+    queryKey: ["/api/user/class-enrollments"],
+    enabled: !!user,
+  });
+  const isSchoolEnrolled = (enrollments ?? []).some((e) => e.isActive);
+
   const updatePreferencesMutation = useMutation({
     mutationFn: async (preferences: {
       targetLanguage?: string;
@@ -88,6 +96,20 @@ export default function Onboarding() {
       setTargetLanguage(normalized);
 
       const langDisplay = normalized.charAt(0).toUpperCase() + normalized.slice(1);
+
+      // School-enrolled students skip self-directed placement — teacher manages assessment
+      if (isSchoolEnrolled) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: `${langDisplay} — great! Since you're enrolled in a class, your teacher will handle your placement assessment. One quick thing — do you have a preference for your tutor's voice?`,
+          },
+        ]);
+        setStep("tutor_gender");
+        return;
+      }
+
       setMessages((prev) => [
         ...prev,
         {

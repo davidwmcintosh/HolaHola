@@ -503,6 +503,19 @@ export default function ClassManagement() {
     },
   });
 
+  const triggerPlacementMutation = useMutation({
+    mutationFn: async (studentId: string) => {
+      return apiRequest("POST", `/api/teacher/classes/${classId}/students/${studentId}/trigger-placement`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teacher/classes", classId, "students"] });
+      toast({ title: "Placement Reset", description: "Student will be prompted for placement assessment on next session." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to trigger placement", variant: "destructive" });
+    },
+  });
+
   const resetStudentProgressMutation = useMutation({
     mutationFn: async (studentId: string) => {
       return apiRequest("POST", `/api/teacher/classes/${classId}/students/${studentId}/reset`);
@@ -825,6 +838,20 @@ export default function ClassManagement() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => triggerPlacementMutation.mutate(enrollment.userId)}
+                                disabled={triggerPlacementMutation.isPending}
+                                data-testid={`button-trigger-placement-${enrollment.userId}`}
+                              >
+                                <Target className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Run placement assessment</TooltipContent>
+                          </Tooltip>
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
