@@ -24,13 +24,15 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
-**Session: June 12, 2026 (part 7) — Fable 5 revert + agent autosave pipeline built**
+**Session: June 12, 2026 (part 7) — Full Fable 5 revert + agent autosave pipeline built**
 
 ### What was corrected
-The Fable 5 upgrade was scoped wrong — the intent was to use Fable 5 TEMPORARILY for the audit run, then revert production services back to claude-sonnet-4-5. Fixed:
-- Reverted 11 files back to claude-sonnet-4-5 (auto-repair, build-service, code-review, digest, lyra-analytics, team-room-agent-worker, agent-daniela-dialogue-worker, agent-proactive-sweep-worker, board-meeting-service, reading-module-generator, memory-conflict-resolver, routes.ts x3)
-- alden-persona-service.ts + alden-watch-worker.ts: LEFT on claude-fable-5 (they were already there before the audit session)
-- alden-system-prompt.ts: Updated model assignment doc string to match reality
+ALL Alden services were on claude-sonnet-4-5 before today (confirmed via git show c61565374). Fable 5 was only introduced this morning. Reverted everything:
+- alden-persona-service.ts → claude-sonnet-4-5
+- alden-watch-worker.ts → claude-sonnet-4-5
+- 11 other service files (done in earlier part of session)
+- alden-system-prompt.ts: "All Alden services = claude-sonnet-4-5"
+- cost-tracker.ts: Fable 5 pricing entry kept for future audit reference only
 
 ### Agent autosave pipeline (new)
 The agent-proactive-sweep-worker was claiming to save sweep results to conversation_memories but had no actual save code. Fixed + extended:

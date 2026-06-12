@@ -8,11 +8,12 @@ The rule: Running a Fable 5 audit is a THREE-STEP process — temp swap → audi
 **Why:** David's intent is to use Fable 5's superior reasoning for a targeted code review, then put the production service back to the cheaper/faster sonnet model. Leaving services permanently on Fable 5 was wrong — cost is $10/$50/MTok vs $3/$15/MTok for sonnet.
 
 **Which services stay on Fable 5 permanently:**
-- `alden-persona-service.ts` — Alden's chat/voice (already on fable-5 before any audit session)
-- `alden-watch-worker.ts` — watch + repair proposals (already on fable-5 before any audit session)
+NONE. ALL services were on claude-sonnet-4-5 before Fable 5 was introduced. After an audit, everything reverts to claude-sonnet-4-5.
 
 **Which services revert after audit:**
-Everything else: alden-auto-repair, alden-build-service, alden-code-review-service, alden-digest-worker, lyra-analytics-service, team-room-agent-worker, agent-daniela-dialogue-worker, agent-proactive-sweep-worker, board-meeting-service, reading-module-generator, memory-conflict-resolver, routes.ts call sites.
+ALL of them: alden-persona-service, alden-watch-worker, alden-auto-repair, alden-build-service, alden-code-review-service, alden-digest-worker, lyra-analytics-service, team-room-agent-worker, agent-daniela-dialogue-worker, agent-proactive-sweep-worker, board-meeting-service, reading-module-generator, memory-conflict-resolver, routes.ts call sites.
+
+Verify by running: `git show <pre-fable5-commit>:server/services/<file>.ts | grep "claude-"` to confirm originals before reverting.
 
 **How to apply:**
 1. Change the target file(s) to `claude-fable-5`
