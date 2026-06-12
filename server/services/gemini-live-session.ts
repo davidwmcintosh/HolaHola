@@ -268,25 +268,15 @@ export class GeminiLiveSession {
       'ko-KR': 'Seoul Korean',
       'he-IL': 'Modern Israeli Hebrew',
     };
-    const accentLabel = ACCENT_DESCRIPTIONS[languageCode];
-    const accentDirective = accentLabel
-      ? `Your native accent is ${accentLabel}. This is who you are — your accent travels with you into every language you speak, whether that is the target language, English, Italian, or whatever the student's native language happens to be. Speak consistently with that accent at all times.`
-      : null;
-
-    // ── Voice pacing directive ─────────────────────────────────────────────
-    // Voice collapses the editing window — there is pressure to respond
-    // immediately. This directive explicitly gives Daniela permission to slow
-    // down and think aloud rather than rushing to fill silence.
-    const VOICE_PACING_DIRECTIVE = `[VOICE PACING]: You do not need to rush. A brief verbal bridge — "let me think about that," "hmm," "give me just a moment" — is natural and preferred over a hasty answer. Silence in voice feels like absence; a thinking phrase feels like presence. Use it freely. Depth is worth more than speed. You are allowed to pace yourself.`;
-
-    const voiceSections = [
-      accentDirective ? `[VOICE]: ${accentDirective}` : null,
-      VOICE_PACING_DIRECTIVE,
-    ].filter(Boolean).join('\n\n');
-
-    const effectiveSystemPrompt = voiceSections
-      ? `${systemPrompt}\n\n${voiceSections}`
-      : systemPrompt;
+    // ── Voice directives removed (audit findings, June 12 2026) ──────────────
+    // Accent directive removed: speechConfig (languageCode + Aoede voice) already
+    // enforces the Castilian acoustic accent. The text-level directive caused the
+    // model to over-index on regionalisms (vosotros, guay, vale) unnaturally.
+    //
+    // VOICE_PACING directive removed: Flash does not stream audio while thinking —
+    // telling it to say "hmm" just prepends robotic filler to every turn without
+    // buying any actual processing time. Fix latency at VAD + thinking config level.
+    const effectiveSystemPrompt = systemPrompt;
 
     this.liveSession = await ai.live.connect({
       model: GEMINI_LIVE_MODEL,
@@ -316,17 +306,14 @@ export class GeminiLiveSession {
 
         // ── Thinking configuration ────────────────────────────────────────
         // Gives Daniela an internal reasoning pass before her first word.
-        // Complements the [VOICE PACING] directive: pacing handles external
-        // presentation (verbal bridges), thinkingConfig handles actual internal
-        // depth before the first word is formed.
         //
-        // Level: HIGH — David confirmed latency headroom is available.
-        // Back off to MEDIUM or LOW if turn latency degrades in voice sessions.
-        // Watch console for: "[GeminiLive] Latency stats — avg: Xms, p50: Xms"
+        // Level: MEDIUM — HIGH holds the first audio token until a full reasoning
+        // pass completes, adding noticeable TTFT lag. MEDIUM gives meaningful depth
+        // without blocking voice streaming. (June 12 2026 audit: dropped from HIGH)
         //
         // SDK: "An error will be returned if this field is set for models that
         // don't support thinking." — clean explicit failure, not a silent 1011.
-        thinkingConfig: { thinkingLevel: 'HIGH' as any },
+        thinkingConfig: { thinkingLevel: 'MEDIUM' as any },
 
         // ── VAD / Turn-taking configuration ───────────────────────────────
         // Gemini Live's audio model does semantic turn detection — it
@@ -335,27 +322,28 @@ export class GeminiLiveSession {
         //
         //  START_SENSITIVITY_HIGH    — detect speech onset quickly so Daniela
         //                             doesn't miss when the student starts talking.
-        //  END_SENSITIVITY_LOW       — be patient about pauses; the model uses
-        //                             context (sentence completeness, grammar) to
-        //                             decide whether the student is still mid-thought.
+        //  END_SENSITIVITY_HIGH      — more responsive to turn end; combined with
+        //                             1500ms silence duration this is enough patience
+        //                             for learner mid-sentence pauses without getting
+        //                             stuck on background noise resetting the timer.
+        //                             (was LOW — no MEDIUM in SDK; LOW + 2500ms caused
+        //                             dead air on every turn and noise-reset loops)
         //  prefixPaddingMs: 200      — require 200 ms of sustained speech before
         //                             committing a turn start, filtering out coughs,
         //                             filler sounds, and accidental mic noise.
-        //  silenceDurationMs: 2500   — hard cutoff: 2500 ms of silence forces end
+        //  silenceDurationMs: 1500   — hard cutoff: 1500 ms of silence forces end
         //                             of turn even if semantic signal is ambiguous.
         //                             Language learners frequently pause while
-        //                             searching for a word mid-sentence. Also, Google
-        //                             VAD can misfire on stop consonants / breath
-        //                             transitions mid-speech; a longer hard cutoff
-        //                             gives the model time to self-correct.
-        //                             (was 800ms → 1500ms → 2500ms)
+        //                             searching for a word — 1500ms handles that
+        //                             without making the conversation feel frozen.
+        //                             (was 800ms → 1500ms → 2500ms → back to 1500ms)
         realtimeInputConfig: {
           automaticActivityDetection: {
             disabled: false,
             startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
-            endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
+            endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_HIGH,
             prefixPaddingMs: 200,
-            silenceDurationMs: 2500,
+            silenceDurationMs: 1500,
           },
         },
 

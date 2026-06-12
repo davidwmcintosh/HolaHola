@@ -294,6 +294,64 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'SPEAK_CHARACTER_LINE': {
+        // Atomic single-call replacement for speak_as + resume_tutor.
+        // The character speaks one line; tts-dispatcher auto-restores tutor voice
+        // after functionCallText is consumed (no separate resume_tutor call needed).
+        const characterId = fn.args.character as string | undefined;
+        const text = fn.args.text as string | undefined;
+        const roleOverride = fn.args.role as string | undefined;
+
+        if (!characterId || !text) {
+          console.warn('[Native Function→SpeakCharacterLine] Missing character or text — ignoring');
+          break;
+        }
+
+        const character = getCharacter(session.targetLanguage || 'spanish', characterId);
+        if (!character) {
+          console.warn(`[Native Function→SpeakCharacterLine] Unknown character "${characterId}" for language "${session.targetLanguage}" — ignoring`);
+          break;
+        }
+
+        // Save the restore target (current tutor voice) BEFORE swapping
+        const savedVoiceId = session._tutorVoiceBeforeCharacter || session.voiceId;
+        const savedTtsProvider = session._tutorTtsProviderBeforeCharacter || session.ttsProvider;
+
+        // Swap voice + provider to the character for this one line
+        session.voiceId = character.voiceId;
+        session.ttsProvider = character.ttsProvider;
+        session.activeCharacter = {
+          id: character.id,
+          displayName: character.displayName,
+          role: roleOverride || character.role,
+          gender: character.gender,
+          voiceId: character.voiceId,
+          ttsProvider: character.ttsProvider,
+        };
+
+        // Queue the character's line for TTS
+        session.functionCallText = text;
+
+        // Schedule auto-restore: tts-dispatcher will apply this immediately after
+        // functionCallText is spoken (batch path: line ~1049; sentence path: ~1086)
+        session._restoreVoiceAfterLine = { voiceId: savedVoiceId!, ttsProvider: savedTtsProvider! };
+
+        // Notify client that character is speaking (brief overlay)
+        this.sendMessage(session.ws, {
+          type: 'character_change',
+          character: {
+            id: character.id,
+            displayName: character.displayName,
+            role: session.activeCharacter.role,
+            gender: character.gender,
+          },
+          timestamp: Date.now(),
+        });
+
+        console.log(`[Native Function→SpeakCharacterLine] "${character.displayName}" speaks one line, then auto-restore to voiceId=${savedVoiceId}`);
+        break;
+      }
+
       case 'WORD_EMPHASIS': {
         const word = fn.args.word as string;
         const style = fn.args.style as 'stress' | 'slow' | 'both';

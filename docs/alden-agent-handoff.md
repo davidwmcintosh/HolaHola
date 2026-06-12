@@ -24,6 +24,31 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 12, 2026 (part 8) — Gemini self-audit implementation complete**
+
+### What was built
+Implemented all HIGH and MEDIUM priority findings from `docs/gemini-audit-2026-06-12.md` across 7 files:
+
+**gemini-live-session.ts** — removed VOICE_PACING directive, removed accent text directive, thinkingConfig HIGH→MEDIUM, silenceDurationMs 2500→1500, endOfSpeechSensitivity LOW→HIGH (note: END_SENSITIVITY_MEDIUM does NOT exist in the @google/genai SDK — only LOW and HIGH are available; HIGH + 1500ms gives the noise-resistant behavior the audit wanted)
+
+**unified-daniela-context-service.ts** — includeExpressLane default changed to `channel !== 'voice'` (excludes dev meta-context from voice sessions); formatForPrompt completely rewritten with XML section format (`<section name="X"><instructions>…</instructions><data>…</data></section>`) + voice-aware ordering (TOP=presence/student/journey, MIDDLE=pedagogy/reference, BOTTOM=textbook/recent/growth/personal; expressLane/hive/neuralNet excluded from voice)
+
+**daniela-function-registry.ts** — actfl_update.level now has enum; phase_shift 'text' removed from params entirely; check_student_credits and voice_adjust 'text' removed from required; speak_character_line new tool added (atomic single-call character line); speak_as and resume_tutor deprecated in descriptions
+
+**native-fc-handlers.ts** — SPEAK_CHARACTER_LINE case added (sets character voice, queues text, stores restore target, notifies client — all in one handler)
+
+**streaming-session-types.ts** — `_restoreVoiceAfterLine` field added
+
+**tts-dispatcher.ts** — auto-restore hooks in both batch and sentence paths: after functionCallText is cleared, checks `_restoreVoiceAfterLine` and restores tutor voice automatically
+
+### Key decision
+speak_character_line auto-restore works via a session field (`_restoreVoiceAfterLine`) read by tts-dispatcher AFTER the character line finishes speaking — so the character voice IS used for the queued text, then tutor voice is restored before the model's continuation is spoken. No setTimeout, no separate call needed.
+
+### Unresolved
+- The 2009 pre-existing typecheck errors are unchanged (not caused by this session)
+- speak_as / resume_tutor are still functional but marked deprecated; model should prefer speak_character_line going forward
+
+---
 **Session: June 12, 2026 (part 7) — Full Fable 5 revert + agent autosave pipeline built**
 
 ### What was corrected

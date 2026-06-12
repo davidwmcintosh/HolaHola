@@ -159,6 +159,9 @@ export interface StreamingSession {
   } | null;
   // Saved tutor voice before a character switch (restored on resume_tutor)
   _tutorVoiceBeforeCharacter?: string;
+  // When set, tts-dispatcher auto-restores tutor voice after functionCallText is spoken
+  // (used by SPEAK_CHARACTER_LINE to make character speech atomic — no resume_tutor needed)
+  _restoreVoiceAfterLine?: { voiceId: string; ttsProvider: string } | null;
   // Scenario immersion state
   activeScenario?: Record<string, any> | null;
   studentActflLevel?: string;

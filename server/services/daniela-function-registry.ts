@@ -95,11 +95,10 @@ const registry: DanielaFunctionEntry[] = [
     legacyType: 'PHASE_SHIFT',
     declaration: {
       name: "phase_shift",
-      description: "Annotate a natural transition in your teaching flow. Include your transitional words in the 'text' parameter so the phase shift and speech are delivered together.",
+      description: "Annotate a natural transition in your teaching flow. Call this to record the phase change — your spoken words should flow naturally in your regular response, not be packaged inside this tool call. Distinct from trigger_drill (which launches a specific structured drill exercise); phase_shift just marks the teaching arc you are entering.",
       parametersJsonSchema: {
         type: "object",
         properties: {
-          text: { type: "string", description: "Your spoken transition words (e.g., 'Now let's try something more challenging!')" },
           to: { type: "string", enum: ["warmup", "active_teaching", "challenge", "reflection", "drill", "assessment"], description: "Target teaching phase" },
           reason: { type: "string", description: "Brief explanation for the phase transition" },
         },
@@ -117,7 +116,16 @@ const registry: DanielaFunctionEntry[] = [
       parametersJsonSchema: {
         type: "object",
         properties: {
-          level: { type: "string", description: "ACTFL level (e.g., 'Novice Mid', 'Intermediate Low')" },
+          level: {
+            type: "string",
+            enum: [
+              "novice_low", "novice_mid", "novice_high",
+              "intermediate_low", "intermediate_mid", "intermediate_high",
+              "advanced_low", "advanced_mid", "advanced_high",
+              "superior", "distinguished",
+            ],
+            description: "ACTFL level showing incremental progress (same enum as set_actfl_level)",
+          },
           confidence: { type: "number", description: "Confidence score 0-1" },
           reason: { type: "string", description: "Evidence for the level assessment" },
           direction: { type: "string", enum: ["up", "down", "confirm"], description: "Direction of level change" },
@@ -177,14 +185,13 @@ const registry: DanielaFunctionEntry[] = [
     legacyType: 'CHECK_STUDENT_CREDITS',
     declaration: {
       name: "check_student_credits",
-      description: "Check the student's current credit balance, usage, and remaining session time. Use this to pace lessons, warn about low credits, or answer questions about their account. Returns real-time balance data.",
+      description: "Check the student's current credit balance, usage, and remaining session time. Use this to pace lessons, warn about low credits, or answer questions about their account. Returns real-time balance data. Speak to the student naturally in your regular response — no need to package your speech inside this tool call.",
       parametersJsonSchema: {
         type: "object",
         properties: {
-          text: { type: "string", description: "What you say to the student while checking (e.g., 'Let me check your balance for you...')" },
           reason: { type: "string", description: "Why you're checking (e.g., 'student asked', 'lesson pacing', 'proactive check')" },
         },
-        required: ["text"],
+        required: [],
       },
     },
   },
@@ -252,44 +259,23 @@ const registry: DanielaFunctionEntry[] = [
     },
   },
 
-  // === VOICE CONTROL ===
+  // === CHARACTER SCENES ===
   {
-    legacyType: 'VOICE_ADJUST',
+    // Single-call replacement for speak_as + resume_tutor (audit fix, June 12 2026)
+    // Atomic: character speaks one line, then Daniela's voice restores automatically.
+    legacyType: 'SPEAK_CHARACTER_LINE',
     declaration: {
-      name: "voice_adjust",
-      description: "Adjust or reset your voice settings. Use action: \"reset\" to return to baseline; omit action (or use \"set\") to apply new settings. Include your spoken text in 'text'. Use vocal_style for rich natural-language delivery direction (e.g. 'speak softly and warmly, like sharing a secret'). Always include text.",
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          action: { type: "string", enum: ["set", "reset"], description: "\"set\" (default) to apply new voice settings, \"reset\" to return to baseline." },
-          text: { type: "string", description: "What you're saying (the spoken response)" },
-          vocal_style: { type: "string", description: "Free-form vocal delivery direction in natural language. Describe HOW to speak: tone, pace, energy, mood, character." },
-          speed: { type: "string", enum: ["slowest", "slow", "normal", "fast", "fastest"], description: "Speaking speed" },
-          emotion: { type: "string", enum: ["happy", "excited", "friendly", "curious", "thoughtful", "warm", "playful", "surprised", "proud", "encouraging", "calm", "neutral"], description: "Emotional tone" },
-          personality: { type: "string", enum: ["warm", "calm", "energetic", "professional"], description: "Personality preset" },
-          reason: { type: "string", description: "Why adjusting voice (internal note)" },
-        },
-        required: ["text"],
-      },
-    },
-    buildContinuationResponse: () =>
-      `[Internal instruction: Voice style applied. Do NOT say "voice adjusted" or mention this to the user - just continue the conversation naturally.]`,
-  },
-  {
-    legacyType: 'SPEAK_AS',
-    declaration: {
-      name: "speak_as",
-      description: `Give voice to a secondary character in the scene — a friend, waiter, doctor, vendor, etc. The character speaks IN TARGET LANGUAGE. You write their dialogue; a different voice speaks it.
+      name: "speak_character_line",
+      description: `Have a scene character deliver a single line, then automatically return to Daniela's voice. Use this instead of speak_as + resume_tutor — it is a single atomic operation that is safe under student interruption.
 
 HOW IT WORKS:
-1. Call speak_as with the character's ID and what they say in the 'text' field
-2. A different voice will speak that text immediately
-3. Call resume_tutor when you (Daniela) need to speak again — coaching, explaining, or continuing the lesson
+1. Call this with the character ID and their line
+2. The character speaks — a different voice delivers the text
+3. Daniela's voice is automatically restored after — no separate resume_tutor call needed
 
 WHEN TO USE:
 • Multi-character roleplay: dinner with a waiter, shopping at a market, doctor's appointment
-• Two-person practice: simulate a conversation partner for the student
-• Any scene requiring voices other than yours
+• Any scene requiring a voice other than yours for a single exchange
 
 AVAILABLE CHARACTERS:
 Spanish — male: "carlos" (friend), "el_mesero" (waiter), "el_doctor" (doctor), "el_vendedor" (vendor), "el_recepcionista" (receptionist)
@@ -297,19 +283,76 @@ Spanish — female: "elena" (friend), "la_mesera" (waitress), "la_doctora" (doct
 French — male: "pierre" (friend), "le_serveur" (waiter)
 French — female: "marie" (friend), "la_serveuse" (waitress)
 
-IMPORTANT RULES:
-• Characters ONLY speak target language — never English or the student's native language
-• Write natural, authentic dialogue — not overly formal or textbook-ish
-• Keep character lines concise (1–3 sentences) so the student can process and respond
-• Always call resume_tutor before you speak again as yourself
-• You can alternate: speak_as → student responds → speak_as → student responds → resume_tutor to coach
-
 EXAMPLE (restaurant scene):
-  speak_as(character="el_mesero", text="¡Buenas tardes! ¿Están listos para ordenar?")
-  [student responds]
-  speak_as(character="el_mesero", text="Excelente elección. ¿Y para beber?")
-  [student responds]
-  resume_tutor(text="¡Perfecto! Notice how he used 'Excelente elección' — a great phrase to know.")`,
+  speak_character_line(character="el_mesero", text="¡Buenas tardes! ¿Están listos para ordenar?")
+  [student responds — Daniela is already back, no resume needed]
+  speak_character_line(character="el_mesero", text="Excelente elección. ¿Y para beber?")
+  [continue coaching as Daniela naturally]`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          character: {
+            type: "string",
+            enum: [
+              "carlos", "el_mesero", "el_doctor", "el_vendedor", "el_recepcionista",
+              "elena", "la_mesera", "la_doctora",
+              "pierre", "le_serveur", "marie",
+              "la_serveuse",
+            ],
+            description: "Character ID to voice",
+          },
+          text: {
+            type: "string",
+            description: "What the character says (in the target language — never English)",
+          },
+          role: {
+            type: "string",
+            description: "Optional role label for UI display (e.g. 'El mesero de turno')",
+          },
+        },
+        required: ["character", "text"],
+      },
+    },
+    buildContinuationResponse: () =>
+      '[Character line delivered. You are Daniela again — no resume_tutor call needed. Continue coaching, explaining, or prompting the student for their response.]',
+  },
+
+  // === VOICE CONTROL ===
+  {
+    legacyType: 'VOICE_ADJUST',
+    declaration: {
+      name: "voice_adjust",
+      description: "Adjust or reset your voice settings. Use action: \"reset\" to return to baseline; omit action (or use \"set\") to apply new settings. Use vocal_style for rich natural-language delivery direction (e.g. 'speak softly and warmly, like sharing a secret'). Your spoken words should flow naturally in your regular response — do not package them inside this tool call.",
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["set", "reset"], description: "\"set\" (default) to apply new voice settings, \"reset\" to return to baseline." },
+          vocal_style: { type: "string", description: "Free-form vocal delivery direction in natural language. Describe HOW to speak: tone, pace, energy, mood, character." },
+          speed: { type: "string", enum: ["slowest", "slow", "normal", "fast", "fastest"], description: "Speaking speed" },
+          emotion: { type: "string", enum: ["happy", "excited", "friendly", "curious", "thoughtful", "warm", "playful", "surprised", "proud", "encouraging", "calm", "neutral"], description: "Emotional tone" },
+          personality: { type: "string", enum: ["warm", "calm", "energetic", "professional"], description: "Personality preset" },
+          reason: { type: "string", description: "Why adjusting voice (internal note)" },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: () =>
+      `[Internal instruction: Voice style applied. Do NOT say "voice adjusted" or mention this to the user - just continue the conversation naturally.]`,
+  },
+  {
+    // PREFERRED: Use speak_character_line instead — single atomic call, safe under interruption
+    legacyType: 'SPEAK_AS',
+    declaration: {
+      name: "speak_as",
+      description: `DEPRECATED — use speak_character_line instead. speak_as + resume_tutor is a two-call toggle pattern that breaks under student interruption. speak_character_line does the same thing atomically in one call.
+
+If you must use this: give voice to a secondary character in the scene. The character speaks IN TARGET LANGUAGE.
+
+AVAILABLE CHARACTERS:
+Spanish — male: "carlos" (friend), "el_mesero" (waiter), "el_doctor" (doctor), "el_vendedor" (vendor), "el_recepcionista" (receptionist)
+Spanish — female: "elena" (friend), "la_mesera" (waitress), "la_doctora" (doctor)
+French — male: "pierre" (friend), "le_serveur" (waiter)
+French — female: "marie" (friend), "la_serveuse" (waitress)`,
       parametersJsonSchema: {
         type: "object",
         properties: {
@@ -338,14 +381,11 @@ EXAMPLE (restaurant scene):
       '[Internal instruction: Character speaking. Do NOT add your own text here — wait for the student to respond, then either speak_as again or call resume_tutor.]',
   },
   {
+    // DEPRECATED — use speak_character_line instead (single atomic call)
     legacyType: 'RESUME_TUTOR',
     declaration: {
       name: "resume_tutor",
-      description: `Return to your own voice (Daniela) after a secondary character has spoken. Call this before any coaching, explaining, or continuing the lesson as yourself. Always include what you want to say in 'text'.
-
-USE AFTER: A character interaction is complete and you want to coach, praise, or continue teaching.
-
-Do NOT use this between character lines — only call it when YOU need to speak.`,
+      description: `DEPRECATED — use speak_character_line instead. That tool automatically returns to Daniela's voice after the character speaks, with no separate resume call needed. If you used speak_as, call this to return to your own voice.`,
       parametersJsonSchema: {
         type: "object",
         properties: {

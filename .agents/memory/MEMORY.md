@@ -19,3 +19,4 @@
 - [Fable 5 API access](fable5-api-access.md) — Replit AI Integrations proxy does NOT support claude-fable-5. Use ANTHROPIC_API_KEY directly against api.anthropic.com. Adaptive thinking only (not enabled); find text block in content array explicitly.
 - [Fable 5 audit pattern](fable5-audit-pattern.md) — Audit = temp swap to fable-5, run audit, REVERT back to sonnet. Not a permanent upgrade. Only persona + watch-worker stay on fable-5 (were already there).
 - [Agent session autosave](agent-session-autosave.md) — agent-session-autosave.ts polls .local/.commit_message every 60s; on change, saves to conversation_memories. Daily sweep also saves. No manual POST needed.
+- [Gemini EndSensitivity SDK values](gemini-endsensitivity-sdk.md) — only HIGH and UNSPECIFIED exist; LOW and MEDIUM are not in the @google/genai TypeScript types.

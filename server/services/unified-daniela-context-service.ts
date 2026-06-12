@@ -110,7 +110,7 @@ class UnifiedDanielaContextService {
       channel,
       includeStudentSnapshot = channel !== 'express_lane',
       includeNeuralNetwork = true,
-      includeExpressLane = true,
+      includeExpressLane = channel !== 'voice', // voice sessions don't need Express Lane / dev meta-context
       includeVoiceHistory = true,
       includeHiveContext = channel === 'express_lane',
       includeCurriculumContext = channel === 'voice',
@@ -295,119 +295,213 @@ class UnifiedDanielaContextService {
   }
 
   /**
-   * Format context into a prompt section
-   * Used by all Daniela invocation points
+   * Format context into a prompt section using XML-style tags.
+   * Voice sessions use a different section order (U-curve optimized):
+   *   TOP: identity + student (high attention)
+   *   MIDDLE: pedagogy + reference (low attention / cache candidates)
+   *   BOTTOM: immediate context (highest attention / recency bias)
+   * Non-voice sessions use the original order.
+   *
+   * Audit findings June 12 2026: switched from === delimiters to XML tags
+   * (Gemini is trained to parse XML for tool use and context isolation);
+   * added voice-aware ordering; removed Express Lane + Hive from voice.
    */
   formatForPrompt(context: UnifiedDanielaContext): string {
+    // Helper: wrap content in an XML section with separate instructions and data
+    const sec = (name: string, instructions: string, data: string) =>
+      `<section name="${name}">\n<instructions>\n${instructions}\n</instructions>\n<data>\n${data}\n</data>\n</section>`;
+
+    const isVoice = context.channel === 'voice';
+
+    if (isVoice) {
+      // ── VOICE ORDER ─────────────────────────────────────────────────────
+      // Audit-optimized for attention U-curve in Gemini Live sessions.
+      // TOP: who am I + who is this student (high attention zone)
+      // MIDDLE: pedagogy + reference (low attention — cache candidates)
+      // BOTTOM: what just happened (highest attention / recency bias)
+
+      const topSections: string[] = [];
+      const middleSections: string[] = [];
+      const bottomSections: string[] = [];
+
+      // TOP
+      if (context.presenceDoc) {
+        topSections.push(sec(
+          'presence',
+          'This is your own orientation — a felt sense of where you are with this student right now. Use it to arrive grounded, not blank.',
+          context.presenceDoc,
+        ));
+      }
+      if (context.studentSnapshot) {
+        topSections.push(sec(
+          'student_context',
+          "This is who you're talking to. Use ACTFL level, struggles, and personal facts to calibrate everything you say from the first word.",
+          context.studentSnapshot,
+        ));
+      }
+      if (context.journeyContext) {
+        topSections.push(sec(
+          'learning_journey',
+          "The long arc — what this student is working toward. Let it shape the session's direction and your encouragement.",
+          context.journeyContext,
+        ));
+      }
+
+      // MIDDLE (reference / cache candidates)
+      if (context.pedagogyDocContext) {
+        middleSections.push(sec(
+          'pedagogy_foundation',
+          'Your character and teaching philosophy. Evaluate student input against the 8 seeded principles. This is your method — apply it, do not explain it.',
+          context.pedagogyDocContext,
+        ));
+      }
+      if (context.courseTOC) {
+        middleSections.push(sec(
+          'course_map',
+          'Full chapter and lesson reference. Use to orient the session within the course arc.',
+          context.courseTOC,
+        ));
+      }
+      if (context.curriculumContext) {
+        middleSections.push(sec(
+          'curriculum_context',
+          "The student's class, teacher, assignments. Use for class-specific coaching and syllabus alignment.",
+          context.curriculumContext,
+        ));
+      }
+
+      // BOTTOM (immediate reality — highest attention from recency bias)
+      if (context.textbookReadingContext) {
+        bottomSections.push(sec(
+          'textbook_reading',
+          'What the student has been reading. The most immediate content anchor for this session.',
+          context.textbookReadingContext,
+        ));
+      }
+      if (context.recentVoiceSummary) {
+        bottomSections.push(sec(
+          'recent_voice_sessions',
+          'What you talked about last time. Use for continuity — pick up threads, follow up on struggles, acknowledge progress.',
+          context.recentVoiceSummary,
+        ));
+      }
+      if (context.growthMemory) {
+        bottomSections.push(sec(
+          'growth_memories',
+          "What you have learned about teaching from your own sessions. Let this shape your approach right before the student speaks.",
+          context.growthMemory,
+        ));
+      }
+      if (context.personalMemory) {
+        bottomSections.push(sec(
+          'personal_memory',
+          'Recent meaningful moments and reflections. Arrive as a whole person — curious, present, yourself.',
+          context.personalMemory,
+        ));
+      }
+
+      // Note: expressLaneContext, hiveContext, neuralNetworkContext intentionally
+      // excluded from voice sessions (dev meta-context, static query — see audit)
+      return [...topSections, ...middleSections, ...bottomSections].join('\n\n');
+    }
+
+    // ── NON-VOICE ORDER (chat, express_lane) ──────────────────────────────
+    // Original ordering preserved; all sections included as available.
     const sections: string[] = [];
 
     if (context.presenceDoc) {
-      sections.push(`
-═══════════════════════════════════════════════════════════════════
-WHERE I AM RIGHT NOW (Daniela's Presence — auto-updated every 30min)
-═══════════════════════════════════════════════════════════════════
-${context.presenceDoc}
-[This is your own orientation — a felt sense of where you are with this student. Use it to arrive grounded, not blank.]`);
+      sections.push(sec(
+        'presence',
+        'Your orientation — a felt sense of where you are with this student. Use it to arrive grounded, not blank.',
+        context.presenceDoc,
+      ));
     }
-
     if (context.pedagogyDocContext) {
-      sections.push(`
-═══════════════════════════════════════════════════════════════════
-📋 PEDAGOGY FOUNDATION — Your Character & Teaching Philosophy
-(Full brief + key roadmap source sections. Read this to evaluate and respond to the 8 seeded principles.)
-═══════════════════════════════════════════════════════════════════
-${context.pedagogyDocContext}`);
+      sections.push(sec(
+        'pedagogy_foundation',
+        'Your character and teaching philosophy. Evaluate student input against the 8 seeded principles. Apply it, do not explain it.',
+        context.pedagogyDocContext,
+      ));
     }
-
     if (context.growthMemory) {
-      sections.push(`
-═══════════════════════════════════════════════════════════════════
-🌱 DANIELA'S GROWTH MEMORIES (What I've Learned)
-═══════════════════════════════════════════════════════════════════
-${context.growthMemory}`);
+      sections.push(sec(
+        'growth_memories',
+        'What you have learned about teaching from your own sessions.',
+        context.growthMemory,
+      ));
     }
-
     if (context.personalMemory) {
-      sections.push(`
-═══════════════════════════════════════════════════════════════════
-💫 PERSONAL MEMORY (Recent Meaningful Moments)
-═══════════════════════════════════════════════════════════════════
-${context.personalMemory}`);
+      sections.push(sec(
+        'personal_memory',
+        'Recent meaningful moments and reflections.',
+        context.personalMemory,
+      ));
     }
-
     if (context.studentSnapshot) {
-      sections.push(`
-═══════════════════════════════════════════════════════════════════
-👤 STUDENT CONTEXT
-═══════════════════════════════════════════════════════════════════
-${context.studentSnapshot}`);
+      sections.push(sec(
+        'student_context',
+        'Who you are talking to — ACTFL level, personal facts, struggles, motivations.',
+        context.studentSnapshot,
+      ));
     }
-
     if (context.recentVoiceSummary) {
-      sections.push(`
-═══════════════════════════════════════════════════════════════════
-🎤 RECENT VOICE SESSIONS (What I Just Discussed)
-═══════════════════════════════════════════════════════════════════
-${context.recentVoiceSummary}`);
+      sections.push(sec(
+        'recent_voice_sessions',
+        'Recent voice sessions with this student — use for continuity.',
+        context.recentVoiceSummary,
+      ));
     }
-
     if (context.expressLaneContext) {
-      sections.push(`
-═══════════════════════════════════════════════════════════════════
-🔗 EXPRESS LANE (Collaboration with David/Wren/Alden)
-═══════════════════════════════════════════════════════════════════
-${context.expressLaneContext}`);
+      sections.push(sec(
+        'express_lane',
+        'Recent collaboration context with David, Wren, and Alden.',
+        context.expressLaneContext,
+      ));
     }
-
     if (context.hiveContext) {
-      sections.push(`
-═══════════════════════════════════════════════════════════════════
-🐝 HIVE STATE (Active Sprints & System Awareness)
-═══════════════════════════════════════════════════════════════════
-${context.hiveContext}`);
+      sections.push(sec(
+        'hive_state',
+        'Active sprints and system awareness.',
+        context.hiveContext,
+      ));
     }
-
     if (context.neuralNetworkContext) {
-      sections.push(`
-═══════════════════════════════════════════════════════════════════
-🧠 TEACHING KNOWLEDGE (From My Neural Network)
-═══════════════════════════════════════════════════════════════════
-${context.neuralNetworkContext}`);
+      sections.push(sec(
+        'teaching_knowledge',
+        'Pedagogical knowledge from your neural network — apply to inform teaching decisions.',
+        context.neuralNetworkContext,
+      ));
     }
-
     if (context.courseTOC) {
-      sections.push(`
-═══════════════════════════════════════════════════════════════════
-🗺️ COURSE MAP — Full Chapter & Lesson Reference
-═══════════════════════════════════════════════════════════════════
-${context.courseTOC}`);
+      sections.push(sec(
+        'course_map',
+        'Full chapter and lesson reference.',
+        context.courseTOC,
+      ));
     }
-
     if (context.curriculumContext) {
-      sections.push(`
-═══════════════════════════════════════════════════════════════════
-📚 STUDENT SYLLABUS & CLASS CONTEXT
-═══════════════════════════════════════════════════════════════════
-${context.curriculumContext}`);
+      sections.push(sec(
+        'curriculum_context',
+        "The student's class, teacher, and assignments.",
+        context.curriculumContext,
+      ));
     }
-
     if (context.textbookReadingContext) {
-      sections.push(`
-═══════════════════════════════════════════════════════════════════
-📖 STUDENT'S TEXTBOOK READING PROGRESS
-═══════════════════════════════════════════════════════════════════
-${context.textbookReadingContext}`);
+      sections.push(sec(
+        'textbook_reading',
+        'Recent textbook reading progress.',
+        context.textbookReadingContext,
+      ));
     }
-
     if (context.journeyContext) {
-      sections.push(`
-═══════════════════════════════════════════════════════════════════
-🗺️ STUDENT'S LEARNING JOURNEY (Their Story So Far)
-═══════════════════════════════════════════════════════════════════
-${context.journeyContext}`);
+      sections.push(sec(
+        'learning_journey',
+        'Long-term learning goals and milestone arc.',
+        context.journeyContext,
+      ));
     }
 
-    return sections.join('\n');
+    return sections.join('\n\n');
   }
 
   /**

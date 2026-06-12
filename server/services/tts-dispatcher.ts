@@ -1047,6 +1047,14 @@ export class TtsDispatcher {
       session.voiceAdjustText = undefined;
       session.accumulatedBoldWords = undefined;
       session.earlyTtsActive = undefined;
+      // SPEAK_CHARACTER_LINE atomic restore: revert to tutor voice now that character line is done
+      if (session._restoreVoiceAfterLine) {
+        session.voiceId = session._restoreVoiceAfterLine.voiceId;
+        session.ttsProvider = session._restoreVoiceAfterLine.ttsProvider;
+        session._restoreVoiceAfterLine = null;
+        session.activeCharacter = null;
+        console.log(`[TTS] Auto-restored tutor voice after character line. voiceId=${session.voiceId}`);
+      }
       return { spokenText: embeddedText, sentenceCount: 1 };
     } else {
       for (let si = 0; si < sentences.length; si++) {
@@ -1076,6 +1084,14 @@ export class TtsDispatcher {
       session.voiceAdjustText = undefined;
       session.accumulatedBoldWords = undefined;
       session.earlyTtsActive = undefined;
+      // SPEAK_CHARACTER_LINE atomic restore: revert to tutor voice now that character line is done
+      if (session._restoreVoiceAfterLine) {
+        session.voiceId = session._restoreVoiceAfterLine.voiceId;
+        session.ttsProvider = session._restoreVoiceAfterLine.ttsProvider;
+        session._restoreVoiceAfterLine = null;
+        session.activeCharacter = null;
+        console.log(`[TTS] Auto-restored tutor voice after character line. voiceId=${session.voiceId}`);
+      }
       return { spokenText: embeddedText, sentenceCount: sentences.length };
     }
   }
