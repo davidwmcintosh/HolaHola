@@ -207,7 +207,13 @@ export async function semanticSearch(
           ? and(eq(memoryEmbeddings.userId, userId), userTypeCondition)
           : eq(memoryEmbeddings.userId, userId),
       )
-      .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.strength), desc(memoryEmbeddings.lastReinforcedAt))
+      // Sort by pinned first, then by recency (lastReinforcedAt) rather than raw strength.
+      // Raw strength is the un-decayed value — a memory reinforced 2 years ago but never
+      // touched since can have strength=1.0 while a fresh memory has strength=0.2, causing
+      // the stale memory to displace the fresh one in the 8000-row buffer BEFORE JS decay
+      // is applied.  Using recency as the primary sort puts recently-active memories first
+      // so they are never cut from the buffer by long-forgotten high-strength entries.
+      .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.lastReinforcedAt), desc(memoryEmbeddings.strength))
       .limit(8000),
 
     // Global (userId IS NULL): only safe types unless collaboration explicitly requested

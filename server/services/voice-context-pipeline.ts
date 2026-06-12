@@ -104,7 +104,15 @@ const STOP_WORDS = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'a
 
 export function hasPassiveMemoryTrigger(transcript: string): boolean {
   const lower = transcript.toLowerCase();
-  return PASSIVE_MEMORY_KEYWORDS.some(kw => lower.includes(kw));
+  // Use word-boundary matching to prevent false positives from substring hits.
+  // Previously `lower.includes(kw)` fired on e.g. "son" inside "lesson",
+  // "person", "reason", "season" — triggering unnecessary DB queries.
+  // \b is a word boundary anchor that works for all the single-word keywords
+  // in PASSIVE_MEMORY_KEYWORDS.
+  return PASSIVE_MEMORY_KEYWORDS.some(kw => {
+    const regex = new RegExp(`\\b${kw.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}\\b`, 'i');
+    return regex.test(lower);
+  });
 }
 
 export function extractSearchKeywords(transcript: string): string[] {

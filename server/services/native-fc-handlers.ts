@@ -1,5 +1,6 @@
 import { sql, eq, and, desc, ilike, or } from "drizzle-orm";
 import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes, users } from "@shared/schema";
+import { isValidActflLevel } from "../actfl-utils";
 import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
 import { getCharacter } from "./character-registry";
@@ -341,6 +342,12 @@ export class NativeFunctionCallHandler {
       }
       
       case 'CHANGE_CLASSROOM_PHOTO': {
+        // Guard: only Founder Mode or Raw Honesty Mode may change Daniela's classroom environment.
+        // Without this gate, a student could prompt-inject into changing the global classroom photo.
+        if (!session.isFounderMode && !session.isRawHonestyMode) {
+          console.warn(`[Native Function→ClassroomPhoto] Blocked: not in trusted context`);
+          break;
+        }
         const text = fn.args.text as string | undefined;
         const scene = fn.args.scene as string | undefined;
         
@@ -360,6 +367,11 @@ export class NativeFunctionCallHandler {
       }
 
       case 'CHANGE_CLASSROOM_WINDOW': {
+        // Guard: only Founder Mode or Raw Honesty Mode may change the classroom environment.
+        if (!session.isFounderMode && !session.isRawHonestyMode) {
+          console.warn(`[Native Function→ClassroomWindow] Blocked: not in trusted context`);
+          break;
+        }
         const text = fn.args.text as string | undefined;
         const scene = fn.args.scene as string | undefined;
 
@@ -3161,6 +3173,12 @@ export class NativeFunctionCallHandler {
       }
 
       case 'UPDATE_STUDENT_MODEL': {
+        // Guard: only Founder Mode or Raw Honesty Mode may write to the student insight layer.
+        // Without this gate, a student could self-author their own model entries via prompt injection.
+        if (!session.isFounderMode && !session.isRawHonestyMode) {
+          console.warn(`[Native Function→UpdateStudentModel] Blocked: not in trusted context`);
+          break;
+        }
         const modelBelief = fn.args.belief as string | undefined;
         const modelEvidence = fn.args.evidence as string | undefined;
         const modelConfidence = Math.min(1, Math.max(0, Number(fn.args.confidence) || 0.7));
@@ -3388,6 +3406,13 @@ export class NativeFunctionCallHandler {
         const placementReasoning = fn.args.reasoning as string | undefined;
         // language param added to tool contract — defaults to session language when omitted
         const placementLanguage = (fn.args.language as string | undefined) || session.targetLanguage || 'spanish';
+
+        // Validate the level before any DB write — an LLM hallucination or prompt injection
+        // could otherwise write arbitrary strings into a field that gates all downstream teaching.
+        if (placementLevel && !isValidActflLevel(placementLevel)) {
+          console.error(`[Native Function→SetActflLevel] REJECTED invalid level: "${placementLevel}" — not a known ACTFL level. No DB write performed.`);
+          break;
+        }
         
         if (placementLevel && session.userId) {
           (async () => {

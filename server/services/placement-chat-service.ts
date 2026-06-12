@@ -179,6 +179,12 @@ export async function sendPlacementMessage(
       await writePlacementResult(session.userId, session.language, level);
     }
 
+    // Remove the completed session from memory — it will never be used again.
+    // Without this, completed sessions persist until the 30-minute TTL, holding
+    // the full conversation history in RAM and risking stale-session retrieval
+    // if sessionId is somehow reused before TTL expires.
+    sessions.delete(sessionId);
+
     console.log(`[PlacementChat] Session ${sessionId} complete — level: ${level}, testMode: ${session.testMode}, exchanges: ${session.exchangeCount}`);
     return { message: displayMessage, complete: true, actflLevel: level };
   }
@@ -194,40 +200,45 @@ export function getPlacementSession(sessionId: string): PlacementSession | undef
 
 // ─── Write placement result to users AND conversations tables ─────────────────
 async function writePlacementResult(userId: string, language: string, level: string): Promise<void> {
+  const db = getSharedDb();
   try {
-    const db = getSharedDb();
+    // Wrap both writes in a single transaction so that if the conversation update
+    // fails after the users update, the two tables don't end up with different levels.
+    // Previously the two awaits were separate — a crash between them left the user
+    // with an assessed level in users but the old level still in conversations.
+    await db.transaction(async (tx) => {
+      // 1. Update users table
+      await tx
+        .update(users)
+        .set({
+          actflLevel: level,
+          actflAssessed: true,
+          assessmentSource: "placement_test",
+          selfDirectedPlacementDone: true,
+          lastAssessmentDate: new Date(),
+        })
+        .where(eq(users.id, userId));
 
-    // 1. Update users table
-    await db
-      .update(users)
-      .set({
-        actflLevel: level,
-        actflAssessed: true,
-        assessmentSource: "placement_test",
-        selfDirectedPlacementDone: true,
-        lastAssessmentDate: new Date(),
-      })
-      .where(eq(users.id, userId));
+      // 2. Update the most recent conversation for this user (language placement
+      //    sessions may not have a dedicated conversationId, so we update the
+      //    latest one to carry the assessed level forward into context).
+      const [latestConv] = await tx
+        .select({ id: conversations.id })
+        .from(conversations)
+        .where(and(eq(conversations.userId, userId), eq(conversations.language, language)))
+        .orderBy(desc(conversations.createdAt))
+        .limit(1);
 
-    // 2. Update the most recent conversation for this user (language placement
-    //    sessions may not have a dedicated conversationId, so we update the
-    //    latest one to carry the assessed level forward into context).
-    const [latestConv] = await db
-      .select({ id: conversations.id })
-      .from(conversations)
-      .where(and(eq(conversations.userId, userId), eq(conversations.language, language)))
-      .orderBy(desc(conversations.createdAt))
-      .limit(1);
-
-    if (latestConv) {
-      await db
-        .update(conversations)
-        .set({ actflLevel: level })
-        .where(eq(conversations.id, latestConv.id));
-      console.log(`[PlacementChat] Wrote ACTFL level "${level}" to conversations row ${latestConv.id}`);
-    } else {
-      console.log(`[PlacementChat] No conversation found for userId=${userId} lang=${language} — skipping conversation update`);
-    }
+      if (latestConv) {
+        await tx
+          .update(conversations)
+          .set({ actflLevel: level })
+          .where(eq(conversations.id, latestConv.id));
+        console.log(`[PlacementChat] Wrote ACTFL level "${level}" to conversations row ${latestConv.id}`);
+      } else {
+        console.log(`[PlacementChat] No conversation found for userId=${userId} lang=${language} — skipping conversation update`);
+      }
+    });
 
     console.log(`[PlacementChat] Wrote ACTFL level "${level}" for userId=${userId} (${language})`);
   } catch (err: any) {

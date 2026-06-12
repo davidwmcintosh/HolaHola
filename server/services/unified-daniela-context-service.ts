@@ -631,13 +631,24 @@ ${context.journeyContext}`);
             .limit(4);
           
           if (recentMessages.length > 0) {
-            const topics = recentMessages
+            // Include both user turns and assistant turns so the summary captures
+            // what the student was working on, not just Daniela's pleasantries.
+            // Previously assistant-only + 100-char truncation produced meaningless
+            // snippets like "Of course! Let's practice..." with no context.
+            const userTurns = recentMessages
+              .filter(m => m.role === 'user')
+              .map(m => m.content?.substring(0, 120) || '')
+              .filter(c => c.length > 0);
+            const assistantTurns = recentMessages
               .filter(m => m.role === 'assistant')
-              .map(m => m.content?.substring(0, 100) || '')
+              .map(m => m.content?.substring(0, 150) || '')
               .filter(c => c.length > 0);
             
-            if (topics.length > 0) {
-              summary += `\n  Topics: ${topics[0]}...`;
+            if (userTurns.length > 0) {
+              summary += `\n  Student said: "${userTurns[0]}"`;
+            }
+            if (assistantTurns.length > 0) {
+              summary += `\n  You responded: "${assistantTurns[0]}"`;
             }
           }
         }
@@ -942,7 +953,21 @@ ${curriculumStrategy}`);
         return null;
       }
 
-      const combined = parts.join('\n\n');
+      let combined = parts.join('\n\n');
+
+      // Token budget guard: the pedagogy doc is read once at startup and cached, but
+      // several of the source files are large (visual-asset-roadmap.md is 522KB).
+      // Without a cap the context can exceed 20k tokens for this section alone,
+      // crowding out student-specific context and inflating latency/cost.
+      // Cap: 80,000 chars ≈ 20,000 tokens — roughly the combined full brief + all
+      // roadmap sections + curriculum strategy at normal prose density.
+      const PEDAGOGY_CHAR_LIMIT = 80_000;
+      if (combined.length > PEDAGOGY_CHAR_LIMIT) {
+        combined = combined.substring(0, PEDAGOGY_CHAR_LIMIT) +
+          '\n\n[PEDAGOGY DOC TRUNCATED — token budget exceeded. Full content in docs/ folder.]';
+        console.warn(`[UnifiedDanielContext] Pedagogy doc exceeded ${PEDAGOGY_CHAR_LIMIT} char budget — truncated to fit context window`);
+      }
+
       this._pedagogyDocCache = combined;
       const roadmapSections = [roadmapIA, roadmapIB, roadmapID, roadmapIG, roadmapIK, roadmapIM].filter(Boolean).length;
       const standaloneDocs = [madrigalPageOne, curriculumStrategy].filter(Boolean).length;
@@ -1053,7 +1078,10 @@ ${curriculumStrategy}`);
       const lessons = lessonsByUnit.get(unit.id as string) || [];
       for (const lesson of lessons) {
         const topicNote = lesson.topic ? ` (${lesson.topic})` : '';
-        lines.push(`  · ${lesson.name}${topicNote} [id: ${lesson.id}]`);
+        // UUIDs omitted — they added ~900 tokens of high-entropy noise the model
+        // never uses in a standard conversation. If Daniela needs a specific lesson
+        // id she can call the syllabus-lookup tool with the lesson name instead.
+        lines.push(`  · ${lesson.name}${topicNote}`);
       }
     }
 

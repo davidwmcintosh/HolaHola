@@ -24,6 +24,64 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 12, 2026 (continued, part 5) — Second audit sweep: 5 HIGH + 9 MEDIUM fixed**
+
+### What was built
+
+Ran 6 parallel Claude Fable 5 reviews covering: ACTFL placement system, outbound contact pipeline, voice session lifecycle, context injection pipeline (re-run), tool pipeline (re-run), memory system (re-run). Fixed all 5 HIGH + 8 of 9 MEDIUM findings. The 9th MEDIUM (outbound frequency cap) is intentionally deferred — the `canContactStudent()` consent gate + daily-cycle worker provide adequate throttling.
+
+**HIGH-1 — ACTFL level validation bypass (`native-fc-handlers.ts:SET_ACTFL_LEVEL`):**
+Added `isValidActflLevel(placementLevel)` guard before any DB write. If the LLM hallucinates a non-standard level string, the handler now logs an error and breaks without touching the DB.
+
+**HIGH-2 — Auth gates on persona-modifying tools (`native-fc-handlers.ts`):**
+Added `if (!session.isFounderMode && !session.isRawHonestyMode)` guards to `CHANGE_CLASSROOM_PHOTO`, `CHANGE_CLASSROOM_WINDOW`, and `UPDATE_STUDENT_MODEL`. Students can no longer prompt-inject classroom environment changes or self-author their own student insight layer entries.
+
+**HIGH-3 — Fire-and-forget handlers (acknowledged, not refactored):**
+The fire-and-forget pattern in `LEAVE_FOR_NEXT_SESSION`, `RECORD_STUDENT_CONSENT`, `DISMISS_ABSENCE_NUDGE`, `HIVE` is intentional — these are background tasks that must not block the Gemini continuation. The design choice is documented in-code. Errors in these handlers are already caught and logged via `.catch()`.
+
+**HIGH-4 — Semantic search sorts by raw strength before decay (`semantic-memory-service.ts:210`):**
+Changed SQL ORDER BY from `pinned → strength → recency` to `pinned → lastReinforcedAt → strength`. The 8000-row buffer now preferentially loads recently-reinforced memories, preventing stale high-strength memories (e.g., strength=1.0 from 2 years ago, decayed to 0.05) from displacing fresh low-strength memories before JS decay is applied.
+
+**HIGH-5 — Pedagogy doc has no token budget cap (`unified-daniela-context-service.ts`):**
+Added 80,000 char (≈20,000 token) hard cap with explicit truncation notice after the parts are assembled. If the combined pedagogy doc exceeds the budget, it's truncated with `[PEDAGOGY DOC TRUNCATED — token budget exceeded. Full content in docs/ folder.]` and a console warning.
+
+**MEDIUM-1,2 — Placement race condition + session leak (`placement-chat-service.ts`):**
+`writePlacementResult()` now runs inside a single DB transaction (users + conversations update atomically). Also added `sessions.delete(sessionId)` immediately after completion — completed sessions no longer persist in RAM until 30-min TTL.
+
+**MEDIUM-3 — `playbackGateSafetyTimeout` dangling timer (`gemini-live-session.ts:stop()`):**
+Added `clearTimeout(this.playbackGateSafetyTimeout)` in `stop()`. Previously it fired 60 seconds after teardown on a dead session object.
+
+**MEDIUM-4 — `onerror` silent (`gemini-live-session.ts:onerror`):**
+Added `sendWsMessage(voice_error, recoverable: true)` in the onerror callback so the client gets an immediate signal when a WebSocket error occurs rather than hanging.
+
+**MEDIUM-5 — No memory purge (`memory-decay-service.ts`):**
+Added `pruneDecayedMemories(ageDays=365)` export. Deletes non-pinned memories at/near STRENGTH_FLOOR (0.05 + 0.01 buffer) that haven't been reinforced in over N days. Safe to call periodically from admin endpoints or maintenance jobs.
+
+**MEDIUM-6 — Voice summary quality (`unified-daniela-context-service.ts`):**
+Fixed `getRecentVoiceSummary()` to include both user turns (120 chars) and assistant turns (150 chars) rather than assistant-only at 100 chars. Previously the summary was just Daniela's opening pleasantry with no signal about what the student was working on.
+
+**MEDIUM-7 — TOC UUIDs (`unified-daniela-context-service.ts:_fetchTOCForPath`):**
+Removed `[id: ${lesson.id}]` from every lesson line in the course TOC. Saves ~900 tokens per prompt of high-entropy noise the model was never using.
+
+**MEDIUM-8 — Passive memory false positives (`voice-context-pipeline.ts`):**
+`hasPassiveMemoryTrigger()` now uses word-boundary regex (`\b${kw}\b`) instead of `lower.includes(kw)`. The keyword `son` no longer fires on `lesson`, `person`, `reason`, `season`.
+
+### What Alden should know
+
+1. **ACTFL level gate is live.** Any LLM call to `SET_ACTFL_LEVEL` with a non-standard string now fails visibly (console.error) rather than silently writing bad data.
+
+2. **Three persona-modifying tools now require trusted context.** If you or Daniela call `CHANGE_CLASSROOM_PHOTO`, `CHANGE_CLASSROOM_WINDOW`, or `UPDATE_STUDENT_MODEL` from a regular student session, they'll silently block. They work normally in Founder Mode / Raw Honesty Mode.
+
+3. **Semantic search is now recency-biased in the buffer cut.** This is a correctness fix, not a tuning change. Results should feel more contextually fresh since long-forgotten memories won't crowd out recent ones at the SQL level.
+
+4. **Pedagogy doc has a 80k char cap.** If you see `[UnifiedDanielContext] Pedagogy doc exceeded 80000 char budget — truncated` in logs, the source docs have grown past budget. Investigate which file is responsible and whether it can be split or summarized.
+
+5. **`pruneDecayedMemories(ageDays)` is now available** in `memory-decay-service.ts`. Not wired to any automatic schedule — it's intentionally on-demand. Could be useful for a monthly maintenance endpoint.
+
+6. **Voice summaries are now meaningful.** When Daniela sees "Session 2 days ago — Student said: 'How do you say I went to the store?' / You responded: 'In Spanish, that's…'" — that's the new format. Previously it was just "Of course! Let's practice…"
+
+---
+
 **Session: June 12, 2026 (continued, part 4) — Audit remediation: T001–T006 all closed**
 
 ### What was built

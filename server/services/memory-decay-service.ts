@@ -126,6 +126,48 @@ export async function setMemoryPin(
   }
 }
 
+// ─── Pruning ──────────────────────────────────────────────────────────────────
+
+/**
+ * Prune deeply-faded, non-pinned memories that have been at or near the floor
+ * for a long time.  The design principle is that memories "never fully
+ * disappear" (floor = 0.05), but without any purge mechanism the table grows
+ * unboundedly, degrading semantic search performance over time.
+ *
+ * Pruning criteria (all must be true):
+ *  - NOT pinned
+ *  - current strength ≤ STRENGTH_FLOOR + 0.01  (essentially at floor)
+ *  - last_reinforced_at is NULL or older than `ageDays` days
+ *
+ * Safe to call periodically (e.g. monthly maintenance, admin endpoint).
+ * Returns the number of rows deleted.
+ */
+export async function pruneDecayedMemories(ageDays: number = 365): Promise<number> {
+  const db = getSharedDb();
+  try {
+    const cutoff = new Date(Date.now() - ageDays * 24 * 60 * 60 * 1000);
+    const deleted = await db
+      .delete(memoryEmbeddings)
+      .where(sql`
+        (pinned IS NULL OR pinned = false)
+        AND (strength IS NULL OR strength <= ${STRENGTH_FLOOR + 0.01}::real)
+        AND (last_reinforced_at IS NULL OR last_reinforced_at < ${cutoff})
+      `)
+      .returning({ id: memoryEmbeddings.id });
+
+    const count = deleted.length;
+    if (count > 0) {
+      console.log(`[MemoryDecay] pruneDecayedMemories: removed ${count} faded, un-reinforced memories (age > ${ageDays}d)`);
+    } else {
+      console.log(`[MemoryDecay] pruneDecayedMemories: nothing to prune (age > ${ageDays}d)`);
+    }
+    return count;
+  } catch (err: any) {
+    console.error(`[MemoryDecay] pruneDecayedMemories failed:`, err.message);
+    return 0;
+  }
+}
+
 // ─── Startup migration ────────────────────────────────────────────────────────
 
 /**

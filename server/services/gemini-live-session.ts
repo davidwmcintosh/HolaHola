@@ -376,6 +376,17 @@ export class GeminiLiveSession {
         },
         onerror: (err: any) => {
           console.error('[GeminiLive] WebSocket error:', err);
+          // Propagate to client so the UI can show a recoverable error rather
+          // than hanging silently.  The subsequent onclose will drive reconnect
+          // logic — this just ensures the user sees something immediately.
+          if (!this.isStopped) {
+            this.sendWsMessage(this.session.ws, {
+              type: 'voice_error',
+              code: 'GEMINI_WS_ERROR',
+              message: 'The voice connection encountered an error. Reconnecting…',
+              recoverable: true,
+            });
+          }
         },
         onclose: (event: any) => {
           const code = event?.code as number;
@@ -662,6 +673,13 @@ export class GeminiLiveSession {
     if (this.greetingWatchdogTimer) {
       clearTimeout(this.greetingWatchdogTimer);
       this.greetingWatchdogTimer = null;
+    }
+    // The playback gate safety timeout must be cleared on stop — otherwise it
+    // fires 60 seconds after teardown on a dead session object, setting
+    // isTutorGeneratingAudio=false after the session is already gone.
+    if (this.playbackGateSafetyTimeout) {
+      clearTimeout(this.playbackGateSafetyTimeout);
+      this.playbackGateSafetyTimeout = null;
     }
     if (this.liveSession) {
       try {
