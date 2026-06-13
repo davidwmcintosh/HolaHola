@@ -19466,6 +19466,30 @@ Return ONLY valid JSON, no markdown, no explanation.`;
       res.status(500).json({ error: error.message });
     }
   });
+  // ── David's personal note to Daniela (shown at top of every classroom) ──
+  app.get("/api/admin/classroom/david-note", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (_req: any, res) => {
+    try {
+      const { getDavidNote } = await import('./services/classroom-environment');
+      const note = await getDavidNote();
+      res.json({ note: note || null });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/classroom/david-note", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+    try {
+      const { note } = req.body;
+      if (typeof note !== 'string') return res.status(400).json({ error: 'note must be a string' });
+      const { setDavidNote } = await import('./services/classroom-environment');
+      await setDavidNote(note.trim());
+      console.log(`[Admin] David's classroom note updated by user ${req.user?.id}`);
+      res.json({ success: true, note: note.trim() });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Get growth memories for review (Founder Only)
   app.get("/api/admin/growth-memories", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
     try {

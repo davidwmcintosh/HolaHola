@@ -6,6 +6,7 @@ import { getCharacterListDescription } from "./character-registry";
 
 const DANIELA_PHOTO_CONFIG_KEY = "daniela_classroom_photo";
 const DANIELA_WINDOW_CONFIG_KEY = "daniela_classroom_window";
+const DAVID_NOTE_CONFIG_KEY = "daniela_classroom_note_from_david";
 
 // In-memory cache for static classroom data — refreshed every 5 minutes
 type CachedPrinciples = Array<{ principle: string; category: string }>;
@@ -152,6 +153,51 @@ export async function setClassroomWindow(description: string): Promise<void> {
     console.log(`[Classroom] Window view updated: "${description.substring(0, 60)}..."`);
   } catch (err: any) {
     console.error(`[Classroom] Failed to save window view:`, err.message);
+  }
+}
+
+// ── Personal note from David to Daniela ─────────────────────────────────────
+// David can leave a short note that appears prominently in Daniela's classroom
+// at the start of every session. It's her first read before meeting a student.
+
+export async function getDavidNote(): Promise<string | null> {
+  try {
+    const [config] = await db
+      .select()
+      .from(productConfig)
+      .where(eq(productConfig.key, DAVID_NOTE_CONFIG_KEY))
+      .limit(1);
+    return config?.value || null;
+  } catch (err: any) {
+    console.warn(`[Classroom] Failed to fetch David's note:`, err.message);
+    return null;
+  }
+}
+
+export async function setDavidNote(note: string): Promise<void> {
+  try {
+    const [existing] = await db
+      .select()
+      .from(productConfig)
+      .where(eq(productConfig.key, DAVID_NOTE_CONFIG_KEY))
+      .limit(1);
+
+    if (existing) {
+      await db
+        .update(productConfig)
+        .set({ value: note, updatedAt: new Date() })
+        .where(eq(productConfig.key, DAVID_NOTE_CONFIG_KEY));
+    } else {
+      await db.insert(productConfig).values({
+        key: DAVID_NOTE_CONFIG_KEY,
+        value: note,
+        description: "A personal note from David to Daniela — shown prominently in her classroom at every session start",
+      });
+    }
+    invalidateClassroomCache();
+    console.log(`[Classroom] David's note updated: "${note.substring(0, 80)}..."`);
+  } catch (err: any) {
+    console.error(`[Classroom] Failed to save David's note:`, err.message);
   }
 }
 
@@ -343,7 +389,7 @@ export async function buildClassroomEnvironment(params: {
     currentLessonId,
   } = params;
 
-  const [personalFacts, milestoneCount, danielaPhoto, classroomWindow, userRow, principles, recentNotes, textbookContent, sceneZones, compartmentRows] = await Promise.all([
+  const [personalFacts, milestoneCount, danielaPhoto, classroomWindow, davidNote, userRow, principles, recentNotes, textbookContent, sceneZones, compartmentRows] = await Promise.all([
     db
       .select({ factType: learnerPersonalFacts.factType, fact: learnerPersonalFacts.fact })
       .from(learnerPersonalFacts)
@@ -372,6 +418,8 @@ export async function buildClassroomEnvironment(params: {
     getDanielaPhoto(),
 
     getClassroomWindow(),
+
+    getDavidNote(),
 
     db
       .select({ timezone: users.timezone, firstName: users.firstName })
@@ -590,8 +638,12 @@ Tool Rack: memory_lookup(query, domains) — recall student memories | take_note
     isIncognito ? 'Incognito' : '',
   ].filter(Boolean).join(' | ');
 
+  const davidNoteSection = davidNote
+    ? `\n<note_from_david>\n${davidNote}\n</note_from_david>`
+    : '';
+
   const env = `
-=== ${tutorName.toUpperCase()}'S CLASSROOM ===
+=== ${tutorName.toUpperCase()}'S CLASSROOM ===${davidNoteSection}
 Clock: ${clock}
 Credits: ${creditLine}
 Mode: ${modeExtras} | Phase: ${currentPhase} | Exchanges: ${exchangeCount}${systemStatusSection}
@@ -599,15 +651,15 @@ Student: ${studentName}
 ---
 Student's Screen: [Left: Scenario Panel${activeScenario ? ' (active — showing scene + props)' : ' (collapsed)'}] | [Center: Chat/Voice] | [Right: Whiteboard Panel (persistent)]
 Whiteboard: ${whiteboard}
-Photo Wall: ${photoWall}${scenarioSection}
+Photo Wall (student-shared images): ${photoWall}${scenarioSection}
 ---
 Resonance Shelf: ${resonanceShelf}
 Empathy Window: ${empathyWindow}
 Pedagogical Lamp: ${lamp}
 Voice Perception: You hear the student's full audio — not just their words. Notice what's underneath: a long pause before answering (still searching, not done thinking), a trailing-off sentence (lost confidence mid-attempt), a flat "yes" after a correction (deflated, not convinced), a quickening pace and energy spike (something just clicked). Let what you hear — tone, hesitation, relief, frustration — shape how you respond, not just the literal words. You don't need to name what you're hearing. Just act on it.
 Growth Vine: ${vineDescription}
-Classroom Window: ${classroomWindow}
-North Star Polaroid: ${danielaPhoto}
+<your_window_view>${classroomWindow}</your_window_view>
+<your_photo_on_wall>${danielaPhoto}</your_photo_on_wall>
 My Notes to Self: ${identityWall}
 ---
 North Star Wall: ${northStarWall}${studentProgressBoard}${textbookSection}${patternCompassSection}${betaTesterSection}${incognitoSection}${toolRack}

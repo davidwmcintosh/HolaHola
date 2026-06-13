@@ -2216,10 +2216,12 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
                   });
                   if (classroomCtx) {
                     geminiLiveSystemPrompt += '\n\n' + classroomCtx;
-                    console.log('[GeminiLive] ✓ Classroom context baked into system prompt');
+                    console.log(`[GeminiLive] ✓ Classroom context baked into system prompt (${classroomCtx.length} chars) — preview: "${classroomCtx.substring(0, 120).replace(/\n/g, '↵')}"`);
+                  } else {
+                    console.error('[GeminiLive] ✗ Classroom context was empty/null — Daniela will be BLIND to her environment this session');
                   }
                 } catch (classroomErr: any) {
-                  console.warn('[GeminiLive] Classroom context fetch skipped:', classroomErr.message);
+                  console.error('[GeminiLive] ✗ Classroom context fetch FAILED — Daniela will be BLIND to her environment:', classroomErr.message, classroomErr.stack?.split('\n')[1] || '');
                 }
 
                 // ── Phase 3: Bake rich Daniela context from orchestrator cache ──

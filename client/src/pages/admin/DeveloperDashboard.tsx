@@ -105,6 +105,20 @@ export default function DeveloperDashboard() {
   const [reloadingClassId, setReloadingClassId] = useState<string | null>(null);
   const [selectedLanguage, setSelectedLanguage] = useState("Spanish");
   const [isCreatingClass, setIsCreatingClass] = useState(false);
+  const [davidNoteInput, setDavidNoteInput] = useState("");
+
+  const { data: davidNoteData, refetch: refetchDavidNote } = useQuery<{ note: string | null }>({
+    queryKey: ["/api/admin/classroom/david-note"],
+  });
+
+  const saveDavidNoteMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/classroom/david-note', { note: davidNoteInput }).then(r => r.json()),
+    onSuccess: () => {
+      toast({ title: 'Note saved', description: "Daniela will see your note at the top of her classroom next session." });
+      refetchDavidNote();
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
 
   const { data: analytics, isLoading: analyticsLoading } = useQuery<AnalyticsData>({
     queryKey: ["/api/developer/analytics", { period, userType }],
@@ -214,6 +228,42 @@ export default function DeveloperDashboard() {
 
             {/* Testing Tools Tab */}
             <TabsContent value="testing" className="space-y-6">
+              {/* Note from David to Daniela */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Note to Daniela
+                  </CardTitle>
+                  <CardDescription>
+                    Leave a personal note that appears at the top of Daniela's classroom at the start of every session.
+                    {davidNoteData?.note && (
+                      <span className="block mt-1 text-xs text-muted-foreground italic">Current: "{davidNoteData.note.substring(0, 80)}{davidNoteData.note.length > 80 ? '…' : ''}"</span>
+                    )}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <textarea
+                      value={davidNoteInput || (davidNoteData?.note ?? '')}
+                      onChange={e => setDavidNoteInput(e.target.value)}
+                      placeholder="e.g. Focus on warmth today — David had a rough week. Lean into the connection."
+                      className="w-full h-24 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+                      data-testid="input-david-note"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => saveDavidNoteMutation.mutate()}
+                      disabled={saveDavidNoteMutation.isPending || !davidNoteInput.trim()}
+                      data-testid="button-save-david-note"
+                    >
+                      {saveDavidNoteMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                      Save Note
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
               {/* Quick Actions */}
               <Card>
                 <CardHeader>

@@ -8,6 +8,47 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jun 13, 2026 — Classroom Context Injection Audit + David's Note
+
+### What was built
+
+**Investigation:** Daniela's classroom context was either empty or silently failing during the 17:52 conversation (`3332dfd5`) — she hallucinated "Barcelona beach" instead of reading her configured Madrid street scene window view. A Gemini 3-flash audit confirmed: silent error swallow was the primary suspect; XML tags beat label-colon-value for model parsing; tool count competes with classroom attention.
+
+**1. David's note-to-Daniela feature** (`server/services/classroom-environment.ts`)
+- New `product_config` key: `daniela_classroom_note_from_david`
+- `getDavidNote()` / `setDavidNote()` functions
+- When set, note appears inside `<note_from_david>` XML tags at the very top of the classroom block — before window, photo, or any other content
+- Key is created on first save (does not need manual DB setup)
+
+**2. XML tag upgrade for classroom fields** (`classroom-environment.ts`)
+- Window view: now `<your_window_view>...</your_window_view>` (was `Window View: ...`)
+- Photo on wall: now `<your_photo_on_wall>...</your_photo_on_wall>` (was `Photo on Your Wall: ...`)
+- Based on Gemini audit recommendation: XML tags produce more reliable model parsing than label-colon-value
+
+**3. Logging upgrade** (`server/unified-ws-handler.ts`)
+- Classroom injection success: logs char count + 100-char preview
+- Classroom injection failure: upgraded from `console.warn` to `console.error` with full message + stack — silent failures are now visible
+
+**4. API routes** (`server/routes.ts`)
+- `GET /api/admin/classroom/david-note` — fetch current note (admin/developer)
+- `POST /api/admin/classroom/david-note` — save note (admin/developer)
+
+**5. Developer Dashboard UI** (`client/src/pages/admin/DeveloperDashboard.tsx`)
+- "Note to Daniela" card at top of Testing Tools tab
+- Shows current note as italic preview; textarea pre-populated; Save button posts to API
+
+### Key files
+- `server/services/classroom-environment.ts` — note functions + XML tag upgrade
+- `server/unified-ws-handler.ts` — logging improvements
+- `server/routes.ts` — two new admin API routes
+- `client/src/pages/admin/DeveloperDashboard.tsx` — Note to Daniela UI card
+
+### Open / future work
+- Root cause of 17:52 failure is still unknown — improved logging will catch it next time
+- Gemini's longer-term recommendation: inject classroom as first hidden user message rather than system prompt (not yet done)
+
+---
+
 ## Session — Jun 11, 2026 — Narrative Architecture: arc_name, The Near-Loss, and the Recovery
 
 ### What was built

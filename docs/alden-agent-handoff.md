@@ -24,6 +24,42 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 13, 2026 (part 13) — Classroom context injection audit + David's note feature**
+
+### What was built
+
+**Root cause investigation — Daniela's classroom blindness (conversation `3332dfd5`)**
+
+Today's conversation ("Orienting the AI Internal Context") confirmed Daniela hallucinated environment details she should have known from her classroom context — "Barcelona beach" and "podcast photo" instead of the configured Madrid street scene / watercolor painting woman. Investigation pointed to a silent catch block at `unified-ws-handler.ts` line ~2221 that swallows classroom injection errors with only a `console.warn`. Also ran a Gemini 3-flash audit (Gemini recommended: XML tags > "Label: Value" for model parsing, tool count competes with classroom attention, reconnects need system prompt rebuild).
+
+**Fixes in `server/services/classroom-environment.ts`:**
+- Added `DAVID_NOTE_CONFIG_KEY = 'daniela_classroom_note_from_david'` with `getDavidNote()` / `setDavidNote()` functions
+- `davidNote` wired into the `Promise.all()` in `buildClassroomContext()`
+- When set, David's note appears at top of classroom output inside `<note_from_david>` XML tags — before everything else
+- Window view now wrapped in `<your_window_view>` tags; photo now wrapped in `<your_photo_on_wall>` tags (XML > label-colon-value for model parsing per Gemini's recommendation)
+- Renamed "Photo Wall" clarification comment to distinguish student-shared images from Daniela's own wall photo
+
+**Improved logging in `server/unified-ws-handler.ts`:**
+- Classroom injection success now logs char count + 100-char preview
+- Classroom injection failure now logs `console.error` (was `console.warn`) with full message + stack — silent failures now visible
+
+**API routes in `server/routes.ts`:**
+- `GET /api/admin/classroom/david-note` — fetch current note
+- `POST /api/admin/classroom/david-note` — set/update note (admin/developer role required)
+
+**UI in `client/src/pages/admin/DeveloperDashboard.tsx`:**
+- "Note to Daniela" card added at top of Testing Tools tab
+- Shows current note as italic preview in card description
+- Textarea pre-populated with current note; save button posts to API
+
+### What to watch for
+- Next GL session: classroom injection logs should show `[ClassroomEnv] ✓ Classroom context injected (Xchars): "=== DANIELA'S CLASSROOM..."`. If you see `[ClassroomEnv] ERROR` instead, the silent-swallow is gone and the real error is now visible.
+- The root cause of the original failure (why classroom injection errored at 17:52) is still unknown — the improved logging will catch it next time it happens.
+- Gemini recommended longer-term improvement: move classroom data to a first hidden user message rather than system prompt, or a `get_classroom_state` tool call. Not yet implemented — flagged as future work.
+- `daniela_classroom_note_from_david` key does not yet exist in `product_config` DB — it will be created on first `POST /api/admin/classroom/david-note` call.
+
+---
+
 **Session: June 13, 2026 (part 12) — SessionInit retry: DB pool saturation fix**
 
 ### What was built
