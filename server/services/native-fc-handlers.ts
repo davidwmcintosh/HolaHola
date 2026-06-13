@@ -23,6 +23,44 @@ import { WhiteboardItem, WordMapItem, isWordMapItem, SelfSurgeryItemData } from 
 import { StreamingWhiteboardMessage } from "@shared/streaming-voice-types";
 import { WebSocket as WS } from "ws";
 import type { IStorage } from "../storage";
+import { lookupLegacyType } from "./daniela-function-registry";
+
+/**
+ * Parses the params_json string from a dispatcher tool call.
+ *
+ * Handles two common failure modes from Gemini:
+ *  1. params_json is not valid JSON — try single-quote fix, then give up gracefully.
+ *  2. Redundant-key wrapping — e.g. {set_clock: {time:"3:30"}} instead of {time:"3:30"}.
+ *     If the top-level object has the sub-tool name as its only/main key, unwrap it.
+ *
+ * Returns an empty object on unrecoverable parse failure (graceful degradation).
+ */
+function parseDispatcherParams(paramsJson: string | undefined, toolName: string): Record<string, any> {
+  if (!paramsJson || paramsJson.trim() === '' || paramsJson.trim() === '{}') return {};
+
+  let parsed: any;
+  try {
+    parsed = JSON.parse(paramsJson);
+  } catch {
+    // Try fixing single quotes (common Gemini quirk)
+    try {
+      parsed = JSON.parse(paramsJson.replace(/'/g, '"'));
+    } catch {
+      console.warn(`[Dispatcher] Failed to parse params_json for ${toolName}: ${paramsJson.slice(0, 120)}`);
+      return {};
+    }
+  }
+
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+
+  // Redundant-key normalization: {"set_clock": {"time": "3:30"}} → {"time": "3:30"}
+  if (parsed[toolName] !== undefined && typeof parsed[toolName] === 'object' && !Array.isArray(parsed[toolName])) {
+    console.log(`[Dispatcher] Normalizing redundant key "${toolName}" in params_json`);
+    return parsed[toolName] as Record<string, any>;
+  }
+
+  return parsed as Record<string, any>;
+}
 
 interface ArchitectMessage {
   type: 'question' | 'suggestion' | 'observation' | 'request';
@@ -69,6 +107,64 @@ export class NativeFunctionCallHandler {
     }
     
     switch (fn.legacyType) {
+
+      // ============================================================
+      // DISPATCHER CASES — Hybrid architecture for GL 64-tool limit
+      // Each dispatcher parses params_json and routes to the real handler.
+      // ============================================================
+
+      case 'CLASSROOM_WIDGET': {
+        const widget = fn.args.widget as string | undefined;
+        if (!widget) {
+          console.warn('[Dispatcher] classroom_widget called without widget selector');
+          break;
+        }
+        const params = parseDispatcherParams(fn.args.params_json as string | undefined, widget);
+        const legacyType = lookupLegacyType(widget);
+        console.log(`[Dispatcher] classroom_widget → ${widget} (${legacyType}), params: ${JSON.stringify(params)}`);
+        const syntheticFn: ExtractedFunctionCall = { name: widget, legacyType, args: params };
+        return this.handle(sessionId, session, syntheticFn);
+      }
+
+      case 'EXERCISE_TOOL': {
+        const type = fn.args.type as string | undefined;
+        if (!type) {
+          console.warn('[Dispatcher] exercise_tool called without type selector');
+          break;
+        }
+        const params = parseDispatcherParams(fn.args.params_json as string | undefined, type);
+        const legacyType = lookupLegacyType(type);
+        console.log(`[Dispatcher] exercise_tool → ${type} (${legacyType}), params: ${JSON.stringify(params)}`);
+        const syntheticFn: ExtractedFunctionCall = { name: type, legacyType, args: params };
+        return this.handle(sessionId, session, syntheticFn);
+      }
+
+      case 'MEMORY_ACTION': {
+        const action = fn.args.action as string | undefined;
+        if (!action) {
+          console.warn('[Dispatcher] memory_action called without action selector');
+          break;
+        }
+        const params = parseDispatcherParams(fn.args.params_json as string | undefined, action);
+        const legacyType = lookupLegacyType(action);
+        console.log(`[Dispatcher] memory_action → ${action} (${legacyType}), params: ${JSON.stringify(params)}`);
+        const syntheticFn: ExtractedFunctionCall = { name: action, legacyType, args: params };
+        return this.handle(sessionId, session, syntheticFn);
+      }
+
+      case 'ADMIN_ACTION': {
+        const action = fn.args.action as string | undefined;
+        if (!action) {
+          console.warn('[Dispatcher] admin_action called without action selector');
+          break;
+        }
+        const params = parseDispatcherParams(fn.args.params_json as string | undefined, action);
+        const legacyType = lookupLegacyType(action);
+        console.log(`[Dispatcher] admin_action → ${action} (${legacyType}), params: ${JSON.stringify(params)}`);
+        const syntheticFn: ExtractedFunctionCall = { name: action, legacyType, args: params };
+        return this.handle(sessionId, session, syntheticFn);
+      }
+
       case 'SWITCH_TUTOR': {
         const target = fn.args.target as string | undefined;
         const language = fn.args.language as string | undefined;

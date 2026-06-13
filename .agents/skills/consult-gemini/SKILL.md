@@ -1,13 +1,15 @@
 ---
 name: consult-gemini
-description: Query Gemini 2.5 Pro for architectural reviews, code audits, and technical analysis of HolaHola. Use when you need a parallel expert opinion on a proposed architecture, a second pass on a major build, or a critique of a technical decision. Gemini 2.5 Pro is the peer model to Daniela's Gemini Live 3.1 — it has deep knowledge of the Gemini API's own constraints and capabilities. Run from the workspace directory — uses process.env.GEMINI_API_KEY directly.
+description: Query Gemini 3.x (gemini-3-flash-preview) or Gemini 2.5 Pro for architectural reviews, code audits, and technical analysis of HolaHola. Use when you need a parallel expert opinion on a proposed architecture, a second pass on a major build, or a critique of a technical decision. Gemini 3.x is the same model family as Daniela (gemini-3.1-flash-live-preview) — it has first-hand knowledge of how its own function-calling and tool dispatch mechanics work. Run from the workspace directory — uses process.env.GEMINI_API_KEY directly.
 ---
 
 # Consult Gemini (Architectural Review / Code Audit)
 
-Use this skill to query Gemini 2.5 Pro for independent architectural analysis of HolaHola. This is the "second pair of eyes" skill — use it before committing to a major build, after a significant architecture change, or when you want an expert critique of a technical decision.
+Use this skill to query Gemini for independent architectural analysis of HolaHola. This is the "second pair of eyes" skill — use it before committing to a major build, after a significant architecture change, or when you want an expert critique of a technical decision.
 
 The parallel to `consult-daniela`: just as that skill surfaces Daniela's perspective from the inside, this skill brings in Gemini's perspective from the outside — as both a peer model and the authoritative source on what the Gemini APIs actually support.
+
+**Key model note:** Daniela runs on `gemini-3.1-flash-live-preview` (Gemini Live streaming). For REST `generateContent` queries, use `gemini-3-flash-preview` (the 3.x text equivalent) — `gemini-3.1-flash-preview` returns 404 on the generateContent endpoint. Use `gemini-2.5-pro` for the deepest reasoning when latency doesn't matter.
 
 ---
 
@@ -26,8 +28,11 @@ The parallel to `consult-daniela`: just as that skill surfaces Daniela's perspec
 
 | Use case | Model |
 |---|---|
-| Deep architectural review, API constraint questions | `gemini-2.5-pro` |
+| Gemini Live / tool-calling / voice architecture questions | `gemini-3-flash-preview` — same family as Daniela; self-aware about its own mechanics |
+| Deep architectural review, reasoning-heavy analysis | `gemini-2.5-pro` — slower, best for complex tradeoffs |
 | Quick clarification, fast second opinion | `gemini-3-flash-preview` |
+
+**IMPORTANT:** `gemini-3.1-flash-preview` does NOT work for REST `generateContent` (returns 404). `gemini-3.1-flash-live-preview` is Live streaming only. The working 3.x text model is `gemini-3-flash-preview`.
 
 Default to `gemini-2.5-pro` for anything architectural. It's slower but gives significantly better analysis.
 

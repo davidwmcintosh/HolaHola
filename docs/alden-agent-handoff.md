@@ -24,7 +24,43 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
-**Session: June 13, 2026 — Gemini second-pass audit complete**
+**Session: June 13, 2026 (part 2) — Hybrid dispatcher architecture complete**
+
+### What was built
+All 139+ Daniela tools are now accessible in Gemini Live voice sessions. Previously, 76 tools were inaccessible because GL's 64-tool hard limit meant they had to be excluded from the GL declarations (Kanji stroke, phonetic, tone marks, ALL conjugation tables, ALL memory tools, ALL admin tools). Now: hybrid architecture.
+
+**Architecture: 59 native + 4 dispatcher = 63 ≤ 64 ✓**
+
+4 dispatcher declarations added to registry (`daniela-function-registry.ts`):
+- `classroom_widget(widget, params_json)` → routes to 27 visual widget tools
+- `exercise_tool(type, params_json)` → routes to 19 language exercise tools  
+- `memory_action(action, params_json)` → routes to 15 memory/progress tools
+- `admin_action(action, params_json)` → routes to 15 admin/bookkeeping tools
+
+4 native tools demoted (added to GL_EXCLUDED_TOOLS) to free the 4 slots:
+`show_menu`, `show_daily_plan`, `set_right_pane`, `sense_time` → all accessible via classroom_widget dispatcher
+
+**Key implementation details:**
+- `params_json: string` (not object) — per Gemini 3.x's explicit recommendation for better GL schema adherence
+- `parseDispatcherParams()` in native-fc-handlers.ts: fuzzy JSON parse (single-quote fix) + redundant-key normalization (`{set_clock:{time:"3:30"}} → {time:"3:30"}`)
+- Routing via existing `lookupLegacyType()` → synthetic ExtractedFunctionCall → existing handler (zero code duplication)
+- `GL_DISPATCHER_SYSTEM_PROMPT` injected at session start in unified-ws-handler.ts (after neural net context) with explicit examples and CRITICAL param constraints
+
+**Files changed:** `daniela-function-registry.ts`, `native-fc-handlers.ts`, `unified-ws-handler.ts`
+
+### Verified
+- Server starts clean — no FATAL assertion firing
+- 63 GL declarations confirmed (≤ 64 cap)
+- Pre-existing 2010 typecheck errors unchanged (not caused by this session)
+
+### What Alden should know
+- When Daniela calls `classroom_widget(widget:"set_clock", params_json:'{"time":"3:30"}')`, the CLASSROOM_WIDGET handler parses params_json, looks up legacyType("set_clock") → "SET_CLOCK", creates a synthetic fn, and calls handle() recursively. The existing SET_CLOCK handler fires normally.
+- If new tools are added to the registry that should be dispatcher-accessible: add the tool name to the relevant dispatcher's `enum` in its parametersJsonSchema. No other changes needed.
+- The dispatcher reliability expectation (from Gemini 3.x's own assessment): 85-90% for simple tools with clear enum values.
+
+---
+
+**Session: June 13, 2026 (part 1) — Gemini second-pass audit complete**
 
 ### What was fixed
 

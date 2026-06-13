@@ -1453,3 +1453,35 @@ Daniela's first "director UI" tool: `show_teaching_card`. When Daniela calls it 
 - **One thing at a time:** Use `word` + `translation` for vocab, or `grammar_rule` + `examples` for grammar — not both
 - **Duration:** Default 8s; increase via `duration_ms` for complex content
 - **Auto-indexed:** Tool registration, `tool_knowledge` row, and embedding all happen automatically at next server start
+
+---
+
+## Hybrid Dispatcher Architecture — GL 64-Tool Limit (June 13, 2026)
+
+### What was built
+All 139+ Daniela tools are now accessible in Gemini Live voice sessions via a hybrid dispatcher pattern, working around GL's hard 64-tool declaration limit.
+
+### Architecture
+- **59 native GL declarations** — direct tools (high-frequency, parameter-heavy, or frequently called)
+- **4 dispatcher declarations** — each routes to a group of related tools:
+  - `classroom_widget(widget, params_json)` — 27 visual widget tools (clock, calendar, anatomy, weather, map, whiteboard, scene builder, menus, etc.)
+  - `exercise_tool(type, params_json)` — 19 language exercise tools (Kanji stroke, phonetic, tones, conjugation tables, vocab drills, textbook, reading, word map, etc.)
+  - `memory_action(action, params_json)` — 15 memory/progress tools (save memory, browse syllabus, mark covered, learning goals, etc.)
+  - `admin_action(action, params_json)` — 15 admin/bookkeeping tools (consent, hive suggestions, express lane, close session, etc.)
+- **Total: 63 ≤ 64 cap ✓**
+
+### Key design decisions
+- `params_json: string` (not object) — per Gemini 3.x's explicit recommendation for better GL schema adherence
+- Fuzzy parameter parsing: `parseDispatcherParams()` handles JSON parse errors (single-quote fix) and redundant-key normalization (`{set_clock:{time:"3:30"}} → {time:"3:30"}`)
+- Dispatcher routing via `lookupLegacyType()` (already exported from registry) — no new data structures needed
+- 4 native tools demoted to dispatcher coverage: `show_menu`, `show_daily_plan`, `set_right_pane`, `sense_time` (simple UI, rarely needed in voice)
+- Dispatcher system prompt (`GL_DISPATCHER_SYSTEM_PROMPT`) injected at session start with explicit examples and CRITICAL constraints
+
+### Key files modified
+- `server/services/daniela-function-registry.ts` — 4 dispatcher registry entries, 4 demotions to GL_EXCLUDED_TOOLS, `TOOL_LEGACY_TYPE_MAP` export, `GL_DISPATCHER_SYSTEM_PROMPT` export, architecture comment
+- `server/services/native-fc-handlers.ts` — `parseDispatcherParams()` helper, 4 dispatcher case handlers (CLASSROOM_WIDGET, EXERCISE_TOOL, MEMORY_ACTION, ADMIN_ACTION), import of `lookupLegacyType`
+- `server/unified-ws-handler.ts` — import of `GL_DISPATCHER_SYSTEM_PROMPT`, injection into language GL session system prompt after neural net context
+
+### Dispatcher routing pattern
+Daniela calls: `classroom_widget(widget:"set_clock", params_json:'{"time":"3:30"}')`
+Server: parses params_json → looks up legacyType ("SET_CLOCK") → creates synthetic ExtractedFunctionCall → calls `this.handle()` recursively → existing SET_CLOCK handler fires normally. Zero code duplication.

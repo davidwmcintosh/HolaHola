@@ -42,7 +42,7 @@ import {
 import { OpenMicSession, OpenMicEvents, getDeepgramLanguageCode } from './services/deepgram-live-stt';
 import { GeminiLiveSession, createGeminiLiveSession, GEMINI_LIVE_VOICE_ENABLED, GEMINI_LIVE_MODEL } from './services/gemini-live-session';
 import { costTracker } from './services/cost-tracker';
-import { DANIELA_FUNCTION_DECLARATIONS, DANIELA_GL_FUNCTION_DECLARATIONS, getDanielajGLFunctionDeclarationsForLanguage } from './services/daniela-function-registry';
+import { DANIELA_FUNCTION_DECLARATIONS, DANIELA_GL_FUNCTION_DECLARATIONS, getDanielajGLFunctionDeclarationsForLanguage, GL_DISPATCHER_SYSTEM_PROMPT } from './services/daniela-function-registry';
 import { generateCongratulatoryPromptAddition } from './services/competency-verifier';
 import { buildCurriculumContext, detectSyllabusQuery } from './services/curriculum-context';
 import { usageService } from './services/usage-service';
@@ -1849,6 +1849,11 @@ ${buildNativeFunctionCallingSection()}`;
               } else {
                 console.warn('[Streaming Voice] ⚠ Neural network context was empty — bold-marking relies on fallback in prompt');
               }
+
+              // Dispatcher system prompt — explains the 4 dispatcher tools that route to all 139 classroom
+              // capabilities within Gemini Live's 64-tool hard limit. Injected once at session start.
+              systemPrompt += GL_DISPATCHER_SYSTEM_PROMPT;
+              console.log('[Streaming Voice] ✓ Dispatcher system prompt injected (classroom_widget, exercise_tool, memory_action, admin_action)');
 
               // Course TOC — inject for language sessions so Daniela knows the full chapter/lesson map.
               // This is critical for GeminiLive (audio-only, no per-turn injection) so she can reference

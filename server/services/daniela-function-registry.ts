@@ -4709,6 +4709,134 @@ The card is a visual summary only — it does not start any activity automatical
       return `Daily plan card is now showing on the whiteboard. Ask the student where they'd like to start — vocab review, the next lesson, or an assignment.`;
     },
   },
+
+  // ============================================================
+  // DISPATCHER TOOLS — Hybrid architecture to work around the
+  // Gemini Live 64-tool hard limit while keeping all 139 tools
+  // accessible in voice sessions.
+  //
+  // Each dispatcher routes to the underlying tool handler via
+  // TOOL_LEGACY_TYPE_MAP + parseDispatcherParams() in handlers.
+  // params_json is a STRING (not object) — per Gemini 3.x's own
+  // recommendation for better schema adherence in GL sessions.
+  // ============================================================
+
+  {
+    legacyType: 'CLASSROOM_WIDGET',
+    declaration: {
+      name: 'classroom_widget',
+      description: 'Controls any visual classroom widget. Use for: clock (set_clock), calendar (set_calendar), emotion dial (set_emotion), body/face/hand anatomy diagrams (set_body_part, set_face_part, set_hand_part), thermometer (set_thermometer), weather display (set_weather), country map (highlight_country), immersive background (enter_immersive), classroom photo/window (change_classroom_photo, change_classroom_window), whiteboard hold/clear (hold_whiteboard, clear_whiteboard), visual scene building (compose_visual_scene, search_visual_library, get_scene_zones, remove_from_scene, move_in_scene), grammar table (grammar_table), text widget (write), sentence table (show_sentence_table), restaurant menu (show_menu), daily plan card (show_daily_plan), right pane (set_right_pane), current time (sense_time), element spotlight (spotlight_element).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          widget: {
+            type: 'STRING',
+            enum: [
+              'set_clock', 'set_calendar', 'set_emotion', 'set_body_part', 'set_face_part', 'set_hand_part',
+              'set_thermometer', 'set_weather', 'highlight_country', 'enter_immersive',
+              'change_classroom_photo', 'change_classroom_window',
+              'hold_whiteboard', 'clear_whiteboard', 'compose_visual_scene', 'search_visual_library',
+              'get_scene_zones', 'remove_from_scene', 'move_in_scene',
+              'grammar_table', 'write', 'show_sentence_table', 'show_menu', 'show_daily_plan',
+              'set_right_pane', 'sense_time', 'spotlight_element',
+            ],
+            description: 'The specific widget to control. See tool_knowledge in context for each widget\'s parameter schema.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters for this widget. Do NOT include the widget name as a key. Example for set_clock: {"time":"3:30"} — NOT {"set_clock":"3:30"}. Use tool_knowledge in context for exact parameter names.',
+          },
+        },
+        required: ['widget', 'params_json'],
+      },
+    },
+  },
+
+  {
+    legacyType: 'EXERCISE_TOOL',
+    declaration: {
+      name: 'exercise_tool',
+      description: 'Launches any language exercise. Use for: phonetic alphabet display (phonetic), Kanji/CJK stroke order animation (stroke), tone mark display (tone), pronunciation tagging (pronunciation_tag), conjugation table initialization/fill/clear (init_conjugation_table, fill_conjugation, clear_conjugation_table), vocabulary set loading (load_vocab_set), drill session (drill_session, drill), textbook page display (start_textbook_page, search_textbook), reading passage (reading), word comparison (compare), word map (word_map), audio playback (play_audio), session summary (summary), cultural context (culture), context widget (context).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          type: {
+            type: 'STRING',
+            enum: [
+              'phonetic', 'stroke', 'tone', 'pronunciation_tag',
+              'init_conjugation_table', 'fill_conjugation', 'clear_conjugation_table',
+              'load_vocab_set', 'drill_session', 'drill',
+              'start_textbook_page', 'search_textbook', 'reading',
+              'compare', 'word_map', 'play_audio', 'summary', 'culture', 'context',
+            ],
+            description: 'The specific exercise type. See tool_knowledge in context for each exercise\'s parameter schema.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the exercise type name as a key. Example for stroke: {"character":"水","language":"Japanese"} — NOT {"stroke":{"character":"水"}}.',
+          },
+        },
+        required: ['type', 'params_json'],
+      },
+    },
+  },
+
+  {
+    legacyType: 'MEMORY_ACTION',
+    declaration: {
+      name: 'memory_action',
+      description: 'Performs any memory or learning-progress operation. Use for: saving conversation memories (save_conversation_memory), browsing the syllabus (browse_syllabus), reviewing due vocabulary (review_due_vocab), marking lessons covered (mark_lesson_covered), recommending next content (recommend_next), adding curiosities (add_curiosity), reading curiosities (read_my_curiosities), showing progress (show_progress), correcting memories (correct_memory), forgetting memories (forget_memory), pinning memories (set_memory_pin), setting learning goals (set_learning_goal), browsing conversation themes (get_conversation_themes), reading full sessions (read_full_session), starting a lesson (start_lesson).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          action: {
+            type: 'STRING',
+            enum: [
+              'save_conversation_memory', 'browse_syllabus', 'review_due_vocab',
+              'mark_lesson_covered', 'recommend_next', 'add_curiosity', 'read_my_curiosities',
+              'show_progress', 'correct_memory', 'forget_memory', 'set_memory_pin',
+              'set_learning_goal', 'get_conversation_themes', 'read_full_session', 'start_lesson',
+            ],
+            description: 'The specific memory or progress action. See tool_knowledge in context for parameter schema.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the action name as a key. Example for save_conversation_memory: {"title":"Today session","summary":"Practiced ser/estar"}.',
+          },
+        },
+        required: ['action', 'params_json'],
+      },
+    },
+  },
+
+  {
+    legacyType: 'ADMIN_ACTION',
+    declaration: {
+      name: 'admin_action',
+      description: 'Performs administrative or session bookkeeping operations. Use for: student consent (record_student_consent), absence nudge dismiss (dismiss_absence_nudge), first meeting completion (first_meeting_complete), Hive suggestions (hive_suggestion), self-surgery edits (self_surgery), fine-tuning flags (flag_for_fine_tuning), support calls (call_support), express lane image lookup/post (recall_express_lane_image, express_lane_post), full memory reads (read_full_memory), text input requests (request_text_input), background signals (record_pattern_signal), session logging (log_page_event), session close (close_session), syllabus progress check (syllabus_progress).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          action: {
+            type: 'STRING',
+            enum: [
+              'record_student_consent', 'dismiss_absence_nudge', 'first_meeting_complete',
+              'hive_suggestion', 'self_surgery', 'flag_for_fine_tuning', 'call_support',
+              'recall_express_lane_image', 'express_lane_post', 'read_full_memory',
+              'request_text_input', 'record_pattern_signal', 'log_page_event',
+              'close_session', 'syllabus_progress',
+            ],
+            description: 'The specific admin action. See tool_knowledge in context for parameter schema.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the action name as a key.',
+          },
+        },
+        required: ['action', 'params_json'],
+      },
+    },
+  },
 ];
 
 
@@ -4722,13 +4850,73 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] =
   registry.map(entry => entry.declaration);
 
 /**
+ * Maps tool declaration name → legacyType for dispatcher routing.
+ * Used by NativeFunctionCallHandler to route dispatcher calls (e.g.,
+ * classroom_widget(widget:"set_clock") → legacyType "SET_CLOCK").
+ */
+export const TOOL_LEGACY_TYPE_MAP: Record<string, string> = Object.fromEntries(
+  registry.map(entry => [entry.declaration.name as string, entry.legacyType])
+);
+
+/**
+ * System prompt section that explains the dispatcher pattern to Daniela.
+ * Appended to the GL session system instruction after the neural net context.
+ * Per Gemini 3.x guidance: must be EXPLICIT — do not rely on inference.
+ */
+export const GL_DISPATCHER_SYSTEM_PROMPT = `
+
+## Tool Dispatchers — Access All Classroom Capabilities
+
+You have 4 dispatcher tools that route to the full set of 139 classroom tools. Always use these dispatchers for the capabilities listed below.
+
+**classroom_widget(widget, params_json)** — visual widgets:
+  clock → classroom_widget(widget:"set_clock", params_json:'{"time":"3:30"}')
+  emotion → classroom_widget(widget:"set_emotion", params_json:'{"level":8,"label":"confused"}')
+  Kanji anatomy → classroom_widget(widget:"set_body_part", params_json:'{"part":"arm","label":"el brazo"}')
+  country map → classroom_widget(widget:"highlight_country", params_json:'{"country":"Mexico"}')
+  weather → classroom_widget(widget:"set_weather", params_json:'{"condition":"sunny","temperature":"72"}')
+  whiteboard → classroom_widget(widget:"hold_whiteboard", params_json:'{}') or classroom_widget(widget:"clear_whiteboard", params_json:'{}')
+  CRITICAL: params_json must NOT contain the widget name as a key. {"time":"3:30"} ✓ — {"set_clock":"3:30"} ✗
+
+**exercise_tool(type, params_json)** — language exercises:
+  Kanji stroke → exercise_tool(type:"stroke", params_json:'{"character":"水","language":"Japanese"}')
+  phonetic → exercise_tool(type:"phonetic", params_json:'{"word":"hola","language":"Spanish"}')
+  tones → exercise_tool(type:"tone", params_json:'{"word":"ma","tones":[1,2,3,4]}')
+  conjugation → exercise_tool(type:"init_conjugation_table", params_json:'{"verb":"hablar","tense":"present"}')
+  vocab drill → exercise_tool(type:"drill_session", params_json:'{"topic":"food","count":10}')
+  CRITICAL: params_json must NOT contain the exercise type name as a key.
+
+**memory_action(action, params_json)** — memory and progress:
+  save memory → memory_action(action:"save_conversation_memory", params_json:'{"title":"Session title","summary":"What happened"}')
+  browse syllabus → memory_action(action:"browse_syllabus", params_json:'{}')
+  due vocab → memory_action(action:"review_due_vocab", params_json:'{}')
+  CRITICAL: params_json must NOT contain the action name as a key.
+
+**admin_action(action, params_json)** — bookkeeping:
+  hive note → admin_action(action:"hive_suggestion", params_json:'{"content":"Student is ready for subjunctive"}')
+  CRITICAL: params_json must NOT contain the action name as a key.
+`.trimEnd();
+
+/**
  * Gemini Live has a hard limit of 64 function declarations per session.
  * This is the curated GL subset — voice-call-appropriate tools only.
  *
+ * ARCHITECTURE (June 13, 2026): Hybrid dispatcher pattern.
+ * All 139+ tools are accessible in GL sessions via:
+ *   • 59 native GL declarations (direct tools — high-frequency, simple-schema)
+ *   • 4 dispatcher declarations (routes to all other tools):
+ *       classroom_widget  → 27 visual widget tools
+ *       exercise_tool     → 19 language exercise tools
+ *       memory_action     → 15 memory/progress tools
+ *       admin_action      → 15 admin/bookkeeping tools
+ * Total: 63 ≤ 64 hard cap ✓
+ *
+ * Handlers: native-fc-handlers.ts CLASSROOM_WIDGET / EXERCISE_TOOL / MEMORY_ACTION / ADMIN_ACTION
+ * System prompt: GL_DISPATCHER_SYSTEM_PROMPT injected in unified-ws-handler.ts
+ *
  * AUDIT FIX (June 12, 2026): Registry grew from ~74 to 139 tools but the exclusion list
  * was not updated, causing DANIELA_GL_FUNCTION_DECLARATIONS to contain ~133 tools —
- * more than double the 64-tool hard limit. This set now reflects the full intended
- * exclusion list. Target: ~63 tools (under the 64 hard cap).
+ * more than double the 64-tool hard limit. Fixed with comprehensive exclusion list.
  *
  * ASSERTION: DANIELA_GL_FUNCTION_DECLARATIONS.length is checked at module init below.
  *
@@ -4830,6 +5018,14 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'call_assistant',         // assistant-mode routing; not standard GL
   'syllabus_progress',      // async progress check; not mid-conversation
   'flag_for_fine_tuning',   // annotation tool; post-session
+
+  // === DEMOTED TO DISPATCHER (classroom_widget) ===
+  // These simple UI tools are now accessible via classroom_widget dispatcher.
+  // Demoting them frees native GL declaration slots for the 4 dispatcher entries.
+  'show_menu',              // → classroom_widget(widget:"show_menu")
+  'show_daily_plan',        // → classroom_widget(widget:"show_daily_plan")
+  'set_right_pane',         // → classroom_widget(widget:"set_right_pane")
+  'sense_time',             // → classroom_widget(widget:"sense_time")
 ]);
 
 export const DANIELA_GL_FUNCTION_DECLARATIONS: FunctionDeclaration[] =
