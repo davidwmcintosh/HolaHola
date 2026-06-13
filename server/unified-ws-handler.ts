@@ -1878,7 +1878,7 @@ ${buildNativeFunctionCallingSection()}`;
               // each tool does). 3-flash audit June 13 2026: "Give the model the grammar of tool
               // use before the vocabulary — it needs to know HOW before it looks at the list."
               systemPrompt += GL_DISPATCHER_SYSTEM_PROMPT;
-              console.log('[Streaming Voice] ✓ Dispatcher system prompt injected (classroom_widget, exercise_tool, memory_action, admin_action)');
+              console.log('[Streaming Voice] ✓ Dispatcher system prompt injected (17 focused dispatchers — Phase 2 split)');
 
               if (neuralNetworkContext) {
                 systemPrompt += neuralNetworkContext;

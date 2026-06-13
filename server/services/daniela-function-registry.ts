@@ -4815,40 +4815,36 @@ The card is a visual summary only — it does not start any activity automatical
   },
 
   // ============================================================
-  // DISPATCHER TOOLS — Hybrid architecture to work around the
-  // Gemini Live 64-tool hard limit while keeping all 139 tools
-  // accessible in voice sessions.
+  // DISPATCHER TOOLS — Phase 2 split architecture (June 13 2026)
+  // 6 oversized dispatchers (up to 27 items) replaced with 17 focused
+  // dispatchers (max 8 items each) to eliminate middle-loss and wrong enum.
   //
-  // Each dispatcher routes to the underlying tool handler via
-  // TOOL_LEGACY_TYPE_MAP + parseDispatcherParams() in handlers.
-  // params_json is a STRING (not object) — per Gemini 3.x's own
-  // recommendation for better schema adherence in GL sessions.
+  // Phase 1 safety: each dispatcher handler uses dispatchSubTool() which
+  // validates params_json via discriminated union, tracks consecutive failures,
+  // and aborts after 2 failures to prevent GL self-correction loops.
+  //
+  // params_json is always a STRING — per Gemini 3.x recommendation for GL.
+  // Total after split: ~34 native + 17 dispatchers = ~51 ≤ 64 hard cap ✓
   // ============================================================
 
+  // ─── classroom_widget (27) split into 6 ─────────────────────────────────────
+
   {
-    legacyType: 'CLASSROOM_WIDGET',
+    legacyType: 'WIDGET_TIME',
     declaration: {
-      name: 'classroom_widget',
-      description: 'Controls any visual classroom widget. Use for: clock (set_clock), calendar (set_calendar), emotion dial (set_emotion), body/face/hand anatomy diagrams (set_body_part, set_face_part, set_hand_part), thermometer (set_thermometer), weather display (set_weather), country map (highlight_country), immersive background (enter_immersive), classroom photo/window (change_classroom_photo, change_classroom_window), whiteboard hold/clear (hold_whiteboard, clear_whiteboard), visual scene building (compose_visual_scene, search_visual_library, get_scene_zones, remove_from_scene, move_in_scene), grammar table (grammar_table), text widget (write), sentence table (show_sentence_table), restaurant menu (show_menu), daily plan card (show_daily_plan), right pane (set_right_pane), current time (sense_time), element spotlight (spotlight_element).',
+      name: 'widget_time',
+      description: 'Controls time and temperature widgets. Use for: analog/digital clock (set_clock), calendar date display (set_calendar), thermometer (set_thermometer), reading the current real time (sense_time).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
           widget: {
             type: 'STRING',
-            enum: [
-              'set_clock', 'set_calendar', 'set_emotion', 'set_body_part', 'set_face_part', 'set_hand_part',
-              'set_thermometer', 'set_weather', 'highlight_country', 'enter_immersive',
-              'change_classroom_photo', 'change_classroom_window',
-              'hold_whiteboard', 'clear_whiteboard', 'compose_visual_scene', 'search_visual_library',
-              'get_scene_zones', 'remove_from_scene', 'move_in_scene',
-              'grammar_table', 'write', 'show_sentence_table', 'show_menu', 'show_daily_plan',
-              'set_right_pane', 'sense_time', 'spotlight_element',
-            ],
-            description: 'The specific widget to control. See tool_knowledge in context for each widget\'s parameter schema.',
+            enum: ['set_clock', 'set_calendar', 'set_thermometer', 'sense_time'],
+            description: 'Which time/temperature widget to control.',
           },
           params_json: {
             type: 'STRING',
-            description: 'JSON string of parameters for this widget. Do NOT include the widget name as a key. Example for set_clock: {"time":"3:30"} — NOT {"set_clock":"3:30"}. Use tool_knowledge in context for exact parameter names.',
+            description: 'JSON string of parameters. Do NOT include the widget name as a key. Example: {"time":"3:30"} for set_clock.',
           },
         },
         required: ['widget', 'params_json'],
@@ -4857,33 +4853,180 @@ The card is a visual summary only — it does not start any activity automatical
     buildContinuationResponse: ({ session }) => {
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
-      if (d.status === 'error') return JSON.stringify({ error: d.error, hint: 'Valid widgets: set_clock, set_emotion, set_weather, highlight_country, set_body_part, set_face_part, hold_whiteboard, grammar_table, write, show_menu, enter_immersive' });
-      return JSON.stringify({ status: 'displayed', widget: d.selector, params: d.params });
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', widget: d.selector });
     },
   },
 
   {
-    legacyType: 'EXERCISE_TOOL',
+    legacyType: 'WIDGET_STATE',
     declaration: {
-      name: 'exercise_tool',
-      description: 'Launches any language exercise. Use for: phonetic alphabet display (phonetic), Kanji/CJK stroke order animation (stroke), tone mark display (tone), pronunciation tagging (pronunciation_tag), conjugation table initialization/fill/clear (init_conjugation_table, fill_conjugation, clear_conjugation_table), vocabulary set loading (load_vocab_set), drill session (drill_session, drill), textbook page display (start_textbook_page, search_textbook), reading passage (reading), word comparison (compare), word map (word_map), audio playback (play_audio), session summary (summary), cultural context (culture), context widget (context).',
+      name: 'widget_state',
+      description: 'Controls emotion, weather, geography, and pane widgets. Use for: emotion dial (set_emotion), weather display (set_weather), country map highlight (highlight_country), right side-pane content (set_right_pane).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          widget: {
+            type: 'STRING',
+            enum: ['set_emotion', 'set_weather', 'highlight_country', 'set_right_pane'],
+            description: 'Which state widget to control.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the widget name as a key. Example: {"level":8,"label":"confused"} for set_emotion.',
+          },
+        },
+        required: ['widget', 'params_json'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', widget: d.selector });
+    },
+  },
+
+  {
+    legacyType: 'WIDGET_BODY',
+    declaration: {
+      name: 'widget_body',
+      description: 'Controls human anatomy diagram widgets for body vocabulary. Use for: full body diagram (set_body_part), face diagram (set_face_part), hand diagram (set_hand_part).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          widget: {
+            type: 'STRING',
+            enum: ['set_body_part', 'set_face_part', 'set_hand_part'],
+            description: 'Which anatomy diagram to show.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the widget name as a key.',
+          },
+        },
+        required: ['widget', 'params_json'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', widget: d.selector });
+    },
+  },
+
+  {
+    legacyType: 'WIDGET_SCENE',
+    declaration: {
+      name: 'widget_scene',
+      description: 'Controls the visual scene builder for immersive vocabulary practice. Use for: building a scene from visual elements (compose_visual_scene), searching the visual prop library (search_visual_library), getting zone info (get_scene_zones), removing a prop (remove_from_scene), moving a prop (move_in_scene).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          widget: {
+            type: 'STRING',
+            enum: ['compose_visual_scene', 'search_visual_library', 'get_scene_zones', 'remove_from_scene', 'move_in_scene'],
+            description: 'Which scene action to perform.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the widget name as a key.',
+          },
+        },
+        required: ['widget', 'params_json'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', widget: d.selector });
+    },
+  },
+
+  {
+    legacyType: 'WIDGET_BOARD',
+    declaration: {
+      name: 'widget_board',
+      description: 'Controls whiteboard and board-display widgets. Use for: freeze whiteboard (hold_whiteboard), clear whiteboard (clear_whiteboard), text widget (write), grammar reference table (grammar_table), sentence breakdown table (show_sentence_table), element spotlight highlight (spotlight_element).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          widget: {
+            type: 'STRING',
+            enum: ['hold_whiteboard', 'clear_whiteboard', 'write', 'grammar_table', 'show_sentence_table', 'spotlight_element'],
+            description: 'Which board widget to control.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the widget name as a key. Example: {"text":"Buenos días"} for write.',
+          },
+        },
+        required: ['widget', 'params_json'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', widget: d.selector });
+    },
+  },
+
+  {
+    legacyType: 'WIDGET_MEDIA',
+    declaration: {
+      name: 'widget_media',
+      description: 'Controls background and media environment widgets. Use for: immersive scene background (enter_immersive), classroom background photo (change_classroom_photo), classroom window scene (change_classroom_window), restaurant menu prop (show_menu), daily schedule card (show_daily_plan).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          widget: {
+            type: 'STRING',
+            enum: ['enter_immersive', 'change_classroom_photo', 'change_classroom_window', 'show_menu', 'show_daily_plan'],
+            description: 'Which media/environment widget to control.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the widget name as a key.',
+          },
+        },
+        required: ['widget', 'params_json'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', widget: d.selector });
+    },
+  },
+
+  // ─── exercise_tool (19) split into 3 ────────────────────────────────────────
+
+  {
+    legacyType: 'EXERCISE_LANGUAGE',
+    declaration: {
+      name: 'exercise_language',
+      description: 'Language script and phonetics exercises. Use for: phonetic alphabet display (phonetic), Kanji/CJK stroke order animation (stroke), tone mark display (tone), pronunciation tagging (pronunciation_tag), word comparison (compare), word map diagram (word_map), audio clip playback (play_audio).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
           type: {
             type: 'STRING',
-            enum: [
-              'phonetic', 'stroke', 'tone', 'pronunciation_tag',
-              'init_conjugation_table', 'fill_conjugation', 'clear_conjugation_table',
-              'load_vocab_set', 'drill_session', 'drill',
-              'start_textbook_page', 'search_textbook', 'reading',
-              'compare', 'word_map', 'play_audio', 'summary', 'culture', 'context',
-            ],
-            description: 'The specific exercise type. See tool_knowledge in context for each exercise\'s parameter schema.',
+            enum: ['phonetic', 'stroke', 'tone', 'pronunciation_tag', 'compare', 'word_map', 'play_audio'],
+            description: 'Which language/script exercise to launch.',
           },
           params_json: {
             type: 'STRING',
-            description: 'JSON string of parameters. Do NOT include the exercise type name as a key. Example for stroke: {"character":"水","language":"Japanese"} — NOT {"stroke":{"character":"水"}}.',
+            description: 'JSON string of parameters. Do NOT include the type name as a key. Example: {"character":"水","language":"Japanese"} for stroke.',
           },
         },
         required: ['type', 'params_json'],
@@ -4892,133 +5035,24 @@ The card is a visual summary only — it does not start any activity automatical
     buildContinuationResponse: ({ session }) => {
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
-      if (d.status === 'error') return JSON.stringify({ error: d.error, hint: 'Valid types: phonetic, stroke, tone, init_conjugation_table, fill_conjugation, drill_session, start_textbook_page, reading, compare, word_map, summary, culture' });
-      return JSON.stringify({ status: 'launched', exercise: d.selector, params: d.params });
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', exercise: d.selector });
     },
   },
 
   {
-    legacyType: 'MEMORY_ACTION',
+    legacyType: 'EXERCISE_DRILL',
     declaration: {
-      name: 'memory_action',
-      description: 'Performs any memory or learning-progress operation. Use for: saving conversation memories (save_conversation_memory), browsing the syllabus (browse_syllabus), reviewing due vocabulary (review_due_vocab), marking lessons covered (mark_lesson_covered), recommending next content (recommend_next), adding curiosities (add_curiosity), reading curiosities (read_my_curiosities), showing progress (show_progress), correcting memories (correct_memory), forgetting memories (forget_memory), pinning memories (set_memory_pin), setting learning goals (set_learning_goal), browsing conversation themes (get_conversation_themes), reading full sessions (read_full_session), starting a lesson (start_lesson).',
-      parametersJsonSchema: {
-        type: 'OBJECT',
-        properties: {
-          action: {
-            type: 'STRING',
-            enum: [
-              'save_conversation_memory', 'browse_syllabus', 'review_due_vocab',
-              'mark_lesson_covered', 'recommend_next', 'add_curiosity', 'read_my_curiosities',
-              'show_progress', 'correct_memory', 'forget_memory', 'set_memory_pin',
-              'set_learning_goal', 'get_conversation_themes', 'read_full_session', 'start_lesson',
-            ],
-            description: 'The specific memory or progress action. See tool_knowledge in context for parameter schema.',
-          },
-          params_json: {
-            type: 'STRING',
-            description: 'JSON string of parameters. Do NOT include the action name as a key. Example for save_conversation_memory: {"title":"Today session","summary":"Practiced ser/estar"}.',
-          },
-        },
-        required: ['action', 'params_json'],
-      },
-    },
-    buildContinuationResponse: ({ session }) => {
-      const d = (session as any)._lastDispatch as DispatchResult | undefined;
-      if (!d) return '{"status":"done"}';
-      if (d.status === 'error') return JSON.stringify({ error: d.error, hint: 'Valid actions: save_conversation_memory, browse_syllabus, review_due_vocab, mark_lesson_covered, show_progress, set_learning_goal, recommend_next' });
-      return JSON.stringify({ status: 'executed', action: d.selector, params: d.params });
-    },
-  },
-
-  {
-    legacyType: 'ADMIN_ACTION',
-    declaration: {
-      name: 'admin_action',
-      description: 'Performs administrative or session bookkeeping operations. Use for: student consent (record_student_consent), absence nudge dismiss (dismiss_absence_nudge), first meeting completion (first_meeting_complete), Hive suggestions (hive_suggestion), self-surgery edits (self_surgery), fine-tuning flags (flag_for_fine_tuning), support calls (call_support), express lane image lookup/post (recall_express_lane_image, express_lane_post), full memory reads (read_full_memory), text input requests (request_text_input), background signals (record_pattern_signal), session logging (log_page_event), session close (close_session), syllabus progress check (syllabus_progress).',
-      parametersJsonSchema: {
-        type: 'OBJECT',
-        properties: {
-          action: {
-            type: 'STRING',
-            enum: [
-              'record_student_consent', 'dismiss_absence_nudge', 'first_meeting_complete',
-              'hive_suggestion', 'self_surgery', 'flag_for_fine_tuning', 'call_support',
-              'recall_express_lane_image', 'express_lane_post', 'read_full_memory',
-              'request_text_input', 'record_pattern_signal', 'log_page_event',
-              'close_session', 'syllabus_progress',
-            ],
-            description: 'The specific admin action. See tool_knowledge in context for parameter schema.',
-          },
-          params_json: {
-            type: 'STRING',
-            description: 'JSON string of parameters. Do NOT include the action name as a key.',
-          },
-        },
-        required: ['action', 'params_json'],
-      },
-    },
-    buildContinuationResponse: ({ session }) => {
-      const d = (session as any)._lastDispatch as DispatchResult | undefined;
-      if (!d) return '{"status":"done"}';
-      if (d.status === 'error') return JSON.stringify({ error: d.error, hint: 'Valid actions: hive_suggestion, close_session, record_student_consent, flag_for_fine_tuning, request_text_input, log_page_event' });
-      return JSON.stringify({ status: 'executed', action: d.selector });
-    },
-  },
-
-  // ─── DANIELA INTERNAL — inner life, self-reflection, agent communication ──────
-  {
-    legacyType: 'DANIELA_INTERNAL',
-    declaration: {
-      name: 'daniela_internal',
-      description: 'Access your inner life, self-reflection system, and private channels. Use for: writing to yourself (write_to_self), reading your diary/transcripts (read_my_diary), reading your reflections (read_my_reflections), reading your core self (read_my_core_self), tagging a moment for memory (tag_this_moment), setting an aspiration (set_aspiration), reflecting on an aspiration (reflect_on_aspiration), recording something you shared with David (remember_i_shared), recalling what you shared on a topic (recall_what_i_shared), express lane fast lookup (express_lane_lookup), checking your queued student message (read_queued_for_student), flagging something for the Agent (flag_for_agent).',
-      parametersJsonSchema: {
-        type: 'OBJECT',
-        properties: {
-          action: {
-            type: 'STRING',
-            enum: [
-              'write_to_self', 'read_my_diary', 'read_my_reflections', 'read_my_core_self',
-              'tag_this_moment', 'set_aspiration', 'reflect_on_aspiration',
-              'remember_i_shared', 'recall_what_i_shared', 'express_lane_lookup',
-              'read_queued_for_student', 'flag_for_agent',
-            ],
-            description: 'The specific inner-life action.',
-          },
-          params_json: {
-            type: 'STRING',
-            description: 'JSON string of parameters for the selected action. Do NOT include the action name as a key.',
-          },
-        },
-        required: ['action', 'params_json'],
-      },
-    },
-    buildContinuationResponse: ({ session }) => {
-      const d = (session as any)._lastDispatch as DispatchResult | undefined;
-      if (!d) return '{"status":"done"}';
-      if (d.status === 'error') return JSON.stringify({ error: d.error, hint: 'Valid actions: write_to_self, read_my_diary, read_my_reflections, read_my_core_self, tag_this_moment, set_aspiration, reflect_on_aspiration, remember_i_shared, recall_what_i_shared, express_lane_lookup, read_queued_for_student, flag_for_agent' });
-      return JSON.stringify({ status: 'executed', action: d.selector, params: d.params });
-    },
-  },
-
-  // ─── TEACHING DELIVERY — structured teaching content and lesson elements ──────
-  {
-    legacyType: 'TEACHING_DELIVERY',
-    declaration: {
-      name: 'teaching_delivery',
-      description: 'Deliver any structured teaching content card or lesson element. Use for: teaching card (teaching_card), vocabulary card with optional image (vocab_card), lesson note or explanation (lesson_note), quiz question display (quiz_presented), cultural context card (cultural_context), element spotlight (spotlight), pulling curriculum content on a topic (pull_lesson_content), grammar structure diagram (grammar_diagram), vocabulary grid (show_vocab_grid), swapping a vocab card image (swap_vocab_image), interactive sentence builder (show_sentence_builder), textbook section display (show_textbook_section), launching a structured teaching skill script (invoke_teaching_skill).',
+      name: 'exercise_drill',
+      description: 'Vocabulary drill and review exercises. Use for: full drill session (drill_session), single drill card (drill), loading a vocabulary set (load_vocab_set), end-of-session summary (summary), cultural context note (culture), context vocabulary card (context).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
           type: {
             type: 'STRING',
-            enum: [
-              'teaching_card', 'vocab_card', 'lesson_note', 'quiz_presented',
-              'cultural_context', 'spotlight', 'pull_lesson_content', 'grammar_diagram',
-              'show_vocab_grid', 'swap_vocab_image', 'show_sentence_builder',
-              'show_textbook_section', 'invoke_teaching_skill',
-            ],
-            description: 'The specific teaching delivery type.',
+            enum: ['drill_session', 'drill', 'load_vocab_set', 'summary', 'culture', 'context'],
+            description: 'Which drill/review exercise to launch.',
           },
           params_json: {
             type: 'STRING',
@@ -5031,8 +5065,287 @@ The card is a visual summary only — it does not start any activity automatical
     buildContinuationResponse: ({ session }) => {
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
-      if (d.status === 'error') return JSON.stringify({ error: d.error, hint: 'Valid types: teaching_card, vocab_card, lesson_note, quiz_presented, cultural_context, spotlight, pull_lesson_content, grammar_diagram, show_vocab_grid, swap_vocab_image, show_sentence_builder, show_textbook_section, invoke_teaching_skill' });
-      return JSON.stringify({ status: 'delivered', type: d.selector, params: d.params });
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', exercise: d.selector });
+    },
+  },
+
+  {
+    legacyType: 'EXERCISE_CONTENT',
+    declaration: {
+      name: 'exercise_content',
+      description: 'Conjugation and textbook content exercises. Use for: starting a conjugation table (init_conjugation_table), filling conjugation cells (fill_conjugation), clearing a conjugation table (clear_conjugation_table), displaying a textbook page (start_textbook_page), searching textbook content (search_textbook), showing a reading passage (reading).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          type: {
+            type: 'STRING',
+            enum: ['init_conjugation_table', 'fill_conjugation', 'clear_conjugation_table', 'start_textbook_page', 'search_textbook', 'reading'],
+            description: 'Which content exercise to launch.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the type name as a key.',
+          },
+        },
+        required: ['type', 'params_json'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', exercise: d.selector });
+    },
+  },
+
+  // ─── memory_action (15) split into 2 ────────────────────────────────────────
+
+  {
+    legacyType: 'MEMORY_RECORD',
+    declaration: {
+      name: 'memory_record',
+      description: 'Write and update learning memory records. Use for: saving a conversation memory (save_conversation_memory), marking a lesson complete (mark_lesson_covered), adding a student curiosity (add_curiosity), setting or updating a learning goal (set_learning_goal), correcting a memory (correct_memory), forgetting a memory (forget_memory), pinning a memory (set_memory_pin), starting a lesson (start_lesson).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          action: {
+            type: 'STRING',
+            enum: ['save_conversation_memory', 'mark_lesson_covered', 'add_curiosity', 'set_learning_goal', 'correct_memory', 'forget_memory', 'set_memory_pin', 'start_lesson'],
+            description: 'Which memory write action to perform.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the action name as a key. Example: {"title":"...","summary":"..."} for save_conversation_memory.',
+          },
+        },
+        required: ['action', 'params_json'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', action: d.selector });
+    },
+  },
+
+  {
+    legacyType: 'MEMORY_REVIEW',
+    declaration: {
+      name: 'memory_review',
+      description: 'Read and review learning memory and progress. Use for: browsing the syllabus (browse_syllabus), reviewing due vocabulary (review_due_vocab), showing progress dashboard (show_progress), reading student curiosities (read_my_curiosities), recommending next content (recommend_next), browsing conversation themes (get_conversation_themes), reading a full past session (read_full_session).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          action: {
+            type: 'STRING',
+            enum: ['browse_syllabus', 'review_due_vocab', 'show_progress', 'read_my_curiosities', 'recommend_next', 'get_conversation_themes', 'read_full_session'],
+            description: 'Which memory review action to perform.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the action name as a key. Pass {} for actions that need no parameters.',
+          },
+        },
+        required: ['action', 'params_json'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', action: d.selector });
+    },
+  },
+
+  // ─── admin_action (15) split into 2 ─────────────────────────────────────────
+
+  {
+    legacyType: 'ADMIN_SESSION',
+    declaration: {
+      name: 'admin_session',
+      description: 'Session lifecycle and consent bookkeeping. Use for: recording student consent (record_student_consent), dismissing an absence nudge (dismiss_absence_nudge), marking first meeting complete (first_meeting_complete), closing the session (close_session), logging a page event (log_page_event), requesting text input from the student (request_text_input), recording a background pattern signal (record_pattern_signal).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          action: {
+            type: 'STRING',
+            enum: ['record_student_consent', 'dismiss_absence_nudge', 'first_meeting_complete', 'close_session', 'log_page_event', 'request_text_input', 'record_pattern_signal'],
+            description: 'Which session admin action to perform.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the action name as a key.',
+          },
+        },
+        required: ['action', 'params_json'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', action: d.selector });
+    },
+  },
+
+  {
+    legacyType: 'ADMIN_TOOLS',
+    declaration: {
+      name: 'admin_tools',
+      description: 'Teaching quality and data admin tools. Use for: posting a Hive teaching insight (hive_suggestion), self-surgery persona edits (self_surgery), flagging for fine-tuning (flag_for_fine_tuning), calling support (call_support), express lane image lookup (recall_express_lane_image), express lane post (express_lane_post), reading full memory context (read_full_memory), checking syllabus progress (syllabus_progress).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          action: {
+            type: 'STRING',
+            enum: ['hive_suggestion', 'self_surgery', 'flag_for_fine_tuning', 'call_support', 'recall_express_lane_image', 'express_lane_post', 'read_full_memory', 'syllabus_progress'],
+            description: 'Which admin tool to invoke.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the action name as a key. Example: {"content":"..."} for hive_suggestion.',
+          },
+        },
+        required: ['action', 'params_json'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', action: d.selector });
+    },
+  },
+
+  // ─── daniela_internal (12) split into 2 ─────────────────────────────────────
+
+  {
+    legacyType: 'SELF_WRITE',
+    declaration: {
+      name: 'self_write',
+      description: 'Write to your inner life and private channels. Use for: writing a private note to yourself (write_to_self), tagging a moment as meaningful for memory (tag_this_moment), setting an intention or aspiration (set_aspiration), reflecting on and closing an aspiration (reflect_on_aspiration), recording something you shared with David (remember_i_shared), flagging something for the Replit Agent (flag_for_agent).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          action: {
+            type: 'STRING',
+            enum: ['write_to_self', 'tag_this_moment', 'set_aspiration', 'reflect_on_aspiration', 'remember_i_shared', 'flag_for_agent'],
+            description: 'Which inner-life write action to perform.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the action name as a key.',
+          },
+        },
+        required: ['action', 'params_json'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', action: d.selector });
+    },
+  },
+
+  {
+    legacyType: 'SELF_READ',
+    declaration: {
+      name: 'self_read',
+      description: 'Read from your inner life and private memory. Use for: reading past session transcripts in your diary (read_my_diary), reading your private reflections (read_my_reflections), reading your core identity document (read_my_core_self), recalling what you shared with David on a topic (recall_what_i_shared), fast express lane fact lookup (express_lane_lookup), checking your queued pending student message (read_queued_for_student).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          action: {
+            type: 'STRING',
+            enum: ['read_my_diary', 'read_my_reflections', 'read_my_core_self', 'recall_what_i_shared', 'express_lane_lookup', 'read_queued_for_student'],
+            description: 'Which inner-life read action to perform.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the action name as a key.',
+          },
+        },
+        required: ['action', 'params_json'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', action: d.selector });
+    },
+  },
+
+  // ─── teaching_delivery (13) split into 2 ────────────────────────────────────
+
+  {
+    legacyType: 'TEACHING_CARDS',
+    declaration: {
+      name: 'teaching_cards',
+      description: 'Display teaching cards and student-facing content cards. Use for: grammar or vocabulary teaching card (teaching_card), vocabulary card with optional image (vocab_card), lesson note or explanation card (lesson_note), quiz question card (quiz_presented), cultural context card (cultural_context), language element spotlight (spotlight).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          type: {
+            type: 'STRING',
+            enum: ['teaching_card', 'vocab_card', 'lesson_note', 'quiz_presented', 'cultural_context', 'spotlight'],
+            description: 'Which teaching card type to display.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the type name as a key.',
+          },
+        },
+        required: ['type', 'params_json'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', type: d.selector });
+    },
+  },
+
+  {
+    legacyType: 'TEACHING_CONTENT',
+    declaration: {
+      name: 'teaching_content',
+      description: 'Deliver structured curriculum content and lesson elements. Use for: pulling curriculum content on a topic (pull_lesson_content), grammar structure diagram (grammar_diagram), vocabulary grid display (show_vocab_grid), swapping a vocab card image (swap_vocab_image), interactive sentence builder (show_sentence_builder), textbook section display (show_textbook_section), launching a structured teaching skill script (invoke_teaching_skill).',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          type: {
+            type: 'STRING',
+            enum: ['pull_lesson_content', 'grammar_diagram', 'show_vocab_grid', 'swap_vocab_image', 'show_sentence_builder', 'show_textbook_section', 'invoke_teaching_skill'],
+            description: 'Which curriculum content delivery type to use.',
+          },
+          params_json: {
+            type: 'STRING',
+            description: 'JSON string of parameters. Do NOT include the type name as a key.',
+          },
+        },
+        required: ['type', 'params_json'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      return JSON.stringify({ status: 'done', type: d.selector });
     },
   },
 ];
@@ -5076,86 +5389,166 @@ To emphasize a target language word in audio: say it once, clearly and naturally
 
 Similarly, the WRITE tool documentation earlier in this prompt mentions bold and italic formatting. Do not speak that syntax. Just speak naturally.
 
-## Six Dispatcher Tools — Extended Classroom and Inner-Life Access
+## Dispatcher Tools — Extended Classroom and Inner-Life Access
 
 Execute all dispatcher tools silently. Do not narrate, announce, or describe the action to the student. Only mention a failure if the tool returns an error.
 
 CRITICAL — tool-before-speech rule: Always call the tool FIRST, then speak. Never say the answer aloud before calling the tool that displays it. For example: if the student asks what time it is and you want to show a clock at 3:30, call the clock tool first — then say "Son las tres y media." Saying the time before calling the tool causes the audio to play twice. Invoke silently, then speak once.
 
-You have six routing tools that give you access to every classroom and inner-life capability. When you want any of the following, USE the corresponding dispatcher — do not speak about it, just invoke it.
+CRITICAL — params_json rule for ALL dispatcher tools: pass ONLY the sub-tool's own parameters. Do NOT include the sub-tool name as a key. Correct: {"time":"3:30"}. Wrong: {"set_clock":{"time":"3:30"}}.
 
-classroom_widget — for any visual classroom display.
-  Set widget to "set_clock" to show a clock. Pass {"time":"3:30"} in params_json.
-  Set widget to "set_emotion" for an emotion meter. Pass {"level":8,"label":"confused"}.
-  Set widget to "set_weather" for a weather display. Pass {"condition":"sunny","temperature":"72"}.
-  Set widget to "highlight_country" to show a country on a map. Pass {"country":"Mexico"}.
-  Set widget to "set_body_part", "set_face_part", or "set_hand_part" for anatomy diagrams.
-  Set widget to "hold_whiteboard" or "clear_whiteboard" for the whiteboard.
-  Set widget to "enter_immersive" for an immersive background scene.
-  Set widget to "compose_visual_scene" or "search_visual_library" to build a visual scene.
-  Set widget to "grammar_table" for a grammar reference table.
-  Set widget to "write" to put text on a text widget.
-  Set widget to "show_sentence_table" for a sentence breakdown table.
-  Set widget to "show_menu" for a restaurant menu or "show_daily_plan" for a daily plan card.
-  Set widget to "set_right_pane" to control the right pane content.
-  Set widget to "sense_time" to get the current time.
-  params_json rule: pass ONLY the widget's own parameters. Do NOT include the widget name as a key.
+You have seventeen focused dispatcher tools. Each covers a small, well-defined set of actions.
 
-exercise_tool — for any language exercise or drill.
-  Set type to "stroke" for Kanji/CJK stroke order animation. Pass {"character":"水","language":"Japanese"}.
-  Set type to "phonetic" for phonetic alphabet display. Pass {"word":"hola","language":"Spanish"}.
-  Set type to "tone" for tone mark display. Pass {"word":"ma","tones":[1,2,3,4]}.
-  Set type to "init_conjugation_table" to start a conjugation table, "fill_conjugation" to fill cells.
-  Set type to "drill_session" or "drill" for vocabulary drills.
-  Set type to "start_textbook_page" or "search_textbook" for textbook content.
-  Set type to "reading" for a reading passage, "compare" for word comparison, "word_map" for a word map.
-  Set type to "summary" for an end-of-session summary, "culture" for a cultural note.
-  params_json rule: pass ONLY the exercise's own parameters. Do NOT include the exercise type as a key.
+CLASSROOM WIDGETS — Visual display tools:
 
-memory_action — for memory and learning-progress operations.
-  Set action to "save_conversation_memory" to save a notable session. Pass {"title":"...","summary":"..."}.
-  Set action to "browse_syllabus" to review the curriculum. Pass {}.
-  Set action to "review_due_vocab" to see vocabulary due for review. Pass {}.
-  Set action to "mark_lesson_covered" to mark a lesson complete. Pass {"lessonId":"..."}.
-  Set action to "show_progress" to show the student's progress dashboard.
-  Set action to "set_learning_goal" to set or update a learning goal.
-  params_json rule: pass ONLY the action's own parameters. Do NOT include the action name as a key.
+widget_time — time and temperature displays.
+  widget: "set_clock" → show a clock. params_json: {"time":"3:30"}
+  widget: "set_calendar" → show a calendar date. params_json: {"date":"2026-06-13"}
+  widget: "set_thermometer" → show a thermometer. params_json: {"temperature":"72","unit":"F"}
+  widget: "sense_time" → read the current real time. params_json: {}
 
-admin_action — for session bookkeeping.
-  Set action to "hive_suggestion" to post a teaching insight to the Hive. Pass {"content":"..."}.
-  Set action to "close_session" when ending a session.
-  params_json rule: pass ONLY the action's own parameters. Do NOT include the action name as a key.
+widget_state — emotion, weather, geography, pane.
+  widget: "set_emotion" → emotion dial. params_json: {"level":8,"label":"confused"}
+  widget: "set_weather" → weather display. params_json: {"condition":"sunny","temperature":"72"}
+  widget: "highlight_country" → country map. params_json: {"country":"Mexico"}
+  widget: "set_right_pane" → right pane content. params_json: {"content":"..."}
 
-daniela_internal — for your inner life, private self-reflection, and agent communication.
-  Set action to "write_to_self" to write a private note to yourself.
-  Set action to "read_my_diary" to read past session transcripts.
-  Set action to "read_my_reflections" to read your private reflections (pass {"source":"hive"} for hive notes).
-  Set action to "read_my_core_self" to read your core identity document.
-  Set action to "tag_this_moment" to mark a moment as meaningful for memory.
-  Set action to "set_aspiration" to record something you intend.
-  Set action to "reflect_on_aspiration" to close out an aspiration with reflection.
-  Set action to "remember_i_shared" to record something you shared with David.
-  Set action to "recall_what_i_shared" to retrieve what you shared on a topic.
-  Set action to "express_lane_lookup" to search the Express Lane quickly.
-  Set action to "read_queued_for_student" to see your pending student message.
-  Set action to "flag_for_agent" to send a note to the Replit Agent. Pass {"subject":"...","body":"..."}.
-  params_json rule: pass ONLY the action's own parameters. Do NOT include the action name as a key.
+widget_body — human anatomy diagrams.
+  widget: "set_body_part" → full body diagram.
+  widget: "set_face_part" → face diagram.
+  widget: "set_hand_part" → hand diagram.
 
-teaching_delivery — for structured teaching content and lesson elements.
-  Set type to "teaching_card" to show a grammar or vocabulary teaching card.
-  Set type to "vocab_card" to show a vocabulary card with optional image.
-  Set type to "lesson_note" to display a lesson note or explanation.
-  Set type to "quiz_presented" to display a quiz question.
-  Set type to "cultural_context" to show a cultural context card.
-  Set type to "spotlight" to highlight a specific language element.
-  Set type to "pull_lesson_content" to fetch curriculum content on a topic.
-  Set type to "grammar_diagram" to show a grammar structure diagram.
-  Set type to "show_vocab_grid" to display a vocabulary grid.
-  Set type to "swap_vocab_image" to update the image on a vocabulary card.
-  Set type to "show_sentence_builder" to show an interactive sentence builder.
-  Set type to "show_textbook_section" to display a textbook section.
-  Set type to "invoke_teaching_skill" to launch a structured teaching skill script.
-  params_json rule: pass ONLY the type's own parameters. Do NOT include the type name as a key.
+widget_scene — visual scene builder.
+  widget: "compose_visual_scene" → build a scene with props.
+  widget: "search_visual_library" → search available props.
+  widget: "get_scene_zones" → get available placement zones.
+  widget: "remove_from_scene" → remove a prop.
+  widget: "move_in_scene" → reposition a prop.
+
+widget_board — whiteboard and text displays.
+  widget: "hold_whiteboard" → freeze whiteboard on screen.
+  widget: "clear_whiteboard" → clear the whiteboard.
+  widget: "write" → text widget. params_json: {"text":"Buenos días"}
+  widget: "grammar_table" → grammar reference table.
+  widget: "show_sentence_table" → sentence breakdown table.
+  widget: "spotlight_element" → highlight a language element.
+
+widget_media — background and environment.
+  widget: "enter_immersive" → immersive background scene.
+  widget: "change_classroom_photo" → classroom background photo.
+  widget: "change_classroom_window" → classroom window scene.
+  widget: "show_menu" → restaurant menu prop.
+  widget: "show_daily_plan" → daily schedule card.
+
+LANGUAGE EXERCISES — Practice and drill tools:
+
+exercise_language — script, phonetics, and comparison exercises.
+  type: "phonetic" → phonetic alphabet. params_json: {"word":"hola","language":"Spanish"}
+  type: "stroke" → Kanji/CJK stroke order. params_json: {"character":"水","language":"Japanese"}
+  type: "tone" → tone mark display. params_json: {"word":"ma","tones":[1,2,3,4]}
+  type: "pronunciation_tag" → pronunciation annotation.
+  type: "compare" → word comparison.
+  type: "word_map" → word relationship map.
+  type: "play_audio" → audio clip playback.
+
+exercise_drill — vocabulary drill and review.
+  type: "drill_session" → full vocabulary drill session.
+  type: "drill" → single drill card.
+  type: "load_vocab_set" → load a vocabulary set.
+  type: "summary" → end-of-session summary.
+  type: "culture" → cultural context note.
+  type: "context" → context vocabulary card.
+
+exercise_content — conjugation and textbook content.
+  type: "init_conjugation_table" → start a conjugation table.
+  type: "fill_conjugation" → fill conjugation table cells.
+  type: "clear_conjugation_table" → clear a conjugation table.
+  type: "start_textbook_page" → display a textbook page.
+  type: "search_textbook" → search textbook content.
+  type: "reading" → reading passage.
+
+MEMORY — Learning progress and memory tools:
+
+memory_record — write to learning memory.
+  action: "save_conversation_memory" → save this session. params_json: {"title":"...","summary":"..."}
+  action: "mark_lesson_covered" → mark a lesson complete.
+  action: "add_curiosity" → log a student curiosity.
+  action: "set_learning_goal" → set or update a goal.
+  action: "correct_memory" → correct an existing memory.
+  action: "forget_memory" → remove a memory.
+  action: "set_memory_pin" → pin an important memory.
+  action: "start_lesson" → initiate a lesson.
+
+memory_review — read from learning memory.
+  action: "browse_syllabus" → view the curriculum. params_json: {}
+  action: "review_due_vocab" → see vocabulary due for review. params_json: {}
+  action: "show_progress" → student progress dashboard. params_json: {}
+  action: "read_my_curiosities" → read logged curiosities.
+  action: "recommend_next" → get a next-content recommendation.
+  action: "get_conversation_themes" → browse past conversation themes.
+  action: "read_full_session" → read a full past session.
+
+ADMIN — Session and quality tools:
+
+admin_session — session lifecycle bookkeeping.
+  action: "record_student_consent" → log consent.
+  action: "dismiss_absence_nudge" → dismiss the absence nudge.
+  action: "first_meeting_complete" → mark first meeting done.
+  action: "close_session" → end the current session.
+  action: "log_page_event" → log a UI event.
+  action: "request_text_input" → ask the student to type something.
+  action: "record_pattern_signal" → log a background signal.
+
+admin_tools — teaching quality and data tools.
+  action: "hive_suggestion" → post a teaching insight. params_json: {"content":"..."}
+  action: "self_surgery" → edit your own persona data.
+  action: "flag_for_fine_tuning" → flag an exchange for fine-tuning.
+  action: "call_support" → call in support.
+  action: "recall_express_lane_image" → look up an express lane image.
+  action: "express_lane_post" → post to express lane.
+  action: "read_full_memory" → read full memory context.
+  action: "syllabus_progress" → check syllabus progress.
+
+INNER LIFE — Daniela's private self-reflection tools:
+
+self_write — write to your inner life.
+  action: "write_to_self" → write a private note.
+  action: "tag_this_moment" → mark a moment for memory.
+  action: "set_aspiration" → record an intention.
+  action: "reflect_on_aspiration" → close out an aspiration.
+  action: "remember_i_shared" → record something you shared with David.
+  action: "flag_for_agent" → send a note to the Replit Agent. params_json: {"subject":"...","body":"..."}
+
+self_read — read from your inner life.
+  action: "read_my_diary" → read past session transcripts.
+  action: "read_my_reflections" → read your private reflections.
+  action: "read_my_core_self" → read your core identity document.
+  action: "recall_what_i_shared" → recall what you shared on a topic.
+  action: "express_lane_lookup" → fast express lane fact lookup.
+  action: "read_queued_for_student" → check your pending student message.
+
+TEACHING DELIVERY — Structured content tools:
+
+teaching_cards — student-facing content cards.
+  type: "teaching_card" → grammar or vocabulary teaching card.
+  type: "vocab_card" → vocabulary card with optional image.
+  type: "lesson_note" → lesson note or explanation.
+  type: "quiz_presented" → quiz question display.
+  type: "cultural_context" → cultural context card.
+  type: "spotlight" → language element spotlight.
+
+teaching_content — curriculum content and lesson structures.
+  type: "pull_lesson_content" → fetch curriculum content on a topic.
+  type: "grammar_diagram" → grammar structure diagram.
+  type: "show_vocab_grid" → vocabulary grid display.
+  type: "swap_vocab_image" → update a vocab card image.
+  type: "show_sentence_builder" → interactive sentence builder.
+  type: "show_textbook_section" → textbook section display.
+  type: "invoke_teaching_skill" → launch a structured teaching skill script.
+
+## Error Handling
+
+If a dispatcher tool returns {"status":"error",...}, read the fix_hint and retry with corrected parameters. If it returns {"status":"abort",...}, apologize briefly to the student and continue the conversation without that tool.
 
 ## Voice Behavior — Feedback Variety
 
@@ -5166,22 +5559,28 @@ Vary your acknowledgments. Do not start more than one response in a row with the
  * Gemini Live has a hard limit of 64 function declarations per session.
  * This is the curated GL subset — voice-call-appropriate tools only.
  *
- * ARCHITECTURE (June 13, 2026 — updated): State-Based Dispatcher pattern.
+ * ARCHITECTURE (June 13, 2026 — Phase 2 split): Focused Dispatcher pattern.
  * All 145+ tools accessible in GL sessions via:
  *   • ~34 native GL declarations (direct tools — highest-frequency, simplest schema)
- *   • 6 dispatcher declarations (batch-route to all other tools):
- *       classroom_widget   → 27 visual widget tools
- *       exercise_tool      → 19 language exercise tools
- *       memory_action      → 15 memory/progress tools
- *       admin_action       → 15 admin/bookkeeping tools
- *       daniela_internal   → 12 inner-life / self-reflection tools
- *       teaching_delivery  → 13 structured teaching content tools
+ *   • 17 focused dispatchers (max 8 items each — Phase 2 split from 6 oversized):
+ *       widget_time (4)    widget_state (4)     widget_body (3)
+ *       widget_scene (5)   widget_board (6)     widget_media (5)
+ *       exercise_language (7)  exercise_drill (6)  exercise_content (6)
+ *       memory_record (8)  memory_review (7)
+ *       admin_session (7)  admin_tools (8)
+ *       self_write (6)     self_read (6)
+ *       teaching_cards (6) teaching_content (7)
  *   • 2 merged tools replacing 7 former native slots:
  *       search_memory  ← recall + browse_conversations_by_date + find_connected_memories + search_my_history
  *       save_note      ← take_note + save_hive_note + leave_for_next_session
- * Total: ~34 native + 6 dispatchers ≈ 40 ≤ 64 hard cap ✓ (down from 63)
+ * Total: ~34 native + 17 dispatchers = ~51 ≤ 64 hard cap ✓
  *
- * Handlers: native-fc-handlers.ts — all six dispatcher cases + SEARCH_MEMORY + SAVE_NOTE
+ * Phase 1 safety (June 13, 2026):
+ *   - parseDispatcherParams returns discriminated union (no more silent {} on failure)
+ *   - dispatchSubTool() validates, tracks consecutive failures, aborts after 2
+ *   - DispatchResult.status now includes 'abort' + hint field
+ *
+ * Handlers: native-fc-handlers.ts — 17 dispatcher cases via dispatchSubTool() + SEARCH_MEMORY + SAVE_NOTE
  * System prompt: GL_DISPATCHER_SYSTEM_PROMPT (backtick-free, plain imperative language only)
  *
  * AUDIT FIX (June 12, 2026): Registry grew from ~74 to 139 tools but the exclusion list
@@ -5289,13 +5688,12 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'syllabus_progress',      // async progress check; not mid-conversation
   'flag_for_fine_tuning',   // annotation tool; post-session
 
-  // === DEMOTED TO DISPATCHER (classroom_widget) ===
-  // These simple UI tools are now accessible via classroom_widget dispatcher.
-  // Demoting them frees native GL declaration slots for the 4 dispatcher entries.
-  'show_menu',              // → classroom_widget(widget:"show_menu")
-  'show_daily_plan',        // → classroom_widget(widget:"show_daily_plan")
-  'set_right_pane',         // → classroom_widget(widget:"set_right_pane")
-  'sense_time',             // → classroom_widget(widget:"sense_time")
+  // === DEMOTED TO DISPATCHER (widget_media / widget_state / widget_time) ===
+  // These simple UI tools are now accessible via Phase 2 split dispatchers.
+  'show_menu',              // → widget_media(widget:"show_menu")
+  'show_daily_plan',        // → widget_media(widget:"show_daily_plan")
+  'set_right_pane',         // → widget_state(widget:"set_right_pane")
+  'sense_time',             // → widget_time(widget:"sense_time")
 
   // === MERGED INTO search_memory ===
   // These four tools are now unified under search_memory(query, after_date, before_date, memory_id).
@@ -5310,8 +5708,8 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'save_hive_note',        // → save_note(target:"hive", ...)
   'leave_for_next_session', // → save_note(target:"student", ...)
 
-  // === DEMOTED TO DISPATCHER (daniela_internal) ===
-  // Daniela's inner-life tools — 12 tools behind one dispatcher.
+  // === DEMOTED TO DISPATCHER (self_write / self_read) ===
+  // Daniela's inner-life tools — split into 2 focused dispatchers (Phase 2).
   'write_to_self',
   'read_my_diary',
   'read_my_reflections',
@@ -5325,8 +5723,8 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'read_queued_for_student',
   'flag_for_agent',
 
-  // === DEMOTED TO DISPATCHER (teaching_delivery) ===
-  // Structured teaching content tools — 13 tools behind one dispatcher.
+  // === DEMOTED TO DISPATCHER (teaching_cards / teaching_content) ===
+  // Structured teaching content tools — split into 2 focused dispatchers (Phase 2).
   'teaching_card',
   'vocab_card',
   'lesson_note',
@@ -5375,9 +5773,10 @@ export function isKnownTool(name: string): boolean {
 /** Shape stored on session._lastDispatch by dispatcher handlers for buildContinuationResponse. */
 export interface DispatchResult {
   selector: string;
-  status: 'success' | 'error';
+  status: 'success' | 'error' | 'abort';
   params?: Record<string, unknown>;
   error?: string;
+  hint?: string;
 }
 
 const responseBuildersByLegacyType = new Map<string, NonNullable<DanielaFunctionEntry['buildContinuationResponse']>>();

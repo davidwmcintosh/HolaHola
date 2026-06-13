@@ -28,38 +28,53 @@ import { lookupLegacyType, isKnownTool } from "./daniela-function-registry";
 /**
  * Parses the params_json string from a dispatcher tool call.
  *
- * Handles two common failure modes from Gemini:
- *  1. params_json is not valid JSON — try single-quote fix, then give up gracefully.
- *  2. Redundant-key wrapping — e.g. {set_clock: {time:"3:30"}} instead of {time:"3:30"}.
- *     If the top-level object has the sub-tool name as its only/main key, unwrap it.
+ * Returns a discriminated union — callers must check .ok before using .params.
+ * On failure, .error + .hint give GL enough to self-correct on the next turn.
  *
- * Returns an empty object on unrecoverable parse failure (graceful degradation).
+ * Phase 1 fix (June 13 2026): previously returned {} on unrecoverable failure,
+ * causing silent success ("I've set the clock!" when nothing happened). Now
+ * returns {ok:false} so the caller can surface the error to GL.
  */
-function parseDispatcherParams(paramsJson: string | undefined, toolName: string): Record<string, any> {
-  if (!paramsJson || paramsJson.trim() === '' || paramsJson.trim() === '{}') return {};
+type DispatchParseResult =
+  | { ok: true; params: Record<string, any> }
+  | { ok: false; error: string; hint: string };
+
+function parseDispatcherParams(paramsJson: string | undefined, toolName: string): DispatchParseResult {
+  if (!paramsJson || paramsJson.trim() === '' || paramsJson.trim() === '{}') {
+    return { ok: true, params: {} };
+  }
 
   let parsed: any;
   try {
     parsed = JSON.parse(paramsJson);
   } catch {
-    // Try fixing single quotes (common Gemini quirk)
     try {
       parsed = JSON.parse(paramsJson.replace(/'/g, '"'));
     } catch {
       console.warn(`[Dispatcher] Failed to parse params_json for ${toolName}: ${paramsJson.slice(0, 120)}`);
-      return {};
+      return {
+        ok: false,
+        error: `params_json is not valid JSON for "${toolName}". Got: ${paramsJson.slice(0, 80)}`,
+        hint: 'Pass a valid JSON object string, e.g. {"key":"value"}. Do not use single quotes.',
+      };
     }
   }
 
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    return {
+      ok: false,
+      error: `params_json for "${toolName}" must be a JSON object, not ${Array.isArray(parsed) ? 'array' : typeof parsed}.`,
+      hint: 'Pass a JSON object: {"key":"value"}',
+    };
+  }
 
   // Redundant-key normalization: {"set_clock": {"time": "3:30"}} → {"time": "3:30"}
   if (parsed[toolName] !== undefined && typeof parsed[toolName] === 'object' && !Array.isArray(parsed[toolName])) {
     console.log(`[Dispatcher] Normalizing redundant key "${toolName}" in params_json`);
-    return parsed[toolName] as Record<string, any>;
+    return { ok: true, params: parsed[toolName] as Record<string, any> };
   }
 
-  return parsed as Record<string, any>;
+  return { ok: true, params: parsed as Record<string, any> };
 }
 
 interface ArchitectMessage {
@@ -80,6 +95,71 @@ export class NativeFunctionCallHandler {
     private sendError: (ws: any, code: string, message: string, recoverable: boolean) => void,
     private processPhaseShift: (session: StreamingSession, data: { to: 'warmup' | 'active_teaching' | 'challenge' | 'reflection' | 'drill' | 'assessment'; reason: string }) => Promise<void>,
   ) {}
+
+  /**
+   * Unified dispatcher sub-tool router — used by all 17 Phase 2 dispatcher cases.
+   *
+   * Phase 1 fix (June 13 2026):
+   *  - Validates params_json via parseDispatcherParams discriminated union (no more silent {})
+   *  - Tracks consecutive failures per dispatcher via session._dispatchFailures
+   *  - Aborts after 2 consecutive parse failures to prevent GL self-correction loops
+   */
+  private async dispatchSubTool(
+    sessionId: string,
+    session: StreamingSession,
+    selector: string | undefined,
+    paramsJson: string | undefined,
+    dispatcherName: string,
+    selectorField: string,
+  ): Promise<void> {
+    const failures = ((session as any)._dispatchFailures ?? {}) as Record<string, number>;
+    (session as any)._dispatchFailures = failures;
+
+    if (!selector) {
+      failures[dispatcherName] = (failures[dispatcherName] ?? 0) + 1;
+      console.warn(`[Dispatcher] ${dispatcherName} called without ${selectorField} selector`);
+      (session as any)._lastDispatch = { selector: '', status: 'error', error: `No ${selectorField} specified for ${dispatcherName}`, hint: `Pass ${selectorField}:"<value>" with one of the documented enum values.` };
+      return;
+    }
+
+    if (!isKnownTool(selector)) {
+      failures[dispatcherName] = (failures[dispatcherName] ?? 0) + 1;
+      console.error(`[Dispatcher] ${dispatcherName}: unknown ${selectorField} "${selector}" — not in registry`);
+      (session as any)._lastDispatch = { selector, status: 'error', error: `Unknown ${selectorField} "${selector}" in ${dispatcherName}. Use a valid enum value.`, hint: `Check the tool description for valid ${selectorField} values.` };
+      return;
+    }
+
+    const parseResult = parseDispatcherParams(paramsJson, selector);
+
+    if (!parseResult.ok) {
+      failures[dispatcherName] = (failures[dispatcherName] ?? 0) + 1;
+      const failCount = failures[dispatcherName];
+      console.error(`[Dispatcher] ${dispatcherName} params_json parse failure #${failCount} for "${selector}": ${parseResult.error}`);
+
+      if (failCount >= 2) {
+        // Abort — prevent GL self-correction loop
+        failures[dispatcherName] = 0;
+        (session as any)._lastDispatch = { selector, status: 'abort' };
+      } else {
+        (session as any)._lastDispatch = {
+          selector,
+          status: 'error',
+          error: parseResult.error,
+          hint: parseResult.hint,
+        };
+      }
+      return;
+    }
+
+    // Success — reset failure counter
+    failures[dispatcherName] = 0;
+
+    const legacyType = lookupLegacyType(selector);
+    console.log(`[Dispatcher] ${dispatcherName} → ${selector} (${legacyType}), params: ${JSON.stringify(parseResult.params)}`);
+    (session as any)._lastDispatch = { selector, status: 'success', params: parseResult.params };
+    const syntheticFn: ExtractedFunctionCall = { name: selector, legacyType, args: parseResult.params };
+    return this.handle(sessionId, session, syntheticFn);
+  }
 
   async handle(sessionId: string, session: StreamingSession, fn: ExtractedFunctionCall): Promise<void> {
     console.log(`[Native Function Call] Processing: ${fn.name} -> ${fn.legacyType}`);
@@ -113,125 +193,51 @@ export class NativeFunctionCallHandler {
       // Each dispatcher parses params_json and routes to the real handler.
       // ============================================================
 
-      case 'CLASSROOM_WIDGET': {
-        const widget = fn.args.widget as string | undefined;
-        if (!widget) {
-          console.warn('[Dispatcher] classroom_widget called without widget selector');
-          (session as any)._lastDispatch = { selector: '', status: 'error', error: 'No widget specified' };
-          break;
-        }
-        if (!isKnownTool(widget)) {
-          console.error(`[Dispatcher] classroom_widget: unknown widget "${widget}" — not in registry`);
-          (session as any)._lastDispatch = { selector: widget, status: 'error', error: `Unknown widget "${widget}". Use a valid enum value.` };
-          break;
-        }
-        const params = parseDispatcherParams(fn.args.params_json as string | undefined, widget);
-        const legacyType = lookupLegacyType(widget);
-        console.log(`[Dispatcher] classroom_widget → ${widget} (${legacyType}), params: ${JSON.stringify(params)}`);
-        (session as any)._lastDispatch = { selector: widget, status: 'success', params };
-        const syntheticFn: ExtractedFunctionCall = { name: widget, legacyType, args: params };
-        return this.handle(sessionId, session, syntheticFn);
-      }
+      // ─── PHASE 2 DISPATCHERS — classroom_widget split into 6 (widget field) ───────
+      case 'WIDGET_TIME':
+        return this.dispatchSubTool(sessionId, session, fn.args.widget as string | undefined, fn.args.params_json as string | undefined, 'widget_time', 'widget');
+      case 'WIDGET_STATE':
+        return this.dispatchSubTool(sessionId, session, fn.args.widget as string | undefined, fn.args.params_json as string | undefined, 'widget_state', 'widget');
+      case 'WIDGET_BODY':
+        return this.dispatchSubTool(sessionId, session, fn.args.widget as string | undefined, fn.args.params_json as string | undefined, 'widget_body', 'widget');
+      case 'WIDGET_SCENE':
+        return this.dispatchSubTool(sessionId, session, fn.args.widget as string | undefined, fn.args.params_json as string | undefined, 'widget_scene', 'widget');
+      case 'WIDGET_BOARD':
+        return this.dispatchSubTool(sessionId, session, fn.args.widget as string | undefined, fn.args.params_json as string | undefined, 'widget_board', 'widget');
+      case 'WIDGET_MEDIA':
+        return this.dispatchSubTool(sessionId, session, fn.args.widget as string | undefined, fn.args.params_json as string | undefined, 'widget_media', 'widget');
 
-      case 'EXERCISE_TOOL': {
-        const type = fn.args.type as string | undefined;
-        if (!type) {
-          console.warn('[Dispatcher] exercise_tool called without type selector');
-          (session as any)._lastDispatch = { selector: '', status: 'error', error: 'No exercise type specified' };
-          break;
-        }
-        if (!isKnownTool(type)) {
-          console.error(`[Dispatcher] exercise_tool: unknown type "${type}" — not in registry`);
-          (session as any)._lastDispatch = { selector: type, status: 'error', error: `Unknown exercise type "${type}". Use a valid enum value.` };
-          break;
-        }
-        const params = parseDispatcherParams(fn.args.params_json as string | undefined, type);
-        const legacyType = lookupLegacyType(type);
-        console.log(`[Dispatcher] exercise_tool → ${type} (${legacyType}), params: ${JSON.stringify(params)}`);
-        (session as any)._lastDispatch = { selector: type, status: 'success', params };
-        const syntheticFn: ExtractedFunctionCall = { name: type, legacyType, args: params };
-        return this.handle(sessionId, session, syntheticFn);
-      }
+      // ─── exercise_tool split into 3 (type field) ────────────────────────────────
+      case 'EXERCISE_LANGUAGE':
+        return this.dispatchSubTool(sessionId, session, fn.args.type as string | undefined, fn.args.params_json as string | undefined, 'exercise_language', 'type');
+      case 'EXERCISE_DRILL':
+        return this.dispatchSubTool(sessionId, session, fn.args.type as string | undefined, fn.args.params_json as string | undefined, 'exercise_drill', 'type');
+      case 'EXERCISE_CONTENT':
+        return this.dispatchSubTool(sessionId, session, fn.args.type as string | undefined, fn.args.params_json as string | undefined, 'exercise_content', 'type');
 
-      case 'MEMORY_ACTION': {
-        const action = fn.args.action as string | undefined;
-        if (!action) {
-          console.warn('[Dispatcher] memory_action called without action selector');
-          (session as any)._lastDispatch = { selector: '', status: 'error', error: 'No memory action specified' };
-          break;
-        }
-        if (!isKnownTool(action)) {
-          console.error(`[Dispatcher] memory_action: unknown action "${action}" — not in registry`);
-          (session as any)._lastDispatch = { selector: action, status: 'error', error: `Unknown memory action "${action}". Use a valid enum value.` };
-          break;
-        }
-        const params = parseDispatcherParams(fn.args.params_json as string | undefined, action);
-        const legacyType = lookupLegacyType(action);
-        console.log(`[Dispatcher] memory_action → ${action} (${legacyType}), params: ${JSON.stringify(params)}`);
-        (session as any)._lastDispatch = { selector: action, status: 'success', params };
-        const syntheticFn: ExtractedFunctionCall = { name: action, legacyType, args: params };
-        return this.handle(sessionId, session, syntheticFn);
-      }
+      // ─── memory_action split into 2 (action field) ──────────────────────────────
+      case 'MEMORY_RECORD':
+        return this.dispatchSubTool(sessionId, session, fn.args.action as string | undefined, fn.args.params_json as string | undefined, 'memory_record', 'action');
+      case 'MEMORY_REVIEW':
+        return this.dispatchSubTool(sessionId, session, fn.args.action as string | undefined, fn.args.params_json as string | undefined, 'memory_review', 'action');
 
-      case 'ADMIN_ACTION': {
-        const action = fn.args.action as string | undefined;
-        if (!action) {
-          console.warn('[Dispatcher] admin_action called without action selector');
-          (session as any)._lastDispatch = { selector: '', status: 'error', error: 'No admin action specified' };
-          break;
-        }
-        if (!isKnownTool(action)) {
-          console.error(`[Dispatcher] admin_action: unknown action "${action}" — not in registry`);
-          (session as any)._lastDispatch = { selector: action, status: 'error', error: `Unknown admin action "${action}". Use a valid enum value.` };
-          break;
-        }
-        const params = parseDispatcherParams(fn.args.params_json as string | undefined, action);
-        const legacyType = lookupLegacyType(action);
-        console.log(`[Dispatcher] admin_action → ${action} (${legacyType}), params: ${JSON.stringify(params)}`);
-        (session as any)._lastDispatch = { selector: action, status: 'success', params };
-        const syntheticFn: ExtractedFunctionCall = { name: action, legacyType, args: params };
-        return this.handle(sessionId, session, syntheticFn);
-      }
+      // ─── admin_action split into 2 (action field) ───────────────────────────────
+      case 'ADMIN_SESSION':
+        return this.dispatchSubTool(sessionId, session, fn.args.action as string | undefined, fn.args.params_json as string | undefined, 'admin_session', 'action');
+      case 'ADMIN_TOOLS':
+        return this.dispatchSubTool(sessionId, session, fn.args.action as string | undefined, fn.args.params_json as string | undefined, 'admin_tools', 'action');
 
-      case 'DANIELA_INTERNAL': {
-        const diAction = fn.args.action as string | undefined;
-        if (!diAction) {
-          console.warn('[Dispatcher] daniela_internal called without action selector');
-          (session as any)._lastDispatch = { selector: '', status: 'error', error: 'No action specified' };
-          break;
-        }
-        if (!isKnownTool(diAction)) {
-          console.error(`[Dispatcher] daniela_internal: unknown action "${diAction}" — not in registry`);
-          (session as any)._lastDispatch = { selector: diAction, status: 'error', error: `Unknown action "${diAction}". Valid: write_to_self, read_my_diary, read_my_reflections, read_my_core_self, tag_this_moment, set_aspiration, reflect_on_aspiration, remember_i_shared, recall_what_i_shared, express_lane_lookup, read_queued_for_student, flag_for_agent` };
-          break;
-        }
-        const diParams = parseDispatcherParams(fn.args.params_json as string | undefined, diAction);
-        const diLegacyType = lookupLegacyType(diAction);
-        console.log(`[Dispatcher] daniela_internal → ${diAction} (${diLegacyType}), params: ${JSON.stringify(diParams)}`);
-        (session as any)._lastDispatch = { selector: diAction, status: 'success', params: diParams };
-        const diSyntheticFn: ExtractedFunctionCall = { name: diAction, legacyType: diLegacyType, args: diParams };
-        return this.handle(sessionId, session, diSyntheticFn);
-      }
+      // ─── daniela_internal split into 2 (action field) ───────────────────────────
+      case 'SELF_WRITE':
+        return this.dispatchSubTool(sessionId, session, fn.args.action as string | undefined, fn.args.params_json as string | undefined, 'self_write', 'action');
+      case 'SELF_READ':
+        return this.dispatchSubTool(sessionId, session, fn.args.action as string | undefined, fn.args.params_json as string | undefined, 'self_read', 'action');
 
-      case 'TEACHING_DELIVERY': {
-        const tdType = fn.args.type as string | undefined;
-        if (!tdType) {
-          console.warn('[Dispatcher] teaching_delivery called without type selector');
-          (session as any)._lastDispatch = { selector: '', status: 'error', error: 'No teaching type specified' };
-          break;
-        }
-        if (!isKnownTool(tdType)) {
-          console.error(`[Dispatcher] teaching_delivery: unknown type "${tdType}" — not in registry`);
-          (session as any)._lastDispatch = { selector: tdType, status: 'error', error: `Unknown teaching type "${tdType}". Valid: teaching_card, vocab_card, lesson_note, quiz_presented, cultural_context, spotlight, pull_lesson_content, grammar_diagram, show_vocab_grid, swap_vocab_image, show_sentence_builder, show_textbook_section, invoke_teaching_skill` };
-          break;
-        }
-        const tdParams = parseDispatcherParams(fn.args.params_json as string | undefined, tdType);
-        const tdLegacyType = lookupLegacyType(tdType);
-        console.log(`[Dispatcher] teaching_delivery → ${tdType} (${tdLegacyType}), params: ${JSON.stringify(tdParams)}`);
-        (session as any)._lastDispatch = { selector: tdType, status: 'success', params: tdParams };
-        const tdSyntheticFn: ExtractedFunctionCall = { name: tdType, legacyType: tdLegacyType, args: tdParams };
-        return this.handle(sessionId, session, tdSyntheticFn);
-      }
+      // ─── teaching_delivery split into 2 (type field) ────────────────────────────
+      case 'TEACHING_CARDS':
+        return this.dispatchSubTool(sessionId, session, fn.args.type as string | undefined, fn.args.params_json as string | undefined, 'teaching_cards', 'type');
+      case 'TEACHING_CONTENT':
+        return this.dispatchSubTool(sessionId, session, fn.args.type as string | undefined, fn.args.params_json as string | undefined, 'teaching_content', 'type');
 
       case 'SEARCH_MEMORY': {
         const smMemoryId = fn.args.memory_id as string | undefined;
