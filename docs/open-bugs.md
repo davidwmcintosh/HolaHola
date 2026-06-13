@@ -40,6 +40,12 @@ Type mismatch at line 363. Pre-existing. Fix: add `String()` or template literal
 **2026-06-12 — `server/webhookHandlers.ts:41` — Stripe API version literal mismatch — MEDIUM (pre-existing)**
 `'"2025-01-27.acacia"'` not assignable to `'"2025-11-17.clover"'`. SDK expects the newer version string. Pre-existing. Fix: update the Stripe client initialization to use `"2025-11-17.clover"` and verify webhook event shapes against the new API version.
 
+**2026-06-13 — `server/services/gemini-live-session.ts` — audio doubling every 15 turns (regression, FIXED this session) — HIGH**
+`maybeInjectContextRefresh()` called `sendClientContent({role:'model', turnComplete:false})` after every `generationComplete`. This incorrectly signals GL that the model is mid-utterance; GL generates a second audio stream to "complete" the injected turn → audio doubles every 15 turns. Fixed: call removed, method disabled with explanation comment. The mid-session recency-bias problem it was trying to solve remains open — a safe injection mechanism doesn't exist in the current GL SDK.
+
+**2026-06-13 — `server/services/daniela-function-registry.ts` — set_clock pre-tool speech causes audio doubling (pre-existing, PARTIALLY FIXED) — MEDIUM**
+GL generates speech both BEFORE calling the tool (pre-tool sub-turn) and AFTER (post-tool continuation). For set_clock, Daniela might say "Son las tres y media" → call set_clock → say "Son las tres y media" again. Two different PCM renders of identical speech sound doubled to the user. Transcript shows once because `pendingOutputTranscript` accumulates both and flushes in one DB write. Content-hash dedup doesn't catch it (different PCM). Partial fix: Added "ORDERING RULE" to set_clock description and "CRITICAL — tool-before-speech rule" to GL_DISPATCHER_SYSTEM_PROMPT telling GL to call tools first, then speak. This is a prompt-level fix — model compliance is probabilistic, not guaranteed. Full fix requires either: (a) detecting pre-tool audio on the server and buffering/discarding it, or (b) using GL's interrupt mechanism to suppress pre-tool speech.
+
 ---
 
 ## Resolved

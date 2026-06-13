@@ -153,32 +153,15 @@ export class GeminiLiveSession {
   private lastSystemPrompt = '';
   private lastTools: FunctionDeclaration[] = [];
 
-  // ── Mid-session context refresh ─────────────────────────────────────────
-  // Gemini Live has recency bias: after ~60 min the model's attention to the
-  // system prompt (dispatcher routing rules, character) degrades. Every
-  // REMINDER_INTERVAL generationComplete events we inject a compact model-role
-  // "reminder" into the conversation history. Model-role injection doesn't
-  // trigger a new verbal response — the model treats it as its own prior words.
-  // (3-flash audit recommendation, 2026-06-13)
+  // ── Mid-session context refresh (DISABLED — 2026-06-13) ────────────────
+  // sendClientContent({role:'model', turnComplete:false}) was intended as a
+  // silent context reminder but is incorrect GL API usage: it signals GL that
+  // the model is mid-utterance, causing GL to generate a second audio stream to
+  // "complete" the injected model turn — producing audio doubling every 15 turns.
+  // GL has no safe "inject context without triggering a response" mechanism via
+  // sendClientContent. System prompt handles context for now.
+  // Keeping modelTurnCount as a counter for future use with a safe injection API.
   private modelTurnCount = 0;
-  private readonly REMINDER_INTERVAL = 15;
-  private readonly MID_SESSION_REMINDER =
-    '[Daniela internal — routing context: classroom_widget→visuals/cards/scenes, exercise_tool→fill-in/quiz/translate/match, memory_action→save/recall student facts, admin_action→system ops. Stay in Daniela character. Vary acknowledgments.]';
-
-  private maybeInjectContextRefresh(): void {
-    if (!this.liveSession || this.isStopped) return;
-    this.modelTurnCount++;
-    if (this.modelTurnCount % this.REMINDER_INTERVAL !== 0) return;
-    try {
-      this.liveSession.sendClientContent({
-        turns: [{ role: 'model' as any, parts: [{ text: this.MID_SESSION_REMINDER }] }],
-        turnComplete: false,
-      });
-      console.log(`[GeminiLive] Mid-session context refresh injected (turn ${this.modelTurnCount})`);
-    } catch (err) {
-      console.warn('[GeminiLive] Failed to inject mid-session context refresh:', err);
-    }
-  }
 
   // ── Transcript accumulators ─────────────────────────────────────────────
   // Both user and assistant transcripts are accumulated across multiple
@@ -1118,11 +1101,12 @@ export class GeminiLiveSession {
     //  3. Flush transcripts immediately — generationComplete is a definitive end-of-response
     //     signal, so there is no value in waiting for more sub-turns.
     if ((msg.serverContent as any)?.generationComplete) {
-      // Increment turn counter and inject mid-session context refresh every 15 turns.
-      // Addresses recency bias: dispatcher routing rules and character context degrade
-      // after ~60 min as conversation history buries the system prompt.
-      // (3-flash audit recommendation, 2026-06-13)
-      this.maybeInjectContextRefresh();
+      // NOTE (2026-06-13): maybeInjectContextRefresh() was removed here.
+      // It sent sendClientContent({role:'model', turnComplete:false}) which incorrectly
+      // signals GL that the model is mid-utterance — causing GL to generate a second audio
+      // stream to "complete" the injected model turn, producing audio doubling every 15 turns.
+      // Context refresh via GL's sendClientContent has no safe "inject without triggering
+      // response" mode. System prompt covers this for now.
 
       // H1 fix: clear greeting gate on generationComplete — handles the case where the
       // greeting turn produces no audio (content filter, text-only, error), which would

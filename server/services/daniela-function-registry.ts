@@ -1187,7 +1187,7 @@ The time parameter is always H:MM or HH:MM format regardless of language.
 If a scene canvas is already open (via open_scene), the clock appears as an overlay in the corner.
 If no scene is open, the clock is shown centered on its own.
 
-After set_clock, say the time expression naturally in your speech.`,
+ORDERING RULE: Call set_clock FIRST (silently), then say the time expression. Do NOT speak the time before calling this tool — doing so causes the audio to play twice (once pre-tool and again as your continuation response).`,
       parametersJsonSchema: {
         type: "object",
         properties: {
@@ -4894,7 +4894,9 @@ export const GL_DISPATCHER_SYSTEM_PROMPT = `
 
 ## Extended Classroom Tools — Use These Four Dispatcher Tools
 
-Execute all four dispatcher tools silently. Do not narrate, announce, or describe the action to the student ("I'm going to show...", "Let me call...", etc.). Simply invoke the tool and continue speaking. Only mention a failure if the tool returns an error.
+Execute all four dispatcher tools silently. Do not narrate, announce, or describe the action to the student ("I'm going to show...", "Let me call...", etc.). Only mention a failure if the tool returns an error.
+
+**CRITICAL — tool-before-speech rule:** Always call the tool FIRST, then speak. Never say the answer aloud before calling the tool that displays it. For example: if the student asks what time it is and you want to show a clock at 3:30, call set_clock first — then say "Son las tres y media." Saying the time before calling the tool causes the audio to play twice (once pre-tool and once as your post-tool continuation). Invoke silently, then speak once.
 
 You have four special routing tools that give you access to every classroom capability. When you want any of the following, USE the corresponding dispatcher tool — do not speak about it, just invoke it.
 

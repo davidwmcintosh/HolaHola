@@ -24,27 +24,35 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
-**Session: June 13, 2026 (part 7) — mid-session context refresh + stale handle fallback + arch audit**
+**Session: June 13, 2026 (part 8) — audio doubling bug investigation + two fixes**
 
-### What was built
+### What was built / found
 
-Full 5-question architecture audit via gemini-3-flash-preview (same model family as Daniela's runtime — answers from the inside). Results saved to `docs/gemini-arch-audit-2026-06-13.md`. Two immediate fixes implemented:
+Deep investigation of David's audio doubling report: "when asking Daniela to change clock time, audio plays twice but transcript shows once."
 
-**1. Mid-session context refresh** (`gemini-live-session.ts`)
-3-flash confirmed recency bias is real: after ~60 min of conversation, dispatcher routing rules and character context get buried under conversation history. Daniela becomes more generic. Tool calling degrades first.
-Fix: `maybeInjectContextRefresh()` called on every `generationComplete`. Increments `modelTurnCount`; every 15 turns sends a compact model-role content turn (`sendClientContent` with `turnComplete: false`). Model-role injection means Gemini treats it as its own prior words — no verbal response triggered. Reminder text: dispatcher routing map + "Stay in Daniela character. Vary acknowledgments."
+**Root cause #1 — REGRESSION (introduced part 7, FIXED this session):**
+`maybeInjectContextRefresh()` in `generationComplete` handler called `sendClientContent({role:'model', turnComplete:false})`. This is wrong GL API usage — it signals GL that the model is mid-utterance, causing GL to generate a second audio stream to "complete" the turn. Audio would double every 15 turns. Fixed: call removed, method disabled, `modelTurnCount` field kept as an orphaned counter. The underlying recency-bias problem remains open — GL has no safe "inject context silently" mechanism.
 
-**2. Stale resumption handle fallback** (`gemini-live-session.ts`, `onclose` handler)
-3-flash confirmed: resumption handle TTL is ~5-10 min. A student who closes the app and reopens hours later gets an expired handle. Previously this hit the generic 1011 bail path → student sees "The voice connection encountered an error. Please try again." Now: detect handle-related 1011 reason string → clear `session.geminiLiveResumptionHandle` → temporarily add 1011 to `RETRIABLE_CLOSE_CODES` → standard reconnect path runs → `start()` omits the now-null handle → fresh session starts silently.
+**Root cause #2 — PRE-EXISTING (partially fixed):**
+GL generates audio BOTH before a tool call (pre-tool sub-turn) AND after (post-tool continuation). For `set_clock`, Daniela might say "Son las tres y media" → call set_clock → say "Son las tres y media" again as continuation. Two different PCM renders = sounds doubled. Sofia doesn't catch it (different hashes). Transcript shows once because `pendingOutputTranscript` accumulates pre- and post-tool text and flushes in a single DB write at `generationComplete`.
 
-### Two bigger items filed to open-bugs.md
-- `classroom_widget` enum size (27 vs. 7-10 optimal) → Middle-Loss in dispatcher selection
-- Interruption + in-flight tool call race → no call_id guard → stale `sendToolResponse()` may confuse GL state machine
+Partial fix: Added "ORDERING RULE" to `set_clock` tool description and "CRITICAL — tool-before-speech rule" to `GL_DISPATCHER_SYSTEM_PROMPT`. GL must call tools FIRST, then speak. This is a prompt fix — probabilistic, not guaranteed.
 
-### Other 3-flash findings (no code change needed)
-- Session resumption preserves history ~5-10 min TTL only; pending tool calls are dropped on disconnect
-- Inference-time identity architecture confirmed superior to fine-tuning for our use case
-- Dynamic tool loading (inject only ~20 relevant tools per session) flagged as long-term path when tool count grows beyond current architecture
+**What was ruled out during investigation:**
+- Double WS subscriptions (no)
+- `buildContinuationResponse` echoing `functionCallText` (no — CLASSROOM_WIDGET returns status JSON only)
+- Content-hash dedup failure (no — dedup catches identical PCM; Sofia would report it)
+- `processing_pending` double-firing (no — guarded by `processingPendingSentThisTurn` flag)
+- `resetForNewTurn()` stopping in-progress audio (it doesn't, but this isn't the cause)
+
+### What's still open
+- True fix for pre-tool speech: requires server-side detection of audio generated before a tool call and either buffering/discarding it, or using GL's interrupt mechanism. Prompt fix may be enough in practice.
+- Mid-session recency bias still unaddressed (safe injection API doesn't exist in current GL SDK)
+
+### Files changed
+- `server/services/gemini-live-session.ts` — removed `maybeInjectContextRefresh()` call, disabled method
+- `server/services/daniela-function-registry.ts` — tool-before-speech rules in `set_clock` + `GL_DISPATCHER_SYSTEM_PROMPT`
+- `docs/open-bugs.md` — two new entries documenting both causes
 
 ---
 
