@@ -24,6 +24,27 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 13, 2026 (part 5) — 3-flash audit: VAD, injection order, multimodal hint**
+
+### What was built
+Second 3-flash audit covering session config, tool responses, and system prompt structure.
+Results saved to `docs/gemini-audit-3flash-config-2026-06-13.md`.
+
+**1. VAD: END_SENSITIVITY_HIGH → END_SENSITIVITY_LOW** (`gemini-live-session.ts`)
+HIGH + 1500ms was contradictory for language learners. HIGH aggressively starts the 1500ms countdown the moment a learner pauses mid-sentence ("Quiero… [pause]… una manzana"). LOW waits for a definitive final cadence — correct for non-fluent speakers who pause while word-searching. History: LOW+2500ms → HIGH+1500ms (fixed dead air) → LOW+1500ms (this fix).
+
+**2. Injection order: dispatcher BEFORE neural net** (`unified-ws-handler.ts`)
+`GL_DISPATCHER_SYSTEM_PROMPT` moved to inject before neural net context. 3-flash: "Give the model the Grammar of tool use before the Vocabulary — it needs to know HOW before it looks at the LIST."
+
+**3. Multimodal race condition hint** (`gemini-live-session.ts`)
+When inline image parts are queued via `realtimeInput` after a tool response, the model can start generating audio before the image arrives. Added: `[Image incoming via visual channel — wait to receive it before describing]` hint in the tool response payload when `inlineParts.length > 0`.
+
+**Flagged but not yet implemented:**
+- `generationConfig.presence_penalty` (0.2-0.4) to prevent repetitive fillers ("¡Muy bien!" every turn) — needs confirmation it's supported in GL API config
+- Reduce tool_knowledge injection from top-15 to top-7 for TTFT improvement (system prompt ~40k chars is pushing latency ceiling)
+
+---
+
 **Session: June 13, 2026 (part 4) — Dispatcher self-correction + silent execution**
 
 ### What was built

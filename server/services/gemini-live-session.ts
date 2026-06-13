@@ -322,12 +322,19 @@ export class GeminiLiveSession {
         //
         //  START_SENSITIVITY_HIGH    — detect speech onset quickly so Daniela
         //                             doesn't miss when the student starts talking.
-        //  END_SENSITIVITY_HIGH      — more responsive to turn end; combined with
-        //                             1500ms silence duration this is enough patience
-        //                             for learner mid-sentence pauses without getting
-        //                             stuck on background noise resetting the timer.
-        //                             (was LOW — no MEDIUM in SDK; LOW + 2500ms caused
-        //                             dead air on every turn and noise-reset loops)
+        //  END_SENSITIVITY_LOW       — "lazy" end detection; forces the model to wait
+        //                             for a more definitive final cadence before it
+        //                             starts the silence countdown. Critical for language
+        //                             learners who pause mid-sentence while word-searching
+        //                             ("Quiero… [pause]… una… [pause]… manzana").
+        //                             HIGH + 1500ms was contradictory: HIGH is aggressive
+        //                             about interpreting any pitch/volume drop as turn-end,
+        //                             meaning the 1500ms timer would start at the learner's
+        //                             first pause — well before they finished their sentence.
+        //                             LOW is correct: be "lazy," not "eager," for non-fluent
+        //                             speakers. (3-flash audit June 13 2026)
+        //                             (history: LOW+2500ms→HIGH+1500ms [dead air fix]→
+        //                              LOW+1500ms [3-flash audit: HIGH contradictory for learners])
         //  prefixPaddingMs: 200      — require 200 ms of sustained speech before
         //                             committing a turn start, filtering out coughs,
         //                             filler sounds, and accidental mic noise.
@@ -341,7 +348,7 @@ export class GeminiLiveSession {
           automaticActivityDetection: {
             disabled: false,
             startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
-            endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_HIGH,
+            endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
             prefixPaddingMs: 200,
             silenceDurationMs: 1500,
           },
@@ -1239,7 +1246,11 @@ export class GeminiLiveSession {
               const parts: any[] = (continuationText as any).parts || [];
               const textOnly = parts.filter((p: any) => p.text).map((p: any) => p.text).join('\n');
               const inlineParts = parts.filter((p: any) => p.inlineData);
-              toolResponsePayload = { result: textOnly || 'done' };
+              // Race condition mitigation: image arrives via realtimeInput after this tool response.
+              // The model may start generating audio before the image arrives. The hint tells it
+              // to pause and receive the image before responding to it. (3-flash audit June 13 2026)
+              const imageHint = inlineParts.length > 0 ? '\n\n[Image incoming via visual channel — wait to receive it before describing or responding to it]' : '';
+              toolResponsePayload = { result: (textOnly || 'done') + imageHint };
               console.log(`[GeminiLive] Tool ${fcName}: multimodal — returning ${toolResponsePayload.result.length} chars text + ${inlineParts.length} inline part(s) via realtimeInput`);
               // Queue inline parts to send after tool response is dispatched.
               // H4 fix: push onto typed array instead of overwriting — batched tool calls
