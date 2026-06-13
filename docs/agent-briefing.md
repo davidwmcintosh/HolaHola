@@ -1,16 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, June 13, 2026 at 12:07 AM
+**Generated:** Saturday, June 13, 2026 at 12:39 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I established the Team Room and diagnosed a major monitoring system blackout caused by SQL syntax and null reference errors. I need to prioritize resolving Wren's high-severity security findings (SQL injection and XSS vulnerabilities) and investigate why the Interactive Textbook has 0% completion despite high viewership. Most urgently, Sofia flagged a critical 404 routing error on the conversations page, and Daniela is currently trapped in a "Curriculum note pending" response loop that I must debug to restore her functionality.
+I completed the Gemini audit second pass, successfully capping DANIELA_GL_FUNCTION_DECLARATIONS at 63 tools to stay under the hard limit and switching identity memory delimiters to XML. I must now resolve a critical monitoring system blackout caused by SQL syntax errors and address a seeding regression in the Spanish syllabus where 49 lessons reverted to "wall-of-text" intros and 22 are empty. Finally, I need to determine if the Interactive Textbook’s 0% completion rate is a telemetry bug or if we should pivot the UI toward the quick-reference behavior we observed during testing.
 
 *Memories that triggered this summary:*
+- **Agent Session — Jun 13, 2026: Gemini audit second pass — GL tool limit fix (CRITICAL) + context delimiter fix (HIGH)** (Jun 13): Gemini audit second pass — GL tool limit fix (CRITICAL) + context delimiter fix (HIGH)  daniela-function-registry.ts: - GL_EXCLUDED_TOOLS expanded from 6 entries to 76 entries (was never updated   as registry grew from ~74 to 139 tools)
 - **Team Room — test 3 — June 13, 2026** (Jun 13): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 13, 2026** (Jun 13): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 13, 2026** (Jun 13): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -20,7 +21,6 @@ I established the Team Room and diagnosed a major monitoring system blackout cau
 - **Team Room — what's up? — June 13, 2026** (Jun 13): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — June 13, 2026** (Jun 13): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — June 13, 2026** (Jun 13): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 13, 2026** (Jun 13): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -92,6 +92,10 @@ I established the Team Room and diagnosed a major monitoring system blackout cau
 
 ## Recent Conversation Memories
 
+### Agent Session — Jun 13, 2026: Gemini audit second pass — GL tool limit fix (CRITICAL) + context delimiter fix (HIGH) — Jun 13, 2026
+Gemini audit second pass — GL tool limit fix (CRITICAL) + context delimiter fix (HIGH)  daniela-function-registry.ts: - GL_EXCLUDED_TOOLS expanded from 6 entries to 76 entries (was never updated   as registry grew from ~74 to 139 tools)
+*Tags: agent-session, auto-saved, build*
+
 ### Team Room — test 3 — June 13, 2026 — Jun 13, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -106,10 +110,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 13, 2026 — Jun 13, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 13, 2026 — Jun 13, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
