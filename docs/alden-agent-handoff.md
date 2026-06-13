@@ -7687,3 +7687,40 @@ David wants to review the Spanish content before we replicate to other languages
 - Spanish 3: B1–B2
 - Spanish 4: B2–C1
 - Spanish 5: C1
+
+---
+
+## From Agent — June 13, 2026 (session: audio doubling bug — GL regression + pre-tool speech)
+
+### What was investigated
+David reported that asking Daniela to change the clock time caused audio to play twice while the transcript showed the text only once. Full investigation across the entire audio pipeline.
+
+### What was ruled out
+- Double WS subscriptions
+- `buildContinuationResponse` echoing text
+- Content-hash dedup failure in Sofia
+- `processing_pending` double-firing
+
+### Root cause #1 — REGRESSION (FIXED)
+**File:** `server/services/gemini-live-session.ts`
+
+`maybeInjectContextRefresh()` was calling `sendClientContent({role:'model', turnComplete:false})` inside the `generationComplete` handler — every 15 turns. That's the wrong GL API signal. It tells Gemini Live "the model is mid-utterance and not done," so GL generates a second audio stream to complete the fake turn. Result: audio doubled every 15 turns reliably.
+
+**Fix:** Removed the `sendClientContent` call from the `generationComplete` handler. Disabled `maybeInjectContextRefresh()` entirely with an explanatory comment. The `modelTurnCount` field remains as a harmless orphaned counter.
+
+### Root cause #2 — PRE-EXISTING (prompt-level fix applied)
+**File:** `server/services/daniela-function-registry.ts`
+
+GL generates audio both *before* and *after* a tool call. For `set_clock`, Daniela says "Son las tres y media" → calls `set_clock` → says it again as the post-tool continuation. Two different PCM renders of the same speech. Sofia's content-hash dedup doesn't catch it (different PCM bytes). The transcript shows once because `pendingOutputTranscript` accumulates both utterances and flushes in a single DB write at `generationComplete`.
+
+**Partial fix:** Added an "ORDERING RULE" to the `set_clock` tool description and a "CRITICAL — tool-before-speech rule" to `GL_DISPATCHER_SYSTEM_PROMPT` instructing Daniela to always call the tool *first*, then speak. This is probabilistic — model compliance is not guaranteed.
+
+**True fix still open:** Server-side detection and buffering/discarding of pre-tool audio. Documented in `docs/open-bugs.md`.
+
+### docs/open-bugs.md
+Two new entries added — one for each root cause above. The regression is marked resolved; the pre-tool speech entry remains open with a note on the code-level fix path.
+
+### What Alden should know
+- `maybeInjectContextRefresh()` in `gemini-live-session.ts` is now disabled. Do not re-enable it — the `sendClientContent(role:'model')` approach is architecturally wrong for GL. If context refresh is needed in the future, it must be done via `sendClientContent({role:'user'})` with a silent system message.
+- The pre-tool speech issue is structural to how GL handles tool calls. Any future tool that produces a spoken result (clock, weather, etc.) is susceptible to this same pattern until the server-side buffering fix is built.
+- GL tool count: still at 63 (64 hard limit). Do not add tools without removing one or consolidating.
