@@ -1,16 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, June 13, 2026 at 04:53 PM
+**Generated:** Saturday, June 13, 2026 at 05:04 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I recently implemented a `generateVisual` framework and `ImmersionObjective` structures to pivot HolaHola toward "conversational immersion" after Lyra flagged a 0% completion rate for the Interactive Textbook. I need to prioritize remediating two high-severity security vulnerabilities and a surge of 50 new bugs identified by Wren and Sofia. Most urgently, I must debug Daniela’s integration, as she is currently stuck in a "Curriculum note pending" response loop that is blocking her participation in the Team Room.
+I fixed the `isGeminiLive` scope bug in `createStreamingVoicePrompt`, ensuring Daniela provides clear speech without narrating bold markers during voice sessions. I need to immediately address a critical 404 routing error on the conversations page and a monitoring system blackout caused by SQL syntax errors. Moving forward, I must prioritize Wren’s two high-severity security findings and investigate a seeding regression that left 22 Spanish lessons empty and 49 others with "wall-of-text" verbosity.
 
 *Memories that triggered this summary:*
+- **Agent Session — Jun 13, 2026: GL prompt cleanup: fix isGeminiLive scope bug + apply correctly in createStreamingVoicePrompt** (Jun 13): GL prompt cleanup: fix isGeminiLive scope bug + apply correctly in createStreamingVoicePrompt  Session part 11 of GL consolidation work.  Problem: The isGeminiLive ternary was mistakenly placed inside createSystemPrompt
 - **Team Room — test 3 — June 13, 2026** (Jun 13): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 13, 2026** (Jun 13): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 13, 2026** (Jun 13): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -20,7 +21,6 @@ I recently implemented a `generateVisual` framework and `ImmersionObjective` str
 - **Team Room — what's up? — June 13, 2026** (Jun 13): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — June 13, 2026** (Jun 13): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — June 13, 2026** (Jun 13): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 13, 2026** (Jun 13): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -92,6 +92,10 @@ I recently implemented a `generateVisual` framework and `ImmersionObjective` str
 
 ## Recent Conversation Memories
 
+### Agent Session — Jun 13, 2026: GL prompt cleanup: fix isGeminiLive scope bug + apply correctly in createStreamingVoicePrompt — Jun 13, 2026
+GL prompt cleanup: fix isGeminiLive scope bug + apply correctly in createStreamingVoicePrompt  Session part 11 of GL consolidation work.  Problem: The isGeminiLive ternary was mistakenly placed inside createSystemPrompt
+*Tags: agent-session, auto-saved, build*
+
 ### Team Room — test 3 — June 13, 2026 — Jun 13, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -106,10 +110,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 13, 2026 — Jun 13, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 13, 2026 — Jun 13, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
