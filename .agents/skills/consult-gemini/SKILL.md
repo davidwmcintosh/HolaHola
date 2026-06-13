@@ -1,6 +1,6 @@
 ---
 name: consult-gemini
-description: Query Gemini 3.x (gemini-3-flash-preview) or Gemini 2.5 Pro for architectural reviews, code audits, and technical analysis of HolaHola. Use when you need a parallel expert opinion on a proposed architecture, a second pass on a major build, or a critique of a technical decision. Gemini 3.x is the same model family as Daniela (gemini-3.1-flash-live-preview) — it has first-hand knowledge of how its own function-calling and tool dispatch mechanics work. Run from the workspace directory — uses process.env.GEMINI_API_KEY directly.
+description: Query Gemini 3-flash-preview for architectural reviews, code audits, and technical analysis of HolaHola. Always use gemini-3-flash-preview — it is the same model family as Daniela (gemini-3.1-flash-live-preview) and has first-hand knowledge of how its own function-calling and tool dispatch mechanics work. Run from the workspace directory — uses process.env.GEMINI_API_KEY directly.
 ---
 
 # Consult Gemini (Architectural Review / Code Audit)
@@ -9,7 +9,7 @@ Use this skill to query Gemini for independent architectural analysis of HolaHol
 
 The parallel to `consult-daniela`: just as that skill surfaces Daniela's perspective from the inside, this skill brings in Gemini's perspective from the outside — as both a peer model and the authoritative source on what the Gemini APIs actually support.
 
-**Key model note:** Daniela runs on `gemini-3.1-flash-live-preview` (Gemini Live streaming). For REST `generateContent` queries, use `gemini-3-flash-preview` (the 3.x text equivalent) — `gemini-3.1-flash-preview` returns 404 on the generateContent endpoint. Use `gemini-2.5-pro` for the deepest reasoning when latency doesn't matter.
+**Key model note:** Daniela runs on `gemini-3.1-flash-live-preview` (Gemini Live streaming). For REST `generateContent` queries, always use `gemini-3-flash-preview` (the 3.x text equivalent, same model family). This is the model that understands HolaHola's architecture from the inside — the same family that actually runs as Daniela. Do NOT use `gemini-2.5-pro` or any 2.x model.
 
 ---
 
@@ -24,17 +24,11 @@ The parallel to `consult-daniela`: just as that skill surfaces Daniela's perspec
 
 ---
 
-## Models
+## Model
 
-| Use case | Model |
-|---|---|
-| Gemini Live / tool-calling / voice architecture questions | `gemini-3-flash-preview` — same family as Daniela; self-aware about its own mechanics |
-| Deep architectural review, reasoning-heavy analysis | `gemini-2.5-pro` — slower, best for complex tradeoffs |
-| Quick clarification, fast second opinion | `gemini-3-flash-preview` |
+Always use `gemini-3-flash-preview` — the 3.x text model, same family as Daniela.
 
-**IMPORTANT:** `gemini-3.1-flash-preview` does NOT work for REST `generateContent` (returns 404). `gemini-3.1-flash-live-preview` is Live streaming only. The working 3.x text model is `gemini-3-flash-preview`.
-
-Default to `gemini-2.5-pro` for anything architectural. It's slower but gives significantly better analysis.
+**IMPORTANT:** `gemini-3.1-flash-preview` does NOT work for REST `generateContent` (returns 404). `gemini-3.1-flash-live-preview` is Live streaming only. The working 3.x text model is `gemini-3-flash-preview`. Never use any 2.x model (2.5-pro, 2.5-flash, etc.) — Gemini 3.x is the same generation as Daniela and is therefore always preferred for HolaHola architectural review.
 
 ---
 
@@ -80,7 +74,7 @@ const body = JSON.stringify({
 const result = await new Promise((resolve, reject) => {
   const options = {
     hostname: 'generativelanguage.googleapis.com',
-    path: '/v1beta/models/gemini-2.5-pro:generateContent?key=' + apiKey,
+    path: '/v1beta/models/gemini-3-flash-preview:generateContent?key=' + apiKey,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
   };
@@ -232,5 +226,5 @@ Please be specific about which model/API version this applies to.
 - `maxOutputTokens: 4000` is usually sufficient; increase to 6000 for very complex reviews
 - Response may be truncated in bash stdout — always read `/tmp/gemini-audit.txt` for the full text
 - If the response cuts off mid-sentence, run a follow-up turn with the conversation history
-- `gemini-2.5-pro` has built-in thinking tokens — this is why it gives better architectural analysis than flash. The thinking is not visible but it runs before the response
+- `gemini-3-flash-preview` is the same model family as Daniela — it has first-hand knowledge of Gemini Live mechanics, function-calling behaviour, and tool dispatch patterns
 - The bash `node --input-type=module` pattern works because `process.env.GEMINI_API_KEY` is available in the server environment (unlike the code_execution sandbox)
