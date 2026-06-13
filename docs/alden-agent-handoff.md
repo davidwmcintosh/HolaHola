@@ -24,6 +24,30 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 13, 2026 (part 7) — mid-session context refresh + stale handle fallback + arch audit**
+
+### What was built
+
+Full 5-question architecture audit via gemini-3-flash-preview (same model family as Daniela's runtime — answers from the inside). Results saved to `docs/gemini-arch-audit-2026-06-13.md`. Two immediate fixes implemented:
+
+**1. Mid-session context refresh** (`gemini-live-session.ts`)
+3-flash confirmed recency bias is real: after ~60 min of conversation, dispatcher routing rules and character context get buried under conversation history. Daniela becomes more generic. Tool calling degrades first.
+Fix: `maybeInjectContextRefresh()` called on every `generationComplete`. Increments `modelTurnCount`; every 15 turns sends a compact model-role content turn (`sendClientContent` with `turnComplete: false`). Model-role injection means Gemini treats it as its own prior words — no verbal response triggered. Reminder text: dispatcher routing map + "Stay in Daniela character. Vary acknowledgments."
+
+**2. Stale resumption handle fallback** (`gemini-live-session.ts`, `onclose` handler)
+3-flash confirmed: resumption handle TTL is ~5-10 min. A student who closes the app and reopens hours later gets an expired handle. Previously this hit the generic 1011 bail path → student sees "The voice connection encountered an error. Please try again." Now: detect handle-related 1011 reason string → clear `session.geminiLiveResumptionHandle` → temporarily add 1011 to `RETRIABLE_CLOSE_CODES` → standard reconnect path runs → `start()` omits the now-null handle → fresh session starts silently.
+
+### Two bigger items filed to open-bugs.md
+- `classroom_widget` enum size (27 vs. 7-10 optimal) → Middle-Loss in dispatcher selection
+- Interruption + in-flight tool call race → no call_id guard → stale `sendToolResponse()` may confuse GL state machine
+
+### Other 3-flash findings (no code change needed)
+- Session resumption preserves history ~5-10 min TTL only; pending tool calls are dropped on disconnect
+- Inference-time identity architecture confirmed superior to fine-tuning for our use case
+- Dynamic tool loading (inject only ~20 relevant tools per session) flagged as long-term path when tool count grows beyond current architecture
+
+---
+
 **Session: June 13, 2026 (part 6) — temperature + feedback variety (presence_penalty N/A)**
 
 ### What was built

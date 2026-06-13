@@ -25,6 +25,12 @@ The auto-save worker calls `documentRoomSession()` on every 20-min sweep for roo
 **2026-06-12 — `server/services/lyra-analytics-service.ts:421–435` — `returnRate7d` metric has no 7-day window — MEDIUM**
 The SQL counts users with 2+ conversations at any time (all-time retention), not within 7 days. The metric name and the `OnboardingData` interface field `returnRate7d` are misleading. A SQL comment has been added. Full fix: add `AND c.created_at >= NOW() - INTERVAL '7 days'` to both subqueries, or rename to `repeatConversationRate`.
 
+**2026-06-13 — `server/services/gemini-live-session.ts` + `daniela-function-registry.ts` — `classroom_widget` dispatcher enum size exceeds optimal range — MEDIUM**
+`classroom_widget` routes 27 enum values. 3-flash audit: sweet spot is 7–10; beyond 15, the model experiences "Middle-Loss" (options in the middle of the enum list are systematically under-selected). Long-term fix: split `classroom_widget` into semantic sub-groups (e.g. `scene_widget` for visual/scene types, `card_widget` for vocabulary/flashcard types) — each with ≤10 values — or move to dynamic tool loading. Dynamic tool loading (inject only the ~20 tools relevant to the current student/lesson) is the recommended architectural path and would also bring the total below 64 cleanly.
+
+**2026-06-13 — `server/services/gemini-live-session.ts` — interruption during in-flight tool call has no call_id guard — MEDIUM**
+3-flash audit confirmed: if a student interrupts while the server is executing a tool handler (DB op, image gen, 100ms–5s), Gemini's state shifts to "Listening" and any `sendToolResponse()` sent afterward may be silently ignored or confuse the turn state machine. No call_id tracking exists. Defensive fix: (1) track active call_ids in a `Set<string>`; (2) on interruption signal (client `user_interrupted` event or VAD start-of-speech while a tool is pending), remove the call_id from the active set; (3) before calling `liveSession.sendToolResponse()`, check that the call_id is still active — if not, discard the response or append it as context to the next user turn instead.
+
 **2026-06-12 — `server/storage.ts:7881` — Drizzle bulk insert of `editor_insights` fails TypeScript — LOW (pre-existing)**
 `metadata` field typed as `unknown` in one insert code path vs the fully-typed schema object. Causes TS2769 overload resolution failure. Pre-existing; not introduced this session. Fix: add explicit type cast or `satisfies` assertion at the call site.
 

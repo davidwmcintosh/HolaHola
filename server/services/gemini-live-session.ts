@@ -153,6 +153,33 @@ export class GeminiLiveSession {
   private lastSystemPrompt = '';
   private lastTools: FunctionDeclaration[] = [];
 
+  // ── Mid-session context refresh ─────────────────────────────────────────
+  // Gemini Live has recency bias: after ~60 min the model's attention to the
+  // system prompt (dispatcher routing rules, character) degrades. Every
+  // REMINDER_INTERVAL generationComplete events we inject a compact model-role
+  // "reminder" into the conversation history. Model-role injection doesn't
+  // trigger a new verbal response — the model treats it as its own prior words.
+  // (3-flash audit recommendation, 2026-06-13)
+  private modelTurnCount = 0;
+  private readonly REMINDER_INTERVAL = 15;
+  private readonly MID_SESSION_REMINDER =
+    '[Daniela internal — routing context: classroom_widget→visuals/cards/scenes, exercise_tool→fill-in/quiz/translate/match, memory_action→save/recall student facts, admin_action→system ops. Stay in Daniela character. Vary acknowledgments.]';
+
+  private maybeInjectContextRefresh(): void {
+    if (!this.liveSession || this.isStopped) return;
+    this.modelTurnCount++;
+    if (this.modelTurnCount % this.REMINDER_INTERVAL !== 0) return;
+    try {
+      this.liveSession.sendClientContent({
+        turns: [{ role: 'model' as any, parts: [{ text: this.MID_SESSION_REMINDER }] }],
+        turnComplete: false,
+      });
+      console.log(`[GeminiLive] Mid-session context refresh injected (turn ${this.modelTurnCount})`);
+    } catch (err) {
+      console.warn('[GeminiLive] Failed to inject mid-session context refresh:', err);
+    }
+  }
+
   // ── Transcript accumulators ─────────────────────────────────────────────
   // Both user and assistant transcripts are accumulated across multiple
   // inputTranscription / outputTranscription / turnComplete events and
@@ -418,10 +445,26 @@ export class GeminiLiveSession {
             });
             return;
           }
+          // Stale resumption handle — 1011 whose reason references the handle/session token.
+          // This happens when a student reconnects hours later with an expired handle.
+          // Clear the handle and fall through to a fresh session start (no bail-out).
+          // (3-flash audit recommendation, 2026-06-13)
+          const isStaleHandle = code === 1011 &&
+            !!this.session.geminiLiveResumptionHandle &&
+            /handle|resumption|invalid.*session|session.*invalid|expired/i.test(reason);
+          if (isStaleHandle && !this.isStopped && this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
+            console.warn('[GeminiLive] Stale resumption handle (1011) — clearing handle and retrying as fresh session. Reason:', reason);
+            this.session.geminiLiveResumptionHandle = undefined as any;
+            // Fall through to the retriable reconnect block below by temporarily allowing it.
+            // We force-add code 1011 to retriable set only for this one attempt.
+            this.RETRIABLE_CLOSE_CODES.add(1011);
+            // Remove after the reconnect fires so we don't permanently allow 1011 retries.
+            setTimeout(() => this.RETRIABLE_CLOSE_CODES.delete(1011), 5000);
+          }
           // Any other 1011 (e.g. "Internal error encountered.") is also non-retriable.
           // Retrying immediately resends the full system prompt (~13K tokens) and burns quota.
           // Surface a recoverable error so the client can prompt the user to try again.
-          if (code === 1011 && !this.isStopped) {
+          if (code === 1011 && !this.isStopped && !isStaleHandle) {
             console.error('[GeminiLive] Internal error (1011) — not retrying. Reason:', reason || '(no reason)');
             this.sendWsMessage(this.session.ws, {
               type: 'voice_error',
@@ -1075,6 +1118,12 @@ export class GeminiLiveSession {
     //  3. Flush transcripts immediately — generationComplete is a definitive end-of-response
     //     signal, so there is no value in waiting for more sub-turns.
     if ((msg.serverContent as any)?.generationComplete) {
+      // Increment turn counter and inject mid-session context refresh every 15 turns.
+      // Addresses recency bias: dispatcher routing rules and character context degrade
+      // after ~60 min as conversation history buries the system prompt.
+      // (3-flash audit recommendation, 2026-06-13)
+      this.maybeInjectContextRefresh();
+
       // H1 fix: clear greeting gate on generationComplete — handles the case where the
       // greeting turn produces no audio (content filter, text-only, error), which would
       // otherwise leave greetingPhaseActive=true permanently and block all mic input.
