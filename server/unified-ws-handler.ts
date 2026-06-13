@@ -110,24 +110,53 @@ function clearPersistedHandle(conversationId: string): void {
 }
 
 /**
- * Promise timeout utility - prevents indefinite hangs on DB queries or service calls.
- * Returns fallback value if the promise doesn't resolve within the timeout.
+ * Promise timeout utility with automatic retry.
+ *
+ * Takes a FACTORY function (not a pre-started promise) so the operation can be
+ * retried with a fresh query if the first attempt times out.
+ *
+ * Timing: 8s first attempt → 3s cooldown → 15s retry → fallback.
+ * Total worst-case: ~26s (same ballpark as old 25s, but with a retry in the middle).
+ *
+ * Why this matters: during server restart the DB pool gets saturated by background
+ * workers (EmbedIndexer, EmbedWorkers, etc.) for ~20-25s.  Without retry, every
+ * SessionInit query times out and Daniela starts with ZERO context.  With retry,
+ * the 3s cooldown is usually enough for pool pressure to drop and the second
+ * attempt succeeds.
  */
-function withTimeout<T>(
-  promise: Promise<T>,
-  timeoutMs: number,
+const _FIRST_ATTEMPT_MS = 8000;
+const _RETRY_DELAY_MS   = 3000;
+const _RETRY_ATTEMPT_MS = 15000;
+
+async function withTimeout<T>(
+  factory: () => Promise<T>,
+  _timeoutMs: number,   // kept for call-site readability; internal timing is fixed above
   label: string,
   fallback: T
 ): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((resolve) => {
-      setTimeout(() => {
-        console.warn(`[SessionInit] ⚠ ${label} timed out after ${timeoutMs}ms — using fallback`);
-        resolve(fallback);
-      }, timeoutMs);
-    }),
-  ]);
+  // Discriminated union avoids Symbol sentinel so TypeScript inference stays clean.
+  const attempt = (ms: number): Promise<{ ok: true; value: T } | { ok: false }> =>
+    Promise.race([
+      factory().then((value): { ok: true; value: T } => ({ ok: true, value })),
+      new Promise<{ ok: false }>((resolve) =>
+        setTimeout(() => resolve({ ok: false }), ms)
+      ),
+    ]);
+
+  const r1 = await attempt(_FIRST_ATTEMPT_MS);
+  if (r1.ok) return r1.value;
+
+  console.warn(`[SessionInit] ⚠ ${label} timed out after ${_FIRST_ATTEMPT_MS}ms — retrying in ${_RETRY_DELAY_MS}ms`);
+  await new Promise<void>((resolve) => setTimeout(resolve, _RETRY_DELAY_MS));
+
+  const r2 = await attempt(_RETRY_ATTEMPT_MS);
+  if (r2.ok) {
+    console.log(`[SessionInit] ✓ ${label} succeeded on retry`);
+    return r2.value;
+  }
+
+  console.warn(`[SessionInit] ⚠ ${label} timed out on retry — using fallback`);
+  return fallback;
 }
 
 /**
@@ -1364,19 +1393,19 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             
             const [user, conversation_raw, isDeveloper, messages, tutorVoice, actflProgressRow] = await Promise.all([
               withTimeout(
-                userId ? storage.getUser(userId) : Promise.resolve(null),
+                () => userId ? storage.getUser(userId) : Promise.resolve(null),
                 SESSION_INIT_TIMEOUT, 'getUser', null
               ),
               withTimeout(
-                (conversationId && userId) ? storage.getConversation(conversationId, userId) : Promise.resolve(null),
+                () => (conversationId && userId) ? storage.getConversation(conversationId, userId) : Promise.resolve(null),
                 SESSION_INIT_TIMEOUT, 'getConversation', null
               ),
               withTimeout(
-                usageService.checkDeveloperBypass(userId!),
+                () => usageService.checkDeveloperBypass(userId!),
                 SESSION_INIT_TIMEOUT, 'checkDeveloperBypass', false
               ),
               withTimeout(
-                conversationId ? storage.getMessagesByConversation(conversationId) : Promise.resolve([]),
+                () => conversationId ? storage.getMessagesByConversation(conversationId) : Promise.resolve([]),
                 SESSION_INIT_TIMEOUT, 'getMessages', [] as any[]
               ),
               withTimeout(
@@ -1384,13 +1413,13 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                 // Each language+gender has both a google and a gemini-live active row;
                 // without this, LIMIT 1 returns whichever the DB picks — often google —
                 // and the Gemini Live session then falls back to the default voice.
-                storage.getTutorVoice(effectiveLanguage, tutorGender, GEMINI_LIVE_VOICE_ENABLED ? 'gemini-live' : undefined),
+                () => storage.getTutorVoice(effectiveLanguage, tutorGender, GEMINI_LIVE_VOICE_ENABLED ? 'gemini-live' : undefined),
                 SESSION_INIT_TIMEOUT, 'getTutorVoice', null
               ),
               // users.actfl_level is rarely populated — pull from actfl_progress per language.
               // This is the same fix applied to the Twilio bridge. Runs in parallel so zero extra latency.
               withTimeout(
-                (userId && effectiveLanguage)
+                () => (userId && effectiveLanguage)
                   ? storage.getOrCreateActflProgress(effectiveLanguage, String(userId))
                   : Promise.resolve(null),
                 SESSION_INIT_TIMEOUT, 'getActflProgress', null
@@ -1452,9 +1481,9 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
               console.log(`[Streaming Voice] Creating missing conversation: ${conversationId}`);
               try {
                 conversation = await withTimeout(
-                  storage.createConversation({
+                  () => storage.createConversation({
                     id: conversationId,
-                    userId: userId,
+                    userId: userId!,
                     language: config.targetLanguage || 'spanish',
                     title: 'Voice Session',
                     difficulty: 'beginner',
@@ -1560,10 +1589,10 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             
             const compassPromise = (COMPASS_ENABLED && conversationId && userId)
               ? withTimeout(
-                  (async () => {
+                  async () => {
                     const classId = (conversation as any)?.classId || null;
                     const sess = await sessionCompassService.initializeSession({
-                      conversationId, userId, classId, scheduledDurationMinutes: 30,
+                      conversationId, userId: userId!, classId, scheduledDurationMinutes: 30,
                     });
                     if (sess) {
                       const ctx = await sessionCompassService.getCompassContext(conversationId);
@@ -1573,13 +1602,13 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                     }
                     console.log(`[Compass Init] Returned null (isEnabled check failed?)`);
                     return null;
-                  })(),
+                  },
                   SESSION_INIT_TIMEOUT, 'compassInit', null
                 )
               : Promise.resolve(null);
             
             const neuralNetworkPromise = withTimeout(
-              buildNeuralNetworkPromptSection(effectiveLanguage, config.nativeLanguage || 'english'),
+              () => buildNeuralNetworkPromptSection(effectiveLanguage, config.nativeLanguage || 'english'),
               SESSION_INIT_TIMEOUT, 'neuralNetwork', ''
             );
             
@@ -1591,12 +1620,12 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             const usageSessionPromise = pendingReconnectSO
               ? Promise.resolve(null)
               : withTimeout(
-                  (async () => {
+                  async () => {
                     const classId = conversation?.classId || undefined;
                     return await usageService.startSession(
                       userId!, conversationId || undefined, config.targetLanguage, classId
                     );
-                  })(),
+                  },
                   SESSION_INIT_TIMEOUT, 'usageSession', null as UsageVoiceSession | null
                 );
 
@@ -1608,10 +1637,10 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
               || isBusinessSession(config.subject, config.targetLanguage);
             const courseTocPromise = (!isSubjectSessionEarly && userId && effectiveLanguage)
               ? withTimeout(
-                  (async () => {
+                  async () => {
                     const { unifiedDanielaContext } = await import('./services/unified-daniela-context-service');
                     return await unifiedDanielaContext.buildCourseTOC(String(userId), effectiveLanguage);
-                  })(),
+                  },
                   SESSION_INIT_TIMEOUT, 'courseToc', null as string | null
                 )
               : Promise.resolve(null as string | null);
@@ -1619,7 +1648,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             // Student snapshot — last session, streak, personal follow-ups (structured progress data)
             const studentSnapshotPromise = (!isSubjectSessionEarly && userId)
               ? withTimeout(
-                  getStudentSnapshotData(String(userId), effectiveLanguage),
+                  () => getStudentSnapshotData(String(userId), effectiveLanguage),
                   SESSION_INIT_TIMEOUT, 'studentSnapshot', null as StudentSnapshotContext | null
                 )
               : Promise.resolve(null as StudentSnapshotContext | null);
@@ -1628,7 +1657,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             // session notes, people connections. This is the history of who they are to each other.
             const studentMemoryContextPromise = (!isSubjectSessionEarly && userId)
               ? withTimeout(
-                  storage.getStudentMemoryContext(String(userId), effectiveLanguage),
+                  () => storage.getStudentMemoryContext(String(userId), effectiveLanguage),
                   SESSION_INIT_TIMEOUT, 'studentMemoryContext', null
                 )
               : Promise.resolve(null);
@@ -1637,7 +1666,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             // alerts (top 2) from the neural network. Let Daniela anticipate struggles before they surface.
             const predictiveContextPromise = (!isSubjectSessionEarly && userId)
               ? withTimeout(
-                  getPredictiveTeachingContext(String(userId), effectiveLanguage),
+                  () => getPredictiveTeachingContext(String(userId), effectiveLanguage),
                   SESSION_INIT_TIMEOUT, 'predictiveContext', null as PredictiveTeachingContext | null
                 )
               : Promise.resolve(null as PredictiveTeachingContext | null);
@@ -1646,7 +1675,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             // target language. Only fetched for developer users; gives Daniela her own operational memory.
             const expressLaneContextPromise = (isDeveloper && !isSubjectSessionEarly)
               ? withTimeout(
-                  founderCollabService.getRelevantExpressLaneContext({
+                  () => founderCollabService.getRelevantExpressLaneContext({
                     targetLanguage: effectiveLanguage,
                     limit: 10,
                     daysBack: 14,
@@ -1659,7 +1688,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             // and growth. Injected into every session so she simply knows herself without searching.
             const identityMemoriesPromise = (!isSubjectSessionEarly)
               ? withTimeout(
-                  founderCollabService.getIdentityMemories({ limit: 4, daysBack: 30 }),
+                  () => founderCollabService.getIdentityMemories({ limit: 4, daysBack: 30 }),
                   SESSION_INIT_TIMEOUT, 'identityMemories', null
                 )
               : Promise.resolve(null);
@@ -1669,7 +1698,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             // This is the "she knows what she knows" layer — ambient, always present.
             const growthLogPromise = (!isSubjectSessionEarly)
               ? withTimeout(
-                  founderCollabService.getTeachingGrowthLog(),
+                  () => founderCollabService.getTeachingGrowthLog(),
                   SESSION_INIT_TIMEOUT, 'growthLog', null
                 )
               : Promise.resolve(null);
@@ -1679,7 +1708,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             // Privacy-safe: student IDs stripped before storage.
             const danielaSuggestionsPromise = (!isSubjectSessionEarly)
               ? withTimeout(
-                  getPendingSuggestions(5),
+                  () => getPendingSuggestions(5),
                   SESSION_INIT_TIMEOUT, 'danielaSuggestions', [] as any[]
                 )
               : Promise.resolve([] as any[]);
@@ -1689,7 +1718,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             // knows the grammar landscape before the first word is spoken.
             const patternCompassPromise = (!isSubjectSessionEarly && userId)
               ? withTimeout(
-                  getUserDb()
+                  () => getUserDb()
                     .select({
                       patternKey: compartmentInstallation.patternKey,
                       status: compartmentInstallation.status,

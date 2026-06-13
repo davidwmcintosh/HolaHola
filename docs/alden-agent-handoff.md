@@ -24,6 +24,38 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 13, 2026 (part 12) — SessionInit retry: DB pool saturation fix**
+
+### What was built
+
+**`withTimeout` refactored to retry on timeout** (`server/unified-ws-handler.ts`)
+
+**Root cause confirmed:** When the server restarts and background workers (EmbedIndexer doing 53 embeddings, Wren, Prefetch, etc.) saturate the DB pool, all 18 SessionInit queries hit their 25s timeout simultaneously and Daniela gets ZERO context — no student name, no memories, no neural net, no course TOC. She enters the GL session essentially as a blank slate and goes quiet until prompted.
+
+**The fix — `withTimeout` now uses a factory + retry pattern:**
+- Old signature: `withTimeout(promise: Promise<T>, 25000ms, label, fallback)` — pre-started promise, no retry possible
+- New signature: `withTimeout(factory: () => Promise<T>, 25000ms, label, fallback)` — factory enables fresh retry
+- Timing: 8s first attempt → 3s cooldown → 15s retry → fallback (~26s total worst case, same as before but with a retry in the middle)
+- By the 3s cooldown, EmbedIndexer typically finishes and pool pressure drops — retry usually succeeds
+- Uses discriminated union `{ ok: true; value: T } | { ok: false }` to avoid Symbol sentinel (which broke TypeScript inference, causing `user` to resolve as `never`)
+
+**All 19 call sites updated** to factory pattern:
+- Phase 1 (6 queries): getUser, getConversation, checkDeveloperBypass, getMessages, getTutorVoice, getActflProgress
+- createConversation fallback (1 query)
+- Phase 2 (12 queries): compassInit, neuralNetwork, usageSession, courseToc, studentSnapshot, studentMemoryContext, predictiveContext, expressLaneContext, identityMemories, growthLog, danielaSuggestions, patternCompass
+
+Inline IIFEs `(async () => {...})()` converted to plain `async () => {...}` factories.
+Two `userId!` assertions added where TypeScript loses narrowing in closures.
+
+**Typecheck:** Returned to exact baseline — 2010 errors in 51 files (same as before). unified-ws-handler.ts: 0 new errors.
+
+### What to watch for
+- Next time you see `[SessionInit] ⚠ X timed out after 8000ms — retrying in 3000ms` in the logs, that's expected and good — it means the retry kicked in instead of falling straight to fallback.
+- If you see `[SessionInit] ⚠ X timed out on retry — using fallback`, that means the pool was saturated for >26s — which would be very unusual outside of a very heavy restart.
+- The timing constants are at the top of unified-ws-handler.ts: `_FIRST_ATTEMPT_MS = 8000`, `_RETRY_DELAY_MS = 3000`, `_RETRY_ATTEMPT_MS = 15000`. Tunable if needed.
+
+---
+
 **Session: June 13, 2026 (part 11) — GL prompt cleanup: gate tool docs + bold markers out of GL sessions**
 
 ### What was built
