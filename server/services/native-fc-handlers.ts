@@ -6561,20 +6561,41 @@ export class NativeFunctionCallHandler {
       })(),
 
       // Arm 3: Express Lane — founder/team collaboration messages matching the query
+      // Same phrase-first strategy as Arm 5: exact phrase → unique-keyword AND → unique-keyword OR
       (async () => {
         try {
           const { collaborationMessages } = await import('@shared/schema');
           const sharedDb = getSharedDb();
-          const keywords = query.split(/\s+/).filter(w => w.length >= 3);
-          const keywordConditions = keywords.length > 0
-            ? sql.join(keywords.map(kw => sql`content ILIKE ${`%${kw}%`}`), sql` OR `)
-            : sql`content ILIKE ${`%${query}%`}`;
-          const results = await sharedDb
+
+          const runCollabQuery = async (cond: ReturnType<typeof sql>) => sharedDb
             .select()
             .from(collaborationMessages)
-            .where(keywordConditions)
+            .where(cond)
             .orderBy(sql`created_at DESC`)
             .limit(5);
+
+          // Pass 1: exact phrase
+          let results = await runCollabQuery(sql`content ILIKE ${`%${query}%`}`);
+
+          // Pass 2: unique-keyword AND
+          if (results.length === 0) {
+            const uniqueKws = [...new Set(query.split(/\s+/).filter(w => w.length >= 3))];
+            if (uniqueKws.length > 0) {
+              results = await runCollabQuery(
+                sql.join(uniqueKws.map(kw => sql`content ILIKE ${`%${kw}%`}`), sql` AND `)
+              );
+            }
+          }
+
+          // Pass 3: unique-keyword OR (broad fallback)
+          if (results.length === 0) {
+            const uniqueKws = [...new Set(query.split(/\s+/).filter(w => w.length >= 3))];
+            if (uniqueKws.length > 0) {
+              results = await runCollabQuery(
+                sql.join(uniqueKws.map(kw => sql`content ILIKE ${`%${kw}%`}`), sql` OR `)
+              );
+            }
+          }
           if (results.length === 0) return null;
           const formatted = [...results].reverse().map(msg => {
             const date = new Date(msg.createdAt).toLocaleDateString();
@@ -6676,19 +6697,17 @@ export class NativeFunctionCallHandler {
       })(),
 
       // Arm 5: conversation_memories — curated landmark records (full narrative archives)
-      // Keyword search across title, summary, AND content body so nothing is missed
+      // Search strategy: exact phrase first (highest precision), then unique-keyword AND (all words must match),
+      // then unique-keyword OR (any word matches) as a last-resort fallback.
+      // This prevents repeated-word queries like "ting ting ting" from collapsing into a single broad
+      // ILIKE '%ting%' OR condition that drowns out the actual target in importance-ranked noise.
       (async () => {
         try {
           const { conversationMemories: convMemTable } = await import('@shared/schema');
           const sharedDb = getSharedDb();
-          const keywords = query.split(/\s+/).filter(w => w.length >= 3);
-          const keywordConditions = keywords.length > 0
-            ? sql.join(
-                keywords.map(kw => sql`(title ILIKE ${`%${kw}%`} OR summary ILIKE ${`%${kw}%`} OR content ILIKE ${`%${kw}%`})`),
-                sql` OR `
-              )
-            : sql`(title ILIKE ${`%${query}%`} OR summary ILIKE ${`%${query}%`} OR content ILIKE ${`%${query}%`})`;
-          const results = await sharedDb
+
+          // Helper: run a conversation_memories query with given WHERE condition
+          const runMemQuery = async (cond: ReturnType<typeof sql>) => sharedDb
             .select({
               id: convMemTable.id,
               title: convMemTable.title,
@@ -6698,9 +6717,37 @@ export class NativeFunctionCallHandler {
               recordedAt: convMemTable.recordedAt,
             })
             .from(convMemTable)
-            .where(keywordConditions)
+            .where(cond)
             .orderBy(sql`importance DESC`)
-            .limit(3);
+            .limit(4);
+
+          // Pass 1: exact phrase — highest signal, no false positives from substring matches
+          const phraseCondition = sql`(title ILIKE ${`%${query}%`} OR summary ILIKE ${`%${query}%`} OR content ILIKE ${`%${query}%`})`;
+          let results = await runMemQuery(phraseCondition);
+
+          // Pass 2: unique-keyword AND — all distinct words must appear somewhere in the record
+          if (results.length === 0) {
+            const uniqueKws = [...new Set(query.split(/\s+/).filter(w => w.length >= 3))];
+            if (uniqueKws.length > 0) {
+              const andCondition = sql.join(
+                uniqueKws.map(kw => sql`(title ILIKE ${`%${kw}%`} OR summary ILIKE ${`%${kw}%`} OR content ILIKE ${`%${kw}%`})`),
+                sql` AND `
+              );
+              results = await runMemQuery(andCondition);
+            }
+          }
+
+          // Pass 3: unique-keyword OR — any word matches (broad fallback, last resort)
+          if (results.length === 0) {
+            const uniqueKws = [...new Set(query.split(/\s+/).filter(w => w.length >= 3))];
+            if (uniqueKws.length > 0) {
+              const orCondition = sql.join(
+                uniqueKws.map(kw => sql`(title ILIKE ${`%${kw}%`} OR summary ILIKE ${`%${kw}%`} OR content ILIKE ${`%${kw}%`})`),
+                sql` OR `
+              );
+              results = await runMemQuery(orCondition);
+            }
+          }
           if (results.length === 0) return null;
           const lines = results.map(r => {
             const date = r.recordedAt ? new Date(r.recordedAt).toLocaleDateString() : 'unknown date';
