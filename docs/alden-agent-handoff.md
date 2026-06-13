@@ -24,6 +24,32 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 13, 2026 (part 3) — Fullscreen black-screen bug fixed + Gemini 2.5 Pro audit**
+
+### What was fixed
+**chat.tsx — Fullscreen button "black screen" bug**
+The "Re-enter fullscreen" button (`fixed bottom-24 right-4`) appeared whenever `activeSceneCanvas` was set — including when a simple clock widget was active with no environment image. Clicking it entered `ImmersiveOverlay` which rendered a near-black slate gradient (fallback for no `environmentImageUrl`). Fix: added `activeSceneCanvas.environmentImageUrl &&` guard to the condition. The button now only appears when there's an actual scene background worth entering.
+
+File: `client/src/pages/chat.tsx` line 1170
+
+### Gemini 2.5 Pro audit — dispatcher architecture
+Ran a full architectural review of the hybrid dispatcher system. Key findings (full doc: `docs/gemini-audit-2026-06-13.md`):
+
+1. **Syntactic failures**: Consider `json5` as a lenient parser on top of our single-quote fix
+2. **Semantic failures (IMPORTANT)**: After parse, validate params_json against a Zod schema per sub-tool. Return structured error JSON as function call result → Gemini will self-correct and retry
+3. **System prompt design**: Our plain imperative language approach is confirmed correct canonical guidance
+4. **Schema pattern**: enum + string params_json is the right approach given the 64-limit constraint
+5. **Token efficiency**: Dispatcher system prompt (~700 tokens) could be compressed to just the routing map; rely on tool_knowledge neural net for parameter details
+6. **Red flags for Alden to watch**:
+   - The enum is the routing bottleneck — if a new sub-tool isn't added to the dispatcher's enum, it silently fails
+   - We're at 63/64 — any new native GL tool must come with a corresponding exclusion
+   - Dispatcher handlers must return within 500ms or users hear a silence gap in audio mode
+
+### Confirmed working
+- Dispatcher fired 3× in one session ("Telling Time with a Clock"): SET_CLOCK at 2:30, 1:00, 12:00
+
+---
+
 **Session: June 13, 2026 (part 2) — Hybrid dispatcher architecture complete**
 
 ### What was built

@@ -1161,8 +1161,10 @@ export default function Chat() {
         mode="support"
       />
 
-      {/* Re-enter immersive button — shown when a scene is active but user has exited fullscreen */}
-      {activeSceneCanvas && !isImmersiveMode && (
+      {/* Re-enter immersive button — shown when a scene with an environment image is active but user has exited fullscreen.
+           Guard: only show when environmentImageUrl is set. Without it the ImmersiveOverlay renders a near-black
+           gradient fallback which looks broken for students who just saw a clock or simple widget. */}
+      {activeSceneCanvas && activeSceneCanvas.environmentImageUrl && !isImmersiveMode && (
         <Button
           size="sm"
           variant="default"
