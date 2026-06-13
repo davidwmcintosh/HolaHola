@@ -289,6 +289,18 @@ export class GeminiLiveSession {
         // to capture the assistant's words instead.
         responseModalities: [Modality.AUDIO],
 
+        // ── Generation config ─────────────────────────────────────────────
+        // temperature 0.8: varied phrasing without losing coherence. Default
+        // Flash temperature is lower, which causes the tutor to converge on
+        // the same filler phrases ("¡Muy bien!", "¡Excelente!") every turn.
+        // Higher temp = more lexical diversity in acknowledgments and transitions.
+        // presence_penalty and frequency_penalty are silently ignored in Live
+        // audio mode — the audio generation pipeline doesn't apply logit biases
+        // the way text generation does. (3-flash audit June 13 2026)
+        generationConfig: {
+          temperature: 0.8,
+        },
+
         // ── Transcription ─────────────────────────────────────────────────
         // inputAudioTranscription:  student speech → text (live captions + DB)
         // outputAudioTranscription: assistant speech → text (DB conversation log)

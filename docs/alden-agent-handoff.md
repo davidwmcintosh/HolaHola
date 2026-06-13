@@ -24,6 +24,20 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 13, 2026 (part 6) — temperature + feedback variety (presence_penalty N/A)**
+
+### What was built
+3-flash confirmed presence_penalty is silently ignored in Live audio mode — the pipeline uses multimodal tokens, not text logits. Two actual fixes instead:
+
+**1. `generationConfig: { temperature: 0.8 }`** (`gemini-live-session.ts`)
+Default Flash temperature causes convergence on high-probability fillers ("¡Muy bien!" every turn). 0.8 gives lexical diversity without losing coherence. Temperature IS honored in Live; penalties are not.
+
+**2. "Voice Behavior — Feedback Variety" directive** (`daniela-function-registry.ts` → `GL_DISPATCHER_SYSTEM_PROMPT`)
+"Do not start more than one response in a row with the same phrase. After a correct answer, 70% of the time move directly into the next concept without a verbal stamp of approval. Vary the expression — use student-name callbacks, describe what they got right, or simply move forward with energy."
+3-flash: "System Instructions are significantly more effective than penalties" for this specific problem.
+
+---
+
 **Session: June 13, 2026 (part 5) — 3-flash audit: VAD, injection order, multimodal hint**
 
 ### What was built
