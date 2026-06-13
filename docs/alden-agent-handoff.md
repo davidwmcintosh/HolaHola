@@ -24,6 +24,29 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 13, 2026 (part 11) — GL prompt cleanup: gate tool docs + bold markers out of GL sessions**
+
+### What was built
+
+**`isGeminiLive` flag added to `createStreamingVoicePrompt`** (`server/system-prompt.ts`)
+
+Root cause: `createStreamingVoicePrompt` was shared between regular streaming voice (Deepgram STT + text TTS pipeline) and Gemini Live (end-to-end audio), but was passing voice-text-pipeline-specific content into GL sessions:
+
+1. **`buildDetailedToolDocumentationSync`** — documents all native tools from the `tool_knowledge` table. For GL, most of those tools are now behind dispatchers and can't be called directly. Injecting stale/wrong tool docs into the GL system prompt was misleading. Now skipped for GL.
+
+2. **`**bold**` marker instructions** — tell Gemini to wrap vocabulary in double-asterisks. These exist for the text-output TTS pipeline where the text processor reads the transcript and highlights bold words. In GL audio mode, Gemini would literally say "asterisk asterisk hola asterisk asterisk." Now replaced for GL with "say clearly with slight natural emphasis."
+
+**Fix:** Added `isGeminiLive: boolean = false` as the 11th param to `createStreamingVoicePrompt`. When true:
+- `buildDetailedToolDocumentationSync` is not called
+- Bold marker instructions replaced with plain spoken-emphasis phrasing
+- `getNativeScriptTTSRule` examples (for same-language sessions) are still called — native script rules still apply in GL
+
+**Call site** (`unified-ws-handler.ts:1841`): passes `true` for `isGeminiLive`. All other callers default to `false` — no behavior change for non-GL sessions.
+
+**Why not edit the audio-mode override in GL_DISPATCHER_SYSTEM_PROMPT instead?** The override was a safety net, not the root fix. A safety net that says "ignore the bold instructions" is weaker than not emitting them in the first place. Both are now in place — belt and suspenders.
+
+---
+
 **Session: June 13, 2026 (part 10) — full GL tool consolidation: 63 → ~40 tools, 2 mergers, 2 new dispatchers, backtick fix**
 
 ### What was built

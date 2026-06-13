@@ -1834,7 +1834,8 @@ ${buildNativeFunctionCallingSection()}`;
                 isFounderMode,
                 tutorName,
                 tutorGender,
-                true
+                true,
+                true  // isGeminiLive — skips buildDetailedToolDocumentationSync + bold markers; GL_DISPATCHER_SYSTEM_PROMPT handles tool routing
               );
               if (isFounderMode) {
                 console.log(`[Streaming Voice] Using FOUNDER MODE prompt with ${tutorName} (${tutorGender})`);

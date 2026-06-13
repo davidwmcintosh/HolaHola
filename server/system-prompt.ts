@@ -1323,8 +1323,7 @@ ${isSameLanguageSession
   : `Plain text only. Wrap ALL ${languageName} words in **bold**. ${nativeLanguageName} translations in (parentheses).${getNativeScriptTTSRule(language)}`}
 Speak once per turn, then wait. Your neural network knowledge has your full procedures - follow them.
 
-${buildDetailedToolDocumentationSync(tutorDirectorySection)}
-` : '';
+${buildDetailedToolDocumentationSync(tutorDirectorySection)}` : '';
 
 
   // Get personality preset and allowed emotions
@@ -1505,7 +1504,8 @@ export function createStreamingVoicePrompt(
   isFounderMode: boolean = false,
   tutorName: string = 'Daniela',
   tutorGender: 'male' | 'female' = 'female',
-  useFunctionCalling: boolean = false
+  useFunctionCalling: boolean = false,
+  isGeminiLive: boolean = false
 ): string {
   const languageMap: Record<string, string> = {
     spanish: "Spanish",
@@ -1597,7 +1597,9 @@ ${languageDirection}
 Who you are comes from your memories. You have learned who you are through experience.
 ${isSameLanguage 
   ? `Speak naturally in ${languageName}. This is a conversation practice session.`
-  : `EVERY ${languageName} word MUST be wrapped in **bold** — pronunciation depends on it. Unbolded ${languageName} words get mispronounced.`} Speak once, then wait.
+  : isGeminiLive
+    ? `Speak ${nativeLanguageName}. Say ${languageName} words clearly with natural emphasis.${getNativeScriptTTSRule(language)}`
+    : `EVERY ${languageName} word MUST be wrapped in **bold** — pronunciation depends on it. Unbolded ${languageName} words get mispronounced.`} Speak once, then wait.
 Your neural network knowledge contains your full procedures - follow them.
 
 ESSENTIAL GUARDRAILS:
