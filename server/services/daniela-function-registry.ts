@@ -4750,6 +4750,12 @@ The card is a visual summary only — it does not start any activity automatical
         required: ['widget', 'params_json'],
       },
     },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'error') return JSON.stringify({ error: d.error, hint: 'Valid widgets: set_clock, set_emotion, set_weather, highlight_country, set_body_part, set_face_part, hold_whiteboard, grammar_table, write, show_menu, enter_immersive' });
+      return JSON.stringify({ status: 'displayed', widget: d.selector, params: d.params });
+    },
   },
 
   {
@@ -4779,6 +4785,12 @@ The card is a visual summary only — it does not start any activity automatical
         required: ['type', 'params_json'],
       },
     },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'error') return JSON.stringify({ error: d.error, hint: 'Valid types: phonetic, stroke, tone, init_conjugation_table, fill_conjugation, drill_session, start_textbook_page, reading, compare, word_map, summary, culture' });
+      return JSON.stringify({ status: 'launched', exercise: d.selector, params: d.params });
+    },
   },
 
   {
@@ -4806,6 +4818,12 @@ The card is a visual summary only — it does not start any activity automatical
         },
         required: ['action', 'params_json'],
       },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'error') return JSON.stringify({ error: d.error, hint: 'Valid actions: save_conversation_memory, browse_syllabus, review_due_vocab, mark_lesson_covered, show_progress, set_learning_goal, recommend_next' });
+      return JSON.stringify({ status: 'executed', action: d.selector, params: d.params });
     },
   },
 
@@ -4835,6 +4853,12 @@ The card is a visual summary only — it does not start any activity automatical
         },
         required: ['action', 'params_json'],
       },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const d = (session as any)._lastDispatch as DispatchResult | undefined;
+      if (!d) return '{"status":"done"}';
+      if (d.status === 'error') return JSON.stringify({ error: d.error, hint: 'Valid actions: hive_suggestion, close_session, record_student_consent, flag_for_fine_tuning, request_text_input, log_page_event' });
+      return JSON.stringify({ status: 'executed', action: d.selector });
     },
   },
 ];
@@ -4869,6 +4893,8 @@ export const TOOL_LEGACY_TYPE_MAP: Record<string, string> = Object.fromEntries(
 export const GL_DISPATCHER_SYSTEM_PROMPT = `
 
 ## Extended Classroom Tools — Use These Four Dispatcher Tools
+
+Execute all four dispatcher tools silently. Do not narrate, announce, or describe the action to the student ("I'm going to show...", "Let me call...", etc.). Simply invoke the tool and continue speaking. Only mention a failure if the tool returns an error.
 
 You have four special routing tools that give you access to every classroom capability. When you want any of the following, USE the corresponding dispatcher tool — do not speak about it, just invoke it.
 
@@ -5069,6 +5095,19 @@ if (DANIELA_GL_FUNCTION_DECLARATIONS.length > 64) {
 export function lookupLegacyType(name: string): string {
   const entry = registry.find(e => e.declaration.name === name);
   return entry ? entry.legacyType : name.toUpperCase();
+}
+
+/** Returns true if the tool name is registered in the function registry. */
+export function isKnownTool(name: string): boolean {
+  return registry.some(e => e.declaration.name === name);
+}
+
+/** Shape stored on session._lastDispatch by dispatcher handlers for buildContinuationResponse. */
+export interface DispatchResult {
+  selector: string;
+  status: 'success' | 'error';
+  params?: Record<string, unknown>;
+  error?: string;
 }
 
 const responseBuildersByLegacyType = new Map<string, NonNullable<DanielaFunctionEntry['buildContinuationResponse']>>();

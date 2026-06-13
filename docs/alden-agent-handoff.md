@@ -24,6 +24,37 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 13, 2026 (part 4) — Dispatcher self-correction + silent execution**
+
+### What was built
+Three improvements to the dispatcher architecture based on Gemini 3-flash insider audit:
+
+**1. Silent execution directive** in `GL_DISPATCHER_SYSTEM_PROMPT`:
+"Execute all four dispatcher tools silently. Do not narrate, announce, or describe the action to the student. Simply invoke the tool and continue speaking. Only mention a failure if the tool returns an error."
+(3-flash confirmed: explicitly telling it not to narrate prevents "I'm going to show..." before tool calls)
+
+**2. Unknown widget/type/action detection** in all 4 dispatcher handlers (`native-fc-handlers.ts`):
+- `isKnownTool(name)` check before routing — catches hallucinated names ("show_clock" vs "set_clock")
+- On unknown: `console.error` + sets `session._lastDispatch { status: 'error', error: ... }`
+- On missing selector: `console.warn` + error dispatch result
+- Previously: silently routed to dead handler, Gemini got `{ result: 'done' }` back and thought it worked, no self-correction possible
+
+**3. `buildContinuationResponse` added to all 4 dispatcher registry entries** (`daniela-function-registry.ts`):
+- On success: `{"status":"displayed","widget":"set_clock","params":{"time":"3:30"}}`
+- On error: `{"error":"Unknown widget 'show_clock'","hint":"Valid widgets: set_clock, set_emotion, ..."}`
+- Gemini now knows what's on screen (state confirmation) and can self-correct on name hallucinations
+- Pattern: handler sets `session._lastDispatch`, registry builder reads it — same pattern as other tools in the registry
+
+**New exports added to `daniela-function-registry.ts`:**
+- `isKnownTool(name: string): boolean` — checks if a tool name exists in the registry
+- `interface DispatchResult { selector, status, params?, error? }` — typed shape for `_lastDispatch`
+
+### Files changed
+- `server/services/daniela-function-registry.ts` — system prompt, 4 dispatcher buildContinuationResponse, isKnownTool, DispatchResult
+- `server/services/native-fc-handlers.ts` — import isKnownTool, all 4 dispatcher cases updated
+
+---
+
 **Session: June 13, 2026 (part 3) — Fullscreen black-screen bug fixed + Gemini 2.5 Pro audit**
 
 ### What was fixed

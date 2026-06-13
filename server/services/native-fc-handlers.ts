@@ -23,7 +23,7 @@ import { WhiteboardItem, WordMapItem, isWordMapItem, SelfSurgeryItemData } from 
 import { StreamingWhiteboardMessage } from "@shared/streaming-voice-types";
 import { WebSocket as WS } from "ws";
 import type { IStorage } from "../storage";
-import { lookupLegacyType } from "./daniela-function-registry";
+import { lookupLegacyType, isKnownTool } from "./daniela-function-registry";
 
 /**
  * Parses the params_json string from a dispatcher tool call.
@@ -117,11 +117,18 @@ export class NativeFunctionCallHandler {
         const widget = fn.args.widget as string | undefined;
         if (!widget) {
           console.warn('[Dispatcher] classroom_widget called without widget selector');
+          (session as any)._lastDispatch = { selector: '', status: 'error', error: 'No widget specified' };
+          break;
+        }
+        if (!isKnownTool(widget)) {
+          console.error(`[Dispatcher] classroom_widget: unknown widget "${widget}" — not in registry`);
+          (session as any)._lastDispatch = { selector: widget, status: 'error', error: `Unknown widget "${widget}". Use a valid enum value.` };
           break;
         }
         const params = parseDispatcherParams(fn.args.params_json as string | undefined, widget);
         const legacyType = lookupLegacyType(widget);
         console.log(`[Dispatcher] classroom_widget → ${widget} (${legacyType}), params: ${JSON.stringify(params)}`);
+        (session as any)._lastDispatch = { selector: widget, status: 'success', params };
         const syntheticFn: ExtractedFunctionCall = { name: widget, legacyType, args: params };
         return this.handle(sessionId, session, syntheticFn);
       }
@@ -130,11 +137,18 @@ export class NativeFunctionCallHandler {
         const type = fn.args.type as string | undefined;
         if (!type) {
           console.warn('[Dispatcher] exercise_tool called without type selector');
+          (session as any)._lastDispatch = { selector: '', status: 'error', error: 'No exercise type specified' };
+          break;
+        }
+        if (!isKnownTool(type)) {
+          console.error(`[Dispatcher] exercise_tool: unknown type "${type}" — not in registry`);
+          (session as any)._lastDispatch = { selector: type, status: 'error', error: `Unknown exercise type "${type}". Use a valid enum value.` };
           break;
         }
         const params = parseDispatcherParams(fn.args.params_json as string | undefined, type);
         const legacyType = lookupLegacyType(type);
         console.log(`[Dispatcher] exercise_tool → ${type} (${legacyType}), params: ${JSON.stringify(params)}`);
+        (session as any)._lastDispatch = { selector: type, status: 'success', params };
         const syntheticFn: ExtractedFunctionCall = { name: type, legacyType, args: params };
         return this.handle(sessionId, session, syntheticFn);
       }
@@ -143,11 +157,18 @@ export class NativeFunctionCallHandler {
         const action = fn.args.action as string | undefined;
         if (!action) {
           console.warn('[Dispatcher] memory_action called without action selector');
+          (session as any)._lastDispatch = { selector: '', status: 'error', error: 'No memory action specified' };
+          break;
+        }
+        if (!isKnownTool(action)) {
+          console.error(`[Dispatcher] memory_action: unknown action "${action}" — not in registry`);
+          (session as any)._lastDispatch = { selector: action, status: 'error', error: `Unknown memory action "${action}". Use a valid enum value.` };
           break;
         }
         const params = parseDispatcherParams(fn.args.params_json as string | undefined, action);
         const legacyType = lookupLegacyType(action);
         console.log(`[Dispatcher] memory_action → ${action} (${legacyType}), params: ${JSON.stringify(params)}`);
+        (session as any)._lastDispatch = { selector: action, status: 'success', params };
         const syntheticFn: ExtractedFunctionCall = { name: action, legacyType, args: params };
         return this.handle(sessionId, session, syntheticFn);
       }
@@ -156,11 +177,18 @@ export class NativeFunctionCallHandler {
         const action = fn.args.action as string | undefined;
         if (!action) {
           console.warn('[Dispatcher] admin_action called without action selector');
+          (session as any)._lastDispatch = { selector: '', status: 'error', error: 'No admin action specified' };
+          break;
+        }
+        if (!isKnownTool(action)) {
+          console.error(`[Dispatcher] admin_action: unknown action "${action}" — not in registry`);
+          (session as any)._lastDispatch = { selector: action, status: 'error', error: `Unknown admin action "${action}". Use a valid enum value.` };
           break;
         }
         const params = parseDispatcherParams(fn.args.params_json as string | undefined, action);
         const legacyType = lookupLegacyType(action);
         console.log(`[Dispatcher] admin_action → ${action} (${legacyType}), params: ${JSON.stringify(params)}`);
+        (session as any)._lastDispatch = { selector: action, status: 'success', params };
         const syntheticFn: ExtractedFunctionCall = { name: action, legacyType, args: params };
         return this.handle(sessionId, session, syntheticFn);
       }
