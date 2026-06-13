@@ -193,6 +193,99 @@ export class NativeFunctionCallHandler {
         return this.handle(sessionId, session, syntheticFn);
       }
 
+      case 'DANIELA_INTERNAL': {
+        const diAction = fn.args.action as string | undefined;
+        if (!diAction) {
+          console.warn('[Dispatcher] daniela_internal called without action selector');
+          (session as any)._lastDispatch = { selector: '', status: 'error', error: 'No action specified' };
+          break;
+        }
+        if (!isKnownTool(diAction)) {
+          console.error(`[Dispatcher] daniela_internal: unknown action "${diAction}" — not in registry`);
+          (session as any)._lastDispatch = { selector: diAction, status: 'error', error: `Unknown action "${diAction}". Valid: write_to_self, read_my_diary, read_my_reflections, read_my_core_self, tag_this_moment, set_aspiration, reflect_on_aspiration, remember_i_shared, recall_what_i_shared, express_lane_lookup, read_queued_for_student, flag_for_agent` };
+          break;
+        }
+        const diParams = parseDispatcherParams(fn.args.params_json as string | undefined, diAction);
+        const diLegacyType = lookupLegacyType(diAction);
+        console.log(`[Dispatcher] daniela_internal → ${diAction} (${diLegacyType}), params: ${JSON.stringify(diParams)}`);
+        (session as any)._lastDispatch = { selector: diAction, status: 'success', params: diParams };
+        const diSyntheticFn: ExtractedFunctionCall = { name: diAction, legacyType: diLegacyType, args: diParams };
+        return this.handle(sessionId, session, diSyntheticFn);
+      }
+
+      case 'TEACHING_DELIVERY': {
+        const tdType = fn.args.type as string | undefined;
+        if (!tdType) {
+          console.warn('[Dispatcher] teaching_delivery called without type selector');
+          (session as any)._lastDispatch = { selector: '', status: 'error', error: 'No teaching type specified' };
+          break;
+        }
+        if (!isKnownTool(tdType)) {
+          console.error(`[Dispatcher] teaching_delivery: unknown type "${tdType}" — not in registry`);
+          (session as any)._lastDispatch = { selector: tdType, status: 'error', error: `Unknown teaching type "${tdType}". Valid: teaching_card, vocab_card, lesson_note, quiz_presented, cultural_context, spotlight, pull_lesson_content, grammar_diagram, show_vocab_grid, swap_vocab_image, show_sentence_builder, show_textbook_section, invoke_teaching_skill` };
+          break;
+        }
+        const tdParams = parseDispatcherParams(fn.args.params_json as string | undefined, tdType);
+        const tdLegacyType = lookupLegacyType(tdType);
+        console.log(`[Dispatcher] teaching_delivery → ${tdType} (${tdLegacyType}), params: ${JSON.stringify(tdParams)}`);
+        (session as any)._lastDispatch = { selector: tdType, status: 'success', params: tdParams };
+        const tdSyntheticFn: ExtractedFunctionCall = { name: tdType, legacyType: tdLegacyType, args: tdParams };
+        return this.handle(sessionId, session, tdSyntheticFn);
+      }
+
+      case 'SEARCH_MEMORY': {
+        const smMemoryId = fn.args.memory_id as string | undefined;
+        const smQuery = fn.args.query as string | undefined;
+        const smAfterDate = fn.args.after_date as string | undefined;
+        const smBeforeDate = fn.args.before_date as string | undefined;
+
+        if (smMemoryId) {
+          // Connected memory traversal → FIND_CONNECTED_MEMORIES
+          console.log(`[Dispatcher] search_memory → find_connected_memories, id=${smMemoryId}`);
+          const smConnFn: ExtractedFunctionCall = { name: 'find_connected_memories', legacyType: 'FIND_CONNECTED_MEMORIES', args: { memory_id: smMemoryId, memory_type: fn.args.memory_type, limit: fn.args.limit } };
+          return this.handle(sessionId, session, smConnFn);
+        }
+        if ((smAfterDate || smBeforeDate) && !smQuery) {
+          // Time-based browse → CONVERSATION_DATE_BROWSE
+          console.log(`[Dispatcher] search_memory → browse_conversations_by_date after=${smAfterDate} before=${smBeforeDate}`);
+          const smDateFn: ExtractedFunctionCall = { name: 'browse_conversations_by_date', legacyType: 'CONVERSATION_DATE_BROWSE', args: { after_date: smAfterDate, before_date: smBeforeDate, limit: fn.args.limit } };
+          return this.handle(sessionId, session, smDateFn);
+        }
+        if (smQuery) {
+          // Default: keyword search → UNIFIED_RECALL
+          console.log(`[Dispatcher] search_memory → unified_recall query="${smQuery.substring(0, 60)}"`);
+          const smRecallFn: ExtractedFunctionCall = { name: 'recall', legacyType: 'UNIFIED_RECALL', args: { query: smQuery } };
+          return this.handle(sessionId, session, smRecallFn);
+        }
+        console.warn('[Dispatcher] search_memory called with no query, date range, or memory_id — ignoring');
+        break;
+      }
+
+      case 'SAVE_NOTE': {
+        const snTarget = (fn.args.target as string | undefined) || 'tutor';
+        const snContent = fn.args.content as string | undefined;
+        if (!snContent?.trim()) {
+          console.warn('[Dispatcher] save_note called with no content');
+          break;
+        }
+        if (snTarget === 'hive') {
+          console.log(`[Dispatcher] save_note → save_hive_note`);
+          const snHiveFn: ExtractedFunctionCall = { name: 'save_hive_note', legacyType: 'SAVE_HIVE_NOTE', args: { content: snContent, tags: fn.args.tags } };
+          return this.handle(sessionId, session, snHiveFn);
+        }
+        if (snTarget === 'student') {
+          console.log(`[Dispatcher] save_note → leave_for_next_session`);
+          const snStudentFn: ExtractedFunctionCall = { name: 'leave_for_next_session', legacyType: 'LEAVE_FOR_NEXT_SESSION', args: { content: snContent, targetUserId: fn.args.targetUserId } };
+          return this.handle(sessionId, session, snStudentFn);
+        }
+        // Default: tutor private notebook → TAKE_NOTE
+        const snType = (fn.args.type as string | undefined) || 'session_reflection';
+        const snTitle = (fn.args.title as string | undefined) || snContent.slice(0, 40);
+        console.log(`[Dispatcher] save_note → take_note type="${snType}"`);
+        const snTutorFn: ExtractedFunctionCall = { name: 'take_note', legacyType: 'TAKE_NOTE', args: { type: snType, title: snTitle, content: snContent, tags: fn.args.tags, language: fn.args.language } };
+        return this.handle(sessionId, session, snTutorFn);
+      }
+
       case 'SWITCH_TUTOR': {
         const target = fn.args.target as string | undefined;
         const language = fn.args.language as string | undefined;

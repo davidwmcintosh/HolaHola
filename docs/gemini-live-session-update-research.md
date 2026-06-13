@@ -2,7 +2,7 @@
 
 **Research date:** June 13, 2026  
 **SDK version:** `@google/genai` (installed in this project)  
-**Status:** Feature partially exists at raw protocol level; NOT exposed by the SDK
+**Status:** CONFIRMED HALLUCINATION — does not exist at any level (protocol or SDK)
 
 ---
 

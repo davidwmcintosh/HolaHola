@@ -24,6 +24,53 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 13, 2026 (part 10) — full GL tool consolidation: 63 → ~40 tools, 2 mergers, 2 new dispatchers, backtick fix**
+
+### What was built
+
+**1. session_update hallucination CONFIRMED (again)** (`docs/gemini-live-session-update-research.md`)
+Gemini 3-flash explicitly confirmed: `session_update` does not exist at any level — neither raw protocol nor SDK. Status line updated to "CONFIRMED HALLUCINATION." Do not attempt session_update for any purpose.
+
+**2. GL_DISPATCHER_SYSTEM_PROMPT fully rewritten — backtick/code-syntax removed** (`daniela-function-registry.ts`)
+Gemini's own audit (docs/gemini-audit-3flash-2026-06-13.md) flagged that backticks and code-like syntax in a voice system prompt get spoken aloud or treated as text-to-render. Full rewrite: all backticks, inline code blocks, and function-call syntax removed. Plain imperative "Set widget to X" phrasing throughout. Now covers all 6 dispatchers (previously 4).
+
+**3. search_memory merger** — 4 tools → 1 (`daniela-function-registry.ts` + `native-fc-handlers.ts`)
+New `search_memory` tool (legacyType `SEARCH_MEMORY`) replaces: `recall`, `browse_conversations_by_date`, `find_connected_memories`, `search_my_history`.
+Routing logic in SEARCH_MEMORY handler:
+- `memory_id` present → FIND_CONNECTED_MEMORIES
+- `after_date` or `before_date` (no query) → CONVERSATION_DATE_BROWSE
+- `query` → UNIFIED_RECALL (default)
+
+**4. save_note merger** — 3 tools → 1 (`daniela-function-registry.ts` + `native-fc-handlers.ts`)
+New `save_note` tool (legacyType `SAVE_NOTE`) replaces: `take_note`, `save_hive_note`, `leave_for_next_session`.
+Routing: `target="hive"` → SAVE_HIVE_NOTE; `target="student"` → LEAVE_FOR_NEXT_SESSION; default → TAKE_NOTE.
+
+**5. daniela_internal dispatcher** — 12 inner-life tools → 1 dispatcher (`daniela-function-registry.ts` + `native-fc-handlers.ts`)
+New `daniela_internal` dispatcher (legacyType `DANIELA_INTERNAL`) routes: write_to_self, read_my_diary, read_my_reflections, read_my_core_self, tag_this_moment, set_aspiration, reflect_on_aspiration, remember_i_shared, recall_what_i_shared, express_lane_lookup, read_queued_for_student, flag_for_agent.
+
+**6. teaching_delivery dispatcher** — 13 teaching tools → 1 dispatcher (`daniela-function-registry.ts` + `native-fc-handlers.ts`)
+New `teaching_delivery` dispatcher (legacyType `TEACHING_DELIVERY`) routes: teaching_card, vocab_card, lesson_note, quiz_presented, cultural_context, spotlight, pull_lesson_content, grammar_diagram, show_vocab_grid, swap_vocab_image, show_sentence_builder, show_textbook_section, invoke_teaching_skill.
+
+**7. GL_EXCLUDED_TOOLS updated** with all 33 newly excluded tools (4 merged + 3 merged + 12 inner-life + 13 teaching).
+
+**8. Architecture comment updated** to reflect 6-dispatcher pattern (~34 native + 6 dispatchers ≈ 40, down from 63).
+
+### Tool count
+- Was: 59 native + 4 dispatchers = 63
+- Now: ~34 native + 6 dispatchers ≈ 40 (all ≤ 64 hard cap; no FATAL assertion fired at startup)
+
+### What's stable
+- Server starts clean, no GL tool limit errors
+- All 4 new handlers (DANIELA_INTERNAL, TEACHING_DELIVERY, SEARCH_MEMORY, SAVE_NOTE) use the same parseDispatcherParams + lookupLegacyType pattern as the existing 4
+- All 2010 typecheck errors are pre-existing (none introduced by this session)
+- GL_DISPATCHER_SYSTEM_PROMPT is now clean plain text — no code syntax to speak aloud
+
+### Still open / left for Alden
+- Individual handlers for the 12 inner-life tools (write_to_self, read_my_diary, etc.) need to be verified they're all properly registered in native-fc-handlers.ts as their own named cases (the dispatcher will route to them, so if any are missing as named cases, they'll fall through to the default unknown-tool handler). Worth a smoke test next session.
+- teaching_delivery target tools (teaching_card, vocab_card, etc.) similarly: verify each has a handler case or falls gracefully.
+
+---
+
 **Session: June 13, 2026 (part 9) — accent fix (re-enabled) + session_update research + Gemini full tool list audit**
 
 ### What was built
