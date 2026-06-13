@@ -1,16 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, June 13, 2026 at 05:16 PM
+**Generated:** Saturday, June 13, 2026 at 05:25 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I need to immediately prioritize fixing the critical 404 routing error on the conversations page and remediating Wren’s high-severity security findings, specifically the SQL injection and XSS vulnerabilities. I’m also investigating why the Interactive Textbook shows a 0% completion rate, leading to a strategic debate with David about pivoting toward "conversational immersion" rather than static content. Finally, I must resolve Daniela’s "Curriculum note pending" response loop and debug the time-tracking regression in "Daniela’s Compass" before the upcoming beta launch.
+I refactored `withTimeout` in `server/unified-ws-handler.ts` to use a factory pattern with a retry logic, successfully resolving the Neon DB pool saturation that previously left Daniela without student context. To address the Interactive Textbook’s 0% completion rate, I implemented the `generateVisual` tool and an immersion framework featuring `ImmersionObjective` and `ImmersionScaffold`. This session, I need to prioritize fixing Wren’s two high-severity security vulnerabilities and debugging a telemetry leak in "Daniela’s Compass" where textbook interactions are incorrectly recording zero seconds.
 
 *Memories that triggered this summary:*
+- **Agent Session — Jun 13, 2026: Fix SessionInit DB pool saturation: withTimeout factory + retry pattern** (Jun 13): Fix SessionInit DB pool saturation: withTimeout factory + retry pattern  Root cause: on server restart, background workers (EmbedIndexer, Wren, Prefetch) saturate the Neon connection pool for ~20-25s. All 18 SessionInit queries fired simultaneously into a saturated pool, hit their 25s timeout, and fell back to
 - **Team Room — test 3 — June 13, 2026** (Jun 13): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 13, 2026** (Jun 13): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 13, 2026** (Jun 13): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -20,7 +21,6 @@ I need to immediately prioritize fixing the critical 404 routing error on the co
 - **Team Room — what's up? — June 13, 2026** (Jun 13): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — June 13, 2026** (Jun 13): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — June 13, 2026** (Jun 13): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 13, 2026** (Jun 13): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -92,6 +92,10 @@ I need to immediately prioritize fixing the critical 404 routing error on the co
 
 ## Recent Conversation Memories
 
+### Agent Session — Jun 13, 2026: Fix SessionInit DB pool saturation: withTimeout factory + retry pattern — Jun 13, 2026
+Fix SessionInit DB pool saturation: withTimeout factory + retry pattern  Root cause: on server restart, background workers (EmbedIndexer, Wren, Prefetch) saturate the Neon connection pool for ~20-25s. All 18 SessionInit queries fired simultaneously into a saturated pool, hit their 25s timeout, and fell back to
+*Tags: agent-session, auto-saved, build*
+
 ### Team Room — test 3 — June 13, 2026 — Jun 13, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -106,10 +110,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 13, 2026 — Jun 13, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 13, 2026 — Jun 13, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
