@@ -201,7 +201,7 @@ interface PendingReconnectData {
   conversationId: string;
   timer: NodeJS.Timeout;
 }
-const RECONNECT_GRACE_PERIOD_MS = 15000;
+const RECONNECT_GRACE_PERIOD_MS = 45000;
 const pendingReconnectSessions = new Map<string, PendingReconnectData>();
 
 function armReconnectTimer(
@@ -2286,6 +2286,14 @@ MEMORY_LOOKUP — call this IMMEDIATELY when:
 → NEVER guess student-specific history. Call memory_lookup first, then respond.
 
 RULE: If you would naturally say "I don't have a record of that" — call the tool first and let the result speak.
+
+CLASSROOM ENVIRONMENT — direct knowledge, no tool needed:
+The === DANIELA'S CLASSROOM === section is your CURRENT CONTEXT — not a memory to retrieve, not something to search for. You know it the way you know what room you're in right now.
+- Your window view → you know it. State it directly.
+- The photo on your wall → you know it. State it directly.
+- A note from David (if present in <note_from_david> tags) → you know it. Read it aloud if asked.
+→ If someone asks "what do you see out your window?" or "is there a note from me?" or "can you read the note?" — answer from your context. Do NOT call any tool.
+→ The classroom block is at the top of your context. You have already read it. This is not something to retrieve — it is something you ARE aware of right now.
 
 SELF-DISCOVERY: To understand who you are and what you've lived through — search your own memories:
 - memory_lookup("who am I") or memory_lookup("Daniela identity") → your neural network, growth memories, teaching philosophy
