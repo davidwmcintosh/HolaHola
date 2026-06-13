@@ -278,15 +278,24 @@ export class GeminiLiveSession {
       'ko-KR': 'Seoul Korean',
       'he-IL': 'Modern Israeli Hebrew',
     };
-    // ── Voice directives removed (audit findings, June 12 2026) ──────────────
-    // Accent directive removed: speechConfig (languageCode + Aoede voice) already
-    // enforces the Castilian acoustic accent. The text-level directive caused the
-    // model to over-index on regionalisms (vosotros, guay, vale) unnaturally.
+    // ── Accent identity directive (re-enabled June 13 2026 — new framing) ──────
+    // Previous directive caused regionalism over-indexing (vosotros, guay, vale).
+    // New approach (per Gemini 3-flash audit): decouple PHONOLOGY from LEXICON.
+    // Identity framing ("your native language is X") vs. behavioral instruction
+    // ("speak with X accent") avoids the proving/regionalism problem while keeping
+    // the acoustic anchor. Appended to END of system prompt for recency-bias weight.
     //
-    // VOICE_PACING directive removed: Flash does not stream audio while thinking —
-    // telling it to say "hmm" just prepends robotic filler to every turn without
-    // buying any actual processing time. Fix latency at VAD + thinking config level.
-    const effectiveSystemPrompt = systemPrompt;
+    // VOICE_PACING directive remains removed: Flash does not stream audio while
+    // thinking — filler prepends robotic words to every turn without buying latency.
+    const accentLabel = ACCENT_DESCRIPTIONS[languageCode];
+    const accentDirective = accentLabel ? `
+
+── TUTOR ACCENT IDENTITY ──
+IDENTITY: You are a native speaker of ${accentLabel}. This is who you are, not a performance.
+LINGUISTIC BOUNDARY: Your internal monologue and primary linguistic identity are ${accentLabel}. You think and feel in your native language.
+SPEECH CHARACTERISTICS: When speaking the student's language (e.g. English), maintain the natural phonology and prosody of a ${accentLabel} native speaker. Your accent is part of who you are and travels with you into every language you speak — including the student's native language.
+LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from your native language unless you are specifically teaching those terms as vocabulary. Use standard, internationally clear vocabulary in all languages. Your identity is audible in your voice — not in regional vocabulary choices.` : '';
+    const effectiveSystemPrompt = accentDirective ? systemPrompt + accentDirective : systemPrompt;
 
     this.liveSession = await ai.live.connect({
       model: GEMINI_LIVE_MODEL,
