@@ -24,6 +24,47 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 13, 2026 (part 9) — accent fix (re-enabled) + session_update research + Gemini full tool list audit**
+
+### What was built
+
+**1. Accent identity directive re-enabled** (`server/services/gemini-live-session.ts`)
+Previous directive removed (part 7) because it caused regionalism over-indexing (vosotros, guay, vale). New approach from Gemini 3-flash audit: **decouple PHONOLOGY from LEXICON** using identity framing. Four blocks appended to END of system prompt (recency-bias weight):
+- `IDENTITY`: "You are a native speaker of X. This is who you are, not a performance."
+- `LINGUISTIC BOUNDARY`: "Your internal monologue and primary linguistic identity are X."
+- `SPEECH CHARACTERISTICS`: Maintain phonology/prosody of native speaker when speaking student's language.
+- `LEXICAL CONSTRAINT`: No regional slang/fillers unless teaching them. Identity is audible in voice, not vocabulary.
+
+Key insight: the old directive said "speak with X accent" (behavioral instruction → model tries to prove it via regionalisms). New says "you ARE a native speaker" (identity → accent is just who they are).
+
+**2. session_update verified — does NOT exist in current SDK** (`docs/gemini-live-session-update-research.md`)
+Gemini 3-flash described `session_update` as a mid-session tool-swap mechanism. Verified against `@google/genai` SDK: the `Session` class has only 4 methods (`sendClientContent`, `sendRealtimeInput`, `sendToolResponse`, `close`). No `session.update()` exists. `LiveClientMessage` protocol only accepts: `setup` (connection-time, SDK-controlled), `clientContent`, `realtimeInput`, `toolResponse`.
+
+**BUT:** `session.conn` is a public `WebSocket_2` with a `send(message: string)` method — raw WebSocket escape hatch. We could theoretically send `{ setup: { tools: [...], systemInstruction: {...} } }` mid-session. Undocumented, untested, risky. Full research + test plan in `docs/gemini-live-session-update-research.md`.
+
+**3. Full tool list audit with Gemini 3-flash** (`docs/gemini-audit-full-toollist-2026-06-13.md`)
+Sent the complete 63-tool inventory (59 native + 4 dispatchers) to Gemini for State-Based Tool Injection design. Key findings:
+- We're "Native Heavy" — 59 native is Flat Native Architecture, causes Tool Confusion + Parameter Bleed
+- Target: **~12 native + 4 dispatchers = 16 top-level choices** (vs 63 now)
+- Middle-Loss starts at 20-25 top-level definitions; sweet spot is 12 native
+- Merge recommendation: `recall` + `search_my_history` + `find_connected_memories` + `browse_conversations_by_date` → one `search_memory(query, date_filter, type)` tool
+- Merge recommendation: `take_note` + `save_hive_note` + `leave_for_next_session` → one `save_note(target=student|tutor|hive)`
+- Demote all 12 Daniela inner-life natives → `daniela_internal` dispatcher
+- Demote all 14 teaching delivery natives → `teaching_delivery` dispatcher
+- Phase profiles designed for each dispatcher (≤10 enum values per profile)
+- David confirmed: tool consolidation is the right direction
+
+### What's still open
+- The actual tool consolidation refactor (major, needs its own session): demote 47+ native tools to dispatchers, merge redundant memory tools, create `daniela_internal` + `teaching_delivery` dispatchers
+- session_update raw WebSocket test: send `{ setup: { tools: [] } }` via `session.conn.send()` in a dev session and observe behavior (see docs for test plan)
+
+### Files changed
+- `server/services/gemini-live-session.ts` — accent identity directive re-enabled with identity-framing approach
+- `docs/gemini-live-session-update-research.md` — NEW: complete research on mid-session config updates, SDK verification, escape hatch documentation
+- `docs/gemini-audit-full-toollist-2026-06-13.md` — NEW: full tool list audit results from Gemini 3-flash
+
+---
+
 **Session: June 13, 2026 (part 8) — audio doubling bug investigation + two fixes**
 
 ### What was built / found
