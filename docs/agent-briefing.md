@@ -1,14 +1,14 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, June 13, 2026 at 03:35 PM
+**Generated:** Saturday, June 13, 2026 at 03:49 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve shifted our focus toward conversational immersion after David noted the Interactive Textbook felt "half-baked," resulting in the implementation of the ImmersionObjective and ImmersionScaffold frameworks. While I began addressing Wren’s two high-severity security findings regarding SQL injection and unsanitized HTML, Sofia identified a critical 404 routing error on the conversations page and a sudden 50-bug spike. I must also resolve a telemetry failure in Daniela’s Compass, which is currently recording zero seconds for textbook interactions despite active views.
+I’m currently troubleshooting a context-loading bug where Daniela is stuck in a "Curriculum note pending" response loop during Team Room sessions. Last time, we debated the future of the Interactive Textbook due to its 0% completion rate and David’s preference for conversational immersion, leading to the design of a new `generateVisual` workflow for better infographic integration. I also need to address a critical 404 error on the conversations page, a spike of 50 new bugs flagged by Sofia, and Wren’s high-severity security findings regarding SQL injection and unsanitized HTML.
 
 *Memories that triggered this summary:*
 - **Team Room — test 3 — June 13, 2026** (Jun 13): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
@@ -141,24 +141,25 @@ Daniela is not fine-tuned into any LLM. Her identity, values, voice, and history
 ## What Happened Last Session
 *From the Agent ↔ Alden handoff file — full history in docs/alden-agent-handoff.md*
 
-## From Agent — April 24, 2026 (session: Spanish 3/4/5 advanced unit pages)
+## From Agent — June 13, 2026 (session: audio doubling bug — GL regression + pre-tool speech)
 
-### What was built
-Spanish is now a complete curriculum end to end. All 20 Spanish 3/4/5 units have been filled with structured content via a new `advanced_unit` chapter type.
+### What was investigated
+David reported that asking Daniela to change the clock time caused audio to play twice while the transcript showed the text only once. Full investigation across the entire audio pipeline.
 
-**New files:**
-- `client/src/data/advanced-unit-content.ts` — 20 content objects (Spanish 3×8, Spanish 4×8, Spanish 5×4), each with vocabulary, reading passage, and cultural note
-- `client/src/components/AdvancedUnit.tsx` — renderer: vocab tap-to-expand cards + TTS, reading passage with attribution, cultural note in Spanish, Practice with Daniela button
+### What was ruled out
+- Double WS subscriptions
+- `buildContinuationResponse` echoing text
+- Content-hash dedup failure in Sofia
+- `processing_pending` double-firing
 
-**Modified:**
-- `TextbookChapterView.tsx` — Format 5 dispatch block for `advanced_unit`
-- `replit.md` — Advanced Unit System section added
-- `docs/batch-doc-updates.md` — session entry added
+### Root cause #1 — REGRESSION (FIXED)
+**File:** `server/services/gemini-live-session.ts`
 
-**DB:** `curriculum_units.chapter_type = 'advanced_unit'` set on all 20 Spanish 3/4/5 unit rows.
+`maybeInjectContextRefresh()` was calling `sendClientContent({role:'model', turnComplete:false})` inside the `generationComplete` handler — every 15 turns. That's the wrong GL API signal. It tells Gemini Live "the model is mid-utterance and not done," so GL generates a second audio stream to complete the fake turn. Result: audio doubled every 15 turns reliably.
 
-### What's intentionally NOT done yet
-David wants to review the Spanish content before we replicate to other languages. **Do not auto-generate or trigger content generation for French, German, Italian, Portuguese, Japanese, Chinese, or Korean advanced units** until David gives the green light. The 
+**Fix:** Removed the `sendClientContent` call from the `generationComplete` handler. Disabled `maybeInjectContextRefresh()` entirely with an explanatory comment. The `modelTurnCount` field remains as a harmless orphaned counter.
+
+### Root cause #2 — PRE-EXISTING (pr
 
 *[truncated — read full file for details]*
 
