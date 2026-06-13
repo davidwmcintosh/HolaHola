@@ -24,6 +24,42 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 13, 2026 (part 14) — GL classroom context blindness: root cause + full fix**
+
+### What was built
+
+**Root cause (fully confirmed and fixed):**
+The GL system prompt was assembled as: persona (~32K) + GL_DISPATCHER_SYSTEM_PROMPT (~4K) + neural net + TOC = 40K+. The 34K hard cap trims from the END. The classroom block (14K) was being appended/prepended but the real issue is the full assembled prompt already exceeded 34K before classroom was even added. The "✓ Classroom context baked" log fired BEFORE the cap trim — a false positive.
+
+**Fix 1 — Compact GL classroom** (`server/services/classroom-environment.ts`):
+- Added `isGL?: boolean` param to `buildClassroomEnvironment()`
+- When `isGL: true`, returns a compact ~1.5K block instead of the full 14K
+- Compact block contains only what matters for voice: `<note_from_david>`, `<your_window_view>`, `<your_photo_on_wall>`, mode, student name, top-3 personal facts, credit balance, active scenario
+- Drops for GL: toolRack (redundant with GL tool declarations), studentProgressBoard, patternCompassSection, northStarWall, identityWall, textbookSection — all either redundant or fetchable via tools during session
+
+**Fix 2 — Priority reorder** (`server/unified-ws-handler.ts`):
+- Changed GL prompt assembly from naive prepend to a structured priority reorder
+- Strips GL_DISPATCHER_SYSTEM_PROMPT from its tail position in the assembled prompt, then rebuilds as:
+  - [0–1.5K] compact classroom (davidNote, window, photo, mode, top facts)
+  - [1.5–5.5K] GL_DISPATCHER_SYSTEM_PROMPT (audio mode + dispatcher routing)
+  - [5.5–34K] first ~28.5K of persona (identity, language rules, student snapshot)
+  - [34K+] trimmed (deep neural net / TOC tail — least critical)
+- Passes `isGL: true` to `buildClassroomEnvironment`
+- Log now shows: `[GeminiLive] ✓ System prompt REORDERED: classroom(N) + dispatcher(N) + persona(N) = N chars total`
+
+**Also active from earlier this session (part 13):**
+- Reconnect grace period: 15s → 45s (unified-ws-handler.ts line 207)
+- Explicit "CLASSROOM ENVIRONMENT — direct knowledge, no tool needed" rule in mandatory tool rules section
+- davidNote API + UI, XML tags on window/photo, improved classroom injection logging
+
+### What to watch for
+- Next GL session logs should show: `[GeminiLive] ✓ System prompt REORDERED: classroom(~1500) + dispatcher(~4000) + persona(~28000) = ~34000 chars total`
+- If classroom chars >> 2000, the compact path may not be firing — check `isGL: true` is being passed
+- If Daniela still can't see the note/window/photo, check that `getDavidNote()` is returning correctly from `product_config` DB
+- The Gemini 3.5 audit also recommended: dynamic tool registration per lesson (only inject the 10-15 most relevant tools vs. all 40). That's a larger refactor — not done yet.
+
+---
+
 **Session: June 13, 2026 (part 13) — Classroom context injection audit + David's note feature**
 
 ### What was built

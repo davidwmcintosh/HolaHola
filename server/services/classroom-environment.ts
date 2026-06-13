@@ -365,6 +365,7 @@ export async function buildClassroomEnvironment(params: {
     } | null;
   } | null;
   currentLessonId?: string;
+  isGL?: boolean;
 }): Promise<string> {
   const {
     userId,
@@ -387,6 +388,7 @@ export async function buildClassroomEnvironment(params: {
     technicalHealthNote,
     activeScenario,
     currentLessonId,
+    isGL = false,
   } = params;
 
   const [personalFacts, milestoneCount, danielaPhoto, classroomWindow, davidNote, userRow, principles, recentNotes, textbookContent, sceneZones, compartmentRows] = await Promise.all([
@@ -476,6 +478,38 @@ export async function buildClassroomEnvironment(params: {
       .limit(40)
       .catch(() => [] as any[]),
   ]);
+
+  // ── GL COMPACT PATH ─────────────────────────────────────────────────────────
+  // For Gemini Live voice sessions, the full classroom block (~14K chars) pushes
+  // the system prompt past the 34K hard cap, silently cutting the classroom entirely.
+  // GL compact mode returns only the CRITICAL fields (~1.5K chars):
+  //   davidNote, window view, photo, mode, student name, top-3 facts, credits.
+  // Everything else (toolRack, patternCompass, progressBoard, northStarWall,
+  // identityWall, textbook) is either redundant with GL tool declarations or
+  // better fetched via tools during the session.
+  if (isGL) {
+    const modeLabel = isRawHonestyMode ? "Honesty Mode" : isFounderMode ? "Founder Mode" : "Tutor Mode";
+    const studentName = userRow?.firstName || "Student";
+    const topFacts = (personalFacts || []).slice(0, 3).map(f => f.fact).join(' | ');
+    let creditLine = creditRemainingSeconds !== undefined
+      ? `${(creditRemainingSeconds / 3600).toFixed(1)}h remaining`
+      : '';
+    const davidNoteSection = davidNote
+      ? `<note_from_david>\n${davidNote}\n</note_from_david>\n`
+      : '';
+    const incognitoLine = isIncognito
+      ? '\nROOM STATUS: INCOGNITO — nothing from this session is saved. Speak candidly.\n'
+      : '';
+    const activeScenarioLine = activeScenario
+      ? `\nActive Scene: "${activeScenario.title}" at ${activeScenario.location}`
+      : '';
+
+    return `=== DANIELA'S CLASSROOM (VOICE) ===
+${davidNoteSection}<your_window_view>${classroomWindow}</your_window_view>
+<your_photo_on_wall>${danielaPhoto}</your_photo_on_wall>
+Mode: ${modeLabel} | Exchanges: ${exchangeCount}${creditLine ? ` | Credits: ${creditLine}` : ''}
+Student: ${studentName}${topFacts ? `\nWhat you know: ${topFacts}` : ''}${activeScenarioLine}${incognitoLine}=== END CLASSROOM ===`.trim();
+  }
 
   const phaseContext = phaseTransitionService.getCurrentPhase(userId);
   const currentPhase = phaseContext?.currentPhase || "conversation";

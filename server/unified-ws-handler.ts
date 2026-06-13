@@ -2213,10 +2213,29 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
                     studentLearningSection: session.cachedContext?.studentLearningSection,
                     technicalHealthNote: voiceDiagnostics.getTechnicalHealthContext(),
                     activeScenario: null,
+                    isGL: true,
                   });
                   if (classroomCtx) {
-                    geminiLiveSystemPrompt += '\n\n' + classroomCtx;
-                    console.log(`[GeminiLive] ✓ Classroom context baked into system prompt (${classroomCtx.length} chars) — preview: "${classroomCtx.substring(0, 120).replace(/\n/g, '↵')}"`);
+                    // PRIORITY REORDER: classroom + dispatcher must be the FIRST content Daniela reads.
+                    //
+                    // Problem: The assembled base prompt is 40K+ chars (persona ~32K + dispatcher ~4K +
+                    // neural net + TOC). The 34K hard cap trims from the END — so with a naive prepend,
+                    // the dispatcher (at position ~36K) and neural net still get cut.
+                    //
+                    // Solution: Strip GL_DISPATCHER_SYSTEM_PROMPT out of wherever it landed in the base
+                    // prompt and move it to position 2 (right after the compact classroom). That gives us:
+                    //   [0-1.5K]  compact classroom (davidNote, window, photo, mode, top facts)
+                    //   [1.5-5.5K] GL_DISPATCHER_SYSTEM_PROMPT (audio mode + dispatcher routing)
+                    //   [5.5-34K]  first ~28.5K of persona (identity, language rules, student snapshot)
+                    //   [34K+]     trimmed (deep neural net / TOC tail — least critical)
+                    //
+                    // The compact classroom was built with isGL:true — drops from 14K to ~1.5K by
+                    // omitting the toolRack, studentProgressBoard, patternCompass, northStarWall, etc.
+                    // (all redundant with GL tool declarations or fetchable via tools during session).
+                    const baseWithoutDispatcher = geminiLiveSystemPrompt.replace(GL_DISPATCHER_SYSTEM_PROMPT, '');
+                    geminiLiveSystemPrompt = classroomCtx + '\n\n' + GL_DISPATCHER_SYSTEM_PROMPT + '\n\n' + baseWithoutDispatcher;
+                    const totalChars = geminiLiveSystemPrompt.length;
+                    console.log(`[GeminiLive] ✓ System prompt REORDERED: classroom(${classroomCtx.length}) + dispatcher(${GL_DISPATCHER_SYSTEM_PROMPT.length}) + persona(${baseWithoutDispatcher.length}) = ${totalChars} chars total`);
                   } else {
                     console.error('[GeminiLive] ✗ Classroom context was empty/null — Daniela will be BLIND to her environment this session');
                   }
