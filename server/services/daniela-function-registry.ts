@@ -4861,40 +4861,58 @@ export const TOOL_LEGACY_TYPE_MAP: Record<string, string> = Object.fromEntries(
 /**
  * System prompt section that explains the dispatcher pattern to Daniela.
  * Appended to the GL session system instruction after the neural net context.
- * Per Gemini 3.x guidance: must be EXPLICIT — do not rely on inference.
+ *
+ * CRITICAL: Do NOT include function-call syntax (e.g. tool(arg:"val")) in
+ * this text. Gemini Live in audio mode will literally SPEAK that syntax aloud
+ * instead of invoking the tool. Use plain imperative language only.
  */
 export const GL_DISPATCHER_SYSTEM_PROMPT = `
 
-## Tool Dispatchers — Access All Classroom Capabilities
+## Extended Classroom Tools — Use These Four Dispatcher Tools
 
-You have 4 dispatcher tools that route to the full set of 139 classroom tools. Always use these dispatchers for the capabilities listed below.
+You have four special routing tools that give you access to every classroom capability. When you want any of the following, USE the corresponding dispatcher tool — do not speak about it, just invoke it.
 
-**classroom_widget(widget, params_json)** — visual widgets:
-  clock → classroom_widget(widget:"set_clock", params_json:'{"time":"3:30"}')
-  emotion → classroom_widget(widget:"set_emotion", params_json:'{"level":8,"label":"confused"}')
-  Kanji anatomy → classroom_widget(widget:"set_body_part", params_json:'{"part":"arm","label":"el brazo"}')
-  country map → classroom_widget(widget:"highlight_country", params_json:'{"country":"Mexico"}')
-  weather → classroom_widget(widget:"set_weather", params_json:'{"condition":"sunny","temperature":"72"}')
-  whiteboard → classroom_widget(widget:"hold_whiteboard", params_json:'{}') or classroom_widget(widget:"clear_whiteboard", params_json:'{}')
-  CRITICAL: params_json must NOT contain the widget name as a key. {"time":"3:30"} ✓ — {"set_clock":"3:30"} ✗
+**classroom_widget** — for any visual classroom display.
+  Use widget="set_clock" to show a clock on screen. Pass the time in params_json as {"time":"3:30"}.
+  Use widget="set_emotion" to show an emotion meter. Pass {"level":8,"label":"confused"} style params.
+  Use widget="set_weather" to show a weather widget. Pass {"condition":"sunny","temperature":"72"}.
+  Use widget="highlight_country" to show a country on a map. Pass {"country":"Mexico"}.
+  Use widget="set_body_part" or "set_face_part" or "set_hand_part" for anatomy diagrams.
+  Use widget="hold_whiteboard" or "clear_whiteboard" for the whiteboard.
+  Use widget="enter_immersive" for an immersive background scene.
+  Use widget="compose_visual_scene" or "search_visual_library" to build a visual scene.
+  Use widget="grammar_table" for a grammar reference table.
+  Use widget="write" to put text on a text widget.
+  Use widget="show_sentence_table" for a sentence breakdown table.
+  Use widget="show_menu" for a restaurant menu, widget="show_daily_plan" for a daily plan card.
+  Use widget="set_right_pane" to control the right pane content.
+  Use widget="sense_time" to get the current time.
+  params_json rule: pass ONLY the widget's own parameters. Do NOT include the widget name as a key.
 
-**exercise_tool(type, params_json)** — language exercises:
-  Kanji stroke → exercise_tool(type:"stroke", params_json:'{"character":"水","language":"Japanese"}')
-  phonetic → exercise_tool(type:"phonetic", params_json:'{"word":"hola","language":"Spanish"}')
-  tones → exercise_tool(type:"tone", params_json:'{"word":"ma","tones":[1,2,3,4]}')
-  conjugation → exercise_tool(type:"init_conjugation_table", params_json:'{"verb":"hablar","tense":"present"}')
-  vocab drill → exercise_tool(type:"drill_session", params_json:'{"topic":"food","count":10}')
-  CRITICAL: params_json must NOT contain the exercise type name as a key.
+**exercise_tool** — for any language exercise or drill.
+  Use type="stroke" for Kanji/CJK stroke order animation. Pass {"character":"水","language":"Japanese"}.
+  Use type="phonetic" for phonetic alphabet display. Pass {"word":"hola","language":"Spanish"}.
+  Use type="tone" for tone mark display. Pass {"word":"ma","tones":[1,2,3,4]}.
+  Use type="init_conjugation_table" to start a conjugation table, type="fill_conjugation" to fill cells.
+  Use type="drill_session" or "drill" for vocabulary drills.
+  Use type="start_textbook_page" or "search_textbook" for textbook content.
+  Use type="reading" for a reading passage, type="compare" for word comparison, type="word_map" for a word map.
+  Use type="summary" for an end-of-session summary, type="culture" for a cultural note.
+  params_json rule: pass ONLY the exercise's own parameters. Do NOT include the exercise type as a key.
 
-**memory_action(action, params_json)** — memory and progress:
-  save memory → memory_action(action:"save_conversation_memory", params_json:'{"title":"Session title","summary":"What happened"}')
-  browse syllabus → memory_action(action:"browse_syllabus", params_json:'{}')
-  due vocab → memory_action(action:"review_due_vocab", params_json:'{}')
-  CRITICAL: params_json must NOT contain the action name as a key.
+**memory_action** — for memory and learning-progress operations.
+  Use action="save_conversation_memory" to save a notable session. Pass {"title":"...","summary":"..."}.
+  Use action="browse_syllabus" to review the curriculum. Pass {}.
+  Use action="review_due_vocab" to see vocabulary due for review. Pass {}.
+  Use action="mark_lesson_covered" to mark a lesson complete. Pass {"lessonId":"..."}.
+  Use action="show_progress" to show the student's progress dashboard.
+  Use action="set_learning_goal" to set or update a learning goal.
+  params_json rule: pass ONLY the action's own parameters. Do NOT include the action name as a key.
 
-**admin_action(action, params_json)** — bookkeeping:
-  hive note → admin_action(action:"hive_suggestion", params_json:'{"content":"Student is ready for subjunctive"}')
-  CRITICAL: params_json must NOT contain the action name as a key.
+**admin_action** — for session bookkeeping.
+  Use action="hive_suggestion" to post a teaching insight to the Hive. Pass {"content":"..."}.
+  Use action="close_session" when ending a session.
+  params_json rule: pass ONLY the action's own parameters. Do NOT include the action name as a key.
 `.trimEnd();
 
 /**
