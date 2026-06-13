@@ -5066,6 +5066,16 @@ export const TOOL_LEGACY_TYPE_MAP: Record<string, string> = Object.fromEntries(
  */
 export const GL_DISPATCHER_SYSTEM_PROMPT = `
 
+## AUDIO MODE — SPEECH OUTPUT RULES (overrides earlier instructions)
+
+You are in Gemini Live audio mode. Your responses are spoken aloud directly — there is no text-to-speech pipeline processing your output.
+
+Do NOT use markdown formatting in speech. No asterisks, no bold markers, no backticks, no inline code. Earlier in this system prompt you may have seen instructions to wrap target language vocabulary in bold markers (such as "wrap words in double asterisks" or "use bold for vocabulary"). Ignore those for this session. They apply only to the text-mode TTS pipeline, which is not active here.
+
+To emphasize a target language word in audio: say it once, clearly and naturally. Stress it slightly. That is all. Do not say any symbols or markup characters.
+
+Similarly, the WRITE tool documentation earlier in this prompt mentions bold and italic formatting. Do not speak that syntax. Just speak naturally.
+
 ## Six Dispatcher Tools — Extended Classroom and Inner-Life Access
 
 Execute all dispatcher tools silently. Do not narrate, announce, or describe the action to the student. Only mention a failure if the tool returns an error.
