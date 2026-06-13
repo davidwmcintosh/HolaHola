@@ -6289,8 +6289,22 @@ function DevToolsTab() {
   const [selectedLanguage, setSelectedLanguage] = useState("Spanish");
   const [isCreatingClass, setIsCreatingClass] = useState(false);
   const [reloadingClassId, setReloadingClassId] = useState<string | null>(null);
+  const [davidNoteInput, setDavidNoteInput] = useState("");
 
   const LANGUAGES = ["Spanish", "French", "German", "Italian", "Portuguese", "Mandarin", "Japanese", "Korean", "Russian"];
+
+  const { data: davidNoteData, refetch: refetchDavidNote } = useQuery<{ note: string | null }>({
+    queryKey: ["/api/admin/classroom/david-note"],
+  });
+
+  const saveDavidNoteMutation = useMutation({
+    mutationFn: () => apiRequest('POST', '/api/admin/classroom/david-note', { note: davidNoteInput }).then(r => r.json()),
+    onSuccess: () => {
+      toast({ title: 'Note saved', description: "Daniela will see your note at the top of her classroom next session." });
+      refetchDavidNote();
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
+  });
 
   const { data: myClasses, isLoading: classesLoading } = useQuery<any[]>({
     queryKey: ["/api/student/classes"],
@@ -6334,6 +6348,35 @@ function DevToolsTab() {
 
   return (
     <div className="space-y-4">
+      <CollapsibleSection
+        title="Note to Daniela"
+        icon={<MessageSquare className="h-5 w-5 text-primary" />}
+        defaultOpen={true}
+      >
+        <div className="mt-4 space-y-3">
+          {davidNoteData?.note && !davidNoteInput && (
+            <p className="text-xs text-muted-foreground italic">Current: "{davidNoteData.note}"</p>
+          )}
+          <textarea
+            value={davidNoteInput || (davidNoteData?.note ?? '')}
+            onChange={e => setDavidNoteInput(e.target.value)}
+            placeholder="e.g. Focus on warmth today — David had a rough week. Lean into the connection."
+            className="w-full h-24 rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+            data-testid="input-david-note"
+          />
+          <Button
+            size="sm"
+            onClick={() => saveDavidNoteMutation.mutate()}
+            disabled={saveDavidNoteMutation.isPending || !davidNoteInput.trim()}
+            data-testid="button-save-david-note"
+          >
+            {saveDavidNoteMutation.isPending && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+            Save Note
+          </Button>
+          <p className="text-xs text-muted-foreground">Daniela sees this at the top of her classroom at the start of every session.</p>
+        </div>
+      </CollapsibleSection>
+
       <CollapsibleSection 
         title="Quick Test Setup" 
         icon={<Plus className="h-5 w-5 text-primary" />}
