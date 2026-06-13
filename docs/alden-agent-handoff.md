@@ -24,6 +24,29 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 13, 2026 — Gemini second-pass audit complete**
+
+### What was fixed
+
+**daniela-function-registry.ts — CRITICAL GL tool limit breach**
+`GL_EXCLUDED_TOOLS` was never updated as the registry grew from ~74 to 139 tools. The intended exclusion list (described in a comment at line 4724) was never implemented — only 6 tools were excluded. Result: `DANIELA_GL_FUNCTION_DECLARATIONS` had **133 tools**, more than double Gemini Live's hard limit of 64. Every GL voice session was sending an oversized payload.
+
+Fix: expanded `GL_EXCLUDED_TOOLS` to 76 entries (visual classroom widgets, text-mode exercises, admin/post-session tools, deprecated tools). GL set is now **63 tools**. Added a `console.error` guard at module load that fires if the count ever exceeds 64 again — it will show in server logs immediately if the registry grows past the limit.
+
+**voice-context-pipeline.ts — HIGH context delimiter mismatch**
+`fetchIdentityMemories` still used the old `═══` ASCII box format — missed in the first-pass audit that upgraded `unified-daniela-context-service.ts` to XML. Fixed to `<context_block type="identity_memories">` to match.
+
+### Verified
+- First-pass fixes confirmed: END_SENSITIVITY_HIGH in gemini-live-session.ts (line 344) ✓ and XML context format in unified-daniela-context-service.ts (lines 298-310) ✓
+
+### Documented (no fix)
+- `createSystemPrompt` in streaming-voice-orchestrator.ts takes **37 positional parameters** with ~10 `undefined` placeholders in the tutor-switch calls. Fragile — one wrong insertion silently shifts all subsequent args. Needs refactor to options object. Filed in audit doc, deferred.
+
+### Pre-existing
+- 2010 typecheck errors across 51 files — pre-existing, not caused by this session's changes.
+
+---
+
 **Session: June 12, 2026 (part 8) — Gemini self-audit implementation complete**
 
 ### What was built

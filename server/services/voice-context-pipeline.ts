@@ -178,13 +178,9 @@ export async function fetchIdentityMemories(cachedSection?: string): Promise<str
   try {
     const identityMemories = await founderCollabService.getIdentityMemories({ limit: 4, daysBack: 30 });
     if (identityMemories.hasMemories) {
-      return `
-═══════════════════════════════════════════════════════════════════
-💫 MY PERSONAL REFLECTIONS (Identity Memories)
-═══════════════════════════════════════════════════════════════════
-
+      return `<context_block type="identity_memories" label="MY PERSONAL REFLECTIONS">
 ${identityMemories.contextString}
-`;
+</context_block>`;
     }
     return '';
   } catch (err: any) {

@@ -4724,58 +4724,129 @@ export const DANIELA_FUNCTION_DECLARATIONS: FunctionDeclaration[] =
 /**
  * Gemini Live has a hard limit of 64 function declarations per session.
  * This is the curated GL subset — voice-call-appropriate tools only.
- * Pure UI widgets, admin tasks, and text-mode-only tools are excluded.
  *
- * Target: ~55 tools (well under the 64 GL cap, leaving headroom for conversation
- * history token growth across a multi-turn session).
+ * AUDIT FIX (June 12, 2026): Registry grew from ~74 to 139 tools but the exclusion list
+ * was not updated, causing DANIELA_GL_FUNCTION_DECLARATIONS to contain ~133 tools —
+ * more than double the 64-tool hard limit. This set now reflects the full intended
+ * exclusion list. Target: ~63 tools (under the 64 hard cap).
  *
- * Dropped from full set (74 tools):
- *   Visual UI widgets: change_classroom_photo, change_classroom_window,
- *     hold_whiteboard, compose_visual_scene, search_visual_library, get_scene_zones,
- *     remove_from_scene, move_in_scene, clear_scene* (kept clear_scene),
- *     set_clock, set_calendar, clear_calendar, set_body_part, clear_body_diagram,
- *     set_face_part, clear_face_diagram, set_hand_part, clear_hand_diagram,
- *     set_thermometer, clear_thermometer, set_emotion, clear_emotion,
- *     set_weather, clear_weather, highlight_country, clear_world_map,
- *     enter_immersive, exit_immersive, show_sentence_table
- *   Text-mode exercises: phonetic, stroke, tone, pronunciation_tag,
- *     culture, context, reading, compare, word_map, play_audio, summary,
- *     init_conjugation_table, fill_conjugation, clear_conjugation_table,
- *     write (text widget), load_vocab_set, drill_session, drill_session_next,
- *     drill_session_end, start_textbook_page, log_page_event, search_textbook
- *   Admin / post-session only: browse_conversations_by_date, get_conversation_themes,
- *     read_full_session, search_conversation_threads, recall_express_lane_image,
- *     express_lane_post, save_conversation_memory, read_full_memory,
- *     hive_suggestion, self_surgery, record_student_consent, dismiss_absence_nudge,
- *     first_meeting_complete, mark_lesson_covered,
- *     set_memory_pin, correct_memory, forget_memory, set_learning_goal,
- *     advance_capability, browse_syllabus, recommend_next, review_due_vocab,
- *     request_text_input, add_curiosity, read_my_curiosities
+ * ASSERTION: DANIELA_GL_FUNCTION_DECLARATIONS.length is checked at module init below.
+ *
+ * NOTE: search_conversation_threads and browse_conversations_by_date are intentionally
+ * NOT excluded — Daniela needs keyword search during voice sessions to recall specific
+ * past conversations (e.g. "find the ting ting ting conversation").
  */
 const GL_EXCLUDED_TOOLS = new Set<string>([
+
+  // === ALREADY ESTABLISHED ===
   // Background behavioral signal — fires silently, never a conversational act
   'record_pattern_signal',
-
   // Session teardown — admin-only; must not fire during an active voice turn
   'close_session',
-
   // Post-session bulk operations — not meaningful mid-conversation
   'save_conversation_memory',
   'get_conversation_themes',
   'read_full_session',
-
   // Pure server-side logging — no output reaches the student
   'log_page_event',
 
-  // NOTE: search_conversation_threads and browse_conversations_by_date are intentionally
-  // NOT excluded — Daniela needs keyword search during voice sessions to recall specific
-  // past conversations (e.g. "find the ting ting ting conversation").
+  // === VISUAL CLASSROOM WIDGETS ===
+  // Pure UI state tools — no conversational output; not meaningful in audio-only GL
+  'change_classroom_photo',
+  'change_classroom_window',
+  'hold_whiteboard',
+  'clear_whiteboard',       // whiteboard write tools unused in GL voice path
+  'compose_visual_scene',
+  'search_visual_library',
+  'get_scene_zones',
+  'remove_from_scene',
+  'move_in_scene',
+  'set_clock',
+  'set_calendar',
+  'set_body_part',
+  'set_face_part',
+  'set_hand_part',
+  'set_thermometer',
+  'set_emotion',
+  'set_weather',
+  'highlight_country',
+  'enter_immersive',        // replaced by load_scenario / open_scene in GL
+  'show_sentence_table',    // static table widget; use show_sentence_builder instead
+  'grammar_table',          // static conjugation display; use grammar_diagram instead
+  'write',                  // text-widget write; GL uses show_teaching_card / show_vocab_card
+
+  // === TEXT-MODE EXERCISES ===
+  // Visual interactive exercises that require the text-mode classroom UI
+  'phonetic',
+  'stroke',
+  'tone',
+  'pronunciation_tag',
+  'culture',                // legacy text widget; use show_cultural_context instead
+  'context',                // legacy text widget
+  'reading',                // reading passage block; not suitable mid-voice
+  'compare',                // legacy comparison widget; use visual_compare instead
+  'word_map',               // legacy word map widget
+  'play_audio',             // pre-recorded audio file; GL has live TTS
+  'summary',                // legacy summary widget
+  'init_conjugation_table',
+  'fill_conjugation',
+  'clear_conjugation_table',
+  'load_vocab_set',         // loads vocab into text session; use pull_lesson_content in GL
+  'drill_session',          // text drill framework; use invoke_teaching_skill in GL
+  'drill',                  // legacy single-item drill tool
+  'start_textbook_page',    // formal textbook guided mode; not suitable mid-voice
+  'search_textbook',        // use pull_lesson_content with topic keyword instead
+  'scenario',               // legacy scenario tool; use load_scenario instead
+  'subtitle',               // double-speech risk: GL speaks audio directly; no TTS bridge needed
+
+  // === ADMIN / POST-SESSION ONLY ===
+  // These tools are meaningful only after a session ends or as part of admin workflows
+  'recall_express_lane_image',
+  'express_lane_post',
+  'read_full_memory',       // deep-archive tool; use recall for session-appropriate lookup
+  'hive_suggestion',        // async Hive workflow; not mid-conversation
+  'self_surgery',           // admin-only self-edit tool
+  'record_student_consent',
+  'dismiss_absence_nudge',
+  'first_meeting_complete',
+  'mark_lesson_covered',    // post-lesson bookkeeping
+  'set_memory_pin',         // memory management; post-session
+  'correct_memory',         // memory correction; post-session
+  'forget_memory',          // memory deletion; post-session
+  'set_learning_goal',      // goal-setting conversation; better in text mode
+  'browse_syllabus',
+  'start_lesson',           // text-mode lesson loader; use pull_lesson_content in GL
+  'recommend_next',
+  'review_due_vocab',
+  'request_text_input',     // requests text typing; GL is voice-only
+  'add_curiosity',
+  'read_my_curiosities',
+  'show_progress',          // progress screen; post-session review
+  'call_support',           // support escalation; not mid-lesson
+
+  // === DEPRECATED / GL-INAPPROPRIATE ===
+  'resume_tutor',           // DEPRECATED: use switch_tutor; persona toggle causes double-speech
+  'speak_as',               // DEPRECATED: use speak_character_line; same issue
+  'call_assistant',         // assistant-mode routing; not standard GL
+  'syllabus_progress',      // async progress check; not mid-conversation
+  'flag_for_fine_tuning',   // annotation tool; post-session
 ]);
 
 export const DANIELA_GL_FUNCTION_DECLARATIONS: FunctionDeclaration[] =
   registry
     .filter(entry => !GL_EXCLUDED_TOOLS.has(entry.declaration.name as string))
     .map(entry => entry.declaration);
+
+// Guard against the registry growing past Gemini Live's 64-tool hard limit.
+// If this assertion fires, either add more tools to GL_EXCLUDED_TOOLS or
+// remove the new tool from the registry and replace with an existing one.
+if (DANIELA_GL_FUNCTION_DECLARATIONS.length > 64) {
+  console.error(
+    `[GL Tool Limit] FATAL: DANIELA_GL_FUNCTION_DECLARATIONS has ` +
+    `${DANIELA_GL_FUNCTION_DECLARATIONS.length} tools — exceeds Gemini Live hard limit of 64. ` +
+    `Add the newest tools to GL_EXCLUDED_TOOLS in daniela-function-registry.ts.`
+  );
+}
 
 /**
  * Look up the legacyType for a function name.
