@@ -13428,6 +13428,60 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
+  // ── Comparison Backgrounds: list all cached backgrounds ──────────────────────
+  app.get('/api/admin/comparison-backgrounds', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const images = await storage.listComparisonBackgrounds();
+      res.json(images);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Comparison Backgrounds: bust one and regenerate ──────────────────────────
+  app.post('/api/admin/comparison-backgrounds/bust', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { conceptA, conceptB, language } = req.body;
+      if (!conceptA || !conceptB || !language) {
+        return res.status(400).json({ error: 'conceptA, conceptB, and language are required' });
+      }
+      const compareCacheKey = `compare_${conceptA}_${conceptB}`.toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 60);
+      const cacheKey = `vocab_${language}_${compareCacheKey}`;
+      const deleted = await storage.deleteMediaFileBySearchQuery(cacheKey);
+
+      // Language-specific background scene (no characters, no text)
+      const languageSceneMap: Record<string, string> = {
+        spanish: 'Warm Spanish classroom',
+        french: 'French classroom with tall arched windows',
+        japanese: 'Japanese study room with shoji screen windows',
+        mandarin: 'Traditional Chinese study room with ink wash aesthetic',
+        german: 'Orderly German classroom',
+        portuguese: 'Portuguese school room with azulejo tile accents',
+        arabic: 'Arabic study room with geometric patterned walls',
+        italian: 'Italian classroom with Mediterranean light',
+        russian: 'Classic Russian school classroom',
+        korean: 'Korean study room with clean modern lines',
+      };
+      const sceneContext = languageSceneMap[language.toLowerCase()] || 'Warm classroom';
+      const bgScene = `${sceneContext}. Two empty chalkboards or panels side by side, nothing written on them. Warm educational atmosphere, soft afternoon light. Watercolor illustration style. No text, no labels, no writing anywhere in the image.`;
+
+      // Regenerate in background — non-blocking
+      (async () => {
+        try {
+          const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
+          await resolveVocabularyImage({ word: compareCacheKey, language, description: `${conceptA} vs ${conceptB}`, scene: bgScene });
+          console.log(`[Admin] Comparison background regenerated: ${cacheKey}`);
+        } catch (e: any) {
+          console.error(`[Admin] Comparison background regen failed for ${cacheKey}:`, e.message);
+        }
+      })();
+
+      res.json({ deleted, cacheKey, message: `Busted "${cacheKey}" (${deleted} row). Regenerating in background.` });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Start vocab image seeding for a single language
   app.post('/api/admin/vocab-images/seed', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {

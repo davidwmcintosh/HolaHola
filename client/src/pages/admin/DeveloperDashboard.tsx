@@ -1016,6 +1016,151 @@ function NeonMigrationPanel() {
 }
 
 const VOCAB_LANGUAGES = ['spanish', 'french', 'german', 'italian', 'portuguese', 'english', 'japanese', 'korean', 'mandarin', 'hebrew'];
+interface ComparisonBg {
+  id: string;
+  searchQuery: string;
+  url: string;
+  usageCount: number;
+  createdAt: string;
+}
+
+function ComparisonBackgroundsPanel() {
+  const { toast } = useToast();
+  const [bustingKey, setBustingKey] = useState<string | null>(null);
+
+  const { data: images = [], isLoading, refetch } = useQuery<ComparisonBg[]>({
+    queryKey: ['/api/admin/comparison-backgrounds'],
+  });
+
+  // Parse cache key into friendly label: vocab_spanish_compare_ser_estar → { language: 'spanish', pair: 'SER vs ESTAR' }
+  const parseKey = (searchQuery: string) => {
+    const m = searchQuery.match(/^vocab_([^_]+)_compare_(.+)$/);
+    if (!m) return { language: searchQuery, pair: searchQuery };
+    const language = m[1];
+    const pair = m[2].replace(/_/g, ' ').replace(/\s+vs\s+/i, ' vs ').toUpperCase();
+    return { language, pair };
+  };
+
+  const bustImage = async (img: ComparisonBg) => {
+    const { language, pair } = parseKey(img.searchQuery);
+    const parts = pair.toLowerCase().split(' vs ');
+    if (parts.length !== 2) {
+      toast({ variant: 'destructive', title: 'Cannot parse pair', description: img.searchQuery });
+      return;
+    }
+    setBustingKey(img.searchQuery);
+    try {
+      const res = await apiRequest('POST', '/api/admin/comparison-backgrounds/bust', {
+        conceptA: parts[0].trim(),
+        conceptB: parts[1].trim(),
+        language,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Bust failed');
+      toast({ title: 'Regenerating', description: data.message });
+      setTimeout(() => { refetch(); }, 8000);
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Bust failed', description: e.message });
+    } finally {
+      setBustingKey(null);
+    }
+  };
+
+  // Group by language
+  const grouped = images.reduce<Record<string, ComparisonBg[]>>((acc, img) => {
+    const { language } = parseKey(img.searchQuery);
+    if (!acc[language]) acc[language] = [];
+    acc[language].push(img);
+    return acc;
+  }, {});
+
+  return (
+    <Card className="bg-muted/30">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Image className="h-4 w-4" />
+              Comparison Widget Backgrounds
+            </CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Label-free classroom scenes used as backgrounds behind the DOM comparison widget.
+              Generated on first use per language, then cached. No characters — scene flavor only.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="text-xs no-default-active-elevate">
+              {images.length} cached
+            </Badge>
+            <Button size="sm" variant="ghost" onClick={() => refetch()} data-testid="button-refresh-compare-bgs">
+              <RefreshCw className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} className="aspect-video rounded-md" />
+            ))}
+          </div>
+        ) : images.length === 0 ? (
+          <div className="text-center py-8 text-sm text-muted-foreground">
+            No comparison backgrounds cached yet — they generate automatically on first use during a voice session.
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {Object.entries(grouped).sort(([a], [b]) => a.localeCompare(b)).map(([lang, langImages]) => (
+              <div key={lang}>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                  {lang}
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {langImages.map(img => {
+                    const { pair } = parseKey(img.searchQuery);
+                    const isBusting = bustingKey === img.searchQuery;
+                    return (
+                      <div key={img.id} className="space-y-1.5" data-testid={`card-compare-bg-${img.id}`}>
+                        <div className="relative group aspect-video rounded-md overflow-hidden border bg-muted/20">
+                          <img
+                            src={img.url}
+                            alt={pair}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="bg-background/90 text-xs"
+                              onClick={() => bustImage(img)}
+                              disabled={isBusting}
+                              data-testid={`button-regen-compare-${img.id}`}
+                            >
+                              {isBusting
+                                ? <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                : <RotateCcw className="h-3 w-3 mr-1" />
+                              }
+                              Regenerate
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="flex items-start justify-between gap-1">
+                          <p className="text-xs font-medium leading-tight">{pair}</p>
+                          <span className="text-[10px] text-muted-foreground shrink-0">{img.usageCount}×</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 // ── Image Audit Panel ──────────────────────────────────────────────────────
 
@@ -1483,6 +1628,8 @@ function VocabImagesPanel() {
               </CardContent>
             </Card>
           </div>
+
+          <ComparisonBackgroundsPanel />
 
           <Card className="bg-muted/30">
             <CardContent className="p-4 space-y-3">

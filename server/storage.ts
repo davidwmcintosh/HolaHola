@@ -437,6 +437,8 @@ export interface IStorage {
   getCachedAIImage(promptHash: string): Promise<MediaFile | undefined>;
   cacheImage(data: InsertMediaFile): Promise<MediaFile>;
   incrementImageUsage(id: string): Promise<void>;
+  listComparisonBackgrounds(): Promise<MediaFile[]>;
+  deleteMediaFileBySearchQuery(searchQuery: string): Promise<number>;
   incrementAlertViewCount(id: string): Promise<void>;
 
   // ACTFL Can-Do Statements
@@ -2786,6 +2788,22 @@ export class DatabaseStorage implements IStorage {
       .update(mediaFiles)
       .set({ usageCount: sql`${mediaFiles.usageCount} + 1` })
       .where(eq(mediaFiles.id, id));
+  }
+
+  async listComparisonBackgrounds(): Promise<MediaFile[]> {
+    return await db
+      .select()
+      .from(mediaFiles)
+      .where(sql`${mediaFiles.searchQuery} LIKE 'vocab_%_compare_%'`)
+      .orderBy(desc(mediaFiles.createdAt));
+  }
+
+  async deleteMediaFileBySearchQuery(searchQuery: string): Promise<number> {
+    const deleted = await db
+      .delete(mediaFiles)
+      .where(eq(mediaFiles.searchQuery, searchQuery))
+      .returning();
+    return deleted.length;
   }
 
   // ACTFL Can-Do Statements
