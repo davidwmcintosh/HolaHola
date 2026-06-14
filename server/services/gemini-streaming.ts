@@ -30,6 +30,10 @@ export type { ExtractedFunctionCall } from "./gemini-function-declarations";
  * Uses balanced bracket matching for tags with complex nested content (JSON, quotes)
  */
 function stripInternalNotationTags(text: string): string {
+  // Strip <thought>...</thought> blocks first — Gemini internal reasoning that must NEVER be spoken or saved.
+  // Strip the entire block (tags + content) before any other processing.
+  text = text.replace(/<thought>[\s\S]*?<\/thought>/gi, '');
+
   // Strip COLLAB tags first (have closing tags)
   text = text.replace(/\[COLLAB:[A-Z_]+\][\s\S]*?\[\/COLLAB\]/gi, '');
   

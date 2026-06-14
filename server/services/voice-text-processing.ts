@@ -320,6 +320,10 @@ export function cleanTextForDisplay(text: string): string {
   // Pattern: <ACTION_TRIGGERS>{"commands":[...]}</ACTION_TRIGGERS>
   text = text.replace(/<ACTION_TRIGGERS>[\s\S]*?<\/ACTION_TRIGGERS>/gi, '');
 
+  // Strip Gemini <thought>...</thought> blocks (internal reasoning — must strip BEFORE the generic HTML tag
+  // stripper below, because that would leave the thought CONTENT intact while only removing the tags)
+  text = text.replace(/<thought>[\s\S]*?<\/thought>/gi, '');
+
   // Strip any remaining HTML tags (LLM sometimes hallucinates <br>, <div>, <h3>, etc. in spoken text)
   // Convert <br> variants to a space so words don't merge, then strip all other tags
   text = text.replace(/<br\s*\/?>/gi, ' ');

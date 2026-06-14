@@ -1032,8 +1032,12 @@ function ComparisonBackgroundsPanel() {
     queryKey: ['/api/admin/comparison-backgrounds'],
   });
 
-  // Parse cache key into friendly label: vocab_spanish_compare_ser_estar → { language: 'spanish', pair: 'SER vs ESTAR' }
+  // Parse cache key into friendly label.
+  // New format: vocab_spanish_comparison_bg → { language: 'spanish', pair: 'Shared Background' }
+  // Old format: vocab_spanish_compare_ser_estar → { language: 'spanish', pair: 'SER vs ESTAR' }
   const parseKey = (searchQuery: string) => {
+    const shared = searchQuery.match(/^vocab_([^_]+)_comparison_bg$/);
+    if (shared) return { language: shared[1], pair: 'Shared Background' };
     const m = searchQuery.match(/^vocab_([^_]+)_compare_(.+)$/);
     if (!m) return { language: searchQuery, pair: searchQuery };
     const language = m[1];

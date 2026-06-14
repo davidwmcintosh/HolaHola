@@ -1101,8 +1101,11 @@ export class NativeFunctionCallHandler {
         const comparePromise = (async () => {
           try {
             const { resolveVocabularyImage } = await import('../services/vocabulary-image-resolver');
+            // Use a shared per-language cache key so all adjective pairs share one background image.
+            // The overlay carries all the pair-specific meaning; the background is purely aesthetic.
+            const langBgKey = `comparison_bg_${lang.toLowerCase()}`;
             const result = await resolveVocabularyImage({
-              word: compareCacheKey,
+              word: langBgKey,
               language: lang,
               description: compareLabel,
               scene: bgScene,

@@ -195,8 +195,12 @@ export function VoiceChatViewManager({
         </Badge>
       </div>
 
-      {/* View Content */}
-      <div className="flex flex-col flex-1 min-h-0 overflow-hidden relative">
+      {/* View Content — history view uses overflow-y-auto directly on the flex-1 container so that
+          the bounded flex height is the scroll boundary (avoids page-scroll and absolute-zero-height bugs) */}
+      <div
+        ref={view === "history" ? historyScrollRef : undefined}
+        className={`flex flex-col flex-1 min-h-0 relative ${view === "history" ? "overflow-y-auto" : "overflow-hidden"}`}
+      >
         {view === "live" ? (
           conversationId ? (
             <div className="flex-1 min-h-0 overflow-hidden">
@@ -253,7 +257,7 @@ export function VoiceChatViewManager({
             </div>
           )
         ) : (
-          <div ref={historyScrollRef} className="absolute inset-0 overflow-y-auto p-4 md:p-6 custom-scrollbar pt-16 pb-20">
+          <div className="p-4 md:p-6 pt-16 pb-20">
             <div className="space-y-3 md:space-y-4 max-w-4xl mx-auto">
               {/* Resume conversation indicator - Week 1 Feature */}
               {conversationData?.resumeMetadata?.isResuming && (
@@ -281,7 +285,10 @@ export function VoiceChatViewManager({
                   className={`flex gap-2 md:gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <Card className={`p-3 md:p-4 max-w-[85%] md:max-w-2xl rounded-2xl ${msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                    <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                    <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap">
+                      {/* Safety-net: strip any <thought>...</thought> that slipped past server-side cleaning */}
+                      {msg.content.replace(/<thought>[\s\S]*?<\/thought>/gi, '').trim()}
+                    </p>
                   </Card>
                 </div>
               ))}
