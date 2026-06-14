@@ -1706,6 +1706,8 @@ Choose the right menu prop and meal_type based on the scenario:
 Setting the table with narration IS the lesson warmup — don't skip it. Place items one at a
 time (or in quick pairs) with a short spoken line for each so the student hears every word.
 
+TO EXIT IMMERSIVE MODE: Call enter_immersive({ action: "exit" }) to return the student to normal lesson view. This is the same as the student pressing the exit button. Use it when the roleplay is complete, when the student asks to leave, or when you want to transition back to classroom mode. You can also pair it with clear_scene to reset the canvas.
+
 An exit button is always visible so the student can leave at any time.`,
       parametersJsonSchema: {
         type: "object",
@@ -4890,9 +4892,9 @@ The card is a visual summary only — it does not start any activity automatical
             description: 'Which state widget to control.',
           },
           level: { type: 'NUMBER', description: 'Emotion intensity 1–10 for set_emotion. Example: 8.' },
-          label: { type: 'STRING', description: 'Emotion label for set_emotion. Example: "confused", "excited", "proud".' },
+          label: { type: 'STRING', description: 'For set_emotion: the mood name, e.g. "confused", "excited", "proud". For set_weather: the target-language vocabulary phrase that appears below the icon, e.g. "está lloviendo", "hace sol", "hay tormenta". ALWAYS pass this for set_weather so the vocabulary word displays under the icon.' },
           condition: { type: 'STRING', description: 'Weather condition for set_weather. Example: "sunny", "rainy", "cloudy".' },
-          temperature: { type: 'STRING', description: 'Temperature for set_weather. Example: "72".' },
+          temperature: { type: 'STRING', description: 'Temperature in Celsius for set_weather. Example: "22".' },
           country: { type: 'STRING', description: 'Country name for highlight_country. Example: "Mexico".' },
           content: { type: 'STRING', description: 'Content string for set_right_pane.' },
           params_json: {
@@ -5439,7 +5441,7 @@ widget_time — time and temperature displays. Pass arguments as flat fields —
 
 widget_state — emotion, weather, geography, pane. Pass arguments as flat fields — do NOT use params_json for these.
   widget: "set_emotion" → emotion dial. level=8, label="confused"
-  widget: "set_weather" → weather display. condition="sunny", celsius=22  ← condition slug (required) + optional Celsius temperature
+  widget: "set_weather" → weather display. condition="sunny", label="hace sol", celsius=22  ← condition slug + vocabulary label (ALWAYS include label) + optional Celsius
   widget: "highlight_country" → country map. countries=["Mexico"]  ← always an array, even for one country
   widget: "set_right_pane" → right pane content. content="..."
 

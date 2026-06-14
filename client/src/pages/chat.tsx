@@ -892,7 +892,12 @@ export default function Chat() {
                     }
                     return [typedImg];
                   })}
-                  onImmersiveModeChange={setIsImmersiveMode}
+                  onImmersiveModeChange={(active) => {
+                    setIsImmersiveMode(active);
+                    if (!active) {
+                      setStudioImages(prev => prev.filter(i => i.slot !== 'scene'));
+                    }
+                  }}
                   onSceneZoneAdvanced={(data) => {
                     if (data.isChain && data.nextScenarioSlug) {
                       // Cross-scenario chain: keep conversation going, just note the transition
