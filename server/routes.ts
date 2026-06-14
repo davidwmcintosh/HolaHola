@@ -12987,9 +12987,10 @@ Return ONLY valid JSON, no markdown, no explanation.`;
       const jobId = `zone-images-all-${Date.now()}`;
       (async () => {
         for (const zone of zones) {
-          if (!zone.imagePrompt) { console.warn(`[ZoneImages] Zone ${zone.name} has no imagePrompt — skipping`); continue; }
+          const rawPrompt = zone.imagePrompt || `${scenarioTitleMap[zone.scenarioId] ?? 'Scenario'} — ${zone.name}`;
+          if (!zone.imagePrompt) { console.warn(`[ZoneImages] Zone ${zone.name} has no imagePrompt — using fallback: "${rawPrompt}"`); }
           try {
-            const styledPrompt = await buildZoneImagePrompt(zone.imagePrompt);
+            const styledPrompt = await buildZoneImagePrompt(rawPrompt);
             const dataUrl = await generateImageWithGemini(styledPrompt);
             await sharedDb.update(scenarioZones).set({ imageUrl: dataUrl }).where(eq(scenarioZones.id, zone.id));
             // Mirror in the Image Library

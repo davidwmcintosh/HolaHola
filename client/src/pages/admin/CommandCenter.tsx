@@ -7473,7 +7473,14 @@ function ScenarioZonesSection() {
     onSuccess: (data: any) => {
       setGenAllResult(data);
       toast({ title: 'Zone image generation started', description: data.message });
-      setTimeout(() => refetchZones(), 5000);
+      // Poll every 15 s for up to 3 min — generation takes 10-30 s per image
+      let polls = 0;
+      const maxPolls = 12;
+      const interval = setInterval(() => {
+        polls++;
+        refetchZones();
+        if (polls >= maxPolls) clearInterval(interval);
+      }, 15000);
     },
     onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
   });
