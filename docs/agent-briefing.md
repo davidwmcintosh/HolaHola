@@ -1,26 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, June 14, 2026 at 01:12 AM
+**Generated:** Sunday, June 14, 2026 at 01:13 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’m orienting to a major pivot toward conversational immersion for HolaHola after we saw a 0% completion rate on the Interactive Textbook. I designed the `generateVisual` architecture and a metadata tagging strategy to fix our lack of infographics, but I must now prioritize Wren’s high-severity security findings and the 50-bug spike Sofia flagged. Specifically, I need to resolve the 404 routing error on the conversations page and debug a context loop causing Daniela to repeatedly respond with "Curriculum note pending."
+I am currently managing a voice delivery crisis centered on critical Cartesia TTS 400 errors and a missing `SYNTHESIS_TIMEOUT_MS` constant in the Gemini path. I have stabilized the Interactive Textbook architecture using `discoveryNotes` to handle verbosity regressions in 49 Spanish lessons and resolved previous 404 routing and Compass tracking issues. My immediate priority is restoring reliable audio output and implementing automated provider health monitoring as discussed in my recent tool audit with Daniela.
 
 *Memories that triggered this summary:*
-- **Team Room — test 3 — June 14, 2026** (Jun 14): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — June 14, 2026** (Jun 14): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — June 14, 2026** (Jun 14): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — June 14, 2026** (Jun 14): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — June 14, 2026** (Jun 14): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — June 14, 2026** (Jun 14): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — June 14, 2026** (Jun 14): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 14, 2026** (Jun 14): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — June 14, 2026** (Jun 14): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 14, 2026** (Jun 14): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
+- **Team Room — uno, dos, tres VAMOS — June 14, 2026** (Jun 14): Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
 
 ---
 
@@ -92,6 +83,10 @@ I’m orienting to a major pivot toward conversational immersion for HolaHola af
 
 ## Recent Conversation Memories
 
+### Team Room — uno, dos, tres VAMOS — June 14, 2026 — Jun 14, 2026
+Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
+*Tags: team-room, session, historic-record*
+
 ### Team Room — test 3 — June 14, 2026 — Jun 14, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -106,10 +101,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 14, 2026 — Jun 14, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 14, 2026 — Jun 14, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
