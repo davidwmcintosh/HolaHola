@@ -194,12 +194,25 @@ export class NativeFunctionCallHandler {
       // ============================================================
 
       // ─── PHASE 2 DISPATCHERS — classroom_widget split into 6 (widget field) ───────
-      case 'WIDGET_TIME':
-        return this.dispatchSubTool(sessionId, session, fn.args.widget as string | undefined, fn.args.params_json as string | undefined, 'widget_time', 'widget');
-      case 'WIDGET_STATE':
-        return this.dispatchSubTool(sessionId, session, fn.args.widget as string | undefined, fn.args.params_json as string | undefined, 'widget_state', 'widget');
-      case 'WIDGET_BODY':
-        return this.dispatchSubTool(sessionId, session, fn.args.widget as string | undefined, fn.args.params_json as string | undefined, 'widget_body', 'widget');
+      case 'WIDGET_TIME': {
+        // Flat-field dispatcher: Flash may pass time/date/temperature/unit directly
+        // instead of serializing them into params_json. Normalize either path.
+        const { widget: _wt, params_json: _pjt, ...flatT } = fn.args as any;
+        const pjt = _pjt ?? (Object.keys(flatT).length > 0 ? JSON.stringify(flatT) : undefined);
+        return this.dispatchSubTool(sessionId, session, _wt as string | undefined, pjt, 'widget_time', 'widget');
+      }
+      case 'WIDGET_STATE': {
+        // Flat-field dispatcher: Flash may pass level/label/condition/country/content directly.
+        const { widget: _ws, params_json: _pjs, ...flatS } = fn.args as any;
+        const pjs = _pjs ?? (Object.keys(flatS).length > 0 ? JSON.stringify(flatS) : undefined);
+        return this.dispatchSubTool(sessionId, session, _ws as string | undefined, pjs, 'widget_state', 'widget');
+      }
+      case 'WIDGET_BODY': {
+        // Flat-field dispatcher: Flash may pass part directly.
+        const { widget: _wb, params_json: _pjb, ...flatB } = fn.args as any;
+        const pjb = _pjb ?? (Object.keys(flatB).length > 0 ? JSON.stringify(flatB) : undefined);
+        return this.dispatchSubTool(sessionId, session, _wb as string | undefined, pjb, 'widget_body', 'widget');
+      }
       case 'WIDGET_SCENE':
         return this.dispatchSubTool(sessionId, session, fn.args.widget as string | undefined, fn.args.params_json as string | undefined, 'widget_scene', 'widget');
       case 'WIDGET_BOARD':

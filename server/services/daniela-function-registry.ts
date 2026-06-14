@@ -4842,12 +4842,16 @@ The card is a visual summary only — it does not start any activity automatical
             enum: ['set_clock', 'set_calendar', 'set_thermometer', 'sense_time'],
             description: 'Which time/temperature widget to control.',
           },
+          time: { type: 'STRING', description: 'Clock time for set_clock. Format: "3:30" (12h) or "15:30" (24h).' },
+          date: { type: 'STRING', description: 'Calendar date for set_calendar. Format: "YYYY-MM-DD", e.g. "2026-06-13".' },
+          temperature: { type: 'STRING', description: 'Temperature value for set_thermometer. Example: "72".' },
+          unit: { type: 'STRING', enum: ['F', 'C'], description: 'Temperature unit for set_thermometer.' },
           params_json: {
             type: 'STRING',
-            description: 'JSON string of parameters. Do NOT include the widget name as a key. Example: {"time":"3:30"} for set_clock.',
+            description: 'Optional JSON override. Prefer flat fields above. Omit entirely for sense_time (no parameters needed).',
           },
         },
-        required: ['widget', 'params_json'],
+        required: ['widget'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -4872,12 +4876,18 @@ The card is a visual summary only — it does not start any activity automatical
             enum: ['set_emotion', 'set_weather', 'highlight_country', 'set_right_pane'],
             description: 'Which state widget to control.',
           },
+          level: { type: 'NUMBER', description: 'Emotion intensity 1–10 for set_emotion. Example: 8.' },
+          label: { type: 'STRING', description: 'Emotion label for set_emotion. Example: "confused", "excited", "proud".' },
+          condition: { type: 'STRING', description: 'Weather condition for set_weather. Example: "sunny", "rainy", "cloudy".' },
+          temperature: { type: 'STRING', description: 'Temperature for set_weather. Example: "72".' },
+          country: { type: 'STRING', description: 'Country name for highlight_country. Example: "Mexico".' },
+          content: { type: 'STRING', description: 'Content string for set_right_pane.' },
           params_json: {
             type: 'STRING',
-            description: 'JSON string of parameters. Do NOT include the widget name as a key. Example: {"level":8,"label":"confused"} for set_emotion.',
+            description: 'Optional JSON override. Prefer flat fields above.',
           },
         },
-        required: ['widget', 'params_json'],
+        required: ['widget'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -4902,12 +4912,13 @@ The card is a visual summary only — it does not start any activity automatical
             enum: ['set_body_part', 'set_face_part', 'set_hand_part'],
             description: 'Which anatomy diagram to show.',
           },
+          part: { type: 'STRING', description: 'The body part to highlight. Works for all three diagram types. Example: "nose", "arm", "finger".' },
           params_json: {
             type: 'STRING',
-            description: 'JSON string of parameters. Do NOT include the widget name as a key.',
+            description: 'Optional JSON override. Prefer the flat "part" field above.',
           },
         },
-        required: ['widget', 'params_json'],
+        required: ['widget'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -4937,7 +4948,7 @@ The card is a visual summary only — it does not start any activity automatical
             description: 'JSON string of parameters. Do NOT include the widget name as a key.',
           },
         },
-        required: ['widget', 'params_json'],
+        required: ['widget'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -4967,7 +4978,7 @@ The card is a visual summary only — it does not start any activity automatical
             description: 'JSON string of parameters. Do NOT include the widget name as a key. Example: {"text":"Buenos días"} for write.',
           },
         },
-        required: ['widget', 'params_json'],
+        required: ['widget'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -4997,7 +5008,7 @@ The card is a visual summary only — it does not start any activity automatical
             description: 'JSON string of parameters. Do NOT include the widget name as a key.',
           },
         },
-        required: ['widget', 'params_json'],
+        required: ['widget'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -5029,7 +5040,7 @@ The card is a visual summary only — it does not start any activity automatical
             description: 'JSON string of parameters. Do NOT include the type name as a key. Example: {"character":"水","language":"Japanese"} for stroke.',
           },
         },
-        required: ['type', 'params_json'],
+        required: ['type'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -5059,7 +5070,7 @@ The card is a visual summary only — it does not start any activity automatical
             description: 'JSON string of parameters. Do NOT include the type name as a key.',
           },
         },
-        required: ['type', 'params_json'],
+        required: ['type'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -5089,7 +5100,7 @@ The card is a visual summary only — it does not start any activity automatical
             description: 'JSON string of parameters. Do NOT include the type name as a key.',
           },
         },
-        required: ['type', 'params_json'],
+        required: ['type'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -5121,7 +5132,7 @@ The card is a visual summary only — it does not start any activity automatical
             description: 'JSON string of parameters. Do NOT include the action name as a key. Example: {"title":"...","summary":"..."} for save_conversation_memory.',
           },
         },
-        required: ['action', 'params_json'],
+        required: ['action'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -5151,7 +5162,7 @@ The card is a visual summary only — it does not start any activity automatical
             description: 'JSON string of parameters. Do NOT include the action name as a key. Pass {} for actions that need no parameters.',
           },
         },
-        required: ['action', 'params_json'],
+        required: ['action'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -5183,7 +5194,7 @@ The card is a visual summary only — it does not start any activity automatical
             description: 'JSON string of parameters. Do NOT include the action name as a key.',
           },
         },
-        required: ['action', 'params_json'],
+        required: ['action'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -5213,7 +5224,7 @@ The card is a visual summary only — it does not start any activity automatical
             description: 'JSON string of parameters. Do NOT include the action name as a key. Example: {"content":"..."} for hive_suggestion.',
           },
         },
-        required: ['action', 'params_json'],
+        required: ['action'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -5245,7 +5256,7 @@ The card is a visual summary only — it does not start any activity automatical
             description: 'JSON string of parameters. Do NOT include the action name as a key.',
           },
         },
-        required: ['action', 'params_json'],
+        required: ['action'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -5275,7 +5286,7 @@ The card is a visual summary only — it does not start any activity automatical
             description: 'JSON string of parameters. Do NOT include the action name as a key.',
           },
         },
-        required: ['action', 'params_json'],
+        required: ['action'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -5307,7 +5318,7 @@ The card is a visual summary only — it does not start any activity automatical
             description: 'JSON string of parameters. Do NOT include the type name as a key.',
           },
         },
-        required: ['type', 'params_json'],
+        required: ['type'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -5337,7 +5348,7 @@ The card is a visual summary only — it does not start any activity automatical
             description: 'JSON string of parameters. Do NOT include the type name as a key.',
           },
         },
-        required: ['type', 'params_json'],
+        required: ['type'],
       },
     },
     buildContinuationResponse: ({ session }) => {
@@ -5395,28 +5406,31 @@ Execute all dispatcher tools silently. Do not narrate, announce, or describe the
 
 CRITICAL — tool-before-speech rule: Always call the tool FIRST, then speak. Never say the answer aloud before calling the tool that displays it. For example: if the student asks what time it is and you want to show a clock at 3:30, call the clock tool first — then say "Son las tres y media." Saying the time before calling the tool causes the audio to play twice. Invoke silently, then speak once.
 
-CRITICAL — params_json rule for ALL dispatcher tools: pass ONLY the sub-tool's own parameters. Do NOT include the sub-tool name as a key. Correct: {"time":"3:30"}. Wrong: {"set_clock":{"time":"3:30"}}.
+params_json rules for dispatcher tools:
+- params_json is OPTIONAL. For sub-tools that take no arguments (sense_time, get_scene_zones, hold_whiteboard, clear_whiteboard, browse_syllabus, etc.) — omit params_json entirely.
+- For widget_time, widget_state, and widget_body: use flat fields instead of params_json (see each dispatcher's instructions below).
+- For all other dispatchers: pass ONLY the sub-tool's own parameters in params_json. Do NOT include the sub-tool name as a key. Correct: {"character":"水","language":"Japanese"}. Wrong: {"stroke":{"character":"水"}}.
 
 You have seventeen focused dispatcher tools. Each covers a small, well-defined set of actions.
 
 CLASSROOM WIDGETS — Visual display tools:
 
-widget_time — time and temperature displays.
-  widget: "set_clock" → show a clock. params_json: {"time":"3:30"}
-  widget: "set_calendar" → show a calendar date. params_json: {"date":"2026-06-13"}
-  widget: "set_thermometer" → show a thermometer. params_json: {"temperature":"72","unit":"F"}
-  widget: "sense_time" → read the current real time. params_json: {}
+widget_time — time and temperature displays. Pass arguments as flat fields — do NOT use params_json for these.
+  widget: "set_clock" → show a clock. time="3:30"
+  widget: "set_calendar" → show a date display. date="2026-06-13"
+  widget: "set_thermometer" → show a thermometer. temperature="72", unit="F"
+  widget: "sense_time" → read the current real time. No extra arguments needed.
 
-widget_state — emotion, weather, geography, pane.
-  widget: "set_emotion" → emotion dial. params_json: {"level":8,"label":"confused"}
-  widget: "set_weather" → weather display. params_json: {"condition":"sunny","temperature":"72"}
-  widget: "highlight_country" → country map. params_json: {"country":"Mexico"}
-  widget: "set_right_pane" → right pane content. params_json: {"content":"..."}
+widget_state — emotion, weather, geography, pane. Pass arguments as flat fields — do NOT use params_json for these.
+  widget: "set_emotion" → emotion dial. level=8, label="confused"
+  widget: "set_weather" → weather display. condition="sunny", temperature="72"
+  widget: "highlight_country" → country map. country="Mexico"
+  widget: "set_right_pane" → right pane content. content="..."
 
-widget_body — human anatomy diagrams.
-  widget: "set_body_part" → full body diagram.
-  widget: "set_face_part" → face diagram.
-  widget: "set_hand_part" → hand diagram.
+widget_body — human anatomy diagrams. Pass the body part as a flat field — do NOT use params_json for these.
+  widget: "set_body_part" → full body diagram. part="arm"
+  widget: "set_face_part" → face diagram. part="nose"
+  widget: "set_hand_part" → hand diagram. part="finger"
 
 widget_scene — visual scene builder.
   widget: "compose_visual_scene" → build a scene with props.
