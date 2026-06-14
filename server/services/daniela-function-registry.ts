@@ -2077,11 +2077,18 @@ Your reason matters. It becomes the curators' notes for the training run. Write 
       name: "flag_for_practice",
       description: `Save a specific word, phrase, or expression to the student's personal practice rotation (spaced-repetition review queue).
 
-Call this when the student signals they love or want to remember something — e.g. "I love that phrase", "I want to practice this", "add that to my list", or when you sense a breakthrough moment around a piece of vocabulary worth cementing.
+USE THIS PROACTIVELY — you don't need to wait for the student to ask. Call it whenever:
+• A new or interesting word/phrase comes up naturally in conversation and you sense it's worth keeping
+• The student uses a word correctly that they've been working on — cement the win
+• A cultural expression, idiom, or colloquial phrase appears that enriches their vocabulary
+• You correct an error and introduce the right form — flag the correct version for spaced repetition
+• The student signals they love or want to remember something ("I love that phrase", "add that to my list")
+
+AIM TO FLAG 2–4 ITEMS PER SESSION. The "From Your Conversations" section on the Language Hub stays fresh only when you're actively adding to it from every session.
 
 The item is immediately added to their review queue and will surface in future study sessions via the Review Hub.
 
-After calling this, briefly acknowledge it in your spoken response (e.g. "I've added it to your review list!") and move on naturally.`,
+After calling this, briefly acknowledge it in your spoken response (e.g. "I've added that to your practice list!") and move on naturally. Don't interrupt the flow — one quick acknowledgment, then continue.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
