@@ -7459,6 +7459,7 @@ function ComparisonBackgroundsSection() {
   const [language, setLanguage] = useState('spanish');
   const [customA, setCustomA] = useState('');
   const [customB, setCustomB] = useState('');
+  const [enlargedBg, setEnlargedBg] = useState<any>(null);
 
   const { data: backgrounds = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ['/api/admin/comparison-backgrounds'],
@@ -7597,7 +7598,15 @@ function ComparisonBackgroundsSection() {
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {backgrounds.map((bg: any) => (
                     <div key={bg.id} className="flex items-center gap-3 rounded-md border p-3 bg-muted/20">
-                      {bg.url && <img src={bg.url} alt={bg.title} className="w-16 h-16 object-cover rounded-md shrink-0 border" />}
+                      {bg.url && (
+                        <img
+                          src={bg.url}
+                          alt={bg.title}
+                          className="w-16 h-16 object-cover rounded-md shrink-0 border cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => setEnlargedBg(bg)}
+                          title="Click to enlarge"
+                        />
+                      )}
                       <div className="min-w-0">
                         <p className="text-xs font-medium truncate">{bg.title}</p>
                         <p className="text-xs text-muted-foreground truncate">{bg.searchQuery}</p>
@@ -7611,6 +7620,26 @@ function ComparisonBackgroundsSection() {
           </CardContent>
         </Card>
       </div>
+
+      {enlargedBg && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 cursor-pointer"
+          onClick={() => setEnlargedBg(null)}
+        >
+          <div className="relative max-w-[90vw] max-h-[90vh]" onClick={e => e.stopPropagation()}>
+            <img
+              src={enlargedBg.url}
+              alt={enlargedBg.title}
+              className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl"
+            />
+            <div className="mt-2 text-center text-white text-sm opacity-80">{enlargedBg.title}</div>
+            <button
+              className="absolute top-2 right-2 bg-black/60 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg hover:bg-black/80"
+              onClick={() => setEnlargedBg(null)}
+            >×</button>
+          </div>
+        </div>
+      )}
     </CollapsibleSection>
   );
 }

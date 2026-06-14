@@ -13466,11 +13466,27 @@ Return ONLY valid JSON, no markdown, no explanation.`;
       const sceneContext = languageSceneMap[language.toLowerCase()] || 'Warm classroom';
       const bgScene = `${sceneContext}. Two empty chalkboards or panels side by side, nothing written on them. Warm educational atmosphere, soft afternoon light. Watercolor illustration style. No text, no labels, no writing anywhere in the image.`;
 
-      // Regenerate in background — non-blocking
+      // Regenerate in background — non-blocking.
+      // Call generateVisual directly to bypass character injection in resolveVocabularyImage.
       (async () => {
         try {
-          const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
-          await resolveVocabularyImage({ word: compareCacheKey, language, description: `${conceptA} vs ${conceptB}`, scene: bgScene });
+          const { generateVisual } = await import('./services/visual-content-service');
+          const abstractPrompt = `${bgScene} Abstract split-panel composition — a soft vertical line divides two empty side-by-side panels. No people, no human figures, no characters, no faces, no text, no writing, no labels anywhere. Pure environment, light, and texture only. The panels are completely empty and ready to receive overlaid text content.`;
+          const result = await generateVisual(abstractPrompt, 'infographic');
+          await storage.cacheImage({
+            url: result.imageUrl,
+            filename: `compare_bg_${compareCacheKey}_${Date.now()}.jpg`,
+            mimeType: 'image/jpeg',
+            mediaType: 'image',
+            imageSource: 'ai_generated',
+            searchQuery: cacheKey,
+            uploadedBy: null,
+            title: `compare_${conceptA}_${conceptB}`,
+            description: `${conceptA} vs ${conceptB} comparison background`,
+            tags: ['comparison', 'background', 'grammar', language],
+            language,
+            targetWord: cacheKey,
+          });
           console.log(`[Admin] Comparison background regenerated: ${cacheKey}`);
         } catch (e: any) {
           console.error(`[Admin] Comparison background regen failed for ${cacheKey}:`, e.message);

@@ -815,6 +815,7 @@ Use open_scene at the START of a lesson segment OR any time you want to change t
 - A time lesson where you'll move clock hands between expressions  
 - A progressive vocabulary build-up in a kitchen/café/market
 - Transitioning to a new physical location in free-form conversation (e.g., moving from city_street to taxi_interior when a taxi arrives)
+- A BROADCAST SIMULATION: open tv_weather_studio to become a weather presenter, or tv_newsroom for a breaking-news anchor. Use show_weather + thermometer for the forecast overlay. Use add_to_scene for map props or headline images. Use the whiteboard to write and highlight key vocabulary. Scale complexity with ACTFL level: Novice = "Hoy hace calor" with one widget; Advanced = full 5-day forecast with conditionals. You can invent any story ("¡Un gorila escapó del zoológico!") — it just needs to teach the language.
 
 ⚠️ IMPORTANT — to switch scenes during free-form conversation (no active scenario), always call open_scene() with the new environment. Do NOT call advance_scene() — it only works inside structured scenarios loaded with load_scenario(). To move the student from a street to a taxi: call open_scene('taxi_interior'). To move them from the hotel lobby to the hotel room: call open_scene('hotel_room').
 
@@ -839,7 +840,8 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
 - Home: living_room, kitchen, kitchen_counter, bedroom, bedroom_closeup, bathroom, desk_closeup
 - Outdoor / shopping: park, outdoor_market, grocery_store, clothing_store (general boutique), clothing_store_floor (browsing racks), clothing_store_fitting (fitting rooms), clothing_store_checkout (checkout counter)
 - Professional / cultural: office, classroom, library (general), library_desk (circulation desk), library_stacks (among bookshelves), library_checkout (checkout/returns desk), networking_event, bank, doctor_office, pharmacy
-- Language-specific venues: taqueria, french_brasserie, japanese_izakaya, german_biergarten, italian_trattoria, korean_bbq, chinese_teahouse, israeli_cafe`,
+- Language-specific venues: taqueria, french_brasserie, japanese_izakaya, german_biergarten, italian_trattoria, korean_bbq, chinese_teahouse, israeli_cafe
+- Broadcast: tv_weather_studio (meteorologist weather desk with map screen backdrop), tv_newsroom (anchor desk with monitor wall)`,
             enum: [
               // Café family
               "cafe_exterior", "cafe_counter", "cafe_table",
@@ -865,6 +867,8 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
               // Language-specific venues
               "taqueria", "french_brasserie", "japanese_izakaya", "german_biergarten",
               "italian_trattoria", "korean_bbq", "chinese_teahouse", "israeli_cafe",
+              // Broadcast
+              "tv_weather_studio", "tv_newsroom",
             ],
           },
           label: { type: "string", description: "Optional short label shown as the scene title (e.g. 'En el restaurante')" },
