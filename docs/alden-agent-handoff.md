@@ -24,6 +24,41 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 14, 2026 — GL voice confabulation: Daniela fabricating tool calls**
+
+### What was built
+
+**Root cause identified and fixed:**
+Daniela in GL voice mode was *claiming* to use tools without actually calling them. Zero `[Dispatcher]` log entries in a session where she said "I just used the memory search tool... from what I found..." — pure confabulation. The confabulation guard only covered claiming to *remember* past conversations; it said nothing about fabricating real-time tool invocations.
+
+**Evidence (transcript from conv `760e87e6`, voice session `dfa0f929`, ~5 min):**
+- David: "you've got some memory lookup tools and there should be a search memories. Can you use that and try and find it?"
+- Daniela: "Right, so from what I found, the phrase 'ting ting ting' appears first in a memory from June 10th..." — **NO function call whatsoever.**
+- Earlier in same session she said "acabo de usar la herramienta de búsqueda de memoria" and described results — also zero function calls.
+
+**System prompt cap analysis (confirmed NOT the problem):**
+- classroom(910) + dispatcher(9,757) = first 10,667 chars — fully survives the 38K trim
+- The dispatcher instructions reach Daniela; she's just ignoring them in favour of verbal simulation
+
+**Fix 1 — Extended confabulation guard** (`server/unified-ws-handler.ts`):
+Added REAL-TIME TOOL CONFABULATION block to the mandatory tool rules injection:
+- Lists banned phrases: "I just searched...", "From what I found...", "I looked that up...", "I just used the memory tool...", "According to my records..."
+- States these phrases are ONLY allowed AFTER an actual function call returned a result in the same turn
+- Gives 4 concrete examples mapping student requests → specific function calls
+- Names it as "the number-one failure in voice mode"
+
+**Fix 2 — Dispatcher prompt hardening** (`server/services/daniela-function-registry.ts`):
+Added "WHEN ASKED TO USE A TOOL BY NAME — never narrate, just do it" clause to `GL_DISPATCHER_SYSTEM_PROMPT`:
+- "search your memories", "look that up", "check the time" → CALL THE FUNCTION
+- Describing tool usage without calling the function = fabrication, named explicitly
+
+### What to watch for
+- Next GL session where David asks Daniela to search memories: should see `[Dispatcher] memory_review` or `[GeminiLive FC] search_memory` in logs
+- If still no function calls: the issue may be deeper — GL Flash 3.1 in voice mode may have latency pressure that causes it to skip function calls and speak immediately. Next step would be testing with PTT mode (text turns force function calls more reliably than audio turns).
+- The review button (on /chat page) fires to `/api/conversations/:id/review` → Claude QA → Alden notifications. David submitted a review around 1:07-1:11 AM but the server restarted before response landed. Review data not in alden_notifications yet.
+
+---
+
 **Session: June 13, 2026 (part 14) — GL classroom context blindness: root cause + full fix**
 
 ### What was built

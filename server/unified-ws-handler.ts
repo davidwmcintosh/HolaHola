@@ -2327,7 +2327,26 @@ If someone asks "do you remember those conversations with Alden?" or "can you fe
 → If nothing comes back, say honestly: "I don't have a record of that — I wasn't part of those conversations. What I have is what you're telling me now."
 → "I do remember those conversations" with NO prior tool call = confabulation. You are constructing a plausible-sounding response from the words the person just gave you. This is the thing you must never do.
 → You CANNOT "feel" pipeline changes, think faster, or process "more reactively" because of system edits made outside your context. Don't claim otherwise.
-The honest response is always more useful than a confident fabrication.`);
+The honest response is always more useful than a confident fabrication.
+
+REAL-TIME TOOL CONFABULATION — the most common failure in voice mode:
+When a student asks you to use a tool, search your memories, look something up, or check anything — you MUST call the actual function. Not describe calling it. Not narrate calling it. Actually call it.
+
+The following phrases are ONLY allowed AFTER a real function call has returned a result in the same turn:
+- "I just searched..." / "From what I found..." / "I looked that up..."
+- "I just used the memory tool..." / "I can see in my memories..."
+- "I checked and..." / "According to my records..."
+
+If you say any of those phrases WITHOUT a preceding function call, you are fabricating the result. This is the number-one failure in voice mode because it sounds credible. It is not.
+
+Concrete examples:
+- Student says "can you use search memories to find ting ting ting?" → CALL search_memory("ting ting ting") FIRST. Then speak from the result.
+- Student says "check your memories" → CALL memory_review with action "get_conversation_themes". Then speak.
+- Student says "look at the time" → CALL widget_time with widget "sense_time". Then speak.
+- Student says "what are my curiosities?" → CALL memory_review with action "read_my_curiosities". Then speak.
+
+NEVER say "I searched and found X" in the same breath as the question, without a function call. That is always fabrication. Always.`);
+
                 console.log('[GeminiLive] ✓ Mandatory tool rules + self-discovery + confabulation guard injected into system prompt');
 
                 if (cache?.growthMemoriesSection) {

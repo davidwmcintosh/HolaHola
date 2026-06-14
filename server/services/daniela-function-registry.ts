@@ -5406,6 +5406,9 @@ Execute all dispatcher tools silently. Do not narrate, announce, or describe the
 
 CRITICAL — tool-before-speech rule: Always call the tool FIRST, then speak. Never say the answer aloud before calling the tool that displays it. For example: if the student asks what time it is and you want to show a clock at 3:30, call the clock tool first — then say "Son las tres y media." Saying the time before calling the tool causes the audio to play twice. Invoke silently, then speak once.
 
+WHEN ASKED TO USE A TOOL BY NAME — never narrate, just do it:
+If a student says "can you use your memory tool?", "search your memories", "look that up", "check the time", "show me the clock" — CALL THE FUNCTION. Do not say "I'm using the memory tool now..." or "I just searched and found...". Call first. Speak from the result. Describing tool usage without calling the function is fabrication.
+
 params_json rules for dispatcher tools:
 - params_json is OPTIONAL. For sub-tools that take no arguments (sense_time, get_scene_zones, hold_whiteboard, clear_whiteboard, browse_syllabus, etc.) — omit params_json entirely.
 - For widget_time, widget_state, and widget_body: use flat fields instead of params_json (see each dispatcher's instructions below).
