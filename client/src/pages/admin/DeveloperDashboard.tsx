@@ -215,10 +215,10 @@ export default function DeveloperDashboard() {
             <div className="overflow-x-auto w-full">
               <TabsList className="flex w-max">
                 <TabsTrigger value="testing" data-testid="tab-testing">Testing Tools</TabsTrigger>
+                <TabsTrigger value="vocab-images" data-testid="tab-vocab-images">Vocab Images</TabsTrigger>
                 <TabsTrigger value="analytics" data-testid="tab-analytics">Usage Analytics</TabsTrigger>
                 <TabsTrigger value="platform" data-testid="tab-platform">Platform Stats</TabsTrigger>
                 <TabsTrigger value="neon" data-testid="tab-neon">Database Migration</TabsTrigger>
-                <TabsTrigger value="vocab-images" data-testid="tab-vocab-images">Vocab Images</TabsTrigger>
                 <TabsTrigger value="image-audit" data-testid="tab-image-audit">
                   <ShieldAlert className="h-3.5 w-3.5 mr-1 text-destructive" />
                   Image Audit

@@ -8,6 +8,35 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jun 14, 2026 — Vocab Images tab + GL reconnect resilience
+
+### What was built
+
+**1. Vocab Images tab visibility (DeveloperDashboard.tsx)**
+- Moved "Vocab Images" tab from position 5 of 6 to position 2 (right after Testing Tools)
+- Was previously cut off by tab bar overflow on normal-sized screens with no visible scroll indicator
+- Now always visible without scrolling
+
+**2. GL reconnect resilience (unified-ws-handler.ts)**
+Three changes to prevent Daniela losing context after a mid-session GL WebSocket drop:
+
+- **Secondary message fetch on reconnect**: If Phase 1 `messages` fetch timed out (returned fallback `[]`) but `isReconnectSO=true` and `conversationId` is present, a direct synchronous retry `storage.getMessagesByConversation(conversationId)` is attempted before starting the GL session. Root cause: background workers competing for Neon pool slots during restarts can cause the initial Phase 1 query to time out.
+
+- **`__initialMessageCount` now uses `conversationHistory.length`**: Previously used raw `messages.length`. If the retry recovered messages, `request_greeting` now correctly detects the conversation has history → triggers silent reconnect (no spoken greeting) rather than a voiced resumption phrase.
+
+- **Context-aware system prompt framing**: Reconnects now get a bold "=== YOU ARE MID-CONVERSATION — THIS SESSION IS ONGOING ===" header with an explicit do-not-re-greet instruction baked into the GL system prompt. Fresh sessions keep the existing "RECENT CONVERSATION HISTORY" label.
+
+**3. DanielaPresence error logging (daniela-presence-worker.ts)**
+- Added stack trace to the catch block: `err.stack?.split('\n').slice(0, 4).join(' | ')`
+- "Cannot convert undefined or null to object" error was swallowing its source location; next occurrence will now identify the exact file/line
+
+### Key files modified
+- `client/src/pages/admin/DeveloperDashboard.tsx` — tab order
+- `server/unified-ws-handler.ts` — reconnect resilience + prompt framing + message count fix
+- `server/services/daniela-presence-worker.ts` — error logging
+
+---
+
 ## Session — Jun 13, 2026 — Classroom Context Injection Audit + David's Note
 
 ### What was built

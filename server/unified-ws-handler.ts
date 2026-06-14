@@ -2131,6 +2131,25 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
                 console.log(`[Streaming Voice] Loaded ${conversationHistory.length} messages from conversation history`);
               }
             }
+
+            // RECONNECT RESILIENCE: If the Phase 1 messages fetch timed out (fallback=[]) but
+            // this IS a reconnect into an existing conversation, do one direct synchronous retry.
+            // Without this, the GL system prompt has no conversation history and Daniela loses
+            // all in-session context, causing her to respond as if starting fresh after a drop.
+            if (conversationHistory.length === 0 && isReconnectSO && conversationId) {
+              try {
+                const retryMsgs = await storage.getMessagesByConversation(conversationId);
+                if (Array.isArray(retryMsgs) && retryMsgs.length > 0 && !isLanguageMismatch) {
+                  conversationHistory = retryMsgs.map(m => ({
+                    role: m.role === 'user' ? 'user' as const : 'model' as const,
+                    content: m.content,
+                  }));
+                  console.log(`[Streaming Voice] Reconnect resilience: recovered ${conversationHistory.length} messages via direct retry`);
+                }
+              } catch (retryErr: any) {
+                console.warn('[Streaming Voice] Reconnect message retry failed (continuing without history):', retryErr.message);
+              }
+            }
             
             const totalInitMs = Date.now() - initStart;
             console.log(`[SessionInit] ✓ Pipeline complete in ${totalInitMs}ms (phase1=${phase1Ms}ms, phase2=${phase2Ms}ms)`);
@@ -2490,9 +2509,15 @@ ${lastNote.tutorNotes}`);
                     if (firstNewline > 0) recentConvText = recentConvText.slice(firstNewline + 1);
                   }
                   if (recentConvText.trim()) {
-                    const section = `=== RECENT CONVERSATION HISTORY ===\nWhat was discussed in recent sessions with ${studentLabel} — reference naturally when continuing.\n\n${recentConvText}`;
+                    // Use clearer framing for reconnects vs. cross-session history.
+                    // isReconnectSO indicates this GL session is starting mid-conversation;
+                    // in that case the messages ARE the current session — not "recent sessions".
+                    const historyHeader = isReconnectSO
+                      ? `=== YOU ARE MID-CONVERSATION — THIS SESSION IS ONGOING ===\nThe connection dropped momentarily. Below is what you and ${studentLabel} were JUST discussing. Pick up exactly where you left off — do NOT re-introduce yourself or treat this as a new session.`
+                      : `=== RECENT CONVERSATION HISTORY ===\nWhat was discussed recently with ${studentLabel} — reference naturally when continuing.`;
+                    const section = `${historyHeader}\n\n${recentConvText}`;
                     richSections.push(section);
-                    console.log(`[GeminiLive] ✓ Recent conversation history baked in (${recentMsgs.length} messages, ${section.length} chars)`);
+                    console.log(`[GeminiLive] ✓ Conversation history baked in (${recentMsgs.length} messages, ${section.length} chars, reconnect: ${isReconnectSO})`);
                   }
                 }
                 if (cache?.hiveContextSection) {
@@ -2729,7 +2754,10 @@ ${lastNote.tutorNotes}`);
             
             // Store the message count at session-start time so the request_greeting handler
             // (a separate case in the switch, different scope) can detect mid-session reconnects.
-            (session as any).__initialMessageCount = Array.isArray(messages) ? messages.length : 0;
+            // Use conversationHistory.length (not raw messages) so the reconnect retry count is
+            // reflected here — if messages timed out but the retry recovered them, we want
+            // request_greeting to know the conversation has history.
+            (session as any).__initialMessageCount = conversationHistory.length;
             
             // RECONNECT FIX: Restore input mode from config.
             // Every new WS connection defaults currentInputMode to 'push-to-talk', but the client

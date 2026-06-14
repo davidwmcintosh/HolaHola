@@ -24,6 +24,32 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 14, 2026 (part 4) — Vocab Images tab + GL reconnect resilience**
+
+### What was built
+
+Two user-reported issues fixed:
+
+**Issue 1: Vocab Images tab not visible in Developer Dashboard**
+- Root cause: tab was position 5 of 6, cut off by tab bar overflow on normal screens
+- Fix: moved "Vocab Images" to position 2 (right after Testing Tools) — always visible now
+
+**Issue 2: Daniela reset mid-conversation (production)**
+- Investigated production logs from the 7:14-7:20 AM session (conversation `23fd0ca3`)
+- Root cause: at 7:19:36 AM, a GL WebSocket reconnect started a new GL session (`stream_1781421576158`). If Phase 1 `messages` DB query timed out (pool contention from background workers), `conversationHistory` was empty → GL system prompt had no in-session context → Daniela's responses felt like a reset.
+- Three fixes in `server/unified-ws-handler.ts`:
+  1. **Reconnect resilience**: secondary synchronous `storage.getMessagesByConversation()` retry when `conversationHistory.length === 0 && isReconnectSO && conversationId`
+  2. **`__initialMessageCount`** now uses `conversationHistory.length` (not raw `messages.length`) so retry-recovered messages count toward the reconnect detection in `request_greeting`
+  3. **GL system prompt framing**: reconnects get "=== YOU ARE MID-CONVERSATION ===" header with explicit do-not-re-greet instruction; fresh sessions keep existing label
+- Also added stack trace to `DanielaPresence` error catch so the next occurrence of "Cannot convert undefined or null to object" identifies its source line
+
+### What's still open
+- The `DanielaPresence` error source is not yet identified — just better logged. Watch production logs for the next occurrence to see the actual stack trace.
+- The `forceNew: true` at session start at 7:14:33 AM was NOT the mid-session reset — it was the normal session start (David navigated from Language Hub → chat). Not a bug.
+- Pre-existing typecheck: 2016 errors in 51 files (unchanged, not introduced by this session).
+
+---
+
 **Session: June 14, 2026 (part 3) — visual_compare rebuilt as DOM widget**
 
 ### What was built

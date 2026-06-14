@@ -251,7 +251,7 @@ Write the presence narrative now:`;
     writePresenceDoc(userId, content);
     console.log(`[DanielaPresence] Presence doc updated for ${userId} (${content.length} chars)`);
   } catch (err: any) {
-    console.error(`[DanielaPresence] Failed to generate for ${userId}:`, err.message);
+    console.error(`[DanielaPresence] Failed to generate for ${userId}:`, err.message, err.stack?.split('\n').slice(0, 4).join(' | '));
   }
 }
 
