@@ -73,7 +73,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'sentence_table' | 'textbook_search' | 'overlay_panel' | 'daily_plan' | 'textbook_page' | 'teaching_card' | 'vocab_card';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'comparison' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'sentence_table' | 'textbook_search' | 'overlay_panel' | 'daily_plan' | 'textbook_page' | 'teaching_card' | 'vocab_card';
 
 /**
  * Drill types for inline micro-exercises
@@ -516,6 +516,30 @@ export interface PhoneticItem extends WhiteboardItemBase {
 export interface CompareItem extends WhiteboardItemBase {
   type: 'compare';
   content: string;
+}
+
+/**
+ * ComparisonItem — DOM-rendered side-by-side concept contrast widget.
+ * Replaces the AI-image-generated comparison (which garbled text labels).
+ * concept_a / concept_b are always rendered as DOM text.
+ * imageUrl (optional) is a label-free background scene image.
+ */
+export interface ComparisonItemData {
+  concept_a: string;        // Left panel label (DOM text), e.g. "POR"
+  concept_b: string;        // Right panel label (DOM text), e.g. "PARA"
+  a_meaning?: string;       // Brief meaning for left panel
+  b_meaning?: string;       // Brief meaning for right panel
+  a_example?: string;       // Target-language example sentence for left panel
+  b_example?: string;       // Target-language example sentence for right panel
+  student_example?: string; // What the student said incorrectly
+  language?: string;        // Target language (used for RTL, colour theming)
+  imageUrl?: string;        // Optional background scene image — NO text in the image
+}
+
+export interface ComparisonItem extends WhiteboardItemBase {
+  type: 'comparison';
+  content: string;
+  data: ComparisonItemData;
 }
 
 export interface ImageItem extends WhiteboardItemBase {
@@ -1236,6 +1260,7 @@ export type WhiteboardItem =
   | WriteItem 
   | PhoneticItem 
   | CompareItem 
+  | ComparisonItem
   | ImageItem 
   | DrillItem 
   | PronunciationItem
@@ -2949,6 +2974,13 @@ export const whiteboardExamples = {
   clear: '[CLEAR]',
   hold: '[HOLD]',
 };
+
+/**
+ * Type guard for checking if an item is a comparison item (DOM two-column contrast widget)
+ */
+export function isComparisonItem(item: WhiteboardItem): item is ComparisonItem {
+  return item.type === 'comparison';
+}
 
 /**
  * Type guard for checking if an item is an image item

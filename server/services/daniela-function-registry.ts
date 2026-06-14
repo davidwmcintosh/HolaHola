@@ -4718,12 +4718,14 @@ CALL PATTERN:
       parametersJsonSchema: {
         type: "object",
         properties: {
-          text: { type: "string", description: "What you say while the comparison image loads" },
-          concept_a: { type: "string", description: "First concept (left panel), e.g. 'SER', 'Preterite', 'POR'" },
-          concept_b: { type: "string", description: "Second concept (right panel), e.g. 'ESTAR', 'Imperfect', 'PARA'" },
+          text: { type: "string", description: "What you say while the comparison widget appears" },
+          concept_a: { type: "string", description: "First concept (left panel label — always shown as text, never baked into image), e.g. 'SER', 'Preterite', 'POR'" },
+          concept_b: { type: "string", description: "Second concept (right panel label — always shown as text), e.g. 'ESTAR', 'Imperfect', 'PARA'" },
           a_meaning: { type: "string", description: "Brief meaning of concept_a, e.g. 'permanent qualities, identity, origin'" },
           b_meaning: { type: "string", description: "Brief meaning of concept_b, e.g. 'location, temporary states, emotions'" },
-          student_example: { type: "string", description: "What the student just said incorrectly. The image frames itself around correcting this specific error." },
+          a_example: { type: "string", description: "Short target-language example sentence for concept_a, e.g. 'Soy de México.' or 'Comí ayer.'" },
+          b_example: { type: "string", description: "Short target-language example sentence for concept_b, e.g. 'Estoy en casa.' or 'Comía cada día.'" },
+          student_example: { type: "string", description: "What the student just said incorrectly, e.g. 'soy en la biblioteca'. Shown as a correction note." },
         },
         required: ["text", "concept_a", "concept_b"],
       },
@@ -4731,7 +4733,7 @@ CALL PATTERN:
     buildContinuationResponse: ({ fc }) => {
       const a = (fc.args?.concept_a as string) || 'concept A';
       const b = (fc.args?.concept_b as string) || 'concept B';
-      return `Comparison image is now showing — ${a} on the left, ${b} on the right. Walk the student through the contrast. Then give them 1-2 new examples and ask them to point at the correct panel.`;
+      return `Comparison is now showing — ${a} on the left, ${b} on the right. Walk the student through the contrast. Then give them 1-2 new examples and ask them to point at the correct panel.`;
     },
   },
 

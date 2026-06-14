@@ -24,6 +24,42 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 14, 2026 (part 3) — visual_compare rebuilt as DOM widget**
+
+### What was built
+
+Completely replaced the AI-image-generated comparison widget with a DOM-rendered two-column component. Root cause: every image model (DALL-E and Gemini Imagen both) garbles short text strings rendered inside the image — "Por" becomes "Paraar", labels scramble.
+
+**`shared/whiteboard-types.ts`:**
+- Added `'comparison'` to `WhiteboardItemType`
+- New `ComparisonItemData` interface: `concept_a/b`, `a/b_meaning`, `a/b_example`, `student_example`, `language`, `imageUrl` (optional)
+- New `ComparisonItem` in `WhiteboardItem` union
+- Added `isComparisonItem()` type guard
+
+**`server/services/daniela-function-registry.ts`:**
+- Added `a_example` / `b_example` params to `visual_compare` schema
+- Updated descriptions: labels always DOM text, never in image
+
+**`server/services/native-fc-handlers.ts` — VISUAL_COMPARE two-step pipeline:**
+- Step 1 (immediate): send `type: 'comparison'` DOM widget with stable ID (`wb_compare_...`). Student sees the comparison instantly.
+- Step 2 (async): generate a label-free background scene image. Prompt explicitly says "No text, no labels, no writing anywhere." When ready, enrich the same widget in-place via matching ID. Non-fatal if image fails — DOM widget already showing.
+- Language-specific scene context for 10 languages (Spanish, French, Japanese, Mandarin, German, Portuguese, Arabic, Italian, Russian, Korean).
+
+**`client/src/components/Whiteboard.tsx` — `ComparisonItemDisplay` component:**
+- Two-column grid: violet left / amber right (no-image mode)
+- Background image + `bg-black/55` dark wash overlay → DOM text always readable
+- RTL support via `dir="rtl"` for Arabic
+- Student correction note at bottom if `student_example` provided
+- Wired into item dispatcher before `isImageItem` check
+
+**`docs/open-bugs.md`:** Por vs Para bug closed as FIXED.
+
+### What's still open
+- UX suggestion from David's test session: clock/weather widgets should pair visual with spoken target-language phrase (e.g. "son las 2:30" after setting clock). Not a bug — pedagogical enhancement.
+- `grammar_diagram` has the same text-in-image limitation as `visual_compare` did — out of scope this session but worth a future DOM refactor.
+
+---
+
 **Session: June 14, 2026 (part 2) — GL dispatcher widget bugs: field name mismatches + stroke order animation**
 
 ### What was built

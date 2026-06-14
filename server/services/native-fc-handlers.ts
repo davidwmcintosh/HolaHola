@@ -1036,6 +1036,8 @@ export class NativeFunctionCallHandler {
         const conceptB = fn.args.concept_b as string | undefined;
         const aMeaning = fn.args.a_meaning as string | undefined;
         const bMeaning = fn.args.b_meaning as string | undefined;
+        const aExample = fn.args.a_example as string | undefined;
+        const bExample = fn.args.b_example as string | undefined;
         const studentExample = fn.args.student_example as string | undefined;
 
         if (!conceptA || !conceptB) {
@@ -1044,37 +1046,102 @@ export class NativeFunctionCallHandler {
         }
         if (text && !session.functionCallText) session.functionCallText = text;
 
-        const compareScene = `Educational side-by-side comparison diagram for Spanish language learners. LEFT PANEL clearly labeled "${conceptA}": ${aMeaning || conceptA}, with a short example sentence. RIGHT PANEL clearly labeled "${conceptB}": ${bMeaning || conceptB}, with a short example sentence.${studentExample ? ` Designed to correct the specific error: "${studentExample}".` : ''} Watercolor illustration style, clean bold labels, visual arrows showing the contrast. Warm educational aesthetic, easy to read.`;
         const compareLabel = `${conceptA} vs ${conceptB}`;
         const compareCacheKey = `compare_${conceptA}_${conceptB}`.toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 60);
+        // Stable ID so the background-image enrichment update replaces the initial item in place
+        const itemId = `wb_compare_${compareCacheKey}`;
+        const lang = session.language || 'spanish';
+
+        // STEP 1: Send the DOM comparison widget immediately — no image generation delay
+        const immediateUpdate = {
+          type: 'whiteboard_update' as const,
+          timestamp: Date.now(),
+          items: [{
+            id: itemId,
+            type: 'comparison' as const,
+            content: compareLabel,
+            data: {
+              concept_a: conceptA,
+              concept_b: conceptB,
+              a_meaning: aMeaning,
+              b_meaning: bMeaning,
+              a_example: aExample,
+              b_example: bExample,
+              student_example: studentExample,
+              language: lang,
+            },
+          }],
+        };
+        if (session.firstAudioSent) {
+          this.sendMessage(session.ws, immediateUpdate);
+        } else {
+          if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+          session.pendingWhiteboardUpdates.push(immediateUpdate);
+        }
+        console.log(`[Native Function→VisualCompare] DOM widget sent immediately: "${compareLabel}"`);
+
+        // STEP 2: Generate a label-free background scene image async, then enrich the widget in-place
+        // The image prompt contains NO text labels — all text is rendered as DOM in the widget above.
+        const languageSceneMap: Record<string, string> = {
+          spanish: 'Warm Spanish classroom',
+          french: 'French classroom with tall arched windows',
+          japanese: 'Japanese study room with shoji screen windows',
+          mandarin: 'Traditional Chinese study room with ink wash aesthetic',
+          german: 'Orderly German classroom',
+          portuguese: 'Portuguese school room with azulejo tile accents',
+          arabic: 'Arabic study room with geometric patterned walls',
+          italian: 'Italian classroom with Mediterranean light',
+          russian: 'Classic Russian school classroom',
+          korean: 'Korean study room with clean modern lines',
+        };
+        const sceneContext = languageSceneMap[lang.toLowerCase()] || 'Warm classroom';
+        // Key rule: NO text, NO labels, NO writing on boards — all labels are DOM text
+        const bgScene = `${sceneContext}. Two empty chalkboards or panels side by side, nothing written on them. Warm educational atmosphere, soft afternoon light. Watercolor illustration style. No text, no labels, no writing anywhere in the image.`;
 
         const comparePromise = (async () => {
           try {
             const { resolveVocabularyImage } = await import('../services/vocabulary-image-resolver');
             const result = await resolveVocabularyImage({
               word: compareCacheKey,
-              language: session.language || 'spanish',
+              language: lang,
               description: compareLabel,
-              scene: compareScene,
+              scene: bgScene,
               conversationId: session.conversationId?.toString(),
               userId: session.userId?.toString(),
             });
-            const whiteboardUpdate = {
+            // Enrich the existing widget in-place using the same stable ID
+            const enrichUpdate = {
               type: 'whiteboard_update' as const,
               timestamp: Date.now(),
-              items: [{ type: 'image', content: compareLabel, data: { word: compareLabel, description: compareScene, imageUrl: result.imageUrl, source: result.source, labelMode: 'quiz' as const } }],
+              items: [{
+                id: itemId,
+                type: 'comparison' as const,
+                content: compareLabel,
+                data: {
+                  concept_a: conceptA,
+                  concept_b: conceptB,
+                  a_meaning: aMeaning,
+                  b_meaning: bMeaning,
+                  a_example: aExample,
+                  b_example: bExample,
+                  student_example: studentExample,
+                  language: lang,
+                  imageUrl: result.imageUrl,
+                },
+              }],
             };
             if (session.firstAudioSent) {
-              this.sendMessage(session.ws, whiteboardUpdate);
+              this.sendMessage(session.ws, enrichUpdate);
             } else {
               if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
-              session.pendingWhiteboardUpdates.push(whiteboardUpdate);
+              session.pendingWhiteboardUpdates.push(enrichUpdate);
             }
             if (!session.classroomSessionImages) session.classroomSessionImages = [];
             session.classroomSessionImages.push(compareLabel);
-            console.log(`[Native Function→VisualCompare] Generated: "${compareLabel}"`);
+            console.log(`[Native Function→VisualCompare] Background image enriched: "${compareLabel}"`);
           } catch (err: any) {
-            console.error(`[Native Function→VisualCompare] Error:`, err.message);
+            // Non-fatal: the DOM widget is already showing correctly without a background
+            console.warn(`[Native Function→VisualCompare] Background image failed (widget still functional):`, err.message);
           }
         })();
         if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];

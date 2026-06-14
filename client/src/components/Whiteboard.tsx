@@ -75,6 +75,7 @@ import type {
   WriteItem,
   WriteItemSize,
   ImageItem,
+  ComparisonItem,
   DrillItem,
   PronunciationItem,
   ContextItem,
@@ -97,7 +98,7 @@ import type {
   TextbookSearchItem,
   TextbookPageItem,
 } from "@shared/whiteboard-types";
-import { isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isSceneCanvasItem, isSentenceTableItem, isTextbookSearchItem, isTextbookPageItem, isTeachingCardItem, isVocabCardItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions, isDailyPlanItem } from "@shared/whiteboard-types";
+import { isComparisonItem, isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isSceneCanvasItem, isSentenceTableItem, isTextbookSearchItem, isTextbookPageItem, isTeachingCardItem, isVocabCardItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions, isDailyPlanItem } from "@shared/whiteboard-types";
 import type { DailyPlanItem, DailyPlanAgendaItem, TeachingCardItem, VocabCardItem } from "@shared/whiteboard-types";
 import { SceneCanvas } from "@/components/SceneCanvas";
 import type { CognatePair, FalseFriendOption } from "@shared/whiteboard-types";
@@ -382,6 +383,91 @@ const ImageItemDisplay = ({ item, index }: ImageItemDisplayProps) => {
           </DialogContent>
         </Dialog>
       )}
+    </motion.div>
+  );
+};
+
+interface ComparisonItemDisplayProps {
+  item: ComparisonItem;
+  index: number;
+}
+
+const ComparisonItemDisplay = ({ item, index }: ComparisonItemDisplayProps) => {
+  const { data } = item;
+  const isRTL = data.language === 'arabic';
+  const hasBackground = !!data.imageUrl;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20, scale: 0.95 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.95 }}
+      transition={{ duration: 0.3, delay: index * 0.1 }}
+      className="flex flex-col rounded-lg border border-violet-500/30 overflow-hidden"
+      data-testid={`whiteboard-item-comparison-${index}`}
+    >
+      {/* Background image wrapper — DOM text always on top */}
+      <div
+        className="relative"
+        style={hasBackground ? {
+          backgroundImage: `url(${data.imageUrl})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        } : undefined}
+      >
+        {/* Dark wash so DOM text stays readable over any background image */}
+        {hasBackground && (
+          <div className="absolute inset-0 bg-black/55" aria-hidden />
+        )}
+
+        {/* Two-column grid — concept labels always DOM text */}
+        <div
+          className="relative z-10 grid grid-cols-2"
+          dir={isRTL ? 'rtl' : 'ltr'}
+        >
+          {/* Left panel — concept_a */}
+          <div className={`p-4 flex flex-col gap-1 ${hasBackground ? 'border-r border-white/20' : 'border-r border-violet-500/20 bg-violet-500/5'}`}>
+            <div className={`text-xl font-bold tracking-wide ${hasBackground ? 'text-white drop-shadow' : 'text-violet-700 dark:text-violet-300'}`}>
+              {data.concept_a}
+            </div>
+            {data.a_meaning && (
+              <div className={`text-xs font-medium leading-snug ${hasBackground ? 'text-white/85' : 'text-violet-600/80 dark:text-violet-400/80'}`}>
+                {data.a_meaning}
+              </div>
+            )}
+            {data.a_example && (
+              <div className={`text-xs italic mt-1 ${hasBackground ? 'text-white/70' : 'text-muted-foreground'}`}>
+                &ldquo;{data.a_example}&rdquo;
+              </div>
+            )}
+          </div>
+
+          {/* Right panel — concept_b */}
+          <div className={`p-4 flex flex-col gap-1 ${hasBackground ? '' : 'bg-amber-500/5'}`}>
+            <div className={`text-xl font-bold tracking-wide ${hasBackground ? 'text-white drop-shadow' : 'text-amber-700 dark:text-amber-300'}`}>
+              {data.concept_b}
+            </div>
+            {data.b_meaning && (
+              <div className={`text-xs font-medium leading-snug ${hasBackground ? 'text-white/85' : 'text-amber-600/80 dark:text-amber-400/80'}`}>
+                {data.b_meaning}
+              </div>
+            )}
+            {data.b_example && (
+              <div className={`text-xs italic mt-1 ${hasBackground ? 'text-white/70' : 'text-muted-foreground'}`}>
+                &ldquo;{data.b_example}&rdquo;
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Student error context */}
+        {data.student_example && (
+          <div className={`relative z-10 px-4 py-2 text-xs border-t ${hasBackground ? 'border-white/20 text-white/70' : 'border-violet-500/20 text-muted-foreground bg-violet-500/5'}`}>
+            <span className="opacity-60">You said: </span>
+            <span className="italic">&ldquo;{data.student_example}&rdquo;</span>
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 };
@@ -4182,6 +4268,10 @@ const WhiteboardItemDisplay = ({
   // Track when drills are displayed for response time calculation
   const drillDisplayTimeRef = useRef<number>(Date.now());
   
+  if (isComparisonItem(item)) {
+    return <ComparisonItemDisplay item={item} index={index} />;
+  }
+
   if (isImageItem(item)) {
     return <ImageItemDisplay item={item} index={index} />;
   }
