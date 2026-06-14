@@ -2644,26 +2644,30 @@ const StrokeItemDisplay = ({ item, index }: StrokeItemDisplayProps) => {
   };
   
   useEffect(() => {
-    if (!data.character) {
+    if (!data.character || typeof window === 'undefined') {
       setIsLoading(false);
       setHasError(true);
       return;
     }
-    if (typeof window === 'undefined') {
-      setIsLoading(false);
-      setHasError(true);
-      return;
-    }
-    if (!writerContainerRef.current) {
-      setIsLoading(false);
-      setHasError(true);
-      return;
-    }
-    
-    const container = writerContainerRef.current;
+
     let mounted = true;
-    
+
+    // Container is always in DOM (rendered with visibility:hidden during loading/error).
+    // The ref is available immediately on mount because the div is unconditionally rendered.
+    // initWriter is async so it can await the dynamic import — started via initWriter().
     const initWriter = async () => {
+      // Guard: if ref is somehow not yet populated (e.g. very first paint), wait one tick.
+      if (!writerContainerRef.current) {
+        await new Promise(r => setTimeout(r, 50));
+      }
+      if (!mounted) return;
+      if (!writerContainerRef.current) {
+        setIsLoading(false);
+        setHasError(true);
+        return;
+      }
+
+      const container = writerContainerRef.current;
       try {
         const HanziWriterModule = await import('hanzi-writer');
         const HanziWriter = HanziWriterModule.default;
@@ -2774,22 +2778,39 @@ const StrokeItemDisplay = ({ item, index }: StrokeItemDisplayProps) => {
         )}
       </div>
       
-      <div className="flex justify-center items-center py-4 min-h-[140px]">
-        {isLoading && !hasError ? (
+      <div className="flex justify-center items-center py-4 min-h-[140px] relative">
+        {/* Writer container is ALWAYS in the DOM so the ref is available when the effect fires.
+            Visibility is toggled via CSS — HanziWriter requires the element to exist on mount. */}
+        <div
+          className="relative"
+          style={{ visibility: (isLoading || hasError || !isSupported) ? 'hidden' : 'visible' }}
+        >
+          <div 
+            ref={writerContainerRef}
+            className="w-[120px] h-[120px]"
+            data-testid={`stroke-writer-${index}`}
+          />
+        </div>
+
+        {/* Loading overlay */}
+        {isLoading && !hasError && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="flex flex-col items-center gap-2"
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2"
           >
             <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
             <span className="text-xs text-muted-foreground">Loading stroke data...</span>
           </motion.div>
-        ) : hasError || !isSupported ? (
+        )}
+
+        {/* Error / unsupported overlay */}
+        {(hasError || !isSupported) && (
           <motion.div
             initial={{ scale: 0.8 }}
             animate={{ scale: 1 }}
             transition={{ type: "spring", stiffness: 200, damping: 10 }}
-            className="relative flex flex-col items-center gap-2"
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2"
           >
             <span 
               className="text-6xl font-medium text-orange-700 dark:text-orange-300"
@@ -2800,19 +2821,6 @@ const StrokeItemDisplay = ({ item, index }: StrokeItemDisplayProps) => {
             <p className="text-xs text-orange-600/70 dark:text-orange-400/70">
               Stroke data not available
             </p>
-          </motion.div>
-        ) : (
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ type: "spring", stiffness: 200, damping: 10 }}
-            className="relative"
-          >
-            <div 
-              ref={writerContainerRef}
-              className="w-[120px] h-[120px]"
-              data-testid={`stroke-writer-${index}`}
-            />
           </motion.div>
         )}
       </div>

@@ -5421,19 +5421,19 @@ CLASSROOM WIDGETS — Visual display tools:
 widget_time — time and temperature displays. Pass arguments as flat fields — do NOT use params_json for these.
   widget: "set_clock" → show a clock. time="3:30"
   widget: "set_calendar" → show a date display. date="2026-06-13"
-  widget: "set_thermometer" → show a thermometer. temperature="72", unit="F"
+  widget: "set_thermometer" → show a thermometer. celsius=29, showFahrenheit=true  ← always pass Celsius; set showFahrenheit=true for US students
   widget: "sense_time" → read the current real time. No extra arguments needed.
 
 widget_state — emotion, weather, geography, pane. Pass arguments as flat fields — do NOT use params_json for these.
   widget: "set_emotion" → emotion dial. level=8, label="confused"
-  widget: "set_weather" → weather display. condition="sunny", temperature="72"
-  widget: "highlight_country" → country map. country="Mexico"
+  widget: "set_weather" → weather display. condition="sunny", celsius=22  ← condition slug (required) + optional Celsius temperature
+  widget: "highlight_country" → country map. countries=["Mexico"]  ← always an array, even for one country
   widget: "set_right_pane" → right pane content. content="..."
 
-widget_body — human anatomy diagrams. Pass the body part as a flat field — do NOT use params_json for these.
-  widget: "set_body_part" → full body diagram. part="arm"
-  widget: "set_face_part" → face diagram. part="nose"
-  widget: "set_hand_part" → hand diagram. part="finger"
+widget_body — human anatomy diagrams. Pass parts as flat array field — do NOT use params_json for these.
+  widget: "set_body_part" → full body diagram. parts=["arm"]  ← always an array, even for one part
+  widget: "set_face_part" → face diagram. parts=["nose"]  ← always an array
+  widget: "set_hand_part" → hand diagram. parts=["finger"]  ← always an array
 
 widget_scene — visual scene builder.
   widget: "compose_visual_scene" → build a scene with props.
@@ -5477,8 +5477,8 @@ exercise_drill — vocabulary drill and review.
   type: "context" → context vocabulary card.
 
 exercise_content — conjugation and textbook content.
-  type: "init_conjugation_table" → start a conjugation table.
-  type: "fill_conjugation" → fill conjugation table cells.
+  type: "init_conjugation_table" → start a conjugation table. params_json: {"verb":"hablar","tense":"presente de indicativo","pronouns":["yo","tú","él/ella","nosotros","vosotros","ellos/ellas"]}
+  type: "fill_conjugation" → fill one pronoun row. params_json: {"pronoun":"yo","form":"hablo"}  ← call once per row, in sequence
   type: "clear_conjugation_table" → clear a conjugation table.
   type: "start_textbook_page" → display a textbook page.
   type: "search_textbook" → search textbook content.
@@ -5511,7 +5511,7 @@ admin_session — session lifecycle bookkeeping.
   action: "record_student_consent" → log consent.
   action: "dismiss_absence_nudge" → dismiss the absence nudge.
   action: "first_meeting_complete" → mark first meeting done.
-  action: "close_session" → end the current session.
+  action: "close_session" → end the current session. ONLY call when the student says an unambiguous farewell: "adiós", "bye", "I'm done", "end the session", "goodbye". NEVER call on questions like "are we done?", "is that it?", "end of chat?" — those are checkpoints, not goodbyes. If a student immediately says "wait, I'm still here" or "come back", simply continue the session.
   action: "log_page_event" → log a UI event.
   action: "request_text_input" → ask the student to type something.
   action: "record_pattern_signal" → log a background signal.
@@ -5548,7 +5548,7 @@ TEACHING DELIVERY — Structured content tools:
 
 teaching_cards — student-facing content cards.
   type: "teaching_card" → grammar or vocabulary teaching card.
-  type: "vocab_card" → vocabulary card with optional image.
+  type: "vocab_card" → vocabulary card with optional image. params_json: {"word":"la mesa","definition":"the table","language":"Spanish"}
   type: "lesson_note" → lesson note or explanation.
   type: "quiz_presented" → quiz question display.
   type: "cultural_context" → cultural context card.
@@ -5559,7 +5559,7 @@ teaching_content — curriculum content and lesson structures.
   type: "grammar_diagram" → grammar structure diagram.
   type: "show_vocab_grid" → vocabulary grid display.
   type: "swap_vocab_image" → update a vocab card image.
-  type: "show_sentence_builder" → interactive sentence builder.
+  type: "show_sentence_builder" → interactive sentence combinator. params_json: {"columns":[{"label":"Subject","items":[{"text":"Yo","translation":"I"},{"text":"Tú","translation":"You"}]},{"label":"Verb","items":[{"text":"hablo","translation":"speak"},{"text":"hablas","translation":"speak"}]}],"pattern_label":"yo + verb"}
   type: "show_textbook_section" → textbook section display.
   type: "invoke_teaching_skill" → launch a structured teaching skill script.
 

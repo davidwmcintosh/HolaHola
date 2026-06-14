@@ -24,6 +24,42 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 14, 2026 (part 2) — GL dispatcher widget bugs: field name mismatches + stroke order animation**
+
+### What was built
+
+**Root cause:** Systematic field name mismatch between what `GL_DISPATCHER_SYSTEM_PROMPT` told Daniela to pass as flat fields, and what the native handler cases actually read. Tools were CALLING correctly (dispatcher fired) but silently bailing because the arg names didn't match.
+
+**Handler resilience fixes** (`server/services/native-fc-handlers.ts`):
+- `SET_THERMOMETER`: was reading `fn.args.celsius` — prompt said `temperature="72", unit="F"`. Now accepts `temperature` flat field and converts Fahrenheit→Celsius automatically. Also derives `showFahrenheit` from `unit` flag.
+- `SET_WEATHER`: same — `celsius` vs `temperature` mismatch fixed with same Fahrenheit conversion fallback.
+- `HIGHLIGHT_COUNTRY`: was reading `fn.args.countries` (array) — prompt said `country="Mexico"` (singular). Now accepts singular `country` and wraps in array.
+- `SET_BODY_PART`, `SET_FACE_PART`, `SET_HAND_PART`: same pattern — `parts` (array) vs `part` (singular). All three now accept either form.
+
+**Dispatcher prompt corrections** (`server/services/daniela-function-registry.ts` — `GL_DISPATCHER_SYSTEM_PROMPT`):
+- `set_thermometer`: `temperature="72", unit="F"` → `celsius=29, showFahrenheit=true`
+- `set_weather`: `temperature="72"` → `celsius=22`
+- `highlight_country`: `country="Mexico"` → `countries=["Mexico"]` (always array)
+- `set_body_part/face/hand`: `part="x"` → `parts=["x"]` (always array)
+- `init_conjugation_table`: added full params_json schema with verb/tense/pronouns array
+- `fill_conjugation`: added params_json schema (pronoun/form, call once per row)
+- `vocab_card`: added params_json schema (word/definition/language)
+- `show_sentence_builder`: added full columns schema example
+- `close_session`: added explicit rule — only call on unambiguous farewell, NEVER on "are we done?" questions
+
+**Stroke order animation fix** (`client/src/components/Whiteboard.tsx`):
+- Bug: `writerContainerRef` div was only rendered in the non-loading, non-error ternary branch. The `useEffect` fired at mount while `isLoading=true`, so `writerContainerRef.current` was null → immediately set `hasError=true` → showed "Stroke data not available" static text instead of animation.
+- Fix: container div is now always in the DOM (`visibility:hidden` during loading/error). Loading/error states use absolute-positioned overlays. One-tick retry guard added for safety. Restructured `initWriter` as proper async function.
+
+**Bugs logged to docs/open-bugs.md:**
+- Por vs Para `visual_compare` DALL-E text hallucination — MEDIUM (architectural fix needed: DOM text overlay on the client instead of DALL-E rendering label text)
+
+### What's still open
+- DALL-E text hallucination in `visual_compare` — needs client-side text overlay layer on the visual compare widget so labels are DOM text, not image pixels.
+- UX suggestions from David's test session: clock/weather widgets should pair visual with spoken target language (e.g. "es la 1:15" after setting clock, "soleado" when showing sun). Not bugs but good pedagogy.
+
+---
+
 **Session: June 14, 2026 — GL voice confabulation: Daniela fabricating tool calls**
 
 ### What was built

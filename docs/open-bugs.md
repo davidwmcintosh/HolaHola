@@ -7,6 +7,9 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-06-14 — `server/services/native-fc-handlers.ts` + `daniela-function-registry.ts` — Por vs Para visual_compare DALL-E text hallucination — MEDIUM**
+`visual_compare` calls DALL-E to generate a side-by-side image with Spanish labels ("Por" / "Para") rendered as text inside the image. DALL-E reliably garbles short text strings — rendered "Para os" and "Paraar" instead of the correct words. Second attempt produced no image at all. Architectural fix: add a text-overlay layer to the visual_compare widget on the client side so labels are DOM text (not DALL-E-generated pixels). Short-term workaround: add a note to `visual_compare` declaration telling Daniela to keep image prompts label-free and speak the comparison words separately.
+
 **2026-06-12 — `server/services/streaming-voice-orchestrator.ts:1732` — setTimeout timer leak in contextCacheReady race — LOW**
 `Promise.race([session.contextCacheReady, new Promise(r => setTimeout(r, 500))])` — the 500ms timer is never cleared after the race resolves. One leaked timer per `processUserAudio` call. Impact is minimal (timers are GC'd after firing) but accumulates under load. Fix: save the timeout ID and `clearTimeout` after the race resolves.
 

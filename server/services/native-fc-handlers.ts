@@ -1957,7 +1957,13 @@ export class NativeFunctionCallHandler {
           console.log('[Native Function→SetBodyPart] Cleared');
           break;
         }
-        const bodyParts = fn.args.parts as string[] | undefined;
+        // Accept both parts=["arm","leg"] (array) and part="arm" (singular flat field from dispatcher)
+        const rawBodyParts = fn.args.parts as string[] | string | undefined;
+        const bodyParts: string[] | undefined = Array.isArray(rawBodyParts)
+          ? rawBodyParts
+          : (fn.args.part as string | undefined)
+            ? [(fn.args.part as string)]
+            : typeof rawBodyParts === 'string' ? [rawBodyParts] : undefined;
         const bodyLabels = fn.args.labels as Record<string, string> | undefined;
         const bodyNativeLabels = fn.args.native_labels as Record<string, string> | undefined;
         if (!bodyParts?.length) { console.warn('[Native Function→SetBodyPart] Missing parts — skipping'); break; }
@@ -1984,7 +1990,13 @@ export class NativeFunctionCallHandler {
           console.log('[Native Function→SetFacePart] Cleared');
           break;
         }
-        const faceParts = fn.args.parts as string[] | undefined;
+        // Accept both parts=["nose"] (array) and part="nose" (singular flat field from dispatcher)
+        const rawFaceParts = fn.args.parts as string[] | string | undefined;
+        const faceParts: string[] | undefined = Array.isArray(rawFaceParts)
+          ? rawFaceParts
+          : (fn.args.part as string | undefined)
+            ? [(fn.args.part as string)]
+            : typeof rawFaceParts === 'string' ? [rawFaceParts] : undefined;
         const faceLabels = fn.args.labels as Record<string, string> | undefined;
         const faceNativeLabels = fn.args.native_labels as Record<string, string> | undefined;
         if (!faceParts?.length) { console.warn('[Native Function→SetFacePart] Missing parts — skipping'); break; }
@@ -2011,7 +2023,13 @@ export class NativeFunctionCallHandler {
           console.log('[Native Function→SetHandPart] Cleared');
           break;
         }
-        const handParts = fn.args.parts as string[] | undefined;
+        // Accept both parts=["finger"] (array) and part="finger" (singular flat field from dispatcher)
+        const rawHandParts = fn.args.parts as string[] | string | undefined;
+        const handParts: string[] | undefined = Array.isArray(rawHandParts)
+          ? rawHandParts
+          : (fn.args.part as string | undefined)
+            ? [(fn.args.part as string)]
+            : typeof rawHandParts === 'string' ? [rawHandParts] : undefined;
         const handLabels = fn.args.labels as Record<string, string> | undefined;
         const handNativeLabels = fn.args.native_labels as Record<string, string> | undefined;
         const handSide = fn.args.hand as 'left' | 'right' | undefined;
@@ -2039,10 +2057,19 @@ export class NativeFunctionCallHandler {
           console.log('[Native Function→SetThermometer] Cleared');
           break;
         }
-        const thermCelsius = fn.args.celsius as number | undefined;
+        // Accept celsius (preferred) OR temperature flat field (Fahrenheit — legacy dispatcher field name)
+        let thermCelsius = fn.args.celsius as number | undefined;
+        if (thermCelsius === undefined && fn.args.temperature !== undefined) {
+          const tempRaw = Number(fn.args.temperature);
+          const unitRaw = (fn.args.unit as string | undefined)?.toUpperCase();
+          thermCelsius = (unitRaw === 'C') ? tempRaw : Math.round((tempRaw - 32) * 5 / 9);
+          console.log(`[Native Function→SetThermometer] Converted temperature=${fn.args.temperature}${unitRaw ?? 'F'} → ${thermCelsius}°C`);
+        }
         const thermLabel = fn.args.labelText as string | undefined;
-        const thermFahrenheit = fn.args.showFahrenheit as boolean | undefined;
-        if (thermCelsius === undefined) { console.warn('[Native Function→SetThermometer] Missing celsius — skipping'); break; }
+        // showFahrenheit: true when caller passed unit="F" or explicitly requested Fahrenheit display
+        const thermFahrenheitExplicit = fn.args.showFahrenheit as boolean | undefined;
+        const thermFahrenheit = thermFahrenheitExplicit ?? ((fn.args.unit as string | undefined)?.toUpperCase() === 'F');
+        if (thermCelsius === undefined) { console.warn('[Native Function→SetThermometer] Missing celsius/temperature — skipping'); break; }
         if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
         session.sceneCanvas.thermometerData = { celsius: thermCelsius, labelText: thermLabel, showFahrenheit: thermFahrenheit };
         const thermUpdate = {
@@ -2094,7 +2121,14 @@ export class NativeFunctionCallHandler {
         }
         const weatherCondition = fn.args.condition as string | undefined;
         const weatherLabel = fn.args.label as string | undefined;
-        const weatherCelsius = fn.args.celsius as number | undefined;
+        // Accept celsius (preferred) OR temperature flat field (Fahrenheit — legacy dispatcher field name)
+        let weatherCelsius = fn.args.celsius as number | undefined;
+        if (weatherCelsius === undefined && fn.args.temperature !== undefined) {
+          const tempRaw = Number(fn.args.temperature);
+          const unitRaw = (fn.args.unit as string | undefined)?.toUpperCase();
+          weatherCelsius = (unitRaw === 'C') ? tempRaw : Math.round((tempRaw - 32) * 5 / 9);
+          console.log(`[Native Function→SetWeather] Converted temperature=${fn.args.temperature}${unitRaw ?? 'F'} → ${weatherCelsius}°C`);
+        }
         if (!weatherCondition) { console.warn('[Native Function→SetWeather] Missing condition — skipping'); break; }
         if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
         session.sceneCanvas.weatherData = { condition: weatherCondition, label: weatherLabel, celsius: weatherCelsius };
@@ -2119,7 +2153,13 @@ export class NativeFunctionCallHandler {
           console.log('[Native Function→HighlightCountry] Cleared');
           break;
         }
-        const mapCountries = fn.args.countries as string[] | undefined;
+        // Accept countries=["Mexico","Spain"] (array) or country="Mexico" (singular flat field from dispatcher)
+        const rawMapCountries = fn.args.countries as string[] | string | undefined;
+        const mapCountries: string[] | undefined = Array.isArray(rawMapCountries)
+          ? rawMapCountries
+          : (fn.args.country as string | undefined)
+            ? [(fn.args.country as string)]
+            : typeof rawMapCountries === 'string' ? [rawMapCountries] : undefined;
         const mapLabels = fn.args.labels as Record<string, string> | undefined;
         if (!mapCountries?.length) { console.warn('[Native Function→HighlightCountry] Missing countries — skipping'); break; }
         if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
