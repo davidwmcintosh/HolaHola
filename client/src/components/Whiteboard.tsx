@@ -431,9 +431,14 @@ const ComparisonItemDisplay = ({ item, index }: ComparisonItemDisplayProps) => {
               {data.concept_a}
             </div>
             {data.a_meaning && (
-              <div className={`text-xs font-medium leading-snug ${hasBackground ? 'text-white/85' : 'text-violet-600/80 dark:text-violet-400/80'}`}>
-                {data.a_meaning}
-              </div>
+              <ul className={`flex flex-col gap-0.5 mt-0.5 ${hasBackground ? 'text-white/85' : 'text-violet-600/80 dark:text-violet-400/80'}`}>
+                {data.a_meaning.split(',').map((item: string, i: number) => item.trim() && (
+                  <li key={i} className="flex items-start gap-1 text-xs font-medium leading-snug">
+                    <span className="mt-[3px] shrink-0">•</span>
+                    <span>{item.trim()}</span>
+                  </li>
+                ))}
+              </ul>
             )}
             {data.a_example && (
               <div className={`text-xs italic mt-1 ${hasBackground ? 'text-white/70' : 'text-muted-foreground'}`}>
@@ -448,9 +453,14 @@ const ComparisonItemDisplay = ({ item, index }: ComparisonItemDisplayProps) => {
               {data.concept_b}
             </div>
             {data.b_meaning && (
-              <div className={`text-xs font-medium leading-snug ${hasBackground ? 'text-white/85' : 'text-amber-600/80 dark:text-amber-400/80'}`}>
-                {data.b_meaning}
-              </div>
+              <ul className={`flex flex-col gap-0.5 mt-0.5 ${hasBackground ? 'text-white/85' : 'text-amber-600/80 dark:text-amber-400/80'}`}>
+                {data.b_meaning.split(',').map((item: string, i: number) => item.trim() && (
+                  <li key={i} className="flex items-start gap-1 text-xs font-medium leading-snug">
+                    <span className="mt-[3px] shrink-0">•</span>
+                    <span>{item.trim()}</span>
+                  </li>
+                ))}
+              </ul>
             )}
             {data.b_example && (
               <div className={`text-xs italic mt-1 ${hasBackground ? 'text-white/70' : 'text-muted-foreground'}`}>

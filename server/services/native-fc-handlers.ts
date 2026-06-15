@@ -754,6 +754,30 @@ export class NativeFunctionCallHandler {
         break;
       }
       
+      case 'PUSH_CUSTOM_SUBTITLE': {
+        const text = (fn.args.text as string | undefined) ?? '';
+        if (text.trim() === '') {
+          // Clear the subtitle bar
+          session.customOverlayText = undefined;
+          this.sendMessage(session.ws, {
+            type: 'custom_overlay',
+            action: 'hide',
+            timestamp: Date.now(),
+          } as any, session);
+          console.log(`[Native Function→PushCustomSubtitle] Cleared subtitle bar`);
+        } else {
+          session.customOverlayText = text;
+          this.sendMessage(session.ws, {
+            type: 'custom_overlay',
+            text,
+            action: 'show',
+            timestamp: Date.now(),
+          } as any, session);
+          console.log(`[Native Function→PushCustomSubtitle] Pushed to subtitle bar: "${text.substring(0, 60)}"`);
+        }
+        break;
+      }
+
       case 'HOLD': {
         const text = fn.args.text as string | undefined;
         const hold = fn.args.hold as boolean | undefined;

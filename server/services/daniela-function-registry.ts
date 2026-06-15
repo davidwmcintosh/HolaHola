@@ -437,6 +437,20 @@ French — female: "marie" (friend), "la_serveuse" (waitress)`,
     },
   },
   {
+    legacyType: 'PUSH_CUSTOM_SUBTITLE',
+    declaration: {
+      name: "push_custom_subtitle",
+      description: "Push a word or short phrase into the subtitle bar below the screen — silently, without saying it aloud. Use this for graceful visual correction (show the right word while letting the student's sentiment stand), for previewing a target-language word before saying it, or for any moment where a visual cue serves the student better than an interruption. The text appears in the subtitle bar and stays visible until cleared. To clear it, call push_custom_subtitle with text: ''. GL-safe — use freely during voice sessions.",
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "Word or short phrase to display in the subtitle bar. Pass an empty string to clear." },
+        },
+        required: ["text"],
+      },
+    },
+  },
+  {
     legacyType: 'SHOW',
     declaration: {
       name: "show_overlay",
