@@ -668,10 +668,8 @@ export function ImmersiveTutor({
         </Sheet>
       )}
       
-      {/* Main content area - scrollable if needed, fills available space */}
-      <div className="flex-1 min-h-0 w-full overflow-y-auto flex flex-col items-center">
-        {/* Top spacer for vertical centering */}
-        <div className="flex-1 min-h-4" />
+      {/* Main content area - centers avatar vertically in the space above controls */}
+      <div className="flex-1 min-h-0 w-full flex flex-col items-center justify-center">
       
       {/* Fixed Tutor Visual - larger avatar container */}
       <div className="flex-shrink-0 relative w-full max-w-lg mx-auto aspect-square max-h-[45vh] flex items-center justify-center">

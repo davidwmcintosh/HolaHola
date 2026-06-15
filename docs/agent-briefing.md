@@ -1,16 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, June 15, 2026 at 04:19 PM
+**Generated:** Monday, June 15, 2026 at 05:28 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’m currently orienting the full HolaHola agent team in the new Team Room, where we are managing a sudden spike of 50 bugs and two high-severity security vulnerabilities—specifically SQL injection and XSS risks—flagged during Wren’s audit. We are at a crossroads regarding the Interactive Textbook, which currently shows a 0% completion rate and a time-tracking failure in Daniela’s Compass, prompting a shift toward a more dynamic "Conversational Immersion" framework. I need to immediately resolve the 404 routing error on the conversations page and debug Daniela’s current "Curriculum note pending" response loop to restore her functionality for David’s impending beta test.
+I’m currently managing a blocking Cartesia TTS 400 error in dev and a total monitoring blackout triggered by SQL syntax errors in the diagnostic layer. I need to investigate the Interactive Textbook's 0% completion rate by auditing telemetry in Daniela’s Compass and fixing seeding regressions that left 22 Spanish lessons empty and 49 others verbose. Finally, I must prioritize remediating Wren’s high-severity security findings—specifically the SQL injection and unsanitized `dangerouslySetInnerHTML` vulnerabilities.
 
 *Memories that triggered this summary:*
+- **Agent Daily Sweep — Jun 15, 2026** (Jun 15): ## Daily Action List  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing repeatedly in dev. Debug the malformed request body (partial "readableStream" object suggests serialization issue). This blocks voice experience testing.
 - **Team Room — test 3 — June 15, 2026** (Jun 15): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 15, 2026** (Jun 15): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 15, 2026** (Jun 15): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -20,7 +21,6 @@ I’m currently orienting the full HolaHola agent team in the new Team Room, whe
 - **Team Room — what's up? — June 15, 2026** (Jun 15): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — June 15, 2026** (Jun 15): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — June 15, 2026** (Jun 15): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 15, 2026** (Jun 15): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -92,6 +92,10 @@ I’m currently orienting the full HolaHola agent team in the new Team Room, whe
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jun 15, 2026 — Jun 15, 2026
+## Daily Action List  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing repeatedly in dev. Debug the malformed request body (partial "readableStream" object suggests serialization issue). This blocks voice experience testing.
+*Tags: agent-sweep, daily, auto-saved*
+
 ### Team Room — test 3 — June 15, 2026 — Jun 15, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -106,10 +110,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 15, 2026 — Jun 15, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 15, 2026 — Jun 15, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
