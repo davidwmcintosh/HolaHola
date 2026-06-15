@@ -3747,6 +3747,32 @@ Keep definitions short — one line max. Do NOT use this for grammar rules; use 
         },
       },
     },
+    buildContinuationResponse: ({ session, fc }) => {
+      const word = (fc.args.word as string | undefined) || 'word';
+      const definition = (fc.args.definition as string | undefined) || '';
+      const visionEntry = session.visionBuffer?.['vocab_card'];
+
+      if (visionEntry && visionEntry.word === word) {
+        const descLine = visionEntry.description
+          ? `\nImage content: ${visionEntry.description}`
+          : '';
+        if (visionEntry.inlineData) {
+          return {
+            multimodal: true,
+            parts: [
+              {
+                text: `Vocab card shown for "${word}" (${definition}).${descLine}\nYou can see the image on the student's card. Reference it naturally — if it captures the word well, say so; if it doesn't, call show_vocab_card again with a more specific scene.`,
+              },
+              { inlineData: visionEntry.inlineData },
+            ],
+          };
+        }
+        return `Vocab card shown for "${word}" (${definition}).${descLine}\n[Image already in your visual context — reference by name without re-describing.]`;
+      }
+
+      // Fallback if vision didn't resolve in time or no image
+      return `Vocab card shown for "${word}" (${definition}). Image is loading — continue speaking naturally.`;
+    },
   },
 
   // === LESSON NOTES ===

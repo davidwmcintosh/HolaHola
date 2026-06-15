@@ -2996,10 +2996,13 @@ export class NativeFunctionCallHandler {
         if (!session.classroomWhiteboardItems) session.classroomWhiteboardItems = [];
         session.classroomWhiteboardItems.push({ type: 'vocab_card', content: vcWord, label: vcDefinition });
 
-        // If no image URL provided, auto-resolve one in the background and patch the card
-        if (!vcImageUrl) {
-          import('../services/vocabulary-image-resolver').then(async ({ resolveVocabularyImage }) => {
-            try {
+        // Image pipeline: resolve image, patch card, then give Daniela vision of what was shown
+        const vcImagePromise = (async () => {
+          try {
+            let resolvedImageUrl = vcImageUrl;
+
+            if (!resolvedImageUrl) {
+              const { resolveVocabularyImage } = await import('../services/vocabulary-image-resolver');
               const result = await resolveVocabularyImage({
                 word: vcWord,
                 language: session.language || 'spanish',
@@ -3007,8 +3010,9 @@ export class NativeFunctionCallHandler {
                 conversationId: session.conversationId?.toString(),
                 userId: session.userId?.toString(),
               });
+              resolvedImageUrl = result.imageUrl;
               console.log(`[Native Function→VocabCard] Auto-resolved image for "${vcWord}": ${result.source}`);
-              // Update the existing card with the resolved image (same ID = client updates in place)
+              // Patch the card already on screen with the resolved image (same ID = in-place update)
               this.sendMessage(session.ws, {
                 type: 'whiteboard_update',
                 timestamp: Date.now(),
@@ -3020,17 +3024,36 @@ export class NativeFunctionCallHandler {
                   data: {
                     word: vcWord,
                     definition: vcDefinition,
-                    imageUrl: result.imageUrl,
+                    imageUrl: resolvedImageUrl,
                     language: vcLanguage,
                     autoDismissMs: vcDurationMs,
                   },
                 }],
               });
-            } catch (err) {
-              console.warn(`[Native Function→VocabCard] Image auto-resolve failed for "${vcWord}":`, err);
             }
-          });
-        }
+
+            // Give Daniela actual vision of the image now showing on the student's card
+            if (resolvedImageUrl) {
+              const { getImageVision } = await import('../services/image-vision-service');
+              const visionDesc = `vocabulary card for "${vcWord}" — ${vcDefinition}`;
+              const vision = await getImageVision(resolvedImageUrl, visionDesc, session);
+              if (!session.visionBuffer) session.visionBuffer = {};
+              session.visionBuffer['vocab_card'] = {
+                url: resolvedImageUrl,
+                word: vcWord,
+                definition: vcDefinition,
+                description: vision.description,
+                inlineData: vision.inlineData,
+              };
+              console.log(`[Vision→VocabCard] Mode: ${vision.mode} for "${vcWord}"`);
+            }
+          } catch (err: any) {
+            console.warn(`[Native Function→VocabCard] Image pipeline failed for "${vcWord}":`, err.message);
+          }
+        })();
+
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(vcImagePromise);
         break;
       }
 
