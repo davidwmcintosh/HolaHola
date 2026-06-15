@@ -171,7 +171,7 @@ export function VoiceChatViewManager({
       {/* View Indicator Badges - Live and History only */}
       {/* Subtitle controls removed: tutor decides when to display via whiteboard */}
       {/* User can still configure subtitle preference in Settings */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
+      <div className="absolute top-4 right-10 z-10 flex gap-2">
         {/* Live Button - Primary when active */}
         <Badge
           variant={view === "live" ? "default" : "outline"}
