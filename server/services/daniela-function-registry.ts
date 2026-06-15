@@ -3750,7 +3750,9 @@ Keep definitions short — one line max. Do NOT use this for grammar rules; use 
     buildContinuationResponse: ({ session, fc }) => {
       const word = (fc.args.word as string | undefined) || 'word';
       const definition = (fc.args.definition as string | undefined) || '';
-      const visionEntry = session.visionBuffer?.['vocab_card'];
+      const rawEntry = session.visionBuffer?.['vocab_card'];
+      // Narrow: vocab_card is always the object form, not the array form
+      const visionEntry = rawEntry && !Array.isArray(rawEntry) ? rawEntry : undefined;
 
       if (visionEntry && visionEntry.word === word) {
         const descLine = visionEntry.description
@@ -3761,13 +3763,13 @@ Keep definitions short — one line max. Do NOT use this for grammar rules; use 
             multimodal: true,
             parts: [
               {
-                text: `Vocab card shown for "${word}" (${definition}).${descLine}\nYou can see the image on the student's card. Reference it naturally — if it captures the word well, say so; if it doesn't, call show_vocab_card again with a more specific scene.`,
+                text: `Vocab card shown for "${word}" (${definition}).${descLine}\nYou can see the image — use it as a teaching anchor. Point to what you see: "Look at this — ${word}. That's your picture for it." If the image doesn't match the word, call show_vocab_card again with a more specific scene description.`,
               },
               { inlineData: visionEntry.inlineData },
             ],
           };
         }
-        return `Vocab card shown for "${word}" (${definition}).${descLine}\n[Image already in your visual context — reference by name without re-describing.]`;
+        return `Vocab card shown for "${word}" (${definition}).${descLine}\nUse the image to anchor the word — say what it shows and connect it to the meaning.`;
       }
 
       // Fallback if vision didn't resolve in time or no image
@@ -4526,6 +4528,38 @@ Pass 4–6 words. More than 6 feels overwhelming; fewer than 4 isn't worth the p
       if (!result?.success) {
         return `Vocab grid could not be displayed — image generation may have failed. Continue verbally: name each word and have the student repeat.`;
       }
+
+      const gridVision = session.visionBuffer?.['vocab_grid'] as Array<{
+        word: string; translation: string; description?: string; inlineData?: any; mode?: string;
+      }> | undefined;
+
+      if (gridVision && gridVision.length > 0) {
+        const wordsWithImages = gridVision.filter(v => v.inlineData);
+        if (wordsWithImages.length > 0) {
+          // Multimodal: Daniela sees every image in the grid, labeled by word
+          const parts: any[] = [];
+          parts.push({
+            text: `Vocabulary grid is now showing — ${result.wordCount} words${result.title ? ` ("${result.title}")` : ''}. You can see each image below, labeled by word. Reference them as you teach — point to images by name, use them to anchor each word visually, and ask the student to say each one back.\n\n`
+              + gridVision.map(v => `• ${v.word} (${v.translation})${v.description ? ': ' + v.description : ''}`).join('\n'),
+          });
+          for (const v of gridVision) {
+            if (v.inlineData) {
+              parts.push({ text: `\n↓ Image for "${v.word}" (${v.translation}):` });
+              parts.push({ inlineData: v.inlineData });
+            }
+          }
+          parts.push({ text: `\nStart with the first word. Point to its image and say it aloud, then have the student repeat. If any image doesn't capture the word well, call swap_vocab_image with a more specific description.` });
+          return { multimodal: true, parts };
+        }
+
+        // Have descriptions but no inline bytes — text summary
+        const wordSummary = gridVision.map(v =>
+          `• ${v.word} (${v.translation})${v.description ? ': ' + v.description : ''}`
+        ).join('\n');
+        return `Vocab grid displayed — ${result.wordCount} words. Here's what each image shows:\n${wordSummary}\n\nPoint to each image as you say the word — have the student say it back before moving on.`;
+      }
+
+      // Fallback: no vision data yet
       const words = (fc.args.words as any[]) || [];
       const wordList = words.map((w: any) => `${w.text} (${w.translation})`).join(', ');
       return `Vocabulary grid displayed with ${result.wordCount} words: ${wordList}. Point to the first image and ask the student to say the word. Then cycle through the rest.`;

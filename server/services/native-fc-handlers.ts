@@ -3036,7 +3036,35 @@ export class NativeFunctionCallHandler {
             if (resolvedImageUrl) {
               const { getImageVision } = await import('../services/image-vision-service');
               const visionDesc = `vocabulary card for "${vcWord}" — ${vcDefinition}`;
-              const vision = await getImageVision(resolvedImageUrl, visionDesc, session);
+              let vision = await getImageVision(resolvedImageUrl, visionDesc, session);
+
+              // Self-correcting loop: if vision fetch failed, retry with a tighter image prompt
+              if (vision.mode === 'error' || vision.mode === 'no-image') {
+                console.log(`[Vision→VocabCard] Vision failed (${vision.mode}), retrying image for "${vcWord}"`);
+                try {
+                  const { resolveVocabularyImage } = await import('../services/vocabulary-image-resolver');
+                  const retry = await resolveVocabularyImage({
+                    word: vcWord,
+                    language: session.language || 'spanish',
+                    description: `${vcWord} — ${vcDefinition}, clear and unambiguous illustration`,
+                    scene: `${vcDefinition} — simple, isolated object on clean background`,
+                    conversationId: session.conversationId?.toString(),
+                    userId: session.userId?.toString(),
+                  });
+                  resolvedImageUrl = retry.imageUrl;
+                  vision = await getImageVision(resolvedImageUrl, visionDesc, session);
+                  // Update the card on screen with the better image
+                  this.sendMessage(session.ws, {
+                    type: 'whiteboard_update',
+                    timestamp: Date.now(),
+                    items: [{ type: 'vocab_card', id: vcId, content: vcWord, timestamp: Date.now(),
+                      data: { word: vcWord, definition: vcDefinition, imageUrl: resolvedImageUrl, language: vcLanguage, autoDismissMs: vcDurationMs } }],
+                  });
+                } catch (retryErr: any) {
+                  console.warn(`[Vision→VocabCard] Retry failed for "${vcWord}":`, retryErr.message);
+                }
+              }
+
               if (!session.visionBuffer) session.visionBuffer = {};
               session.visionBuffer['vocab_card'] = {
                 url: resolvedImageUrl,
@@ -3046,6 +3074,17 @@ export class NativeFunctionCallHandler {
                 inlineData: vision.inlineData,
               };
               console.log(`[Vision→VocabCard] Mode: ${vision.mode} for "${vcWord}"`);
+
+              // Cross-session image memory: store visual anchor in the neural net
+              // so Daniela can reference "that monarch butterfly" in future sessions
+              const userId = session.userId?.toString();
+              if (userId && vision.description && vision.mode !== 'error') {
+                const memContent = `Visual anchor: "${vcWord}" (${vcDefinition}) was introduced with an image of ${vision.description}. Student: ${userId}.`;
+                const memId = `vocab-image-${userId}-${vcWord.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}`;
+                import('../services/semantic-memory-service').then(({ generateAndStoreEmbedding }) =>
+                  generateAndStoreEmbedding('student_insight', memId, userId, memContent)
+                ).catch((e: any) => console.warn(`[VocabCard] Neural net memory failed:`, e.message));
+              }
             }
           } catch (err: any) {
             console.warn(`[Native Function→VocabCard] Image pipeline failed for "${vcWord}":`, err.message);
@@ -6212,6 +6251,31 @@ export class NativeFunctionCallHandler {
 
             (session as any).showVocabGridResult = { success: true, wordCount: resolvedWords.length, title };
             console.log(`[Native Function→ShowVocabGrid] Displayed ${resolvedWords.length} words`);
+
+            // Give Daniela vision of every image in the grid — she sees the whole board at once
+            try {
+              const { getImageVision } = await import('../services/image-vision-service');
+              const gridVision = await Promise.all(
+                resolvedWords
+                  .filter((w: any) => w.imageUrl)
+                  .map(async (w: any) => {
+                    const visionDesc = `vocabulary grid image for "${w.text}" — ${w.translation}`;
+                    const vision = await getImageVision(w.imageUrl, visionDesc, session);
+                    return {
+                      word: w.text,
+                      translation: w.translation,
+                      description: vision.description,
+                      inlineData: vision.inlineData,
+                      mode: vision.mode,
+                    };
+                  })
+              );
+              if (!session.visionBuffer) session.visionBuffer = {};
+              session.visionBuffer['vocab_grid'] = gridVision;
+              console.log(`[Vision→VocabGrid] Vision captured for ${gridVision.length} words`);
+            } catch (visionErr: any) {
+              console.warn(`[Vision→VocabGrid] Vision pass failed:`, visionErr.message);
+            }
           } catch (err: any) {
             console.error(`[Native Function→ShowVocabGrid] Error:`, err.message);
             (session as any).showVocabGridResult = { success: false, wordCount: 0 };

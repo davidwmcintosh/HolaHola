@@ -229,7 +229,15 @@ export interface StreamingSession {
     description: string;
     inlineData?: { mimeType: string; data: string }; // present only on first-time bytes
     sceneStateText?: string; // Tier-1 structural canvas state (open_scene / add_to_scene)
-  }>;
+    word?: string;           // Vocab card: the target-language word shown
+    definition?: string;     // Vocab card: the English definition shown
+  } | Array<{              // Vocab grid: one entry per word in the grid
+    word: string;
+    translation: string;
+    description?: string;
+    inlineData?: { mimeType: string; data: string };
+    mode?: string;
+  }>>;
   pendingMemoryLookupPromises?: Promise<void>[];
   // Voice Lab override settings
   voiceOverride?: {
