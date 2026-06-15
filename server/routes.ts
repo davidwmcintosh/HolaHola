@@ -13442,12 +13442,12 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ── Comparison Backgrounds: bust one and regenerate ──────────────────────────
   app.post('/api/admin/comparison-backgrounds/bust', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
-      const { conceptA, conceptB, language } = req.body;
-      if (!conceptA || !conceptB || !language) {
-        return res.status(400).json({ error: 'conceptA, conceptB, and language are required' });
+      const { language } = req.body;
+      if (!language) {
+        return res.status(400).json({ error: 'language is required' });
       }
-      const compareCacheKey = `compare_${conceptA}_${conceptB}`.toLowerCase().replace(/[^a-z0-9_]/g, '_').slice(0, 60);
-      const cacheKey = `vocab_${language}_${compareCacheKey}`;
+      // Language-level shared key — all pairs in a language share one background
+      const cacheKey = `vocab_${language}_comparison_bg`;
       const deleted = await storage.deleteMediaFileBySearchQuery(cacheKey);
 
       // Language-specific background scene (no characters, no text)
@@ -13475,14 +13475,14 @@ Return ONLY valid JSON, no markdown, no explanation.`;
           const result = await generateVisual(abstractPrompt, 'infographic');
           await storage.cacheImage({
             url: result.imageUrl,
-            filename: `compare_bg_${compareCacheKey}_${Date.now()}.jpg`,
+            filename: `compare_bg_${language}_${Date.now()}.jpg`,
             mimeType: 'image/jpeg',
             mediaType: 'image',
             imageSource: 'ai_generated',
             searchQuery: cacheKey,
             uploadedBy: null,
-            title: `compare_${conceptA}_${conceptB}`,
-            description: `${conceptA} vs ${conceptB} comparison background`,
+            title: `comparison_bg_${language}`,
+            description: `Shared comparison background for ${language}`,
             tags: ['comparison', 'background', 'grammar', language],
             language,
             targetWord: cacheKey,

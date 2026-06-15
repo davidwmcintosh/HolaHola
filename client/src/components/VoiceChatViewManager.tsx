@@ -195,11 +195,13 @@ export function VoiceChatViewManager({
         </Badge>
       </div>
 
-      {/* View Content — history view uses overflow-y-auto directly on the flex-1 container so that
-          the bounded flex height is the scroll boundary (avoids page-scroll and absolute-zero-height bugs) */}
+      {/* View Content.
+          History mode: plain block container (NOT flex) with overflow-y-auto. Flex children shrink
+          instead of overflowing, which prevents scroll from triggering — removing flex fixes that.
+          Live mode: flex-col for ImmersiveTutor layout. */}
       <div
         ref={view === "history" ? historyScrollRef : undefined}
-        className={`flex flex-col flex-1 min-h-0 relative ${view === "history" ? "overflow-y-auto" : "overflow-hidden"}`}
+        className={`flex-1 min-h-0 relative ${view === "history" ? "overflow-y-auto" : "flex flex-col overflow-hidden"}`}
       >
         {view === "live" ? (
           conversationId ? (

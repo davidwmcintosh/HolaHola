@@ -1,7 +1,26 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, June 14, 2026 at 04:20 PM
+**Generated:** Monday, June 15, 2026 at 02:53 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’m stepping into a voice delivery crisis where Cartesia TTS 400 errors and a missing Gemini timeout constant are blocking core audio interactions. My immediate priorities are remediating Wren’s two high-severity security findings—specifically the SQL injection risk and unsanitized HTML—while fixing the 404 routing error on the conversations page. I also need to investigate the tracking bug in Daniela's Compass causing zero-second session logs and address the "half-baked" state of the Interactive Textbook by implementing the new metadata schema for infographics we discussed with David.
+
+*Memories that triggered this summary:*
+- **Team Room — uno, dos, tres VAMOS — June 15, 2026** (Jun 15): Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
+- **Team Room — canta y no llore... — June 15, 2026** (Jun 15): Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
+- **Team Room — test 3 — June 15, 2026** (Jun 15): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+- **Team Room — test again — June 15, 2026** (Jun 15): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+- **Team Room — are we good? — June 15, 2026** (Jun 15): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+- **Team Room — one again into the breach — June 15, 2026** (Jun 15): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+- **Team Room — hello again — June 15, 2026** (Jun 15): Team Room session with David. Topic: hello again. 2 messages exchanged.
+- **Team Room — again — June 15, 2026** (Jun 15): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
+- **Team Room — are we there yet? — June 15, 2026** (Jun 15): Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 77 messages exchanged.
+- **Team Room — what's up? — June 15, 2026** (Jun 15): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 
 ---
 
@@ -73,24 +92,24 @@
 
 ## Recent Conversation Memories
 
-### Team Room — test 3 — June 14, 2026 — Jun 14, 2026
+### Team Room — uno, dos, tres VAMOS — June 15, 2026 — Jun 15, 2026
+Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — canta y no llore... — June 15, 2026 — Jun 15, 2026
+Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — test 3 — June 15, 2026 — Jun 15, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — test again — June 14, 2026 — Jun 14, 2026
+### Team Room — test again — June 15, 2026 — Jun 15, 2026
 Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — are we good? — June 14, 2026 — Jun 14, 2026
+### Team Room — are we good? — June 15, 2026 — Jun 15, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — one again into the breach — June 14, 2026 — Jun 14, 2026
-Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 14, 2026 — Jun 14, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
