@@ -13446,55 +13446,39 @@ Return ONLY valid JSON, no markdown, no explanation.`;
       if (!language) {
         return res.status(400).json({ error: 'language is required' });
       }
-      // Language-level shared key — all pairs in a language share one background
-      const cacheKey = `vocab_${language}_comparison_bg`;
+      // One shared background for all languages — language-agnostic
+      const cacheKey = `vocab_comparison_bg_shared`;
       const deleted = await storage.deleteMediaFileBySearchQuery(cacheKey);
 
-      // Language-specific background scene (no characters, no text)
-      const languageSceneMap: Record<string, string> = {
-        spanish: 'Two dark green chalkboards in carved wooden frames on a warm ochre stucco wall inside a Spanish colonial classroom — terra cotta tile floor visible at base, a wrought-iron window grille behind letting in golden afternoon light',
-        french: 'Two dark slate chalkboards in thin brass frames mounted on aged grey limestone inside a Parisian schoolroom — tall arched windows with white shutters visible on either side, elegant and refined atmosphere',
-        japanese: 'Two dark green chalkboards in smooth bamboo frames set against a washi paper screen wall inside a Japanese study room — diffused pale morning light through shoji panels, minimalist and serene',
-        mandarin: 'Two dark green chalkboards framed with lacquered red wood on a warm ink-wash textured wall inside a traditional Chinese study room — a round moongate window visible at the edge, ink-brush decorative border on wall',
-        german: 'Two dark green chalkboards in plain steel-grey frames on a pale cream plastered wall inside an orderly German classroom — large rectangular windows with crisp white sills, precise and clean atmosphere',
-        portuguese: 'Two dark green chalkboards surrounded by hand-painted blue-and-white azulejo tile borders on a white wall inside a Portuguese schoolroom — decorative tile panels frame each board, Lisbon light through arched window',
-        hebrew: 'Two dark green chalkboards in weathered sandstone frames on a warm Jerusalem stone wall inside a bright Middle Eastern study room — arched window with lattice casting geometric light patterns',
-        arabic: 'Two dark green chalkboards framed by ornate carved plaster arabesques on a warm sand-coloured wall inside a traditional Arab study room — geometric Moorish window casting warm dappled light',
-        italian: 'Two dark green chalkboards in rustic aged-wood frames on a warm sienna wall inside a sunlit Italian classroom — a terrace window open to Mediterranean sky, faded frescoed border above',
-        english: 'Two dark green chalkboards in classic oak frames on a warm red-brick wall inside a traditional English schoolroom — tall Georgian sash windows with white painted sills, soft overcast British daylight filtering in',
-        korean: 'Two dark green chalkboards in clean white lacquered frames on a soft celadon wall inside a modern Korean study room — wide rectangular window with clean lines, calm and orderly contemporary atmosphere',
-      };
-      const sceneDesc = languageSceneMap[language.toLowerCase()] || 'Two dark green chalkboards side by side on a warm classroom wall, soft afternoon light';
-      const bgScene = `Semi-realistic cartoon illustration style. ${sceneDesc}. The two chalkboards are the dominant visual element — empty, dark green, completely blank. No text, no writing, no letters, no numbers on the boards. No people, no human figures, no characters, no faces anywhere in the image.`;
+      // Single focused prompt — no characters, clean cartoon style
+      const bgPrompt = `NO PEOPLE. NO CHARACTERS. NO FIGURES. Two large dark green chalkboards mounted side by side on a warm classroom wall, viewed straight-on. Clean realistic cartoon style — like a Studio Ghibli or Pixar background environment with no characters present. Rich dark green chalk surface, dark wooden frames with subtle shadow, thin gap between the two boards. Warm neutral beige plaster wall behind them. Soft diffused classroom lighting from above. Both boards are completely empty and clean — no text, no writing, no chalk marks anywhere.`;
 
-      // Regenerate in background — non-blocking.
-      // Call generateVisual directly to bypass character injection in resolveVocabularyImage.
+      // Regenerate in background — non-blocking. Uses Imagen 4 (not DALL-E / Gemini Flash).
       (async () => {
         try {
-          const { generateVisual } = await import('./services/visual-content-service');
-          const abstractPrompt = `${bgScene} The boards are clean and empty, ready for overlaid text. Wide composition showing both boards side by side with their distinctive framing and a slice of the room environment visible around them. Warm illustration style, rich color. No text, no labels, no writing anywhere.`;
-          const result = await generateVisual(abstractPrompt, 'infographic');
+          const { generateWithImagen } = await import('./services/google-image-service');
+          const imageUrl = await generateWithImagen(bgPrompt);
           await storage.cacheImage({
-            url: result.imageUrl,
-            filename: `compare_bg_${language}_${Date.now()}.jpg`,
+            url: imageUrl,
+            filename: `compare_bg_shared_${Date.now()}.jpg`,
             mimeType: 'image/jpeg',
             mediaType: 'image',
             imageSource: 'ai_generated',
             searchQuery: cacheKey,
             uploadedBy: null,
-            title: `comparison_bg_${language}`,
-            description: `Shared comparison background for ${language}`,
-            tags: ['comparison', 'background', 'grammar', language],
-            language,
+            title: `comparison_bg_shared`,
+            description: `Shared comparison background for all languages`,
+            tags: ['comparison', 'background', 'grammar', 'shared'],
+            language: 'shared',
             targetWord: cacheKey,
           });
-          console.log(`[Admin] Comparison background regenerated: ${cacheKey}`);
+          console.log(`[Admin] Shared comparison background regenerated`);
         } catch (e: any) {
-          console.error(`[Admin] Comparison background regen failed for ${cacheKey}:`, e.message);
+          console.error(`[Admin] Shared comparison background regen failed:`, e.message);
         }
       })();
 
-      res.json({ deleted, cacheKey, message: `Busted "${cacheKey}" (${deleted} row). Regenerating in background.` });
+      res.json({ deleted, cacheKey, message: `Busted shared comparison background (${deleted} rows). Regenerating in background.` });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

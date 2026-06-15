@@ -7454,14 +7454,9 @@ function VocabImagesSection() {
   );
 }
 
-const CC_COMPARISON_LANGUAGES = [
-  'hebrew', 'french', 'german', 'italian', 'japanese',
-  'english', 'korean', 'mandarin', 'portuguese', 'spanish',
-];
-
 function ComparisonBackgroundsSection() {
   const { toast } = useToast();
-  const [bustingLang, setBustingLang] = useState<string | null>(null);
+  const [busting, setBusting] = useState(false);
   const [enlargedUrl, setEnlargedUrl] = useState<string | null>(null);
 
   const { data: backgrounds = [], isLoading, refetch } = useQuery<any[]>({
@@ -7469,27 +7464,23 @@ function ComparisonBackgroundsSection() {
     staleTime: 30000,
   });
 
-  // Build lookup: language → shared background image
-  const imageByLang = backgrounds.reduce<Record<string, any>>((acc, bg) => {
-    const m = bg.searchQuery?.match(/^vocab_([^_]+)_comparison_bg$/);
-    if (m) acc[m[1]] = bg;
-    return acc;
-  }, {});
+  // Find the one shared background
+  const sharedBg = backgrounds.find((bg: any) =>
+    bg.searchQuery === 'vocab_comparison_bg_shared'
+  );
 
-  const cachedCount = Object.keys(imageByLang).length;
-
-  const regenLang = async (lang: string) => {
-    setBustingLang(lang);
+  const regen = async () => {
+    setBusting(true);
     try {
-      const res = await apiRequest('POST', '/api/admin/comparison-backgrounds/bust', { language: lang });
+      const res = await apiRequest('POST', '/api/admin/comparison-backgrounds/bust', { language: 'shared' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed');
-      toast({ title: 'Generating', description: `${lang} background generating (~15s)` });
-      setTimeout(() => refetch(), 16000);
+      toast({ title: 'Generating', description: 'Shared background generating via Imagen 4 (~20s)' });
+      setTimeout(() => refetch(), 22000);
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Error', description: e.message });
     } finally {
-      setBustingLang(null);
+      setBusting(false);
     }
   };
 
@@ -7498,17 +7489,17 @@ function ComparisonBackgroundsSection() {
       title="Comparison Backgrounds"
       icon={<Layers className="h-5 w-5 text-primary" />}
       defaultOpen={false}
-      badge={cachedCount > 0 ? `${cachedCount}/10` : undefined}
+      badge={sharedBg ? '1/1' : undefined}
     >
       <div className="mt-4">
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div>
-                <CardTitle className="text-base">Grammar Comparison Backgrounds</CardTitle>
+                <CardTitle className="text-base">Grammar Comparison Background</CardTitle>
                 <CardDescription>
-                  One shared background per language — used behind every <code className="text-xs bg-muted px-1 rounded">visual_compare</code> call in that language.
-                  Click an image to enlarge. Hover for Regenerate.
+                  One shared background used behind every <code className="text-xs bg-muted px-1 rounded">visual_compare</code> call across all languages.
+                  Generated with Imagen 4. Click to enlarge.
                 </CardDescription>
               </div>
               <Button size="sm" variant="ghost" onClick={() => refetch()} data-testid="button-refresh-comparison-backgrounds">
@@ -7518,67 +7509,54 @@ function ComparisonBackgroundsSection() {
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
-                {CC_COMPARISON_LANGUAGES.map(lang => (
-                  <div key={lang} className="space-y-1.5">
-                    <div className="aspect-video rounded-md bg-muted animate-pulse" />
-                    <p className="text-xs text-muted-foreground capitalize">{lang}</p>
-                  </div>
-                ))}
-              </div>
+              <div className="aspect-video max-w-lg rounded-md bg-muted animate-pulse" />
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
-                {CC_COMPARISON_LANGUAGES.map(lang => {
-                  const bg = imageByLang[lang];
-                  const isBusting = bustingLang === lang;
-                  return (
-                    <div key={lang} className="space-y-1.5" data-testid={`card-compare-bg-${lang}`}>
-                      <div
-                        className="relative group aspect-video rounded-md overflow-hidden border bg-muted/20 cursor-pointer"
-                        onClick={() => bg?.url && setEnlargedUrl(bg.url)}
-                      >
-                        {bg?.url ? (
-                          <>
-                            <img
-                              src={bg.url}
-                              alt={lang}
-                              className="w-full h-full object-cover"
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="bg-background/90 text-xs"
-                                onClick={(e) => { e.stopPropagation(); regenLang(lang); }}
-                                disabled={isBusting}
-                                data-testid={`button-regen-compare-${lang}`}
-                              >
-                                {isBusting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
-                                Regenerate
-                              </Button>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-muted-foreground">
-                            <Image className="h-5 w-5 opacity-30" />
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="text-xs h-7"
-                              onClick={() => regenLang(lang)}
-                              disabled={isBusting}
-                              data-testid={`button-gen-compare-${lang}`}
-                            >
-                              {isBusting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                              {isBusting ? 'Generating…' : 'Generate'}
-                            </Button>
-                          </div>
-                        )}
+              <div className="flex flex-col gap-3 max-w-lg" data-testid="card-compare-bg-shared">
+                <div
+                  className="relative group aspect-video rounded-md overflow-hidden border bg-muted/20 cursor-pointer"
+                  onClick={() => sharedBg?.url && setEnlargedUrl(sharedBg.url)}
+                >
+                  {sharedBg?.url ? (
+                    <>
+                      <img
+                        src={sharedBg.url}
+                        alt="Shared comparison background"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="bg-background/90 text-xs"
+                          onClick={(e) => { e.stopPropagation(); regen(); }}
+                          disabled={busting}
+                          data-testid="button-regen-compare-shared"
+                        >
+                          {busting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                          Regenerate
+                        </Button>
                       </div>
-                      <p className="text-xs font-medium capitalize">{lang}</p>
+                    </>
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                      <Image className="h-6 w-6 opacity-30" />
+                      <p className="text-xs">No background generated yet</p>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={regen}
+                        disabled={busting}
+                        data-testid="button-gen-compare-shared"
+                      >
+                        {busting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                        {busting ? 'Generating…' : 'Generate with Imagen 4'}
+                      </Button>
                     </div>
-                  );
-                })}
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Shared across all {10} languages — generated once, cached permanently.
+                </p>
               </div>
             )}
           </CardContent>

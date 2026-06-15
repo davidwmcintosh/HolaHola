@@ -1082,36 +1082,42 @@ export class NativeFunctionCallHandler {
 
         // STEP 2: Generate a label-free background scene image async, then enrich the widget in-place
         // The image prompt contains NO text labels — all text is rendered as DOM in the widget above.
-        const languageSceneMap: Record<string, string> = {
-          spanish: 'Warm Spanish classroom',
-          french: 'French classroom with tall arched windows',
-          japanese: 'Japanese study room with shoji screen windows',
-          mandarin: 'Traditional Chinese study room with ink wash aesthetic',
-          german: 'Orderly German classroom',
-          portuguese: 'Portuguese school room with azulejo tile accents',
-          arabic: 'Arabic study room with geometric patterned walls',
-          italian: 'Italian classroom with Mediterranean light',
-          russian: 'Classic Russian school classroom',
-          korean: 'Korean study room with clean modern lines',
-        };
-        const sceneContext = languageSceneMap[lang.toLowerCase()] || 'Warm classroom';
-        // Key rule: NO text, NO labels, NO writing on boards — all labels are DOM text
-        const bgScene = `${sceneContext}. Two empty chalkboards or panels side by side, nothing written on them. Warm educational atmosphere, soft afternoon light. Watercolor illustration style. No text, no labels, no writing anywhere in the image.`;
+        // One shared background for all languages — clean two-board design, no characters.
+        const bgScene = `NO PEOPLE. NO CHARACTERS. NO FIGURES. Two large dark green chalkboards mounted side by side on a warm classroom wall, viewed straight-on. Clean realistic cartoon style — like a Studio Ghibli or Pixar background environment with no characters present. Rich dark green chalk surface, dark wooden frames with subtle shadow, thin gap between the two boards. Warm neutral beige plaster wall behind them. Soft diffused classroom lighting from above. Both boards are completely empty and clean — no text, no writing, no chalk marks anywhere on the boards or in the image.`;
 
         const comparePromise = (async () => {
           try {
-            const { resolveVocabularyImage } = await import('../services/vocabulary-image-resolver');
-            // Use a shared per-language cache key so all adjective pairs share one background image.
-            // The overlay carries all the pair-specific meaning; the background is purely aesthetic.
-            const langBgKey = `comparison_bg_${lang.toLowerCase()}`;
-            const result = await resolveVocabularyImage({
-              word: langBgKey,
-              language: lang,
-              description: compareLabel,
-              scene: bgScene,
-              conversationId: session.conversationId?.toString(),
-              userId: session.userId?.toString(),
-            });
+            // Check cache first — shared key is language-agnostic
+            const langBgKey = `comparison_bg_shared`;
+            const { storage } = await import('../storage');
+            let imageUrl: string | undefined;
+
+            const cached = await storage.getCachedStockImage(langBgKey);
+            if (cached?.url) {
+              imageUrl = cached.url;
+              console.log(`[Native Function→VisualCompare] Using cached shared bg`);
+            } else {
+              // Cache miss — generate with Imagen 4 (not DALL-E / Gemini Flash)
+              const { generateWithImagen } = await import('../services/google-image-service');
+              imageUrl = await generateWithImagen(bgScene);
+              // Store in cache for all future calls
+              await storage.cacheImage({
+                url: imageUrl,
+                filename: `compare_bg_shared_${Date.now()}.png`,
+                mimeType: 'image/png',
+                mediaType: 'image',
+                imageSource: 'ai_generated',
+                searchQuery: langBgKey,
+                uploadedBy: null,
+                title: 'comparison_bg_shared',
+                description: 'Shared comparison background for all languages',
+                tags: ['comparison', 'background', 'grammar', 'shared'],
+                language: 'shared',
+                targetWord: langBgKey,
+              });
+              console.log(`[Native Function→VisualCompare] Imagen 4 bg generated + cached`);
+            }
+
             // Enrich the existing widget in-place using the same stable ID
             const enrichUpdate = {
               type: 'whiteboard_update' as const,
@@ -1129,7 +1135,7 @@ export class NativeFunctionCallHandler {
                   b_example: bExample,
                   student_example: studentExample,
                   language: lang,
-                  imageUrl: result.imageUrl,
+                  imageUrl,
                 },
               }],
             };

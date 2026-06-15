@@ -243,3 +243,34 @@ export async function generateFromCustomPrompt(prompt: string): Promise<string> 
   const buf = await callGemini(prompt);
   return `data:image/jpeg;base64,${buf.toString('base64')}`;
 }
+
+/**
+ * Imagen 4 — text-to-image via Google's dedicated image generation model.
+ * Used for the grammar comparison background (environment, no characters).
+ * Unlike Gemini Flash, Imagen 4 is a pure diffusion model with stronger
+ * instruction-following for "no people" constraints.
+ * Returns a permanent /api/media/ai-image/… URL.
+ */
+export async function generateWithImagen(prompt: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY not set');
+
+  console.log('[GoogleImage] Imagen 4 prompt:', prompt.substring(0, 200));
+  const ai = new GoogleGenAI({ apiKey });
+  const response = await ai.models.generateImages({
+    model: 'imagen-4.0-generate-001',
+    prompt,
+    config: { numberOfImages: 1, aspectRatio: '16:9' },
+  });
+
+  const img = response.generatedImages?.[0]?.image;
+  if (!img?.imageBytes) throw new Error('Imagen 4 returned no image bytes');
+
+  const mime = (img as any).mimeType || 'image/png';
+  const ext = mime.includes('jpeg') ? 'jpg' : 'png';
+  const buf = Buffer.from(img.imageBytes as string, 'base64');
+  const filename = `imageen-${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+  const url = await uploadPublicBuffer(filename, buf, mime);
+  console.log('[GoogleImage] Imagen 4 uploaded:', url);
+  return url;
+}
