@@ -2308,6 +2308,70 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'GET_WHITEBOARD_STATE': {
+        // Build a spatial description of what the student currently sees on screen
+        const parts: string[] = [];
+
+        // ── Scene canvas (left/center panel) ──────────────────────────────────
+        const sc = session.sceneCanvas;
+        if (sc) {
+          const scParts: string[] = [];
+          if (sc.environment || sc.environmentImageUrl) {
+            scParts.push(`Background: "${sc.environmentLabel || sc.environment || 'classroom scene'}"`);
+          }
+          if (sc.clockTime) scParts.push(`Clock widget: ${sc.clockTime}`);
+          if (sc.thermometerData) {
+            const td = sc.thermometerData;
+            scParts.push(`Thermometer widget: ${td.celsius !== undefined ? `${td.celsius}°C` : ''} ${td.fahrenheit !== undefined ? `${td.fahrenheit}°F` : ''} ${td.label || ''}`);
+          }
+          if (sc.weatherData) {
+            const wd = sc.weatherData;
+            scParts.push(`Weather widget: ${wd.condition || ''} ${wd.temperature || ''}`);
+          }
+          if (sc.emotionData) {
+            scParts.push(`Emotion widget: ${sc.emotionData.emotion || sc.emotionData.label || ''}`);
+          }
+          if (sc.conjugationTable) {
+            const ct = sc.conjugationTable;
+            const filled = (ct.cells || []).filter((c: any) => c.form).length;
+            scParts.push(`Conjugation table: ${ct.verb} (${ct.tense}) — ${filled}/${(ct.cells || []).length} cells filled`);
+          }
+          if (sc.bodyDiagram) scParts.push(`Body diagram: ${sc.bodyDiagram.label || 'body parts'}`);
+          if (sc.faceDiagram) scParts.push(`Face diagram: ${sc.faceDiagram.label || 'face parts'}`);
+          if (sc.handDiagram) scParts.push(`Hand diagram: ${sc.handDiagram.label || 'hand parts'}`);
+          if (sc.worldMapData) scParts.push(`World map: ${sc.worldMapData.highlightedCountry || 'interactive map'}`);
+          if (sc.calendarData) scParts.push(`Calendar: ${sc.calendarData.month || ''} ${sc.calendarData.year || ''}`);
+          const props = (sc.props || []).filter((p: any) => p.name);
+          if (props.length) scParts.push(`Scene props: ${props.map((p: any) => p.name).join(', ')}`);
+          if (scParts.length) parts.push(`[Scene canvas]\n${scParts.join('\n')}`);
+        } else {
+          parts.push('[Scene canvas] Empty — no visual scene active');
+        }
+
+        // ── Whiteboard column (right panel) ───────────────────────────────────
+        const wbItems = session.classroomWhiteboardItems || [];
+        if (wbItems.length === 0) {
+          parts.push('[Whiteboard column] Empty — nothing on the board');
+        } else {
+          const wbLines = wbItems.slice(-8).map((item: any) => {
+            if (item.type === 'vocab_card') return `  • Vocab card: "${item.content}" — ${item.label || ''}`;
+            if (item.type === 'teaching_card') return `  • Teaching card: "${item.content}" ${item.label ? `(${item.label})` : ''}`;
+            if (item.type === 'lesson_note') return `  • Lesson note [${item.label || 'note'}]: "${item.content}"`;
+            if (item.type === 'word_map') return `  • Word map: "${item.content}" → related: ${item.label || ''}`;
+            if (item.type === 'image') return `  • Image: ${item.label || item.content || 'photo'}`;
+            if (item.type === 'drill') return `  • Drill: ${item.content || item.label}`;
+            if (item.type === 'dialogue') return `  • Dialogue: ${item.content || ''}`;
+            return `  • ${item.type}: ${item.content || item.label || ''}`;
+          });
+          parts.push(`[Whiteboard column]\n${wbLines.join('\n')}`);
+        }
+
+        const snapshot = parts.join('\n\n');
+        session.classroomStateSnapshot = snapshot;
+        console.log(`[Native Function→GetWhiteboardState] Snapshot built (${wbItems.length} board items)`);
+        break;
+      }
+
       case 'TEXT_INPUT': {
         const prompt = fn.args.prompt as string | undefined;
         const tiSpokenText = fn.args.spoken_text as string | undefined;
@@ -2895,6 +2959,8 @@ export class NativeFunctionCallHandler {
             },
           }],
         });
+        if (!session.classroomWhiteboardItems) session.classroomWhiteboardItems = [];
+        session.classroomWhiteboardItems.push({ type: 'teaching_card', content: tcContent, label: tcTranslation || tcGrammarRule || '' });
         break;
       }
 
@@ -2926,6 +2992,9 @@ export class NativeFunctionCallHandler {
             },
           }],
         });
+
+        if (!session.classroomWhiteboardItems) session.classroomWhiteboardItems = [];
+        session.classroomWhiteboardItems.push({ type: 'vocab_card', content: vcWord, label: vcDefinition });
 
         // If no image URL provided, auto-resolve one in the background and patch the card
         if (!vcImageUrl) {
@@ -2981,6 +3050,8 @@ export class NativeFunctionCallHandler {
             timestamp: Date.now(),
           },
         });
+        if (!session.classroomWhiteboardItems) session.classroomWhiteboardItems = [];
+        session.classroomWhiteboardItems.push({ type: 'lesson_note', content: lnContent.substring(0, 60), label: lnType });
         break;
       }
 
@@ -4082,6 +4153,8 @@ export class NativeFunctionCallHandler {
               }
             }],
           });
+          if (!session.classroomWhiteboardItems) session.classroomWhiteboardItems = [];
+          session.classroomWhiteboardItems.push({ type: 'word_map', content: center, label: related.substring(0, 50) });
         }
         break;
       }

@@ -813,6 +813,34 @@ place objects in the right zones and use the correct teaching approach for each 
     },
   },
 
+  // === CLASSROOM AWARENESS ===
+
+  {
+    legacyType: 'GET_WHITEBOARD_STATE',
+    declaration: {
+      name: "get_whiteboard_state",
+      description: `Check what is currently visible on the student's screen — the scene canvas (background, widgets, props) and the whiteboard column (vocab cards, lesson notes, images, word maps).
+
+Use this when you want to:
+- Verify what you put up ("Did my conjugation table appear?")
+- Narrate what the student sees ("On the left, you can see the clock showing 3pm. On the right, there's a vocab card for 'mariposa'.")
+- Ask verification questions ("Can you see the picture of the cat?")
+- Orient a new student to the screen ("In the top right, you'll notice a thermometer widget — that shows 20 degrees Celsius.")
+
+You DO NOT need to call this before every tool — only when you want to narrate, verify, or reference what's on screen.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const snapshot = (session as any).classroomStateSnapshot;
+      if (!snapshot) return 'Whiteboard state: (no active session data)';
+      return `Current classroom state:\n\n${snapshot}`;
+    },
+  },
+
   // === INTERACTIVE SCENE CANVAS ===
 
   {

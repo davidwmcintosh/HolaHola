@@ -222,6 +222,10 @@ function formatWhiteboard(items: ClassroomWhiteboardItem[]): string {
   if (!items || items.length === 0) return "(empty — clean board)";
   const descriptions = items.slice(-6).map((item) => {
     if (item.type === "vocabulary" || item.type === "VOCAB") return `vocab: ${item.content || item.label}`;
+    if (item.type === "vocab_card") return `vocab card: "${item.content}"${item.label ? ` (${item.label})` : ''}`;
+    if (item.type === "teaching_card") return `teaching card: "${item.content}"${item.label ? ` (${item.label})` : ''}`;
+    if (item.type === "lesson_note") return `lesson note [${item.label || 'note'}]: "${(item.content || '').substring(0, 40)}"`;
+    if (item.type === "word_map") return `word map: "${item.content}" → ${item.label || ''}`;
     if (item.type === "drill" || item.type === "DRILL") return `drill: ${item.content || item.label}`;
     if (item.type === "image" || item.type === "IMAGE") return `image: ${item.label || item.content || "photo"}`;
     if (item.type === "grammar" || item.type === "GRAMMAR") return `grammar: ${item.content || item.label}`;
