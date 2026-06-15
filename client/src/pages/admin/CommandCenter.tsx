@@ -7456,7 +7456,7 @@ function VocabImagesSection() {
 
 const CC_COMPARISON_LANGUAGES = [
   'hebrew', 'french', 'german', 'italian', 'japanese',
-  'korean', 'mandarin', 'portuguese', 'russian', 'spanish',
+  'english', 'korean', 'mandarin', 'portuguese', 'spanish',
 ];
 
 function ComparisonBackgroundsSection() {

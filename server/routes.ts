@@ -13461,7 +13461,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
         hebrew: 'Two dark green chalkboards in weathered sandstone frames on a warm Jerusalem stone wall inside a bright Middle Eastern study room — arched window with lattice casting geometric light patterns',
         arabic: 'Two dark green chalkboards framed by ornate carved plaster arabesques on a warm sand-coloured wall inside a traditional Arab study room — geometric Moorish window casting warm dappled light',
         italian: 'Two dark green chalkboards in rustic aged-wood frames on a warm sienna wall inside a sunlit Italian classroom — a terrace window open to Mediterranean sky, faded frescoed border above',
-        russian: 'Two dark green chalkboards in plain dark-stained wood frames on a cool grey plaster wall inside a classic Russian school classroom — tall frosted windows with iron latches, austere and scholarly atmosphere',
+        english: 'Two dark green chalkboards in classic oak frames on a warm red-brick wall inside a traditional English schoolroom — tall Georgian sash windows with white painted sills, soft overcast British daylight filtering in',
         korean: 'Two dark green chalkboards in clean white lacquered frames on a soft celadon wall inside a modern Korean study room — wide rectangular window with clean lines, calm and orderly contemporary atmosphere',
       };
       const sceneDesc = languageSceneMap[language.toLowerCase()] || 'Two dark green chalkboards side by side on a warm classroom wall, soft afternoon light';
