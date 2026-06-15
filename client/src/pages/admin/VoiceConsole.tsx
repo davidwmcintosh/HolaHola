@@ -848,7 +848,11 @@ export function VoiceConsoleContent() {
     if (!acc[voice.language]) {
       acc[voice.language] = { male: null, female: null };
     }
-    acc[voice.language][voice.gender] = voice;
+    const existing = acc[voice.language][voice.gender];
+    // Prefer active voices over inactive ones when duplicates exist
+    if (!existing || voice.isActive || !existing.isActive) {
+      acc[voice.language][voice.gender] = voice;
+    }
     return acc;
   }, {} as Record<string, { male: TutorVoice | null; female: TutorVoice | null }>);
 
