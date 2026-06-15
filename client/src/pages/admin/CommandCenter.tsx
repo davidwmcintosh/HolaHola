@@ -7475,7 +7475,7 @@ function ComparisonBackgroundsSection() {
       const res = await apiRequest('POST', '/api/admin/comparison-backgrounds/bust', { language: 'shared' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed');
-      toast({ title: 'Generating', description: 'Shared background generating via Imagen 4 (~20s)' });
+      toast({ title: 'Generating', description: 'Shared background generating via Gemini Flash (~10s)' });
       setTimeout(() => refetch(), 22000);
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Error', description: e.message });
@@ -7499,7 +7499,7 @@ function ComparisonBackgroundsSection() {
                 <CardTitle className="text-base">Grammar Comparison Background</CardTitle>
                 <CardDescription>
                   One shared background used behind every <code className="text-xs bg-muted px-1 rounded">visual_compare</code> call across all languages.
-                  Generated with Imagen 4. Click to enlarge.
+                  Generated with Gemini Flash. Click to enlarge.
                 </CardDescription>
               </div>
               <Button size="sm" variant="ghost" onClick={() => refetch()} data-testid="button-refresh-comparison-backgrounds">
@@ -7549,7 +7549,7 @@ function ComparisonBackgroundsSection() {
                         data-testid="button-gen-compare-shared"
                       >
                         {busting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                        {busting ? 'Generating…' : 'Generate with Imagen 4'}
+                        {busting ? 'Generating…' : 'Generate with Gemini Flash'}
                       </Button>
                     </div>
                   )}
