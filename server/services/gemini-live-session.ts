@@ -1320,8 +1320,15 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           // promise pushed to pendingMemoryLookupPromises. Without this await,
           // buildFunctionContinuationResponse reads session.recallResults before the
           // search completes and returns the "Nothing found" fallback.
+          // TIMEOUT GUARD: cap at 8s — if any lookup hangs (e.g. open_scene vision fetch
+          // on a slow image URL), GL stalls forever waiting to send the tool response.
+          // On timeout we continue with whatever results have resolved so far.
           if (this.session.pendingMemoryLookupPromises?.length) {
-            await Promise.all(this.session.pendingMemoryLookupPromises);
+            const LOOKUP_TIMEOUT_MS = 8000;
+            await Promise.race([
+              Promise.all(this.session.pendingMemoryLookupPromises),
+              new Promise<void>(resolve => setTimeout(resolve, LOOKUP_TIMEOUT_MS)),
+            ]);
             this.session.pendingMemoryLookupPromises = [];
           }
 

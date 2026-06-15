@@ -424,13 +424,13 @@ French — female: "marie" (friend), "la_serveuse" (waitress)`,
     legacyType: 'SUBTITLE',
     declaration: {
       name: "subtitle",
-      description: "Toggle the student's subtitle/caption display on screen. MUST be called when student asks to see subtitles, turn on captions, show text, or requests targeted subtitles. Include your spoken response in 'spoken_text'. Always include spoken_text.",
+      description: "Control the subtitle/caption bar at the bottom of the screen. THIS IS THE ONLY SUBTITLE TOOL — do NOT use write_text, push_custom_subtitle, show_overlay, open_scene, show_image, or any other tool when the student asks for subtitles or captions. Trigger phrases: 'subtitles', 'captions', 'target subs', 'show your words', 'karaoke mode', 'turn on/off subtitles', 'I want to read along', 'show me what you're saying'. Mode guide: 'target' = karaoke-style display of your spoken target-language words as you say them (use for 'target subs', 'show what you're saying', 'karaoke'); 'off' = hide all subtitles; 'custom' = display a specific phrase you choose (requires 'text' param, use for showing a word or phrase the student asked to see written). Always include spoken_text.",
       parametersJsonSchema: {
         type: "object",
         properties: {
-          spoken_text: { type: "string", description: "What you're saying (the spoken response)" },
-          mode: { type: "string", enum: ["off", "target", "custom"], description: "Subtitle mode: off=none, target=target language karaoke, custom=display specific text" },
-          text: { type: "string", description: "Text to display when mode is 'custom'. Ignored for other modes." },
+          spoken_text: { type: "string", description: "What you're saying aloud (your spoken response to the student)" },
+          mode: { type: "string", enum: ["off", "target", "custom"], description: "off = hide subtitles; target = show your spoken words as karaoke (most common request); custom = display a specific phrase (set the 'text' param)" },
+          text: { type: "string", description: "The specific phrase to display when mode='custom'. Leave empty for other modes." },
         },
         required: ["mode", "spoken_text"],
       },

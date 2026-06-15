@@ -2870,8 +2870,10 @@ ${lastNote.tutorNotes}`);
           // where the client sends isResumed=false but the conversation was clearly ongoing.
           // Without this, Daniela re-introduces herself mid-conversation after reconnect.
           // __initialMessageCount is stored on the session object in start_session (different scope).
+          // Threshold is > 1 (not > 2): if at least 2 messages exist (greeting + student's first reply),
+          // the session was already underway. Using > 2 missed early-session blips (after 1-2 messages).
           const initialMsgCount: number = (session as any).__initialMessageCount ?? 0;
-          const conversationHasHistory = initialMsgCount > 2;
+          const conversationHasHistory = initialMsgCount > 1;
           const effectiveIsResumed = greetingRequest.isResumed || conversationHasHistory;
           if (!greetingRequest.isResumed && conversationHasHistory) {
             console.log(`[Streaming Voice] Forcing isResumed=true — conversation had ${initialMsgCount} messages at session start (reconnect mid-session)`);
