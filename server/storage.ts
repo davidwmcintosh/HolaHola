@@ -2794,7 +2794,7 @@ export class DatabaseStorage implements IStorage {
     return await db
       .select()
       .from(mediaFiles)
-      .where(sql`${mediaFiles.searchQuery} LIKE 'vocab_%_compare_%'`)
+      .where(sql`${mediaFiles.searchQuery} LIKE 'vocab_%_compar%'`)
       .orderBy(desc(mediaFiles.createdAt));
   }
 

@@ -164,7 +164,7 @@ export function VoiceChatViewManager({
 
   return (
     <div 
-      className="h-full flex flex-col relative"
+      className="absolute inset-0 flex flex-col"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
@@ -196,12 +196,12 @@ export function VoiceChatViewManager({
       </div>
 
       {/* View Content.
-          History mode: plain block container (NOT flex) with overflow-y-auto. Flex children shrink
-          instead of overflowing, which prevents scroll from triggering — removing flex fixes that.
-          Live mode: flex-col for ImmersiveTutor layout. */}
+          Root is absolute inset-0 flex flex-col, so flex-1 min-h-0 here gets definite bounds.
+          History: overflow-y-auto lets content scroll within the bounded flex allocation.
+          Live: flex-col + overflow-hidden for ImmersiveTutor layout. */}
       <div
         ref={view === "history" ? historyScrollRef : undefined}
-        className={`flex-1 min-h-0 relative ${view === "history" ? "overflow-y-auto" : "flex flex-col overflow-hidden"}`}
+        className={`flex-1 min-h-0 ${view === "history" ? "overflow-y-auto" : "flex flex-col overflow-hidden"}`}
       >
         {view === "live" ? (
           conversationId ? (

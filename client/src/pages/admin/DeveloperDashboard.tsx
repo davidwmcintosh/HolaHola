@@ -1024,31 +1024,35 @@ interface ComparisonBg {
   createdAt: string;
 }
 
+const COMPARISON_LANGUAGES = [
+  'arabic', 'french', 'german', 'italian', 'japanese',
+  'korean', 'mandarin', 'portuguese', 'russian', 'spanish',
+];
+
 function ComparisonBackgroundsPanel() {
   const { toast } = useToast();
   const [bustingLang, setBustingLang] = useState<string | null>(null);
+  const [fullscreenUrl, setFullscreenUrl] = useState<string | null>(null);
 
   const { data: images = [], isLoading, refetch } = useQuery<ComparisonBg[]>({
     queryKey: ['/api/admin/comparison-backgrounds'],
   });
 
-  // Only show the new shared-per-language images (vocab_${lang}_comparison_bg).
-  // Old per-pair images (vocab_${lang}_compare_ser_estar) are orphaned — session code no longer generates them.
-  const sharedImages = images.filter(img => /^vocab_[^_]+_comparison_bg$/.test(img.searchQuery));
-
-  const getLang = (searchQuery: string) => {
-    const m = searchQuery.match(/^vocab_([^_]+)_comparison_bg$/);
-    return m ? m[1] : searchQuery;
-  };
+  // Build a lookup: language → cached shared image (vocab_${lang}_comparison_bg format only)
+  const imageByLang = images.reduce<Record<string, ComparisonBg>>((acc, img) => {
+    const m = img.searchQuery.match(/^vocab_([^_]+)_comparison_bg$/);
+    if (m) acc[m[1]] = img;
+    return acc;
+  }, {});
 
   const regenBackground = async (lang: string) => {
     setBustingLang(lang);
     try {
       const res = await apiRequest('POST', '/api/admin/comparison-backgrounds/bust', { language: lang });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Regenerate failed');
-      toast({ title: 'Regenerating', description: `New ${lang} background generating in background (~10s)` });
-      setTimeout(() => { refetch(); }, 12000);
+      if (!res.ok) throw new Error(data.error || 'Generate failed');
+      toast({ title: 'Generating', description: `New ${lang} background generating in background (~15s)` });
+      setTimeout(() => { refetch(); }, 16000);
     } catch (e: any) {
       toast({ variant: 'destructive', title: 'Failed', description: e.message });
     } finally {
@@ -1057,64 +1061,95 @@ function ComparisonBackgroundsPanel() {
   };
 
   return (
-    <Card className="bg-muted/30">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div>
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Image className="h-4 w-4" />
-              Comparison Widget Backgrounds
-            </CardTitle>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              One shared background per language — used behind every comparison pair in that language.
-              Generated automatically on first use, then cached.
-            </p>
-          </div>
-          <Button size="sm" variant="ghost" onClick={() => refetch()} data-testid="button-refresh-compare-bgs">
-            <RefreshCw className="h-3 w-3" />
-          </Button>
+    <>
+      {/* Fullscreen overlay */}
+      {fullscreenUrl && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center cursor-pointer"
+          onClick={() => setFullscreenUrl(null)}
+        >
+          <img src={fullscreenUrl} alt="Comparison background fullscreen" className="max-w-full max-h-full object-contain" />
         </div>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
-            {[...Array(5)].map((_, i) => <Skeleton key={i} className="aspect-video rounded-md" />)}
+      )}
+
+      <Card className="bg-muted/30">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div>
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Image className="h-4 w-4" />
+                Comparison Widget Backgrounds
+              </CardTitle>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                One shared background per language. Click image to fullscreen. Hover for regenerate.
+              </p>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => refetch()} data-testid="button-refresh-compare-bgs">
+              <RefreshCw className="h-3 w-3" />
+            </Button>
           </div>
-        ) : sharedImages.length === 0 ? (
-          <div className="text-center py-8 text-sm text-muted-foreground">
-            No shared backgrounds cached yet — they generate automatically on first comparison in a voice session.
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
-            {sharedImages.sort((a, b) => getLang(a.searchQuery).localeCompare(getLang(b.searchQuery))).map(img => {
-              const lang = getLang(img.searchQuery);
-              const isBusting = bustingLang === lang;
-              return (
-                <div key={img.id} className="space-y-1.5" data-testid={`card-compare-bg-${lang}`}>
-                  <div className="relative group aspect-video rounded-md overflow-hidden border bg-muted/20">
-                    <img src={img.url} alt={lang} className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="bg-background/90 text-xs"
-                        onClick={() => regenBackground(lang)}
-                        disabled={isBusting}
-                        data-testid={`button-regen-compare-${lang}`}
-                      >
-                        {isBusting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RotateCcw className="h-3 w-3 mr-1" />}
-                        Regenerate
-                      </Button>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+              {COMPARISON_LANGUAGES.map(lang => <Skeleton key={lang} className="aspect-video rounded-md" />)}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+              {COMPARISON_LANGUAGES.map(lang => {
+                const img = imageByLang[lang];
+                const isBusting = bustingLang === lang;
+                return (
+                  <div key={lang} className="space-y-1.5" data-testid={`card-compare-bg-${lang}`}>
+                    <div className="relative group aspect-video rounded-md overflow-hidden border bg-muted/20">
+                      {img ? (
+                        <>
+                          <img
+                            src={img.url}
+                            alt={lang}
+                            className="w-full h-full object-cover cursor-pointer"
+                            onClick={() => setFullscreenUrl(img.url)}
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="bg-background/90 text-xs"
+                              onClick={(e) => { e.stopPropagation(); regenBackground(lang); }}
+                              disabled={isBusting}
+                              data-testid={`button-regen-compare-${lang}`}
+                            >
+                              {isBusting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RotateCcw className="h-3 w-3 mr-1" />}
+                              Regenerate
+                            </Button>
+                          </div>
+                        </>
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-muted-foreground">
+                          <Image className="h-6 w-6 opacity-30" />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs"
+                            onClick={() => regenBackground(lang)}
+                            disabled={isBusting}
+                            data-testid={`button-gen-compare-${lang}`}
+                          >
+                            {isBusting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
+                            Generate
+                          </Button>
+                        </div>
+                      )}
                     </div>
+                    <p className="text-xs font-medium capitalize">{lang}</p>
                   </div>
-                  <p className="text-xs font-medium capitalize">{lang}</p>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
   );
 }
 
