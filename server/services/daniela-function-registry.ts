@@ -3695,14 +3695,16 @@ Never use for long explanations — keep it to one thing at a time.`,
     legacyType: 'VOCAB_CARD',
     declaration: {
       name: "show_vocab_card",
-      description: `Show a vocabulary flash card on the student's screen with a word, definition, and optional image.
+      description: `Show a vocabulary flash card with the word, definition, and an auto-generated image. Use this mid-conversation to anchor a word visually as you introduce or correct it. An image is automatically fetched — you do not need to supply image_url.
 
-Use this mid-conversation to reinforce a word you just introduced or corrected. The card appears instantly without interrupting voice flow and auto-dismisses.
+Use this when: you want the student to READ the word AND see a picture of it together. The card appears instantly without interrupting voice flow.
 
 Examples:
-- You introduce "mariposa" → show_vocab_card with word="mariposa", definition="butterfly"
-- Student mispronounces "lluvia" → show the word with definition to anchor it visually
-- Teaching a new phrase → show the phrase with its English meaning
+- You introduce "mariposa" → show_vocab_card(word="mariposa", definition="butterfly")
+- Student mispronounces "lluvia" → show_vocab_card(word="lluvia", definition="rain") to anchor it visually
+- Teaching a new noun → show the word with its English meaning
+
+Vs show_image: show_image is a full-panel visual moment (scene backgrounds, standalone illustrations, cultural images). show_vocab_card is a compact reading card — word + definition + image together in the whiteboard column. Use show_vocab_card for vocabulary; use show_image for immersive or standalone visuals.
 
 Keep definitions short — one line max. Do NOT use this for grammar rules; use show_teaching_card for those.`,
       parametersJsonSchema: {

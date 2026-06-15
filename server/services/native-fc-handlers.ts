@@ -2904,13 +2904,17 @@ export class NativeFunctionCallHandler {
         const vcImageUrl = fn.args.image_url as string | undefined;
         const vcLanguage = fn.args.language as string | undefined;
         const vcDurationMs = (fn.args.duration_ms as number | undefined) ?? 7000;
+        // Stable ID used for both the initial send and the image-enriched update
+        const vcId = `vc-${Date.now()}`;
         console.log(`[Native Function→VocabCard] word="${vcWord}" definition="${vcDefinition}" duration=${vcDurationMs}ms`);
+
+        // Send card immediately (without image if Daniela didn't supply one)
         this.sendMessage(session.ws, {
           type: 'whiteboard_update',
           timestamp: Date.now(),
           items: [{
             type: 'vocab_card',
-            id: `vc-${Date.now()}`,
+            id: vcId,
             content: vcWord,
             timestamp: Date.now(),
             data: {
@@ -2922,6 +2926,42 @@ export class NativeFunctionCallHandler {
             },
           }],
         });
+
+        // If no image URL provided, auto-resolve one in the background and patch the card
+        if (!vcImageUrl) {
+          import('../services/vocabulary-image-resolver').then(async ({ resolveVocabularyImage }) => {
+            try {
+              const result = await resolveVocabularyImage({
+                word: vcWord,
+                language: session.language || 'spanish',
+                description: vcWord,
+                conversationId: session.conversationId?.toString(),
+                userId: session.userId?.toString(),
+              });
+              console.log(`[Native Function→VocabCard] Auto-resolved image for "${vcWord}": ${result.source}`);
+              // Update the existing card with the resolved image (same ID = client updates in place)
+              this.sendMessage(session.ws, {
+                type: 'whiteboard_update',
+                timestamp: Date.now(),
+                items: [{
+                  type: 'vocab_card',
+                  id: vcId,
+                  content: vcWord,
+                  timestamp: Date.now(),
+                  data: {
+                    word: vcWord,
+                    definition: vcDefinition,
+                    imageUrl: result.imageUrl,
+                    language: vcLanguage,
+                    autoDismissMs: vcDurationMs,
+                  },
+                }],
+              });
+            } catch (err) {
+              console.warn(`[Native Function→VocabCard] Image auto-resolve failed for "${vcWord}":`, err);
+            }
+          });
+        }
         break;
       }
 

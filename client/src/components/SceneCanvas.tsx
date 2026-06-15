@@ -1110,7 +1110,8 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
   const hasWorldMap = Boolean(data.worldMapData);
 
   // ── Standalone grammar/visual canvas modes (no spatial scene active) ─────────
-  // Priority: body > world map > conjugation > calendar > thermometer > emotion > weather > clock
+  // Large exclusive widgets: rendered alone (too big to stack side by side).
+  // Small widgets (clock, thermometer, weather, emotion): can coexist — rendered in a flex row.
   if (!hasBackground && !hasProps) {
     if (hasBody) return <div data-testid={testId} className="w-full min-h-32"><BodyDiagramCanvas data={data.bodyDiagram!} /></div>;
     if (hasFace) return <div data-testid={testId} className="w-full min-h-32 flex justify-center"><FaceDiagramCanvas data={data.faceDiagram!} /></div>;
@@ -1118,10 +1119,25 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
     if (hasWorldMap) return <div data-testid={testId} className="w-full"><WorldMapCanvas data={data.worldMapData!} /></div>;
     if (hasConjugation) return <div data-testid={testId} className="w-full min-h-32"><ConjugationTableCanvas table={data.conjugationTable!} /></div>;
     if (hasCalendar) return <div data-testid={testId} className="w-full min-h-32"><CalendarCanvas cal={data.calendarData!} /></div>;
-    if (hasThermometer) return <div data-testid={testId} className="flex justify-center"><ThermometerCanvas data={data.thermometerData!} /></div>;
-    if (hasEmotion) return <div data-testid={testId} className="flex justify-center"><EmotionFaceCanvas data={data.emotionData!} /></div>;
-    if (hasWeather) return <div data-testid={testId} className="flex justify-center p-4"><WeatherCanvas data={data.weatherData!} /></div>;
-    if (hasClock) return <div data-testid={testId} className="flex justify-center"><ClockOnlyCanvas time={data.clockTime!} /></div>;
+
+    // Small widgets — collect all active ones and render side by side
+    const smallWidgets = [
+      hasThermometer && <ThermometerCanvas key="therm" data={data.thermometerData!} />,
+      hasEmotion && <EmotionFaceCanvas key="emotion" data={data.emotionData!} />,
+      hasWeather && <WeatherCanvas key="weather" data={data.weatherData!} />,
+      hasClock && <ClockOnlyCanvas key="clock" time={data.clockTime!} />,
+    ].filter(Boolean) as React.ReactNode[];
+
+    if (smallWidgets.length === 1) {
+      return <div data-testid={testId} className="flex justify-center p-2">{smallWidgets[0]}</div>;
+    }
+    if (smallWidgets.length > 1) {
+      return (
+        <div data-testid={testId} className="flex flex-wrap justify-center items-center gap-6 p-2">
+          {smallWidgets}
+        </div>
+      );
+    }
   }
 
   // ── Full spatial scene canvas ────────────────────────────────────────────────
