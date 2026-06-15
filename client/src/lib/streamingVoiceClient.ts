@@ -174,7 +174,7 @@ export interface StreamingSessionConfig {
   targetLanguage: string;
   nativeLanguage: string;
   difficultyLevel: string;
-  subtitleMode: 'off' | 'target' | 'all';
+  subtitleMode: 'off' | 'target';
   tutorPersonality?: string;
   tutorExpressiveness?: number;
   tutorGender?: 'male' | 'female';
@@ -1355,7 +1355,7 @@ export class StreamingVoiceClient {
         case 'subtitle_mode_change':
           // Server command to change subtitle mode (from tutor [SUBTITLE on/off/target] command)
           console.log('[StreamingVoice] Subtitle mode change from server:', message.mode);
-          this.emit('subtitleModeChange', message as { type: string; mode: 'off' | 'all' | 'target'; timestamp: number });
+          this.emit('subtitleModeChange', message as { type: string; mode: 'off' | 'target'; timestamp: number });
           break;
           
         case 'custom_overlay':

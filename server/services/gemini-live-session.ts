@@ -105,6 +105,7 @@ export class GeminiLiveSession {
   // overwriting earlier chunks with chunkIndex:0 from a later sub-turn.
   private currentSentenceIndex = 0;
   private currentChunkIndex = 0;       // Resets to 0 at each new sentenceIndex boundary
+  private lastSentenceStartSentIndex = -1;  // Tracks which sentenceIndex has had sentence_start emitted
   private karaokeTracker: GLKaraokeTracker | null = null;
   private hadAudioInCurrentSubturn = false;
   private firstAudioSentThisTurn = false;   // Guard: don't send processing_pending AFTER audio already started
@@ -503,6 +504,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               this.currentTurnId = 0;
               this.currentSentenceIndex = 0;
               this.currentChunkIndex = 0;
+              this.lastSentenceStartSentIndex = -1;
               this.hadAudioInCurrentSubturn = false;
               this.firstAudioSentThisTurn = false;
               this.processingPendingSentThisTurn = false;
@@ -968,6 +970,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             }
           }
 
+          // Emit sentence_start for the first audio chunk of each sentence so the subtitle
+          // state creates a sentence entry that word_timing_delta (GL karaoke) can attach to.
+          if (this.currentSentenceIndex !== this.lastSentenceStartSentIndex && this.session.subtitleMode !== 'off') {
+            this.lastSentenceStartSentIndex = this.currentSentenceIndex;
+            this.sendWsMessage(this.session.ws, {
+              type: 'sentence_start',
+              turnId: this.currentTurnId,
+              sentenceIndex: this.currentSentenceIndex,
+              text: '',
+              hasTargetContent: true,
+            });
+          }
           this.sendWsMessage(this.session.ws, {
             type: 'audio_chunk',
             audio: f32leBuffer.toString('base64'),
@@ -1567,6 +1581,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     // Reset per-response state for the next user utterance
     this.currentSentenceIndex = 0;
     this.currentChunkIndex = 0;
+    this.lastSentenceStartSentIndex = -1;
     this.pendingInputSaved = false;
     this.firstAudioSentThisTurn = false;
     this.processingPendingSentThisTurn = false;

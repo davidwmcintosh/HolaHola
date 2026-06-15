@@ -735,8 +735,8 @@ export class NativeFunctionCallHandler {
               timestamp: Date.now(),
             } as any, session);
           }
-        } else if (mode && ['off', 'on', 'target'].includes(mode)) {
-          const validMode = mode === 'on' ? 'all' : mode as 'off' | 'all' | 'target';
+        } else if (mode && ['off', 'target'].includes(mode)) {
+          const validMode = mode as 'off' | 'target';
           session.subtitleMode = validMode;
           console.log(`[Native Function→Subtitle] Mode changed to: ${validMode} (session ${session.id})`);
           

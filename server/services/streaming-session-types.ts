@@ -11,7 +11,7 @@ export interface StreamingSession {
   targetLanguage: string;
   nativeLanguage: string;
   difficultyLevel: string;
-  subtitleMode: 'off' | 'target' | 'all';
+  subtitleMode: 'off' | 'target';
   tutorPersonality: TutorPersonality;
   tutorExpressiveness: number;
   voiceSpeed: VoiceSpeedOption;

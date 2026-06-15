@@ -13,10 +13,11 @@ function cleanDisplayText(text: string): string {
 interface FloatingSubtitleOverlayProps {
   subtitleState: StreamingSubtitleState;
   /**
-   * Regular subtitle mode controlled by [SUBTITLE off/on/target]
+   * Regular subtitle mode controlled by [SUBTITLE off/target]
    * - 'off': No regular subtitles (default - Daniela opts in when needed)
-   * - 'all': Show full sentence with karaoke highlighting
-   * - 'target': Show only target language words with karaoke highlighting
+   * - 'target': Show target language speech with karaoke highlighting.
+   *             Prefers wordTimings when available (GL karaoke or Cartesia TTS),
+   *             falls back to targetLanguageText for simpler sessions.
    */
   regularSubtitleMode: SubtitleMode;
   /**
@@ -51,21 +52,22 @@ export function FloatingSubtitleOverlay({
     : null;
   const wordTimings = currentSentence?.wordTimings || [];
 
-  // For target mode, use CURRENT SENTENCE's targetLanguageText, not aggregate visibleTargetText
+  // For target text fallback: use CURRENT SENTENCE's targetLanguageText, not aggregate visibleTargetText
   // This ensures we show the current sentence being spoken, not all completed sentences
   const currentTargetText = currentSentence?.targetLanguageText || '';
   const targetWords = regularSubtitleMode === 'target' && hasTargetContent && currentTargetText 
     ? currentTargetText.split(/\s+/).filter(w => w.length > 0)
     : null;
 
+  // 'target' mode uses wordTimings when available (GL Deepgram karaoke or Cartesia TTS timestamps),
+  // falling back to targetWords (targetLanguageText path) for sessions without word timings.
+  const useWordTimingsPath = regularSubtitleMode === 'target' && wordTimings.length > 0;
+  const useTargetWordsPath = regularSubtitleMode === 'target' && !useWordTimingsPath && targetWords && targetWords.length > 0;
+
   // Determine if we have content to display based on mode
-  // NOTE: For "all" mode, we show subtitles immediately when wordTimings exist.
-  // The visibleWordCount only affects karaoke highlighting, not whether subtitles appear.
-  // For "target" mode, we still need targetWords to be populated (via word mapping).
   const hasRegularSubtitles = (() => {
     if (regularSubtitleMode === 'off' || !isPlaying) return false;
-    if (regularSubtitleMode === 'target') return targetWords && targetWords.length > 0;
-    if (regularSubtitleMode === 'all') return wordTimings.length > 0;
+    if (regularSubtitleMode === 'target') return useWordTimingsPath || useTargetWordsPath;
     return false;
   })();
 
@@ -115,10 +117,9 @@ export function FloatingSubtitleOverlay({
         </AnimatePresence>
       )}
       
-      {/* Regular Subtitles Layer - with karaoke word highlighting */}
-      {/* Renders from wordTimings array (all mode) or visibleTargetText (target mode) */}
-      {/* Uses visibleWordCount for progressive reveal (novice mode) */}
-      {/* Uses currentWordIndex/currentTargetWordIndex for karaoke highlighting */}
+      {/* Regular Subtitles Layer - target mode with karaoke word highlighting */}
+      {/* Word timing path (GL Deepgram or Cartesia TTS): renders from wordTimings array */}
+      {/* Target text path (simpler sessions): renders from targetLanguageText */}
       {hasRegularSubtitles && (
         <AnimatePresence>
           <motion.div
@@ -131,14 +132,12 @@ export function FloatingSubtitleOverlay({
             data-mode={regularSubtitleMode}
           >
             <p className="text-2xl md:text-3xl font-medium leading-relaxed tracking-wide" dir="auto">
-              {regularSubtitleMode === 'all' ? (
-                // Render from wordTimings array directly (preserves Cartesia alignment)
+              {useWordTimingsPath ? (
+                // Word timing path: karaoke from Cartesia TTS timestamps or GL Deepgram STT
                 // visibleWordCount controls progressive reveal (ACTFL policy driven)
                 // When isPlaying and visibleWordCount=0, progressive reveal is starting — show nothing
-                // (updatePlaybackTime will set the correct count on the next frame).
-                // When NOT playing and visibleWordCount=0, show all words as a static preview.
+                // When NOT playing and visibleWordCount=0, show all words as static preview
                 wordTimings.slice(0, (isPlaying && visibleWordCount === 0) ? 0 : (visibleWordCount > 0 ? visibleWordCount : wordTimings.length)).map((timing, index) => {
-                  // Karaoke highlighting: highlight words up to currentWordIndex
                   const isHighlighted = index <= currentWordIndex;
                   const isCurrentWord = index === currentWordIndex;
                   
@@ -165,7 +164,7 @@ export function FloatingSubtitleOverlay({
                   );
                 })
               ) : (
-                // Target mode: render from visibleTargetText with progressive reveal
+                // Target text path: render from targetLanguageText with progressive reveal
                 // Words appear greyed out just before they're spoken (look-ahead window),
                 // then highlight via currentTargetWordIndex as karaoke reaches them.
                 // LOOK_AHEAD=1: show only the next target word as preview (not all at once)

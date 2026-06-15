@@ -103,7 +103,7 @@ export const VALID_ENUM_VALUES = {
   // Learning milestone types
   MILESTONE_TYPE: ['breakthrough', 'first_success', 'plateau_overcome', 'connection_made', 'confidence_boost', 'teacher_flagged', 'vocabulary_milestone', 'grammar_milestone', 'fluency_marker'],
   // UI Control commands
-  SUBTITLE_MODE: ['off', 'on', 'target'],
+  SUBTITLE_MODE: ['off', 'target'],
   // Memory lookup domains - includes both student data AND self-knowledge (Daniela's brain)
   MEMORY_LOOKUP_DOMAINS: [
     // Student data domains

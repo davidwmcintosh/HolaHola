@@ -412,7 +412,7 @@ export interface ClientStartSessionMessage {
   targetLanguage: string;
   nativeLanguage: string;
   difficultyLevel: string;
-  subtitleMode: 'off' | 'target' | 'all';
+  subtitleMode: 'off' | 'target';
   tutorPersonality?: string;
   tutorExpressiveness?: number;
   tutorGender?: 'male' | 'female';

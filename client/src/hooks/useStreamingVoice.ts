@@ -61,7 +61,7 @@ export interface StreamingSessionConfig {
   targetLanguage: string;
   nativeLanguage: string;
   difficultyLevel: string;
-  subtitleMode: 'off' | 'target' | 'all';
+  subtitleMode: 'off' | 'target';
   tutorPersonality?: string;
   tutorExpressiveness?: number;
   tutorGender?: 'male' | 'female';
@@ -111,7 +111,7 @@ export interface StreamingSessionConfig {
   /** Called when pronunciation coaching feedback is received from Deepgram word-level analysis */
   onPronunciationCoaching?: (coaching: PronunciationCoachingData) => void;
   /** Called when server commands a subtitle mode change (tutor [SUBTITLE on/off/target] command) */
-  onSubtitleModeChange?: (mode: 'off' | 'all' | 'target') => void;
+  onSubtitleModeChange?: (mode: 'off' | 'target') => void;
   /** Called when server commands a custom overlay show/hide (tutor [SHOW: text] / [HIDE] commands) */
   onCustomOverlay?: (action: 'show' | 'hide', text?: string) => void;
   /** Called when server requests text input from student (tutor [TEXT_INPUT: prompt] command) */
@@ -1561,7 +1561,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   /**
    * Handle subtitle mode change from server (tutor [SUBTITLE on/off/target] command)
    */
-  const handleSubtitleModeChange = useCallback((message: { type: string; mode: 'off' | 'all' | 'target'; timestamp: number }) => {
+  const handleSubtitleModeChange = useCallback((message: { type: string; mode: 'off' | 'target'; timestamp: number }) => {
     const { mode } = message;
     console.log('[StreamingVoice] Subtitle mode change from tutor:', mode);
     sessionConfigRef.current?.onSubtitleModeChange?.(mode);

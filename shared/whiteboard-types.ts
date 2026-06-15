@@ -1316,10 +1316,9 @@ export interface WhiteboardState {
 /**
  * Subtitle mode for regular speech display
  * - 'off': No subtitles shown (default - Daniela opts in when needed)
- * - 'all': Show all speech with karaoke highlighting
- * - 'target': Show only target language words (bold extraction)
+ * - 'target': Show target language speech with karaoke highlighting
  */
-export type SubtitleMode = 'off' | 'all' | 'target';
+export type SubtitleMode = 'off' | 'target';
 
 /**
  * Result of parsing a tutor response for whiteboard content
@@ -2772,7 +2771,9 @@ export function parseWhiteboardMarkup(text: string): WhiteboardParseResult {
     WHITEBOARD_PATTERNS.SUBTITLE.lastIndex = 0;
     const subtitleMatch = WHITEBOARD_PATTERNS.SUBTITLE.exec(text);
     if (subtitleMatch) {
-      subtitleMode = subtitleMatch[1].toLowerCase() as SubtitleMode;
+      const rawMode = subtitleMatch[1].toLowerCase();
+      // Map legacy 'on' → 'target' (graceful migration)
+      subtitleMode = (rawMode === 'on' ? 'target' : rawMode) as SubtitleMode;
     }
   }
   WHITEBOARD_PATTERNS.SUBTITLE_TARGET.lastIndex = 0;

@@ -429,7 +429,7 @@ French — female: "marie" (friend), "la_serveuse" (waitress)`,
         type: "object",
         properties: {
           spoken_text: { type: "string", description: "What you're saying (the spoken response)" },
-          mode: { type: "string", enum: ["off", "on", "target", "custom"], description: "Subtitle mode: off=none, on=all languages, target=target language only, custom=display specific text" },
+          mode: { type: "string", enum: ["off", "target", "custom"], description: "Subtitle mode: off=none, target=target language karaoke, custom=display specific text" },
           text: { type: "string", description: "Text to display when mode is 'custom'. Ignored for other modes." },
         },
         required: ["mode", "spoken_text"],

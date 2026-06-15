@@ -108,7 +108,7 @@ interface ImmersiveTutorProps {
   onDrillComplete?: (drillId: string, drillType: string, isCorrect: boolean, responseTimeMs: number, toolContent?: string) => void;
   onTextInputSubmit?: (itemId: string, response: string) => void;
   subtitleState?: StreamingSubtitleState;
-  // Regular subtitle mode: 'off' (default), 'all', or 'target'
+  // Regular subtitle mode: 'off' (default) or 'target'
   regularSubtitleMode?: SubtitleMode;
   // Custom overlay text (independent from regular subtitles)
   customOverlayText?: string | null;

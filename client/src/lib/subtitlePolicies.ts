@@ -202,18 +202,14 @@ export function shouldConvergeModes(difficulty: string | undefined | null): bool
 }
 
 /**
- * Get effective subtitle mode, accounting for mode convergence at higher levels
+ * Get effective subtitle mode (simplified: only 'off' | 'target')
  */
 export function getEffectiveSubtitleMode(
-  selectedMode: 'off' | 'target' | 'all',
+  selectedMode: 'off' | 'target',
   difficulty: string | undefined | null
-): 'off' | 'target' | 'all' {
-  if (selectedMode === 'off') return 'off';
-  
-  if (shouldConvergeModes(difficulty)) {
-    return 'all';
-  }
-  
+): 'off' | 'target' {
+  // 'all' mode has been removed — 'target' is now the only active subtitle mode
+  void difficulty; // kept for API stability
   return selectedMode;
 }
 
