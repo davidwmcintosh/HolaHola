@@ -3763,13 +3763,13 @@ Keep definitions short — one line max. Do NOT use this for grammar rules; use 
             multimodal: true,
             parts: [
               {
-                text: `Vocab card shown for "${word}" (${definition}).${descLine}\nYou can see the image — use it as a teaching anchor. Point to what you see: "Look at this — ${word}. That's your picture for it." If the image doesn't match the word, call show_vocab_card again with a more specific scene description.`,
+                text: `Vocab card shown for "${word}" (${definition}).${descLine}`,
               },
               { inlineData: visionEntry.inlineData },
             ],
           };
         }
-        return `Vocab card shown for "${word}" (${definition}).${descLine}\nUse the image to anchor the word — say what it shows and connect it to the meaning.`;
+        return `Vocab card shown for "${word}" (${definition}).${descLine}`;
       }
 
       // Fallback if vision didn't resolve in time or no image
@@ -4485,11 +4485,6 @@ USE THIS WHEN:
 • The student asks "what are the words for ___?" and a visual set would stick better than a list
 • You're pre-loading vocab before a scene or conversation ("Before we go to the café, here are the key words")
 
-SHOW AND SPEAK PROTOCOL (mandatory):
-1. Say something natural FIRST — the line goes in the "text" field and plays as audio BEFORE the grid appears
-2. Call this function — the grid appears while you're speaking
-3. Your next spoken message after calling this should walk through the words: "Look at the first one — ___. Say it back to me."
-
 IMAGES: Each word gets its own AI-generated image in a consistent prop illustration style. You provide an imageQuery that describes what to generate (be specific — "a red apple on a wooden table" is better than "apple").
 
 Pass 4–6 words. More than 6 feels overwhelming; fewer than 4 isn't worth the panel.`,
@@ -4539,16 +4534,15 @@ Pass 4–6 words. More than 6 feels overwhelming; fewer than 4 isn't worth the p
           // Multimodal: Daniela sees every image in the grid, labeled by word
           const parts: any[] = [];
           parts.push({
-            text: `Vocabulary grid is now showing — ${result.wordCount} words${result.title ? ` ("${result.title}")` : ''}. You can see each image below, labeled by word. Reference them as you teach — point to images by name, use them to anchor each word visually, and ask the student to say each one back.\n\n`
+            text: `Vocabulary grid showing — ${result.wordCount} words${result.title ? ` ("${result.title}")` : ''}.\n\n`
               + gridVision.map(v => `• ${v.word} (${v.translation})${v.description ? ': ' + v.description : ''}`).join('\n'),
           });
           for (const v of gridVision) {
             if (v.inlineData) {
-              parts.push({ text: `\n↓ Image for "${v.word}" (${v.translation}):` });
+              parts.push({ text: `\n"${v.word}" (${v.translation}):` });
               parts.push({ inlineData: v.inlineData });
             }
           }
-          parts.push({ text: `\nStart with the first word. Point to its image and say it aloud, then have the student repeat. If any image doesn't capture the word well, call swap_vocab_image with a more specific description.` });
           return { multimodal: true, parts };
         }
 
@@ -4556,13 +4550,13 @@ Pass 4–6 words. More than 6 feels overwhelming; fewer than 4 isn't worth the p
         const wordSummary = gridVision.map(v =>
           `• ${v.word} (${v.translation})${v.description ? ': ' + v.description : ''}`
         ).join('\n');
-        return `Vocab grid displayed — ${result.wordCount} words. Here's what each image shows:\n${wordSummary}\n\nPoint to each image as you say the word — have the student say it back before moving on.`;
+        return `Vocabulary grid showing — ${result.wordCount} words. Images:\n${wordSummary}`;
       }
 
       // Fallback: no vision data yet
       const words = (fc.args.words as any[]) || [];
       const wordList = words.map((w: any) => `${w.text} (${w.translation})`).join(', ');
-      return `Vocabulary grid displayed with ${result.wordCount} words: ${wordList}. Point to the first image and ask the student to say the word. Then cycle through the rest.`;
+      return `Vocabulary grid displayed with ${result.wordCount} words: ${wordList}.`;
     },
   },
 
