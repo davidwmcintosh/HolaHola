@@ -7455,7 +7455,7 @@ function VocabImagesSection() {
 }
 
 const CC_COMPARISON_LANGUAGES = [
-  'arabic', 'french', 'german', 'italian', 'japanese',
+  'hebrew', 'french', 'german', 'italian', 'japanese',
   'korean', 'mandarin', 'portuguese', 'russian', 'spanish',
 ];
 
@@ -7533,14 +7533,16 @@ function ComparisonBackgroundsSection() {
                   const isBusting = bustingLang === lang;
                   return (
                     <div key={lang} className="space-y-1.5" data-testid={`card-compare-bg-${lang}`}>
-                      <div className="relative group aspect-video rounded-md overflow-hidden border bg-muted/20">
+                      <div
+                        className="relative group aspect-video rounded-md overflow-hidden border bg-muted/20 cursor-pointer"
+                        onClick={() => bg?.url && setEnlargedUrl(bg.url)}
+                      >
                         {bg?.url ? (
                           <>
                             <img
                               src={bg.url}
                               alt={lang}
-                              className="w-full h-full object-cover cursor-pointer"
-                              onClick={() => setEnlargedUrl(bg.url)}
+                              className="w-full h-full object-cover"
                             />
                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                               <Button

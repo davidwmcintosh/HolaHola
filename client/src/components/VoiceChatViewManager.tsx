@@ -164,7 +164,7 @@ export function VoiceChatViewManager({
 
   return (
     <div 
-      className="absolute inset-0 flex flex-col"
+      className="h-full flex flex-col relative"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >

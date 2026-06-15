@@ -351,7 +351,7 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
         <LearningFilterProvider>
           <DanielaSessionProvider>
             <PendingJoinCodeHandler />
-            <SidebarProvider defaultOpen={true} style={style as React.CSSProperties}>
+            <SidebarProvider defaultOpen={typeof window !== 'undefined' ? window.location.pathname !== '/chat' : true} style={style as React.CSSProperties}>
               <SidebarRouteController />
               <div className="flex h-screen w-full max-w-full overflow-hidden">
                 {/* Sidebar renders as Sheet overlay on mobile, regular sidebar on desktop */}
@@ -379,6 +379,9 @@ function AuthenticatedApp({ style }: { style: { [key: string]: string } }) {
 // Uses fixed positioning with safe area insets for mobile devices
 function FloatingMenuButton() {
   const { toggleSidebar } = useSidebar();
+  const [location] = useLocation();
+  // Chat page manages its own full-screen layout — sidebar toggle would overlap the Studio pane
+  if (location === '/chat') return null;
   
   return (
     <Button

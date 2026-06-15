@@ -13452,26 +13452,27 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
       // Language-specific background scene (no characters, no text)
       const languageSceneMap: Record<string, string> = {
-        spanish: 'Warm Spanish classroom',
-        french: 'French classroom with tall arched windows',
-        japanese: 'Japanese study room with shoji screen windows',
-        mandarin: 'Traditional Chinese study room with ink wash aesthetic',
-        german: 'Orderly German classroom',
-        portuguese: 'Portuguese school room with azulejo tile accents',
-        arabic: 'Arabic study room with geometric patterned walls',
-        italian: 'Italian classroom with Mediterranean light',
-        russian: 'Classic Russian school classroom',
-        korean: 'Korean study room with clean modern lines',
+        spanish: 'warm terracotta tones and soft Spanish light',
+        french: 'cool Parisian grey-blue palette and elegant light',
+        japanese: 'soft natural wood tones and tranquil Japanese light',
+        mandarin: 'deep ink-wash tones and brush-stroke aesthetic',
+        german: 'clean cool tones and precise orderly light',
+        portuguese: 'warm azulejo blue-and-white tile palette',
+        hebrew: 'warm golden Middle Eastern light and desert tones',
+        arabic: 'warm sand and geometric tile color palette',
+        italian: 'warm Mediterranean ochre and golden light',
+        russian: 'cool grey-blue tones and classic academic light',
+        korean: 'clean minimal tones and modern soft light',
       };
-      const sceneContext = languageSceneMap[language.toLowerCase()] || 'Warm classroom';
-      const bgScene = `${sceneContext}. Two empty chalkboards or panels side by side, nothing written on them. Warm educational atmosphere, soft afternoon light. Watercolor illustration style. No text, no labels, no writing anywhere in the image.`;
+      const sceneColor = languageSceneMap[language.toLowerCase()] || 'warm educational light';
+      const bgScene = `Two very large dark green chalkboards filling almost the entire image frame, placed side by side with a thin gap between them. The chalkboards are viewed straight-on and close up — they fill 85% of the frame. ${sceneColor}. Watercolor illustration style. No furniture, no tables, no chairs, no people, no characters, no text, no labels, no writing on the boards.`;
 
       // Regenerate in background — non-blocking.
       // Call generateVisual directly to bypass character injection in resolveVocabularyImage.
       (async () => {
         try {
           const { generateVisual } = await import('./services/visual-content-service');
-          const abstractPrompt = `${bgScene} Abstract split-panel composition — a soft vertical line divides two empty side-by-side panels. No people, no human figures, no characters, no faces, no text, no writing, no labels anywhere. Pure environment, light, and texture only. The panels are completely empty and ready to receive overlaid text content.`;
+          const abstractPrompt = `${bgScene} The two chalkboards dominate the entire composition edge to edge. Very close crop — boards nearly fill the frame top to bottom and left to right. No people, no human figures, no characters, no faces, no text, no writing. The boards are completely empty and ready to receive overlaid text content. Watercolor illustration style.`;
           const result = await generateVisual(abstractPrompt, 'infographic');
           await storage.cacheImage({
             url: result.imageUrl,

@@ -8681,6 +8681,7 @@ Remember: David may reference things discussed in these recent text chats.
       let wordsLearned = 0;
       let classEnrollment: { className: string; curriculumLesson?: string; curriculumUnit?: string } | null = null;
       let connectionsAboutStudent: { mentioner: string; relationship: string; context: string }[] = [];
+      let studentLocalTimeContext = '';
       
       try {
         const parallelFetchStart = Date.now();
@@ -8697,7 +8698,30 @@ Remember: David may reference things discussed in these recent text chats.
             .catch(() => null),
         ]);
         greetingTimings.parallelDbFetch = Date.now() - parallelFetchStart;
-        
+
+        // Compute student's local time from their timezone for appropriate time-of-day greeting
+        if (user?.timezone) {
+          try {
+            const now = new Date();
+            const localTime = new Intl.DateTimeFormat('en-US', {
+              timeZone: user.timezone,
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true,
+            }).format(now);
+            const localHourStr = new Intl.DateTimeFormat('en-US', {
+              timeZone: user.timezone,
+              hour: 'numeric',
+              hour12: false,
+            }).format(now);
+            const hour = parseInt(localHourStr, 10);
+            const timeOfDay = hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening';
+            studentLocalTimeContext = `Student's local time: ${localTime} (${timeOfDay}) — timezone: ${user.timezone}`;
+          } catch {
+            // timezone lookup failed silently — greeting continues without time context
+          }
+        }
+
         // Look up connections about this student (where others mentioned them)
         // This enables "warm introductions" - e.g., "I know you're David's friend from graduate school!"
         if (user?.firstName) {
@@ -8977,6 +9001,11 @@ Remember: David may reference things discussed in these recent text chats.
         recentMilestonesContext
       );
       
+      // Prepend student's local time so Daniela uses the correct time-of-day greeting
+      if (studentLocalTimeContext) {
+        greetingPrompt = `${studentLocalTimeContext}\nUse this to choose "good morning", "good afternoon", or "good evening" as appropriate.\n\n${greetingPrompt}`;
+      }
+
       // Inject queued message: Daniela left this for the student from a previous session.
       // It replaces the generated opener — she speaks her own words, not a reconstructed greeting.
       if (queuedMessage) {
