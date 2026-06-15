@@ -7456,33 +7456,43 @@ function VocabImagesSection() {
 
 function ComparisonBackgroundsSection() {
   const { toast } = useToast();
-  const [busting, setBusting] = useState(false);
   const [enlargedUrl, setEnlargedUrl] = useState<string | null>(null);
+  const [candidate, setCandidate] = useState<string | null>(null);
 
   const { data: backgrounds = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ['/api/admin/comparison-backgrounds'],
     staleTime: 30000,
   });
 
-  // Find the one shared background
   const sharedBg = backgrounds.find((bg: any) =>
     bg.searchQuery === 'vocab_comparison_bg_shared'
   );
 
-  const regen = async () => {
-    setBusting(true);
-    try {
-      const res = await apiRequest('POST', '/api/admin/comparison-backgrounds/bust', { language: 'shared' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed');
-      toast({ title: 'Generating', description: 'Shared background generating via Gemini Flash (~10s)' });
-      setTimeout(() => refetch(), 22000);
-    } catch (e: any) {
-      toast({ variant: 'destructive', title: 'Error', description: e.message });
-    } finally {
-      setBusting(false);
-    }
-  };
+  // Generate a candidate without overwriting the current image
+  const previewMutation = useMutation({
+    mutationFn: () =>
+      apiRequest('POST', '/api/admin/comparison-backgrounds/preview', {}).then(r => r.json()),
+    onSuccess: (data: any) => {
+      setCandidate(data.candidateUrl);
+      toast({ title: 'New version ready', description: 'Compare below — save to adopt it or discard to keep the current one.' });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Generation failed', description: e.message }),
+  });
+
+  // Save the candidate as the new production background
+  const adoptMutation = useMutation({
+    mutationFn: () =>
+      apiRequest('POST', '/api/admin/comparison-backgrounds/adopt', { candidateUrl: candidate }).then(r => r.json()),
+    onSuccess: () => {
+      setCandidate(null);
+      refetch();
+      toast({ title: 'Saved', description: 'New background is now live.' });
+    },
+    onError: (e: any) => toast({ variant: 'destructive', title: 'Save failed', description: e.message }),
+  });
+
+  const generating = previewMutation.isPending;
+  const adopting = adoptMutation.isPending;
 
   return (
     <CollapsibleSection
@@ -7499,7 +7509,7 @@ function ComparisonBackgroundsSection() {
                 <CardTitle className="text-base">Grammar Comparison Background</CardTitle>
                 <CardDescription>
                   One shared background used behind every <code className="text-xs bg-muted px-1 rounded">visual_compare</code> call across all languages.
-                  Generated with Gemini Flash. Click to enlarge.
+                  Generated with Gemini Flash. Click any image to enlarge.
                 </CardDescription>
               </div>
               <Button size="sm" variant="ghost" onClick={() => refetch()} data-testid="button-refresh-comparison-backgrounds">
@@ -7507,10 +7517,69 @@ function ComparisonBackgroundsSection() {
               </Button>
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             {isLoading ? (
               <div className="aspect-video max-w-lg rounded-md bg-muted animate-pulse" />
+            ) : candidate ? (
+              // ── Preview mode: side-by-side comparison ──────────────────────────
+              <div className="space-y-3" data-testid="card-compare-bg-preview">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground text-center">Current</p>
+                    {sharedBg?.url
+                      ? <img
+                          src={sharedBg.url}
+                          alt="current"
+                          className="w-full rounded-md object-cover border aspect-video cursor-pointer"
+                          onClick={() => setEnlargedUrl(sharedBg.url)}
+                        />
+                      : <div className="w-full aspect-video rounded-md border border-dashed flex items-center justify-center text-xs text-muted-foreground bg-muted/40">None</div>
+                    }
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground text-center">New version</p>
+                    <img
+                      src={candidate}
+                      alt="candidate"
+                      className="w-full rounded-md object-cover border aspect-video cursor-pointer"
+                      onClick={() => setEnlargedUrl(candidate)}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => adoptMutation.mutate()}
+                    disabled={adopting || generating}
+                    data-testid="button-adopt-compare-bg"
+                    className="flex-1"
+                  >
+                    {adopting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                    Save new version
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => previewMutation.mutate()}
+                    disabled={generating || adopting}
+                    data-testid="button-retry-compare-bg"
+                    title="Try another"
+                  >
+                    {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setCandidate(null)}
+                    disabled={adopting}
+                    data-testid="button-discard-compare-bg"
+                  >
+                    Discard
+                  </Button>
+                </div>
+              </div>
             ) : (
+              // ── Normal mode: current image + generate button ────────────────────
               <div className="flex flex-col gap-3 max-w-lg" data-testid="card-compare-bg-shared">
                 <div
                   className="relative group aspect-video rounded-md overflow-hidden border bg-muted/20 cursor-pointer"
@@ -7528,12 +7597,12 @@ function ComparisonBackgroundsSection() {
                           size="sm"
                           variant="outline"
                           className="bg-background/90 text-xs"
-                          onClick={(e) => { e.stopPropagation(); regen(); }}
-                          disabled={busting}
+                          onClick={(e) => { e.stopPropagation(); previewMutation.mutate(); }}
+                          disabled={generating}
                           data-testid="button-regen-compare-shared"
                         >
-                          {busting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
-                          Regenerate
+                          {generating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                          {generating ? 'Generating…' : 'Generate new version'}
                         </Button>
                       </div>
                     </>
@@ -7544,18 +7613,18 @@ function ComparisonBackgroundsSection() {
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={regen}
-                        disabled={busting}
+                        onClick={() => previewMutation.mutate()}
+                        disabled={generating}
                         data-testid="button-gen-compare-shared"
                       >
-                        {busting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                        {busting ? 'Generating…' : 'Generate with Gemini Flash'}
+                        {generating ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                        {generating ? 'Generating…' : 'Generate with Gemini Flash'}
                       </Button>
                     </div>
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Shared across all {10} languages — generated once, cached permanently.
+                  Shared across all 10 languages — generated once, cached permanently.
                 </p>
               </div>
             )}

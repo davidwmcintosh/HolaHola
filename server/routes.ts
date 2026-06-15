@@ -13484,6 +13484,54 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
+  // ── Comparison Backgrounds: generate a candidate without adopting it ──────────
+  app.post('/api/admin/comparison-backgrounds/preview', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const cacheKey = `vocab_comparison_bg_shared`;
+      const current = await storage.getCachedStockImage(cacheKey);
+      const currentUrl = current?.url ?? null;
+
+      const bgPrompt = `Two large dark green chalkboards mounted side by side on a warm classroom wall, viewed straight-on. Dark wooden frames with a thin gap between the boards. Warm neutral beige plaster wall. Soft diffused overhead classroom lighting. Both boards completely blank and empty.`;
+
+      const { generateEnvironmentScene } = await import('./services/google-image-service');
+      const candidateUrl = await generateEnvironmentScene(bgPrompt, 'comparison_bg');
+
+      console.log(`[Admin] Comparison bg preview generated: ${candidateUrl}`);
+      res.json({ currentUrl, candidateUrl });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Comparison Backgrounds: adopt a candidate as the new production image ─────
+  app.post('/api/admin/comparison-backgrounds/adopt', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+    try {
+      const { candidateUrl } = req.body;
+      if (!candidateUrl) return res.status(400).json({ error: 'candidateUrl is required' });
+
+      const cacheKey = `vocab_comparison_bg_shared`;
+      await storage.deleteMediaFileBySearchQuery(cacheKey);
+      await storage.cacheImage({
+        url: candidateUrl,
+        filename: `compare_bg_shared_${Date.now()}.jpg`,
+        mimeType: 'image/jpeg',
+        mediaType: 'image',
+        imageSource: 'ai_generated',
+        searchQuery: cacheKey,
+        uploadedBy: null,
+        title: `comparison_bg_shared`,
+        description: `Shared comparison background for all languages`,
+        tags: ['comparison', 'background', 'grammar', 'shared'],
+        language: 'shared',
+        targetWord: cacheKey,
+      });
+      console.log(`[Admin] Comparison bg adopted: ${candidateUrl}`);
+      res.json({ cacheKey, message: 'Candidate adopted as production background.' });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Start vocab image seeding for a single language
   app.post('/api/admin/vocab-images/seed', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
     try {
