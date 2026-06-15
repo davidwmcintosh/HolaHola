@@ -7454,188 +7454,149 @@ function VocabImagesSection() {
   );
 }
 
+const CC_COMPARISON_LANGUAGES = [
+  'arabic', 'french', 'german', 'italian', 'japanese',
+  'korean', 'mandarin', 'portuguese', 'russian', 'spanish',
+];
+
 function ComparisonBackgroundsSection() {
   const { toast } = useToast();
-  const [language, setLanguage] = useState('spanish');
-  const [customA, setCustomA] = useState('');
-  const [customB, setCustomB] = useState('');
-  const [enlargedBg, setEnlargedBg] = useState<any>(null);
+  const [bustingLang, setBustingLang] = useState<string | null>(null);
+  const [enlargedUrl, setEnlargedUrl] = useState<string | null>(null);
 
   const { data: backgrounds = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: ['/api/admin/comparison-backgrounds'],
     staleTime: 30000,
   });
 
-  const bustMutation = useMutation({
-    mutationFn: ({ conceptA, conceptB }: { conceptA: string; conceptB: string }) =>
-      apiRequest('POST', '/api/admin/comparison-backgrounds/bust', { conceptA, conceptB, language }).then(r => r.json()),
-    onSuccess: (data: any) => {
-      toast({ title: 'Regenerating background', description: data.message });
-      setTimeout(() => refetch(), 8000);
-    },
-    onError: (e: any) => toast({ variant: 'destructive', title: 'Error', description: e.message }),
-  });
+  // Build lookup: language → shared background image
+  const imageByLang = backgrounds.reduce<Record<string, any>>((acc, bg) => {
+    const m = bg.searchQuery?.match(/^vocab_([^_]+)_comparison_bg$/);
+    if (m) acc[m[1]] = bg;
+    return acc;
+  }, {});
 
-  const PRESET_PAIRS = [
-    { a: 'ser', b: 'estar', label: 'SER vs ESTAR', note: 'permanent vs temporary/location' },
-    { a: 'hay', b: 'estar', label: 'HAY vs ESTAR', note: 'existence vs location' },
-    { a: 'por', b: 'para', label: 'POR vs PARA', note: 'purpose vs means' },
-    { a: 'preterite', b: 'imperfect', label: 'PRETERITE vs IMPERFECT', note: 'completed vs ongoing' },
-    { a: 'saber', b: 'conocer', label: 'SABER vs CONOCER', note: 'know a fact vs know a person' },
-    { a: 'ser', b: 'tener', label: 'SER vs TENER', note: 'identity vs possession' },
-  ];
+  const cachedCount = Object.keys(imageByLang).length;
 
-  const isCached = (a: string, b: string) =>
-    backgrounds.some((bg: any) => bg.searchQuery?.includes(`compare`) && bg.searchQuery?.includes(a.toLowerCase()) && bg.searchQuery?.includes(b.toLowerCase()));
+  const regenLang = async (lang: string) => {
+    setBustingLang(lang);
+    try {
+      const res = await apiRequest('POST', '/api/admin/comparison-backgrounds/bust', { language: lang });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
+      toast({ title: 'Generating', description: `${lang} background generating (~15s)` });
+      setTimeout(() => refetch(), 16000);
+    } catch (e: any) {
+      toast({ variant: 'destructive', title: 'Error', description: e.message });
+    } finally {
+      setBustingLang(null);
+    }
+  };
 
   return (
     <CollapsibleSection
       title="Comparison Backgrounds"
       icon={<Layers className="h-5 w-5 text-primary" />}
       defaultOpen={false}
-      badge={backgrounds.length > 0 ? `${backgrounds.length} cached` : undefined}
+      badge={cachedCount > 0 ? `${cachedCount}/10` : undefined}
     >
-      <div className="mt-4 space-y-4">
+      <div className="mt-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Grammar Comparison Pairs</CardTitle>
-            <CardDescription>
-              Pre-generate or regenerate watercolor background images for side-by-side grammar comparison widgets.
-              These are used when Daniela calls <code className="text-xs bg-muted px-1 rounded">visual_compare</code>.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-medium w-20">Language</span>
-              <Select value={language} onValueChange={setLanguage}>
-                <SelectTrigger className="w-48" data-testid="select-comparison-language">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {['spanish','french','german','italian','portuguese','mandarin','japanese','korean','russian'].map(l => (
-                    <SelectItem key={l} value={l}>{l.charAt(0).toUpperCase() + l.slice(1)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {PRESET_PAIRS.map(pair => {
-                const cached = isCached(pair.a, pair.b);
-                return (
-                  <Card key={pair.label} className="bg-muted/30">
-                    <CardContent className="p-4 space-y-2">
-                      <p className="text-sm font-medium">{pair.label}</p>
-                      <p className="text-xs text-muted-foreground">{pair.note}</p>
-                      <Badge variant={cached ? 'default' : 'outline'} className="text-xs">
-                        {cached ? 'Cached' : 'Not cached'}
-                      </Badge>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => bustMutation.mutate({ conceptA: pair.a, conceptB: pair.b })}
-                        disabled={bustMutation.isPending}
-                        data-testid={`button-gen-compare-${pair.a}-${pair.b}`}
-                      >
-                        {bustMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
-                        {cached ? 'Regenerate' : 'Generate'}
-                      </Button>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-
-            <div className="border-t pt-4">
-              <p className="text-sm font-medium mb-2">Custom Pair</p>
-              <div className="flex flex-wrap gap-2 items-end">
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Concept A</label>
-                  <input
-                    className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors w-32"
-                    placeholder="e.g. ser"
-                    value={customA}
-                    onChange={e => setCustomA(e.target.value)}
-                    data-testid="input-custom-concept-a"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Concept B</label>
-                  <input
-                    className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors w-32"
-                    placeholder="e.g. estar"
-                    value={customB}
-                    onChange={e => setCustomB(e.target.value)}
-                    data-testid="input-custom-concept-b"
-                  />
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => {
-                    if (!customA.trim() || !customB.trim()) return;
-                    bustMutation.mutate({ conceptA: customA.trim(), conceptB: customB.trim() });
-                  }}
-                  disabled={bustMutation.isPending || !customA.trim() || !customB.trim()}
-                  data-testid="button-gen-custom-comparison"
-                >
-                  {bustMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Image className="h-3 w-3 mr-1" />}
-                  Generate
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => refetch()} data-testid="button-refresh-comparison-backgrounds">
-                  <RefreshCw className="h-3 w-3 mr-1" /> Refresh
-                </Button>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div>
+                <CardTitle className="text-base">Grammar Comparison Backgrounds</CardTitle>
+                <CardDescription>
+                  One shared background per language — used behind every <code className="text-xs bg-muted px-1 rounded">visual_compare</code> call in that language.
+                  Click an image to enlarge. Hover for Regenerate.
+                </CardDescription>
               </div>
+              <Button size="sm" variant="ghost" onClick={() => refetch()} data-testid="button-refresh-comparison-backgrounds">
+                <RefreshCw className="h-3 w-3" />
+              </Button>
             </div>
-
-            {isLoading && <p className="text-sm text-muted-foreground">Loading cached backgrounds…</p>}
-            {!isLoading && backgrounds.length === 0 && (
-              <p className="text-sm text-muted-foreground">No comparison backgrounds cached yet. Generate a pair above to pre-warm the cache.</p>
-            )}
-            {backgrounds.length > 0 && (
-              <div className="border-t pt-4 space-y-2">
-                <p className="text-sm font-medium">Cached ({backgrounds.length})</p>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {backgrounds.map((bg: any) => (
-                    <div key={bg.id} className="flex items-center gap-3 rounded-md border p-3 bg-muted/20">
-                      {bg.url && (
-                        <img
-                          src={bg.url}
-                          alt={bg.title}
-                          className="w-16 h-16 object-cover rounded-md shrink-0 border cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => setEnlargedBg(bg)}
-                          title="Click to enlarge"
-                        />
-                      )}
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium truncate">{bg.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">{bg.searchQuery}</p>
-                        <p className="text-xs text-muted-foreground">{bg.createdAt ? new Date(bg.createdAt).toLocaleDateString() : ''}</p>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+                {CC_COMPARISON_LANGUAGES.map(lang => (
+                  <div key={lang} className="space-y-1.5">
+                    <div className="aspect-video rounded-md bg-muted animate-pulse" />
+                    <p className="text-xs text-muted-foreground capitalize">{lang}</p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+                {CC_COMPARISON_LANGUAGES.map(lang => {
+                  const bg = imageByLang[lang];
+                  const isBusting = bustingLang === lang;
+                  return (
+                    <div key={lang} className="space-y-1.5" data-testid={`card-compare-bg-${lang}`}>
+                      <div className="relative group aspect-video rounded-md overflow-hidden border bg-muted/20">
+                        {bg?.url ? (
+                          <>
+                            <img
+                              src={bg.url}
+                              alt={lang}
+                              className="w-full h-full object-cover cursor-pointer"
+                              onClick={() => setEnlargedUrl(bg.url)}
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-background/90 text-xs"
+                                onClick={(e) => { e.stopPropagation(); regenLang(lang); }}
+                                disabled={isBusting}
+                                data-testid={`button-regen-compare-${lang}`}
+                              >
+                                {isBusting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+                                Regenerate
+                              </Button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center gap-1.5 text-muted-foreground">
+                            <Image className="h-5 w-5 opacity-30" />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-xs h-7"
+                              onClick={() => regenLang(lang)}
+                              disabled={isBusting}
+                              data-testid={`button-gen-compare-${lang}`}
+                            >
+                              {isBusting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                              {isBusting ? 'Generating…' : 'Generate'}
+                            </Button>
+                          </div>
+                        )}
                       </div>
+                      <p className="text-xs font-medium capitalize">{lang}</p>
                     </div>
-                  ))}
-                </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>
         </Card>
       </div>
 
-      {enlargedBg && (
+      {enlargedUrl && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 cursor-pointer"
-          onClick={() => setEnlargedBg(null)}
+          onClick={() => setEnlargedUrl(null)}
         >
           <div className="relative max-w-[90vw] max-h-[90vh]" onClick={e => e.stopPropagation()}>
             <img
-              src={enlargedBg.url}
-              alt={enlargedBg.title}
+              src={enlargedUrl}
+              alt="Comparison background"
               className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl"
             />
-            <div className="mt-2 text-center text-white text-sm opacity-80">{enlargedBg.title}</div>
             <button
               className="absolute top-2 right-2 bg-black/60 text-white rounded-full w-8 h-8 flex items-center justify-center text-lg hover:bg-black/80"
-              onClick={() => setEnlargedBg(null)}
+              onClick={() => setEnlargedUrl(null)}
             >×</button>
           </div>
         </div>
