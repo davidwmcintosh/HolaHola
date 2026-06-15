@@ -13450,14 +13450,14 @@ Return ONLY valid JSON, no markdown, no explanation.`;
       const cacheKey = `vocab_comparison_bg_shared`;
       const deleted = await storage.deleteMediaFileBySearchQuery(cacheKey);
 
-      // Single focused prompt — no characters, clean cartoon style
-      const bgPrompt = `NO PEOPLE. NO CHARACTERS. NO FIGURES. Two large dark green chalkboards mounted side by side on a warm classroom wall, viewed straight-on. Clean realistic cartoon style — like a Studio Ghibli or Pixar background environment with no characters present. Rich dark green chalk surface, dark wooden frames with subtle shadow, thin gap between the two boards. Warm neutral beige plaster wall behind them. Soft diffused classroom lighting from above. Both boards are completely empty and clean — no text, no writing, no chalk marks anywhere.`;
+      // Scene concept only — ENV_STYLE in generateEnvironmentScene() handles style + "no people"
+      const bgPrompt = `Two large dark green chalkboards mounted side by side on a warm classroom wall, viewed straight-on. Dark wooden frames with a thin gap between the boards. Warm neutral beige plaster wall. Soft diffused overhead classroom lighting. Both boards completely blank and empty.`;
 
-      // Regenerate in background — non-blocking. Uses Imagen 4 (not DALL-E / Gemini Flash).
+      // Regenerate in background — non-blocking. ENV_STYLE (no characters, wide establishing shot).
       (async () => {
         try {
-          const { generateWithImagen } = await import('./services/google-image-service');
-          const imageUrl = await generateWithImagen(bgPrompt);
+          const { generateEnvironmentScene } = await import('./services/google-image-service');
+          const imageUrl = await generateEnvironmentScene(bgPrompt, 'comparison_bg');
           await storage.cacheImage({
             url: imageUrl,
             filename: `compare_bg_shared_${Date.now()}.jpg`,

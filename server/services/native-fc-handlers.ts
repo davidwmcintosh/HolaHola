@@ -1082,8 +1082,8 @@ export class NativeFunctionCallHandler {
 
         // STEP 2: Generate a label-free background scene image async, then enrich the widget in-place
         // The image prompt contains NO text labels — all text is rendered as DOM in the widget above.
-        // One shared background for all languages — clean two-board design, no characters.
-        const bgScene = `NO PEOPLE. NO CHARACTERS. NO FIGURES. Two large dark green chalkboards mounted side by side on a warm classroom wall, viewed straight-on. Clean realistic cartoon style — like a Studio Ghibli or Pixar background environment with no characters present. Rich dark green chalk surface, dark wooden frames with subtle shadow, thin gap between the two boards. Warm neutral beige plaster wall behind them. Soft diffused classroom lighting from above. Both boards are completely empty and clean — no text, no writing, no chalk marks anywhere on the boards or in the image.`;
+        // One shared background for all languages — ENV_STYLE handles style + "no people".
+        const bgScene = `Two large dark green chalkboards mounted side by side on a warm classroom wall, viewed straight-on. Dark wooden frames with a thin gap between the boards. Warm neutral beige plaster wall. Soft diffused overhead classroom lighting. Both boards completely blank and empty.`;
 
         const comparePromise = (async () => {
           try {
@@ -1097,9 +1097,9 @@ export class NativeFunctionCallHandler {
               imageUrl = cached.url;
               console.log(`[Native Function→VisualCompare] Using cached shared bg`);
             } else {
-              // Cache miss — generate with Imagen 4 (not DALL-E / Gemini Flash)
-              const { generateWithImagen } = await import('../services/google-image-service');
-              imageUrl = await generateWithImagen(bgScene);
+              // Cache miss — generate with ENV_STYLE (Gemini Flash, no characters)
+              const { generateEnvironmentScene } = await import('../services/google-image-service');
+              imageUrl = await generateEnvironmentScene(bgScene, 'comparison_bg');
               // Store in cache for all future calls
               await storage.cacheImage({
                 url: imageUrl,
@@ -1250,9 +1250,9 @@ export class NativeFunctionCallHandler {
               console.log(`[Native Function→ComposeVisual] ${result.cacheHit ? 'Cache hit' : 'Composed'}: ${imageUrl}`);
             } else {
               // Fallback: delegate to generate_visual with a descriptive prompt
-              console.log(`[Native Function→ComposeVisual] Falling back to DALL-E — ${result.error || ('missing: ' + (result.missingAssets || []).join(', '))}`);
+              console.log(`[Native Function→ComposeVisual] Falling back to Gemini — ${result.error || ('missing: ' + (result.missingAssets || []).join(', '))}`);
               // Build a pedagogically explicit prompt — if this is a preposition lesson, describe
-              // the spatial relationship clearly enough that DALL-E can render it usefully
+              // the spatial relationship clearly enough that Gemini can render it usefully
               const objectTerms = objects.map((o: any) => o.term).join(', ');
               const envLabel = environment.replace(/_/g, ' ');
               let fallbackConcept: string;
@@ -1288,7 +1288,7 @@ export class NativeFunctionCallHandler {
               } catch {
                 imageUrl = genResult.imageUrl;
               }
-              sourceName = 'dalle_fallback';
+              sourceName = 'gemini_fallback';
               // Save to media_files library (same as generate_visual does) so it's findable later
               try {
                 const shortLabel = fallbackConcept.split(/[,;]/)[0].trim().substring(0, 60);
