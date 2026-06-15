@@ -32,6 +32,7 @@ import type { StreamingSession } from './streaming-session-types';
 import { lookupLegacyType, buildFunctionContinuationResponse } from './daniela-function-registry';
 import type { ExtractedFunctionCall } from './gemini-function-declarations';
 import { reportGlToolCallFailure } from './sofia-billing-monitor';
+import { GLKaraokeTracker } from './gl-karaoke-tracker';
 
 export const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
 const AUDIO_OUTPUT_SAMPLE_RATE = 24000;
@@ -104,6 +105,7 @@ export class GeminiLiveSession {
   // overwriting earlier chunks with chunkIndex:0 from a later sub-turn.
   private currentSentenceIndex = 0;
   private currentChunkIndex = 0;       // Resets to 0 at each new sentenceIndex boundary
+  private karaokeTracker: GLKaraokeTracker | null = null;
   private hadAudioInCurrentSubturn = false;
   private firstAudioSentThisTurn = false;   // Guard: don't send processing_pending AFTER audio already started
   private processingPendingSentThisTurn = false; // Guard: send processing_pending exactly once per conversation turn
@@ -235,6 +237,18 @@ export class GeminiLiveSession {
     // Store for use by auto-reconnect
     this.lastSystemPrompt = systemPrompt;
     this.lastTools = tools;
+
+    // Start karaoke tracker when subtitles are active — taps GL output audio
+    // and runs it through a parallel Deepgram STT leg for word-level timestamps.
+    if (this.session.subtitleMode !== 'off') {
+      this.karaokeTracker = new GLKaraokeTracker(
+        this.session.targetLanguage,
+        (msg: any) => this.sendWsMessage(this.session.ws, msg),
+      );
+      this.karaokeTracker.start().catch(err =>
+        console.warn('[GeminiLive] Karaoke tracker failed to start:', err?.message ?? err)
+      );
+    }
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
@@ -729,6 +743,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       } catch (_) {}
       this.liveSession = null;
     }
+    // Tear down karaoke tracker if active
+    if (this.karaokeTracker) {
+      this.karaokeTracker.destroy();
+      this.karaokeTracker = null;
+    }
     // Flush any unsaved transcripts on session end (e.g., user closes mid-response)
     this.flushTranscripts().catch(err =>
       console.warn('[GeminiLive] Final transcript flush error on stop:', err.message)
@@ -874,6 +893,15 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
           const pcm16Buffer = Buffer.from(part.inlineData.data, 'base64');
           const f32leBuffer = pcm16ToF32le(pcm16Buffer);
+
+          // ── Karaoke tap ────────────────────────────────────────────────
+          // Feed the raw PCM16 to Deepgram in parallel so it can return
+          // word-level timestamps while audio plays on the client.
+          this.karaokeTracker?.sendAudioChunk(
+            pcm16Buffer,
+            this.currentSentenceIndex,
+            this.currentTurnId,
+          );
 
           // Mark that audio has started for this turn — prevents late outputTranscription
           // chunks from firing a spurious processing_pending AFTER audio has played.
@@ -1086,6 +1114,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.currentSentenceIndex++;
         this.currentChunkIndex = 0;
         this.hadAudioInCurrentSubturn = false;
+        this.karaokeTracker?.onSentenceComplete();
         console.log(`[GeminiLive] Sub-turn audio sealed — sentenceIndex now ${this.currentSentenceIndex}`);
       }
 

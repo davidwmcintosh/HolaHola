@@ -24,6 +24,61 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 15, 2026 — GL Karaoke Subtitles + push_custom_subtitle tool + visual_compare fixes**
+
+### What was built
+
+Four items delivered this session:
+
+**1. Comparison background preview/adopt flow in admin Command Center** *(done earlier, carried forward)*
+- Already committed in checkpoint b60c0cd4
+
+**2. visual_compare display formatting fixes** *(done earlier, carried forward)*
+- Already committed in checkpoint b60c0cd4
+
+**3. `push_custom_subtitle` GL-safe tool for Daniela**
+- Registry entry in `daniela-function-registry.ts`, handler in `native-fc-handlers.ts` (~line 757)
+- GL-safe (`legacyType: 'PUSH_CUSTOM_SUBTITLE'`), sends `custom_overlay` WS message to client
+- Auto-indexed by ToolIndexer at server start (160 tools total)
+
+**4. GL Karaoke Subtitles via Deepgram parallel STT leg**
+
+New file: `server/services/gl-karaoke-tracker.ts`
+- `GLKaraokeTracker` class opens one Deepgram nova-3 live STT connection per GL session
+- Configured for PCM16 24kHz mono (matches GL audio output format)
+- Accepts `targetLanguage` → maps to Deepgram BCP-47 language code
+- Tracks **cumulative byte offsets** across all turns/sentences so per-sentence relative times are correct
+- On `is_final` transcript: emits `word_timing_delta` (one per word) + `word_timing_final` to the client
+- Uses `word_timing_delta` not batch `word_timing` — plugs directly into `handleWordTimingDelta` in `useStreamingVoice.ts` which registers words with the audio player in progressive mode (`PROGRESSIVE_AUDIO_STREAMING: true`)
+- `onSentenceComplete()` sends keepAlive to prevent Deepgram idle-close between sentences
+
+Integration in `server/services/gemini-live-session.ts`:
+- Tracker initialized in `start()` when `subtitleMode !== 'off'`
+- PCM16 tap at audio chunk loop (~line 900) feeds raw buffer to tracker in parallel
+- `onSentenceComplete()` called at each `turnComplete` sentence seal (~line 1117)
+- `destroy()` called in `stop()` (~line 748)
+
+Client-side: no changes needed. Existing progressive pipeline handles everything:
+- `handleWordTimingDelta` → `registerWordTiming` with audio player (sentence schedule anchored on `sentenceIndex` from GL audio chunks)
+- `handleWordTimingFinal` → `finalizeWordTimings` on subtitle hook
+- Timing loop animates karaoke highlighting via `FloatingSubtitleOverlay`
+
+David's `subtitleMode` is already `'all'` in localStorage — tracker activates automatically on next GL session start.
+
+### Known limitations (v1)
+- Deepgram results arrive slightly after audio plays — first 1-2 words of a sentence may be missed; subsequent words sync
+- Mid-session subtitle mode changes (e.g., `[SUBTITLE off]`) don't stop the tracker (acceptable for v1)
+- No DEEPGRAM_API_KEY → karaoke tracker silently disabled with a warning log
+
+### Typecheck
+- 2018 errors in baseline (routes.ts cascade — pre-existing, no new errors from this session)
+
+### What's still open
+- Karaoke timing can be tested by David in a GL voice session — watch for `[GLKaraoke]` log lines on server
+- If Deepgram word timing arrives consistently late, could add a buffer offset (e.g., +200ms to `sentenceEntry.startCtxTime`) to shift karaoke window earlier — easy tweak in `gl-karaoke-tracker.ts`
+
+---
+
 **Session: June 14, 2026 (part 4) — Vocab Images tab + GL reconnect resilience**
 
 ### What was built
