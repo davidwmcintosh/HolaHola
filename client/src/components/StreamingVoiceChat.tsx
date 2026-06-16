@@ -1034,7 +1034,7 @@ export function StreamingVoiceChat({
           },
           onLessonNoteAdded: (note) => {
             setLessonNotes(prev => [...prev, note as LessonNote]);
-            setLessonNotesOpen(true);
+            // Don't auto-open — notes accumulate quietly; student opens when ready
           },
           onPronunciationScoreShown: (data) => {
             if (pronunciationScoreTimerRef.current) clearTimeout(pronunciationScoreTimerRef.current);
@@ -3860,7 +3860,7 @@ export function StreamingVoiceChat({
       <div className="flex-1 min-h-0 overflow-hidden relative">
         {/* Lesson Notes Panel — accumulates vocab/grammar/culture notes during the session */}
         {lessonNotes.length > 0 && (
-          <div className="absolute top-3 right-3 z-40 w-72 max-w-[calc(100vw-1.5rem)]">
+          <div className="absolute bottom-3 right-3 z-40 w-72 max-w-[calc(100vw-1.5rem)]">
             {lessonNotesOpen ? (
               <div className="bg-card border rounded-md shadow-md flex flex-col max-h-96">
                 <div className="flex items-center gap-2 px-3 py-2 border-b shrink-0">

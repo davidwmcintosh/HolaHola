@@ -5451,7 +5451,7 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'TEACHING_CONTENT',
     declaration: {
       name: 'teaching_content',
-      description: 'Deliver structured curriculum content and lesson elements. Use for: pulling curriculum content on a topic (pull_lesson_content), grammar structure diagram (grammar_diagram), vocabulary grid display (show_vocab_grid), swapping a vocab card image (swap_vocab_image), interactive sentence builder (show_sentence_builder), textbook section display (show_textbook_section), launching a structured teaching skill script (invoke_teaching_skill).',
+      description: 'Deliver structured curriculum content and lesson elements. Use for: pulling curriculum content on a topic (pull_lesson_content), grammar structure diagram (grammar_diagram), vocabulary grid display (show_vocab_grid), swapping a vocab card image (swap_vocab_image), interactive sentence combinator / sentence builder (show_sentence_builder) — ALWAYS call this tool when the student asks for a "sentence combinator" or "sentence builder"; never explain it verbally instead, textbook section display (show_textbook_section), launching a structured teaching skill script (invoke_teaching_skill).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
@@ -5692,7 +5692,7 @@ teaching_content — curriculum content and lesson structures.
   type: "grammar_diagram" → grammar structure diagram.
   type: "show_vocab_grid" → vocabulary grid display.
   type: "swap_vocab_image" → update a vocab card image.
-  type: "show_sentence_builder" → interactive sentence combinator. params_json: {"columns":[{"label":"Subject","items":[{"text":"Yo","translation":"I"},{"text":"Tú","translation":"You"}]},{"label":"Verb","items":[{"text":"hablo","translation":"speak"},{"text":"hablas","translation":"speak"}]}],"pattern_label":"yo + verb"}
+  type: "show_sentence_builder" → interactive sentence combinator (what David calls "the sentence combinator"). ALWAYS call this tool — never explain verbally how to make sentences instead. params_json: {"columns":[{"label":"Subject","items":[{"text":"Yo","translation":"I"},{"text":"Tú","translation":"You"}]},{"label":"Verb","items":[{"text":"hablo","translation":"speak"},{"text":"hablas","translation":"speak"}]}],"pattern_label":"yo + verb"}
   type: "show_textbook_section" → textbook section display.
   type: "invoke_teaching_skill" → launch a structured teaching skill script.
 
