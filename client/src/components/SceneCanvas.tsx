@@ -375,7 +375,7 @@ export function ThermometerCanvas({ data }: { data: ThermometerData }) {
       animate={{ opacity: 1, scale: 1 }}
       className="flex flex-col items-center gap-3 p-6"
     >
-      <svg viewBox="0 0 130 330" className="w-20 sm:w-28" aria-label={`Thermometer: ${celsius}°C`}>
+      <svg viewBox="0 0 130 330" className="w-20 sm:w-28" aria-label={`Thermometer: ${showFahrenheit ? `${fahrenheit}°F` : `${celsius}°C`}`}>
         {/* Tick marks */}
         {ticks.map(t => {
           const y = tubeBottom - ((t - minTemp) / (maxTemp - minTemp)) * tubeHeight;
@@ -404,14 +404,22 @@ export function ThermometerCanvas({ data }: { data: ThermometerData }) {
         />
         {/* Tube overlay (border on top) */}
         <rect x="52" y={tubeTop} width="20" height={tubeHeight} rx="10" fill="none" stroke="hsl(var(--border))" strokeWidth="1.5" />
-        {/* Bulb */}
+        {/* Bulb — show primary unit's value */}
         <circle cx="62" cy={tubeBottom + 16} r="20" fill={fillColor} />
         <circle cx="62" cy={tubeBottom + 16} r="20" fill="none" stroke="hsl(var(--border))" strokeWidth="1.5" />
-        <text x="62" y={tubeBottom + 21} textAnchor="middle" fontSize="11" fill="white" fontWeight="700" fontFamily="system-ui,sans-serif">{celsius}°</text>
+        <text x="62" y={tubeBottom + 21} textAnchor="middle" fontSize="11" fill="white" fontWeight="700" fontFamily="system-ui,sans-serif">
+          {showFahrenheit ? `${fahrenheit}°` : `${celsius}°`}
+        </text>
       </svg>
       <div className="text-center">
-        <p className="text-3xl font-bold tabular-nums">{celsius}°C</p>
-        {showFahrenheit && <p className="text-sm text-muted-foreground">{fahrenheit}°F</p>}
+        {showFahrenheit ? (
+          <>
+            <p className="text-3xl font-bold tabular-nums">{fahrenheit}°F</p>
+            <p className="text-sm text-muted-foreground">{celsius}°C</p>
+          </>
+        ) : (
+          <p className="text-3xl font-bold tabular-nums">{celsius}°C</p>
+        )}
         {labelText && <p className="text-sm text-muted-foreground mt-1 italic">{labelText}</p>}
       </div>
     </motion.div>
@@ -573,6 +581,7 @@ export function WeatherIcon({ condition, size = 80 }: { condition: string; size?
 }
 
 function WeatherCanvas({ data }: { data: WeatherData }) {
+  const isUS = typeof navigator !== 'undefined' && (navigator.language === 'en-US' || navigator.language?.endsWith('-US'));
   const bgColors: Record<string, string> = {
     sunny: 'from-yellow-100 to-orange-50 dark:from-yellow-950 dark:to-orange-950',
     hot: 'from-red-100 to-orange-50 dark:from-red-950 dark:to-orange-950',
@@ -598,9 +607,12 @@ function WeatherCanvas({ data }: { data: WeatherData }) {
       {data.label && (
         <span className="text-2xl font-semibold tracking-wide text-center">{data.label}</span>
       )}
-      {data.celsius !== undefined && (
-        <span className="text-lg font-mono text-muted-foreground">{data.celsius}°C</span>
-      )}
+      {data.celsius !== undefined && (() => {
+        const f = Math.round(data.celsius! * 9 / 5 + 32);
+        return isUS
+          ? <span className="text-lg font-mono text-muted-foreground">{f}°F <span className="text-sm opacity-70">({data.celsius}°C)</span></span>
+          : <span className="text-lg font-mono text-muted-foreground">{data.celsius}°C</span>;
+      })()}
     </motion.div>
   );
 }
