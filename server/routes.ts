@@ -4150,7 +4150,10 @@ Return a JSON array of suggestions with this format:
   });
 
   // DELETE /api/conversations/cleanup/short — bulk-delete untitled, short, un-starred conversations.
-  // Threshold: messageCount < 4 (matches the existing backfill min of 4 for titling).
+  // Threshold: messageCount < 4.
+  // SAFETY: never deletes the user's most recent conversation — short but real sessions (e.g. a
+  // quick "put up these 4 widgets" exchange) should not vanish just because the session pipeline
+  // hadn't had time to title them yet.
   // Never deletes starred or onboarding conversations.
   // Must be registered BEFORE /:id so Express doesn't match "cleanup" as a conversation ID.
   app.delete("/api/conversations/cleanup/short", isAuthenticated, async (req: any, res) => {
@@ -4165,6 +4168,9 @@ Return a JSON array of suggestions with this format:
           sql`${conversations.messageCount} < 4`,
           eq(conversations.isStarred, false),
           eq(conversations.isOnboarding, false),
+          // Never delete the most recent conversation — it may be a short-but-real session
+          // that hasn't been titled/saved to memories yet.
+          sql`${conversations.id} != (SELECT id FROM conversations WHERE user_id = ${userId} ORDER BY created_at DESC LIMIT 1)`,
         ))
         .returning({ id: conversations.id });
       console.log(`[CleanupShort] User ${userId}: deleted ${deleted.length} short untitled conversations`);
@@ -23341,7 +23347,7 @@ Current conversation context:
           messageCount: conversations.messageCount,
         })
         .from(conversations)
-        .where(sql`${conversations.title} IS NULL AND ${conversations.messageCount} >= 4 AND ${conversations.isOnboarding} = false`)
+        .where(sql`${conversations.title} IS NULL AND ${conversations.messageCount} >= 3 AND ${conversations.isOnboarding} = false`)
         .orderBy(sql`${conversations.createdAt} DESC`)
         .limit(limit);
       
@@ -23353,7 +23359,7 @@ Current conversation context:
         try {
           const messages = await storage.getMessagesByConversation(conv.id);
           
-          if (messages.length < 4) {
+          if (messages.length < 3) {
             results.push({ id: conv.id, title: null, error: 'Not enough messages' });
             continue;
           }

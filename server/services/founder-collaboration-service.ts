@@ -772,7 +772,10 @@ class FounderCollaborationService {
         allMessages.push(...metadataMessages);
       }
       
-      // PRIORITY 3: Recent Hive conversations (Founder, Daniela, Wren) with language keyword matching
+      // PRIORITY 3: Recent Hive conversations (Founder + Daniela ONLY) with language keyword matching.
+      // Intentionally excludes 'wren', 'alden', 'sofia', 'lyra' — infrastructure/security posts from those
+      // agents are dev-ops context that does NOT belong in Daniela's student-facing greeting.
+      // She should open with what *she and David* last talked about, not with Wren's security audit findings.
       if (allMessages.length < limit && targetLanguage) {
         const langLower = targetLanguage.toLowerCase();
         const generalMessages = await getSharedDb().select({
@@ -784,7 +787,7 @@ class FounderCollaborationService {
           .from(collaborationMessages)
           .where(
             and(
-              sql`${collaborationMessages.role} IN ('founder', 'daniela', 'wren')`,
+              sql`${collaborationMessages.role} IN ('founder', 'daniela')`,
               sql`${collaborationMessages.metadata}->>'source' IS DISTINCT FROM 'voice_chat_sync'`,
               sql`${collaborationMessages.createdAt} > ${dateThreshold}`,
               sql`LOWER(${collaborationMessages.content}) LIKE '%' || ${langLower} || '%'`
@@ -796,7 +799,8 @@ class FounderCollaborationService {
         allMessages.push(...generalMessages);
       }
       
-      // PRIORITY 4: Recent Hive discussions (no language filter) - catches board meetings, North Star reviews, etc.
+      // PRIORITY 4: Recent Hive discussions (no language filter) — Founder + Daniela ONLY.
+      // Same reasoning as PRIORITY 3: infra agents (Wren, Alden, Sofia) are excluded.
       if (allMessages.length < limit) {
         const hiveMessages = await getSharedDb().select({
           role: collaborationMessages.role,
@@ -807,7 +811,7 @@ class FounderCollaborationService {
           .from(collaborationMessages)
           .where(
             and(
-              sql`${collaborationMessages.role} IN ('founder', 'daniela', 'wren')`,
+              sql`${collaborationMessages.role} IN ('founder', 'daniela')`,
               sql`${collaborationMessages.metadata}->>'source' IS DISTINCT FROM 'voice_chat_sync'`,
               sql`${collaborationMessages.createdAt} > ${dateThreshold}`
             )
