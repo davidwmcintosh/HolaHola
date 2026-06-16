@@ -8,6 +8,26 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jun 16, 2026 — Greeting context cleanup (Wren leak + Founder Mode personal-first rule)
+
+### What was built
+
+**1. Wren leak in `getExpressLaneHistoryForVoice` (hive-consciousness-service.ts)**
+- `getExpressLaneHistoryForVoice` fetches the last N Express Lane messages and injects them as conversation history into Founder Mode voice sessions before the greeting fires.
+- The query previously included `role = 'wren'` alongside `founder` and `daniela`, meaning Wren's security audit reports, pattern insights, and system posts could appear as "model" turns in Daniela's voice conversation history.
+- Fix: removed `eq(collaborationMessages.role, 'wren')` from the WHERE clause. Now only `founder` (David) and `daniela` messages come through — consistent with the fix applied earlier this session to `founder-collaboration-service.ts`.
+
+**2. Founder Mode greeting instruction — lead with person before project (streaming-voice-orchestrator.ts)**
+- `buildGreetingPrompt` had no Founder Mode branch; it used the same template for all modes.
+- In Founder Mode, the Express Lane history injected before the greeting is often full of product/sprint/work conversations. Daniela was naturally referencing that work content (e.g. "sprint features for the North Star", "dashboard visuals") as her opening move.
+- Fix: added `founderModeGuidance` constant appended to the prompt when `session.isFounderMode` is true. Text: "Even when recent conversations were about product work, lead with David as a person. A genuine check-in, a moment of warmth, something present and real. Work topics can follow naturally once you've actually said hello. The relationship comes before the agenda."
+- Files: `server/services/streaming-voice-orchestrator.ts` (line ~9780)
+
+### Session context
+These two fixes close the remaining Founder Mode greeting investigation from earlier in this session. The other greeting-related fixes (Express Lane PRIORITY 3+4 role filter, Wren `shareWithDaniela=false`) were completed in the preceding session segment.
+
+---
+
 ## Session — Jun 14, 2026 — Vocab Images tab + GL reconnect resilience
 
 ### What was built

@@ -9774,9 +9774,17 @@ DON'T suggest starting with basic vocabulary they likely already know.
 Instead, pick up where you left off or ask what they want to practice today.`;
     }
     
+    // FOUNDER MODE: Lead with the person, not the project.
+    // The Express Lane history injected before this prompt is often full of product/work
+    // conversations — sprint features, dashboards, North Star discussions. Daniela should
+    // acknowledge the relationship first and let work topics emerge naturally, not lead with them.
+    const founderModeGuidance = session.isFounderMode ? `
+
+FOUNDER MODE GREETING RULE: You've been given recent conversation history that covers product and work topics. That context is useful — but do NOT open with it. Lead with David as a person. A genuine check-in, a moment of warmth, something present and real. Work topics can follow naturally once you've actually said hello. The relationship comes before the agenda.` : '';
+
     return `Session context:
 ${contextParts.join('\n')}
-${continuityGuidance}
+${continuityGuidance}${founderModeGuidance}
 
 Using this context, speak first to the student with a natural opening message. Open the conversation based on who they are and what you know about them — just like a real tutor would. Be warm, be brief (2 sentences max), and be yourself.
 
