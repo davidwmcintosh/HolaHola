@@ -35,6 +35,7 @@ import { reportGlToolCallFailure } from './sofia-billing-monitor';
 import { GLKaraokeTracker } from './gl-karaoke-tracker';
 import { PostResponseEnrichmentService } from './post-response-enrichment';
 import { storage } from '../storage';
+import type { IStorage } from '../storage';
 
 export const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
 const AUDIO_OUTPUT_SAMPLE_RATE = 24000;
@@ -214,7 +215,7 @@ export class GeminiLiveSession {
     private session: StreamingSession,
     private sendWsMessage: (ws: any, message: any, session?: any) => void,
   ) {
-    this.enrichment = new PostResponseEnrichmentService(storage, sendWsMessage);
+    this.enrichment = new PostResponseEnrichmentService(storage as unknown as IStorage, sendWsMessage);
     this.fcHandler = new NativeFunctionCallHandler(
       sendWsMessage,
       (_ws: any, code: string, message: string, _recoverable: boolean) => {
@@ -639,6 +640,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
    */
   sendGreetingTrigger(userName?: string, isResumed?: boolean, scenarioSlug?: string, recentContext?: string): void {
     if (!this.liveSession || this.isStopped) return;
+    // DOUBLE-AUDIO GUARD: if a greeting was already triggered via pendingGreetingTrigger
+    // (fired at setupComplete), greetingPhaseActive is already true — skip the duplicate.
+    if (this.greetingPhaseActive) {
+      console.log('[GeminiLive] sendGreetingTrigger: greeting already in progress — skipping duplicate (prevents double audio)');
+      return;
+    }
     const name = userName ? `, my name is ${userName}` : '';
     const langKey = (this.session.targetLanguage || '').toLowerCase().trim();
     const langName = this.session.targetLanguage

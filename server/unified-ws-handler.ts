@@ -4078,6 +4078,29 @@ ${lastNote.tutorNotes}`);
             }
           }).catch((err: Error) => console.warn('[GeminiLive] Title generation failed:', err.message));
         }).catch(() => {});
+
+        // VOCAB MINING: Extract vocabulary/phrases for the "From Your Conversations" section
+        // GL sessions bypass the per-turn enrichment that creates review items in the text pipeline.
+        // We run it here at session end instead.
+        if (!session?.isIncognito) {
+          import('./services/vocabulary-mining-service').then(({ mineVocabularyFromSession }) => {
+            storage.getMessagesByConversation(conversationId).then((msgs: Array<{ role: string; content: string }>) => {
+              if (msgs.length >= 10) {
+                return mineVocabularyFromSession(
+                  String(userId),
+                  sessionLanguage || 'spanish',
+                  msgs.map(m => ({ role: m.role, content: m.content })),
+                  conversationId,
+                  null,
+                );
+              }
+            }).then((result: any) => {
+              if (result?.saved > 0) {
+                console.log(`[GeminiLive] ✓ Vocab mining: saved ${result.saved} review items`);
+              }
+            }).catch((err: Error) => console.warn('[GeminiLive] Vocab mining failed:', err.message));
+          }).catch(() => {});
+        }
       }
     }
     

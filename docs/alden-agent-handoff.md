@@ -24,6 +24,31 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 16, 2026 (part 2) — 3 Language Hub / GL chat bugs fixed**
+
+### What was built
+
+Three bugs from David's live sessions — all fixed:
+
+**Bug 1 — "From Your Conversations" not updating (GL sessions never mined vocab)**
+- `server/unified-ws-handler.ts`: GL session close handler now calls `mineVocabularyFromSession` after the title-generation block. Previously only text-orchestrator sessions fed `user_review_items`. GL sessions (voice chat) closed silently with no vocab mining.
+
+**Bug 2 — Daniela's Insights not updating from GL sessions (enrichment never ran)**
+- `server/services/gemini-live-session.ts`: `persistMessage` now uses `.returning()` to get the saved message ID. After each assistant turn, a `setImmediate` callback calls `processBackgroundEnrichment(messageId, ...)`. Previously GL sessions skipped enrichment entirely — `student_insights`, `recurring_struggles`, and memory embeddings never updated from voice chat. Last enrichment from GL was April 30, 2026 — this was why.
+- `PostResponseEnrichmentService` instantiated in GL constructor with `storage as unknown as IStorage`.
+
+**Bug 3 — Double greeting audio in /chat**
+- `server/services/gemini-live-session.ts`: `sendGreetingTrigger()` checks `this.greetingPhaseActive` at entry and returns early if greeting already in flight. Root cause: `glGreetingTrigger` fires at setupComplete (sets flag), then client's `request_greeting` WS message fires the same path — two greeting audio streams overlapping. Guard prevents the second call.
+
+### Typecheck
+- 2019 pre-existing errors (all pre-existing, routes.ts cascade + others). gemini-live-session.ts: my introduced error (TS2345 IStorage cast) fixed with `as unknown as IStorage` — that file now at 5 pre-existing errors only.
+
+### What's still open
+- 162 messages in "processing" state (pre-existing, stuck before today's fix). Memory recovery worker resets these if >10 min old — they should self-clear on next 5-min cycle.
+- First GL session after today's deploy will start feeding Insights again. David won't see backfill for April→June gap (those GL messages had no enrichment run and are past the recovery window), but going forward it's live.
+
+---
+
 **Session: June 16, 2026 — 5 live-session bugs fixed (vocab card quiz mode, vocab grid feedback, GL subtitles, studio centering)**
 
 ### What was built
