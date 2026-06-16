@@ -4037,7 +4037,11 @@ function VocabCardItemDisplay({ item, index }: { item: VocabCardItem; index: num
         )}
         <div className="space-y-1 min-w-0">
           <p className="text-2xl font-bold text-foreground leading-tight">{data.word}</p>
-          <p className="text-sm text-muted-foreground">{data.definition}</p>
+          {data.showTranslation !== false ? (
+            <p className="text-sm text-muted-foreground">{data.definition}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground/60 italic">What does this mean?</p>
+          )}
         </div>
       </div>
     </div>

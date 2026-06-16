@@ -1139,6 +1139,7 @@ export interface VocabCardItemData {
   imageUrl?: string;
   language?: string;
   autoDismissMs?: number;
+  showTranslation?: boolean;  // false = hide definition (quiz mode — student must recall the meaning)
 }
 
 export interface VocabCardItem extends WhiteboardItemBase {

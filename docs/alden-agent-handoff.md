@@ -24,6 +24,38 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 16, 2026 — 5 live-session bugs fixed (vocab card quiz mode, vocab grid feedback, GL subtitles, studio centering)**
+
+### What was built
+
+Five bugs from David's live Daniela session — all fixed:
+
+**Bug 1 — GL target subtitles never rendered (karaoke tracker not started mid-session)**
+- `gemini-live-session.ts`: After `fcHandler.handle()`, now checks if `subtitleMode` changed and starts/stops karaoke tracker dynamically. Previously if mode was 'off' at session init and Daniela called `subtitle(mode:'target')` mid-session, the karaoke tracker never started, so no `word_timing_delta` events fired and `useWordTimingsPath` was always false. Now the tracker spins up immediately when mode activates.
+
+**Bug 2 — Vocab card had no quiz mode (Daniela couldn't hide the translation)**
+- `shared/whiteboard-types.ts`: Added `showTranslation?: boolean` to `VocabCardItemData`
+- `daniela-function-registry.ts`: Added `show_translation` boolean param + quiz-mode usage examples to `show_vocab_card` description
+- `native-fc-handlers.ts`: Reads `show_translation` from fn.args (default true), passes `showTranslation` in all 3 card sends (initial, image-patch, retry-patch)
+- `Whiteboard.tsx`: `VocabCardItemDisplay` shows "What does this mean?" italic hint when `showTranslation===false`, definition when true
+
+**Bug 3 — Vocab grid (show_vocab_grid) gave Daniela no failure feedback in GL**
+- `daniela-function-registry.ts`: `TEACHING_CONTENT` dispatcher `buildContinuationResponse` now checks if sub-tool was `show_vocab_grid`, reads `showVocabGridResult` from session, and returns actual success/failure message. Previously returned generic `{ status: 'done' }` regardless of whether image generation failed.
+
+**Bug 4 — Covered by Bug 2** (Daniela was using `show_image` as a workaround because vocab card had no quiz control)
+
+**Bug 5 — Studio pane word label left-justified**
+- `ScenarioPanel.tsx`: Added `text-center` to the word `<p>` in `StudioImageGallery`
+
+### Typecheck
+- 2019 pre-existing errors (routes.ts cascade + others), 0 new errors from this session
+
+### What's still open
+- The very first GL sentence immediately after `subtitle(mode:'target')` may still miss karaoke word timings (tracker starts AFTER handle() but audio for that first response may begin before Deepgram warms up). Subsequent sentences should work correctly.
+- Could add per-sentence transcript tracking as `targetLanguageText` in `sentence_start` for a belt-and-suspenders fallback on the first sentence.
+
+---
+
 **Session: June 15, 2026 — GL Karaoke Subtitles + push_custom_subtitle tool + visual_compare fixes**
 
 ### What was built

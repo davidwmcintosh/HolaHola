@@ -2970,9 +2970,11 @@ export class NativeFunctionCallHandler {
         const vcImageUrl = fn.args.image_url as string | undefined;
         const vcLanguage = fn.args.language as string | undefined;
         const vcDurationMs = (fn.args.duration_ms as number | undefined) ?? 7000;
+        // show_translation defaults to true; false = quiz mode (hide definition so student must recall)
+        const vcShowTranslation = (fn.args.show_translation as boolean | undefined) ?? true;
         // Stable ID used for both the initial send and the image-enriched update
         const vcId = `vc-${Date.now()}`;
-        console.log(`[Native Function→VocabCard] word="${vcWord}" definition="${vcDefinition}" duration=${vcDurationMs}ms`);
+        console.log(`[Native Function→VocabCard] word="${vcWord}" definition="${vcDefinition}" duration=${vcDurationMs}ms showTranslation=${vcShowTranslation}`);
 
         // Send card immediately (without image if Daniela didn't supply one)
         this.sendMessage(session.ws, {
@@ -2989,6 +2991,7 @@ export class NativeFunctionCallHandler {
               imageUrl: vcImageUrl,
               language: vcLanguage,
               autoDismissMs: vcDurationMs,
+              showTranslation: vcShowTranslation,
             },
           }],
         });
@@ -3027,6 +3030,7 @@ export class NativeFunctionCallHandler {
                     imageUrl: resolvedImageUrl,
                     language: vcLanguage,
                     autoDismissMs: vcDurationMs,
+                    showTranslation: vcShowTranslation,
                   },
                 }],
               });
@@ -3058,7 +3062,7 @@ export class NativeFunctionCallHandler {
                     type: 'whiteboard_update',
                     timestamp: Date.now(),
                     items: [{ type: 'vocab_card', id: vcId, content: vcWord, timestamp: Date.now(),
-                      data: { word: vcWord, definition: vcDefinition, imageUrl: resolvedImageUrl, language: vcLanguage, autoDismissMs: vcDurationMs } }],
+                      data: { word: vcWord, definition: vcDefinition, imageUrl: resolvedImageUrl, language: vcLanguage, autoDismissMs: vcDurationMs, showTranslation: vcShowTranslation } }],
                   });
                 } catch (retryErr: any) {
                   console.warn(`[Vision→VocabCard] Retry failed for "${vcWord}":`, retryErr.message);

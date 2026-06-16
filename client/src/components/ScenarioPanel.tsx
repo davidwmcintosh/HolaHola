@@ -365,7 +365,7 @@ function StudioImageGallery({ images }: { images: StudioImage[] }) {
           <ZoomIn className="h-7 w-7 text-white drop-shadow" />
         </div>
         <div className="px-2.5 py-2">
-          <p className="text-sm font-semibold truncate">{latestImage.word}</p>
+          <p className="text-sm font-semibold truncate text-center">{latestImage.word}</p>
           {latestImage.description && latestImage.description !== latestImage.word && (
             <p className="text-xs text-muted-foreground line-clamp-2">{latestImage.description}</p>
           )}

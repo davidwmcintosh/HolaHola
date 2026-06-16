@@ -1315,6 +1315,24 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         try {
           await this.fcHandler.handle(this.session.id, this.session, extractedFc);
 
+          // If subtitle mode just became active (Daniela called the subtitle tool mid-session)
+          // and the karaoke tracker wasn't started at init (because mode was 'off' then),
+          // start it now so word_timing_delta events fire for upcoming sentences.
+          if (this.session.subtitleMode !== 'off' && !this.karaokeTracker) {
+            this.karaokeTracker = new GLKaraokeTracker(
+              this.session.targetLanguage,
+              (msg: any) => this.sendWsMessage(this.session.ws, msg),
+            );
+            this.karaokeTracker.start().catch(err =>
+              console.warn('[GeminiLive] Karaoke tracker late-start failed:', err?.message ?? err)
+            );
+            console.log('[GeminiLive] Karaoke tracker started (subtitle mode activated mid-session)');
+          } else if (this.session.subtitleMode === 'off' && this.karaokeTracker) {
+            this.karaokeTracker.destroy();
+            this.karaokeTracker = null;
+            console.log('[GeminiLive] Karaoke tracker stopped (subtitle mode turned off)');
+          }
+
           // Await any async memory lookups before reading session caches.
           // Tools like UNIFIED_RECALL fire processUnifiedRecall() as a fire-and-forget
           // promise pushed to pendingMemoryLookupPromises. Without this await,

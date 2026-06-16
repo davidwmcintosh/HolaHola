@@ -3732,6 +3732,9 @@ Examples:
 - Student mispronounces "lluvia" → show_vocab_card(word="lluvia", definition="rain") to anchor it visually
 - Teaching a new noun → show the word with its English meaning
 
+Quiz mode: Set show_translation=false to hide the definition — student sees the word and image but must recall the meaning themselves. Reveal it verbally after they answer. Great for active recall drills.
+- "What does this mean?" → show_vocab_card(word="mariposa", definition="butterfly", show_translation=false) → student answers → you reveal it verbally
+
 Vs show_image: show_image is a full-panel visual moment (scene backgrounds, standalone illustrations, cultural images). show_vocab_card is a compact reading card — word + definition + image together in the whiteboard column. Use show_vocab_card for vocabulary; use show_image for immersive or standalone visuals.
 
 Keep definitions short — one line max. Do NOT use this for grammar rules; use show_teaching_card for those.`,
@@ -3744,6 +3747,7 @@ Keep definitions short — one line max. Do NOT use this for grammar rules; use 
           image_url: { type: "string", description: "Optional image URL to show alongside the card" },
           language: { type: "string", description: "Target language code (e.g. 'es', 'fr') — defaults to current session language" },
           duration_ms: { type: "number", description: "How long to show the card in milliseconds (default: 7000)" },
+          show_translation: { type: "boolean", description: "Whether to show the English definition/translation on the card (default: true). Set to false for quiz mode — student sees the word and image but must recall the meaning themselves. Reveal it verbally after they answer." },
         },
       },
     },
@@ -5469,6 +5473,22 @@ The card is a visual summary only — it does not start any activity automatical
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
       if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+
+      // For show_vocab_grid: surface the actual result (success/failure) so Daniela knows
+      // whether the grid appeared. Without this, she only sees generic { status: 'done' }
+      // and has no way to tell the student if image generation failed.
+      if (d.selector === 'show_vocab_grid') {
+        const result = (session as any).showVocabGridResult as { success: boolean; wordCount?: number; title?: string } | undefined;
+        if (!result) {
+          // Promise resolved but result wasn't stored (shouldn't happen — defensive fallback)
+          return JSON.stringify({ status: 'done', type: 'show_vocab_grid', note: 'Grid sent to student whiteboard.' });
+        }
+        if (!result.success) {
+          return JSON.stringify({ status: 'error', type: 'show_vocab_grid', message: 'Vocab grid could not be displayed — image generation failed. Continue verbally: name each word and have the student repeat.' });
+        }
+        return JSON.stringify({ status: 'done', type: 'show_vocab_grid', wordCount: result.wordCount, title: result.title, note: 'Grid is now visible on the student whiteboard.' });
+      }
+
       return JSON.stringify({ status: 'done', type: d.selector });
     },
   },
