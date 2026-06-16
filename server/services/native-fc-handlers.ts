@@ -856,10 +856,14 @@ export class NativeFunctionCallHandler {
         });
         session.classroomWhiteboardItems = [];
         console.log(`[Native Function Call] CLEAR -> whiteboard cleared (classroom tracking reset)`);
-        // If an immersive scene is active, re-inject it so CLEAR only removes
-        // whiteboard annotations (text, images, drills) but never takes down the
-        // scene backdrop or its props — the student would otherwise see a black screen.
-        if (session.sceneCanvas) {
+        // If a REAL immersive scene is active (has an environment image), re-inject it so CLEAR
+        // only removes whiteboard annotations but never takes down the scene backdrop.
+        // Guard: only restore when environmentImageUrl is set — without it, the client enters
+        // fullscreen immersive mode with no image (near-black screen). Also, if sceneCanvas was
+        // only used for standalone widgets (clock/emotion/weather/thermometer with no backdrop),
+        // null it out entirely so the next single-widget call starts fresh and doesn't re-send
+        // all previously accumulated widget data (Bug: all widgets re-fire when only one requested).
+        if (session.sceneCanvas && session.sceneCanvas.environmentImageUrl) {
           const sceneRestore = {
             type: 'whiteboard_update' as const,
             timestamp: Date.now(),
@@ -877,7 +881,12 @@ export class NativeFunctionCallHandler {
             }],
           };
           this.sendMessage(session.ws, sceneRestore);
-          console.log(`[Native Function→Clear] Scene active — restored scene canvas after whiteboard clear`);
+          console.log(`[Native Function→Clear] Real scene active — restored scene canvas after whiteboard clear`);
+        } else if (session.sceneCanvas) {
+          // No real scene backdrop — just accumulated widget-only state (clock, emotion, weather, thermometer).
+          // Reset so next single-widget call starts fresh instead of re-sending all previous widget data.
+          session.sceneCanvas = null;
+          console.log(`[Native Function→Clear] Widget-only sceneCanvas cleared (no backdrop to restore)`);
         }
         if (text && !session.functionCallText) {
           session.functionCallText = text;
@@ -2209,9 +2218,25 @@ export class NativeFunctionCallHandler {
           console.log('[Native Function→SetEmotion] Cleared');
           break;
         }
-        const emotionSlug = fn.args.emotion as string | undefined;
         const emotionLabel = fn.args.label as string | undefined;
-        if (!emotionSlug) { console.warn('[Native Function→SetEmotion] Missing emotion slug — skipping'); break; }
+        // fn.args.emotion is the direct slug (native SET_EMOTION call).
+        // When called via the multi_widget dispatcher, only level+label are passed — no emotion slug.
+        // Derive the slug from label in that case, falling back to the closest available face.
+        const EMOTION_FACE_SLUGS = new Set(['happy', 'excited', 'sad', 'angry', 'surprised', 'afraid', 'confused', 'tired', 'nervous', 'disgusted', 'bored']);
+        const EMOTION_ALIAS_MAP: Record<string, string> = {
+          focused: 'confused', thoughtful: 'confused', determined: 'excited',
+          calm: 'happy', neutral: 'happy', proud: 'excited', friendly: 'happy',
+          warm: 'happy', curious: 'confused', playful: 'excited', encouraging: 'happy',
+          engaged: 'excited', relaxed: 'happy', worried: 'nervous', scared: 'afraid',
+          frustrated: 'angry', annoyed: 'angry', pleased: 'happy', satisfied: 'happy',
+        };
+        let emotionSlug = fn.args.emotion as string | undefined;
+        if (!emotionSlug && emotionLabel) {
+          const normalized = emotionLabel.toLowerCase().trim();
+          emotionSlug = EMOTION_FACE_SLUGS.has(normalized) ? normalized : (EMOTION_ALIAS_MAP[normalized] ?? 'happy');
+          console.log(`[Native Function→SetEmotion] Derived slug from label "${emotionLabel}" → "${emotionSlug}"`);
+        }
+        if (!emotionSlug) { console.warn('[Native Function→SetEmotion] Missing emotion slug and no label to derive from — skipping'); break; }
         if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
         session.sceneCanvas.emotionData = { emotion: emotionSlug, label: emotionLabel };
         const emotionUpdate = {

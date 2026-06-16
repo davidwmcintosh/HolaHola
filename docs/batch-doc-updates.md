@@ -1555,3 +1555,24 @@ All 139+ Daniela tools are now accessible in Gemini Live voice sessions via a hy
 ### Dispatcher routing pattern
 Daniela calls: `classroom_widget(widget:"set_clock", params_json:'{"time":"3:30"}')`
 Server: parses params_json → looks up legacyType ("SET_CLOCK") → creates synthetic ExtractedFunctionCall → calls `this.handle()` recursively → existing SET_CLOCK handler fires normally. Zero code duplication.
+
+---
+
+## Three Studio Widget Bugs Fixed — June 16, 2026
+
+### What was built
+Three server-side bugs in the Studio board widget system were diagnosed and fixed. All changes are in `server/services/native-fc-handlers.ts`.
+
+### Bug 1: Emotion widget never appeared
+**Root cause:** The `multi_widget` dispatcher passes `level` + `label` (e.g., `label: "focused"`) but no `emotion` slug. The `SET_EMOTION` handler read only `fn.args.emotion` — which was always `undefined` from dispatcher calls — and bailed out with a warning. Fixed: when `fn.args.emotion` is absent, derive the slug from `label`: exact-match against the 11 valid face slugs (`happy|excited|sad|angry|surprised|afraid|confused|tired|nervous|disgusted|bored`), then a fallback alias map for common mood words (`focused→confused`, `calm→happy`, `proud→excited`, `curious→confused`, etc.), then `'happy'` as last resort. `EmotionFaceCanvas` has its own fallback (`EMOTION_CONFIG[slug] ?? EMOTION_CONFIG['happy']`) so unknown slugs already render gracefully.
+
+### Bug 2: CLEAR triggered a black fullscreen
+**Root cause:** CLEAR handler restored `session.sceneCanvas` as `canvasAction: 'open_scene'` whenever `session.sceneCanvas` was non-null. But widget-only calls (SET_EMOTION, SET_CLOCK, SET_WEATHER, SET_THERMOMETER) initialize `session.sceneCanvas = { environment: '', environmentImageUrl: '', props: [] }` — no real backdrop image. The restore sent `open_scene` with an empty `environmentImageUrl` → client entered fullscreen immersive mode → near-black gradient screen. Fixed: changed `if (session.sceneCanvas)` to `if (session.sceneCanvas && session.sceneCanvas.environmentImageUrl)`. Real immersive scenes with a backdrop image are still restored correctly after CLEAR.
+
+### Bug 3: All widgets re-fired when only one was requested
+**Root cause:** `buildFullSceneCanvasData` always serializes the ENTIRE `session.sceneCanvas` object. After requesting 4 widgets and then clearing, `session.sceneCanvas` was never reset — it still held all 4 widget data objects. The next single widget call (e.g., just SET_CLOCK) sent the full accumulated state, so all 4 re-appeared. Fixed as part of Bug 2's fix: when there is no real scene backdrop, CLEAR now sets `session.sceneCanvas = null` entirely. The next single-widget call starts from a clean state and only sends its own data.
+
+### Key file modified
+- `server/services/native-fc-handlers.ts`
+  - `SET_EMOTION` case (~line 2204): adds slug derivation from `label` with alias map
+  - `CLEAR` case (~line 850): guards scene restore on `environmentImageUrl`; nulls `session.sceneCanvas` for widget-only states
