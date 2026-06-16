@@ -526,7 +526,7 @@ French — female: "marie" (friend), "la_serveuse" (waitress)`,
     legacyType: 'SHOW_IMAGE',
     declaration: {
       name: "show_image",
-      description: `Display an image on the whiteboard. This is the ONLY image tool for vocabulary — use it for every vocabulary word: nouns, verbs, adjectives, colors, everything.
+      description: `Display an image on the whiteboard. Primary full-panel image tool — use for standalone vocabulary visuals, cultural scenes, and concept diagrams. For a compact card that shows the word + definition + image together, use show_vocab_card instead.
 
 ⚠️ HONESTY RULE: If you say you are showing, swapping, or changing an image — you MUST call this function. Never describe calling it in prose without actually calling it. If you cannot call the function right now, say so — do not tell the student a new image is displaying if you haven't called show_image.
 
@@ -3727,12 +3727,20 @@ Never use for long explanations — keep it to one thing at a time.`,
       name: "show_vocab_card",
       description: `Show a vocabulary flash card with the word, definition, and an auto-generated image. Use this mid-conversation to anchor a word visually as you introduce or correct it. An image is automatically fetched — you do not need to supply image_url.
 
-Use this when: you want the student to READ the word AND see a picture of it together. The card appears instantly without interrupting voice flow.
+Use this when: you want the student to READ the word AND see a picture of it together. The card appears instantly without interrupting voice flow. Works for nouns AND verbs — the image auto-generates an action scene for verbs.
 
-Examples:
+Examples (nouns):
 - You introduce "mariposa" → show_vocab_card(word="mariposa", definition="butterfly")
 - Student mispronounces "lluvia" → show_vocab_card(word="lluvia", definition="rain") to anchor it visually
-- Teaching a new noun → show the word with its English meaning
+- Teaching "la escuela" → show_vocab_card(word="la escuela", definition="school")
+
+Examples (verbs — action scenes auto-generated with Daniela character):
+- Teaching "correr" → show_vocab_card(word="correr", definition="to run")
+- Teaching "comer" → show_vocab_card(word="comer", definition="to eat")
+- Teaching "bailar" → show_vocab_card(word="bailar", definition="to dance")
+- Teaching "estudiar" → show_vocab_card(word="estudiar", definition="to study")
+- Teaching "trabajar" → show_vocab_card(word="trabajar", definition="to work")
+- Verbs in other languages: show_vocab_card(word="courir", definition="to run"), show_vocab_card(word="manger", definition="to eat"), show_vocab_card(word="laufen", definition="to run")
 
 Polysemous words — use meaning= when the word has multiple visually distinct referents:
 - "el tiempo" for weather → show_vocab_card(word="el tiempo", definition="weather", meaning="weather")

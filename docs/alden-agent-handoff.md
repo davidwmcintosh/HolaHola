@@ -24,6 +24,39 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 16, 2026 (part 5) — Verb cards + word echo**
+
+### What was built
+
+Two Madrigal visual reinforcement features:
+
+**1. Verb vocab cards**
+- `show_vocab_card` tool description updated to explicitly include verbs with curated examples across languages (correr/comer/bailar/estudiar/trabajar + French/German/Portuguese/Italian/Japanese equivalents)
+- The image resolver already handled verbs via `looksLikeActionOrPhrase()` and character injection — they auto-generate action scenes with Daniela. No resolver changes needed.
+- Fixed a tool description conflict: `show_image` previously claimed to be "ONLY image tool for vocabulary" which confused Daniela. Now clearly: `show_image` = full-panel standalone visual; `show_vocab_card` = compact card (word + definition + image) for any part of speech including verbs.
+
+**2. Word echo**
+- New `word_echo` `WhiteboardItemType` + `WordEchoItem` interface + `isWordEchoItem` guard in `shared/whiteboard-types.ts`
+- Session tracking: `session.taughtVocab` Map stores every vocab card shown (`word`, `imageUrl`, `meaning?`); `session.vocabAddedThisTurn` Set excludes words just-taught from echo (they already have a full card)
+- `findTaughtWordMention()` helper (module-level in `gemini-live-session.ts`) scans transcript text for any previously-taught word — strips articles (el/la/der/die/le/il etc.) for broader matching, returns first match only
+- After each turn flushes, the helper checks `capturedOutputText` (captured before the if-block clears `pendingOutputTranscript`) against `taughtVocab`; match fires a `word_echo` whiteboard_update WS message
+- `WhiteboardPanel.tsx` handles word_echo as a floating bottom-right overlay — auto-dismisses after `durationMs` (default 2500ms) via useEffect. Filtered from the persistent whiteboard list before passing to `PanelWhiteboard`.
+- `Whiteboard.tsx` — `isWordEchoItem` imported + handled (returns null — never renders inline)
+
+### Files changed
+- `shared/whiteboard-types.ts` — WordEchoItem types + isWordEchoItem guard
+- `server/services/streaming-session-types.ts` — taughtVocab + vocabAddedThisTurn on StreamingSession
+- `server/services/native-fc-handlers.ts` — VOCAB_CARD handler stores word in taughtVocab after image resolves
+- `server/services/gemini-live-session.ts` — findTaughtWordMention() helper; capturedOutputText capture; word echo block in _doFlushTranscripts
+- `server/services/daniela-function-registry.ts` — show_vocab_card verb examples; show_image conflict resolved
+- `client/src/components/WhiteboardPanel.tsx` — word_echo overlay with auto-dismiss
+- `client/src/components/Whiteboard.tsx` — isWordEchoItem import + null renderer
+
+### Status
+Server running clean. 2019 pre-existing TS errors unchanged — zero new errors from this session.
+
+---
+
 **Session: June 16, 2026 (part 4) — Polysemous word image disambiguation**
 
 ### What was built

@@ -73,7 +73,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'comparison' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'sentence_table' | 'textbook_search' | 'overlay_panel' | 'daily_plan' | 'textbook_page' | 'teaching_card' | 'vocab_card';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'comparison' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'sentence_table' | 'textbook_search' | 'overlay_panel' | 'daily_plan' | 'textbook_page' | 'teaching_card' | 'vocab_card' | 'word_echo';
 
 /**
  * Drill types for inline micro-exercises
@@ -1150,6 +1150,23 @@ export interface VocabCardItem extends WhiteboardItemBase {
   data: VocabCardItemData;
 }
 
+// ─── Word Echo ────────────────────────────────────────────────────────────────
+// Brief image flash when a previously-taught vocab word is mentioned again.
+// Auto-dismissed after durationMs (default 2500ms). Never adds to the
+// persistent item list — it is a transient overlay signal.
+
+export interface WordEchoItemData {
+  word: string;
+  imageUrl: string;
+  durationMs?: number;
+}
+
+export interface WordEchoItem extends WhiteboardItemBase {
+  type: 'word_echo';
+  content: string;
+  data: WordEchoItemData;
+}
+
 // ─── Lesson Note ──────────────────────────────────────────────────────────────
 
 export type LessonNoteType = 'vocab' | 'grammar' | 'culture' | 'note';
@@ -1295,7 +1312,8 @@ export type WhiteboardItem =
   | DailyPlanItem
   | TextbookPageItem
   | TeachingCardItem
-  | VocabCardItem;
+  | VocabCardItem
+  | WordEchoItem;
 
 /**
  * Legacy interface for backward compatibility
@@ -3131,6 +3149,10 @@ export function isTeachingCardItem(item: WhiteboardItem): item is TeachingCardIt
 
 export function isVocabCardItem(item: WhiteboardItem): item is VocabCardItem {
   return item.type === 'vocab_card';
+}
+
+export function isWordEchoItem(item: WhiteboardItem): item is WordEchoItem {
+  return item.type === 'word_echo';
 }
 
 /**

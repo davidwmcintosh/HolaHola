@@ -260,6 +260,11 @@ export interface StreamingSession {
     timestamp: number;
     items: any[];
   }>;
+  // Vocab images taught so far this session — keyed by normalised word (e.g. "el_tiempo")
+  // Used by the word-echo system to flash the image when the word is mentioned again.
+  taughtVocab?: Map<string, { word: string; imageUrl: string; meaning?: string }>;
+  // Words added to taughtVocab during the current turn — excluded from echo this turn.
+  vocabAddedThisTurn?: Set<string>;
   firstAudioSent?: boolean;
   classroomWhiteboardItems?: Array<{ type: string; content?: string; label?: string }>;
   classroomSessionImages?: string[];

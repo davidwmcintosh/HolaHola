@@ -98,7 +98,7 @@ import type {
   TextbookSearchItem,
   TextbookPageItem,
 } from "@shared/whiteboard-types";
-import { isComparisonItem, isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isSceneCanvasItem, isSentenceTableItem, isTextbookSearchItem, isTextbookPageItem, isTeachingCardItem, isVocabCardItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions, isDailyPlanItem } from "@shared/whiteboard-types";
+import { isComparisonItem, isImageItem, isDrillItem, isPronunciationItem, isContextItem, isGrammarTableItem, isReadingItem, isStrokeItem, isToneItem, isWordMapItem, isCultureItem, isPlayItem, isScenarioItem, isSummaryItem, isErrorPatternsItem, isVocabularyTimelineItem, isTextInputItem, isDialogueItem, isSceneCanvasItem, isSentenceTableItem, isTextbookSearchItem, isTextbookPageItem, isTeachingCardItem, isVocabCardItem, isWordEchoItem, isMatchingDrill, isFillBlankDrill, isSentenceOrderDrill, isMultipleChoiceDrill, isTrueFalseDrill, isConjugationDrill, isDictationDrill, isSpeakDrill, isCognateMatchDrill, isFalseFriendTrapDrill, getDrillInstructions, isDailyPlanItem } from "@shared/whiteboard-types";
 import type { DailyPlanItem, DailyPlanAgendaItem, TeachingCardItem, VocabCardItem } from "@shared/whiteboard-types";
 import { SceneCanvas } from "@/components/SceneCanvas";
 import type { CognatePair, FalseFriendOption } from "@shared/whiteboard-types";
@@ -4433,7 +4433,12 @@ const WhiteboardItemDisplay = ({
   if (isVocabCardItem(item)) {
     return <VocabCardItemDisplay item={item} index={index} />;
   }
-  
+
+  // word_echo items are rendered as overlays in WhiteboardPanel — never reach here
+  if (isWordEchoItem(item)) {
+    return null;
+  }
+
   return <TextItemDisplay item={item} index={index} />;
 };
 

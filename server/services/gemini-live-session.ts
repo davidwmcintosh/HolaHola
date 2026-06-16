@@ -78,6 +78,33 @@ const GEMINI_LIVE_VOICE_NAMES = new Set([
   'Iapetus', 'Rasalgethi', 'Sadachbia', 'Sadaltager', 'Schedar', 'Umbriel', 'Zubenelgenubi',
 ]);
 
+/**
+ * Scan Daniela's output transcript for any previously-taught vocab word.
+ * Returns the first match found, or null if none.
+ * Words in `skipKeys` (added this turn) are excluded — they just had a full card shown.
+ */
+function findTaughtWordMention(
+  text: string,
+  taughtVocab: Map<string, { word: string; imageUrl: string; meaning?: string }>,
+  skipKeys?: Set<string>,
+): { word: string; imageUrl: string } | null {
+  if (!text) return null;
+  const lowerText = text.toLowerCase();
+  for (const [key, entry] of taughtVocab) {
+    if (skipKeys?.has(key)) continue;
+    // Match the full word phrase (e.g. "el tiempo") or the word without its article
+    const wordLower = entry.word.toLowerCase();
+    const wordNoArticle = wordLower.replace(/^(el|la|los|las|le|les|der|die|das|il|lo|os|as|o|a)\s+/, '');
+    const candidates = wordNoArticle !== wordLower ? [wordLower, wordNoArticle] : [wordLower];
+    for (const candidate of candidates) {
+      if (lowerText.includes(candidate)) {
+        return { word: entry.word, imageUrl: entry.imageUrl };
+      }
+    }
+  }
+  return null;
+}
+
 export class GeminiLiveSession {
   private liveSession: Session | null = null;
   private fcHandler: NativeFunctionCallHandler;
@@ -1595,6 +1622,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       }
     }
 
+    // Capture output transcript text before the if-block clears it (used by word echo below).
+    const capturedOutputText = this.pendingOutputTranscript;
+
     // Save assistant message
     if (this.pendingOutputTranscript.trim()) {
       // Strip markdown bold markers and any leaked tool call syntax before saving.
@@ -1628,6 +1658,37 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         console.warn('[GeminiLive] Failed to flush assistant transcript:', err.message);
         return;
       }
+    }
+
+    // Word echo: if Daniela mentioned a previously-taught vocab word this turn,
+    // send a brief image flash (word_echo) to the whiteboard. Skip words that
+    // were just taught this turn (they already have a full vocab card).
+    if (this.session.taughtVocab && this.session.taughtVocab.size > 0) {
+      try {
+        const echoMatch = findTaughtWordMention(
+          capturedOutputText,
+          this.session.taughtVocab,
+          this.session.vocabAddedThisTurn,
+        );
+        if (echoMatch) {
+          this.sendWsMessage(this.session.ws, {
+            type: 'whiteboard_update',
+            timestamp: Date.now(),
+            items: [{
+              id: `word-echo-${Date.now()}`,
+              type: 'word_echo',
+              content: echoMatch.word,
+              timestamp: Date.now(),
+              data: { word: echoMatch.word, imageUrl: echoMatch.imageUrl, durationMs: 2500 },
+            }],
+          });
+          console.log(`[GeminiLive] Word echo fired for "${echoMatch.word}"`);
+        }
+      } catch (echoErr: any) {
+        console.warn('[GeminiLive] Word echo error:', echoErr.message);
+      }
+      // Clear the per-turn set so next turn starts fresh
+      this.session.vocabAddedThisTurn = new Set();
     }
 
     // Count this as a completed exchange and advance the turn

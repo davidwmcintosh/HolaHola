@@ -3027,6 +3027,12 @@ export class NativeFunctionCallHandler {
               });
               resolvedImageUrl = result.imageUrl;
               console.log(`[Native Function→VocabCard] Auto-resolved image for "${vcWord}": ${result.source}`);
+              // Register in session vocab map for word-echo on re-mentions
+              if (!session.taughtVocab) session.taughtVocab = new Map();
+              if (!session.vocabAddedThisTurn) session.vocabAddedThisTurn = new Set();
+              const vocabKey = vcWord.toLowerCase().replace(/\s+/g, '_');
+              session.taughtVocab.set(vocabKey, { word: vcWord, imageUrl: resolvedImageUrl, meaning: vcMeaning });
+              session.vocabAddedThisTurn.add(vocabKey);
               // Patch the card already on screen with the resolved image (same ID = in-place update)
               this.sendMessage(session.ws, {
                 type: 'whiteboard_update',

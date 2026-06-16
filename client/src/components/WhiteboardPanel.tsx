@@ -1,8 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Pencil, ChevronLeft, ChevronRight, BookOpen, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PanelWhiteboard } from "./Whiteboard";
-import type { WhiteboardItem } from "@shared/whiteboard-types";
+import type { WhiteboardItem, WordEchoItem } from "@shared/whiteboard-types";
 
 interface WhiteboardPanelProps {
   items: WhiteboardItem[];
@@ -31,6 +31,23 @@ export function WhiteboardPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasTextbookPage, hasTeachingCard]);
 
+  // Word echo overlay — transient flash when a taught word is re-mentioned
+  const [wordEcho, setWordEcho] = useState<{ word: string; imageUrl: string } | null>(null);
+  const echoItems = items.filter(item => item.type === 'word_echo') as WordEchoItem[];
+  const latestEcho = echoItems[echoItems.length - 1];
+
+  useEffect(() => {
+    if (!latestEcho) return;
+    const duration = latestEcho.data?.durationMs ?? 2500;
+    setWordEcho({ word: latestEcho.data.word, imageUrl: latestEcho.data.imageUrl });
+    const timer = setTimeout(() => setWordEcho(null), duration);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latestEcho?.id]);
+
+  // Filter echo items out of the persistent whiteboard list
+  const visibleItems = items.filter(item => item.type !== 'word_echo');
+
   if (isCollapsed) {
     return (
       <div className="flex flex-col items-center py-4 w-10 border-l bg-muted/30">
@@ -42,14 +59,14 @@ export function WhiteboardPanel({
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        {items.length > 0 && (
+        {visibleItems.length > 0 && (
           <div className="mt-3 flex flex-col items-center gap-1">
             {hasTextbookPage ? (
               <BookOpen className="h-3.5 w-3.5 text-primary" />
             ) : (
               <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
             )}
-            <span className="text-xs text-muted-foreground">{items.length}</span>
+            <span className="text-xs text-muted-foreground">{visibleItems.length}</span>
           </div>
         )}
       </div>
@@ -57,7 +74,7 @@ export function WhiteboardPanel({
   }
 
   return (
-    <div className="flex flex-col w-[320px] border-l bg-muted/30 min-h-0 overflow-hidden" data-testid="panel-whiteboard">
+    <div className="relative flex flex-col w-[320px] border-l bg-muted/30 min-h-0 overflow-hidden" data-testid="panel-whiteboard">
       <div className="flex items-center justify-between p-3 border-b">
         <div className="flex items-center gap-2">
           {hasTextbookPage ? (
@@ -68,12 +85,12 @@ export function WhiteboardPanel({
           <span className="font-medium text-sm">
             {hasTextbookPage ? 'Lesson Page' : 'Whiteboard'}
           </span>
-          {items.length > 0 && !hasTextbookPage && (
-            <span className="text-xs text-muted-foreground">({items.length})</span>
+          {visibleItems.length > 0 && !hasTextbookPage && (
+            <span className="text-xs text-muted-foreground">({visibleItems.length})</span>
           )}
         </div>
         <div className="flex items-center gap-1">
-          {onClear && items.length > 0 && (
+          {onClear && visibleItems.length > 0 && (
             <Button
               variant="ghost"
               size="icon"
@@ -95,9 +112,9 @@ export function WhiteboardPanel({
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 custom-scrollbar flex flex-col justify-start">
-        {items.length > 0 ? (
+        {visibleItems.length > 0 ? (
           <PanelWhiteboard
-            items={items}
+            items={visibleItems}
             onClear={onClear}
             onDrillComplete={onDrillComplete}
             onTextInputSubmit={onTextInputSubmit}
@@ -116,6 +133,25 @@ export function WhiteboardPanel({
           </div>
         )}
       </div>
+
+      {/* Word echo overlay — brief image flash when a taught word is re-mentioned */}
+      {wordEcho && (
+        <div
+          className="absolute bottom-4 right-4 animate-in fade-in zoom-in-95 duration-200 z-10"
+          data-testid="word-echo-overlay"
+        >
+          <div className="rounded-md border bg-card shadow-md overflow-hidden w-20">
+            <img
+              src={wordEcho.imageUrl}
+              alt={wordEcho.word}
+              className="w-full aspect-square object-cover object-top"
+            />
+            <p className="text-[10px] font-bold text-center text-primary py-0.5 px-1 leading-tight">
+              {wordEcho.word}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
