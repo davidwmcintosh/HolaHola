@@ -1724,6 +1724,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
    * Uses a raw SQL UPDATE so message_count is always accurate in the list view.
    */
   private async persistMessage(role: 'user' | 'assistant', content: string): Promise<string | null> {
+    // Incognito mode — skip all DB writes so nothing is recorded
+    if (this.session.isIncognito) {
+      console.log(`[GeminiLive] Incognito: skipping persistMessage (${role})`);
+      return null;
+    }
+
     try {
       const { getUserDb } = await import('../db');
       const { messages } = await import('../../shared/schema');
