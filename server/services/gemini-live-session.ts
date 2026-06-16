@@ -33,6 +33,8 @@ import { lookupLegacyType, buildFunctionContinuationResponse } from './daniela-f
 import type { ExtractedFunctionCall } from './gemini-function-declarations';
 import { reportGlToolCallFailure } from './sofia-billing-monitor';
 import { GLKaraokeTracker } from './gl-karaoke-tracker';
+import { PostResponseEnrichmentService } from './post-response-enrichment';
+import { storage } from '../storage';
 
 export const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
 const AUDIO_OUTPUT_SAMPLE_RATE = 24000;
@@ -173,6 +175,8 @@ export class GeminiLiveSession {
   private pendingInputTranscript = '';   // Accumulates user's speech per utterance
   private pendingInputSaved = false;     // True once user message has been persisted for this turn
   private pendingOutputTranscript = '';  // Accumulates Daniela's reply across all sub-turns
+  private lastUserText = '';             // Last completed user turn — for enrichment context
+  private enrichment: PostResponseEnrichmentService;
   private transcriptFlushTimer: NodeJS.Timeout | null = null;
   // Guard: prevents concurrent flushTranscripts() calls (e.g. 800ms debounce fires before
   // generationComplete, then generationComplete also calls flush) from double-incrementing
@@ -210,6 +214,7 @@ export class GeminiLiveSession {
     private session: StreamingSession,
     private sendWsMessage: (ws: any, message: any, session?: any) => void,
   ) {
+    this.enrichment = new PostResponseEnrichmentService(storage, sendWsMessage);
     this.fcHandler = new NativeFunctionCallHandler(
       sendWsMessage,
       (_ws: any, code: string, message: string, _recoverable: boolean) => {
@@ -1563,6 +1568,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.pendingInputSaved = true;
       const userText = this.pendingInputTranscript.trim();
       this.pendingInputTranscript = '';
+      this.lastUserText = userText; // capture for enrichment context
       try {
         await this.persistMessage('user', userText);
       } catch (err: any) {
@@ -1593,7 +1599,24 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.totalOutputCharacters += assistantText.length;
       this.pendingOutputTranscript = '';
       try {
-        await this.persistMessage('assistant', assistantText);
+        const messageId = await this.persistMessage('assistant', assistantText);
+        // Fire background enrichment (student_insights, recurring_struggles, vocab)
+        // non-blocking — same pipeline as the text orchestrator uses.
+        const conversationId = this.session.conversationId;
+        if (messageId && conversationId) {
+          const userTextForEnrichment = this.lastUserText;
+          const assistantTextForEnrichment = assistantText;
+          setImmediate(() => {
+            this.enrichment.processBackgroundEnrichment(
+              this.session,
+              conversationId,
+              messageId,
+              userTextForEnrichment,
+              assistantTextForEnrichment,
+              0,
+            ).catch(err => console.warn('[GeminiLive] Enrichment failed:', err?.message));
+          });
+        }
       } catch (err: any) {
         console.warn('[GeminiLive] Failed to flush assistant transcript:', err.message);
         return;
@@ -1632,7 +1655,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
    * Insert one message row and bump the conversation's message_count + duration.
    * Uses a raw SQL UPDATE so message_count is always accurate in the list view.
    */
-  private async persistMessage(role: 'user' | 'assistant', content: string): Promise<void> {
+  private async persistMessage(role: 'user' | 'assistant', content: string): Promise<string | null> {
     try {
       const { getUserDb } = await import('../db');
       const { messages } = await import('../../shared/schema');
@@ -1640,7 +1663,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       const db = getUserDb();
       const conversationId = this.session.conversationId;
 
-      if (!conversationId) return;
+      if (!conversationId) return null;
 
       // Ensure the conversation exists before inserting a message
       const convCheck = await db.execute(
@@ -1648,10 +1671,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       );
       if (convCheck.rows.length === 0) {
         console.warn(`[GeminiLive] Conversation ${conversationId} not found — skipping message persist`);
-        return;
+        return null;
       }
 
-      await db.insert(messages).values({ conversationId, role, content });
+      const inserted = await db.insert(messages).values({ conversationId, role, content }).returning({ id: messages.id });
+      const messageId = inserted[0]?.id ?? null;
 
       // Update conversation stats so the list view shows correct counts
       await db.execute(rawSql`
@@ -1664,6 +1688,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           )::integer
         WHERE id = ${conversationId}
       `);
+
+      return messageId;
     } catch (err: any) {
       throw new Error(err.message);
     }
