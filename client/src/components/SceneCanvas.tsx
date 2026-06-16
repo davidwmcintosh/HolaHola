@@ -138,8 +138,25 @@ function PropLayer({ prop }: { prop: SceneCanvasProp }) {
 
 // ─── Clock-only canvas (no background) ────────────────────────────────────────
 
-function ClockOnlyCanvas({ time, label, showLabel }: { time: string; label?: string; showLabel?: boolean }) {
+function ClockOnlyCanvas({ time, label, showLabel, compact }: { time: string; label?: string; showLabel?: boolean; compact?: boolean }) {
   const displayLabel = showLabel !== false && label;
+
+  if (compact) return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      className="flex flex-col items-center gap-1 p-3 bg-card rounded-xl border border-border min-w-[80px]"
+    >
+      <div className="w-12 h-12 bg-white rounded-full shadow-sm border border-border p-0.5">
+        <AnalogClock time={time} />
+      </div>
+      {displayLabel
+        ? <span className="text-[10px] font-semibold text-center leading-tight max-w-[72px] truncate">{label}</span>
+        : <span className="text-[11px] font-mono text-muted-foreground">{formatTime12h(time)}</span>
+      }
+    </motion.div>
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
@@ -355,7 +372,7 @@ export function CalendarCanvas({ cal }: { cal: CalendarData }) {
 
 // ─── Thermometer Canvas ───────────────────────────────────────────────────────
 
-export function ThermometerCanvas({ data }: { data: ThermometerData }) {
+export function ThermometerCanvas({ data, compact }: { data: ThermometerData; compact?: boolean }) {
   const { celsius, labelText } = data;
   // Auto-detect US users from browser locale and default Fahrenheit on (unless explicitly set to false)
   const isUS = typeof navigator !== 'undefined' && (navigator.language === 'en-US' || navigator.language?.endsWith('-US'));
@@ -368,6 +385,35 @@ export function ThermometerCanvas({ data }: { data: ThermometerData }) {
   const fillY = tubeBottom - fillHeight;
   const fillColor = celsius <= 0 ? '#3b82f6' : celsius <= 15 ? '#22c55e' : celsius <= 30 ? '#f97316' : '#ef4444';
   const ticks = [-20, -10, 0, 10, 20, 30, 40, 50].filter(t => t >= minTemp && t <= maxTemp);
+
+  // ── Compact ribbon card ───────────────────────────────────────────────────
+  if (compact) {
+    const cTubeH = 44; // compact tube height in SVG units
+    const cFillH = pct * cTubeH;
+    return (
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+        className="flex flex-col items-center gap-1 p-3 bg-card rounded-xl border border-border min-w-[80px]"
+      >
+        <svg viewBox="0 0 30 78" className="w-6 h-14" aria-hidden>
+          {/* Tube bg */}
+          <rect x="10" y="4" width="10" height={cTubeH} rx="5" fill="hsl(var(--muted))" stroke="hsl(var(--border))" strokeWidth="1.5" />
+          {/* Mercury fill */}
+          <rect x="12" y={4 + cTubeH - cFillH} width="6" height={cFillH} rx="3" fill={fillColor} />
+          {/* Tube border overlay */}
+          <rect x="10" y="4" width="10" height={cTubeH} rx="5" fill="none" stroke="hsl(var(--border))" strokeWidth="1.5" />
+          {/* Bulb */}
+          <circle cx="15" cy="63" r="12" fill={fillColor} />
+          <circle cx="15" cy="63" r="12" fill="none" stroke="hsl(var(--border))" strokeWidth="1.5" />
+        </svg>
+        <p className="text-base font-bold tabular-nums leading-none">
+          {showFahrenheit ? `${fahrenheit}°F` : `${celsius}°C`}
+        </p>
+        {showFahrenheit && <p className="text-[10px] text-muted-foreground leading-none">{celsius}°C</p>}
+        {labelText && <p className="text-[10px] text-muted-foreground text-center leading-tight max-w-[72px] truncate">{labelText}</p>}
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
@@ -449,9 +495,37 @@ export const EMOTION_CONFIG: Record<string, {
   bored:    { faceColor: '#9ca3af', mouth: 'M 40 76 L 80 76',      eyeClose: true,  eyeWide: false, browLeft: 'M 35 52 Q 45 52 55 52', browRight: 'M 65 52 Q 75 52 85 52' },
 };
 
-function EmotionFaceCanvas({ data }: { data: EmotionData }) {
+function EmotionFaceCanvas({ data, compact }: { data: EmotionData; compact?: boolean }) {
   const cfg = EMOTION_CONFIG[data.emotion] ?? EMOTION_CONFIG['happy'];
   const eyeRy = cfg.eyeWide ? 10 : cfg.eyeClose ? 3 : 7;
+
+  const FaceSvg = ({ className }: { className: string }) => (
+    <svg viewBox="0 0 120 130" className={className} aria-label={`Emotion: ${data.emotion}`}>
+      <circle cx="60" cy="60" r="52" fill={cfg.faceColor} />
+      <circle cx="60" cy="60" r="52" fill="none" stroke="rgba(0,0,0,0.12)" strokeWidth="2" />
+      <path d={cfg.browLeft}  fill="none" stroke="rgba(0,0,0,0.55)" strokeWidth="3.5" strokeLinecap="round" />
+      <path d={cfg.browRight} fill="none" stroke="rgba(0,0,0,0.55)" strokeWidth="3.5" strokeLinecap="round" />
+      <ellipse cx="44" cy="58" rx="7" ry={eyeRy} fill="rgba(0,0,0,0.75)" />
+      <ellipse cx="76" cy="58" rx="7" ry={eyeRy} fill="rgba(0,0,0,0.75)" />
+      {!cfg.eyeClose && !cfg.eyeWide && (<><circle cx="46" cy="55" r="2" fill="white" /><circle cx="78" cy="55" r="2" fill="white" /></>)}
+      <path d={cfg.mouth} fill="none" stroke="rgba(0,0,0,0.7)" strokeWidth="4" strokeLinecap="round" />
+    </svg>
+  );
+
+  if (compact) return (
+    <motion.div
+      key={data.emotion} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.45, type: 'spring', stiffness: 160, damping: 14 }}
+      className="flex flex-col items-center gap-1 p-3 bg-card rounded-xl border border-border min-w-[80px]"
+    >
+      <FaceSvg className="w-12 h-12" />
+      {data.label
+        ? <span className="text-[10px] font-medium text-center leading-tight">{data.label}</span>
+        : <span className="text-[10px] text-muted-foreground capitalize">{data.emotion}</span>
+      }
+    </motion.div>
+  );
+
   return (
     <motion.div
       key={data.emotion}
@@ -580,7 +654,7 @@ export function WeatherIcon({ condition, size = 80 }: { condition: string; size?
   }
 }
 
-function WeatherCanvas({ data }: { data: WeatherData }) {
+function WeatherCanvas({ data, compact }: { data: WeatherData; compact?: boolean }) {
   const isUS = typeof navigator !== 'undefined' && (navigator.language === 'en-US' || navigator.language?.endsWith('-US'));
   const bgColors: Record<string, string> = {
     sunny: 'from-yellow-100 to-orange-50 dark:from-yellow-950 dark:to-orange-950',
@@ -595,6 +669,24 @@ function WeatherCanvas({ data }: { data: WeatherData }) {
     foggy: 'from-slate-100 to-gray-50 dark:from-slate-900 dark:to-gray-900',
   };
   const bg = bgColors[data.condition] ?? 'from-muted to-background';
+
+  if (compact) return (
+    <motion.div
+      key={data.condition} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45 }}
+      className={`flex flex-col items-center gap-1 p-3 rounded-xl bg-gradient-to-br ${bg} min-w-[80px]`}
+    >
+      <WeatherIcon condition={data.condition} size={44} />
+      {data.label && <span className="text-[10px] font-medium text-center leading-tight">{data.label}</span>}
+      {data.celsius !== undefined && (() => {
+        const f = Math.round(data.celsius! * 9 / 5 + 32);
+        return isUS
+          ? <span className="text-[11px] font-mono text-muted-foreground">{f}°F</span>
+          : <span className="text-[11px] font-mono text-muted-foreground">{data.celsius}°C</span>;
+      })()}
+    </motion.div>
+  );
+
   return (
     <motion.div
       key={data.condition}
@@ -1140,12 +1232,15 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
     if (hasConjugation) return <div data-testid={testId} className="w-full min-h-32"><ConjugationTableCanvas table={data.conjugationTable!} /></div>;
     if (hasCalendar) return <div data-testid={testId} className="w-full min-h-32"><CalendarCanvas cal={data.calendarData!} /></div>;
 
-    // Small widgets — collect all active ones and render side by side
+    // Small widgets — count first so we know whether to use compact ribbon mode
+    const activeSmallCount = [hasThermometer, hasEmotion, hasWeather, hasClock].filter(Boolean).length;
+    const useCompact = activeSmallCount > 1;
+
     const smallWidgets = [
-      hasThermometer && <ThermometerCanvas key="therm" data={data.thermometerData!} />,
-      hasEmotion && <EmotionFaceCanvas key="emotion" data={data.emotionData!} />,
-      hasWeather && <WeatherCanvas key="weather" data={data.weatherData!} />,
-      hasClock && <ClockOnlyCanvas key="clock" time={data.clockTime!} label={data.clockLabel} showLabel={data.clockShowLabel} />,
+      hasThermometer && <ThermometerCanvas key="therm" data={data.thermometerData!} compact={useCompact} />,
+      hasEmotion && <EmotionFaceCanvas key="emotion" data={data.emotionData!} compact={useCompact} />,
+      hasWeather && <WeatherCanvas key="weather" data={data.weatherData!} compact={useCompact} />,
+      hasClock && <ClockOnlyCanvas key="clock" time={data.clockTime!} label={data.clockLabel} showLabel={data.clockShowLabel} compact={useCompact} />,
     ].filter(Boolean) as React.ReactNode[];
 
     if (smallWidgets.length === 1) {
@@ -1153,7 +1248,7 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
     }
     if (smallWidgets.length > 1) {
       return (
-        <div data-testid={testId} className="flex flex-wrap justify-center items-center gap-6 p-2">
+        <div data-testid={testId} className="flex flex-row flex-wrap justify-center items-center gap-2 p-2">
           {smallWidgets}
         </div>
       );

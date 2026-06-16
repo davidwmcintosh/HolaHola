@@ -1101,8 +1101,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       const rawText = (msg.serverContent as any).outputTranscription.text as string;
       const text = rawText
         .replace(/\*\*/g, '')
-        .replace(/\b\w+\{[^{}]*\}/g, '')  // strip tool call syntax: name{key:val,...}
-        .replace(/\s{2,}/g, ' ');          // collapse double-spaces left by removal
+        .replace(/\b\w+\{[^{}]*\}/g, '')   // strip tool call syntax: name{key:val,...}
+        .replace(/([.!?])thought\n[\s\S]*/i, '$1')  // strip GL thinking blocks (thought\nThinking Process:...)
+        .replace(/\s{2,}/g, ' ');           // collapse double-spaces left by removal
         // NOTE: do NOT trimStart unconditionally — GL streaming chunks naturally include a
         // leading space between words. Stripping it causes words to run together when chunks
         // are concatenated (e.g. "Take" + "a" → "Takea"). Only trim on the first chunk so
@@ -1627,11 +1628,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
     // Save assistant message
     if (this.pendingOutputTranscript.trim()) {
-      // Strip markdown bold markers and any leaked tool call syntax before saving.
+      // Strip markdown bold markers, leaked tool call syntax, and Gemini thinking blocks before saving.
       const assistantText = this.pendingOutputTranscript
         .replace(/\*\*/g, '')
-        .replace(/\b\w+\{[^{}]*\}/g, '')  // strip tool call syntax: name{key:val,...}
-        .replace(/\s{2,}/g, ' ')           // collapse double-spaces
+        .replace(/\b\w+\{[^{}]*\}/g, '')    // strip tool call syntax: name{key:val,...}
+        .replace(/([.!?])thought\n[\s\S]*/i, '$1')  // strip GL thinking blocks (thought\nThinking Process:...)
+        .replace(/\s*\bthought\n[\s\S]*/i, '')       // fallback: strip if no punct before thought\n
+        .replace(/\s{2,}/g, ' ')             // collapse double-spaces
         .trim();
       this.totalOutputCharacters += assistantText.length;
       this.pendingOutputTranscript = '';
