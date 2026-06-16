@@ -24,6 +24,42 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 16, 2026 (part 3) — 3 live-session feature/bug fixes**
+
+### What was built
+
+Three new issues from David's live sessions — all implemented:
+
+**Fix 1 — Clock widget missing target language label**
+- `set_clock` tool now accepts `label` (target language expression, e.g. "Son las tres") and `show_label` (bool, default true)
+- SET_CLOCK handler stores `clockLabel`/`clockShowLabel` on session.sceneCanvas and includes them in the whiteboard_update
+- `SceneCanvasItemData` in `shared/whiteboard-types.ts` extended with `clockLabel?` and `clockShowLabel?`
+- `ClockOnlyCanvas` in `SceneCanvas.tsx` renders label prominently below the clock face when present
+- Spatial scene clock overlay also shows the label
+
+**Fix 2 — Thermometer defaulting to Celsius for US users**
+- `ThermometerCanvas` auto-detects `navigator.language` — if it ends in `-US`, defaults `showFahrenheit=true`
+- Daniela's explicit `showFahrenheit: false` overrides the auto-detect (so non-US sessions are unaffected)
+
+**Fix 3 — Vocab card image regeneration not available to Daniela**
+- Root cause: `swap_vocab_image` only works with `activeVocabGrid`, not `activeVocabCard` — Daniela had no way to regen a card image
+- `VOCAB_CARD` handler now stores `session.activeVocabCard` with `{ id, word, definition, language, durationMs, showTranslation }`
+- New `regenerate_vocab_card_image` tool added to registry with `legacyType: 'REGENERATE_VOCAB_CARD_IMAGE'`
+- Handler reads `activeVocabCard`, calls `generateFromCustomPrompt`, patches card in-place via same `id`, updates visionBuffer
+- Tool added to TEACHING_CONTENT dispatcher enum + GL exclusion list + cheat sheet
+- 3-layer auto-indexer (daniela_tool embedding, tool_knowledge row, tool_knowledge embedding) fires at next server start — no manual indexing needed
+
+### Files changed
+- `server/services/daniela-function-registry.ts` — set_clock label/show_label params, regenerate_vocab_card_image tool, TEACHING_CONTENT enum + cheat sheet
+- `server/services/native-fc-handlers.ts` — SET_CLOCK handler, VOCAB_CARD stores activeVocabCard, REGENERATE_VOCAB_CARD_IMAGE case
+- `shared/whiteboard-types.ts` — clockLabel/clockShowLabel fields
+- `client/src/components/SceneCanvas.tsx` — ClockOnlyCanvas label support, ThermometerCanvas US locale auto-detect
+
+### Status
+All three features fully wired. 0 new TypeScript errors. Server running clean.
+
+---
+
 **Session: June 16, 2026 (part 2) — 3 Language Hub / GL chat bugs fixed**
 
 ### What was built

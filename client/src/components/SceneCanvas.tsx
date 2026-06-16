@@ -138,7 +138,8 @@ function PropLayer({ prop }: { prop: SceneCanvasProp }) {
 
 // ─── Clock-only canvas (no background) ────────────────────────────────────────
 
-function ClockOnlyCanvas({ time }: { time: string }) {
+function ClockOnlyCanvas({ time, label, showLabel }: { time: string; label?: string; showLabel?: boolean }) {
+  const displayLabel = showLabel !== false && label;
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.8 }}
@@ -149,7 +150,11 @@ function ClockOnlyCanvas({ time }: { time: string }) {
       <div className="w-48 h-48 bg-white rounded-full shadow-md border border-border p-2">
         <AnalogClock time={time} />
       </div>
-      <span className="text-sm font-mono text-muted-foreground">{formatTime12h(time)}</span>
+      {displayLabel ? (
+        <span className="text-lg font-semibold text-foreground text-center">{label}</span>
+      ) : (
+        <span className="text-sm font-mono text-muted-foreground">{formatTime12h(time)}</span>
+      )}
     </motion.div>
   );
 }
@@ -351,7 +356,10 @@ export function CalendarCanvas({ cal }: { cal: CalendarData }) {
 // ─── Thermometer Canvas ───────────────────────────────────────────────────────
 
 export function ThermometerCanvas({ data }: { data: ThermometerData }) {
-  const { celsius, labelText, showFahrenheit } = data;
+  const { celsius, labelText } = data;
+  // Auto-detect US users from browser locale and default Fahrenheit on (unless explicitly set to false)
+  const isUS = typeof navigator !== 'undefined' && (navigator.language === 'en-US' || navigator.language?.endsWith('-US'));
+  const showFahrenheit = data.showFahrenheit !== false && (data.showFahrenheit === true || isUS);
   const minTemp = -30, maxTemp = 60;
   const pct = Math.min(1, Math.max(0, (celsius - minTemp) / (maxTemp - minTemp)));
   const fahrenheit = Math.round(celsius * 9 / 5 + 32);
@@ -1125,7 +1133,7 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
       hasThermometer && <ThermometerCanvas key="therm" data={data.thermometerData!} />,
       hasEmotion && <EmotionFaceCanvas key="emotion" data={data.emotionData!} />,
       hasWeather && <WeatherCanvas key="weather" data={data.weatherData!} />,
-      hasClock && <ClockOnlyCanvas key="clock" time={data.clockTime!} />,
+      hasClock && <ClockOnlyCanvas key="clock" time={data.clockTime!} label={data.clockLabel} showLabel={data.clockShowLabel} />,
     ].filter(Boolean) as React.ReactNode[];
 
     if (smallWidgets.length === 1) {
@@ -1173,9 +1181,15 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
         >
           <div className="bg-white/92 backdrop-blur-sm rounded-xl p-2 shadow-lg">
             <AnalogClock time={data.clockTime!} />
-            <p className="text-center text-[10px] font-mono text-gray-600 mt-1 leading-none">
-              {formatTime12h(data.clockTime!)}
-            </p>
+            {data.clockShowLabel !== false && data.clockLabel ? (
+              <p className="text-center text-[11px] font-semibold text-gray-800 mt-1 leading-tight">
+                {data.clockLabel}
+              </p>
+            ) : (
+              <p className="text-center text-[10px] font-mono text-gray-600 mt-1 leading-none">
+                {formatTime12h(data.clockTime!)}
+              </p>
+            )}
           </div>
         </motion.div>
       )}

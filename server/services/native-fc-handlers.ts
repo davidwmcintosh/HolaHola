@@ -1839,6 +1839,8 @@ export class NativeFunctionCallHandler {
       case 'SET_CLOCK': {
         const clockTime = fn.args.time as string | undefined;
         const clockText = fn.args.text as string | undefined;
+        const clockLabel = fn.args.label as string | undefined;
+        const clockShowLabel = (fn.args.show_label as boolean | undefined) ?? true;
         if (clockText && !session.functionCallText) session.functionCallText = clockText;
         if (!clockTime) {
           console.warn('[Native Function→SetClock] Missing time — skipping');
@@ -1848,6 +1850,8 @@ export class NativeFunctionCallHandler {
           session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [], clockTime: undefined };
         }
         session.sceneCanvas.clockTime = clockTime;
+        session.sceneCanvas.clockLabel = clockLabel;
+        session.sceneCanvas.clockShowLabel = clockShowLabel;
         const clockUpdate = {
           type: 'whiteboard_update' as const,
           timestamp: Date.now(),
@@ -1861,6 +1865,8 @@ export class NativeFunctionCallHandler {
               environmentLabel: session.sceneCanvas.environmentLabel,
               props: [...(session.sceneCanvas.props || [])],
               clockTime,
+              clockLabel,
+              clockShowLabel,
               canvasAction: 'set_clock' as const,
             },
           }],
@@ -2998,6 +3004,9 @@ export class NativeFunctionCallHandler {
 
         if (!session.classroomWhiteboardItems) session.classroomWhiteboardItems = [];
         session.classroomWhiteboardItems.push({ type: 'vocab_card', content: vcWord, label: vcDefinition });
+
+        // Save card state so Daniela can regenerate its image later
+        (session as any).activeVocabCard = { id: vcId, word: vcWord, definition: vcDefinition, language: vcLanguage, durationMs: vcDurationMs, showTranslation: vcShowTranslation };
 
         // Image pipeline: resolve image, patch card, then give Daniela vision of what was shown
         const vcImagePromise = (async () => {
@@ -6361,6 +6370,64 @@ export class NativeFunctionCallHandler {
             console.error(`[Native Function→SwapVocabImage] Error:`, err.message);
           }
         })().catch(err => console.error('[SwapVocabImage] Unhandled:', err.message));
+        break;
+      }
+
+      case 'REGENERATE_VOCAB_CARD_IMAGE': {
+        const text = fn.args.text as string | undefined;
+        const newQuery = fn.args.new_query as string | undefined;
+        if (text && !session.functionCallText) session.functionCallText = text;
+
+        const activeCard = (session as any).activeVocabCard as { id: string; word: string; definition: string; language?: string; durationMs: number; showTranslation: boolean } | undefined;
+        if (!activeCard) {
+          console.warn('[Native Function→RegenerateVocabCardImage] No active vocab card to regenerate');
+          break;
+        }
+
+        (async () => {
+          try {
+            const { generateFromCustomPrompt, PROP_STYLE } = await import('./google-image-service');
+            const imagePrompt = newQuery
+              ? `${PROP_STYLE}. ${newQuery}`
+              : `${PROP_STYLE}. A clear, simple educational illustration for the word "${activeCard.word}" (${activeCard.definition}). Single subject, plain background, no text.`;
+            const newImageUrl = await generateFromCustomPrompt(imagePrompt);
+
+            // Patch the card on screen with the fresh image (same ID = in-place update)
+            this.sendMessage(session.ws, {
+              type: 'whiteboard_update',
+              timestamp: Date.now(),
+              items: [{
+                type: 'vocab_card',
+                id: activeCard.id,
+                content: activeCard.word,
+                timestamp: Date.now(),
+                data: {
+                  word: activeCard.word,
+                  definition: activeCard.definition,
+                  imageUrl: newImageUrl,
+                  language: activeCard.language,
+                  autoDismissMs: activeCard.durationMs,
+                  showTranslation: activeCard.showTranslation,
+                },
+              }],
+            });
+
+            // Update vision buffer so Daniela knows what's now showing
+            const { getImageVision } = await import('../services/image-vision-service');
+            const vision = await getImageVision(newImageUrl, `vocabulary card for "${activeCard.word}" — ${activeCard.definition}`, session);
+            if (!session.visionBuffer) session.visionBuffer = {};
+            session.visionBuffer['vocab_card'] = {
+              url: newImageUrl,
+              word: activeCard.word,
+              definition: activeCard.definition,
+              description: vision.description,
+              inlineData: vision.inlineData,
+            };
+            console.log(`[Native Function→RegenerateVocabCardImage] New image generated for "${activeCard.word}"`);
+          } catch (err: any) {
+            console.error(`[Native Function→RegenerateVocabCardImage] Error:`, err.message);
+          }
+        })().catch(err => console.error('[RegenerateVocabCardImage] Unhandled:', err.message));
         break;
       }
 

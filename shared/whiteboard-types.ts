@@ -992,6 +992,8 @@ export interface SceneCanvasItemData {
   environmentLabel?: string;
   props: SceneCanvasProp[];
   clockTime?: string;              // "H:MM" — renders analog clock overlay when set
+  clockLabel?: string;             // Target-language time expression (e.g. "son las tres y media")
+  clockShowLabel?: boolean;        // false = quiz mode (hide label so student must recall)
   conjugationTable?: ConjugationTableData;   // Phase 2 — grammar canvas
   calendarData?: CalendarData;               // Phase 2 — calendar canvas
   bodyDiagram?: BodyDiagramData;             // Phase 2 — body diagram

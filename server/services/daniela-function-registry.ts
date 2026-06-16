@@ -1213,21 +1213,21 @@ Use the same position names as add_to_scene (left, right, center, on_table, fork
 The clock is an SVG component — no image generation needed. The hands animate to the correct position.
 
 USE THIS IN EVERY LANGUAGE whenever you introduce a time expression. Examples:
-  Spanish: "Son las tres" → set_clock("3:00")
-  Spanish: "Son las tres y cuarto" → set_clock("3:15")
-  Spanish: "Son las cuatro menos diez" → set_clock("3:50")
-  French: "Il est trois heures et demie" → set_clock("3:30")
-  German: "Es ist halb vier" → set_clock("3:30")
-  Italian: "Sono le tre e un quarto" → set_clock("3:15")
-  Portuguese: "São três horas e meia" → set_clock("3:30")
-  Mandarin: "三点一刻" → set_clock("3:15")
-  Mandarin: "两点半" → set_clock("2:30")
-  Mandarin: "现在几点？—— 一点" → set_clock("1:00")
-  Japanese: "三時十五分です" → set_clock("3:15")
-  Japanese: "八時半です" → set_clock("8:30")
-  Korean: "세 시 십오 분이에요" → set_clock("3:15")
-  Korean: "두 시 반이에요" → set_clock("2:30")
-  Hebrew: "השעה שלוש וחצי" → set_clock("3:30")
+  Spanish: "Son las tres" → set_clock("3:00", label="Son las tres")
+  Spanish: "Son las tres y cuarto" → set_clock("3:15", label="Son las tres y cuarto")
+  Spanish: "Son las cuatro menos diez" → set_clock("3:50", label="Son las cuatro menos diez")
+  French: "Il est trois heures et demie" → set_clock("3:30", label="Il est trois heures et demie")
+  German: "Es ist halb vier" → set_clock("3:30", label="Es ist halb vier")
+  Italian: "Sono le tre e un quarto" → set_clock("3:15", label="Sono le tre e un quarto")
+  Portuguese: "São três horas e meia" → set_clock("3:30", label="São três horas e meia")
+  Mandarin: "三点一刻" → set_clock("3:15", label="三点一刻")
+  Japanese: "三時十五分です" → set_clock("3:15", label="三時十五分です")
+  Korean: "세 시 십오 분이에요" → set_clock("3:15", label="세 시 십오 분이에요")
+
+QUIZ MODE: To test if a student can READ the clock and say the time themselves, pass show_label=false.
+  Example: "¿Qué hora es?" → set_clock("2:45", show_label=false)  ← student must answer; no Spanish shown
+TEACHING MODE (default): Pass the label so the student sees the expression while hearing it.
+  Example: "Son las dos y cuarenta y cinco" → set_clock("2:45", label="Son las dos y cuarenta y cinco")
 
 The time parameter is always H:MM or HH:MM format regardless of language.
 If a scene canvas is already open (via open_scene), the clock appears as an overlay in the corner.
@@ -1239,12 +1239,14 @@ ORDERING RULE: Call set_clock FIRST (silently), then say the time expression. Do
         properties: {
           text: { type: "string", description: "What you're saying — include the time expression naturally." },
           time: { type: "string", description: "Time in H:MM or HH:MM format (24h accepted — e.g. '15:30' for 3:30 PM). Examples: '3:00', '3:15', '15:30', '12:00'" },
+          label: { type: "string", description: "The target-language time expression to display below the clock face (e.g. 'Son las tres y cuarto', 'Il est trois heures'). Omit only in quiz mode." },
+          show_label: { type: "boolean", description: "If false, hides the label so the student must recall the expression themselves (quiz mode). Default: true (teaching mode)." },
         },
         required: ["time"],
       },
     },
     buildContinuationResponse: ({ fc }) => {
-      return `Clock set to ${fc.args.time}. The analog clock is now showing on the student's screen. Continue saying the time expression.`;
+      return `Clock set to ${fc.args.time}${fc.args.label ? ` — label: "${fc.args.label}"` : ''}. The analog clock is now showing on the student's screen. Continue saying the time expression.`;
     },
   },
 
@@ -4603,6 +4605,43 @@ Provide the target-language word exactly as it appeared in the grid, and a new i
   },
 
   {
+    legacyType: 'REGENERATE_VOCAB_CARD_IMAGE',
+    declaration: {
+      name: "regenerate_vocab_card_image",
+      description: `Generate a fresh image for the currently displayed vocabulary card.
+
+USE THIS WHEN:
+• A student or you notice the vocab card image doesn't match the word well ("that looks like weather, not time")
+• You or the student want to try a different visual representation of the same word
+• The auto-generated image was confusing or misleading
+
+A vocabulary card must already be on screen (call show_vocab_card first).
+The new image replaces the old one in-place on the same card — the word and definition stay the same.
+
+EXAMPLE:
+  Student: "That image doesn't look like 'el tiempo' — it looks like a storm."
+  You: regenerate_vocab_card_image(new_query="a simple analog clock showing 3pm, clean white background, educational illustration")`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          text: {
+            type: "string",
+            description: "What you say as the new image generates — e.g. 'Let me get a better image for that one.'",
+          },
+          new_query: {
+            type: "string",
+            description: "Optional: a specific image description for the new image. If omitted, a fresh image will be generated from the word and definition automatically.",
+          },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: () => {
+      return `New image is being generated for the vocabulary card. It will appear on screen in a moment. You can continue talking — the card will update automatically.`;
+    },
+  },
+
+  {
     legacyType: 'SHOW_SENTENCE_BUILDER',
     declaration: {
       name: "show_sentence_builder",
@@ -5451,13 +5490,13 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'TEACHING_CONTENT',
     declaration: {
       name: 'teaching_content',
-      description: 'Deliver structured curriculum content and lesson elements. Use for: pulling curriculum content on a topic (pull_lesson_content), grammar structure diagram (grammar_diagram), vocabulary grid display (show_vocab_grid), swapping a vocab card image (swap_vocab_image), interactive sentence combinator / sentence builder (show_sentence_builder) — ALWAYS call this tool when the student asks for a "sentence combinator" or "sentence builder"; never explain it verbally instead, textbook section display (show_textbook_section), launching a structured teaching skill script (invoke_teaching_skill).',
+      description: 'Deliver structured curriculum content and lesson elements. Use for: pulling curriculum content on a topic (pull_lesson_content), grammar structure diagram (grammar_diagram), vocabulary grid display (show_vocab_grid), swapping a vocab card image (swap_vocab_image), regenerating the active vocab card image (regenerate_vocab_card_image), interactive sentence combinator / sentence builder (show_sentence_builder) — ALWAYS call this tool when the student asks for a "sentence combinator" or "sentence builder"; never explain it verbally instead, textbook section display (show_textbook_section), launching a structured teaching skill script (invoke_teaching_skill).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
           type: {
             type: 'STRING',
-            enum: ['pull_lesson_content', 'grammar_diagram', 'show_vocab_grid', 'swap_vocab_image', 'show_sentence_builder', 'show_textbook_section', 'invoke_teaching_skill'],
+            enum: ['pull_lesson_content', 'grammar_diagram', 'show_vocab_grid', 'swap_vocab_image', 'regenerate_vocab_card_image', 'show_sentence_builder', 'show_textbook_section', 'invoke_teaching_skill'],
             description: 'Which curriculum content delivery type to use.',
           },
           params_json: {
@@ -5692,6 +5731,7 @@ teaching_content — curriculum content and lesson structures.
   type: "grammar_diagram" → grammar structure diagram.
   type: "show_vocab_grid" → vocabulary grid display.
   type: "swap_vocab_image" → update a vocab card image.
+  type: "regenerate_vocab_card_image" → regenerate the image on the current vocab card. params_json: {} or {"new_query":"a clock on a wall, clean background"}
   type: "show_sentence_builder" → interactive sentence combinator (what David calls "the sentence combinator"). ALWAYS call this tool — never explain verbally how to make sentences instead. params_json: {"columns":[{"label":"Subject","items":[{"text":"Yo","translation":"I"},{"text":"Tú","translation":"You"}]},{"label":"Verb","items":[{"text":"hablo","translation":"speak"},{"text":"hablas","translation":"speak"}]}],"pattern_label":"yo + verb"}
   type: "show_textbook_section" → textbook section display.
   type: "invoke_teaching_skill" → launch a structured teaching skill script.
@@ -5885,6 +5925,7 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'grammar_diagram',
   'show_vocab_grid',
   'swap_vocab_image',
+  'regenerate_vocab_card_image',
   'show_sentence_builder',
   'show_textbook_section',
   'invoke_teaching_skill',
