@@ -3069,9 +3069,11 @@ export async function getExpressLaneHistoryForVoice(
         and(
           eq(founderSessions.founderId, String(founderId)),
           or(
+            // Only David (founder) and Daniela — intentionally exclude Wren, Alden, Sofia, and
+            // any other infrastructure roles. Wren's security audit reports, pattern insights,
+            // and system posts should not appear in Daniela's voice conversation history.
             eq(collaborationMessages.role, 'founder'),
             eq(collaborationMessages.role, 'daniela'),
-            eq(collaborationMessages.role, 'wren')
           )
         )
       )
