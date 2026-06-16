@@ -572,7 +572,13 @@ export class WrenIntelligenceService {
         context: `Extracted from EXPRESS Lane discussion (${message.role} message)`,
         category: analysis.category,
         sessionId: message.sessionId,
-        shareWithDaniela: true, // Always share EXPRESS Lane insights
+        // NEVER share EXPRESS Lane extracts directly into tutor_procedures.
+        // Daniela gets Hive context via the Express Lane injection pipeline
+        // (founder-collaboration-service PRIORITY 1-4 queries, scoped to
+        // founder + daniela roles only). Dev-team chat — security audits, build
+        // plans, infrastructure reports — has no place in her teaching procedures.
+        // tutor_procedures should only contain actual pedagogical patterns.
+        shareWithDaniela: false,
       });
       
       console.log(`[WrenIntelligence] Created insight ${insight.id} from EXPRESS Lane message ${message.id}`);
