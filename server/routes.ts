@@ -4149,6 +4149,32 @@ Return a JSON array of suggestions with this format:
     }
   });
 
+  // DELETE /api/conversations/cleanup/short — bulk-delete untitled, short, un-starred conversations.
+  // Threshold: messageCount < 4 (matches the existing backfill min of 4 for titling).
+  // Never deletes starred or onboarding conversations.
+  // Must be registered BEFORE /:id so Express doesn't match "cleanup" as a conversation ID.
+  app.delete("/api/conversations/cleanup/short", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = getRequestUserId(req);
+      const sharedDb = getSharedDb();
+      const deleted = await sharedDb
+        .delete(conversations)
+        .where(and(
+          eq(conversations.userId, userId),
+          isNull(conversations.title),
+          sql`${conversations.messageCount} < 4`,
+          eq(conversations.isStarred, false),
+          eq(conversations.isOnboarding, false),
+        ))
+        .returning({ id: conversations.id });
+      console.log(`[CleanupShort] User ${userId}: deleted ${deleted.length} short untitled conversations`);
+      res.json({ deleted: deleted.length });
+    } catch (error: any) {
+      console.error('[CleanupShort] Error:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.delete("/api/conversations/:id", isAuthenticated, async (req: any, res) => {
     try {
       const userId = getRequestUserId(req);

@@ -5,11 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
-import { Calendar, Clock, Eye, Loader2, Star, Filter, ArrowLeft, Bot, User, Play, BookOpen, MessageSquare, Hash, Search, X } from "lucide-react";
+import { Calendar, Clock, Eye, Loader2, Star, Filter, ArrowLeft, Bot, User, Play, BookOpen, MessageSquare, Hash, Search, X, Trash2 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Conversation, Message, Topic } from "@shared/schema";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -119,9 +120,11 @@ export function ConversationHistory({
   const [starredOnly, setStarredOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [cleanupConfirming, setCleanupConfirming] = useState(false);
   
   // Get the selected language from the global context (set by LearningContextFilter dropdown)
   const { language: selectedLanguage } = useLanguage();
+  const { toast } = useToast();
 
   const { data: conversations = [], isLoading } = useQuery<Conversation[]>({
     queryKey: ["/api/conversations/filtered", { timeFilter, starredOnly, language: selectedLanguage }],
@@ -187,6 +190,30 @@ export function ConversationHistory({
   const { data: selectedConversation } = useQuery<Conversation>({
     queryKey: ["/api/conversations", selectedConversationId],
     enabled: !!selectedConversationId,
+  });
+
+  const cleanupMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/conversations/cleanup/short', {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Cleanup failed');
+      return res.json() as Promise<{ deleted: number }>;
+    },
+    onSuccess: (data) => {
+      setCleanupConfirming(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations/filtered"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/conversations"] });
+      toast({
+        title: data.deleted > 0 ? `Removed ${data.deleted} short chat${data.deleted !== 1 ? 's' : ''}` : 'Nothing to clean up',
+        description: data.deleted > 0 ? 'Untitled conversations with fewer than 4 messages have been deleted.' : 'No untitled short conversations were found.',
+      });
+    },
+    onError: () => {
+      setCleanupConfirming(false);
+      toast({ title: 'Cleanup failed', description: 'Something went wrong. Please try again.', variant: 'destructive' });
+    },
   });
 
   const toggleStarMutation = useMutation({
@@ -366,6 +393,39 @@ export function ConversationHistory({
             <Star className={`h-4 w-4 mr-2 ${starredOnly ? "fill-current" : ""}`} />
             Starred
           </Button>
+
+          {cleanupConfirming ? (
+            <div className="flex items-center gap-1">
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => cleanupMutation.mutate()}
+                disabled={cleanupMutation.isPending}
+                data-testid="button-cleanup-confirm"
+              >
+                {cleanupMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4 mr-1" />}
+                Yes, delete them
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setCleanupConfirming(false)}
+                data-testid="button-cleanup-cancel"
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCleanupConfirming(true)}
+              data-testid="button-cleanup-short"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clean up
+            </Button>
+          )}
         </div>
       </div>
       
