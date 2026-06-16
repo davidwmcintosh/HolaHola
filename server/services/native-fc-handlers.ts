@@ -2978,6 +2978,8 @@ export class NativeFunctionCallHandler {
         const vcDurationMs = (fn.args.duration_ms as number | undefined) ?? 7000;
         // show_translation defaults to true; false = quiz mode (hide definition so student must recall)
         const vcShowTranslation = (fn.args.show_translation as boolean | undefined) ?? true;
+        // meaning scopes polysemous words to a specific visual sense (e.g. "weather" vs "time" for "el tiempo")
+        const vcMeaning = fn.args.meaning as string | undefined;
         // Stable ID used for both the initial send and the image-enriched update
         const vcId = `vc-${Date.now()}`;
         console.log(`[Native Function→VocabCard] word="${vcWord}" definition="${vcDefinition}" duration=${vcDurationMs}ms showTranslation=${vcShowTranslation}`);
@@ -3019,6 +3021,7 @@ export class NativeFunctionCallHandler {
                 word: vcWord,
                 language: session.language || 'spanish',
                 description: vcWord,
+                meaning: vcMeaning,
                 conversationId: session.conversationId?.toString(),
                 userId: session.userId?.toString(),
               });
@@ -3061,6 +3064,7 @@ export class NativeFunctionCallHandler {
                     language: session.language || 'spanish',
                     description: `${vcWord} — ${vcDefinition}, clear and unambiguous illustration`,
                     scene: `${vcDefinition} — simple, isolated object on clean background`,
+                    meaning: vcMeaning,
                     conversationId: session.conversationId?.toString(),
                     userId: session.userId?.toString(),
                   });

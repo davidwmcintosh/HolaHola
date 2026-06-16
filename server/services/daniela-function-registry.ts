@@ -3734,6 +3734,18 @@ Examples:
 - Student mispronounces "lluvia" → show_vocab_card(word="lluvia", definition="rain") to anchor it visually
 - Teaching a new noun → show the word with its English meaning
 
+Polysemous words — use meaning= when the word has multiple visually distinct referents:
+- "el tiempo" for weather → show_vocab_card(word="el tiempo", definition="weather", meaning="weather")
+- "el tiempo" for clock time → show_vocab_card(word="el tiempo", definition="time", meaning="time")
+- "el banco" as a financial institution → show_vocab_card(word="el banco", definition="bank", meaning="bank")
+- "el banco" as a seat → show_vocab_card(word="el banco", definition="bench", meaning="bench")
+- "la planta" as a living thing → show_vocab_card(word="la planta", definition="plant", meaning="plant")
+- "la planta" as a building level → show_vocab_card(word="la planta", definition="floor/story", meaning="floor")
+- "el gato" as an animal → show_vocab_card(word="el gato", definition="cat", meaning="cat")
+- "el ratón" as a computer device → show_vocab_card(word="el ratón", definition="computer mouse", meaning="computer mouse")
+- Same applies to le temps (French), il tempo (Italian), o tempo (Portuguese), das Schloss, die Bank, etc.
+Each sense caches its own image — never mix them up.
+
 Quiz mode: Set show_translation=false to hide the definition — student sees the word and image but must recall the meaning themselves. Reveal it verbally after they answer. Great for active recall drills.
 - "What does this mean?" → show_vocab_card(word="mariposa", definition="butterfly", show_translation=false) → student answers → you reveal it verbally
 
@@ -3746,6 +3758,7 @@ Keep definitions short — one line max. Do NOT use this for grammar rules; use 
         properties: {
           word: { type: "string", description: "The vocabulary word or phrase in the target language" },
           definition: { type: "string", description: "Short English definition or translation (one line max)" },
+          meaning: { type: "string", description: "Required when the word is polysemous (same spelling, different visual meanings). Pass a short English label for the intended sense — e.g. 'weather' or 'time' for 'el tiempo'/'le temps'/'il tempo'; 'bench' or 'bank' for 'el banco'/'die Bank'; 'plant' or 'floor' for 'la planta'; 'candle' or 'sail' for 'la vela'; 'cat' or 'car jack' for 'el gato'; 'animal' or 'computer' for 'el ratón'. Each sense caches its own image independently." },
           image_url: { type: "string", description: "Optional image URL to show alongside the card" },
           language: { type: "string", description: "Target language code (e.g. 'es', 'fr') — defaults to current session language" },
           duration_ms: { type: "number", description: "How long to show the card in milliseconds (default: 7000)" },

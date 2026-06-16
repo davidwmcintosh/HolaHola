@@ -24,6 +24,29 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 16, 2026 (part 4) — Polysemous word image disambiguation**
+
+### What was built
+
+"El tiempo" problem: same word means both "time" (clock) and "weather" — vocab card was showing sun/waves when David expected a clock face (or vice versa). Same issue exists across all Romance languages (le temps, il tempo, o tempo) and German (die Bank, das Schloss).
+
+**Solution:** `meaning` parameter on `show_vocab_card` — Daniela passes `meaning="weather"` or `meaning="time"` when a word is ambiguous. Cache key becomes `vocab_spanish_el_tiempo_weather` vs `vocab_spanish_el_tiempo_time`. Each sense gets its own image slot, never cross-contaminating.
+
+### Files changed
+- `server/services/vocabulary-image-resolver.ts` — VocabImageRequest adds `meaning?`; non-concept path slugifies meaning into the cache key; fallback loop is skipped when meaning is set (prevents retrieving the wrong sense); generation prompt includes "specifically depicting: <meaning>"; cache save uses meaning-aware description + `sense_<X>` tag
+- `server/services/daniela-function-registry.ts` — show_vocab_card: new `meaning` param with exhaustive examples covering el tiempo/banco/planta/gato/ratón/vela + cross-language equivalents; tool description updated with polysemous word section
+- `server/services/native-fc-handlers.ts` — VOCAB_CARD handler reads `fn.args.meaning`, threads it through both resolveVocabularyImage calls (initial + vision retry)
+
+### Known false friends documented in tool (Daniela now knows all of these)
+Spanish: el tiempo (time/weather), el banco (bank/bench), la planta (plant/floor), la vela (candle/sail), la copa (glass/trophy), el gato (cat/car jack), el ratón (mouse/computer mouse), la cola (tail/queue)
+French: le temps (time/weather), la pièce (room/coin), la langue (tongue/language), le volant (wheel/shuttlecock)
+Cross-language: le temps/il tempo/o tempo all hit the same time-vs-weather issue
+
+### Status
+Server running clean. Zero new TS errors.
+
+---
+
 **Session: June 16, 2026 (part 3) — 3 live-session feature/bug fixes**
 
 ### What was built

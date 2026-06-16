@@ -35,6 +35,17 @@ export interface VocabImageRequest {
    * on-the-fly images from appearing in curated lesson content.
    */
   libraryOnly?: boolean;
+  /**
+   * Scopes the image to a specific meaning of a polysemous word.
+   * Use whenever the same word has visually distinct referents.
+   * Examples: "weather" vs "time" for "el tiempo" / "le temps" / "il tempo";
+   *           "bench" vs "bank" for "el banco" / "die Bank";
+   *           "plant" vs "floor" for "la planta";
+   *           "candle" vs "sail" for "la vela".
+   * The meaning is slugified and appended to the cache key so each sense
+   * stores and retrieves its own image independently — no cross-contamination.
+   */
+  meaning?: string;
 }
 
 export interface VocabImageResult {
@@ -2866,7 +2877,7 @@ export function isSceneConcept(word: string, scene?: string): boolean {
 export async function resolveVocabularyImage(
   request: VocabImageRequest,
 ): Promise<VocabImageResult> {
-  const { word, language, description = word, scene, translation, userId, seederMode, libraryOnly } = request;
+  const { word, language, description = word, scene, translation, userId, seederMode, libraryOnly, meaning } = request;
 
   // ── TOP-LEVEL seeder guard ────────────────────────────────────────────────
   // During batch seeding, non-Spanish words MUST NOT trigger DALL-E.
@@ -3113,11 +3124,18 @@ export async function resolveVocabularyImage(
   }
 
   // ── Non-concept word: language-specific lookup ───────────────────────────
-  const primaryKey = generateCacheKey(word, language);
-  console.log(`[VocabImage] Resolving "${word}" (${language}), primary key: ${primaryKey}`);
+  // When a meaning is provided (e.g. "weather" vs "time" for "el tiempo"), append
+  // it as a slug so each sense gets its own cache entry — no cross-contamination.
+  const meaningSlug = meaning
+    ? `_${meaning.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')}`
+    : '';
+  const primaryKey = generateCacheKey(word, language) + meaningSlug;
+  console.log(`[VocabImage] Resolving "${word}" (${language})${meaning ? ` [sense: ${meaning}]` : ''}, primary key: ${primaryKey}`);
 
   // ── 1. Library cache lookup with fallback variants ───────────────────────
-  const keysToTry = getFallbackCacheKeys(word, language);
+  // When a meaning is scoped, only check the exact scoped key — never fall back
+  // to the generic ambiguous key, which would return the wrong sense image.
+  const keysToTry = meaning ? [primaryKey] : getFallbackCacheKeys(word, language);
   for (const key of keysToTry) {
     const cached = await storage.getCachedStockImage(key);
     if (cached?.url) {
@@ -3191,8 +3209,14 @@ export async function resolveVocabularyImage(
   // model produces a character-consistent scene rather than an anonymous person.
   // Object nouns (house, dog, book) are not affected — looksLikeActionOrPhrase()
   // returns false for those, so they remain clean prop images.
+  //
+  // If a meaning was specified, prepend it to the description so the generator
+  // produces the correct visual referent (e.g. a weather scene, not a clock).
+  const generationDescription = meaning
+    ? `${description} — specifically depicting: ${meaning}`
+    : description;
   const characterIntro = language ? LANGUAGE_CHARACTER_INTROS[language] : undefined;
-  const conceptForGeneration = buildGenerationConcept(word, effectiveScene, description, translation, language, characterIntro);
+  const conceptForGeneration = buildGenerationConcept(word, effectiveScene, generationDescription, translation, language, characterIntro);
   const generationType = isSceneConcept(word, conceptForGeneration) ? 'infographic' : 'image';
 
   // Resolve anchor image URL for scene generations — gives gpt-image-1 a visual
@@ -3237,8 +3261,8 @@ export async function resolveVocabularyImage(
         searchQuery: primaryKey,
         uploadedBy: userId ?? null,
         title: word,
-        description: description,
-        tags: ['vocabulary', 'ai_generated', language],
+        description: generationDescription,
+        tags: ['vocabulary', 'ai_generated', language, ...(meaning ? [`sense_${meaning.toLowerCase().replace(/\s+/g, '_')}`] : [])],
         language,
         targetWord: word,
       });
