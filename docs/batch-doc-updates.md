@@ -8,6 +8,36 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jun 17, 2026 — Gemini consult + ACTFL preamble anchor + persona warmth
+
+### What was built
+
+**Root cause identified via Gemini architectural consult** (`docs/gemini-audit-2026-06-17.md`)
+
+Three voice friction points (flat/cold responses, ACTFL level ignored mid-session, re-greetings after reconnects) all traced to one root cause: Gemini Flash's attention window doesn't reach the 34K+ static system prompt during active turns. ACTFL instructions and persona warmth rules were there but effectively invisible by the time a real turn fired.
+
+**Fix: ACTFL + Persona Anchor injected every turn in both PTT and OpenMic paths**
+(`server/services/streaming-voice-orchestrator.ts`)
+
+- `buildActflPersonaAnchor()` — new module-level helper function. Maps `session.studentActflLevel` to a concise, Gemini-native set of OUTPUT constraints (tutor language ratios, not student ability descriptions): e.g. Novice Mid → "~85% English, slot in individual Spanish words in **bold** — no full Spanish sentences." Covers all 9 ACTFL levels + fallback. Also adds:
+  - Persona warmth anchor: "warm, human, teacher-first. Before pivoting to a task, acknowledge the student as a person with one natural sentence."
+  - "Session ONGOING" guard when `conversationHistory.length > 2`: "Do NOT greet with 'Hi I'm Daniela!' — pick up naturally." Directly addresses Gemini Flash's "First Turn Bias" which causes re-greetings after reconnects.
+- PTT injection: pushed as the LAST preamble turns before user message, after pending memory surfaces
+- OpenMic injection: same location, same pattern
+- **Bug fix**: `session.studentActflLevel` was in the `StreamingSession` type but never assigned (always `undefined`). `triggerGreeting()` now stores `session.studentActflLevel` after fetching ACTFL progress from DB.
+
+**Deferred work flagged by Gemini for next session:**
+1. System prompt ordering — put ACTFL rules + persona at the END (Gemini weights end-of-prompt higher)
+2. Tool description audit — Gemini prefers imperative/concise style ("Call this when X") over Claude-style prose
+3. ACTFL "sandwich" in tool results — inject level reminder in the `tool_result` for major activity tools (`load_scenario`, `load_textbook_page`)
+4. Function result compactness — Gemini degrades on "chatty" JSON blobs
+
+### Key files
+- `server/services/streaming-voice-orchestrator.ts` — `buildActflPersonaAnchor()` (~line 515); PTT injection (~line 2864); OpenMic injection (~line 6336); `session.studentActflLevel` assignment in `triggerGreeting` (~line 8765)
+- `docs/gemini-audit-2026-06-17.md` — full Gemini audit output archived
+
+---
+
 ## Session — Jun 16, 2026 — Scenario entry: warm-up + ACTFL language mix
 
 ### What was built

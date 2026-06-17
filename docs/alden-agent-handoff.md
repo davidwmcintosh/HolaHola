@@ -24,6 +24,32 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 17, 2026 — Gemini consult + ACTFL preamble anchor + persona warmth fix**
+
+### What was built
+
+**Gemini consult on three voice friction points** (`docs/gemini-audit-2026-06-17.md`)
+
+Ran a formal Gemini architectural consult on three production issues David flagged: (1) Daniela going blank/flat about human interaction, (2) ACTFL level not being honored mid-session, (3) re-greeting after reconnects. Key finding: "Move your most important Daniela-isms and ACTFL-isms into the preamble turns. If it's not in the last 1,000 tokens, you can't guarantee Flash will follow it." The static system prompt is 34K+ tokens away from the active context window — Flash's attention doesn't reach it during high-intensity turns.
+
+**ACTFL + Persona Anchor — injected every turn in both PTT and OpenMic paths** (`streaming-voice-orchestrator.ts`)
+
+Three changes:
+1. **`buildActflPersonaAnchor()` helper** — new module-level function (~line 515) that maps `session.studentActflLevel` (snake_case key like `'novice_mid'`) to a concise output constraint (tutor language ratios, bold vocabulary rules, tense restrictions) + a persona warmth reminder ("warm, human, teacher-first — acknowledge the student before pivoting to a task"). Includes "session is ONGOING" guard when `conversationHistory.length > 2` — directly addresses Gemini's "First Turn Bias" that causes re-greetings after reconnects.
+2. **PTT injection** — after pending memory surfaces, before `checkpointUserMessage`. Two preamble turns pushed (user: constraint, model: acknowledged).
+3. **OpenMic injection** — same pattern, same location in OpenMic path.
+4. **`session.studentActflLevel` assignment** — this field was in the `StreamingSession` type but NEVER assigned (always `undefined`). Fixed in `triggerGreeting()`: after reading `actflProgress.currentActflLevel` from DB, now also stores `session.studentActflLevel = actflProgress?.currentActflLevel || 'novice_low'`.
+
+### What Gemini flagged as deferred work (for next session or Alden)
+- **System prompt ordering**: Put most critical behavioral rules (persona + language mix) at the END of the system prompt — Gemini weights end-of-prompt higher. Currently they're in the middle of a 34K system prompt.
+- **Tool descriptions**: Gemini prefers imperative/concise format ("Call this when X") over Claude-style verbose prose. A targeted audit of the 64 tool descriptions served per session would help.
+- **Tool result verbosity**: Gemini hates "chatty" function results. `load_scenario` continuation was already compacted this session. Other tool responses may need the same treatment.
+- **ACTFL in tool results**: Gemini's "sandwich method" — inject level reminder in the `tool_result` response when major activities start (e.g., `load_scenario`, `load_textbook_page`). This re-anchors Daniela in the right mode at the moment of context shift.
+
+### Files changed
+- `server/services/streaming-voice-orchestrator.ts` — `buildActflPersonaAnchor()` function; PTT + OpenMic injection blocks; `session.studentActflLevel` assignment in `triggerGreeting`
+- `docs/gemini-audit-2026-06-17.md` — Gemini consult output saved
+
 **Session: June 16, 2026 (part 5) — Verb cards + word echo**
 
 ### What was built

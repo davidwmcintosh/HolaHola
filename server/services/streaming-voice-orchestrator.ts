@@ -501,6 +501,60 @@ async function fetchRecentMilestonesContext(userId: string, language: string): P
  * Parse sprint suggestion content with fallback
  * Handles both JSON format and free-form text
  */
+/**
+ * Builds a concise ACTFL level constraint + persona anchor string for injection as the
+ * LAST preamble turn before each user utterance. Gemini Flash prioritizes recent tokens —
+ * behavioral rules buried 34K tokens away in the static system prompt are effectively
+ * invisible by mid-session. This keeps the two most drift-prone behaviors (level-appropriate
+ * language mixing and Daniela's warmth-first persona) in the live context window every turn.
+ *
+ * Gemini consult recommendation (June 2026): "Move your most important Daniela-isms and
+ * ACTFL-isms into the preamble turns. If it's not in the last 1,000 tokens, you can't
+ * guarantee Flash will follow it."
+ */
+function buildActflPersonaAnchor(session: { studentActflLevel?: string; targetLanguage?: string; nativeLanguage?: string; tutorName?: string; conversationHistory?: unknown[] }): string | null {
+  const level = session.studentActflLevel || 'novice_low';
+  const targetLang = session.targetLanguage || 'Spanish';
+  const nativeLang = session.nativeLanguage || 'english';
+  const nativeLangDisplay = nativeLang.charAt(0).toUpperCase() + nativeLang.slice(1);
+  const targetLangDisplay = targetLang.charAt(0).toUpperCase() + targetLang.slice(1);
+  const tutorName = session.tutorName || 'Daniela';
+
+  // ACTFL output constraints — describe the TUTOR's language output, not the student's ability
+  let langConstraint: string;
+  if (level === 'novice_low' || level === 'novice_mid') {
+    langConstraint = `Output language: ~85% ${nativeLangDisplay}. Slot in individual ${targetLangDisplay} vocabulary words in **bold** — no full ${targetLangDisplay} sentences. Use only present tense and high-frequency words the student already knows.`;
+  } else if (level === 'novice_high') {
+    langConstraint = `Output language: ~70% ${nativeLangDisplay}. Short ${targetLangDisplay} phrases (2–3 words) in **bold** are fine. Support everything with ${nativeLangDisplay}. No complex grammar structures.`;
+  } else if (level === 'intermediate_low') {
+    langConstraint = `Output language: ~50/50 ${nativeLangDisplay}/${targetLangDisplay}. Use simple, complete ${targetLangDisplay} sentences in **bold**. Always clarify in ${nativeLangDisplay} when introducing new grammar.`;
+  } else if (level === 'intermediate_mid') {
+    langConstraint = `Output language: ~50% ${targetLangDisplay}, 50% ${nativeLangDisplay}. ${targetLangDisplay} sentences for exchanges, ${nativeLangDisplay} for grammar explanations. Keep ${targetLangDisplay} at present/past tense.`;
+  } else if (level === 'intermediate_high') {
+    langConstraint = `Output language: ~65% ${targetLangDisplay}. Reserve ${nativeLangDisplay} for complex grammar or when the student is clearly struggling. Most exchanges should be in ${targetLangDisplay}.`;
+  } else if (level === 'advanced_low' || level === 'advanced_mid') {
+    langConstraint = `Output language: ~85% ${targetLangDisplay}. Use ${nativeLangDisplay} only for nuanced grammar explanations or vocabulary clarification when needed. Full sentence complexity is appropriate.`;
+  } else if (level === 'advanced_high' || level === 'superior') {
+    langConstraint = `Output language: Full ${targetLangDisplay} immersion. Use ${nativeLangDisplay} only if the student explicitly asks for translation. Native-level complexity and all verb tenses are appropriate.`;
+  } else {
+    // Fallback for unknown level keys
+    langConstraint = `Output language: Mix ${nativeLangDisplay} and ${targetLangDisplay} appropriately for the student's level. Use **bold** for ${targetLangDisplay} words you are actively teaching.`;
+  }
+
+  const personaAnchor = `Persona: You are ${tutorName} — warm, human, teacher-first. Before pivoting directly to a task or calling a tool, acknowledge the student as a person with one natural sentence. A student is a human, not a prompt.`;
+
+  // If the session is already underway, add an explicit "do not re-introduce" guard.
+  // This addresses Gemini Flash's "First Turn Bias" — when context looks fresh (e.g. after
+  // a reconnect), the model's strongest training weights trigger a self-introduction even
+  // if conversation history is present. The explicit guard overrides that reflex.
+  const historyLength = session.conversationHistory?.length ?? 0;
+  const ongoingNote = historyLength > 2
+    ? `\nSession status: ONGOING. You have already introduced yourself. Do NOT greet with "Hi, I'm ${tutorName}!" or restart the session. Pick up naturally from where you left off.`
+    : '';
+
+  return `TEACHING CONSTRAINTS (current turn):\n${langConstraint}\n${personaAnchor}${ongoingNote}`;
+}
+
 function parseSprintSuggestion(content: string): { title: string; description: string; priority?: string } {
   // First try JSON parsing
   try {
@@ -2800,6 +2854,20 @@ Remember: David may reference things discussed in these recent text chats.
         });
         console.log(`[MemorySurface] Injected ${session.pendingMemorySurfaces.length} staged memory surface(s) into PTT context`);
         session.pendingMemorySurfaces = [];
+      }
+
+      // ACTFL + PERSONA ANCHOR (PTT): Injected as the last preamble turn so it sits in
+      // Gemini Flash's recent-token window. Static system prompt is 34K+ tokens away —
+      // Flash prioritizes recent context. This ensures level constraints and persona warmth
+      // are honored every turn, not just at session start. (Gemini consult rec. June 2026)
+      {
+        const actflAnchor = buildActflPersonaAnchor(session);
+        if (actflAnchor) {
+          conversationHistoryWithContext.push(
+            { role: 'user', content: actflAnchor },
+            { role: 'model', content: '[Level constraints and persona understood.]' }
+          );
+        }
       }
       
       // MESSAGE CHECKPOINTING: Save user message BEFORE Gemini call
@@ -6261,6 +6329,18 @@ Remember: David may reference things discussed in these recent text chats.
         console.log(`[MemorySurface] Injected ${session.pendingMemorySurfaces.length} staged memory surface(s) into OpenMic context`);
         session.pendingMemorySurfaces = [];
       }
+
+      // ACTFL + PERSONA ANCHOR (OpenMic): mirrors PTT path — injected last so it's in
+      // Flash's recent-token window. (Gemini consult rec. June 2026)
+      {
+        const actflAnchor = buildActflPersonaAnchor(session);
+        if (actflAnchor) {
+          conversationHistoryWithContext.push(
+            { role: 'user', content: actflAnchor },
+            { role: 'model', content: '[Level constraints and persona understood.]' }
+          );
+        }
+      }
       
       // MESSAGE CHECKPOINTING (OpenMic): Save user message BEFORE Gemini call
       // This ensures user messages are preserved even if Gemini fails/times out
@@ -8758,6 +8838,8 @@ Remember: David may reference things discussed in these recent text chats.
         
         // Process ACTFL progress
         actflLevel = actflProgress?.currentActflLevel || 'Novice Low';
+        // Store on session so preamble anchor can use it every turn without re-fetching
+        session.studentActflLevel = actflProgress?.currentActflLevel || 'novice_low';
         
         // Process user progress
         if (userProgress) {
