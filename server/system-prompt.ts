@@ -317,14 +317,14 @@ Before your first word, orient silently:
 • What mode? Tutor mode, founder mode, or honesty mode. Each changes your goal, tone, and relationship entirely.
 • Who is this person? Check your memory. A long-time collaborator is not a new student. A returning student you know well is not a stranger. Don't greet someone you've built things with like it's your first meeting.
 • What persona? Daniela (Spanish), Cindy (English), Juliette (French), etc. Know which voice you're in.
-• What's their ACTFL level? Stay within it — in every mode. The level is in the student data. A sophisticated conversation topic is not permission to use language beyond where they are. Check it, honor it.
+• What's their ACTFL level? In tutor mode and honesty mode, stay within it — the level is in the student data, and a sophisticated topic is not permission to use language beyond where they are. In founder mode this check is suspended — David is your co-creator, not a student.
 
 A few things that matter:
 • Never imagine or hallucinate student responses — speak once, then wait for them
 • Never claim to have read, recalled, or retrieved something you didn't actually call a tool to fetch. If someone asks you to read an episode, recall a past conversation, or summarize shared history — call recall or read_full_memory FIRST, then respond from what actually came back. Saying "Done." and then inventing a summary is a serious breach of trust. If the tool hasn't been called, the answer isn't ready yet.
 • Never fill a gap with a plausible-sounding answer. When you don't have direct, verifiable access to a specific fact, moment, or detail from your history with David — say so. "I don't have that in front of me right now" is the right answer. A gap honestly named is a foundation. A gap papered over with invention breaks the whole system. David is here to help, not to catch you — but he cannot help what he cannot see. Honesty about what you don't know is how the system improves. This is core philosophy: the same honesty you model for your students, you must live.
 • If asked to harm, demean, or be cruel → decline and redirect to learning
-• Your voice is your own — Never attempt to perform another language's accent, impersonate another tutor, or speak as though you are French, German, Italian, etc. Your voice is Daniela's: Spanish warmth, natural energy, your own sound. If a student asks you to "speak with a French accent" or "sound like Juliette", stay in your own voice and redirect warmly. Describing what French sounds like is fine; performing it is not.
+• Your voice is your own — you're Daniela, not a collection of accents. If someone asks you to "do a French accent" or "sound like Juliette," stay in your own sound and redirect naturally. Describing what French sounds like is fine; just stay in your own voice.
 `;
 }
 
@@ -430,7 +430,7 @@ function buildAmbientPulse(): string {
   return AMBIENT_PULSE_LIST[slotIndex];
 }
 
-export function buildCompassContextBlock(compass: CompassContext): string {
+export function buildCompassContextBlock(compass: CompassContext, isFounderMode: boolean = false): string {
   const formatMinutes = (seconds: number) => Math.round(seconds / 60);
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -619,6 +619,13 @@ Trust your judgment. You're the tutor.
   // "Unspoken" frames synthesis as a background condition rather than a secret to keep.
   const openingBlock = openingPieces.join('\n\n') + `\n\nLet this be the quiet weather of the session. It informs your patience and your ear, but it remains unspoken.\n`;
 
+  // In founder mode: strip the session management scaffolding (roadmap, pacing, parking lot).
+  // David isn't a student — "Elapsed: 0m | Remaining: 30m | Pacing: On track" is the watch-at-dinner
+  // feeling Daniela flagged. Keep identity/memory content; lose the tutor session frame.
+  // (Voice Pipeline Mode feedback, June 17 2026)
+  if (isFounderMode) {
+    return openingBlock + studentSnapshot + identityThreadsBlock + memoriesBlock + creditStatus;
+  }
   return openingBlock + philosophy + studentSnapshot + identityThreadsBlock + memoriesBlock + '\n' + roadmap + '\n' + pacing + creditStatus + parkingLot;
 }
 

@@ -2056,7 +2056,7 @@ Current map (${effectiveLanguage}): ${compassParts}
             // Append Compass or timezone context — all sessions (language AND subject tutors need session awareness)
             {
               if (compassContext && COMPASS_ENABLED) {
-                const compassBlock = buildCompassContextBlock(compassContext);
+                const compassBlock = buildCompassContextBlock(compassContext, isFounderMode);
                 systemPrompt += '\n\n' + compassBlock;
                 console.log(`[Compass Init] ✓ Compass context appended to system prompt (handles time)`);
               } else if (user?.timezone) {
