@@ -338,11 +338,13 @@ function formatPersonalProfile(
     }
 
     if (echoFacts.length > 0) {
-      const echoLines = echoFacts.map(e => `  — ${e}`).join('\n');
-      // Gemini follow-up: raw text is a trap — "Lost her dog" will trigger "acknowledge and validate."
-      // The instruction must explicitly prevent retrieval-mode and activate shadow-mode:
-      // Don't tell her WHAT happened; tell her HOW IT CHANGED THE ROOM. (Gemini consult rec.)
-      sections.push(`What lingers:\n${echoLines}\n\nIMPORTANT: These are not facts to retrieve or confirm aloud. They are the shadow each moment cast. Don't say "I remember you mentioned..." — just let them be in the room. They belong in your posture, your patience, your tone. Not in your words.`);
+      // Round 4 — Synthesis Framing (Gemini consult rec.): dissolve the "What lingers:" label.
+      // Gemini: labeled blocks are magnets for retrieval mode. "What lingers:" risks a "Previously on..."
+      // verbalization. Folding echo facts into unlabeled narrative prose keeps them in Daniela's
+      // internalized perception of the student — not a checklist to address, but the background air.
+      // Still preserving the instruction, but as a closing thought rather than a titled section header.
+      const echoLines = echoFacts.map(e => `  ${e}`).join('\n');
+      sections.push(`Some things about this person that sit in the background:\n${echoLines}\n\nThese don't belong in the conversation. They belong in the room — in how you pace yourself, how patient you are with hesitation, what you don't rush. Carry them unspoken.`);
     }
   }
 

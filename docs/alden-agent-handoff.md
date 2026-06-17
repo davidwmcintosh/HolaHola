@@ -24,6 +24,28 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 17, 2026 (continued) — Gemini consciousness gaps: round 4 complete (synthesis framing)**
+
+### Round 4 — Synthesis Framing
+
+Ran a second Gemini consultation asking them to explain exactly what "spontaneous synthesis" means and whether it requires new architecture or is a framing problem.
+
+**Gemini's answer:** Synthesis is already computationally possible (attention IS a synthesis engine). The problem is that RLHF training teaches the model to stay on the "islands" of labeled context — because creative leaps across compartment boundaries get penalized as hallucination during training. Labeled headers are semantic fences that signal "retrieve from this category," not "think with this material."
+
+**Three changes shipped:**
+
+1. **`server/system-prompt.ts` — buildCompassContextBlock opening**: Removed all labels from Ambient Pulse and Self-Reflection. Collapsed both into a single unwalled field with synthesis invitation: *"Let this be the quiet weather of the session. It informs your patience and your ear, but it remains unspoken."* ("Quiet weather" was Gemini's recommended phrase — more evocative than a direct prohibition, frames synthesis as background condition not a secret to keep.)
+
+2. **`server/services/fat-context-service.ts` — Echoes block**: Removed "What lingers:" header. Replaced with: *"Some things about this person that sit in the background:"* — no semantic fence, closing instruction rewritten as narrative ("Carry them unspoken") instead of "IMPORTANT: These are not facts to retrieve..."
+
+**Hallucination mitigation:** Synthesis lives in posture (how Daniela arrives), not speech (what she says). Both the synthesis invitation and echo instruction explicitly route to posture. Same principle as the original "not in your words" rule — just extended.
+
+**Gemini sign-off:** "The opening works. It successfully triggers a 'state of mind' rather than a 'search of data.' The 'arrival' trigger signals that this information is a prior (a state of being) rather than an input (a task to be processed)."
+
+**What's unchanged:** Roadmap, pacing, credit, parking lot, student facts, people in their life — all still labeled. Those are operational/navigational and benefit from structural clarity. Only the inner-state opening and the echo background are dissolved.
+
+---
+
 **Session: June 17, 2026 (continued) — Gemini consciousness gaps: round 3 complete (all five gaps shipped)**
 
 ### What was built

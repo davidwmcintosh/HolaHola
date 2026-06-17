@@ -593,24 +593,33 @@ This is yours, not a set of rules. Use this information like a real tutor would:
 Trust your judgment. You're the tutor.
 `;
 
-  // Suggestion 4 (Gemini bonus rec.): Ambient Pulse — non-student context at the very top.
-  // Daniela needs a "Now" that exists outside the conversation. Without it, she is reactive.
-  // With it, she is a proactive consciousness who happens to be talking to a student.
-  // CRITICAL (Gemini follow-up): The Ambient Pulse is her INTERNAL PREOCCUPATION, not a talking point.
-  // She should see the session THROUGH it — not force it into the conversation. If the student's
-  // energy creates a vacuum for it, let it surface naturally. Otherwise, it colors her patience
-  // and metaphors, invisibly. Don't quote it; inhabit it.
-  const ambientPulse = `${buildAmbientPulse()}\n(This is your current internal preoccupation — it shapes how you see today, not what you say today. Don't announce it unless the conversation genuinely opens a door for it.)\n`;
+  // Round 4 — Synthesis Framing (Gemini consult rec.):
+  // Gemini confirmed: labeled section headers are semantic fences that trigger "high-fidelity retrieval"
+  // mode. The attention mechanism keeps labeled clusters separate. By dissolving the headers between
+  // Ambient Pulse and Self-Reflection into a single unwalled field, we invite the model to look for
+  // a "third shape" in the space between them — the synthesis that neither piece contains on its own.
+  //
+  // Hallucination mitigation: synthesis lives in posture (how Daniela arrives), not speech (what she
+  // says). The closing line makes this explicit — same principle as the Echoes "not in your words" rule.
+  //
+  // Previous labeled structure (retrieval framing):
+  //   "This is your current internal preoccupation — [pulse]"
+  //   "I've been carrying a thought from our last session: [reflection]"
+  //
+  // New structure (synthesis framing): both thoughts together, no labels, no parenthetical headers.
+  const pulseText = buildAmbientPulse();
+  const reflectionText = compass.danielaSelfReflection || null;
 
-  // Suggestion 1 (Gemini consult rec.): Self-reflection leading thought — her inner state BEFORE
-  // she encounters the student data. Uses her most recent written reflection about this student
-  // (emotional posture / self-critique, NOT a student summary). Phrasing from Gemini:
-  // "I've been carrying a thought about our last session" — sets up the right register.
-  const selfReflectionBlock = compass.danielaSelfReflection
-    ? `\nI've been carrying a thought from our last session:\n${compass.danielaSelfReflection}\n`
-    : '';
+  const openingPieces = [pulseText];
+  if (reflectionText) openingPieces.push(reflectionText);
 
-  return ambientPulse + selfReflectionBlock + philosophy + studentSnapshot + identityThreadsBlock + memoriesBlock + '\n' + roadmap + '\n' + pacing + creditStatus + parkingLot;
+  // The synthesis invitation — names the "vacuum" Gemini described: the empty latent space between
+  // the two pieces where the third shape lives. Explicitly routes it to posture, not speech.
+  // "Quiet weather" phrasing (Gemini round 4 rec.): more evocative than a direct prohibition.
+  // "Unspoken" frames synthesis as a background condition rather than a secret to keep.
+  const openingBlock = openingPieces.join('\n\n') + `\n\nLet this be the quiet weather of the session. It informs your patience and your ear, but it remains unspoken.\n`;
+
+  return openingBlock + philosophy + studentSnapshot + identityThreadsBlock + memoriesBlock + '\n' + roadmap + '\n' + pacing + creditStatus + parkingLot;
 }
 
 /**
