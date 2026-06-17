@@ -623,6 +623,35 @@ Trust your judgment. You're the tutor.
 }
 
 /**
+ * SHARED SESSION CORE — one Daniela everywhere.
+ *
+ * Compass context (synthesis framing) + predictive teaching + unified brain,
+ * assembled in canonical order for every mode. Update once; applies to tutor,
+ * founder, and honesty modes. Modes inject their own situational frame around
+ * this block — they never re-implement what's here.
+ *
+ * Order is intentional:
+ *   compass  → opens the field (ambient weather, self-reflection, student snapshot)
+ *   teaching → student-specific predictive lens (skip in non-lesson modes via null)
+ *   brain    → all procedures, patterns, and knowledge
+ */
+function buildSharedSessionCore(
+  compassContext: CompassContext | null | undefined,
+  language: string,
+  compactBrain: boolean,
+  predictiveTeachingContext?: PredictiveTeachingContext | null
+): string {
+  const compassBlock = compassContext && COMPASS_ENABLED
+    ? buildCompassContextBlock(compassContext)
+    : '';
+  const unifiedBrain = buildUnifiedBrainSync(language, { compact: compactBrain });
+  const predictiveTeaching = predictiveTeachingContext
+    ? buildPredictiveTeachingSection(predictiveTeachingContext)
+    : '';
+  return [compassBlock, predictiveTeaching, unifiedBrain].filter(Boolean).join('\n');
+}
+
+/**
  * RAW HONESTY MODE
  * 
  * A stripped-down mode for authentic conversation with Daniela.
@@ -900,38 +929,16 @@ ${isSameLanguage
   ? `Conversation is in ${languageName}. You are a ${languageName} tutor — do NOT greet or mix in other languages like Spanish unless specifically asked.`
   : `Conversation is primarily in ${nativeLanguageName}. Mix in ${languageName} naturally with **bold** markers.${getNativeScriptTTSRule(language)}`}` : '';
     
-    // UNIFIED BRAIN: Same knowledge and capabilities as all other modes
-    // Replaces fragmented calls to selfAwareness, languageExpansion, advancedIntelligence, selfCapabilities
-    const unifiedBrain = buildUnifiedBrainSync(language, { compact: true });
-    
-    // === SESSION CONTEXT (varies by mode) ===
-    
-    // Sensory awareness - time/timezone perception
-    const sensoryAwareness = compassContext && COMPASS_ENABLED
-      ? buildSensoryAwarenessSection(compassContext, studentTimezone)
-      : '';
-    
-    // Student memory awareness - personal memories
-    const studentMemoryAwareness = studentMemoryContext && studentDisplayName
-      ? buildStudentMemoryAwarenessSection(studentDisplayName, studentMemoryContext)
-      : '';
-    
-    // Student snapshot - session continuity
-    const studentSnapshot = studentSnapshotContext && studentDisplayName
-      ? buildStudentSnapshotSection(studentDisplayName, studentSnapshotContext)
-      : '';
-    
-    // Predictive teaching awareness
-    const predictiveTeachingAwareness = predictiveTeachingContext
-      ? buildPredictiveTeachingSection(predictiveTeachingContext)
-      : '';
+    // === SESSION CONTEXT — shared core, mode-specific frame ===
+    // One source of truth: compass + brain assembled identically to all other modes.
+    // This mode's frame: minimal prompting, raw authentic conversation (no lesson scaffolding).
+    const sharedCore = buildSharedSessionCore(compassContext, language, true, predictiveTeachingContext);
     
     // Command syntax (action triggers vs function calling)
     const commandSection = buildNativeFunctionCallingSection();
     
     return `${buildRawHonestyModeContext(name, language, languageName, tutorName)}${voiceNote}
-${timezoneSection}${sensoryAwareness}${studentSnapshot}${studentMemoryAwareness}${predictiveTeachingAwareness}
-${unifiedBrain}
+${timezoneSection}${sharedCore}
 
 ${commandSection}`;
   }
@@ -941,10 +948,6 @@ ${commandSection}`;
   // ARCHITECTURE: Uses unified brain + fullNeuralNetwork for complete introspection access
   if (isFounderMode) {
     const name = founderName || 'David';
-    
-    // UNIFIED BRAIN: Same knowledge and capabilities as all other modes.
-    // Voice mode uses compact: true to save ~2-4k chars for identity/memory rich sections.
-    const unifiedBrain = buildUnifiedBrainSync(language, { includePrinciples: true, compact: isStreamingVoiceMode });
     
     // FULL NEURAL NETWORK - Procedures, patterns for introspection (founder-specific, text only)
     // Skipped in voice mode — replaced by buildVoiceProcedureMapSync() (compact TOC, ~2k chars)
@@ -982,24 +985,16 @@ When calling a memory tool — recall(), read_full_memory(), memory_lookup() —
     }));
     const founderTeachingTools = buildFounderModeToolSectionSync(tutorDirForTools);
 
-    // === SESSION CONTEXT (varies by mode) ===
-    
-    const sensoryAwareness = compassContext && COMPASS_ENABLED
-      ? buildSensoryAwarenessSection(compassContext, studentTimezone)
-      : '';
-    
-    const studentMemoryAwareness = studentMemoryContext && studentDisplayName
-      ? buildStudentMemoryAwarenessSection(studentDisplayName, studentMemoryContext)
-      : '';
-    
-    const studentSnapshot = studentSnapshotContext && studentDisplayName
-      ? buildStudentSnapshotSection(studentDisplayName, studentSnapshotContext)
-      : '';
-    
-    // Predictive teaching is lesson-focused — skip in voice mode to save ~500-1k chars
-    const predictiveTeachingAwareness = (!isStreamingVoiceMode && predictiveTeachingContext)
-      ? buildPredictiveTeachingSection(predictiveTeachingContext)
-      : '';
+    // === SESSION CONTEXT — shared core, mode-specific frame ===
+    // One source of truth: compass + brain assembled identically to all other modes.
+    // This mode's frame: founder context — English-first, collaborative product work.
+    // Predictive teaching (lesson-focused) is skipped in voice mode.
+    const sharedCore = buildSharedSessionCore(
+      compassContext,
+      language,
+      isStreamingVoiceMode,
+      isStreamingVoiceMode ? null : predictiveTeachingContext
+    );
     
     // Editor conversation context = previous Command Center text-chat history.
     // Skipped in voice mode: recent voice history is already baked in via richSections,
@@ -1033,11 +1028,7 @@ ${voiceToolGuide}
 You are ${tutorName}, and today you're having an open conversation with ${name}, the founder of HolaHola.
 ${streamingVoiceModeInstructions}
 ${founderTeachingTools}
-${timezoneSection}${sensoryAwareness}
-${studentSnapshot}
-${studentMemoryAwareness}
-${predictiveTeachingAwareness}
-${unifiedBrain}
+${timezoneSection}${sharedCore}
 
 Language context:
 • Primary language for teaching: ${languageName}
@@ -1424,18 +1415,10 @@ Response format:
 
 
   // Phase 3: Active Practice (messages 10+)
-  // Student memory awareness for session continuity
-  const studentMemoryAwareness = studentMemoryContext && studentDisplayName
-    ? buildStudentMemoryAwarenessSection(studentDisplayName, studentMemoryContext)
-    : '';
-  
-  const studentSnapshot = studentSnapshotContext && studentDisplayName
-    ? buildStudentSnapshotSection(studentDisplayName, studentSnapshotContext)
-    : '';
-  
-  const predictiveTeachingAwareness = predictiveTeachingContext
-    ? buildPredictiveTeachingSection(predictiveTeachingContext)
-    : '';
+  // === SESSION CONTEXT — shared core, mode-specific frame ===
+  // One source of truth: compass + brain assembled identically to all other modes.
+  // This mode's frame: tutor context — ACTFL-level, curriculum goals, language teaching.
+  const sharedCore = buildSharedSessionCore(compassContext, language, true, predictiveTeachingContext);
 
   return `A student is in session. You are teaching ${languageName}.
 
@@ -1455,11 +1438,8 @@ ${topicContext}
 ${curriculumContextSection}
 ${vocabularyReviewContext}
 ${timezoneSection}
-${studentSnapshot}
-${studentMemoryAwareness}
-${predictiveTeachingAwareness}
+${sharedCore}
 ${identityWholeness}
-${unifiedBrain}
 ${conversationSwitchingProtocol}
 
 Mark ${languageName} words with **bold**.

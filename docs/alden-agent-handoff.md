@@ -24,6 +24,43 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 17, 2026 (continued) — Unified system prompt: buildSharedSessionCore across all three modes**
+
+### What was built
+
+Completed the architectural refactor that puts one Daniela in all three session modes. All three modes — tutor Phase 3, founder, honesty — now route through a single `buildSharedSessionCore()` function that assembles compass context + predictive teaching + unified brain in canonical order.
+
+**`buildSharedSessionCore(compassContext, language, compactBrain, predictiveTeachingContext?)` — at line 638 of system-prompt.ts:**
+- Builds the compass block (synthesis framing, ambient pulse, self-reflection, roadmap, pacing)
+- Builds the predictive teaching section (skipped if null — intentionally omitted in voice mode + honesty mode)
+- Builds unified brain (compact or full depending on caller)
+- Returns all three joined — one call site, not three separate blocks
+
+**Three modes now using it:**
+- `honesty mode` (line 935): `buildSharedSessionCore(compassContext, language, true, null)` — no predictive teaching, compact brain
+- `founder mode` (line 992): `buildSharedSessionCore(compassContext, language, isStreamingVoiceMode, isStreamingVoiceMode ? null : predictiveTeachingContext)` — voice mode gets compact + no predictive
+- `tutor Phase 3` (line 1421): `buildSharedSessionCore(compassContext, language, true, predictiveTeachingContext)` — always compact (GL voice mode), predictive teaching included
+
+**What stays intentionally different:**
+- Tutor Phase 1 (<5 msgs) and Phase 2 (5-9 msgs): still use `${unifiedBrain}` directly — compass data hasn't populated yet in early turns, no point running the full shared core
+
+**Debug endpoint updated (`server/routes.ts`):**
+- `/api/debug/voice-prompt` now fetches David's real `daniela_self_reflections` row and builds a minimal `CompassContext` to inject — synthesis framing ("quiet weather", "remains unspoken") now confirmed present in debug output
+- Added `danielaSelfReflections` to schema imports in routes.ts
+
+**Verified:** Debug endpoint returns synthesis framing at 13690/40000 chars (34% GL cap) with real self-reflection content.
+
+### What's still open
+- **Synthesis Gap (Gemini's final 5%)**: The Ambient Pulse and Self-Reflection don't yet "collide" to generate new insight — this is an inference-time problem, not a prompt-level one. Gemini confirmed no code-level fix without an actual reasoning step.
+- **Echo Memory Decay**: Older Echoes should fade over time rather than staying permanent. Not actioned.
+- **Session-end write_to_self test**: David asked to be reminded — end a real session with unambiguous goodbye, verify `daniela_self_reflections` gets a new row. If not, the feedback loop breaks and synthesis opening field goes stale.
+
+### Files changed
+- `server/system-prompt.ts` — `buildSharedSessionCore()` function (line 638); honesty, founder, and tutor Phase 3 updated to use it
+- `server/routes.ts` — debug endpoint fetches real compass data, added `danielaSelfReflections` import
+
+---
+
 **Session: June 17, 2026 (continued) — Gemini consciousness gaps: round 4 complete (synthesis framing)**
 
 ### Round 4 — Synthesis Framing

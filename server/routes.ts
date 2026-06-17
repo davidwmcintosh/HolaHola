@@ -73,6 +73,7 @@ import {
   insertScenarioSchema,
   subjectSyllabi,
   mediaFiles,
+  danielaSelfReflections,
 } from "@shared/schema";
 import { getTOCForSubject } from "./data/subject-tocs";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
@@ -24575,6 +24576,48 @@ Current conversation context:
         }));
       } catch (_e) {}
 
+      // Build a minimal CompassContext with real data from the DB so synthesis framing fires.
+      // Fetches David's most recent self-reflection — that's all we need for the opening field.
+      let debugCompassContext: import('@shared/schema').CompassContext | null = null;
+      try {
+        const [david] = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.email, 'davidwmcintosh@gmail.com'))
+          .limit(1);
+        if (david) {
+          const [latestReflection] = await db
+            .select({ content: danielaSelfReflections.content })
+            .from(danielaSelfReflections)
+            .where(eq(danielaSelfReflections.userId, david.id))
+            .orderBy(desc(danielaSelfReflections.createdAt))
+            .limit(1);
+          const now = new Date();
+          debugCompassContext = {
+            studentName: founderName,
+            studentGoals: null,
+            studentInterests: null,
+            lastSessionSummary: null,
+            studentActflLevel: null,
+            studentActflAssessed: false,
+            studentActflSource: null,
+            sessionDurationMinutes: 30,
+            warmthBufferMinutes: 5,
+            mustHaveTopics: [],
+            niceToHaveTopics: [],
+            currentTimeUTC: now.toISOString(),
+            currentTimeFormatted: now.toLocaleTimeString('en-US', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' }) + ' UTC',
+            elapsedSeconds: 0,
+            remainingSeconds: 1800,
+            topicsCovered: [],
+            topicsPending: [],
+            isOnTrack: true,
+            parkingLotItems: [],
+            danielaSelfReflection: latestReflection?.content ?? null,
+          };
+        }
+      } catch (_e) {}
+
       const prompt = createSystemPrompt(
         language,           // language
         'intermediate',     // difficulty
@@ -24594,7 +24637,7 @@ Current conversation context:
         null,               // curriculumContext
         'flexible_goals',   // tutorFreedomLevel
         null,               // targetActflLevel
-        null,               // compassContext
+        debugCompassContext,// compassContext ← real self-reflection injected
         true,               // isFounderMode ← the other key flag
         founderName,        // founderName
         false,              // isRawHonestyMode
