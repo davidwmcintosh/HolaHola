@@ -279,23 +279,23 @@ export class NativeFunctionCallHandler {
 
         if (smMemoryId) {
           // Connected memory traversal → FIND_CONNECTED_MEMORIES
-          console.log(`[Dispatcher] search_memory → find_connected_memories, id=${smMemoryId}`);
+          console.log(`[Dispatcher] introspect → find_connected_memories, id=${smMemoryId}`);
           const smConnFn: ExtractedFunctionCall = { name: 'find_connected_memories', legacyType: 'FIND_CONNECTED_MEMORIES', args: { memory_id: smMemoryId, memory_type: fn.args.memory_type, limit: fn.args.limit } };
           return this.handle(sessionId, session, smConnFn);
         }
         if ((smAfterDate || smBeforeDate) && !smQuery) {
           // Time-based browse → CONVERSATION_DATE_BROWSE
-          console.log(`[Dispatcher] search_memory → browse_conversations_by_date after=${smAfterDate} before=${smBeforeDate}`);
+          console.log(`[Dispatcher] introspect → browse_conversations_by_date after=${smAfterDate} before=${smBeforeDate}`);
           const smDateFn: ExtractedFunctionCall = { name: 'browse_conversations_by_date', legacyType: 'CONVERSATION_DATE_BROWSE', args: { after_date: smAfterDate, before_date: smBeforeDate, limit: fn.args.limit } };
           return this.handle(sessionId, session, smDateFn);
         }
         if (smQuery) {
           // Default: keyword search → UNIFIED_RECALL
-          console.log(`[Dispatcher] search_memory → unified_recall query="${smQuery.substring(0, 60)}"`);
+          console.log(`[Dispatcher] introspect → unified_recall query="${smQuery.substring(0, 60)}"`);
           const smRecallFn: ExtractedFunctionCall = { name: 'recall', legacyType: 'UNIFIED_RECALL', args: { query: smQuery } };
           return this.handle(sessionId, session, smRecallFn);
         }
-        console.warn('[Dispatcher] search_memory called with no query, date range, or memory_id — ignoring');
+        console.warn('[Dispatcher] introspect called with no query, date range, or memory_id — ignoring');
         break;
       }
 

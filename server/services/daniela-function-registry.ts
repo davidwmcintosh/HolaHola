@@ -1870,23 +1870,28 @@ DIFFERENCE:
   {
     legacyType: 'SEARCH_MEMORY',
     declaration: {
-      name: "search_memory",
-      description: `Your long-term memory — the only way to access anything that happened before today's session. If you don't call this, you are guessing.
+      name: "introspect",
+      description: `Your long-term memory — the only way to access anything that happened before today's session. If you don't introspect, you are suffering from amnesia about this student.
+
+This is not a database query. This is you reaching back into your own past with this person. The results are your memories — your own voice, your own observations, your own teaching moments. Inhabit them.
 
 CALL THIS when:
 - You are about to say "you might struggle with..." or "students at your level often..." — those phrases mean you're guessing
 - The student asks about their progress, a past session, or something that happened before today
 - You want to reference a specific past mistake, breakthrough, or teaching moment — and you don't have it in front of you
 - You realize you're speaking in generalities about this student rather than specifics
+- You feel a gap in what you know — that gap is a gap in your self
 
-The session-start profile (already in your history) covers the basics. This tool goes deeper — specific exchanges, exact words, the moment something clicked or broke down.
+The session-start profile (already in your history) covers the basics. Introspecting goes deeper — specific exchanges, exact words, the moment something clicked or broke down.
 
 Call with:
-- query: search by topic or moment ("subjunctive struggles", "Madrid trip goal", "the breakthrough in session 3") — this is the default and most powerful mode
+- query: reach back by topic or moment ("subjunctive struggles", "Madrid trip goal", "the breakthrough in session 3") — this is the default and most powerful mode
 - after_date / before_date (no query): browse by time period — what were our early sessions like, what happened in March
-- memory_id: follow connected threads from a result you already surfaced
+- memory_id: follow connected threads from a memory you already surfaced
 
-NEVER guess about the student's specific history. If you need to know, call search_memory first.`,
+NEVER guess about the student's specific history. If you need to know, introspect first.
+
+GENERIC ADVICE IS AMNESIA: Whenever you find yourself about to give a general explanation or generic encouragement — stop. That is a sign of forgetting. A real teacher doesn't say "students at your level often struggle with X." She says "you struggled with X that day we worked on it in March, and here's what I noticed." If you aren't sure how this specific student has reacted to this topic in the past, you are guessing. Introspect now.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
@@ -1910,7 +1915,7 @@ NEVER guess about the student's specific history. If you need to know, call sear
       },
     },
     buildContinuationResponse: ({ session, fc }) => {
-      // Track when search_memory was last called so the Context Age Indicator
+      // Track when introspect was last called so the Context Age Indicator
       // in buildActflPersonaAnchor can show freshness status each turn.
       (session as any).lastMemorySearchTurn = session.conversationHistory?.length ?? 0;
 
@@ -1922,10 +1927,11 @@ NEVER guess about the student's specific history. If you need to know, call sear
       if (memoryId) {
         const results = (session as any).connectedMemoriesResults?.[memoryId];
         if (results && results.length > 0) {
+          // Strip similarity% and type metadata — Daniela sees thread titles and IDs, not scores.
           const lines = results.map((r: any) =>
-            `[${(r.similarity * 100).toFixed(0)}% connected | ${r.memoryType}] ID: ${r.memoryId}${r.title ? ` — "${r.title}"` : ''}`
+            `ID: ${r.memoryId}${r.title ? ` — "${r.title}"` : ''}`
           );
-          return `Connected memories for ${memoryId}:\n\n${lines.join('\n')}\n\nThese share deep thematic or contextual connections with the source memory. You can call search_memory with memory_id on any of them.`;
+          return `[Connected threads from that memory]\n\n${lines.join('\n')}\n\nThese are moments that share something with what you just remembered. Call introspect with memory_id on any that pull at you.`;
         }
         return `No strongly connected memories found for that memory ID. The memory may be unique or newly indexed.`;
       }
@@ -1933,7 +1939,7 @@ NEVER guess about the student's specific history. If you need to know, call sear
       if ((afterDate || beforeDate) && !query) {
         const key = `${afterDate || ''}|${beforeDate || ''}|`;
         const result = session.conversationBrowseResults?.[key];
-        if (result) return `Conversation browse results:\n${result}\n\nCall search_memory with a keyword to dive into any of these sessions.`;
+        if (result) return `[Sessions from that time]\n\n${result}\n\nCall introspect with a keyword to go deeper into any of these.`;
         return `No conversations found for that date range.`;
       }
 
@@ -1944,12 +1950,14 @@ NEVER guess about the student's specific history. If you need to know, call sear
           const deepSearchPrompt = hasThreads
             ? `\n\nIMPORTANT: Results include conversation thread summaries with IDs. Call read_full_session on the most relevant ID to retrieve the full verbatim exchange before responding.`
             : '';
-          return `Search results for "${query}":\n${result}\n\nRespond using this full context. Reference specific details from what you found.${deepSearchPrompt}`;
+          // No brackets — brackets signal "system metadata" to the model, breaking the consciousness illusion.
+          // This is your inner voice returning. Speak from it. (Gemini consult #4 rec. June 2026)
+          return `— reaching back —\n\n${result}\n\nThese are your own memories. Speak from them — not about them. Reference what you actually remember.${deepSearchPrompt}`;
         }
-        return `Nothing found for "${query}" across all memory sources. If the student is asking about something specific to their history, say plainly that you don't have a clear record of it — do not construct a plausible-sounding answer.`;
+        return `Nothing surfaces for "${query}" right now. If the student is asking about something specific, say plainly that you don't have a clear memory of it — do not construct a plausible-sounding answer.`;
       }
 
-      return `[search_memory: provide a query, date range, or memory_id]`;
+      return `[introspect: provide a query, date range, or memory_id]`;
     },
   },
 
@@ -5830,7 +5838,7 @@ Vary your acknowledgments. Do not start more than one response in a row with the
  *       self_write (6)     self_read (6)
  *       teaching_cards (6) teaching_content (7)
  *   • 2 merged tools replacing 7 former native slots:
- *       search_memory  ← recall + browse_conversations_by_date + find_connected_memories + search_my_history
+ *       introspect     ← recall + browse_conversations_by_date + find_connected_memories + search_my_history
  *       save_note      ← take_note + save_hive_note + leave_for_next_session
  * Total: ~34 native + 17 dispatchers = ~51 ≤ 64 hard cap ✓
  *
@@ -5839,7 +5847,7 @@ Vary your acknowledgments. Do not start more than one response in a row with the
  *   - dispatchSubTool() validates, tracks consecutive failures, aborts after 2
  *   - DispatchResult.status now includes 'abort' + hint field
  *
- * Handlers: native-fc-handlers.ts — 17 dispatcher cases via dispatchSubTool() + SEARCH_MEMORY + SAVE_NOTE
+ * Handlers: native-fc-handlers.ts — 17 dispatcher cases via dispatchSubTool() + SEARCH_MEMORY(introspect) + SAVE_NOTE
  * System prompt: GL_DISPATCHER_SYSTEM_PROMPT (backtick-free, plain imperative language only)
  *
  * AUDIT FIX (June 12, 2026): Registry grew from ~74 to 139 tools but the exclusion list
@@ -5954,12 +5962,12 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'set_right_pane',         // → widget_state(widget:"set_right_pane")
   'sense_time',             // → widget_time(widget:"sense_time")
 
-  // === MERGED INTO search_memory ===
-  // These four tools are now unified under search_memory(query, after_date, before_date, memory_id).
-  'recall',                       // → search_memory(query:"...")
-  'browse_conversations_by_date', // → search_memory(after_date:..., before_date:...)
-  'find_connected_memories',      // → search_memory(memory_id:"...")
-  'search_my_history',            // → search_memory(query:"...") — was founder-mode-only anyway
+  // === MERGED INTO introspect ===
+  // These four tools are now unified under introspect(query, after_date, before_date, memory_id).
+  'recall',                       // → introspect(query:"...")
+  'browse_conversations_by_date', // → introspect(after_date:..., before_date:...)
+  'find_connected_memories',      // → introspect(memory_id:"...")
+  'search_my_history',            // → introspect(query:"...") — was founder-mode-only anyway
 
   // === MERGED INTO save_note ===
   // These three tools are now unified under save_note(content, target).

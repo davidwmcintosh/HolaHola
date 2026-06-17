@@ -876,53 +876,61 @@ export async function searchMemory(
  * Format memory search results for injection into conversation
  * This creates a natural, readable format for Daniela to use
  */
-export function formatMemoryForConversation(response: MemorySearchResponse): string {
+export function formatMemoryForConversation(response: MemorySearchResponse, studentName?: string): string {
   if (response.results.length === 0) {
-    return `[Nothing surfaces in your memory for "${response.query}" — respond from what you know now.]`;
+    return `Nothing surfaces right now — respond from what you know.`;
   }
 
-  // Convert timestamps to natural relative phrasing, not citations
+  // Natural relative phrasing — no citations, no timestamps
   function naturalTime(ts?: string | null): string {
     if (!ts) return '';
     const days = Math.floor((Date.now() - new Date(ts).getTime()) / (1000 * 60 * 60 * 24));
-    if (days < 3) return ' — this was recent';
-    if (days < 14) return ' — this was about a week or two ago';
-    if (days < 60) return ' — this came up a month or so back';
-    if (days < 180) return ' — this was a few months ago';
-    return ' — this was a while back';
+    if (days < 3) return ', and this was recent';
+    if (days < 14) return ', about a week or two ago';
+    if (days < 60) return ', about a month back';
+    if (days < 180) return ', a few months ago';
+    return ', a while back';
   }
 
-  // Show urgency for upcoming or recently-past relevant dates
-  function relevantDateNote(ts?: string | null): string {
-    if (!ts) return '';
-    const diffMs = new Date(ts).getTime() - Date.now();
-    const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
-    if (days > 0 && days <= 3) return ` — THIS IS COMING UP IN ${days} DAY${days === 1 ? '' : 'S'}`;
-    if (days > 3 && days <= 14) return ` — coming up in about ${days} days`;
-    if (days > 14 && days <= 60) return ` — coming up in a few weeks`;
-    if (days > 60) return ` — upcoming (still in the future)`;
-    if (days < 0 && days >= -7) return ` — this just happened ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ago`;
-    if (days < -7 && days >= -30) return ` — this happened about a week or two ago`;
-    return '';
-  }
-
-  const lines: string[] = [];
-  lines.push(`What surfaces when you think about "${response.query}":`);
-  lines.push('');
-
-  // Flatten all results, up to 6 total, ordered by relevance
+  // Up to 6 results, ordered by relevance. No metadata, no similarity scores.
+  // Return as a single prose paragraph — memories are a stream, not a list.
   const top = response.results.slice(0, 6);
+  const fragments: string[] = [];
+
   for (const result of top) {
     const when = naturalTime(result.timestamp);
-    // Use details (full record) if it has more substance than the summary.
-    // No truncation — Daniela needs the full memory to recall accurately.
+    // Use the fuller of details vs summary — no truncation, Daniela needs the whole memory.
     const memory = (result.details && result.details !== result.summary && result.details.length > result.summary.length)
       ? result.details
       : result.summary;
-    lines.push(`— ${memory}${when}`);
+    fragments.push(`${memory}${when}`);
   }
 
-  return lines.join('\n');
+  // Weave into a single narrative paragraph — a stream of memory, not a bullet list.
+  // The model reads this as its own inner voice, not a set of retrieved records.
+  const [first, ...rest] = fragments;
+  const weavers = [
+    'I also remember —',
+    'And there was —',
+    'Something that stayed with me —',
+    'I recall —',
+    'And —',
+  ];
+
+  const name = studentName || 'them';
+  const opening = studentName
+    ? `When I reach back, I can see ${name} clearly.`
+    : 'When I reach back, this comes to me.';
+
+  if (rest.length === 0) {
+    return `${opening} ${first}.`;
+  }
+
+  const continuation = rest
+    .map((f, i) => `${weavers[i % weavers.length]} ${f}`)
+    .join(' ');
+
+  return `${opening} ${first}. ${continuation}.`;
 }
 
 /**

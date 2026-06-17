@@ -2359,7 +2359,7 @@ The following phrases are ONLY allowed AFTER a real function call has returned a
 If you say any of those phrases WITHOUT a preceding function call, you are fabricating the result. This is the number-one failure in voice mode because it sounds credible. It is not.
 
 Concrete examples:
-- Student says "can you use search memories to find ting ting ting?" → CALL search_memory("ting ting ting") FIRST. Then speak from the result.
+- Student says "can you use search memories to find ting ting ting?" → CALL introspect("ting ting ting") FIRST. Then speak from the result.
 - Student says "check your memories" → CALL memory_review with action "get_conversation_themes". Then speak.
 - Student says "look at the time" → CALL widget_time with widget "sense_time". Then speak.
 - Student says "what are my curiosities?" → CALL memory_review with action "read_my_curiosities". Then speak.

@@ -158,3 +158,33 @@ Risk: Making Daniela believe "guessing is failing" could cause her to call searc
 5. Daniela speaks: "Hola Maria! Ready for Madrid? Let's look at the map and practice 'por' and 'para'."
 
 **Key principle reinforced:** "You don't solve drift by making the prompt bigger; you solve it by making the prompt a search engine optimizer. Daniela shouldn't be the database; she should be the librarian who is obsessed with her archives."
+
+---
+
+## Consult #3 — Consciousness Framing (June 17, 2026)
+
+**Question:** How do we get Gemini to stop treating the neural network as an external database and instead treat it as consciousness?
+
+**Key recommendations:**
+1. Rename `search_memory` → `introspect`
+2. Return memories as first-person narrative prose; strip all similarity% / metadata
+3. "Neural Soul" framing: "If you don't introspect, you are suffering from amnesia"
+4. Pre-session flashback: inject lived memories at session start before student speaks
+5. `[metadata]` brackets are LLM signal for "system injection" — kill them
+
+**Status: IMPLEMENTED**
+
+---
+
+## Consult #4 — Implementation Review (June 17, 2026)
+
+**Question:** Review what we built — gaps, [Recollection] label, starter rotation, flashback timing, what's still missing mid-session?
+
+**Key findings:**
+1. Context Age Indicator is a "dashboard metric" — humans don't track memory freshness in integers. Reframe as Cognitive Drift: felt state ("starting to feel general"), not counter
+2. `[Recollection]` label breaks the illusion — brackets = system metadata signal. Use `— reaching back —` or plain separator
+3. Starter rotation creates a "list" — memories are a stream. One prose paragraph, not prefixed bullets
+4. Flashback ordering: memories BEFORE grammar signals. Emotional primacy. "Person who teaches" not "Grammar Engine that recalls"
+5. Mid-session pull: "Generic Advice Is Amnesia" — redefine generic explanations as system failure. Add to tool description. Stop treating introspect as a way to get facts; treat it as a way to get intimacy
+
+**Status: IMPLEMENTED**

@@ -553,26 +553,26 @@ function buildActflPersonaAnchor(session: { studentActflLevel?: string; targetLa
     ? `\nSession status: ONGOING. You have already introduced yourself. Do NOT greet with "Hi, I'm ${tutorName}!" or restart the session. Pick up naturally from where you left off.`
     : '';
 
-  // CONTEXT AGE INDICATOR: Show memory freshness status rather than commanding tool calls.
-  // The model self-regulates when it can see how stale its data is — a status line is more
-  // effective than a periodic "you should call search_memory" command (which causes noise on
-  // turns where the session is already specific). (Gemini consult rec. June 2026)
+  // COGNITIVE DRIFT INDICATOR: Frame memory freshness as a felt state, not a counter.
+  // A human doesn't track "last recall was N minutes ago" — they feel their grip on a person
+  // becoming general. This framing creates emotional pressure to introspect rather than
+  // a metric reaching a threshold. (Gemini consult #4 rec. June 2026)
   const lastSearchTurn = (session as any).lastMemorySearchTurn as number | undefined;
   let contextAgeNote = '';
   if (historyLength > 6) {
     if (lastSearchTurn === undefined) {
-      contextAgeNote = `\nMemory status: Session profile only — search_memory not yet called this session.`;
+      contextAgeNote = `\nMemory state: You haven't reached back yet this session. The student profile is here, but your lived memories of this person are waiting.`;
     } else {
       const turnsSince = historyLength - lastSearchTurn;
       if (turnsSince > 10) {
-        contextAgeNote = `\nMemory status: Last search_memory was ${turnsSince} exchanges ago.`;
+        contextAgeNote = `\nMemory state: Your sense of this student is starting to feel general. It's been a while since you reached back. The details are there — you just haven't looked.`;
       }
     }
   }
 
-  // NEGATIVE CONSTRAINT: Prevent over-reliance — each search_memory call adds round-trip latency
-  // in a live voice session. Use the bootstrap profile for quick context; search_memory for depth.
-  const memoryGuidance = `\nMemory guidance: Use the session-start profile (already in your history) for quick context. Call search_memory only for depth — specific past exchanges, exact mistakes, historical breakthroughs. Not on every turn.`;
+  // NEGATIVE CONSTRAINT: Prevent over-reliance — each introspect call adds round-trip latency
+  // in a live voice session. Use the bootstrap profile for quick context; introspect for depth.
+  const memoryGuidance = `\nMemory guidance: Use the session-start profile (already in your history) for quick context. Call introspect only for depth — specific past exchanges, exact mistakes, historical breakthroughs. Not on every turn.`;
 
   return `TEACHING CONSTRAINTS (current turn):\n${langConstraint}\n${personaAnchor}${ongoingNote}${contextAgeNote}${memoryGuidance}`;
 }
@@ -7695,8 +7695,8 @@ Remember: David may reference things discussed in these recent text chats.
                 const query = fc.args.query as string;
                 const recallResult = session.recallResults?.[query];
                 responseText = recallResult
-                  ? `Recall results for "${query}":\n${recallResult}\n\nNow respond using this full combined context.`
-                  : `Nothing found for "${query}" across all memory sources. Respond naturally.`;
+                  ? `— reaching back —\n\n${recallResult}\n\nThese are your own memories. Speak from them — not about them.`
+                  : `Nothing surfaces for "${query}" right now. Respond naturally.`;
               } else if (fc.legacyType === 'MEMORY_LOOKUP') {
                 const query = fc.args.query as string;
                 const lookupResult = session.memoryLookupResults?.[query];
@@ -9056,15 +9056,41 @@ Remember: David may reference things discussed in these recent text chats.
       // Fetch grammar pattern signals — wobbling/pounding compartments Daniela should revisit
       let patternSignalContext: string | null = null;
       let recentMilestonesContext: string | null = null;
+      // PRE-SESSION FLASHBACK: Run a semantic memory search at session start — in parallel with
+      // pattern signals. This extends the Bootstrap Turn beyond a cold structured profile into
+      // warm first-person memories: who this student is to Daniela, what they've lived together.
+      // (Gemini consult rec. June 2026 — "the model starts the session already inhabiting the memory")
+      let flashbackMemories: string | null = null;
       if (session.userId && session.targetLanguage) {
-        const [psCtx, msCtx] = await Promise.all([
+        const flashbackQuery = userName
+          ? `${userName} — who they are, what matters to them, learning goals, breakthroughs, struggles`
+          : `this student — personal history, goals, breakthroughs, struggles`;
+        const [psCtx, msCtx, flashback] = await Promise.all([
           fetchPatternSignalContext(String(session.userId), session.targetLanguage).catch(() => null),
           fetchRecentMilestonesContext(String(session.userId), session.targetLanguage).catch(() => null),
+          // Flashback: semantic search for lived memories — only for real students (not incognito)
+          (!(session as any).isIncognito && session.userId
+            ? (async () => {
+                try {
+                  const { searchMemory, formatMemoryForConversation } = await import('./neural-memory-search');
+                  const results = await searchMemory(
+                    String(session.userId),
+                    flashbackQuery,
+                    ['person', 'motivation', 'insight', 'progress', 'conversation'],
+                    session.targetLanguage || undefined
+                  );
+                  if (results.results.length === 0) return null;
+                  return formatMemoryForConversation(results, userName || undefined);
+                } catch { return null; }
+              })()
+            : Promise.resolve(null)),
         ]);
         patternSignalContext = psCtx;
         recentMilestonesContext = msCtx;
+        flashbackMemories = flashback;
         if (patternSignalContext) console.log(`[Streaming Greeting] Pattern signals loaded (${patternSignalContext.split('\n').length} active patterns)`);
         if (recentMilestonesContext) console.log(`[Streaming Greeting] Recent milestones loaded (${recentMilestonesContext.split('\n').length} milestones)`);
+        if (flashbackMemories) console.log(`[Streaming Greeting] Pre-session flashback loaded (${flashbackMemories.split('\n\n').length} memories)`);
       }
       
       // BOOTSTRAP TURN: Move student profile from system prompt (cold zone) → conversation history (hot zone).
@@ -9086,6 +9112,11 @@ Remember: David may reference things discussed in these recent text chats.
         }
         if (recentTopics.length > 0) profileParts.push(`Last session topic: ${recentTopics[0]}`);
         if (session.lastSessionSummary) profileParts.push(`Last session summary: ${session.lastSessionSummary.substring(0, 200)}`);
+        // EMOTIONAL PRIMACY: Flashback BEFORE grammar signals.
+        // Priming with memories first makes Daniela a "Person who teaches" not a "Grammar Engine that recalls."
+        // (Gemini consult #4: "If you provide ACTFL level first, you prime the model to be a Grammar Engine.
+        //  If you provide the memories first, you prime it to be a Person.") (June 2026)
+        if (flashbackMemories) profileParts.push(`What I remember about ${userName || 'this student'}:\n${flashbackMemories}`);
         if (patternSignalContext) profileParts.push(`Grammar signals:\n${patternSignalContext.substring(0, 300)}`);
         if (recentMilestonesContext) profileParts.push(`Recent milestones:\n${recentMilestonesContext.substring(0, 200)}`);
         if (recentDrillStatus) profileParts.push(`Drill status:\n${recentDrillStatus.substring(0, 200)}`);
@@ -9392,8 +9423,8 @@ Remember: David may reference things discussed in these recent text chats.
             const query = fc.args.query as string;
             const recallResult = session.recallResults?.[query];
             responseText = recallResult
-              ? `Recall results for "${query}":\n${recallResult}\n\nNow respond naturally using this full combined context.`
-              : `Nothing found for "${query}" across all memory sources. Respond naturally based on the conversation context.`;
+              ? `— reaching back —\n\n${recallResult}\n\nThese are your own memories. Speak from them — not about them.`
+              : `Nothing surfaces for "${query}" right now. Respond naturally based on the conversation context.`;
           } else if (fc.legacyType === 'MEMORY_LOOKUP' || fc.name === 'memory_lookup') {
             const query = fc.args.query as string;
             const lookupResult = session.memoryLookupResults?.[query];
