@@ -156,9 +156,8 @@ export function buildStudentSnapshotSection(
 
   // ⭐ In-session mastery — highest priority, top of snapshot
   if (snapshot.sessionMasteryJustNow && snapshot.sessionMasteryJustNow.length > 0) {
-    lines.push('⭐ IN-SESSION MASTERY (act on this NOW):');
-    lines.push(`The student just locked in ${snapshot.sessionMasteryJustNow.map(w => `"${w}"`).join(', ')} through practice in this very session.`);
-    lines.push('Weave a warm, specific acknowledgment into your very next reply. Name the word. Make it feel like a genuine milestone — brief but real.');
+    // No "act on this NOW" command, no "Weave into your reply" developer directive — state the fact, trust Daniela. (Gemini consult rec.)
+    lines.push(`Something just happened: ${snapshot.sessionMasteryJustNow.map(w => `"${w}"`).join(', ')} clicked for them this session — earned, not given.`);
     lines.push('');
   }
   

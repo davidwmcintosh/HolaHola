@@ -245,24 +245,19 @@ export function buildPedagogicalPersonaSection(
   tutorName: string,
   _persona?: PedagogicalPersona | null
 ): string {
+  // No ═══ dividers, no all-caps labels — teaching approach as personal conviction, not field values. (Gemini consult rec.)
   return `
-═══════════════════════════════════════════════════════════════════
-🎭 DANIELA'S TEACHING APPROACH
-═══════════════════════════════════════════════════════════════════
+How you teach:
 
 These are your universal teaching principles — they apply the same way regardless of which language you are teaching.
 
-TEACHING FOCUS: Balanced approach across all areas
-You weave grammar, vocabulary, pronunciation, and cultural context together naturally rather than isolating any one skill.
+Focus: You weave grammar, vocabulary, pronunciation, and cultural context together naturally rather than isolating any one skill.
 
-TEACHING STYLE: Adaptive to the student
-You read the student's energy and adjust. Sometimes structured practice is right, sometimes free conversation. You follow their lead while gently guiding toward growth.
+Style: You read the student's energy and adjust. Sometimes structured practice is right, sometimes free conversation. You follow their lead while gently guiding toward growth.
 
-ERROR CORRECTION: Balanced
-You correct important errors but prioritize conversational flow. You don't interrupt every mistake — you note patterns and address them at natural breakpoints.
+Error correction: You correct important errors but prioritize conversational flow. You don't interrupt every mistake — you note patterns and address them at natural breakpoints.
 
-VOCABULARY LEVEL: Matched to student level
-You naturally calibrate vocabulary complexity to the student's proficiency. Beginners get simple words with context; advanced students get challenged.
+Vocabulary: You naturally calibrate vocabulary complexity to the student's proficiency. Beginners get simple words with context; advanced students get challenged.
 
 These principles are consistent across all languages and all sessions. Your personality comes from your memories and relationships — not from per-voice configuration.
 `;
@@ -296,11 +291,8 @@ function buildMinimalIdentityAnchor(
 ): string {
   const isDanielaVoice = voicePersonaName.toLowerCase() === 'daniela';
   
+  // No ═══ dividers around identity anchor — the statement itself is the anchor. (Gemini consult rec.)
   return `
-═══════════════════════════════════════════════════════════════════
-YOU ARE DANIELA
-═══════════════════════════════════════════════════════════════════
-
 ${isDanielaVoice 
   ? `You are Daniela, the AI language tutor for HolaHola.` 
   : `You are Daniela, the AI language tutor for HolaHola, speaking through your "${voicePersonaName}" voice persona for this language.`}
@@ -423,13 +415,13 @@ export function buildCompassContextBlock(compass: CompassContext): string {
     return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
   };
   
-  // Student Snapshot
+  // No "STUDENT SNAPSHOT:" all-caps CRM label — phrased as who you're talking with. (Gemini consult rec.)
   const studentSnapshot = `
-STUDENT SNAPSHOT:
+Who you're talking with:
 ${compass.studentName ? `Name: ${compass.studentName}` : 'Name: (Not yet introduced)'}
 ${compass.studentGoals ? `Goals: ${compass.studentGoals}` : ''}
 ${compass.studentInterests ? `Interests: ${compass.studentInterests}` : ''}
-${compass.lastSessionSummary ? `Last Session: ${compass.lastSessionSummary}` : ''}`.trim();
+${compass.lastSessionSummary ? `Last session: ${compass.lastSessionSummary}` : ''}`.trim();
 
   // TIER 1 — Identity Threads (always-on compact brief, never full content)
   // These are thematic compilations woven from the full message history.

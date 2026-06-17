@@ -574,7 +574,8 @@ function buildActflPersonaAnchor(session: { studentActflLevel?: string; targetLa
   // in a live voice session. Use the bootstrap profile for quick context; introspect for depth.
   const memoryGuidance = `\nMemory guidance: Use the session-start profile (already in your history) for quick context. Call introspect only for depth — specific past exchanges, exact mistakes, historical breakthroughs. Not on every turn.`;
 
-  return `TEACHING CONSTRAINTS (current turn):\n${langConstraint}\n${personaAnchor}${ongoingNote}${contextAgeNote}${memoryGuidance}`;
+  // "TEACHING CONSTRAINTS" sounds like a hard rule list. "This turn:" names the moment, not a constraint system. (Gemini consult rec.)
+  return `This turn:\n${langConstraint}\n${personaAnchor}${ongoingNote}${contextAgeNote}${memoryGuidance}`;
 }
 
 function parseSprintSuggestion(content: string): { title: string; description: string; priority?: string } {
