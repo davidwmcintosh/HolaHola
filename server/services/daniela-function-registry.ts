@@ -2946,12 +2946,29 @@ WHEN TO USE:
     legacyType: 'LOAD_SCENARIO',
     declaration: {
       name: "load_scenario",
-      description: "Load an immersive scenario from the scenario library by slug. Use this when the student wants to practice a specific real-world situation.",
+      description: `Load an immersive scenario from the scenario library by slug. Use this when the student wants to practice a specific real-world situation.
+
+IMPORTANT — the spoken_text you provide here plays WHILE the scenario loads in the background. It must be long enough to cover the loading time (aim for 3–5 sentences). Use it to warm up the student before the roleplay begins — NOT to jump straight into character. The warm-up should be in the student's native language (or a light mix appropriate to their level). Go in-character AFTER this loads.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
           slug: { type: "string", description: "The scenario slug identifier. Available slugs: 'coffee-shop', 'restaurant', 'grocery-store', 'hotel-checkin', 'airport-checkin', 'taxi-ride', 'doctors-office', 'lost-and-found', 'job-interview', 'office-meeting', 'dinner-with-friend', 'house-party', 'museum-visit', 'local-festival'." },
-          spoken_text: { type: "string", description: "What Daniela says to introduce the scenario (spoken aloud)" },
+          spoken_text: {
+            type: "string",
+            description: `A warm-up introduction spoken BEFORE you go in-character. This plays while the scenario loads, so make it 3–5 sentences — enough to fill the loading time.
+
+RULES:
+- Speak primarily in the student's NATIVE language (for most students: English). Do not open in the target language.
+- Introduce the scenario by name ("We're going to try the coffee shop")
+- Tell the student your character role ("I'll be playing the barista")
+- Tell them their role ("You're a customer walking in")  
+- Let them know the roleplay is about to start so they can mentally prepare
+- End with something that signals "here we go" — a short phrase in the target language is fine as a kicker
+
+Example (beginner student, Spanish): "Okay, let's try the coffee shop scenario! I'm going to be your barista — imagine you've just walked into a café on a sunny morning in Madrid. You're a customer who wants to order a drink and maybe a snack. Think about what you'd like, and when you're ready, we'll start. ¿Listo?"
+
+Example (intermediate student, Spanish): "We're jumping into the coffee shop — I'll be the barista, you're the customer. This time try to order your whole drink in Spanish, including the size and any modifications. Don't worry about being perfect — just go for it. ¡Empezamos!"`,
+          },
         },
         required: ["slug", "spoken_text"],
       },
@@ -2961,6 +2978,25 @@ WHEN TO USE:
       if (!activeScenario) {
         return `Scenario "${fc.args.slug}" could not be loaded. Apologize briefly and suggest trying another scenario.`;
       }
+
+      // Derive ACTFL-appropriate language mixing guidance
+      const actflLevel: string = (session as any).studentActflLevel || 'novice_mid';
+      const nativeLang: string = (session as any).nativeLanguage || 'english';
+      const targetLang: string = (session as any).targetLanguage || 'spanish';
+      const ACTFL_ORDER = ['novice_low', 'novice_mid', 'novice_high', 'intermediate_low', 'intermediate_mid', 'intermediate_high', 'advanced_low', 'advanced_mid', 'advanced_high', 'superior'];
+      const levelIdx = ACTFL_ORDER.indexOf(actflLevel);
+      let languageMixGuidance: string;
+      if (levelIdx <= 2) {
+        // Novice: mostly native language, single target-language words and very short phrases
+        languageMixGuidance = `ACTFL LEVEL (${actflLevel}) — Novice: Conduct the roleplay mostly in ${nativeLang} with individual ${targetLang} words and very short fixed phrases (greetings, common items, numbers). The student cannot sustain full ${targetLang} exchanges yet. Keep sentences in ${nativeLang} and slot in the target vocabulary. Never speak a full paragraph in ${targetLang}.`;
+      } else if (levelIdx <= 5) {
+        // Intermediate: mix — target language for the roleplay itself, native for coaching and clarification
+        languageMixGuidance = `ACTFL LEVEL (${actflLevel}) — Intermediate: Run the roleplay exchanges primarily in ${targetLang}, but use ${nativeLang} for quick coaching moments ("try saying it like this…"), comprehension checks, and when you need to explain something about the scenario. The student can handle short ${targetLang} exchanges — push them to produce, but rescue them in ${nativeLang} when they get stuck.`;
+      } else {
+        // Advanced / Superior: immersive in target language
+        languageMixGuidance = `ACTFL LEVEL (${actflLevel}) — Advanced: Conduct the roleplay fully in ${targetLang}. Only switch to ${nativeLang} for rare, critical comprehension moments. Challenge the student to stay in ${targetLang} throughout.`;
+      }
+
       const parts: string[] = [
         `Scenario "${activeScenario.title}" loaded successfully.`,
         `Location: ${activeScenario.location || activeScenario.title}.`,
@@ -2984,7 +3020,9 @@ WHEN TO USE:
           parts.push(`This is the only zone — advance_scene() ends the scenario when called.`);
         }
       }
-      parts.push(`The student's spoken_text introduction has already been played. Now stay in character and begin the roleplay interaction. Do NOT repeat the introduction.`);
+      // Language mix rule (ACTFL-derived) — this is the most important instruction for quality
+      parts.push(languageMixGuidance);
+      parts.push(`The warm-up introduction has already been played. Now go in-character and begin the roleplay — do NOT repeat the introduction.`);
       return parts.join(' ');
     },
   },

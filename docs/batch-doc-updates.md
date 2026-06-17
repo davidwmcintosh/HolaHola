@@ -8,6 +8,27 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jun 16, 2026 — Scenario entry: warm-up + ACTFL language mix
+
+### What was built
+
+**`load_scenario` warm-up + silence fix + ACTFL language mixing (daniela-function-registry.ts)**
+
+Three problems with scenario entry:
+1. **Silence gap**: `LOAD_SCENARIO` handler does 5–6 sequential DB queries. The `spoken_text` arg is supposed to play during loading, but if Daniela generated a short one-liner (like "¡Vamos!") it would finish in 1–2 seconds and leave dead air for the remaining load time.
+2. **No warm-up**: The continuation response told Daniela to "stay in character" immediately after loading, with no instruction about a native-language warm-up first.
+3. **No language mix guidance**: The continuation response had no ACTFL-level-appropriate guidance on how much native vs. target language to use in the roleplay.
+
+**Fixes:**
+- `load_scenario` function description: Added explicit instruction that `spoken_text` plays during loading and must be long enough to fill that time (3–5 sentences). Warm-up before going in-character.
+- `spoken_text` parameter description: Detailed rules — native language first, introduce scenario by name, explain both roles, signal "here we go." Two concrete examples (beginner + intermediate).
+- `buildContinuationResponse`: Added ACTFL-derived language mixing guidance:
+  - Novice (levels 0–2): Mostly native language, slot in target-language words/phrases
+  - Intermediate (levels 3–5): Run exchanges in target language, coach/rescue in native
+  - Advanced/Superior (levels 6+): Full immersion in target language
+
+---
+
 ## Session — Jun 16, 2026 — Greeting context cleanup (Wren leak + Founder Mode personal-first rule)
 
 ### What was built
