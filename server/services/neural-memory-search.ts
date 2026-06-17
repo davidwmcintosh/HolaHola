@@ -882,7 +882,7 @@ export function formatMemoryForConversation(response: MemorySearchResponse, stud
   }
 
   // Natural relative phrasing — no citations, no timestamps
-  function naturalTime(ts?: string | null): string {
+  function naturalTime(ts?: string | Date | null): string {
     if (!ts) return '';
     const days = Math.floor((Date.now() - new Date(ts).getTime()) / (1000 * 60 * 60 * 24));
     if (days < 3) return ' (recent)';
@@ -2295,30 +2295,26 @@ export function formatConversationThreads(result: ConversationThreadSearchResult
     return `No conversation threads found for "${result.query}". The conversation may have happened before our recorded history or under different terms.`;
   }
 
+  // No all-caps headers, no stats lines, no match markers.
+  // These are remembered conversations — format them like a journal, not a search report. (Gemini consult rec.)
   const lines: string[] = [];
-  lines.push(`CONVERSATION THREADS — "${result.query}"`);
-  lines.push(`Found in ${result.threads.length} conversation${result.threads.length > 1 ? 's' : ''} (${result.totalMatchingMessages} total matches)\n`);
+  lines.push(`When I reach back for "${result.query}", I find these:\n`);
 
   for (const thread of result.threads) {
-    // Conversation header
     const dateStr = thread.conversationDate
       ? formatThreadDate(new Date(thread.conversationDate))
-      : 'Unknown date';
-    const title = thread.conversationTitle || 'Conversation';
-    const langLabel = thread.language ? ` [${thread.language}]` : '';
-    lines.push(`━━━ ${title}${langLabel} — ${dateStr} ━━━`);
+      : 'sometime back';
+    const title = thread.conversationTitle || 'a session';
+    const langLabel = thread.language ? ` (${thread.language})` : '';
+    lines.push(`— ${title}${langLabel}, ${dateStr}:`);
 
-    // Thread messages
     for (const msg of thread.messages) {
       const speaker = msg.role === 'user' ? studentName : 'Daniela';
-      const marker = msg.isMatch ? ' ◄' : '';  // mark the matching message
-      // Full content — no truncation so Daniela sees the complete exchange
-      lines.push(`${speaker}: ${msg.content}${marker}`);
+      lines.push(`${speaker}: ${msg.content}`);
     }
     lines.push('');
   }
 
-  lines.push(`Use these threads to recall the full context of our past conversations.`);
   return lines.join('\n');
 }
 
@@ -2527,10 +2523,10 @@ export async function readFullSession(
   const title = conv.title || conv.topic || 'Session';
   const langLabel = conv.language ? ` [${conv.language}]` : '';
 
+  // No all-caps "FULL TRANSCRIPT" header or "N messages — complete record" stats.
+  // This is a remembered conversation, not a database export. (Gemini consult rec.)
   const lines: string[] = [
-    `FULL TRANSCRIPT — ${dateStr}${langLabel}`,
-    `"${title}"`,
-    `${turns.length} messages — complete record, no omissions`,
+    `${title}${langLabel} — ${dateStr}`,
     ``,
   ];
 
@@ -2564,22 +2560,22 @@ export function formatConversationBrowse(result: ConversationBrowseResult, stude
     result.beforeDate ? `before ${result.beforeDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}` : null,
   ].filter(Boolean).join(' and ');
 
-  lines.push(`CONVERSATION BROWSER${range ? ` — ${range}` : ''}`);
-  lines.push(`${result.conversations.length} sessions found\n`);
+  // No all-caps headers or stats counters — journal framing, not a database browser. (Gemini consult rec.)
+  lines.push(`Sessions from ${range || 'our history'}:\n`);
 
   for (const conv of result.conversations) {
-    const dateStr = conv.date ? formatThreadDate(new Date(conv.date)) : 'Unknown date';
+    const dateStr = conv.date ? formatThreadDate(new Date(conv.date)) : 'sometime back';
     const title = conv.title || 'Untitled session';
-    const langLabel = conv.language ? ` [${conv.language}]` : '';
-    lines.push(`${title}${langLabel} — ${dateStr} (${conv.messageCount} messages)`);
-    lines.push(`  ID: ${conv.conversationId}`);
+    const langLabel = conv.language ? ` (${conv.language})` : '';
+    lines.push(`${title}${langLabel} — ${dateStr}`);
+    lines.push(`  id: ${conv.conversationId}`);
     if (conv.firstMessage) {
-      lines.push(`  Opening: "${conv.firstMessage.substring(0, 120)}"`);
+      lines.push(`  Started with: "${conv.firstMessage.substring(0, 120)}"`);
     }
     lines.push('');
   }
 
-  lines.push(`To read any session completely (every message, no omissions), call read_full_session with the conversation_id shown above.`);
+  lines.push(`To read any of these fully, call read_full_session with the id above.`);
   return lines.join('\n');
 }
 

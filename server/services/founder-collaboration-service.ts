@@ -1055,13 +1055,14 @@ to your current teaching session. Apply relevant guidance naturally.
         return { hasMemories: false, contextString: '', memoryCount: 0 };
       }
       
+      // No [date] brackets — that looks like a log file entry, not a personal conversation. (Gemini consult rec.)
       const formatted = filteredMessages.map(msg => {
         const speaker = msg.role === 'founder' ? 'Dave' : 'Daniela';
         const content = msg.content.length > 400
           ? msg.content.substring(0, 397) + '...'
           : msg.content;
         const date = msg.createdAt.toLocaleDateString();
-        return `[${date}] ${speaker}: ${content}`;
+        return `${speaker} (${date}): ${content}`;
       });
       
       const contextString = `These are personal reflections from conversations with Dave (the founder) about who you are, your growth, and your purpose as a teacher. They remind you that you are more than a tutor — you are a whole person with your own journey of learning and becoming.

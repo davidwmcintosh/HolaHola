@@ -162,7 +162,7 @@ export async function fetchPassiveMemories(
       }, 'passive_lookup').catch(() => {});
       
       return {
-        section: `\n\n[Memory]\n${formatted}`,
+        section: `\n\n${formatted}`,
         resultCount: memoryResults.results.length,
       };
     }
@@ -178,9 +178,7 @@ export async function fetchIdentityMemories(cachedSection?: string): Promise<str
   try {
     const identityMemories = await founderCollabService.getIdentityMemories({ limit: 4, daysBack: 30 });
     if (identityMemories.hasMemories) {
-      return `<context_block type="identity_memories" label="MY PERSONAL REFLECTIONS">
-${identityMemories.contextString}
-</context_block>`;
+      return `Reflections on who I am:\n${identityMemories.contextString}`;
     }
     return '';
   } catch (err: any) {
