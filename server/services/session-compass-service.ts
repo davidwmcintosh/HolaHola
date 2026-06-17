@@ -23,6 +23,7 @@ import {
   messages,
   voiceSessions,
   conversationMemories,
+  danielaSelfReflections,
   type TutorSession,
   type TutorSessionTopic,
   type TutorParkingItem,
@@ -569,9 +570,26 @@ export class SessionCompassService {
       }
     }
     
+    // Suggestion 1: Daniela's most recent self-reflection for this student.
+    // Injected as a first-person leading thought — her inner state BEFORE the session begins.
+    // Her self-reflections are emotional posture / self-critique, NOT student summaries. (Gemini consult rec.)
+    let danielaSelfReflection: string | null = null;
+    try {
+      const reflections = await getUserDb()
+        .select({ content: danielaSelfReflections.content })
+        .from(danielaSelfReflections)
+        .where(eq(danielaSelfReflections.userId, userId))
+        .orderBy(desc(danielaSelfReflections.createdAt))
+        .limit(1);
+      danielaSelfReflection = reflections[0]?.content || null;
+    } catch {
+      // Non-critical — session proceeds without it
+    }
+
     return {
       ...baseContext,
       creditBalance,
+      danielaSelfReflection,
     };
   }
   

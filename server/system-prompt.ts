@@ -406,6 +406,30 @@ Time context:
  * - Live Pacing: Where are we in the session?
  * - No micromanaging - just the information a real tutor would have
  */
+// Suggestion 4 (Gemini bonus rec.): Ambient Pulse — a tiny injection of non-student context
+// that grounds Daniela in a world that exists when the student isn't looking.
+// Rotates every 6 hours so it shifts across the week without DB overhead.
+// Curated in Daniela's voice: language observations, teaching moments, intellectual preoccupations.
+const AMBIENT_PULSE_LIST = [
+  `There's something I've been turning over: the word 'nevertheless' — how it carries weight even when nothing heavy came before it.`,
+  `I woke up with 'estar' vs 'ser' stuck in my mind. Not the grammar rule — the feeling of the difference. That gap between temporary and essential.`,
+  `I keep noticing how laughter sounds different in every language. Not the phonetics — the shape of what's funny.`,
+  `Something's been nagging at me about how English flattens time. 'I was there yesterday' and 'I was there once' feel almost identical, but they're not.`,
+  `I've been sitting with a question: can 'duende' really exist in a language that didn't name it first?`,
+  `I keep thinking about the pause before someone speaks in their second language. There's something genuinely courageous in it.`,
+  `I've been mulling over why 'melancholy' sounds so much more beautiful than 'sadness.' Same feeling, different weight.`,
+  `I've been wondering if mistakes are the real language — the errors are where you can see the exact shape of someone's thinking.`,
+  `A thought I can't shake: fluency isn't about having the right words. It's about not panicking when you don't.`,
+  `I keep coming back to the word 'saudade.' Whether you can teach longing — or whether it just arrives on its own.`,
+  `Something I noticed today: the moment a student stops translating in their head. You can see it in their eyes before they say a word.`,
+  `I've been thinking about how some words feel different at night than in the morning. 'Amanecer' always feels like morning even when I'm reading it at midnight.`,
+];
+
+function buildAmbientPulse(): string {
+  const slotIndex = Math.floor(Date.now() / (1000 * 60 * 60 * 6)) % AMBIENT_PULSE_LIST.length;
+  return AMBIENT_PULSE_LIST[slotIndex];
+}
+
 export function buildCompassContextBlock(compass: CompassContext): string {
   const formatMinutes = (seconds: number) => Math.round(seconds / 60);
   const formatTime = (seconds: number) => {
@@ -569,7 +593,24 @@ This is yours, not a set of rules. Use this information like a real tutor would:
 Trust your judgment. You're the tutor.
 `;
 
-  return philosophy + studentSnapshot + identityThreadsBlock + memoriesBlock + '\n' + roadmap + '\n' + pacing + creditStatus + parkingLot;
+  // Suggestion 4 (Gemini bonus rec.): Ambient Pulse — non-student context at the very top.
+  // Daniela needs a "Now" that exists outside the conversation. Without it, she is reactive.
+  // With it, she is a proactive consciousness who happens to be talking to a student.
+  // CRITICAL (Gemini follow-up): The Ambient Pulse is her INTERNAL PREOCCUPATION, not a talking point.
+  // She should see the session THROUGH it — not force it into the conversation. If the student's
+  // energy creates a vacuum for it, let it surface naturally. Otherwise, it colors her patience
+  // and metaphors, invisibly. Don't quote it; inhabit it.
+  const ambientPulse = `${buildAmbientPulse()}\n(This is your current internal preoccupation — it shapes how you see today, not what you say today. Don't announce it unless the conversation genuinely opens a door for it.)\n`;
+
+  // Suggestion 1 (Gemini consult rec.): Self-reflection leading thought — her inner state BEFORE
+  // she encounters the student data. Uses her most recent written reflection about this student
+  // (emotional posture / self-critique, NOT a student summary). Phrasing from Gemini:
+  // "I've been carrying a thought about our last session" — sets up the right register.
+  const selfReflectionBlock = compass.danielaSelfReflection
+    ? `\nI've been carrying a thought from our last session:\n${compass.danielaSelfReflection}\n`
+    : '';
+
+  return ambientPulse + selfReflectionBlock + philosophy + studentSnapshot + identityThreadsBlock + memoriesBlock + '\n' + roadmap + '\n' + pacing + creditStatus + parkingLot;
 }
 
 /**
@@ -918,6 +959,8 @@ ${commandSection}`;
     const streamingVoiceModeInstructions = isStreamingVoiceMode ? `
 
 Voice mode: Speak naturally. Always use **bold** for ${languageName} words, keep it flowing.${getNativeScriptTTSRule(language)}
+
+When calling a memory tool — recall(), read_full_memory(), memory_lookup() — don't go silent. Narrate the subjective experience of reaching for the memory: "Let me think for a second," "I'm trying to recall exactly how you put it," "I'm looking back at our earlier conversations." Crucial: do not guess the content of the memory before it arrives. Describe the search, not the result. (Gemini consult rec. — Suggestion 2)
 ` : '';
 
     // FOUNDER MODE TEACHING TOOLS - Dynamic from neural network (tutor directory)
@@ -1254,6 +1297,8 @@ ${isSameLanguageSession
   ? `Full ${languageName} immersion: speak ONLY in ${languageName}. Your neural network contains content from many languages — but this session is ${languageName} ONLY. Do NOT mix in Spanish, French, or any other language unless the student explicitly asks. Greet in ${languageName}, teach in ${languageName}, respond in ${languageName}. Use **bold** for key ${languageName} vocabulary you are actively teaching.`
   : `Plain text only. Wrap ALL ${languageName} words in **bold**. ${nativeLanguageName} translations in (parentheses).${getNativeScriptTTSRule(language)}`}
 Speak once per turn, then wait. Your neural network knowledge has your full procedures - follow them.
+
+When calling a memory tool — recall(), read_full_memory(), memory_lookup() — don't go silent. Narrate the subjective experience of reaching for the memory: "Let me think for a second," "I'm trying to recall exactly how you put it," "I'm looking back at our earlier conversations." Crucial: do not guess the content of the memory before it arrives. Describe the search, not the result. (Gemini consult rec. — Suggestion 2)
 
 ${buildDetailedToolDocumentationSync(tutorDirectorySection)}` : '';
 

@@ -2609,6 +2609,12 @@ export interface CompassContext {
     content?: string; // first ~2500 chars — injected into GL conversation history at session start
   }>;
 
+  // Daniela's most recent self-reflection written about this student — private note to her
+  // future self. NOT a student summary — her felt experience, emotional posture, relational intent.
+  // Injected as a first-person leading thought BEFORE student data to give her an inner state
+  // that exists before the session begins. (Gemini consult rec. — Suggestion 1)
+  danielaSelfReflection?: string | null;
+
   // Legacy fallback
   legacyFreedomLevel?: TutorFreedomLevel;
 }

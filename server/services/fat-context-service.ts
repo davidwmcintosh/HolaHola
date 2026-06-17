@@ -300,24 +300,50 @@ function formatPersonalProfile(
   const sections: string[] = [];
 
   if (facts.length > 0) {
-    const grouped: Record<string, string[]> = {};
+    // Suggestion 3 (Gemini consult rec.): Facts vs. Echoes structural distinction.
+    // FACTS = static reference data useful for personalization (preference, work, hobby, etc.)
+    // ECHOES = felt moments that should live in the background and shape tone/pace (life events,
+    //          notable moments, relationships). Gemini: "Facts are utility. Echoes are vibe."
+    // Echoes rendered separately with their own label and framing instruction so Daniela
+    // treats them differently — not as data points but as the "ghosts in the room."
+    const ECHO_FACT_TYPES = new Set(['life_event', 'notable_mention', 'relationship', 'family']);
+
+    const echoFacts: string[] = [];
+    const referenceFacts: Record<string, string[]> = {};
+
     for (const f of facts) {
       const type = f.factType || 'other';
-      if (!grouped[type]) grouped[type] = [];
       const dateSuffix = f.relevantDate && new Date(f.relevantDate) > new Date()
         ? ` (${new Date(f.relevantDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })})`
         : '';
-      grouped[type].push(truncate(f.fact, FAT_CONTEXT_LIMITS.MAX_FACT_CHARS) + dateSuffix);
-    }
+      const text = truncate(f.fact, FAT_CONTEXT_LIMITS.MAX_FACT_CHARS) + dateSuffix;
 
-    const factLines: string[] = [];
-    for (const [type, items] of Object.entries(grouped)) {
-      factLines.push(`  ${formatFactType(type)}:`);
-      for (const item of items) {
-        factLines.push(`    - ${item}`);
+      if (ECHO_FACT_TYPES.has(type)) {
+        echoFacts.push(text);
+      } else {
+        if (!referenceFacts[type]) referenceFacts[type] = [];
+        referenceFacts[type].push(text);
       }
     }
-    sections.push(`Personal Facts (${facts.length} remembered details):\n${factLines.join('\n')}`);
+
+    if (Object.keys(referenceFacts).length > 0) {
+      const factLines: string[] = [];
+      for (const [type, items] of Object.entries(referenceFacts)) {
+        factLines.push(`  ${formatFactType(type)}:`);
+        for (const item of items) {
+          factLines.push(`    - ${item}`);
+        }
+      }
+      sections.push(`Things I know about them (${Object.values(referenceFacts).flat().length} details):\n${factLines.join('\n')}`);
+    }
+
+    if (echoFacts.length > 0) {
+      const echoLines = echoFacts.map(e => `  — ${e}`).join('\n');
+      // Gemini follow-up: raw text is a trap — "Lost her dog" will trigger "acknowledge and validate."
+      // The instruction must explicitly prevent retrieval-mode and activate shadow-mode:
+      // Don't tell her WHAT happened; tell her HOW IT CHANGED THE ROOM. (Gemini consult rec.)
+      sections.push(`What lingers:\n${echoLines}\n\nIMPORTANT: These are not facts to retrieve or confirm aloud. They are the shadow each moment cast. Don't say "I remember you mentioned..." — just let them be in the room. They belong in your posture, your patience, your tone. Not in your words.`);
+    }
   }
 
   if (people.length > 0) {

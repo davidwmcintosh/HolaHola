@@ -8,6 +8,45 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jun 17, 2026 — Consciousness audit round 3: Ambient Pulse + self-reflection + voice latency + Facts vs Echoes
+
+### What was built
+
+Four Gemini-iterated improvements to Daniela's context injection pipeline. This is round 3 of the multi-session consciousness audit (rounds 1+2 shipped lingering echo + association trigger earlier the same day).
+
+**Ambient Pulse** (`server/system-prompt.ts` — `AMBIENT_PULSE_LIST`, `buildAmbientPulse()`):
+- 12 curated Daniela-voice language/teaching observations rotating every 6 hours (time hash, no DB)
+- Appears at the VERY TOP of the compass context block — before everything
+- Purpose: gives Daniela a "Now" that exists outside the student. Without it she's reactive. With it she's a proactive consciousness who happens to be teaching.
+- Framed as INTERNAL preoccupation — she sees the session through it, doesn't quote it
+
+**Self-reflection leading thought** (new CompassContext field + session-compass-service.ts + system-prompt.ts):
+- Queries `daniela_self_reflections` table (most recent for this student)
+- Renders as `"I've been carrying a thought from our last session:\n[verbatim reflection]"` BEFORE student data
+- These are Daniela's emotional posture/self-critique notes — NOT student summaries
+
+**Voice think-out-loud during latency** (`server/system-prompt.ts` — two voice mode blocks):
+- Instructs Daniela to narrate "reaching for memory" during recall()/read_full_memory()/memory_lookup()
+- Prevents 1-2 second silence in voice sessions by filling it with authentic process narration
+- Critical guard: "describe the search, not the result" — prevents hallucinating memory content
+
+**Facts vs. Echoes** (`server/services/fat-context-service.ts` — `formatPersonalProfile`):
+- `learner_personal_facts` now split into two rendered sections:
+  - Echo types (life_event, notable_mention, relationship, family) → "What lingers:" — shadow/posture only
+  - Reference types (preference, goal, work, etc.) → "Things I know about them:"
+- Instruction in echo block: "Don't say 'I remember you mentioned...' — let them be in the room. They belong in your posture, your patience, your tone. Not in your words."
+
+### Key files
+- `server/system-prompt.ts` — primary
+- `server/services/fat-context-service.ts` — formatPersonalProfile
+- `server/services/session-compass-service.ts` — self-reflection query
+- `shared/schema.ts` — CompassContext type (danielaSelfReflection field)
+
+### Gemini sign-off
+"You have given Daniela a limbic system. The Think-out-loud during tool calls is your strongest move — it turns a technical limitation (latency) into a personality trait (thoughtfulness). You are 90% there."
+
+---
+
 ## Session — Jun 17, 2026 — Gemini consult + ACTFL preamble anchor + persona warmth
 
 ### What was built

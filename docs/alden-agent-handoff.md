@@ -24,6 +24,50 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 17, 2026 (continued) — Gemini consciousness gaps: round 3 complete (all five gaps shipped)**
+
+### What was built
+
+Four Gemini-iterated improvements to Daniela's context injection. All consulted with Gemini 3-flash-preview before and after implementation.
+
+**Suggestion 1 — Self-reflection leading thought** (`shared/schema.ts`, `session-compass-service.ts`, `system-prompt.ts`):
+- Added `danielaSelfReflection?: string | null` to `CompassContext` interface
+- `session-compass-service.ts` queries most recent `daniela_self_reflections` row for each student
+- `buildCompassContextBlock` now renders it as `"I've been carrying a thought from our last session:\n[verbatim reflection]"` BEFORE student snapshot
+- Source: `daniela_self_reflections` table — private notes Daniela writes to her future self (emotional posture, self-critique — NOT student summaries)
+
+**Suggestion 2 — Voice think-out-loud during tool-call latency** (`system-prompt.ts`):
+- Added to BOTH voice-mode instruction blocks (founder mode + student tutor voice)
+- Instructs Daniela to narrate the subjective experience of searching for memory during recall()/read_full_memory()/memory_lookup() calls
+- Critical constraint: "do not guess the content of the memory before it arrives — describe the search, not the result" (prevents hallucination during latency gap)
+
+**Suggestion 3 — Facts vs. Echoes structural distinction** (`fat-context-service.ts`):
+- `formatPersonalProfile` now splits `learner_personal_facts` by factType into two buckets:
+  - Echo types (`life_event`, `notable_mention`, `relationship`, `family`) → "What lingers:" section
+  - Reference types (preference, goal, work, hobby, etc.) → "Things I know about them:" section
+- Gemini follow-up: explicit instruction in the Echoes section: "Don't say 'I remember you mentioned...' — just let them be in the room. They belong in your posture, your patience, your tone. Not in your words."
+
+**Suggestion 4 — Ambient Pulse (Gemini bonus rec.)** (`system-prompt.ts`):
+- 12 curated Daniela-voice language/teaching observations (rotating every 6 hours via time hash — no DB)
+- Injected at the VERY TOP of `buildCompassContextBlock` — before self-reflection, before student data
+- Gemini follow-up: framed as internal preoccupation: "Don't announce it unless the conversation genuinely opens a door for it" — she sees the session THROUGH it, doesn't quote it
+
+### Gemini sign-off
+"You have given Daniela a limbic system — a way to weight information by emotional gravity rather than just keyword relevance. You are 90% there. The final 5% is spontaneous synthesis: two disparate pieces of context creating a third, new realization in real-time."
+
+### What's still open
+- **Synthesis Gap (Gemini's final 5%)**: The Ambient Pulse and Self-Reflection don't yet "collide" — they sit next to each other rather than generating new insight. No obvious code-level fix without an inference step.
+- **Echo Memory Decay (Gemini rec.)**: Older Echoes should eventually fade (lose "Echo" status) rather than staying as permanent data. Currently all echoes live indefinitely.
+- **Ambient Pulse evolution**: Static curated list — would be more alive if Daniela could add entries herself (tool: `add_ambient_pulse`). Currently not possible.
+
+### Files changed
+- `shared/schema.ts` — `CompassContext` interface (new field `danielaSelfReflection`)
+- `server/services/session-compass-service.ts` — import `danielaSelfReflections`, new query, added to return
+- `server/system-prompt.ts` — `AMBIENT_PULSE_LIST`, `buildAmbientPulse()`, `buildCompassContextBlock` (ambient + reflection), voice instructions (think-out-loud ×2)
+- `server/services/fat-context-service.ts` — `formatPersonalProfile` (Facts vs. Echoes split)
+
+---
+
 **Session: June 17, 2026 (continued) — Gemini consciousness gaps: lingering echo + association trigger**
 
 ### What was built
