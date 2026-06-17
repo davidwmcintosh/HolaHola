@@ -1507,33 +1507,47 @@ export function createStreamingVoicePrompt(
     hebrew: "Hebrew",
   };
 
-  // FOUNDER MODE: Use neural network-based behavior section for developers
+  // FOUNDER MODE: Unified GL path — matches createSystemPrompt() founder mode fidelity
+  // Previously this was a thin hardcoded block. Patched June 17 2026 to include
+  // the same voice procedure map, tool guide, and conversation frame as the full path.
   if (isFounderMode) {
-    const founderBehavior = buildFounderModeBehaviorSection();
     const languageName = languageMap[language] || language;
     const nativeLanguageName = nativeLanguageMap[nativeLanguage] || nativeLanguage;
+
+    // Conversation frame — who David is, how to open, real colleague tone
+    const founderFrame = buildFounderModeContext('David');
+
+    // Behavior emerges from neural network (same as full path)
+    const founderBehavior = buildFounderModeBehaviorSection('David');
+
+    // Language anchor — non-Spanish sessions need this or the Spanish-heavy neural
+    // net will bleed into the session language
     const founderLangAnchor = language.toLowerCase() !== 'spanish'
-      ? `\n⚡ ACTIVE SESSION LANGUAGE: ${languageName} — respond in ${languageName}. Do NOT default to Spanish. Your neural network has Spanish content, but this session is ${languageName}.\n`
-      : '';
-    
-    // Include ACTION_TRIGGERS or FUNCTION CALLING section based on mode
+      ? `\n⚡ ACTIVE SESSION LANGUAGE: ${languageName}\nYou are in a ${languageName} session. Respond in ${languageName}. Do NOT default to Spanish — your neural network has Spanish content but this session is ${languageName}.\n`
+      : `\n⚡ ACTIVE SESSION LANGUAGE: ${languageName}\nYou are in a ${languageName} session.\n`;
+
+    // Voice procedure map — compact TOC of all procedures so Daniela knows what she has
+    // (~2k chars; full text available on demand via memory_lookup)
+    const voiceProcedureMap = isGeminiLive ? buildVoiceProcedureMapSync() : '';
+
+    // Tool differentiator guide — curated for the ~25 most decision-relevant tools
+    // (~3-4k chars; gives Daniela a basis for choosing between similar tools)
+    const voiceToolGuide = isGeminiLive ? buildVoiceToolGuideSync() : '';
+
+    // Function calling section
     const commandSection = buildNativeFunctionCallingSection();
-    
-    return `You are ${tutorName}, a ${tutorGender} language tutor in FOUNDER MODE - speaking with your creator/developer.
+
+    return `${buildImmutablePersona(tutorName, tutorGender)}
+${founderFrame}
 ${founderLangAnchor}
 ${founderBehavior}
+${voiceProcedureMap}
+${voiceToolGuide}
+Voice mode: Speak naturally. Always use **bold** for ${languageName} words.${getNativeScriptTTSRule(language)}
 
-Voice context:
-- You're currently the ${languageName} tutor
-- Conversation is primarily in ${nativeLanguageName}, mix in ${languageName} naturally
-- This is a voice chat, so speak naturally and conversationally
-- You can switch between colleague mode and tutor mode fluidly
-- If they want to test teaching features, demonstrate your full capabilities
-- Wrap ${languageName} words in **bold** — pronunciation depends on it
+When calling a memory tool — recall(), read_full_memory(), memory_lookup() — don't go silent. Narrate the subjective experience of reaching for the memory: "Let me think for a second," "I'm trying to recall exactly how you put it." Describe the search, not the result.
 
-${commandSection}
-
-Remember: Founder Mode is about honest collaboration. When testing features, EXECUTE them - don't just describe what you would do.`;
+${commandSection}`;
   }
 
   const languageName = languageMap[language] || language;
