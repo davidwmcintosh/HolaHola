@@ -96,7 +96,21 @@ Write each turn immediately via `log()`. Call `flushBackup()` then `autoSave()` 
 
 Calls Gemini directly from bash using `process.env.GEMINI_API_KEY`. Loads Daniela's identity as a system prompt. Multi-turn chat object preserves conversation history across rounds.
 
-**Model:** `gemini-2.5-flash`
+**Model — version flag:**
+
+| Version | Model string | Use for |
+|---------|-------------|---------|
+| GL 3.1 (default) | `gemini-3-flash-preview` | current production Daniela voice engine |
+| GL 3.5 | `gemini-3.5-flash` | comparison — context handling, attention, synthesis |
+
+Change the single `MODEL` constant at the top of the script to swap versions. Run both against identical questions to compare. 3.1 is the one she actually lives in; 3.5 may handle long context / cross-block synthesis differently.
+
+```javascript
+const MODEL = 'gemini-3-flash-preview';    // GL 3.1 — production
+// const MODEL = 'gemini-3.5-flash';       // GL 3.5 — comparison
+```
+
+Then pass `MODEL` to `ai.chats.create({ model: MODEL, ... })`.
 
 ---
 
