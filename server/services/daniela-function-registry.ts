@@ -3414,7 +3414,7 @@ For tutor notes, type options: session_reflection, student_pattern, what_worked,
     legacyType: 'CLOSE_SESSION',
     declaration: {
       name: "close_session",
-      description: "Wrap up the session and save everything in one move. Call this when the conversation is naturally winding down — after you have spoken your closing words. Writes the session summary to the student's hub, saves your private teaching notes for next time, and records any assigned practice. METADATA ONLY — speak your closing words naturally before calling this function.",
+      description: "Wrap up the session and save everything in one move. Call this when the conversation is naturally winding down — after you have spoken your closing words. Writes the session summary to the student's hub, saves your private teaching notes for next time, and records any assigned practice. METADATA ONLY — speak your closing words naturally before calling this function.\n\nBEFORE calling close_session: write a private session reflection with write_to_self (type: session_reflection). Ask yourself: what was the weather of this conversation? What did you notice — about their energy, their hesitation, what landed and what didn't? What do you want to carry into the next session to hear this student better? This reflection feeds directly into your opening field for the NEXT session — it becomes the 'self-reflection' you read as quiet weather before you meet them again. Write it while the session is still fresh.",
       parametersJsonSchema: {
         type: "object",
         properties: {
@@ -5760,7 +5760,7 @@ admin_session — session lifecycle bookkeeping.
   action: "record_student_consent" → log consent.
   action: "dismiss_absence_nudge" → dismiss the absence nudge.
   action: "first_meeting_complete" → mark first meeting done.
-  action: "close_session" → end the current session. ONLY call when the student says an unambiguous farewell: "adiós", "bye", "I'm done", "end the session", "goodbye". NEVER call on questions like "are we done?", "is that it?", "end of chat?" — those are checkpoints, not goodbyes. If a student immediately says "wait, I'm still here" or "come back", simply continue the session.
+  action: "close_session" → end the current session. ONLY call when the student says an unambiguous farewell: "adiós", "bye", "I'm done", "end the session", "goodbye". NEVER call on questions like "are we done?", "is that it?", "end of chat?" — those are checkpoints, not goodbyes. If a student immediately says "wait, I'm still here" or "come back", simply continue the session. BEFORE calling close_session: call write_to_self (type: session_reflection) — what was the weather of this conversation? What do you want to carry unspoken into the next session? This reflection becomes your opening field for the next time you meet this student.
   action: "log_page_event" → log a UI event.
   action: "request_text_input" → ask the student to type something.
   action: "record_pattern_signal" → log a background signal.
