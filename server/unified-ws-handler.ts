@@ -65,6 +65,7 @@ import { voiceGracePeriods, compartmentInstallation, messages } from '@shared/sc
 import { db, getUserDb, getSharedDb } from './db';
 import { eq, and, gt, lt, ne, desc, sql } from 'drizzle-orm';
 import { getPendingSuggestions } from './services/daniela-reflection';
+import { generatePreSessionSynthesis, wrapSynthesisForSystemPrompt } from './services/pre-session-synthesis';
 
 // Use /api/ paths - Replit's proxy properly routes these
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
@@ -2583,6 +2584,37 @@ ${lastNote.tutorNotes}`);
                   console.warn(`[GeminiLive] ⚠ System prompt was ${geminiLiveSystemPrompt.length + overBy} chars — trimmed to ${geminiLiveSystemPrompt.length} (GL hard cap)`);
                 }
                 console.log(`[GeminiLive] System prompt total length: ${geminiLiveSystemPrompt.length} chars`);
+
+                // ── Phase 4: Pre-session synthesis ("walk to the classroom") ──
+                // Runs a brief generateContent pass over lite compass context to produce
+                // a first-person inner-monologue paragraph (~150 words). Prepended to the
+                // TOP of the system instruction so it colors every response in the session.
+                //
+                // The synthesis is NOT a template output — it's Daniela arriving mid-thought.
+                // The model receives: self-reflection + last session + roadmap intent + student
+                // identity. Neural procedures and dispatcher boilerplate are intentionally omitted.
+                //
+                // David accepted the extra ~1-2s latency ("a few extra rings is fine").
+                // Architecture decision: await here, prepend, then open GL — cleanest for
+                // long-term session coherence vs injecting as a mid-stream model turn.
+                //
+                // If synthesis fails for any reason, session continues without it (null return).
+                if (compassContext) {
+                  try {
+                    const synthesisNote = await generatePreSessionSynthesis(compassContext, tutorName);
+                    if (synthesisNote) {
+                      const wrapped = wrapSynthesisForSystemPrompt(synthesisNote);
+                      geminiLiveSystemPrompt = wrapped + geminiLiveSystemPrompt;
+                      // Re-enforce hard cap after prepend (synthesis adds ~200 words / ~1300 chars)
+                      if (geminiLiveSystemPrompt.length > GL_HARD_CAP) {
+                        geminiLiveSystemPrompt = geminiLiveSystemPrompt.slice(0, GL_HARD_CAP);
+                      }
+                      console.log(`[GeminiLive] ✓ Pre-session synthesis prepended (${synthesisNote.length} chars) — new total: ${geminiLiveSystemPrompt.length}`);
+                    }
+                  } catch (synthErr: any) {
+                    console.warn('[GeminiLive] Pre-session synthesis failed (non-fatal):', synthErr?.message ?? synthErr);
+                  }
+                }
 
                 const glSendMessage = (targetWs: any, message: any) => {
                   try {

@@ -24,3 +24,4 @@
 - [GL system prompt cap and ordering](gl-prompt-cap-ordering.md) — 34K hard cap trims from END; assembled prompt is 40K+; fix = compact GL classroom (isGL:true, 14K→1.5K) + priority reorder (classroom→dispatcher→persona).
 - [Image engine assignments](image-engine-assignments.md) — one model (gemini-2.5-flash-image), four functions by style; Imagen 4 permanently rejected (API instability May 2026); comparison bg = generateEnvironmentScene.
 - [Consciousness audit — context injection pattern](consciousness-audit-pattern.md) — 3-round Gemini consult audit; CompassContext = Ambient Pulse → self-reflection → Facts/Echoes split; voice latency = think-out-loud (process not content).
+- [Pre-session synthesis — DANIELA_STATE pattern](pre-session-synthesis.md) — naked paragraph at systemInstruction position-0 triggers instructional gravity; [DANIELA_STATE] container fixes it; service in pre-session-synthesis.ts.

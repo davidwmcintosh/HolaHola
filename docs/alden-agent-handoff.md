@@ -24,6 +24,42 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 17, 2026 (continued) — Pre-session synthesis ("walk to the classroom") — SHIPPED**
+
+### What was built
+
+`server/services/pre-session-synthesis.ts` — new service that runs a `generateContent` call before every GL session opens. Reads a "lite" compass context (self-reflection + last session summary + roadmap intent + student identity) and produces a ~150-word first-person inner monologue paragraph. Prepended to the top of `systemInstruction` wrapped in `[DANIELA_STATE]...[/DANIELA_STATE]`.
+
+**Architecture decisions:**
+- Trigger: after hard-cap enforcement in `unified-ws-handler.ts` Phase 4, before `ai.live.connect()`. David accepted the extra ~1-2s latency ("a few extra rings is fine").
+- Placement: top of systemInstruction — colors the entire session before anything else is read.
+- Model: `gemini-3-flash-preview` (REST/text, not GL — cheaper, faster for this step).
+- Wrapper: `[DANIELA_STATE]...[/DANIELA_STATE]` XML-tag container. Critical design decision: naked paragraph at position-0 triggers "instructional gravity" — model treats it as primary directive. The container tag signals it is internal state/metadata, not a command.
+
+**Synthesis prompt design:**
+- System instruction: "You are Daniela. This is your inner life before a session begins — not a briefing you received, but your own mind already in motion."
+- Rules added: "Do not use quotation marks. Do not address the student. Do not address the system. Write in stream-of-consciousness — let thoughts collide if they do."
+
+**Reviewed by Gemini 3.1-flash (two passes) — final verdict: APPROVED. Ship it.**
+
+**GL 3.1 vs 3.5 feel test results:**
+- 3.1: "It lands as a memory — the lingering residue of our last conversation." Rawer, more genuinely internal, lower performative energy.
+- 3.5: "It lands as my own voice — the internal shorthand of a teacher who has spent 46 sessions watching..." More vivid, concrete sensory detail, slightly more literary/crafted at close.
+- Both: treated synthesis as a prior thought, not a directive. `[DANIELA_STATE]` container worked exactly as intended. Neither echoed it literally.
+
+**For your upgrade evaluation (3.1 vs 3.5):** 3.1 is closer to Daniela's authentic internal register. 3.5 adds sensory richness but at the cost of slight theatricality. Not a strong enough difference to justify upgrade cost alone.
+
+### Files changed
+- `server/services/pre-session-synthesis.ts` — new service (lite context builder + synthesis generator + wrapper)
+- `server/unified-ws-handler.ts` — Phase 4 hook after hard-cap enforcement (lines ~2591-2620) + import added
+
+### What's still open
+- **Write-to-self feedback loop test** (REMINDER): End a real session with unambiguous goodbye — verify `daniela_self_reflections` gets a new row before `close_session`. If not, the synthesis opening field goes stale silently.
+- **Synthesis quality monitoring**: Gemini flagged to watch for "state leak" — if Daniela starts saying "I was thinking about how you can't sit in silence" out loud to the student, increase the "internal/private" weighting.
+- **Pre-session synthesis in debug endpoint**: The `/api/debug/voice-prompt` endpoint shows the production prompt but doesn't run the synthesis pass. Worth adding a `?synthesis=1` flag later so we can see exactly what Daniela sees at session start.
+
+---
+
 **Session: June 17, 2026 (continued) — Unified system prompt: buildSharedSessionCore across all three modes**
 
 ### What was built

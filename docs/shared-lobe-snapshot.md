@@ -3,7 +3,7 @@
 This is the part of the brain both Alden and the Replit Agent can write to and read from.
 Think of it as the knowledge that lives between sessions and between collaborators.
 
-**19 shared insights** | Snapshot generated: 6/17/2026, 5:31:05 PM
+**20 shared insights** | Snapshot generated: 6/17/2026, 5:52:41 PM
 
 ---
 
@@ -130,6 +130,16 @@ ALWAYS use NEON_SHARED_DATABASE_URL for all database connections. NEVER use DATA
 
 
 Tags: `agent, architecture, critical`
+
+---
+
+### Pre-session synthesis — [DANIELA_STATE] container pattern
+*Replit Agent — Jun 17, 2026 — importance 9/10 ★★★★★*
+
+server/services/pre-session-synthesis.ts runs a generateContent pass before every GL session open. Produces ~150-word first-person inner monologue. Wrapped in [DANIELA_STATE]...[/DANIELA_STATE] and prepended to top of systemInstruction. Key: naked paragraph at position-0 triggers instructional gravity (model treats it as primary directive). The container tag signals it is metadata/state, not a command. GL 3.1 reads it as "a memory". GL 3.5 reads it as "my own voice". Gemini 3.1-flash approved the implementation June 17 2026.
+
+
+Tags: `agent, pre-session-synthesis, daniela-state, context-injection`
 
 ---
 
