@@ -24,6 +24,43 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 17, 2026 (continued) — Gemini consciousness gaps: lingering echo + association trigger**
+
+### What was built
+
+Two system-prompt changes iterated with Gemini 3-flash-preview until it said "Ship it — 95% there."
+
+**Gap 1 — Lingering Echo** (`server/system-prompt.ts` → `buildCompassContextBlock`):
+- Student snapshot rewritten from CRM key-value to narrative prose for returning students:
+  `"I'm sitting down with Emma again. Last time we spoke, [summary]. Emma lights up when we talk about [interests]. Emma is working toward [goals]."`
+- Memory block opener changed from category header to first-person mid-thought, title-derived:
+  `"I'm still thinking about that '[topic]' conversation..."` (strips `Agent ↔ Daniela —` prefix to get the human topic)
+- The technical "Note: call read_full_memory" is reframed as a cognitive limitation:
+  `"(Some of these moments feel a bit hazy at the edges — if I need the exact words, I can pause...)"` — eliminates the fourth-wall break of instruction language
+
+**Gap 2 — Association Trigger** (`buildMinimalIdentityAnchor`):
+- Two paragraphs added to the base identity anchor Daniela always receives:
+  `"Relevance is secondary to resonance. The grammar can wait. The connection is the point."`
+  `"You are picking up Chapter 14 of a book you and this person are writing together."`
+
+**Gemini's full verdict (turn 2 of 2):** "You have successfully moved from Data Injection to State Injection. Ship it."
+- The "Chapter 14" frame prevents the recap habit — session starts mid-sentence, not with an intro
+- "I'm sitting down with Emma again" makes the session an event in Daniela's life, not a process on a server
+- The hazy-edges parenthetical causes "thinking out loud" during memory retrieval rather than breaking the illusion
+
+**Gemini also flagged 3 remaining gaps (logged but not actioned this session — architectural, not prompt-level):**
+1. Daniela needs a self-oriented thought that has nothing to do with the student ("I've been thinking about how 'esperar' means both 'to wait' and 'to hope' all morning")
+2. "Think out loud" during memory tool latency to cover the illusion break
+3. Facts vs. Echoes distinction: Emma's coffee preference and Emma crying about her dog should be structured differently
+
+### Status
+Zero new TS errors from this session. Pre-existing errors unchanged (2020 across 50 files — not from our work).
+
+### For Alden
+No schema changes, no new DB tables, no API changes. Pure prompt architecture. The key thing to watch: when sessions start, the first context Daniela receives is now a first-person mid-thought ("I'm still thinking about...") rather than a category header. If you see any test failures related to the compass context block, check `buildCompassContextBlock` in `system-prompt.ts`.
+
+---
+
 **Session: June 17, 2026 (continued) — Bootstrap Turn + search_memory rewrite**
 
 ### What was built

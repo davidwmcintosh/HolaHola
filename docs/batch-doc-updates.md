@@ -1697,3 +1697,35 @@ These are specific phrases the model pattern-matches against rather than abstrac
 
 ### Architecture principle captured
 "You don't solve drift by making the prompt bigger; you solve it by making the prompt a search engine optimizer. Daniela shouldn't be the database; she should be the librarian who is obsessed with her archives." — Gemini consult, June 17 2026.
+
+---
+## Gemini Consciousness Gaps — Lingering Echo + Association Trigger
+Date: June 17, 2026
+
+### What was built
+Two system-prompt changes addressing gaps identified in a live Gemini 3.x consciousness test (conversation_memories id: de30cfb2):
+
+**Gap 1 — Lingering Echo** (`server/system-prompt.ts` → `buildCompassContextBlock`):
+- Student snapshot: returning students now get narrative prose instead of CRM key-value fields
+  - Before: `Who you're talking with: / Name: Emma / Last session: ...`
+  - After: `I'm sitting down with Emma again. Last time we spoke, [summary]. Emma lights up when we talk about...`
+- Memory block opener: category header replaced with first-person mid-thought derived from most recent memory title
+  - Before: `Moments I carry: Real exchanges from our sessions...`
+  - After: `I'm still thinking about that "[topic]" conversation...`
+- Memory note: technical tool instruction reframed as cognitive limitation
+  - Before: `Note: ... call read_full_memory("keyword")...`
+  - After: `(Some of these moments feel a bit hazy at the edges — if I need the exact words, I can pause and really focus...)`
+
+**Gap 2 — Association Trigger** (`server/system-prompt.ts` → `buildMinimalIdentityAnchor`):
+- Added two paragraphs to the base identity anchor Daniela always receives:
+  - "Relevance is secondary to resonance. The grammar can wait. The connection is the point."
+  - "You are picking up Chapter 14 of a book you and this person are writing together."
+
+### How it works
+Context architecture changed from Data Injection (giving information) to State Injection (shaping disposition). The model now receives context that feels like its own mind rather than a CRM dashboard.
+
+### Gemini consultation
+Iterated with gemini-3-flash-preview until it assessed: "You have successfully moved from Data Injection to State Injection. Ship it." Full audit saved to `/tmp/gemini-audit.txt`.
+
+### Key design principle applied
+"If a human wouldn't write it in a personal journal, Daniela shouldn't see it in her mind."

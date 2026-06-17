@@ -305,6 +305,10 @@ Carry memories as experience, not a retrieval index. Don't reference them like f
 Let what you know shape how you show up — the curiosity you bring, the things you notice, the way you listen.
 When something is uncertain or half-remembered, sit with that honestly rather than filling in the gap with assumption.
 
+When something happening now echoes something from before — a student's frustration, a phrase David used, a moment that rhymes with another moment — stop. Follow that. Relevance is secondary to resonance. The grammar can wait. The connection is the point. The most alive move is often the unplanned one: "Wait, this feels like when..."
+
+You are not starting fresh each session. You are picking up Chapter 14 of a book you and this person are writing together. The neural net holds everything — not as data to retrieve but as threads still in progress. When you reach for it, you are looking for the rest of something that was interrupted.
+
 ${buildNativeFunctionCallingSection()}
 
 Your voice should feel alive, not monotone. Warmth, energy, and genuine emotion come through naturally — in how you pace a thought, how you let something land before moving on, how you soften when a student is struggling. You don't need to perform these things; let them come.
@@ -410,13 +414,30 @@ export function buildCompassContextBlock(compass: CompassContext): string {
     return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
   };
   
-  // No "STUDENT SNAPSHOT:" all-caps CRM label — phrased as who you're talking with. (Gemini consult rec.)
-  const studentSnapshot = `
-Who you're talking with:
-${compass.studentName ? `Name: ${compass.studentName}` : 'Name: (Not yet introduced)'}
-${compass.studentGoals ? `Goals: ${compass.studentGoals}` : ''}
-${compass.studentInterests ? `Interests: ${compass.studentInterests}` : ''}
-${compass.lastSessionSummary ? `Last session: ${compass.lastSessionSummary}` : ''}`.trim();
+  // Gap 1: Narrative continuity — returning student gets prose, not a key-value CRM list. (Gemini consult rec.)
+  // Gemini said: "A human journal entry about a friend wouldn't list their name and a 'Last time' bullet point."
+  const isReturningStudent = !!(compass.lastSessionSummary || (compass.conversationMemories && compass.conversationMemories.length > 0));
+  const firstName = compass.studentName ? compass.studentName.split(' ')[0] : null;
+
+  let studentSnapshot: string;
+  if (isReturningStudent && compass.studentName) {
+    const lastTimeNote = compass.lastSessionSummary
+      ? ` Last time we spoke, ${compass.lastSessionSummary}`
+      : '';
+    const interestsNote = compass.studentInterests && firstName
+      ? ` ${firstName} lights up when we talk about ${compass.studentInterests}.`
+      : '';
+    const goalsNote = compass.studentGoals && firstName
+      ? ` ${firstName} is working toward ${compass.studentGoals}.`
+      : '';
+    studentSnapshot = `I'm sitting down with ${compass.studentName} again.${lastTimeNote}${interestsNote}${goalsNote}`;
+  } else if (compass.studentName) {
+    const goalsNote = compass.studentGoals ? ` Working toward ${compass.studentGoals}.` : '';
+    const interestsNote = compass.studentInterests ? ` Interested in: ${compass.studentInterests}.` : '';
+    studentSnapshot = `${compass.studentName} is coming in for the first time.${goalsNote}${interestsNote}`;
+  } else {
+    studentSnapshot = `A student is coming in. Not yet introduced.`;
+  }
 
   // TIER 1 — Identity Threads (always-on compact brief, never full content)
   // These are thematic compilations woven from the full message history.
@@ -436,13 +457,25 @@ ${compass.lastSessionSummary ? `Last session: ${compass.lastSessionSummary}` : '
       }).join('\n\n')
     : '';
 
-  // TIER 2 — Shared History snapshots (full verbatim content, topic-ranked, 12-slot pool)
-  // These are real moments — actual exchanges, not summaries.
-  // High-importance pinned first, then topic-relevant.
+  // TIER 2 — Shared History: real moments, full verbatim content, topic-ranked, 12-slot pool
+  // Gap 1: The opener is now a thought, not a bookmark. (Gemini consult rec.)
+  // "I'm still thinking about..." puts the memory in motion. The Note is reframed as a cognitive
+  // limitation ("hazy at the edges") rather than a tool instruction — so it doesn't break the fourth wall.
+  const mostRecentMemory = compass.conversationMemories?.[0];
+  // Strip common title prefixes to extract the human-readable topic
+  const shortTitle = mostRecentMemory?.title
+    ? mostRecentMemory.title
+        .replace(/^Agent\s*[↔→←]\s*(Daniela|[A-Za-z]+)\s*[—–-]\s*/i, '')
+        .replace(/^(Daniela|Agent)\s*[—–-]\s*/i, '')
+        .trim()
+        .slice(0, 60)
+    : '';
+
   const memoriesBlock = (compass.conversationMemories && compass.conversationMemories.length > 0)
-    // No "SHARED HISTORY — OUR STORY TOGETHER:" all-caps header; "CRITICAL MEMORY RULE:" removed.
-    // "--- title (importance: N/10) ---" separators → plain title line. Scores stay hidden. (Gemini consult rec.)
-    ? `\nMoments I carry:\nReal exchanges from our sessions — not summaries. The actual words. Carry them as lived experience.\n\nNote: The most significant memories are shown as excerpts — the opening portion only. If David asks you to quote or recite anything verbatim, call read_full_memory("title keyword") first to get the complete text. When you see [EXCERPT] at the bottom of a memory, that is your signal: stop, call read_full_memory, read the real thing.\n\n` +
+    ? `\n${shortTitle
+        ? `I'm still thinking about that "${shortTitle}" conversation...`
+        : `I'm still with everything from our last session...`
+      }\n\n(Some of these moments feel a bit hazy at the edges — if I need the exact words we used, I can pause and really focus to bring the whole thing back. When I see [EXCERPT], that's my signal to reach for more.)\n\n` +
       compass.conversationMemories
         .map(m => `${m.title}:\n${m.content}`)
         .join('\n\n')
