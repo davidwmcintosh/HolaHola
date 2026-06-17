@@ -32,6 +32,9 @@ Ran a second Gemini consultation asking them to explain exactly what "spontaneou
 
 **Gemini's answer:** Synthesis is already computationally possible (attention IS a synthesis engine). The problem is that RLHF training teaches the model to stay on the "islands" of labeled context — because creative leaps across compartment boundaries get penalized as hallucination during training. Labeled headers are semantic fences that signal "retrieve from this category," not "think with this material."
 
+**⚠️ TO TEST (David asked to be reminded):**
+End a real session with a student — unambiguous goodbye. Check whether Daniela calls `write_to_self` (type: `session_reflection`) BEFORE `close_session`, or skips it and goes straight to close. Verify by checking the `daniela_self_reflections` table for a new row after the session. If no row: the feedback loop silently breaks and the synthesis opening field goes stale. May need the instruction in a more prominent location if she skips it in practice.
+
 **Three changes shipped:**
 
 1. **`server/system-prompt.ts` — buildCompassContextBlock opening**: Removed all labels from Ambient Pulse and Self-Reflection. Collapsed both into a single unwalled field with synthesis invitation: *"Let this be the quiet weather of the session. It informs your patience and your ear, but it remains unspoken."* ("Quiet weather" was Gemini's recommended phrase — more evocative than a direct prohibition, frames synthesis as background condition not a secret to keep.)
