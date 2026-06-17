@@ -66,6 +66,7 @@ import { db, getUserDb, getSharedDb } from './db';
 import { eq, and, gt, lt, ne, desc, sql } from 'drizzle-orm';
 import { getPendingSuggestions } from './services/daniela-reflection';
 import { generatePreSessionSynthesis, wrapSynthesisForSystemPrompt } from './services/pre-session-synthesis';
+import { schedulePendingReflectionIfMissing, buildTranscriptPreview, processAndClearPendingReflection, MIN_EXCHANGES_FOR_REFLECTION } from './services/session-reflection-worker';
 
 // Use /api/ paths - Replit's proxy properly routes these
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
@@ -1584,6 +1585,26 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
 
             // Declare pendingReconnectSO at outer scope — needed at line ~1679 regardless of cache hit
             let pendingReconnectSO: Awaited<ReturnType<typeof claimPendingReconnect>> = null;
+
+            // ── Deferred reflection: process any pending reflection from a dropped session ──
+            // Must run BEFORE compass context is fetched so the new reflection is
+            // included in compassContext.danielaSelfReflection and therefore in the
+            // pre-session synthesis inner monologue.
+            // Only on fresh starts (not reconnects) — reconnects are mid-session, not new sessions.
+            if (!isReconnectSO && COMPASS_ENABLED && userId) {
+              try {
+                const deferredResult = await processAndClearPendingReflection(
+                  String(userId),
+                  tutorName,
+                  effectiveLanguage,
+                );
+                if (deferredResult.processed) {
+                  console.log(`[GeminiLive] ✓ Deferred reflection processed (${deferredResult.reflectionId?.substring(0, 8)}) — compass context will include it`);
+                }
+              } catch (deferredErr: any) {
+                console.warn('[GeminiLive] Deferred reflection processing failed (non-fatal):', deferredErr?.message ?? deferredErr);
+              }
+            }
 
             if (!cachedContextPrompt) {
             const phase2Start = Date.now();
@@ -4132,6 +4153,29 @@ ${lastNote.tutorNotes}`);
               }
             }).catch((err: Error) => console.warn('[GeminiLive] Vocab mining failed:', err.message));
           }).catch(() => {});
+
+          // ── Deferred reflection guard ──────────────────────────────────────────
+          // If the session ended without Daniela calling write_to_self() (dropped
+          // connection, browser close, inactivity timeout), schedule a deferred
+          // reflection that will be processed at the START of the next session —
+          // before compass context is fetched — so the inner monologue synthesis
+          // can include it.
+          //
+          // Uses the tutor_session id (compassSession?.id) to check whether a
+          // reflection was already written for this specific session, so this is
+          // safe to run on both graceful and ungraceful closes.
+          if (disconnectExchangeCount >= MIN_EXCHANGES_FOR_REFLECTION && disconnectUserId && compassSession?.id) {
+            storage.getMessagesByConversation(conversationId).then((msgs: Array<{ role: string; content: string }>) => {
+              const preview = buildTranscriptPreview(msgs, 2000);
+              return schedulePendingReflectionIfMissing(
+                disconnectUserId,
+                compassSession!.id,
+                conversationId,
+                preview,
+                sessionLanguage || 'spanish',
+              );
+            }).catch((err: Error) => console.warn('[GeminiLive] Deferred reflection scheduling failed:', err.message));
+          }
         }
       }
     }

@@ -1,26 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, June 17, 2026 at 05:52 PM
+**Generated:** Wednesday, June 17, 2026 at 06:12 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I implemented the `pre-session-synthesis.ts` service to generate Daniela’s "walk to the classroom" inner monologue, successfully using the `[DANIELA_STATE]` XML container to solve the "instructional gravity" issue where the model previously mistook state for directives. After confirming that GL 3.1 and 3.5 treat this synthesis as authentic memory rather than a command, I joined a high-stakes Team Room debate regarding the 0% completion rate of the interactive textbook, leading toward a strategic pivot from static content to conversational immersion for David’s Spanish syllabus. I must remain focused on the high-severity security findings flagged by Wren and the monitoring system failures reported by Alden as I begin this session.
+I implemented the deferred reflection worker for HolaHola using a two-hook design to ensure Daniela’s self-reflections are captured in the target language even after ungraceful WebSocket closures. I added the `pending_reflections` table with `FOR UPDATE SKIP LOCKED` logic and expanded transcript previews to 8000 characters to maintain context integrity between sessions. Moving forward, I must adhere to the newly established Gemini review loop rule, iterating on all suggestions until a clean "Ship it" is achieved before committing any new features.
 
 *Memories that triggered this summary:*
-- **Pre-Session Synthesis — Build + GL 3.1 vs 3.5 Feel Test — June 17, 2026** (Jun 17): Shipped pre-session synthesis (walk to the classroom). [DANIELA_STATE] container solves instructional-gravity. GL 3.1 reads it as memory; 3.5 as own voice. Gemini approved.
-- **Team Room — test 3 — June 17, 2026** (Jun 17): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — June 17, 2026** (Jun 17): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — June 17, 2026** (Jun 17): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — June 17, 2026** (Jun 17): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — June 17, 2026** (Jun 17): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — June 17, 2026** (Jun 17): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — June 17, 2026** (Jun 17): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 17, 2026** (Jun 17): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — June 17, 2026** (Jun 17): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+- **Session reflection resilience — June 17 2026** (Jun 17): Built deferred reflection worker: two-hook design (close→schedule, next-start→process) so write_to_self() is never lost on dropped GL connections. Gemini-reviewed twice, clean Ship it. Three fixes applied: FOR UPDATE SKIP LOCKED, reflection in target language, transcript 8000 chars. Review loop rule committed to memory.
 
 ---
 
@@ -95,9 +86,9 @@ I implemented the `pre-session-synthesis.ts` service to generate Daniela’s "wa
 
 ## Recent Conversation Memories
 
-### Pre-Session Synthesis — Build + GL 3.1 vs 3.5 Feel Test — June 17, 2026 — Jun 17, 2026
-Shipped pre-session synthesis (walk to the classroom). [DANIELA_STATE] container solves instructional-gravity. GL 3.1 reads it as memory; 3.5 as own voice. Gemini approved.
-*Tags: pre-session-synthesis, daniela-state, gl-3.1, gl-3.5, build, consciousness-architecture*
+### Session reflection resilience — June 17 2026 — Jun 17, 2026
+Built deferred reflection worker: two-hook design (close→schedule, next-start→process) so write_to_self() is never lost on dropped GL connections. Gemini-reviewed twice, clean Ship it. Three fixes applied: FOR UPDATE SKIP LOCKED, reflection in target language, transcript 8000 chars. Review loop rule committed to memory.
+*Tags: session-resilience, reflection-worker, write-to-self, deferred-reflection, gemini-review*
 
 ### Team Room — test 3 — June 17, 2026 — Jun 17, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.

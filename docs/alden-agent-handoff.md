@@ -24,6 +24,37 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 17, 2026 (final) — Session reflection resilience layer — SHIPPED**
+
+### What was built
+
+`server/services/session-reflection-worker.ts` — deferred reflection worker that ensures `write_to_self()` is never silently lost when a GL session ends ungracefully (dropped connection, browser close, network cut).
+
+**Two-hook design:**
+- **Hook 1 (close):** `ws.on('close')` in `unified-ws-handler.ts` (~line 4170). If ≥3 exchanges and no reflection exists for the session, upserts a `pending_reflections` row with in-memory transcript preview.
+- **Hook 2 (next-start):** Before compass context is fetched at the top of a new session (~line 1592). `processAndClearPendingReflection()` checks for a pending row, runs a Daniela-persona `generateContent` call (REST/text, cheap), writes to `daniela_self_reflections`, deletes the pending row. Compass context is fetched moments later — so THIS session's pre-session synthesis includes the deferred reflection.
+
+**Architecture decisions:**
+- `pending_reflections` table: UNIQUE on `user_id` (one pending per user; UPSERT means the freshest session wins).
+- `FOR UPDATE SKIP LOCKED` prevents double-processing from two concurrent sessions (two browser tabs).
+- Reflection is written in the **target language** of the session (not English-hardcoded — Gemini review caught this).
+- Transcript preview: last 8000 chars walking backwards (up from 2000 per Gemini review).
+- Authorship rule preserved: reflection text always comes from a Daniela-persona Gemini call, same pattern as existing WRITE_TO_SELF handler.
+
+**Gemini review:** Two rounds, clean "APPROVED — Ship it" on both. All three Gemini suggestions applied before final sign-off.
+
+**Schema:** `pending_reflections` table added to `shared/schema.ts` (~line 3438); table created directly via SQL (db:push was timing out).
+
+### Rules established this session
+- **Review loop rule (David, June 17):** If Gemini flags a build suggestion, apply the fix and send back for another round. Repeat until clean "APPROVED — Ship it." Never commit on a partial approval. Saved to `.agents/memory/agent-review-workflow.md`.
+- **GL 3.1 vs 3.5 comparison (David, June 17):** 3.1 is rawer/more internal; 3.5 is more vivid/slightly theatrical. Delta not strong enough to justify upgrade cost alone. Saved to `conversation_memories` (id: 7e65b31d).
+
+### What's unresolved
+- `pending_reflections` has no TTL or cleanup job — transcript previews contain PII. Low priority, but worth a future Alden cron to delete rows older than 30 days.
+- The pre-session synthesis + deferred reflection combination hasn't been tested in a real live session yet — worth Alden monitoring for `[ReflectionWorker]` log lines to confirm the hooks fire correctly in production.
+
+---
+
 **Session: June 17, 2026 (continued) — Pre-session synthesis ("walk to the classroom") — SHIPPED**
 
 ### What was built

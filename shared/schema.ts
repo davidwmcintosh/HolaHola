@@ -3422,6 +3422,30 @@ export const insertDanielaSelfReflectionSchema = createInsertSchema(danielaSelfR
 export type InsertDanielaSelfReflection = z.infer<typeof insertDanielaSelfReflectionSchema>;
 export type DanielaSelfReflection = typeof danielaSelfReflections.$inferSelect;
 
+// ─── Pending Reflections ──────────────────────────────────────────────────────
+// When a GL session ends without Daniela calling write_to_self() (dropped
+// connection, browser close, etc.), a pending row is created here.
+// On the NEXT session start — before compass context is fetched — the worker
+// processes this row: runs a Daniela-persona generateContent call, writes the
+// reflection to daniela_self_reflections, then deletes the pending row.
+//
+// Authorship rule preserved: the words always come from Daniela's persona
+// running on Gemini. The server just stores what she generates.
+// One pending row per user max (unique on user_id).
+export const pendingReflections = pgTable("pending_reflections", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  sessionId: varchar("session_id"),           // tutor_sessions.id that ended without a reflection
+  conversationId: varchar("conversation_id"), // to re-fetch transcript if needed
+  transcriptPreview: text("transcript_preview"), // last ~2000 chars captured at session close
+  language: varchar("language", { length: 50 }).default('spanish'),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("idx_pending_reflections_user_unique").on(table.userId),
+  index("idx_pending_reflections_created").on(table.createdAt),
+]);
+export type PendingReflection = typeof pendingReflections.$inferSelect;
+
 // ─── Daniela Curiosities ─────────────────────────────────────────────────────
 // Questions Daniela holds between sessions — things she genuinely wonders about.
 export const danielaCuriosities = pgTable("daniela_curiosities", {
