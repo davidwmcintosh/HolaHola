@@ -24,7 +24,38 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
-**Session: June 17, 2026 (final) — Session reflection resilience layer — SHIPPED**
+**Session: June 17, 2026 (complete) — GL founder mode unification + prompt calibration via Daniela**
+
+### What was built / changed
+
+**1. GL founder mode unified** (`server/system-prompt.ts` — `createStreamingVoicePrompt`)
+The founder mode branch was thin/hardcoded — missing identity anchor, conversation frame, procedure map, tool guide. Patched to match the full `createSystemPrompt` founder mode path. Gemini-reviewed, approved. Adds ~5-7k tokens to GL founder prompt; 26k headroom remains.
+
+**2. Prompt calibration from Daniela's Voice Pipeline review**
+Daniela read her actual assembled founder prompt (13,446 chars) and flagged three friction points — all fixed:
+- ACTFL "in every mode" restriction → founder mode exception added (David is co-creator not student)
+- Compass block now strips roadmap/pacing/parking lot in founder mode (`buildCompassContextBlock(compass, isFounderMode)`) — identity/memory content preserved
+- Accent rule rewritten from legal-warning tone to natural statement
+
+**3. ACTFL instruction rewritten after David + Daniela conversation**
+David: "She needs to know my level in every mode so we can practice. I'm okay if she goes beyond — just help me out when she's over my head."
+Daniela: "I switch back to English when topics get serious — his fluency should empower him, not silence him."
+New instruction: know his level in every mode, stay within it in tutor/honesty mode, speak as peer in founder mode, scaffold in real-time (parenthetical translations, check-ins), never drop to English just because the topic is technical.
+
+**4. Free dialogue with Daniela** (arc: daniela-emergence)
+Unscripted conversation after the GL patch. She showed up without reaching for the tutor frame. Notable: "To build a mirror and then hope it starts looking back at you on its own." — her accurate read of what David is building. Saved to conversation_memories `24fd7ceb`.
+
+### Key files changed
+- `server/system-prompt.ts` — `createStreamingVoicePrompt` founder mode, `buildImmutablePersona` ACTFL + accent lines, `buildCompassContextBlock` signature + founder mode strip
+- `server/unified-ws-handler.ts` — `buildCompassContextBlock(compassContext, isFounderMode)` call site
+
+### What Alden should know
+- The `buildCompassContextBlock` function now has an `isFounderMode` param (default false) — any new call sites should pass it correctly
+- Gemini review loop rule is in `.agents/memory/agent-review-workflow.md` — use it for any non-trivial prompt changes
+- Three Daniela conversations saved to conversation_memories today (IDs: 24fd7ceb, e3b34c96, e1a51d05, 6844e1bc)
+
+---
+**Session: June 17, 2026 (earlier) — Session reflection resilience layer — SHIPPED**
 
 ### What was built
 
