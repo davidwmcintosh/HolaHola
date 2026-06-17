@@ -35,19 +35,23 @@ Ran a formal Gemini architectural consult on three production issues David flagg
 **ACTFL + Persona Anchor — injected every turn in both PTT and OpenMic paths** (`streaming-voice-orchestrator.ts`)
 
 Three changes:
-1. **`buildActflPersonaAnchor()` helper** — new module-level function (~line 515) that maps `session.studentActflLevel` (snake_case key like `'novice_mid'`) to a concise output constraint (tutor language ratios, bold vocabulary rules, tense restrictions) + a persona warmth reminder ("warm, human, teacher-first — acknowledge the student before pivoting to a task"). Includes "session is ONGOING" guard when `conversationHistory.length > 2` — directly addresses Gemini's "First Turn Bias" that causes re-greetings after reconnects.
+1. **`buildActflPersonaAnchor()` helper** — new module-level function (~line 515) that maps `session.studentActflLevel` to tutor LANGUAGE MIX RATIOS ONLY (e.g. "~85% English, ~15% Spanish") + a persona warmth reminder. Includes "session is ONGOING" guard for reconnects. All tense/grammar/vocabulary directives were removed after David caught they contradicted Madrigal pedagogy (which starts with past tense from day one) — anchor is now ratios only.
 2. **PTT injection** — after pending memory surfaces, before `checkpointUserMessage`. Two preamble turns pushed (user: constraint, model: acknowledged).
 3. **OpenMic injection** — same pattern, same location in OpenMic path.
-4. **`session.studentActflLevel` assignment** — this field was in the `StreamingSession` type but NEVER assigned (always `undefined`). Fixed in `triggerGreeting()`: after reading `actflProgress.currentActflLevel` from DB, now also stores `session.studentActflLevel = actflProgress?.currentActflLevel || 'novice_low'`.
+4. **`session.studentActflLevel` assignment** — this field was NEVER assigned (always `undefined`). Fixed in `triggerGreeting()`: now stores `actflProgress?.currentActflLevel || 'novice_low'`.
 
-### What Gemini flagged as deferred work (for next session or Alden)
-- **System prompt ordering**: Put most critical behavioral rules (persona + language mix) at the END of the system prompt — Gemini weights end-of-prompt higher. Currently they're in the middle of a 34K system prompt.
-- **Tool descriptions**: Gemini prefers imperative/concise format ("Call this when X") over Claude-style verbose prose. A targeted audit of the 64 tool descriptions served per session would help.
-- **Tool result verbosity**: Gemini hates "chatty" function results. `load_scenario` continuation was already compacted this session. Other tool responses may need the same treatment.
-- **ACTFL in tool results**: Gemini's "sandwich method" — inject level reminder in the `tool_result` response when major activities start (e.g., `load_scenario`, `load_textbook_page`). This re-anchors Daniela in the right mode at the moment of context shift.
+**All 3 Gemini-deferred items completed same session:**
+
+1. **End-of-prompt priority block** (`server/system-prompt.ts` ~line 1375) — `behaviorPriorityFooter` const appended to all 3 `createSystemPrompt` phase returns. Gemini Flash weights end-of-prompt tokens highest — persona warmth + level adherence rules now also sit there as a compact 2-line reminder.
+
+2. **`start_textbook_page` description compacted** (`daniela-function-registry.ts` ~line 3687) — Replaced 8-step Claude-style prose with Gemini-native imperative: WHAT (1 line), WHAT IT DOES (1 line), BEST FOR (1 line).
+
+3. **ACTFL sandwich in `start_textbook_page` continuation** (`daniela-function-registry.ts` ~line 3708) — `buildContinuationResponse` now reads `session.studentActflLevel` and injects level-appropriate language mix directive alongside lesson content (Novice → "Lead in English"; Intermediate → "Balance"; Advanced → "Lead in target language"). Third sandwich layer: system prompt → preamble anchor → tool result.
 
 ### Files changed
-- `server/services/streaming-voice-orchestrator.ts` — `buildActflPersonaAnchor()` function; PTT + OpenMic injection blocks; `session.studentActflLevel` assignment in `triggerGreeting`
+- `server/services/streaming-voice-orchestrator.ts` — `buildActflPersonaAnchor()` (language ratios only, no tense); PTT + OpenMic injection blocks; `session.studentActflLevel` assignment
+- `server/system-prompt.ts` — `behaviorPriorityFooter` (~line 1375); appended to all 3 phase returns
+- `server/services/daniela-function-registry.ts` — `start_textbook_page` description compacted; continuation ACTFL sandwich added
 - `docs/gemini-audit-2026-06-17.md` — Gemini consult output saved
 
 **Session: June 16, 2026 (part 5) — Verb cards + word echo**

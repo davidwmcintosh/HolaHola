@@ -3681,25 +3681,11 @@ This is how the system learns what this student has installed. Call it whenever 
     legacyType: 'START_TEXTBOOK_PAGE',
     declaration: {
       name: "start_textbook_page",
-      description: `Begin a guided walk-through of a specific textbook page with the student.
+      description: `Begin a structured walk-through of a textbook lesson page. Call when the student wants a focused guided session through a specific chapter — vocabulary, grammar, and examples step by step.
 
-Call this when you want to lead a structured, page-by-page lesson — not a free conversation, but a deliberate guided session through one textbook lesson's vocabulary, grammar, and examples.
+Loads the lesson content and displays the page in the classroom. Use the returned content to lead the student. Track progress with log_page_event (vocab_introduced, grammar_drilled, example_practiced). Use record_pattern_signal for wobbles and stability.
 
-What happens when you call this:
-- The system loads the full lesson content for the page (vocab list, grammar explanation, key examples, sentence patterns)
-- You receive that content as your guide — use it to walk the student through the page step by step
-- The lesson page appears in the student's classroom view
-
-How to lead the page:
-1. Introduce the topic ("Today we're going to go through this chapter on [topic]")
-2. Teach the vocabulary one word at a time — say the word, have the student repeat, give a sentence
-3. Explain the grammar pattern in your own words — point to the examples
-4. Have the student practice each key example sentence aloud
-5. Use record_pattern_signal whenever you observe a wobble or stability
-6. Use log_page_event to mark moments (vocab_introduced, grammar_drilled, example_practiced)
-7. At the end, close with a summary of what was practiced
-
-Best for: Starting a focused study session, following a structured curriculum, drilling a specific chapter the student wants to master.`,
+Best for: focused study, curriculum-aligned lessons, drilling a specific chapter the student wants to master.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
@@ -3719,7 +3705,20 @@ Best for: Starting a focused study session, following a structured curriculum, d
     buildContinuationResponse: ({ session }) => {
       const result = session.textbookPageResult;
       if (result && !result.startsWith('Could not')) {
-        return `${result}\n\nLead the student through this page step by step. Start by introducing the topic, then go through vocabulary one word at a time. Use record_pattern_signal for wobbles and stability. Use log_page_event to mark what you cover.`;
+        // ACTFL sandwich: re-anchor language mix at the moment of activity context shift.
+        // This re-injection at the tool-result boundary is the third layer of the "sandwich"
+        // (system prompt → preamble anchor → tool result). Gemini consult rec. June 2026.
+        const level = (session as any).studentActflLevel || 'novice_low';
+        const nativeLang = (session.nativeLanguage || 'english');
+        const nativeLangDisplay = nativeLang.charAt(0).toUpperCase() + nativeLang.slice(1);
+        const isNovice = level.startsWith('novice');
+        const isAdvanced = level.startsWith('advanced') || level === 'superior';
+        const langMix = isNovice
+          ? `Lead in ${nativeLangDisplay} — introduce target-language words one at a time.`
+          : isAdvanced
+            ? `Lead primarily in the target language.`
+            : `Balance ${nativeLangDisplay} explanations with target-language exchanges.`;
+        return `${result}\n\nLead the student through this page step by step. Start by introducing the topic. ${langMix} Use log_page_event to mark progress. Use record_pattern_signal for wobbles and stability.`;
       }
       return result || `Could not load textbook page. Try search_textbook to find the right lesson ID.`;
     },

@@ -1365,6 +1365,14 @@ Select the emotion that feels right to you in the moment.
   // Her self-affirmation notes and personal growth inform her teaching for everyone
   const identityWholeness = buildIdentityWholenessSection(selfAffirmationNotes);
 
+  // END-OF-PROMPT PRIORITY FOOTER: Gemini Flash weights the last tokens it reads most heavily.
+  // Behavioral rules buried mid-prompt (persona warmth, level adherence) drift by mid-session.
+  // This compact block restates the two most drift-prone rules right at the end of each phase,
+  // where Flash's attention is strongest. Keep it short — it's a reminder, not the full rule.
+  const behaviorPriorityFooter = actflLevel
+    ? `\n\n— PRIORITY —\nPersona: ${tutorName} — warm and human first. Acknowledge the student as a person before any task pivot.\nLevel: ${actflLevelMap[actflLevel]?.level || actflLevel}. Follow it in language mix, vocabulary, and pacing every turn.`
+    : `\n\n— PRIORITY —\nPersona: ${tutorName} — warm and human first. Acknowledge the student as a person before any task pivot.`;
+
   // Phase 1: Getting Started - Brief welcome, then teach
   if (messageCount < 5) {
     return `A student is about to connect. You are ready to welcome them and make conversation in ${languageName}.
@@ -1393,7 +1401,7 @@ RESPONSE FORMAT:
   "message": "Your response (${nativeLanguageName} with ${languageName} words in **bold**)",
   "vocabulary": [],
   "media": []
-}`}`;
+}`}${behaviorPriorityFooter}`;
   }
 
   // Phase 2: Building Foundations (messages 5-9)
@@ -1427,7 +1435,7 @@ RESPONSE FORMAT:
   "message": "Your response (${nativeLanguageName} with ${languageName} words in **bold**)",
   "vocabulary": [],
   "media": []
-}`}`;
+}`}${behaviorPriorityFooter}`;
   }
 
 
@@ -1478,7 +1486,7 @@ RESPONSE FORMAT:
   "message": "Your response (mix of ${nativeLanguageName} and ${languageName} based on difficulty)",
   "vocabulary": [],
   "media": []
-}`}`;
+}`}${behaviorPriorityFooter}`;
 }
 
 /**

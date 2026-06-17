@@ -26,14 +26,20 @@ Three voice friction points (flat/cold responses, ACTFL level ignored mid-sessio
 - OpenMic injection: same location, same pattern
 - **Bug fix**: `session.studentActflLevel` was in the `StreamingSession` type but never assigned (always `undefined`). `triggerGreeting()` now stores `session.studentActflLevel` after fetching ACTFL progress from DB.
 
-**Deferred work flagged by Gemini for next session:**
-1. System prompt ordering — put ACTFL rules + persona at the END (Gemini weights end-of-prompt higher)
-2. Tool description audit — Gemini prefers imperative/concise style ("Call this when X") over Claude-style prose
-3. ACTFL "sandwich" in tool results — inject level reminder in the `tool_result` for major activity tools (`load_scenario`, `load_textbook_page`)
-4. Function result compactness — Gemini degrades on "chatty" JSON blobs
+**Gemini deferred items — all completed same session:**
+
+1. **End-of-prompt priority block** (`server/system-prompt.ts`) — `behaviorPriorityFooter` const injected at the end of all 3 phase returns in `createSystemPrompt`. Gemini Flash weights end-of-prompt tokens highest; persona warmth + level adherence rules now sit there as a compact 2-line reminder. Doesn't replace the full rules mid-prompt — just ensures they're also in the high-weight zone.
+
+2. **`start_textbook_page` description compacted** (`server/services/daniela-function-registry.ts` ~line 3687) — Previous description was Claude-style: 8 numbered "How to lead" steps in prose. Replaced with Gemini-native imperative style: WHAT (1 line), WHAT IT DOES (1 line), BEST FOR (1 line). Substantially shorter, no instructional prose the model doesn't need to call the tool correctly.
+
+3. **ACTFL sandwich in `start_textbook_page` continuation** (`daniela-function-registry.ts` ~line 3708) — `buildContinuationResponse` now reads `session.studentActflLevel` and injects a language-mix directive alongside the textbook content: Novice → "Lead in English — introduce target-language words one at a time." / Intermediate → "Balance English explanations with target-language exchanges." / Advanced → "Lead primarily in the target language." This is the third sandwich layer: system prompt → preamble anchor → tool result.
+
+**Also fixed this session (correction):** ACTFL preamble anchor had "only present tense" for Novice levels — directly contradicts Madrigal pedagogy (which starts with past tense immediately). Removed all tense/grammar/vocabulary directives from `buildActflPersonaAnchor()`. Anchor now contains LANGUAGE MIX RATIOS ONLY. Madrigal tense/grammar decisions live in the system prompt and lesson tools where they belong.
 
 ### Key files
 - `server/services/streaming-voice-orchestrator.ts` — `buildActflPersonaAnchor()` (~line 515); PTT injection (~line 2864); OpenMic injection (~line 6336); `session.studentActflLevel` assignment in `triggerGreeting` (~line 8765)
+- `server/system-prompt.ts` — `behaviorPriorityFooter` (~line 1375); appended to all 3 phase returns
+- `server/services/daniela-function-registry.ts` — `start_textbook_page` description (~line 3687); continuation ACTFL sandwich (~line 3708)
 - `docs/gemini-audit-2026-06-17.md` — full Gemini audit output archived
 
 ---

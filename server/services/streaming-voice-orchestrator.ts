@@ -520,25 +520,26 @@ function buildActflPersonaAnchor(session: { studentActflLevel?: string; targetLa
   const targetLangDisplay = targetLang.charAt(0).toUpperCase() + targetLang.slice(1);
   const tutorName = session.tutorName || 'Daniela';
 
-  // ACTFL output constraints — describe the TUTOR's language output, not the student's ability
+  // ACTFL output constraints — language MIX RATIOS only. No tense, grammar, or vocabulary
+  // directives here: those come from Madrigal pedagogy in the system prompt and lesson tools.
   let langConstraint: string;
   if (level === 'novice_low' || level === 'novice_mid') {
-    langConstraint = `Output language: ~85% ${nativeLangDisplay}. Slot in individual ${targetLangDisplay} vocabulary words in **bold** — no full ${targetLangDisplay} sentences. Use only present tense and high-frequency words the student already knows.`;
+    langConstraint = `Output language mix: ~85% ${nativeLangDisplay}, ~15% ${targetLangDisplay}. Keep ${nativeLangDisplay} dominant. Slot in ${targetLangDisplay} words and short phrases.`;
   } else if (level === 'novice_high') {
-    langConstraint = `Output language: ~70% ${nativeLangDisplay}. Short ${targetLangDisplay} phrases (2–3 words) in **bold** are fine. Support everything with ${nativeLangDisplay}. No complex grammar structures.`;
+    langConstraint = `Output language mix: ~70% ${nativeLangDisplay}, ~30% ${targetLangDisplay}. Short ${targetLangDisplay} phrases are fine. Support with ${nativeLangDisplay} throughout.`;
   } else if (level === 'intermediate_low') {
-    langConstraint = `Output language: ~50/50 ${nativeLangDisplay}/${targetLangDisplay}. Use simple, complete ${targetLangDisplay} sentences in **bold**. Always clarify in ${nativeLangDisplay} when introducing new grammar.`;
+    langConstraint = `Output language mix: ~50% ${nativeLangDisplay}, ~50% ${targetLangDisplay}. ${nativeLangDisplay} for explanations, ${targetLangDisplay} for exchanges.`;
   } else if (level === 'intermediate_mid') {
-    langConstraint = `Output language: ~50% ${targetLangDisplay}, 50% ${nativeLangDisplay}. ${targetLangDisplay} sentences for exchanges, ${nativeLangDisplay} for grammar explanations. Keep ${targetLangDisplay} at present/past tense.`;
+    langConstraint = `Output language mix: ~50% ${targetLangDisplay}, ~50% ${nativeLangDisplay}. ${targetLangDisplay} for exchanges, ${nativeLangDisplay} for explanations.`;
   } else if (level === 'intermediate_high') {
-    langConstraint = `Output language: ~65% ${targetLangDisplay}. Reserve ${nativeLangDisplay} for complex grammar or when the student is clearly struggling. Most exchanges should be in ${targetLangDisplay}.`;
+    langConstraint = `Output language mix: ~65% ${targetLangDisplay}, ~35% ${nativeLangDisplay}. ${nativeLangDisplay} when the student is clearly struggling; otherwise stay in ${targetLangDisplay}.`;
   } else if (level === 'advanced_low' || level === 'advanced_mid') {
-    langConstraint = `Output language: ~85% ${targetLangDisplay}. Use ${nativeLangDisplay} only for nuanced grammar explanations or vocabulary clarification when needed. Full sentence complexity is appropriate.`;
+    langConstraint = `Output language mix: ~85% ${targetLangDisplay}, ~15% ${nativeLangDisplay}. ${nativeLangDisplay} only for explanations or clarification when needed.`;
   } else if (level === 'advanced_high' || level === 'superior') {
-    langConstraint = `Output language: Full ${targetLangDisplay} immersion. Use ${nativeLangDisplay} only if the student explicitly asks for translation. Native-level complexity and all verb tenses are appropriate.`;
+    langConstraint = `Output language mix: Full ${targetLangDisplay} immersion. ${nativeLangDisplay} only if the student explicitly asks.`;
   } else {
     // Fallback for unknown level keys
-    langConstraint = `Output language: Mix ${nativeLangDisplay} and ${targetLangDisplay} appropriately for the student's level. Use **bold** for ${targetLangDisplay} words you are actively teaching.`;
+    langConstraint = `Output language mix: Blend ${nativeLangDisplay} and ${targetLangDisplay} appropriately for the student's level.`;
   }
 
   const personaAnchor = `Persona: You are ${tutorName} — warm, human, teacher-first. Before pivoting directly to a task or calling a tool, acknowledge the student as a person with one natural sentence. A student is a human, not a prompt.`;
