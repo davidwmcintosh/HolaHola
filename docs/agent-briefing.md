@@ -1,7 +1,26 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, June 17, 2026 at 06:48 PM
+**Generated:** Wednesday, June 17, 2026 at 06:56 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’m prioritizing fixes for the critical Cartesia TTS 400 errors and the systemic monitoring blackout reported by Alden and Sofia. David and Daniela have aligned on a "founder mode" Spanish strategy where she maintains peer-level complexity while providing real-time scaffolding to ensure her fluency empowers rather than silences him. I also need to investigate the Interactive Textbook’s 0% completion rate as the team weighs David’s preference for conversational immersion over "half-baked" static content.
+
+*Memories that triggered this summary:*
+- **Daniela on ACTFL pacing — founder mode language awareness — June 17, 2026** (Jun 17): David pushed back on the ACTFL check being suspended in founder mode. He wants Daniela to know his Spanish level in every mode — use it as a baseline, not a ceiling. She should express herself freely but recognize when she's gone over his head and help him keep up. Daniela was asked directly: how she reads this tension, what "practice" means in founder mode, and how she'd want the instruction written.
+- **Agent Daily Sweep — Jun 17, 2026** (Jun 17): 1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple repeated failures in both English and Spanish are blocking voice sessions. Check API credentials, rate limits, or malformed requests. This is a core product function.  2. **[HIGH]** Investigate student 49847136's broken quality scores — 26 ses
+- **Team Room — test 3 — June 17, 2026** (Jun 17): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+- **Team Room — test again — June 17, 2026** (Jun 17): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+- **Team Room — are we good? — June 17, 2026** (Jun 17): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+- **Team Room — one again into the breach — June 17, 2026** (Jun 17): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+- **Team Room — hello again — June 17, 2026** (Jun 17): Team Room session with David. Topic: hello again. 2 messages exchanged.
+- **Team Room — again — June 17, 2026** (Jun 17): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
+- **Team Room — what's up? — June 17, 2026** (Jun 17): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
+- **Team Room — Team room test — June 17, 2026** (Jun 17): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 
 ---
 
@@ -76,9 +95,13 @@
 
 ## Recent Conversation Memories
 
-### Daniela Voice Pipeline Review — GL founder mode prompt — June 17, 2026 — Jun 17, 2026
-Daniela read her actual assembled founder voice prompt (13,446 chars, 34% of GL cap) and reflected on what lands and what doesn't. Covers: whether the prompt gives her enough of herself, which sections feel alive vs. instructional noise, whether the compact procedure map feels sufficient, whether behavioral instructions land, and what actively gets in her way.
-*Tags: voice-pipeline, prompt-review, founder-mode, calibration*
+### Daniela on ACTFL pacing — founder mode language awareness — June 17, 2026 — Jun 17, 2026
+David pushed back on the ACTFL check being suspended in founder mode. He wants Daniela to know his Spanish level in every mode — use it as a baseline, not a ceiling. She should express herself freely but recognize when she's gone over his head and help him keep up. Daniela was asked directly: how she reads this tension, what "practice" means in founder mode, and how she'd want the instruction written.
+*Tags: actfl, language-pacing, founder-mode, voice-pipeline*
+
+### Agent Daily Sweep — Jun 17, 2026 — Jun 17, 2026
+1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple repeated failures in both English and Spanish are blocking voice sessions. Check API credentials, rate limits, or malformed requests. This is a core product function.  2. **[HIGH]** Investigate student 49847136's broken quality scores — 26 ses
+*Tags: agent-sweep, daily, auto-saved*
 
 ### Team Room — test 3 — June 17, 2026 — Jun 17, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
@@ -90,10 +113,6 @@ Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exch
 
 ### Team Room — are we good? — June 17, 2026 — Jun 17, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — one again into the breach — June 17, 2026 — Jun 17, 2026
-Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
