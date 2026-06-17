@@ -1229,16 +1229,15 @@ export function buildUnifiedBrainSync(
     p => ALWAYS_ON_AWARENESS_TRIGGERS.includes(p.trigger || '') && p.isActive
   ).sort((a, b) => (b.priority ?? 0) - (a.priority ?? 0));
 
+  // No ─── dividers, no "AWARENESS GUIDANCE" all-caps header, no toUpperCase() on titles. (Gemini consult rec.)
   if (awarenessProcs.length > 0) {
     const lines: string[] = [
       '',
-      '───────────────────────────────────────────────────────────────────',
-      'AWARENESS GUIDANCE',
-      '───────────────────────────────────────────────────────────────────',
+      'Things I notice automatically:',
       '',
     ];
     awarenessProcs.forEach(p => {
-      lines.push(`${p.title.toUpperCase()}`);
+      lines.push(`${p.title}`);
       lines.push(p.procedure);
       lines.push('');
     });
