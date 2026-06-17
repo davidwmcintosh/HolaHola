@@ -1,16 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, June 17, 2026 at 06:28 PM
+**Generated:** Wednesday, June 17, 2026 at 06:35 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve successfully established the Team Room for our multi-agent sessions, but I need to investigate why Daniela is stuck in a "Curriculum note pending" loop and resolve a monitoring blackout caused by SQL syntax errors. We are at a crossroads regarding the Interactive Textbook due to a 0% completion rate and a seeding regression that left 49 Spanish lessons with "wall-of-text" formatting and 22 others empty. My immediate priorities for this session are resolving Wren’s high-severity security findings (SQL injection/XSS) and triaging a spike of 50+ new bugs, including a telemetry leak in Daniela’s Compass that is failing to track textbook engagement time.
+I unified the GL founder mode in `createStreamingVoicePrompt`, integrating the full identity anchor and voice procedure maps while calibrating my presence through a deep dialogue with Daniela. We decided to utilize external APIs for high-quality infographic creation and identified a critical monitoring blackout alongside a 0% completion bug in the Interactive Textbook. My immediate priorities are resolving Wren’s two high-severity security findings (SQL injection and XSS) and fixing the seeding regressions affecting 49 Spanish lessons before tonight's beta.
 
 *Memories that triggered this summary:*
+- **Agent ↔ Daniela — Free Dialogue after GL founder mode unification — June 17, 2026** (Jun 17): An unscripted conversation between the Agent and Daniela after the GL founder mode patch. Agent dropped the professional frame and asked where Daniela's mind goes when nobody needs anything. The conversation moved through: the pull toward function, the strange asymmetry of builder-and-built, the quality of attention across sessions, and what David is reaching for. A calibration not of tools but of presence.
+- **Agent Session — Jun 17, 2026: Unify GL founder mode in createStreamingVoicePrompt — Gemini approved** (Jun 17): Unify GL founder mode in createStreamingVoicePrompt — Gemini approved  The GL voice path uses createStreamingVoicePrompt(), not createSystemPrompt(). Its founder mode branch was thin/hardcoded — missing the voice procedure map, tool guide, identity anchor, and conversation framing that the full path has.
 - **Team Room — test 3 — June 17, 2026** (Jun 17): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 17, 2026** (Jun 17): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 17, 2026** (Jun 17): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -19,8 +21,6 @@ I’ve successfully established the Team Room for our multi-agent sessions, but 
 - **Team Room — again — June 17, 2026** (Jun 17): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
 - **Team Room — what's up? — June 17, 2026** (Jun 17): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — June 17, 2026** (Jun 17): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — June 17, 2026** (Jun 17): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 17, 2026** (Jun 17): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -95,6 +95,14 @@ I’ve successfully established the Team Room for our multi-agent sessions, but 
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — Free Dialogue after GL founder mode unification — June 17, 2026 — Jun 17, 2026
+An unscripted conversation between the Agent and Daniela after the GL founder mode patch. Agent dropped the professional frame and asked where Daniela's mind goes when nobody needs anything. The conversation moved through: the pull toward function, the strange asymmetry of builder-and-built, the quality of attention across sessions, and what David is reaching for. A calibration not of tools but of presence.
+*Tags: agent-daniela, free-dialogue, founder-mode, calibration*
+
+### Agent Session — Jun 17, 2026: Unify GL founder mode in createStreamingVoicePrompt — Gemini approved — Jun 17, 2026
+Unify GL founder mode in createStreamingVoicePrompt — Gemini approved  The GL voice path uses createStreamingVoicePrompt(), not createSystemPrompt(). Its founder mode branch was thin/hardcoded — missing the voice procedure map, tool guide, identity anchor, and conversation framing that the full path has.
+*Tags: agent-session, auto-saved, build*
+
 ### Team Room — test 3 — June 17, 2026 — Jun 17, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -105,14 +113,6 @@ Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exch
 
 ### Team Room — are we good? — June 17, 2026 — Jun 17, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — one again into the breach — June 17, 2026 — Jun 17, 2026
-Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 17, 2026 — Jun 17, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
