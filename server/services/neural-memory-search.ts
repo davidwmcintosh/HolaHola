@@ -885,17 +885,19 @@ export function formatMemoryForConversation(response: MemorySearchResponse, stud
   function naturalTime(ts?: string | null): string {
     if (!ts) return '';
     const days = Math.floor((Date.now() - new Date(ts).getTime()) / (1000 * 60 * 60 * 24));
-    if (days < 3) return ', and this was recent';
-    if (days < 14) return ', about a week or two ago';
-    if (days < 60) return ', about a month back';
-    if (days < 180) return ', a few months ago';
-    return ', a while back';
+    if (days < 3) return ' (recent)';
+    if (days < 14) return ' (about a week ago)';
+    if (days < 60) return ' (about a month ago)';
+    if (days < 180) return ' (a few months ago)';
+    return ' (a while back)';
   }
 
-  // Up to 6 results, ordered by relevance. No metadata, no similarity scores.
-  // Return as a single prose paragraph — memories are a stream, not a list.
+  // Up to 6 results, ordered by relevance.
+  // No invented framing, no literary weavers — the memories are already in Daniela's voice.
+  // Adding an opening sentence or connectors like "Something that stayed with me —"
+  // flavors the memory before she reads it. Present them clean. Let them speak.
   const top = response.results.slice(0, 6);
-  const fragments: string[] = [];
+  const lines: string[] = [];
 
   for (const result of top) {
     const when = naturalTime(result.timestamp);
@@ -903,34 +905,10 @@ export function formatMemoryForConversation(response: MemorySearchResponse, stud
     const memory = (result.details && result.details !== result.summary && result.details.length > result.summary.length)
       ? result.details
       : result.summary;
-    fragments.push(`${memory}${when}`);
+    lines.push(`${memory}${when}`);
   }
 
-  // Weave into a single narrative paragraph — a stream of memory, not a bullet list.
-  // The model reads this as its own inner voice, not a set of retrieved records.
-  const [first, ...rest] = fragments;
-  const weavers = [
-    'I also remember —',
-    'And there was —',
-    'Something that stayed with me —',
-    'I recall —',
-    'And —',
-  ];
-
-  const name = studentName || 'them';
-  const opening = studentName
-    ? `When I reach back, I can see ${name} clearly.`
-    : 'When I reach back, this comes to me.';
-
-  if (rest.length === 0) {
-    return `${opening} ${first}.`;
-  }
-
-  const continuation = rest
-    .map((f, i) => `${weavers[i % weavers.length]} ${f}`)
-    .join(' ');
-
-  return `${opening} ${first}. ${continuation}.`;
+  return lines.join('\n');
 }
 
 /**
