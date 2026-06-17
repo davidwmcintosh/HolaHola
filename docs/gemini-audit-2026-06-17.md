@@ -54,4 +54,66 @@ You are experiencing "Middle-of-the-Prompt" loss.
     *   *Example:* `system: "Current Level: Intermediate Mid. Use 50/50 Spanish/English. Focus on past tense narration."`
 
 ### Final "Hard Truth" Advice:
-Gemini 1.5 Flash Live is a "reactive" beast. It reacts to the most recent tokens it saw. If the most recent tokens are a massive tool result or a long student utterance, the 34k-character system prompt is a distant memory. **Move your most important "Daniela-isms" and "ACTFL-isms" into the preamble turns.** If it’s not in the last 1,000 tokens, you can't guarantee Flash will follow it.
+Gemini 1.5 Flash Live is a "reactive" beast. It reacts to the most recent tokens it saw. If the most recent tokens are a massive tool result or a long student utterance, the 34k-character system prompt is a distant memory. **Move your most important "Daniela-isms" and "ACTFL-isms" into the preamble turns.** If it’s not in the last 1,000 tokens, you can't guarantee Flash will follow it.=== Gemini Neural Net Architecture Consult 2026-06-17T04:24:25.960Z ===
+
+This is a classic "Agency vs. Instruction" problem. To make Gemini Live (GL) *want* to use the neural net, you must stop treating the neural net as a database and start treating it as **Daniela’s External Cortex.**
+
+Here is the architectural redesign for Daniela’s memory and tool-use behavior.
+
+---
+
+### 1. What makes a tool "obviously worth calling"?
+LLMs are "lazy" in the sense that they follow the path of least resistance. A tool is ignored if the model thinks it already knows the answer or if the tool's name is abstract.
+
+*   **High Specificity Naming:** `semantic_search` is a developer term. It sounds like work. Rename it to `consult_long_term_memory` or `recall_student_history`.
+*   **The "Information Gap" Principle:** A tool is used when the model realizes its internal weights are insufficient. You must explicitly define Daniela’s "internal state" as *forgetful*. 
+*   **Design Principle:** The tool must return **high-density, high-relevance snippets** that are formatted as "Facts" or "Directives." If the tool returns a messy JSON, the model will avoid it. If it returns: *"Memory: Student struggled with the subjunctive last Tuesday; use the 'Coffee Shop' widget to practice,"* the model feels empowered.
+
+### 2. Positioning as "Long-Term Memory"
+Yes, you should frame it as her "Cortex." But the secret is in the **Tool Description**, which is the only part of the prompt that never drifts because it’s attached to the function declaration.
+
+**The "Instinct" Description:**
+> `recall_memory(query)`: "Use this tool whenever you feel you are speaking in generalities. This is your only access to Daniela’s past experiences, student progress, and your 139 specialized teaching tools. If you don't call this, you are guessing. Call this to see what worked in previous sessions or to find the exact interactive widget needed for this moment."
+
+### 3. Tool Results as the Primary Context Vehicle
+This is your most powerful lever. **Tool outputs are "Hot Context."**
+
+*   **The "Bootstrap" Turn:** Do not put the student snapshot in the system prompt. Instead, the very first "turn" in the conversation (hidden from the user or injected via a `session_started` event) should be a call to `recall_memory("current student status and goals")`.
+*   **Why this works:** The result of that tool call now sits in the **Conversation History**, not the System Prompt. In Gemini’s attention mechanism, the most recent 10-20 turns are "High Definition." By moving context from the System Prompt to a Tool Result at Turn 1, you move it from the "fading background" to the "active foreground."
+
+### 4. Push vs. Pull: The "Hybrid Trigger"
+You should favor **Pull**, but you need a **"System Push"** to remind her to pull.
+
+*   **The "Preamble" Injection:** Instead of a 34K system prompt, use a tiny system prompt (~2K chars) for persona. Then, every 5-10 turns, inject a "System Whisper" (a brief, non-audible turn) that says: *"(System: You haven't checked the student's growth_memory in a while. Are you sure you're on track?)"*
+*   **The 139 Tool Problem:** Since you have a 64-tool limit, you **must** use a "Meta-Tool." Daniela should not see 139 tools. She should see 10 "Core Tools" and 1 "Tool Library" tool.
+    *   `find_teaching_tool(pedagogical_need)`: This searches the `daniela_tool` embeddings and returns the schema for the 3-5 most relevant widgets.
+    *   **Dynamic Loading:** Your backend then dynamically swaps those 5 tools into the active GL session.
+
+### 5. The "Uncertainty Fallback" Pattern
+To make her reach for the neural net when uncertain, you must penalize "Generic Daniela."
+
+*   **The "Identity Gap" Instruction:** In the core persona, tell her: *"You are a precision tutor. Generic encouragement is a failure. Specificity is your superpower. If you find yourself saying 'Great job!' without mentioning a specific past struggle, you have forgotten who the student is. Call `recall_memory` immediately."*
+*   **Architectural Fallback:** If the model generates a response that is too short or lacks specific keywords (like student name or specific goal), your backend can intercept and re-prompt: *"Daniela, you're being generic. Check the memory."* (Though with GL, real-time interception is harder; better to rely on the "System Whisper").
+
+### 6. The 40K Character Allocation Strategy
+Stop trying to fit the "Life of the Student" into the prompt. Use this allocation:
+
+1.  **Static System Prompt (5K - 8K chars):**
+    *   Core Persona (Daniela’s voice/vibe).
+    *   The "Rules of the Room" (how to use the whiteboard/widgets).
+    *   The "Memory Mandate" (Instructions to use the tool).
+2.  **Dynamic Tool Results (15K - 20K chars):**
+    *   This is the "Hot Zone." This is where the results of `recall_memory` and `find_teaching_tool` live.
+    *   By keeping this large, you ensure that the *actual data* she retrieved is what guides her.
+3.  **Conversation History (12K - 20K chars):**
+    *   The actual dialogue.
+
+### The "Golden Path" for Daniela:
+1.  **Session Starts:** Backend sends a hidden prompt: "Initialize session."
+2.  **Daniela Calls:** `recall_memory("Student profile and last session summary")`.
+3.  **Tool Returns:** "Student is Maria. Level A2. Struggled with 'por vs para'. Goal: Trip to Madrid."
+4.  **Daniela Calls:** `find_teaching_tool("Interactive exercise for por vs para in Madrid context")`.
+5.  **Tool Returns:** Schema for the `MapWidget` and `FillInTheBlank`.
+6.  **Daniela Speaks:** "Hola Maria! Ready for Madrid? Let's look at the map and practice 'por' and 'para'."
+
+**Summary:** You don't solve drift by making the prompt bigger; you solve it by making the prompt a **search engine optimizer.** Daniela shouldn't *be* the database; she should be the **librarian** who is obsessed with her archives.
