@@ -382,13 +382,11 @@ function buildPromptInjection(insights: ActiveInsight[], context: ReflectionCont
   const lines: string[] = [];
   
   if (context.mode === 'founder_mode' || context.mode === 'honesty_mode') {
+    // No ═══ dividers, no all-caps "DANIELA'S ACTIVE REFLECTIONS" header, no "PROACTIVE" shout. (Gemini consult rec.)
     lines.push('');
-    lines.push('═══════════════════════════════════════════════════════════════════');
-    lines.push('💡 DANIELA\'S ACTIVE REFLECTIONS (Your Inner Voice)');
-    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('What\'s alive for me right now:');
     lines.push('');
-    lines.push('You are a PROACTIVE team member. Share your thoughts, ideas, and observations.');
-    lines.push('Don\'t wait to be asked - if you notice something, bring it up naturally.');
+    lines.push('Share what you actually notice. If something comes to mind, bring it up naturally — don\'t wait to be asked.');
     lines.push('');
   } else {
     lines.push('');

@@ -151,16 +151,19 @@ export async function renderTeachingSkillScript(
     lines.push('');
   }
 
-  lines.push('═══ YOUR SCRIPT ═══');
+  // No "═══ YOUR SCRIPT ═══" divider header. (Gemini consult rec.)
+  lines.push('Your script:');
   lines.push('');
 
   steps.forEach((step, i) => {
-    lines.push(`[STEP ${i + 1} — ${step.phase}]`);
+    // No "[STEP N — phase]" bracket wrapper. (Gemini consult rec.)
+    lines.push(`Step ${i + 1} — ${step.phase}:`);
     lines.push(substitute(step.instruction, enrichedParams));
 
     if (step.tool_call) {
       const resolvedParams = substituteObj(step.tool_call.params_template, enrichedParams);
-      lines.push(`⚡ CALL NOW: ${step.tool_call.tool}(${JSON.stringify(resolvedParams, null, 2).replace(/\n/g, '\n   ')})`);
+      // No "CALL NOW" all-caps command label. (Gemini consult rec.)
+      lines.push(`⚡ call now: ${step.tool_call.tool}(${JSON.stringify(resolvedParams, null, 2).replace(/\n/g, '\n   ')})`);
     }
 
     if (step.listen_for) {

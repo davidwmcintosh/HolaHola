@@ -2348,7 +2348,7 @@ TEACHING GUIDANCE:
                 
                 if (memoryResults.results.length > 0) {
                   const formatted = formatMemoryForConversation(memoryResults);
-                  passiveMemorySection = `\n[Memory]\n${formatted}`;
+                  passiveMemorySection = `\n${formatted}`;
                   console.log(`[Passive Memory] Auto-retrieved ${memoryResults.results.length} memories for query: "${searchQuery}"`);
                   
                   // BRAIN HEALTH TELEMETRY: Track passive memory injection
@@ -6219,7 +6219,7 @@ Remember: David may reference things discussed in these recent text chats.
                 
                 if (memoryResults.results.length > 0) {
                   const formatted = formatMemoryForConversation(memoryResults);
-                  passiveMemorySectionOpenMic = `\n\n[Memory]\n${formatted}`;
+                  passiveMemorySectionOpenMic = `\n\n${formatted}`;
                   console.log(`[Passive Memory - OpenMic] Auto-retrieved ${memoryResults.results.length} memories`);
                 }
               } catch (err: any) {

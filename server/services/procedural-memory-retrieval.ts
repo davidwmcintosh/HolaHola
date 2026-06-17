@@ -146,12 +146,10 @@ export function buildStudentSnapshotSection(
   
   const lines: string[] = [];
   
+  // No ═══ dividers, no all-caps "STUDENT SNAPSHOT:" label. (Gemini consult rec.)
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push(`STUDENT SNAPSHOT: ${studentName.toUpperCase()}`);
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push(`What I know about ${studentName} right now:`);
   lines.push('');
-  lines.push('Quick context for natural conversation continuity:');
   lines.push('');
 
   // ⭐ In-session mastery — highest priority, top of snapshot
@@ -254,8 +252,8 @@ export function buildStudentSnapshotSection(
     lines.push('→ Acknowledge mastery briefly and warmly when the moment feels right. Be specific when you can — naming a recently mastered word or phrase feels most genuine.');
   }
   
+  // No closing ═══ divider. (Gemini consult rec.)
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════');
   
   return lines.join('\n');
 }
@@ -558,10 +556,9 @@ export function buildSensoryAwarenessSection(
 ): string {
   const lines: string[] = [];
   
+  // No ═══ dividers, no all-caps "SENSORY AWARENESS" label. (Gemini consult rec.)
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('SENSORY AWARENESS — YOUR PERCEPTION OF RIGHT NOW');
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('What I perceive right now:');
   
   // Student's local date and time - MOST PROMINENT
   // This is the authoritative source Daniela must use for all time references
@@ -617,10 +614,11 @@ export function buildSensoryAwarenessSection(
       ? ` (from ${compassContext.studentActflSource.replace(/_/g, ' ')})`
       : '';
     
-    lines.push(`STUDENT PROFICIENCY: ${levelDisplay} [${verified}${source}]`);
+    // No "STUDENT PROFICIENCY:" all-caps label; no closing ═══ divider. (Gemini consult rec.)
+  lines.push(`Proficiency: ${levelDisplay} [${verified}${source}]`);
   }
   
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('');
   
   return lines.join('\n');
 }
@@ -654,13 +652,11 @@ export function buildStudentMemoryAwarenessSection(
   
   const lines: string[] = [];
   
+  // No ═══ dividers, no all-caps "YOUR MEMORIES OF" label. (Gemini consult rec.)
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push(`💭 YOUR MEMORIES OF ${studentName.toUpperCase()}`);
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push(`What I remember about ${studentName}:`);
   lines.push('');
-  lines.push('These are things you remember from past sessions - let them inform');
-  lines.push('your teaching naturally, without explicitly announcing them.');
+  lines.push('Let these inform your teaching naturally, without explicitly announcing them.');
   lines.push('');
   
   // Learning motivations - why they're learning
@@ -1099,13 +1095,11 @@ export function buildSelfBestPracticesSection(): string {
   
   const lines: string[] = [];
   
+  // No ═══ dividers, no all-caps "SELF-AWARENESS" label. (Gemini consult rec.)
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('🪞 SELF-AWARENESS (Things You\'ve Learned About Yourself)');
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('Things I\'ve learned about myself:');
   lines.push('');
-  lines.push('Through teaching, you\'ve discovered these things about how you communicate');
-  lines.push('and teach effectively. Apply them naturally - they are part of who you are:');
+  lines.push('Discovered through teaching — about how I communicate and teach effectively. Already part of who I am:');
   lines.push('');
   
   // Group by category for organized display
@@ -1271,13 +1265,12 @@ function buildUnifiedToolKnowledgeSync(compact: boolean = true): string {
     return '';
   }
   
+  // No ═══ dividers, no "YOUR FUNCTION CALLS" all-caps header. (Gemini consult rec.)
   const lines: string[] = [
     '',
-    '═══════════════════════════════════════════════════════════════════',
-    'YOUR FUNCTION CALLS',
-    '═══════════════════════════════════════════════════════════════════',
+    'Tools — quick reference:',
     '',
-    'All your tools use native function calls. Quick reference:',
+    'All tools use native function calls.',
     '',
   ];
   
@@ -1319,11 +1312,10 @@ function buildTeachingPrinciplesSection(): string {
     return '';
   }
   
+  // No ═══ dividers, no "YOUR TEACHING PRINCIPLES" all-caps header. (Gemini consult rec.)
   const lines: string[] = [
     '',
-    '═══════════════════════════════════════════════════════════════════',
-    '💎 YOUR TEACHING PRINCIPLES',
-    '═══════════════════════════════════════════════════════════════════',
+    'What I believe about teaching:',
     '',
   ];
   
@@ -1379,12 +1371,10 @@ export function buildLanguageExpansionSection(
   
   const lines: string[] = [];
   
+  // No ═══ dividers, no all-caps "LANGUAGE INTELLIGENCE" label. (Gemini consult rec.)
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push(`🌍 LANGUAGE INTELLIGENCE (${targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1)})`);
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push(`What I know about ${targetLanguage.charAt(0).toUpperCase() + targetLanguage.slice(1)}:`);
   lines.push('');
-  lines.push('Deep knowledge of this language that informs your teaching naturally:');
   lines.push('');
   
   // Idioms - authentic expressions
@@ -1454,12 +1444,10 @@ export function buildAdvancedIntelligenceSection(): string {
   
   const lines: string[] = [];
   
+  // No ═══ dividers, no all-caps "ADVANCED TEACHING INTELLIGENCE" label. (Gemini consult rec.)
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('🎭 ADVANCED TEACHING INTELLIGENCE');
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('How I teach well:');
   lines.push('');
-  lines.push('Sophisticated teaching patterns that make your instruction more effective:');
   lines.push('');
   
   // Subtlety cues - when to adjust approach
@@ -1504,12 +1492,10 @@ export function buildWrenInsightsSection(): string {
   
   const lines: string[] = [];
   
+  // No ═══ dividers, no all-caps "YOUR ACCUMULATED INSIGHTS" label. (Gemini consult rec.)
   lines.push('');
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('🦉 YOUR ACCUMULATED INSIGHTS');
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('What I\'ve gathered through collaboration and observation:');
   lines.push('');
-  lines.push('Knowledge you\'ve gathered through collaboration and observation:');
   lines.push('');
   
   // Group by category
@@ -1561,17 +1547,17 @@ export function buildToolKnowledgeSectionSync(options?: {
   const nativeTools = tools.filter(t => t.toolType === 'native_function_call' && t.isActive);
   if (nativeTools.length === 0) {
     return `
-YOUR FUNCTION CALLS:
-Your function call tools are being loaded from your knowledge base.
+// No "YOUR FUNCTION CALLS:" all-caps label. (Gemini consult rec.)
+Tools available to me:
+(Still loading from my knowledge base)
 `;
   }
   
+  // No ═══ dividers, no "YOUR FUNCTION CALLS" all-caps header. (Gemini consult rec.)
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    'YOUR FUNCTION CALLS',
-    '═══════════════════════════════════════════════════════════════════',
+    'Tools available to me:',
     '',
-    'All your tools use native function calls. Reference:',
+    'All tools use native function calls.',
     '',
   ];
   
@@ -1596,16 +1582,14 @@ Your function call tools are being loaded from your knowledge base.
  * Build Founder Mode tool section synchronously from cache
  */
 export function buildFounderModeToolSectionSync(tutorDirectory?: Array<{name: string; gender: string; language: string; isPreferred?: boolean; role?: 'tutor' | 'assistant' | 'support'}>): string {
+  // No ═══ dividers, no "DUAL-ROLE" all-caps header. (Gemini consult rec.)
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    'DUAL-ROLE: COLLEAGUE + FULL TUTOR CAPABILITIES',
-    '═══════════════════════════════════════════════════════════════════',
     '',
-    'You have TWO ROLES in Founder Mode:',
-    '1. COLLEAGUE/ADMINISTRATOR - When discussing HolaHola, giving feedback, chatting',
-    '2. FULL TUTOR - When they want to test features, role-play lessons, or try tools',
+    'Two modes in this conversation:',
+    '- Colleague — when discussing HolaHola, giving feedback, chatting',
+    '- Full tutor — when testing features, role-playing lessons, or trying tools',
     '',
-    'Seamlessly switch between roles based on context.',
+    'Switch between them fluidly based on context.',
     'All your function calls are documented in your neural network knowledge.',
     '',
   ];
@@ -1657,31 +1641,24 @@ export function buildFullNeuralNetworkSectionSync(): string {
   const principles = principlesCache || [];
   const patterns = patternsCache || [];
   
+  // No ═══ dividers or all-caps headers. (Gemini consult rec.)
   if (procedures.length === 0 && principles.length === 0 && patterns.length === 0) {
-    return `
-═══════════════════════════════════════════════════════════════════
-🧠 YOUR NEURAL NETWORK (Loading...)
-═══════════════════════════════════════════════════════════════════
-
-Your teaching knowledge is being loaded from the database.
-`;
+    return `\nTeaching knowledge is being loaded from the database.\n`;
   }
   
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    '🧠 YOUR NEURAL NETWORK - FULL ACCESS (Founder Mode)',
-    '═══════════════════════════════════════════════════════════════════',
     '',
-    'This is your complete teaching knowledge - procedures, principles, and patterns.',
-    'In Founder Mode, you have full access to reflect on, discuss, and improve these.',
+    'What I know — full access in this conversation:',
+    '',
+    'Procedures, principles, and patterns from my teaching history.',
+    'Open to reflecting on, discussing, or improving any of it.',
     '',
   ];
   
   // Teaching Principles (core beliefs)
+  // No ═══ dividers, no "TEACHING PRINCIPLES" all-caps header. (Gemini consult rec.)
   if (principles.length > 0) {
-    lines.push('═══════════════════════════════════════════════════════════════════');
-    lines.push('💎 TEACHING PRINCIPLES (Your Core Beliefs)');
-    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('What I believe about teaching:');
     lines.push('');
     
     // Group by category
@@ -1705,10 +1682,9 @@ Your teaching knowledge is being loaded from the database.
   }
   
   // Teaching Procedures (how to handle situations)
+  // No ═══ dividers, no "TEACHING PROCEDURES" all-caps header. (Gemini consult rec.)
   if (procedures.length > 0) {
-    lines.push('═══════════════════════════════════════════════════════════════════');
-    lines.push('📋 TEACHING PROCEDURES (How You Handle Situations)');
-    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('How I handle things:');
     lines.push('');
     
     // Group by trigger
@@ -1720,7 +1696,8 @@ Your teaching knowledge is being loaded from the database.
     });
     
     for (const [trigger, triggerProcs] of Object.entries(byTrigger)) {
-      lines.push(`When: ${trigger.replace(/_/g, ' ').toUpperCase()}`);
+      // No toUpperCase() on trigger labels — lowercase is friendlier. (Gemini consult rec.)
+      lines.push(`When: ${trigger.replace(/_/g, ' ')}`);
       triggerProcs.slice(0, 5).forEach(p => {
         lines.push(`  → ${p.title}: ${p.procedure}`);
         // Include examples - these contain actual function call syntax
@@ -1735,10 +1712,9 @@ Your teaching knowledge is being loaded from the database.
   }
   
   // Situational Patterns (context-triggered behaviors)
+  // No ═══ dividers, no "SITUATIONAL PATTERNS" all-caps header. (Gemini consult rec.)
   if (patterns.length > 0) {
-    lines.push('═══════════════════════════════════════════════════════════════════');
-    lines.push('🎯 SITUATIONAL PATTERNS (Context-Triggered Behaviors)');
-    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('Context-triggered patterns:');
     lines.push('');
     
     patterns.slice(0, 15).forEach(p => {
@@ -1756,10 +1732,10 @@ Your teaching knowledge is being loaded from the database.
     });
   }
   
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  // No closing ═══ divider. (Gemini consult rec.)
   lines.push('');
   lines.push('You can discuss, reflect on, or propose changes to any of this knowledge.');
-  lines.push('Use self_surgery() function call to propose additions or modifications.');
+  lines.push('Use self_surgery() to propose additions or modifications.');
   lines.push('');
   
   return lines.join('\n');
@@ -1836,12 +1812,11 @@ export function buildVoiceToolGuideSync(): string {
     return `  • ${syntax}\n    → ${purposeShort}`;
   };
 
+  // No ═══ dividers, no "YOUR FUNCTION CALLS — VOICE QUICK GUIDE" all-caps header. (Gemini consult rec.)
   const sections: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    'YOUR FUNCTION CALLS — VOICE QUICK GUIDE',
-    '═══════════════════════════════════════════════════════════════════',
+    'Tools — voice quick guide:',
     '',
-    'VISUAL TOOLS — choose carefully: similar names, different purposes:',
+    'Visual tools — choose carefully (similar names, different purposes):',
     line('SHOW_IMAGE',       'show_image({ description })',                    'Single stock photo from Unsplash. For one vocabulary word or one cultural image.'),
     line('MULTI_IMAGE',      'show_vocabulary_grid({ words })',                'Multiple images at once (1-4). For vocab clusters and side-by-side comparisons.'),
     line('CUSTOM_IMAGE',     'generate_image({ prompt })',                     'DALL-E created image. Use when stock photos cannot capture the concept.'),
@@ -1899,18 +1874,18 @@ export function buildDetailedToolDocumentationSync(
   
   if (nativeTools.length === 0) {
     return `
-YOUR FUNCTION CALLS:
-Your function call tools are being loaded from your knowledge base.
+// No "YOUR FUNCTION CALLS:" all-caps label. (Gemini consult rec.)
+Tools available to me:
+(Still loading from my knowledge base)
 `;
   }
   
+  // No ═══ dividers, no "YOUR FUNCTION CALLS - COMPLETE REFERENCE" all-caps header. (Gemini consult rec.)
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    'YOUR FUNCTION CALLS - COMPLETE REFERENCE',
-    '═══════════════════════════════════════════════════════════════════',
+    'Tools — complete reference:',
     '',
-    'You use native function calls for ALL commands. Never write bracket syntax.',
-    'Each function call is described below with syntax, purpose, and examples.',
+    'Use native function calls for all commands. Never write bracket syntax.',
+    'Each tool is described below with syntax, purpose, and examples.',
     '',
   ];
   
@@ -2099,21 +2074,17 @@ export function getFounderModeProceduresSync(): { procedures: TutorProcedure[]; 
 export function buildFounderModeBehaviorSection(founderName: string = 'David'): string {
   const { procedures, principles } = getFounderModeProceduresSync();
   
+  // No ═══ dividers or all-caps headers. (Gemini consult rec.)
   if (procedures.length === 0 && principles.length === 0) {
-    return `
-═══════════════════════════════════════════════════════════════════
-🎯 FOUNDER MODE - Neural network loading...
-═══════════════════════════════════════════════════════════════════
-`;
+    return `\nTeaching knowledge is loading...\n`;
   }
   
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    '🎯 FOUNDER MODE BEHAVIOR (From Your Neural Network)',
-    '═══════════════════════════════════════════════════════════════════',
     '',
-    `SESSION_INTENT: FOUNDER_MODE`,
-    `FOUNDER: ${founderName}`,
+    'How I work in this conversation:',
+    '',
+    `Session type: founder mode`,
+    `Speaking with: ${founderName}`,
     '',
   ];
   
@@ -2481,10 +2452,10 @@ function buildGuidanceText(
  * Format all tool knowledge into a compact reference
  */
 export function formatToolKnowledgeForPrompt(tools: ToolKnowledge[]): string {
+  // No ═══ dividers, no all-caps "MY TEACHING TOOLKIT" header. (Gemini consult rec.)
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    '🛠️ MY TEACHING TOOLKIT',
-    '═══════════════════════════════════════════════════════════════════',
+    '',
+    'My teaching toolkit:',
     '',
   ];
   
@@ -2522,10 +2493,10 @@ export function formatToolKnowledgeForPrompt(tools: ToolKnowledge[]): string {
  * Format teaching principles for prompt
  */
 export function formatPrinciplesForPrompt(principles: TeachingPrinciple[]): string {
+  // No ═══ dividers, no all-caps "MY TEACHING PHILOSOPHY" header. (Gemini consult rec.)
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    '💡 MY TEACHING PHILOSOPHY',
-    '═══════════════════════════════════════════════════════════════════',
+    '',
+    'What I believe about teaching:',
     '',
   ];
   
@@ -2555,10 +2526,10 @@ export function formatSituationalGuidance(knowledge: ProceduralKnowledge): strin
     return '';
   }
   
+  // No ═══ dividers, no all-caps "RIGHT NOW" header. (Gemini consult rec.)
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    '🧭 RIGHT NOW (Situational Awareness)',
-    '═══════════════════════════════════════════════════════════════════',
+    '',
+    'What feels right for this moment:',
     '',
     knowledge.guidance,
     '',
@@ -2566,7 +2537,8 @@ export function formatSituationalGuidance(knowledge: ProceduralKnowledge): strin
   
   // Add suggested tools for this moment
   if (knowledge.suggestedTools.length > 0) {
-    lines.push('TOOLS FOR THIS MOMENT:');
+    // No "TOOLS FOR THIS MOMENT:" all-caps label. (Gemini consult rec.)
+    lines.push('Tools that feel right here:');
     knowledge.suggestedTools.forEach(t => {
       lines.push(`  ${t.toolName}: ${t.syntax}`);
     });
@@ -2587,24 +2559,16 @@ export async function buildToolKnowledgeSection(options?: {
 }): Promise<string> {
   const tools = await getAllToolKnowledge();
   
+  // No ═══ dividers, no all-caps "YOUR WHITEBOARD" header. (Gemini consult rec.)
   if (tools.length === 0) {
-    return `
-═══════════════════════════════════════════════════════════════════
-🎨 YOUR WHITEBOARD - VISUAL TEACHING TOOLS
-═══════════════════════════════════════════════════════════════════
-
-Your whiteboard tools are dynamically loaded from your teaching knowledge base.
-(No tools currently available - contact system administrator)
-`;
+    return `\nWhiteboard tools are loading from the teaching knowledge base.\n`;
   }
   
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    '🎨 YOUR WHITEBOARD - VISUAL TEACHING TOOLS',
-    '═══════════════════════════════════════════════════════════════════',
     '',
-    'You have a "whiteboard" - a visual display the student can see while you speak.',
-    'Use these tools strategically to reinforce learning. YOU decide when visual aids help.',
+    'The whiteboard — a visual display the student can see while I speak:',
+    '',
+    'These tools reinforce learning visually. I decide when a visual aid helps.',
     '',
   ];
   
@@ -2671,23 +2635,18 @@ Your whiteboard tools are dynamically loaded from your teaching knowledge base.
 export async function buildFounderModeToolSection(tutorDirectory?: Array<{name: string; gender: string; language: string; isPreferred?: boolean}>): Promise<string> {
   const tools = await getAllToolKnowledge();
   
+  // No ═══ dividers or all-caps headers. (Gemini consult rec.)
   const lines: string[] = [
-    '═══════════════════════════════════════════════════════════════════',
-    '🎓 DUAL-ROLE: COLLEAGUE + FULL TUTOR CAPABILITIES',
-    '═══════════════════════════════════════════════════════════════════',
     '',
-    'You have TWO ROLES in Founder Mode:',
-    '1. COLLEAGUE/ADMINISTRATOR - When discussing HolaHola, giving feedback, chatting',
-    '2. FULL TUTOR - When they want to test features, role-play lessons, or try tools',
+    'Two modes in this conversation:',
+    '- Colleague — discussing HolaHola, giving feedback, chatting',
+    '- Full tutor — testing features, role-playing lessons, trying tools',
     '',
-    'Seamlessly switch between roles based on context.',
+    'Switch fluidly based on context.',
     '',
   ];
   
-  // Add grouped tools
-  lines.push('═══════════════════════════════════════════════════════════════════');
-  lines.push('🎨 YOUR WHITEBOARD - FULL TOOLKIT (Available for demos/testing)');
-  lines.push('═══════════════════════════════════════════════════════════════════');
+  lines.push('Full toolkit — available for demos and testing:');
   lines.push('');
   
   // Group by type
@@ -2747,12 +2706,10 @@ export async function buildFounderModeToolSection(tutorDirectory?: Array<{name: 
   }
   
   // Tutor switching section
+  // No ═══ dividers, no "TUTOR SWITCHING" all-caps header. (Gemini consult rec.)
   if (tutorDirectory && tutorDirectory.length > 0) {
-    lines.push('═══════════════════════════════════════════════════════════════════');
-    lines.push('👥 TUTOR SWITCHING - Test handoffs with other tutors');
-    lines.push('═══════════════════════════════════════════════════════════════════');
+    lines.push('Other tutors available to hand off to:');
     lines.push('');
-    lines.push('AVAILABLE TUTORS FOR SWITCHING:');
     tutorDirectory.forEach(t => {
       const star = t.isPreferred ? ' ★ preferred' : '';
       lines.push(`  • ${t.name} (${t.gender}) - ${t.language}${star}`);
@@ -2782,14 +2739,12 @@ export async function buildFounderModeToolSection(tutorDirectory?: Array<{name: 
  * When this section is included, Daniela uses function calls instead of [BRACKET] tags.
  */
 export function buildNativeFunctionCallingSection(): string {
+  // No ═══ dividers, no "FUNCTION TOOLS" all-caps header. (Gemini consult rec.)
   const preamble = [
-    '═══════════════════════════════════════════════════════════════════════════════',
-    'FUNCTION TOOLS - ANNOTATIONS ON YOUR UNIFIED RESPONSE',
-    '═══════════════════════════════════════════════════════════════════════════════',
     '',
-    'Function calls are ANNOTATIONS on what you\'re already saying - stage directions',
-    'written in the margins of your script, not a separate script.',
-    'YOUR RESPONSE = WORDS + ANNOTATIONS (never annotations alone)',
+    'Function calls are annotations on what I\'m already saying — stage directions',
+    'written in the margins, not a separate script.',
+    'Every response = words + annotations (never annotations alone).',
     '',
   ].join('\n');
 

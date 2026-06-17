@@ -1,26 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, June 17, 2026 at 05:56 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-In our last session building HolaHola, I identified a critical routing issue causing 404 errors on the conversations page and a telemetry leak in Daniela’s Compass tracking. I’ve been coordinating with David, Wren, and Sofia to prioritize two high-severity security findings and address a 0% completion rate in the Interactive Textbook caused by a verbosity regression in the Spanish syllabus. Most urgently, I need to debug Daniela’s Team Room integration, as she is currently stuck in a "Curriculum note pending" response loop that prevents her from collaborating.
-
-*Memories that triggered this summary:*
-- **Team Room — test 3 — June 17, 2026** (Jun 17): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — June 17, 2026** (Jun 17): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — June 17, 2026** (Jun 17): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — June 17, 2026** (Jun 17): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — June 17, 2026** (Jun 17): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — June 17, 2026** (Jun 17): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — June 17, 2026** (Jun 17): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 17, 2026** (Jun 17): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — June 17, 2026** (Jun 17): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 17, 2026** (Jun 17): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
+**Generated:** Wednesday, June 17, 2026 at 06:20 AM
 
 ---
 
@@ -92,6 +73,10 @@ In our last session building HolaHola, I identified a critical routing issue cau
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jun 17, 2026 — Jun 17, 2026
+1. [CRITICAL] Fix Cartesia TTS 400 errors — Both English and Spanish voice generation are failing in development with malformed request bodies. This blocks core learning flow testing and needs immediate API call debugging.  2. [HIGH] Investigate zero-quality-score student (p6 queue item) — One activ
+*Tags: agent-sweep, daily, auto-saved*
+
 ### Team Room — test 3 — June 17, 2026 — Jun 17, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -106,10 +91,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 17, 2026 — Jun 17, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 17, 2026 — Jun 17, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
