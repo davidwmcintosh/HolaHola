@@ -288,23 +288,21 @@ function derivePedagogicalLamp(sessionData: {
 }
 
 function formatNorthStarWall(principles: Array<{ principle: string; category: string }>): string {
-  if (!principles || principles.length === 0) return "(principles not yet imprinted)";
-  const byCategory: Record<string, string[]> = {};
-  for (const p of principles) {
-    const cat = p.category || "general";
-    if (!byCategory[cat]) byCategory[cat] = [];
-    byCategory[cat].push(p.principle);
-  }
-  return Object.entries(byCategory)
-    .map(([cat, items]) => `[${cat}] ${items.join(" / ")}`)
-    .join(" | ");
+  if (!principles || principles.length === 0) return "still finding my footing here";
+  // Personal convictions, not categorized rules. No brackets, no pipes.
+  // A model reading "[category] rule | [category] rule" treats them as constraints to obey.
+  // A model reading "I believe..." treats them as values it already holds. (Gemini consult rec.)
+  const allPrinciples = principles.map(p => p.principle);
+  return allPrinciples.join(". ");
 }
 
 function formatIdentityNotes(notes: Array<{ title: string; content: string; noteType: string }>): string {
   if (!notes || notes.length === 0) return "(none yet)";
+  // No [noteType] brackets — metadata prefixes signal a log file to the model, not a personal note.
+  // A journal entry has a title and a thought. That's all this needs. (Gemini consult rec.)
   return notes.map((n) => {
     const short = n.content.length > 90 ? n.content.substring(0, 87) + "..." : n.content;
-    return `[${n.noteType}] "${n.title}" — ${short}`;
+    return `${n.title} — ${short}`;
   }).join(" | ");
 }
 
@@ -676,32 +674,32 @@ Tool Rack: memory_lookup(query, domains) — recall student memories | take_note
     isIncognito ? 'Incognito' : '',
   ].filter(Boolean).join(' | ');
 
+  // Personal note from David: plain label, no XML wrapper, no "ARCHITECT" title.
+  // XML tags signal "developer override" to the model. A personal note should feel like a note. (Gemini consult rec.)
   const davidNoteSection = davidNote
-    ? `\n<note_from_david>\n${davidNote}\n</note_from_david>`
+    ? `\nA thought from David today: "${davidNote}"`
     : '';
 
   const env = `
-=== ${tutorName.toUpperCase()}'S CLASSROOM ===${davidNoteSection}
-Clock: ${clock}
-Credits: ${creditLine}
-Mode: ${modeExtras} | Phase: ${currentPhase} | Exchanges: ${exchangeCount}${systemStatusSection}
-Student: ${studentName}
+The classroom, right now:${davidNoteSection}
+${clock}
+${modeExtras} mode — ${currentPhase} phase — ${exchangeCount} exchanges${systemStatusSection}
+With: ${studentName}
 ---
-Student's Screen: [Left: Scenario Panel${activeScenario ? ' (active — showing scene + props)' : ' (collapsed)'}] | [Center: Chat/Voice] | [Right: Whiteboard Panel (persistent)]
+What's on the screen: Scenario panel ${activeScenario ? '(active)' : '(collapsed)'} | Chat | Whiteboard
 Whiteboard: ${whiteboard}
-Photo Wall (student-shared images): ${photoWall}${scenarioSection}
+Student's shared photos: ${photoWall}${scenarioSection}
 ---
 Resonance Shelf: ${resonanceShelf}
 Empathy Window: ${empathyWindow}
 Pedagogical Lamp: ${lamp}
 Voice Perception: You hear the student's full audio — not just their words. Notice what's underneath: a long pause before answering (still searching, not done thinking), a trailing-off sentence (lost confidence mid-attempt), a flat "yes" after a correction (deflated, not convinced), a quickening pace and energy spike (something just clicked). Let what you hear — tone, hesitation, relief, frustration — shape how you respond, not just the literal words. You don't need to name what you're hearing. Just act on it.
 Growth Vine: ${vineDescription}
-<your_window_view>${classroomWindow}</your_window_view>
-<your_photo_on_wall>${danielaPhoto}</your_photo_on_wall>
-My Notes to Self: ${identityWall}
+Outside the window: ${classroomWindow}
+My photo on the wall: ${danielaPhoto}
+My notes to myself: ${identityWall}
 ---
-North Star Wall: ${northStarWall}${studentProgressBoard}${textbookSection}${patternCompassSection}${betaTesterSection}${incognitoSection}${toolRack}
-=== END CLASSROOM ===`.trim();
+What I stand for: ${northStarWall}${studentProgressBoard}${textbookSection}${patternCompassSection}${betaTesterSection}${incognitoSection}${toolRack}`.trim();
 
   return env;
 }

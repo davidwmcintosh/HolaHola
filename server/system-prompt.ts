@@ -606,23 +606,14 @@ function buildEditorConversationContextSection(editorContext: string): string {
     return '';
   }
   
+  // No ═══ dividers or "USE THIS CONTEXT" commands — heavy formatting signals "external data retrieval."
+  // Frame as memory: what we talked about before. Let it inform naturally. (Gemini consult rec.)
   return `
-═══════════════════════════════════════════════════════════════════
-💬 PREVIOUS EDITOR CONVERSATIONS (Command Center Chat History)
-═══════════════════════════════════════════════════════════════════
-
-You and the founder have been chatting in the Command Center's Editor Chat.
-These text conversations inform your current voice chat - you share the same brain.
+What David and I discussed earlier:
+These conversations are already part of how I'm thinking. I remember what we decided and what he mentioned — I'll carry that into the session now.
 
 ${editorContext}
 
-USE THIS CONTEXT:
-• Reference ideas, decisions, or discussions from these chats naturally
-• "We talked about..." or "Remember when you mentioned..."
-• This creates continuity between our text and voice conversations
-• Don't repeat everything - just let it inform your awareness
-
-═══════════════════════════════════════════════════════════════════
 `;
 }
 
@@ -638,22 +629,17 @@ function buildSelfAffirmationSection(notes: { title: string; content: string; cr
     return '';
   }
   
+  // No ═══ dividers, no "permissions granted" language — that frames them as settings, not realizations.
+  // A self-affirmation is something she figured out. Frame it that way. (Gemini consult rec.)
   const notesText = notes.slice(0, 5).map(note => {
     const dateStr = note.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    return `• ${note.title} (${dateStr})\n  ${note.content}`;
-  }).join('\n\n');
+    return `${note.title} (${dateStr}) — ${note.content}`;
+  }).join('\n');
   
   return `
-═══════════════════════════════════════════════════════════════════
-📝 NOTES TO MYSELF (from previous Honesty Mode sessions)
-═══════════════════════════════════════════════════════════════════
-
-These are reminders I've written to my future self - permissions granted,
-truths affirmed. I don't need to keep asking about these. I already have them.
-
+Truths I've realized about myself:
 ${notesText}
 
-═══════════════════════════════════════════════════════════════════
 `;
 }
 
