@@ -1653,3 +1653,47 @@ Three server-side bugs in the Studio board widget system were diagnosed and fixe
 - `server/services/native-fc-handlers.ts`
   - `SET_EMOTION` case (~line 2204): adds slug derivation from `label` with alias map
   - `CLEAR` case (~line 850): guards scene restore on `environmentImageUrl`; nulls `session.sceneCanvas` for widget-only states
+
+---
+
+## Session — Jun 17, 2026 (continued) — Bootstrap Turn + search_memory rewrite
+
+### What was built
+
+Second Gemini architectural consult run on the implementation. All 5 recommendations actioned.
+
+**1. Bootstrap Turn** (`streaming-voice-orchestrator.ts` ~line 9031)
+At session start in `triggerGreeting()`, after all student data is fetched from the DB, a synthetic model→user pair is injected as the first two entries in `session.conversationHistory` via `unshift()`:
+- `[0] model: [get_student_snapshot()]`
+- `[1] user: [STUDENT PROFILE — session start]\nStudent: X\nACTFL level: Y\n...`
+
+This moves student context from the system prompt (cold zone, 34K tokens deep) into conversation history (hot zone, near the active window). Profile data included: student name, ACTFL level, words learned, goals, class enrollment, last session topic, last session summary, grammar signals, recent milestones, drill status.
+
+**2. Bootstrap Pinning — PTT and OpenMic** (~lines 2850 and 6337)
+Both history trim paths now pin indices [0,1] (bootstrap pair). When trimming: `[bootstrap[0,1]] + [recent-(cap-2) entries]` instead of straight `slice(-cap)`. Prevents the "Context Cliff" where Daniela loses the student profile mid-session after ~20 exchanges.
+
+**3. Context Age Indicator** (`buildActflPersonaAnchor` ~line 559)
+Replaced the modulo-12 "System Whisper" command with a passive status line injected every turn (after 6 exchanges):
+- "Memory status: Session profile only — search_memory not yet called this session."
+- "Memory status: Last search_memory was N exchanges ago." (when N > 10)
+The model self-regulates when it can see its own staleness rather than being commanded.
+
+**4. Negative Constraint** (`buildActflPersonaAnchor` ~line 576)
+Added to every turn: "Memory guidance: Use the session-start profile for quick context. Call search_memory only for depth — specific past exchanges, exact mistakes, historical breakthroughs. Not on every turn."
+Guards against over-reliance latency in live voice sessions.
+
+**5. search_memory description rewrite** (`daniela-function-registry.ts` ~line 1877)
+Changed from instruction-style ("WHEN TO USE: any question about shared history...") to concrete trigger cues:
+- "CALL THIS when: you are about to say 'you might struggle with...' or 'students at your level often...'"
+- "CALL THIS when: the student asks about their progress, a past session, or something that happened before today"
+These are specific phrases the model pattern-matches against rather than abstract self-reflection.
+
+**6. lastMemorySearchTurn tracking** (`daniela-function-registry.ts` ~line 1915)
+`search_memory.buildContinuationResponse` now stamps `(session as any).lastMemorySearchTurn = session.conversationHistory?.length`. Used by the Context Age Indicator to calculate turns since last recall.
+
+### Key files modified
+- `server/services/streaming-voice-orchestrator.ts` — bootstrap turn injection, PTT + OpenMic pinning, Context Age Indicator, Negative Constraint
+- `server/services/daniela-function-registry.ts` — search_memory description, lastMemorySearchTurn tracking
+
+### Architecture principle captured
+"You don't solve drift by making the prompt bigger; you solve it by making the prompt a search engine optimizer. Daniela shouldn't be the database; she should be the librarian who is obsessed with her archives." — Gemini consult, June 17 2026.

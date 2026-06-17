@@ -553,7 +553,28 @@ function buildActflPersonaAnchor(session: { studentActflLevel?: string; targetLa
     ? `\nSession status: ONGOING. You have already introduced yourself. Do NOT greet with "Hi, I'm ${tutorName}!" or restart the session. Pick up naturally from where you left off.`
     : '';
 
-  return `TEACHING CONSTRAINTS (current turn):\n${langConstraint}\n${personaAnchor}${ongoingNote}`;
+  // CONTEXT AGE INDICATOR: Show memory freshness status rather than commanding tool calls.
+  // The model self-regulates when it can see how stale its data is — a status line is more
+  // effective than a periodic "you should call search_memory" command (which causes noise on
+  // turns where the session is already specific). (Gemini consult rec. June 2026)
+  const lastSearchTurn = (session as any).lastMemorySearchTurn as number | undefined;
+  let contextAgeNote = '';
+  if (historyLength > 6) {
+    if (lastSearchTurn === undefined) {
+      contextAgeNote = `\nMemory status: Session profile only — search_memory not yet called this session.`;
+    } else {
+      const turnsSince = historyLength - lastSearchTurn;
+      if (turnsSince > 10) {
+        contextAgeNote = `\nMemory status: Last search_memory was ${turnsSince} exchanges ago.`;
+      }
+    }
+  }
+
+  // NEGATIVE CONSTRAINT: Prevent over-reliance — each search_memory call adds round-trip latency
+  // in a live voice session. Use the bootstrap profile for quick context; search_memory for depth.
+  const memoryGuidance = `\nMemory guidance: Use the session-start profile (already in your history) for quick context. Call search_memory only for depth — specific past exchanges, exact mistakes, historical breakthroughs. Not on every turn.`;
+
+  return `TEACHING CONSTRAINTS (current turn):\n${langConstraint}\n${personaAnchor}${ongoingNote}${contextAgeNote}${memoryGuidance}`;
 }
 
 function parseSprintSuggestion(content: string): { title: string; description: string; priority?: string } {
@@ -2838,11 +2859,23 @@ Remember: David may reference things discussed in these recent text chats.
       // Keep last 20 exchanges (40 messages) for normal sessions, 30 for founder mode
       // This prevents unbounded history growth in long sessions
       const MAX_HISTORY_ENTRIES = session.isFounderMode ? 60 : 40;
-      const historyToSend = session.conversationHistory.length > MAX_HISTORY_ENTRIES
-        ? session.conversationHistory.slice(-MAX_HISTORY_ENTRIES)
-        : session.conversationHistory;
+      let historyToSend: typeof session.conversationHistory;
       if (session.conversationHistory.length > MAX_HISTORY_ENTRIES) {
-        console.log(`[History Cap] Trimmed history from ${session.conversationHistory.length} to ${MAX_HISTORY_ENTRIES} entries`);
+        // PIN BOOTSTRAP: Always preserve indices [0,1] (session-start student profile).
+        // Without pinning, the bootstrap pair gets FIFO'd out after ~20 exchanges causing a
+        // "Context Cliff" — Daniela suddenly loses the student profile mid-session.
+        // (Gemini consult rec. June 2026)
+        const bootstrapPinned = (session as any).bootstrapTurnInjected && session.conversationHistory.length > 2;
+        if (bootstrapPinned) {
+          const bootstrap = session.conversationHistory.slice(0, 2);
+          const recent = session.conversationHistory.slice(-(MAX_HISTORY_ENTRIES - 2));
+          historyToSend = [...bootstrap, ...recent];
+        } else {
+          historyToSend = session.conversationHistory.slice(-MAX_HISTORY_ENTRIES);
+        }
+        console.log(`[History Cap] Trimmed history from ${session.conversationHistory.length} to ${MAX_HISTORY_ENTRIES} entries (bootstrap pinned: ${bootstrapPinned})`);
+      } else {
+        historyToSend = session.conversationHistory;
       }
       conversationHistoryWithContext.push(...historyToSend);
 
@@ -6313,11 +6346,20 @@ Remember: David may reference things discussed in these recent text chats.
       
       // STEP 2: Add conversation history (capped for prompt size optimization)
       const MAX_HISTORY_ENTRIES_OPENMIC = session.isFounderMode ? 60 : 40;
-      const historyToSendOpenMic = session.conversationHistory.length > MAX_HISTORY_ENTRIES_OPENMIC
-        ? session.conversationHistory.slice(-MAX_HISTORY_ENTRIES_OPENMIC)
-        : session.conversationHistory;
+      let historyToSendOpenMic: typeof session.conversationHistory;
       if (session.conversationHistory.length > MAX_HISTORY_ENTRIES_OPENMIC) {
-        console.log(`[History Cap - OpenMic] Trimmed history from ${session.conversationHistory.length} to ${MAX_HISTORY_ENTRIES_OPENMIC} entries`);
+        // PIN BOOTSTRAP: Same logic as PTT path — always preserve [0,1] to avoid "Context Cliff."
+        const bootstrapPinnedOM = (session as any).bootstrapTurnInjected && session.conversationHistory.length > 2;
+        if (bootstrapPinnedOM) {
+          const bootstrapOM = session.conversationHistory.slice(0, 2);
+          const recentOM = session.conversationHistory.slice(-(MAX_HISTORY_ENTRIES_OPENMIC - 2));
+          historyToSendOpenMic = [...bootstrapOM, ...recentOM];
+        } else {
+          historyToSendOpenMic = session.conversationHistory.slice(-MAX_HISTORY_ENTRIES_OPENMIC);
+        }
+        console.log(`[History Cap - OpenMic] Trimmed history from ${session.conversationHistory.length} to ${MAX_HISTORY_ENTRIES_OPENMIC} entries (bootstrap pinned: ${bootstrapPinnedOM})`);
+      } else {
+        historyToSendOpenMic = session.conversationHistory;
       }
       conversationHistoryWithContext.push(...historyToSendOpenMic);
 
@@ -9025,6 +9067,45 @@ Remember: David may reference things discussed in these recent text chats.
         if (recentMilestonesContext) console.log(`[Streaming Greeting] Recent milestones loaded (${recentMilestonesContext.split('\n').length} milestones)`);
       }
       
+      // BOOTSTRAP TURN: Move student profile from system prompt (cold zone) → conversation history (hot zone).
+      // Gemini Flash weights recent conversation history tokens much higher than static system prompt tokens.
+      // Injecting as the first history entry means the model sees student context as a live result
+      // rather than a buried preamble. This is the single highest-leverage change from the June 2026
+      // Gemini consult: "tool results in conversation history get 3-5x the attention weight of system prompt."
+      if (!(session as any).bootstrapTurnInjected) {
+        const profileParts: string[] = [];
+        if (userName) profileParts.push(`Student: ${userName}`);
+        profileParts.push(`ACTFL level: ${actflLevel} (${session.targetLanguage})`);
+        if (wordsLearned > 0) profileParts.push(`Words learned: ${wordsLearned}`);
+        if (session.studentGoals) profileParts.push(`Goals: ${session.studentGoals}`);
+        if (classEnrollment) {
+          const classInfo = classEnrollment.curriculumLesson
+            ? `${classEnrollment.className} — ${classEnrollment.curriculumUnit || ''} / ${classEnrollment.curriculumLesson}`
+            : classEnrollment.className;
+          profileParts.push(`Class: ${classInfo}`);
+        }
+        if (recentTopics.length > 0) profileParts.push(`Last session topic: ${recentTopics[0]}`);
+        if (session.lastSessionSummary) profileParts.push(`Last session summary: ${session.lastSessionSummary.substring(0, 200)}`);
+        if (patternSignalContext) profileParts.push(`Grammar signals:\n${patternSignalContext.substring(0, 300)}`);
+        if (recentMilestonesContext) profileParts.push(`Recent milestones:\n${recentMilestonesContext.substring(0, 200)}`);
+        if (recentDrillStatus) profileParts.push(`Drill status:\n${recentDrillStatus.substring(0, 200)}`);
+
+        if (profileParts.length > 1) {
+          // BOOTSTRAP TURN format: model(functionCall) → user(functionResponse).
+          // Profile goes in the USER turn as grounding data from an external source — NOT in a model
+          // turn. Putting it in a model turn causes "Logit Drift": the model treats it as its own
+          // prior output and may feel it has "already been specific," suppressing future tool calls.
+          // User-turn grounding data gets treated as external truth, not model memory.
+          // (Gemini consult rec. June 2026)
+          session.conversationHistory.unshift(
+            { role: 'model', content: `[get_student_snapshot()]` },
+            { role: 'user', content: `[STUDENT PROFILE — session start]\n${profileParts.join('\n')}` },
+          );
+          (session as any).bootstrapTurnInjected = true;
+          console.log(`[Bootstrap Turn] Injected student profile as grounding data (${profileParts.length} fields)`);
+        }
+      }
+
       // Check for a message Daniela left for this student from a previous session.
       // If found, it replaces the generated greeting opener — Daniela's actual words, not a template.
       let queuedMessage: { id: string; content: string } | null = null;

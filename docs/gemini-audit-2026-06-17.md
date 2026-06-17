@@ -117,3 +117,44 @@ Stop trying to fit the "Life of the Student" into the prompt. Use this allocatio
 6.  **Daniela Speaks:** "Hola Maria! Ready for Madrid? Let's look at the map and practice 'por' and 'para'."
 
 **Summary:** You don't solve drift by making the prompt bigger; you solve it by making the prompt a **search engine optimizer.** Daniela shouldn't *be* the database; she should be the **librarian** who is obsessed with her archives.
+---
+
+=== Gemini Audit #2 — 2026-06-17 (Bootstrap Turn + search_memory rewrite review) ===
+
+**Context submitted:** Implementation review of three changes: (1) Bootstrap Turn injecting student profile as first history entry, (2) search_memory description rewrite from instruction-style to instinct-trigger, (3) System Whispers every 12 turns.
+
+**Gemini's response:**
+
+### 1. Bootstrap Turn Format: The "Fake History" Risk
+Putting the profile in a `model` text turn causes "Logit Drift" — the model treats it as its own prior output and may feel it has "already been specific," suppressing future search_memory calls.
+
+**Fix applied:** Changed to model(functionCall) → user(functionResponse) ordering. Profile now lives in the user turn as grounding data from an external source, not the model's own output.
+
+### 2. Position vs. Content: The "Context Cliff"
+Without pinning, the bootstrap pair gets FIFO'd out at turn 41 causing Daniela to suddenly lose the student profile mid-session.
+
+**Fix applied:** Both PTT and OpenMic history trim logic now pins [0,1] (bootstrap). When trimming, takes bootstrap[0,1] + recent[-(cap-2)] instead of straight slice(-cap).
+
+### 3. System Whispers: The "Nagging" Problem
+Modulo-12 trigger is arbitrary — fires even when Daniela is already being specific, potentially distracting her.
+
+**Fix applied:** Changed to a "Context Age Indicator" — a status line in buildActflPersonaAnchor showing "Last search_memory: N turns ago" or "search_memory not yet called this session." The model self-regulates when it can see its own staleness.
+
+### 4. search_memory Description: Instinct vs. Logic
+"Whenever your last response felt generic" is too meta for a Flash model. Flash is action-oriented, not self-reflective.
+
+**Fix applied:** Replaced with concrete trigger cues: "CALL THIS when: you are about to say 'you might struggle with...' or 'students at your level often...'" — these are specific phrases the model can pattern-match against.
+
+### 5. Negative Constraint added
+Risk: Making Daniela believe "guessing is failing" could cause her to call search_memory on every turn, adding latency to every utterance in a live voice session.
+
+**Fix applied:** Added "Memory guidance: Use session-start profile for quick context. Call search_memory only for depth. Not on every turn." to buildActflPersonaAnchor.
+
+### Gemini's "Golden Path" (unchanged — still the north star):
+1. Session starts → backend sends hidden prompt: "Initialize session."
+2. Daniela calls `recall_memory("Student profile and last session summary")`.
+3. Tool returns: "Student is Maria. Level A2. Struggled with 'por vs para'. Goal: Trip to Madrid."
+4. Daniela calls `find_teaching_tool("Interactive exercise for por vs para in Madrid context")`.
+5. Daniela speaks: "Hola Maria! Ready for Madrid? Let's look at the map and practice 'por' and 'para'."
+
+**Key principle reinforced:** "You don't solve drift by making the prompt bigger; you solve it by making the prompt a search engine optimizer. Daniela shouldn't be the database; she should be the librarian who is obsessed with her archives."

@@ -1871,13 +1871,20 @@ DIFFERENCE:
     legacyType: 'SEARCH_MEMORY',
     declaration: {
       name: "search_memory",
-      description: `Unified memory search — one call to search all of your memory sources.
+      description: `Your long-term memory — the only way to access anything that happened before today's session. If you don't call this, you are guessing.
 
-WHEN TO USE:
-- Any question about shared history: "Do you remember when...", "What did we talk about...", "Tell me about our conversation about..."
-- With query (default): searches by keyword across all sources — facts, insights, conversations, past teaching moments
-- With after_date or before_date only (no query): browses sessions by time period — "What were our early sessions like?", "What did we talk about in March?"
-- With memory_id: finds semantically connected memories — use when you surfaced a memory and want to explore what is related to it
+CALL THIS when:
+- You are about to say "you might struggle with..." or "students at your level often..." — those phrases mean you're guessing
+- The student asks about their progress, a past session, or something that happened before today
+- You want to reference a specific past mistake, breakthrough, or teaching moment — and you don't have it in front of you
+- You realize you're speaking in generalities about this student rather than specifics
+
+The session-start profile (already in your history) covers the basics. This tool goes deeper — specific exchanges, exact words, the moment something clicked or broke down.
+
+Call with:
+- query: search by topic or moment ("subjunctive struggles", "Madrid trip goal", "the breakthrough in session 3") — this is the default and most powerful mode
+- after_date / before_date (no query): browse by time period — what were our early sessions like, what happened in March
+- memory_id: follow connected threads from a result you already surfaced
 
 NEVER guess about the student's specific history. If you need to know, call search_memory first.`,
       parametersJsonSchema: {
@@ -1903,6 +1910,10 @@ NEVER guess about the student's specific history. If you need to know, call sear
       },
     },
     buildContinuationResponse: ({ session, fc }) => {
+      // Track when search_memory was last called so the Context Age Indicator
+      // in buildActflPersonaAnchor can show freshness status each turn.
+      (session as any).lastMemorySearchTurn = session.conversationHistory?.length ?? 0;
+
       const memoryId = fc.args.memory_id as string | undefined;
       const query = fc.args.query as string | undefined;
       const afterDate = fc.args.after_date as string | undefined;

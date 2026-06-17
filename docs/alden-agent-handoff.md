@@ -24,6 +24,42 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 17, 2026 (continued) — Bootstrap Turn + search_memory rewrite**
+
+### What was built
+
+Second Gemini consult on the v1 implementation (audit #2 in `docs/gemini-audit-2026-06-17.md`). All 5 recommendations actioned immediately.
+
+**Bootstrap Turn** (`streaming-voice-orchestrator.ts` ~line 9031)
+At session start (`triggerGreeting`), after all student data is fetched, inject a synthetic model→user pair as the FIRST two entries in `session.conversationHistory` via `unshift()`:
+- `[0] model: [get_student_snapshot()]`
+- `[1] user: [STUDENT PROFILE — session start]\nStudent: X\nACTFL level: Y\n...`
+
+Moves student context from system prompt (cold zone, 34K tokens deep) into conversation history (hot zone). Key Gemini insight: profile must be in the USER turn — putting it in the MODEL turn causes "Logit Drift" where the model thinks it already covered the student and suppresses future search_memory calls.
+
+**Bootstrap Pinning** (~lines 2850, 6337)
+Both PTT and OpenMic history trim paths now pin indices [0,1]. When over cap: `[bootstrap[0,1]] + [recent-(cap-2)]` instead of straight `slice(-cap)`. Prevents the "Context Cliff" — Daniela losing the student profile mid-session after ~20 exchanges.
+
+**Context Age Indicator** (`buildActflPersonaAnchor` ~line 559)
+Replaced the modulo-12 command whisper with a passive status line injected every turn (after 6 exchanges). Shows "search_memory not yet called this session" or "Last search_memory was N exchanges ago." Model self-regulates from status vs. being commanded.
+
+**Negative Constraint** (`buildActflPersonaAnchor` ~line 576)
+Added every turn: "Use session-start profile for quick context. Call search_memory only for depth. Not on every turn." Guards against over-reliance latency in live voice.
+
+**search_memory description rewrite** (`daniela-function-registry.ts` ~line 1877)
+Concrete trigger cues: "CALL THIS when: you are about to say 'you might struggle with...' or 'students at your level often...'" rather than the abstract "whenever your last response felt generic" (too meta for a Flash model).
+
+**lastMemorySearchTurn tracking** (~line 1915)
+`search_memory.buildContinuationResponse` stamps `(session as any).lastMemorySearchTurn = session.conversationHistory?.length`. Feeds the Context Age Indicator.
+
+### Status
+All clean — zero new TS errors from this session. Pre-existing errors unchanged.
+
+### For Alden
+Nothing urgent. This is pure context-injection architecture work — no schema changes, no new DB tables, no API changes. The three most impactful things here are (1) bootstrap profile now lives in history not system prompt, (2) it's pinned so it never drifts out, and (3) search_memory now has concrete linguistic triggers instead of asking Daniela to self-reflect. If you see sessions where Daniela starts being generic by turn 15+, the Context Age Indicator in the logs should show when she last searched.
+
+---
+
 **Session: June 17, 2026 — Gemini consult + ACTFL preamble anchor + persona warmth fix**
 
 ### What was built
