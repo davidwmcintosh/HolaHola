@@ -29,3 +29,4 @@
 - [Gemini review workflow rule](agent-review-workflow.md) — every Gemini build suggestion triggers review loop; iterate fixes until clean "APPROVED — Ship it."; only then commit.
 - [Session reflection resilience](session-reflection-resilience.md) — pending_reflections table + two-hook design (close→schedule, next-start→process); FOR UPDATE SKIP LOCKED; reflection in target language.
 - [EmbedIndexer OOM pattern](embed-indexer-oom.md) — server heap hits ~4GB at 5 min from background workers; any boot run on the indexer triggers OOM; fix = no boot run, rely on 2h periodic setInterval.
+- [GL greeting double audio](gl-greeting-double-audio.md) — {role:'model', turnComplete:false} before greeting → GL generates second audio to complete turn; recent transcript must skip leading assistant messages or Daniela repeats her own greeting.

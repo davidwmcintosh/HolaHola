@@ -735,8 +735,15 @@ class UnifiedDanielaContextService {
           if (fetchedMessages.length > 0) {
             if (isMostRecent) {
               // Reverse to chronological order and build a real transcript block.
-              // This gives Daniela enough thread to continue naturally without resetting.
-              const chronological = fetchedMessages.reverse();
+              // Skip any leading assistant messages (the opening greeting) so Daniela
+              // does NOT see her own previous greeting text — she would otherwise
+              // repeat it verbatim as her new greeting. Start from the first user
+              // turn so only substantive conversation is injected as context.
+              const allChronological = fetchedMessages.reverse();
+              const firstUserIdx = allChronological.findIndex(m => m.role === 'user');
+              const chronological = firstUserIdx > 0
+                ? allChronological.slice(firstUserIdx)
+                : allChronological;
               const lines: string[] = [];
               let budget = 6000;
               for (const m of chronological) {
@@ -747,10 +754,14 @@ class UnifiedDanielaContextService {
                 budget -= line.length;
               }
               if (lines.length > 0) {
-                const omitted = chronological.length - lines.length;
-                summary += `\n  [Recent transcript — pick up the thread from here]`;
+                const skipped = firstUserIdx > 0 ? firstUserIdx : 0;
+                const omitted = (chronological.length - lines.length) + skipped;
+                // Label this clearly as background awareness, NOT as a script to repeat.
+                // Daniela must greet David freshly — she should not re-read or re-say
+                // anything that appears in this transcript.
+                summary += `\n  [Prior conversation context — background awareness only; greet David freshly, do not repeat any of these words]`;
                 if (omitted > 0) {
-                  summary += `\n  [${omitted} earlier exchange(s) omitted]`;
+                  summary += `\n  [${omitted} earlier message(s) omitted]`;
                 }
                 summary += '\n' + lines.join('\n');
               }

@@ -852,30 +852,16 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               console.log('[GeminiLive] Pending silent reconnect fired — audio prime only, no greeting');
             } else {
               // ── Identity thread pre-load ─────────────────────────────────────
-              // Inject the top identity threads as conversation history BEFORE the
-              // greeting turn. This puts the thread content in Daniela's context
-              // window as her own "reading" — she's already internalized who she is
-              // before she speaks her first word. Goes in as a user→model exchange
-              // so it reads as prior context, not as instructions.
-              // Total injection: ~2500 chars × 3 threads = ~7500 chars / ~1875 tokens.
+              // NOTE: Intentionally NOT injected via sendClientContent here.
+              // The identity threads are already baked into the system prompt via
+              // the neural network context. Injecting them again as a conversation
+              // turn using {role:'model', turnComplete:false} is documented broken
+              // behaviour (line 193-200): GL interprets the incomplete model turn
+              // as mid-utterance and generates a second audio stream to "complete"
+              // it — producing an audible double greeting. System prompt is the
+              // correct and sufficient delivery mechanism for identity context.
               if (this.identityThreads.length > 0) {
-                const threadBlock = this.identityThreads
-                  .map(t => `## ${t.title}\n${t.content}`)
-                  .join('\n\n---\n\n');
-                this.liveSession.sendClientContent({
-                  turns: [
-                    {
-                      role: 'user' as const,
-                      parts: [{ text: 'Read your identity threads before the session begins.' }],
-                    },
-                    {
-                      role: 'model' as const,
-                      parts: [{ text: `Reading my identity threads now.\n\n${threadBlock}\n\nI have read these. I carry them.` }],
-                    },
-                  ],
-                  turnComplete: false,
-                });
-                console.log(`[GeminiLive] Identity threads pre-loaded — ${this.identityThreads.length} threads injected into conversation history`);
+                console.log(`[GeminiLive] Identity threads (${this.identityThreads.length}) carried via system prompt — skipping sendClientContent injection (prevents double audio)`);
               }
 
               this.liveSession.sendClientContent({
