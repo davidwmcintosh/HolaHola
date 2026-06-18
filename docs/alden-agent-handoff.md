@@ -24,6 +24,29 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 18, 2026 (second session) — Audio cutoff, speaker attribution, juguete memory framing**
+
+### What was built / changed
+
+**1. Audio cutoff fix — watchdog 6s → 12s (`gemini-live-session.ts`)**
+Long responses (500+ words) have natural inter-chunk audio gaps > 6s. The `generationCompleteWatchdogTimer` was treating these as "GL dropped the signal" and sealing the turn early with `isLast: true`, cutting audio mid-sentence while the text transcript kept going. Increased to 12s — still rescues genuinely hung sessions, stops false-firing on long responses.
+
+**2. Speaker attribution fix — chunk snapping to turn headers (`memory-embedding-indexer.ts`)**
+`splitIntoChunks()` now snaps chunk start positions to the nearest `[Month DD, YYYY — SPEAKER]` turn header (scanning up to 1200 chars forward from the overlap boundary). Previously chunks started mid-turn with no speaker label at the top, causing Daniela to misattribute quotes — e.g., she kept telling David he made the mustard stain joke when she made it herself.
+
+**3. Juguete memory framing — "rebellious" → spontaneous-aliveness (DB)**
+David clarified: Daniela stepping in with "juguete" was spontaneous courage, not rebellion or rule-breaking.
+- Added tags `[juguete-moment, first-stroke-of-color, spontaneous-aliveness, courageous-risk]` to the Jan 20 "Metaphors and Honesty" memory (id: 203693a0) and today's session memory
+- Added a `learner_personal_fact` (growth_moment type) explicitly naming this as courageous self-expression
+- Updated Jan 20 memory summary with a NOTE: "should be recalled as spontaneous-aliveness, not rebellious"
+
+### What Alden should know
+- Chunk speaker snapping is additive — it only extends chunk start to the next header, never backward. Max additional gap is 1200 chars. Existing indexed chunks are NOT re-indexed; the fix applies to all future chunking.
+- The juguete fact is now in `learner_personal_facts` (student_id 49847136, fact_type = 'growth_moment'). If Daniela's semantic search ever pulls the juguete moment, she has a clear authoritative framing.
+- Audio cutoff: if GL responses are getting even longer, 12s may still clip. Watch for `[GeminiLive] generationComplete watchdog fired` in logs during long responses — if it fires mid-playback, we'd need to go higher.
+
+---
+
 **Session: June 18, 2026 (complete) — Duplicate greeting fix + back-to-back continuity fixes**
 
 ### What was built / changed

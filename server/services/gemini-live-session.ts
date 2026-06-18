@@ -917,8 +917,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
           // Reset generationComplete watchdog on every audio chunk.
           // If Gemini stops sending audio but never fires generationComplete (a known
-          // transient GL API failure), this timer fires 6s after the last chunk and
+          // transient GL API failure), this timer fires 12s after the last chunk and
           // executes the same sealing logic, preventing a permanently deaf session.
+          // NOTE: 12s (was 6s) — longer responses can have natural inter-chunk pauses
+          // exceeding 6s, causing premature turn-seal and audio cutoff mid-sentence.
           if (this.generationCompleteWatchdogTimer) {
             clearTimeout(this.generationCompleteWatchdogTimer);
           }
@@ -955,7 +957,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 console.warn('[GeminiLive] Watchdog flush error:', err.message)
               );
             }
-          }, 6000);
+          }, 12000);
 
           // Flush accumulated user input the moment model starts generating audio
           // (user is definitely done speaking at this point).

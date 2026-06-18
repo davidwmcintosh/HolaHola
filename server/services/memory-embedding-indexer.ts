@@ -47,23 +47,55 @@ function sleep(ms: number): Promise<void> {
  * Split text into overlapping chunks for verbatim semantic indexing.
  * Tries to snap chunk boundaries to sentence endings (newline or ". ")
  * so chunks don't cut mid-sentence.
+ *
+ * SPEAKER ATTRIBUTION FIX: Chunk starts are snapped to the nearest turn header
+ * "[Date — SPEAKER]" so every chunk begins at a clear speaker boundary. Without
+ * this, chunks starting mid-turn cause Daniela to misattribute quotes (e.g.,
+ * saying David made a joke that she actually made).
  */
 export function splitIntoChunks(text: string, chunkSize: number = CHUNK_CHARS, overlap: number = OVERLAP_CHARS): string[] {
   if (text.length <= chunkSize) return [text];
+
+  // Regex that matches turn headers like "[Jan 20, 2026, 03:27 AM — DANIELA]"
+  // or "[Jun 18, 2026, 07:00 PM — DAVID]" — any "[" followed by a date-like prefix.
+  const TURN_HEADER_RE = /\[[A-Z][a-z]{2} \d{1,2}, \d{4}/g;
+
+  /**
+   * Given a position inside the text, scan forward up to maxScan chars for
+   * the next turn header. Returns the position of the "[" if found, else -1.
+   */
+  function nextTurnHeader(pos: number, maxScan: number = 800): number {
+    TURN_HEADER_RE.lastIndex = pos;
+    const m = TURN_HEADER_RE.exec(text);
+    if (m && m.index < pos + maxScan) return m.index;
+    return -1;
+  }
+
   const chunks: string[] = [];
   let start = 0;
   while (start < text.length) {
     let end = Math.min(start + chunkSize, text.length);
-    // Snap to sentence boundary in the final 20% of the chunk
+
+    // Snap END to a sentence boundary in the final 20% of the chunk
     if (end < text.length) {
       const snapZoneStart = start + Math.floor(chunkSize * 0.8);
       const searchStr = text.slice(snapZoneStart, Math.min(end + 200, text.length));
       const snapOffset = Math.max(searchStr.lastIndexOf('\n'), searchStr.lastIndexOf('. '));
       if (snapOffset > 0) end = snapZoneStart + snapOffset + 1;
     }
+
     chunks.push(text.slice(start, end));
-    start = end - overlap;
-    if (start <= 0 || start >= text.length) break;
+
+    // Move start back by overlap, then snap FORWARD to the next turn header so
+    // the following chunk never starts mid-speaker-turn.
+    const rawNext = end - overlap;
+    if (rawNext <= 0 || rawNext >= text.length) break;
+
+    const headerPos = nextTurnHeader(rawNext);
+    // Use the header snap only if it's within a reasonable distance; otherwise
+    // use the raw overlap position to avoid giant un-indexed gaps.
+    start = (headerPos > 0 && headerPos < rawNext + 1200) ? headerPos : rawNext;
+    if (start >= text.length) break;
   }
   return chunks;
 }
