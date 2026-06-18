@@ -1486,8 +1486,15 @@ export class StreamingAudioPlayer {
           if (!entry.ended) allEnded = false;
         }
         
-        // Stop loop when all sentences complete
-        if (anyStarted && allEnded && entries.length > 0) {
+        // Stop loop when all sentences complete.
+        // GUARD: Only stop if response_complete has been received (wsResponseCompleteReceived)
+        // or expectedSentenceCount is known and we have enough sentences.
+        // Without this guard, sentence N ending before sentence N+1 arrives from the server
+        // prematurely fires setState('idle'), flickering the avatar to 'listening' mid-response.
+        const minLoopDebugState = window.__debugTimingState;
+        const minLoopResponseComplete = minLoopDebugState?.wsResponseCompleteReceived === true;
+        const minLoopExpectedKnown = this.expectedSentenceCount !== null && this.sentenceSchedule.size >= this.expectedSentenceCount;
+        if (anyStarted && allEnded && entries.length > 0 && (minLoopResponseComplete || minLoopExpectedKnown)) {
           this.isPlaying = false;
           this.setState('idle');
           this.notifyComplete();
@@ -1916,11 +1923,12 @@ export class StreamingAudioPlayer {
         return false;
       }
       
-      if (allHaveEnded) {
-        logResult(true, `ALL_ENDED: all ${allEntries.length} sentences have ended+endCtxTime (no response_complete needed)`);
-        return true;
-      }
-      logResult(false, 'expectedSentenceCount=null (waiting for response_complete)');
+      // DO NOT return true here — expectedSentenceCount is null, meaning response_complete
+      // hasn't arrived yet. More sentences may still be on the way from the server.
+      // Returning true here caused the avatar to flicker to 'listening' between sentences
+      // (sentence N ends before sentence N+1 is scheduled → premature idle → avatar snaps).
+      // Fall through to return false and keep the loop alive until response_complete arrives.
+      logResult(false, `expectedSentenceCount=null, wsResponseCompleteReceived=false — waiting (${allEntries.length} sentences ended but response may not be complete)`);
       return false;
     }
     
