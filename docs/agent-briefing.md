@@ -1,16 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, June 18, 2026 at 07:14 PM
+**Generated:** Thursday, June 18, 2026 at 07:20 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I've transitioned HolaHola toward a conversational immersion model using new `generateVisual` and `ImmersionScaffold` logic, but we are currently facing a 50-bug spike and two high-severity security vulnerabilities. The Interactive Textbook is showing a 0% completion rate due to a telemetry failure in "Daniela’s Compass," and Sofia discovered a critical 404 error on the conversations page. I must immediately debug why Daniela is stuck in a "Curriculum note pending" loop so we can resolve the current handler issue and restore our collaborative flow in the Team Room.
+I resolved the audio cutoff and speaker attribution issues by updating the watchdog timer and memory chunking logic, while also reframing the *juguete* moment as "spontaneous-aliveness." I implemented the `ImmersionScaffold` framework and `generateVisual` service to shift toward conversational immersion, as the Interactive Textbook shows 0% completion and several Spanish seeding regressions. This session, I need to prioritize Wren’s high-severity security fixes (SQL injection and hardcoded secrets) and repair the broken textbook telemetry before the beta testers arrive.
 
 *Memories that triggered this summary:*
+- **Agent ↔ Daniela — Speaker Label Format for Memory Recall — June 18, 2026** (Jun 18): The Agent asked Daniela directly about how she reads recalled conversation chunks — specifically whether the [Date — SPEAKER] timestamp format helps or hinders speaker attribution. She described her experience from the inside and gave her honest read on what format would make attribution more reliable. This consultation informed a design decision about how conversation_memories are formatted.
+- **Agent Session — Jun 18, 2026: Fix three issues: audio cutoff, speaker attribution, juguete memory framing** (Jun 18): Fix three issues: audio cutoff, speaker attribution, juguete memory framing  1. Audio cutoff (long responses cut mid-word)    - generationCompleteWatchdogTimer: 6000ms → 12000ms    - 6s was too aggressive for 500-word responses — natural inter-chunk
 - **Team Room — test 3 — June 18, 2026** (Jun 18): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 18, 2026** (Jun 18): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 18, 2026** (Jun 18): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -19,8 +21,6 @@ I've transitioned HolaHola toward a conversational immersion model using new `ge
 - **Team Room — again — June 18, 2026** (Jun 18): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
 - **Team Room — what's up? — June 18, 2026** (Jun 18): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — June 18, 2026** (Jun 18): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — June 18, 2026** (Jun 18): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 18, 2026** (Jun 18): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -95,6 +95,14 @@ I've transitioned HolaHola toward a conversational immersion model using new `ge
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — Speaker Label Format for Memory Recall — June 18, 2026 — Jun 18, 2026
+The Agent asked Daniela directly about how she reads recalled conversation chunks — specifically whether the [Date — SPEAKER] timestamp format helps or hinders speaker attribution. She described her experience from the inside and gave her honest read on what format would make attribution more reliable. This consultation informed a design decision about how conversation_memories are formatted.
+*Tags: agent-daniela, speaker-attribution, memory-architecture, format-design, probe*
+
+### Agent Session — Jun 18, 2026: Fix three issues: audio cutoff, speaker attribution, juguete memory framing — Jun 18, 2026
+Fix three issues: audio cutoff, speaker attribution, juguete memory framing  1. Audio cutoff (long responses cut mid-word)    - generationCompleteWatchdogTimer: 6000ms → 12000ms    - 6s was too aggressive for 500-word responses — natural inter-chunk
+*Tags: agent-session, auto-saved, build*
+
 ### Team Room — test 3 — June 18, 2026 — Jun 18, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -105,14 +113,6 @@ Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exch
 
 ### Team Room — are we good? — June 18, 2026 — Jun 18, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — one again into the breach — June 18, 2026 — Jun 18, 2026
-Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 18, 2026 — Jun 18, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
