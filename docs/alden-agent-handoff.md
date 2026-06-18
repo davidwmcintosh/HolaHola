@@ -24,6 +24,38 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 18, 2026 (complete) — Duplicate greeting fix + back-to-back continuity fixes**
+
+### What was built / changed
+
+**1. Chunked embedding system + lazy loading (conversation_chunk memory type)**
+Prevents OOM during boot: EmbedIndexer no longer runs at startup, relies on 2h interval. See `embed-indexer-oom.md` in agent memory.
+
+**2. Back-to-back chat continuity: real transcript in recentVoiceSummary**
+`getRecentVoiceSummary()` in `unified-daniela-context-service.ts` now loads 20 messages (300 chars each) from the most recent session as a real chronological transcript. Older sessions keep the brief 4-message snapshot format. Gives Daniela enough thread to continue naturally.
+
+**3. Duplicate greeting bug — three root causes fixed**
+
+Root cause 1 (double audio): `gemini-live-session.ts` greeting sequence was calling `sendClientContent({role:'model', turnComplete:false})` to inject identity threads before the greeting. GL interprets `turnComplete:false` on a model turn as mid-utterance — generates a second audio stream to complete it. Removed the injection entirely. Identity threads are already in the system prompt via neural net context.
+
+Root cause 2 (content repetition): The recent transcript (#2 above) included Daniela's previous opening greeting as the first assistant message. She read her own words and repeated them. Fixed: transcript now starts from `firstUserIdx` (first user message), so Daniela's greeting is never in the injected context.
+
+Root cause 3 (wrong system prompt label): Label was "pick up the thread from here" → changed to "Prior conversation context — for awareness only, do not repeat verbatim." No behavioral instructions in the system prompt (which persists across GL auto-reconnects).
+
+**4. Resumed session trigger no longer calls out reconnections**
+Old wording: "Acknowledge that we are continuing / Acknowledge the reconnect briefly." On Replit's non-dedicated infra, server rotates every ~5 min — Daniela was verbally calling out every rotation. New wording: "Continue our conversation naturally in ${langName}." No indication of technical interruption.
+
+### What Alden should know
+- GL auto-reconnect (1008 blip) reuses `this.lastSystemPrompt` — never put behavioral greeting instructions in the system prompt, they persist across reconnects.
+- The `isSilentReconnect` flag (resumed + recentContext) fires audio prime only — no spoken greeting on rotation. This is correct and intentional.
+- Identity threads are intentionally NOT injected via sendClientContent. They live in the system prompt only.
+
+### Nothing broken / open
+- 2020 pre-existing TypeScript errors in 50 files — not from this session.
+- Server is clean and running.
+
+---
+
 **Session: June 17, 2026 (complete) — GL founder mode unification + prompt calibration via Daniela**
 
 ### What was built / changed
