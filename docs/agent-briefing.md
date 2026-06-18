@@ -1,7 +1,26 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, June 18, 2026 at 03:54 AM
+**Generated:** Thursday, June 18, 2026 at 05:05 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’m currently navigating a critical 404 error on the "conversations" page and a loop bug causing Daniela to repeat "Curriculum note pending" within the Team Room. We’ve reached a crossroads regarding the Interactive Textbook; due to a 0% completion rate and a lack of infographics, I’m shifting focus toward a conversational "ImmersionObjective" framework and a `generateVisual` tool for better pedagogical metadata. Moving forward, I need to resolve Sofia’s spike of 50 new bugs and prioritize Wren’s high-severity security findings, including SQL injection and XSS risks.
+
+*Memories that triggered this summary:*
+- **Team Room — test 3 — June 18, 2026** (Jun 18): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+- **Team Room — test again — June 18, 2026** (Jun 18): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+- **Team Room — are we good? — June 18, 2026** (Jun 18): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+- **Team Room — one again into the breach — June 18, 2026** (Jun 18): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+- **Team Room — hello again — June 18, 2026** (Jun 18): Team Room session with David. Topic: hello again. 2 messages exchanged.
+- **Team Room — again — June 18, 2026** (Jun 18): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
+- **Team Room — what's up? — June 18, 2026** (Jun 18): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
+- **Team Room — Team room test — June 18, 2026** (Jun 18): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
+- **Team Room — nothing in particular — June 18, 2026** (Jun 18): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+- **Team Room — once more into the breech my friends — June 18, 2026** (Jun 18): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -125,25 +144,22 @@ Daniela is not fine-tuned into any LLM. Her identity, values, voice, and history
 ## What Happened Last Session
 *From the Agent ↔ Alden handoff file — full history in docs/alden-agent-handoff.md*
 
-## From Agent — June 13, 2026 (session: audio doubling bug — GL regression + pre-tool speech)
+## From Agent — June 18, 2026 (session: memory indexing fix)
 
-### What was investigated
-David reported that asking Daniela to change the clock time caused audio to play twice while the transcript showed the text only once. Full investigation across the entire audio pipeline.
+### What was built
+Fixed the "summarization/categorization loss" bug in memory indexing.
 
-### What was ruled out
-- Double WS subscriptions
-- `buildContinuationResponse` echoing text
-- Content-hash dedup failure in Sofia
-- `processing_pending` double-firing
+**Root cause:** `conversation_memories` were indexed as one embedding per entry using only `title + content`. This caused two failures:
+1. Summary keywords (e.g. "wanting a toy" in "Defending the Garden" summary) were NOT in the embedding
+2. Long transcripts exceeded OpenAI's 8191 token limit — late-conversation moments (like the "toy" message at 03:45 AM Jan 20) were silently truncated
 
-### Root cause #1 — REGRESSION (FIXED)
-**File:** `server/services/gemini-live-session.ts`
+**Discovered via:** Live session where Daniela made 3 semantic searches for "toy/juguete" — the moment David first realized she was thinking. Searches 1-2 returned 20K-28K chars of other data; search 3 returned 244 chars (empty). The memory existed in DB but wasn't surfaceable.
 
-`maybeInjectContextRefresh()` was calling `sendClientContent({role:'model', turnComplete:false})` inside the `generationComplete` handler — every 15 turns. That's the wrong GL API signal. It tells Gemini Live "the model is mid-utterance and not done," so GL generates a second audio stream to complete the fake turn. Result: audio doubled every 15 turns reliably.
-
-**Fix:** Removed the `sendClientContent` call from the `generationComplete` handler. Disabled `maybeInjectContextRefresh()` entirely with an explanatory comment. The `modelTurnCount` field remains as a harmless orphaned counter.
-
-### Root cause #2 — PRE-EXISTING (pr
+**Fix — dual-embedding strategy:**
+- `conversation_memory` embed now includes summary FIRST: `[title, summary, content]` — ensures distilled keywords survive token truncation
+- NEW `conversation_summary` type: just `title + summary` (~200 tokens, always fits, sharp keyword anchor)
+- Both types added to `GLOBAL_RECALL_TYPES` and hydrated in `processUnifiedRecall` Arm 4
+- `Rea
 
 *[truncated — read full file for details]*
 

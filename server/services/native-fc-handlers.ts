@@ -3740,12 +3740,17 @@ export class NativeFunctionCallHandler {
                     const userId = session.userId ? String(session.userId) : null;
                     if (userId) {
                       const { semanticSearch } = await import('./semantic-memory-service');
-                      const hits = await semanticSearch(userId, memQuery, 3, ['conversation_memory', 'conversation_summary']);
+                      const hits = await semanticSearch(userId, memQuery, 3, ['conversation_memory', 'conversation_summary', 'conversation_chunk']);
                       if (hits.length > 0) {
+                        const bestHit = hits[0];
+                        // For chunks the memoryId is "{convMemId}:chunk:{n}" — extract the parent id
+                        const convMemId = bestHit.memoryType === 'conversation_chunk'
+                          ? bestHit.memoryId.split(':chunk:')[0]
+                          : bestHit.memoryId;
                         const [row] = await db
                           .select()
                           .from(conversationMemories)
-                          .where(eq(conversationMemories.id, hits[0].memoryId))
+                          .where(eq(conversationMemories.id, convMemId))
                           .limit(1);
                         if (row) {
                           session.fullMemoryResults[memQuery] = {
@@ -3753,14 +3758,16 @@ export class NativeFunctionCallHandler {
                             content: row.content,
                             importance: row.importance ?? 7,
                           };
-                          console.log(`[Native Function→ReadFullMemory] ✓ Semantic match "${row.title}" (${(hits[0].similarity * 100).toFixed(0)}% similarity, ${row.content.length} chars)`);
+                          const hitLabel = bestHit.memoryType === 'conversation_chunk'
+                            ? `chunk ${bestHit.memoryId.split(':chunk:')[1]}`
+                            : bestHit.memoryType;
+                          console.log(`[Native Function→ReadFullMemory] ✓ Semantic match "${row.title}" via ${hitLabel} (${(bestHit.similarity * 100).toFixed(0)}% similarity, ${row.content.length} chars)`);
                           // Reinforce on semantic hit too — reading a memory is using it
-                          const semanticHitId = row.id;
                           import('./memory-decay-service').then(({ reinforceMemory }) => {
-                            reinforceMemory('conversation_memory', semanticHitId).catch(() => {});
+                            reinforceMemory('conversation_memory', row.id).catch(() => {});
                           });
                         } else {
-                          console.log(`[Native Function→ReadFullMemory] Semantic hit memoryId=${hits[0].memoryId} not found in conversation_memories`);
+                          console.log(`[Native Function→ReadFullMemory] Semantic hit memoryId=${convMemId} not found in conversation_memories`);
                         }
                       } else {
                         console.log(`[Native Function→ReadFullMemory] No semantic match for "${memQuery}"`);
@@ -7095,6 +7102,9 @@ export class NativeFunctionCallHandler {
           // Hydrate hit records from their source tables
           const sharedDb = getSharedDb();
           const lines: string[] = [];
+          // Track conversation_memory ids already shown — prevents showing the same
+          // conversation multiple times when both a chunk and a summary for it hit.
+          const seenConvMemIds = new Set<string>();
           for (const hit of hits) {
             try {
               if (hit.memoryType === 'student_insight') {
@@ -7126,6 +7136,8 @@ export class NativeFunctionCallHandler {
                   lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | express_lane | ${row.role} | ${date}] ${row.content}`);
                 }
               } else if (hit.memoryType === 'conversation_memory' || hit.memoryType === 'conversation_summary') {
+                if (seenConvMemIds.has(hit.memoryId)) continue;
+                seenConvMemIds.add(hit.memoryId);
                 const { conversationMemories: convMem } = await import('@shared/schema');
                 const [row] = await sharedDb.select({
                   title: convMem.title,
@@ -7141,6 +7153,25 @@ export class NativeFunctionCallHandler {
                     ? (row.summary ?? row.content ?? '')
                     : (row.content ?? row.summary ?? '');
                   lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | ${hit.memoryType} | ${date}] ${row.title}\n${body}`);
+                }
+              } else if (hit.memoryType === 'conversation_chunk') {
+                // memoryId format: "{conversationMemoryId}:chunk:{n}"
+                const convMemId = hit.memoryId.split(':chunk:')[0];
+                if (seenConvMemIds.has(convMemId)) continue; // dedup — same conversation already shown
+                seenConvMemIds.add(convMemId);
+                const { conversationMemories: convMem } = await import('@shared/schema');
+                const [row] = await sharedDb.select({
+                  title: convMem.title,
+                  summary: convMem.summary,
+                  content: convMem.content,
+                  createdAt: convMem.createdAt,
+                }).from(convMem).where(eq(convMem.id, convMemId)).limit(1);
+                if (row) {
+                  const date = new Date(row.createdAt).toLocaleDateString();
+                  const chunkNum = hit.memoryId.split(':chunk:')[1];
+                  // Show summary for orientation; caller can use read_full_memory to get verbatim content
+                  const body = row.summary ?? row.content ?? '';
+                  lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | verbatim chunk ${chunkNum} | ${date}] ${row.title}\n${body}`);
                 }
               } else if (hit.memoryType === 'teaching_skill') {
                 const { teachingSkills: ts } = await import('@shared/schema');

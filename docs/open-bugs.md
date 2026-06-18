@@ -77,5 +77,8 @@ Two getter definitions with the same name `socketId` in the same class (placemen
 **2026-06-11 — `server/unified-ws-handler.ts:3625` — `geminiLiveSession` typed as `never` — FIXED**
 TypeScript's mutable-let control flow narrowing was collapsing `geminiLiveSession` to `never` inside the PTT release handler (because an earlier assignment `geminiLiveSession = null` in the same scope caused the narrowing). Fixed by snapshotting into a `const glSessionSnap = geminiLiveSession` before the `if` check, so TypeScript narrows the const correctly.
 
+**2026-06-18 — `server/services/daniela-presence-worker.ts` — "Cannot convert undefined or null to object" crash in presence generation — LOW**
+`DanielaPresence` logs `Failed to generate for 49847136: Cannot convert undefined or null to object TypeError: Cannot convert undefined or null to object | at Function.entries (<anonymous>) | at orderSelectedFields (node_modules/src/utils.ts:77:16)`. Points to a Drizzle `orderSelectedFields` call receiving a null/undefined value — likely a `.select({...})` field map where a column is null. Appears in every run, run completes but generates nothing. Location: somewhere in the select query inside `daniela-presence-worker.ts`.
+
 **2026-06-11 — `server/ws-gateway.ts:234,236,243,250` — Missing `await` on `createSession`, wrong userId type — FIXED**
 `orchestrator.createSession(...)` is async but was not awaited, causing `session` to be a `Promise` at runtime. Also `parseInt(userId!)` was passing a `number` when `createSession` expects a `string`. Fixed: added `await`, changed `parseInt(userId!)` → `userId!`, added null guard after the await.

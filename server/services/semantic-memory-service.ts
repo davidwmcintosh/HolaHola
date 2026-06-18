@@ -151,8 +151,9 @@ export async function generateAndStoreEmbedding(
 // Including it in every student memory recall loaded ~356MB of JSONB per call, causing
 // the 10-second memory lookup delays observed in voice sessions.
 // conversation_summary = sharp title+summary-only anchor per conversation_memory.
-// Finds specific keywords (e.g. "toy", "juguete") that get diluted in full-transcript vectors.
-const GLOBAL_RECALL_TYPES = ['daniela_tool', 'hive_snapshot', 'conversation_memory', 'conversation_summary', 'growth_memory', 'goal_capability', 'teaching_skill'];
+// conversation_chunk   = verbatim transcript slice (~1000 tokens) — every part of every
+//   long conversation gets its own embedding so no moment is lost to token truncation.
+const GLOBAL_RECALL_TYPES = ['daniela_tool', 'hive_snapshot', 'conversation_memory', 'conversation_summary', 'conversation_chunk', 'growth_memory', 'goal_capability', 'teaching_skill'];
 
 const EMBED_SELECT = {
   memoryType: memoryEmbeddings.memoryType,

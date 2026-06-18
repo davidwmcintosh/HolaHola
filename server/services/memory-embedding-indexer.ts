@@ -35,14 +35,46 @@ const BATCH_SIZE = 10;
 const BATCH_PAUSE_MS = 600;
 const INDEXER_INTERVAL_MS = 2 * 60 * 60 * 1000;
 
+// Chunking constants — ~1000 tokens per chunk, ~200 token overlap
+const CHUNK_CHARS = 4500;
+const OVERLAP_CHARS = 900;
+
 function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Split text into overlapping chunks for verbatim semantic indexing.
+ * Tries to snap chunk boundaries to sentence endings (newline or ". ")
+ * so chunks don't cut mid-sentence.
+ */
+export function splitIntoChunks(text: string, chunkSize: number = CHUNK_CHARS, overlap: number = OVERLAP_CHARS): string[] {
+  if (text.length <= chunkSize) return [text];
+  const chunks: string[] = [];
+  let start = 0;
+  while (start < text.length) {
+    let end = Math.min(start + chunkSize, text.length);
+    // Snap to sentence boundary in the final 20% of the chunk
+    if (end < text.length) {
+      const snapZoneStart = start + Math.floor(chunkSize * 0.8);
+      const searchStr = text.slice(snapZoneStart, Math.min(end + 200, text.length));
+      const snapOffset = Math.max(searchStr.lastIndexOf('\n'), searchStr.lastIndexOf('. '));
+      if (snapOffset > 0) end = snapZoneStart + snapOffset + 1;
+    }
+    chunks.push(text.slice(start, end));
+    start = end - overlap;
+    if (start <= 0 || start >= text.length) break;
+  }
+  return chunks;
 }
 
 interface IndexTarget {
   id: string;
   userId: string | null;
   content: string;
+  // When set, content is loaded lazily (one at a time) instead of held in RAM.
+  // The caller sets content = '' and runIndexer() resolves this before embedding.
+  contentLoader?: () => Promise<string>;
   memoryType: string;
   initialStrength?: number;
 }
@@ -215,31 +247,49 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
   try {
     const db = getSharedDb();
 
-    // Arm A: full-content embeddings (includes summary now — hash will change for all existing entries,
-    // triggering automatic re-index via generateAndStoreEmbedding's content-hash update path)
+    // Arm A: full-content embeddings for not-yet-indexed conversations only.
+    // LAZY LOADING: fetch IDs + metadata only here (no content), content is loaded
+    // one-at-a-time in runIndexer() via contentLoader to avoid bulk RAM usage.
+    // Some conversation_memories entries are 146KB+ — loading 50 at once was OOM.
     const fullRows = await db
       .select({
         id: conversationMemories.id,
         title: conversationMemories.title,
         summary: conversationMemories.summary,
-        content: conversationMemories.content,
         importance: conversationMemories.importance,
       })
       .from(conversationMemories)
-      .limit(200);
+      .where(sql`
+        NOT EXISTS (
+          SELECT 1 FROM memory_embeddings
+          WHERE memory_type = 'conversation_memory' AND memory_id = ${conversationMemories.id}
+        )
+      `)
+      .limit(50);
     for (const r of fullRows) {
-      // Summary goes BEFORE content so it is always within OpenAI's 8191-token limit
-      // even when the full transcript is very long (late-conversation moments used to get truncated).
-      const embeddedContent = [r.title, r.summary, r.content].filter(Boolean).join('\n\n');
-      if (embeddedContent.trim().length > 10) {
-        targets.push({
-          id: r.id,
-          userId: null,
-          content: embeddedContent,
-          memoryType: 'conversation_memory',
-          initialStrength: Math.min(1.0, (r.importance ?? 7) / 10),
-        });
-      }
+      const rowId = r.id;
+      const rowTitle = r.title;
+      const rowSummary = r.summary;
+      const strength = Math.min(1.0, (r.importance ?? 7) / 10);
+      targets.push({
+        id: rowId,
+        userId: null,
+        content: '',
+        // Content is fetched lazily in runIndexer() — one at a time to avoid OOM.
+        // Summary goes BEFORE content so keyword-rich anchor survives token truncation.
+        contentLoader: async () => {
+          const dbInner = getSharedDb();
+          const row = await dbInner
+            .select({ content: conversationMemories.content })
+            .from(conversationMemories)
+            .where(sql`${conversationMemories.id} = ${rowId}`)
+            .limit(1);
+          const fullContent = row[0]?.content ?? '';
+          return [rowTitle, rowSummary, fullContent].filter(Boolean).join('\n\n');
+        },
+        memoryType: 'conversation_memory',
+        initialStrength: strength,
+      });
     }
 
     // Arm B: summary-only anchor embeddings — sharp, keyword-rich, never truncated
@@ -270,6 +320,70 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
         initialStrength: Math.min(1.0, (r.importance ?? 7) / 10),
       });
     }
+
+    // Arm C: verbatim content chunks — the heart of the fix.
+    // For conversations longer than CHUNK_CHARS, the full transcript is sliced into
+    // overlapping segments (~1000 tokens each). Every segment gets its own embedding,
+    // pointing back to the parent conversation_memory via a stable chunk ID.
+    //
+    // This guarantees that EVERY moment of every conversation is semantically searchable
+    // regardless of where it falls in the transcript — a 3 AM remark at token 12000
+    // surfaces just as easily as the opening line.
+    //
+    // Performance note: content is fetched per-conversation (not in bulk) to avoid
+    // pulling megabytes of data in one query. Some conversations are 100KB+ so the
+    // bulk approach caused query timeouts.
+    const unchunkedIds = await db
+      .select({
+        id: conversationMemories.id,
+        title: conversationMemories.title,
+        importance: conversationMemories.importance,
+      })
+      .from(conversationMemories)
+      .where(sql`
+        length(${conversationMemories.content}) > ${CHUNK_CHARS}
+        AND NOT EXISTS (
+          SELECT 1 FROM memory_embeddings
+          WHERE memory_type = 'conversation_chunk'
+          AND memory_id = (${conversationMemories.id}::text || ':chunk:0')
+        )
+      `)
+      .limit(20);
+
+    for (const r of unchunkedIds) {
+      const contentRow = await db
+        .select({ content: conversationMemories.content })
+        .from(conversationMemories)
+        .where(sql`id = ${r.id}`)
+        .limit(1);
+      const content = contentRow[0]?.content;
+      if (!content) continue;
+
+      const chunks = splitIntoChunks(content);
+      const total = chunks.length;
+
+      // Fetch existing chunks for this conversation only (targeted, not all chunks)
+      const existingForThis = new Set(
+        (await db
+          .select({ memoryId: memoryEmbeddings.memoryId })
+          .from(memoryEmbeddings)
+          .where(sql`memory_type = 'conversation_chunk' AND memory_id LIKE ${r.id + ':chunk:%'}`)
+        ).map(row => row.memoryId)
+      );
+
+      for (let i = 0; i < total; i++) {
+        const chunkId = `${r.id}:chunk:${i}`;
+        if (existingForThis.has(chunkId)) continue;
+        const chunkContent = `[Memory: ${r.title ?? 'Untitled'} | Part ${i + 1} of ${total}]\n\n${chunks[i]}`;
+        targets.push({
+          id: chunkId,
+          userId: null,
+          content: chunkContent,
+          memoryType: 'conversation_chunk',
+          initialStrength: Math.min(1.0, (r.importance ?? 7) / 10),
+        });
+      }
+    }
   } catch (err: any) {
     console.warn('[EmbedIndexer] conversation_memories scan failed:', err.message);
   }
@@ -293,10 +407,16 @@ async function runIndexer(): Promise<void> {
   for (let i = 0; i < targets.length; i += BATCH_SIZE) {
     const batch = targets.slice(i, i + BATCH_SIZE);
 
-    await Promise.all(
-      batch.map(async (t) => {
+    // Process batch sequentially when any item has a contentLoader (lazy content).
+    // Parallel loading of multiple large conversation transcripts risks OOM.
+    const hasLazy = batch.some(t => t.contentLoader);
+
+    if (hasLazy) {
+      for (const t of batch) {
         try {
-          const isNew = await generateAndStoreEmbedding(t.memoryType, t.id, t.userId, t.content, t.initialStrength);
+          const content = t.contentLoader ? await t.contentLoader() : t.content;
+          if (!content || content.trim().length <= 10) continue;
+          const isNew = await generateAndStoreEmbedding(t.memoryType, t.id, t.userId, content, t.initialStrength);
           if (isNew) generated++;
         } catch (err: any) {
           errors++;
@@ -304,8 +424,22 @@ async function runIndexer(): Promise<void> {
             console.warn(`[EmbedIndexer] Failed to embed ${t.memoryType}/${t.id}:`, err.message);
           }
         }
-      })
-    );
+      }
+    } else {
+      await Promise.all(
+        batch.map(async (t) => {
+          try {
+            const isNew = await generateAndStoreEmbedding(t.memoryType, t.id, t.userId, t.content, t.initialStrength);
+            if (isNew) generated++;
+          } catch (err: any) {
+            errors++;
+            if (errors <= 3) {
+              console.warn(`[EmbedIndexer] Failed to embed ${t.memoryType}/${t.id}:`, err.message);
+            }
+          }
+        })
+      );
+    }
 
     if (i + BATCH_SIZE < targets.length) {
       await sleep(BATCH_PAUSE_MS);
@@ -408,12 +542,9 @@ export async function indexNewMemoriesForUser(userId: string): Promise<void> {
 export function startMemoryEmbeddingIndexer(): void {
   console.log('[EmbedIndexer] Starting (interval: 2h)');
 
-  // Boot run after 100 seconds (embeddings are a background enrichment, not blocking)
-  setTimeout(() => {
-    runIndexer().catch(err =>
-      console.error('[EmbedIndexer] Boot run failed:', err.message)
-    );
-  }, 100000);
+  // No boot run — the server heap grows to ~4GB naturally during startup from background workers.
+  // Adding any significant work at boot (even with lazy loading) triggers OOM.
+  // The 2-hour periodic interval below handles all indexing; memories are indexed within 2h of creation.
 
   setInterval(() => {
     runIndexer().catch(err =>

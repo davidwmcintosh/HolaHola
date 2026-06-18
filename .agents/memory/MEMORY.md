@@ -28,3 +28,4 @@
 - [Pre-session synthesis — DANIELA_STATE pattern](pre-session-synthesis.md) — naked paragraph at systemInstruction position-0 triggers instructional gravity; [DANIELA_STATE] container fixes it; service in pre-session-synthesis.ts.
 - [Gemini review workflow rule](agent-review-workflow.md) — every Gemini build suggestion triggers review loop; iterate fixes until clean "APPROVED — Ship it."; only then commit.
 - [Session reflection resilience](session-reflection-resilience.md) — pending_reflections table + two-hook design (close→schedule, next-start→process); FOR UPDATE SKIP LOCKED; reflection in target language.
+- [EmbedIndexer OOM pattern](embed-indexer-oom.md) — server heap hits ~4GB at 5 min from background workers; any boot run on the indexer triggers OOM; fix = no boot run, rely on 2h periodic setInterval.
