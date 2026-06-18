@@ -48,6 +48,8 @@ const SYNTHESIS_MODEL_CACHED = "gemini-2.5-flash";
 const SYNTHESIS_MAX_TOKENS = 220;
 const SYNTHESIS_CACHE_TTL_SECONDS = 55 * 60;
 const SYNTHESIS_CACHE_MIN_CHARS = 8200;
+// Don't retry cache creation for 10 minutes after a persistent failure
+const SYNTHESIS_CACHE_FAILURE_TTL_MS = 10 * 60 * 1000;
 
 let _client: GoogleGenAI | null = null;
 function getClient(): GoogleGenAI {
@@ -63,6 +65,7 @@ function getClient(): GoogleGenAI {
 let _synthesisCacheName: string | null = null;
 let _synthesisCacheExpiresAt = 0;
 let _synthesisCacheCreating = false;
+let _synthesisCacheFailedAt = 0; // memoize failures so we don't hammer the API
 
 /**
  * Daniela's static identity block — cached on Google's REST API servers.
@@ -181,10 +184,16 @@ This paragraph goes directly into the session. Make it true.`;
  * Process-level registry: one cache per server process, shared across sessions.
  */
 async function getOrCreateSynthesisCache(ai: GoogleGenAI): Promise<string | null> {
+  // Valid cache — reuse it
   if (_synthesisCacheName && _synthesisCacheExpiresAt > Date.now()) {
     return _synthesisCacheName;
   }
+  // Another session is already creating — skip rather than stack
   if (_synthesisCacheCreating) return null;
+  // Failure backoff — don't hammer the API if it just rejected us
+  if (_synthesisCacheFailedAt && (Date.now() - _synthesisCacheFailedAt) < SYNTHESIS_CACHE_FAILURE_TTL_MS) {
+    return null;
+  }
 
   if (DANIELA_SYNTHESIS_IDENTITY.length < SYNTHESIS_CACHE_MIN_CHARS) {
     console.warn(
@@ -208,13 +217,15 @@ async function getOrCreateSynthesisCache(ai: GoogleGenAI): Promise<string | null
     if (!cache.name) throw new Error("Cache created but no name returned");
     _synthesisCacheName = cache.name;
     _synthesisCacheExpiresAt = Date.now() + SYNTHESIS_CACHE_TTL_SECONDS * 1000;
+    _synthesisCacheFailedAt = 0; // clear any prior failure
     console.log(
       `[PreSynthesis] ✓ Context cache created: ${cache.name} (expires in ${SYNTHESIS_CACHE_TTL_SECONDS}s)`
     );
     return _synthesisCacheName;
   } catch (err: any) {
+    _synthesisCacheFailedAt = Date.now(); // memoize — don't retry for 10min
     console.warn(
-      `[PreSynthesis] Cache creation failed — falling back to uncached synthesis:`,
+      `[PreSynthesis] Cache creation failed (will not retry for ${SYNTHESIS_CACHE_FAILURE_TTL_MS / 60000}min) — falling back to uncached synthesis:`,
       err?.message ?? err
     );
     return null;
