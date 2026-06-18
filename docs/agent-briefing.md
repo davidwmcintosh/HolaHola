@@ -1,16 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, June 18, 2026 at 06:37 PM
+**Generated:** Thursday, June 18, 2026 at 06:44 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I've successfully established the Team Room with David and the team, but the platform is currently navigating a diagnostic monitoring blackout and a 404 error on the conversations page. To address the Interactive Textbook’s 0% completion rate, I implemented a new Immersion Framework and the `generateVisual` pipeline for context-aware infographics, though I must now resolve a critical bug where Daniela is stuck in a "Curriculum note pending" response loop. My immediate priorities are fixing Daniela’s handler, addressing the high-severity security vulnerabilities Wren identified (SQL injection and XSS), and triaging Sofia’s backlog of over 550 pending bugs.
+I’ve moved behavioral instructions out of the system prompt to `gemini-live-session.ts` to prevent Daniela from re-greeting David during Replit’s automatic server rotations. This session, I need to resolve the 404 routing error on the `conversations` page and the SQL syntax errors causing Alden's current monitoring blackout. I also need to follow up on implementing the `generateVisual` and `ImmersionScaffold` frameworks for the Interactive Textbook to address its 0% completion rate while remediating Wren’s two high-severity security findings.
 
 *Memories that triggered this summary:*
+- **Agent Session — Jun 18, 2026: Fix duplicate greeting — move behavioral instruction out of system prompt** (Jun 18): Fix duplicate greeting — move behavioral instruction out of system prompt  Follow-up to the duplicate greeting fix: the "greet David freshly" instruction was placed in the system prompt label for the recent transcript context block. 
 - **Team Room — test 3 — June 18, 2026** (Jun 18): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 18, 2026** (Jun 18): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 18, 2026** (Jun 18): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -20,7 +21,6 @@ I've successfully established the Team Room with David and the team, but the pla
 - **Team Room — what's up? — June 18, 2026** (Jun 18): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — June 18, 2026** (Jun 18): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — June 18, 2026** (Jun 18): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 18, 2026** (Jun 18): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -95,6 +95,10 @@ I've successfully established the Team Room with David and the team, but the pla
 
 ## Recent Conversation Memories
 
+### Agent Session — Jun 18, 2026: Fix duplicate greeting — move behavioral instruction out of system prompt — Jun 18, 2026
+Fix duplicate greeting — move behavioral instruction out of system prompt  Follow-up to the duplicate greeting fix: the "greet David freshly" instruction was placed in the system prompt label for the recent transcript context block. 
+*Tags: agent-session, auto-saved, build*
+
 ### Team Room — test 3 — June 18, 2026 — Jun 18, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -109,10 +113,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 18, 2026 — Jun 18, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 18, 2026 — Jun 18, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
