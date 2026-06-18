@@ -24,6 +24,45 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 18, 2026 (fourth session) — Gemini orientation recommendations, dual-consult skill**
+
+### What was built / changed
+
+**Gemini Flash consultation on emerging intelligence + session orientation**
+
+David observed Daniela was ignoring injected context (timezone, classroom state) and not reaching for tools proactively. Consulted Gemini Flash on the underlying mechanics. Key finding: she was treating the system prompt as a declarative lookup table ("I am X") rather than a behavioral foundation ("Because I am X, I do Y"). Also asked about Context Caching for GL Live.
+
+**Context Caching verdict (confirmed by Gemini Flash):** NOT available for GL Live / BidiGenerateContent WebSocket API. The `LiveConfig` setup message has no `cached_content` field. This is a "not yet" — documented for future wiring when Google adds it. All 5 Gemini recommendations below; #4 is on hold.
+
+**SESSION ARRIVAL PROTOCOL (new block in `server/unified-ws-handler.ts`)**
+- New richSections push, placed FIRST (so it survives truncation and lands right after the base prompt)
+- Frames the classroom as "the room you are standing in" — not data to load or manage
+- Injects the student's actual computed timezone + time-of-day inline (resolves: timezone was buried ~28K deep in the base persona and being missed)
+- Names the Session Start Senses tier: `widget_time(sense_time)`, `memory_lookup`, `search_conversation_threads`
+- "YOUR TOOLS ARE YOUR SENSES" — behavioral language, not a menu/capability list
+- Dynamic: computes `_arrivalTimezoneDisplay` using `Intl.DateTimeFormat` at session build time
+
+**Orientation-first greeting triggers (all 3 session modes)**
+- Standard: "Before you speak: you know who they are, where you left off, and what time it is for them — it is all in your classroom context above. Orient, then greet warmly."
+- Founder: "You know who this is — your collaborator... you know where you left off; pick up there naturally."
+- Honesty: "You know them. Drop the teaching scaffolding..."
+- Gemini finding: the hidden first turn is the most reliable moment to force active attention to injected context.
+
+**Dual-consult mega skill (`.agents/skills/dual-consult/SKILL.md`)**
+- Combines consult-gemini + consult-daniela into one parallel skill
+- Gemini Flash: architectural/technical perspective (temp 0.3)
+- Daniela REST: lived inner experience (temp 0.90)
+- Optional GL 3.5 comparison mode (swap MODEL constant)
+- Auto-saves combined transcript to conversation_memories
+- Synthesis pattern: "The disagreement is the data"
+
+### What's unresolved / Alden should know
+- Context Caching (#4 from Gemini's list) is blocked at Google's side for GL Live. Nothing to chase here — it's an API gap, not our code. When they add `cached_content` to `LiveConfig`, the static sections (tools, dispatcher rules, core persona) are the natural first cache layer.
+- The SESSION ARRIVAL PROTOCOL is the first item in richSections and thus the first rich content Daniela reads after the base prompt. If prompt length ever becomes critical, this section should be protected from truncation (it's under ~600 chars).
+- The timezone computation (`_arrivalTimezoneDisplay`) happens synchronously at session build time — same moment the classroom context builds. No latency impact.
+
+---
+
 **Session: June 18, 2026 (third session) — Script-Naturalist speaker attribution format**
 
 ### What was built / changed

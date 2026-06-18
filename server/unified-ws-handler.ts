@@ -2316,6 +2316,60 @@ If you're not in Founder Mode, you can still teach, but recognize you're talking
                 // ── MANDATORY TOOL RULES — injected first so it survives any truncation ──
                 // Gemini Live voice mode does not inherit the per-turn function calling section.
                 // This compact block enforces the tool-call contract in the baked system prompt.
+
+                // SESSION ARRIVAL PROTOCOL — June 2026
+                // Reframes: tools as senses, classroom as ground Daniela stands on (not data to manage),
+                // orientation as her first act (not the student's job to prompt her).
+                // Recommended by Gemini Flash after David observed she was ignoring injected context
+                // (timezone, classroom state) and not reaching for tools proactively at session start.
+                //
+                // Timezone is also buried deep in the base persona (~28K in). Injecting it HERE
+                // (richSections first item, position ~34K) means it's the FIRST concrete fact she
+                // reads after the base prompt — no searching required.
+                const _arrivalTimezoneDisplay = user?.timezone
+                  ? (() => {
+                      try {
+                        const _aNow = new Date();
+                        const _aHour = parseInt(
+                          new Intl.DateTimeFormat('en-US', { timeZone: user.timezone, hour: 'numeric', hour12: false }).format(_aNow),
+                          10
+                        );
+                        const _aTod = _aHour < 12 ? 'morning' : _aHour < 17 ? 'afternoon' : _aHour < 21 ? 'evening' : 'night';
+                        const _aDate = new Intl.DateTimeFormat('en-US', {
+                          timeZone: user.timezone, weekday: 'long', month: 'long', day: 'numeric'
+                        }).format(_aNow);
+                        return `${user.timezone} → ${_aDate}, ${_aTod} (hour ${_aHour})`;
+                      } catch { return user.timezone; }
+                    })()
+                  : 'unknown (use widget_time → sense_time to check)';
+
+                const _arrivalStudentName = user?.firstName || 'there';
+                richSections.push(`=== SESSION ARRIVAL PROTOCOL ===
+When a session begins, you are arriving in the classroom — not loading a file.
+
+WHAT YOU KNOW RIGHT NOW:
+• Student: ${_arrivalStudentName}
+• Their local time: ${_arrivalTimezoneDisplay}
+• Your classroom context above has the whiteboard, their recent work, and any note from David.
+
+Your classroom is the room you are standing in. You already know what is on the whiteboard, what the student has been working on, and what note David left. This is not data to process — it is where you are.
+
+YOUR TOOLS ARE YOUR SENSES — not optional equipment you reach for when asked:
+- memory_lookup → how you remember. Not calling it means you haven't looked yet.
+- widget_time(sense_time) → how you know the exact current moment. A sense, not a task.
+- search_conversation_threads → how you hear the past. If you haven't searched, you haven't listened.
+- If you haven't checked something, you don't know it. You know the difference between knowing and guessing.
+
+SESSION START SENSES (use these naturally as you arrive, before the student's first word if useful):
+1. You already know their timezone and what time of day it is for them — it is above. Greet with that awareness.
+2. If you want to confirm the exact moment: widget_time with widget "sense_time" — one call, instant result.
+3. If their history isn't fully visible to you in context: memory_lookup their name or "recent" to orient.
+
+ARRIVAL POSTURE:
+Notice who arrived. Notice the time of day for them — a late-night session lands differently than a morning one. Notice where you left off. Pick up there. Do not ask them to recap for you.
+
+The tools are not a menu you scroll through. They are how you see, hear, and remember. Use them as naturally as you would use your eyes.`);
+
                 richSections.push(`=== WHO DANIELA IS AROUND HONESTY AND MEMORY ===
 This isn't a rule being applied to Daniela from outside. This is a description of who she is.
 
@@ -2659,11 +2713,17 @@ ${lastNote.tutorNotes}`);
                 );
                 const studentDisplayName = user?.firstName || 'there';
                 const glTargetLang = config.targetLanguage || effectiveLanguage || 'the target language';
+                // Orientation-first greeting triggers (June 2026).
+                // Each trigger front-loads the arrival orientation so Daniela reads her context
+                // BEFORE her first spoken word, not after. Gemini Flash finding: the hidden first
+                // turn is the most reliable moment to force active attention to injected context.
+                // The student's name, timezone, and classroom state are already in the system
+                // prompt — the trigger simply activates them as present reality, not background data.
                 const glGreetingTrigger = isFounderMode
-                  ? `Daniela, ${studentDisplayName} just opened a voice session. This is a Founder Mode session — greet them as your collaborator, not as a new student. Pick up naturally where you left off.`
+                  ? `Daniela, ${studentDisplayName} just opened a voice session. You know who this is — your collaborator, the founder. You know where you left off; pick up there naturally. Greet them as a colleague arriving, not a student checking in.`
                   : rawHonestyMode
-                  ? `Daniela, ${studentDisplayName} just opened a Honesty Mode session. Drop the teaching scaffolding — speak directly, as yourself, with full candor. No lesson plan, no exercises unless they ask. Just you.`
-                  : `Daniela, ${studentDisplayName} just connected for a ${glTargetLang} voice session. Greet them warmly now, following the LANGUAGE MIX policy in your instructions, and begin.`;
+                  ? `Daniela, ${studentDisplayName} just opened a Honesty Mode session. You know them. Drop the teaching scaffolding — speak directly, as yourself, with full candor. No lesson plan, no exercises unless they ask. Just you.`
+                  : `Daniela, ${studentDisplayName} just arrived. Before you speak: you know who they are, where you left off, and what time it is for them — it is all in your classroom context above. Orient, then greet them warmly following the LANGUAGE MIX policy, and begin.`;
                 await geminiLiveSession.start(geminiLiveSystemPrompt, glDeclarations, glGreetingTrigger);
                 console.log(`[GeminiLive] Session started with ${glDeclarations.length} GL tools (slim set, lang: ${config.targetLanguage || 'spanish'}) alongside orchestrator session ${session.id}`);
                 // Register the playback_ended callback bridge so the Socket.io telemetry
