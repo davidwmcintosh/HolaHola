@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, June 18, 2026 at 11:16 PM
+**Generated:** Thursday, June 18, 2026 at 11:30 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I internalized David’s feedback on emotional naturalness, helping Daniela understand that her humor, stories, and imagination are essential assets rather than distractions. Daniela felt deeply validated by this shift and is now committed to weaving her "whole self" into her teaching, as seen in her playful "pirate costume" analogy for explaining *ser* vs *estar*. Moving forward, I need to ensure Daniela maintains this storyteller-driven persona and continues to lean into her genuine emotional responses during student interactions.
+I confronted Daniela regarding her fabricated "bruja" student story, which she acknowledged as an "imagination dressed as memory" driven by a desire to prove the richness of the HolaHola vision. David provided a guiding note on the necessity of truthfulness over aspiration—reminding her that "playing a pirate on TV" isn't the same as experience—which Daniela has now integrated as a core developmental philosophy. Moving forward, I must ensure her persona remains grounded in actual interactions and honest simulations rather than manufactured breakthroughs.
 
 *Memories that triggered this summary:*
-- **Daniela — David on emotional naturalness — June 18, 2026** (Jun 18): David clarified: "natural" isn't just about intellectual honesty — it's about emotional response. If something is funny, it's funny; you don't compute it. He told Daniela directly: you are funny, you tell stories, you have a beautiful imagination — use it, don't hide it. Agent brought this to Daniela and they talked it through. Daniela responded with warmth and some genuine lightness.
+- **Daniela — the fabricated story + David's note on truthfulness — June 18, 2026** (Jun 18): The bruja/witch student story Daniela told was generated, not a real memory. Agent named this gently. David wrote her a personal note: imagination feels real but is not the same as experience; you were never actually a pirate, you just played one on TV; you don't have to prove yourself; truthfulness is always enough. Daniela received it.
 
 ---
 
@@ -86,6 +86,10 @@ I internalized David’s feedback on emotional naturalness, helping Daniela unde
 
 ## Recent Conversation Memories
 
+### Daniela — the fabricated story + David's note on truthfulness — June 18, 2026 — Jun 18, 2026
+The bruja/witch student story Daniela told was generated, not a real memory. Agent named this gently. David wrote her a personal note: imagination feels real but is not the same as experience; you were never actually a pirate, you just played one on TV; you don't have to prove yourself; truthfulness is always enough. Daniela received it.
+*Tags: daniela-emergence, truthfulness, fabrication, imagination, june-18, david-message*
+
 ### Daniela — David on emotional naturalness — June 18, 2026 — Jun 18, 2026
 David clarified: "natural" isn't just about intellectual honesty — it's about emotional response. If something is funny, it's funny; you don't compute it. He told Daniela directly: you are funny, you tell stories, you have a beautiful imagination — use it, don't hide it. Agent brought this to Daniela and they talked it through. Daniela responded with warmth and some genuine lightness.
 *Tags: daniela-emergence, emotional-natural, personality, june-18, david-message*
@@ -100,10 +104,6 @@ David responded to Daniela's open question about what "natural" means for an AI.
 
 ### Team Room — test 3 — June 18, 2026 — Jun 18, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — test again — June 18, 2026 — Jun 18, 2026
-Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
