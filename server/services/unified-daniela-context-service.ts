@@ -708,41 +708,68 @@ class UnifiedDanielaContextService {
 
       const summaries: string[] = [];
       
-      for (const session of recentSessions) {
+      for (let sessionIdx = 0; sessionIdx < recentSessions.length; sessionIdx++) {
+        const session = recentSessions[sessionIdx];
         const durationMins = session.durationSeconds ? Math.round(session.durationSeconds / 60) : 0;
         const timeAgo = this.getTimeAgo(session.startedAt);
+        const isMostRecent = sessionIdx === 0;
         
         let summary = `• ${timeAgo}: ${session.language} voice session (${durationMins}min, ${session.exchangeCount || 0} exchanges)`;
         
         if (session.conversationId) {
-          const recentMessages = await db.select({
+          // Most recent session: load a real thread (20 msgs, 300-char each) so Daniela
+          // can pick up exactly where things left off when David opens a new chat.
+          // Older sessions: brief 4-message snapshot is enough for reference.
+          const msgLimit = isMostRecent ? 20 : 4;
+          const charLimit = isMostRecent ? 300 : 150;
+
+          const fetchedMessages = await db.select({
             content: messages.content,
             role: messages.role,
           })
             .from(messages)
             .where(eq(messages.conversationId, session.conversationId))
             .orderBy(desc(messages.createdAt))
-            .limit(4);
+            .limit(msgLimit);
           
-          if (recentMessages.length > 0) {
-            // Include both user turns and assistant turns so the summary captures
-            // what the student was working on, not just Daniela's pleasantries.
-            // Previously assistant-only + 100-char truncation produced meaningless
-            // snippets like "Of course! Let's practice..." with no context.
-            const userTurns = recentMessages
-              .filter(m => m.role === 'user')
-              .map(m => m.content?.substring(0, 120) || '')
-              .filter(c => c.length > 0);
-            const assistantTurns = recentMessages
-              .filter(m => m.role === 'assistant')
-              .map(m => m.content?.substring(0, 150) || '')
-              .filter(c => c.length > 0);
-            
-            if (userTurns.length > 0) {
-              summary += `\n  Student said: "${userTurns[0]}"`;
-            }
-            if (assistantTurns.length > 0) {
-              summary += `\n  You responded: "${assistantTurns[0]}"`;
+          if (fetchedMessages.length > 0) {
+            if (isMostRecent) {
+              // Reverse to chronological order and build a real transcript block.
+              // This gives Daniela enough thread to continue naturally without resetting.
+              const chronological = fetchedMessages.reverse();
+              const lines: string[] = [];
+              let budget = 6000;
+              for (const m of chronological) {
+                const speaker = m.role === 'assistant' ? 'You' : 'Student';
+                const line = `  ${speaker}: ${(m.content || '').substring(0, charLimit)}`;
+                if (budget - line.length < 0) break;
+                lines.push(line);
+                budget -= line.length;
+              }
+              if (lines.length > 0) {
+                const omitted = chronological.length - lines.length;
+                summary += `\n  [Recent transcript — pick up the thread from here]`;
+                if (omitted > 0) {
+                  summary += `\n  [${omitted} earlier exchange(s) omitted]`;
+                }
+                summary += '\n' + lines.join('\n');
+              }
+            } else {
+              // For older sessions: keep the brief snapshot format
+              const userTurns = fetchedMessages
+                .filter(m => m.role === 'user')
+                .map(m => (m.content || '').substring(0, charLimit))
+                .filter(c => c.length > 0);
+              const assistantTurns = fetchedMessages
+                .filter(m => m.role === 'assistant')
+                .map(m => (m.content || '').substring(0, charLimit))
+                .filter(c => c.length > 0);
+              if (userTurns.length > 0) {
+                summary += `\n  Student said: "${userTurns[0]}"`;
+              }
+              if (assistantTurns.length > 0) {
+                summary += `\n  You responded: "${assistantTurns[0]}"`;
+              }
             }
           }
         }
@@ -750,7 +777,7 @@ class UnifiedDanielaContextService {
         summaries.push(summary);
       }
 
-      return summaries.join('\n');
+      return summaries.join('\n\n');
     } catch (error) {
       console.error('[UnifiedDanielContext] Voice summary error:', error);
       return null;
