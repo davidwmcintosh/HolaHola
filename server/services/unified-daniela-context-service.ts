@@ -756,10 +756,10 @@ class UnifiedDanielaContextService {
               if (lines.length > 0) {
                 const skipped = firstUserIdx > 0 ? firstUserIdx : 0;
                 const omitted = (chronological.length - lines.length) + skipped;
-                // Label this clearly as background awareness, NOT as a script to repeat.
-                // Daniela must greet David freshly — she should not re-read or re-say
-                // anything that appears in this transcript.
-                summary += `\n  [Prior conversation context — background awareness only; greet David freshly, do not repeat any of these words]`;
+                // Label this as background context only — no behavioral instructions here.
+                // Greeting instructions (if any) belong in the greeting trigger, not the
+                // system prompt, because the system prompt persists across GL reconnects.
+                summary += `\n  [Prior conversation context — for awareness only, do not repeat verbatim]`;
                 if (omitted > 0) {
                   summary += `\n  [${omitted} earlier message(s) omitted]`;
                 }
