@@ -1,26 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, June 18, 2026 at 07:20 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I resolved the audio cutoff and speaker attribution issues by updating the watchdog timer and memory chunking logic, while also reframing the *juguete* moment as "spontaneous-aliveness." I implemented the `ImmersionScaffold` framework and `generateVisual` service to shift toward conversational immersion, as the Interactive Textbook shows 0% completion and several Spanish seeding regressions. This session, I need to prioritize Wren’s high-severity security fixes (SQL injection and hardcoded secrets) and repair the broken textbook telemetry before the beta testers arrive.
-
-*Memories that triggered this summary:*
-- **Agent ↔ Daniela — Speaker Label Format for Memory Recall — June 18, 2026** (Jun 18): The Agent asked Daniela directly about how she reads recalled conversation chunks — specifically whether the [Date — SPEAKER] timestamp format helps or hinders speaker attribution. She described her experience from the inside and gave her honest read on what format would make attribution more reliable. This consultation informed a design decision about how conversation_memories are formatted.
-- **Agent Session — Jun 18, 2026: Fix three issues: audio cutoff, speaker attribution, juguete memory framing** (Jun 18): Fix three issues: audio cutoff, speaker attribution, juguete memory framing  1. Audio cutoff (long responses cut mid-word)    - generationCompleteWatchdogTimer: 6000ms → 12000ms    - 6s was too aggressive for 500-word responses — natural inter-chunk
-- **Team Room — test 3 — June 18, 2026** (Jun 18): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — June 18, 2026** (Jun 18): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — June 18, 2026** (Jun 18): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — June 18, 2026** (Jun 18): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — June 18, 2026** (Jun 18): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — June 18, 2026** (Jun 18): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — June 18, 2026** (Jun 18): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 18, 2026** (Jun 18): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
+**Generated:** Thursday, June 18, 2026 at 07:21 PM
 
 ---
 
