@@ -150,10 +150,10 @@ function ClockOnlyCanvas({ time, label, showLabel, compact }: { time: string; la
       <div className="w-12 h-12 bg-white rounded-full shadow-sm border border-border p-0.5">
         <AnalogClock time={time} />
       </div>
-      {displayLabel
-        ? <span className="text-[10px] font-semibold text-center leading-tight max-w-[72px] truncate">{label}</span>
-        : <span className="text-[11px] font-mono text-muted-foreground">{formatTime12h(time)}</span>
-      }
+      <span className="text-[11px] font-mono text-muted-foreground">{formatTime12h(time)}</span>
+      {displayLabel && (
+        <span className="text-[10px] font-semibold text-center leading-tight max-w-[80px]">{label}</span>
+      )}
     </motion.div>
   );
 
@@ -167,10 +167,9 @@ function ClockOnlyCanvas({ time, label, showLabel, compact }: { time: string; la
       <div className="w-48 h-48 bg-white rounded-full shadow-md border border-border p-2">
         <AnalogClock time={time} />
       </div>
-      {displayLabel ? (
+      <span className="text-sm font-mono text-muted-foreground">{formatTime12h(time)}</span>
+      {displayLabel && (
         <span className="text-lg font-semibold text-foreground text-center">{label}</span>
-      ) : (
-        <span className="text-sm font-mono text-muted-foreground">{formatTime12h(time)}</span>
       )}
     </motion.div>
   );
@@ -1288,13 +1287,12 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
         >
           <div className="bg-white/92 backdrop-blur-sm rounded-xl p-2 shadow-lg">
             <AnalogClock time={data.clockTime!} />
-            {data.clockShowLabel !== false && data.clockLabel ? (
-              <p className="text-center text-[11px] font-semibold text-gray-800 mt-1 leading-tight">
+            <p className="text-center text-[10px] font-mono text-gray-600 mt-1 leading-none">
+              {formatTime12h(data.clockTime!)}
+            </p>
+            {data.clockShowLabel !== false && data.clockLabel && (
+              <p className="text-center text-[11px] font-semibold text-gray-800 mt-0.5 leading-tight">
                 {data.clockLabel}
-              </p>
-            ) : (
-              <p className="text-center text-[10px] font-mono text-gray-600 mt-1 leading-none">
-                {formatTime12h(data.clockTime!)}
               </p>
             )}
           </div>

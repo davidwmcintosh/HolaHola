@@ -3827,16 +3827,7 @@ export function StreamingVoiceChat({
           </Button>
         </div>
       )}
-      {/* TTS Unavailable Banner — shown when Daniela's voice fails, auto-clears in 8s */}
-      {useStreamingMode && streamingVoice.state.ttsUnavailable && (
-        <div
-          className="absolute top-3 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-3 py-1.5 rounded-md bg-muted text-muted-foreground text-xs border"
-          data-testid="status-tts-unavailable"
-        >
-          <VolumeX className="w-3.5 h-3.5 flex-shrink-0" />
-          <span>Audio temporarily unavailable — text only</span>
-        </div>
-      )}
+      {/* TTS Unavailable Banner — suppressed from user view; fallback to text mode happens silently */}
       {/* STT Degraded Banner — shown when Deepgram voice recognition has an error, auto-clears in 6s */}
       {useStreamingMode && streamingVoice.state.sttDegraded && (
         <div
