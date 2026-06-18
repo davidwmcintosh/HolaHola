@@ -203,35 +203,72 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
   // conversation_memories — full narrative memories of meaningful sessions
   // These are the richest memories: full transcripts, breakthrough moments, the podcast.
   // No userId scoping — these are global shared history between David and Daniela.
+  //
+  // Two embeddings per entry:
+  //   1. conversation_memory  — title + summary + full content (summary first so it survives token truncation)
+  //   2. conversation_summary — title + summary only (~200 tokens, sharp keyword anchor, no truncation risk)
+  //
+  // The summary embedding is the key fix for "summarization loss": specific words like "toy" or "juguete"
+  // appear prominently in the distilled summary but get diluted in the full-transcript vector.
+  // Semantic search now hits both vectors, so a targeted query ("toy") finds the summary anchor
+  // even when the full-content vector misses it.
   try {
     const db = getSharedDb();
-    const rows = await db
+
+    // Arm A: full-content embeddings (includes summary now — hash will change for all existing entries,
+    // triggering automatic re-index via generateAndStoreEmbedding's content-hash update path)
+    const fullRows = await db
       .select({
         id: conversationMemories.id,
         title: conversationMemories.title,
+        summary: conversationMemories.summary,
         content: conversationMemories.content,
+        importance: conversationMemories.importance,
+      })
+      .from(conversationMemories)
+      .limit(200);
+    for (const r of fullRows) {
+      // Summary goes BEFORE content so it is always within OpenAI's 8191-token limit
+      // even when the full transcript is very long (late-conversation moments used to get truncated).
+      const embeddedContent = [r.title, r.summary, r.content].filter(Boolean).join('\n\n');
+      if (embeddedContent.trim().length > 10) {
+        targets.push({
+          id: r.id,
+          userId: null,
+          content: embeddedContent,
+          memoryType: 'conversation_memory',
+          initialStrength: Math.min(1.0, (r.importance ?? 7) / 10),
+        });
+      }
+    }
+
+    // Arm B: summary-only anchor embeddings — sharp, keyword-rich, never truncated
+    const summaryRows = await db
+      .select({
+        id: conversationMemories.id,
+        title: conversationMemories.title,
+        summary: conversationMemories.summary,
         importance: conversationMemories.importance,
       })
       .from(conversationMemories)
       .where(sql`
         NOT EXISTS (
           SELECT 1 FROM memory_embeddings
-          WHERE memory_type = 'conversation_memory' AND memory_id = ${conversationMemories.id}
+          WHERE memory_type = 'conversation_summary' AND memory_id = ${conversationMemories.id}
         )
+        AND ${conversationMemories.summary} IS NOT NULL
+        AND length(${conversationMemories.summary}) > 10
       `)
-      .limit(100);
-    for (const r of rows) {
-      const content = [r.title, r.content].filter(Boolean).join('\n\n');
-      if (content.trim().length > 10) {
-        targets.push({
-          id: r.id,
-          userId: null,
-          content,
-          memoryType: 'conversation_memory',
-          // importance maps to initial strength: 10→1.0, 7→0.7, etc.
-          initialStrength: Math.min(1.0, (r.importance ?? 7) / 10),
-        });
-      }
+      .limit(200);
+    for (const r of summaryRows) {
+      const summaryContent = [r.title, r.summary].filter(Boolean).join('\n\n');
+      targets.push({
+        id: r.id,
+        userId: null,
+        content: summaryContent,
+        memoryType: 'conversation_summary',
+        initialStrength: Math.min(1.0, (r.importance ?? 7) / 10),
+      });
     }
   } catch (err: any) {
     console.warn('[EmbedIndexer] conversation_memories scan failed:', err.message);

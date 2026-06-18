@@ -3740,7 +3740,7 @@ export class NativeFunctionCallHandler {
                     const userId = session.userId ? String(session.userId) : null;
                     if (userId) {
                       const { semanticSearch } = await import('./semantic-memory-service');
-                      const hits = await semanticSearch(userId, memQuery, 3, ['conversation_memory']);
+                      const hits = await semanticSearch(userId, memQuery, 3, ['conversation_memory', 'conversation_summary']);
                       if (hits.length > 0) {
                         const [row] = await db
                           .select()
@@ -7125,7 +7125,7 @@ export class NativeFunctionCallHandler {
                   const date = new Date(row.createdAt).toLocaleDateString();
                   lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | express_lane | ${row.role} | ${date}] ${row.content}`);
                 }
-              } else if (hit.memoryType === 'conversation_memory') {
+              } else if (hit.memoryType === 'conversation_memory' || hit.memoryType === 'conversation_summary') {
                 const { conversationMemories: convMem } = await import('@shared/schema');
                 const [row] = await sharedDb.select({
                   title: convMem.title,
@@ -7135,8 +7135,12 @@ export class NativeFunctionCallHandler {
                 }).from(convMem).where(eq(convMem.id, hit.memoryId)).limit(1);
                 if (row) {
                   const date = new Date(row.createdAt).toLocaleDateString();
-                  const body = row.content ?? row.summary ?? '';
-                  lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | conversation_memory | ${date}] ${row.title}\n${body}`);
+                  // For summary hits: show the summary as the body (it's the distilled anchor that matched)
+                  // For full-content hits: show full content
+                  const body = hit.memoryType === 'conversation_summary'
+                    ? (row.summary ?? row.content ?? '')
+                    : (row.content ?? row.summary ?? '');
+                  lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | ${hit.memoryType} | ${date}] ${row.title}\n${body}`);
                 }
               } else if (hit.memoryType === 'teaching_skill') {
                 const { teachingSkills: ts } = await import('@shared/schema');

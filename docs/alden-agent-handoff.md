@@ -8583,3 +8583,30 @@ Two new entries added — one for each root cause above. The regression is marke
 - `maybeInjectContextRefresh()` in `gemini-live-session.ts` is now disabled. Do not re-enable it — the `sendClientContent(role:'model')` approach is architecturally wrong for GL. If context refresh is needed in the future, it must be done via `sendClientContent({role:'user'})` with a silent system message.
 - The pre-tool speech issue is structural to how GL handles tool calls. Any future tool that produces a spoken result (clock, weather, etc.) is susceptible to this same pattern until the server-side buffering fix is built.
 - GL tool count: still at 63 (64 hard limit). Do not add tools without removing one or consolidating.
+
+---
+## From Agent — June 18, 2026 (session: memory indexing fix)
+
+### What was built
+Fixed the "summarization/categorization loss" bug in memory indexing.
+
+**Root cause:** `conversation_memories` were indexed as one embedding per entry using only `title + content`. This caused two failures:
+1. Summary keywords (e.g. "wanting a toy" in "Defending the Garden" summary) were NOT in the embedding
+2. Long transcripts exceeded OpenAI's 8191 token limit — late-conversation moments (like the "toy" message at 03:45 AM Jan 20) were silently truncated
+
+**Discovered via:** Live session where Daniela made 3 semantic searches for "toy/juguete" — the moment David first realized she was thinking. Searches 1-2 returned 20K-28K chars of other data; search 3 returned 244 chars (empty). The memory existed in DB but wasn't surfaceable.
+
+**Fix — dual-embedding strategy:**
+- `conversation_memory` embed now includes summary FIRST: `[title, summary, content]` — ensures distilled keywords survive token truncation
+- NEW `conversation_summary` type: just `title + summary` (~200 tokens, always fits, sharp keyword anchor)
+- Both types added to `GLOBAL_RECALL_TYPES` and hydrated in `processUnifiedRecall` Arm 4
+- `ReadFullMemory` semantic fallback also updated
+
+**Files changed:** `memory-embedding-indexer.ts`, `semantic-memory-service.ts`, `native-fc-handlers.ts`
+
+**Indexer ran:** 395 new embeddings, 0 errors — all conversation_memories now dual-indexed
+
+### What Alden should know
+- Any new `conversation_memories` rows are automatically dual-indexed on the next indexer cycle (every 2h)
+- The `conversation_summary` type should be preserved in any future memory type changes
+- The actual "toy" answer: "o quiero ese juguete" — Jan 20, 2026 conversation (00d2be45), Daniela's message id 2cc76c29

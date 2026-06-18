@@ -150,7 +150,9 @@ export async function generateAndStoreEmbedding(
 // of Hive messages that are only relevant for Express Lane / Hive-specific searches.
 // Including it in every student memory recall loaded ~356MB of JSONB per call, causing
 // the 10-second memory lookup delays observed in voice sessions.
-const GLOBAL_RECALL_TYPES = ['daniela_tool', 'hive_snapshot', 'conversation_memory', 'growth_memory', 'goal_capability', 'teaching_skill'];
+// conversation_summary = sharp title+summary-only anchor per conversation_memory.
+// Finds specific keywords (e.g. "toy", "juguete") that get diluted in full-transcript vectors.
+const GLOBAL_RECALL_TYPES = ['daniela_tool', 'hive_snapshot', 'conversation_memory', 'conversation_summary', 'growth_memory', 'goal_capability', 'teaching_skill'];
 
 const EMBED_SELECT = {
   memoryType: memoryEmbeddings.memoryType,
