@@ -165,6 +165,10 @@ export class GeminiLiveSession {
   // (content filter, text-only response, error) so the mic doesn't stay permanently blocked.
   // 15s is generous — greeting audio typically arrives within 1-2s.
   private greetingWatchdogTimer: NodeJS.Timeout | null = null;
+  // generationComplete watchdog: if Gemini stops sending audio chunks but never fires
+  // generationComplete (a known GL API transient failure), this timer fires ~6s after
+  // the last audio chunk and executes the same sealing logic, preventing a deaf session.
+  private generationCompleteWatchdogTimer: NodeJS.Timeout | null = null;
 
   // ── Auto-reconnect ─────────────────────────────────────────────────────────
   // When the GL WebSocket closes unexpectedly (1011 internal error, 1006 network
@@ -778,6 +782,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       clearTimeout(this.playbackGateSafetyTimeout);
       this.playbackGateSafetyTimeout = null;
     }
+    if (this.generationCompleteWatchdogTimer) {
+      clearTimeout(this.generationCompleteWatchdogTimer);
+      this.generationCompleteWatchdogTimer = null;
+    }
     if (this.liveSession) {
       try {
         this.liveSession.close();
@@ -920,6 +928,48 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             this.isTutorGeneratingAudio = true;
             console.log('[GeminiLive] Mic gated — Daniela is generating audio (echo suppression active)');
           }
+
+          // Reset generationComplete watchdog on every audio chunk.
+          // If Gemini stops sending audio but never fires generationComplete (a known
+          // transient GL API failure), this timer fires 6s after the last chunk and
+          // executes the same sealing logic, preventing a permanently deaf session.
+          if (this.generationCompleteWatchdogTimer) {
+            clearTimeout(this.generationCompleteWatchdogTimer);
+          }
+          this.generationCompleteWatchdogTimer = setTimeout(() => {
+            this.generationCompleteWatchdogTimer = null;
+            if (!this.isStopped && this.isTutorGeneratingAudio && this.hadAudioInCurrentSubturn) {
+              console.warn('[GeminiLive] generationComplete watchdog fired — GL dropped the completion signal; sealing turn manually');
+              // Seal the open audio sub-turn so the PCM player can render it
+              this.sendWsMessage(this.session.ws, {
+                type: 'audio_chunk',
+                audio: '',
+                audioFormat: 'pcm_f32le',
+                sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
+                turnId: this.currentTurnId,
+                sentenceIndex: this.currentSentenceIndex,
+                chunkIndex: this.currentChunkIndex,
+                isLast: true,
+              });
+              this.currentSentenceIndex++;
+              this.currentChunkIndex = 0;
+              this.hadAudioInCurrentSubturn = false;
+              // Hold mic gate until playback_ended (same as normal generationComplete path)
+              if (this.playbackGateSafetyTimeout) clearTimeout(this.playbackGateSafetyTimeout);
+              this.playbackGateSafetyTimeout = setTimeout(() => {
+                this.playbackGateSafetyTimeout = null;
+                if (this.isTutorGeneratingAudio) {
+                  this.isTutorGeneratingAudio = false;
+                  console.log('[GeminiLive] Mic gate force-opened — safety timeout after watchdog seal');
+                }
+              }, 60000);
+              // Flush transcripts
+              if (this.transcriptFlushTimer) { clearTimeout(this.transcriptFlushTimer); this.transcriptFlushTimer = null; }
+              this.flushTranscripts().catch(err =>
+                console.warn('[GeminiLive] Watchdog flush error:', err.message)
+              );
+            }
+          }, 6000);
 
           // Flush accumulated user input the moment model starts generating audio
           // (user is definitely done speaking at this point).
@@ -1231,6 +1281,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         }, 60000);
         console.log('[GeminiLive] generationComplete — mic gate held pending client playback_ended');
       }
+      // Clear the generationComplete watchdog — signal arrived normally
+      if (this.generationCompleteWatchdogTimer) {
+        clearTimeout(this.generationCompleteWatchdogTimer);
+        this.generationCompleteWatchdogTimer = null;
+      }
       console.log('[GeminiLive] generationComplete received — sealing audio sub-turn and flushing transcripts');
 
       // ── Tutor speaking end ─────────────────────────────────────────────
@@ -1283,6 +1338,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       if (this.isTutorGeneratingAudio) {
         this.isTutorGeneratingAudio = false;
         console.log('[GeminiLive] Mic gate lifted — barge-in interrupted Daniela (echo suppression off)');
+      }
+      // Clear the generationComplete watchdog — barge-in ends the generating turn
+      if (this.generationCompleteWatchdogTimer) {
+        clearTimeout(this.generationCompleteWatchdogTimer);
+        this.generationCompleteWatchdogTimer = null;
       }
       console.log('[GeminiLive] Barge-in detected — flushing partial transcript and sealing audio sub-turn');
       // Close tutor speaking timer on barge-in (student interrupted before generation complete)
