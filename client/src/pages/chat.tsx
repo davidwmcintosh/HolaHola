@@ -236,6 +236,19 @@ export default function Chat() {
     publishConversationId(conversationId);
   }, [conversationId, publishConversationId]);
   
+  // Pre-warm Daniela's synthesis while the student is still on the "Prepare"
+  // screen. By the time they tap "Start", the synthesis is already computed
+  // and cached server-side — the WS handler consumes it at 0ms latency
+  // instead of awaiting a fresh 1-2s generation during GL startup.
+  // Fire-and-forget: any error here is non-fatal (WS handler generates on demand).
+  useEffect(() => {
+    if (!conversationId || mode !== "voice") return;
+    const controller = new AbortController();
+    apiRequest("POST", "/api/sessions/warm-synthesis", { conversationId })
+      .catch(() => {}); // non-fatal — warm cache miss is handled gracefully
+    return () => controller.abort();
+  }, [conversationId, mode]);
+
   // NOTE: We intentionally do NOT clear currentChatConversationId on unmount.
   // HMR remounts would wipe it, defeating the purpose of persistence.
   // The stored ID is cleared only by: handleNewChat(), forceNewConversation flag,

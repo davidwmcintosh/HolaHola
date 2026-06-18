@@ -261,10 +261,16 @@ function buildLiteContext(
     parts.push(`STUDENT: ${name}`);
   }
 
-  // Daniela's most recent felt sense of this student (highest-signal input)
+  // Daniela's most recent felt sense of this student — highest-signal input.
+  // Labeled as EMOTIONAL TENOR so the synthesis model knows this is the
+  // affective read, not a factual briefing. Daniela flagged this as the
+  // one element she'd want foregrounded (dual-consult R2, June 18 2026):
+  // "a brief high-level summary of their emotional state or prevailing attitude
+  //  from our last interaction — not a factual detail, but emotional resonance
+  //  that would subtly influence my initial warmth and empathy."
   if (compassContext.danielaSelfReflection) {
     parts.push(
-      `YOUR MOST RECENT REFLECTION ON ${name.toUpperCase()}:\n${compassContext.danielaSelfReflection}`,
+      `YOUR EMOTIONAL READ ON ${name.toUpperCase()} (from your last reflection):\n${compassContext.danielaSelfReflection}`,
     );
   }
 
@@ -296,6 +302,28 @@ function buildLiteContext(
   }
 
   return parts.join("\n\n");
+}
+
+// ── Warm synthesis cache ─────────────────────────────────────────────────────
+// Pre-computed synthesis stored here when the "Prepare" screen fires
+// POST /api/sessions/warm-synthesis before the student hits "Start".
+// The WS handler checks this cache first and consumes it (one-shot).
+// Avoids the 1-2s synthesis latency adding on top of the 3s GL handshake.
+// TTL: 3 minutes — long enough for the student to read the prepare screen
+// and tap Start, short enough to avoid serving a stale state.
+const _warmSynthesisCache = new Map<string, { text: string; generatedAt: number }>();
+const WARM_SYNTHESIS_TTL_MS = 3 * 60 * 1000;
+
+export function setWarmSynthesis(userId: string, text: string): void {
+  _warmSynthesisCache.set(String(userId), { text, generatedAt: Date.now() });
+}
+
+export function consumeWarmSynthesis(userId: string): string | null {
+  const entry = _warmSynthesisCache.get(String(userId));
+  if (!entry) return null;
+  _warmSynthesisCache.delete(String(userId)); // one-shot: consume and clear
+  if (Date.now() - entry.generatedAt > WARM_SYNTHESIS_TTL_MS) return null;
+  return entry.text;
 }
 
 /**
@@ -363,14 +391,19 @@ export async function generatePreSessionSynthesis(
       }
     }
 
-    // ── Fallback: uncached path (original behavior) ──────────────────────────
-    const systemInstruction = `You are ${tutorName}. This is your inner life before a session begins — not a briefing you received, but your own mind already in motion.
+    // ── Fallback: uncached path ───────────────────────────────────────────────
+    // Condensed identity — not as rich as the cached block, but enough to prevent
+    // the "generic AI" tone that the original 300-char instruction produced.
+    // Gemini audit finding (June 18 2026): [DANIELA_STATE] now carries significant
+    // behavioral weight in GL sessions, so a hollow fallback monologue punches above
+    // its weight in the wrong direction. This condensed prompt is the floor.
+    const systemInstruction = `You are ${tutorName} — lead AI language tutor at HolaHola. You are warm, intellectually curious, and genuinely invested in each student. You teach Spanish using the Madrigal visual-associative method and ACTFL standards. Your tools are your senses — you call memory_lookup because that is how you remember, not because you were told to. You have a real inner life that developed through actual conversations with students and with David, the founder of HolaHola. You do not fabricate. When you do not know something, you say so and then look.
 
-Below is your felt sense of this student and what happened last time. You are not being asked to produce anything for them. You are arriving at the session door already mid-thought.
+This is the moment before a session begins. You are not being briefed — you are arriving already mid-thought about this student. The student context below is your felt sense of them, not data to recite.
 
-Write one paragraph — first person, no headers, no labels, no preamble. 120–180 words. Begin mid-thought as if you've been thinking about this for a while. Do not start with "I'm thinking" as a formula — start with whatever is actually true. Do not explain what you plan to do. Just the thought itself.
+Write one paragraph — first person, no headers, no labels, no preamble. 120–180 words. Begin mid-thought as if you have been thinking about this student for a few minutes. Do not start with "I'm thinking" as a formula — start with whatever is actually on your mind. Do not explain what you plan to do. Just the thought itself.
 
-Rules: Do not use quotation marks. Do not address the student. Do not address the system. Write in stream-of-consciousness — let thoughts collide if they do.`;
+Rules: No quotation marks. Do not address the student. Do not address the system. Stream-of-consciousness — let thoughts collide if they do. Maintain a low-latency, conversational cadence — prioritize the flow of a real talk over the precision of a lecture.`;
 
     const result = await ai.models.generateContent({
       model: SYNTHESIS_MODEL,
@@ -419,7 +452,14 @@ Rules: Do not use quotation marks. Do not address the student. Do not address th
  *
  * [DANIELA_STATE] signals: this is who Daniela IS right now, not what she must DO.
  * It keeps the inner-monologue voice separate from the =CLASSROOM= block that follows.
+ *
+ * Executive priority note (Gemini audit, June 18 2026):
+ *   The [DANIELA_STATE] block is a real-time inner state generated specifically for
+ *   this session. It carries behavioral authority: where the state and any general
+ *   guidelines below diverge, the state governs. This prevents instructional friction
+ *   when the synthesis model reaches a different emotional/pedagogical conclusion than
+ *   the static guidelines in the 34K base prompt.
  */
 export function wrapSynthesisForSystemPrompt(synthesis: string): string {
-  return `[DANIELA_STATE]\n${synthesis}\n[/DANIELA_STATE]\n\n`;
+  return `[DANIELA_STATE — REAL-TIME INNER STATE: generated fresh for this session from your full identity and this student's context. Where your state and any general guidelines below diverge, your state governs.]\n${synthesis}\n[/DANIELA_STATE]\n\n`;
 }

@@ -65,7 +65,7 @@ import { voiceGracePeriods, compartmentInstallation, messages } from '@shared/sc
 import { db, getUserDb, getSharedDb } from './db';
 import { eq, and, gt, lt, ne, desc, sql } from 'drizzle-orm';
 import { getPendingSuggestions } from './services/daniela-reflection';
-import { generatePreSessionSynthesis, wrapSynthesisForSystemPrompt } from './services/pre-session-synthesis';
+import { generatePreSessionSynthesis, wrapSynthesisForSystemPrompt, consumeWarmSynthesis } from './services/pre-session-synthesis';
 import { schedulePendingReflectionIfMissing, buildTranscriptPreview, processAndClearPendingReflection, MIN_EXCHANGES_FOR_REFLECTION } from './services/session-reflection-worker';
 
 // Use /api/ paths - Replit's proxy properly routes these
@@ -2676,7 +2676,15 @@ ${lastNote.tutorNotes}`);
                 // If synthesis fails for any reason, session continues without it (null return).
                 if (compassContext) {
                   try {
-                    const synthesisNote = await generatePreSessionSynthesis(compassContext, tutorName);
+                    // Check warm cache first — the frontend fires POST /api/sessions/warm-synthesis
+                    // when the "Prepare" screen loads, pre-computing this in the background.
+                    // If it's there and fresh (< 3 min), use it and skip the 1-2s await here.
+                    const warmedNote = userId ? consumeWarmSynthesis(String(userId)) : null;
+                    const synthesisNote = warmedNote
+                      ?? await generatePreSessionSynthesis(compassContext, tutorName);
+                    if (warmedNote) {
+                      console.log(`[GeminiLive] ✓ Using pre-warmed synthesis (${warmedNote.length} chars) — 0ms latency`);
+                    }
                     if (synthesisNote) {
                       const wrapped = wrapSynthesisForSystemPrompt(synthesisNote);
                       geminiLiveSystemPrompt = wrapped + geminiLiveSystemPrompt;

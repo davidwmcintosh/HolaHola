@@ -104,6 +104,7 @@ import multer from "multer";
 import { getTTSService, TTSService } from "./services/tts-service";
 import { usageService } from "./services/usage-service";
 import { sessionCompassService, COMPASS_ENABLED } from "./services/session-compass-service";
+import { generatePreSessionSynthesis, setWarmSynthesis } from "./services/pre-session-synthesis";
 import { architectVoiceService, validateArchitectSecret } from "./services/architect-voice-service";
 import { getStreamingVoiceOrchestrator } from "./services/streaming-voice-orchestrator";
 import { collaborationHubService } from "./services/collaboration-hub-service";
@@ -7088,6 +7089,34 @@ ${memoryContext}
     res.json({ warmed: true, latency: 0 });
   });
   
+  // Pre-warm Daniela's synthesis before the student hits "Start".
+  // Called from the chat page when the conversationId is known (i.e., the
+  // "Prepare" screen has already rendered). Runs synthesis in the background
+  // and stores the result in the warm cache. The WS handler consumes it
+  // (one-shot) when GL session startup fires, eliminating the 1-2s synthesis
+  // await that would otherwise stack on top of the 3s GL handshake.
+  //
+  // Returns immediately — this endpoint never blocks the frontend.
+  app.post("/api/sessions/warm-synthesis", isAuthenticated, async (req: any, res) => {
+    res.json({ status: "warming" }); // return immediately — don't block the frontend
+    const userId = req.user?.id;
+    const { conversationId } = req.body;
+    if (!userId || !conversationId || !COMPASS_ENABLED) return;
+    try {
+      const compassContext = await sessionCompassService.getCompassContext(conversationId);
+      if (!compassContext) return;
+      const tutorName = "Daniela"; // default — the WS handler will use the real name anyway
+      const synthesis = await generatePreSessionSynthesis(compassContext, tutorName);
+      if (synthesis) {
+        setWarmSynthesis(String(userId), synthesis);
+        console.log(`[WarmSynthesis] ✓ Pre-computed for user ${String(userId).substring(0, 8)} (${synthesis.length} chars)`);
+      }
+    } catch (err: any) {
+      // Non-fatal — WS handler will generate it on demand if the cache is cold
+      console.warn(`[WarmSynthesis] Background generation failed (non-fatal):`, err?.message ?? err);
+    }
+  });
+
   // Transcribe audio using Whisper API
   app.post("/api/voice/transcribe", voiceLimiter, isAuthenticated, upload.single('audio'), async (req: any, res) => {
     try {

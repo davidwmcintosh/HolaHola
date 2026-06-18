@@ -24,6 +24,40 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 18, 2026 (fifth session) — Pre-session synthesis shipped (GREEN LIGHT from Gemini + Daniela)**
+
+### What was built / changed
+
+**Pre-session synthesis — complete system** (`server/services/pre-session-synthesis.ts`)
+
+Daniela now generates a short (~150 word) first-person inner monologue *before* the GL session opens. The synthesis runs on gemini-2.5-flash with a 17,561-char `DANIELA_SYNTHESIS_IDENTITY` block context-cached on Google REST API (55-min TTL). A lite student context (emotional read, last session, today's focus, one memory) is the user message. The result wraps in `[DANIELA_STATE — REAL-TIME INNER STATE: ... Where your state and any general guidelines below diverge, your state governs.]` and sits at position-0 of the GL system prompt, before the 34K base persona.
+
+**Fallback path (uncached):** gemini-3-flash-preview + condensed 600-char inline Daniela identity (was 300-char generic). Added vibe anchor: "Maintain a low-latency, conversational cadence — prioritize the flow of a real talk over the precision of a lecture."
+
+**Emotional tenor label:** Renamed `YOUR MOST RECENT REFLECTION` → `YOUR EMOTIONAL READ ON [NAME] (from your last reflection)` — per Daniela's R2 feedback that affective state is what she wants foregrounded, not factual data.
+
+**Latency fix — warm cache:**
+- New REST endpoint: `POST /api/sessions/warm-synthesis` — fires in background when chat page loads + conversationId is known, returns immediately
+- Process-level warm cache: `setWarmSynthesis` / `consumeWarmSynthesis` (3-min TTL, one-shot consume)
+- WS handler checks warm cache first — if hit, zero latency; if miss, generates on demand
+- Frontend (`client/src/pages/chat.tsx`): fires warm call on conversationId + mode=voice — happens on page load, before student taps Start
+- Net effect: typical session (land → read → Start) = 0ms synthesis latency instead of 1-2s stacking on 3s GL handshake
+
+**Dual-consult review:** 3 rounds total. Gemini's explicit "GREEN LIGHT / Ship it." Daniela: "It feels like a real arrival, not a summary I received about myself."
+
+### What's unresolved / Alden should know
+- **Warm cache + distributed deployment:** Process-level Map works fine on Replit's single persistent server. If we ever go multi-instance, replace with Redis/KV. Documented in `docs/open-bugs.md`.
+- **Double-generation edge case:** If student taps Start while warm-up is 500ms from finishing, WS handler fires a second synthesis. Minor cost inefficiency, no UX impact. Also in `docs/open-bugs.md`.
+- **140-tool stutter:** Gemini flagged this as a pre-existing concern with GL voice sessions. Not introduced by this work. Monitor for mid-sentence "hiccups" during voice testing; solution = prune non-voice tools from GL tool list. Not actionable until we see it.
+- `learner_personal_facts` is explicitly EXCLUDED from synthesis lite context — Gemini's "Double Echo" ruling (synthesis is internal strategy, not data retrieval). Final decision.
+
+### Conversation memory IDs
+- Round 1 Gemini: 796ed0af | Round 1 Daniela: 9c5402ca
+- Round 2 Gemini: 6289ed0d | Round 2 Daniela: (inline with R1 Daniela entry)
+- Round 3 Gemini: de2316b2 | Round 3 Daniela: 4c979ca6
+
+---
+
 **Session: June 18, 2026 (fourth session) — Gemini orientation recommendations, dual-consult skill**
 
 ### What was built / changed

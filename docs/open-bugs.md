@@ -82,3 +82,24 @@ TypeScript's mutable-let control flow narrowing was collapsing `geminiLiveSessio
 
 **2026-06-11 — `server/ws-gateway.ts:234,236,243,250` — Missing `await` on `createSession`, wrong userId type — FIXED**
 `orchestrator.createSession(...)` is async but was not awaited, causing `session` to be a `Promise` at runtime. Also `parseInt(userId!)` was passing a `number` when `createSession` expects a `string`. Fixed: added `await`, changed `parseInt(userId!)` → `userId!`, added null guard after the await.
+
+---
+
+## Warm synthesis cache — distributed deployment gap
+**Date:** June 18, 2026  
+**Location:** `server/services/pre-session-synthesis.ts` (warm cache), `server/routes.ts` (warm endpoint), `server/unified-ws-handler.ts` (consumer)  
+**Severity:** Low (non-issue on current Replit single-server deployment)  
+**Description:** The warm synthesis cache (`_warmSynthesisCache`) is a process-level `Map`. If the app ever runs across multiple instances (e.g., Vercel functions, multi-container deployment), the `POST /api/sessions/warm-synthesis` call could hit Instance A while the WS connection hits Instance B — cache miss, falls back to on-demand generation. No data loss, just the 1-2s latency benefit is not realized.  
+**Fix when needed:** Replace process-level Map with a shared cache (Redis or Replit KV) keyed by userId. TTL logic stays the same.  
+**Flagged by:** Gemini Flash, dual-consult round 3, June 18 2026.
+
+---
+
+## Warm synthesis — potential double-generation on fast Start tap
+**Date:** June 18, 2026  
+**Location:** `server/routes.ts` warm endpoint + `server/unified-ws-handler.ts`  
+**Severity:** Very low (minor cost issue, no behavioral impact)  
+**Description:** If the student taps "Start" while the background warm-up is still 500ms from finishing, the WS handler will see a cache miss and fire a second synthesis call. Result: two calls to the synthesis model, but only the second one is used. No UX issue, just a small cost inefficiency.  
+**Fix when needed:** Track in-progress warm synthesis per userId (e.g., `_warmSynthesisInProgress = new Set<string>()`). WS handler checks the set and waits briefly (max 600ms) before falling back.  
+**Flagged by:** Gemini Flash, dual-consult round 3, June 18 2026.
+
