@@ -4018,14 +4018,17 @@ ${lastNote.tutorNotes}`);
             
             // End usage session for usage tracking and memory extraction
             if (usageSession) {
+              // Capture id synchronously before nulling — the promise chain below is async
+              // and usageSession will be null by the time the .then() callbacks fire
+              const capturedUsageSessionId = usageSession.id;
               try {
-                usageService.updateSessionMetrics(usageSession.id, {
+                usageService.updateSessionMetrics(capturedUsageSessionId, {
                   exchangeCount,
                   studentSpeakingSeconds,
                   tutorSpeakingSeconds,
                   ttsCharacters,
                   sttSeconds,
-                }).then(() => usageService.endSession(usageSession!.id))
+                }).then(() => usageService.endSession(capturedUsageSessionId))
                   .then((endedSession) => {
                     if (endedSession) {
                       console.log(`[Streaming Voice] Usage session ended: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);
@@ -4233,9 +4236,11 @@ ${lastNote.tutorNotes}`);
       compassSession = null;
       compassContext = null;
     } else if (usageSession) {
+      // Capture id synchronously before nulling — same async-null pattern as session_closed handler
+      const capturedUsageSessionId = usageSession.id;
       const glInputTokens = (usageSession as any)._glInputTokens as number | undefined;
       const glOutputTokens = (usageSession as any)._glOutputTokens as number | undefined;
-      usageService.updateSessionMetrics(usageSession.id, {
+      usageService.updateSessionMetrics(capturedUsageSessionId, {
         exchangeCount,
         studentSpeakingSeconds: Math.round(studentSpeakingSeconds),
         tutorSpeakingSeconds: Math.round(tutorSpeakingSeconds),
@@ -4243,7 +4248,7 @@ ${lastNote.tutorNotes}`);
         sttSeconds: Math.round(sttSeconds),
         ...(glInputTokens ? { llmInputTokens: glInputTokens } : {}),
         ...(glOutputTokens ? { llmOutputTokens: glOutputTokens } : {}),
-      }).then(() => usageService.endSession(usageSession!.id))
+      }).then(() => usageService.endSession(capturedUsageSessionId))
         .then((endedSession) => {
           if (endedSession) {
             console.log(`[Streaming Voice] Usage session ended on disconnect: ${endedSession.durationSeconds}s, ${exchangeCount} exchanges`);

@@ -310,6 +310,8 @@ export function StreamingVoiceChat({
   // CRITICAL: Track current avatarState for use in callbacks (avoids stale closure)
   const avatarStateRef = useRef<AvatarState>(avatarState);
   avatarStateRef.current = avatarState; // Always keep in sync
+  // Track when Daniela started speaking — used to suppress echo-triggered barge-in
+  const danielaSpeakingStartedAtRef = useRef<number>(0);
   // CRITICAL: Track current connectionState for use in polling loops (avoids stale closure)
   // Note: The actual sync happens AFTER streamingVoice is initialized below
   const connectionStateRef = useRef<string>('disconnected');
@@ -1173,13 +1175,17 @@ export function StreamingVoiceChat({
               }
               
               // BARGE-IN: Interrupt tutor when we have ACTUAL transcribed speech.
-              // Require ≥3 words before triggering to filter mic echo artifacts —
+              // Require ≥5 words before triggering to filter mic echo artifacts —
               // GL inputTranscription can pick up the tutor's own audio playing
-              // through the speaker (especially without headphones) and a single
-              // echo word would cut off the tutor mid-sentence.
+              // through the speaker (especially without headphones) and a few
+              // echo words would cut off the tutor mid-sentence.
+              // ALSO: suppress barge-in within the first 1.5s of Daniela starting to
+              // speak — echo arrives immediately, genuine interruption takes longer.
               const wordCount = transcript.trim().split(/\s+/).filter((w: string) => w.length > 0).length;
-              if ((avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) && wordCount >= 3) {
-                console.log('[BARGE-IN] User speaking with transcript (' + wordCount + ' words) - stopping audio and sending interrupt');
+              const msSinceSpeakingStarted = Date.now() - danielaSpeakingStartedAtRef.current;
+              const echoSuppressed = avatarStateRef.current === 'speaking' && msSinceSpeakingStarted < 1500;
+              if (!echoSuppressed && (avatarStateRef.current === 'speaking' || isAwaitingResponseRef.current) && wordCount >= 5) {
+                console.log('[BARGE-IN] User speaking with transcript (' + wordCount + ' words, ' + msSinceSpeakingStarted + 'ms since Daniela started) - stopping audio and sending interrupt');
                 // CRITICAL: Stop audio playback immediately on client side
                 streamingVoice.stop();
                 // Also notify server to stop generating
@@ -1481,6 +1487,11 @@ export function StreamingVoiceChat({
     if (isStreamingPlaying) {
       // Audio is actually playing - show speaking state
       console.log('[AVATAR SYNC DEBUG] Setting avatarState to speaking');
+      // Record when Daniela started speaking so barge-in echo guard can suppress
+      // false interrupts from mic picking up speaker audio
+      if (avatarStateRef.current !== 'speaking') {
+        danielaSpeakingStartedAtRef.current = Date.now();
+      }
       setAvatarState('speaking');
       
       // CRITICAL: Clear currentPlayingMessageId when streaming starts
