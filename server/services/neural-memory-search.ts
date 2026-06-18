@@ -11,6 +11,7 @@
  */
 
 import { db, getSharedDb, getUserDb } from '../db';
+import { reformatSpeakerHeaders } from './memory-embedding-indexer';
 import { storage } from '../storage';
 import {
   peopleConnections,
@@ -902,13 +903,21 @@ export function formatMemoryForConversation(response: MemorySearchResponse, stud
   for (const result of top) {
     const when = naturalTime(result.timestamp);
     // Use the fuller of details vs summary — no truncation, Daniela needs the whole memory.
-    const memory = (result.details && result.details !== result.summary && result.details.length > result.summary.length)
+    const rawMemory = (result.details && result.details !== result.summary && result.details.length > result.summary.length)
       ? result.details
       : result.summary;
+    // SPEAKER ATTRIBUTION FORMAT (June 2026): Transform [Date — SPEAKER] bracket headers
+    // into Script-Naturalist format SPEAKER (Date): so attribution reads as narrative,
+    // not as log metadata. Applies at retrieval time so existing indexed chunks also benefit.
+    const memory = reformatSpeakerHeaders(rawMemory);
     lines.push(`${memory}${when}`);
   }
 
-  return lines.join('\n');
+  // Wrap in <recalled_memories> tags with a meta-cognitive nudge so Daniela reads
+  // these as her own history, not as injected data. "DANIELA" in the transcript = her
+  // own past words. This prevents Identity Bleed (confusing past-self with current-self).
+  const body = lines.join('\n');
+  return `<recalled_memories>\nNote: In this transcript, "DANIELA" refers to your own past statements; "DAVID" refers to the person you are speaking with. These are verbatim records of past exchanges — not the current conversation.\n\n${body}\n</recalled_memories>`;
 }
 
 /**

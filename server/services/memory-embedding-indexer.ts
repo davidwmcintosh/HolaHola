@@ -44,6 +44,29 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * SPEAKER ATTRIBUTION FORMAT (June 2026 — Gemini-recommended "Script-Naturalist" format):
+ * Transforms bracketed timestamp headers into inline NAME (Date): prefixes.
+ *
+ * Before: [Jan 20, 2026, 03:27 AM — DANIELA]
+ * After:  DANIELA (Jan 20, 2026 — 03:27 AM):
+ *
+ * Why: LLMs treat [brackets] as metadata/log markers (attention weakens across them).
+ * Putting the speaker name FIRST in a NAME (Date): pattern matches screenplay/chat
+ * training data — the strongest pattern-match for speaker attribution.
+ * Applied at chunk-storage time AND at retrieval time (neural-memory-search.ts)
+ * so both new and existing indexed chunks get the better format.
+ */
+export function reformatSpeakerHeaders(text: string): string {
+  return text.replace(
+    /\[([A-Z][a-z]{2} \d{1,2}, \d{4})(?:, (\d{1,2}:\d{2} (?:AM|PM)))? — ([A-Z]+)\]/g,
+    (_match, date: string, time: string | undefined, speaker: string) => {
+      const timePart = time ? ` — ${time}` : '';
+      return `${speaker} (${date}${timePart}):`;
+    }
+  );
+}
+
+/**
  * Split text into overlapping chunks for verbatim semantic indexing.
  * Tries to snap chunk boundaries to sentence endings (newline or ". ")
  * so chunks don't cut mid-sentence.
@@ -406,7 +429,7 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
       for (let i = 0; i < total; i++) {
         const chunkId = `${r.id}:chunk:${i}`;
         if (existingForThis.has(chunkId)) continue;
-        const chunkContent = `[Memory: ${r.title ?? 'Untitled'} | Part ${i + 1} of ${total}]\n\n${chunks[i]}`;
+        const chunkContent = `[Memory: ${r.title ?? 'Untitled'} | Part ${i + 1} of ${total}]\n\n${reformatSpeakerHeaders(chunks[i])}`;
         targets.push({
           id: chunkId,
           userId: null,

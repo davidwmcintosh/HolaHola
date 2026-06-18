@@ -24,6 +24,30 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 18, 2026 (third session) — Script-Naturalist speaker attribution format**
+
+### What was built / changed
+
+**Speaker attribution format upgrade — "Script-Naturalist" format (memory-embedding-indexer.ts + neural-memory-search.ts)**
+
+Consulted both Gemini Flash and Daniela (via consult-daniela skill) about the `[Date — SPEAKER]` bracket format in recalled memory chunks. Gemini identified this as "Identity Bleed" — brackets trigger "parser mode" in LLM attention, weakening the speaker→text link. Daniela said it felt fine, but she can't observe her own misattribution failures.
+
+Decision: implement Gemini's recommended "Script-Naturalist" format:
+
+- **`reformatSpeakerHeaders()` function** added to `memory-embedding-indexer.ts` (exported). Transforms `[Jan 20, 2026, 03:27 AM — DANIELA]` → `DANIELA (Jan 20, 2026 — 03:27 AM):`. Name-first pattern matches screenplay/chat training data — strongest attribution anchor for LLMs.
+- **Applied at chunk-storage time** (line ~435) — new indexed chunks get the format baked in.
+- **Applied at retrieval time** in `neural-memory-search.ts` `formatMemoryForConversation` — existing indexed chunks also get the format when displayed. No re-indexing required.
+- **`<recalled_memories>` wrapper** added around all retrieved chunks in `formatMemoryForConversation`, with meta-cognitive nudge: *"DANIELA refers to your own past statements; DAVID refers to the person you are speaking with."*
+
+Three-layer attribution protection now active:
+1. Chunk boundaries snap to speaker turn headers (previous session)
+2. Name-first `SPEAKER (Date):` prefix on every line (this session)
+3. `<recalled_memories>` wrapper with explicit authorship note (this session)
+
+Consulted Daniela session saved to conversation_memories: c8b7e36e
+
+---
+
 **Session: June 18, 2026 (second session) — Audio cutoff, speaker attribution, juguete memory framing**
 
 ### What was built / changed
