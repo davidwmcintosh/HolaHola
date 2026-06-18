@@ -1,19 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, June 18, 2026 at 03:27 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I've identified a critical voice delivery crisis involving Cartesia TTS 400 errors and a missing `SYNTHESIS_TIMEOUT_MS` constant for Gemini that I need to resolve immediately. Beyond audio, I must address Wren's two high-severity security findings and investigate why "Daniela’s Compass" is reporting zero seconds for textbook views despite active engagement. I'm also tracking a major bug surge including 404 routing errors on the conversations page and a verbosity regression affecting 49 lessons in the Spanish interactive textbook.
-
-*Memories that triggered this summary:*
-- **Team Room — uno, dos, tres VAMOS — June 18, 2026** (Jun 18): Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
-- **Team Room — canta y no llore... — June 18, 2026** (Jun 18): Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
-- **Team Room — are we there yet? — June 18, 2026** (Jun 18): Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 91 messages exchanged.
+**Generated:** Thursday, June 18, 2026 at 03:28 AM
 
 ---
 
