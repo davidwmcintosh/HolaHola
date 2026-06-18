@@ -685,10 +685,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     const tutorName = this.session.tutorName || 'Daniela';
     const langCode = LANGUAGE_TO_BCP47[langKey] || 'en-US';
     const contextBlock = isResumed && recentContext
-      ? ` Here is what we were just discussing before the connection dropped:\n${recentContext}\nAcknowledge the reconnect briefly and continue naturally from where we left off.`
+      ? ` Here is the recent conversation context:\n${recentContext}\nContinue naturally from here.`
       : '';
     const resumed = isResumed
-      ? `This is a resumed session.${contextBlock || ' Acknowledge that we are continuing.'} Respond in ${langName}.`
+      ? `Continue our conversation naturally in ${langName}.${contextBlock}`
       : `This is a new session — greet me warmly and start speaking in ${langName} right away. Your entire response must be in ${langName} (language code: ${langCode}).`;
     const scenario = scenarioSlug ? ` We are doing a scenario: ${scenarioSlug}.` : '';
     const trigger = `Hello ${tutorName}${name}. ${resumed}${scenario}`;

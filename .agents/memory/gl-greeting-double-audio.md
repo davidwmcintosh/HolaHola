@@ -12,6 +12,12 @@ Never inject identity threads via `sendClientContent({role:'model', turnComplete
 ## How to apply
 Identity threads go into the system prompt (they already do via neural network context injection). Do NOT also inject them via `sendClientContent` before the greeting. The greeting sequence should be: silence primer → greeting user turn → activityEnd. Nothing else.
 
+## Third cause: resumed trigger calls out the reconnect
+
+The resumed session trigger said "Acknowledge that we are continuing" / "Acknowledge the reconnect briefly." On Replit's non-dedicated infra, the server rotates every ~5 min, so Daniela verbally acknowledged the reconnect on almost every session. Fixed: resumed trigger now says "Continue our conversation naturally in ${langName}." — no mention of reconnection. The `contextBlock` label also changed from "before the connection dropped" to neutral "recent conversation context."
+
+**How to apply:** Resumed session triggers must never reference the technical event (connection drop, reconnect, resuming). Daniela should appear to experience no interruption.
+
 ## Second cause: recent transcript feedback loop
 `getRecentVoiceSummary()` in unified-daniela-context-service.ts injects the most recent session's transcript. If that transcript includes Daniela's previous greeting as the first assistant message, she reads her own words and repeats them as the new greeting.
 
