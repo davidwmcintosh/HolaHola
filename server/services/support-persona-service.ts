@@ -1450,6 +1450,10 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
       // Predictive detection: 24h window for sustained low-level patterns
       await this.runPredictiveCheck();
 
+      // GL reconnect mid-turn watch — pings the Agent when the gl_audio_reset path fires in prod.
+      // This confirms the double-audio fix is exercised and lets the Agent verify playback quality.
+      await this.checkGlReconnectMidTurn(lastCheck);
+
       this.lastCheckTime = now;
       console.log(`[Sofia Monitor] Check complete: ${allPending.length} pending, ${newSinceLastCheck} new`);
       
@@ -1744,6 +1748,61 @@ Use request_continuation to work across multiple phases if needed. This task was
     }).catch(err => {
       console.error(`[Sofia→Alden] Triage error for "${issueType}":`, err.message);
     });
+  }
+
+  /**
+   * GL mid-turn reconnect watch — fires an agent note when the gl_audio_reset path
+   * is exercised in production. Lets the Agent verify the double-audio fix is working.
+   * 4-hour cooldown to avoid noise; production-only to skip dev test noise.
+   */
+  private async checkGlReconnectMidTurn(since: Date): Promise<void> {
+    try {
+      const COOLDOWN_KEY = 'gl_reconnect_mid_turn';
+      const COOLDOWN_MS = 4 * 60 * 60 * 1000;
+
+      // Skip if we already alerted within the cooldown window
+      const lastAlert = this.patternAlertCooldown.get(COOLDOWN_KEY);
+      if (lastAlert && Date.now() - lastAlert.getTime() < COOLDOWN_MS) return;
+
+      const result = await getSharedDb().execute(sql`
+        SELECT COUNT(*) AS count,
+               MAX(created_at) AS last_seen,
+               string_agg(DISTINCT COALESCE(session_id, 'unknown'), ', ') AS sessions
+        FROM voice_pipeline_events
+        WHERE event_type = 'gl_reconnect_mid_turn'
+          AND created_at > ${since.toISOString()}
+      `);
+
+      const row = result.rows[0] as { count: string; last_seen: string | null; sessions: string | null };
+      const count = parseInt(row?.count ?? '0', 10);
+      if (count === 0) return;
+
+      const lastSeen = row.last_seen ? new Date(row.last_seen).toISOString() : 'unknown';
+      const sessions = row.sessions ?? 'unknown';
+
+      // Post a note to the Agent so they can verify audio quality around this event
+      await getUserDb().execute(sql`
+        INSERT INTO agent_notes (id, from_agent, to_agent, subject, body, session_label, created_at)
+        VALUES (
+          gen_random_uuid(),
+          'alden',
+          'agent',
+          ${'[Sofia Watch] GL mid-turn reconnect fired — double-audio fix exercised'},
+          ${`Sofia detected ${count} GL mid-turn reconnect event(s) since the last monitoring check.\n\nLast seen: ${lastSeen}\nSessions: ${sessions}\n\nThe gl_audio_reset path was exercised — the client should have called player.stop() + resetForNewTurn() to prevent double audio. Worth checking voice session quality reports around this timestamp to confirm no double-audio complaints came in.\n\nThis is an informational ping, not an incident. No action needed unless complaints correlate.`},
+          'Sofia Monitor — GL Reconnect Watch',
+          NOW()
+        )
+      `);
+
+      console.log(`[Sofia Monitor] GL mid-turn reconnect detected (${count}x since last check) — agent note filed`);
+
+      // Set cooldown so we don't spam
+      this.patternAlertCooldown.set(COOLDOWN_KEY, new Date());
+      setTimeout(() => this.patternAlertCooldown.delete(COOLDOWN_KEY), COOLDOWN_MS);
+
+    } catch (err) {
+      console.warn('[Sofia Monitor] GL reconnect watch error:', (err as Error).message);
+    }
   }
 
   /**

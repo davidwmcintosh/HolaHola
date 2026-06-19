@@ -231,6 +231,27 @@ export const SOFIA_HEALTH_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       },
     },
   },
+  {
+    name: "get_gl_health",
+    description: "Comprehensive Gemini Live voice pipeline health dashboard. Aggregates all GL-specific telemetry from the live chat area: turn latency percentiles (p50/p90/p99), tool call success rate and failures by tool name, silent turn count (tutor no-response), mid-turn reconnect count (gl_reconnect_mid_turn — the double-audio risk path), and overall GL error rate. Use this as your first call when investigating any voice quality issue.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        minutes: { type: "number", description: "How many minutes back to look (default 60, max 720)" },
+      },
+    },
+  },
+  {
+    name: "get_gl_session_detail",
+    description: "Drill into the full GL event timeline for a specific voice session. Returns all voice_pipeline_events for that session in chronological order — turn latencies, tool calls, reconnects, errors. Use after get_gl_health identifies a problem session to understand exactly what happened.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        session_id: { type: "string", description: "The voice session ID to inspect" },
+      },
+      required: ["session_id"],
+    },
+  },
 ];
 
 export type SofiaToolResult = { success: boolean; data: any };
@@ -736,6 +757,164 @@ export async function executeSofiaTool(
           dailyTutorNoResponse: Object.entries(noResponseByDay)
             .sort(([a], [b]) => b.localeCompare(a))
             .map(([day, d]) => ({ day, total: d.total })),
+        },
+      };
+    }
+
+    case "get_gl_health": {
+      const minutes = Math.min(args.minutes || 60, 720);
+      const since = new Date(Date.now() - minutes * 60 * 1000);
+
+      const [latencyRows, toolRows, reconnectRows, silentRows, midTurnRows] = await Promise.all([
+        // Turn latency percentiles
+        sharedDb.execute(sql`
+          SELECT
+            COUNT(*)::int AS turn_count,
+            PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY (event_data->>'latencyMs')::float)::int AS p50_ms,
+            PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY (event_data->>'latencyMs')::float)::int AS p90_ms,
+            PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY (event_data->>'latencyMs')::float)::int AS p99_ms,
+            AVG((event_data->>'latencyMs')::float)::int AS avg_ms,
+            MAX((event_data->>'latencyMs')::float)::int AS max_ms
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_turn_latency'
+            AND created_at >= ${since.toISOString()}
+        `),
+        // Tool call failures — grouped by tool name
+        sharedDb.execute(sql`
+          SELECT
+            event_data->>'toolName' AS tool_name,
+            COUNT(*)::int AS failure_count,
+            MAX(created_at) AS last_seen
+          FROM voice_pipeline_events
+          WHERE event_type LIKE 'gl_tool_failure%'
+            AND created_at >= ${since.toISOString()}
+          GROUP BY event_data->>'toolName'
+          ORDER BY failure_count DESC
+          LIMIT 10
+        `),
+        // Abnormal reconnects (WS drops during session)
+        sharedDb.execute(sql`
+          SELECT COUNT(*)::int AS count
+          FROM voice_pipeline_events
+          WHERE event_type = 'session_abnormal_disconnect'
+            AND created_at >= ${since.toISOString()}
+        `),
+        // Silent turns — tutor didn't respond
+        sharedDb.execute(sql`
+          SELECT COUNT(*)::int AS count
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_tutor_no_response'
+            AND created_at >= ${since.toISOString()}
+        `),
+        // Mid-turn reconnects — the double-audio risk path
+        sharedDb.execute(sql`
+          SELECT
+            COUNT(*)::int AS count,
+            MAX(created_at) AS last_seen,
+            string_agg(DISTINCT COALESCE(session_id, 'unknown'), ', ' ORDER BY COALESCE(session_id, 'unknown')) AS sessions
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_reconnect_mid_turn'
+            AND created_at >= ${since.toISOString()}
+        `),
+      ]);
+
+      const lat = (latencyRows.rows[0] || {}) as any;
+      const reconnects = Number((reconnectRows.rows[0] as any)?.count ?? 0);
+      const silent = Number((silentRows.rows[0] as any)?.count ?? 0);
+      const midTurn = (midTurnRows.rows[0] || {}) as any;
+      const midTurnCount = Number(midTurn?.count ?? 0);
+      const toolFailures = toolRows.rows as any[];
+      const totalToolFailures = toolFailures.reduce((s, r) => s + Number(r.failure_count), 0);
+
+      // Compute a simple GL health score
+      const turnCount = Number(lat.turn_count ?? 0);
+      const p90 = Number(lat.p90_ms ?? 0);
+      let status = 'green';
+      if (reconnects > 5 || silent > 3 || p90 > 8000 || totalToolFailures > 10) status = 'red';
+      else if (reconnects > 2 || silent > 1 || p90 > 5000 || totalToolFailures > 3 || midTurnCount > 0) status = 'yellow';
+
+      return {
+        success: true,
+        data: {
+          windowMinutes: minutes,
+          status,
+          latency: turnCount === 0 ? null : {
+            turnCount,
+            p50Ms: Number(lat.p50_ms ?? 0),
+            p90Ms: Number(lat.p90_ms ?? 0),
+            p99Ms: Number(lat.p99_ms ?? 0),
+            avgMs: Number(lat.avg_ms ?? 0),
+            maxMs: Number(lat.max_ms ?? 0),
+          },
+          toolFailures: {
+            total: totalToolFailures,
+            byTool: toolFailures.map(r => ({
+              toolName: r.tool_name ?? 'unknown',
+              count: Number(r.failure_count),
+              lastSeen: r.last_seen,
+            })),
+          },
+          sessionDrops: {
+            abnormalDisconnects: reconnects,
+            midTurnReconnects: midTurnCount,
+            midTurnLastSeen: midTurn?.last_seen ?? null,
+            midTurnSessions: midTurn?.sessions ?? null,
+            note: midTurnCount > 0
+              ? 'Mid-turn reconnects trigger gl_audio_reset on the client (double-audio fix). Verify no complaints correlate.'
+              : 'No mid-turn reconnects in this window.',
+          },
+          silentTurns: silent,
+        },
+      };
+    }
+
+    case "get_gl_session_detail": {
+      const sessionId: string = args.session_id;
+      if (!sessionId) return { success: false, data: { error: 'session_id is required' } };
+
+      const rows = await sharedDb.execute(sql`
+        SELECT
+          event_type,
+          event_data,
+          created_at,
+          user_id
+        FROM voice_pipeline_events
+        WHERE session_id = ${sessionId}
+        ORDER BY created_at ASC
+        LIMIT 200
+      `);
+
+      const events = (rows.rows as any[]).map(r => ({
+        eventType: r.event_type,
+        createdAt: r.created_at,
+        userId: r.user_id,
+        data: r.event_data,
+      }));
+
+      // Build a quick summary
+      const byType: Record<string, number> = {};
+      for (const e of events) byType[e.eventType] = (byType[e.eventType] || 0) + 1;
+
+      const latencies = events
+        .filter(e => e.eventType === 'gl_turn_latency')
+        .map(e => Number(e.data?.latencyMs ?? 0))
+        .filter(n => n > 0);
+      const p90 = latencies.length > 0
+        ? latencies.sort((a, b) => a - b)[Math.floor(latencies.length * 0.9)]
+        : null;
+
+      return {
+        success: true,
+        data: {
+          sessionId,
+          totalEvents: events.length,
+          eventTypeSummary: byType,
+          latencyP90Ms: p90,
+          hasMidTurnReconnect: !!byType['gl_reconnect_mid_turn'],
+          hasToolFailures: !!(byType['gl_tool_failure'] || Object.keys(byType).some(k => k.startsWith('gl_tool_failure'))),
+          hasAbnormalDisconnect: !!byType['session_abnormal_disconnect'],
+          hasSilentTurn: !!byType['gl_tutor_no_response'],
+          timeline: events,
         },
       };
     }

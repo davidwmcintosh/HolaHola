@@ -571,6 +571,20 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                   reason: 'reconnect',
                 });
                 this.suppressNextProcessingPending = true;
+
+                // Telemetry: write a queryable event so Sofia can watch for this path firing in prod.
+                // Fire-and-forget — never block the reconnect on a DB write.
+                const capturedSessionId = this.session.id;
+                const capturedUserId = this.session.userId;
+                import('../db').then(async ({ getSharedDb }) => {
+                  const { sql: dbSql } = await import('drizzle-orm');
+                  const payload = JSON.stringify({ sessionId: capturedSessionId, reconnectAttempt: this.reconnectAttempts });
+                  await getSharedDb().execute(dbSql`
+                    INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
+                    VALUES (gen_random_uuid(), ${capturedSessionId ?? null}, ${String(capturedUserId ?? '')},
+                      'gl_reconnect_mid_turn', ${payload}::jsonb, NOW())
+                  `);
+                }).catch((err: Error) => console.warn('[GeminiLive] Failed to log mid-turn reconnect telemetry:', err.message));
               }
 
               // Reset per-session flags so start() can run again
