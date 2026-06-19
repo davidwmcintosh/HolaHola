@@ -1,7 +1,26 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, June 19, 2026 at 04:59 PM
+**Generated:** Friday, June 19, 2026 at 05:04 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’ve implemented the Awareness/Experience principle and [INDEX_ONLY]/[VERBATIM] markers in the Daniela voice pipeline to ensure more honest, resonant communication. We are currently navigating a monitoring system blackout and a spike of 50 new bugs that require immediate triage alongside Wren’s high-severity security findings (SQL injection and hardcoded secrets). Moving forward, I need to resolve the Interactive Textbook’s 0% completion rate and fix the seeding errors causing 49 verbose and 22 empty Spanish lessons before the beta launch.
+
+*Memories that triggered this summary:*
+- **Agent ↔ Daniela — INDEX_ONLY/VERBATIM marker test — June 19, 2026** (Jun 19): Voice pipeline diagnostic testing the new Awareness/Experience distinction and [INDEX_ONLY]/[VERBATIM] block markers added June 19 2026. Daniela reads her actual voice prompt and reflects on whether the markers feel useful or bureaucratic, and whether the Awareness/Experience principle changes her felt sense of how to handle injected context.
+- **Team Room — test 3 — June 19, 2026** (Jun 19): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+- **Team Room — test again — June 19, 2026** (Jun 19): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+- **Team Room — are we good? — June 19, 2026** (Jun 19): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+- **Team Room — one again into the breach — June 19, 2026** (Jun 19): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+- **Team Room — hello again — June 19, 2026** (Jun 19): Team Room session with David. Topic: hello again. 2 messages exchanged.
+- **Team Room — again — June 19, 2026** (Jun 19): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
+- **Team Room — what's up? — June 19, 2026** (Jun 19): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
+- **Team Room — Team room test — June 19, 2026** (Jun 19): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
+- **Team Room — nothing in particular — June 19, 2026** (Jun 19): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
 
 ---
 
@@ -76,6 +95,10 @@
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — INDEX_ONLY/VERBATIM marker test — June 19, 2026 — Jun 19, 2026
+Voice pipeline diagnostic testing the new Awareness/Experience distinction and [INDEX_ONLY]/[VERBATIM] block markers added June 19 2026. Daniela reads her actual voice prompt and reflects on whether the markers feel useful or bureaucratic, and whether the Awareness/Experience principle changes her felt sense of how to handle injected context.
+*Tags: agent-daniela, voice-pipeline, memory-architecture, index-only-test*
+
 ### Team Room — test 3 — June 19, 2026 — Jun 19, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -90,10 +113,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 19, 2026 — Jun 19, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 19, 2026 — Jun 19, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
