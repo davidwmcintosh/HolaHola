@@ -5874,30 +5874,40 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   // Pure server-side logging — no output reaches the student
   'log_page_event',
 
-  // === VISUAL CLASSROOM WIDGETS ===
-  // Pure UI state tools — no conversational output; not meaningful in audio-only GL
+  // === TRULY EXCLUDED CLASSROOM TOOLS ===
+  // These have no dispatcher path in GL — purely background/scene-manipulation
+  // operations that don't produce conversational output or student-facing widgets.
   'change_classroom_photo',
   'change_classroom_window',
   'hold_whiteboard',
-  'clear_whiteboard',       // whiteboard write tools unused in GL voice path
+  'clear_whiteboard',       // whiteboard reset; GL uses clear_scene via open_scene
   'compose_visual_scene',
   'search_visual_library',
   'get_scene_zones',
-  'remove_from_scene',
+  'remove_from_scene',      // available via open_scene → add_to_scene flow in GL
   'move_in_scene',
-  'set_clock',
-  'set_calendar',
-  'set_body_part',
-  'set_face_part',
-  'set_hand_part',
-  'set_thermometer',
-  'set_emotion',
-  'set_weather',
-  'highlight_country',
   'enter_immersive',        // replaced by load_scenario / open_scene in GL
   'show_sentence_table',    // static table widget; use show_sentence_builder instead
   'grammar_table',          // static conjugation display; use grammar_diagram instead
   'write',                  // text-widget write; GL uses show_teaching_card / show_vocab_card
+
+  // === DEMOTED TO DISPATCHER (widget_time) ===
+  // Fully functional in GL — accessed via widget_time(widget:"...") not direct declaration.
+  'set_clock',              // → widget_time(widget:"set_clock") — time-telling exercises work great
+  'set_calendar',           // → widget_time(widget:"set_calendar")
+  'set_thermometer',        // → widget_time(widget:"set_thermometer")
+
+  // === DEMOTED TO DISPATCHER (widget_state) ===
+  // Fully functional in GL — accessed via widget_state(widget:"...") not direct declaration.
+  'set_emotion',            // → widget_state(widget:"set_emotion")
+  'set_weather',            // → widget_state(widget:"set_weather")
+  'highlight_country',      // → widget_state(widget:"highlight_country")
+
+  // === DEMOTED TO DISPATCHER (widget_body) ===
+  // Fully functional in GL — accessed via widget_body(widget:"...") not direct declaration.
+  'set_body_part',          // → widget_body(widget:"set_body_part")
+  'set_face_part',          // → widget_body(widget:"set_face_part")
+  'set_hand_part',          // → widget_body(widget:"set_hand_part")
 
   // === TEXT-MODE EXERCISES ===
   // Visual interactive exercises that require the text-mode classroom UI
