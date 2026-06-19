@@ -141,6 +141,7 @@ export class GeminiLiveSession {
   private karaokeTracker: GLKaraokeTracker | null = null;
   private hadAudioInCurrentSubturn = false;
   private lastAudioChunkAt = 0;             // Wall-clock ms of most recent audio chunk — gates ghost-transcription suppression
+  private transcriptClosed = false;         // Set on generationComplete/interrupted/turnComplete — discard outputTranscription after this
   private firstAudioSentThisTurn = false;   // Guard: don't send processing_pending AFTER audio already started
   private sessionStartedAt = 0;             // Wall-clock ms when start() was called (for establishment latency)
   private processingPendingSentThisTurn = false; // Guard: send processing_pending exactly once per conversation turn
@@ -376,15 +377,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         responseModalities: [Modality.AUDIO],
 
         // ── Generation config ─────────────────────────────────────────────
-        // temperature 0.8: varied phrasing without losing coherence. Default
-        // Flash temperature is lower, which causes the tutor to converge on
-        // the same filler phrases ("¡Muy bien!", "¡Excelente!") every turn.
-        // Higher temp = more lexical diversity in acknowledgments and transitions.
-        // presence_penalty and frequency_penalty are silently ignored in Live
-        // audio mode — the audio generation pipeline doesn't apply logit biases
-        // the way text generation does. (3-flash audit June 13 2026)
+        // temperature 0.6: Gemini audit (June 19 2026) recommends 0.6 over 0.8
+        // for sessions with many tools — high temp increases parameter hallucination
+        // in function calls. Personality/prosody variety is better controlled via
+        // system prompt language than by temperature. (Was 0.8; see audit notes.)
+        // maxOutputTokens 1500: GL has an internal audio budget (~120-150 words ~=
+        // ~45-60s before cutoff). Setting an explicit cap prevents runaway monologues
+        // and forces Daniela to use the "speak then invite" pacing pattern. Without
+        // this, the internal limit causes abrupt mid-sentence audio cutoff with ghost
+        // transcription continuing beyond what was spoken.
+        // candidateCount 1: multiple candidates in Live mode cause latency spikes and
+        // audio buffer sync issues. Explicitly set to 1. (Gemini audit June 19 2026)
         generationConfig: {
-          temperature: 0.8,
+          temperature: 0.6,
+          maxOutputTokens: 1500,
+          candidateCount: 1,
         },
 
         // ── Transcription ─────────────────────────────────────────────────
@@ -601,6 +608,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               this.currentChunkIndex = 0;
               this.lastSentenceStartSentIndex = -1;
               this.hadAudioInCurrentSubturn = false;
+              this.transcriptClosed = false;
               this.firstAudioSentThisTurn = false;
               this.processingPendingSentThisTurn = false;
               this.greetingPhaseActive = false;
@@ -711,6 +719,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.currentChunkIndex = 0;
     this.firstAudioSentThisTurn = false;
     this.processingPendingSentThisTurn = false;
+    this.transcriptClosed = false;
     // DOUBLE-AUDIO FIX: Clear suppress flag on interrupt so a stale reconnect-era flag
     // doesn't carry into the next turn if GL never generated audio after the reconnect.
     this.suppressNextProcessingPending = false;
@@ -988,6 +997,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
     // ── Audio output ────────────────────────────────────────────────────────
     if (msg.serverContent?.modelTurn?.parts) {
+      // New model turn arriving — reopen the transcript gate so this sub-turn's
+      // outputTranscription is allowed through. turnComplete/generationComplete will
+      // close it again at the end of this sub-turn.
+      this.transcriptClosed = false;
       let audioParts = 0;
       let textParts = 0;
       // Pre-scan: does this message contain any audio parts?
@@ -1246,14 +1259,24 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     // Checked BEFORE turnComplete so if both arrive in the same message, the
     // final chunk is appended to the buffer before the flush occurs.
     if ((msg.serverContent as any)?.outputTranscription?.text) {
-      // Ghost-transcription guard: if audio was flowing this turn but stopped >800ms ago,
-      // GL is generating text internally without audio — suppress to prevent transcript
-      // from showing more than what was actually spoken. 800ms is generous enough to allow
-      // for normal inter-chunk gaps without catching legitimate streaming pauses.
+      // Ghost-transcription guard — two complementary layers:
+      //
+      // Layer 1 (signal-based, Gemini audit rec.): transcriptClosed is set by
+      // generationComplete / turnComplete / interrupted signals. Any transcription
+      // arriving after these definitive end-of-turn events is residual buffering.
+      //
+      // Layer 2 (timer-based, original fix): if audio was flowing but stopped >800ms ago,
+      // GL's audio budget likely ran out — suppress transcription that outran the audio.
+      //
+      // Both layers are needed: Layer 1 handles clean turn-end; Layer 2 handles mid-turn
+      // audio budget exhaustion where no end signal has arrived yet.
       const audioSilenceMs = this.lastAudioChunkAt > 0 ? Date.now() - this.lastAudioChunkAt : 0;
-      if (this.hadAudioInCurrentSubturn && audioSilenceMs > 800) {
+      const ghostBySignal = this.transcriptClosed;
+      const ghostByTimer = this.hadAudioInCurrentSubturn && audioSilenceMs > 800;
+      if (ghostBySignal || ghostByTimer) {
         const rawGhost = (msg.serverContent as any).outputTranscription.text as string;
-        console.log('[GeminiLive] Suppressed ghost outputTranscription (audio silent for ' + audioSilenceMs + 'ms):', rawGhost.slice(0, 100));
+        const reason = ghostBySignal ? 'transcript closed by signal' : `audio silent ${audioSilenceMs}ms`;
+        console.log(`[GeminiLive] Suppressed ghost outputTranscription (${reason}):`, rawGhost.slice(0, 100));
       } else {
       // Strip markdown bold markers (**) and any native function-call syntax that
       // Gemini Live leaks into outputTranscription (e.g. `vocal_adjust{emotion:warm,...}`).
@@ -1308,6 +1331,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     //     model has truly stopped generating (no more turnComplete events incoming).
     //     This produces one DB row per utterance instead of one per phrase.
     if (msg.serverContent?.turnComplete) {
+      // Close transcript gate on each sub-turn complete — outputTranscription arriving after
+      // turnComplete for this sub-turn is residual and should be discarded. Reset on next
+      // modelTurn or new conversation turn so the gate reopens for the next sub-turn.
+      this.transcriptClosed = true;
       // H1 fix: clear greeting gate on turnComplete (covers no-audio greeting paths).
       if (this.greetingPhaseActive) {
         this.greetingPhaseActive = false;
@@ -1354,6 +1381,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     //  3. Flush transcripts immediately — generationComplete is a definitive end-of-response
     //     signal, so there is no value in waiting for more sub-turns.
     if ((msg.serverContent as any)?.generationComplete) {
+      // Close transcript gate — discard any outputTranscription arriving after this point.
+      // generationComplete is the definitive end-of-turn signal; any transcription after it
+      // is residual buffering from GL's transcription layer and should not reach the client.
+      this.transcriptClosed = true;
       // NOTE (2026-06-13): maybeInjectContextRefresh() was removed here.
       // It sent sendClientContent({role:'model', turnComplete:false}) which incorrectly
       // signals GL that the model is mid-utterance — causing GL to generate a second audio
@@ -1474,6 +1505,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         clearTimeout(this.generationCompleteWatchdogTimer);
         this.generationCompleteWatchdogTimer = null;
       }
+      // Close transcript gate — discard any outputTranscription arriving after barge-in.
+      this.transcriptClosed = true;
       console.log('[GeminiLive] Barge-in detected — flushing partial transcript and sealing audio sub-turn');
       // Close tutor speaking timer on barge-in (student interrupted before generation complete)
       if (this.tutorSpeakingStartTime !== null) {
