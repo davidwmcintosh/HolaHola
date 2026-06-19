@@ -36,6 +36,12 @@ Each injected section header carries a physical marker that fires BEFORE the mod
 
 **Why XML containers not bracket markers:** Gemini 3.5 review found that bracket-only markers (`[INDEX_ONLY]`) leave no explicit close boundary — the model has no signal for when the INDEX constraint ends. XML closing tags (`</index_only>`) give attention heads a clear scope boundary. The snapshot section had a nested VERBATIM inside an INDEX_ONLY which caused semantic bleeding; XML sibling blocks fix this.
 
+**Why Express Lane uses em-dash not colon:** `[date] Name: content` is "transcript DNA" — even inside `<index_only>`, colon-delimited attribution triggers Experience behavior. Em-dash format `[date] Name — content` reads as a log entry (Awareness), not a dialogue excerpt.
+
+**Open item:** Wrap `search_memories`/`introspect` tool OUTPUT in `<verbatim>` tags at the conversation-turn level. Tool results currently have no marker. This requires modifying the tool handler that formats results back to GL. Gemini approved shipping without this but flagged it as the next improvement.
+
+**Gemini review verdict (3 rounds, June 19 2026):** GO — "architecturally sound, Awareness vs. Experience distinction well-guarded, truncation-safe anchor placement is the right engineering tradeoff."
+
 **Intentionally left as prose (no markers):**
 - OurStory verbatim memories — already framed: "the actual words... things I already know" (equivalent to VERBATIM, pure prose)
 - Teaching growth log — "lessons you've internalized... already part of who you are" (internalized wisdom, correctly treated as lived knowledge)

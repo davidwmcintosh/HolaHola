@@ -964,7 +964,10 @@ class FounderCollaborationService {
         ? msg.content.substring(0, 297) + '...'
         : msg.content;
       const date = msg.createdAt.toLocaleDateString();
-      return `[${date}] ${speaker}: ${content}`;
+      // De-stylized format: no "Name: content" colon pattern — Gemini review found that
+      // colon-delimited attribution looks like a transcript (triggers Experience behavior)
+      // even inside index_only. Em-dash breaks the "Name: Quote" transcript DNA.
+      return `[${date}] ${speaker} — ${content}`;
     });
     
     return `

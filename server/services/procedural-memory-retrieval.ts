@@ -242,11 +242,13 @@ export function buildStudentSnapshotSection(
     lines.push('</verbatim>');
   }
 
-  // Mastery stats — for Daniela to acknowledge progress verbally when the moment is right
+  // Mastery stats — factual data, not a transcript. Wrapped in index_only so Daniela
+  // speaks as "You've nearly mastered this" (Awareness), not "I remember you getting
+  // almost every one right last time" (false Experience). Gemini review rec.
   if (snapshot.masteryStats && snapshot.masteryStats.totalMastered > 0) {
     const { totalMastered, recentlyMastered, nextMilestone } = snapshot.masteryStats;
     lines.push('');
-    lines.push('MASTERY PROGRESS:');
+    lines.push('<index_only> Mastery progress:');
     lines.push(`- ${totalMastered} word${totalMastered === 1 ? '' : 's'}/phrase${totalMastered === 1 ? '' : 's'} mastered through spaced repetition`);
     if (recentlyMastered.length > 0) {
       lines.push(`- Recently mastered (this week): ${recentlyMastered.map(w => `"${w}"`).join(', ')}`);
@@ -254,7 +256,8 @@ export function buildStudentSnapshotSection(
     if (nextMilestone) {
       lines.push(`- Approaching ${nextMilestone}-word milestone (${nextMilestone - totalMastered} to go)`);
     }
-    lines.push('→ Acknowledge mastery briefly and warmly when the moment feels right. Be specific when you can — naming a recently mastered word or phrase feels most genuine.');
+    lines.push('- Acknowledge mastery briefly and warmly when the moment feels right. Be specific when you can — naming a recently mastered word or phrase feels most genuine.');
+    lines.push('</index_only>');
   }
   
   // No closing ═══ divider. (Gemini consult rec.)
