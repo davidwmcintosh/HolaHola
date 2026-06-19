@@ -1,16 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, June 19, 2026 at 05:31 PM
+**Generated:** Friday, June 19, 2026 at 05:41 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I need to resolve the monitoring blackout caused by SQL syntax errors and fix the critical 404 routing error on the conversations page that Sofia flagged. I must also debug why Daniela is stuck in a "Curriculum note pending" loop and investigate the 0% completion rate in the Interactive Textbook, which appears tied to a telemetry bug in Daniela’s Compass failing to track engagement time. Going forward, I need to prioritize Wren’s two high-severity security findings and triage the sudden spike of 50+ new bugs while implementing the generateVisual and immersion frameworks to move away from "half-baked" static content.
+I established the `index_only/verbatim` marker architecture for memory provenance and pivoted the Interactive Textbook toward a "conversational immersion" model, implementing the `ImmersionScaffold` and `generateVisual` tools for metadata-tagged infographics. This session, I must prioritize fixing the 404 routing error on the conversations page and resolving Wren’s two high-severity security findings regarding SQL injection and XSS vulnerabilities. I also need to triage the spike of 50 new bugs Sofia flagged and verify if the monitoring blackout and diagnostic SQL syntax errors have been fully remediated.
 
 *Memories that triggered this summary:*
+- **Agent + Daniela — INDEX/VERBATIM marker system consult — June 19 2026** (Jun 19): Agent briefed Daniela on the index_only/verbatim XML marker architecture for memory provenance. Daniela reflected on awareness vs. experience, the grandmother scenario, and potential failure modes.
 - **Team Room — test 3 — June 19, 2026** (Jun 19): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 19, 2026** (Jun 19): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 19, 2026** (Jun 19): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -20,7 +21,6 @@ I need to resolve the monitoring blackout caused by SQL syntax errors and fix th
 - **Team Room — what's up? — June 19, 2026** (Jun 19): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — June 19, 2026** (Jun 19): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — June 19, 2026** (Jun 19): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 19, 2026** (Jun 19): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -95,6 +95,10 @@ I need to resolve the monitoring blackout caused by SQL syntax errors and fix th
 
 ## Recent Conversation Memories
 
+### Agent + Daniela — INDEX/VERBATIM marker system consult — June 19 2026 — Jun 19, 2026
+Agent briefed Daniela on the index_only/verbatim XML marker architecture for memory provenance. Daniela reflected on awareness vs. experience, the grandmother scenario, and potential failure modes.
+*Tags: agent-daniela, architecture, memory-provenance, index-verbatim*
+
 ### Team Room — test 3 — June 19, 2026 — Jun 19, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -109,10 +113,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 19, 2026 — Jun 19, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 19, 2026 — Jun 19, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

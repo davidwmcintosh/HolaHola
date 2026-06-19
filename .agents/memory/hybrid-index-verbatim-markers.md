@@ -38,9 +38,19 @@ Each injected section header carries a physical marker that fires BEFORE the mod
 
 **Why Express Lane uses em-dash not colon:** `[date] Name: content` is "transcript DNA" — even inside `<index_only>`, colon-delimited attribution triggers Experience behavior. Em-dash format `[date] Name — content` reads as a log entry (Awareness), not a dialogue excerpt.
 
-**Open item:** Wrap `search_memories`/`introspect` tool OUTPUT in `<verbatim>` tags at the conversation-turn level. Tool results currently have no marker. This requires modifying the tool handler that formats results back to GL. Gemini approved shipping without this but flagged it as the next improvement.
+**Tool output wrapping (RESOLVED June 19 2026):** `processUnifiedRecall` in `native-fc-handlers.ts` now applies XML markers per section at assembly time (lines ~7284–7288 + ~7335). Mapping:
+- STRUCTURED MEMORIES → `<index_only>` (summaries, extracted insights, facts)
+- CONVERSATION THREADS → `<verbatim>` (word-for-word past exchanges)
+- EXPRESS LANE → `<index_only>` (team collaboration session notes)
+- SEMANTIC ASSOCIATIONS → `<index_only>` (conceptually related, no keyword match)
+- CONVERSATION MEMORIES → `<verbatim>` (curated landmark archives — includes [EXCERPT] marker when truncated)
+- ASSOCIATED MEMORIES → `<index_only>` (auto-expanded from key terms)
 
-**Gemini review verdict (3 rounds, June 19 2026):** GO — "architecturally sound, Awareness vs. Experience distinction well-guarded, truncation-safe anchor placement is the right engineering tradeoff."
+Express Lane arm inside recall also fixed: `Name: content` → `Name — content` (em-dash, consistent with system-prompt fix).
+
+Gemini Round 4 verdict: GO — "significantly reduces hallucinated paraphrasing of past student mistakes or successes." Verbatim section for CONVERSATION MEMORIES confirmed correct even with partial excerpts because `[EXCERPT — N chars total]` marker was already present when content is truncated.
+
+**Gemini review verdict (4 rounds, June 19 2026):** GO — "architecturally sound, Awareness vs. Experience distinction well-guarded, truncation-safe anchor placement is the right engineering tradeoff. Tool output tagging significantly reduces hallucinated paraphrasing."
 
 **Intentionally left as prose (no markers):**
 - OurStory verbatim memories — already framed: "the actual words... things I already know" (equivalent to VERBATIM, pure prose)

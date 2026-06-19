@@ -7079,10 +7079,12 @@ export class NativeFunctionCallHandler {
             }
           }
           if (results.length === 0) return null;
+          // Em-dash format (not colon) — "Name: content" looks like transcript DNA even
+          // inside <index_only>. Em-dash reads as a log entry, not a dialogue excerpt.
           const formatted = [...results].reverse().map(msg => {
             const date = new Date(msg.createdAt).toLocaleDateString();
             const preview = msg.content.length > 2000 ? msg.content.substring(0, 2000) + '...' : msg.content;
-            return `[${date}] ${msg.role}: ${preview}`;
+            return `[${date}] ${msg.role} — ${preview}`;
           }).join('\n\n---\n\n');
           return formatted;
         } catch (err: any) {
@@ -7274,12 +7276,15 @@ export class NativeFunctionCallHandler {
       })(),
     ]);
 
+    // XML markers applied per section type — Gemini review (June 19 2026):
+    // tool results need the same INDEX/VERBATIM firewall as system-prompt injection.
+    // Pointer/summary data → <index_only>. Actual exchange text → <verbatim>.
     const sections: string[] = [];
-    if (structuredText) sections.push(`=== STRUCTURED MEMORIES (summaries, extracted insights, facts) ===\n${structuredText}`);
-    if (threadText) sections.push(`=== CONVERSATION THREADS (word-for-word past exchanges) ===\n${threadText}`);
-    if (expressLaneText) sections.push(`=== EXPRESS LANE (team collaboration messages mentioning this topic) ===\n${expressLaneText}`);
-    if (semanticText) sections.push(`=== SEMANTIC ASSOCIATIONS (conceptually related memories, no keyword overlap needed) ===\n${semanticText}`);
-    if (memoriesText) sections.push(`=== CONVERSATION MEMORIES (curated landmark archives — call read_full_memory("title keyword") to retrieve any of these in full) ===\n${memoriesText}`);
+    if (structuredText) sections.push(`<index_only>\n=== STRUCTURED MEMORIES (summaries, extracted insights, facts) ===\n${structuredText}\n</index_only>`);
+    if (threadText) sections.push(`<verbatim>\n=== CONVERSATION THREADS (word-for-word past exchanges) ===\n${threadText}\n</verbatim>`);
+    if (expressLaneText) sections.push(`<index_only>\n=== EXPRESS LANE (team collaboration messages mentioning this topic) ===\n${expressLaneText}\n</index_only>`);
+    if (semanticText) sections.push(`<index_only>\n=== SEMANTIC ASSOCIATIONS (conceptually related memories, no keyword overlap needed) ===\n${semanticText}\n</index_only>`);
+    if (memoriesText) sections.push(`<verbatim>\n=== CONVERSATION MEMORIES (curated landmark archives — call read_full_memory("title keyword") to retrieve any of these in full) ===\n${memoriesText}\n</verbatim>`);
 
     // Associative chaining — after primary results, extract the most distinctive
     // content terms and run one more targeted search to surface co-occurring memories
@@ -7324,7 +7329,7 @@ export class NativeFunctionCallHandler {
             const assocText = formatMemoryForConversation(assocResult);
             // Only add if not largely duplicating structured arm
             if (assocText && !structuredText.includes(assocText.substring(0, 80))) {
-              sections.push(`=== ASSOCIATED MEMORIES (auto-expanded from: "${topTerms.join(', ')}") ===\n${assocText}`);
+              sections.push(`<index_only>\n=== ASSOCIATED MEMORIES (auto-expanded from: "${topTerms.join(', ')}") ===\n${assocText}\n</index_only>`);
             }
           }
         }
