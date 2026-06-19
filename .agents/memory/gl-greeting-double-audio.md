@@ -12,6 +12,9 @@ Sending `sendRealtimeInput({ activityEnd: {} })` immediately AFTER `sendClientCo
 ## Fifth cause: missing DB imports crash setupComplete handler — June 19 2026
 `getSharedDb` and `sql` were imported in the greeting-trigger setup path but not at the top of `gemini-live-session.ts`. Every time `handleServerMessage` hit `setupComplete`, the `ReferenceError` crashed before the greeting trigger fired. David heard ringing forever with no greeting. Fix: ensure `getSharedDb` is imported from `../db` and `sql` from `drizzle-orm` at the top of the file, not assumed to be in scope.
 
+## Seventh cause: ghost outputTranscription after audio cuts off — June 19 2026
+GL sometimes stops generating audio mid-sentence (possibly hits an audio context limit) but continues streaming `outputTranscription` for the rest of what it planned to say. The transcript shows more text than was actually spoken. Fix: track `lastAudioChunkAt` timestamp (set on every audio chunk). In the `outputTranscription` handler, if `hadAudioInCurrentSubturn=true` but `Date.now() - lastAudioChunkAt > 800ms`, suppress the chunk as ghost text (logged server-side). 800ms window allows for normal inter-chunk streaming gaps.
+
 ## Sixth cause: GL internal monologue leaking to transcript — June 19 2026
 After audio generation ends, GL sometimes outputs text-only `modelTurn.parts` — its own planning notes (e.g. "The user has initiated Honesty Mode. I've responded warmly..."). These were forwarded to the client as `response_text` and shown in the subtitle/transcript UI. Fix: pre-scan `modelTurn.parts` for audio before processing — if `messageHasAudio=false` AND `hadAudioInCurrentSubturn=false`, suppress text parts (log server-side, never send to client).
 

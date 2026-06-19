@@ -140,6 +140,7 @@ export class GeminiLiveSession {
   private lastSentenceStartSentIndex = -1;  // Tracks which sentenceIndex has had sentence_start emitted
   private karaokeTracker: GLKaraokeTracker | null = null;
   private hadAudioInCurrentSubturn = false;
+  private lastAudioChunkAt = 0;             // Wall-clock ms of most recent audio chunk — gates ghost-transcription suppression
   private firstAudioSentThisTurn = false;   // Guard: don't send processing_pending AFTER audio already started
   private sessionStartedAt = 0;             // Wall-clock ms when start() was called (for establishment latency)
   private processingPendingSentThisTurn = false; // Guard: send processing_pending exactly once per conversation turn
@@ -996,6 +997,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         if (part.inlineData?.data && part.inlineData.mimeType?.includes('audio')) {
           audioParts++;
           this.hadAudioInCurrentSubturn = true;
+          this.lastAudioChunkAt = Date.now();
 
           // First audio from GL — open the greeting gate, activate the turn gate.
           // greetingPhaseActive → false: student can now speak.
@@ -1242,6 +1244,15 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     // Checked BEFORE turnComplete so if both arrive in the same message, the
     // final chunk is appended to the buffer before the flush occurs.
     if ((msg.serverContent as any)?.outputTranscription?.text) {
+      // Ghost-transcription guard: if audio was flowing this turn but stopped >800ms ago,
+      // GL is generating text internally without audio — suppress to prevent transcript
+      // from showing more than what was actually spoken. 800ms is generous enough to allow
+      // for normal inter-chunk gaps without catching legitimate streaming pauses.
+      const audioSilenceMs = this.lastAudioChunkAt > 0 ? Date.now() - this.lastAudioChunkAt : 0;
+      if (this.hadAudioInCurrentSubturn && audioSilenceMs > 800) {
+        const rawGhost = (msg.serverContent as any).outputTranscription.text as string;
+        console.log('[GeminiLive] Suppressed ghost outputTranscription (audio silent for ' + audioSilenceMs + 'ms):', rawGhost.slice(0, 100));
+      } else {
       // Strip markdown bold markers (**) and any native function-call syntax that
       // Gemini Live leaks into outputTranscription (e.g. `vocal_adjust{emotion:warm,...}`).
       // These are internal tool calls and must never appear in student-facing transcripts.
@@ -1280,6 +1291,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           turnId: this.currentTurnId,
         });
       }
+      } // end else (not ghost transcription)
     }
 
     // ── Turn complete ────────────────────────────────────────────────────────
