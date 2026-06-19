@@ -4,6 +4,21 @@ description: Two causes of duplicate greeting (heard/seen twice) in Gemini Live 
 ---
 
 ## The rule
+Two separate patterns cause double audio — never combine `sendClientContent(turnComplete:true)` with `activityEnd` in sequence, and never inject identity threads via `{role:'model', turnComplete:false}`.
+
+## Fourth cause: activityEnd after sendClientContent(turnComplete:true) — June 19 2026
+Sending `sendRealtimeInput({ activityEnd: {} })` immediately AFTER `sendClientContent({ ..., turnComplete: true })` creates two turn-end signals. GL generates a first response to the completed text turn, then a second response when `activityEnd` arrives (GL treats it as the end of a new turn). The fix: remove `activityEnd` entirely from the greeting sequence — `turnComplete:true` is sufficient.
+
+## Fifth cause: missing DB imports crash setupComplete handler — June 19 2026
+`getSharedDb` and `sql` were imported in the greeting-trigger setup path but not at the top of `gemini-live-session.ts`. Every time `handleServerMessage` hit `setupComplete`, the `ReferenceError` crashed before the greeting trigger fired. David heard ringing forever with no greeting. Fix: ensure `getSharedDb` is imported from `../db` and `sql` from `drizzle-orm` at the top of the file, not assumed to be in scope.
+
+## Sixth cause: GL internal monologue leaking to transcript — June 19 2026
+After audio generation ends, GL sometimes outputs text-only `modelTurn.parts` — its own planning notes (e.g. "The user has initiated Honesty Mode. I've responded warmly..."). These were forwarded to the client as `response_text` and shown in the subtitle/transcript UI. Fix: pre-scan `modelTurn.parts` for audio before processing — if `messageHasAudio=false` AND `hadAudioInCurrentSubturn=false`, suppress text parts (log server-side, never send to client).
+
+## How to apply
+The greeting sequence must be exactly: silence primer (realtimeInput audio) → greeting text turn (sendClientContent, turnComplete:true). No activityEnd. No {role:'model'} turns. Nothing else.
+
+## The rule (original)
 Never inject identity threads via `sendClientContent({role:'model', turnComplete:false})` in the greeting sequence. The system prompt is the correct delivery mechanism.
 
 ## Why

@@ -24,6 +24,29 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 19, 2026 — GL greeting trilogy fixed (imports + double audio + internal monologue)**
+
+### What was fixed this session
+
+Three bugs in `gemini-live-session.ts`, all in the greeting startup path:
+
+**1. Missing DB imports crashed setupComplete (root cause of "ringing forever, no greeting")**
+`getSharedDb` and `sql` were not imported — every `handleServerMessage → setupComplete` call threw a `ReferenceError` before the greeting trigger fired. David heard the ringing indefinitely with no greeting. Added `import { getSharedDb } from '../db'` and `import { sql } from 'drizzle-orm'` at the top of the file.
+
+**2. `activityEnd` after `sendClientContent(turnComplete:true)` → double greeting**
+Two turn-end signals were sent back-to-back: `sendClientContent` with `turnComplete:true` (ends the text turn), then immediately `sendRealtimeInput({ activityEnd: {} })`. GL interpreted `activityEnd` as the end of a new turn and generated a second full response. Both audio and transcript were doubled. Fix: removed `activityEnd` from the greeting sequence — `turnComplete:true` is sufficient.
+
+**3. GL internal monologue leaking to transcript**
+After audio ends, GL sometimes outputs text-only `modelTurn.parts` — its own planning notes ("The user has initiated Honesty Mode..."). These were forwarded to the client as `response_text` and shown in subtitles/transcript. Fix: pre-scan each modelTurn message for audio before processing; if `messageHasAudio=false && hadAudioInCurrentSubturn=false`, suppress text parts (logged server-side, never sent to client).
+
+### What's stable
+All three fixes are in `gemini-live-session.ts` only. No schema changes. Server restarted clean.
+
+### What's open
+Nothing critical. The greeting sequence is now: silence primer → `sendClientContent(greeting, turnComplete:true)`. Done.
+
+---
+
 **Session: June 19, 2026 — Sofia GL monitoring toolkit complete**
 
 ### What was built this session

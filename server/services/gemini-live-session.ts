@@ -958,9 +958,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 turns: [{ role: 'user', parts: [{ text: this.pendingGreetingTrigger }] }],
                 turnComplete: true,
               });
-              // activityEnd explicitly signals "user finished speaking" — overrides the
-              // VAD so GL doesn't wait indefinitely for audio silence before responding.
-              this.liveSession.sendRealtimeInput({ activityEnd: {} });
+              // NOTE: activityEnd is intentionally NOT sent here.
+              // sendClientContent with turnComplete:true already signals end-of-turn to GL.
+              // Sending activityEnd immediately after creates a SECOND turn-end signal,
+              // causing GL to generate two responses (double greeting / double audio).
               // Block mic audio until GL sends its first response chunk.
               this.greetingPhaseActive = true;
               if (this.greetingWatchdogTimer) clearTimeout(this.greetingWatchdogTimer);
@@ -986,6 +987,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     if (msg.serverContent?.modelTurn?.parts) {
       let audioParts = 0;
       let textParts = 0;
+      // Pre-scan: does this message contain any audio parts?
+      // Text-only messages are GL's internal planning notes — never send to client.
+      const messageHasAudio = msg.serverContent.modelTurn.parts.some(
+        (p: any) => p.inlineData?.data && p.inlineData.mimeType?.includes('audio')
+      );
       for (const part of msg.serverContent.modelTurn.parts) {
         if (part.inlineData?.data && part.inlineData.mimeType?.includes('audio')) {
           audioParts++;
@@ -1171,14 +1177,20 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // Model text output — emitted when TEXT is included in responseModalities.
         // Accumulate into pendingOutputTranscript so the assistant's full reply is
         // persisted to the DB on generationComplete / turnComplete flush.
+        // GUARD: skip text-only messages (messageHasAudio=false) — these are GL's
+        // internal planning notes / chain-of-thought and must never reach the client.
         if (part.text) {
           textParts++;
-          this.pendingOutputTranscript += part.text;
-          this.sendWsMessage(this.session.ws, {
-            type: 'response_text',
-            text: part.text,
-            turnId: this.currentTurnId,
-          });
+          if (messageHasAudio || this.hadAudioInCurrentSubturn) {
+            this.pendingOutputTranscript += part.text;
+            this.sendWsMessage(this.session.ws, {
+              type: 'response_text',
+              text: part.text,
+              turnId: this.currentTurnId,
+            });
+          } else {
+            console.log('[GeminiLive] Suppressed text-only model part (internal monologue):', part.text.slice(0, 120));
+          }
         }
       }
       if (audioParts > 0 || textParts > 0) {

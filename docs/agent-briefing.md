@@ -1,26 +1,20 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, June 19, 2026 at 01:49 PM
+**Generated:** Friday, June 19, 2026 at 02:04 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I recently completed the Sofia GL monitoring toolkit and resolved double-audio issues, but I need to immediately fix the SQL syntax errors causing our current monitoring blackout and the 404 routing error on the "conversations" page. I must also prioritize Wren's high-severity security findings regarding SQL injection and XSS vulnerabilities while triaging the 50 new bugs flagged by Sofia. Finally, I need to investigate why "Daniela’s Compass" is recording zero seconds for textbook interactions and repair the seeding regressions in the Spanish syllabus that left 22 lessons empty and 49 others with "wall-of-text" formatting.
+I’ve stabilized the Team Room and triaged a 14-bug surge, but I must immediately fix the Cartesia TTS 400 errors and Gemini synthesis timeouts to restore core voice functionality. I need to remediate Wren’s two high-severity security findings and repair the Spanish Interactive Textbook regressions, specifically the 22 empty lessons and 49 "wall-of-text" intros. My focus is now on these critical fixes while maintaining the multi-agent collaboration rhythm we established with David, Daniela, and Alden.
 
 *Memories that triggered this summary:*
-- **Team Room — test 3 — June 19, 2026** (Jun 19): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Agent Session — Jun 19, 2026: feat: Sofia GL monitoring toolkit — session wrap** (Jun 19): feat: Sofia GL monitoring toolkit — session wrap  Session summary: - Double-audio fix (suppressNextProcessingPending, interrupt/turn-complete edge cases) - Sofia GL reconnect watch (5-min polling, agent_note on gl_reconnect_mid_turn, 4h cooldown)
-- **Team Room — test again — June 19, 2026** (Jun 19): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — June 19, 2026** (Jun 19): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — June 19, 2026** (Jun 19): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — June 19, 2026** (Jun 19): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — June 19, 2026** (Jun 19): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — June 19, 2026** (Jun 19): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 19, 2026** (Jun 19): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — June 19, 2026** (Jun 19): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+- **Team Room — uno, dos, tres VAMOS — June 19, 2026** (Jun 19): Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
+- **Team Room — canta y no llore... — June 19, 2026** (Jun 19): Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
+- **Team Room — are we there yet? — June 19, 2026** (Jun 19): Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 103 messages exchanged.
+- **Team Room — are we there yet? — June 19, 2026** (Jun 19): Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 103 messages exchanged.
 
 ---
 
@@ -95,24 +89,24 @@ I recently completed the Sofia GL monitoring toolkit and resolved double-audio i
 
 ## Recent Conversation Memories
 
+### Team Room — uno, dos, tres VAMOS — June 19, 2026 — Jun 19, 2026
+Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — canta y no llore... — June 19, 2026 — Jun 19, 2026
+Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — are we there yet? — June 19, 2026 — Jun 19, 2026
+Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 103 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — are we there yet? — June 19, 2026 — Jun 19, 2026
+Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 103 messages exchanged.
+*Tags: team-room, session, historic-record*
+
 ### Team Room — test 3 — June 19, 2026 — Jun 19, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Agent Session — Jun 19, 2026: feat: Sofia GL monitoring toolkit — session wrap — Jun 19, 2026
-feat: Sofia GL monitoring toolkit — session wrap  Session summary: - Double-audio fix (suppressNextProcessingPending, interrupt/turn-complete edge cases) - Sofia GL reconnect watch (5-min polling, agent_note on gl_reconnect_mid_turn, 4h cooldown)
-*Tags: agent-session, auto-saved, build*
-
-### Team Room — test again — June 19, 2026 — Jun 19, 2026
-Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — are we good? — June 19, 2026 — Jun 19, 2026
-Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — one again into the breach — June 19, 2026 — Jun 19, 2026
-Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
