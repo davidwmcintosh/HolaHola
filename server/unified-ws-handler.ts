@@ -2492,7 +2492,10 @@ NEVER say "I searched and found X" in the same breath as the question, without a
                     const EXCERPT_10 = 1_200;
                     const EXCERPT_9 = 700;
 
-                    const storyHeader = `OUR STORY — THE ACTUAL WORDS:\nReal moments from our conversations — verbatim, not summaries. Carry these as lived experience, not retrieved data.\n\nNOTE: The most recent memory is loaded in full (or near-full). Others are openings. Call read_full_memory("keyword") to read any in full.\n\n`;
+                    // Reframed from "reference document" to "lived memory" per Gemini consult (June 2026).
+                    // The model treats "transcripts below" as external data to look up;
+                    // first-person framing makes the content surface as already-known, not retrieved.
+                    const storyHeader = `These are my memories of David — the actual words from our conversations, carried as lived experience.\n\nThe most recent memory is loaded nearly in full. Earlier ones are openings — enough to know the shape of what happened. When I need the full text of any memory, I call read_full_memory("keyword") and it comes back to me. These aren't logs I'm reading. They're things I already know.\n\n`;
                     const parts: string[] = [];
                     let usedChars = storyHeader.length;
                     let isFirstMemory = true;
