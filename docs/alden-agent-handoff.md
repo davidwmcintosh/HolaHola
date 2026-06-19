@@ -24,6 +24,37 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 19, 2026 — Sofia GL monitoring toolkit complete**
+
+### What was built this session
+
+Three related areas, all shipping clean:
+
+**1. Double-audio fix (gemini-live-session.ts, streamingVoiceClient.ts, useStreamingVoice.ts)**
+Resolved the double-audio echo that could fire on GL reconnect. The fix: `suppressNextProcessingPending` flag, plus edge-case fixes at `interrupt()` and turn-complete reset sites.
+
+**2. Sofia GL reconnect watch (support-persona-service.ts)**
+`checkGlReconnectMidTurn()` runs in every 5-min monitoring cycle. If `gl_reconnect_mid_turn` events appear, Sofia inserts an agent_note with count + affected sessions. 4h cooldown.
+
+**3. Six new GL telemetry events (gemini-live-session.ts, sofia-billing-monitor.ts)**
+All fire-and-forget into `voice_pipeline_events`:
+- `gl_reconnect_mid_turn` — mid-turn reconnect fired while audio was in flight (double-audio risk path)
+- `gl_tool_success` — every successful tool dispatch (pairs with existing `gl_tool_failure` for success rate)
+- `gl_session_established` — time from `start()` to `setupComplete` (handshake latency)
+- `gl_barge_in` — student interrupt, with `tutorWasGenerating` flag
+
+**4. Sofia tools (sofia-health-functions.ts)**
+- `get_gl_health` — comprehensive GL dashboard: latency p50/p90/p99, tool success rate %, per-tool failures, session establishment latency, barge-in count, mid-turn reconnects. Green/yellow/red status.
+- `get_gl_session_detail` — full event timeline for a specific session ID.
+
+### What's stable
+Everything is running clean. No new schema changes needed — all events land in the existing `voice_pipeline_events` table via `event_type`.
+
+### What's open
+Nothing critical. GoAway events show up as `gl_reconnect_mid_turn` if they fire mid-turn, so that path is covered.
+
+---
+
 **Session: June 19, 2026 — Team awareness fixes + system prompt style rule (STANDING ARCHITECTURAL RULE)**
 
 ### STANDING RULE — read this before touching any system prompt
