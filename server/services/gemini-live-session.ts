@@ -186,6 +186,11 @@ export class GeminiLiveSession {
     1012,  // Service restart
     1013,  // Try again later
   ]);
+  // Timestamp of the last goAway message received from GL.
+  // When GL sends goAway + then closes with 1007, the 1007 is not a genuine
+  // "invalid argument" — it is GL completing the graceful disconnect after the
+  // goAway grace period. We treat it as retriable in that specific context.
+  private lastGoAwayTimestamp = 0;
   // Stored so reconnect can re-call start() with the same arguments.
   private lastSystemPrompt = '';
   private lastTools: FunctionDeclaration[] = [];
@@ -489,6 +494,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             });
             return;
           }
+          // goAway → 1007: GL sent a graceful goAway message and then closed with 1007.
+          // This is NOT a genuine "invalid argument" — it is GL completing a planned
+          // disconnect after the goAway grace period. Treat it as retriable by temporarily
+          // adding 1007 to the retriable set (same pattern as stale handle recovery).
+          const isGoAway1007 = code === 1007 &&
+            (Date.now() - this.lastGoAwayTimestamp) < 15_000;
+          if (isGoAway1007 && !this.isStopped && this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
+            console.log('[GeminiLive] 1007 after goAway — treating as retriable (graceful GL disconnect)');
+            this.RETRIABLE_CLOSE_CODES.add(1007);
+            setTimeout(() => this.RETRIABLE_CLOSE_CODES.delete(1007), 10_000);
+          }
+
           // Stale resumption handle — 1011 whose reason references the handle/session token.
           // This happens when a student reconnects hours later with an expired handle.
           // Clear the handle and fall through to a fresh session start (no bail-out).
@@ -823,6 +840,15 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         hasToolCall: !!msg.toolCall,
         hasError: !!(msg as any).error,
       });
+    }
+
+    // ── goAway — GL is asking the client to reconnect elsewhere ─────────────
+    // Record the timestamp so onclose can treat the subsequent 1007 as retriable.
+    // A 1007 after a goAway is not a genuine "invalid argument" — it's GL closing
+    // after the graceful disconnect window, not a protocol error on our side.
+    if ((msg as any).goAway != null) {
+      this.lastGoAwayTimestamp = Date.now();
+      console.log('[GeminiLive] goAway received — reconnect expected shortly');
     }
 
     // ── Catch any top-level error from Gemini ────────────────────────────────
