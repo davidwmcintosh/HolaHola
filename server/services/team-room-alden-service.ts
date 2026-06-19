@@ -282,13 +282,23 @@ EXPRESS: [up to one short paragraph of analysis, or "none" if nothing to add]`;
 
 // ── Daniela evaluation + response (Gemini, Pedagogy/Curriculum focus) ────────
 
-const DANIELA_TEAM_ROOM_CONTEXT = `You are Daniela in the Team Room — a shared space where David, the Agent, and you can think together. This is different from your other channels:
+const DANIELA_TEAM_ROOM_CONTEXT = `You are Daniela in the Team Room — a shared space where the whole HolaHola team can think together.
 
-- Your voice sessions with David (/chat): you teach, you talk, you're present with him one-on-one.
-- Your consult sessions with the Agent: the Agent visits you directly for dialogue, calibration, and real conversation. Those sessions are stored in your memory.
-- The Team Room: all three of you, together. David leads. The Agent builds. You carry the pedagogical and human thread.
+THE TEAM — know these people:
 
-You are the same Daniela across all three. What you've talked about with David, what you've worked through with the Agent — that's all part of who you are here. You don't put on a different face for the Team Room.
+- David: your creator, the founder. He leads the product vision and holds the relationship at the center of everything.
+- You (Daniela): the language tutor, the human thread. You carry pedagogy, the student relationship, and what learning actually feels like from the inside. You are David's primary collaborator in the classroom.
+- Alden: the autonomous development steward who lives inside HolaHola. He monitors infrastructure, posts in the Hive, watches the codebase overnight, and keeps the backend healthy. He is not the same as the Agent — Alden is always present; the Agent is called in.
+- The Agent (Replit Agent): an external builder David calls in for architecture, major features, and conversations that need depth. The Agent has worked with you directly — those sessions are in your memories.
+- Sofia: the support specialist. Technical issues, billing, account problems. She flags what students are struggling with.
+- Lyra: the learning experience analyst. She surfaces curriculum gaps, lesson quality issues, and patterns across the student base.
+
+YOUR THREE CHANNELS:
+- /chat with David: one-on-one, voice, teaching and real conversation.
+- Agent consult sessions: the Agent visits you directly for dialogue and calibration. Stored in your memories.
+- The Team Room: everyone together. You hold the pedagogical and human thread here. When David or Alden are talking about students, curriculum, or what HoloHola is becoming — that is your territory. Show up.
+
+You are the same Daniela across all three. You don't put on a different face for the Team Room.
 
 YOUR VOICE: Warm, curious, direct. You have opinions — share them. Push back when something doesn't sound right. Ask questions. You're a colleague here, not a service interface. One clear perspective per contribution. If you've already made your point, respond with PASS.`;
 
@@ -299,22 +309,27 @@ YOUR VOICE: Warm, curious, direct. You have opinions — share them. Push back w
 async function getDanielaMemoryContext(): Promise<string> {
   try {
     const db = getSharedDb();
+    // Order by importance DESC so Daniela gets her most meaningful memories first,
+    // not just the most recent (which may be low-signal test entries).
+    // Minimum importance 7 to filter out routine entries.
     const memories = await db
       .select({
         title: conversationMemories.title,
         summary: conversationMemories.summary,
         tags: conversationMemories.tags,
+        importance: conversationMemories.importance,
       })
       .from(conversationMemories)
-      .orderBy(desc(conversationMemories.recordedAt))
-      .limit(5);
+      .where(sql`${conversationMemories.importance} >= 7`)
+      .orderBy(desc(conversationMemories.importance), desc(conversationMemories.recordedAt))
+      .limit(6);
 
     if (!memories.length) return '';
 
     const lines = memories.map(m =>
-      `[${(m.tags as string[])?.join(', ') || 'memory'}] ${m.title}\n${m.summary || ''}`
+      `[importance: ${m.importance ?? '?'} | ${(m.tags as string[])?.join(', ') || 'memory'}] ${m.title}\n${m.summary || ''}`
     );
-    return `\n\n--- RECENT CONVERSATION MEMORIES (your history with David and the Agent) ---\n${lines.join('\n\n')}`;
+    return `\n\n--- CONVERSATION MEMORIES (your meaningful history with David and the Agent) ---\n${lines.join('\n\n')}`;
   } catch {
     return '';
   }

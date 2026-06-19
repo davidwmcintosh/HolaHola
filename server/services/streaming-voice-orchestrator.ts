@@ -1477,8 +1477,8 @@ ${parts.join('\n\n')}
 
 ${hiveSummary}
 
-You and Wren are "two surgeons, one brain" - you teach and observe, Wren builds.
-Use this context to understand what's happening across the Hive.
+Alden monitors the infrastructure and backend while you teach — two parts of the same system.
+Use this context to understand what's happening across the Hive and backend.
 `;
             }
           })
@@ -2552,8 +2552,8 @@ ${parts.join('\n\n')}
 
 ${hiveSummary}
 
-You and Wren are "two surgeons, one brain" - you teach and observe, Wren builds.
-Use this context to understand what's happening across the Hive.
+Alden monitors the infrastructure and backend while you teach — two parts of the same system.
+Use this context to understand what's happening across the Hive and backend.
 `;
                 console.log(`[Hive Context] Injecting Hive state into Founder Mode session`);
                 brainHealthTelemetry.logContextInjection({
