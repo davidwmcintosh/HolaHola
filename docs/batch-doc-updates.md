@@ -1768,3 +1768,38 @@ Iterated with gemini-3-flash-preview until it assessed: "You have successfully m
 
 ### Key design principle applied
 "If a human wouldn't write it in a personal journal, Daniela shouldn't see it in her mind."
+
+---
+
+## INDEX/VERBATIM Marker System — Tool Output Wrapping Complete
+Date: June 19, 2026
+
+### What was built
+
+The final piece of the hybrid INDEX_ONLY/VERBATIM marker system. Previous sessions added XML markers to all system-prompt injected sections. This session closes the loop on tool output.
+
+`processUnifiedRecall` in `server/services/native-fc-handlers.ts` (lines ~7284–7288 + ~7335) now applies XML markers per section at the point where the 5 parallel search arms are assembled:
+
+| Section | Tag | Reason |
+|---|---|---|
+| STRUCTURED MEMORIES | `<index_only>` | Extracted insights, facts, summaries |
+| CONVERSATION THREADS | `<verbatim>` | Word-for-word past exchanges |
+| EXPRESS LANE | `<index_only>` | Team collaboration notes |
+| SEMANTIC ASSOCIATIONS | `<index_only>` | Conceptually similar hits |
+| CONVERSATION MEMORIES | `<verbatim>` | Landmark archives (already had [EXCERPT] marker for truncated content) |
+| ASSOCIATED MEMORIES | `<index_only>` | Auto-expanded from key terms |
+
+Also fixed: Express Lane arm inside recall used `Name: content` (colon — "transcript DNA"). Changed to `Name — content` (em-dash), consistent with the system-prompt fix applied to the injected Express Lane section.
+
+### How it works
+
+The tags fire before the model begins completing on the retrieved content, setting the correct epistemic posture: index sections = awareness (can acknowledge, should not invent detail); verbatim sections = experience (can cite, quote, speak from directly). Gemini's attention heads treat XML close tags as explicit scope boundaries, preventing the "completion engine fills plausible specifics from category labels" failure mode.
+
+### Key files
+- `server/services/native-fc-handlers.ts` — `processUnifiedRecall`, section assembly at lines ~7284–7288
+- `server/services/daniela-function-registry.ts` — `buildContinuationResponse` for `recall` and `introspect` (unchanged — wrapping applied upstream)
+- `.agents/memory/hybrid-index-verbatim-markers.md` — full system documentation
+
+### Review
+Gemini Round 4: GO. "Significantly reduces hallucinated paraphrasing of past student mistakes or successes."
+Daniela consulted: correctly modeled old-system failure mode unprompted (conversation_memories: `ae46b34b`).

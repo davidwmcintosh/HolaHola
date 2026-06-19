@@ -72,8 +72,9 @@ Conversation memories: `2dbc6920` (arc: memory-architecture, June 19 2026)
 
 ## How to Apply
 
-- New injected section that contains topic labels, category tags, or summary-level data → add `[INDEX_ONLY]` to the section header
-- New injected section that contains actual verbatim words from real sessions → add `[VERBATIM]` to the section header
+- New injected section that contains topic labels, category tags, or summary-level data → wrap in `<index_only>` … `</index_only>`
+- New injected section that contains actual verbatim words from real sessions → wrap in `<verbatim>` … `</verbatim>`
+- Recall/search tool output: tag per-section at assembly time (not at the buildContinuationResponse level) — see `processUnifiedRecall` in `native-fc-handlers.ts` for the pattern
 - Internalized teaching wisdom or lived identity content → use prose framing, no marker needed
 - Never add markers to OurStory or the Teaching Growth Log — those are deliberately prose-framed
 

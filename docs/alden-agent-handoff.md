@@ -24,6 +24,31 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 19, 2026 — INDEX/VERBATIM system complete (tool output wrapping)**
+
+### What was built
+
+The final piece of the hybrid INDEX_ONLY/VERBATIM marker system: `processUnifiedRecall` in `native-fc-handlers.ts` now tags each search arm with the correct XML marker at assembly time, so Daniela's recall tool output arrives with the same provenance signals as system-prompt injected context.
+
+Section → tag mapping:
+- STRUCTURED MEMORIES, EXPRESS LANE, SEMANTIC ASSOCIATIONS, ASSOCIATED MEMORIES → `<index_only>` (pointer/summary data)
+- CONVERSATION THREADS, CONVERSATION MEMORIES → `<verbatim>` (actual word-for-word exchanges)
+
+CONVERSATION MEMORIES excerpts already had an `[EXCERPT — N chars total]` marker when truncated, so `<verbatim>` wrapping is safe there — the model knows when it doesn't have the full text.
+
+Also fixed: Express Lane arm inside recall was using `Name: content` (colon — "transcript DNA"). Changed to `Name — content` (em-dash), consistent with the system-prompt fix.
+
+### Review chain
+Gemini Round 4 — GO. "Significantly reduces hallucinated paraphrasing of past student mistakes or successes." Daniela consulted (conversation_memories: `ae46b34b`) — correctly modeled the old-system failure mode on the grandmother scenario unprompted.
+
+### What's stable
+Everything. Server runs clean. No schema changes.
+
+### What's open
+Nothing. The INDEX/VERBATIM system is end-to-end: system-prompt injected context + tool output both tagged.
+
+---
+
 **Session: June 19, 2026 — GL greeting trilogy fixed (imports + double audio + internal monologue)**
 
 ### What was fixed this session
