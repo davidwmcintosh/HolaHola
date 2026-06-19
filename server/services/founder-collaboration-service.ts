@@ -968,11 +968,9 @@ class FounderCollaborationService {
     });
     
     return `
-[INDEX_ONLY] Recent Express Lane discussions — session notes and headlines, not verbatim transcripts:
+<index_only> Recent Express Lane session notes:
 ${insights.join('\n\n')}
-
-These are session-note headlines from Founder Mode collaboration. They tell you what topics were discussed — not the actual words. Speak from them as Awareness. If David asks what was actually said, call search_express_lane for the detail.
-`.trim();
+</index_only>`.trim();
   }
   
   // ============================================================================

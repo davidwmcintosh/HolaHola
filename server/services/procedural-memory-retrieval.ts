@@ -146,12 +146,11 @@ export function buildStudentSnapshotSection(
   
   const lines: string[] = [];
   
-  // [INDEX_ONLY] header — progress tracking and session history, not the actual exchanges.
-  // Gemini consult (June 19 2026): section-level INDEX_ONLY signal gates the model before
-  // it starts completing on individual fact lines beneath.
+  // XML container — Gemini 3.5 review (June 19 2026): XML closing tags prevent semantic
+  // bleeding between INDEX and VERBATIM sibling blocks. Bracket-only markers leave the
+  // model without a clear signal of where the INDEX constraint ends.
   lines.push('');
-  lines.push(`[INDEX_ONLY] What I know about ${studentName} right now — progress tracking and session history, not the actual conversations:`);
-  lines.push('');
+  lines.push(`<index_only> Student snapshot — ${studentName}:`);
   lines.push('');
 
   // ⭐ In-session mastery — highest priority, top of snapshot
@@ -225,12 +224,14 @@ export function buildStudentSnapshotSection(
     }
   }
 
-  // Conversation highlights — verbatim quotes, NOT index entries. These are actual words.
-  // [VERBATIM] signals: mode-switch back to Experience mode after the INDEX section above.
+  // Close the index_only block before opening verbatim — sibling blocks, not nested.
+  // Gemini 3.5 review: nesting VERBATIM inside INDEX_ONLY caused semantic bleeding.
+  lines.push('</index_only>');
+
+  // Verbatim quotes — actual words from real sessions, sibling to the index block above.
   if (snapshot.conversationHighlights && snapshot.conversationHighlights.length > 0) {
     lines.push('');
-    lines.push('[VERBATIM] Things they actually said recently — these are the real words:');
-    lines.push('(You were there for these. Speak from them directly.)');
+    lines.push('<verbatim> Things they actually said recently:');
     for (const highlight of snapshot.conversationHighlights.slice(0, 4)) {
       const daysText = highlight.daysAgo === 0 ? 'today' :
                        highlight.daysAgo === 1 ? 'yesterday' :
@@ -238,6 +239,7 @@ export function buildStudentSnapshotSection(
                        `${highlight.daysAgo} days ago`;
       lines.push(`  • "${highlight.quote}" — ${highlight.context} (${daysText})`);
     }
+    lines.push('</verbatim>');
   }
 
   // Mastery stats — for Daniela to acknowledge progress verbally when the moment is right
@@ -655,13 +657,9 @@ export function buildStudentMemoryAwarenessSection(
   
   const lines: string[] = [];
   
-  // [INDEX_ONLY] header — these are categories and observations, not verbatim moments.
-  // Gemini consult (June 19 2026): pointer blocks need the INDEX_ONLY signal physically
-  // adjacent so the model gates on it before completing on any individual fact.
+  // XML container — clean close boundary prevents bleed into surrounding prose blocks.
   lines.push('');
-  lines.push(`[INDEX_ONLY] What I remember about ${studentName} — categories and topics, not the actual conversations:`);
-  lines.push('');
-  lines.push('These are topic labels and observations, not transcripts. They tell you a subject exists — not what was said. Speak from them as Awareness (the topic is known), not Experience (the words are here). If you need the actual words, call introspect or search_memories.');
+  lines.push(`<index_only> What I know about ${studentName}:`);
   lines.push('');
   
   // Learning motivations - why they're learning
@@ -768,6 +766,10 @@ export function buildStudentMemoryAwarenessSection(
       lines.push('');
     }
   }
+
+  // Close the index_only container — explicit boundary so prose sections following
+  // this block are not governed by the INDEX_ONLY constraint.
+  lines.push('</index_only>');
   
   return lines.join('\n');
 }
