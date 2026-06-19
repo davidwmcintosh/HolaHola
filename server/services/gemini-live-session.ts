@@ -692,6 +692,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.currentChunkIndex = 0;
     this.firstAudioSentThisTurn = false;
     this.processingPendingSentThisTurn = false;
+    // DOUBLE-AUDIO FIX: Clear suppress flag on interrupt so a stale reconnect-era flag
+    // doesn't carry into the next turn if GL never generated audio after the reconnect.
+    this.suppressNextProcessingPending = false;
     console.log(`[GeminiLive] Interrupted — advancing to turnId ${this.currentTurnId}`);
   }
 
@@ -1807,6 +1810,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.pendingInputSaved = false;
     this.firstAudioSentThisTurn = false;
     this.processingPendingSentThisTurn = false;
+    // DOUBLE-AUDIO FIX: Clear suppress flag at turn complete so a stale reconnect-era
+    // flag never carries into the next turn if GL never generated audio post-reconnect.
+    this.suppressNextProcessingPending = false;
     this.session.currentTurnId = ++this.currentTurnId;
 
     // Send response_complete AFTER DB writes so the client's cache invalidation
