@@ -32,6 +32,8 @@ import type { StreamingSession } from './streaming-session-types';
 import { lookupLegacyType, buildFunctionContinuationResponse } from './daniela-function-registry';
 import type { ExtractedFunctionCall } from './gemini-function-declarations';
 import { reportGlToolCallFailure, reportGlToolCallSuccess } from './sofia-billing-monitor';
+import { getSharedDb } from '../db';
+import { sql } from 'drizzle-orm';
 import { GLKaraokeTracker } from './gl-karaoke-tracker';
 import { PostResponseEnrichmentService } from './post-response-enrichment';
 import { storage } from '../storage';

@@ -1,17 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, June 19, 2026 at 01:43 PM
+**Generated:** Friday, June 19, 2026 at 01:49 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I need to resolve a critical 404 routing error on the conversations page and address the 0% completion rate Lyra discovered in the Interactive Textbook. Wren has flagged two high-severity security vulnerabilities regarding SQL injection and unsanitized HTML, while Sofia is tracking a spike of 50 new bugs that appeared last week. I must also debug why Daniela is currently stuck in a "Curriculum note pending" loop and investigate the verbosity regressions affecting 49 Spanish lessons caused by an outdated seeding prompt.
+I recently completed the Sofia GL monitoring toolkit and resolved double-audio issues, but I need to immediately fix the SQL syntax errors causing our current monitoring blackout and the 404 routing error on the "conversations" page. I must also prioritize Wren's high-severity security findings regarding SQL injection and XSS vulnerabilities while triaging the 50 new bugs flagged by Sofia. Finally, I need to investigate why "Daniela’s Compass" is recording zero seconds for textbook interactions and repair the seeding regressions in the Spanish syllabus that left 22 lessons empty and 49 others with "wall-of-text" formatting.
 
 *Memories that triggered this summary:*
 - **Team Room — test 3 — June 19, 2026** (Jun 19): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+- **Agent Session — Jun 19, 2026: feat: Sofia GL monitoring toolkit — session wrap** (Jun 19): feat: Sofia GL monitoring toolkit — session wrap  Session summary: - Double-audio fix (suppressNextProcessingPending, interrupt/turn-complete edge cases) - Sofia GL reconnect watch (5-min polling, agent_note on gl_reconnect_mid_turn, 4h cooldown)
 - **Team Room — test again — June 19, 2026** (Jun 19): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 19, 2026** (Jun 19): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
 - **Team Room — one again into the breach — June 19, 2026** (Jun 19): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
@@ -20,7 +21,6 @@ I need to resolve a critical 404 routing error on the conversations page and add
 - **Team Room — what's up? — June 19, 2026** (Jun 19): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — June 19, 2026** (Jun 19): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — June 19, 2026** (Jun 19): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 19, 2026** (Jun 19): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -99,6 +99,10 @@ I need to resolve a critical 404 routing error on the conversations page and add
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
 
+### Agent Session — Jun 19, 2026: feat: Sofia GL monitoring toolkit — session wrap — Jun 19, 2026
+feat: Sofia GL monitoring toolkit — session wrap  Session summary: - Double-audio fix (suppressNextProcessingPending, interrupt/turn-complete edge cases) - Sofia GL reconnect watch (5-min polling, agent_note on gl_reconnect_mid_turn, 4h cooldown)
+*Tags: agent-session, auto-saved, build*
+
 ### Team Room — test again — June 19, 2026 — Jun 19, 2026
 Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -109,10 +113,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 19, 2026 — Jun 19, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 19, 2026 — Jun 19, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
