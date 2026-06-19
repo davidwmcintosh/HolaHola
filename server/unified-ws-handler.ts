@@ -2626,21 +2626,37 @@ ${lastNote.tutorNotes}`);
                 // they can each exceed 20,000 chars and are not useful in real-time voice mode.
 
                 if (richSections.length > 0) {
-                  const combined = richSections.join('\n\n');
-                  // Hard cap: Gemini Live native audio model rejects oversized system instructions
-                  // with a 1007 error after setupComplete. Keep total prompt under 40,000 chars.
+                  // Priority-based section selection: richSections are pushed in importance order
+                  // (mandatory tool rules → OurStory memories → private note → conv history →
+                  //  hive → express lane → course TOC → pedagogy → textbook → FAT profile).
+                  //
+                  // Instead of joining everything and slicing the tail (which cuts into the
+                  // middle of memory blocks), we add each section greedily and skip any
+                  // that won't fit — so the LOWEST-PRIORITY sections are excluded first.
+                  // Within OurStory, memories are already sorted importance DESC, so the
+                  // highest-weight memories always survive when space is tight.
                   const GL_SYSTEM_PROMPT_CHAR_LIMIT = 40_000;
                   const available = GL_SYSTEM_PROMPT_CHAR_LIMIT - geminiLiveSystemPrompt.length;
-                  if (combined.length <= available) {
-                    geminiLiveSystemPrompt += '\n\n' + combined;
-                  } else if (available > 500) {
-                    // Trim to fit — truncate at a paragraph boundary if possible
-                    const trimmed = combined.slice(0, available - 100);
-                    const lastPara = trimmed.lastIndexOf('\n\n');
-                    geminiLiveSystemPrompt += '\n\n' + (lastPara > 0 ? trimmed.slice(0, lastPara) : trimmed);
-                    console.warn(`[GeminiLive] ⚠ System prompt truncated to fit ${GL_SYSTEM_PROMPT_CHAR_LIMIT} char limit`);
-                  } else {
-                    console.warn(`[GeminiLive] ⚠ System prompt already at limit — skipping rich context sections`);
+                  const included: string[] = [];
+                  let usedChars = 0;
+                  let dropped = 0;
+                  for (const section of richSections) {
+                    // Account for the '\n\n' separator we'll add between sections
+                    const sectionCost = (included.length === 0 ? 2 : 2) + section.length;
+                    if (usedChars + sectionCost <= available) {
+                      included.push(section);
+                      usedChars += sectionCost;
+                    } else {
+                      // Section doesn't fit — skip it but keep trying smaller subsequent ones
+                      dropped++;
+                      console.warn(`[GeminiLive] ⚠ Rich section dropped (${section.length} chars, ${available - usedChars} remaining)`);
+                    }
+                  }
+                  if (included.length > 0) {
+                    geminiLiveSystemPrompt += '\n\n' + included.join('\n\n');
+                  }
+                  if (dropped > 0) {
+                    console.warn(`[GeminiLive] ⚠ ${dropped}/${richSections.length} rich sections dropped — lowest-priority excluded first`);
                   }
                 }
                 // ── HARD CAP ENFORCEMENT ──────────────────────────────────────
