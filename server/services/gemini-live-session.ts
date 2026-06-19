@@ -784,7 +784,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         turns: [{ role: 'user', parts: [{ text: trigger }] }],
         turnComplete: true,
       });
-      this.liveSession.sendRealtimeInput({ activityEnd: {} });
+      // NOTE: activityEnd intentionally NOT sent here — same reasoning as setupComplete path.
+      // sendClientContent with turnComplete:true already ends the turn. Sending activityEnd
+      // after creates a SECOND turn-end signal and causes GL to generate a duplicate response.
       this.greetingPhaseActive = true;
       // Safety: if greeting produces no audio (content filter / text-only / error),
       // greetingPhaseActive would never be cleared and the mic stays permanently blocked.
@@ -797,7 +799,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           console.warn('[GeminiLive] Greeting watchdog fired — greetingPhaseActive cleared (no audio in 15s)');
         }
       }, 15000);
-      console.log(`[GeminiLive] Greeting trigger sent (resumed: ${isResumed || false}) — silence primer + activityEnd, mic gated`);
+      console.log(`[GeminiLive] Greeting trigger sent (resumed: ${isResumed || false}) — silence primer + text turn, mic gated`);
     } catch (err) {
       console.warn('[GeminiLive] Failed to send greeting trigger:', err);
     }
