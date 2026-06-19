@@ -212,6 +212,7 @@ type StreamingEventType =
   | 'openMicSessionClosed' // Open mic: Server session closed (e.g., Deepgram timeout)
   | 'openMicSilenceLoop'  // Open mic: Consecutive empty transcripts detected
   | 'reconnected'         // Successfully reconnected after a drop
+  | 'glAudioReset'        // GL mid-turn reconnect — client must stop() + resetForNewTurn()
   | 'proactive_reconnect' // Intentional 4.5-min WS cycle before Replit proxy 5-min kill
   | 'inputModeChanged'   // Input mode switched
   | 'responseComplete'
