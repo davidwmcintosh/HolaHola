@@ -31,7 +31,7 @@ import { NativeFunctionCallHandler } from './native-fc-handlers';
 import type { StreamingSession } from './streaming-session-types';
 import { lookupLegacyType, buildFunctionContinuationResponse } from './daniela-function-registry';
 import type { ExtractedFunctionCall } from './gemini-function-declarations';
-import { reportGlToolCallFailure } from './sofia-billing-monitor';
+import { reportGlToolCallFailure, reportGlToolCallSuccess } from './sofia-billing-monitor';
 import { GLKaraokeTracker } from './gl-karaoke-tracker';
 import { PostResponseEnrichmentService } from './post-response-enrichment';
 import { storage } from '../storage';
@@ -139,6 +139,7 @@ export class GeminiLiveSession {
   private karaokeTracker: GLKaraokeTracker | null = null;
   private hadAudioInCurrentSubturn = false;
   private firstAudioSentThisTurn = false;   // Guard: don't send processing_pending AFTER audio already started
+  private sessionStartedAt = 0;             // Wall-clock ms when start() was called (for establishment latency)
   private processingPendingSentThisTurn = false; // Guard: send processing_pending exactly once per conversation turn
   private isStopped = false;
   private isStarted = false;
@@ -282,6 +283,7 @@ export class GeminiLiveSession {
       return;
     }
     this.isStarted = true;
+    this.sessionStartedAt = Date.now();
     // Store for use by auto-reconnect
     this.lastSystemPrompt = systemPrompt;
     this.lastTools = tools;
@@ -902,7 +904,28 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     if ((msg as any).setupComplete != null) {
       if (!this.isSetupComplete) {
         this.isSetupComplete = true;
-        console.log('[GeminiLive] setupComplete received — model ready');
+        const establishMs = this.sessionStartedAt > 0 ? Date.now() - this.sessionStartedAt : null;
+        console.log(`[GeminiLive] setupComplete received — model ready${establishMs !== null ? ` (${establishMs}ms to establish)` : ''}`);
+        // Telemetry: GL session establishment latency (start() → setupComplete)
+        if (establishMs !== null) {
+          const estPayload = JSON.stringify({
+            establishMs,
+            sessionId: this.session.id,
+            userId: this.session.userId ? String(this.session.userId) : undefined,
+          });
+          getSharedDb().execute(sql`
+            INSERT INTO voice_pipeline_events
+              (id, session_id, user_id, event_type, event_data, created_at)
+            VALUES (
+              gen_random_uuid(),
+              ${this.session.id},
+              ${this.session.userId ? String(this.session.userId) : null},
+              'gl_session_established',
+              ${estPayload}::jsonb,
+              NOW()
+            )
+          `).catch(() => {});
+        }
         if (this.pendingGreetingTrigger && this.liveSession) {
           try {
             // Prime audio context — required on gemini-3.1-flash-live-preview.
@@ -1389,6 +1412,25 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     // We close the open audio sub-turn and flush whatever partial transcript we have so
     // the truncated assistant message is saved cleanly before the next user turn begins.
     if ((msg.serverContent as any)?.interrupted) {
+      // Telemetry: barge-in event so Sofia can track interruption frequency
+      const bargePayload = JSON.stringify({
+        sessionId: this.session.id,
+        userId: this.session.userId ? String(this.session.userId) : undefined,
+        tutorWasGenerating: this.isTutorGeneratingAudio,
+      });
+      getSharedDb().execute(sql`
+        INSERT INTO voice_pipeline_events
+          (id, session_id, user_id, event_type, event_data, created_at)
+        VALUES (
+          gen_random_uuid(),
+          ${this.session.id},
+          ${this.session.userId ? String(this.session.userId) : null},
+          'gl_barge_in',
+          ${bargePayload}::jsonb,
+          NOW()
+        )
+      `).catch(() => {});
+
       // Barge-in: cancel the playback gate safety timeout and open the mic immediately.
       // The student started speaking, so audio has effectively stopped — no more echo risk.
       if (this.playbackGateSafetyTimeout) {
@@ -1548,6 +1590,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               console.log(`[GeminiLive] Tool ${fcName}: returning ${text.length} chars of result data`);
             }
           }
+        // Telemetry: record successful tool dispatch so Sofia can compute success rates
+        reportGlToolCallSuccess({
+          toolName: fcName,
+          sessionId: this.session.id,
+          userId: this.session.userId,
+        }).catch(() => {});
+
         } catch (err) {
           const errMsg = (err as Error).message || String(err);
           console.error(`[GeminiLive] Tool call failed (${fcName}):`, err);

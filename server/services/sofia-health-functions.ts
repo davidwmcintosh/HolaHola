@@ -233,7 +233,7 @@ export const SOFIA_HEALTH_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
   },
   {
     name: "get_gl_health",
-    description: "Comprehensive Gemini Live voice pipeline health dashboard. Aggregates all GL-specific telemetry from the live chat area: turn latency percentiles (p50/p90/p99), tool call success rate and failures by tool name, silent turn count (tutor no-response), mid-turn reconnect count (gl_reconnect_mid_turn — the double-audio risk path), and overall GL error rate. Use this as your first call when investigating any voice quality issue.",
+    description: "Comprehensive Gemini Live voice pipeline health dashboard. Aggregates all GL-specific telemetry from the live chat area: turn latency percentiles (p50/p90/p99), tool call success rate and per-tool failure breakdown, silent turn count (tutor no-response), mid-turn reconnect count (double-audio risk path), session establishment latency (start() → setupComplete), and barge-in frequency (student interruptions). Use this as your first call when investigating any voice quality issue.",
     parametersJsonSchema: {
       type: "object",
       properties: {
@@ -765,7 +765,7 @@ export async function executeSofiaTool(
       const minutes = Math.min(args.minutes || 60, 720);
       const since = new Date(Date.now() - minutes * 60 * 1000);
 
-      const [latencyRows, toolRows, reconnectRows, silentRows, midTurnRows] = await Promise.all([
+      const [latencyRows, toolFailureRows, toolSuccessRows, reconnectRows, silentRows, midTurnRows, establishRows, bargeRows] = await Promise.all([
         // Turn latency percentiles
         sharedDb.execute(sql`
           SELECT
@@ -792,6 +792,13 @@ export async function executeSofiaTool(
           ORDER BY failure_count DESC
           LIMIT 10
         `),
+        // Tool call successes — total count for success rate denominator
+        sharedDb.execute(sql`
+          SELECT COUNT(*)::int AS count
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_tool_success'
+            AND created_at >= ${since.toISOString()}
+        `),
         // Abnormal reconnects (WS drops during session)
         sharedDb.execute(sql`
           SELECT COUNT(*)::int AS count
@@ -816,6 +823,27 @@ export async function executeSofiaTool(
           WHERE event_type = 'gl_reconnect_mid_turn'
             AND created_at >= ${since.toISOString()}
         `),
+        // Session establishment latency (start() → setupComplete)
+        sharedDb.execute(sql`
+          SELECT
+            COUNT(*)::int AS session_count,
+            PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY (event_data->>'establishMs')::float)::int AS p50_ms,
+            PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY (event_data->>'establishMs')::float)::int AS p90_ms,
+            AVG((event_data->>'establishMs')::float)::int AS avg_ms,
+            MAX((event_data->>'establishMs')::float)::int AS max_ms
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_session_established'
+            AND created_at >= ${since.toISOString()}
+        `),
+        // Barge-in count — student interruptions of Daniela mid-speech
+        sharedDb.execute(sql`
+          SELECT
+            COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE (event_data->>'tutorWasGenerating')::boolean = true)::int AS while_generating
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_barge_in'
+            AND created_at >= ${since.toISOString()}
+        `),
       ]);
 
       const lat = (latencyRows.rows[0] || {}) as any;
@@ -823,15 +851,23 @@ export async function executeSofiaTool(
       const silent = Number((silentRows.rows[0] as any)?.count ?? 0);
       const midTurn = (midTurnRows.rows[0] || {}) as any;
       const midTurnCount = Number(midTurn?.count ?? 0);
-      const toolFailures = toolRows.rows as any[];
+      const toolFailures = toolFailureRows.rows as any[];
       const totalToolFailures = toolFailures.reduce((s, r) => s + Number(r.failure_count), 0);
+      const totalToolSuccesses = Number((toolSuccessRows.rows[0] as any)?.count ?? 0);
+      const totalToolCalls = totalToolSuccesses + totalToolFailures;
+      const toolSuccessRate = totalToolCalls > 0
+        ? Math.round((totalToolSuccesses / totalToolCalls) * 100)
+        : null;
+      const estRow = (establishRows.rows[0] || {}) as any;
+      const bargeRow = (bargeRows.rows[0] || {}) as any;
 
       // Compute a simple GL health score
       const turnCount = Number(lat.turn_count ?? 0);
       const p90 = Number(lat.p90_ms ?? 0);
+      const estP90 = Number(estRow.p90_ms ?? 0);
       let status = 'green';
-      if (reconnects > 5 || silent > 3 || p90 > 8000 || totalToolFailures > 10) status = 'red';
-      else if (reconnects > 2 || silent > 1 || p90 > 5000 || totalToolFailures > 3 || midTurnCount > 0) status = 'yellow';
+      if (reconnects > 5 || silent > 3 || p90 > 8000 || totalToolFailures > 10 || estP90 > 10000) status = 'red';
+      else if (reconnects > 2 || silent > 1 || p90 > 5000 || totalToolFailures > 3 || midTurnCount > 0 || (toolSuccessRate !== null && toolSuccessRate < 90) || estP90 > 6000) status = 'yellow';
 
       return {
         success: true,
@@ -846,13 +882,29 @@ export async function executeSofiaTool(
             avgMs: Number(lat.avg_ms ?? 0),
             maxMs: Number(lat.max_ms ?? 0),
           },
-          toolFailures: {
-            total: totalToolFailures,
-            byTool: toolFailures.map(r => ({
+          tools: {
+            totalCalls: totalToolCalls,
+            successes: totalToolSuccesses,
+            failures: totalToolFailures,
+            successRatePct: toolSuccessRate,
+            byFailedTool: toolFailures.map(r => ({
               toolName: r.tool_name ?? 'unknown',
               count: Number(r.failure_count),
               lastSeen: r.last_seen,
             })),
+          },
+          sessionEstablishment: Number(estRow.session_count ?? 0) === 0 ? null : {
+            sessionCount: Number(estRow.session_count),
+            p50Ms: Number(estRow.p50_ms ?? 0),
+            p90Ms: Number(estRow.p90_ms ?? 0),
+            avgMs: Number(estRow.avg_ms ?? 0),
+            maxMs: Number(estRow.max_ms ?? 0),
+            note: estP90 > 6000 ? 'Slow GL handshake (>6s p90) — may make first turns feel sluggish.' : 'Establishment latency nominal.',
+          },
+          bargeIns: {
+            total: Number(bargeRow.total ?? 0),
+            whileGenerating: Number(bargeRow.while_generating ?? 0),
+            note: 'whileGenerating = student spoke while Daniela was mid-speech (true barge-in vs early tap).',
           },
           sessionDrops: {
             abnormalDisconnects: reconnects,

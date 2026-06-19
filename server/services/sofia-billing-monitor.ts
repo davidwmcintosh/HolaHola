@@ -202,6 +202,40 @@ export async function reportGlToolCallFailure(opts: {
 }
 
 /**
+ * Record a successful GL tool call dispatch. Paired with reportGlToolCallFailure so
+ * Sofia can compute real success rates rather than just seeing raw failure counts.
+ */
+export async function reportGlToolCallSuccess(opts: {
+  toolName: string;
+  sessionId?: string;
+  userId?: string | number;
+  durationMs?: number;
+}): Promise<void> {
+  const { toolName, sessionId, userId, durationMs } = opts;
+  const { getSharedDb } = await import('../db');
+  const { sql } = await import('drizzle-orm');
+  const sharedDb = getSharedDb();
+  const payload = JSON.stringify({
+    toolName,
+    sessionId: sessionId ? sessionId.substring(0, 36) : undefined,
+    userId: userId ? String(userId) : undefined,
+    durationMs: durationMs ?? null,
+  });
+  await sharedDb.execute(sql`
+    INSERT INTO voice_pipeline_events
+      (id, session_id, user_id, event_type, event_data, created_at)
+    VALUES (
+      gen_random_uuid(),
+      ${sessionId ?? null},
+      ${userId ? String(userId) : null},
+      'gl_tool_success',
+      ${payload}::jsonb,
+      NOW()
+    )
+  `).catch(() => {});
+}
+
+/**
  * FLARE — called when a voice session WS closes abnormally (non-1000 code) AND the
  * session had real student activity.  This is the "chat connection died" signal.
  * Triggers an immediate Sofia monitoring check rather than waiting up to 5 minutes.
