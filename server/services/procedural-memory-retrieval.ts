@@ -146,9 +146,11 @@ export function buildStudentSnapshotSection(
   
   const lines: string[] = [];
   
-  // No ═══ dividers, no all-caps "STUDENT SNAPSHOT:" label. (Gemini consult rec.)
+  // [INDEX_ONLY] header — progress tracking and session history, not the actual exchanges.
+  // Gemini consult (June 19 2026): section-level INDEX_ONLY signal gates the model before
+  // it starts completing on individual fact lines beneath.
   lines.push('');
-  lines.push(`What I know about ${studentName} right now:`);
+  lines.push(`[INDEX_ONLY] What I know about ${studentName} right now — progress tracking and session history, not the actual conversations:`);
   lines.push('');
   lines.push('');
 
@@ -223,11 +225,12 @@ export function buildStudentSnapshotSection(
     }
   }
 
-  // Conversation highlights - memorable moments from recent sessions
+  // Conversation highlights — verbatim quotes, NOT index entries. These are actual words.
+  // [VERBATIM] signals: mode-switch back to Experience mode after the INDEX section above.
   if (snapshot.conversationHighlights && snapshot.conversationHighlights.length > 0) {
     lines.push('');
-    lines.push('RECENT CONVERSATION HIGHLIGHTS:');
-    lines.push('(Things they shared that you naturally remember)');
+    lines.push('[VERBATIM] Things they actually said recently — these are the real words:');
+    lines.push('(You were there for these. Speak from them directly.)');
     for (const highlight of snapshot.conversationHighlights.slice(0, 4)) {
       const daysText = highlight.daysAgo === 0 ? 'today' :
                        highlight.daysAgo === 1 ? 'yesterday' :
@@ -652,11 +655,13 @@ export function buildStudentMemoryAwarenessSection(
   
   const lines: string[] = [];
   
-  // No ═══ dividers, no all-caps "YOUR MEMORIES OF" label. (Gemini consult rec.)
+  // [INDEX_ONLY] header — these are categories and observations, not verbatim moments.
+  // Gemini consult (June 19 2026): pointer blocks need the INDEX_ONLY signal physically
+  // adjacent so the model gates on it before completing on any individual fact.
   lines.push('');
-  lines.push(`What I remember about ${studentName}:`);
+  lines.push(`[INDEX_ONLY] What I remember about ${studentName} — categories and topics, not the actual conversations:`);
   lines.push('');
-  lines.push('Let these inform your teaching naturally, without explicitly announcing them.');
+  lines.push('These are topic labels and observations, not transcripts. They tell you a subject exists — not what was said. Speak from them as Awareness (the topic is known), not Experience (the words are here). If you need the actual words, call introspect or search_memories.');
   lines.push('');
   
   // Learning motivations - why they're learning
