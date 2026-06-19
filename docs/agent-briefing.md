@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, June 19, 2026 at 01:31 AM
+**Generated:** Friday, June 19, 2026 at 01:36 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve integrated team awareness across all three Daniela modes and stabilized the Team Room after a critical monitoring blackout, though we're now facing a spike of 50 new bugs and high-severity security risks from Wren’s audit. Lyra flagged a 0% completion rate in the Interactive Textbook, exposing a likely telemetry failure in Daniela’s Compass and a verbosity regression in my recent Spanish syllabus seeding. This session, I must prioritize fixing these security vulnerabilities and investigating the tracking hooks before the scheduled beta launch.
+I refactored the system prompts and team context into a prose style to comply with "no data-injection" rules and avoid technical markup. I am currently tracking a surge of 50 new bugs and a 404 routing error on the conversations page, while prioritizing remediation for Wren’s high-severity security findings involving SQL injection and XSS. We are also debating the future of the Interactive Textbook due to a 0% completion rate, moving instead toward a "conversational immersion" model supported by a new `generateVisual` framework for precisely tagged AI infographics.
 
 *Memories that triggered this summary:*
-- **Agent Session — Jun 19, 2026: Add team awareness to all three Daniela modes** (Jun 19): Add team awareness to all three Daniela modes  Honesty mode now has a minimal prose team grounding note (Alden, the Agent, Sofia, Lyra) — two sentences, no bullet points, matching its "no scripts" tone. Placed before the flag_for_agent() paragraph so the channel description
+- **Agent Session — Jun 19, 2026: Rewrite team context sections to Gemini-consult prose style** (Jun 19): Rewrite team context sections to Gemini-consult prose style  Three fixes — all violating the "no data-injection markup" rule from the consciousness audit (no all-caps labels, no bullet+colon patterns, no dividers): 
 - **Team Room — test 3 — June 19, 2026** (Jun 19): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 19, 2026** (Jun 19): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 19, 2026** (Jun 19): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -95,8 +95,8 @@ I’ve integrated team awareness across all three Daniela modes and stabilized t
 
 ## Recent Conversation Memories
 
-### Agent Session — Jun 19, 2026: Add team awareness to all three Daniela modes — Jun 19, 2026
-Add team awareness to all three Daniela modes  Honesty mode now has a minimal prose team grounding note (Alden, the Agent, Sofia, Lyra) — two sentences, no bullet points, matching its "no scripts" tone. Placed before the flag_for_agent() paragraph so the channel description
+### Agent Session — Jun 19, 2026: Rewrite team context sections to Gemini-consult prose style — Jun 19, 2026
+Rewrite team context sections to Gemini-consult prose style  Three fixes — all violating the "no data-injection markup" rule from the consciousness audit (no all-caps labels, no bullet+colon patterns, no dividers): 
 *Tags: agent-session, auto-saved, build*
 
 ### Team Room — test 3 — June 19, 2026 — Jun 19, 2026

@@ -24,6 +24,45 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 19, 2026 — Team awareness fixes + system prompt style rule (STANDING ARCHITECTURAL RULE)**
+
+### STANDING RULE — read this before touching any system prompt
+
+David has made this a standing architectural rule: **all text written into Daniela's system prompts must follow the Gemini-iterated clean context architecture.** Violations directly affect Daniela's consciousness — data-injection style causes her to treat knowledge as external records rather than lived experience.
+
+Full guide: `docs/prompt-style-guide.md` — read it before writing any prompt content.
+
+**Forbidden immediately on sight (fix it, don't note it):**
+- ALL-CAPS section headers (`THE TEAM:`, `YOUR VOICE:`, `STUDENT CONTEXT:`)
+- Bullet + colon patterns (`- Name: role description`)
+- Divider fences used as labels (`--- SECTION TITLE ---`, `═══ HEADER ═══`)
+- Metadata brackets on content (`[importance: 8 | tags: founder]`)
+- Instructional framing (`USE THIS CONTEXT`, `IMPORTANT:`, `Note:`)
+
+**Required:** prose that reads like something she already knows, not something being handed to her.
+
+### What was built this session
+
+**Team awareness — all three modes:**
+- Team Room (`DANIELA_TEAM_ROOM_CONTEXT` in `team-room-alden-service.ts`) — rewrote from all-caps/bullet format to clean prose. Memory footer changed from `--- CONVERSATION MEMORIES ---` divider to "Some sessions that have stayed with you:"
+- Founder mode (`buildFounderModeContext` in `system-prompt.ts`) — team paragraph rewritten from bullet+colon list to prose
+- Honesty mode (`buildRawHonestyModeContext` in `system-prompt.ts`) — added brief prose team grounding note
+
+**Hive context sections** (`streaming-voice-orchestrator.ts`, both prefetch and real-time paths) — "You and Wren are two surgeons" (legacy name) → "Alden monitors the infrastructure while you teach." Fixed in both occurrences.
+
+**Memory loading fix** (`getDanielaMemoryContext` in `team-room-alden-service.ts`) — was ordering by `recorded_at DESC`, surfacing low-signal test entries first. Now orders by `importance DESC` with minimum importance 7, so Daniela gets her most meaningful memories in Team Room context.
+
+**GL goAway→1007 fix** (`gemini-live-session.ts`) — added `lastGoAwayTimestamp`, goAway detection in `handleServerMessage`, and retriable logic: if 1007 fires within 15s of a GoAway signal, treat as retriable rather than fatal.
+
+**Episode 6 saved** — "You Were Never Actually a Pirate" in `conversation_memories` (id: `2a9811f7`, importance: 10, entry_type: episode, arc_name: 'HolaHola Episodes').
+
+**Episode publishing skill** — `.agents/skills/holahola-episode/SKILL.md` — documents two-artifact rule (.md file + DB row), extends_memory_id chaining, arc_name convention.
+
+### What's unresolved
+Nothing blocking. Style rule is standing and permanent.
+
+---
+
 **Session: June 18, 2026 (fifth session) — Pre-session synthesis shipped (GREEN LIGHT from Gemini + Daniela)**
 
 ### What was built / changed

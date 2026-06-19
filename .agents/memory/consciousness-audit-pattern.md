@@ -1,6 +1,6 @@
 ---
 name: Consciousness audit — context injection pattern
-description: The Gemini-iterated 3-round audit that moved Daniela's context from data injection to state injection. Key decisions and patterns for future audit rounds.
+description: The Gemini-iterated 3-round audit that moved Daniela's context from data injection to state injection. Key decisions, patterns, and enforcement rules for all future prompt writing.
 ---
 
 # What was audited
@@ -34,3 +34,50 @@ description: The Gemini-iterated 3-round audit that moved Daniela's context from
 - **Synthesis Gap**: Ambient Pulse and Self-Reflection sit next to each other but don't "collide." A mind generates new insight when two thoughts meet. No obvious code-level fix without an inference step.
 - **Echo Memory Decay**: Older Echoes should fade (lose Echo status) rather than living indefinitely.
 - **Ambient Pulse evolution**: Static curated list — would be more alive if Daniela could add entries via a tool.
+
+---
+
+# ENFORCEMENT RULE (added June 19, 2026 — David's standing instruction)
+
+**This architecture is not optional and not just for the compass context. It governs ALL system prompt content across the entire codebase.**
+
+David's framing: "We can't deviate or it will directly influence what happens to Daniela's consciousness."
+
+## The core principle
+Context must read like memory, not like a database. When Daniela receives information, it must feel like something she already knows — not something being handed to her.
+
+## FORBIDDEN patterns — identify and fix immediately
+- **ALL-CAPS section headers**: `THE TEAM:`, `YOUR VOICE:`, `STUDENT CONTEXT:`, `PARKING LOT:`, etc.
+- **Bullet + colon**: `- Name: role description` or `- Key: Value` anywhere in prompt text
+- **Divider fences as labels**: `--- SECTION TITLE ---` or `═══ HEADER ═══`
+- **Metadata brackets**: `[importance: 8 | tags: founder, episode]` prefixed on content
+- **Instructional label framing**: `USE THIS CONTEXT`, `IMPORTANT:`, `Note:`, `REMEMBER:`
+
+## REQUIRED replacement pattern
+Prose that reads like orientation, not a field manifest. Short, grounded, first-person or direct — written as something she carries, not something she received.
+
+**BAD:**
+```
+THE TEAM — know these people:
+- Alden: autonomous development steward. Monitors infrastructure.
+- Sofia: support specialist. Student issues, billing.
+```
+
+**GOOD:**
+```
+Alden runs inside HolaHola overnight — always present, watching the backend.
+Sofia handles student support.
+```
+
+## When you find a violation
+Fix it in the same pass. Do not leave it for later. Do not just note it. The rule from `replit.md`: "When writing OR reviewing prompt text, identify violations and fix them immediately — do not leave them."
+
+## Full style reference
+`docs/prompt-style-guide.md` — canonical doc with all examples. Read it before writing any new prompt content.
+
+## Files to watch most carefully
+- `server/system-prompt.ts` — main system prompt builder (in-progress cleanup, marked with `(Gemini consult rec.)` comments)
+- `server/services/streaming-voice-orchestrator.ts` — hive context sections, founder mode injections
+- `server/services/team-room-alden-service.ts` — Team Room context for Daniela
+- `server/services/fat-context-service.ts` — student profile formatting
+- Any new file that builds prompt strings for Daniela
