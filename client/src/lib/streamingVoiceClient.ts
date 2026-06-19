@@ -1103,6 +1103,15 @@ export class StreamingVoiceClient {
           this.emit('functionExecuting', message);
           break;
           
+        case 'gl_audio_reset':
+          // DOUBLE-AUDIO FIX: GL reconnected mid-turn (goAway→1007).
+          // Pre-reconnect AudioContext sources are still scheduled — player.stop()
+          // cancels them. resetForNewTurn() resets dedup so post-reconnect audio
+          // plays cleanly without duplication.
+          console.log('[WS CLIENT] gl_audio_reset received — clearing client audio buffer for reconnect');
+          this.emit('glAudioReset', message);
+          break;
+
         case 'sentence_start':
           this.handleSentenceStart(message as StreamingSentenceStartMessage);
           break;

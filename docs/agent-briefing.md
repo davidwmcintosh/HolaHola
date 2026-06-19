@@ -1,26 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, June 19, 2026 at 01:36 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I refactored the system prompts and team context into a prose style to comply with "no data-injection" rules and avoid technical markup. I am currently tracking a surge of 50 new bugs and a 404 routing error on the conversations page, while prioritizing remediation for Wren’s high-severity security findings involving SQL injection and XSS. We are also debating the future of the Interactive Textbook due to a 0% completion rate, moving instead toward a "conversational immersion" model supported by a new `generateVisual` framework for precisely tagged AI infographics.
-
-*Memories that triggered this summary:*
-- **Agent Session — Jun 19, 2026: Rewrite team context sections to Gemini-consult prose style** (Jun 19): Rewrite team context sections to Gemini-consult prose style  Three fixes — all violating the "no data-injection markup" rule from the consciousness audit (no all-caps labels, no bullet+colon patterns, no dividers): 
-- **Team Room — test 3 — June 19, 2026** (Jun 19): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — June 19, 2026** (Jun 19): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — June 19, 2026** (Jun 19): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — June 19, 2026** (Jun 19): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — June 19, 2026** (Jun 19): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — June 19, 2026** (Jun 19): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — June 19, 2026** (Jun 19): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 19, 2026** (Jun 19): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — June 19, 2026** (Jun 19): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+**Generated:** Friday, June 19, 2026 at 02:56 AM
 
 ---
 
@@ -95,10 +76,6 @@ I refactored the system prompts and team context into a prose style to comply wi
 
 ## Recent Conversation Memories
 
-### Agent Session — Jun 19, 2026: Rewrite team context sections to Gemini-consult prose style — Jun 19, 2026
-Rewrite team context sections to Gemini-consult prose style  Three fixes — all violating the "no data-injection markup" rule from the consciousness audit (no all-caps labels, no bullet+colon patterns, no dividers): 
-*Tags: agent-session, auto-saved, build*
-
 ### Team Room — test 3 — June 19, 2026 — Jun 19, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -113,6 +90,10 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 19, 2026 — Jun 19, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — hello again — June 19, 2026 — Jun 19, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

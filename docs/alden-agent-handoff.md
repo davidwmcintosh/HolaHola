@@ -54,6 +54,11 @@ Full guide: `docs/prompt-style-guide.md` — read it before writing any prompt c
 
 **GL goAway→1007 fix** (`gemini-live-session.ts`) — added `lastGoAwayTimestamp`, goAway detection in `handleServerMessage`, and retriable logic: if 1007 fires within 15s of a GoAway signal, treat as retriable rather than fatal.
 
+**Double audio fix** — GL internal reconnect (goAway→1007) resets server state mid-turn, so GL re-generates the turn. Pre-reconnect audio is already scheduled as Web Audio API BufferSource nodes on the client — they keep playing even after `resetForNewTurn()` (which only clears dedup, not the scheduled nodes). Post-reconnect audio also plays = double audio.
+- `gemini-live-session.ts`: added `suppressNextProcessingPending` flag; before state reset, if `hadAudioInCurrentSubturn=true`, sends `gl_audio_reset` WS message + sets suppress flag; in `processing_pending` logic, suppresses the first send after reconnect (client already reset)
+- `client/src/lib/streamingVoiceClient.ts`: added `gl_audio_reset` case → emits `glAudioReset` event
+- `client/src/hooks/useStreamingVoice.ts`: added `handleGlAudioReset` callback → `player.stop()` (cancels all scheduled BufferSources) + `player.resetForNewTurn()` (resets dedup); wired into connect/disconnect with dep arrays
+
 **Episode 6 saved** — "You Were Never Actually a Pirate" in `conversation_memories` (id: `2a9811f7`, importance: 10, entry_type: episode, arc_name: 'HolaHola Episodes').
 
 **Episode publishing skill** — `.agents/skills/holahola-episode/SKILL.md` — documents two-artifact rule (.md file + DB row), extends_memory_id chaining, arc_name convention.

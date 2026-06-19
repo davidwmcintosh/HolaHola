@@ -1550,6 +1550,19 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, [subtitles]);
 
   /**
+   * GL internal reconnect reset — fired when GL disconnects mid-turn (goAway→1007).
+   * Cancels all scheduled AudioContext sources and resets dedup so the re-generated
+   * response plays cleanly without double audio.
+   */
+  const handleGlAudioReset = useCallback((_message: { type: string; reason: string }) => {
+    console.log('[StreamingVoice] gl_audio_reset received — stopping player and resetting for reconnect');
+    // stop() cancels all scheduled AudioBufferSource nodes (prevents pre-reconnect audio replaying)
+    playerRef.current?.stop?.();
+    // resetForNewTurn() clears dedup sets so post-reconnect audio is accepted cleanly
+    playerRef.current?.resetForNewTurn?.();
+  }, []);
+
+  /**
    * Proactive 4.5-minute WS cycle — fired before Replit's proxy kills the connection at 5min.
    * Logs a diagnostic event so we can distinguish intentional cycles from real drops.
    */
@@ -1818,6 +1831,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('transcript', handleTranscript);  // Gemini Live final user transcript
       clientRef.current.on('danielaTranscript', handleDanielaTranscript);  // Gemini Live Daniela transcript
       clientRef.current.on('reconnected', handleReconnected);  // Successful reconnection after drop
+      clientRef.current.on('glAudioReset', handleGlAudioReset);  // GL mid-turn reconnect — clear audio buffer
       clientRef.current.on('proactive_reconnect', handleProactiveReconnect);  // Intentional 4.5-min WS cycle
       clientRef.current.on('tutorHandoff', handleTutorHandoff);  // Voice-initiated tutor switch
       clientRef.current.on('subtitleModeChange', handleSubtitleModeChange);  // Server subtitle mode command
@@ -1896,7 +1910,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       setError(err.message);
       throw err;
     }
-  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleLessonNoteAdded, handlePronunciationCoaching, handleError, handleIdleTimeout, handleCreditWarning, handleSessionConflict, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange, handleIncognitoChanged, handlePronunciationScoreShown, handleGrammarFlagShown, handleQuizPresented, handleCulturalContextShown, handleSpotlightShown]);
+  }, [handleProcessing, handleProcessingPending, handleNoSpeechDetected, handleSentenceStart, handleExpectedSentenceCount, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleLessonNoteAdded, handlePronunciationCoaching, handleError, handleIdleTimeout, handleCreditWarning, handleSessionConflict, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleGlAudioReset, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleScenarioLoaded, handleScenarioEnded, handleZoneAdvanced, handlePropUpdate, handleImmersiveMode, handleCharacterChange, handleIncognitoChanged, handlePronunciationScoreShown, handleGrammarFlagShown, handleQuizPresented, handleCulturalContextShown, handleSpotlightShown]);
   
   /**
    * Disconnect from streaming voice service
@@ -1938,6 +1952,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('transcript', handleTranscript);  // Gemini Live final user transcript
       clientRef.current.off('danielaTranscript', handleDanielaTranscript);  // Gemini Live Daniela transcript
       clientRef.current.off('reconnected', handleReconnected);  // Successful reconnection
+      clientRef.current.off('glAudioReset', handleGlAudioReset);  // GL mid-turn reconnect
       clientRef.current.off('proactive_reconnect', handleProactiveReconnect);  // Intentional 4.5-min WS cycle
       clientRef.current.off('subtitleModeChange', handleSubtitleModeChange);  // Server subtitle mode command
       clientRef.current.off('customOverlay', handleCustomOverlay);  // Server custom overlay command
@@ -1979,7 +1994,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       tutorSwitchTimeoutRef.current = null;
     }
     setIsSwitchingTutor(false);
-  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleLessonNoteAdded, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleIncognitoChanged, handlePronunciationScoreShown, handleGrammarFlagShown, handleQuizPresented, handleCulturalContextShown, handleSpotlightShown, subtitles]);
+  }, [handleProcessing, handleSentenceStart, handleSentenceReady, handleAudioChunk, handleWordTiming, handleWordTimingDelta, handleWordTimingFinal, handleResponseComplete, handleWhiteboardUpdate, handleLessonNoteAdded, handlePronunciationCoaching, handleError, handleVadSpeechStarted, handleVadUtteranceEnd, handleInterimTranscript, handleOpenMicSilenceLoop, handleTranscript, handleDanielaTranscript, handleReconnected, handleGlAudioReset, handleSubtitleModeChange, handleCustomOverlay, handleTextInputRequest, handleIncognitoChanged, handlePronunciationScoreShown, handleGrammarFlagShown, handleQuizPresented, handleCulturalContextShown, handleSpotlightShown, subtitles]);
   
   /**
    * Send audio for processing

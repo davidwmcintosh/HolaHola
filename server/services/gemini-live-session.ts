@@ -157,6 +157,11 @@ export class GeminiLiveSession {
   // isTutorGeneratingAudio: gates mic for ALL subsequent Daniela turns.
   // Together these cover the full echo suppression lifecycle.
   private greetingPhaseActive = false;
+  // DOUBLE-AUDIO FIX: After a GL internal reconnect that interrupted mid-turn audio,
+  // the client is sent gl_audio_reset (which calls player.stop() + resetForNewTurn()).
+  // The next first-audio processing_pending is suppressed since the client already
+  // reset — sending it again would clear the new audio's dedup state prematurely.
+  private suppressNextProcessingPending = false;
   private isTutorGeneratingAudio = false;
   // Safety timeout: force-opens the mic gate if onPlaybackEnded() never arrives
   // (e.g., the client disconnects mid-playback or the telemetry event is dropped).
@@ -550,6 +555,23 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             setTimeout(async () => {
               if (this.isStopped) return;
               console.log(`[GeminiLive] Reconnect attempt ${this.reconnectAttempts}…`);
+
+              // DOUBLE-AUDIO FIX: If GL disconnected while actively generating audio,
+              // the client's AudioContext has already scheduled BufferSource nodes for
+              // the pre-reconnect chunks. resetForNewTurn() clears dedup but does NOT
+              // cancel those scheduled nodes — they keep playing. GL then resumes/re-
+              // generates the same turn and we get double audio.
+              // Fix: send gl_audio_reset BEFORE resetting state so the client can call
+              // player.stop() (which cancels all scheduled sources) + resetForNewTurn().
+              // Also suppress the next processing_pending since the client already reset.
+              if (this.hadAudioInCurrentSubturn) {
+                console.log('[GeminiLive] Reconnect mid-turn — sending gl_audio_reset to clear client audio buffer');
+                this.sendWsMessage(this.session.ws, {
+                  type: 'gl_audio_reset',
+                  reason: 'reconnect',
+                });
+                this.suppressNextProcessingPending = true;
+              }
 
               // Reset per-session flags so start() can run again
               this.isStarted = false;
@@ -1065,11 +1087,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
             if (!wasGreetingPhase && !this.processingPendingSentThisTurn) {
               this.processingPendingSentThisTurn = true;
-              console.log('[GeminiLive] Firing processing_pending (first audio chunk, conversation turn)');
-              this.sendWsMessage(this.session.ws, {
-                type: 'processing_pending',
-                timestamp: Date.now(),
-              });
+              if (this.suppressNextProcessingPending) {
+                // DOUBLE-AUDIO FIX: Client already reset via gl_audio_reset — don't
+                // send processing_pending again (would trigger a second resetForNewTurn).
+                console.log('[GeminiLive] Suppressing processing_pending after mid-turn reconnect (gl_audio_reset already sent)');
+                this.suppressNextProcessingPending = false;
+              } else {
+                console.log('[GeminiLive] Firing processing_pending (first audio chunk, conversation turn)');
+                this.sendWsMessage(this.session.ws, {
+                  type: 'processing_pending',
+                  timestamp: Date.now(),
+                });
+              }
             }
           }
 
