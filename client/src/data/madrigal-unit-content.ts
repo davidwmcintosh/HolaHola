@@ -4233,19 +4233,29 @@ const ESTA_CONTENTO_CHAPTER: GustUnitContent = {
 };
 
 // ── Spanish 2 Unit 9: ¿Qué Está Haciendo? — Present Progressive (pp. 182–185) ──
-// Replaces the placeholder "Intermediate Mid Skills" slot.
+// Source: See It and Say It in Spanish, pp. 182–185
 // chapterTitleKey "qué está haciendo" matches the DB unit name.
+// DB fix applied: chapter_type changed from 'progressive' → 'verb_unit' so VerbUnit routes here.
+//
+// Page 182: Four instruments — piano, guitarra, acordeón, violín (all tocando)
+//           Note: "the English ending -ing is -ando for -ar verbs"
+//           Examples: estudiando, comprando, hablando, cantando
+// Page 183: ¿Está hablando por teléfono? / ¿Está nadando? / estudiando
+// Page 184: -iendo verbs — escribir, vender, aprender
+//           ¿Qué está haciendo? / Estoy vendiendo la lancha / Estoy escribiendo una carta
+//           Combinator: escribiendo un artículo / aprendiendo español / la lección / el poema
+//           Note: "-ing is -yendo for ER/IR verbs": escribiendo, recibiendo, viendo, viviendo
 
 const ESTA_TOCANDO_CHAPTER: GustUnitContent = {
   chapterTitleKey: "qué está haciendo",
   conceptLabel: "Estoy tocando",
   conceptDefinition: "I am playing",
-  introNote: "To say what is happening right now, use estoy / está / estamos / están + the present participle. AR verbs → -ando. ER and IR verbs → -iendo. One key irregular: leer → leyendo.",
+  introNote: "To say what is happening right now, use estoy / está + the present participle. For AR verbs: -ando. For ER and IR verbs: -iendo. Notice that the English ending -ing is -ando for AR verbs in Spanish.",
   clusters: [
-    // ── Cluster 1: -ando verbs (pp. 182–183) ─────────────────────────────
+    // ── Cluster 1: p.182 — The four instruments (tocando) ────────────────
     {
-      heading: "Tocando, Hablando, Estudiando",
-      noteInline: "AR verbs: drop -ar, add -ando  ·  tocar → tocando  ·  hablar → hablando  ·  estudiar → estudiando",
+      heading: "Tocando — I Am Playing",
+      noteInline: "AR verbs: drop -ar, add -ando  ·  tocar → tocando  ·  estudiar → estudiando  ·  comprar → comprando  ·  hablar → hablando  ·  cantar → cantando",
       pairs: [
         {
           imageWord: "piano",
@@ -4264,36 +4274,20 @@ const ESTA_TOCANDO_CHAPTER: GustUnitContent = {
           answerTranslation: "Yes, I am playing the guitar.",
         },
         {
-          imageWord: "teléfono",
-          imageDescription: "a woman talking on a mobile phone outdoors",
-          question: "¿Está hablando por teléfono?",
-          questionTranslation: "Are you talking on the phone?",
-          answer: "Sí, estoy hablando por teléfono.",
-          answerTranslation: "Yes, I am talking on the phone.",
+          imageWord: "acordeón",
+          imageDescription: "a musician playing a button accordion with both hands",
+          question: "¿Está tocando el acordeón?",
+          questionTranslation: "Are you playing the accordion?",
+          answer: "Sí, estoy tocando el acordeón.",
+          answerTranslation: "Yes, I am playing the accordion.",
         },
         {
-          imageWord: "español",
-          imageDescription: "a student at a desk with a Spanish textbook open in front of them",
-          question: "¿Está estudiando español?",
-          questionTranslation: "Are you studying Spanish?",
-          answer: "Sí, estoy estudiando español.",
-          answerTranslation: "Yes, I am studying Spanish.",
-        },
-        {
-          imageWord: "natación",
-          imageDescription: "a person swimming laps in an outdoor pool",
-          question: "¿Está nadando?",
-          questionTranslation: "Are you swimming?",
-          answer: "Sí, estoy nadando.",
-          answerTranslation: "Yes, I am swimming.",
-        },
-        {
-          imageWord: "patines",
-          imageDescription: "a person gliding on ice skates at an outdoor rink",
-          question: "¿Está patinando?",
-          questionTranslation: "Are you skating?",
-          answer: "Sí, estoy patinando.",
-          answerTranslation: "Yes, I am skating.",
+          imageWord: "violín",
+          imageDescription: "a musician drawing a bow across the strings of a violin",
+          question: "¿Está tocando el violín?",
+          questionTranslation: "Are you playing the violin?",
+          answer: "Sí, estoy tocando el violín.",
+          answerTranslation: "Yes, I am playing the violin.",
         },
       ],
       conjugationTable: [
@@ -4303,34 +4297,59 @@ const ESTA_TOCANDO_CHAPTER: GustUnitContent = {
         { conjugated: "Están tocando",    translation: "they / you all are playing" },
       ],
     },
-    // ── Cluster 2: -iendo verbs (pp. 184) ────────────────────────────────
+    // ── Cluster 2: p.183 — Hablando, Nadando, Estudiando ─────────────────
     {
-      heading: "Escribiendo, Vendiendo, Aprendiendo",
-      noteInline: "ER / IR verbs: drop -er / -ir, add -iendo  ·  escribir → escribiendo  ·  vender → vendiendo  ·  aprender → aprendiendo",
+      heading: "Hablando, Nadando, Estudiando",
+      noteInline: "¿Está hablando?  Are you talking?  ·  ¿Está nadando?  Are you swimming?  ·  The negative: No, no estoy nadando.",
       pairs: [
         {
-          imageWord: "carta",
-          imageDescription: "a person writing a letter by hand at a wooden desk",
-          question: "¿Está escribiendo una carta?",
-          questionTranslation: "Are you writing a letter?",
-          answer: "Sí, estoy escribiendo una carta.",
-          answerTranslation: "Yes, I am writing a letter.",
+          imageWord: "teléfono",
+          imageDescription: "a telephone handset on a white background",
+          question: "¿Está hablando por teléfono?",
+          questionTranslation: "Are you talking on the phone?",
+          answer: "Sí, estoy hablando por teléfono.",
+          answerTranslation: "Yes, I am talking on the phone.",
         },
+        {
+          imageWord: "natación",
+          imageDescription: "a person swimming laps in an outdoor pool",
+          question: "¿Está nadando?",
+          questionTranslation: "Are you swimming?",
+          answer: "No, no estoy nadando.",
+          answerTranslation: "No, I am not swimming.",
+        },
+        {
+          imageWord: "español",
+          imageDescription: "a student at a desk with a Spanish textbook open in front of them",
+          question: "¿Está estudiando español?",
+          questionTranslation: "Are you studying Spanish?",
+          answer: "Sí, estoy estudiando español.",
+          answerTranslation: "Yes, I am studying Spanish.",
+        },
+      ],
+    },
+    // ── Cluster 3: p.184 — -iendo verbs + ¿Qué está haciendo? ────────────
+    // Note: "-ing is -yendo for ER and IR verbs"
+    // Examples from book: escribiendo, recibiendo, viendo, viviendo
+    {
+      heading: "Escribiendo, Vendiendo, Aprendiendo",
+      noteInline: "ER / IR verbs: drop -er / -ir, add -iendo  ·  escribir → escribiendo  ·  vender → vendiendo  ·  aprender → aprendiendo  ·  recibir → recibiendo  ·  ver → viendo  ·  vivir → viviendo",
+      pairs: [
         {
           imageWord: "lancha",
           imageDescription: "a person standing beside a small boat with a 'for sale' sign",
-          question: "¿Está vendiendo la lancha?",
-          questionTranslation: "Are you selling the boat?",
-          answer: "Sí, estoy vendiendo la lancha.",
-          answerTranslation: "Yes, I am selling the boat.",
+          question: "¿Qué está haciendo?",
+          questionTranslation: "What are you doing?",
+          answer: "Estoy vendiendo la lancha.",
+          answerTranslation: "I am selling the boat.",
         },
         {
-          imageWord: "lección",
-          imageDescription: "a student at a desk concentrating on a lesson with notes open",
-          question: "¿Está aprendiendo la lección?",
-          questionTranslation: "Are you learning the lesson?",
-          answer: "Sí, estoy aprendiendo la lección.",
-          answerTranslation: "Yes, I am learning the lesson.",
+          imageWord: "carta",
+          imageDescription: "a person writing a letter by hand at a wooden desk",
+          question: "¿Qué está haciendo?",
+          questionTranslation: "What are you doing?",
+          answer: "Estoy escribiendo una carta.",
+          answerTranslation: "I am writing a letter.",
         },
       ],
       sentenceColumns: [
@@ -4338,30 +4357,24 @@ const ESTA_TOCANDO_CHAPTER: GustUnitContent = {
           label: "Phrase",
           items: [
             { text: "Estoy escribiendo",    translation: "I am writing" },
-            { text: "Estoy vendiendo",      translation: "I am selling" },
             { text: "Estoy aprendiendo",    translation: "I am learning" },
-            { text: "Estoy tocando",        translation: "I am playing" },
-            { text: "Estoy estudiando",     translation: "I am studying" },
-            { text: "Estoy hablando",       translation: "I am talking" },
           ],
         },
         {
           label: "Object",
           items: [
-            { text: "una carta.",           translation: "a letter." },
-            { text: "el periódico.",        translation: "the newspaper." },
-            { text: "la lección.",          translation: "the lesson." },
-            { text: "el piano.",            translation: "the piano." },
-            { text: "la guitarra.",         translation: "the guitar." },
+            { text: "un artículo.",         translation: "an article." },
             { text: "español.",             translation: "Spanish." },
+            { text: "la lección.",          translation: "the lesson." },
+            { text: "el poema.",            translation: "the poem." },
           ],
         },
       ],
     },
-    // ── Cluster 3: leyendo (irregular) + ¿Qué está haciendo? (pp. 184–185) ─
+    // ── Cluster 4: pp. 184–185 — Leyendo (irregular) ─────────────────────
     {
       heading: "¿Qué Está Haciendo? — Leyendo",
-      noteInline: "leer → leyendo  (not leyiendo — the i drops when surrounded by vowels)  ·  ¿Qué está haciendo?  What are you doing?",
+      noteInline: "leer → leyendo  (not leyiendo — the i drops when surrounded by vowels)",
       pairs: [
         {
           imageWord: "periódico",
@@ -4387,17 +4400,9 @@ const ESTA_TOCANDO_CHAPTER: GustUnitContent = {
           answer: "Estoy escribiendo una composición.",
           answerTranslation: "I am writing a composition.",
         },
-        {
-          imageWord: "violín",
-          imageDescription: "a musician playing a violin on a small stage",
-          question: "¿Qué está haciendo?",
-          questionTranslation: "What are you doing?",
-          answer: "Estoy tocando el violín.",
-          answerTranslation: "I am playing the violin.",
-        },
       ],
-      grammarRule: "leer → leyendo  ·  All other ER/IR verbs follow the regular -iendo pattern.",
-      noteAfter: "¿Qué está haciendo? is the open question that invites any -ando / -iendo answer. Use it to ask about anything happening right now.",
+      grammarRule: "leer → leyendo  ·  All other ER/IR verbs follow the regular -iendo pattern: escribir → escribiendo, recibir → recibiendo, ver → viendo, vivir → viviendo.",
+      noteAfter: "¿Qué está haciendo? is the open question — any -ando or -iendo answer works.",
     },
   ],
 };

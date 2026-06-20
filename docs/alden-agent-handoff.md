@@ -24,6 +24,35 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 20, 2026 — Pedagogical audit + progressive chapter fix**
+
+### What was done
+
+**1. Pedagogical audit (`docs/pedagogical-audit-june2026.md`)**
+Corrected the audit numbers: 31 built textbook chapters total (VerbUnit×1, PretUnit×5, SerUnit×2, HayUnit×2, GustUnit×21), 12 loop catalog entries (now 13). 19 chapters have textbook content but no voice loop — those are the gap to close over time.
+
+**2. Progressive loop script added to madrigal-loop-catalog.ts**
+New entry: `contentKey: 'what are you doing right now'` — 4-step Madrigal voice loop for the present progressive chapter. Also added `'progressive'` to the `MadrigalLoopUnit.unitType` union.
+
+**3. Blank chapter fixed — ¿Qué Está Haciendo?**
+Root cause: `chapter_type = 'progressive'` in DB, but `TextbookChapterView.tsx` has no handler for that type — falls through to generic view → blank page.
+Fix: DB updated `chapter_type` → `'verb_unit'` (id: `90d8c742-72de-4cdc-ad00-02faaa4ca481`). Now routes VerbUnit → `getGustContent("qué está haciendo")` → GustUnit renders the content.
+
+**4. Content corrected to match Madrigal pp. 182–185**
+`ESTA_TOCANDO_CHAPTER` in `client/src/data/madrigal-unit-content.ts` restructured from 3 clusters → 4 clusters, now faithfully matching the book:
+- Cluster 1 (p.182): piano, guitarra, acordeón (was missing!), violín (was in wrong cluster)
+- Cluster 2 (p.183): hablando por teléfono, nadando, estudiando (separated from tocando)
+- Cluster 3 (p.184): lancha + carta + book's exact combinator (un artículo / español / la lección / el poema)
+- Cluster 4 (pp.184–185): leyendo + ¿Qué está haciendo? open patterns
+- Removed "patines" — not in the book
+
+### What's open
+- 5 remaining Spanish 1 chapters with textbook content but no loop: `tengo catarro`, `cómo está`, `está:`, `va a:`, `a qué hora`
+- The loop catalog now has 13 entries; 18 more gaps remain before all built chapters have voice loops
+- `DanielaPresence` error for student 49847136 (`Cannot convert undefined or null to object`) — pre-existing, tracked
+
+---
+
 **Session: June 20, 2026 — Pedagogical state machine + Shadow Auditor (GL curriculum continuity)**
 
 ### What was built
