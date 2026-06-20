@@ -155,7 +155,7 @@ const UNITS: MadrigalLoopUnit[] = [
   {
     contentKey: "i'm going to",
     displayName: 'Ir + a + infinitive — Near Future (voy a / va a)',
-    unitType: 'preterite',
+    unitType: 'verb',
     vocabTerms: ['voy a', 'va a', 'going to', 'near future', 'I am going to', 'he is going to', 'infinitive', 'plans'],
     steps: [
       {

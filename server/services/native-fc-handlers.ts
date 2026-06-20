@@ -4207,6 +4207,36 @@ export class NativeFunctionCallHandler {
           );
           (session as any).pedagogicalAdvanceResult = result;
           console.log(`[Native Function→AdvanceLoopStep] performance=${performance} status=${result.result.status}`);
+
+          // ── Gap bridge: loop completion → documentation layer ──────────────
+          // When a loop completes with a pass, write a topic_competency_observation
+          // so the longitudinal progress record reflects the mastered structure.
+          // This closes the gap between the pedagogical state machine and the
+          // documentation layer (ACTFL scoring, Review Hub, topic competency).
+          if (result.result.status === 'loop_complete') {
+            const userId = String(session.userId ?? session.studentId ?? '');
+            const contentKey = result.result.contentKey as string;
+            const passCount = result.result.passCount as number ?? 0;
+            const totalSteps = result.result.totalSteps as number ?? 0;
+            const language = (session as any).language ?? (session as any).targetLanguage ?? 'spanish';
+            if (userId && contentKey) {
+              try {
+                const { getSharedDb } = await import('../db');
+                const { topicCompetencyObservations } = await import('@shared/schema');
+                const db = getSharedDb();
+                await db.insert(topicCompetencyObservations).values({
+                  userId,
+                  language,
+                  topicName: contentKey,
+                  status: 'demonstrated',
+                  evidence: `Completed HolaHola teaching loop "${contentKey}" — ${passCount} of ${totalSteps} steps passed in voice session.`,
+                });
+                console.log(`[LoopBridge] Loop completion → topic_competency_observations: "${contentKey}" demonstrated (${passCount}/${totalSteps})`);
+              } catch (dbErr: any) {
+                console.error('[LoopBridge] Failed to write topic competency:', dbErr.message);
+              }
+            }
+          }
         } catch (err: any) {
           console.error('[Native Function→AdvanceLoopStep] Error:', err.message);
           (session as any).pedagogicalAdvanceResult = { result: { status: 'error', message: err.message }, compass: { activeLoop: null, suspendedLoops: [], nextRecommendation: '' } };

@@ -8,6 +8,127 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jun 20, 2026 — Pedagogical state machine + documentation layer audit + loop-to-progress bridge
+
+### What was built
+
+**Problem solved:** GL context decay. When Daniela's context window degrades during a long voice session, she loses track of where she is in a teaching sequence. The state machine fixes this by persisting teaching loop state server-side.
+
+#### Pedagogical State Machine (`server/services/pedagogical-state-service.ts`)
+Full CRUD state machine for teaching loops. Four Daniela GL tools (all native, 166 total):
+- `get_current_teaching_context` — returns compass: active loop, suspended loops, next recommendation
+- `start_teaching_loop(vocab_query)` — semantic search → match unit → insert loop row → return step 0
+- `advance_loop_step(student_performance)` — pass/needs_more/skip; marks complete at last step
+- `suspend_current_loop(reason)` — graceful pause, resumable next session
+
+**State Envelope pattern:** Every tool returns `{ result, compass }`. Since `sendClientContent` is disabled (audio doubling risk), the tool response is the only mid-session context injection window. Compass is always in the response.
+
+**FK resolution:** `pedagogicalLoopState.sessionId` is an FK to `tutorSessions.id`, NOT the GL streaming session ID. The service has a `resolveTutorSessionId(userId)` helper that looks up the most recent tutor session. Loops persist across GL reconnections within the same class session.
+
+**New DB table:** `pedagogical_loop_state` — pushed to Neon.
+
+#### Teaching Loop Catalog (`server/data/madrigal-loop-catalog.ts`)
+12 units with 4-step verbal scripts. The 4-step sequence:
+- Step 0 — Anchor (building blocks: key verb forms)
+- Step 1 — Model sentences (image + sentence, student repeats)
+- Step 2 — Combinator (column substitution drill, speed/eye movement emphasis)
+- Step 3 — Negative or Q&A pivot (production step)
+
+Semantic routing via OpenAI `text-embedding-3-small` + text-match fallback. Indexer runs at +110s boot.
+
+#### Shadow Auditor (`server/services/shadow-auditor.ts`)
+Fires when GL session stops (fire-and-forget, incognito skipped). Reads conversation transcript → Gemini Flash → writes `sessionSummary` to `tutor_sessions`. Suspends active loops at session end. Stale session reaper every 30 min for dropped connections.
+
+#### Gap Bridge (loop → documentation layer) — `server/services/native-fc-handlers.ts`
+When `advance_loop_step` returns `loop_complete`, a `topic_competency_observation` row is written (status='demonstrated') to the longitudinal progress record. This connects the pedagogical loop outcome to ACTFL scoring, the Review Hub, and topic competency tracking.
+
+#### Naming
+All user-facing text (tool names, descriptions, GL system prompt) uses "HolaHola loop" and "structured visual sequence." The word "Madrigal" is restricted to internal service/catalog code only — Daniela will never say it to a student.
+
+---
+
+### Documentation layer audit (June 20, 2026)
+
+A complete picture of what tracks student progress during and after a session:
+
+**Fires after every exchange (PostResponseEnrichmentService):**
+- Vocabulary extraction → words, translations, grammatical metadata
+- Error tracking → `recurring_struggles`; root cause analysis after 5 occurrences of same error
+- Student observations → learning style, preferences, life context → `student_insights`, `learner_personal_facts`
+- Command parsing — Daniela can embed: `[ACTFL_UPDATE]`, `[SYLLABUS_PROGRESS]`, `[SAVE_ERROR_PATTERN]`, `[SAVE_IDIOM]`, `[SAVE_BRIDGE]`
+
+**ACTFL level advancement (`server/actfl-advancement.ts`):**
+- Uses FACT criteria: Functions (unique tasks), Accuracy (pronunciation + grammar), Context (unique topics), Text Type (discourse complexity)
+- Also requires minimum thresholds: practice hours, total messages, days at level
+- Triggered by background enrichment OR Daniela's `[ACTFL_UPDATE]` command
+
+**Can-do statements:**
+- Defined in `server/actfl-can-do-statements.ts` (all 10 languages, by level and mode)
+- Stored in `student_can_do_progress`
+- Updated via: student self-mark, teacher verify, or `recordStudentCanDoProgress()` in `fluency-wiring-service.ts`
+- Daniela triggers via `[SYLLABUS_PROGRESS topic="..." status="demonstrated|needs_review|struggling"]`
+
+**Textbook completion:**
+- `textbook_section_progress` — viewed/completed + drill_score + time_spent_seconds
+- `textbook_user_position` — scroll position + last chapter for resuming
+- Topics marked `needs_review` or `struggling` surface in the Review Hub
+
+**Daniela's student insights:**
+- `student_insights` — qualitative observations
+- `learner_personal_facts` — biographical data with bi-temporal validity
+- Both extracted via `STUDENT_OBSERVATION_SCHEMA` using Gemini after exchanges
+- Injected back into Daniela's system prompt via `StudentLearningService.formatContextForPrompt`
+
+---
+
+### Loop catalog audit vs. the book (June 20, 2026)
+
+**What looks right:**
+- 4-step arc matches Madrigal: building blocks → picture sentences → substitution columns → production
+- Eye-movement/speed emphasis in the combinator step is authentic
+- Personalization at step 3 ("tell me something real") matches how teachers use Madrigal
+- "Building blocks" language is Madrigal's own terminology
+
+**What to verify against the actual book:**
+- Step 3 varies by chapter (some end with negatives, some Q&A, some both) — catalog simplifies to two variants, mapping may not match each chapter exactly
+- "Scan across columns" in combinator — in the book it's more about scanning within and combining; direction matters to the eye movement pattern
+- Verbal scripts are paraphrased, not Madrigal's actual text — concepts correct, her specific words may differ
+- `voy a` (near future) was typed `unitType: 'preterite'` — **fixed this session to `'verb'`**
+
+**Notable catalog gaps:**
+- No imperfect tense (había, era, estaba) — significant Madrigal structure
+- No reflexive verbs (me llamo, se llama)
+- Clothing chapter exists in visual content (madrigal-unit-content.ts) but has no loop entry
+- No question-word structures (¿dónde?, ¿cuándo?, ¿cómo?)
+- Currently covers roughly Chapters 1–10 territory; full book needs 8–10 more units
+
+---
+
+### Open questions / Next pedagogical discussion
+
+**1. Madrigal is one tool, not the whole system.**
+The loop catalog covers the Madrigal visual method well. But HolaHola also has:
+- **Scenarios** — conversational simulations that don't follow the 4-step Madrigal arc
+- **Can't-do targeting** — starting from what a student can't yet do, not from chapter sequence
+- **See It, Say It** — vocabulary presentation method with its own rhythm
+- **Free conversation** — ACTFL Intermediate+ doesn't follow structured loops at all
+
+The pedagogical state machine needs to eventually support multiple loop types beyond `madrigal_4step`. The `loopType` column and `pedagogicalLoopTypeEnum` are already designed to be extensible — today only `madrigal_4step` is implemented.
+
+**2. Loop completion → can-do statements not yet wired.**
+The gap bridge writes `topic_competency_observations` on loop completion. But `student_can_do_progress` (the ACTFL can-do layer) is not yet touched by loop completion. A future step: when a loop completes, look up which can-do statement(s) the content key maps to, and call `recordStudentCanDoProgress()`. This requires a mapping table: contentKey → can_do_statement_id(s).
+
+**3. Needs-more signals not yet surfacing.**
+When a student hits `needs_more` repeatedly on the same step, this is a real pedagogical signal (struggling with a specific sub-skill). Currently this just repeats the step — it doesn't write to `recurring_struggles` or flag the topic for the Review Hub. A future refinement.
+
+**4. Shadow Auditor summary not parsed back into progress.**
+The Shadow Auditor writes a free-text `sessionSummary` to `tutor_sessions`. That summary isn't currently parsed to extract topic competency, ACTFL signals, or can-do evidence. Future: structured Gemini output from the auditor (not just prose) that can feed the documentation layer directly.
+
+**5. Textbook completion ↔ loop completion not connected.**
+Completing a loop on "me gusta" doesn't mark the corresponding textbook section as reviewed or completed. And a textbook section being marked complete doesn't create a loop entry for the student. These two progress systems are still siloed.
+
+---
+
 ## Session — Jun 17, 2026 — Consciousness audit round 3: Ambient Pulse + self-reflection + voice latency + Facts vs Echoes
 
 ### What was built
