@@ -26,7 +26,7 @@ export interface MadrigalStep {
 export interface MadrigalLoopUnit {
   contentKey: string;
   displayName: string;
-  unitType: 'verb' | 'preterite' | 'ser_estar' | 'hay_gustar';
+  unitType: 'verb' | 'preterite' | 'ser_estar' | 'hay_gustar' | 'progressive';
   vocabTerms: string[];
   steps: MadrigalStep[];
 }
@@ -497,6 +497,67 @@ const UNITS: MadrigalLoopUnit[] = [
         verbalInstruction: '¿Adónde fuiste el fin de semana pasado? Where did you go last weekend?',
         studentAction: 'Produce: Fui a ___.',
         teacherHint: 'Past personal experience is high-engagement. Any honest answer.',
+      },
+    ],
+  },
+
+  // ─── Progressive (estar + -ando / -iendo) ────────────────────────────────
+  //
+  // Madrigal Magic Key Card 14 — appears before the AR present tense (Card 15)
+  // because "what is happening right now" is more communicatively urgent than
+  // the full paradigm. Students already know "estoy" from estar; this lesson
+  // adds the participle ending as a second snap-on piece.
+  //
+  // Textbook content: ESTA_TOCANDO_CHAPTER in madrigal-unit-content.ts (GustUnit)
+  // Two clusters: -ando verbs (tocar, hablar, estudiar, nadar, patinar)
+  //               -iendo verbs (escribir, vender, aprender)
+  // Sentence columns: 6 Estoy [verb] phrases × 6 objects
+  //
+  // Pedagogical notes:
+  //   - Anchor must establish TWO rules in one pass: estoy/está + the -ando/-iendo split
+  //   - Do NOT lead with the grammar rule. Lead with the sound: "estoy tocando"
+  //   - The QA pivot mirrors the textbook: ¿Está tocando? / Sí, estoy tocando. / No, no estoy tocando.
+  //   - tú form is banned — questions use está (ella/usted), answers use estoy (yo)
+
+  {
+    contentKey: 'what are you doing right now',
+    displayName: '¿Qué está haciendo? — Progressive (estoy tocando)',
+    unitType: 'progressive',
+    vocabTerms: [
+      'estoy tocando', 'está tocando', 'estamos tocando',
+      'tocando', 'hablando', 'estudiando', 'nadando', 'patinando',
+      'escribiendo', 'vendiendo', 'aprendiendo',
+      'progressive', 'present progressive', 'estar', '-ando', '-iendo',
+      'what are you doing', 'happening right now',
+    ],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: 'Two pieces that snap together. The first you already know: "estoy" — I am. "Está" — he or she is. The second piece is what is happening right now. For AR verbs, it ends in -ando: tocar becomes tocando, hablar becomes hablando. For ER and IR verbs, it ends in -iendo: escribir becomes escribiendo, vender becomes vendiendo. Put them together: estoy tocando — I am playing. Está hablando — she is talking. Say them with me: estoy tocando, está hablando.',
+        studentAction: 'Repeat the two anchor forms: estoy tocando, está hablando.',
+        teacherHint: 'The -ando / -iendo split is the only new grammar. If student asks about -iendo irregulars (leer → leyendo), note it briefly and move on — do not derail the anchor step.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Look at each picture. The pattern is always the same: estoy + what is happening right now. Estoy tocando el piano — I am playing the piano. Estoy hablando por teléfono — I am talking on the phone. Read each sentence you see.',
+        studentAction: 'Read each model sentence aloud. Match the sound to the image.',
+        teacherHint: 'Correct the -ando / -iendo ending if dropped or confused. The ending carries all the meaning — losing it loses the tense entirely.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Now the columns. Column one is your action: estoy escribiendo, estoy tocando, estoy hablando, estoy estudiando. Column two is what. Scan across and fire the combination — estoy escribiendo una carta, estoy tocando el piano. Go quickly. Let your eye do the work.',
+        studentAction: 'Scan the sentence columns and produce combinations aloud. Both columns must connect.',
+        teacherHint: 'Speed is the goal here — not perfection. The rapid combination is what burns the pattern in. If student slows to think, encourage them to keep moving and self-correct on the next pass.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Last step — the question and answer. I will ask what is happening, and you answer in a full sentence. ¿Está tocando el piano? — Is she playing the piano? Answer: Sí, estoy tocando el piano. Now I say no: ¿Está escribiendo? — No, no estoy escribiendo. Your turn. I will ask — you answer yes, then answer no.',
+        studentAction: 'Produce full-sentence answers in both affirmative and negative. Pattern: Sí, estoy [verb]-ando/iendo ___ / No, no estoy [verb]-ando/iendo ___.',
+        teacherHint: 'Watch for double no — "no estoy" not "no estoy no." Also confirm the -ando/-iendo ending stays attached even in the negative. The negative does not shorten the verb form.',
       },
     ],
   },
