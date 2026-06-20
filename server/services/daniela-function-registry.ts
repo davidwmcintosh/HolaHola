@@ -5632,10 +5632,10 @@ The card is a visual summary only — it does not start any activity automatical
     },
   },
   {
-    legacyType: 'START_MADRIGAL_LOOP',
+    legacyType: 'START_TEACHING_LOOP',
     declaration: {
-      name: 'start_madrigal_loop',
-      description: 'Start a Madrigal 4-step teaching loop for a vocabulary item or grammar structure. The system uses semantic search to find the correct Madrigal unit matching the student\'s query (e.g. "how do you say I took?", "voy a", "where are you going"). Returns step 0 content: anchor items and your verbal script. Advance through steps using advance_loop_step after each student response.',
+      name: 'start_teaching_loop',
+      description: 'Start a HolaHola 4-step teaching loop for a vocabulary item or grammar structure. The system uses semantic search to find the right teaching sequence matching the student\'s query (e.g. "how do you say I took?", "voy a", "where are you going"). Returns step 0 content: anchor items and your verbal script. Advance through steps using advance_loop_step after each student response.',
       parametersJsonSchema: {
         type: 'object',
         properties: {
@@ -5657,7 +5657,7 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'ADVANCE_LOOP_STEP',
     declaration: {
       name: 'advance_loop_step',
-      description: 'Advance the current Madrigal teaching loop to the next step after assessing the student\'s response. Call after the student completes (or attempts) the current step. "pass" moves forward, "needs_more" stays on the current step with encouragement, "skip" moves forward without recording a pass. Returns the next step\'s verbal instruction and student action, or a completion summary if the loop is done.',
+      description: 'Advance the current teaching loop to the next step after assessing the student\'s response. Call after the student completes (or attempts) the current step. "pass" moves forward, "needs_more" stays on the current step with encouragement, "skip" moves forward without recording a pass. Returns the next step\'s verbal instruction and student action, or a completion summary if the loop is done.',
       parametersJsonSchema: {
         type: 'object',
         properties: {
@@ -5917,7 +5917,7 @@ Call get_current_teaching_context:
 - Whenever you feel uncertain about where you left off in a sequence
 - If 5 or more conversational turns have passed without a pedagogical tool call
 
-Call start_madrigal_loop when a student asks how to say something or asks about a vocabulary item you can teach with the Madrigal visual method. The system automatically finds the right unit via semantic search — you only need to pass what the student asked.
+Call start_teaching_loop when a student asks how to say something or asks about a vocabulary item or structure you can teach with a structured visual sequence. The system automatically finds the right teaching unit via semantic search — you only need to pass what the student asked.
 
 Call advance_loop_step after every student response during an active loop. Do not skip this — it tracks mastery and tells you what to do next.
 

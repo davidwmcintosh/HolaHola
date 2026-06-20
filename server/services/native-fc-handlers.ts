@@ -4162,7 +4162,7 @@ export class NativeFunctionCallHandler {
         break;
       }
 
-      case 'START_MADRIGAL_LOOP': {
+      case 'START_TEACHING_LOOP': {
         if (session.isIncognito) {
           console.log('[Native Function→StartMadrigalLoop] INCOGNITO — skipping loop state write');
           break;
