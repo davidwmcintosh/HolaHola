@@ -106,7 +106,7 @@ A complete picture of what tracks student progress during and after a session:
 
 ### Open questions / Next pedagogical discussion
 
-**1. Madrigal is one tool, not the whole system.**
+**1. Madrigal is one tool, not the whole system.** ← *Saved for pedagogical discussion*
 The loop catalog covers the Madrigal visual method well. But HolaHola also has:
 - **Scenarios** — conversational simulations that don't follow the 4-step Madrigal arc
 - **Can't-do targeting** — starting from what a student can't yet do, not from chapter sequence
@@ -115,17 +115,17 @@ The loop catalog covers the Madrigal visual method well. But HolaHola also has:
 
 The pedagogical state machine needs to eventually support multiple loop types beyond `madrigal_4step`. The `loopType` column and `pedagogicalLoopTypeEnum` are already designed to be extensible — today only `madrigal_4step` is implemented.
 
-**2. Loop completion → can-do statements not yet wired.**
-The gap bridge writes `topic_competency_observations` on loop completion. But `student_can_do_progress` (the ACTFL can-do layer) is not yet touched by loop completion. A future step: when a loop completes, look up which can-do statement(s) the content key maps to, and call `recordStudentCanDoProgress()`. This requires a mapping table: contentKey → can_do_statement_id(s).
+**2. Loop completion → can-do statements.** ← *Shipped June 20*
+When a loop completes, a regex search is run over `can_do_statements` for the loop's `vocabTerms`. Each matching statement is marked `ai_detected: true` via `recordStudentCanDoProgress()`. Works when the `can_do_statements` table is seeded; no-op when it's empty (non-fatal).
 
-**3. Needs-more signals not yet surfacing.**
-When a student hits `needs_more` repeatedly on the same step, this is a real pedagogical signal (struggling with a specific sub-skill). Currently this just repeats the step — it doesn't write to `recurring_struggles` or flag the topic for the Review Hub. A future refinement.
+**3. Needs-more signals surfacing.** ← *Shipped June 20*
+`pedagogical-state-service.ts` now returns `needsMoreOnStep` (count of needs_more on the current step) and `contentKey` in the `repeat_step` result. In `native-fc-handlers.ts`, when `needsMoreOnStep >= 3`, a `recurring_struggles` row is inserted (struggleArea='grammar') so Daniela's context and the Review Hub see the pattern.
 
-**4. Shadow Auditor summary not parsed back into progress.**
-The Shadow Auditor writes a free-text `sessionSummary` to `tutor_sessions`. That summary isn't currently parsed to extract topic competency, ACTFL signals, or can-do evidence. Future: structured Gemini output from the auditor (not just prose) that can feed the documentation layer directly.
+**4. Shadow Auditor structured output.** ← *Shipped June 20*
+The Shadow Auditor (`server/services/shadow-auditor.ts`) now requests JSON from Gemini Flash with `{ summary, topicsObserved: [{ topic, performance }] }`. Each observed topic generates a `topic_competency_observations` row (status = demonstrated/struggling/needs_review) so non-loop teaching moments also feed the documentation layer. Fallback to prose if JSON parse fails.
 
-**5. Textbook completion ↔ loop completion not connected.**
-Completing a loop on "me gusta" doesn't mark the corresponding textbook section as reviewed or completed. And a textbook section being marked complete doesn't create a loop entry for the student. These two progress systems are still siloed.
+**5. Textbook completion ↔ loop completion.** ← *Shipped June 20 (best-effort)*
+When a loop completes, a keyword from the `contentKey` is searched against `curriculum_lessons.name` (ilike). If a matching lesson is found, a `textbook_section_progress` row is written with `completed: true` and a `drillScore` derived from passCount/totalSteps. No-op when no lesson matches (Madrigal chapters may not be in curriculum_lessons as structured lessons — the lookup is non-fatal).
 
 ---
 

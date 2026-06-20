@@ -258,6 +258,12 @@ export class PedagogicalStateService {
         .set({ studentPerformance: performanceRecord as unknown as Record<string, unknown> })
         .where(eq(pedagogicalLoopState.id, activeLoop.id));
 
+      // Count how many times needs_more has occurred on this specific step
+      // so the handler in native-fc-handlers can surface repeated struggles.
+      const needsMoreOnStep = performanceRecord.filter(
+        p => p.step === currentStep && p.result === 'needs_more',
+      ).length;
+
       const compass = await this.buildCompass(tutorSessionId, studentId);
       return {
         result: {
@@ -268,6 +274,8 @@ export class PedagogicalStateService {
           studentAction: steps[currentStep].studentAction,
           teacherHint: steps[currentStep].teacherHint,
           remainingSteps: activeLoop.totalSteps - currentStep - 1,
+          needsMoreOnStep,
+          contentKey: activeLoop.loopContentKey,
           note: 'Student needs more practice on this step. Repeat with encouragement.',
         },
         compass,

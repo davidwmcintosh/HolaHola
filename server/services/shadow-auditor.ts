@@ -6,6 +6,11 @@
  * taught, and writes a sessionSummary to tutor_sessions for compass continuity.
  * Also cleanly suspends any active pedagogical loops so they can resume next session.
  *
+ * Structured output (June 20, 2026 upgrade):
+ * Gemini now returns JSON with a prose summary + an array of observed topics.
+ * Each topic observation is written to topic_competency_observations so the
+ * documentation layer gets signal even from non-loop teaching moments.
+ *
  * Design decisions (Gemini architecture review — approved):
  * - Post-session only (never mid-session) to avoid interfering with live audio
  * - gemini-3-flash-preview (fast, cheap) for extraction — not GL model
@@ -21,6 +26,7 @@ import {
   messages,
   tutorSessions,
   pedagogicalLoopState,
+  topicCompetencyObservations,
 } from "@shared/schema";
 import { GoogleGenAI } from "@google/genai";
 
@@ -40,6 +46,16 @@ export interface ShadowAuditInput {
   conversationId: string;
   /** Target language being learned (e.g. "Spanish") */
   targetLanguage: string;
+}
+
+interface AuditTopicObservation {
+  topic: string;
+  performance: 'confident' | 'struggling' | 'improving';
+}
+
+interface StructuredAuditResult {
+  summary: string;
+  topicsObserved: AuditTopicObservation[];
 }
 
 /**
@@ -86,19 +102,45 @@ export async function runShadowAudit(input: ShadowAuditInput): Promise<void> {
       return;
     }
 
-    // 3. Generate session summary with Gemini Flash
-    const summary = await generateSessionSummary(transcript, targetLanguage);
+    // 3. Generate structured session analysis with Gemini Flash
+    const auditResult = await generateStructuredAudit(transcript, targetLanguage);
 
-    // 4. Write summary to tutor_sessions
-    if (summary) {
+    // 4. Write prose summary to tutor_sessions
+    if (auditResult.summary) {
       await db
         .update(tutorSessions)
-        .set({ sessionSummary: summary })
+        .set({ sessionSummary: auditResult.summary })
         .where(eq(tutorSessions.id, tutorSession.id));
       console.log(`[ShadowAudit] Session summary written to tutor_session ${tutorSession.id}`);
     }
 
-    // 5. Suspend any active pedagogical loops
+    // 5. Write topic competency observations for each observed topic
+    // This gives the documentation layer signal from non-loop teaching moments too.
+    if (auditResult.topicsObserved.length > 0) {
+      const language = targetLanguage.toLowerCase();
+      for (const obs of auditResult.topicsObserved) {
+        const status = obs.performance === 'confident'
+          ? 'demonstrated'
+          : obs.performance === 'struggling'
+            ? 'struggling'
+            : 'needs_review';
+
+        try {
+          await db.insert(topicCompetencyObservations).values({
+            userId,
+            language,
+            topicName: obs.topic,
+            status,
+            evidence: `Post-session Shadow Audit (${targetLanguage}) — Daniela observed student as "${obs.performance}" on topic "${obs.topic}".`,
+          });
+        } catch (writeErr: any) {
+          console.error(`[ShadowAudit] Failed to write competency obs for topic "${obs.topic}":`, writeErr.message);
+        }
+      }
+      console.log(`[ShadowAudit] Wrote ${auditResult.topicsObserved.length} topic competency observation(s)`);
+    }
+
+    // 6. Suspend any active pedagogical loops
     await suspendActiveLoops(db, userId, 'session ended');
 
     console.log(`[ShadowAudit] Audit complete — session=${glSessionId}`);
@@ -209,17 +251,20 @@ async function suspendActiveLoops(
   }
 }
 
-async function generateSessionSummary(
+/**
+ * Generate a structured post-session audit via Gemini Flash.
+ * Returns both a prose summary and an array of observed topic competencies.
+ * Falls back to a plain text summary if JSON parsing fails.
+ */
+async function generateStructuredAudit(
   transcript: Array<{ role: string; content: string }>,
   targetLanguage: string,
-): Promise<string | null> {
+): Promise<StructuredAuditResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    console.warn('[ShadowAudit] No GEMINI_API_KEY — generating text summary from transcript');
-    return buildFallbackSummary(transcript, targetLanguage);
+    return { summary: buildFallbackSummary(transcript, targetLanguage), topicsObserved: [] };
   }
 
-  // Format transcript for Gemini (truncate very long messages for token efficiency)
   const formatted = transcript
     .map(m => `${m.role === 'user' ? 'Student' : 'Daniela'}: ${m.content.slice(0, 300)}`)
     .join('\n');
@@ -231,13 +276,19 @@ Session transcript (last ${transcript.length} messages):
 
 ${formatted}
 
-Extract a brief session summary (2–4 sentences) covering:
-- What vocabulary or grammar structures were practiced
-- How the student performed (confident, struggled, improving)
-- What to pick up next time
+Respond with a JSON object (no markdown, no code fences) with exactly these fields:
 
-Be concrete and specific. Write as though briefing the tutor before the next session.
-Output only the summary — no headers, no bullet points, just prose.`;
+{
+  "summary": "2-4 sentence briefing for the next session tutor: what was practiced, how the student performed, what to pick up next time. Concrete and specific.",
+  "topicsObserved": [
+    { "topic": "short label like 'me gusta / expressing preferences'", "performance": "confident" | "struggling" | "improving" }
+  ]
+}
+
+Rules:
+- topicsObserved should list 1-4 distinct grammar/vocabulary topics that came up. Omit if none are clearly identifiable.
+- performance must be exactly "confident", "struggling", or "improving" — no other values.
+- Output only valid JSON — no explanation, no preamble.`;
 
   try {
     const genai = new GoogleGenAI({ apiKey });
@@ -246,11 +297,25 @@ Output only the summary — no headers, no bullet points, just prose.`;
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
     });
 
-    const text = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-    return text ?? null;
+    const raw = response.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+
+    // Try to parse as JSON
+    try {
+      const parsed = JSON.parse(raw) as { summary?: string; topicsObserved?: AuditTopicObservation[] };
+      return {
+        summary: parsed.summary?.trim() || buildFallbackSummary(transcript, targetLanguage),
+        topicsObserved: (parsed.topicsObserved ?? []).filter(
+          t => t.topic && ['confident', 'struggling', 'improving'].includes(t.performance),
+        ),
+      };
+    } catch {
+      // Gemini returned prose instead of JSON — use the raw text as the summary
+      console.warn('[ShadowAudit] JSON parse failed — using raw response as summary');
+      return { summary: raw || buildFallbackSummary(transcript, targetLanguage), topicsObserved: [] };
+    }
   } catch (err: any) {
     console.error('[ShadowAudit] Gemini call failed:', err.message);
-    return buildFallbackSummary(transcript, targetLanguage);
+    return { summary: buildFallbackSummary(transcript, targetLanguage), topicsObserved: [] };
   }
 }
 

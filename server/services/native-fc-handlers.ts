@@ -4209,10 +4209,8 @@ export class NativeFunctionCallHandler {
           console.log(`[Native Function→AdvanceLoopStep] performance=${performance} status=${result.result.status}`);
 
           // ── Gap bridge: loop completion → documentation layer ──────────────
-          // When a loop completes with a pass, write a topic_competency_observation
-          // so the longitudinal progress record reflects the mastered structure.
-          // This closes the gap between the pedagogical state machine and the
-          // documentation layer (ACTFL scoring, Review Hub, topic competency).
+          // When a loop completes, write across three documentation systems so
+          // the longitudinal record reflects the mastered structure everywhere.
           if (result.result.status === 'loop_complete') {
             const userId = String(session.userId ?? session.studentId ?? '');
             const contentKey = result.result.contentKey as string;
@@ -4220,10 +4218,12 @@ export class NativeFunctionCallHandler {
             const totalSteps = result.result.totalSteps as number ?? 0;
             const language = (session as any).language ?? (session as any).targetLanguage ?? 'spanish';
             if (userId && contentKey) {
+              const { getSharedDb } = await import('../db');
+              const db = getSharedDb();
+
+              // (A) Topic competency observation — the core documentation write
               try {
-                const { getSharedDb } = await import('../db');
                 const { topicCompetencyObservations } = await import('@shared/schema');
-                const db = getSharedDb();
                 await db.insert(topicCompetencyObservations).values({
                   userId,
                   language,
@@ -4231,9 +4231,101 @@ export class NativeFunctionCallHandler {
                   status: 'demonstrated',
                   evidence: `Completed HolaHola teaching loop "${contentKey}" — ${passCount} of ${totalSteps} steps passed in voice session.`,
                 });
-                console.log(`[LoopBridge] Loop completion → topic_competency_observations: "${contentKey}" demonstrated (${passCount}/${totalSteps})`);
-              } catch (dbErr: any) {
-                console.error('[LoopBridge] Failed to write topic competency:', dbErr.message);
+                console.log(`[LoopBridge] topic_competency_observations: "${contentKey}" demonstrated (${passCount}/${totalSteps})`);
+              } catch (e: any) {
+                console.error('[LoopBridge] topic competency write failed:', e.message);
+              }
+
+              // (B) Can-do statement linking — find ACTFL can-do statements
+              //     whose text matches this loop's vocabulary terms and mark
+              //     them as ai_detected for the student.
+              try {
+                const { canDoStatements } = await import('@shared/schema');
+                const { eq: eqOp, and: andOp, sql: sqlRaw } = await import('drizzle-orm');
+                const { recordStudentCanDoProgress } = await import('./fluency-wiring-service');
+                const { MADRIGAL_LOOP_CATALOG } = await import('../data/madrigal-loop-catalog');
+                const unit = MADRIGAL_LOOP_CATALOG.find(u => u.contentKey === contentKey);
+                const searchTerms = (unit?.vocabTerms ?? [contentKey]).slice(0, 5).map(t => t.toLowerCase());
+                const pattern = searchTerms.join('|');
+                const matched = await db
+                  .select({ id: canDoStatements.id })
+                  .from(canDoStatements)
+                  .where(andOp(
+                    eqOp(canDoStatements.language, language.toLowerCase()),
+                    sqlRaw`lower(${canDoStatements.statement}) ~ ${pattern}`,
+                  ))
+                  .limit(3);
+                for (const stmt of matched) {
+                  await recordStudentCanDoProgress(userId, stmt.id, { aiDetected: true });
+                }
+                if (matched.length > 0) {
+                  console.log(`[LoopBridge] Marked ${matched.length} can-do statement(s) ai_detected for "${contentKey}"`);
+                }
+              } catch (e: any) {
+                console.error('[LoopBridge] can-do linking failed (non-fatal):', e.message);
+              }
+
+              // (C) Textbook section linking — if a curriculum_lesson exists
+              //     whose name contains a keyword from the contentKey, mark it
+              //     completed. Safe no-op when no match is found.
+              try {
+                const { curriculumLessons, textbookSectionProgress } = await import('@shared/schema');
+                const { sql: sqlRaw2 } = await import('drizzle-orm');
+                const keyword = contentKey.split(' ').find((w: string) => w.length > 3) ?? contentKey;
+                const [matchedLesson] = await db
+                  .select({ id: curriculumLessons.id })
+                  .from(curriculumLessons)
+                  .where(sqlRaw2`lower(${curriculumLessons.name}) LIKE ${'%' + keyword.toLowerCase() + '%'}`)
+                  .limit(1);
+                if (matchedLesson) {
+                  await db.insert(textbookSectionProgress).values({
+                    userId,
+                    lessonId: matchedLesson.id,
+                    sectionType: 'drill',
+                    viewed: true,
+                    completed: true,
+                    drillScore: totalSteps > 0 ? Math.round((passCount / totalSteps) * 100) : 100,
+                    drillsCompleted: passCount,
+                    drillsTotal: totalSteps,
+                  });
+                  console.log(`[LoopBridge] Textbook section marked complete: lesson ${matchedLesson.id} for "${contentKey}"`);
+                }
+              } catch (e: any) {
+                console.error('[LoopBridge] textbook linking failed (non-fatal):', e.message);
+              }
+            }
+          }
+
+          // ── Item 3: Repeated struggles → recurring_struggles table ──────────
+          // When a student hits needs_more 3+ times on the same step, surface
+          // it as a recurring struggle so Daniela's context and the Review Hub
+          // reflect the difficulty. Threshold is conservative — 3 tries shows
+          // a real pattern, not just a momentary slip.
+          if (result.result.status === 'repeat_step') {
+            const needsMoreCount = (result.result.needsMoreOnStep as number) ?? 0;
+            if (needsMoreCount >= 3) {
+              const userId = String(session.userId ?? session.studentId ?? '');
+              const contentKey = result.result.contentKey as string;
+              const stepName = result.result.stepName as string;
+              const language = (session as any).language ?? (session as any).targetLanguage ?? 'spanish';
+              if (userId && contentKey) {
+                try {
+                  const { getSharedDb } = await import('../db');
+                  const { recurringStruggles } = await import('@shared/schema');
+                  const db2 = getSharedDb();
+                  await db2.insert(recurringStruggles).values({
+                    studentId: userId,
+                    language,
+                    struggleArea: 'grammar',
+                    description: `Difficulty at step "${stepName}" in HolaHola loop "${contentKey}"`,
+                    specificExamples: `Step "${stepName}" in "${contentKey}" — ${needsMoreCount} consecutive needs_more responses`,
+                    occurrenceCount: 1,
+                    status: 'active',
+                  });
+                  console.log(`[LoopBridge] Recurring struggle logged: "${contentKey}" step "${stepName}" (${needsMoreCount}x)`);
+                } catch (sErr: any) {
+                  console.error('[LoopBridge] recurring struggle write failed (non-fatal):', sErr.message);
+                }
               }
             }
           }
