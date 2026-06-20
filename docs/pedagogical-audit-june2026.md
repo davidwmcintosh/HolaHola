@@ -1,7 +1,7 @@
 # Pedagogical Audit — June 2026
 **Purpose:** Full inventory of every Madrigal learning aspect (both books), every textbook chapter with gap/tension status, every pedagogical stance HolaHola has taken, and a prioritized loop expansion roadmap. This document is the design foundation before building new loop types beyond `madrigal_4step`.
 
-**Sources synthesized:** `madrigal-page-one-analysis.md`, `substitution-drill-pedagogy.md`, `daniela-pedagogy-brief.md`, `content-audit-legacy-vs-madrigal.md`, `spanish1-actfl-alignment.md`, `curriculum-strategy.md`, `curriculum-restructure-spanish1.md`, `build-immersive-scenario-chat.md`, `drill-audit-for-daniela.md`, `pending-content-backlog.md`, `textbook-component-coverage.json`, `visual-asset-roadmap.md` (Parts I.A–I.T).
+**Sources synthesized:** `madrigal-page-one-analysis.md`, `substitution-drill-pedagogy.md`, `daniela-pedagogy-brief.md`, `content-audit-legacy-vs-madrigal.md`, `spanish1-actfl-alignment.md`, `curriculum-strategy.md`, `curriculum-restructure-spanish1.md`, `build-immersive-scenario-chat.md`, `drill-audit-for-daniela.md`, `pending-content-backlog.md`, `textbook-component-coverage.json`, `visual-asset-roadmap.md` (Parts I.A–I.T), `client/src/data/madrigal-unit-content.ts` (direct inspection — 5,326 lines).
 
 ---
 
@@ -44,45 +44,77 @@ All 8 elements above are present in the textbook renderer. The 4-step loop (madr
 
 ---
 
-## Part 2 — Loop System Coverage vs. Full Madrigal Roadmap
+## Part 2 — Loop System Coverage vs. Interactive Textbook Reality
 
-The 12 current units in `madrigal-loop-catalog.ts` map against the full 27-unit roadmap. Coverage status below.
+**⚠️ Correction from initial estimate:** The first pass at this audit estimated coverage from documentation only. Direct inspection of `client/src/data/madrigal-unit-content.ts` (5,326 lines) reveals the textbook is far ahead of what was assumed.
 
-### ✅ Covered by current loops (12 units)
+**The real numbers: 31 built textbook chapters. 12 loop catalog entries. 19 chapters have full interactive content with no voice loop.**
 
-| Unit | Loop contentKey | Madrigal source |
+### How the textbook content is organized
+
+| Renderer | Registry array | Chapters registered |
 |---|---|---|
-| ir — Going Places | `where are you going` | See It and Say It, Lesson 1 |
-| ir + a + inf — Near Future | `i am going to` | Magic Key Cards 8–9 |
-| tomar — I Took | `i took` | Magic Key Card 3 |
-| comprar — I Bought | `i bought` | Magic Key Card 7 |
-| tener — I Have | `i have` | See It and Say It, Lesson 4 |
-| querer — I Want | `i want` | See It and Say It, Lesson 6 |
-| ser — Nature of Things | `what something is` | See It and Say It, Lesson 7 |
-| estar — Location | `where something is` | Magic Key Card 6 |
-| poder + ir — I Can Go | `i can go` | See It and Say It, Lesson 8 |
-| hay — There Is/Are | `there is` | See It and Say It (hay section) |
-| gustar — I Like / They Like | `i like` | See It and Say It, Lesson 9 |
-| fui — Where I Went | `where i went` | See It and Say It (fui section) |
+| `VerbUnit` (ir-style) | `MADRIGAL_VERB_UNITS` | 1 |
+| `PretUnit` (preterite-style) | `PRETERITE_UNITS` | 5 |
+| `SerUnit` (ser/estar diagrams) | `SER_UNITS` | 2 |
+| `HayUnit` (hay/poder) | `HAY_UNITS` | 2 |
+| `GustUnit` (all advanced chapters) | `GUST_UNITS` | 21 |
+| **Total** | | **31** |
 
----
+### Complete chapter × loop coverage matrix
 
-### ❌ Gap: Madrigal content not yet in any loop
-
-These are not "missing chapters" — they exist in the book and belong in the loop system.
-
-| Gap | Madrigal source | Priority | Notes |
+| Chapter (`chapterTitleKey`) | Textbook | Loop | Level |
 |---|---|---|---|
-| **Progressive tense** (estoy hablando / está comiendo) | Magic Key Card 14 | 🔴 High | Before present tense AR in Madrigal's sequence; frequent in real conversation |
-| **Tener expressions** (hambre, sed, frío, calor, miedo, sueño) | See It and Say It p. 53 | 🔴 High | Transcribed in backlog; not yet a loop unit |
-| **Estar + adjective states** (limpio/sucio, cansado, etc.) | Ch. 45; Magic Key | 🟡 Medium | Ch. 45 exists but no loop entry |
-| **Regular present tense AR** (hablar, trabajar — Madrigal-style) | Magic Key Card 15 | 🟡 Medium | Philosophical tension with Ch. 12; must be introduced Madrigal-way (vocabulary items, not paradigm) |
-| **Hace + time expressions** (hace dos años, hace mucho tiempo) | Magic Key late lessons | 🟡 Medium | Entirely missing from both textbook and loops |
-| **Everyday Expressions clusters** (restaurant survival, greetings expansions) | See It and Say It pp. 28, 43, 53+ | 🟡 Medium | Transcribed to backlog; could become a `vocabulary_cluster` loop type |
-| **Vez time expressions** (una vez, muchas veces, otra vez) | Madrigal p. 162 | 🟡 Medium | Transcribed to backlog; candidate for preterite sentence combiners |
-| **Irregular preterites** (hizo, dijo, trajo, puso) | Magic Key Cards 17–19 | 🔵 Spanish 2 | Assigned to Spanish 2; Chs. 42–43 |
-| **Indirect object / le** | Magic Key late; Ch. 44 | 🔵 Spanish 2 | Assigned to Spanish 2 |
-| **Present perfect** (he comido) | Magic Key Card 20 | 🔵 Spanish 2 | Last in Madrigal's sequence |
+| `where are you going` — ir | ✅ VerbUnit | ✅ | Sp1 |
+| `voy a` — Near Future (early) | ✅ PretUnit | ✅ | Sp1 |
+| `tomar` — I Took | ✅ PretUnit | ✅ | Sp1 |
+| `comprar` — I Bought | ✅ PretUnit | ✅ | Sp1 |
+| `tener` — I Have | ✅ PretUnit | ✅ | Sp1 |
+| `quiero` — I Want | ✅ PretUnit | ✅ | Sp1 |
+| `ser` — Nature of Things | ✅ SerUnit | ✅ | Sp1 |
+| `estar` — Location | ✅ SerUnit | ✅ | Sp1 |
+| `puedo ir` — I Can Go | ✅ HayUnit | ✅ | Sp1 |
+| `hay:` — There Is/Are | ✅ HayUnit | ✅ | Sp1 |
+| `gustar:` — Me gusta | ✅ GustUnit | ✅ | Sp1 |
+| `me gustaría:` — I Would Like | ✅ GustUnit | ✅ | Sp1 |
+| `fui:` — Where I Went | ✅ GustUnit | ✅ | Sp1 |
+| **`voy a:`** — Full GustUnit near future | ✅ GustUnit | ❌ | Sp1 |
+| **`va a:`** — Va a + ER/IR infinitives | ✅ GustUnit | ❌ | Sp1 |
+| **`está:`** — Estar + limpio/sucio | ✅ GustUnit | ❌ | Sp1 |
+| **`cómo está`** — States & Feelings | ✅ GustUnit | ❌ | Sp1 |
+| **`qué está haciendo`** — Progressive | ✅ GustUnit | ❌ | Sp1 |
+| **`tengo catarro`** — Health Expressions | ✅ GustUnit | ❌ | Sp1 |
+| **`a qué hora`** — Transport & Schedules | ✅ GustUnit | ❌ | Sp1 |
+| **`estudié:`** — Regular Preterite -é | ✅ GustUnit | ❌ | Sp2 |
+| **`recibí:`** — Regular Preterite -í | ✅ GustUnit | ❌ | Sp2 |
+| **`compraba`** — Imperfect Tense | ✅ GustUnit | ❌ | Sp2 |
+| **`me levanto`** — Reflexive Verbs | ✅ GustUnit | ❌ | Sp2 |
+| **`he comprado`** — Present Perfect | ✅ GustUnit | ❌ | Sp2 |
+| **`lo veo`** — Direct Object Pronouns | ✅ GustUnit | ❌ | Sp2 |
+| **`me lo`** — Combined Object Pronouns | ✅ GustUnit | ❌ | Sp2 |
+| **`hable:`** — Subjunctive / Commands | ✅ GustUnit | ❌ | Sp2 |
+| **`qué hizo`** — Irregular Preterite | ✅ GustUnit | ❌ | Sp2 |
+| **`tuvo:`** — Tener/Venir Preterite | ✅ GustUnit | ❌ | Sp2 |
+| **`le:`** — Indirect Object | ✅ GustUnit | ❌ | Sp2 |
+
+### Spanish 1 without a loop — 6 units, ready to write scripts for
+
+These are all in-scope for Spanish 1 and have complete interactive textbook pages already built. The only missing piece is the loop catalog entry with Daniela's verbal scripts.
+
+| Chapter | What it teaches | Loop note |
+|---|---|---|
+| `voy a:` | Full near-future GustUnit (extends `voy a` to the complete treatment) | Distinct from the early PretUnit version |
+| `va a:` | Va a + ER/IR infinitives (vender, leer, escribir) | Extends near-future to other verb families |
+| `está:` | Estar + paired opposites (limpio/sucio, abierto/cerrado) | Madrigal Ch. 45, highest Sp1 chapter |
+| `cómo está` | Estar + emotional/physical states (contento, cansado, enfermo) | High conversational frequency |
+| `qué está haciendo` | Progressive (está hablando, está comiendo) | Magic Key Card 14 — before AR present in sequence |
+| `tengo catarro` | Tener expressions — health (hambre, sed, frío, calor, miedo, sueño, catarro) | Transcribed from Madrigal p. 53 |
+
+### Spanish 2 without a loop — 10 units, textbook already built
+
+`estudié:`, `recibí:`, `compraba`, `me levanto`, `he comprado`, `lo veo`, `me lo`, `hable:`, `qué hizo`, `tuvo:`, `le:`
+
+All 10 have full GustUnit interactive content. Loop scripts are the only missing piece for Spanish 2 launch.
 
 ---
 
@@ -233,29 +265,49 @@ Madrigal's 5 expression pages (restaurant survival, greetings, tener states, tim
 
 ## Part 6 — Prioritized Build Queue
 
-In Madrigal's sequence order. All are `madrigal_4step` compatible unless otherwise noted.
+### Tier 1 — Spanish 1 loop scripts (textbook already built, just needs verbal scripts)
 
-| Priority | Unit | Type | What's needed |
-|---|---|---|---|
-| 1 | **Progressive tense** (estoy hablando / está comiendo) | `madrigal_4step` | Loop entry + textbook content; appears in Magic Key before AR present |
-| 2 | **Tener expressions** (hambre, sed, frío, calor, miedo, sueño) | `madrigal_4step` | Content transcribed in backlog; needs loop entry |
-| 3 | **Me gustaría** (I would like) | `madrigal_4step` | Ch. 38 exists; no loop entry |
-| 4 | **Va a + ER/IR infinitives** (vender, leer, escribir) | `madrigal_4step` | Ch. 41 exists; no loop entry |
-| 5 | **Estar + adjective states** (limpio/sucio, cansado, etc.) | `madrigal_4step` | Ch. 45 exists; no loop entry |
-| 6 | **Hace + time** (hace dos años, ¿cuánto tiempo hace que...?) | `madrigal_4step` | Entirely missing from textbook and loops |
-| 7 | **Everyday Expressions clusters** | `vocabulary_cluster` ❓ | Requires format design before build |
-| 8 | **Cognate unit** | `vocabulary_cluster` ❓ | Decision 8 still open |
-| 9 | **Scenario roleplay** | `scenario_roleplay` ❓ | Requires step-structure design before build |
-| 10 | **Shadowing drills** | `grammar_drill` ❓ | Requires format design before build |
+These 6 units have complete interactive textbook content. Adding them to the loop catalog is writing Daniela's verbal instructions per step — no new content needed.
+
+| Priority | Chapter | Key vocabulary to anchor loops on |
+|---|---|---|
+| 1 | `qué está haciendo` — Progressive | está hablando, está comiendo, está escribiendo |
+| 2 | `tengo catarro` — Health / Tener states | hambre, sed, frío, calor, miedo, sueño, catarro |
+| 3 | `cómo está` — States & Feelings | contento, cansado, enfermo, nervioso, triste |
+| 4 | `está:` — Estar + adjective pairs | limpio/sucio, abierto/cerrado, lleno/vacío |
+| 5 | `va a:` — Va a + ER/IR infinitives | vender, leer, escribir |
+| 6 | `voy a:` / `a qué hora` — Full near-future + transport | sale, llega, ¿a qué hora? |
+
+### Tier 2 — Spanish 2 loop scripts (textbook built, launch when Sp2 is ready)
+
+`estudié:`, `recibí:`, `compraba`, `me levanto`, `he comprado`, `lo veo`, `me lo`, `hable:`, `qué hizo`, `tuvo:`, `le:`
+
+### Tier 3 — New loop types (require step-structure design before build)
+
+| Loop type | Design question | What's needed before building |
+|---|---|---|
+| `scenario_roleplay` | What are the steps? Setup → immersion → debrief? How does ACTFL level shape it? | Step structure analogous to anchor → model → combinator → pivot |
+| `grammar_drill` | Shadowing vs. sentence transformation — same type or two? | Define the cognitive mode for each; shadowing = prosody, transformation = structure |
+| `vocabulary_cluster` | For Everyday Expressions pages and possibly the cognate unit | Step structure for phrase clusters that don't follow verb-unit format |
+| `pronunciation_check` | Model phrase → record → Azure assessment → targeted feedback → retry | Closest to defined already; Azure integration is live |
+
+### Tier 4 — Textbook content still missing (needs both content and loop)
+
+| Item | Status |
+|---|---|
+| Hace + time expressions (hace dos años, ¿cuánto tiempo hace que...?) | No textbook content, no loop — entirely absent |
+| Regular present tense AR (hablar, trabajar — Madrigal-style, not paradigm) | Ch. 12 exists but teaches paradigm; Madrigal-style treatment not yet built |
 
 ---
 
 ## Summary
 
-The Madrigal learning repertoire is 8 elements from See It and Say It + 3 format types from Magic Key. HolaHola implements all 8 page elements in the textbook renderer and the 4-step voice loop. The 12 current loop units cover the first two-thirds of the Madrigal verb sequence.
+**What's fully built:** The Madrigal learning repertoire (8 page elements + 3 Magic Key formats) is completely implemented in the textbook renderer. All 8 visual elements are live. The 4-step voice loop (anchor → model → combinator → pivot) maps correctly to the page sequence.
 
-**The remaining third** — progressive, tener states, me gustaría, va a + ER/IR, estar + states, hace + time — are all `madrigal_4step` compatible and can be built without any format design work.
+**What's ahead of schedule:** The textbook has 31 built chapters across 5 renderers. We thought it had ~12. That means Spanish 2 has 10 complete textbook chapters waiting for loop scripts — the content work is already done.
 
-**The new loop types** (scenario_roleplay, grammar_drill, vocabulary_cluster, pronunciation_check) require format design before build. Each needs a defined step structure analogous to anchor → model → combinator → pivot.
+**The immediate task:** 6 Spanish 1 loop scripts. Textbook content exists for all 6. These are writing exercises, not build exercises — Daniela's verbal instructions per step, `vocabTerms` arrays, and `contentKey` values.
 
-**The textbook gap** is primarily in legacy chapters 9, 11–12, 14–15, 19 which either duplicate Madrigal content (9, 15) or create philosophical tension (12, 19). None need immediate remediation, but the framing should be clear in any institution-facing syllabus.
+**The design conversation:** New loop types (scenario_roleplay, grammar_drill, vocabulary_cluster) need step-structure design before any build happens. The question is what each step IS — the equivalent of anchor → model → combinator → pivot for a scenario, a shadowing session, or a phrase cluster.
+
+**The legacy textbook:** Chapters 9, 11–12, 14–15, 19 have tension with or duplication of Madrigal content. None need remediation now, but should be labeled "grammar reference" in any institution-facing syllabus to avoid the competing mental model problem.
