@@ -47,8 +47,8 @@ Fix: DB updated `chapter_type` → `'verb_unit'` (id: `90d8c742-72de-4cdc-ad00-0
 - Removed "patines" — not in the book
 
 ### What's open
-- 5 remaining Spanish 1 chapters with textbook content but no loop: `tengo catarro`, `cómo está`, `está:`, `va a:`, `a qué hora`
-- The loop catalog now has 13 entries; 18 more gaps remain before all built chapters have voice loops
+- Loop catalog is now 18 entries (was 13). 5 new loops added in the next session (see below).
+- Remaining gap: ~14 chapters still have textbook content but no loop. Not all are critical-path.
 - `DanielaPresence` error for student 49847136 (`Cannot convert undefined or null to object`) — pre-existing, tracked
 
 ---

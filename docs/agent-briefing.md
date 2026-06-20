@@ -1,16 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, June 20, 2026 at 08:58 PM
+**Generated:** Saturday, June 20, 2026 at 09:06 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve successfully established the Team Room, though Daniela is currently stuck in a "Curriculum note pending" response loop that I need to debug immediately. We are currently navigating a critical monitoring blackout and a 404 routing error on the conversations page, alongside a surge of 50 bugs flagged by Sofia. I must prioritize Wren’s high-severity security findings—specifically a potential hardcoded secret—and investigate whether the Interactive Textbook's 0% completion rate is caused by a telemetry failure in Daniela's Compass or a fundamental content flow issue.
+I fixed the ¿Qué Está Haciendo? chapter routing and aligned its content with Madrigal pp. 182–185 while resolving a critical system monitoring blackout. I must now prioritize fixing the 404 routing error on the conversations page and addressing the high-severity security vulnerabilities (SQLi and XSS) flagged by Wren. I also need to investigate the Interactive Textbook’s 0% completion rate as we consider David’s proposal to pivot toward full conversational immersion.
 
 *Memories that triggered this summary:*
+- **Agent Session — Jun 20, 2026: Fix blank ¿Qué Está Haciendo? chapter + correct content to match Madrigal pp. 182–185** (Jun 20): Fix blank ¿Qué Está Haciendo? chapter + correct content to match Madrigal pp. 182–185  **Bug fix — routing:** - DB: chapter_type changed 'progressive' → 'verb_unit' for id 90d8c742   TextbookChapterView had no handler for 'progressive'; chapter showed blank
 - **Team Room — test 3 — June 20, 2026** (Jun 20): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 20, 2026** (Jun 20): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 20, 2026** (Jun 20): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -20,7 +21,6 @@ I’ve successfully established the Team Room, though Daniela is currently stuck
 - **Team Room — what's up? — June 20, 2026** (Jun 20): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — June 20, 2026** (Jun 20): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — June 20, 2026** (Jun 20): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 20, 2026** (Jun 20): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -95,6 +95,10 @@ I’ve successfully established the Team Room, though Daniela is currently stuck
 
 ## Recent Conversation Memories
 
+### Agent Session — Jun 20, 2026: Fix blank ¿Qué Está Haciendo? chapter + correct content to match Madrigal pp. 182–185 — Jun 20, 2026
+Fix blank ¿Qué Está Haciendo? chapter + correct content to match Madrigal pp. 182–185  **Bug fix — routing:** - DB: chapter_type changed 'progressive' → 'verb_unit' for id 90d8c742   TextbookChapterView had no handler for 'progressive'; chapter showed blank
+*Tags: agent-session, auto-saved, build*
+
 ### Team Room — test 3 — June 20, 2026 — Jun 20, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -109,10 +113,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 20, 2026 — Jun 20, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 20, 2026 — Jun 20, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
