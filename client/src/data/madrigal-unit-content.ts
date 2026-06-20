@@ -5296,6 +5296,182 @@ const HABLE_CHAPTER: GustUnitContent = {
   ],
 };
 
+// ── Chapter 28: Telling Time + Hace Expressions ─────────────────────────────
+// Source: Madrigal's Invitation to Spanish, Ch. 28 (telling time) + hace expressions
+
+const TELLING_TIME_CHAPTER: GustUnitContent = {
+  chapterTitleKey: "telling time",
+  conceptLabel: "¿Qué Hora Es?",
+  conceptDefinition: "What time is it? · Telling time and expressing how long",
+  introNote: "To tell time in Spanish: use 'Es la una' for one o'clock (singular), and 'Son las...' for all other hours (plural). Two key time expressions: 'hace + time' tells how long ago or for how long something has been happening.",
+
+  clusters: [
+    // ── Cluster 1: Telling the Hour (p. 108) ──────────────────────────────
+    {
+      heading: "¿Qué hora es?",
+      noteInline: "Es la una  It is one o'clock  ·  Son las dos  It is two o'clock  ·  Son las tres  It is three o'clock",
+      pairs: [
+        {
+          imageWord: "reloj",
+          imageDescription: "a clock face showing one o'clock",
+          question: "¿Qué hora es?",
+          questionTranslation: "What time is it?",
+          answer: "Es la una.",
+          answerTranslation: "It is one o'clock.",
+        },
+        {
+          imageWord: "reloj",
+          imageDescription: "a clock face showing two o'clock",
+          question: "¿Qué hora es?",
+          questionTranslation: "What time is it?",
+          answer: "Son las dos.",
+          answerTranslation: "It is two o'clock.",
+        },
+        {
+          imageWord: "reloj",
+          imageDescription: "a clock face showing three o'clock",
+          question: "¿Qué hora es?",
+          questionTranslation: "What time is it?",
+          answer: "Son las tres.",
+          answerTranslation: "It is three o'clock.",
+        },
+        {
+          imageWord: "reloj",
+          imageDescription: "a clock face showing twelve o'clock",
+          question: "¿Qué hora es?",
+          questionTranslation: "What time is it?",
+          answer: "Son las doce.",
+          answerTranslation: "It is twelve o'clock.",
+        },
+      ],
+      grammarRule: "Es la una — singular. Son las + number — plural for all other hours. 'Las' refers to 'horas' (hours).",
+    },
+    // ── Cluster 2: Half-hours and Quarter-hours (p. 109) ──────────────────
+    {
+      heading: "Y Media · Y Cuarto · Menos Cuarto",
+      noteInline: "y media  half past  ·  y cuarto  quarter past  ·  menos cuarto  quarter to",
+      pairs: [
+        {
+          imageWord: "reloj",
+          imageDescription: "a clock face showing three thirty",
+          question: "¿Qué hora es?",
+          questionTranslation: "What time is it?",
+          answer: "Son las tres y media.",
+          answerTranslation: "It is half past three.",
+        },
+        {
+          imageWord: "reloj",
+          imageDescription: "a clock face showing five fifteen",
+          question: "¿Qué hora es?",
+          questionTranslation: "What time is it?",
+          answer: "Son las cinco y cuarto.",
+          answerTranslation: "It is a quarter past five.",
+        },
+        {
+          imageWord: "reloj",
+          imageDescription: "a clock face showing a quarter to four",
+          question: "¿Qué hora es?",
+          questionTranslation: "What time is it?",
+          answer: "Son las cuatro menos cuarto.",
+          answerTranslation: "It is a quarter to four.",
+        },
+      ],
+      sentenceColumns: [
+        {
+          label: "Hour",
+          items: [
+            { text: "Es la una",    translation: "It is one" },
+            { text: "Son las dos",  translation: "It is two" },
+            { text: "Son las tres", translation: "It is three" },
+            { text: "Son las seis", translation: "It is six" },
+          ],
+        },
+        {
+          label: "Minutes",
+          items: [
+            { text: "y media.",       translation: "and a half / half past." },
+            { text: "y cuarto.",      translation: "and a quarter / quarter past." },
+            { text: "menos cuarto.",  translation: "minus a quarter / quarter to." },
+            { text: "en punto.",      translation: "exactly / on the dot." },
+          ],
+        },
+      ],
+    },
+    // ── Cluster 3: AM / PM and times of day ───────────────────────────────
+    {
+      heading: "De la Mañana · De la Tarde · De la Noche",
+      noteInline: "de la mañana  in the morning / AM  ·  de la tarde  in the afternoon / PM  ·  de la noche  at night",
+      pairs: [
+        {
+          imageWord: "mañana",
+          imageDescription: "a sunrise over a city skyline in early morning",
+          question: "¿A qué hora llega el tren?",
+          questionTranslation: "At what time does the train arrive?",
+          answer: "El tren llega a las ocho de la mañana.",
+          answerTranslation: "The train arrives at eight in the morning.",
+        },
+        {
+          imageWord: "tarde",
+          imageDescription: "an afternoon sky with warm golden light over a street",
+          question: "¿A qué hora sale el avión?",
+          questionTranslation: "At what time does the plane leave?",
+          answer: "El avión sale a las tres de la tarde.",
+          answerTranslation: "The plane leaves at three in the afternoon.",
+        },
+        {
+          imageWord: "noche",
+          imageDescription: "a city street at night with lights and dark sky",
+          question: "¿A qué hora llega el barco?",
+          questionTranslation: "At what time does the ship arrive?",
+          answer: "El barco llega a las diez de la noche.",
+          answerTranslation: "The ship arrives at ten at night.",
+        },
+      ],
+    },
+    // ── Cluster 4: Hace + Time Expressions ────────────────────────────────
+    {
+      heading: "Hace + Tiempo — How Long Ago / For How Long",
+      noteInline: "hace dos años  two years ago / for two years  ·  ¿cuánto tiempo hace que?  how long has it been since? / how long have you?",
+      pairs: [
+        {
+          imageWord: "calendario",
+          imageDescription: "a wall calendar showing years passing",
+          question: "¿Cuánto tiempo hace que estudia español?",
+          questionTranslation: "How long have you been studying Spanish?",
+          answer: "Hace dos años que estudio español.",
+          answerTranslation: "I have been studying Spanish for two years.",
+        },
+        {
+          imageWord: "ciudad",
+          imageDescription: "a street view of a city neighbourhood",
+          question: "¿Cuánto tiempo hace que vive aquí?",
+          questionTranslation: "How long have you been living here?",
+          answer: "Hace tres años que vivo aquí.",
+          answerTranslation: "I have been living here for three years.",
+        },
+        {
+          imageWord: "reloj",
+          imageDescription: "an hourglass with sand flowing through it",
+          question: "¿Cuándo llegó?",
+          questionTranslation: "When did you arrive?",
+          answer: "Llegué hace una semana.",
+          answerTranslation: "I arrived a week ago.",
+        },
+        {
+          imageWord: "tiempo",
+          imageDescription: "a faded old photograph suggesting the passage of time",
+          question: "¿Cuándo se fue?",
+          questionTranslation: "When did he leave?",
+          answer: "Se fue hace mucho tiempo.",
+          answerTranslation: "He left a long time ago.",
+        },
+      ],
+      grammarRule: "hace + [time period] + que + [present tense] = for [time period] (ongoing action)\nhace + [time period] + [preterite] = [time period] ago (completed action)",
+      noteAfter: "hace dos años  two years ago / for two years  ·  hace tres días  three days ago  ·  hace una semana  a week ago  ·  hace mucho tiempo  a long time ago  ·  hace poco tiempo  a short time ago",
+    },
+  ],
+};
+
 const GUST_UNITS: GustUnitContent[] = [
   GUSTAR_CHAPTER,
   GUSTARIA_CHAPTER,
@@ -5318,6 +5494,7 @@ const GUST_UNITS: GustUnitContent[] = [
   LO_VEO_CHAPTER,
   ME_LO_CHAPTER,
   HABLE_CHAPTER,
+  TELLING_TIME_CHAPTER,
 ];
 
 /**

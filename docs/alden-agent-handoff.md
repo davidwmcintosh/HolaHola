@@ -47,8 +47,11 @@ Fix: DB updated `chapter_type` → `'verb_unit'` (id: `90d8c742-72de-4cdc-ad00-0
 - Removed "patines" — not in the book
 
 ### What's open
-- Loop catalog is now 18 entries (was 13). 5 new loops added in the next session (see below).
-- Remaining gap: ~14 chapters still have textbook content but no loop. Not all are critical-path.
+- Loop catalog is now **31 entries** (was 18 at start of June 20 session, 12 at start of session before that).
+- All chapter gaps closed: every chapter in madrigal-unit-content.ts now has a corresponding voice loop.
+- Chapter 28 "Telling Time" — new TELLING_TIME_CHAPTER content added to madrigal-unit-content.ts (4 clusters: telling the hour, half/quarter hours, AM/PM, hace expressions). Loop: 'what time is it'. Registered in GUST_UNITS.
+- unitType union extended: now includes 'imperfect' | 'perfect' | 'command' | 'reflexive' | 'object_pronoun'.
+- No remaining chapter-level loop gaps from the current content file.
 - `DanielaPresence` error for student 49847136 (`Cannot convert undefined or null to object`) — pre-existing, tracked
 
 ---

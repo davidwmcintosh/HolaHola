@@ -26,7 +26,7 @@ export interface MadrigalStep {
 export interface MadrigalLoopUnit {
   contentKey: string;
   displayName: string;
-  unitType: 'verb' | 'preterite' | 'ser_estar' | 'hay_gustar' | 'progressive';
+  unitType: 'verb' | 'preterite' | 'ser_estar' | 'hay_gustar' | 'progressive' | 'imperfect' | 'perfect' | 'command' | 'reflexive' | 'object_pronoun';
   vocabTerms: string[];
   steps: MadrigalStep[];
 }
@@ -742,6 +742,514 @@ const UNITS: MadrigalLoopUnit[] = [
         verbalInstruction: 'Last step — question and answer pairs. I ask, you answer. ¿A qué hora sale el barco? — El barco sale a las seis. Then I flip: ¿Y el avión? ¿Cuándo llega? — El avión llega a las ocho. The key is that the vehicle becomes the subject of the answer — always use it. Ready?',
         studentAction: 'Answer ¿A qué hora sale/llega + vehicle? with a full sentence including the vehicle and the time.',
         teacherHint: 'Push for the full sentence: "El tren sale a las nueve," not just "a las nueve." The verb and subject must be in the answer — that is the Madrigal habit. Incomplete answers get a gentle prompt: "El tren sale a las...?"',
+      },
+    ],
+  },
+
+  // ─── Poder — Can / Able to ───────────────────────────────────────────────
+
+  {
+    contentKey: 'i can go',
+    displayName: 'Puedo Ir — I Can Go (poder)',
+    unitType: 'verb',
+    vocabTerms: ['puedo', 'puede', 'puedo ir', 'puede ir', 'no puedo', 'no puede', 'poder', 'can', 'able', 'i can go', 'can you go', 'tienda', 'fiesta', 'baile', 'concierto', 'ballet'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: 'Two forms today. "Puedo ir" — I can go. "Puede ir" — you can go. Then the negatives: "No puedo ir" — I can\'t go. "No puede ir" — you can\'t go. These four are your building blocks. Say them with me: puedo ir, puede ir, no puedo ir, no puede ir.',
+        studentAction: 'Repeat all four forms: puedo ir, puede ir, no puedo ir, no puede ir.',
+        teacherHint: 'The difference between puedo and puede is a single vowel shift. Drill both before moving on — students often collapse them into one form.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Look at each picture and read the exchange. Notice that I ask with "puede" and you answer with "puedo" — the subject shifts when the question is answered. ¿Puede ir a la tienda? → Sí, puedo ir a la tienda. ¿Puede ir al baile conmigo? → Sí, puedo ir al baile con usted. Read each pair.',
+        studentAction: 'Read each question-answer pair aloud. Shift puede → puedo in every answer.',
+        teacherHint: 'The puede/puedo flip is the central habit here. If student answers with puede, stop and redirect: "When you are speaking about yourself, which form do you use?"',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Now the sentence columns. Column one: puedo ir / puede ir / no puedo ir / no puede ir. Column two: al baile / al concierto / al ballet / a la tienda / a la fiesta / a la clase / a mi casa. Scan across and fire the combinations. Go quickly.',
+        studentAction: 'Combine one item from each column into a complete sentence.',
+        teacherHint: 'Watch for the contraction — it is "al baile" not "a el baile." Correct quietly and keep moving.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Last step — question and answer. I ask: ¿Puede ir al concierto esta noche? You answer affirmatively, then I ask again and you answer negatively. Sí, puedo ir al concierto esta noche. No, no puedo ir al concierto esta noche. Then we flip — you ask me and I answer. Ready?',
+        studentAction: 'Answer ¿Puede ir...? with full affirmative then full negative sentence. Then reverse roles.',
+        teacherHint: 'The full negative is "No, no puedo ir" — two negatives, no reduction. Both must be present. If student drops one, prompt: "No... no puedo ir." Both nos stay.',
+      },
+    ],
+  },
+
+  // ─── Preterite — Hacer / Ir / Oír / Leer ─────────────────────────────────
+
+  {
+    contentKey: 'what did you do',
+    displayName: '¿Qué Hizo? — What Did You Do? (hacer preterite)',
+    unitType: 'preterite',
+    vocabTerms: ['hice', 'hizo', 'hicimos', 'hicieron', 'hacer', 'did', 'jugué', 'trabajé', 'vi', 'oí', 'leí', 'fui', 'what did you do', 'qué hizo', 'esta mañana', 'ayer', 'esta noche', 'esta tarde'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Hacer" is irregular in the preterite. Listen carefully: hice — I did. Hizo — you or he or she did. Hicimos — we did. Hicieron — they did. Notice the c changes to z in "hizo." Say the four forms with me: hice, hizo, hicimos, hicieron.',
+        studentAction: 'Repeat the four irregular forms: hice, hizo, hicimos, hicieron.',
+        teacherHint: 'The hice/hizo pair is the key — students often want to say "hicé" or "hizé." If that happens, stop and compare: "hice has a c; hizo has a z." Let them see the pattern.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Now the question "¿Qué hizo?" — What did you do? — unlocks all past-tense verbs, not just hacer. Look at each picture. ¿Qué hizo esta mañana? → Esta mañana jugué al tenis. ¿Qué hizo ayer? → Ayer fui a la playa. The time expression goes first. Read each exchange.',
+        studentAction: 'Read each question-answer pair. Put the time expression first in the answer.',
+        teacherHint: 'The time-first word order (esta mañana jugué, ayer fui) is the Madrigal habit. If student puts the time at the end, it is not wrong — but model the front-placement and let them hear the difference.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Now the combinations. Column one is your verb: jugué / trabajé / vi / oí / leí / fui. Column two is what or where: al tenis / en el jardín / al golf / un programa de televisión / un programa de radio / el periódico / a la playa / al cine. Pick a time — esta mañana, ayer, esta noche — and fire the combination.',
+        studentAction: 'Choose a time expression, then combine one verb with one destination or object.',
+        teacherHint: 'Oí and leí have accent marks — they are stressed on the final vowel. If student mispronounces (oh-ee vs. oi), model it slowly: "o — í, leí."',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Last step — I ask with ¿Qué hizo? and vary the time: esta mañana, ayer, esta tarde, esta noche. You answer in a full sentence starting with the time expression. Then I ask: ¿Y usted? ¿Qué hizo? Now it is a real conversation. What did you actually do?',
+        studentAction: 'Answer ¿Qué hizo [time]? with a full sentence. Then answer the open question ¿Y usted? honestly.',
+        teacherHint: 'The open ¿Y usted? is where the drill becomes language. Accept any accurate past-tense verb — fui, vi, hice, jugué. The point is spontaneous production, not repetition of the model.',
+      },
+    ],
+  },
+
+  {
+    contentKey: 'did you have',
+    displayName: '¿Tuvo? / ¿Vino? — Did You Have? (tener/venir preterite)',
+    unitType: 'preterite',
+    vocabTerms: ['tuve', 'tuvo', 'tuvimos', 'tuvieron', 'vine', 'vino', 'tener', 'venir', 'did you have', 'tuvo', 'vino', 'no pude', 'no tuve tiempo', 'fiesta', 'visitas', 'catarro', 'trabajo'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: 'Two irregular preterites today — both follow the same pattern. Tener: tuve, tuvo, tuvimos, tuvieron. Venir: vine, vino, vinimos, vinieron. Notice the shared DNA — both swap their root vowel and drop the accent. Say them with me: tuve, tuvo — vine, vino.',
+        studentAction: 'Repeat both sets: tuve / tuvo and vine / vino.',
+        teacherHint: 'Tuve/vine are mirror images in structure. If student can hear the parallel, they will learn both at once. Point it out explicitly: "Both follow the same shape."',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Look at the picture and answer. ¿Tuvo una fiesta el sábado? — Did you have a party Saturday? → Sí, tuve una fiesta linda el sábado. Now the sympathetic form: ¿Tuvo catarro esta semana? → Sí, tuve catarro esta semana. ¡Qué terrible! The exclamation is part of the Madrigal script — use it.',
+        studentAction: 'Read each exchange. Include ¡Qué terrible! where the script calls for it.',
+        teacherHint: '"¡Qué terrible!" is a formulaic response Madrigal teaches for illness and hardship. It becomes automatic — let it. Formulaic chunks accelerate fluency.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Now the ¿Vino? cluster. The answer goes negative: No, no vine — I didn\'t come. Then add the reason: No pude — I couldn\'t. No tuve tiempo — I didn\'t have time. These two reasons combine. ¿Vino a la playa? → No, no vine. No pude. No tuve tiempo. Fire the combinations with different destinations.',
+        studentAction: 'Answer ¿Vino a...? negatively, then chain: no vine + no pude + no tuve tiempo.',
+        teacherHint: 'The three-part negative chain (no vine / no pude / no tuve tiempo) is a conversational set piece. Once students have it, they sound fluent. It is worth drilling as a unit.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Last step — I ask, you answer. ¿Tuvo visitas esta semana? → Sí, tuve visitas / No, no tuve visitas. Then: ¿Vino al club la semana pasada? → Sí, vine / No, no vine. No pude. No tuve tiempo. Finally — ¿Tuvo mucho trabajo? Answer honestly.',
+        studentAction: 'Answer ¿Tuvo...? and ¿Vino...? questions with full sentences. Use the three-part chain when declining.',
+        teacherHint: 'Watch for "no tuve tiempo" — students sometimes say "no tenía tiempo" (imperfect). Both exist in Spanish but mean something slightly different. For now, stay in the preterite.',
+      },
+    ],
+  },
+
+  {
+    contentKey: 'i brought it to him',
+    displayName: 'Le — Indirect Object Pronouns (le traje / le dije)',
+    unitType: 'preterite',
+    vocabTerms: ['le', 'le traje', 'le dijo', 'le dije', 'traje', 'trajo', 'dije', 'dijo', 'indirect object', 'to him', 'to her', 'to you', 'traer', 'decir', 'libro', 'disco', 'interesante', 'terrible', 'excelente'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Le" is the indirect object pronoun — it means "to him," "to her," or "to you." It goes before the verb. Le traje — I brought (to him/her). Le dije — I told (him/her). Traer and decir are both irregular in the preterite: traje/trajo/trajimos/trajeron and dije/dijo/dijimos/dijeron. Say them with me: le traje, le dije.',
+        studentAction: 'Repeat the anchor forms: le traje, le dijo, traje, trajo, dije, dijo.',
+        teacherHint: 'Both traer and decir drop their -j- into a -j- stem (traje, dije). No written accent in the preterite. If students add accents by analogy, note the exception gently.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'The question is ¿Qué le trajo? — What did you bring him/her? Answer: Le traje un libro. Le traje un disco. The "le" locks onto the front of the verb in both question and answer. Read the pairs, keeping the le in front.',
+        studentAction: 'Read each ¿Qué le trajo? / Le traje... exchange.',
+        teacherHint: 'Students sometimes want to move the le to the end of the verb ("trajerle"). It stays before in conjugated forms. Only infinitives and gerunds take the attached form.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Now the second cluster: Le dije que era... — I told him/her that it was... The combinator is simple: one phrase, five adjectives. Le dije que era interesante. Le dije que era terrible. Le dije que era excelente. Le dije que era imposible. Le dije que era formidable. Run through all five.',
+        studentAction: 'Complete: Le dije que era ___ with each of the five adjectives in turn.',
+        teacherHint: 'All five adjectives are Spanish-English cognates — students can say them without explanation. Move quickly through all five to show how one structure carries many meanings.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Last step — question and answer. ¿Qué le trajo? → Le traje un libro. Then I reverse: ¿Le traje un disco? → Sí, me trajo un disco. Notice — when I am the receiver, "le" becomes "me." That flip is the QA pivot here. Try it.',
+        studentAction: 'Answer ¿Qué le trajo? with le traje. Then flip: when asked ¿Le trajo...?, answer with me trajo.',
+        teacherHint: 'The le → me flip when the speaker becomes the recipient is a key insight. If the student misses it, ask: "Who is receiving now? You? Then which pronoun?" Lead them there rather than announcing the rule.',
+      },
+    ],
+  },
+
+  // ─── Preterite — AR Verbs ────────────────────────────────────────────────
+
+  {
+    contentKey: 'i studied',
+    displayName: 'Estudié — AR Preterite (–é / –ó / –aron)',
+    unitType: 'preterite',
+    vocabTerms: ['estudié', 'estudió', 'estudiar', 'pagué', 'pagó', 'nadé', 'nadó', 'compré', 'compró', 'AR preterite', '-é ending', '-ó ending', '-aron ending', 'compraron', 'alquilaron', 'trabajaron'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: 'In the past tense, AR verbs follow a clear pattern. When you speak of yourself: add -é. When you speak of someone else (singular): add -ó. For a group: add -aron. For we: add -amos. So "estudiar" becomes: estudié / estudió / estudiamos / estudiaron. Say the four endings with me: -é, -ó, -amos, -aron.',
+        studentAction: 'Repeat the four endings: -é, -ó, -amos, -aron.',
+        teacherHint: 'The accent on -é and -ó is critical — it distinguishes past from present (estudio vs. estudió). If student drops the accent in speech (flat final vowel), model the stressed form clearly.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Look at each picture. I ask with -ó; you answer with -é. ¿Estudió hoy? → Sí, estudié hoy. ¿Pagó la cuenta? → Sí, pagué la cuenta. ¿Nadó hoy? → Sí, nadé hoy. Notice "pagar" becomes "pagué" — the spelling changes to keep the g-sound. Read each pair.',
+        studentAction: 'Answer each ¿[verb]-ó? question with Sí, [verb]-é.',
+        teacherHint: 'The pagar → pagué spelling change (not pagé) is a common stumble. It keeps the hard g sound. Compare: pago (present), pagué (past). Brief mention is enough.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Now the -aron cluster. ¿Compraron una lancha? → Sí, compraron una lancha. ¿Alquilaron una casa? → Sí, alquilaron una casa. ¿Trabajaron anoche? → Sí, trabajaron mucho anoche. The -aron ending covers "they" and "you all." Run the combinations.',
+        studentAction: 'Answer each ¿[verb]-aron? question with a full sentence using -aron.',
+        teacherHint: 'Students often confuse -aron with -aron in the present (hablan). The key audible difference is stress: hablÁRON (past) vs. HÁblan (present). Exaggerate the stress difference if needed.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Last step — person flip. I give you the yo form and you give me the usted form, and vice versa. Estudié → ¿Estudió? / Pagó → Pagué. Then I say: "Roberto nadó hoy." You respond: ¿Nadó Roberto? Yes, he did — nadó. The pivot is: who is doing the action changes which ending you use.',
+        studentAction: 'Flip between the -é and -ó forms as the subject shifts between yo and usted/él/ella.',
+        teacherHint: 'The yo/usted-él-ella flip is the core drill. The moment this becomes effortless, the student owns the AR preterite. Keep flipping until the response is automatic.',
+      },
+    ],
+  },
+
+  // ─── Preterite — ER/IR Verbs ─────────────────────────────────────────────
+
+  {
+    contentKey: 'i received',
+    displayName: 'Recibí — ER/IR Preterite (–í / –ió / –ieron)',
+    unitType: 'preterite',
+    vocabTerms: ['recibí', 'recibió', 'vendí', 'vendió', 'escribí', 'escribió', 'vi', 'vio', 'recibir', 'vender', 'escribir', 'ER preterite', 'IR preterite', '-í ending', '-ió ending', '-ieron ending', 'paquete', 'carta', 'lancha', 'cumpleaños', 'Navidad'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: 'ER and IR verbs in the past tense have their own set of endings. When you speak of yourself: -í. When you speak of someone else singular: -ió. For a group: -ieron. For we: -imos. So "recibir" becomes: recibí / recibió / recibimos / recibieron. Say the four endings: -í, -ió, -imos, -ieron.',
+        studentAction: 'Repeat the four endings: -í, -ió, -imos, -ieron.',
+        teacherHint: 'Connect to the AR endings for contrast: AR uses -é/-ó/-amos/-aron; ER/IR uses -í/-ió/-imos/-ieron. If students already know AR, this contrast is the quickest path to mastery.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'I ask with -ió; you answer with -í. ¿Vendió la lancha hoy? → Sí, vendí la lancha hoy. ¿Escribió la carta? → Sí, escribí la carta. ¿Recibió el paquete? → Sí, recibí el paquete hoy. ¿Vio el programa? → Sí, vi el programa. Read each pair.',
+        studentAction: 'Answer each ¿[verb]-ió? question with Sí, [verb]-í.',
+        teacherHint: '"Vi" (I saw) has no accent mark — it is only one syllable. Students sometimes write "ví" by analogy. Note it quietly. Also "vio" (he saw) has no accent either.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Now the gift cluster. ¿Qué recibió para su cumpleaños? — What did you receive for your birthday? ¿Qué recibió para la Navidad? Use the gifts: una caja de chocolates / una botella de perfume / una billetera / un portafolio. Fire the combinations with both occasions.',
+        studentAction: 'Answer ¿Qué recibió para su cumpleaños? and ¿Qué recibió para la Navidad? with the gift options.',
+        teacherHint: 'The "para mi cumpleaños" / "para la Navidad" distinction gives students two real conversational triggers. Both are gift occasions — different wording, same structure.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Last step — person flip. Vendí → ¿Vendió? / Recibió → Recibí. Then I say: "Enrique vendió la lancha." You ask: ¿Vendió Enrique la lancha? Yes — vendió. The pivot is the same as with AR verbs: who is speaking determines the ending.',
+        studentAction: 'Flip between -í and -ió as the subject shifts. Confirm with third-person name as subject.',
+        teacherHint: 'If students mastered the AR pivot, this clicks fast. If not, use the same approach: exaggerate the stress on the final vowel to anchor the speaker-identity cue.',
+      },
+    ],
+  },
+
+  // ─── Imperfect ───────────────────────────────────────────────────────────
+
+  {
+    contentKey: 'used to buy',
+    displayName: 'Compraba — Imperfect Tense (–aba / –ía)',
+    unitType: 'imperfect',
+    vocabTerms: ['compraba', 'comprabas', 'comprábamos', 'compraban', 'vendía', 'vendíamos', 'vendían', 'tenía', 'imperfect', 'used to', 'was buying', 'was selling', 'antes', 'memories', 'descriptions', 'máquinas', 'tractores', 'sombreros', 'flores', 'libros'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: 'The imperfect tense describes what someone used to do — the tense of memories and stories. AR verbs end in -aba: compraba (I used to buy / you used to buy / he or she used to buy). For we: comprábamos. For they: compraban. ER and IR verbs end in -ía: vendía, vendíamos, vendían. Say them: compraba, comprábamos, compraban — vendía, vendíamos, vendían.',
+        studentAction: 'Repeat both sets: compraba series and vendía series.',
+        teacherHint: 'The critical feature of the imperfect: the yo and usted/él/ella forms are identical (compraba = I used to buy AND you/he/she used to buy). Context resolves the ambiguity. Mention this once — do not dwell.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'The trigger word is "antes" — before, in the past. ¿Qué compraba antes? → Compraba máquinas. ¿Compraba tractores también? → Sí, compraba tractores también. Now the vendía cluster: ¿Qué vendía usted? → Vendía sombreros. ¿Qué vendía María? → María vendía blusas. Read each sentence.',
+        studentAction: 'Read each model sentence. Hear how compraba and vendía carry the "used to" meaning.',
+        teacherHint: '"Antes" is a reliable context cue for the imperfect. Train students to notice it as a green flag for -aba/-ía forms.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Combine: compraba / vendía / tenía × objects. ¿Qué compraba en el mercado? → Compraba frutas. ¿Qué vendía? → Vendía flores en el mercado. Now tenía — used to have. ¿Tenía usted un auto? → Sí, tenía un auto. Mix all three verbs with different objects.',
+        studentAction: 'Produce sentences with compraba, vendía, and tenía plus different objects.',
+        teacherHint: 'Tenía follows the ER/IR pattern (-ía). Students who internalize compraba and vendía will generalize automatically. Let them try before correcting.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Last step — the memory conversation. I ask about your past: ¿Compraba café por las mañanas? → Sí, compraba café todas las mañanas. ¿Vendía usted libros? → Sí, vendía libros en la librería. Then open: ¿Qué hacía usted antes? — What did you used to do? Answer honestly with the imperfect.',
+        studentAction: 'Answer each ¿[verb]aba/ía? question, then respond to the open ¿Qué hacía antes? with a true sentence.',
+        teacherHint: 'The open ¿Qué hacía antes? invites authentic language. Any -aba or -ía verb is valid. Resist the urge to correct minor errors here — fluency in real use is the goal of step 3.',
+      },
+    ],
+  },
+
+  // ─── Reflexive Verbs ─────────────────────────────────────────────────────
+
+  {
+    contentKey: 'morning routine',
+    displayName: 'Me Levanto — Reflexive Verbs (morning routine)',
+    unitType: 'reflexive',
+    vocabTerms: ['me levanto', 'se levantó', 'me levanté', 'me bañé', 'me peiné', 'me lavé', 'me sequé', 'me afeité', 'reflexive', 'myself', 'me', 'se', 'nos', 'levantarse', 'bañarse', 'peinarse', 'acostarse', 'esta mañana', 'anoche'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: 'Reflexive verbs reflect the action back on the person doing it — things you do to yourself. Three pronouns: me (myself), se (yourself, himself, herself), nos (ourselves). They go directly before the verb. Me levanto — I get up. Se levantó — you got up. The verb list: levantarse, bañarse, lavarse, peinarse, secarse, afeitarse, acostarse. Say the pronouns with me: me, se, nos.',
+        studentAction: 'Repeat: me, se, nos. Then repeat the verb list once.',
+        teacherHint: 'The reflexive pronoun placement before the verb is the key rule. In the preterite the pronoun still comes first: me levanté, se levantó. Do not let students attach it to the verb form.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Look at the morning routine pictures. I ask with "se"; you answer with "me." ¿A qué hora se acostó anoche? → Anoche me acosté a las once. ¿A qué hora se levantó esta mañana? → Me levanté a las siete esta mañana. ¿Se bañó con agua y jabón? → Sí, me bañé con agua y jabón. Read each pair.',
+        studentAction: 'Answer each ¿Se...? question with Me... in a full sentence with a time if given.',
+        teacherHint: 'The se → me shift when answering is identical to the puede → puedo shift students learned with poder. If they remember that drill, this is the same mechanism.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Now the morning sequence in order: Me levanté → me bañé → me sequé → me peiné → me lavé la cara → me afeité → me lavé el pelo. Read each one and connect it to the picture. Then scan: which ones apply to your own morning? Which ones do you actually do?',
+        studentAction: 'Read each reflexive past-tense phrase. Mentally note which apply to your morning.',
+        teacherHint: 'The question of which ones apply is not rhetorical — it personalizes the vocabulary. A student who connects "me peiné" to a real memory will recall it far better than one who only reads it.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Last step — the morning interview. I ask: ¿Se lavó la cara esta mañana? → Sí, me lavé la cara. ¿Se afeitó? → Sí, me afeité. Then open: ¿A qué hora se levantó hoy? Answer honestly — this is real language now.',
+        studentAction: 'Answer each ¿Se [reflexive verb]? question with Me [reflexive verb] in a full sentence.',
+        teacherHint: 'For the open question, accept any accurate reflexive preterite form. If student uses present tense by mistake (me levanto), note gently: "Today we are in the past — me levanté."',
+      },
+    ],
+  },
+
+  // ─── Present Perfect ─────────────────────────────────────────────────────
+
+  {
+    contentKey: 'have you bought',
+    displayName: 'He Comprado — Present Perfect (he/ha + past participle)',
+    unitType: 'perfect',
+    vocabTerms: ['he comprado', 'ha comprado', 'hemos comprado', 'han comprado', 'he vendido', 'ha vendido', 'he estudiado', 'he pagado', 'he recibido', 'present perfect', 'have bought', 'have sold', '-ado', '-ido', 'todavía', 'esta semana'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: 'The present perfect is two pieces: the helper verb "haber" plus a past participle. He / ha / hemos / han — then the participle. For AR verbs: drop -AR and add -ado. Comprar → comprado. Estudiar → estudiado. For ER and IR verbs: drop the ending and add -ido. Vender → vendido. Recibir → recibido. Say the helper verb series: he, ha, hemos, han.',
+        studentAction: 'Repeat: he, ha, hemos, han. Then say one example: he comprado, ha comprado.',
+        teacherHint: 'The two-piece structure (helper + participle) is new for most students. Establish it before any vocabulary — "What are the two pieces? What is the helper? What is the participle?"',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Look at the pairs. I ask with "ha"; you answer with "he." ¿Ha comprado la casa? → Sí, he comprado la casa. ¿Ha estudiado esta semana? → Sí, he estudiado mucho esta semana. Negative with "todavía" — yet: ¿Ha comprado la bicicleta? → No, no he comprado la bicicleta todavía. Read each exchange.',
+        studentAction: 'Answer ¿Ha [verb]? with he [verb]. For negatives, add todavía at the end.',
+        teacherHint: '"Todavía" (yet / still) goes at the end of the negative: "No he comprado la bicicleta todavía." If student places it before the verb, model the end position again.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Now the ER/IR column: he vendido / he recibido / he visto / he escrito. ¿Ha vendido el auto? → Sí, he vendido el auto. ¿Ha recibido el telegrama? → Sí, he recibido el telegrama. Mix AR and ER/IR: he comprado / he estudiado / he pagado / he vendido / he recibido. Try each one.',
+        studentAction: 'Produce full sentences with both -ado and -ido participles mixed together.',
+        teacherHint: '-Ado and -ido participles are invariable — they never change for gender or number in the present perfect. "He comprado" whether the object is masculine, feminine, singular, or plural.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Last step — the pivot. ¿Ha pagado la cuenta? → Sí, he pagado / No, no he pagado todavía. Then I use ha as a statement: María ha vendido la lancha. You confirm: ¿Ha vendido María la lancha? Sí, ha vendido la lancha. The ha/he flip is the conversation engine.',
+        studentAction: 'Answer ¿Ha...? questions, then confirm third-person statements using ha.',
+        teacherHint: 'The ha (he/she/you have) in statements and questions is identical — context determines who. Point this out explicitly so students do not over-distinguish.',
+      },
+    ],
+  },
+
+  // ─── Object Pronouns ─────────────────────────────────────────────────────
+
+  {
+    contentKey: 'i see it',
+    displayName: 'Lo Veo — Direct Object Pronouns (lo / la / los / las)',
+    unitType: 'object_pronoun',
+    vocabTerms: ['lo', 'la', 'los', 'las', 'lo veo', 'la veo', 'los veo', 'las veo', 'me', 'direct object pronoun', 'i see it', 'i see him', 'i see her', 'before the verb', 'edificio', 'barco', 'lámpara', 'llamo', 'conozco'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: 'Direct object pronouns replace the noun that receives the action — and they go directly before the verb. Four forms: lo (masculine singular — him or it), la (feminine singular — her or it), los (masculine plural — them), las (feminine plural — them). Say them: lo, la, los, las. Plus me — me. Me ve. She sees me.',
+        studentAction: 'Repeat: lo, la, los, las, me.',
+        teacherHint: 'The placement-before-verb rule is the most important takeaway. Drill it as a rule before any vocabulary: "Where does the pronoun go? Before the verb. Always."',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Look at each picture. I ask; you replace the noun with lo or la. ¿Ve el edificio? — Lo veo. ¿Ve el barco? — Lo veo. ¿Ve la lámpara? — La veo. Read the exchanges and feel the pattern: masculine noun → lo, feminine noun → la, always before the verb.',
+        studentAction: 'Answer each ¿Ve el/la [noun]? with Lo veo or La veo.',
+        teacherHint: 'Students must decide gender first, then choose the pronoun. If they hesitate, ask: "Is it masculine or feminine?" — let them work it out rather than supplying the answer.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Now the parallel pairs. Lo veo / La veo. Lo llamo / La llamo. Lo conozco / La conozco. Lo quiero / La quiero. Each verb works with both pronouns — the noun determines which one. Then "me": Me ve. She sees me. Me llama. She calls me. Me always means the speaker is the object.',
+        studentAction: 'Read each lo/la parallel pair aloud, then the me examples.',
+        teacherHint: 'The me examples flip the perspective — now the speaker is receiving the action. This is a preview of the indirect object system. Keep it brief — just note it.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Last step. I name a noun; you give me the full sentence with the correct pronoun. "El edificio" → Lo veo. "La lámpara" → La veo. "Los edificios" → Los veo. "Las lámparas" → Las veo. Then I ask about people: ¿Ve a María? — La veo. ¿Ve a Juan? — Lo veo. The personal "a" appears before a person; the pronoun stays before the verb.',
+        studentAction: 'Produce Lo/La/Los/Las veo for each noun given, choosing the correct pronoun.',
+        teacherHint: 'The los/las plural extension should feel automatic by now — the same lo→los, la→las pattern from articles. If student hesitates on plural, connect back: "How do we make "el" plural? Same thing here."',
+      },
+    ],
+  },
+
+  {
+    contentKey: 'he sent it to me',
+    displayName: 'Me Lo — Double Object Pronouns (me lo / se lo)',
+    unitType: 'object_pronoun',
+    vocabTerms: ['me lo', 'se lo', 'nos lo', 'me lo mandó', 'me lo trajo', 'se lo dije', 'double object pronouns', 'indirect direct', 'le changes to se', 'paquete', 'paraguas', 'disco', 'libro', 'regalo', 'mandó', 'trajo'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: 'When two object pronouns appear together, the indirect comes first, then the direct. But there is one rule: when "le" (to him/her/you) comes before "lo" or "la," the "le" changes to "se." It never sounds natural to say "le lo" — Spanish avoids it. The result: me lo (it to me), se lo (it to you/him/her), nos lo (it to us). Say them: me lo, se lo, nos lo.',
+        studentAction: 'Repeat: me lo, se lo, nos lo.',
+        teacherHint: 'The le → se change is a rule without exceptions in standard Spanish. Do not try to explain why — just announce it and let students practice until the pattern feels natural.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Look at each picture. ¿Le mandó el paquete? — Did he send you the package? → Sí, me lo mandó hoy. The "el paquete" collapses into "lo." The "le" (to you) becomes "me" because the listener is the receiver. Read each exchange: ¿Le trajo el paraguas? → Sí, me lo trajo hoy. ¿Le trajo el disco? → Sí, me lo trajo hoy.',
+        studentAction: 'Answer each ¿Le mandó/trajo el [object]? with Sí, me lo mandó/trajo hoy.',
+        teacherHint: 'Both pronouns shrink into a fixed two-word unit: me lo. The object noun disappears entirely. If student tries to repeat the noun (me lo mandó el paquete), note that the noun is already replaced.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Now the se lo cluster. Se lo means "it to you / it to him / it to her / it to them" — four people, one pronoun pair. ¿Se lo trajo hoy? → Sí, me lo trajo hoy. Notice — when I am the receiver, I say "me lo"; when you are asking about the receiver in the third person, it becomes "se lo." And nosotros: Nos lo trajo. (He brought it to us.) Nos lo mandó. (He sent it to us.)',
+        studentAction: 'Work through the se lo → me lo conversions, and then the nos lo examples.',
+        teacherHint: 'Se lo is ambiguous — it can mean "to you," "to him," "to her," "to them." In real conversation context resolves it. Do not attempt to disambiguate all possibilities — just let the pattern land.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Last step — the conversation pivot. ¿Se lo trajo hoy? → Sí, me lo trajo hoy. Then I give a statement: Se lo dije. — I told it to you/him/her. You confirm with the flip: Me lo dijo. — He told it to me. And: Nos lo trajo. — He brought it to us. Nos lo mandó. — He sent it to us. Try the full set.',
+        studentAction: 'Convert se lo statements to me lo confirmations. Then use nos lo in context.',
+        teacherHint: 'The pivot here is perspective: who says "me lo" vs. "se lo" depends entirely on who is speaking. This is the hardest step — slow down if needed and ask: "Who is receiving? You? Then what pronoun?"',
+      },
+    ],
+  },
+
+  // ─── Formal Commands ─────────────────────────────────────────────────────
+
+  {
+    contentKey: 'speak slowly',
+    displayName: 'Hable — Formal Commands (usted)',
+    unitType: 'command',
+    vocabTerms: ['hable', 'mire', 'conteste', 'tome', 'venda', 'aprenda', 'escriba', 'formal command', 'usted command', 'imperative', 'opposite ending', '-AR to -e', '-ER to -a', '-IR to -a', 'hable despacio', 'escríbame', 'aprenda la lección'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: 'Formal commands follow one rule: use the opposite ending. AR verbs normally end in -a in the third person — the command ends in -e instead. ER and IR verbs normally end in -e — the command ends in -a instead. So: hablar (AR) → hable. Vender (ER) → venda. Escribir (IR) → escriba. Say the rule with me: AR gets -e. ER and IR get -a. Opposite of the present tense.',
+        studentAction: 'Repeat the rule: AR → -e command. ER/IR → -a command.',
+        teacherHint: '"Opposite of the present tense" is the single most useful mnemonic here. If students remember only one thing, it should be that. Reinforce it at every step.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Look at each picture. AR verbs take -e: hablar → hable. Mirar → mire. Contestar → conteste. Tomar → tome. Read each command and connect it to the meaning: Hable despacio. (Speak slowly.) Mire. (Look.) Conteste el teléfono. (Answer the phone.) Tome esto. (Take this.) Now ER/IR: vender → venda. Aprender → aprenda. Escribir → escriba.',
+        studentAction: 'Read each command and its translation. Match verb type to ending.',
+        teacherHint: 'The commands are high-frequency classroom language — students already hear "mire" and "conteste" in class. Connect the forms to what they have heard before.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Now pair commands with objects: Venda la casa. Aprenda la lección. Escríbame. Notice "escríbame" — the pronoun attaches directly to the end of the command form, and the accent mark shifts. This is the attached-pronoun rule for commands. Try: hable + despacio, conteste + el teléfono, venda + la lancha, aprenda + español.',
+        studentAction: 'Attach an object or complement to each command form.',
+        teacherHint: 'Attached pronouns on commands are a separate step from bare commands. Do not try to drill all combinations — focus on the attached form as a single example (escríbame) and note the rule.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Last step — I give you a verb and you give me the formal command. Hablar → hable. Mirar → mire. Tomar → tome. Vender → venda. Aprender → aprenda. Escribir → escriba. Then I reverse — I give you a command and you tell me the infinitive it came from. Venda → vender. Aprenda → aprender. The opposite-ending rule works in both directions.',
+        studentAction: 'Convert infinitives to command forms and command forms back to infinitives.',
+        teacherHint: 'The reverse drill (command → infinitive) is a deeper test of understanding. If students can go both ways, they have internalized the rule — not just memorized examples.',
+      },
+    ],
+  },
+
+  // ─── Telling Time + Time Expressions ────────────────────────────────────
+
+  {
+    contentKey: 'what time is it',
+    displayName: '¿Qué Hora Es? — Telling Time + Hace Expressions',
+    unitType: 'verb',
+    vocabTerms: [
+      'es la una', 'son las dos', 'son las tres', 'son las doce',
+      'y media', 'y cuarto', 'menos cuarto', 'en punto',
+      'de la mañana', 'de la tarde', 'de la noche',
+      'hace dos años', 'hace tres días', 'hace una semana', 'hace mucho tiempo', 'hace poco tiempo',
+      'cuánto tiempo hace que', 'how long', 'what time is it', 'telling time', 'qué hora es',
+      'hace que', 'for two years', 'a week ago', 'a long time ago',
+    ],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: 'Two rules for telling time. Rule one: one o\'clock is singular — Es la una. All other hours are plural — Son las dos, son las tres. Rule two: y media adds a half, y cuarto adds a quarter, menos cuarto subtracts a quarter. Es la una y media — one thirty. Son las tres menos cuarto — a quarter to three. Say them: Es la una. Son las dos. Son las tres y media. Son las cuatro menos cuarto.',
+        studentAction: 'Repeat the four anchor forms: Es la una. Son las dos. Son las tres y media. Son las cuatro menos cuarto.',
+        teacherHint: 'The singular/plural split (Es la una vs. Son las...) is the one rule that cannot be skipped. Drill Es la una separately so it feels like its own form, not an exception.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Look at the clock faces. I ask ¿Qué hora es? — you read the time. Es la una. Son las dos. Son las cinco y cuarto. Then with times of day: de la mañana (AM), de la tarde (afternoon PM), de la noche (evening PM). El tren llega a las ocho de la mañana. El avión sale a las tres de la tarde. El barco llega a las diez de la noche.',
+        studentAction: 'Read each clock face and produce the full time phrase. Add de la mañana / tarde / noche when a time of day is given.',
+        teacherHint: 'The combinator of hour + y media/cuarto + de la tarde is the most complex combination. If students stall, break it into two pieces: "What is the hour? Good. Now add the time of day."',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Now the sentence column drill. Column one: Es la una / Son las dos / Son las tres / Son las seis. Column two: y media / y cuarto / menos cuarto / en punto. Fire the combinations — Son las tres y media. Son las seis menos cuarto. Es la una en punto. Go through all combinations quickly.',
+        studentAction: 'Scan across both columns and produce a complete time phrase for each combination.',
+        teacherHint: 'En punto (exactly, on the dot) is the simplest complement — just a time plus en punto. Start with it if students need a confidence moment before the fractions.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Last step — hace expressions. Two patterns. Pattern one: hace + time + que + present tense = for how long. ¿Cuánto tiempo hace que estudia español? → Hace dos años que estudio español. I have been studying for two years. Pattern two: hace + time + preterite = how long ago. ¿Cuándo llegó? → Llegué hace una semana. I arrived a week ago. Try both patterns.',
+        studentAction: 'Answer ¿Cuánto tiempo hace que...? with hace + time + que + present. Answer ¿Cuándo...? with hace + time + preterite.',
+        teacherHint: 'The two hace patterns are opposites in time direction: hace...que looks forward from the past (still ongoing); hace + preterite is a point that ended. If students mix them, ask: "Is it still happening now, or did it finish?" That question sorts the pattern.',
       },
     ],
   },
