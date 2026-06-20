@@ -9434,3 +9434,47 @@ export const aldenWatchConfig = pgTable("alden_watch_config", {
 });
 
 export type AldenWatchConfig = typeof aldenWatchConfig.$inferSelect;
+
+// ===== Pedagogical Loop State Machine =====
+// Server-side tracking of structured teaching sequences. Persists across GL
+// context window decay — Daniela queries this via get_current_teaching_context,
+// start_madrigal_loop, advance_loop_step, and suspend_current_loop tools.
+
+export const pedagogicalLoopStatusEnum = pgEnum('pedagogical_loop_status', [
+  'active',     // currently in progress
+  'suspended',  // paused by student/tangent; resumable when context returns
+  'completed',  // all steps finished; lesson recorded via mark_lesson_covered
+  'abandoned',  // session ended without completion; Shadow Auditor reconciles
+]);
+
+export const pedagogicalLoopTypeEnum = pgEnum('pedagogical_loop_type', [
+  'madrigal_4step',    // Madrigal visual sequence: anchor → images → combinator → drill
+  'grammar_drill',     // Grammar pattern drill loop
+  'actfl_checkpoint',  // ACTFL proficiency checkpoint sequence
+]);
+
+export const pedagogicalLoopState = pgTable("pedagogical_loop_state", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull().references(() => tutorSessions.id),
+  studentId: varchar("student_id").notNull(),
+  status: pedagogicalLoopStatusEnum("status").notNull().default('active'),
+  loopType: pedagogicalLoopTypeEnum("loop_type").notNull(),
+  loopContentKey: varchar("loop_content_key", { length: 200 }).notNull(),
+  currentStep: integer("current_step").notNull().default(0),
+  totalSteps: integer("total_steps").notNull(),
+  stepData: jsonb("step_data").notNull(),
+  studentPerformance: jsonb("student_performance").notNull().default([]),
+  suspendReason: text("suspend_reason"),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+  suspendedAt: timestamp("suspended_at"),
+}, (table) => [
+  index("idx_pedagogical_loop_session").on(table.sessionId),
+  index("idx_pedagogical_loop_student_status").on(table.studentId, table.status),
+]);
+
+export const insertPedagogicalLoopStateSchema = createInsertSchema(pedagogicalLoopState).omit({
+  id: true, startedAt: true, completedAt: true, suspendedAt: true,
+});
+export type InsertPedagogicalLoopState = z.infer<typeof insertPedagogicalLoopStateSchema>;
+export type PedagogicalLoopState = typeof pedagogicalLoopState.$inferSelect;

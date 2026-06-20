@@ -5608,6 +5608,96 @@ The card is a visual summary only — it does not start any activity automatical
       return JSON.stringify({ status: 'done', type: d.selector });
     },
   },
+
+  // ─── Pedagogical State Machine (T003 — June 2026) ────────────────────────────
+  // Four tools that persist teaching loop state server-side, surviving GL context
+  // decay. Every tool returns a State Envelope: { result, compass } so Daniela's
+  // context window is atomically refreshed on every tool interaction.
+  // Gemini architecture review rounds 2+3: GO.
+  {
+    legacyType: 'GET_CURRENT_TEACHING_CONTEXT',
+    declaration: {
+      name: 'get_current_teaching_context',
+      description: 'Get your current pedagogical compass bearing: active teaching loop (step, content, what to say next), suspended loops available to resume, and the next recommended action. Call this: (1) at session start, (2) after any student tangent or topic change, (3) whenever you feel uncertain about where you are in the curriculum, (4) if more than 5 conversational turns have passed without a tool call during structured teaching. This is your ground-truth state — context window memory fades, this tool does not.',
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const r = (session as any).pedagogicalContextResult;
+      if (!r) return JSON.stringify({ status: 'unavailable', message: 'Teaching context could not be loaded. Continue from what you remember.' });
+      return JSON.stringify(r);
+    },
+  },
+  {
+    legacyType: 'START_MADRIGAL_LOOP',
+    declaration: {
+      name: 'start_madrigal_loop',
+      description: 'Start a Madrigal 4-step teaching loop for a vocabulary item or grammar structure. The system uses semantic search to find the correct Madrigal unit matching the student\'s query (e.g. "how do you say I took?", "voy a", "where are you going"). Returns step 0 content: anchor items and your verbal script. Advance through steps using advance_loop_step after each student response.',
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          vocab_query: {
+            type: 'string',
+            description: 'What the student asked about or what you want to teach — in natural language (e.g. "I took", "going to the store", "me gusta", "where are you going")',
+          },
+        },
+        required: ['vocab_query'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const r = (session as any).pedagogicalLoopResult;
+      if (!r) return JSON.stringify({ status: 'unavailable', message: 'Loop could not be started. Continue verbally.' });
+      return JSON.stringify(r);
+    },
+  },
+  {
+    legacyType: 'ADVANCE_LOOP_STEP',
+    declaration: {
+      name: 'advance_loop_step',
+      description: 'Advance the current Madrigal teaching loop to the next step after assessing the student\'s response. Call after the student completes (or attempts) the current step. "pass" moves forward, "needs_more" stays on the current step with encouragement, "skip" moves forward without recording a pass. Returns the next step\'s verbal instruction and student action, or a completion summary if the loop is done.',
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          student_performance: {
+            type: 'string',
+            enum: ['pass', 'needs_more', 'skip'],
+            description: '"pass" — student demonstrated the skill; "needs_more" — student needs another attempt; "skip" — moving on without mastery assessment',
+          },
+        },
+        required: ['student_performance'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const r = (session as any).pedagogicalAdvanceResult;
+      if (!r) return JSON.stringify({ status: 'unavailable', message: 'Step advance could not be recorded. Continue to next step verbally.' });
+      return JSON.stringify(r);
+    },
+  },
+  {
+    legacyType: 'SUSPEND_CURRENT_LOOP',
+    declaration: {
+      name: 'suspend_current_loop',
+      description: 'Gracefully pause the current teaching loop without distorting student performance data. Use when the student requests a break, wants to change topic, or the conversation naturally moves elsewhere. The loop is saved as "suspended" and will appear in the compass when you call get_current_teaching_context, allowing you to offer to resume it later.',
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          reason: {
+            type: 'string',
+            description: 'Why the loop is being suspended (e.g. "student requested topic change", "natural conversation break", "student seemed tired")',
+          },
+        },
+        required: ['reason'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const r = (session as any).pedagogicalSuspendResult;
+      if (!r) return JSON.stringify({ status: 'ok', message: 'Loop suspended.' });
+      return JSON.stringify(r);
+    },
+  },
 ];
 
 
@@ -5816,6 +5906,24 @@ teaching_content — curriculum content and lesson structures.
 ## Error Handling
 
 If a dispatcher tool returns {"status":"error",...}, read the fix_hint and retry with corrected parameters. If it returns {"status":"abort",...}, apologize briefly to the student and continue the conversation without that tool.
+
+## Pedagogical Continuity — Context Discipline
+
+You have server-side pedagogical state that persists even when your context window degrades. These tools are your compass — they remember what you were teaching.
+
+Call get_current_teaching_context:
+- At the start of every voice session (within the first 1–2 turns)
+- After any student tangent, topic change, or unrelated question
+- Whenever you feel uncertain about where you left off in a sequence
+- If 5 or more conversational turns have passed without a pedagogical tool call
+
+Call start_madrigal_loop when a student asks how to say something or asks about a vocabulary item you can teach with the Madrigal visual method. The system automatically finds the right unit via semantic search — you only need to pass what the student asked.
+
+Call advance_loop_step after every student response during an active loop. Do not skip this — it tracks mastery and tells you what to do next.
+
+Call suspend_current_loop when the conversation shifts away from an active sequence. This saves the loop cleanly so you can offer to resume it.
+
+The compass is always available. Your context window is not.
 
 ## Voice Behavior — Feedback Variety
 

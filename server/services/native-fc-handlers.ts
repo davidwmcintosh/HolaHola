@@ -4136,6 +4136,106 @@ export class NativeFunctionCallHandler {
         break;
       }
       
+      // ─── Pedagogical State Machine (T003 — June 2026) ─────────────────────────
+      // Four tools that persist teaching loop state server-side, surviving GL
+      // context window decay. Each handler awaits the DB operation and stores
+      // the result in session so buildContinuationResponse can return it to Daniela.
+      // The State Envelope pattern: every response includes { result, compass }.
+
+      case 'GET_CURRENT_TEACHING_CONTEXT': {
+        if (!session.sessionId && !sessionId) {
+          console.warn('[Native Function→PedagogicalContext] No sessionId — cannot load context');
+          break;
+        }
+        try {
+          const { pedagogicalStateService } = await import('./pedagogical-state-service');
+          const result = await pedagogicalStateService.getTeachingContext(
+            sessionId,
+            String(session.userId ?? session.studentId ?? ''),
+          );
+          (session as any).pedagogicalContextResult = result;
+          console.log(`[Native Function→PedagogicalContext] active=${!!result.compass.activeLoop} suspended=${result.compass.suspendedLoops.length}`);
+        } catch (err: any) {
+          console.error('[Native Function→PedagogicalContext] Error:', err.message);
+          (session as any).pedagogicalContextResult = { result: { status: 'error', message: err.message }, compass: { activeLoop: null, suspendedLoops: [], nextRecommendation: 'Context unavailable — continue from memory.' } };
+        }
+        break;
+      }
+
+      case 'START_MADRIGAL_LOOP': {
+        if (session.isIncognito) {
+          console.log('[Native Function→StartMadrigalLoop] INCOGNITO — skipping loop state write');
+          break;
+        }
+        const vocabQuery = fn.args.vocab_query as string | undefined;
+        if (!vocabQuery?.trim()) {
+          console.warn('[Native Function→StartMadrigalLoop] No vocab_query provided');
+          break;
+        }
+        try {
+          const { pedagogicalStateService } = await import('./pedagogical-state-service');
+          const result = await pedagogicalStateService.startMadrigalLoop(
+            sessionId,
+            String(session.userId ?? session.studentId ?? ''),
+            vocabQuery,
+          );
+          (session as any).pedagogicalLoopResult = result;
+          console.log(`[Native Function→StartMadrigalLoop] query="${vocabQuery}" status=${result.result.status}`);
+        } catch (err: any) {
+          console.error('[Native Function→StartMadrigalLoop] Error:', err.message);
+          (session as any).pedagogicalLoopResult = { result: { status: 'error', message: err.message }, compass: { activeLoop: null, suspendedLoops: [], nextRecommendation: '' } };
+        }
+        break;
+      }
+
+      case 'ADVANCE_LOOP_STEP': {
+        if (session.isIncognito) {
+          console.log('[Native Function→AdvanceLoopStep] INCOGNITO — skipping');
+          break;
+        }
+        const performance = fn.args.student_performance as 'pass' | 'needs_more' | 'skip' | undefined;
+        if (!performance || !['pass', 'needs_more', 'skip'].includes(performance)) {
+          console.warn('[Native Function→AdvanceLoopStep] Invalid student_performance:', performance);
+          break;
+        }
+        try {
+          const { pedagogicalStateService } = await import('./pedagogical-state-service');
+          const result = await pedagogicalStateService.advanceLoopStep(
+            sessionId,
+            String(session.userId ?? session.studentId ?? ''),
+            performance,
+          );
+          (session as any).pedagogicalAdvanceResult = result;
+          console.log(`[Native Function→AdvanceLoopStep] performance=${performance} status=${result.result.status}`);
+        } catch (err: any) {
+          console.error('[Native Function→AdvanceLoopStep] Error:', err.message);
+          (session as any).pedagogicalAdvanceResult = { result: { status: 'error', message: err.message }, compass: { activeLoop: null, suspendedLoops: [], nextRecommendation: '' } };
+        }
+        break;
+      }
+
+      case 'SUSPEND_CURRENT_LOOP': {
+        if (session.isIncognito) {
+          console.log('[Native Function→SuspendCurrentLoop] INCOGNITO — skipping');
+          break;
+        }
+        const suspendReason = fn.args.reason as string | undefined;
+        try {
+          const { pedagogicalStateService } = await import('./pedagogical-state-service');
+          const result = await pedagogicalStateService.suspendCurrentLoop(
+            sessionId,
+            String(session.userId ?? session.studentId ?? ''),
+            suspendReason ?? 'not specified',
+          );
+          (session as any).pedagogicalSuspendResult = result;
+          console.log(`[Native Function→SuspendCurrentLoop] reason="${suspendReason}" status=${result.result.status}`);
+        } catch (err: any) {
+          console.error('[Native Function→SuspendCurrentLoop] Error:', err.message);
+          (session as any).pedagogicalSuspendResult = { result: { status: 'error', message: err.message }, compass: { activeLoop: null, suspendedLoops: [], nextRecommendation: '' } };
+        }
+        break;
+      }
+
       case 'DRILL': {
         const text = fn.args.text as string | undefined;
         const drillType = fn.args.type as string | undefined;

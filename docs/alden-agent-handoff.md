@@ -24,6 +24,38 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 20, 2026 — Pedagogical state machine + Shadow Auditor (GL curriculum continuity)**
+
+### What was built
+
+Full server-side teaching loop system that solves GL context decay. When Daniela's context window degrades during a long voice session, she can always call `get_current_teaching_context` to get her exact position in any teaching sequence.
+
+**New DB table:** `pedagogical_loop_state` — stores active/suspended/completed Madrigal teaching loops scoped to tutor sessions. Already pushed to Neon.
+
+**4 new Daniela GL tools** (all native, not dispatchers — 166 total tools now, under 64 GL cap):
+- `get_current_teaching_context` — returns State Envelope with active loop, suspended loops, next recommendation
+- `start_madrigal_loop(vocab_query)` — semantic search matches the query to a Madrigal unit; creates loop
+- `advance_loop_step(student_performance)` — pass/needs_more/skip; marks loop complete when all steps done
+- `suspend_current_loop(reason)` — graceful pause, loop is resumable next session
+
+**State Envelope pattern:** Every tool returns `{ result, compass }`. Since `sendClientContent` is disabled (audio doubling risk), the tool response is the ONLY context injection window mid-session. The compass (active loop + suspended loops + next recommendation) is always in the response.
+
+**12 Madrigal units** in `server/data/madrigal-loop-catalog.ts` — each has a 4-step verbal teaching script (anchor, model sentence, sentence combinator, drill). Semantic routing via OpenAI `text-embedding-3-small` (text-match fallback). Indexer runs at +110s boot.
+
+**Shadow Auditor** (`server/services/shadow-auditor.ts`): fires when GL session stops (fire-and-forget). Reads conversation transcript → Gemini Flash → writes `sessionSummary` to `tutor_sessions`. Also suspends any active loops at session end. Stale reaper runs every 30min for dropped connections. Incognito sessions skipped.
+
+**GL_DISPATCHER_SYSTEM_PROMPT addition:** "Pedagogical Continuity — Context Discipline" section teaching Daniela when to call `get_current_teaching_context` (session start, after tangents, after 5 turns without a tool call).
+
+### Key technical note
+`pedagogical_loop_state.sessionId` is an FK to `tutorSessions.id` — NOT the GL streaming session ID. The state service has a `resolveTutorSessionId(userId)` helper that looks up the most recent tutor session. This is by design: loops persist across GL reconnections within the same tutor session.
+
+### What's next / open threads
+- The 12 Madrigal units in the catalog cover the core chapters. More units can be added to `madrigal-loop-catalog.ts` — the indexer and semantic search handle everything automatically.
+- The Shadow Auditor uses `gemini-3-flash-preview` for transcript analysis. If Gemini API isn't configured (dev without key), it falls back to a count-based summary.
+- `DanielaPresence` is throwing an error for student 49847136 (`Cannot convert undefined or null to object` in `orderSelectedFields`) — pre-existing bug, not from this session. Worth investigating separately.
+
+---
+
 **Session: June 19, 2026 — INDEX/VERBATIM system complete (tool output wrapping)**
 
 ### What was built

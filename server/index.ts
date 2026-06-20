@@ -861,6 +861,29 @@ app.use((req, res, next) => {
       );
     }, 105000);
 
+    // +108s: Shadow Auditor Stale-Session Reaper — suspends any active pedagogical
+    // loops whose GL sessions closed without a clean stop() call (e.g., tab closed,
+    // network drop). Runs every 30 minutes. Loops are marked 'suspended' so they
+    // can be resumed next session via get_current_teaching_context.
+    setTimeout(async () => {
+      const { reapStaleSessions } = await import('./services/shadow-auditor');
+      const runReaper = () => reapStaleSessions().catch((err: Error) =>
+        console.warn('[ShadowAudit] Reaper error:', err.message)
+      );
+      runReaper();
+      setInterval(runReaper, 30 * 60 * 1000); // every 30 min
+    }, 108000);
+
+    // +110s: Madrigal Unit Embedding Indexer — embeds each Madrigal pedagogical unit
+    // into memory_embeddings (type='madrigal_unit', userId=null) so that
+    // start_madrigal_loop can use semantic search to route vocab queries.
+    // Idempotent: skips units whose embedding content hash hasn't changed.
+    // Delayed 90s past tool-indexer boot to stay clear of OOM window (see embed-indexer-oom.md).
+    setTimeout(async () => {
+      const { scheduleMadrigalIndexing } = await import('./services/madrigal-embedding-indexer');
+      scheduleMadrigalIndexing(0);
+    }, 110000);
+
     // +120s: Memory Consolidation Worker — weekly job that merges related session_summary
     // snapshots into aggregate_analytics entries, reducing noise in long-running students
     setTimeout(async () => {

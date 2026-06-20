@@ -873,6 +873,25 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.flushTranscripts().catch(err =>
       console.warn('[GeminiLive] Final transcript flush error on stop:', err.message)
     );
+
+    // Shadow Auditor — fire-and-forget post-session transcript analysis.
+    // Generates a session summary for compass continuity + suspends active loops.
+    // Never blocks the stop() path. Skipped for incognito sessions (no persistence).
+    if (!this.session.isIncognito && this.session.conversationId) {
+      import('./shadow-auditor').then(({ runShadowAudit }) => {
+        runShadowAudit({
+          glSessionId: this.session.id,
+          userId: this.session.userId,
+          conversationId: this.session.conversationId,
+          targetLanguage: this.session.targetLanguage,
+        }).catch(err =>
+          console.warn('[GeminiLive] Shadow audit error:', err.message)
+        );
+      }).catch(err =>
+        console.warn('[GeminiLive] Shadow audit import error:', err.message)
+      );
+    }
+
     console.log(`[GeminiLive] Session stopped — sessionId: ${this.session.id}`);
   }
 
