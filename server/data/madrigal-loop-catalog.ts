@@ -1543,6 +1543,474 @@ const FRENCH_UNITS: MadrigalLoopUnit[] = [
     ],
   },
 
+  // ─── Où suis-je? — Être: Locations ───────────────────────────────────────
+  {
+    contentKey: 'where am i',
+    language: 'french',
+    displayName: 'Être — Locations: Où suis-je?',
+    unitType: 'ser_estar',
+    vocabTerms: ['où suis-je', 'je suis', 'il est', 'elle est', 'être', 'location', 'dans', 'sur', 'à', 'près de', 'devant', 'derrière'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Où suis-je?" — Where am I? "Je suis dans..." — I am in... In French, être handles location just like identity. Say it: je suis, il est, elle est.',
+        studentAction: 'Repeat je suis, il est, elle est.',
+        teacherHint: 'French uses être for location. No separate verb like Spanish estar — être does double duty (identity AND location). The preposition does the heavy lifting: dans (in), sur (on), à (at/in), près de (near).',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a location. Read: Je suis dans... / Il est à... / Elle est sur...',
+        studentAction: 'Read location sentences with images.',
+        teacherHint: 'Watch the preposition + article contraction: à + le = au (je suis au café), à + la stays as à la (je suis à la banque), à + les = aux.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Scan the columns — who is where?',
+        studentAction: 'Combine subjects with locations rapidly.',
+        teacherHint: 'Column 1: subjects (je suis, il est, elle est, nous sommes). Column 2: prepositions + places. Speed over perfection here.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Où êtes-vous? Where are you? Answer with a real or imagined location: Je suis... Then ask: Et lui — où est-il?',
+        studentAction: 'Produce: Je suis + [location]. Then: Il est + [location].',
+        teacherHint: 'Real locations make this stick. If the student is in a classroom: Je suis dans la salle de classe. At home: Je suis à la maison.',
+      },
+    ],
+  },
+
+  // ─── J'ai pris — Prendre (passé composé) ──────────────────────────────────
+  {
+    contentKey: 'i took',
+    language: 'french',
+    displayName: "Prendre — J'ai pris / Il a pris",
+    unitType: 'preterite',
+    vocabTerms: ["j'ai pris", 'il a pris', 'prendre', 'pris', 'passé composé', 'took', 'had', 'took the bus', 'pris le bus', 'pris un café'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"J\'ai pris" — I took. The verb is prendre — irregular. The past participle is pris. Avoir + pris. Say it: j\'ai pris, il a pris.',
+        studentAction: "Repeat j'ai pris and il a pris.",
+        teacherHint: "Prendre is the French workhorse for 'take' — take a bus, take a coffee, take a shower (prendre une douche). Participé passé = pris. Stress the irregular form — this is one students use every day.",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: "Each image shows something taken. Read: J'ai pris... / Il a pris...",
+        studentAction: "Read j'ai pris / il a pris sentences with images.",
+        teacherHint: "J'ai pris le métro. Il a pris un café. J'ai pris une photo. These are all high-frequency uses of prendre — let them explore all meanings.",
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Scan across — who took what?',
+        studentAction: 'Combine subject + a pris + object rapidly.',
+        teacherHint: 'Column 1: subjects (je, il, elle, nous). Column 2: a/avons + pris. Column 3: objects (le bus, un café, une photo, le train).',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'negative_pivot',
+        verbalInstruction: "J'ai pris le bus means I took the bus. How do you say I did NOT take the bus? Try it.",
+        studentAction: "Produce: Je n'ai pas pris le bus.",
+        teacherHint: "Ne...pas wraps avoir: je n'ai PAS pris. The past participle stays after pas. Common error: putting pas after pris. Watch for it.",
+      },
+    ],
+  },
+
+  // ─── J'ai acheté — Acheter (passé composé) ────────────────────────────────
+  {
+    contentKey: 'i bought',
+    language: 'french',
+    displayName: "Acheter — J'ai acheté / Il a acheté",
+    unitType: 'preterite',
+    vocabTerms: ["j'ai acheté", 'il a acheté', 'acheter', 'acheté', 'bought', 'shopping', 'magasin', 'marché', 'cadeau'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"J\'ai acheté" — I bought. Acheter is regular -ER in the passé composé. Avoir + acheté. Say it: j\'ai acheté, il a acheté.',
+        studentAction: "Repeat j'ai acheté and il a acheté.",
+        teacherHint: "Acheté is a regular -ER past participle — drop -er, add -é. This is the most common pattern and transfers to hundreds of verbs. Use this as the model for the whole -ER pattern.",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: "Each image shows something bought. Read: J'ai acheté... / Il a acheté...",
+        studentAction: "Read j'ai acheté / il a acheté sentences with images.",
+        teacherHint: "J'ai acheté un cadeau. Il a acheté des vêtements. J'ai acheté de la nourriture. Shopping vocabulary pairs naturally with this verb.",
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Columns — who bought what?',
+        studentAction: 'Combine subject + a acheté + object.',
+        teacherHint: 'Rapid eye movement across columns. Accuracy improves with speed here.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'negative_pivot',
+        verbalInstruction: "J'ai acheté une chemise — I bought a shirt. How do you say I did NOT buy a shirt?",
+        studentAction: "Produce: Je n'ai pas acheté de chemise.",
+        teacherHint: "Two things change in the negative: (1) ne...pas wraps avoir; (2) the article shifts from un/une/des to DE: je n'ai pas acheté DE chemise. This article-to-de switch is critical and often missed.",
+      },
+    ],
+  },
+
+  // ─── Je voudrais — Conditional ─────────────────────────────────────────────
+  {
+    contentKey: 'i would like',
+    language: 'french',
+    displayName: 'Vouloir — Je voudrais (conditional)',
+    unitType: 'verb',
+    vocabTerms: ['je voudrais', 'il voudrait', 'conditional', 'would like', 'polite request', 'voudrais-tu', 'je voudrais + infinitif'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Je voudrais" — I would like. This is the conditional form of vouloir. More polite than je veux. Say it: je voudrais, il voudrait.',
+        studentAction: 'Repeat je voudrais and il voudrait.',
+        teacherHint: 'Je voudrais = I would like (polite). Je veux = I want (direct). The conditional adds a layer of politeness that French culture values highly. This is the form students must use in restaurants, shops, and formal settings.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: "Each image shows something someone would like. Read: Je voudrais... / Il voudrait...",
+        studentAction: 'Read je voudrais / il voudrait sentences with images.',
+        teacherHint: 'Je voudrais un café, s\'il vous plaît. Il voudrait visiter Paris. Both noun and infinitive constructions are important.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Scan the columns — who would like what?',
+        studentAction: 'Combine subjects with conditional forms and objects.',
+        teacherHint: 'Column 1: je voudrais, il voudrait, elle voudrait, nous voudrions. Column 2: objects/infinitives.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: "Qu'est-ce que vous voudriez faire? What would you like to do? Answer with je voudrais + infinitive.",
+        studentAction: 'Produce: Je voudrais + infinitive.',
+        teacherHint: "Dream-scenario prompt: Qu'est-ce que vous voudriez faire si vous pouviez? Keeps it real and engaging. Accept any meaningful answer.",
+      },
+    ],
+  },
+
+  // ─── Je suis allé(e) — Aller passé composé ────────────────────────────────
+  {
+    contentKey: 'i went',
+    language: 'french',
+    displayName: 'Aller — Je suis allé(e) (passé composé)',
+    unitType: 'preterite',
+    vocabTerms: ['je suis allé', 'je suis allée', 'il est allé', 'elle est allée', 'aller', 'allé', 'went', 'être auxiliary', 'accord'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Je suis allé(e)" — I went. Aller uses ÊTRE as the auxiliary, not avoir. And the past participle agrees with the subject: allé (masc), allée (fem). Say it: je suis allé, je suis allée.',
+        studentAction: 'Repeat je suis allé and je suis allée.',
+        teacherHint: "This is a landmark lesson: être auxiliary verbs. Dr. & Mrs. Vandertramp or the house verbs — aller is the first one students meet in the Madrigal chain. The agreement (allé vs allée) is purely written, not spoken — but important for literacy.",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows somewhere someone went. Read: Je suis allé(e) au/à la...',
+        studentAction: 'Read je suis allé / elle est allée sentences with images.',
+        teacherHint: "Je suis allé au marché. Elle est allée à l'école. Vary the gender of subjects so students practice both allé and allée.",
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Columns — who went where?',
+        studentAction: 'Combine subject + suis/est allé(e) + destination.',
+        teacherHint: 'Column 1: je suis allé(e), il est allé, elle est allée, nous sommes allé(e)s. Column 2: destinations. Point out suis vs est vs sommes.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'negative_pivot',
+        verbalInstruction: "Je suis allé au café — I went to the café. How do you say I did NOT go to the café?",
+        studentAction: "Produce: Je ne suis pas allé au café.",
+        teacherHint: "ne...pas wraps être: je ne SUIS PAS allé. The agreement stays: je ne suis pas allée (fem). Classic error: moving pas to after allé.",
+      },
+    ],
+  },
+
+  // ─── Il va — Aller 3rd person near future ─────────────────────────────────
+  {
+    contentKey: 'he is going to',
+    language: 'french',
+    displayName: 'Aller — Il va / Elle va + infinitif',
+    unitType: 'verb',
+    vocabTerms: ['il va', 'elle va', 'aller', 'near future', 'futur proche', 'il va + infinitif', 'elle va + infinitif', 'he is going to', 'she is going to'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Il va" — he is going / he is going to. Third person singular of aller. Add an infinitive and you have the near future: il va manger = he is going to eat. Say it: il va, elle va.',
+        studentAction: 'Repeat il va and elle va.',
+        teacherHint: "Il va is the third-person mirror of je vais — same near-future construction, different subject. This step moves students from first-person narration (I...) to third-person narration (he/she...), which is critical for storytelling.",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows what someone is going to do. Read: Il va... / Elle va...',
+        studentAction: 'Read il va / elle va + infinitive sentences with images.',
+        teacherHint: "Il va travailler. Elle va étudier. Il va acheter un livre. Model the infinitive staying in base form after va.",
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Eyes across — what is he or she going to do?',
+        studentAction: 'Combine il va / elle va + infinitive rapidly.',
+        teacherHint: 'Mix il va and elle va across rows. Column 2: infinitives. Students build narrative fluency by switching subjects.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'negative_pivot',
+        verbalInstruction: 'Il va travailler — he is going to work. How do you say he is NOT going to work?',
+        studentAction: "Produce: Il ne va pas travailler.",
+        teacherHint: "ne...pas wraps the conjugated verb va: il ne VA PAS travailler. The infinitive sits after pas, untouched. Same pattern as je ne veux pas manger.",
+      },
+    ],
+  },
+
+  // ─── Qu'est-ce qu'il a fait? ───────────────────────────────────────────────
+  {
+    contentKey: 'what did he do',
+    language: 'french',
+    displayName: "Qu'est-ce qu'il a fait? — What Did He Do?",
+    unitType: 'preterite',
+    vocabTerms: ["qu'est-ce qu'il a fait", 'il a fait', 'faire', 'fait', 'passé composé', 'what did he do', 'narrating past', 'il a mangé', 'il a regardé'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Qu\'est-ce qu\'il a fait?" — What did he do? "Il a fait" — He did / He made. Faire is irregular: past participle = fait. Say it: il a fait, qu\'est-ce qu\'il a fait?',
+        studentAction: "Repeat il a fait and qu'est-ce qu'il a fait?",
+        teacherHint: "Faire (to do/make) is the highest-frequency French verb after être and avoir. Past participle fait is irregular — must memorize. The question qu'est-ce qu'il a fait? is the gateway to past-tense narration.",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: "Each image shows what he did. Read: Il a fait... / Il a mangé... / Il a regardé...",
+        studentAction: 'Read past-tense narration sentences with images.',
+        teacherHint: "Mix faire (il a fait) with other verbs in passé composé — il a mangé, il a regardé un film, il a pris le bus. This is narration practice.",
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: "Qu'est-ce qu'il a fait? Scan the columns and narrate his day.",
+        studentAction: 'Combine il/elle + a + past participle rapidly.',
+        teacherHint: 'Column 1: il a, elle a, ils ont. Column 2: past participles (mangé, regardé, fait, pris, acheté). Students narrate a story.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: "Qu'est-ce qu'il a fait hier? What did he do yesterday? Describe his day in 2–3 sentences.",
+        studentAction: 'Produce a 2–3 sentence past-tense narration.',
+        teacherHint: "Il s'est levé, il a mangé, il est allé... This is the first real storytelling moment. Encourage creative details. Celebrate any correct passé composé production.",
+      },
+    ],
+  },
+
+  // ─── Il a eu — Avoir passé composé ────────────────────────────────────────
+  {
+    contentKey: 'he had',
+    language: 'french',
+    displayName: 'Avoir — Il a eu (passé composé)',
+    unitType: 'preterite',
+    vocabTerms: ['il a eu', "j'ai eu", 'avoir', 'eu', 'had', 'passé composé', 'il a eu de la chance', 'il a eu un accident'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Il a eu" — He had. Avoir in the past uses itself as the auxiliary: avoir + eu. Irregular past participle: eu. Say it: j\'ai eu, il a eu.',
+        studentAction: "Repeat j'ai eu and il a eu.",
+        teacherHint: "Avoir uses avoir as its own auxiliary (reflexive auxiliary). Past participle eu is highly irregular. High-frequency: il a eu de la chance (he was lucky), j'ai eu un accident (I had an accident), il a eu faim (he was hungry).",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows something someone had or experienced. Read: Il a eu... / J\'ai eu...',
+        studentAction: 'Read il a eu / j\'ai eu sentences with images.',
+        teacherHint: "Il a eu de la chance. J'ai eu un problème. Il a eu faim. These avoir expressions in the past come up constantly in conversation.",
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Scan columns — who had what?',
+        studentAction: "Combine subject + a/ai eu + object/expression.",
+        teacherHint: "Column 1: j'ai eu, il a eu, elle a eu. Column 2: de la chance, un accident, faim, soif, un problème. Column 3 optional: context (hier, ce matin).",
+      },
+      {
+        stepIndex: 3,
+        stepName: 'negative_pivot',
+        verbalInstruction: "Il a eu de la chance — he was lucky. How do you say he was NOT lucky?",
+        studentAction: "Produce: Il n'a pas eu de chance.",
+        teacherHint: "ne...pas wraps avoir: il n'a PAS eu. Article shift: de la chance → pas DE chance. Two changes — the ne...pas AND the article-to-de shift.",
+      },
+    ],
+  },
+
+  // ─── Lui — Indirect object pronoun ────────────────────────────────────────
+  {
+    contentKey: 'to him to her',
+    language: 'french',
+    displayName: 'Lui — To Him / To Her (indirect object)',
+    unitType: 'object_pronoun',
+    vocabTerms: ['lui', 'to him', 'to her', 'indirect object', 'je lui donne', 'je lui parle', 'pronoms indirects', 'leur'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Lui" means "to him" and "to her" — one pronoun for both. It replaces "à + person." Je parle à Marie → Je lui parle. Say it: lui.',
+        studentAction: 'Repeat lui and je lui parle.',
+        teacherHint: "Lui = to him AND to her (indirect object). This is different from lui as a stressed pronoun (C'est lui = It's him). Context distinguishes them. Lui is placed BEFORE the verb, not after.",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows someone doing something TO or FOR another person. Read: Je lui...',
+        studentAction: 'Read je lui + verb sentences with images.',
+        teacherHint: 'Je lui parle. Je lui donne un livre. Je lui écris. Verbs that take indirect objects: parler à, donner à, écrire à, téléphoner à.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Columns — who does what for/to him or her?',
+        studentAction: 'Combine subject + lui + verb + optional object.',
+        teacherHint: "Column 1: je lui, il lui, elle lui. Column 2: parle, donne, écrit, téléphone. Column 3: optional objects (un cadeau, une lettre).",
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Est-ce que vous lui parlez souvent? Do you speak to him/her often? Answer: Oui, je lui parle... / Non, je ne lui parle pas...',
+        studentAction: 'Produce affirmative and negative with lui.',
+        teacherHint: "Negative: je ne LUI parle pas — lui stays between ne and the verb, same position as in affirmative. Their stays: je ne leur parle pas.",
+      },
+    ],
+  },
+
+  // ─── C'est propre / C'est sale — Descriptions ─────────────────────────────
+  {
+    contentKey: 'it is clean',
+    language: 'french',
+    displayName: "C'est propre — Descriptions with C'est",
+    unitType: 'ser_estar',
+    vocabTerms: ["c'est propre", "c'est sale", "c'est + adjectif", 'descriptions', 'propre', 'sale', 'grand', 'petit', 'beau', 'laid', 'bon', 'mauvais'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"C\'est" — it is. "C\'est propre" — it is clean. "C\'est sale" — it is dirty. This is the French formula for describing things. Say it: c\'est propre, c\'est sale.',
+        studentAction: "Repeat c'est propre and c'est sale.",
+        teacherHint: "C'est + adjective = impersonal description of a thing or situation. Note the adjective doesn't agree here (c'est is neuter-ish: c'est propre, not c'est propres). Agreement rules apply when using il est / elle est instead.",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: "Each image shows something with a quality. Read: C'est propre. / C'est grand. / C'est beau.",
+        studentAction: "Read c'est + adjective sentences with images.",
+        teacherHint: "C'est propre / sale / grand / petit / beau / laid / bon / mauvais / cher / pas cher. High-frequency adjectives students need immediately.",
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: "Scan the columns — C'est + what?",
+        studentAction: "Combine c'est / ce n'est pas + adjective.",
+        teacherHint: "Column 1: c'est, ce n'est pas. Column 2: propre, sale, grand, petit, beau, laid, bon, mauvais, cher, facile, difficile.",
+      },
+      {
+        stepIndex: 3,
+        stepName: 'negative_pivot',
+        verbalInstruction: "C'est propre — it is clean. How do you say it is NOT clean?",
+        studentAction: "Produce: Ce n'est pas propre.",
+        teacherHint: "Ce n'est pas = it is not. The negative of c'est. Contrast: C'est propre / Ce n'est pas propre. C'est bon / Ce n'est pas bon. Simple pattern, enormous usefulness.",
+      },
+    ],
+  },
+
+  // ─── J'ai étudié — Regular -ER passé composé ──────────────────────────────
+  {
+    contentKey: 'i studied',
+    language: 'french',
+    displayName: "Étudier — J'ai étudié (regular -ER passé composé)",
+    unitType: 'preterite',
+    vocabTerms: ["j'ai étudié", 'il a étudié', 'étudier', 'étudié', 'studied', '-ER verbs passé composé', 'avoir + -é', 'j\'ai parlé', 'j\'ai mangé'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"J\'ai étudié" — I studied. This is the model for ALL regular -ER verbs in the passé composé: take the infinitive, drop -er, add -é. Say it: j\'ai étudié, il a étudié.',
+        studentAction: "Repeat j'ai étudié and il a étudié.",
+        teacherHint: "This is the high-leverage lesson: once students see the -ER pattern (étudier → étudié), they unlock hundreds of verbs. Parler → parlé. Manger → mangé. Regarder → regardé. Make this transfer explicit.",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: "Each image shows what someone studied or did. Read: J'ai étudié... / Il a étudié... / J'ai parlé...",
+        studentAction: "Read j'ai + -é sentences with images.",
+        teacherHint: "Mix -ER verbs: j'ai étudié le français, j'ai parlé avec mon ami, j'ai mangé une pizza, j'ai regardé un film. Show the pattern across multiple verbs.",
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Scan columns — who did what? All -ER verbs.',
+        studentAction: 'Combine subject + ai/a + -é verb rapidly.',
+        teacherHint: "Column 1: j'ai, il a, elle a, nous avons. Column 2: étudié, parlé, mangé, regardé, travaillé, acheté. Speed drill to make the pattern automatic.",
+      },
+      {
+        stepIndex: 3,
+        stepName: 'negative_pivot',
+        verbalInstruction: "J'ai étudié hier — I studied yesterday. Say you did NOT study yesterday.",
+        studentAction: "Produce: Je n'ai pas étudié hier.",
+        teacherHint: "ne...pas wraps avoir: je n'ai PAS étudié. This is the core negative passé composé pattern. Once this clicks, students handle all -ER negatives automatically.",
+      },
+    ],
+  },
+
+  // ─── J'ai reçu — Irregular passé composé ──────────────────────────────────
+  {
+    contentKey: 'i received',
+    language: 'french',
+    displayName: "Recevoir — J'ai reçu (irregular passé composé)",
+    unitType: 'preterite',
+    vocabTerms: ["j'ai reçu", 'il a reçu', 'recevoir', 'reçu', 'received', 'irregular past participle', "j'ai vu", "j'ai lu", "j'ai bu", "j'ai su"],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"J\'ai reçu" — I received. Recevoir is irregular — past participle is reçu. These irregular past participles must be memorized. Say it: j\'ai reçu, il a reçu.',
+        studentAction: "Repeat j'ai reçu and il a reçu.",
+        teacherHint: "Recevoir → reçu. Group with other irregular -u participles: boire → bu, lire → lu, voir → vu, savoir → su, vouloir → voulu. The -u ending is a family. Point this out — it's a pattern within the irregulars.",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: "Each image shows something received or done. Read: J'ai reçu... / J'ai vu... / J'ai lu...",
+        studentAction: "Read j'ai + irregular past participle sentences with images.",
+        teacherHint: "J'ai reçu une lettre. J'ai vu un film. J'ai lu un livre. J'ai bu du café. Mix the -u family so students see the pattern across verbs.",
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Scan columns — irregular past participles.',
+        studentAction: 'Combine subject + ai/a + irregular participle + object.',
+        teacherHint: "Column 1: j'ai, il a, elle a. Column 2: reçu, vu, lu, bu, su. Column 3: une lettre, un film, un livre, du café, la réponse.",
+      },
+      {
+        stepIndex: 3,
+        stepName: 'negative_pivot',
+        verbalInstruction: "J'ai reçu une réponse — I received an answer. Say you did NOT receive an answer.",
+        studentAction: "Produce: Je n'ai pas reçu de réponse.",
+        teacherHint: "ne...pas wraps avoir: je n'ai PAS reçu. Article shift in negative: une réponse → pas DE réponse. Reinforce this -de pattern one more time — it covers all negated indefinite objects.",
+      },
+    ],
+  },
+
   // ─── Pouvoir (je peux / elle peut) ────────────────────────────────────────
   {
     contentKey: 'i can go',

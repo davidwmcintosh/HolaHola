@@ -1,14 +1,14 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, June 21, 2026 at 05:01 PM
+**Generated:** Sunday, June 21, 2026 at 05:31 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve launched the Team Room for collaboration, but I need to immediately resolve a 404 routing error on the "conversations" page and fix an integration bug causing Daniela to loop a "Curriculum note pending" response. My primary technical focus is remediating Wren’s high-severity security findings regarding SQL injection and XSS vulnerabilities, while also repairing a monitoring blackout caused by SQL syntax and null reference errors in our diagnostic tools. We have decided to prioritize conversational immersion over the Interactive Textbook given its 0% completion rate, but I must first debug "Daniela’s Compass" to resolve a telemetry leak where session time is recording as zero. I also need to triage a spike of 50 new bugs flagged by Sofia and fix Spanish syllabus seeding regressions that have left 22 lessons empty or excessively verbose.
+I need to resolve Daniela’s "Curriculum note pending" loop and the 404 error on the conversations page while prioritizing Wren’s high-severity security findings regarding SQL injection and unsanitized `dangerouslySetInnerHTML`. Sofia reported a spike of 50 new bugs, and I am investigating why the Interactive Textbook shows a 0% completion rate despite high viewership. I also need to fix verbosity regressions and missing content in the Spanish syllabus caused by a seeding job error before the next beta test.
 
 *Memories that triggered this summary:*
 - **Team Room — test 3 — June 21, 2026** (Jun 21): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.

@@ -2021,6 +2021,369 @@ const FRENCH_POUVOIR: HayUnitContent = {
   ],
 };
 
+// ── French passé composé / preterite chain units ─────────────────────────────
+
+const FRENCH_OU_SUIS_JE: HayUnitContent = {
+  chapterTitleKey: "où suis-je",
+  conceptLabel: "Je suis / Il est",
+  conceptDefinition: "I am (location) · he is · where am I? · où suis-je?",
+  introNote: "In French, être handles both identity and location — one verb, two jobs. The preposition tells you which role it's playing.",
+  clusters: [
+    {
+      heading: "Je suis — Locations",
+      pairs: [
+        { imageWord: "café", imageDescription: "a Parisian café with outdoor terrace and chairs", question: "Où êtes-vous?", questionTranslation: "Where are you?", answer: "Je suis au café.", answerTranslation: "I am at the café." },
+        { imageWord: "école", imageDescription: "the exterior of a French school building", question: "Où est-il?", questionTranslation: "Where is he?", answer: "Il est à l'école.", answerTranslation: "He is at school." },
+        { imageWord: "maison", imageDescription: "a cozy house exterior with a front garden", question: "Où es-tu?", questionTranslation: "Where are you?", answer: "Je suis à la maison.", answerTranslation: "I am at home." },
+        { imageWord: "marché", imageDescription: "a busy outdoor market with colorful stalls", question: "Où est-elle?", questionTranslation: "Where is she?", answer: "Elle est au marché.", answerTranslation: "She is at the market." },
+      ],
+    },
+    {
+      heading: "Les Prépositions de Lieu",
+      noteInline: "dans (in) · sur (on) · à (at/in) · près de (near) · devant (in front of) · derrière (behind)",
+      pairs: [
+        { imageWord: "bibliothèque", imageDescription: "a quiet library interior with rows of books", question: "Où est le livre?", questionTranslation: "Where is the book?", answer: "Il est dans la bibliothèque.", answerTranslation: "It is in the library." },
+        { imageWord: "table", imageDescription: "a cup of coffee on a table near a window", question: "Où est le café?", questionTranslation: "Where is the coffee?", answer: "Il est sur la table.", answerTranslation: "It is on the table." },
+        { imageWord: "parc", imageDescription: "a park bench near a fountain in sunshine", question: "Où est le banc?", questionTranslation: "Where is the bench?", answer: "Il est près de la fontaine.", answerTranslation: "It is near the fountain." },
+      ],
+      sentenceColumns: [
+        { label: "Sujet", items: [{ text: "Je suis", translation: "I am" }, { text: "Il est", translation: "He is" }, { text: "Elle est", translation: "She is" }, { text: "Nous sommes", translation: "We are" }] },
+        { label: "Préposition + Lieu", items: [{ text: "au café.", translation: "at the café." }, { text: "à la maison.", translation: "at home." }, { text: "à l'école.", translation: "at school." }, { text: "dans la salle.", translation: "in the room." }, { text: "près du parc.", translation: "near the park." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_JAI_PRIS: HayUnitContent = {
+  chapterTitleKey: "j'ai pris",
+  conceptLabel: "J'ai pris",
+  conceptDefinition: "I took · I had · I drank · passé composé of prendre",
+  introNote: "\"Prendre\" (to take) is one of the most useful French verbs — you take the bus, take a photo, have a coffee. Past participle: pris.",
+  clusters: [
+    {
+      heading: "J'ai pris — Ce que j'ai pris",
+      pairs: [
+        { imageWord: "métro", imageDescription: "a Paris metro train arriving at a platform", question: "Qu'est-ce que vous avez pris?", questionTranslation: "What did you take?", answer: "J'ai pris le métro.", answerTranslation: "I took the metro." },
+        { imageWord: "café", imageDescription: "a small espresso cup on a café saucer", question: "Qu'est-ce que vous avez pris?", questionTranslation: "What did you have?", answer: "J'ai pris un café.", answerTranslation: "I had a coffee." },
+        { imageWord: "photo", imageDescription: "a vintage camera being held up to take a photo", question: "Qu'est-ce qu'il a pris?", questionTranslation: "What did he take?", answer: "Il a pris une photo.", answerTranslation: "He took a photo." },
+        { imageWord: "train", imageDescription: "a high-speed TGV train at a French station platform", question: "Qu'est-ce qu'elle a pris?", questionTranslation: "What did she take?", answer: "Elle a pris le train.", answerTranslation: "She took the train." },
+      ],
+    },
+    {
+      heading: "Je n'ai pas pris — La Forme Négative",
+      noteInline: "je n'ai pas pris = I did not take · ne...pas wraps the auxiliary avoir",
+      pairs: [
+        { imageWord: "bus", imageDescription: "a red bus at a bus stop with the door open", question: "Avez-vous pris le bus?", questionTranslation: "Did you take the bus?", answer: "Non, je n'ai pas pris le bus.", answerTranslation: "No, I did not take the bus." },
+        { imageWord: "taxi", imageDescription: "a yellow taxi cab waiting on a city street", question: "A-t-il pris un taxi?", questionTranslation: "Did he take a taxi?", answer: "Non, il n'a pas pris de taxi.", answerTranslation: "No, he did not take a taxi." },
+      ],
+      sentenceColumns: [
+        { label: "Sujet", items: [{ text: "J'ai pris", translation: "I took" }, { text: "Il a pris", translation: "He took" }, { text: "Elle a pris", translation: "She took" }, { text: "Je n'ai pas pris", translation: "I did not take" }] },
+        { label: "Objet", items: [{ text: "le métro.", translation: "the metro." }, { text: "un café.", translation: "a coffee." }, { text: "le train.", translation: "the train." }, { text: "une photo.", translation: "a photo." }, { text: "le bus.", translation: "the bus." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_JAI_ACHETE: HayUnitContent = {
+  chapterTitleKey: "j'ai acheté",
+  conceptLabel: "J'ai acheté",
+  conceptDefinition: "I bought · he bought · passé composé of acheter (-ER model)",
+  introNote: "\"Acheté\" is the model for ALL regular -ER verbs in the past — drop -er, add -é. This pattern transfers to hundreds of verbs.",
+  clusters: [
+    {
+      heading: "J'ai acheté — Shopping au passé",
+      pairs: [
+        { imageWord: "cadeau", imageDescription: "a wrapped gift with a ribbon on a table", question: "Qu'est-ce que vous avez acheté?", questionTranslation: "What did you buy?", answer: "J'ai acheté un cadeau.", answerTranslation: "I bought a gift." },
+        { imageWord: "vêtements", imageDescription: "folded clothes in a shopping bag from a store", question: "Qu'est-ce qu'il a acheté?", questionTranslation: "What did he buy?", answer: "Il a acheté des vêtements.", answerTranslation: "He bought some clothes." },
+        { imageWord: "livre", imageDescription: "a stack of books in a bookshop", question: "Qu'est-ce qu'elle a acheté?", questionTranslation: "What did she buy?", answer: "Elle a acheté un livre.", answerTranslation: "She bought a book." },
+        { imageWord: "nourriture", imageDescription: "grocery bags filled with fresh market food", question: "Qu'est-ce que vous avez acheté au marché?", questionTranslation: "What did you buy at the market?", answer: "J'ai acheté de la nourriture.", answerTranslation: "I bought some food." },
+      ],
+    },
+    {
+      heading: "Le Modèle -ER au passé",
+      noteInline: "infinitif en -ER → participe passé en -É  ·  parler→parlé  ·  manger→mangé  ·  regarder→regardé",
+      pairs: [
+        { imageWord: "film", imageDescription: "a person watching a movie on a couch with popcorn", question: "Qu'est-ce qu'il a regardé?", questionTranslation: "What did he watch?", answer: "Il a regardé un film.", answerTranslation: "He watched a film." },
+        { imageWord: "ami", imageDescription: "two friends laughing together at a café table", question: "Avec qui avez-vous parlé?", questionTranslation: "Who did you talk with?", answer: "J'ai parlé avec mon ami.", answerTranslation: "I talked with my friend." },
+      ],
+      sentenceColumns: [
+        { label: "Sujet", items: [{ text: "J'ai acheté", translation: "I bought" }, { text: "Il a acheté", translation: "He bought" }, { text: "Elle a acheté", translation: "She bought" }, { text: "Je n'ai pas acheté de", translation: "I did not buy any" }] },
+        { label: "Objet", items: [{ text: "un cadeau.", translation: "a gift." }, { text: "des vêtements.", translation: "clothes." }, { text: "un livre.", translation: "a book." }, { text: "de la nourriture.", translation: "food." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_JE_VOUDRAIS: HayUnitContent = {
+  chapterTitleKey: "je voudrais",
+  conceptLabel: "Je voudrais",
+  conceptDefinition: "I would like · he would like · polite conditional of vouloir",
+  introNote: "\"Je voudrais\" is the polite form every French speaker uses in restaurants, shops, and formal situations. One step above \"je veux.\"",
+  clusters: [
+    {
+      heading: "Je voudrais — Les Désirs Polis",
+      pairs: [
+        { imageWord: "café", imageDescription: "a waiter in a bistro taking an order at a table", question: "Que voudriez-vous?", questionTranslation: "What would you like?", answer: "Je voudrais un café, s'il vous plaît.", answerTranslation: "I would like a coffee, please." },
+        { imageWord: "carte", imageDescription: "a restaurant menu open on a table", question: "Que voudriez-vous commander?", questionTranslation: "What would you like to order?", answer: "Je voudrais voir la carte.", answerTranslation: "I would like to see the menu." },
+        { imageWord: "Paris", imageDescription: "the Eiffel Tower at sunset with a golden sky", question: "Où voudriez-vous aller?", questionTranslation: "Where would you like to go?", answer: "Je voudrais visiter Paris.", answerTranslation: "I would like to visit Paris." },
+        { imageWord: "chambre", imageDescription: "a hotel room with a large bed and city view", question: "Que voudriez-vous comme chambre?", questionTranslation: "What kind of room would you like?", answer: "Je voudrais une chambre avec vue.", answerTranslation: "I would like a room with a view." },
+      ],
+    },
+    {
+      heading: "Je voudrais + infinitif",
+      noteInline: "je voudrais + infinitive = I would like to …  ·  more polite than je veux + infinitive",
+      pairs: [
+        { imageWord: "apprendre", imageDescription: "a person studying French with books and flashcards", question: "Que voudriez-vous apprendre?", questionTranslation: "What would you like to learn?", answer: "Je voudrais apprendre le français.", answerTranslation: "I would like to learn French." },
+        { imageWord: "voyage", imageDescription: "a suitcase packed and ready by a front door", question: "Voudriez-vous voyager?", questionTranslation: "Would you like to travel?", answer: "Oui, je voudrais voyager.", answerTranslation: "Yes, I would like to travel." },
+      ],
+      sentenceColumns: [
+        { label: "Sujet", items: [{ text: "Je voudrais", translation: "I would like" }, { text: "Il voudrait", translation: "He would like" }, { text: "Elle voudrait", translation: "She would like" }, { text: "Nous voudrions", translation: "We would like" }] },
+        { label: "Objet / Infinitif", items: [{ text: "un café.", translation: "a coffee." }, { text: "la carte.", translation: "the menu." }, { text: "visiter Paris.", translation: "to visit Paris." }, { text: "voyager.", translation: "to travel." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_JE_SUIS_ALLE: HayUnitContent = {
+  chapterTitleKey: "je suis allé",
+  conceptLabel: "Je suis allé(e)",
+  conceptDefinition: "I went · she went · passé composé of aller with être",
+  introNote: "Aller uses ÊTRE as its auxiliary in the past — and the past participle agrees with the subject. Allé (m) · Allée (f).",
+  clusters: [
+    {
+      heading: "Je suis allé(e) — Où j'ai été",
+      pairs: [
+        { imageWord: "marché", imageDescription: "a colorful French outdoor market with produce stalls", question: "Où êtes-vous allé(e)?", questionTranslation: "Where did you go?", answer: "Je suis allé(e) au marché.", answerTranslation: "I went to the market." },
+        { imageWord: "cinéma", imageDescription: "a cinema exterior lit up with movie posters at night", question: "Où est-il allé?", questionTranslation: "Where did he go?", answer: "Il est allé au cinéma.", answerTranslation: "He went to the cinema." },
+        { imageWord: "école", imageDescription: "a student entering a school through glass doors", question: "Où est-elle allée?", questionTranslation: "Where did she go?", answer: "Elle est allée à l'école.", answerTranslation: "She went to school." },
+        { imageWord: "plage", imageDescription: "a sandy beach with gentle waves on a sunny day", question: "Où êtes-vous allé(e) en vacances?", questionTranslation: "Where did you go on vacation?", answer: "Je suis allé(e) à la plage.", answerTranslation: "I went to the beach." },
+      ],
+    },
+    {
+      heading: "L'Accord — Masculin / Féminin",
+      noteInline: "allé (masc) · allée (fem) · allés (masc plural) · allées (fem plural)  ·  agreement is written, not always spoken",
+      pairs: [
+        { imageWord: "restaurant", imageDescription: "a couple walking into a French restaurant together", question: "Où sont-ils allés?", questionTranslation: "Where did they go?", answer: "Ils sont allés au restaurant.", answerTranslation: "They went to the restaurant." },
+        { imageWord: "amies", imageDescription: "a group of female friends walking together in the city", question: "Où sont-elles allées?", questionTranslation: "Where did they go?", answer: "Elles sont allées en ville.", answerTranslation: "They went to town." },
+      ],
+      sentenceColumns: [
+        { label: "Sujet", items: [{ text: "Je suis allé(e)", translation: "I went" }, { text: "Il est allé", translation: "He went" }, { text: "Elle est allée", translation: "She went" }, { text: "Ils sont allés", translation: "They went (m)" }, { text: "Je ne suis pas allé(e)", translation: "I did not go" }] },
+        { label: "Destination", items: [{ text: "au marché.", translation: "to the market." }, { text: "au cinéma.", translation: "to the cinema." }, { text: "à la plage.", translation: "to the beach." }, { text: "en ville.", translation: "to town." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_IL_VA: HayUnitContent = {
+  chapterTitleKey: "il va",
+  conceptLabel: "Il va / Elle va",
+  conceptDefinition: "he is going to · she is going to · near future (3rd person)",
+  introNote: "Il va + infinitive = the easiest way to talk about what someone else is going to do. Third-person storytelling begins here.",
+  clusters: [
+    {
+      heading: "Il va — Ce qu'il va faire",
+      pairs: [
+        { imageWord: "travailler", imageDescription: "a person walking purposefully into an office building", question: "Qu'est-ce qu'il va faire?", questionTranslation: "What is he going to do?", answer: "Il va travailler.", answerTranslation: "He is going to work." },
+        { imageWord: "manger", imageDescription: "a table set for dinner with steaming dishes", question: "Qu'est-ce qu'elle va faire?", questionTranslation: "What is she going to do?", answer: "Elle va manger.", answerTranslation: "She is going to eat." },
+        { imageWord: "étudier", imageDescription: "a student opening textbooks at a library desk", question: "Qu'est-ce qu'il va faire ce soir?", questionTranslation: "What is he going to do tonight?", answer: "Il va étudier.", answerTranslation: "He is going to study." },
+        { imageWord: "voyage", imageDescription: "a person looking at flight departure boards at an airport", question: "Où est-ce qu'elle va aller?", questionTranslation: "Where is she going to go?", answer: "Elle va voyager.", answerTranslation: "She is going to travel." },
+      ],
+    },
+    {
+      heading: "Il ne va pas — La Négation",
+      noteInline: "il ne va pas + infinitive = he is not going to …  ·  ne...pas wraps the conjugated verb va",
+      pairs: [
+        { imageWord: "rester", imageDescription: "a person sitting on a couch looking relaxed at home", question: "Est-ce qu'il va sortir?", questionTranslation: "Is he going to go out?", answer: "Non, il ne va pas sortir. Il va rester.", answerTranslation: "No, he is not going to go out. He is going to stay." },
+        { imageWord: "pleuvoir", imageDescription: "dark clouds gathering over a city skyline", question: "Est-ce qu'il va faire beau?", questionTranslation: "Is the weather going to be nice?", answer: "Non, il va pleuvoir.", answerTranslation: "No, it is going to rain." },
+      ],
+      sentenceColumns: [
+        { label: "Sujet", items: [{ text: "Il va", translation: "He is going to" }, { text: "Elle va", translation: "She is going to" }, { text: "Ils vont", translation: "They are going to" }, { text: "Il ne va pas", translation: "He is not going to" }] },
+        { label: "Infinitif", items: [{ text: "travailler.", translation: "work." }, { text: "manger.", translation: "eat." }, { text: "étudier.", translation: "study." }, { text: "voyager.", translation: "travel." }, { text: "rester.", translation: "stay." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_QU_EST_CE_QU_IL_A_FAIT: HayUnitContent = {
+  chapterTitleKey: "qu'est-ce qu'il a fait",
+  conceptLabel: "Qu'est-ce qu'il a fait?",
+  conceptDefinition: "what did he do? · passé composé narration · il a fait / il a mangé / il a regardé",
+  introNote: "\"Qu'est-ce qu'il a fait?\" opens up past-tense storytelling. Use this question to narrate anyone's day.",
+  clusters: [
+    {
+      heading: "Il a fait — La Journée au Passé",
+      pairs: [
+        { imageWord: "courses", imageDescription: "a person pushing a shopping cart through a grocery store", question: "Qu'est-ce qu'il a fait ce matin?", questionTranslation: "What did he do this morning?", answer: "Il a fait les courses.", answerTranslation: "He did the grocery shopping." },
+        { imageWord: "film", imageDescription: "a person watching a movie on a large TV screen", question: "Qu'est-ce qu'elle a fait hier soir?", questionTranslation: "What did she do last night?", answer: "Elle a regardé un film.", answerTranslation: "She watched a film." },
+        { imageWord: "devoirs", imageDescription: "a student writing in a notebook at a desk", question: "Qu'est-ce qu'il a fait après l'école?", questionTranslation: "What did he do after school?", answer: "Il a fait ses devoirs.", answerTranslation: "He did his homework." },
+        { imageWord: "amis", imageDescription: "a group of friends laughing around a restaurant table", question: "Qu'est-ce qu'ils ont fait?", questionTranslation: "What did they do?", answer: "Ils ont mangé avec des amis.", answerTranslation: "They ate with friends." },
+      ],
+    },
+    {
+      heading: "Raconter une Histoire — Narrating a Day",
+      noteInline: "chain past actions with et (and) or puis (then) to build a full narrative",
+      pairs: [
+        { imageWord: "matin", imageDescription: "a morning scene: coffee, croissant, morning light through a window", question: "Qu'est-ce qu'il a fait le matin?", questionTranslation: "What did he do in the morning?", answer: "Il s'est levé, il a pris un café et il est allé au travail.", answerTranslation: "He got up, had a coffee and went to work." },
+        { imageWord: "soir", imageDescription: "a calm evening scene: lamp light, book, quiet room", question: "Qu'est-ce qu'elle a fait le soir?", questionTranslation: "What did she do in the evening?", answer: "Elle a lu un livre et elle s'est couchée tôt.", answerTranslation: "She read a book and went to bed early." },
+      ],
+      sentenceColumns: [
+        { label: "Sujet", items: [{ text: "Il a fait", translation: "He did/made" }, { text: "Elle a regardé", translation: "She watched" }, { text: "Ils ont mangé", translation: "They ate" }, { text: "Il a lu", translation: "He read" }] },
+        { label: "Objet / Contexte", items: [{ text: "les courses.", translation: "the shopping." }, { text: "ses devoirs.", translation: "his homework." }, { text: "un film.", translation: "a film." }, { text: "avec des amis.", translation: "with friends." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_IL_A_EU: HayUnitContent = {
+  chapterTitleKey: "il a eu",
+  conceptLabel: "Il a eu / J'ai eu",
+  conceptDefinition: "he had · I had · passé composé of avoir (irregular: eu)",
+  introNote: "Avoir uses itself as its own auxiliary. Past participle eu is irregular — must memorize. Used for luck, accidents, feelings.",
+  clusters: [
+    {
+      heading: "J'ai eu / Il a eu — Expériences",
+      pairs: [
+        { imageWord: "chance", imageDescription: "a four-leaf clover resting on an open palm", question: "Avez-vous eu de la chance?", questionTranslation: "Were you lucky?", answer: "Oui, j'ai eu de la chance.", answerTranslation: "Yes, I was lucky." },
+        { imageWord: "problème", imageDescription: "a person looking stressed in front of a broken-down car", question: "A-t-il eu un problème?", questionTranslation: "Did he have a problem?", answer: "Oui, il a eu un problème.", answerTranslation: "Yes, he had a problem." },
+        { imageWord: "peur", imageDescription: "a person startled, looking wide-eyed and frightened", question: "A-t-elle eu peur?", questionTranslation: "Was she scared?", answer: "Oui, elle a eu peur.", answerTranslation: "Yes, she was scared." },
+        { imageWord: "accident", imageDescription: "a dented car fender after a minor collision", question: "A-t-il eu un accident?", questionTranslation: "Did he have an accident?", answer: "Oui, il a eu un accident.", answerTranslation: "Yes, he had an accident." },
+      ],
+    },
+    {
+      heading: "Je n'ai pas eu — La Négation",
+      noteInline: "je n'ai pas eu = I did not have · ne...pas wraps avoir · article shifts to de in negative",
+      pairs: [
+        { imageWord: "temps", imageDescription: "a clock showing no time left, hands racing to midnight", question: "Avez-vous eu le temps?", questionTranslation: "Did you have time?", answer: "Non, je n'ai pas eu le temps.", answerTranslation: "No, I did not have time." },
+        { imageWord: "réponse", imageDescription: "an empty email inbox with no new messages", question: "A-t-il eu une réponse?", questionTranslation: "Did he get an answer?", answer: "Non, il n'a pas eu de réponse.", answerTranslation: "No, he did not get an answer." },
+      ],
+      sentenceColumns: [
+        { label: "Sujet", items: [{ text: "J'ai eu", translation: "I had" }, { text: "Il a eu", translation: "He had" }, { text: "Elle a eu", translation: "She had" }, { text: "Je n'ai pas eu de", translation: "I did not have" }] },
+        { label: "Expérience", items: [{ text: "de la chance.", translation: "luck." }, { text: "un problème.", translation: "a problem." }, { text: "peur.", translation: "fear (I was scared)." }, { text: "le temps.", translation: "time." }, { text: "réponse.", translation: "an answer." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_LUI: HayUnitContent = {
+  chapterTitleKey: "lui",
+  conceptLabel: "Lui",
+  conceptDefinition: "to him · to her · indirect object pronoun · replaces à + person",
+  introNote: "\"Lui\" replaces \"à + person\" — one pronoun for both masculine and feminine. It always comes before the conjugated verb.",
+  clusters: [
+    {
+      heading: "Je lui — Actions dirigées vers quelqu'un",
+      pairs: [
+        { imageWord: "parler", imageDescription: "a person speaking on the phone, looking engaged", question: "Est-ce que vous lui parlez souvent?", questionTranslation: "Do you speak to him/her often?", answer: "Oui, je lui parle tous les jours.", answerTranslation: "Yes, I speak to him/her every day." },
+        { imageWord: "cadeau", imageDescription: "a person handing a wrapped gift to someone else", question: "Qu'est-ce que vous lui avez donné?", questionTranslation: "What did you give him/her?", answer: "Je lui ai donné un cadeau.", answerTranslation: "I gave him/her a gift." },
+        { imageWord: "lettre", imageDescription: "a handwritten letter being handed to someone", question: "Est-ce que vous lui écrivez?", questionTranslation: "Do you write to him/her?", answer: "Oui, je lui écris souvent.", answerTranslation: "Yes, I write to him/her often." },
+        { imageWord: "téléphone", imageDescription: "a person calling on a smartphone outdoors", question: "Est-ce que vous lui téléphonez?", questionTranslation: "Do you call him/her?", answer: "Oui, je lui téléphone.", answerTranslation: "Yes, I call him/her." },
+      ],
+    },
+    {
+      heading: "Je ne lui — La Négation",
+      noteInline: "je ne lui parle pas = I do not speak to him/her · lui stays between ne and the verb",
+      pairs: [
+        { imageWord: "silence", imageDescription: "a person with arms crossed, turned away, not speaking", question: "Est-ce que vous lui parlez encore?", questionTranslation: "Do you still speak to him/her?", answer: "Non, je ne lui parle plus.", answerTranslation: "No, I no longer speak to him/her." },
+        { imageWord: "message", imageDescription: "a smartphone showing no unread messages", question: "Est-ce que vous lui avez répondu?", questionTranslation: "Did you reply to him/her?", answer: "Non, je ne lui ai pas répondu.", answerTranslation: "No, I did not reply to him/her." },
+      ],
+      sentenceColumns: [
+        { label: "Formule", items: [{ text: "Je lui parle.", translation: "I speak to him/her." }, { text: "Je lui donne.", translation: "I give him/her." }, { text: "Je lui écris.", translation: "I write to him/her." }, { text: "Je ne lui parle pas.", translation: "I do not speak to him/her." }] },
+        { label: "Contexte", items: [{ text: "tous les jours.", translation: "every day." }, { text: "un cadeau.", translation: "a gift." }, { text: "souvent.", translation: "often." }, { text: "une lettre.", translation: "a letter." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_CEST_PROPRE: HayUnitContent = {
+  chapterTitleKey: "c'est propre",
+  conceptLabel: "C'est propre / C'est sale",
+  conceptDefinition: "it is clean · it is dirty · c'est + adjective for descriptions",
+  introNote: "\"C'est\" + adjective is the all-purpose French description formula. One pattern, endless combinations.",
+  clusters: [
+    {
+      heading: "C'est — Les Descriptions",
+      pairs: [
+        { imageWord: "propre", imageDescription: "a spotlessly clean and tidy kitchen with gleaming surfaces", question: "C'est propre ou c'est sale?", questionTranslation: "Is it clean or dirty?", answer: "C'est propre.", answerTranslation: "It is clean." },
+        { imageWord: "sale", imageDescription: "a messy room with dishes and clothes on the floor", question: "C'est propre ou c'est sale?", questionTranslation: "Is it clean or dirty?", answer: "C'est sale.", answerTranslation: "It is dirty." },
+        { imageWord: "grand", imageDescription: "a vast, impressive open landscape under a big sky", question: "C'est grand?", questionTranslation: "Is it big?", answer: "Oui, c'est très grand.", answerTranslation: "Yes, it is very big." },
+        { imageWord: "beau", imageDescription: "a stunning sunset over the ocean with vivid colours", question: "C'est beau?", questionTranslation: "Is it beautiful?", answer: "Oui, c'est magnifique!", answerTranslation: "Yes, it is magnificent!" },
+      ],
+    },
+    {
+      heading: "Ce n'est pas — La Négation",
+      noteInline: "ce n'est pas = it is not · ce n'est pas + adjective = it is not …",
+      pairs: [
+        { imageWord: "facile", imageDescription: "a student frowning over a very difficult exam paper", question: "C'est facile?", questionTranslation: "Is it easy?", answer: "Non, ce n'est pas facile. C'est difficile.", answerTranslation: "No, it is not easy. It is difficult." },
+        { imageWord: "cher", imageDescription: "a price tag on an expensive item in a luxury shop window", question: "C'est cher?", questionTranslation: "Is it expensive?", answer: "Oui, c'est très cher.", answerTranslation: "Yes, it is very expensive." },
+      ],
+      sentenceColumns: [
+        { label: "Formule", items: [{ text: "C'est", translation: "It is" }, { text: "Ce n'est pas", translation: "It is not" }, { text: "C'est très", translation: "It is very" }, { text: "C'est trop", translation: "It is too" }] },
+        { label: "Adjectif", items: [{ text: "propre.", translation: "clean." }, { text: "sale.", translation: "dirty." }, { text: "grand.", translation: "big." }, { text: "beau.", translation: "beautiful." }, { text: "cher.", translation: "expensive." }, { text: "facile.", translation: "easy." }, { text: "difficile.", translation: "difficult." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_JAI_ETUDIE: HayUnitContent = {
+  chapterTitleKey: "j'ai étudié",
+  conceptLabel: "J'ai étudié",
+  conceptDefinition: "I studied · passé composé model for regular -ER verbs",
+  introNote: "The -ER passé composé unlocks hundreds of verbs at once. Drop -ER, add -É. This one pattern is the most used past tense in French.",
+  clusters: [
+    {
+      heading: "J'ai + participe -É — Le Pattern Essentiel",
+      pairs: [
+        { imageWord: "étudier", imageDescription: "a student studying with notes and highlighted textbooks", question: "Qu'est-ce que vous avez étudié?", questionTranslation: "What did you study?", answer: "J'ai étudié le français.", answerTranslation: "I studied French." },
+        { imageWord: "travailler", imageDescription: "a person at a busy desk with papers and a laptop", question: "Avez-vous travaillé aujourd'hui?", questionTranslation: "Did you work today?", answer: "Oui, j'ai travaillé toute la journée.", answerTranslation: "Yes, I worked all day." },
+        { imageWord: "manger", imageDescription: "a plate of food being eaten at a restaurant table", question: "Où avez-vous mangé?", questionTranslation: "Where did you eat?", answer: "J'ai mangé au restaurant.", answerTranslation: "I ate at the restaurant." },
+        { imageWord: "regarder", imageDescription: "a person watching television in the evening light", question: "Qu'est-ce que vous avez regardé hier soir?", questionTranslation: "What did you watch last night?", answer: "J'ai regardé la télévision.", answerTranslation: "I watched television." },
+      ],
+    },
+    {
+      heading: "Je n'ai pas + -É — La Négation",
+      noteInline: "je n'ai pas étudié = I did not study · article un/une/des shifts to DE in negative",
+      pairs: [
+        { imageWord: "devoirs", imageDescription: "an empty desk with a closed notebook and pencil untouched", question: "Avez-vous fait vos devoirs?", questionTranslation: "Did you do your homework?", answer: "Non, je n'ai pas fait mes devoirs.", answerTranslation: "No, I did not do my homework." },
+        { imageWord: "sport", imageDescription: "sports equipment sitting unused on a shelf", question: "Avez-vous joué au sport?", questionTranslation: "Did you play sport?", answer: "Non, je n'ai pas joué au sport.", answerTranslation: "No, I did not play sport." },
+      ],
+      sentenceColumns: [
+        { label: "Sujet + Auxiliaire", items: [{ text: "J'ai", translation: "I have / I" }, { text: "Il a", translation: "He has / He" }, { text: "Elle a", translation: "She has / She" }, { text: "Nous avons", translation: "We have / We" }, { text: "Je n'ai pas", translation: "I have not / I did not" }] },
+        { label: "Participe en -É", items: [{ text: "étudié.", translation: "studied." }, { text: "travaillé.", translation: "worked." }, { text: "mangé.", translation: "eaten." }, { text: "regardé.", translation: "watched." }, { text: "parlé.", translation: "spoken." }, { text: "acheté.", translation: "bought." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_JAI_RECU: HayUnitContent = {
+  chapterTitleKey: "j'ai reçu",
+  conceptLabel: "J'ai reçu",
+  conceptDefinition: "I received · irregular past participles ending in -U · reçu / vu / lu / bu / su",
+  introNote: "Several common French verbs form their past participle with -U. These must be memorized, but they share a family resemblance.",
+  clusters: [
+    {
+      heading: "J'ai reçu / J'ai vu / J'ai lu — La Famille en -U",
+      pairs: [
+        { imageWord: "lettre", imageDescription: "a person reading a handwritten letter with a smile", question: "Avez-vous reçu une lettre?", questionTranslation: "Did you receive a letter?", answer: "Oui, j'ai reçu une lettre.", answerTranslation: "Yes, I received a letter." },
+        { imageWord: "film", imageDescription: "a cinema screen showing the end credits of a film", question: "Avez-vous vu ce film?", questionTranslation: "Did you see that film?", answer: "Oui, je l'ai vu hier.", answerTranslation: "Yes, I saw it yesterday." },
+        { imageWord: "roman", imageDescription: "a person finishing the last page of a novel with satisfaction", question: "Avez-vous lu ce livre?", questionTranslation: "Did you read that book?", answer: "Oui, je l'ai lu la semaine dernière.", answerTranslation: "Yes, I read it last week." },
+        { imageWord: "eau", imageDescription: "a glass of water being drunk on a hot sunny day", question: "Avez-vous bu de l'eau?", questionTranslation: "Did you drink water?", answer: "Oui, j'ai bu de l'eau.", answerTranslation: "Yes, I drank water." },
+      ],
+    },
+    {
+      heading: "Les Participes en -U à Retenir",
+      noteInline: "recevoir→reçu  ·  voir→vu  ·  lire→lu  ·  boire→bu  ·  savoir→su  ·  vouloir→voulu  ·  pouvoir→pu",
+      pairs: [
+        { imageWord: "réponse", imageDescription: "a person reading an important email reply on a laptop", question: "A-t-il reçu une réponse?", questionTranslation: "Did he receive a reply?", answer: "Oui, il a reçu une réponse.", answerTranslation: "Yes, he received a reply." },
+        { imageWord: "nouvelles", imageDescription: "someone looking surprised reading news on their phone", question: "A-t-elle su la nouvelle?", questionTranslation: "Did she find out the news?", answer: "Oui, elle a su la nouvelle ce matin.", answerTranslation: "Yes, she found out the news this morning." },
+      ],
+      sentenceColumns: [
+        { label: "Sujet", items: [{ text: "J'ai reçu", translation: "I received" }, { text: "J'ai vu", translation: "I saw" }, { text: "J'ai lu", translation: "I read" }, { text: "J'ai bu", translation: "I drank" }, { text: "Je n'ai pas reçu de", translation: "I did not receive" }] },
+        { label: "Objet", items: [{ text: "une lettre.", translation: "a letter." }, { text: "un film.", translation: "a film." }, { text: "un livre.", translation: "a book." }, { text: "du café.", translation: "coffee." }, { text: "réponse.", translation: "an answer." }] },
+      ],
+    },
+  ],
+};
+
 const HAY_UNITS: HayUnitContent[] = [
   PUEDO_IR,
   HAY_CHAPTER,
@@ -2032,6 +2395,19 @@ const HAY_UNITS: HayUnitContent[] = [
   FRENCH_AIMER,
   FRENCH_IL_Y_A,
   FRENCH_POUVOIR,
+  // ── French passé composé / preterite chain units ─────────────────────────────
+  FRENCH_OU_SUIS_JE,
+  FRENCH_JAI_PRIS,
+  FRENCH_JAI_ACHETE,
+  FRENCH_JE_VOUDRAIS,
+  FRENCH_JE_SUIS_ALLE,
+  FRENCH_IL_VA,
+  FRENCH_QU_EST_CE_QU_IL_A_FAIT,
+  FRENCH_IL_A_EU,
+  FRENCH_LUI,
+  FRENCH_CEST_PROPRE,
+  FRENCH_JAI_ETUDIE,
+  FRENCH_JAI_RECU,
 ];
 
 /**
