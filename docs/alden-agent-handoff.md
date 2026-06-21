@@ -24,6 +24,35 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 21, 2026 — 5 Gemini audit recommendations (nervous system upgrade)**
+
+### What was built
+
+Implemented all 5 architectural recommendations from the June 17 Gemini consult (`docs/gemini-audit-2026-06-17.md`). These are nervous-system-level changes to how GL sessions perceive the student and how Daniela behaves across a session.
+
+**Change 1 — Last State injection** (`gemini-live-session.ts` · `sendGreetingTrigger`)
+Resume trigger text rewrote from weak "Continue our conversation naturally" → explicit "Do not greet me or re-introduce yourself — we are mid-conversation. Respond directly to where we left off." Last exchange block is labeled "pick up directly from here, do NOT re-introduce yourself." Addresses Gemini's First Turn Bias that regularly overrides soft directives.
+
+**Change 2 — Behavioral output constraints** (`system-prompt.ts`)
+Added `buildOutputConstraints(difficulty, actflLevel)` inline in `createStreamingVoicePrompt`. Generates concrete tutor *output* rules (not can-do student descriptions). Three tiers: Novice/beginner (English for explanations, ≤8-word Spanish, present tense only, translate inline), Intermediate (50/50 mix, all tenses, push one step harder), Advanced (80%+ Spanish, near-peer register). All tiers include the specificity rule: generic praise ("great job!") is explicitly named as a failure. Appended to `actflContext` so all three assembly sites get it automatically.
+
+**Change 3 — Bootstrap Turn** (`gemini-live-session.ts` + `unified-ws-handler.ts`)
+Student profile (name · ACTFL level · last session topic · streak) now injected into conversation-history position-0 ("Hot Zone") instead of living only in the fading 34K system prompt. Built at session init from `studentSnapshot + resolvedActflLevel`, stored as `(session as any).__bootstrapProfile`, passed as 5th optional param to `sendGreetingTrigger`. New-session greeting trigger appends: "[Student context loaded — treat this as felt knowledge, not a data file: …]"
+
+**Change 4 — System Whisper** (`gemini-live-session.ts`)
+Every 8 PTT turns (`WHISPER_INTERVAL = 8`), a specificity nudge is prepended to the student's text input: "Generic encouragement is a failure; specificity is your superpower." PTT path is the only safe GL injection point — no mid-session system turns are possible without triggering audio. Gated by `!greetingPhaseActive`. New private fields: `conversationTurnCount`, `turnsSinceLastWhisper`. Counter incremented in the turn latency block (fires on each completed non-greeting turn).
+
+**Change 5 — find_teaching_tool meta-tool** (`daniela-function-registry.ts` + `native-fc-handlers.ts`)
+New planning tool at end of registry. Before choosing a teaching widget, Daniela calls `find_teaching_tool(pedagogical_need)` → gets 3–5 most semantically relevant tool descriptions from `daniela_tool` embeddings. Handler uses `semanticSearch(userId, query, limit, ['daniela_tool'])`. Tool indexer will auto-index this new tool at next boot (3-layer pipeline). `buildContinuationResponse` reads `session.findTeachingToolResults`.
+
+### What's next / open
+- Loop catalog now at 31 entries. All chapter gaps from the June 20 session are closed.
+- System Whisper only fires on PTT sessions — continuous audio sessions can't be intercepted mid-session by GL. This is a known GL limitation.
+- Bootstrap Turn fires only when studentSnapshot loaded successfully (streak > 0 OR last topic known). First-time students get no profile appended — that's fine, there's nothing to inject yet.
+- DanielaPresence error for student 49847136 (`Cannot convert undefined or null to object`) — pre-existing, not from these changes.
+
+---
+
 **Session: June 20, 2026 — Pedagogical audit + progressive chapter fix**
 
 ### What was done

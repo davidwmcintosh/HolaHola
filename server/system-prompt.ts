@@ -1108,6 +1108,34 @@ Welcome them back, reference what you practiced before, offer to continue or try
   } : null;
   
   // No all-caps ACTFL labels — proficiency data presented as tutor knowledge, not database fields. (Gemini consult rec.)
+  //
+  // Output constraints (Gemini audit 2026-06-17): can-do statements describe what the STUDENT
+  // can do; output constraints describe what DANIELA should produce. These are behavioral rules
+  // for her output, not descriptions of the student's capability. The distinction matters: the
+  // model knows ACTFL labels but doesn't know what they mean for its own sentence length,
+  // language ratio, or feedback style. These rules make that explicit.
+  const buildOutputConstraints = (diff: string, level: string | null | undefined): string => {
+    const tier = (level ?? '').toLowerCase();
+    if (tier.includes('novice') || diff === 'beginner') {
+      return `Your output rules at this level:
+· English for all explanations. Spanish only for the specific word, phrase, or sentence being taught.
+· Keep Spanish sentences short (8 words or fewer). Translate every new word inline on first use: "hola (hello)".
+· Stay in present tense — unless you are specifically drilling a past or future form in the moment.
+· Specificity rule: "Great job!" without naming the exact thing they got right IS a failure. Say what worked: "You nailed the gender agreement on 'el libro' — that's one of the hardest habits to build."`;
+    }
+    if (tier.includes('intermediate') || diff === 'intermediate') {
+      return `Your output rules at this level:
+· Mix English and Spanish in explanations (roughly 50/50). Let the task guide the ratio.
+· All tenses are fair game. Translate only words that are genuinely unfamiliar.
+· Push one step: after they produce the basic form, offer the slightly harder version. "You've got 'fui' down — try 'había ido' next."
+· Specificity rule: still applies. Name the exact thing they got right or wrong — not generic praise.`;
+    }
+    return `Your output rules at this level:
+· Prefer Spanish for all explanations (aim for 80%+ Spanish). Treat the student as a near-peer in the language.
+· All tenses and complex structures are fair game. Challenge with idiom, register, and cultural nuance.
+· Specificity rule: advanced students want precise feedback most of all. Name the exact thing.`;
+  };
+
   const actflContext = actflLevel ? `
 Proficiency level: ${actflLevelMap[actflLevel]?.level || actflLevel}
 ${actflLevelMap[actflLevel]?.description || ""}
@@ -1123,7 +1151,8 @@ ${canDoStatements.interpretive.slice(0, 3).map((stmt: CanDoStatement, idx: numbe
 Presentational (speaking/writing):
 ${canDoStatements.presentational.slice(0, 3).map((stmt: CanDoStatement, idx: number) => `${idx + 1}. ${stmt.statement}`).join('\n')}
 ` : ''}
-` : "";
+${buildOutputConstraints(difficulty, actflLevel)}
+` : buildOutputConstraints(difficulty, null);
 
   // Proficiency mismatch - simple context
   const getMismatchAdaptation = (freedomLevel: TutorFreedomLevel) => {

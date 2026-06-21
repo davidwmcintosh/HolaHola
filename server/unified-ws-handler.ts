@@ -1945,6 +1945,18 @@ ${buildNativeFunctionCallingSection()}`;
                 if (snapshotSection) {
                   systemPrompt += snapshotSection;
                   console.log(`[Streaming Voice] ✓ Student snapshot injected (last session: ${studentSnapshot.lastSession?.topic ?? 'none'}, streak: ${studentSnapshot.streak ?? 0})`);
+                  // Bootstrap Turn (Gemini audit 2026-06-17): build a compact profile that
+                  // will be injected into conversation history position-0 at greeting time.
+                  // Data in conversation history is "Hot Zone" attention (high-definition for
+                  // the model); the same data in the 34K system prompt fades. Profile is stored
+                  // on the session object so the greeting handler can pass it to sendGreetingTrigger.
+                  const _bsLevel = resolvedActflLevel ? resolvedActflLevel.replace(/_/g, ' ') : null;
+                  const _bsLastTopic = studentSnapshot.lastSession?.topic ?? null;
+                  const _bsStreak = studentSnapshot.streak ?? 0;
+                  const _bsParts: string[] = [`${user.firstName}${_bsLevel ? `, ${_bsLevel}` : ''}`];
+                  if (_bsLastTopic) _bsParts.push(`last session: ${_bsLastTopic}`);
+                  if (_bsStreak > 0) _bsParts.push(`${_bsStreak}-day streak`);
+                  (session as any).__bootstrapProfile = _bsParts.join(' · ');
                 } else {
                   console.log(`[Streaming Voice] Student snapshot empty — first-time student or no session data yet`);
                 }
@@ -3074,6 +3086,7 @@ ${lastNote.tutorNotes}`);
                 effectiveIsResumed,
                 greetingRequest.scenarioSlug,
                 recentConversationContext,
+                (session as any).__bootstrapProfile ?? undefined,
               );
             } else {
               console.log('[GeminiLive] Duplicate request_greeting ignored — greeting already sent');

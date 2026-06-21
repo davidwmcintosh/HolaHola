@@ -162,6 +162,12 @@ export class GeminiLiveSession {
   // isTutorGeneratingAudio: gates mic for ALL subsequent Daniela turns.
   // Together these cover the full echo suppression lifecycle.
   private greetingPhaseActive = false;
+  // System Whisper (Gemini audit 2026-06-17 rec): tracks completed non-greeting turns so a
+  // brief specificity reminder can be prepended to PTT turns at regular intervals.
+  // GL has no mid-session system injection, so the PTT text path is the only safe injection point.
+  private conversationTurnCount = 0;
+  private turnsSinceLastWhisper = 0;
+  private static readonly WHISPER_INTERVAL = 8;
   // DOUBLE-AUDIO FIX: After a GL internal reconnect that interrupted mid-turn audio,
   // the client is sent gl_audio_reset (which calls player.stop() + resetForNewTurn()).
   // The next first-audio processing_pending is suppressed since the client already
@@ -739,7 +745,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
    * Send a greeting trigger to Gemini Live to start the conversation.
    * Called from the `request_greeting` WS handler instead of orchestrator.processGreetingRequest().
    */
-  sendGreetingTrigger(userName?: string, isResumed?: boolean, scenarioSlug?: string, recentContext?: string): void {
+  sendGreetingTrigger(userName?: string, isResumed?: boolean, scenarioSlug?: string, recentContext?: string, studentProfile?: string): void {
     if (!this.liveSession || this.isStopped) return;
     // DOUBLE-AUDIO GUARD: if a greeting was already triggered via pendingGreetingTrigger
     // (fired at setupComplete), greetingPhaseActive is already true — skip the duplicate.
@@ -754,12 +760,17 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       : 'Spanish';
     const tutorName = this.session.tutorName || 'Daniela';
     const langCode = LANGUAGE_TO_BCP47[langKey] || 'en-US';
+    // Change 1 (Gemini audit 2026-06-17): Last State injection — explicit DO NOT GREET directive
+    // replaces the weak "continue naturally" that Gemini's First Turn Bias overrides.
+    // Change 3 (Gemini audit 2026-06-17): Bootstrap Turn — studentProfile injected into the
+    // user turn text so it lands in conversation history (the "Hot Zone") rather than the
+    // fading 34K system prompt. Student data in position-0 of history is high-definition attention.
     const contextBlock = isResumed && recentContext
-      ? ` Here is the recent conversation context:\n${recentContext}\nContinue naturally from here.`
+      ? `\n\n[Last exchange — pick up directly from here, do NOT re-introduce yourself]:\n${recentContext}`
       : '';
     const resumed = isResumed
-      ? `Continue our conversation naturally in ${langName}.${contextBlock}`
-      : `This is a new session — greet me warmly and start speaking in ${langName} right away. Your entire response must be in ${langName} (language code: ${langCode}).`;
+      ? `Do not greet me or re-introduce yourself — we are mid-conversation in ${langName}. Respond directly to where we left off.${contextBlock}`
+      : `This is a new session — greet me warmly and start speaking in ${langName} right away. Your entire response must be in ${langName} (language code: ${langCode}).${studentProfile ? `\n\n[Student context loaded — treat this as felt knowledge, not a data file: ${studentProfile}]` : ''}`;
     const scenario = scenarioSlug ? ` We are doing a scenario: ${scenarioSlug}.` : '';
     const trigger = `Hello ${tutorName}${name}. ${resumed}${scenario}`;
 
@@ -822,9 +833,19 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
    */
   sendTextTurn(text: string): void {
     if (!this.liveSession || this.isStopped) return;
+    // System Whisper (Gemini audit 2026-06-17): every WHISPER_INTERVAL PTT turns, prepend a
+    // brief specificity nudge. Only fires post-greeting (greetingPhaseActive guard) on real
+    // student PTT input. This is the only safe mid-session injection point in GL — any other
+    // system turn would trigger an unwanted audio response.
+    let effectiveText = text;
+    if (!this.greetingPhaseActive && this.turnsSinceLastWhisper >= GeminiLiveSession.WHISPER_INTERVAL) {
+      effectiveText = `(Reminder for Daniela only — not spoken: check growth_memory if you haven't recently. Generic encouragement is a failure; specificity is your superpower.) ${text}`;
+      this.turnsSinceLastWhisper = 0;
+      console.log('[GeminiLive] System Whisper prepended to PTT turn');
+    }
     try {
       this.liveSession.sendClientContent({
-        turns: [{ role: 'user', parts: [{ text }] }],
+        turns: [{ role: 'user', parts: [{ text: effectiveText }] }],
         turnComplete: true,
       });
       console.log(`[GeminiLive] Text turn sent (${text.length} chars): "${text.slice(0, 80)}"`);
@@ -1161,6 +1182,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 console.log(`[GeminiLive] Turn latency: ${latencyMs}ms (last-word → first audio)`);
               }
               this.lastInputTranscriptionTime = null;
+              // System Whisper counter — increment on each completed non-greeting conversation turn
+              this.conversationTurnCount++;
+              this.turnsSinceLastWhisper++;
             }
             this.turnLatencyStartTime = null;
 

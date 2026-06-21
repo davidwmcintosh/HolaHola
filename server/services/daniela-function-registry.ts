@@ -5698,6 +5698,53 @@ The card is a visual summary only — it does not start any activity automatical
       return JSON.stringify(r);
     },
   },
+
+  // === FIND TEACHING TOOL — meta-tool (Gemini audit 2026-06-17) ===
+  // Searches daniela_tool embeddings semantically and returns 3–5 matching tool descriptions.
+  // This is a planning step: call it when unsure which tool fits, read the descriptions,
+  // then call the actual tool. Reduces need to expose all 53 GL tools upfront.
+  {
+    legacyType: 'FIND_TEACHING_TOOL',
+    excludeFromGL: false,
+    declaration: {
+      name: "find_teaching_tool",
+      description: `Find the best teaching tool for a pedagogical need. Searches your full toolkit semantically and returns the 3–5 most relevant tool descriptions so you can choose the right one.
+
+Use this when you want to know which widget, exercise, or teaching function fits what this student needs right now — before picking a tool, or when unsure which of several options to reach for.
+
+Examples of what to pass:
+· "pronunciation drill with audio feedback for rr vs r"
+· "sentence table for ir verb conjugation at novice level"
+· "reading comprehension passage with comprehension questions"
+· "cultural context image for a Day of the Dead lesson"
+
+This is a one-step planning call — read the returned descriptions, then call the actual tool.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          pedagogical_need: {
+            type: "string",
+            description: "What you are trying to teach or practice. Be specific: 'pronunciation of rr vs r' beats 'pronunciation'. 'ir verb conjugation drill for novice' beats 'verbs'.",
+          },
+          limit: {
+            type: "number",
+            description: "How many tools to return (1–5, default 4)",
+          },
+        },
+        required: ["pedagogical_need"],
+      },
+    },
+    buildContinuationResponse: ({ session, fc }) => {
+      const results = (session as any).findTeachingToolResults as Array<{toolName: string; description: string; similarity: number}> | undefined;
+      if (!results || results.length === 0) {
+        return `No tools found matching "${(fc.args as any).pedagogical_need}". Try a different description — describe the skill, not the topic (e.g. "pronunciation drill" not "rr sound").`;
+      }
+      const lines = results.map((r, i) =>
+        `${i + 1}. **${r.toolName}** — ${r.description}\n   Relevance: ${Math.round((r.similarity ?? 0) * 100)}%`
+      );
+      return `Tools matching "${(fc.args as any).pedagogical_need}":\n\n${lines.join('\n\n')}\n\nCall the most relevant one directly.`;
+    },
+  },
 ];
 
 

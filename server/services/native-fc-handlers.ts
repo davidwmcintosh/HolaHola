@@ -3884,6 +3884,33 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      // find_teaching_tool — meta-tool (Gemini audit 2026-06-17)
+      // Searches daniela_tool embeddings so Daniela can identify the right teaching widget
+      // before committing to a tool call. Reduces noise from having all 53 GL tools exposed.
+      case 'FIND_TEACHING_TOOL': {
+        const ftQuery = fn.args.pedagogical_need as string | undefined;
+        const ftLimit = Math.min(5, Math.max(1, Number(fn.args.limit) || 4));
+        if (ftQuery) {
+          (async () => {
+            try {
+              const { semanticSearch } = await import('./semantic-memory-service');
+              const userId = session.userId ? String(session.userId) : 'global';
+              const hits = await semanticSearch(userId, ftQuery, ftLimit, ['daniela_tool']);
+              (session as any).findTeachingToolResults = hits.map((h: any) => ({
+                toolName: h.title || h.tags?.[0] || 'teaching tool',
+                description: (h.content || '').slice(0, 280).replace(/\n/g, ' '),
+                similarity: h.similarity ?? 0,
+              }));
+              console.log(`[Native Function→FindTeachingTool] ${hits.length} tool(s) found for: "${ftQuery.slice(0, 60)}"`);
+            } catch (err: any) {
+              console.error('[Native Function→FindTeachingTool] Error:', err.message);
+              (session as any).findTeachingToolResults = [];
+            }
+          })().catch(() => {});
+        }
+        break;
+      }
+
       case 'SEARCH_MY_HISTORY': {
         if (!session.isFounderMode && !session.isRawHonestyMode) {
           console.log(`[Native Function→SearchMyHistory] Rejected - not in Founder/Honesty mode`);
