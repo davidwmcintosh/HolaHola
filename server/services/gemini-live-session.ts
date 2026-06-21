@@ -167,6 +167,7 @@ export class GeminiLiveSession {
   // GL has no mid-session system injection, so the PTT text path is the only safe injection point.
   private conversationTurnCount = 0;
   private turnsSinceLastWhisper = 0;
+  private pendingSystemWhisper = false; // Gemini audit fix: inject via tool response, not student speech
   private static readonly WHISPER_INTERVAL = 8;
   // DOUBLE-AUDIO FIX: After a GL internal reconnect that interrupted mid-turn audio,
   // the client is sent gl_audio_reset (which calls player.stop() + resetForNewTurn()).
@@ -760,17 +761,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       : 'Spanish';
     const tutorName = this.session.tutorName || 'Daniela';
     const langCode = LANGUAGE_TO_BCP47[langKey] || 'en-US';
-    // Change 1 (Gemini audit 2026-06-17): Last State injection — explicit DO NOT GREET directive
-    // replaces the weak "continue naturally" that Gemini's First Turn Bias overrides.
-    // Change 3 (Gemini audit 2026-06-17): Bootstrap Turn — studentProfile injected into the
-    // user turn text so it lands in conversation history (the "Hot Zone") rather than the
-    // fading 34K system prompt. Student data in position-0 of history is high-definition attention.
+    // Change 1 (Gemini audit 2026-06-17): Last State injection — explicit DO NOT GREET directive.
+    // Gemini review follow-up: wrap recentContext in a temporal fence so the model treats it
+    // as history, not the current moment. Add a first-word constraint for reliable suppression.
+    // Change 3 (Gemini audit 2026-06-17): Bootstrap Turn — studentProfile in conversation history
+    // position-0 (Hot Zone). Gemini review follow-up: use [SYSTEM NOTE:] framing so the model
+    // treats it as metadata, not student speech (avoids role confusion).
     const contextBlock = isResumed && recentContext
-      ? `\n\n[Last exchange — pick up directly from here, do NOT re-introduce yourself]:\n${recentContext}`
+      ? `\n\n[HISTORICAL CONTEXT FOR CONTINUITY ONLY — this already happened, do not re-greet or re-introduce:\n${recentContext}\nEND HISTORICAL CONTEXT]`
       : '';
     const resumed = isResumed
-      ? `Do not greet me or re-introduce yourself — we are mid-conversation in ${langName}. Respond directly to where we left off.${contextBlock}`
-      : `This is a new session — greet me warmly and start speaking in ${langName} right away. Your entire response must be in ${langName} (language code: ${langCode}).${studentProfile ? `\n\n[Student context loaded — treat this as felt knowledge, not a data file: ${studentProfile}]` : ''}`;
+      ? `Do not greet me or re-introduce yourself — we are mid-conversation in ${langName}. The very first word of your response must be a natural continuation of the Spanish flow, not a greeting.${contextBlock}`
+      : `This is a new session — greet me warmly and start speaking in ${langName} right away. Your entire response must be in ${langName} (language code: ${langCode}).${studentProfile ? `\n\n[SYSTEM NOTE: ${studentProfile}]` : ''}`;
     const scenario = scenarioSlug ? ` We are doing a scenario: ${scenarioSlug}.` : '';
     const trigger = `Hello ${tutorName}${name}. ${resumed}${scenario}`;
 
@@ -833,19 +835,14 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
    */
   sendTextTurn(text: string): void {
     if (!this.liveSession || this.isStopped) return;
-    // System Whisper (Gemini audit 2026-06-17): every WHISPER_INTERVAL PTT turns, prepend a
-    // brief specificity nudge. Only fires post-greeting (greetingPhaseActive guard) on real
-    // student PTT input. This is the only safe mid-session injection point in GL — any other
-    // system turn would trigger an unwanted audio response.
-    let effectiveText = text;
-    if (!this.greetingPhaseActive && this.turnsSinceLastWhisper >= GeminiLiveSession.WHISPER_INTERVAL) {
-      effectiveText = `(Reminder for Daniela only — not spoken: check growth_memory if you haven't recently. Generic encouragement is a failure; specificity is your superpower.) ${text}`;
-      this.turnsSinceLastWhisper = 0;
-      console.log('[GeminiLive] System Whisper prepended to PTT turn');
-    }
+    // System Whisper (Gemini audit 2026-06-17 + review correction):
+    // DO NOT prepend to student speech — Gemini review flagged this as a "read-aloud" failure risk
+    // (GL may speak the reminder aloud if thinking phase is bypassed or prompt is misread).
+    // Instead the whisper is injected via the next tool response (pendingSystemWhisper flag),
+    // which is a safe channel the model sees but never speaks. See tool response assembly below.
     try {
       this.liveSession.sendClientContent({
-        turns: [{ role: 'user', parts: [{ text: effectiveText }] }],
+        turns: [{ role: 'user', parts: [{ text }] }],
         turnComplete: true,
       });
       console.log(`[GeminiLive] Text turn sent (${text.length} chars): "${text.slice(0, 80)}"`);
@@ -1182,9 +1179,17 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 console.log(`[GeminiLive] Turn latency: ${latencyMs}ms (last-word → first audio)`);
               }
               this.lastInputTranscriptionTime = null;
-              // System Whisper counter — increment on each completed non-greeting conversation turn
+              // System Whisper counter — increment on each completed non-greeting conversation turn.
+              // When threshold reached, arm pendingSystemWhisper — it fires on the next tool call
+              // response (a safe channel that is never spoken aloud). Gemini review correction:
+              // prepending to student speech risks the reminder being read aloud in GL.
               this.conversationTurnCount++;
               this.turnsSinceLastWhisper++;
+              if (!this.greetingPhaseActive && this.turnsSinceLastWhisper >= GeminiLiveSession.WHISPER_INTERVAL) {
+                this.pendingSystemWhisper = true;
+                this.turnsSinceLastWhisper = 0;
+                console.log('[GeminiLive] System Whisper armed — will inject on next tool response');
+              }
             }
             this.turnLatencyStartTime = null;
 
@@ -1719,6 +1724,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           name: fcName,
           response: toolResponsePayload,
         });
+      }
+
+      // System Whisper injection (Gemini audit 2026-06-17 + review correction):
+      // If the turn counter has armed the whisper, append it to the last tool response's result
+      // string. Tool responses are a safe channel — GL feeds them to the model as function results,
+      // which the model processes but never speaks aloud. This avoids the "read-aloud" failure risk
+      // of prepending to student speech. Clears the flag after injection so it fires exactly once.
+      if (this.pendingSystemWhisper && responses.length > 0) {
+        const last = responses[responses.length - 1];
+        const currentResult = (last.response as any)?.result ?? '';
+        (last.response as any).result = currentResult
+          + (currentResult ? '\n\n' : '')
+          + '[System note — not spoken: check growth_memory if you haven\'t recently. Generic encouragement is a failure; specificity is your superpower.]';
+        this.pendingSystemWhisper = false;
+        console.log(`[GeminiLive] System Whisper injected into tool response (${last.name})`);
       }
 
       // Always send tool responses — Gemini Live stalls if we don't

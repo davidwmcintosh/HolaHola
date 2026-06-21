@@ -2763,6 +2763,9 @@ ${lastNote.tutorNotes}`);
                   : rawHonestyMode
                   ? `Daniela, ${studentDisplayName} just opened a Honesty Mode session. You know them. Drop the teaching scaffolding — speak directly, as yourself, with full candor. No lesson plan, no exercises unless they ask. Just you.`
                   : `Daniela, ${studentDisplayName} just arrived. Before you speak: you know who they are, where you left off, and what time it is for them — it is all in your classroom context above. Orient, then greet them warmly following the LANGUAGE MIX policy, and begin.`;
+                // Feature 5 fix (Gemini review): store active tool names so find_teaching_tool
+                // can filter its semantic search results to only return callable tools.
+                (session as any).__activeGLToolNames = new Set(glDeclarations.map((d: any) => d.name).filter(Boolean));
                 await geminiLiveSession.start(geminiLiveSystemPrompt, glDeclarations, glGreetingTrigger);
                 console.log(`[GeminiLive] Session started with ${glDeclarations.length} GL tools (slim set, lang: ${config.targetLanguage || 'spanish'}) alongside orchestrator session ${session.id}`);
                 // Register the playback_ended callback bridge so the Socket.io telemetry

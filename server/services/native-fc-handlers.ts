@@ -3896,12 +3896,23 @@ export class NativeFunctionCallHandler {
               const { semanticSearch } = await import('./semantic-memory-service');
               const userId = session.userId ? String(session.userId) : 'global';
               const hits = await semanticSearch(userId, ftQuery, ftLimit, ['daniela_tool']);
-              (session as any).findTeachingToolResults = hits.map((h: any) => ({
+              // Feature 5 fix (Gemini review): filter results to only tools active in the
+              // current session's 64-tool manifest. Prevents Daniela from trying to call a
+              // tool that was found semantically but isn't in the current declaration set.
+              const activeToolNames: Set<string> | undefined = (session as any).__activeGLToolNames;
+              const allMapped = hits.map((h: any) => ({
                 toolName: h.title || h.tags?.[0] || 'teaching tool',
                 description: (h.content || '').slice(0, 280).replace(/\n/g, ' '),
                 similarity: h.similarity ?? 0,
+                callable: !activeToolNames || activeToolNames.has(h.title || h.tags?.[0] || ''),
               }));
-              console.log(`[Native Function→FindTeachingTool] ${hits.length} tool(s) found for: "${ftQuery.slice(0, 60)}"`);
+              // Return callable tools first; include non-callable ones annotated if room remains
+              const callable = allMapped.filter(r => r.callable);
+              const nonCallable = allMapped.filter(r => !r.callable).map(r => ({
+                ...r, description: `[Not active this session] ${r.description}`,
+              }));
+              (session as any).findTeachingToolResults = [...callable, ...nonCallable].slice(0, ftLimit);
+              console.log(`[Native Function→FindTeachingTool] ${callable.length} callable + ${nonCallable.length} inactive for: "${ftQuery.slice(0, 60)}"`);
             } catch (err: any) {
               console.error('[Native Function→FindTeachingTool] Error:', err.message);
               (session as any).findTeachingToolResults = [];
