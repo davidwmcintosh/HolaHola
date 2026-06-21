@@ -24,6 +24,38 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 22, 2026 — German 1–4 parity complete**
+
+German is now at full 48/17/8/8 parity with Spanish. All four levels verified clean.
+
+**German 1 (DE1):**
+- 48 units, 124 lessons, 0 missing chapter_types ✓
+- Loop catalog: 22 GERMAN_UNITS entries added to `server/data/madrigal-loop-catalog.ts` — all 22 chain verbs (gehen, nehmen, kaufen, werden-preview, haben, wollen, sein-identity, sein-location, können, infinitive-pattern, es gibt, gefallen, möchten, Perfekt-gehen, Futur I, 3rd-person Futur, machen-Perfekt, haben-Präteritum, dative pronoun, sauber/schmutzig, lernen-Perfekt, bekommen-Perfekt). GERMAN_UNITS added to ALL_UNITS merge.
+- HayUnitContent: 12 German consts added to `client/src/data/madrigal-unit-content.ts` with full cluster+sentenceColumn visual content. All 12 added to HAY_UNITS array.
+- textbook_lesson_content: 22 vocab rows inserted for all DE1 chain lessons (orders 3-24).
+
+**German 2 (DE2):** Expanded 7 → 17 units. Existing 7 reordered/renamed/retyped. 10 new units added at orders 1,3,4,6,9,10,11,12,13,16. All chapter_types set.
+
+**German 3 (DE3):** Expanded 4 → 8 units. Existing 4 at orders 5-8 (advanced_unit). 4 new at orders 1-4 (advanced_unit).
+
+**German 4 (DE4):** Expanded 5 → 8 units. Existing 5 at orders 6-10 (advanced_unit). 3 new at orders 1,3,4 — gaps at 2,5 match SP4 gap pattern.
+
+**Language parity status (updated):**
+- Spanish 1–4: 48/17/8/8 ✓ (master template)
+- French 1–4: 48/17/8/8 ✓
+- Italian 1–4: 48/17/8/8 ✓
+- Portuguese 1–4: 48/17/8/8 ✓
+- **German 1–4: 48/17/8/8 ✓ (just completed)**
+- Japanese/Korean/Mandarin/English 1–4: not yet expanded
+
+**Next session priorities:**
+1. Japanese 1 expansion (7 → 48 units: 5 existing social/intro + 41 new chain+thematic). Loop catalog + HayUnitContent + vocab rows.
+2. Japanese 2–4 expansion (to 17/8/8)
+3. Korean 1–4 (same pattern)
+4. Mandarin 1–4, then English 1–4 last
+
+---
+
 **Session: June 21, 2026 (night) — French 1–4 parity complete + German 1 expansion**
 
 French is now fully verified at 48/17/8/8 parity with Spanish. Italian confirmed already at parity.

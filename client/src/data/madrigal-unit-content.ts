@@ -2414,6 +2414,368 @@ const FRENCH_FUTUR_PROCHE: HayUnitContent = {
   ],
 };
 
+// ── German present-tense verb units ───────────────────────────────────────────
+
+const GERMAN_ICH_GEHE: HayUnitContent = {
+  chapterTitleKey: 'where are you going german',
+  conceptLabel: 'Ich gehe',
+  conceptDefinition: 'I go / I am going · wohin gehst du? · gehen + zum/zur/ins',
+  introNote: '"Ich gehe" is your go-to verb for movement. Add zum (to the, masc/neut) or ins (into the, neut) and you can talk about going anywhere.',
+  clusters: [
+    {
+      heading: 'Ich gehe — Wohin?',
+      pairs: [
+        { imageWord: 'Schule', imageDescription: 'students walking through school gates in the morning', question: 'Wohin gehst du jeden Morgen?', questionTranslation: 'Where do you go every morning?', answer: 'Ich gehe in die Schule.', answerTranslation: 'I go to school.' },
+        { imageWord: 'Markt', imageDescription: 'a busy outdoor market with fresh produce and vendors', question: 'Wohin gehst du am Samstag?', questionTranslation: 'Where do you go on Saturday?', answer: 'Ich gehe zum Markt.', answerTranslation: 'I go to the market.' },
+        { imageWord: 'Kino', imageDescription: 'the brightly lit entrance of a cinema at night', question: 'Wohin gehst du am Wochenende?', questionTranslation: 'Where do you go on the weekend?', answer: 'Ich gehe ins Kino.', answerTranslation: 'I go to the cinema.' },
+        { imageWord: 'Restaurant', imageDescription: 'a cozy restaurant interior with candles on the tables', question: 'Wohin geht ihr heute Abend?', questionTranslation: 'Where are you (pl) going tonight?', answer: 'Wir gehen ins Restaurant.', answerTranslation: 'We are going to the restaurant.' },
+      ],
+    },
+    {
+      heading: 'Sie geht — 3. Person',
+      noteInline: 'ich gehe → sie geht · the -e ending drops: geh + t',
+      pairs: [
+        { imageWord: 'Arbeit', imageDescription: 'a woman in office attire walking down a city street', question: 'Wohin geht sie jeden Tag?', questionTranslation: 'Where does she go every day?', answer: 'Sie geht zur Arbeit.', answerTranslation: 'She goes to work.' },
+        { imageWord: 'Park', imageDescription: 'a person jogging along a tree-lined park path', question: 'Wohin geht er am Abend?', questionTranslation: 'Where does he go in the evening?', answer: 'Er geht in den Park.', answerTranslation: 'He goes to the park.' },
+      ],
+      sentenceColumns: [
+        { label: 'Wer?', items: [{ text: 'Ich gehe', translation: 'I go' }, { text: 'Sie geht', translation: 'She goes' }, { text: 'Er geht', translation: 'He goes' }, { text: 'Wir gehen', translation: 'We go' }] },
+        { label: 'Wohin?', items: [{ text: 'zum Markt.', translation: 'to the market.' }, { text: 'ins Kino.', translation: 'to the cinema.' }, { text: 'ins Restaurant.', translation: 'to the restaurant.' }, { text: 'zur Schule.', translation: 'to school.' }, { text: 'zur Arbeit.', translation: 'to work.' }] },
+      ],
+    },
+  ],
+};
+
+const GERMAN_ICH_HABE: HayUnitContent = {
+  chapterTitleKey: 'i have german',
+  conceptLabel: 'Ich habe',
+  conceptDefinition: 'I have · she has · haben · also the Perfekt auxiliary',
+  introNote: '"Ich habe" unlocks two systems at once: saying what you have (content verb) and forming the Perfekt past tense (auxiliary). Master it now and it pays off twice.',
+  clusters: [
+    {
+      heading: 'Ich habe — Was ich besitze',
+      pairs: [
+        { imageWord: 'Hund', imageDescription: 'a golden retriever sitting happily next to its owner', question: 'Hast du ein Haustier?', questionTranslation: 'Do you have a pet?', answer: 'Ja, ich habe einen Hund.', answerTranslation: 'Yes, I have a dog.' },
+        { imageWord: 'Fahrrad', imageDescription: 'a bicycle leaning against a wall outside a house', question: 'Hast du ein Fahrrad?', questionTranslation: 'Do you have a bicycle?', answer: 'Ja, ich habe ein Fahrrad.', answerTranslation: 'Yes, I have a bicycle.' },
+        { imageWord: 'Geschwister', imageDescription: 'two siblings laughing together in a living room', question: 'Hast du Geschwister?', questionTranslation: 'Do you have siblings?', answer: 'Ja, ich habe einen Bruder.', answerTranslation: 'Yes, I have a brother.' },
+        { imageWord: 'Zeit', imageDescription: 'a relaxed person stretched out with nothing to do, arms behind head', question: 'Hast du heute Zeit?', questionTranslation: 'Do you have time today?', answer: 'Ja, ich habe Zeit.', answerTranslation: 'Yes, I have time.' },
+      ],
+    },
+    {
+      heading: 'Sie hat — Ich habe nicht',
+      noteInline: 'ich habe nicht / ich habe keinen — no vs not a: keine(n) replaces the article',
+      pairs: [
+        { imageWord: 'Auto', imageDescription: 'a car key next to an empty parking spot', question: 'Hat sie ein Auto?', questionTranslation: 'Does she have a car?', answer: 'Nein, sie hat kein Auto.', answerTranslation: 'No, she does not have a car.' },
+        { imageWord: 'Handy', imageDescription: 'a smartphone sitting on a table', question: 'Hast du ein Handy?', questionTranslation: 'Do you have a phone?', answer: 'Ja, ich habe ein Handy.', answerTranslation: 'Yes, I have a phone.' },
+      ],
+      sentenceColumns: [
+        { label: 'Wer?', items: [{ text: 'Ich habe', translation: 'I have' }, { text: 'Sie hat', translation: 'She has' }, { text: 'Er hat', translation: 'He has' }, { text: 'Ich habe kein(en)', translation: 'I have no / I do not have a' }] },
+        { label: 'Was?', items: [{ text: 'einen Hund.', translation: 'a dog.' }, { text: 'ein Fahrrad.', translation: 'a bicycle.' }, { text: 'ein Auto.', translation: 'a car.' }, { text: 'Zeit.', translation: 'time.' }, { text: 'Geschwister.', translation: 'siblings.' }] },
+      ],
+    },
+  ],
+};
+
+const GERMAN_ICH_WILL: HayUnitContent = {
+  chapterTitleKey: 'i want german',
+  conceptLabel: 'Ich will',
+  conceptDefinition: 'I want · she wants · wollen (modal) · infinitive goes to the end',
+  introNote: '"Ich will" + infinitive at end. The infinitive always travels to the final position with modal verbs — this is the #1 German sentence structure rule.',
+  clusters: [
+    {
+      heading: 'Ich will + Infinitiv',
+      pairs: [
+        { imageWord: 'kaufen', imageDescription: 'a person reaching for an item on a store shelf', question: 'Was willst du kaufen?', questionTranslation: 'What do you want to buy?', answer: 'Ich will ein Buch kaufen.', answerTranslation: 'I want to buy a book.' },
+        { imageWord: 'essen', imageDescription: 'a table set with a delicious-looking meal', question: 'Was will sie essen?', questionTranslation: 'What does she want to eat?', answer: 'Sie will Pizza essen.', answerTranslation: 'She wants to eat pizza.' },
+        { imageWord: 'gehen', imageDescription: 'a person getting up from a chair and heading for the door', question: 'Wohin willst du gehen?', questionTranslation: 'Where do you want to go?', answer: 'Ich will ins Kino gehen.', answerTranslation: 'I want to go to the cinema.' },
+        { imageWord: 'schlafen', imageDescription: 'a tired person yawning and heading toward a bedroom', question: 'Was will er machen?', questionTranslation: 'What does he want to do?', answer: 'Er will schlafen.', answerTranslation: 'He wants to sleep.' },
+      ],
+    },
+    {
+      heading: 'Ich will nicht — Die Verneinung',
+      noteInline: 'ich will nicht = I do not want to · nicht comes before the final infinitive',
+      pairs: [
+        { imageWord: 'aufräumen', imageDescription: 'a messy room with a person standing arms crossed, not cleaning', question: 'Willst du aufräumen?', questionTranslation: 'Do you want to tidy up?', answer: 'Nein, ich will nicht aufräumen.', answerTranslation: 'No, I do not want to tidy up.' },
+        { imageWord: 'arbeiten', imageDescription: 'a person looking out the window instead of at their laptop', question: 'Will er heute arbeiten?', questionTranslation: 'Does he want to work today?', answer: 'Nein, er will nicht arbeiten.', answerTranslation: 'No, he does not want to work.' },
+      ],
+      sentenceColumns: [
+        { label: 'Wer?', items: [{ text: 'Ich will', translation: 'I want to' }, { text: 'Sie will', translation: 'She wants to' }, { text: 'Er will', translation: 'He wants to' }, { text: 'Ich will nicht', translation: 'I do not want to' }] },
+        { label: 'Was?', items: [{ text: 'kaufen.', translation: 'buy.' }, { text: 'essen.', translation: 'eat.' }, { text: 'gehen.', translation: 'go.' }, { text: 'schlafen.', translation: 'sleep.' }, { text: 'arbeiten.', translation: 'work.' }] },
+      ],
+    },
+  ],
+};
+
+const GERMAN_ICH_BIN: HayUnitContent = {
+  chapterTitleKey: 'i am german',
+  conceptLabel: 'Ich bin',
+  conceptDefinition: 'I am · she is · sein (to be) · identity, classification, and description',
+  introNote: '"Ich bin" covers everything to be in German — unlike Spanish, there is no ser/estar split. One verb, endless uses.',
+  clusters: [
+    {
+      heading: 'Ich bin — Identität & Beruf',
+      pairs: [
+        { imageWord: 'Schüler', imageDescription: 'a teenage student in a classroom raising their hand', question: 'Was bist du?', questionTranslation: 'What are you?', answer: 'Ich bin Schüler.', answerTranslation: 'I am a student (male).' },
+        { imageWord: 'Lehrerin', imageDescription: 'a female teacher writing on a whiteboard at the front of a class', question: 'Was ist sie von Beruf?', questionTranslation: 'What is she by profession?', answer: 'Sie ist Lehrerin.', answerTranslation: 'She is a teacher.' },
+        { imageWord: 'müde', imageDescription: 'a tired person with heavy eyes, slumped at a desk', question: 'Wie bist du heute?', questionTranslation: 'How are you today?', answer: 'Ich bin sehr müde.', answerTranslation: 'I am very tired.' },
+        { imageWord: 'glücklich', imageDescription: 'a person grinning widely, arms outstretched in celebration', question: 'Wie ist er heute?', questionTranslation: 'How is he today?', answer: 'Er ist sehr glücklich.', answerTranslation: 'He is very happy.' },
+      ],
+    },
+    {
+      heading: 'Das ist — Klassifizierung',
+      noteInline: 'professions after sein take NO article — Sie ist Ärztin (not eine Ärztin)',
+      pairs: [
+        { imageWord: 'Hund', imageDescription: 'a dog running in a sunny garden', question: 'Was ist das?', questionTranslation: 'What is that?', answer: 'Das ist ein Hund.', answerTranslation: 'That is a dog.' },
+        { imageWord: 'Arzt', imageDescription: 'a doctor in a white coat with a stethoscope', question: 'Was ist er von Beruf?', questionTranslation: 'What does he do?', answer: 'Er ist Arzt.', answerTranslation: 'He is a doctor.' },
+      ],
+      sentenceColumns: [
+        { label: 'Wer / Was?', items: [{ text: 'Ich bin', translation: 'I am' }, { text: 'Sie ist', translation: 'She is' }, { text: 'Er ist', translation: 'He is' }, { text: 'Das ist', translation: 'That is' }] },
+        { label: 'Was / Wie?', items: [{ text: 'Schüler / Schülerin.', translation: 'student (m/f).' }, { text: 'Lehrerin.', translation: 'teacher (f).' }, { text: 'müde.', translation: 'tired.' }, { text: 'glücklich.', translation: 'happy.' }, { text: 'ein Hund.', translation: 'a dog.' }] },
+      ],
+    },
+  ],
+};
+
+const GERMAN_WO_BIN_ICH: HayUnitContent = {
+  chapterTitleKey: 'where am i german',
+  conceptLabel: 'Wo bin ich?',
+  conceptDefinition: 'where am I? · sein + location · in der Schule / zu Hause / im Büro',
+  introNote: 'German uses sein for location too. Combine it with dative prepositions (in, bei, auf, an) to say exactly where you are.',
+  clusters: [
+    {
+      heading: 'Ich bin in / bei / auf — Standort',
+      pairs: [
+        { imageWord: 'Schule', imageDescription: 'a school building seen from the outside on a bright day', question: 'Wo bist du gerade?', questionTranslation: 'Where are you right now?', answer: 'Ich bin in der Schule.', answerTranslation: 'I am at school.' },
+        { imageWord: 'zu Hause', imageDescription: 'a cozy living room with warm lighting and comfortable furniture', question: 'Ist sie zu Hause?', questionTranslation: 'Is she at home?', answer: 'Ja, sie ist zu Hause.', answerTranslation: 'Yes, she is at home.' },
+        { imageWord: 'Büro', imageDescription: 'an open-plan office with people working at desks', question: 'Wo ist er heute?', questionTranslation: 'Where is he today?', answer: 'Er ist im Büro.', answerTranslation: 'He is at the office.' },
+        { imageWord: 'Supermarkt', imageDescription: 'a person pushing a shopping cart through a supermarket aisle', question: 'Wo ist sie gerade?', questionTranslation: 'Where is she right now?', answer: 'Sie ist im Supermarkt.', answerTranslation: 'She is at the supermarket.' },
+      ],
+    },
+    {
+      heading: 'Wo bist du? — Frage & Antwort',
+      noteInline: 'in + der (dative feminine) → in der Schule · in + dem (dative masc/neut) → im Büro',
+      pairs: [
+        { imageWord: 'Bibliothek', imageDescription: 'a quiet library with rows of tall bookshelves', question: 'Wo lernst du?', questionTranslation: 'Where do you study?', answer: 'Ich bin in der Bibliothek.', answerTranslation: 'I am in the library.' },
+        { imageWord: 'Park', imageDescription: 'people relaxing on the grass in a sunny park', question: 'Wo sind sie?', questionTranslation: 'Where are they?', answer: 'Sie sind im Park.', answerTranslation: 'They are in the park.' },
+      ],
+      sentenceColumns: [
+        { label: 'Wer?', items: [{ text: 'Ich bin', translation: 'I am' }, { text: 'Sie ist', translation: 'She is' }, { text: 'Er ist', translation: 'He is' }, { text: 'Wir sind', translation: 'We are' }] },
+        { label: 'Wo?', items: [{ text: 'in der Schule.', translation: 'at school.' }, { text: 'zu Hause.', translation: 'at home.' }, { text: 'im Büro.', translation: 'at the office.' }, { text: 'im Supermarkt.', translation: 'at the supermarket.' }, { text: 'im Park.', translation: 'in the park.' }] },
+      ],
+    },
+  ],
+};
+
+const GERMAN_ICH_KANN: HayUnitContent = {
+  chapterTitleKey: 'i can german',
+  conceptLabel: 'Ich kann',
+  conceptDefinition: 'I can · she can · können (modal) · infinitive at end',
+  introNote: '"Ich kann" + infinitive at end — the same modal frame you learned with wollen. Once the frame is automatic, any new verb slots right in.',
+  clusters: [
+    {
+      heading: 'Ich kann + Infinitiv — Fähigkeiten',
+      pairs: [
+        { imageWord: 'schwimmen', imageDescription: 'a person swimming smoothly through clear water', question: 'Kannst du schwimmen?', questionTranslation: 'Can you swim?', answer: 'Ja, ich kann schwimmen.', answerTranslation: 'Yes, I can swim.' },
+        { imageWord: 'kochen', imageDescription: 'a person stirring a pot in a bright kitchen', question: 'Kann sie kochen?', questionTranslation: 'Can she cook?', answer: 'Ja, sie kann sehr gut kochen.', answerTranslation: 'Yes, she can cook very well.' },
+        { imageWord: 'Gitarre', imageDescription: 'a person playing an acoustic guitar outdoors', question: 'Kann er Gitarre spielen?', questionTranslation: 'Can he play guitar?', answer: 'Ja, er kann Gitarre spielen.', answerTranslation: 'Yes, he can play guitar.' },
+        { imageWord: 'Deutsch', imageDescription: 'a student confidently raising their hand in German class', question: 'Kannst du Deutsch sprechen?', questionTranslation: 'Can you speak German?', answer: 'Ja, ich kann etwas Deutsch sprechen.', answerTranslation: 'Yes, I can speak some German.' },
+      ],
+    },
+    {
+      heading: 'Ich kann nicht — Verneinung',
+      noteInline: 'ich kann nicht + infinitiv = I cannot · nicht comes before the final infinitive',
+      pairs: [
+        { imageWord: 'tanzen', imageDescription: 'a person with two left feet, stumbling on a dance floor', question: 'Kannst du tanzen?', questionTranslation: 'Can you dance?', answer: 'Leider kann ich nicht tanzen.', answerTranslation: 'Unfortunately I cannot dance.' },
+        { imageWord: 'Auto fahren', imageDescription: 'a teenager looking at a car, clearly too young to drive', question: 'Kann er Auto fahren?', questionTranslation: 'Can he drive?', answer: 'Nein, er kann noch nicht Auto fahren.', answerTranslation: 'No, he cannot drive yet.' },
+      ],
+      sentenceColumns: [
+        { label: 'Wer?', items: [{ text: 'Ich kann', translation: 'I can' }, { text: 'Sie kann', translation: 'She can' }, { text: 'Er kann', translation: 'He can' }, { text: 'Ich kann nicht', translation: 'I cannot' }] },
+        { label: 'Was?', items: [{ text: 'schwimmen.', translation: 'swim.' }, { text: 'kochen.', translation: 'cook.' }, { text: 'Gitarre spielen.', translation: 'play guitar.' }, { text: 'tanzen.', translation: 'dance.' }, { text: 'Deutsch sprechen.', translation: 'speak German.' }] },
+      ],
+    },
+  ],
+};
+
+const GERMAN_ES_GIBT: HayUnitContent = {
+  chapterTitleKey: 'there is german',
+  conceptLabel: 'Es gibt',
+  conceptDefinition: 'there is · there are · invariable · es gibt + accusative',
+  introNote: '"Es gibt" never changes — singular or plural, it is always es gibt. The noun after it takes the accusative case.',
+  clusters: [
+    {
+      heading: 'Es gibt — In meiner Stadt',
+      pairs: [
+        { imageWord: 'Park', imageDescription: 'a green urban park with benches and trees in a city center', question: 'Was gibt es in deiner Stadt?', questionTranslation: 'What is there in your city?', answer: 'Es gibt einen schönen Park.', answerTranslation: 'There is a beautiful park.' },
+        { imageWord: 'Markt', imageDescription: 'a bustling weekly outdoor market with colorful stalls', question: 'Gibt es einen Markt hier?', questionTranslation: 'Is there a market here?', answer: 'Ja, es gibt einen Markt jeden Samstag.', answerTranslation: 'Yes, there is a market every Saturday.' },
+        { imageWord: 'Kino', imageDescription: 'a cinema marquee lit up at night in a busy street', question: 'Gibt es ein Kino in der Nähe?', questionTranslation: 'Is there a cinema nearby?', answer: 'Ja, es gibt ein Kino in der Stadtmitte.', answerTranslation: 'Yes, there is a cinema in the city center.' },
+        { imageWord: 'Restaurant', imageDescription: 'a row of restaurants with outdoor seating along a pedestrian street', question: 'Gibt es viele Restaurants?', questionTranslation: 'Are there many restaurants?', answer: 'Ja, es gibt viele Restaurants hier.', answerTranslation: 'Yes, there are many restaurants here.' },
+      ],
+    },
+    {
+      heading: 'Es gibt kein — Die Verneinung',
+      noteInline: 'es gibt kein / keine / keinen = there is no · kein takes accusative: keinen (masc), keine (fem/pl), kein (neut)',
+      pairs: [
+        { imageWord: 'Schwimmbad', imageDescription: 'an empty lot where a swimming pool might have been', question: 'Gibt es ein Schwimmbad hier?', questionTranslation: 'Is there a swimming pool here?', answer: 'Leider gibt es kein Schwimmbad.', answerTranslation: 'Unfortunately there is no swimming pool.' },
+        { imageWord: 'Parkplatz', imageDescription: 'a completely full car park with no space left', question: 'Gibt es einen Parkplatz?', questionTranslation: 'Is there a parking space?', answer: 'Nein, es gibt keinen Parkplatz.', answerTranslation: 'No, there is no parking space.' },
+      ],
+      sentenceColumns: [
+        { label: 'Es gibt', items: [{ text: 'Es gibt einen', translation: 'There is a (masc)' }, { text: 'Es gibt ein', translation: 'There is a (neut)' }, { text: 'Es gibt eine', translation: 'There is a (fem)' }, { text: 'Es gibt viele', translation: 'There are many' }, { text: 'Es gibt kein(en)', translation: 'There is no' }] },
+        { label: 'Was?', items: [{ text: 'Park.', translation: 'park.' }, { text: 'Kino.', translation: 'cinema.' }, { text: 'Markt.', translation: 'market.' }, { text: 'Restaurants.', translation: 'restaurants.' }, { text: 'Schwimmbad.', translation: 'swimming pool.' }] },
+      ],
+    },
+  ],
+};
+
+const GERMAN_MIR_GEFAELLT: HayUnitContent = {
+  chapterTitleKey: 'i like german',
+  conceptLabel: 'Mir gefällt',
+  conceptDefinition: 'I like · mir gefällt (singular) · mir gefallen (plural) · like gustar in Spanish',
+  introNote: '"Mir gefällt" works like gustar — the thing you like is the grammatical subject. Singular thing → gefällt. Plural → gefallen.',
+  clusters: [
+    {
+      heading: 'Mir gefällt — Was ich mag',
+      pairs: [
+        { imageWord: 'Musik', imageDescription: 'a person with headphones on, eyes closed, enjoying music', question: 'Was gefällt dir?', questionTranslation: 'What do you like?', answer: 'Mir gefällt die Musik.', answerTranslation: 'I like the music.' },
+        { imageWord: 'Kaffee', imageDescription: 'a steaming cup of coffee on a table in a cafe', question: 'Gefällt dir Kaffee?', questionTranslation: 'Do you like coffee?', answer: 'Ja, mir gefällt Kaffee sehr.', answerTranslation: 'Yes, I like coffee very much.' },
+        { imageWord: 'Filme', imageDescription: 'a person watching a movie on a large screen at home', question: 'Was gefällt dir in deiner Freizeit?', questionTranslation: 'What do you like in your free time?', answer: 'Mir gefallen Filme.', answerTranslation: 'I like films.' },
+        { imageWord: 'Bücher', imageDescription: 'a stack of colorful books next to a reading lamp', question: 'Gefallen dir Bücher?', questionTranslation: 'Do you like books?', answer: 'Ja, mir gefallen Bücher sehr.', answerTranslation: 'Yes, I like books a lot.' },
+      ],
+    },
+    {
+      heading: 'Mir gefällt nicht — Die Verneinung',
+      noteInline: 'mir gefällt ... nicht = I do not like · nicht follows the subject that is liked',
+      pairs: [
+        { imageWord: 'Lärm', imageDescription: 'a noisy construction site with jackhammers and heavy machinery', question: 'Gefällt dir der Lärm?', questionTranslation: 'Do you like the noise?', answer: 'Nein, mir gefällt der Lärm nicht.', answerTranslation: 'No, I do not like the noise.' },
+        { imageWord: 'Spinat', imageDescription: 'a plate of spinach that someone is pushing away', question: 'Gefällt dir Spinat?', questionTranslation: 'Do you like spinach?', answer: 'Nein, mir gefällt Spinat nicht.', answerTranslation: 'No, I do not like spinach.' },
+      ],
+      sentenceColumns: [
+        { label: 'Wem?', items: [{ text: 'Mir gefällt', translation: 'I like (sg)' }, { text: 'Mir gefallen', translation: 'I like (pl)' }, { text: 'Dir gefällt', translation: 'You like (sg)' }, { text: 'Mir gefällt ... nicht', translation: 'I do not like' }] },
+        { label: 'Was?', items: [{ text: 'die Musik.', translation: 'the music.' }, { text: 'der Kaffee.', translation: 'the coffee.' }, { text: 'Filme.', translation: 'films.' }, { text: 'Bücher.', translation: 'books.' }, { text: 'der Lärm.', translation: 'the noise.' }] },
+      ],
+    },
+  ],
+};
+
+const GERMAN_ICH_HABE_GENOMMEN: HayUnitContent = {
+  chapterTitleKey: 'i took german',
+  conceptLabel: 'Ich habe genommen',
+  conceptDefinition: 'I took · haben + genommen · strong verb Perfekt · auxiliary at position 2, participle at end',
+  introNote: 'Nehmen is a strong verb — genommen is its irregular past participle. Haben stays in position 2, genommen jumps to the end.',
+  clusters: [
+    {
+      heading: 'Ich habe genommen — Was ich genommen habe',
+      pairs: [
+        { imageWord: 'Bus', imageDescription: 'a person boarding a city bus with their bag', question: 'Wie bist du gefahren?', questionTranslation: 'How did you travel?', answer: 'Ich habe den Bus genommen.', answerTranslation: 'I took the bus.' },
+        { imageWord: 'Medizin', imageDescription: 'a pill bottle and glass of water on a bedside table', question: 'Hast du die Medizin genommen?', questionTranslation: 'Did you take the medicine?', answer: 'Ja, ich habe die Medizin genommen.', answerTranslation: 'Yes, I took the medicine.' },
+        { imageWord: 'Kurs', imageDescription: 'a student signing up for a class on a university website', question: 'Welchen Kurs hast du genommen?', questionTranslation: 'Which course did you take?', answer: 'Ich habe einen Deutschkurs genommen.', answerTranslation: 'I took a German course.' },
+        { imageWord: 'Taxi', imageDescription: 'a yellow taxi cab stopping in front of a hotel', question: 'Wie bist du zum Hotel gekommen?', questionTranslation: 'How did you get to the hotel?', answer: 'Ich habe ein Taxi genommen.', answerTranslation: 'I took a taxi.' },
+      ],
+    },
+    {
+      heading: 'Sie hat genommen — Perfekt Narration',
+      noteInline: 'haben stays conjugated (position 2) · genommen goes to the very end of the clause',
+      pairs: [
+        { imageWord: 'U-Bahn', imageDescription: 'a person stepping onto a subway train in a busy station', question: 'Wie ist sie gefahren?', questionTranslation: 'How did she get there?', answer: 'Sie hat die U-Bahn genommen.', answerTranslation: 'She took the subway.' },
+        { imageWord: 'Abkürzung', imageDescription: 'a person taking a shortcut through a park', question: 'Was hat er gemacht?', questionTranslation: 'What did he do?', answer: 'Er hat eine Abkürzung genommen.', answerTranslation: 'He took a shortcut.' },
+      ],
+      sentenceColumns: [
+        { label: 'Wer?', items: [{ text: 'Ich habe', translation: 'I (have)' }, { text: 'Sie hat', translation: 'She (has)' }, { text: 'Er hat', translation: 'He (has)' }, { text: 'Wir haben', translation: 'We (have)' }] },
+        { label: 'Was? ... genommen', items: [{ text: 'den Bus ... genommen.', translation: 'taken the bus.' }, { text: 'ein Taxi ... genommen.', translation: 'taken a taxi.' }, { text: 'die U-Bahn ... genommen.', translation: 'taken the subway.' }, { text: 'einen Kurs ... genommen.', translation: 'taken a course.' }] },
+      ],
+    },
+  ],
+};
+
+const GERMAN_ICH_HABE_GEKAUFT: HayUnitContent = {
+  chapterTitleKey: 'i bought german',
+  conceptLabel: 'Ich habe gekauft',
+  conceptDefinition: 'I bought · haben + gekauft · regular weak Perfekt · ge + stem + t',
+  introNote: 'Kaufen → gekauft is the prototype regular weak Perfekt. The pattern ge + stem + t applies to hundreds of German verbs. Learn this one and the pattern opens up.',
+  clusters: [
+    {
+      heading: 'Ich habe gekauft — Einkaufen im Perfekt',
+      pairs: [
+        { imageWord: 'Buch', imageDescription: 'a person holding a newly purchased book in a bookshop', question: 'Was hast du heute gekauft?', questionTranslation: 'What did you buy today?', answer: 'Ich habe ein Buch gekauft.', answerTranslation: 'I bought a book.' },
+        { imageWord: 'Lebensmittel', imageDescription: 'grocery bags full of fresh vegetables and bread', question: 'Hat sie Lebensmittel gekauft?', questionTranslation: 'Did she buy groceries?', answer: 'Ja, sie hat Lebensmittel gekauft.', answerTranslation: 'Yes, she bought groceries.' },
+        { imageWord: 'Jacke', imageDescription: 'a stylish jacket hanging on a rack in a clothing store', question: 'Hast du etwas Neues gekauft?', questionTranslation: 'Did you buy something new?', answer: 'Ja, ich habe eine Jacke gekauft.', answerTranslation: 'Yes, I bought a jacket.' },
+        { imageWord: 'Ticket', imageDescription: 'a concert ticket held up in front of a venue', question: 'Was hat er gekauft?', questionTranslation: 'What did he buy?', answer: 'Er hat ein Ticket gekauft.', answerTranslation: 'He bought a ticket.' },
+      ],
+    },
+    {
+      heading: 'Ich habe nicht gekauft — Verneinung im Perfekt',
+      noteInline: 'nicht comes before the final past participle · ich habe nichts gekauft = I did not buy anything',
+      pairs: [
+        { imageWord: 'teuer', imageDescription: 'a price tag showing a very high number, person backing away', question: 'Hast du das gekauft?', questionTranslation: 'Did you buy that?', answer: 'Nein, ich habe nichts gekauft — es war zu teuer.', answerTranslation: 'No, I bought nothing — it was too expensive.' },
+        { imageWord: 'vergessen', imageDescription: 'a person at checkout realizing their wallet is at home', question: 'Hast du Milch gekauft?', questionTranslation: 'Did you buy milk?', answer: 'Nein, ich habe es vergessen.', answerTranslation: 'No, I forgot.' },
+      ],
+      sentenceColumns: [
+        { label: 'Wer?', items: [{ text: 'Ich habe', translation: 'I (have)' }, { text: 'Sie hat', translation: 'She (has)' }, { text: 'Er hat', translation: 'He (has)' }, { text: 'Ich habe nichts', translation: 'I bought nothing' }] },
+        { label: 'Was? ... gekauft', items: [{ text: 'ein Buch ... gekauft.', translation: 'bought a book.' }, { text: 'Lebensmittel ... gekauft.', translation: 'bought groceries.' }, { text: 'eine Jacke ... gekauft.', translation: 'bought a jacket.' }, { text: 'ein Ticket ... gekauft.', translation: 'bought a ticket.' }] },
+      ],
+    },
+  ],
+};
+
+const GERMAN_ICH_BIN_GEGANGEN: HayUnitContent = {
+  chapterTitleKey: 'i went german',
+  conceptLabel: 'Ich bin gegangen',
+  conceptDefinition: 'I went · sein + gegangen · motion verbs use SEIN as auxiliary · not haben',
+  introNote: 'Motion verbs use sein, not haben. "Ich bin gegangen" — the auxiliary sein is conjugated, gegangen goes to the end. This sein/haben split is one of the most important rules in German.',
+  clusters: [
+    {
+      heading: 'Ich bin gegangen — Bewegung im Perfekt',
+      pairs: [
+        { imageWord: 'Kino', imageDescription: 'two friends walking out of a movie theater, smiling', question: 'Wohin bist du gestern gegangen?', questionTranslation: 'Where did you go yesterday?', answer: 'Ich bin ins Kino gegangen.', answerTranslation: 'I went to the cinema.' },
+        { imageWord: 'Schule', imageDescription: 'children walking through the school gates in the morning', question: 'Wohin ist sie gegangen?', questionTranslation: 'Where did she go?', answer: 'Sie ist in die Schule gegangen.', answerTranslation: 'She went to school.' },
+        { imageWord: 'Markt', imageDescription: 'a person walking among outdoor market stalls in the morning', question: 'Wohin ist er am Morgen gegangen?', questionTranslation: 'Where did he go in the morning?', answer: 'Er ist zum Markt gegangen.', answerTranslation: 'He went to the market.' },
+        { imageWord: 'Hause', imageDescription: 'a person arriving at their front door, key in hand', question: 'Wohin bist du nach der Schule gegangen?', questionTranslation: 'Where did you go after school?', answer: 'Ich bin nach Hause gegangen.', answerTranslation: 'I went home.' },
+      ],
+    },
+    {
+      heading: 'Sein vs. Haben — Der Unterschied',
+      noteInline: 'bewegungsverben (motion verbs) → sein: gehen, fahren, laufen, fliegen · aber: kaufen, haben, machen → haben',
+      pairs: [
+        { imageWord: 'gefahren', imageDescription: 'a person driving away from the house in a car', question: 'Wie bist du dorthin gekommen?', questionTranslation: 'How did you get there?', answer: 'Ich bin gefahren — ich bin mit dem Auto gefahren.', answerTranslation: 'I drove — I went by car.' },
+        { imageWord: 'gelaufen', imageDescription: 'a jogger running through a park in the early morning', question: 'Bist du gelaufen oder gefahren?', questionTranslation: 'Did you run or drive?', answer: 'Ich bin gelaufen.', answerTranslation: 'I ran / I walked.' },
+      ],
+      sentenceColumns: [
+        { label: 'Wer?', items: [{ text: 'Ich bin', translation: 'I (am)' }, { text: 'Sie ist', translation: 'She (is)' }, { text: 'Er ist', translation: 'He (is)' }, { text: 'Wir sind', translation: 'We (are)' }] },
+        { label: 'Wohin? ... gegangen', items: [{ text: 'ins Kino ... gegangen.', translation: 'gone to the cinema.' }, { text: 'in die Schule ... gegangen.', translation: 'gone to school.' }, { text: 'zum Markt ... gegangen.', translation: 'gone to the market.' }, { text: 'nach Hause ... gegangen.', translation: 'gone home.' }] },
+      ],
+    },
+  ],
+};
+
+const GERMAN_WAS_HAT_ER_GEMACHT: HayUnitContent = {
+  chapterTitleKey: 'what did he do german',
+  conceptLabel: 'Was hat er gemacht?',
+  conceptDefinition: 'what did he do? · was hast du gemacht? · machen → gemacht · narrating the past',
+  introNote: '"Was hat er gemacht?" is the workhorse question of German past-tense conversation. Machen → gemacht is the prototype regular Perfekt — use it to open any story.',
+  clusters: [
+    {
+      heading: 'Was hat er gemacht? — Tagesablauf erzählen',
+      pairs: [
+        { imageWord: 'Fußball', imageDescription: 'a group of boys playing football in a park after school', question: 'Was hat er nach der Schule gemacht?', questionTranslation: 'What did he do after school?', answer: 'Er hat Fußball gespielt.', answerTranslation: 'He played football.' },
+        { imageWord: 'Hausaufgaben', imageDescription: 'a student working through homework at a desk with books open', question: 'Was hat sie am Abend gemacht?', questionTranslation: 'What did she do in the evening?', answer: 'Sie hat ihre Hausaufgaben gemacht.', answerTranslation: 'She did her homework.' },
+        { imageWord: 'gegessen', imageDescription: 'a family sitting around a dinner table sharing a meal', question: 'Was haben sie zu Abend gemacht?', questionTranslation: 'What did they do for dinner?', answer: 'Sie haben zusammen gegessen.', answerTranslation: 'They ate together.' },
+        { imageWord: 'gelesen', imageDescription: 'a person curled up on a sofa with a book on a rainy evening', question: 'Was hat er am Wochenende gemacht?', questionTranslation: 'What did he do on the weekend?', answer: 'Er hat ein Buch gelesen.', answerTranslation: 'He read a book.' },
+      ],
+    },
+    {
+      heading: 'Und was hast du gemacht? — Persönliche Narration',
+      noteInline: 'chain past actions with und dann (and then) or danach (afterwards) to build a full narrative',
+      pairs: [
+        { imageWord: 'morgens', imageDescription: 'a morning routine: alarm clock, cup of coffee, toast on a table', question: 'Was hast du heute Morgen gemacht?', questionTranslation: 'What did you do this morning?', answer: 'Ich habe gefrühstückt und bin dann in die Schule gegangen.', answerTranslation: 'I had breakfast and then went to school.' },
+        { imageWord: 'Wochenende', imageDescription: 'a relaxed Saturday afternoon scene: friends, sunshine, outdoor café', question: 'Was hast du am Wochenende gemacht?', questionTranslation: 'What did you do on the weekend?', answer: 'Ich habe Freunde getroffen und wir haben Fußball gespielt.', answerTranslation: 'I met friends and we played football.' },
+      ],
+      sentenceColumns: [
+        { label: 'Wer?', items: [{ text: 'Er hat', translation: 'He (has)' }, { text: 'Sie hat', translation: 'She (has)' }, { text: 'Ich habe', translation: 'I (have)' }, { text: 'Sie haben', translation: 'They (have)' }] },
+        { label: 'Was? ... gemacht/gespielt/gelesen', items: [{ text: 'Fußball gespielt.', translation: 'played football.' }, { text: 'Hausaufgaben gemacht.', translation: 'done homework.' }, { text: 'ein Buch gelesen.', translation: 'read a book.' }, { text: 'zusammen gegessen.', translation: 'eaten together.' }] },
+      ],
+    },
+  ],
+};
+
 // ── Italian present-tense verb units ──────────────────────────────────────────
 
 const ITALIAN_VOGLIO: HayUnitContent = {
@@ -3146,6 +3508,20 @@ const HAY_UNITS: HayUnitContent[] = [
   FRENCH_JAI_ETUDIE,
   FRENCH_JAI_RECU,
   FRENCH_FUTUR_PROCHE,
+  // ── German present-tense verb units ──────────────────────────────────────────
+  GERMAN_ICH_GEHE,
+  GERMAN_ICH_HABE,
+  GERMAN_ICH_WILL,
+  GERMAN_ICH_BIN,
+  GERMAN_WO_BIN_ICH,
+  GERMAN_ICH_KANN,
+  GERMAN_ES_GIBT,
+  GERMAN_MIR_GEFAELLT,
+  // ── German Perfekt / preterite chain units ────────────────────────────────────
+  GERMAN_ICH_HABE_GENOMMEN,
+  GERMAN_ICH_HABE_GEKAUFT,
+  GERMAN_ICH_BIN_GEGANGEN,
+  GERMAN_WAS_HAT_ER_GEMACHT,
   // ── Italian present-tense verb units ─────────────────────────────────────────
   ITALIAN_VOGLIO,
   ITALIAN_HO,

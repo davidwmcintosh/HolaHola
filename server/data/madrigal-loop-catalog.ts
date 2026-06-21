@@ -2091,6 +2091,868 @@ const FRENCH_UNITS: MadrigalLoopUnit[] = [
 
 ];
 
+const GERMAN_UNITS: MadrigalLoopUnit[] = [
+
+  // ─── Gehen — Wohin gehst du? ──────────────────────────────────────────────
+  {
+    contentKey: 'where are you going german',
+    language: 'german',
+    displayName: 'Gehen — Ich gehe / Sie geht',
+    unitType: 'verb',
+    vocabTerms: ['ich gehe', 'sie geht', 'gehen', 'go', 'I go', 'she goes', 'wohin gehst du', 'zum', 'ins', 'going'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ich gehe" — I go / I am going. "Sie geht" — she goes. The verb is gehen. Say them: ich gehe, sie geht.',
+        studentAction: 'Repeat ich gehe and sie geht.',
+        teacherHint: 'Gehen + zum/zur (to the) or ins (into the). Point out "ich gehe ins Kino" vs "ich gehe zum Markt". The preposition changes with the article.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a place someone is going. Read: Ich gehe zum Hotel. Ich gehe ins Restaurant. Your turn.',
+        studentAction: 'Read each model sentence aloud using the image.',
+        teacherHint: 'Drill zum (masculine/neuter dative) and zur (feminine dative) and ins (neuter accusative). High-frequency preposition set.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Eyes across the columns — who is going where? Build your sentence.',
+        studentAction: 'Combine subject + gehen form + destination rapidly.',
+        teacherHint: 'Watch for correct preposition choice. Prioritize fluency — correct zum/zur/ins as a brief note, not a full grammar stop.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Wohin gehst du heute? Where are you going today? Answer with ich gehe.',
+        studentAction: 'Produce: Ich gehe + zum/zur/ins + destination.',
+        teacherHint: 'Personalize freely. Any accurate ich gehe sentence works. Extend: und deine Freundin — wohin geht sie?',
+      },
+    ],
+  },
+
+  // ─── Nehmen — Ich habe genommen ──────────────────────────────────────────
+  {
+    contentKey: 'i took german',
+    language: 'german',
+    displayName: 'Nehmen — Ich habe genommen',
+    unitType: 'preterite',
+    vocabTerms: ['ich habe genommen', 'sie hat genommen', 'nehmen', 'take', 'took', 'genommen', 'Perfekt', 'strong verb', 'nimmt', 'ich nehme'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ich habe genommen" — I took. "Genommen" is the past participle of nehmen. Haben is the auxiliary. Say: ich habe genommen.',
+        studentAction: 'Repeat ich habe genommen.',
+        teacherHint: 'Nehmen is a strong verb — irregular stem change: nimmt (present), genommen (past participle). Haben is the Perfekt auxiliary here.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows something someone took or picked up. Read: Ich habe das Buch genommen. Your turn.',
+        studentAction: 'Read each sentence, anchoring genommen to the image.',
+        teacherHint: 'Emphasize that genommen goes to end of clause. The haben + participle frame is the core Perfekt pattern — reinforce it at every repetition.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who took what? Eyes across.',
+        studentAction: 'Combine subject + habe/hat + object + genommen.',
+        teacherHint: 'Reinforce end-position of genommen. Watch for students inserting it too early.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Was hast du heute Morgen genommen? What did you take this morning? Answer with ich habe... genommen.',
+        studentAction: 'Produce: Ich habe + object + genommen.',
+        teacherHint: 'Good personal contexts: Ich habe den Bus genommen, Ich habe mein Handy genommen, Ich habe ein Brötchen genommen.',
+      },
+    ],
+  },
+
+  // ─── Kaufen — Ich habe gekauft ──────────────────────────────────────────
+  {
+    contentKey: 'i bought german',
+    language: 'german',
+    displayName: 'Kaufen — Ich habe gekauft',
+    unitType: 'preterite',
+    vocabTerms: ['ich habe gekauft', 'sie hat gekauft', 'kaufen', 'buy', 'bought', 'gekauft', 'einkaufen', 'im Laden', 'ich kaufe', 'wir kaufen'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ich habe gekauft" — I bought. Kaufen is a regular weak verb — add ge- to the stem and -t: ge-kauf-t. Say: ich habe gekauft.',
+        studentAction: 'Repeat ich habe gekauft.',
+        teacherHint: 'Regular weak Perfekt pattern: ge + stem + t. Kaufen → gekauft. Contrast with genommen (strong). This regular pattern applies to hundreds of verbs.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a purchase. Read: Ich habe ein Buch gekauft. Ich habe Lebensmittel gekauft. Your turn.',
+        studentAction: 'Read each sentence with image support.',
+        teacherHint: 'Review article accusative if needed: ich habe einen/eine/ein + noun + gekauft. The accusative ending on masculine articles is a common error here.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who bought what?',
+        studentAction: 'Combine subject + habe/hat + accusative object + gekauft.',
+        teacherHint: 'Reinforce end-position of gekauft. Flag accusative article mismatches briefly.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Was hast du zuletzt gekauft? What did you last buy? Answer with ich habe... gekauft.',
+        studentAction: 'Produce: Ich habe + noun + gekauft.',
+        teacherHint: 'Personalize: clothes, food, electronics all work. Any accurate Perfekt sentence is a win.',
+      },
+    ],
+  },
+
+  // ─── Werden + Infinitiv — Near Future preview ────────────────────────────
+  {
+    contentKey: 'i will german',
+    language: 'german',
+    displayName: 'Ich werde + Infinitiv — Futur Preview',
+    unitType: 'verb',
+    vocabTerms: ['ich werde', 'sie wird', 'werden', 'will', 'future', 'Futur I', 'ich werde gehen', 'ich werde kaufen', 'ich werde essen', 'wirst du'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ich werde" + infinitive — I will. "Sie wird" — she will. Werden is the future auxiliary. Say: ich werde, sie wird.',
+        studentAction: 'Repeat ich werde and sie wird.',
+        teacherHint: 'Werden conjugates like a strong verb: ich werde, du wirst, er/sie wird. The infinitive goes to the end. This is Futur I — high-frequency in writing and formal speech.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a future plan. Read: Ich werde einkaufen. Ich werde arbeiten. Your turn.',
+        studentAction: 'Read each model sentence, anchoring werden + infinitive to the image.',
+        teacherHint: 'Reinforce end-position of the infinitive. "Ich werde morgen arbeiten" — the time word can move, but the infinitive stays at the end.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who will do what?',
+        studentAction: 'Combine subject + werden form + infinitive at end.',
+        teacherHint: 'Common error: inserting the infinitive right after werden. Keep drilling the end-position rule.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Was wirst du morgen machen? What will you do tomorrow? Answer with ich werde.',
+        studentAction: 'Produce: Ich werde + infinitive.',
+        teacherHint: 'Accept any accurate ich werde + infinitive. Extend: und deine Familie — was werden sie machen?',
+      },
+    ],
+  },
+
+  // ─── Haben — Ich habe ────────────────────────────────────────────────────
+  {
+    contentKey: 'i have german',
+    language: 'german',
+    displayName: 'Haben — Ich habe / Sie hat',
+    unitType: 'verb',
+    vocabTerms: ['ich habe', 'sie hat', 'haben', 'have', 'I have', 'she has', 'hast du', 'wir haben', 'es hat', 'habt ihr'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ich habe" — I have. "Sie hat" — she has. The verb is haben. Say them: ich habe, sie hat.',
+        studentAction: 'Repeat ich habe and sie hat.',
+        teacherHint: 'Haben is both content verb (to have) and Perfekt auxiliary. Getting these two forms automatic now pays off enormously — every Perfekt sentence needs haben or sein.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows something someone has. Read: Ich habe ein Auto. Sie hat einen Hund. Your turn.',
+        studentAction: 'Read each sentence with image support.',
+        teacherHint: 'Flag accusative articles: ich habe einen Hund (masculine accusative → einen), ich habe ein Buch (neuter → ein), ich habe eine Katze (feminine → eine).',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who has what?',
+        studentAction: 'Combine subject + habe/hat + accusative object.',
+        teacherHint: 'Accusative article agreement is the main drill target here. Reinforce einen/eine/ein consistently.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Was hast du zu Hause? What do you have at home? Answer with ich habe.',
+        studentAction: 'Produce: Ich habe + noun.',
+        teacherHint: 'Personalize freely. Any accurate haben sentence works. Good extension: was hat dein Freund?',
+      },
+    ],
+  },
+
+  // ─── Wollen — Ich will ────────────────────────────────────────────────────
+  {
+    contentKey: 'i want german',
+    language: 'german',
+    displayName: 'Wollen — Ich will / Sie will',
+    unitType: 'verb',
+    vocabTerms: ['ich will', 'sie will', 'wollen', 'want', 'I want', 'she wants', 'willst du', 'wir wollen', 'ich will gehen', 'ich will kaufen'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ich will" — I want. "Sie will" — she wants. The verb is wollen — a modal verb. Say them: ich will, sie will.',
+        studentAction: 'Repeat ich will and sie will.',
+        teacherHint: 'Wollen is a modal verb — it changes the infinitive to end position. Ich will kaufen vs Ich kaufe. Same modal frame as können, müssen, sollen.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows something someone wants to do. Read: Ich will ins Kino gehen. Sie will einkaufen. Your turn.',
+        studentAction: 'Read each wollen + infinitive sentence aloud.',
+        teacherHint: 'Reinforce infinitive at end. Wollen + infinitive is the frame — drill the end-position consistently.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who wants to do what?',
+        studentAction: 'Combine subject + will/will + infinitive at end.',
+        teacherHint: 'Modal + infinitive at end: the key German sentence structure rule. Reinforce at every repetition.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Was willst du heute machen? What do you want to do today? Answer with ich will.',
+        studentAction: 'Produce: Ich will + infinitive.',
+        teacherHint: 'Accept any accurate wollen sentence. Extend: und was will dein Freund / deine Freundin machen?',
+      },
+    ],
+  },
+
+  // ─── Sein — Das Wesen der Dinge ─────────────────────────────────────────
+  {
+    contentKey: 'i am german',
+    language: 'german',
+    displayName: 'Sein — Das Wesen der Dinge (Ich bin / Sie ist)',
+    unitType: 'ser_estar',
+    vocabTerms: ['ich bin', 'sie ist', 'sein', 'am', 'is', 'I am', 'she is', 'das ist', 'er ist', 'sind'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ich bin" — I am. "Sie ist" — she is. "Das ist" — that is. Sein is the verb to be. Say: ich bin, sie ist, das ist.',
+        studentAction: 'Repeat ich bin, sie ist, das ist.',
+        teacherHint: 'Sein covers identity, classification, and permanent traits. German uses only sein (unlike Spanish ser/estar distinction). The predicate adjective does NOT take an article or agreement ending after sein.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a classification or description. Read: Das ist ein Hund. Sie ist Lehrerin. Ich bin Student. Your turn.',
+        studentAction: 'Read each model sentence with image.',
+        teacherHint: 'Note professions with sein take NO article: Sie ist Ärztin (not eine Ärztin). Flag this — common error for English speakers.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — what/who is what?',
+        studentAction: 'Combine subject + bin/ist/sind + predicate noun or adjective.',
+        teacherHint: 'Mix professions (no article) and descriptions (adjective, no agreement needed after sein). Keep both in the drill.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Was bist du von Beruf? What do you do for work or study? Answer with ich bin.',
+        studentAction: 'Produce: Ich bin + profession or description.',
+        teacherHint: 'Ich bin Schüler/Schülerin. Ich bin Student/Studentin. Ich bin ... — any accurate sein sentence is the goal.',
+      },
+    ],
+  },
+
+  // ─── Sein + Lokation — Wo bin ich? ────────────────────────────────────────
+  {
+    contentKey: 'where am i german',
+    language: 'german',
+    displayName: 'Sein + Lokation — Wo bin ich?',
+    unitType: 'ser_estar',
+    vocabTerms: ['ich bin in', 'sie ist bei', 'sein', 'location', 'where', 'wo bin ich', 'zu Hause', 'in der Schule', 'im Büro', 'auf dem Markt'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ich bin in der Schule" — I am at school. "Sie ist zu Hause" — she is at home. Sein + location. Say: ich bin, wo bin ich?',
+        studentAction: 'Repeat ich bin and the location phrase.',
+        teacherHint: 'Location with sein uses dative prepositions: in + dative, bei + dative, auf + dative. Unlike identity sein (no case change on predicate), location takes dative case.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a place. Read: Ich bin in der Schule. Er ist im Büro. Your turn.',
+        studentAction: 'Read each location + sein sentence.',
+        teacherHint: 'Focus on the most common locations: zu Hause, in der Schule, im Büro, im Supermarkt, auf dem Marktplatz. Don\'t get lost in dative forms — keep the pace moving.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who is where?',
+        studentAction: 'Combine subject + bin/ist + location.',
+        teacherHint: 'Keep it high-frequency. The goal is automaticity on the most common location phrases, not exhaustive case drilling.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Wo bist du jetzt? Where are you right now? Answer with ich bin.',
+        studentAction: 'Produce: Ich bin + location.',
+        teacherHint: 'Personalize: Ich bin in der Schule / im Klassenzimmer / zu Hause. Accept any accurate answer.',
+      },
+    ],
+  },
+
+  // ─── Können — Ich kann ────────────────────────────────────────────────────
+  {
+    contentKey: 'i can german',
+    language: 'german',
+    displayName: 'Können — Ich kann / Sie kann',
+    unitType: 'verb',
+    vocabTerms: ['ich kann', 'sie kann', 'können', 'can', 'able', 'I can', 'she can', 'kannst du', 'wir können', 'ich kann schwimmen'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ich kann" — I can. "Sie kann" — she can. Können is a modal verb. Say: ich kann, sie kann.',
+        studentAction: 'Repeat ich kann and sie kann.',
+        teacherHint: 'Können follows the modal pattern: infinitive at end. Ich kann Deutsch sprechen. Ich kann schwimmen. Modal + infinitive at end — reinforce the frame.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows an ability. Read: Ich kann schwimmen. Sie kann kochen. Ich kann Auto fahren. Your turn.',
+        studentAction: 'Read each können sentence with image.',
+        teacherHint: 'Rich vocabulary opportunity: fahren, schwimmen, kochen, singen, tanzen, schreiben — all work great here.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who can do what?',
+        studentAction: 'Combine subject + kann + infinitive at end.',
+        teacherHint: 'Modal + infinitive at end. The most important German sentence structure rule — this is the third modal drilling it. It should be becoming automatic.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Was kannst du gut machen? What are you good at? Answer with ich kann.',
+        studentAction: 'Produce: Ich kann + infinitive.',
+        teacherHint: 'Personalize. Any accurate können + infinitive is the goal.',
+      },
+    ],
+  },
+
+  // ─── Das Infinitivmuster ─────────────────────────────────────────────────
+  {
+    contentKey: 'infinitive pattern german',
+    language: 'german',
+    displayName: 'Das Infinitivmuster — Modal + Infinitiv am Ende',
+    unitType: 'verb',
+    vocabTerms: ['infinitiv', 'modal', 'wollen', 'können', 'müssen', 'sollen', 'dürfen', 'verb at end', 'am Ende', 'Satzbau'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: 'The pattern: MODAL VERB + ... + INFINITIVE AT END. Ich will ... kaufen. Ich kann ... gehen. Say the pattern: modal, then infinitive at the end.',
+        studentAction: 'Repeat the pattern: Ich will...(object)...kaufen.',
+        teacherHint: 'This unit consolidates the modal + infinitive at end rule. Use it to review all modals learned so far: wollen, können. Preview: müssen, sollen, dürfen.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Complete the sentence — which infinitive goes at the end? Ich will ins Kino ___. Ich kann gut ___. Your turn.',
+        studentAction: 'Complete each sentence by adding the correct infinitive at end.',
+        teacherHint: 'This step is a gap-fill format. Students hear the modal + object, then must supply the infinitive. Good diagnostic of automaticity.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Eyes across all three columns: subject, modal, infinitive. Build the sentence.',
+        studentAction: 'Combine subject + modal + infinitive to make a full sentence.',
+        teacherHint: 'Mix all modals: wollen, können, müssen (preview). Keep pace fast — the goal is fluency in the frame, not new vocabulary.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Was musst du morgen machen? What do you have to do tomorrow? Answer with ich muss.',
+        studentAction: 'Produce: Ich muss + infinitive — previewing müssen.',
+        teacherHint: 'Ich muss lernen / arbeiten / aufräumen. Accept any accurate müssen sentence. This previews the next modal.',
+      },
+    ],
+  },
+
+  // ─── Es gibt ─────────────────────────────────────────────────────────────
+  {
+    contentKey: 'there is german',
+    language: 'german',
+    displayName: 'Es gibt — There Is / There Are',
+    unitType: 'hay_gustar',
+    vocabTerms: ['es gibt', 'there is', 'there are', 'gibt es', 'es gibt kein', 'es gibt keine', 'in der Stadt', 'es gibt viele', 'es gibt einen'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Es gibt" — there is / there are. It never changes — always es gibt, whether singular or plural. Say: es gibt.',
+        studentAction: 'Repeat es gibt.',
+        teacherHint: 'Es gibt is invariable — no plural form. Es gibt einen Park / Es gibt viele Parks — same verb form. The following noun takes accusative case: es gibt einen/eine/ein.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows something that exists in a place. Read: Es gibt einen Park in der Stadt. Es gibt viele Restaurants hier. Your turn.',
+        studentAction: 'Read each es gibt sentence.',
+        teacherHint: 'Accusative after es gibt: einen (masculine), eine (feminine), ein (neuter), keine (negative). Flag the accusative article but keep pace.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — what is there in each place?',
+        studentAction: 'Combine es gibt + accusative noun + location.',
+        teacherHint: 'Keep the location context varied: in meiner Stadt, in der Schule, im Park, hier. Helps students use es gibt naturally in descriptions.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Was gibt es in deiner Stadt? What is there in your city? Answer with es gibt.',
+        studentAction: 'Produce: Es gibt + noun + location.',
+        teacherHint: 'Personalize. Es gibt es kein... / Es gibt keine... (negative) is a great extension.',
+      },
+    ],
+  },
+
+  // ─── Gefallen — Mir gefällt ───────────────────────────────────────────────
+  {
+    contentKey: 'i like german',
+    language: 'german',
+    displayName: 'Gefallen — Mir gefällt / Mir gefallen',
+    unitType: 'hay_gustar',
+    vocabTerms: ['mir gefällt', 'mir gefallen', 'gefallen', 'like', 'I like', 'mag ich', 'was gefällt dir', 'es gefällt mir', 'gefällt es dir', 'mögen'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Mir gefällt" — I like (singular thing). "Mir gefallen" — I like (plural things). Like gustar in Spanish — the subject is the thing liked, not the person. Say: mir gefällt, mir gefallen.',
+        studentAction: 'Repeat mir gefällt and mir gefallen.',
+        teacherHint: 'Gefallen works exactly like gustar: the grammatical subject is the thing liked, which is why it can be singular or plural. Mir gefällt das Buch / Mir gefallen die Bücher. This is the key structural concept.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows something enjoyable. Read: Mir gefällt die Musik. Mir gefallen die Filme. Your turn.',
+        studentAction: 'Read each gefallen sentence with image.',
+        teacherHint: 'Gefällt (singular) vs gefallen (plural) — the verb agrees with the thing liked. Drill both forms. Mir → dative of ich.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — to whom does what appeal? Eyes across.',
+        studentAction: 'Combine dative person (mir/dir/ihm/ihr) + gefällt/gefallen + noun.',
+        teacherHint: 'Keep mir and dir in the drill. Optional extension: ihm/ihr for third person.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Was gefällt dir in der Schule? What do you like at school? Answer with mir gefällt / mir gefallen.',
+        studentAction: 'Produce a genuine mir gefällt / mir gefallen sentence.',
+        teacherHint: 'Accept both singular and plural correctly matched. This is the core structural test of the unit.',
+      },
+    ],
+  },
+
+  // ─── Möchten — Ich möchte ─────────────────────────────────────────────────
+  {
+    contentKey: 'i would like german',
+    language: 'german',
+    displayName: 'Möchten — Ich möchte / Sie möchte',
+    unitType: 'verb',
+    vocabTerms: ['ich möchte', 'sie möchte', 'möchten', 'would like', 'conditional', 'gerne', 'ich möchte kaufen', 'ich möchte essen', 'bitte', 'Konjunktiv II'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ich möchte" — I would like. It is the polite, conditional form. More polite than ich will. Say: ich möchte, sie möchte.',
+        studentAction: 'Repeat ich möchte and sie möchte.',
+        teacherHint: 'Möchten is technically Konjunktiv II of mögen, but it functions as a standalone polite modal. Contrast: ich will (I want — direct) vs ich möchte (I would like — polite). Highly useful for ordering food, making requests.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a polite request or wish. Read: Ich möchte einen Kaffee. Ich möchte bitte bezahlen. Your turn.',
+        studentAction: 'Read each möchten sentence with image.',
+        teacherHint: 'Great vocabulary context: restaurant, shopping, hotel. Ich möchte zahlen / ein Zimmer / eine Tasse Tee. High practical value.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — what would each person like?',
+        studentAction: 'Combine subject + möchte + noun/infinitive.',
+        teacherHint: 'Mix noun objects (ich möchte einen Kaffee) and infinitive completions (ich möchte kaufen). Both patterns are frequent.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Was möchten Sie bestellen? What would you like to order? Answer with ich möchte.',
+        studentAction: 'Produce a polite ich möchte sentence in a restaurant or service context.',
+        teacherHint: 'Restaurant context works beautifully here. Extend: und was möchte Ihr Freund / Ihre Freundin?',
+      },
+    ],
+  },
+
+  // ─── Gehen im Perfekt — Ich bin gegangen ─────────────────────────────────
+  {
+    contentKey: 'i went german',
+    language: 'german',
+    displayName: 'Ich bin gegangen — Gehen im Perfekt',
+    unitType: 'preterite',
+    vocabTerms: ['ich bin gegangen', 'sie ist gegangen', 'sein auxiliary', 'gegangen', 'movement verbs', 'Perfekt with sein', 'ich bin gefahren', 'ich bin gelaufen', 'wohin bist du gegangen'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ich bin gegangen" — I went. Movement verbs use SEIN as the Perfekt auxiliary, not haben. Say: ich bin gegangen, sie ist gegangen.',
+        studentAction: 'Repeat ich bin gegangen and sie ist gegangen.',
+        teacherHint: 'The sein/haben auxiliary split is the critical concept: verbs of motion and change-of-state use sein. Gehen → gegangen / fahren → gefahren / laufen → gelaufen. This is a paradigm shift from haben-based Perfekt.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a journey or movement. Read: Ich bin ins Kino gegangen. Sie ist nach Hause gegangen. Your turn.',
+        studentAction: 'Read each sein + gegangen sentence with image.',
+        teacherHint: 'Reinforce that sein replaces haben for movement. Students who say "ich habe gegangen" are applying the wrong auxiliary. This is one of the most drilled correction points in German.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who went where?',
+        studentAction: 'Combine subject + bin/ist + destination + gegangen.',
+        teacherHint: 'gegangen goes to the end. Contrast with ich habe + object + gekauft to keep the two patterns distinct.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Wohin bist du gestern gegangen? Where did you go yesterday? Answer with ich bin... gegangen.',
+        studentAction: 'Produce: Ich bin + destination + gegangen.',
+        teacherHint: 'Personalize. Any accurate sein + gegangen sentence. Extend with other sein-verbs if students are ready: Ich bin... gefahren / gelaufen.',
+      },
+    ],
+  },
+
+  // ─── Futur I — Ich werde gehen ────────────────────────────────────────────
+  {
+    contentKey: 'future i german',
+    language: 'german',
+    displayName: 'Futur I — Ich werde gehen',
+    unitType: 'verb',
+    vocabTerms: ['ich werde gehen', 'sie wird gehen', 'Futur I', 'werden', 'future tense', 'infinitiv am Ende', 'morgen', 'bald', 'nächste Woche', 'werden + Infinitiv'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: 'Futur I: werden + infinitive at end. "Ich werde gehen" — I will go. Say: ich werde gehen, sie wird gehen.',
+        studentAction: 'Repeat ich werde gehen and sie wird gehen.',
+        teacherHint: 'Futur I is formed with werden conjugated + infinitive at end. Contrast with the near-future preview from order 6 — now drilling full Futur I with motion verbs.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a future plan. Read: Ich werde ins Kino gehen. Sie wird morgen arbeiten. Your turn.',
+        studentAction: 'Read each Futur I sentence with image.',
+        teacherHint: 'Time expressions strengthen the future reading: morgen, bald, nächste Woche, am Wochenende. Use them in the model sentences.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — subject + werden + time/place + infinitive at end.',
+        studentAction: 'Combine all three columns into a Futur I sentence.',
+        teacherHint: 'Three-column combinator: subject / werden form / infinitive at end. Make sure infinitive stays at end.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Was wirst du nächstes Wochenende machen? What will you do next weekend? Answer with ich werde.',
+        studentAction: 'Produce: Ich werde + infinitive for a real plan.',
+        teacherHint: 'Accept any accurate Futur I sentence. Extend: und was wird deine Familie machen?',
+      },
+    ],
+  },
+
+  // ─── 3. Person Futur — Sie wird gehen ────────────────────────────────────
+  {
+    contentKey: 'she will go german',
+    language: 'german',
+    displayName: 'Sie wird + Infinitiv — 3. Person Futur',
+    unitType: 'verb',
+    vocabTerms: ['sie wird', 'er wird', 'er wird gehen', 'sie wird kaufen', 'third person future', 'er/sie/es wird', 'werden', 'was wird er machen', 'narration'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Er wird" / "Sie wird" — he/she will. Third person Futur I. Say: er wird, sie wird.',
+        studentAction: 'Repeat er wird and sie wird.',
+        teacherHint: 'Third person singular wird is the same for er/sie/es — all three use wird. This unit builds third-person narration in the future: what will he/she do?',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Narrate what each person will do. Read: Er wird morgen arbeiten. Sie wird einkaufen gehen. Your turn.',
+        studentAction: 'Read each third-person Futur I sentence.',
+        teacherHint: 'Narration context: talking about friends, family, teachers. Was wird dein Lehrer morgen machen? Good conversational frame.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — what will each person do?',
+        studentAction: 'Combine er/sie + wird + infinitive for narration.',
+        teacherHint: 'Mix er and sie to prevent lockout on one pronoun. Keep the infinitive at end as the consistent frame.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Was wird dein bester Freund am Wochenende machen? What will your best friend do this weekend? Answer with er/sie wird.',
+        studentAction: 'Produce: Er/Sie wird + infinitive about a real person.',
+        teacherHint: 'This personalizes the third-person narration. Any accurate wird + infinitive is the goal.',
+      },
+    ],
+  },
+
+  // ─── Machen im Perfekt — Was hat er gemacht? ─────────────────────────────
+  {
+    contentKey: 'what did he do german',
+    language: 'german',
+    displayName: 'Was hat er gemacht? — Machen im Perfekt',
+    unitType: 'preterite',
+    vocabTerms: ['was hat er gemacht', 'er hat gemacht', 'gemacht', 'machen', 'past question', 'was hast du gemacht', 'Perfekt question', 'er hat gegessen', 'er hat gespielt', 'narrate the past'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Was hat er gemacht?" — What did he do? "Er hat gemacht" — he did/made. Machen is a regular weak verb: ge-macht. Say: was hat er gemacht, er hat gemacht.',
+        studentAction: 'Repeat was hat er gemacht and er hat gemacht.',
+        teacherHint: 'This question frame is the workhorse of past-tense narration in German. Was hat er gemacht? opens up any Perfekt story. Machen → gemacht is the prototype weak Perfekt.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a past action. Ask and answer: Was hat er gemacht? — Er hat Fußball gespielt. Your turn.',
+        studentAction: 'Read each Q-and-A pair in the past.',
+        teacherHint: 'Use a variety of strong and weak past participles in the answers: gespielt, gegessen, gelesen, geschrieben — all answering was hat er/sie gemacht?',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who did what? Narrate from the columns.',
+        studentAction: 'Combine er/sie hat + past participle from column.',
+        teacherHint: 'Mix haben-Perfekt verbs here. This is a great review drill for all Perfekt learned so far.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Was hat dein Lehrer / deine Lehrerin heute gemacht? Answer with er/sie hat... gemacht.',
+        studentAction: 'Produce a third-person past-tense narration from real life.',
+        teacherHint: 'Personalize freely. Any accurate Perfekt sentence in third person is the goal.',
+      },
+    ],
+  },
+
+  // ─── Haben im Präteritum — Er hatte ─────────────────────────────────────
+  {
+    contentKey: 'he had german',
+    language: 'german',
+    displayName: 'Er hatte — Haben im Präteritum',
+    unitType: 'imperfect',
+    vocabTerms: ['er hatte', 'sie hatte', 'ich hatte', 'Präteritum', 'imperfect', 'hatten', 'hatte keine', 'er hatte Hunger', 'er hatte Zeit', 'simple past'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Er hatte" — he had. This is the Präteritum (simple past) of haben. Very common in writing and narration. Say: er hatte, ich hatte.',
+        studentAction: 'Repeat er hatte and ich hatte.',
+        teacherHint: 'Haben and sein use Präteritum even in spoken German — unlike other verbs which use Perfekt in speech. Er hatte and war are the two most important Präteritum forms to master.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows something someone had in the past. Read: Er hatte Hunger. Sie hatte keine Zeit. Ich hatte Angst. Your turn.',
+        studentAction: 'Read each hatte sentence with image.',
+        teacherHint: 'Focus on feeling/state expressions: Hunger, Durst, Zeit, Angst, Glück, keine Lust. These are the highest-frequency hatte contexts.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who had what in the past?',
+        studentAction: 'Combine subject + hatte + noun (state or object).',
+        teacherHint: 'Mix positive and negative: er hatte Zeit / er hatte keine Zeit. The negative pattern keine + noun is essential.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Hattest du gestern Zeit? Did you have time yesterday? Answer with ich hatte / ich hatte keine.',
+        studentAction: 'Produce: Ich hatte + noun / Ich hatte keine + noun.',
+        teacherHint: 'Personalize. Any accurate hatte sentence — especially with feelings and states — is excellent.',
+      },
+    ],
+  },
+
+  // ─── Dativobjektpronomen — Ihm / Ihr ─────────────────────────────────────
+  {
+    contentKey: 'dative pronoun german',
+    language: 'german',
+    displayName: 'Ihm / Ihr — Dativobjektpronomen',
+    unitType: 'object_pronoun',
+    vocabTerms: ['ihm', 'ihr', 'ihnen', 'dative pronoun', 'indirect object', 'ich gebe ihm', 'ich schreibe ihr', 'wem', 'zu wem', 'to him to her'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ihm" — to him. "Ihr" — to her. These replace a dative noun (the indirect object). Say: ich gebe ihm, ich schreibe ihr.',
+        studentAction: 'Repeat ihm and ihr in a sentence.',
+        teacherHint: 'Ihm and ihr are dative pronouns — they replace "dem Mann/der Frau" etc. in the dative position. Compare to French lui: one form covers both genders in French; in German ihm=him, ihr=her.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows giving, writing, or speaking to someone. Read: Ich gebe ihm das Buch. Ich schreibe ihr eine Nachricht. Your turn.',
+        studentAction: 'Read each ihm/ihr sentence with image.',
+        teacherHint: 'Verbs that take dative: geben, schreiben, sagen, zeigen, helfen, danken. Drill the most common ones. The pronoun comes right after the conjugated verb.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who gives/writes/says what to whom?',
+        studentAction: 'Combine verb + ihm/ihr + object.',
+        teacherHint: 'Reinforce ihm (masculine/neuter dative) vs ihr (feminine dative). This distinction is the key learning. Mix the verbs for variety.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Wem hast du zuletzt eine Nachricht geschrieben? To whom did you last write a message? Answer with ich habe ihm/ihr geschrieben.',
+        studentAction: 'Produce: Ich habe + ihm/ihr + geschrieben.',
+        teacherHint: 'Personalize. Any accurate dative pronoun sentence. Extend: was hast du ihm/ihr gesagt?',
+      },
+    ],
+  },
+
+  // ─── Es ist sauber / Es ist schmutzig ────────────────────────────────────
+  {
+    contentKey: 'its clean dirty german',
+    language: 'german',
+    displayName: 'Es ist sauber / Es ist schmutzig — Beschreibungen',
+    unitType: 'ser_estar',
+    vocabTerms: ['es ist sauber', 'es ist schmutzig', 'sauber', 'schmutzig', 'ordentlich', 'unordentlich', 'ist das sauber', 'wie ist das Zimmer', 'description adjectives'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Es ist sauber" — it is clean. "Es ist schmutzig" — it is dirty. Say them as opposites: sauber, schmutzig.',
+        studentAction: 'Repeat es ist sauber and es ist schmutzig.',
+        teacherHint: 'This unit extends sein to adjective descriptions of things. Expand to ordentlich (tidy), unordentlich (messy), neu (new), alt (old), groß (big), klein (small).',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a room or object. Describe it: Das Zimmer ist sauber. Der Tisch ist schmutzig. Your turn.',
+        studentAction: 'Describe each image with sein + adjective.',
+        teacherHint: 'Predicate adjective after sein takes NO inflection — Das Zimmer ist sauber (not sauberes). This is a critical rule. Flag any inflected predicative adjectives.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — describe items in the classroom or school.',
+        studentAction: 'Combine noun subject + ist + adjective description.',
+        teacherHint: 'Use classroom vocabulary as the nouns: das Klassenzimmer, der Schreibtisch, das Heft, die Tafel. Rich context for real-life description.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Wie ist dein Zimmer zu Hause — sauber oder schmutzig? How is your room at home? Answer honestly with es ist / mein Zimmer ist.',
+        studentAction: 'Produce a personal description of a room or space.',
+        teacherHint: 'Students love this question — it generates honest, personal answers. Accept any accurate sein + adjective sentence.',
+      },
+    ],
+  },
+
+  // ─── Lernen im Perfekt — Ich habe gelernt ────────────────────────────────
+  {
+    contentKey: 'i studied german',
+    language: 'german',
+    displayName: 'Ich habe gelernt — Lernen im Perfekt',
+    unitType: 'preterite',
+    vocabTerms: ['ich habe gelernt', 'sie hat gelernt', 'gelernt', 'lernen', 'studied', 'learned', 'Schule', '-er Verben Perfekt', 'ich habe gemacht', 'regular weak Perfekt'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ich habe gelernt" — I studied / I learned. Lernen → gelernt. Regular weak Perfekt: ge + lern + t. Say: ich habe gelernt.',
+        studentAction: 'Repeat ich habe gelernt.',
+        teacherHint: 'This consolidates the regular weak Perfekt pattern (ge + stem + t) for -en verbs related to school and learning. Lernen / spielen / machen / kochen — all follow this pattern.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows studying or learning. Read: Ich habe für den Test gelernt. Sie hat Gitarre gespielt. Your turn.',
+        studentAction: 'Read each gelernt sentence with image.',
+        teacherHint: 'School context works well: Ich habe Mathe gelernt / Deutsch gelernt / viel gelernt. Reinforce ge + stem + t pattern.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who studied what?',
+        studentAction: 'Combine subject + habe/hat + subject studied + gelernt.',
+        teacherHint: 'Mix school subjects: Mathematik, Deutsch, Geschichte, Biologie, Englisch. All take gelernt.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Was hast du heute in der Schule gelernt? What did you learn in school today? Answer with ich habe... gelernt.',
+        studentAction: 'Produce a genuine ich habe... gelernt sentence.',
+        teacherHint: 'Personalize. Any school subject + gelernt works. Great daily reflection question.',
+      },
+    ],
+  },
+
+  // ─── Bekommen im Perfekt — Ich habe bekommen ──────────────────────────────
+  {
+    contentKey: 'i received german',
+    language: 'german',
+    displayName: 'Ich habe bekommen — Bekommen im Perfekt',
+    unitType: 'preterite',
+    vocabTerms: ['ich habe bekommen', 'sie hat bekommen', 'bekommen', 'received', 'got', 'ich habe eine E-Mail bekommen', 'ich habe ein Geschenk bekommen', 'irregular Perfekt', 'stark'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ich habe bekommen" — I received / I got. Bekommen → bekommen (same form — separable prefix does not add ge-). Say: ich habe bekommen.',
+        studentAction: 'Repeat ich habe bekommen.',
+        teacherHint: 'Bekommen is a compound verb with prefix be-. Compound verbs with inseparable prefixes (be-, ver-, ent-, emp-, ge-, zer-) do NOT add ge- in the Perfekt. Bekommen → bekommen (not gebekommen).',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows receiving something. Read: Ich habe eine E-Mail bekommen. Sie hat ein Geschenk bekommen. Your turn.',
+        studentAction: 'Read each bekommen sentence with image.',
+        teacherHint: 'Good vocabulary: eine E-Mail, ein Brief, ein Paket, ein Geschenk, eine Nachricht, gute Noten. All common objects for bekommen.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who received what?',
+        studentAction: 'Combine subject + habe/hat + accusative object + bekommen.',
+        teacherHint: 'Reinforce no ge- prefix rule. If students say "gebekommen" — correct it clearly. This inseparable prefix rule covers many common verbs: verstehen, vergessen, erklären.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Was hast du heute bekommen? What did you receive today? Answer with ich habe... bekommen.',
+        studentAction: 'Produce: Ich habe + object + bekommen.',
+        teacherHint: 'Personalize. Ich habe eine gute Note bekommen / eine Nachricht bekommen. Any accurate sentence works.',
+      },
+    ],
+  },
+
+];
+
 const ITALIAN_UNITS: MadrigalLoopUnit[] = [
 
   // ─── Andare — Dove vai? / Dove va? ────────────────────────────────────────
@@ -3181,7 +4043,7 @@ const PORTUGUESE_UNITS: MadrigalLoopUnit[] = [
 ];
 
 // Merge all units — Spanish first, then French, then Italian, then Portuguese
-const ALL_UNITS = [...UNITS, ...FRENCH_UNITS, ...ITALIAN_UNITS, ...PORTUGUESE_UNITS];
+const ALL_UNITS = [...UNITS, ...FRENCH_UNITS, ...GERMAN_UNITS, ...ITALIAN_UNITS, ...PORTUGUESE_UNITS];
 
 export const MADRIGAL_LOOP_CATALOG: readonly MadrigalLoopUnit[] = ALL_UNITS;
 
