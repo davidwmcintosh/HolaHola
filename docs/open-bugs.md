@@ -93,6 +93,9 @@ TypeScript's mutable-let control flow narrowing was collapsing `geminiLiveSessio
 **Fix when needed:** Replace process-level Map with a shared cache (Redis or Replit KV) keyed by userId. TTL logic stays the same.  
 **Flagged by:** Gemini Flash, dual-consult round 3, June 18 2026.
 
+**2026-06-21 — Spanish 1 textbook chapters — Intro/reference section duplication — LOW**
+Several Spanish 1 chapters (e.g., "The Infinitive Pattern") show a redundant introduction paragraph followed immediately by a reference section that repeats the same content. The intro block and the visual reference card are saying the same thing twice. Needs a pass to remove the intro text for chapters that have a visual reference. Flag for the final textbook look-through, not urgent.
+
 ---
 
 ## Warm synthesis — potential double-generation on fast Start tap
@@ -102,4 +105,7 @@ TypeScript's mutable-let control flow narrowing was collapsing `geminiLiveSessio
 **Description:** If the student taps "Start" while the background warm-up is still 500ms from finishing, the WS handler will see a cache miss and fire a second synthesis call. Result: two calls to the synthesis model, but only the second one is used. No UX issue, just a small cost inefficiency.  
 **Fix when needed:** Track in-progress warm synthesis per userId (e.g., `_warmSynthesisInProgress = new Set<string>()`). WS handler checks the set and waits briefly (max 600ms) before falling back.  
 **Flagged by:** Gemini Flash, dual-consult round 3, June 18 2026.
+
+**2026-06-21 — Spanish 1 textbook chapters — Intro/reference section duplication — LOW**
+Several Spanish 1 chapters (e.g., "The Infinitive Pattern") show a redundant introduction paragraph followed immediately by a reference section that repeats the same content. The intro block and the visual reference card are saying the same thing twice. Needs a pass to remove the intro text for chapters that have a visual reference. Flag for the final textbook look-through, not urgent.
 
