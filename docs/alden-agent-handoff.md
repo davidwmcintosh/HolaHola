@@ -24,6 +24,32 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 21, 2026 (evening) — Gemini second-pass audit + 4 follow-up fixes**
+
+All 4 items flagged in the June 21 morning Gemini review are now fixed and re-verified. Full audit at `docs/gemini-audit-2026-06-21.md`. All 4 got APPROVED in the second pass. Overall verdict: Clean / Production Ready.
+
+**Fix 1 — Feature 1: Historical fence on resume context** (`gemini-live-session.ts`)
+`recentContext` now wrapped in `[HISTORICAL CONTEXT FOR CONTINUITY ONLY — this already happened, do not re-greet or re-introduce: ... END HISTORICAL CONTEXT]`. First-word constraint added: "The very first word of your response must be a natural continuation of the Spanish flow, not a greeting." Gemini: "Effectively overrides the model's default tendency to reset social protocol."
+
+**Fix 2 — Feature 3: SYSTEM NOTE framing** (`gemini-live-session.ts`)
+Bootstrap Turn label changed from `[Student context loaded — treat this as felt knowledge, not a data file: ...]` → `[SYSTEM NOTE: ...]`. Gemini: "Industry-standard method for injecting metadata into a user-role turn without polluting the user's persona."
+
+**Fix 3 — Feature 4: System Whisper via tool response** (`gemini-live-session.ts`)
+Removed whisper prepend from `sendTextTurn` (read-aloud risk). Added `pendingSystemWhisper: boolean` field. Flag is armed in the turn-latency block when `turnsSinceLastWhisper >= WHISPER_INTERVAL`. Injected into the last tool response's `result` string just before `sendToolResponse()`. Tool responses are never spoken by GL. Gemini: "Sophisticated solution — entirely eliminates the TTS read-aloud risk."
+
+**Fix 4 — Feature 5: Active tool filter for find_teaching_tool** (`unified-ws-handler.ts` + `native-fc-handlers.ts`)
+Session stores `__activeGLToolNames = new Set(glDeclarations.map(d => d.name))` at start. FIND_TEACHING_TOOL handler filters hits: callable tools first, non-callable annotated `[Not active this session]`. Prevents Daniela calling a tool not in the 64-slot manifest. Gemini: minor risk remains that model ignores annotation, but "runtime crash highly improbable."
+
+**Dynamic Tool Swapping (Gemini recommended, not built — and that's correct)**
+Gemini suggested a pre-flight router to pick 40 most-needed tools per student. David and Agent agreed: our dispatcher architecture already does this more elegantly. ~17 of the 64 GL slots are focused dispatchers that route to ALL 139 tools. Dynamic swapping would add latency for no net gain.
+
+**Open follow-ups (low priority, tracked in gemini-audit-2026-06-21.md)**
+- Move Specificity Rule to system prompt footer (recency bias benefit)
+- get_current_teaching_context as mandatory backend-triggered first call on re-init
+- processing_status flag on tutor_sessions to prevent Shadow Auditor race conditions
+
+---
+
 **Session: June 21, 2026 — 5 Gemini audit recommendations (nervous system upgrade)**
 
 ### What was built
