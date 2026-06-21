@@ -34,31 +34,39 @@ export async function indexMadrigalUnits(): Promise<void> {
   const errors: string[] = [];
 
   for (const unit of units) {
+    const unitLanguage = unit.language ?? 'spanish';
+
     // Build the content string that gets embedded.
-    // Rich enough for semantic match: display name + vocab terms + step names.
+    // Rich enough for semantic match: display name + vocab terms + step names + language.
     const content = [
       `Madrigal unit: ${unit.displayName}`,
+      `Language: ${unitLanguage}`,
       `Chapter key: ${unit.contentKey}`,
       `Vocabulary: ${unit.vocabTerms.join(', ')}`,
       `Steps: ${unit.steps.map(s => s.stepName).join(', ')}`,
     ].join('. ');
 
+    // For Spanish units (language omitted = legacy), keep memoryId = contentKey for
+    // backward compat with existing embeddings. French and future languages use
+    // "contentKey:language" format so they don't collide with Spanish entries.
+    const memoryId = unitLanguage === 'spanish' ? unit.contentKey : `${unit.contentKey}:${unitLanguage}`;
+
     try {
       const isNew = await generateAndStoreEmbedding(
         'madrigal_unit',   // memoryType — strict; excluded from student recall searches
-        unit.contentKey,   // memoryId — the chapter key used for routing
+        memoryId,          // language-scoped id
         null,              // userId null = global (not student-specific)
         content,
       );
       if (isNew) {
         newCount++;
-        console.log(`[MadrigalIndexer]  ✓ indexed "${unit.contentKey}"`);
+        console.log(`[MadrigalIndexer]  ✓ indexed "${memoryId}"`);
       } else {
         skipCount++;
       }
     } catch (err: any) {
-      errors.push(`${unit.contentKey}: ${err.message}`);
-      console.warn(`[MadrigalIndexer]  ✗ failed "${unit.contentKey}":`, err.message);
+      errors.push(`${memoryId}: ${err.message}`);
+      console.warn(`[MadrigalIndexer]  ✗ failed "${memoryId}":`, err.message);
     }
   }
 

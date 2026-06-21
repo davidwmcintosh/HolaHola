@@ -134,6 +134,7 @@ export class PedagogicalStateService {
     glSessionId: string,
     studentId: string,
     vocabQuery: string,
+    language: string = 'spanish',
   ): Promise<StateEnvelope> {
     const tutorSessionId = await this.resolveTutorSessionId(studentId);
     if (!tutorSessionId) {
@@ -152,8 +153,8 @@ export class PedagogicalStateService {
         eq(pedagogicalLoopState.status, 'active'),
       ));
 
-    // Semantic match against indexed Madrigal units
-    const matchedUnit = await this.semanticMatchMadrigalUnit(vocabQuery);
+    // Semantic match against indexed Madrigal units (filtered by language)
+    const matchedUnit = await this.semanticMatchMadrigalUnit(vocabQuery, language);
 
     if (!matchedUnit) {
       const compass = await this.buildCompass(tutorSessionId, studentId);
@@ -452,11 +453,11 @@ export class PedagogicalStateService {
     return { activeLoop, suspendedLoops: suspendedRefs, nextRecommendation };
   }
 
-  private async semanticMatchMadrigalUnit(vocabQuery: string): Promise<ReturnType<typeof findMadrigalUnit>> {
+  private async semanticMatchMadrigalUnit(vocabQuery: string, language: string = 'spanish'): Promise<ReturnType<typeof findMadrigalUnit>> {
     const db = getSharedDb();
 
     // Load all madrigal_unit embeddings
-    const indexed = await db
+    const allIndexed = await db
       .select({
         memoryId: memoryEmbeddings.memoryId,
         embedding: memoryEmbeddings.embedding,
@@ -464,10 +465,19 @@ export class PedagogicalStateService {
       .from(memoryEmbeddings)
       .where(eq(memoryEmbeddings.memoryType, 'madrigal_unit'));
 
+    // Filter to only embeddings matching the requested language.
+    // Spanish units use plain contentKey as memoryId (legacy compat).
+    // Non-Spanish units use "contentKey:language" format.
+    const indexed = allIndexed.filter(row => {
+      const colonIdx = row.memoryId.lastIndexOf(':');
+      const unitLang = colonIdx > 0 ? row.memoryId.slice(colonIdx + 1) : 'spanish';
+      return unitLang === language;
+    });
+
     if (indexed.length === 0) {
-      // Fallback: simple text matching against vocab terms
-      console.warn('[PedagogicalState] No madrigal_unit embeddings found — falling back to text match');
-      return this.textMatchMadrigalUnit(vocabQuery);
+      // Fallback: simple text matching against vocab terms for this language
+      console.warn(`[PedagogicalState] No madrigal_unit embeddings found for language="${language}" — falling back to text match`);
+      return this.textMatchMadrigalUnit(vocabQuery, language);
     }
 
     // Embed the query
@@ -476,10 +486,10 @@ export class PedagogicalStateService {
       queryEmbedding = await embedText(vocabQuery);
     } catch (err) {
       console.warn('[PedagogicalState] Embedding failed, falling back to text match:', err);
-      return this.textMatchMadrigalUnit(vocabQuery);
+      return this.textMatchMadrigalUnit(vocabQuery, language);
     }
 
-    // Find best cosine match
+    // Find best cosine match among language-filtered embeddings
     let bestKey = '';
     let bestScore = 0;
     for (const row of indexed) {
@@ -497,13 +507,18 @@ export class PedagogicalStateService {
       return null;
     }
 
-    console.log(`[PedagogicalState] Semantic match: "${bestKey}" score=${bestScore.toFixed(3)} for query="${vocabQuery}"`);
-    return findMadrigalUnit(bestKey);
+    // Parse "contentKey:language" memoryId format — Spanish uses plain contentKey
+    const colonIdx = bestKey.lastIndexOf(':');
+    const contentKey = colonIdx > 0 ? bestKey.slice(0, colonIdx) : bestKey;
+    const unitLanguage = colonIdx > 0 ? bestKey.slice(colonIdx + 1) : 'spanish';
+
+    console.log(`[PedagogicalState] Semantic match: "${bestKey}" score=${bestScore.toFixed(3)} for query="${vocabQuery}" lang="${language}"`);
+    return findMadrigalUnit(contentKey, unitLanguage);
   }
 
-  private textMatchMadrigalUnit(vocabQuery: string): ReturnType<typeof findMadrigalUnit> {
+  private textMatchMadrigalUnit(vocabQuery: string, language: string = 'spanish'): ReturnType<typeof findMadrigalUnit> {
     const q = vocabQuery.toLowerCase();
-    const units = getAllMadrigalUnits();
+    const units = getAllMadrigalUnits(language);
 
     let bestScore = 0;
     let bestUnit = null;
@@ -520,7 +535,7 @@ export class PedagogicalStateService {
     }
 
     if (bestScore === 0) return null;
-    console.log(`[PedagogicalState] Text match: "${bestUnit?.contentKey}" score=${bestScore} for query="${vocabQuery}"`);
+    console.log(`[PedagogicalState] Text match: "${bestUnit?.contentKey}" score=${bestScore} lang="${language}" for query="${vocabQuery}"`);
     return bestUnit ?? null;
   }
 }

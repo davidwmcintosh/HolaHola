@@ -25,6 +25,8 @@ export interface MadrigalStep {
 
 export interface MadrigalLoopUnit {
   contentKey: string;
+  /** Target language for this unit. Omit or 'spanish' for existing Spanish units. */
+  language?: string;
   displayName: string;
   unitType: 'verb' | 'preterite' | 'ser_estar' | 'hay_gustar' | 'progressive' | 'imperfect' | 'perfect' | 'command' | 'reflexive' | 'object_pronoun';
   vocabTerms: string[];
@@ -1300,12 +1302,309 @@ const UNITS: MadrigalLoopUnit[] = [
   },
 ];
 
-export const MADRIGAL_LOOP_CATALOG: readonly MadrigalLoopUnit[] = UNITS;
+// ─── French Units ─────────────────────────────────────────────────────────────
+// Proof of concept: French 1 present-tense verb units.
+// Same 4-step Madrigal sequence; verbal scripts in English instructional voice
+// with French vocabulary. Covers the same conceptual contentKeys as Spanish 1.
 
-export function findMadrigalUnit(contentKey: string): MadrigalLoopUnit | null {
-  return UNITS.find(u => u.contentKey.toLowerCase() === contentKey.toLowerCase()) ?? null;
+const FRENCH_UNITS: MadrigalLoopUnit[] = [
+
+  // ─── Vouloir (je veux / elle veut) ────────────────────────────────────────
+  {
+    contentKey: 'i want',
+    language: 'french',
+    displayName: 'Vouloir — Je veux / Elle veut',
+    unitType: 'verb',
+    vocabTerms: ['je veux', 'elle veut', 'vouloir', 'want', 'I want', 'she wants', 'voulez-vous', 'veux-tu', 'on veut', 'ils veulent'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Je veux" — I want. "Elle veut" — she wants. The verb is vouloir. The stem changes: voul → veu. Say them: je veux, elle veut.',
+        studentAction: 'Repeat je veux and elle veut.',
+        teacherHint: 'Stem change voul → veu mirrors Spanish querer → quiero/quiere. Point out the parallel if students know Spanish. Boot verb: veulent (they want) also has the stem change.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows something someone wants. Read the sentence: Je veux acheter... / Elle veut acheter...',
+        studentAction: 'Read je veux / elle veut sentences with images.',
+        teacherHint: 'vouloir + infinitive is the key construction. Make sure students produce the infinitive after je veux — not a conjugated form.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Eyes across the columns — who wants what? Build your sentence.',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Check that je veux and elle veut forms hold correctly. The combinator drills vouloir + infinitive automaticity.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: "Qu'est-ce que vous voulez faire aujourd'hui? What do you want to do today? Answer with je veux.",
+        studentAction: 'Produce: Je veux + infinitive.',
+        teacherHint: "Je veux + infinitive is extremely high-frequency in French. Personalize: je veux manger, je veux aller, je veux acheter. Accept any accurate infinitive.",
+      },
+    ],
+  },
+
+  // ─── Avoir (j'ai / elle a) ─────────────────────────────────────────────────
+  {
+    contentKey: 'i have',
+    language: 'french',
+    displayName: "Avoir — J'ai / Elle a",
+    unitType: 'verb',
+    vocabTerms: ["j'ai", 'elle a', 'avoir', 'have', 'I have', 'she has', 'avez-vous', 'il a', 'nous avons', 'ils ont'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"J\'ai" — I have. "Elle a" — she has. The verb is avoir. Say them: j\'ai, elle a.',
+        studentAction: "Repeat j'ai and elle a.",
+        teacherHint: "Avoir is both a content verb (to have) and the auxiliary for passé composé. Getting these two forms automatic now pays off enormously later.",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: "Each image shows something someone has. Read the sentence: J'ai un/une... / Elle a un/une...",
+        studentAction: "Read j'ai / elle a sentences with images.",
+        teacherHint: "Gender agreement with un/une is important here. Flag mismatches. J'ai un chat vs j'ai une chatte.",
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who has what? Eyes across the columns.',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: "Watch for liaison: j'ai un ami — the liaison /n/ sound. Note it but don't drill it yet.",
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: "Qu'est-ce que vous avez dans votre sac? What do you have in your bag? Answer with j'ai.",
+        studentAction: "Produce: J'ai un/une + noun.",
+        teacherHint: 'Personalize freely. Any accurate avoir sentence works.',
+      },
+    ],
+  },
+
+  // ─── Aller — places (je vais / elle va) ───────────────────────────────────
+  {
+    contentKey: 'where are you going',
+    language: 'french',
+    displayName: 'Aller — Je vais / Elle va',
+    unitType: 'verb',
+    vocabTerms: ['je vais', 'elle va', 'aller', 'going', 'I am going', 'she is going', 'où allez-vous', 'on va', 'nous allons', 'au', 'à la', 'en France'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Je vais" — I am going. "Elle va" — she is going. The verb is aller. It is completely irregular — nothing looks like "all-". Say them: je vais, elle va.',
+        studentAction: 'Repeat je vais and elle va.',
+        teacherHint: "The irregularity mirrors Spanish ir (voy/va). Stress that this verb doubles as the future: je vais + infinitive = I'm going to... Learning it now pays off twice.",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a destination. Read: Je vais au... / à la... / en... Masc places: au. Fem places: à la. Countries: en.',
+        studentAction: 'Read je vais / elle va sentences with destination images.',
+        teacherHint: 'The au/à la/en distinction is critical. Masc: au restaurant, au cinéma. Fem: à la plage, à la banque. Countries/fem: en France, en Espagne.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Eyes across the columns — who is going where?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Check au vs à la vs en on each substitution. Mistakes solidify here if not caught.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Où allez-vous ce soir? Where are you going tonight? Answer with je vais. Then extend: what are you going to do there?',
+        studentAction: 'Produce: Je vais au/à la/en + destination, then je vais + infinitive.',
+        teacherHint: "Je vais + infinitive unlocks the futur proche. Je vais manger au restaurant — I'm going to eat at the restaurant. This is French 1's most productive construction.",
+      },
+    ],
+  },
+
+  // ─── Être (je suis / elle est) ────────────────────────────────────────────
+  {
+    contentKey: 'to be',
+    language: 'french',
+    displayName: 'Être — Je suis / Elle est',
+    unitType: 'ser_estar',
+    vocabTerms: ['je suis', 'elle est', 'être', 'to be', 'I am', 'she is', 'êtes-vous', 'nous sommes', 'ils sont', 'nationality', 'profession'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Je suis" — I am. "Elle est" — she is. The verb is être. French uses être for both identity AND states — one verb where Spanish has two. Say them: je suis, elle est.',
+        studentAction: 'Repeat je suis and elle est.',
+        teacherHint: "Unlike Spanish, French has no ser/estar split. Être covers nationality, profession, personality, and states. This simplifies things — worth pointing out explicitly.",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows what someone is or their state. Read: Je suis... / Elle est... Watch the adjective gender ending.',
+        studentAction: 'Read être sentences with images.',
+        teacherHint: 'Adjective agreement: fatigué/fatiguée, content/contente, français/française. The feminine adds -e and sometimes changes pronunciation. Flag both gender and spelling.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who is what?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Watch gender agreement of adjectives throughout.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Qui êtes-vous? Tell me two things about yourself using être — nationality or profession, and one personality trait.',
+        studentAction: 'Produce two je suis sentences.',
+        teacherHint: 'Nationality, profession, personality — all être. Accept any accurate response.',
+      },
+    ],
+  },
+
+  // ─── Aimer (j'aime / elle aime) ───────────────────────────────────────────
+  {
+    contentKey: 'i like',
+    language: 'french',
+    displayName: "Aimer — J'aime / Elle aime",
+    unitType: 'hay_gustar',
+    vocabTerms: ["j'aime", 'elle aime', 'aimer', 'like', 'love', 'I like', 'she likes', 'aimez-vous', 'tu aimes', "j'adore"],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"J\'ai me" — I like. "Elle aime" — she likes. The verb is aimer. Unlike Spanish gustar, aimer conjugates normally — subject first, no reversal. Say them: j\'aime, elle aime.',
+        studentAction: "Repeat j'aime and elle aime.",
+        teacherHint: "Key difference from Spanish me gusta: aimer is a normal verb with normal subject placement. No indirect object reversal. This is simpler for English speakers — make it explicit.",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: "Each image shows something someone likes. Read: J'aime le/la/les + noun. Note: general likes take the definite article.",
+        studentAction: "Read j'aime / elle aime sentences with images.",
+        teacherHint: "General likes use the definite article: J'aime le chocolat (I like chocolate in general). Not du chocolat — that's partitive (some chocolate). High-frequency error point.",
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who likes what?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Watch that le/la/les appears before the noun for general likes.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: "Qu'est-ce que vous aimez faire? What do you like to do? Answer with j'aime + infinitive.",
+        studentAction: "Produce: J'aime + infinitive.",
+        teacherHint: "J'aime + infinitive = I like to do something. Distinguish from J'aime le chocolat (noun: general like) vs J'aime manger (infinitive: activity).",
+      },
+    ],
+  },
+
+  // ─── Il y a (there is / there are) ────────────────────────────────────────
+  {
+    contentKey: 'there is',
+    language: 'french',
+    displayName: 'Il y a — There Is / There Are',
+    unitType: 'hay_gustar',
+    vocabTerms: ['il y a', 'there is', 'there are', "il n'y a pas", "est-ce qu'il y a", 'combien', 'des', 'un', 'une'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Il y a" — there is / there are. One phrase covers both singular and plural — just like Spanish hay. Say it: il y a.',
+        studentAction: 'Repeat il y a.',
+        teacherHint: 'Stress the simplicity: one phrase for singular and plural. Il y a un chat. Il y a des chats. Same construction. The y is a locative pronoun but students do not need that analysis yet.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows what is there. Read: Il y a un / une / des...',
+        studentAction: 'Read il y a sentences with images.',
+        teacherHint: 'Un (masc singular), une (fem singular), des (plural any gender). These are indefinite articles — not le/la. Point out the difference from general likes (where aimer takes le/la).',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — what is there?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: "The negative drops the article: il n'y a pas DE + noun. Don't drill negative yet — save for QA pivot.",
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: "Est-ce qu'il y a un restaurant près d'ici? Is there a restaurant nearby? Answer yes: Oui, il y a... Then answer no: Non, il n'y a pas de...",
+        studentAction: "Produce affirmative il y a and negative il n'y a pas de.",
+        teacherHint: "Key: negative is il n'y a pas DE + noun — the article drops to de. High-frequency error point. This is the same pas de pattern as ne... pas de throughout French.",
+      },
+    ],
+  },
+
+  // ─── Pouvoir (je peux / elle peut) ────────────────────────────────────────
+  {
+    contentKey: 'i can go',
+    language: 'french',
+    displayName: 'Pouvoir — Je peux / Elle peut',
+    unitType: 'verb',
+    vocabTerms: ['je peux', 'elle peut', 'pouvoir', 'can', 'I can', 'she can', 'pouvez-vous', 'tu peux', 'on peut', 'puis-je'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Je peux" — I can. "Elle peut" — she can. The verb is pouvoir. Stem change: pouv → peu. Say them: je peux, elle peut.',
+        studentAction: 'Repeat je peux and elle peut.',
+        teacherHint: "Pouvoir mirrors Spanish poder (puedo/puede). Formal inversion is puis-je (may I) rather than est-ce que je peux — note it for later, don't drill now.",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows something someone can do. Read: Je peux... / Elle peut... + infinitive.',
+        studentAction: 'Read je peux / elle peut sentences with images.',
+        teacherHint: 'Pouvoir + infinitive is the construction. Je peux nager. Elle peut chanter. The infinitive follows directly — same as vouloir + infinitive.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Eyes across the columns — who can do what?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Check je peux vs elle peut form accuracy.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: "Qu'est-ce que vous pouvez faire bien? What can you do well? Answer with je peux. Then say one thing you cannot do: je ne peux pas + infinitive.",
+        studentAction: "Produce: Je peux + infinitive, then Je ne peux pas + infinitive.",
+        teacherHint: "Je ne peux pas + infinitive — the ne...pas wraps the conjugated verb, not the infinitive. Je ne peux pas voler, not je peux ne pas voler.",
+      },
+    ],
+  },
+
+];
+
+// Merge all units — Spanish first, then French (preserves existing index order for Spanish)
+const ALL_UNITS = [...UNITS, ...FRENCH_UNITS];
+
+export const MADRIGAL_LOOP_CATALOG: readonly MadrigalLoopUnit[] = ALL_UNITS;
+
+/**
+ * Find a Madrigal unit by contentKey and language.
+ * Language defaults to 'spanish' for backward compatibility with all existing callers.
+ */
+export function findMadrigalUnit(contentKey: string, language: string = 'spanish'): MadrigalLoopUnit | null {
+  return ALL_UNITS.find(u =>
+    u.contentKey.toLowerCase() === contentKey.toLowerCase() &&
+    (u.language ?? 'spanish') === language,
+  ) ?? null;
 }
 
-export function getAllMadrigalUnits(): MadrigalLoopUnit[] {
-  return [...UNITS];
+/**
+ * Get all Madrigal units, optionally filtered by language.
+ * No language arg = return everything (used by the embedding indexer to index all languages).
+ */
+export function getAllMadrigalUnits(language?: string): MadrigalLoopUnit[] {
+  if (!language) return [...ALL_UNITS];
+  return ALL_UNITS.filter(u => (u.language ?? 'spanish') === language);
 }

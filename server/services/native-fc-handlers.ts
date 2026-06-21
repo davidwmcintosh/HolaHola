@@ -4216,6 +4216,7 @@ export class NativeFunctionCallHandler {
             sessionId,
             String(session.userId ?? session.studentId ?? ''),
             vocabQuery,
+            (session.targetLanguage ?? 'spanish').toLowerCase(),
           );
           (session as any).pedagogicalLoopResult = result;
           console.log(`[Native Function→StartMadrigalLoop] query="${vocabQuery}" status=${result.result.status}`);
