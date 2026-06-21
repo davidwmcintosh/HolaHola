@@ -2384,6 +2384,36 @@ const FRENCH_JAI_RECU: HayUnitContent = {
   ],
 };
 
+const FRENCH_FUTUR_PROCHE: HayUnitContent = {
+  chapterTitleKey: 'je vais + infinitif',
+  conceptLabel: 'Le Futur Proche',
+  conceptDefinition: 'I am going to · je vais + infinitif · the most natural future in spoken French',
+  introNote: 'Futur proche is formed with aller + infinitive — exactly like Spanish ir a and English "going to." Once you have aller down, the whole future opens up.',
+  clusters: [
+    {
+      heading: 'Je vais + infinitif — Plans et Intentions',
+      pairs: [
+        { imageWord: 'manger', imageDescription: 'a person sitting down to a meal, looking forward to eating', question: "Qu'est-ce que vous allez manger?", questionTranslation: 'What are you going to eat?', answer: 'Je vais manger une pizza.', answerTranslation: 'I am going to eat a pizza.' },
+        { imageWord: 'acheter', imageDescription: 'a person walking into a store with a shopping bag', question: "Qu'est-ce que vous allez acheter?", questionTranslation: 'What are you going to buy?', answer: 'Je vais acheter un livre.', answerTranslation: 'I am going to buy a book.' },
+        { imageWord: 'voyager', imageDescription: 'a person at an airport with a suitcase, excited to travel', question: 'Où allez-vous voyager?', questionTranslation: 'Where are you going to travel?', answer: 'Je vais voyager en France.', answerTranslation: 'I am going to travel to France.' },
+        { imageWord: 'étudier', imageDescription: 'an open textbook and notes on a desk, ready to study', question: "Qu'est-ce que vous allez étudier ce soir?", questionTranslation: 'What are you going to study tonight?', answer: 'Je vais étudier le français.', answerTranslation: 'I am going to study French.' },
+      ],
+    },
+    {
+      heading: 'Elle va / Il va + infinitif — À la Troisième Personne',
+      noteInline: 'elle va manger = she is going to eat · il va acheter = he is going to buy',
+      pairs: [
+        { imageWord: 'travailler', imageDescription: 'a woman heading to her office with a briefcase', question: "Qu'est-ce qu'elle va faire?", questionTranslation: 'What is she going to do?', answer: 'Elle va travailler.', answerTranslation: 'She is going to work.' },
+        { imageWord: 'lire', imageDescription: 'a man settling into a chair with a novel', question: "Qu'est-ce qu'il va faire?", questionTranslation: 'What is he going to do?', answer: 'Il va lire un roman.', answerTranslation: 'He is going to read a novel.' },
+      ],
+      sentenceColumns: [
+        { label: 'Sujet', items: [{ text: 'Je vais', translation: 'I am going to' }, { text: 'Elle va', translation: 'She is going to' }, { text: 'Il va', translation: 'He is going to' }, { text: 'On va', translation: 'One is going to / We are going to' }, { text: 'Nous allons', translation: 'We are going to' }] },
+        { label: 'Infinitif', items: [{ text: 'manger.', translation: 'eat.' }, { text: 'acheter.', translation: 'buy.' }, { text: 'étudier.', translation: 'study.' }, { text: 'voyager.', translation: 'travel.' }, { text: 'travailler.', translation: 'work.' }, { text: 'lire.', translation: 'read.' }] },
+      ],
+    },
+  ],
+};
+
 // ── Italian present-tense verb units ──────────────────────────────────────────
 
 const ITALIAN_VOGLIO: HayUnitContent = {
@@ -3115,6 +3145,7 @@ const HAY_UNITS: HayUnitContent[] = [
   FRENCH_CEST_PROPRE,
   FRENCH_JAI_ETUDIE,
   FRENCH_JAI_RECU,
+  FRENCH_FUTUR_PROCHE,
   // ── Italian present-tense verb units ─────────────────────────────────────────
   ITALIAN_VOGLIO,
   ITALIAN_HO,

@@ -2050,6 +2050,45 @@ const FRENCH_UNITS: MadrigalLoopUnit[] = [
     ],
   },
 
+  // ─── Futur Proche (je vais + infinitif) ───────────────────────────────────
+  {
+    contentKey: 'je vais + infinitif',
+    language: 'french',
+    displayName: 'Le Futur Proche — Je vais + infinitif',
+    unitType: 'verb',
+    vocabTerms: ['je vais', 'elle va', 'aller', 'futur proche', 'near future', 'going to', 'je vais manger', 'je vais aller', 'elle va acheter', 'on va'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Je vais manger" — I am going to eat. "Elle va acheter" — she is going to buy. Futur proche = aller conjugated + infinitive. Say them: je vais manger, elle va acheter.',
+        studentAction: 'Repeat je vais + infinitive and elle va + infinitive.',
+        teacherHint: 'Futur proche is the most natural way to express future plans in spoken French. The construction mirrors Spanish ir a + infinitive and English going to + verb. Automaticity here is high-value.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a plan or intention. Read: Je vais + infinitif... / Elle va + infinitif...',
+        studentAction: 'Read je vais / elle va + infinitive sentences with images.',
+        teacherHint: 'Make sure students produce the full infinitive after je vais — not a conjugated form. Common error: je vais mange (missing infinitive).',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Eyes across the columns — who is going to do what? Build your sentence.',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Check that the infinitive stays in base form. The combinator drills the aller + infinitive automaticity for all subjects.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: "Qu'est-ce que vous allez faire ce weekend? What are you going to do this weekend? Answer with je vais.",
+        studentAction: 'Produce: Je vais + infinitive for a real weekend plan.',
+        teacherHint: "Accept any accurate je vais + infinitive. Personalize and extend: et votre ami(e) — qu'est-ce qu'il/elle va faire? elicits elle va.",
+      },
+    ],
+  },
+
 ];
 
 const ITALIAN_UNITS: MadrigalLoopUnit[] = [

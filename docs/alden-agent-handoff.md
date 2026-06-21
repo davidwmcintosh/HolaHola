@@ -24,6 +24,42 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 21, 2026 (night) — French 1–4 parity complete + German 1 expansion**
+
+French is now fully verified at 48/17/8/8 parity with Spanish. Italian confirmed already at parity.
+
+**French 1 (FR1):**
+- Was 48 units but had a gap at order 24 and a collision at order 35 (two units fighting for the same slot). Fixed via cascade shift: school units at orders 32–35 shifted down by 1, filling the gap and clearing the collision.
+- Added 11 missing 2nd lessons for units that only had 1 (orders 24,26,28,29,33,36,37,39,45,46,48).
+- Loop catalog: added missing "futur proche" entry (`je vais + infinitif`) in `server/data/madrigal-loop-catalog.ts` — 4-step anchor/model/combinator/qa_pivot structure.
+- HayUnitContent: added `FRENCH_FUTUR_PROCHE` entry in `client/src/data/madrigal-unit-content.ts` with 2 clusters (plans/intentions + 3rd person). Added to `HAY_UNITS` array.
+- textbook_lesson_content: inserted vocab rows for orders 6 (futur proche) and 24 (fournitures scolaires).
+
+**French 2 (FR2):** Fixed 5 units missing chapter_type (skills/health/technology/vocabulary_cluster/culture). All 17 units now have chapter_type and 2+ lessons.
+
+**French 3/4:** Already correct — no changes needed.
+
+**Italian 1–4:** Confirmed at 48/17/8/8 — no changes needed.
+
+**German 1:** 48 units complete with lessons. Existing 7 units reordered to correct positions. 41 new units inserted (verb chain orders 3–24 + thematic orders 25–48) with vocabulary + conversation_practice lessons (82 new lessons total).
+
+**Language parity status (updated):**
+- Spanish 1–4: 48/17/8/8 ✓ (master template)
+- French 1–4: 48/17/8/8 ✓ (loop catalog 20 entries, HayUnitContent 20, vocab rows done)
+- Italian 1–4: 48/17/8/8 ✓ (loop catalog 22, HayUnitContent 12, vocab rows done)
+- Portuguese 1–4: 48/17/8/8 ✓ (loop catalog 22, HayUnitContent 11, vocab rows done)
+- German 1: 48 units ✓ — needs loop catalog + HayUnitContent + vocab rows (next session)
+- German 2–4: units at 7/4/5 — need expansion to 17/8/8 (next session)
+- Japanese/Korean/Mandarin/English 1–4: not yet expanded (all need the full 48/17/8/8 treatment)
+
+**Next session priorities:**
+1. German loop catalog (GERMAN_UNITS array in madrigal-loop-catalog.ts) — 22 verb chain entries
+2. German HayUnitContent (11 entries for the core chain verbs)
+3. German 2–4 expansion (units + lessons to reach 17/8/8)
+4. Japanese 1 expansion (same 41-unit pattern as German 1)
+
+---
+
 **Session: June 21, 2026 (late) — Portuguese curriculum parity complete**
 
 Portuguese 1–4 is now at full structural + content parity with Spanish 1–4 (48/17/8/8).
