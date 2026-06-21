@@ -24,6 +24,49 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 21, 2026 (continued) — Hebrew 1–4 added, French 1–4 confirmed complete, 10-language mirror done**
+
+Hebrew is now at full 48/17/8/8 parity with Spanish. French was already complete (confirmed from DB). The 10-language mirror project is now fully done.
+
+**Hebrew DB (this session):**
+- HE1 (id: 5e974fd1): 48 units, 96 lessons ✓
+- HE2 (id: 9e0b19c3): 17 units, 34 lessons ✓
+- HE3 (id: 27fc44b4): 8 units, 16 lessons, all `advanced_unit` ✓
+- HE4 (id: 2d8069c4): 8 units, 16 lessons, all `advanced_unit` ✓
+- Note: pre-existing "Hebrew 1 — Complete Beginner" (id: 79d4324b, ~15 units) left untouched.
+
+**Loop catalog (`server/data/madrigal-loop-catalog.ts`):**
+- HEBREW_UNITS: 22 entries (הולך/הולכת, לקחתי, קניתי, הולך ל, יש לי, אני רוצה, אני זהות, איפה אני, יכול/יכולה, מבנה הפועל, יש, אוהב, הייתי רוצה, הלכתי, הוא הולך ל, מה עשה, היה לו, לו/לה, נקי/מלוכלך, למדתי, קיבלתי, אני אלך)
+- ALL_UNITS merge at bottom of file now includes HEBREW_UNITS.
+
+**HayUnitContent (`client/src/data/madrigal-unit-content.ts`):**
+- 22 Hebrew constants added (HEBREW_HOLECH through HEBREW_ANI_ELECH) — all with full clusters + sentenceColumns
+- All 22 added to HAY_UNITS array after ENGLISH_I_WOULD_LIKE
+
+**French confirmed (no code changes needed — already done in prior session):**
+- FR1: 48 units, 125 lessons ✓
+- FR2: 17 units, 57 lessons ✓
+- FR3: 8 units, all `advanced_unit` ✓
+- FR4: 8 units, order_index fixed from gaps (1,3,4,6,7,8,9,10 → 1–8) ✓
+- Loop catalog: FRENCH_UNITS already present (22 entries) ✓
+- HayUnitContent: 20 French entries already in HAY_UNITS ✓
+
+**Final language parity status (all 10 complete):**
+- Spanish 1–4: 48/17/8/8 ✓ (master template)
+- French 1–4: 48/17/8/8 ✓ (loop catalog 22, HayUnitContent 20)
+- Italian 1–4: 48/17/8/8 ✓
+- Portuguese 1–4: 48/17/8/8 ✓
+- German 1–4: 48/17/8/8 ✓ (loop catalog 22, HayUnitContent 12)
+- Japanese 1–4: 48/17/8/8 ✓ (loop catalog 22, HayUnitContent 13)
+- Korean 1–4: 48/17/8/8 ✓ (loop catalog 22, HayUnitContent 13)
+- Mandarin 1–4: 48/17/8/8 ✓ (loop catalog 22, HayUnitContent 13)
+- English 1–4: 48/17/8/8 ✓ (loop catalog 22, HayUnitContent 13)
+- **Hebrew 1–4: 48/17/8/8 ✓ (loop catalog 22, HayUnitContent 22) — just completed**
+
+**The 10-language mirror project is complete. No blockers.**
+
+---
+
 **Session: June 21, 2026 — All 9 languages at 48/17/8/8 parity + HayUnitContent complete**
 
 All 9 languages are now at full DB parity (48/17/8/8). This session completed the HayUnitContent visual entries for Japanese, Korean, Mandarin, and English.

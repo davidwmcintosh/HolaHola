@@ -5306,8 +5306,343 @@ const ENGLISH_UNITS: MadrigalLoopUnit[] = [
 
 ];
 
-// Merge all units — Spanish first, then French, Italian, Portuguese, German, Japanese, Korean, Mandarin, English
-const ALL_UNITS = [...UNITS, ...FRENCH_UNITS, ...GERMAN_UNITS, ...ITALIAN_UNITS, ...PORTUGUESE_UNITS, ...JAPANESE_UNITS, ...KOREAN_UNITS, ...MANDARIN_UNITS, ...ENGLISH_UNITS];
+// ─── Hebrew Verb Chain Units ───────────────────────────────────────────────────
+const HEBREW_UNITS: MadrigalLoopUnit[] = [
+
+  // ─── הולך/הולכת — Where Are You Going? ───────────────────────────────────
+  {
+    contentKey: 'where are you going hebrew',
+    language: 'hebrew',
+    displayName: 'הולך/הולכת — לאן אתה הולך?',
+    unitType: 'verb',
+    vocabTerms: ['הולך', 'הולכת', 'ללכת', 'לאן', 'going', 'I am going', 'she is going', 'הוא הולך', 'היא הולכת', 'אנחנו הולכים'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"הולך" — I am going (masculine). "הולכת" — I am going (feminine). The verb is ללכת. Hebrew present tense is gendered. Say: אני הולך / אני הולכת.', studentAction: 'Repeat אני הולך and אני הולכת.', teacherHint: 'Hebrew present tense has four forms: m.sg, f.sg, m.pl, f.pl. Start with the singular pair. The masc/fem distinction is foundational — establish it clearly now.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a place. Read: אני הולך ל… / אני הולכת ל… — the ל preposition means "to."', studentAction: 'Read אני הולך ל / אני הולכת ל sentences with place images.', teacherHint: 'ל before a place: אני הולך לבית הספר, לסופרמרקט, לים. Flag: definite nouns need ל + ה merged into לְ or just ל before the definite article.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Column drill — who is going where? Match subject to destination.', studentAction: 'Combine: subject + הולך/הולכת + ל + destination.', teacherHint: 'Check gender agreement: a female student uses הולכת. Mix in הוא הולך / היא הולכת for 3rd person. Watch for students defaulting to the masculine form regardless of their gender.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'לאן אתה/את הולך/הולכת אחרי הלימודים? Where are you going after school? Answer with אני הולך/הולכת ל…', studentAction: 'Produce: אני הולך/הולכת ל + destination.', teacherHint: 'Personalize. Any accurate destination works. If students can name it in Hebrew — great. If they code-switch, help them find the Hebrew word.' },
+    ],
+  },
+
+  // ─── לקחתי — I Took ────────────────────────────────────────────────────────
+  {
+    contentKey: 'i took hebrew',
+    language: 'hebrew',
+    displayName: 'לקחתי — I Took',
+    unitType: 'verb',
+    vocabTerms: ['לקחתי', 'לקח', 'לקחה', 'לקחנו', 'לקחת', 'לקחו', 'took', 'I took', 'he took', 'she took'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"לקחתי" — I took. "הוא לקח" — he took. The root is ל-ק-ח. Hebrew past tense is personal suffix-based, not gender-inflected in 1st person. Say: לקחתי, הוא לקח, היא לקחה.', studentAction: 'Repeat לקחתי, הוא לקח, היא לקחה.', teacherHint: 'Pa\'al past: 1st person singular is -תי suffix for all roots. The 3rd person masc/fem split (לקח/לקחה) is important. This root is "strong" — no weak letters.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows something taken. Read: לקחתי את ה…  — את marks the direct object.', studentAction: 'Read לקחתי sentences noting את before definite objects.', teacherHint: 'את is the definite direct object marker — one of Hebrew\'s most important function words. לקחתי ספר (indefinite, no את) vs לקחתי את הספר (definite, needs את). Establish the rule now.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build: subject + past form + את + object. Mix persons and genders.', studentAction: 'Combine across columns rapidly.', teacherHint: 'לקחתי, לקחת, הוא לקח, היא לקחה — four high-frequency forms. The -תי/-תְ/-ה pattern is the Pa\'al past paradigm.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'מה לקחת הבוקר? What did you take this morning? Answer: לקחתי את ה…', studentAction: 'Produce: לקחתי את ה + object.', teacherHint: 'Accept any accurate answer. Reward use of את with definite objects.' },
+    ],
+  },
+
+  // ─── קניתי — I Bought ──────────────────────────────────────────────────────
+  {
+    contentKey: 'i bought hebrew',
+    language: 'hebrew',
+    displayName: 'קניתי — I Bought',
+    unitType: 'verb',
+    vocabTerms: ['קניתי', 'קנה', 'קנתה', 'קנינו', 'לקנות', 'bought', 'I bought', 'he bought', 'she bought', 'קנית'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"קניתי" — I bought. "הוא קנה" — he bought. "היא קנתה" — she bought. Root ק-נ-ה — a weak root (final ה). Say: קניתי, הוא קנה, היא קנתה.', studentAction: 'Repeat קניתי, הוא קנה, היא קנתה.', teacherHint: 'Roots ending in ה are "weak" — the final ה drops in some forms. קנה (he bought) vs קנתה (she bought). The -תה ending for f.sg past is the pattern.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show things bought. Read: קניתי את ה… / הוא קנה…', studentAction: 'Read קניתי sentences with shopping images.', teacherHint: 'Reinforce את with definite objects. קניתי ספר (I bought a book — indefinite) vs קניתי את הספר (I bought the book — definite). Both are correct in different contexts.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Column drill — who bought what? Combine subject + past form + object.', studentAction: 'Build shopping sentences in past tense.', teacherHint: 'Check: קניתי, קנית, הוא קנה, היא קנתה, קנינו. This root models all weak-ה Pa\'al verbs: ראה, שתה, עשה follow the same pattern.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'מה קנית אחרון? What did you buy last? Answer: קניתי…', studentAction: 'Produce: קניתי + (את ה) + object.', teacherHint: 'Celebrate creativity. Any purchase works. Ensure they use the correct personal suffix.' },
+    ],
+  },
+
+  // ─── הולך ל + שם פועל — I Am Going To ────────────────────────────────────
+  {
+    contentKey: 'i am going to hebrew',
+    language: 'hebrew',
+    displayName: 'הולך ל + שם פועל — I Am Going To',
+    unitType: 'verb',
+    vocabTerms: ['הולך לאכול', 'הולך לקנות', 'הולך ללמוד', 'הולכת לישון', 'going to', 'near future', 'infinitive', 'שם פועל', 'לאכול', 'ללמוד'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: 'Hebrew near future: הולך/הולכת + ל + infinitive. "אני הולך לאכול" — I am going to eat. The infinitive starts with ל. Say: אני הולך לאכול.', studentAction: 'Repeat אני הולך לאכול and אני הולכת לאכול.', teacherHint: 'Hebrew infinitives (שמות פועל) begin with ל: לאכול, לקנות, ללמוד. The going-to future uses the same הולך/הולכת that students already know from Unit 1 — make that connection explicit.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a planned activity. Read: אני הולך/הולכת + ל + infinitive.', studentAction: 'Read near-future sentences with action images.', teacherHint: 'Drill the infinitive list: לאכול (to eat), לשתות (to drink), לקנות (to buy), ללמוד (to study), לישון (to sleep), ללכת (to go). These are the 6 most useful infinitives.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who is going to do what? Combine: subject + הולך/הולכת + ל + infinitive.', studentAction: 'Build plans using the near-future structure.', teacherHint: 'Gender discipline: female students use הולכת. Check that the infinitive follows ל directly. No conjugation of the second verb — it stays in infinitive form.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'מה אתה/את הולך/הולכת לעשות הערב? What are you going to do tonight? Answer: אני הולך/הולכת ל…', studentAction: 'Produce: אני הולך/הולכת + ל + infinitive.', teacherHint: 'Highly personalizable. This structure is the backbone of everyday Hebrew planning language.' },
+    ],
+  },
+
+  // ─── יש לי — I Have ────────────────────────────────────────────────────────
+  {
+    contentKey: 'i have hebrew',
+    language: 'hebrew',
+    displayName: 'יש לי — I Have',
+    unitType: 'verb',
+    vocabTerms: ['יש לי', 'אין לי', 'יש לו', 'יש לה', 'יש', 'אין', 'I have', 'I do not have', 'he has', 'she has'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"יש לי" — I have (literally: there-is to-me). "אין לי" — I do not have. Hebrew has no verb "to have" — instead יש/אין + ל + pronoun. Say: יש לי, אין לי.', studentAction: 'Repeat יש לי and אין לי.', teacherHint: 'This is a major structural difference from English. יש = existence/presence. יש לי = it exists to me = I have. אין = absence. יש לי כלב. אין לי חתול. The ל preposition carries the possessor.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show owned things. Read: יש לי… / אין לי…', studentAction: 'Read יש לי / אין לי sentences with possession images.', teacherHint: 'Extend to other persons: יש לו (he has), יש לה (she has), יש לנו (we have). The ל suffix changes: לי, לך, לו, לה, לנו, לכם, להם. Focus on לי and לו/לה for now.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Column drill — who has what? Build: יש/אין + ל + person + object.', studentAction: 'Combine possession sentences rapidly.', teacherHint: 'יש לי / אין לי contrast is the core. Also drill the question form: יש לך…? Do you have a…? Answer: כן, יש לי / לא, אין לי.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'יש לך אח או אחות? Do you have a brother or sister? Answer: כן, יש לי… / לא, אין לי…', studentAction: 'Produce: כן יש לי / לא אין לי + noun.', teacherHint: 'Personal, memorable. Extend to יש לי שני אחים (I have two brothers) for students who want more.' },
+    ],
+  },
+
+  // ─── אני רוצה — I Want ─────────────────────────────────────────────────────
+  {
+    contentKey: 'i want hebrew',
+    language: 'hebrew',
+    displayName: 'אני רוצה — I Want',
+    unitType: 'verb',
+    vocabTerms: ['אני רוצה', 'אני רוצה לאכול', 'הוא רוצה', 'היא רוצה', 'רצה', 'רוצה', 'want', 'I want', 'he wants', 'she wants'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"אני רוצה" — I want (masculine). "אני רוצה" — also used by females (same form! — present participle-style). But formally: m=רוצה, f=רוצה — same spelling, same pronunciation. Root ר-צ-ה. Say: אני רוצה.', studentAction: 'Repeat אני רוצה. Then: אני רוצה לאכול.', teacherHint: 'רוצה is the same for m.sg and f.sg in modern spoken Hebrew. The formal f.sg is רוצָה vs רוֹצֶה in nikud, but in unpointed text and speech they are identical. No need to drill distinction here.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show desired things. Read: אני רוצה + noun or + ל + infinitive.', studentAction: 'Read אני רוצה sentences.', teacherHint: 'Two patterns: (1) רוצה + noun: אני רוצה מים (I want water); (2) רוצה + ל + infinitive: אני רוצה לאכול (I want to eat). Drill both.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who wants what? Build: subject + רוצה + noun or infinitive.', studentAction: 'Combine desire sentences rapidly.', teacherHint: 'הוא רוצה, היא רוצה, אנחנו רוצים (we want — note plural form). The plural adds -ים: רוצים (m.pl), רוצות (f.pl).' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'מה אתה/את רוצה לעשות בסוף השבוע? What do you want to do this weekend? Answer: אני רוצה ל…', studentAction: 'Produce: אני רוצה + ל + infinitive.', teacherHint: 'Highly productive. Any accurate answer works. The construction רוצה + ל + infinitive is one of the 5 most common Hebrew spoken patterns.' },
+    ],
+  },
+
+  // ─── אני — זהות — I Am (Identity) ────────────────────────────────────────
+  {
+    contentKey: 'i am identity hebrew',
+    language: 'hebrew',
+    displayName: 'אני — זהות — I Am',
+    unitType: 'verb',
+    vocabTerms: ['אני', 'הוא', 'היא', 'סטודנט', 'סטודנטית', 'מורה', 'identity', 'I am', 'he is', 'she is', 'nominal sentence'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: 'Hebrew identity sentences have NO verb: "אני סטודנט" — I (am a) student. No word for "am." The subject pronoun + noun is the complete sentence. Say: אני סטודנט / אני סטודנטית.', studentAction: 'Repeat אני סטודנט and אני סטודנטית.', teacherHint: 'The zero-copula in present tense is fundamental to Hebrew. "Nominal sentence" (משפט שמני). Only in past/future is the verb להיות used. Present tense: pronoun + noun/adjective. This surprises English speakers — lean into it.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show professions and identities. Read: אני ___. הוא ___. היא ___.', studentAction: 'Read identity sentences without a verb.', teacherHint: 'Professions in Hebrew are gender-marked: מורה/מורה (teacher — same!), סטודנט/סטודנטית, רופא/רופאה, עורך-דין/עורכת-דין. Focus on common ones.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Column drill — who is what? Combine pronoun + profession/identity noun.', studentAction: 'Build: אני/הוא/היא + identity noun.', teacherHint: 'Adding adjectives: אני סטודנט טוב (I am a good student). No verb still. The adjective follows the noun and agrees in gender: טוב/טובה.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'מי אתה/את? Who are you? Answer: אני + your identity.', studentAction: 'Produce: אני + name/identity/profession.', teacherHint: 'אני [name]. אני סטודנט/ית. אני אמריקאי/ת. All are valid. The zero-copula should now feel natural.' },
+    ],
+  },
+
+  // ─── איפה אני? — Where Am I? ──────────────────────────────────────────────
+  {
+    contentKey: 'where am i hebrew',
+    language: 'hebrew',
+    displayName: 'איפה אני? — Where Am I?',
+    unitType: 'verb',
+    vocabTerms: ['איפה', 'נמצא', 'נמצאת', 'בבית', 'בבית הספר', 'where', 'located', 'I am at', 'he is at', 'location'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"איפה אני?" — Where am I? Location uses the verb נמצא/נמצאת (located, to be found). "אני נמצא ב…" — I am at / I am in. The prefix ב means "in/at." Say: אני נמצא בבית הספר.', studentAction: 'Repeat אני נמצא / אני נמצאת + ב + location.', teacherHint: 'נמצא (m) / נמצאת (f) is the present participle of the verb למצוא/להימצא. In informal speech "אני ב…" (I am at) is common without נמצא. Teach the full form first.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show locations. Read: אני נמצא/נמצאת ב + location.', studentAction: 'Read location sentences.', teacherHint: 'Common locations: בבית (at home), בבית הספר (at school), בסופרמרקט (at the supermarket), בפארק (at the park), בחוף הים (at the beach). The ב preposition merges with definite article: ב + ה = בְּ.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who is where? Combine: subject + נמצא/נמצאת + ב + location.', studentAction: 'Build location sentences rapidly.', teacherHint: '3rd person: הוא נמצא / היא נמצאת. Question form: איפה הוא נמצא? The question word איפה moves to the front.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'איפה אתה/את נמצא/נמצאת עכשיו? Where are you right now? Answer: אני נמצא/נמצאת ב…', studentAction: 'Produce: אני נמצא/נמצאת ב + current location.', teacherHint: 'The answer is obvious — they are in class. Then pivot: ואחרי הלימודים, איפה תהיה? (And after school, where will you be?) — preview the future tense.' },
+    ],
+  },
+
+  // ─── אני יכול/יכולה — I Can ───────────────────────────────────────────────
+  {
+    contentKey: 'i can hebrew',
+    language: 'hebrew',
+    displayName: 'אני יכול/יכולה — I Can',
+    unitType: 'verb',
+    vocabTerms: ['אני יכול', 'אני יכולה', 'לא יכול', 'יכול לרוץ', 'יכולה לדבר', 'can', 'I can', 'I cannot', 'ability', 'יכולת'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"אני יכול" — I can (masculine). "אני יכולה" — I can (feminine). Root י-כ-ל. Followed by ל + infinitive. Say: אני יכול לדבר / אני יכולה לדבר עברית.', studentAction: 'Repeat אני יכול לדבר and אני יכולה לדבר.', teacherHint: 'Unlike רוצה (same for m/f), יכול (m) and יכולה (f) are distinct. This is a perfect opportunity to reinforce the gender distinction. יכול + ל + infinitive is the ability construction.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show skills and abilities. Read: אני יכול/יכולה ל…', studentAction: 'Read ability sentences.', teacherHint: 'Useful ability verbs: לרוץ (run), לשחות (swim), לנגן בגיטרה (play guitar), לדבר ספרדית (speak Spanish), לבשל (cook). Negation: אני לא יכול/יכולה ל…' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Column drill — who can do what? Build ability sentences.', studentAction: 'Combine: subject + יכול/יכולה + ל + infinitive.', teacherHint: '3rd person: הוא יכול / היא יכולה. Plural: הם יכולים / הן יכולות. Keep focus on singular for now.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'מה אתה/את יכול/יכולה לעשות טוב מאוד? What can you do really well? Answer: אני יכול/יכולה ל…', studentAction: 'Produce: אני יכול/יכולה + ל + skill infinitive.', teacherHint: 'Personalize freely. מאוד (very much/really) is a useful adverb to add. Celebrate genuine skills.' },
+    ],
+  },
+
+  // ─── מבנה הפועל — The Verb Pattern ───────────────────────────────────────
+  {
+    contentKey: 'the verb pattern hebrew',
+    language: 'hebrew',
+    displayName: 'מבנה הפועל — בניין קל',
+    unitType: 'verb',
+    vocabTerms: ['בניין', 'שורש', 'פעל', 'קל', 'binyan', 'root', 'Pa\'al', 'verb pattern', 'קוטל', 'כותב'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: 'Hebrew verbs are built from 3-letter roots placed into patterns called בניינים (binyanim). The most common is בניין קל (Pa\'al). Root כ-ת-ב (write): כותב (writing), כתב (wrote), יכתוב (will write). One root → many words.', studentAction: 'Repeat: כ-ת-ב → כותב → כתב → יכתוב.', teacherHint: 'This meta-unit teaches the system itself. Students who understand roots and patterns can decode new words. The root system is uniquely Hebrew/Semitic. Use כ-ת-ב as the model — it\'s clean, common, and all forms are regular.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'See how the root ל-מ-ד (learn/study) works in Pa\'al: לומד (learning), למד (learned), ילמד (will learn). Same root, different patterns.', studentAction: 'Identify the root in: לומד, למדתי, ילמד.', teacherHint: 'ל-מ-ד is strategically chosen because students already know למדתי (I studied) from the chain. Connect new meta-knowledge to what they already know.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Given these roots, identify the Pa\'al present form: ש-מ-ע (hear), ד-ב-ר (speak), א-כ-ל (eat).', studentAction: 'Produce present tense Pa\'al: שומע, מדבר, אוכל.', teacherHint: 'Pa\'al present pattern: CoCeC for m.sg (כוֹתֵב, שׁוֹמֵעַ, אוֹכֵל). The vowel pattern o-e is the Pa\'al present signature. Note: some roots have quirks (א-כ-ל → אוכל, not *אָכֵל).' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'You know the root ד-ב-ר (speak). How do you say "I spoke" and "I will speak"? Try to predict from the pattern.', studentAction: 'Predict: דיברתי (I spoke), אדבר (I will speak).', teacherHint: 'דיברתי is actually Pi\'el, not Pa\'al — a great teaching moment about binyan differences. אדבר is Pa\'al future. The awareness of patterns helps students guess and remember.' },
+    ],
+  },
+
+  // ─── יש — There Is ────────────────────────────────────────────────────────
+  {
+    contentKey: 'there is hebrew',
+    language: 'hebrew',
+    displayName: 'יש — יש / אין',
+    unitType: 'verb',
+    vocabTerms: ['יש', 'אין', 'יש כאן', 'אין שם', 'there is', 'there are', 'there is no', 'existence', 'יש בעיה', 'אין בעיה'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"יש" — there is / there are. "אין" — there is no / there are no. These are the Hebrew existential words. They work for both singular and plural. Say: יש כאן כלב. אין כאן חתול.', studentAction: 'Repeat: יש כאן כלב. אין כאן חתול.', teacherHint: 'יש/אין for existence is conceptually different from יש לי/אין לי for possession — though the same words. Existence: יש מסעדה ברחוב (There is a restaurant on the street). Possession: יש לי מסעדה (I have a restaurant). Context clarifies.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show rooms and places. Read: יש + noun + ב + location. Or: אין + noun + ב + location.', studentAction: 'Read existence sentences.', teacherHint: 'יש ספה בסלון (There is a sofa in the living room). אין מחשב בחדר השינה (There is no computer in the bedroom). The location follows the noun.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Column drill — what is or is not in these places? Build יש/אין sentences.', studentAction: 'Combine: יש/אין + noun + ב + location.', teacherHint: 'Spoken Hebrew often drops ב + location and just says יש מסעדה here. Both are correct. The question form: ?יש פה…? (Is there… here?) takes rising intonation.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'יש לך שיעורי בית היום? Do you have homework today? Or: יש מסעדה טובה ליד ביתך? Answer with יש or אין.', studentAction: 'Produce: כן יש / לא אין + detail.', teacherHint: 'These two uses — possession (יש לך) and existence (יש מסעדה) — show the range of יש/אין. Students who master both are thinking in Hebrew.' },
+    ],
+  },
+
+  // ─── אני אוהב — I Like ────────────────────────────────────────────────────
+  {
+    contentKey: 'i like hebrew',
+    language: 'hebrew',
+    displayName: 'אני אוהב/אוהבת — I Like',
+    unitType: 'verb',
+    vocabTerms: ['אני אוהב', 'אני אוהבת', 'לא אוהב', 'אוהב לשחק', 'I like', 'I love', 'I don\'t like', 'אהב', 'preference', 'likes'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"אני אוהב" — I like/love (masculine). "אני אוהבת" — I like/love (feminine). Root א-ה-ב. Used for both "like" and "love" — context determines which. Say: אני אוהב מוזיקה. אני אוהבת לשחות.', studentAction: 'Repeat: אני אוהב + noun. אני אוהבת + ל + infinitive.', teacherHint: 'Unlike Spanish (gustar uses indirect object), Hebrew אהב works like English love/like. אני אוהב פיצה — I love pizza. The m/f distinction (אוהב/אוהבת) matters here — reinforce it.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show favorite things and activities. Read: אני אוהב/אוהבת + noun or + ל + infinitive.', studentAction: 'Read preference sentences.', teacherHint: 'Two patterns: (1) אוהב + noun: אני אוהב ספורט; (2) אוהב + ל + infinitive: אני אוהב לשחק כדורגל. The infinitive after ל is the verbal preference form.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Column drill — who likes what? Build preference sentences.', studentAction: 'Combine: subject + אוהב/אוהבת + object or infinitive.', teacherHint: 'Negation: אני לא אוהב… (I don\'t like…). The לא precedes the verb, not the noun. Very clean negation structure in Hebrew.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'מה אתה/את הכי אוהב/אוהבת לעשות? What do you like to do most? Answer: אני הכי אוהב/אוהבת ל…', studentAction: 'Produce: אני הכי אוהב/אוהבת + ל + infinitive.', teacherHint: 'הכי (most/best) is the Hebrew superlative adverb. אני הכי אוהב לשחות. A natural, personalized sentence.' },
+    ],
+  },
+
+  // ─── הייתי רוצה — I Would Like ────────────────────────────────────────────
+  {
+    contentKey: 'i would like hebrew',
+    language: 'hebrew',
+    displayName: 'הייתי רוצה — I Would Like',
+    unitType: 'verb',
+    vocabTerms: ['הייתי רוצה', 'היה רוצה', 'היינו רוצים', 'I would like', 'polite request', 'conditional', 'הייתי מעדיף', 'אפשר', 'בבקשה'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"הייתי רוצה" — I would like. Literally: "I was wanting" — past of להיות + רוצה. This is the polite request form. Used in restaurants, shops, formal situations. Say: הייתי רוצה קפה, בבקשה.', studentAction: 'Repeat: הייתי רוצה קפה בבקשה.', teacherHint: 'Hebrew conditional/polite request: הייתי רוצה (I would like) = past of להיות + present participle. Less formal alternatives: אפשר לקבל…? (May I have?) is also very common in Israeli Hebrew. Teach both.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show polite ordering/requesting situations. Read: הייתי רוצה + noun or ל + infinitive.', studentAction: 'Read polite request sentences.', teacherHint: 'Restaurant: הייתי רוצה את התפריט (I would like the menu). Shop: הייתי רוצה לנסות (I would like to try). Phone: הייתי רוצה לדבר עם… (I would like to speak with…).' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Polite request drill — what would each person like? Build: subject past-form + רוצה/רוצה + request.', studentAction: 'Combine polite request sentences.', teacherHint: 'הוא היה רוצה (he would like), היא הייתה רוצה (she would like). The להיות past agrees in gender: הייתי (I, m/f), היה (he), הייתה (she), היינו (we).' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'You are in an Israeli café. Order politely using הייתי רוצה.', studentAction: 'Produce a restaurant order using הייתי רוצה.', teacherHint: 'Cultural note: Israelis often use אפשר + noun/infinitive (Is it possible to have?) as the polite register rather than הייתי רוצה. Both are correct. Real-world awareness.' },
+    ],
+  },
+
+  // ─── הלכתי — I Went ────────────────────────────────────────────────────────
+  {
+    contentKey: 'i went hebrew',
+    language: 'hebrew',
+    displayName: 'הלכתי — I Went',
+    unitType: 'verb',
+    vocabTerms: ['הלכתי', 'הלך', 'הלכה', 'הלכנו', 'went', 'I went', 'he went', 'she went', 'where did you go', 'לאן הלכת'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"הלכתי" — I went. Root ה-ל-כ — an irregular/weak root. Past tense: הלכתי, הלכת, הלך, הלכה, הלכנו. Say: הלכתי לבית הספר.', studentAction: 'Repeat: הלכתי, הלך, הלכה.', teacherHint: 'ה-ל-כ is a Pe-He root (starts with ה). In Pa\'al past it behaves regularly: הלכתי/הלכת/הלך/הלכה/הלכנו/הלכתם/הלכו. The present form הולך (going) is a separate pattern — connect them: going NOW vs went.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show past destinations. Read: הלכתי ל… / הוא הלך ל…', studentAction: 'Read past-tense going sentences.', teacherHint: 'Connect to Unit 1 (הולך ל) — same verb, different tense. הולך = going now, הלכתי = went. Students see the tense shift. לאן הלכת אתמול? Where did you go yesterday?' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Column drill — who went where yesterday? Combine past forms with destinations.', studentAction: 'Build: subject + past form of הלך + ל + destination.', teacherHint: 'Time markers: אתמול (yesterday), בשבוע שעבר (last week), בבוקר (in the morning). Adding time markers makes the past tense more natural and contextual.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'לאן הלכת אחרי הלימודים אתמול? Where did you go after school yesterday? Answer: הלכתי ל…', studentAction: 'Produce: הלכתי ל + past destination.', teacherHint: 'Personal and authentic. Accept any honest answer. The contrast present/past (הולך/הלכתי) is now established.' },
+    ],
+  },
+
+  // ─── הוא הולך ל — He Is Going To ─────────────────────────────────────────
+  {
+    contentKey: 'he is going to hebrew',
+    language: 'hebrew',
+    displayName: 'הוא הולך ל — He Is Going To',
+    unitType: 'verb',
+    vocabTerms: ['הוא הולך ל', 'היא הולכת ל', 'הם הולכים ל', 'he is going to', 'she is going to', 'they are going to', '3rd person', 'near future'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: 'Near future in 3rd person: "הוא הולך ל…" — he is going to… "היא הולכת ל…" — she is going to… Same structure as Unit 4 but now for 3rd person. Say: הוא הולך לקנות. היא הולכת ללמוד.', studentAction: 'Repeat: הוא הולך ל and היא הולכת ל + infinitive.', teacherHint: 'Review Unit 4 (I am going to) and extend to 3rd person. The gender distinction הולך/הולכת applies. Add plural: הם הולכים ל (they are going to). High-frequency pattern for narrating others\' plans.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show 3rd-person future plans. Read: הוא/היא הולך/הולכת ל + infinitive.', studentAction: 'Read 3rd-person near-future sentences.', teacherHint: 'Vary the subject: הוא, היא, דני, שרה, המורה. All use הולך (m) or הולכת (f) + ל + infinitive. Watch for students applying 1st-person form by mistake.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build plans for various people using הולך/הולכת ל.', studentAction: 'Combine: name/pronoun + הולך/הולכת + ל + infinitive.', teacherHint: 'Narrative mode: describe what a classmate is going to do this weekend. שרה הולכת לטייל. דני הולך לשחות.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'מה המורה הולכת לעשות מחר? What is the teacher going to do tomorrow? Answer in 3rd person.', studentAction: 'Produce: ה + name/title + הולך/הולכת + ל + infinitive.', teacherHint: 'Playful personalization — students can make up the teacher\'s plans. Laughs reinforce the pattern.' },
+    ],
+  },
+
+  // ─── מה הוא עשה? — What Did He Do? ──────────────────────────────────────
+  {
+    contentKey: 'what did he do hebrew',
+    language: 'hebrew',
+    displayName: 'מה הוא עשה? — What Did He Do?',
+    unitType: 'verb',
+    vocabTerms: ['מה הוא עשה', 'עשה', 'עשתה', 'עשיתי', 'did', 'what did', 'past question', 'מה עשית', 'לעשות', 'made/did'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"מה הוא עשה?" — What did he do? Root ע-ש-ה (another weak root, final ה). Past: עשיתי (I did), עשה (he did), עשתה (she did). These are very high frequency. Say: מה עשית? / עשיתי שיעורי בית.', studentAction: 'Repeat: מה עשית? עשיתי + action.', teacherHint: 'ע-ש-ה is one of the 10 most frequent Hebrew verbs. Irregular weak ה root: עשה/עשתה/עשיתי. The question מה עשית? is a daily conversational staple. Master this question-answer pair.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show completed actions. Read question and answer: מה הוא עשה? — הוא עשה/קנה/הלך…', studentAction: 'Read past-tense action Q&A pairs.', teacherHint: 'The question תבנית: מה + subject + past verb? The answer: subject + past verb + object/location. Mix עשה with other known past verbs (הלך, לקח, קנה) for fluency building.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Column drill — what did each person do? Build past-tense answers.', studentAction: 'Combine: subject + past verb + object.', teacherHint: 'Good time to review all past verbs learned: לקחתי, קניתי, הלכתי, עשיתי. Four high-frequency Pa\'al past roots now in repertoire.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'מה עשית אתמול בערב? What did you do yesterday evening? Answer: עשיתי…', studentAction: 'Produce: עשיתי + past activity.', teacherHint: 'Highly natural. Any evening activity works. Students can chain verbs: עשיתי שיעורים ואחר כך ראיתי טלוויזיה (I did homework and then watched TV).' },
+    ],
+  },
+
+  // ─── היה לו — He Had ──────────────────────────────────────────────────────
+  {
+    contentKey: 'he had hebrew',
+    language: 'hebrew',
+    displayName: 'היה לו — He Had',
+    unitType: 'verb',
+    vocabTerms: ['היה לו', 'היה לה', 'היה לי', 'לא היה לי', 'had', 'he had', 'she had', 'I had', 'past of יש לי', 'היה'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"היה לי" — I had. "היה לו" — he had. "היה לה" — she had. This is the past of יש לי — using past tense of להיות. היה (m past) / הייתה (f past). Say: היה לי כלב. לא היה לה זמן.', studentAction: 'Repeat: היה לי, היה לו, היה לה.', teacherHint: 'Connect to Unit 5 (יש לי = I have). Past: היה לי. Future: יהיה לי. The same ל-preposition system, now with להיות in past tense. היה = m.sg past of להיות. הייתה = f.sg past.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show past possessions. Read: היה/הייתה לי/לו/לה + noun.', studentAction: 'Read past possession sentences.', teacherHint: 'The agreement quirk: היה/הייתה agrees with the POSSESSED THING, not the possessor! היה לי כלב (I had a dog — כלב is masculine). הייתה לי חתולה (I had a (female) cat — חתולה is feminine). This is subtle but important.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Column drill — who had what? Build past possession sentences.', studentAction: 'Combine: היה/הייתה + ל + person + noun.', teacherHint: 'The gender-agreement-with-noun rule will catch students — acknowledge the difficulty. לא היה לי (I didn\'t have) for negation. Very natural: לא היה לי מספיק זמן (I didn\'t have enough time).' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'What did you have when you were little that you don\'t have now? Use: היה לי / הייתה לי.', studentAction: 'Produce: כשהייתי קטן/קטנה, היה לי / הייתה לי…', teacherHint: 'כשהייתי קטן/קטנה (when I was little). Emotional memory + past tense = strong retention. Students share pets, toys, childhood possessions.' },
+    ],
+  },
+
+  // ─── לו/לה — To Him/To Her ────────────────────────────────────────────────
+  {
+    contentKey: 'to him hebrew',
+    language: 'hebrew',
+    displayName: 'לו / לה — To Him / To Her',
+    unitType: 'verb',
+    vocabTerms: ['לו', 'לה', 'לי', 'לך', 'לנו', 'to him', 'to her', 'to me', 'indirect object', 'prepositional pronoun', 'נתתי לו'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"לו" — to him / for him. "לה" — to her / for her. In Hebrew, ל absorbs pronouns: לי (to me), לך (to you), לו (to him), לה (to her), לנו (to us). These are prepositional pronouns. Say: נתתי לו ספר. שלחתי לה הודעה.', studentAction: 'Repeat: נתתי לו and שלחתי לה.', teacherHint: 'The ל prepositional pronoun series: לי/לך/לו/לה/לנו/לכם/להם. These combine the preposition ל with the pronoun into one word. They express "to/for + person" as the indirect object.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show giving/sending actions. Read: נתתי/שלחתי/אמרתי + לו/לה + object.', studentAction: 'Read indirect object sentences with לו/לה.', teacherHint: 'Core verbs with indirect objects: נתן (give), שלח (send), אמר (say/tell), הראה (show), קנה (buy for). Pattern: verb + ל + person + (object). "נתתי לה מתנה" — I gave her a gift.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Column drill — who gave/sent what to whom? Build: verb + לו/לה + object.', studentAction: 'Combine indirect object sentences.', teacherHint: 'Double objects: נתתי לו את הספר (I gave him the book) — לו (indirect) + את הספר (direct). The indirect precedes the direct in Hebrew.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'For whom did you last buy a gift? Use: קניתי ל… מתנה.', studentAction: 'Produce: קניתי + ל + person pronoun + מתנה.', teacherHint: 'Natural and memorable. Then extend: מה קניתם לו/לה? (What did you buy him/her?) — question with indirect object pronoun.' },
+    ],
+  },
+
+  // ─── נקי/מלוכלך — Clean/Dirty ────────────────────────────────────────────
+  {
+    contentKey: 'clean dirty hebrew',
+    language: 'hebrew',
+    displayName: 'נקי / מלוכלך — תיאורים',
+    unitType: 'verb',
+    vocabTerms: ['נקי', 'מלוכלך', 'נקייה', 'מלוכלכת', 'גדול', 'קטן', 'clean', 'dirty', 'adjective agreement', 'gender', 'descriptions'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"נקי" — clean (m). "נקייה" — clean (f). "מלוכלך" — dirty (m). "מלוכלכת" — dirty (f). Hebrew adjectives agree in gender and number with their nouns. Say: הכלב נקי. הכלבה נקייה.', studentAction: 'Repeat: נקי/נקייה, מלוכלך/מלוכלכת.', teacherHint: 'Gender agreement is the foundation of Hebrew adjectives. m.sg = base form; f.sg = usually +ה or +ת suffix. Adjective follows the noun it describes. הכיתה נקייה. החדר מלוכלך.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show clean and dirty things. Read: ה + noun + adjective (m or f based on noun gender).', studentAction: 'Read descriptive sentences, selecting correct m/f adjective form.', teacherHint: 'Common adjective pairs: גדול/גדולה (big), קטן/קטנה (small), חדש/חדשה (new), ישן/ישנה (old), יפה/יפה (beautiful — same!), מהיר/מהירה (fast). Build a working adjective vocabulary.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Column drill — describe the nouns with correct adjective gender agreement.', studentAction: 'Build: ה + noun + adjective (correctly gendered).', teacherHint: 'Noun gender in Hebrew: most nouns ending in ה or ת are feminine. Others are masculine. Some must be memorized. Common f. nouns: עיר (city), מדינה (country), כיתה (classroom), בעיה (problem).' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Describe your room or your bag using two adjectives. Use: ה + noun + adjective.', studentAction: 'Produce two adjective descriptions with correct gender agreement.', teacherHint: 'Personal context makes agreement memorable. הצבע/המחשב/הכיתה שלי + adjective. The possessive שלי (mine) adds naturalness.' },
+    ],
+  },
+
+  // ─── למדתי — I Studied ────────────────────────────────────────────────────
+  {
+    contentKey: 'i studied hebrew',
+    language: 'hebrew',
+    displayName: 'למדתי — I Studied',
+    unitType: 'verb',
+    vocabTerms: ['למדתי', 'למד', 'למדה', 'למדנו', 'I studied', 'he studied', 'she studied', 'studied', 'regular Pa\'al past', 'לומד'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"למדתי" — I studied. Root ל-מ-ד. Regular Pa\'al past: למדתי, למדת, למד, למדה, למדנו. All first-person past verbs in Pa\'al end in -תי. Say: למדתי עברית כל השנה.', studentAction: 'Repeat: למדתי, למד, למדה.', teacherHint: 'ל-מ-ד is a regular Pa\'al root — perfect for modeling the full past paradigm: למדתי/למדת/למד/למדה/למדנו/למדתם/למדו. Students already know this root from the "verb pattern" unit. Now they see its past forms.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show learning and studying contexts. Read: למדתי + subject / time phrase.', studentAction: 'Read study sentences in past tense.', teacherHint: 'Collocations: למדתי עברית (studied Hebrew), למדתי לנסוע (learned to drive), למדנו על (we learned about). The verb accepts both direct objects and ל + infinitive.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Column drill — who studied what? Build Pa\'al past sentences with ל-מ-ד.', studentAction: 'Combine: subject + past form + subject matter.', teacherHint: 'Extend to similar roots: כתבתי (I wrote), שמעתי (I heard), ישבתי (I sat). All Pa\'al regular past. Once students have ל-מ-ד solid, they can transfer the pattern.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'מה למדת השנה שלא ידעת לפני? What did you learn this year that you didn\'t know before? Answer: למדתי…', studentAction: 'Produce: למדתי + what was learned.', teacherHint: 'Metacognitive prompt. Hebrew learning included! למדתי עברית. Celebrate growth.' },
+    ],
+  },
+
+  // ─── קיבלתי — I Received ──────────────────────────────────────────────────
+  {
+    contentKey: 'i received hebrew',
+    language: 'hebrew',
+    displayName: 'קיבלתי — I Received',
+    unitType: 'verb',
+    vocabTerms: ['קיבלתי', 'קיבל', 'קיבלה', 'קיבלנו', 'received', 'I received', 'I got', 'he received', 'Pi\'el', 'Pi\'el past'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"קיבלתי" — I received / I got. Root ק-ב-ל. This is Pi\'el binyan (intensive pattern), not Pa\'al. Pi\'el past: קיבלתי, קיבלת, קיבל, קיבלה, קיבלנו. Middle root letter is doubled. Say: קיבלתי הודעה. קיבל ציון טוב.', studentAction: 'Repeat: קיבלתי, קיבל, קיבלה.', teacherHint: 'Brief Pi\'el introduction — the middle root letter ב is doubled (geminate): קיבֵּל. Pi\'el often has intensive or transitive meaning. קיבל (receive), דיבר (spoke), שיחק (played). Students don\'t need full Pi\'el paradigm yet — just recognize the pattern.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show receiving things. Read: קיבלתי + object. Note the doubled middle letter.', studentAction: 'Read receiving sentences.', teacherHint: 'Common uses: קיבלתי מתנה (I received a gift), קיבל ציון (got a grade), קיבלנו חדשות (we received news). Contrast Pa\'al (לקח — took) vs Pi\'el (קיבל — received): taking vs being given.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Column drill — who received what? Build: subject + Pi\'el past + object.', studentAction: 'Combine receiving sentences.', teacherHint: 'The Pi\'el past paradigm mirrors Pa\'al past for the suffixes: -תי/-ת/-/-ה/-נו/-תם/-ו. Only the stem changes. Students who know Pa\'al past can transfer the suffixes directly.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'מה קיבלת ביום הולדת שלך? What did you receive for your birthday? Answer: קיבלתי…', studentAction: 'Produce: קיבלתי + birthday gift.', teacherHint: 'Personal and positive memory. ביום הולדת שלי (on my birthday). Emotionally charged contexts improve retention.' },
+    ],
+  },
+
+  // ─── אני אלך — I Will ─────────────────────────────────────────────────────
+  {
+    contentKey: 'i will hebrew',
+    language: 'hebrew',
+    displayName: 'אני אלך — עתיד',
+    unitType: 'verb',
+    vocabTerms: ['אלך', 'אקנה', 'ילמד', 'תלמד', 'נלך', 'future tense', 'עתיד', 'I will', 'he will', 'she will'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: 'Hebrew future tense (עתיד) uses prefix conjugation. "אני אלך" — I will go. "הוא ילך" — he will go. Prefixes: א (I), ת (you m/she), י (he), נ (we), ת+ו (you pl/they). Say: אלך, ילך, תלך.', studentAction: 'Repeat: אלך, ילך, תלך, נלך.', teacherHint: 'The future prefix set (א/ת/י/נ/ת+ו) is consistent across all binyanim. Learning it once transfers everywhere. הלך root in future: אלך/תלך/ילך/תלך/נלך/תלכו/ילכו. The prefix+root+suffix system.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images show future plans. Read: אני אלך ל… / הוא ילמד… / אנחנו נקנה…', studentAction: 'Read future tense sentences from multiple roots.', teacherHint: 'Common future forms students should acquire: אלך (I will go), אקנה (I will buy), אלמד (I will study), אדבר (I will speak), אכתוב (I will write). The א- prefix + root in future pattern is immediately usable.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Column drill — who will do what? Build future tense sentences.', studentAction: 'Combine: subject + future form + object/destination.', teacherHint: 'Compare all three tenses for הלך: הולך (going-now), הלכתי (went), אלך (will go). The tense panorama in Hebrew is now visible. Three-way contrast drill is very powerful at this stage.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'מה תעשה/תעשי מחר? What will you do tomorrow? Answer: מחר אני א…', studentAction: 'Produce: מחר אני א + future verb + plan.', teacherHint: 'Productive and planful. מחר (tomorrow) as a time anchor. Any accurate future sentence works. Students now have present, past, and future — the core tense triad in Hebrew.' },
+    ],
+  },
+
+];
+
+// Merge all units — Spanish first, then French, Italian, Portuguese, German, Japanese, Korean, Mandarin, English, Hebrew
+const ALL_UNITS = [...UNITS, ...FRENCH_UNITS, ...GERMAN_UNITS, ...ITALIAN_UNITS, ...PORTUGUESE_UNITS, ...JAPANESE_UNITS, ...KOREAN_UNITS, ...MANDARIN_UNITS, ...ENGLISH_UNITS, ...HEBREW_UNITS];
 
 export const MADRIGAL_LOOP_CATALOG: readonly MadrigalLoopUnit[] = ALL_UNITS;
 

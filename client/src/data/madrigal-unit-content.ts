@@ -5060,6 +5060,670 @@ const ENGLISH_I_WOULD_LIKE: HayUnitContent = {
   ],
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// HEBREW VERB CHAIN — Madrigal Visual Units (HE1 positions 3–24)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const HEBREW_HOLECH: HayUnitContent = {
+  chapterTitleKey: 'where are you going hebrew',
+  conceptLabel: 'הולך / הולכת',
+  conceptDefinition: 'I am going (m) · I am going (f) · ללכת in present tense',
+  introNote: 'Hebrew present tense is gendered. Every student chooses their form: הולך (masculine) or הולכת (feminine). Both mean "going" — the difference is who is speaking.',
+  clusters: [
+    {
+      heading: 'הולך / הולכת — לאן אתה הולך?',
+      pairs: [
+        { imageWord: 'בית ספר', imageDescription: 'an Israeli school building with a blue Star of David flag', question: 'לאן אתה הולך?', questionTranslation: 'Where are you going?', answer: 'אני הולך לבית הספר.', answerTranslation: 'I am going to school.' },
+        { imageWord: 'סופרמרקט', imageDescription: 'a busy Israeli supermarket entrance with shopping carts', question: 'לאן את הולכת?', questionTranslation: 'Where are you going?', answer: 'אני הולכת לסופרמרקט.', answerTranslation: 'I am going to the supermarket.' },
+        { imageWord: 'ים', imageDescription: 'the Mediterranean Sea shore with golden sand and waves', question: 'לאן הוא הולך?', questionTranslation: 'Where is he going?', answer: 'הוא הולך לים.', answerTranslation: 'He is going to the sea.' },
+        { imageWord: 'קפה', imageDescription: 'a Tel Aviv outdoor café with small tables and espresso cups', question: 'לאן היא הולכת?', questionTranslation: 'Where is she going?', answer: 'היא הולכת לקפה.', answerTranslation: 'She is going to the café.' },
+      ],
+    },
+    {
+      heading: 'אני לא הולך/הולכת — Negation',
+      noteInline: 'לא precedes the verb · אני לא הולך = I am not going',
+      pairs: [
+        { imageWord: 'מסיבה', imageDescription: 'a lively party with colored balloons and people dancing', question: 'אתה הולך למסיבה?', questionTranslation: 'Are you going to the party?', answer: 'לא, אני לא הולך למסיבה.', answerTranslation: 'No, I am not going to the party.' },
+        { imageWord: 'פארק', imageDescription: 'a green city park in Israel with palm trees and benches', question: 'היא הולכת לפארק?', questionTranslation: 'Is she going to the park?', answer: 'לא, היא לא הולכת לפארק.', answerTranslation: 'No, she is not going to the park.' },
+      ],
+      sentenceColumns: [
+        { label: 'נושא', items: [{ text: 'אני הולך', translation: 'I am going (m)' }, { text: 'אני הולכת', translation: 'I am going (f)' }, { text: 'הוא הולך', translation: 'He is going' }, { text: 'היא הולכת', translation: 'She is going' }] },
+        { label: 'יעד', items: [{ text: 'לבית הספר.', translation: 'to school.' }, { text: 'לסופרמרקט.', translation: 'to the supermarket.' }, { text: 'לים.', translation: 'to the sea.' }, { text: 'לקפה.', translation: 'to the café.' }, { text: 'הביתה.', translation: 'home.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_LAKACHTI: HayUnitContent = {
+  chapterTitleKey: 'i took hebrew',
+  conceptLabel: 'לקחתי',
+  conceptDefinition: 'I took · he took · she took · Pa\'al past of ל-ק-ח',
+  introNote: '"לקחתי" is the past tense of ללקחת — to take. In Hebrew past tense, the suffix changes but the root stays the same: לקח-תי (I), לקח (he), לקח-ה (she).',
+  clusters: [
+    {
+      heading: 'לקחתי — מה לקחת?',
+      pairs: [
+        { imageWord: 'אוטובוס', imageDescription: 'an Israeli Egged bus at a bus stop in Jerusalem', question: 'מה לקחת?', questionTranslation: 'What did you take?', answer: 'לקחתי את האוטובוס.', answerTranslation: 'I took the bus.' },
+        { imageWord: 'מטריה', imageDescription: 'a blue umbrella open on a rainy Tel Aviv street', question: 'מה לקחת?', questionTranslation: 'What did you take?', answer: 'לקחתי מטריה.', answerTranslation: 'I took an umbrella.' },
+        { imageWord: 'תיק', imageDescription: 'a school backpack on a desk next to notebooks', question: 'מה הוא לקח?', questionTranslation: 'What did he take?', answer: 'הוא לקח את התיק.', answerTranslation: 'He took the bag.' },
+        { imageWord: 'תרופה', imageDescription: 'a small pill bottle and glass of water on a nightstand', question: 'מה היא לקחה?', questionTranslation: 'What did she take?', answer: 'היא לקחה תרופה.', answerTranslation: 'She took medicine.' },
+      ],
+    },
+    {
+      heading: 'לא לקחתי — הצורה השלילית',
+      noteInline: 'לא לקחתי = I did not take · לא precedes the verb in Hebrew',
+      pairs: [
+        { imageWord: 'מפתח', imageDescription: 'a house key on a keychain lying on a table', question: 'לקחת את המפתח?', questionTranslation: 'Did you take the key?', answer: 'לא, לא לקחתי את המפתח.', answerTranslation: 'No, I did not take the key.' },
+        { imageWord: 'ארנק', imageDescription: 'a leather wallet sitting on a counter', question: 'הוא לקח את הארנק?', questionTranslation: 'Did he take the wallet?', answer: 'לא, הוא לא לקח את הארנק.', answerTranslation: 'No, he did not take the wallet.' },
+      ],
+      sentenceColumns: [
+        { label: 'נושא', items: [{ text: 'לקחתי', translation: 'I took' }, { text: 'הוא לקח', translation: 'He took' }, { text: 'היא לקחה', translation: 'She took' }, { text: 'לא לקחתי', translation: 'I did not take' }] },
+        { label: 'מושא', items: [{ text: 'את האוטובוס.', translation: 'the bus.' }, { text: 'מטריה.', translation: 'an umbrella.' }, { text: 'את התיק.', translation: 'the bag.' }, { text: 'תרופה.', translation: 'medicine.' }, { text: 'את המפתח.', translation: 'the key.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_KANITI: HayUnitContent = {
+  chapterTitleKey: 'i bought hebrew',
+  conceptLabel: 'קניתי',
+  conceptDefinition: 'I bought · he bought · she bought · Pa\'al past of ק-נ-ה (weak root)',
+  introNote: '"קניתי" uses the root ק-נ-ה — a weak root where the final ה changes in some forms. קנה (he bought) · קנתה (she bought) · קניתי (I bought). This pattern covers many Hebrew roots.',
+  clusters: [
+    {
+      heading: 'קניתי — מה קנית?',
+      pairs: [
+        { imageWord: 'פיצה', imageDescription: 'a whole pizza in a cardboard box on a kitchen counter', question: 'מה קנית?', questionTranslation: 'What did you buy?', answer: 'קניתי פיצה.', answerTranslation: 'I bought pizza.' },
+        { imageWord: 'חולצה', imageDescription: 'a folded T-shirt in a shopping bag from a clothing store', question: 'מה קנית בחנות?', questionTranslation: 'What did you buy at the store?', answer: 'קניתי חולצה.', answerTranslation: 'I bought a shirt.' },
+        { imageWord: 'ספר', imageDescription: 'a Hebrew-language book on a bookshelf in a library', question: 'מה הוא קנה?', questionTranslation: 'What did he buy?', answer: 'הוא קנה ספר.', answerTranslation: 'He bought a book.' },
+        { imageWord: 'פרחים', imageDescription: 'a bouquet of colorful flowers wrapped in paper', question: 'מה היא קנתה?', questionTranslation: 'What did she buy?', answer: 'היא קנתה פרחים.', answerTranslation: 'She bought flowers.' },
+      ],
+    },
+    {
+      heading: 'לא קניתי — הצורה השלילית',
+      noteInline: 'לא קניתי = I did not buy · root ק-נ-ה is weak — final ה drops in he/she forms',
+      pairs: [
+        { imageWord: 'מחשב', imageDescription: 'a laptop computer on a desk with a blank screen', question: 'קנית מחשב חדש?', questionTranslation: 'Did you buy a new computer?', answer: 'לא, לא קניתי מחשב.', answerTranslation: 'No, I did not buy a computer.' },
+        { imageWord: 'אוכל', imageDescription: 'grocery bags with fresh vegetables and bread on a table', question: 'היא קנתה אוכל?', questionTranslation: 'Did she buy food?', answer: 'כן, היא קנתה אוכל.', answerTranslation: 'Yes, she bought food.' },
+      ],
+      sentenceColumns: [
+        { label: 'נושא', items: [{ text: 'קניתי', translation: 'I bought' }, { text: 'הוא קנה', translation: 'He bought' }, { text: 'היא קנתה', translation: 'She bought' }, { text: 'לא קניתי', translation: 'I did not buy' }] },
+        { label: 'מושא', items: [{ text: 'פיצה.', translation: 'pizza.' }, { text: 'חולצה.', translation: 'a shirt.' }, { text: 'ספר.', translation: 'a book.' }, { text: 'פרחים.', translation: 'flowers.' }, { text: 'אוכל.', translation: 'food.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_HOLECH_LE: HayUnitContent = {
+  chapterTitleKey: 'i am going to hebrew',
+  conceptLabel: 'הולך ל + שם פועל',
+  conceptDefinition: 'I am going to… · near future with ל + infinitive',
+  introNote: 'To express near future in Hebrew: הולך/הולכת + ל + infinitive. "אני הולך לאכול" — I am going to eat. The same verb הולך (going) that means movement now expresses future plans.',
+  clusters: [
+    {
+      heading: 'הולך ל — תוכניות לעתיד הקרוב',
+      pairs: [
+        { imageWord: 'לאכול', imageDescription: 'a family sitting down together for dinner at a table', question: 'מה אתה הולך לעשות?', questionTranslation: 'What are you going to do?', answer: 'אני הולך לאכול.', answerTranslation: 'I am going to eat.' },
+        { imageWord: 'ללמוד', imageDescription: 'an open textbook and notebook on a student\'s desk with a pencil', question: 'מה את הולכת לעשות?', questionTranslation: 'What are you going to do?', answer: 'אני הולכת ללמוד.', answerTranslation: 'I am going to study.' },
+        { imageWord: 'לקנות', imageDescription: 'a person pushing a shopping cart through a supermarket aisle', question: 'מה הוא הולך לעשות?', questionTranslation: 'What is he going to do?', answer: 'הוא הולך לקנות.', answerTranslation: 'He is going to buy (things).' },
+        { imageWord: 'לישון', imageDescription: 'a cozy bedroom with a pillow and blanket on a bed', question: 'מה היא הולכת לעשות?', questionTranslation: 'What is she going to do?', answer: 'היא הולכת לישון.', answerTranslation: 'She is going to sleep.' },
+      ],
+    },
+    {
+      heading: 'הולך ל + שם פועל — שמות פועל שימושיים',
+      noteInline: 'לאכול · לשתות · לקנות · ללמוד · לישון · לדבר · ללכת',
+      pairs: [
+        { imageWord: 'לדבר', imageDescription: 'two people talking on mobile phones in a park', question: 'הוא הולך לדבר עם מי?', questionTranslation: 'Who is he going to talk to?', answer: 'הוא הולך לדבר עם חברים.', answerTranslation: 'He is going to talk with friends.' },
+        { imageWord: 'לשחות', imageDescription: 'a person swimming in a pool, arms extended in freestyle stroke', question: 'מה היא הולכת לעשות בבריכה?', questionTranslation: 'What is she going to do at the pool?', answer: 'היא הולכת לשחות.', answerTranslation: 'She is going to swim.' },
+      ],
+      sentenceColumns: [
+        { label: 'נושא', items: [{ text: 'אני הולך', translation: 'I am going to (m)' }, { text: 'אני הולכת', translation: 'I am going to (f)' }, { text: 'הוא הולך', translation: 'He is going to' }, { text: 'היא הולכת', translation: 'She is going to' }] },
+        { label: 'שם פועל', items: [{ text: 'לאכול.', translation: 'eat.' }, { text: 'ללמוד.', translation: 'study.' }, { text: 'לקנות.', translation: 'buy things.' }, { text: 'לישון.', translation: 'sleep.' }, { text: 'לדבר.', translation: 'talk.' }, { text: 'לשחות.', translation: 'swim.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_YESH_LI: HayUnitContent = {
+  chapterTitleKey: 'i have hebrew',
+  conceptLabel: 'יש לי',
+  conceptDefinition: 'I have · I do not have · possession with יש/אין + ל',
+  introNote: 'Hebrew has no verb "to have." Instead: יש לי (there is to me = I have) and אין לי (there is not to me = I do not have). The ל preposition + pronoun expresses the possessor.',
+  clusters: [
+    {
+      heading: 'יש לי — מה יש לך?',
+      pairs: [
+        { imageWord: 'כלב', imageDescription: 'a golden retriever dog sitting happily in a park', question: 'יש לך כלב?', questionTranslation: 'Do you have a dog?', answer: 'כן, יש לי כלב.', answerTranslation: 'Yes, I have a dog.' },
+        { imageWord: 'אח', imageDescription: 'two brothers sitting together smiling on a couch', question: 'יש לך אח?', questionTranslation: 'Do you have a brother?', answer: 'כן, יש לי אח.', answerTranslation: 'Yes, I have a brother.' },
+        { imageWord: 'אופניים', imageDescription: 'a bicycle leaning against a wall on a sunny Israeli street', question: 'יש לו אופניים?', questionTranslation: 'Does he have a bicycle?', answer: 'כן, יש לו אופניים.', answerTranslation: 'Yes, he has a bicycle.' },
+        { imageWord: 'מחשב', imageDescription: 'a laptop computer open on a wooden desk', question: 'יש לה מחשב?', questionTranslation: 'Does she have a computer?', answer: 'כן, יש לה מחשב.', answerTranslation: 'Yes, she has a computer.' },
+      ],
+    },
+    {
+      heading: 'אין לי — שלילה',
+      noteInline: 'אין לי = I do not have · כן יש לי / לא אין לי — the standard Q&A pair',
+      pairs: [
+        { imageWord: 'מכונית', imageDescription: 'a parking lot with several cars under the sun', question: 'יש לך מכונית?', questionTranslation: 'Do you have a car?', answer: 'לא, אין לי מכונית.', answerTranslation: 'No, I do not have a car.' },
+        { imageWord: 'אחות', imageDescription: 'two sisters laughing together outdoors on a sunny day', question: 'יש לו אחות?', questionTranslation: 'Does he have a sister?', answer: 'לא, אין לו אחות.', answerTranslation: 'No, he does not have a sister.' },
+      ],
+      sentenceColumns: [
+        { label: 'קיום', items: [{ text: 'יש לי', translation: 'I have' }, { text: 'יש לו', translation: 'He has' }, { text: 'יש לה', translation: 'She has' }, { text: 'אין לי', translation: 'I do not have' }] },
+        { label: 'עצם', items: [{ text: 'כלב.', translation: 'a dog.' }, { text: 'אח.', translation: 'a brother.' }, { text: 'אופניים.', translation: 'a bicycle.' }, { text: 'מחשב.', translation: 'a computer.' }, { text: 'מכונית.', translation: 'a car.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_ANI_ROTZE: HayUnitContent = {
+  chapterTitleKey: 'i want hebrew',
+  conceptLabel: 'אני רוצה',
+  conceptDefinition: 'I want · he wants · she wants · Pa\'al present of ר-צ-ה',
+  introNote: '"רוצה" is the present-tense form for both masculine and feminine singular in spoken Hebrew — context clarifies. Followed by a noun or ל + infinitive.',
+  clusters: [
+    {
+      heading: 'אני רוצה — מה אתה רוצה?',
+      pairs: [
+        { imageWord: 'מים', imageDescription: 'a glass of cold water with ice on a hot day', question: 'מה אתה רוצה?', questionTranslation: 'What do you want?', answer: 'אני רוצה מים.', answerTranslation: 'I want water.' },
+        { imageWord: 'פיצה', imageDescription: 'a slice of pizza on a paper plate at a casual restaurant', question: 'מה את רוצה לאכול?', questionTranslation: 'What do you want to eat?', answer: 'אני רוצה לאכול פיצה.', answerTranslation: 'I want to eat pizza.' },
+        { imageWord: 'ללכת לים', imageDescription: 'Tel Aviv beach with blue water, umbrellas, and sunbathers', question: 'מה הוא רוצה לעשות?', questionTranslation: 'What does he want to do?', answer: 'הוא רוצה ללכת לים.', answerTranslation: 'He wants to go to the sea.' },
+        { imageWord: 'לישון', imageDescription: 'a person yawning with a pillow, clearly sleepy', question: 'מה היא רוצה?', questionTranslation: 'What does she want?', answer: 'היא רוצה לישון.', answerTranslation: 'She wants to sleep.' },
+      ],
+    },
+    {
+      heading: 'לא רוצה — שלילה',
+      noteInline: 'אני לא רוצה = I do not want · same form for m/f singular in spoken Hebrew',
+      pairs: [
+        { imageWord: 'גשם', imageDescription: 'dark rain clouds with heavy rain falling on a city street', question: 'אתה רוצה לצאת בגשם?', questionTranslation: 'Do you want to go out in the rain?', answer: 'לא, אני לא רוצה לצאת בגשם.', answerTranslation: 'No, I do not want to go out in the rain.' },
+        { imageWord: 'ירקות', imageDescription: 'a plate of raw vegetables — broccoli, carrots, and peppers', question: 'הוא רוצה ירקות?', questionTranslation: 'Does he want vegetables?', answer: 'לא, הוא לא רוצה ירקות.', answerTranslation: 'No, he does not want vegetables.' },
+      ],
+      sentenceColumns: [
+        { label: 'נושא', items: [{ text: 'אני רוצה', translation: 'I want' }, { text: 'הוא רוצה', translation: 'He wants' }, { text: 'היא רוצה', translation: 'She wants' }, { text: 'אני לא רוצה', translation: 'I do not want' }] },
+        { label: 'מושא', items: [{ text: 'מים.', translation: 'water.' }, { text: 'פיצה.', translation: 'pizza.' }, { text: 'לישון.', translation: 'to sleep.' }, { text: 'ללכת לים.', translation: 'to go to the sea.' }, { text: 'לצאת.', translation: 'to go out.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_ANI_ZEHUT: HayUnitContent = {
+  chapterTitleKey: 'i am identity hebrew',
+  conceptLabel: 'אני — זהות',
+  conceptDefinition: 'I am · he is · she is · Hebrew nominal sentence — no verb in present',
+  introNote: 'In Hebrew present tense, there is no word for "am/is/are." The sentence is just: pronoun + noun/adjective. "אני סטודנט" = I (am a) student. This is called a nominal sentence.',
+  clusters: [
+    {
+      heading: 'אני — מי אתה/את?',
+      pairs: [
+        { imageWord: 'סטודנט', imageDescription: 'a young person with a backpack walking on a university campus', question: 'מי אתה?', questionTranslation: 'Who are you?', answer: 'אני סטודנט.', answerTranslation: 'I am a student.' },
+        { imageWord: 'מורה', imageDescription: 'a teacher writing on a whiteboard in front of a classroom', question: 'מי היא?', questionTranslation: 'Who is she?', answer: 'היא מורה.', answerTranslation: 'She is a teacher.' },
+        { imageWord: 'ישראלי', imageDescription: 'an Israeli flag waving in the wind against a blue sky', question: 'מי הוא?', questionTranslation: 'Who is he?', answer: 'הוא ישראלי.', answerTranslation: 'He is Israeli.' },
+        { imageWord: 'אמריקאית', imageDescription: 'an American flag and an Israeli flag side by side', question: 'מי את?', questionTranslation: 'Who are you?', answer: 'אני אמריקאית.', answerTranslation: 'I am American (f).' },
+      ],
+    },
+    {
+      heading: 'הוא/היא — תיאור',
+      noteInline: 'No verb "to be" in present tense · pronoun + noun/adjective is the complete sentence',
+      pairs: [
+        { imageWord: 'רופא', imageDescription: 'a doctor in a white coat with a stethoscope in a clinic', question: 'מי הוא?', questionTranslation: 'Who is he?', answer: 'הוא רופא.', answerTranslation: 'He is a doctor.' },
+        { imageWord: 'חברה שלי', imageDescription: 'two friends laughing together at a café table in Israel', question: 'מי היא?', questionTranslation: 'Who is she?', answer: 'היא חברה שלי.', answerTranslation: 'She is my friend.' },
+      ],
+      sentenceColumns: [
+        { label: 'נושא', items: [{ text: 'אני', translation: 'I am' }, { text: 'הוא', translation: 'He is' }, { text: 'היא', translation: 'She is' }, { text: 'אתה/את', translation: 'You are' }] },
+        { label: 'זהות', items: [{ text: 'סטודנט/ית.', translation: 'a student.' }, { text: 'מורה.', translation: 'a teacher.' }, { text: 'ישראלי/ת.', translation: 'Israeli.' }, { text: 'אמריקאי/ת.', translation: 'American.' }, { text: 'רופא/ה.', translation: 'a doctor.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_EIFOH_ANI: HayUnitContent = {
+  chapterTitleKey: 'where am i hebrew',
+  conceptLabel: 'איפה אני?',
+  conceptDefinition: 'Where am I? · I am at / in · נמצא/נמצאת + ב',
+  introNote: 'Location in Hebrew uses נמצא (m) / נמצאת (f) — "located." The prefix ב means "in/at." "אני נמצא בבית הספר" = I am at school (lit. I am found in the school).',
+  clusters: [
+    {
+      heading: 'איפה אני? — מיקום',
+      pairs: [
+        { imageWord: 'בית הספר', imageDescription: 'a school hallway with lockers and classroom doors', question: 'איפה אתה נמצא?', questionTranslation: 'Where are you located?', answer: 'אני נמצא בבית הספר.', answerTranslation: 'I am at school.' },
+        { imageWord: 'בית', imageDescription: 'a cozy Israeli home living room with warm lighting', question: 'איפה את נמצאת?', questionTranslation: 'Where are you located?', answer: 'אני נמצאת בבית.', answerTranslation: 'I am at home.' },
+        { imageWord: 'ספרייה', imageDescription: 'a quiet library with rows of books and reading tables', question: 'איפה הוא נמצא?', questionTranslation: 'Where is he located?', answer: 'הוא נמצא בספרייה.', answerTranslation: 'He is in the library.' },
+        { imageWord: 'מסעדה', imageDescription: 'a bustling Israeli restaurant with tables full of diners', question: 'איפה היא נמצאת?', questionTranslation: 'Where is she located?', answer: 'היא נמצאת במסעדה.', answerTranslation: 'She is at the restaurant.' },
+      ],
+    },
+    {
+      heading: 'ב + מיקום — הקידומת ב',
+      noteInline: 'ב = in/at · ב + ה = בְּ before definite nouns · בבית הספר, בסופרמרקט, בפארק',
+      pairs: [
+        { imageWord: 'פארק', imageDescription: 'a green public park in Tel Aviv with people walking', question: 'הם נמצאים איפה?', questionTranslation: 'Where are they located?', answer: 'הם נמצאים בפארק.', answerTranslation: 'They are in the park.' },
+        { imageWord: 'תחנת אוטובוס', imageDescription: 'an Israeli bus stop with people waiting under a shelter', question: 'היא נמצאת איפה?', questionTranslation: 'Where is she?', answer: 'היא נמצאת בתחנת האוטובוס.', answerTranslation: 'She is at the bus stop.' },
+      ],
+      sentenceColumns: [
+        { label: 'נושא', items: [{ text: 'אני נמצא', translation: 'I am (m)' }, { text: 'אני נמצאת', translation: 'I am (f)' }, { text: 'הוא נמצא', translation: 'He is' }, { text: 'היא נמצאת', translation: 'She is' }] },
+        { label: 'מיקום', items: [{ text: 'בבית הספר.', translation: 'at school.' }, { text: 'בבית.', translation: 'at home.' }, { text: 'בספרייה.', translation: 'in the library.' }, { text: 'במסעדה.', translation: 'at the restaurant.' }, { text: 'בפארק.', translation: 'in the park.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_YACHOL: HayUnitContent = {
+  chapterTitleKey: 'i can hebrew',
+  conceptLabel: 'אני יכול / יכולה',
+  conceptDefinition: 'I can (m) · I can (f) · ability with יכול/יכולה + ל + infinitive',
+  introNote: 'Unlike many Hebrew present-tense forms, יכול (m) and יכולה (f) ARE distinct. Always match to the speaker\'s gender. "אני יכול לרוץ" (m) · "אני יכולה לרוץ" (f).',
+  clusters: [
+    {
+      heading: 'אני יכול/יכולה — יכולות',
+      pairs: [
+        { imageWord: 'לרוץ', imageDescription: 'a person running on a track in the sun at a sports field', question: 'מה אתה יכול לעשות?', questionTranslation: 'What can you do?', answer: 'אני יכול לרוץ מהר.', answerTranslation: 'I can run fast.' },
+        { imageWord: 'לשחות', imageDescription: 'a swimmer doing freestyle in a clear blue pool', question: 'מה את יכולה לעשות?', questionTranslation: 'What can you do?', answer: 'אני יכולה לשחות.', answerTranslation: 'I can swim.' },
+        { imageWord: 'לנגן גיטרה', imageDescription: 'a young person playing acoustic guitar by a window', question: 'הוא יכול לנגן?', questionTranslation: 'Can he play music?', answer: 'כן, הוא יכול לנגן גיטרה.', answerTranslation: 'Yes, he can play guitar.' },
+        { imageWord: 'לדבר עברית', imageDescription: 'two people having an animated conversation in Hebrew on a Tel Aviv street', question: 'היא יכולה לדבר עברית?', questionTranslation: 'Can she speak Hebrew?', answer: 'כן, היא יכולה לדבר עברית.', answerTranslation: 'Yes, she can speak Hebrew.' },
+      ],
+    },
+    {
+      heading: 'לא יכול/יכולה — שלילה',
+      noteInline: 'אני לא יכול = I cannot (m) · אני לא יכולה = I cannot (f)',
+      pairs: [
+        { imageWord: 'לטוס', imageDescription: 'a commercial airplane taking off from Ben Gurion Airport', question: 'אתה יכול לטוס?', questionTranslation: 'Can you fly?', answer: 'לא, אני לא יכול לטוס.', answerTranslation: 'No, I cannot fly.' },
+        { imageWord: 'ללמוד היום', imageDescription: 'a student looking overwhelmed by a pile of homework', question: 'היא יכולה ללמוד היום?', questionTranslation: 'Can she study today?', answer: 'לא, היא לא יכולה ללמוד היום.', answerTranslation: 'No, she cannot study today.' },
+      ],
+      sentenceColumns: [
+        { label: 'נושא', items: [{ text: 'אני יכול', translation: 'I can (m)' }, { text: 'אני יכולה', translation: 'I can (f)' }, { text: 'הוא יכול', translation: 'He can' }, { text: 'היא יכולה', translation: 'She can' }] },
+        { label: 'שם פועל', items: [{ text: 'לרוץ.', translation: 'run.' }, { text: 'לשחות.', translation: 'swim.' }, { text: 'לנגן.', translation: 'play music.' }, { text: 'לדבר עברית.', translation: 'speak Hebrew.' }, { text: 'לבשל.', translation: 'cook.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_MIVNE_HAPOEL: HayUnitContent = {
+  chapterTitleKey: 'the verb pattern hebrew',
+  conceptLabel: 'מבנה הפועל — בניין קל',
+  conceptDefinition: 'The verb pattern · Pa\'al binyan · 3-letter root system',
+  introNote: 'Hebrew verbs are built from 3-letter roots placed into patterns called בניינים (binyanim). The most common is בניין קל (Pa\'al). Root כ-ת-ב (write) → כותב (writing) → כתב (wrote) → יכתוב (will write).',
+  clusters: [
+    {
+      heading: 'השורש — The Root',
+      pairs: [
+        { imageWord: 'כ-ת-ב', imageDescription: 'a person writing in a notebook with a pen at a desk', question: 'מה הצורה הנוכחית של כ-ת-ב?', questionTranslation: 'What is the present form of כ-ת-ב?', answer: 'כותב — writing (m)', answerTranslation: 'כותב means writing (masculine)' },
+        { imageWord: 'ל-מ-ד', imageDescription: 'a student studying with books open on a table', question: 'מה הצורה הנוכחית של ל-מ-ד?', questionTranslation: 'What is the present form of ל-מ-ד?', answer: 'לומד — studying (m)', answerTranslation: 'לומד means studying (masculine)' },
+        { imageWord: 'א-כ-ל', imageDescription: 'a person enjoying a meal at a restaurant table', question: 'מה הצורה הנוכחית של א-כ-ל?', questionTranslation: 'What is the present form of א-כ-ל?', answer: 'אוכל — eating (m)', answerTranslation: 'אוכל means eating (masculine)' },
+        { imageWord: 'ש-מ-ע', imageDescription: 'a person wearing headphones and listening to music', question: 'מה הצורה הנוכחית של ש-מ-ע?', questionTranslation: 'What is the present form of ש-מ-ע?', answer: 'שומע — hearing (m)', answerTranslation: 'שומע means hearing (masculine)' },
+      ],
+    },
+    {
+      heading: 'בניין קל — Present Tense Forms',
+      noteInline: 'Pa\'al present pattern: CoCeC (m.sg) · CoCeC-et (f.sg) · CoCeCim (m.pl) · CoCeCot (f.pl)',
+      pairs: [
+        { imageWord: 'כותב/כותבת', imageDescription: 'a man and woman both writing at separate desks', question: 'מה הצורות של כ-ת-ב בהווה?', questionTranslation: 'What are the present tense forms of כ-ת-ב?', answer: 'כותב / כותבת / כותבים / כותבות', answerTranslation: 'm.sg / f.sg / m.pl / f.pl' },
+        { imageWord: 'לומד/לומדת', imageDescription: 'students studying in a university library', question: 'מה הצורות של ל-מ-ד?', questionTranslation: 'What are the forms of ל-מ-ד?', answer: 'לומד / לומדת / לומדים / לומדות', answerTranslation: 'm.sg / f.sg / m.pl / f.pl' },
+      ],
+      sentenceColumns: [
+        { label: 'שורש', items: [{ text: 'כ-ת-ב', translation: 'write' }, { text: 'ל-מ-ד', translation: 'learn/study' }, { text: 'א-כ-ל', translation: 'eat' }, { text: 'ש-מ-ע', translation: 'hear' }] },
+        { label: 'הווה (m.sg)', items: [{ text: 'כותב', translation: 'writing' }, { text: 'לומד', translation: 'studying' }, { text: 'אוכל', translation: 'eating' }, { text: 'שומע', translation: 'hearing' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_YESH: HayUnitContent = {
+  chapterTitleKey: 'there is hebrew',
+  conceptLabel: 'יש / אין',
+  conceptDefinition: 'There is · there are · there is no · existence with יש/אין',
+  introNote: '"יש" means there is/there are. "אין" means there is no/there are no. These existential words work for both singular and plural — context makes the number clear.',
+  clusters: [
+    {
+      heading: 'יש — קיום',
+      pairs: [
+        { imageWord: 'ספה בסלון', imageDescription: 'a living room with a modern sofa and coffee table', question: 'מה יש בסלון?', questionTranslation: 'What is in the living room?', answer: 'יש ספה בסלון.', answerTranslation: 'There is a sofa in the living room.' },
+        { imageWord: 'מסעדה ברחוב', imageDescription: 'a restaurant on an Israeli street with an outdoor seating area', question: 'יש מסעדה ברחוב?', questionTranslation: 'Is there a restaurant on the street?', answer: 'כן, יש מסעדה ברחוב.', answerTranslation: 'Yes, there is a restaurant on the street.' },
+        { imageWord: 'כלב בפארק', imageDescription: 'several dogs playing freely in a green urban park', question: 'יש כלבים בפארק?', questionTranslation: 'Are there dogs in the park?', answer: 'כן, יש כלבים בפארק.', answerTranslation: 'Yes, there are dogs in the park.' },
+        { imageWord: 'בעיה', imageDescription: 'a person looking puzzled at a complicated math problem on a chalkboard', question: 'יש בעיה?', questionTranslation: 'Is there a problem?', answer: 'כן, יש בעיה.', answerTranslation: 'Yes, there is a problem.' },
+      ],
+    },
+    {
+      heading: 'אין — שלילת קיום',
+      noteInline: 'אין = there is no / there are no · opposite of יש',
+      pairs: [
+        { imageWord: 'זמן', imageDescription: 'a clock with hands pointing to 11:58, almost no time left', question: 'יש זמן?', questionTranslation: 'Is there time?', answer: 'לא, אין זמן.', answerTranslation: 'No, there is no time.' },
+        { imageWord: 'חלב במקרר', imageDescription: 'an open refrigerator with empty shelves', question: 'יש חלב במקרר?', questionTranslation: 'Is there milk in the refrigerator?', answer: 'לא, אין חלב במקרר.', answerTranslation: 'No, there is no milk in the refrigerator.' },
+      ],
+      sentenceColumns: [
+        { label: 'קיום', items: [{ text: 'יש', translation: 'there is / there are' }, { text: 'אין', translation: 'there is no / there are no' }, { text: 'יש פה', translation: 'there is here' }, { text: 'אין שם', translation: 'there is none there' }] },
+        { label: 'עצם', items: [{ text: 'ספה בסלון.', translation: 'a sofa in the living room.' }, { text: 'מסעדה ברחוב.', translation: 'a restaurant on the street.' }, { text: 'זמן.', translation: 'time.' }, { text: 'חלב במקרר.', translation: 'milk in the refrigerator.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_OHEV: HayUnitContent = {
+  chapterTitleKey: 'i like hebrew',
+  conceptLabel: 'אני אוהב / אוהבת',
+  conceptDefinition: 'I like / I love · he likes · she likes · Pa\'al present of א-ה-ב',
+  introNote: '"אוהב" (m) and "אוהבת" (f) mean both "like" and "love" — context determines which. Followed by a noun or ל + infinitive.',
+  clusters: [
+    {
+      heading: 'אני אוהב/אוהבת — העדפות',
+      pairs: [
+        { imageWord: 'מוזיקה', imageDescription: 'a person with earphones enjoying music with eyes closed', question: 'מה אתה אוהב?', questionTranslation: 'What do you like?', answer: 'אני אוהב מוזיקה.', answerTranslation: 'I like music.' },
+        { imageWord: 'לשחות', imageDescription: 'a woman swimming in clear blue Mediterranean water', question: 'מה את אוהבת לעשות?', questionTranslation: 'What do you like to do?', answer: 'אני אוהבת לשחות.', answerTranslation: 'I like to swim.' },
+        { imageWord: 'כדורגל', imageDescription: 'a soccer match on a green field with players chasing the ball', question: 'מה הוא אוהב?', questionTranslation: 'What does he like?', answer: 'הוא אוהב כדורגל.', answerTranslation: 'He likes soccer.' },
+        { imageWord: 'לקרוא', imageDescription: 'a young woman reading a book in a cozy armchair', question: 'מה היא אוהבת לעשות?', questionTranslation: 'What does she like to do?', answer: 'היא אוהבת לקרוא.', answerTranslation: 'She likes to read.' },
+      ],
+    },
+    {
+      heading: 'לא אוהב/אוהבת — שלילה',
+      noteInline: 'אני לא אוהב = I do not like (m) · אני לא אוהבת = I do not like (f)',
+      pairs: [
+        { imageWord: 'לקום מוקדם', imageDescription: 'an alarm clock ringing at 6am next to a sleepy person', question: 'אתה אוהב לקום מוקדם?', questionTranslation: 'Do you like waking up early?', answer: 'לא, אני לא אוהב לקום מוקדם.', answerTranslation: 'No, I do not like waking up early.' },
+        { imageWord: 'קפה מר', imageDescription: 'a strong black espresso with no sugar on a café table', question: 'הוא אוהב קפה מר?', questionTranslation: 'Does he like bitter coffee?', answer: 'לא, הוא לא אוהב קפה מר.', answerTranslation: 'No, he does not like bitter coffee.' },
+      ],
+      sentenceColumns: [
+        { label: 'נושא', items: [{ text: 'אני אוהב', translation: 'I like (m)' }, { text: 'אני אוהבת', translation: 'I like (f)' }, { text: 'הוא אוהב', translation: 'He likes' }, { text: 'היא אוהבת', translation: 'She likes' }] },
+        { label: 'העדפה', items: [{ text: 'מוזיקה.', translation: 'music.' }, { text: 'לשחות.', translation: 'to swim.' }, { text: 'כדורגל.', translation: 'soccer.' }, { text: 'לקרוא.', translation: 'to read.' }, { text: 'לבשל.', translation: 'to cook.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_HAYITI_ROTZE: HayUnitContent = {
+  chapterTitleKey: 'i would like hebrew',
+  conceptLabel: 'הייתי רוצה',
+  conceptDefinition: 'I would like · he would like · polite request form',
+  introNote: '"הייתי רוצה" = I would like (lit. I was wanting). This is the standard polite request form in Hebrew — used in restaurants, shops, and formal situations. "בבקשה" (please) often follows.',
+  clusters: [
+    {
+      heading: 'הייתי רוצה — בקשות מנומסות',
+      pairs: [
+        { imageWord: 'קפה', imageDescription: 'a waiter in a white apron serving coffee at a café', question: 'מה תרצו?', questionTranslation: 'What would you like?', answer: 'הייתי רוצה קפה, בבקשה.', answerTranslation: 'I would like a coffee, please.' },
+        { imageWord: 'התפריט', imageDescription: 'a restaurant menu in Hebrew laid open on a table', question: 'מה תרצה?', questionTranslation: 'What would you like?', answer: 'הייתי רוצה לראות את התפריט.', answerTranslation: 'I would like to see the menu.' },
+        { imageWord: 'חדר', imageDescription: 'a hotel room check-in desk with a key card on the counter', question: 'מה תרצה?', questionTranslation: 'What would you like?', answer: 'הייתי רוצה חדר ל-3 לילות.', answerTranslation: 'I would like a room for 3 nights.' },
+        { imageWord: 'כרטיס', imageDescription: 'a person buying a bus ticket at an Israeli bus station', question: 'מה תרצה לקנות?', questionTranslation: 'What would you like to buy?', answer: 'הייתי רוצה לקנות כרטיס.', answerTranslation: 'I would like to buy a ticket.' },
+      ],
+    },
+    {
+      heading: 'הייתי רוצה + שם פועל',
+      noteInline: 'הייתי רוצה + ל + infinitive = I would like to… · or + noun for a thing',
+      pairs: [
+        { imageWord: 'ללמוד עברית', imageDescription: 'a student opening a Hebrew textbook with enthusiasm', question: 'מה היית רוצה ללמוד?', questionTranslation: 'What would you like to learn?', answer: 'הייתי רוצה ללמוד עברית.', answerTranslation: 'I would like to learn Hebrew.' },
+        { imageWord: 'לנסוע לישראל', imageDescription: 'Ben Gurion International Airport departures hall with travelers', question: 'לאן היית רוצה לנסוע?', questionTranslation: 'Where would you like to travel?', answer: 'הייתי רוצה לנסוע לישראל.', answerTranslation: 'I would like to travel to Israel.' },
+      ],
+      sentenceColumns: [
+        { label: 'נושא', items: [{ text: 'הייתי רוצה', translation: 'I would like' }, { text: 'הוא היה רוצה', translation: 'He would like' }, { text: 'היא הייתה רוצה', translation: 'She would like' }, { text: 'היינו רוצים', translation: 'We would like' }] },
+        { label: 'בקשה', items: [{ text: 'קפה בבקשה.', translation: 'a coffee please.' }, { text: 'לראות את התפריט.', translation: 'to see the menu.' }, { text: 'חדר.', translation: 'a room.' }, { text: 'ללמוד עברית.', translation: 'to learn Hebrew.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_HALACHTI: HayUnitContent = {
+  chapterTitleKey: 'i went hebrew',
+  conceptLabel: 'הלכתי',
+  conceptDefinition: 'I went · he went · she went · Pa\'al past of ה-ל-כ',
+  introNote: '"הלכתי" — I went. The same verb ללכת (to go) in past tense. Present: הולך/הולכת · Past: הלכתי/הלך/הלכה. One root, two tenses students now know.',
+  clusters: [
+    {
+      heading: 'הלכתי — לאן הלכת?',
+      pairs: [
+        { imageWord: 'שוק', imageDescription: 'Machane Yehuda market in Jerusalem with colorful stalls of food', question: 'לאן הלכת?', questionTranslation: 'Where did you go?', answer: 'הלכתי לשוק.', answerTranslation: 'I went to the market.' },
+        { imageWord: 'קולנוע', imageDescription: 'a movie theater entrance at night with a lit marquee sign', question: 'לאן הלכת אתמול?', questionTranslation: 'Where did you go yesterday?', answer: 'הלכתי לקולנוע.', answerTranslation: 'I went to the movies.' },
+        { imageWord: 'חוף ים', imageDescription: 'a beautiful sunset at a Tel Aviv beach with silhouettes of people', question: 'לאן הוא הלך?', questionTranslation: 'Where did he go?', answer: 'הוא הלך לחוף הים.', answerTranslation: 'He went to the beach.' },
+        { imageWord: 'בית חולים', imageDescription: 'a hospital entrance with ambulances and staff outside', question: 'לאן היא הלכה?', questionTranslation: 'Where did she go?', answer: 'היא הלכה לבית החולים.', answerTranslation: 'She went to the hospital.' },
+      ],
+    },
+    {
+      heading: 'לא הלכתי — שלילה',
+      noteInline: 'לא הלכתי = I did not go · compare: הולך (going now) vs הלכתי (went)',
+      pairs: [
+        { imageWord: 'מסיבה', imageDescription: 'a party scene with balloons and music that someone missed', question: 'הלכת למסיבה?', questionTranslation: 'Did you go to the party?', answer: 'לא, לא הלכתי למסיבה.', answerTranslation: 'No, I did not go to the party.' },
+        { imageWord: 'גן חיות', imageDescription: 'a zoo entrance with a giraffe visible over the fence', question: 'הוא הלך לגן חיות?', questionTranslation: 'Did he go to the zoo?', answer: 'לא, הוא לא הלך לגן חיות.', answerTranslation: 'No, he did not go to the zoo.' },
+      ],
+      sentenceColumns: [
+        { label: 'נושא', items: [{ text: 'הלכתי', translation: 'I went' }, { text: 'הוא הלך', translation: 'He went' }, { text: 'היא הלכה', translation: 'She went' }, { text: 'לא הלכתי', translation: 'I did not go' }] },
+        { label: 'יעד', items: [{ text: 'לשוק.', translation: 'to the market.' }, { text: 'לקולנוע.', translation: 'to the movies.' }, { text: 'לחוף הים.', translation: 'to the beach.' }, { text: 'לבית החולים.', translation: 'to the hospital.' }, { text: 'למסיבה.', translation: 'to the party.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_HU_HOLECH_LE: HayUnitContent = {
+  chapterTitleKey: 'he is going to hebrew',
+  conceptLabel: 'הוא הולך ל',
+  conceptDefinition: 'He is going to · she is going to · near future in 3rd person',
+  introNote: 'Near future in 3rd person: הוא הולך ל (he is going to) · היא הולכת ל (she is going to). Same structure as Unit 4 but with a different subject — great for talking about others\' plans.',
+  clusters: [
+    {
+      heading: 'הוא הולך ל — תוכניות של אחרים',
+      pairs: [
+        { imageWord: 'לקנות', imageDescription: 'a man walking toward a supermarket with a shopping basket', question: 'מה הוא הולך לעשות?', questionTranslation: 'What is he going to do?', answer: 'הוא הולך לקנות אוכל.', answerTranslation: 'He is going to buy food.' },
+        { imageWord: 'ללמוד', imageDescription: 'a young woman sitting at a library table opening her textbooks', question: 'מה היא הולכת לעשות?', questionTranslation: 'What is she going to do?', answer: 'היא הולכת ללמוד.', answerTranslation: 'She is going to study.' },
+        { imageWord: 'להתקשר', imageDescription: 'a person picking up a phone to make a call', question: 'מה דני הולך לעשות?', questionTranslation: 'What is Dani going to do?', answer: 'דני הולך להתקשר.', answerTranslation: 'Dani is going to call.' },
+        { imageWord: 'לבשל', imageDescription: 'a person stirring a pot on a stove in a home kitchen', question: 'מה שרה הולכת לעשות?', questionTranslation: 'What is Sara going to do?', answer: 'שרה הולכת לבשל.', answerTranslation: 'Sara is going to cook.' },
+      ],
+    },
+    {
+      heading: 'הם הולכים ל — רבים',
+      noteInline: 'הם הולכים ל (they are going to, m) · הן הולכות ל (they are going to, f)',
+      pairs: [
+        { imageWord: 'לטייל', imageDescription: 'a group of hikers walking on a trail in the Negev desert', question: 'מה הם הולכים לעשות?', questionTranslation: 'What are they going to do?', answer: 'הם הולכים לטייל.', answerTranslation: 'They are going to hike.' },
+        { imageWord: 'לחגוג', imageDescription: 'friends gathered around a table for a celebration with candles', question: 'מה הן הולכות לעשות?', questionTranslation: 'What are they going to do?', answer: 'הן הולכות לחגוג.', answerTranslation: 'They are going to celebrate.' },
+      ],
+      sentenceColumns: [
+        { label: 'נושא', items: [{ text: 'הוא הולך', translation: 'He is going to' }, { text: 'היא הולכת', translation: 'She is going to' }, { text: 'הם הולכים', translation: 'They are going to (m)' }, { text: 'הן הולכות', translation: 'They are going to (f)' }] },
+        { label: 'שם פועל', items: [{ text: 'לקנות.', translation: 'buy.' }, { text: 'ללמוד.', translation: 'study.' }, { text: 'לבשל.', translation: 'cook.' }, { text: 'לטייל.', translation: 'hike.' }, { text: 'לחגוג.', translation: 'celebrate.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_MA_HU_ASA: HayUnitContent = {
+  chapterTitleKey: 'what did he do hebrew',
+  conceptLabel: 'מה הוא עשה?',
+  conceptDefinition: 'What did he do? · I did · he did · Pa\'al past of ע-ש-ה',
+  introNote: '"עשה" (did/made) is one of Hebrew\'s most frequent verbs. Past: עשיתי (I did), עשה (he did), עשתה (she did). The question "מה עשית?" (What did you do?) is a daily Hebrew staple.',
+  clusters: [
+    {
+      heading: 'מה עשית? — שאלות עבר',
+      pairs: [
+        { imageWord: 'שיעורי בית', imageDescription: 'a student working on homework with books and pencils spread out', question: 'מה עשית אתמול?', questionTranslation: 'What did you do yesterday?', answer: 'עשיתי שיעורי בית.', answerTranslation: 'I did homework.' },
+        { imageWord: 'ספורט', imageDescription: 'a person playing basketball at an outdoor court', question: 'מה הוא עשה אחרי הלימודים?', questionTranslation: 'What did he do after school?', answer: 'הוא עשה ספורט.', answerTranslation: 'He did sport.' },
+        { imageWord: 'קניות', imageDescription: 'a woman at a grocery store checkout with items on the belt', question: 'מה עשתה?', questionTranslation: 'What did she do?', answer: 'היא עשתה קניות.', answerTranslation: 'She went shopping.' },
+        { imageWord: 'סדר', imageDescription: 'a person tidying up a room and organizing items on shelves', question: 'מה עשיתם?', questionTranslation: 'What did you (pl) do?', answer: 'עשינו סדר בבית.', answerTranslation: 'We tidied up the house.' },
+      ],
+    },
+    {
+      heading: 'לא עשיתי — שלילה',
+      noteInline: 'לא עשיתי = I did not do · root ע-ש-ה is weak (final ה)',
+      pairs: [
+        { imageWord: 'ניקיון', imageDescription: 'a mop and cleaning bucket next to an uncleaned floor', question: 'עשית ניקיון?', questionTranslation: 'Did you clean?', answer: 'לא, לא עשיתי ניקיון.', answerTranslation: 'No, I did not clean.' },
+        { imageWord: 'שיעורים', imageDescription: 'a pile of unopened textbooks on a desk', question: 'הוא עשה שיעורים?', questionTranslation: 'Did he do his homework?', answer: 'לא, הוא לא עשה שיעורים.', answerTranslation: 'No, he did not do his homework.' },
+      ],
+      sentenceColumns: [
+        { label: 'נושא', items: [{ text: 'עשיתי', translation: 'I did' }, { text: 'הוא עשה', translation: 'He did' }, { text: 'היא עשתה', translation: 'She did' }, { text: 'לא עשיתי', translation: 'I did not do' }] },
+        { label: 'פעולה', items: [{ text: 'שיעורי בית.', translation: 'homework.' }, { text: 'ספורט.', translation: 'sport.' }, { text: 'קניות.', translation: 'shopping.' }, { text: 'סדר בבית.', translation: 'tidied the house.' }, { text: 'ניקיון.', translation: 'cleaning.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_HAYA_LO: HayUnitContent = {
+  chapterTitleKey: 'he had hebrew',
+  conceptLabel: 'היה לו',
+  conceptDefinition: 'He had · she had · I had · past of יש לי using past tense of להיות',
+  introNote: '"היה לי" = I had (lit. was to me). This is the past of יש לי — using past tense of להיות. היה (m) / הייתה (f) + ל + pronoun suffix.',
+  clusters: [
+    {
+      heading: 'היה לי — מה היה לך?',
+      pairs: [
+        { imageWord: 'כלב', imageDescription: 'a childhood photo of a young boy with a puppy in a yard', question: 'היה לך כלב כשהיית קטן?', questionTranslation: 'Did you have a dog when you were little?', answer: 'כן, היה לי כלב.', answerTranslation: 'Yes, I had a dog.' },
+        { imageWord: 'אופניים', imageDescription: 'a children\'s bicycle with training wheels in a driveway', question: 'היה לך אופניים?', questionTranslation: 'Did you have a bicycle?', answer: 'כן, היו לי אופניים.', answerTranslation: 'Yes, I had a bicycle.' },
+        { imageWord: 'חבר טוב', imageDescription: 'two childhood friends posing together in an old photo', question: 'היה לו חבר טוב?', questionTranslation: 'Did he have a good friend?', answer: 'כן, היה לו חבר טוב.', answerTranslation: 'Yes, he had a good friend.' },
+        { imageWord: 'מכונית', imageDescription: 'an old car parked in front of a house in the 1990s', question: 'היה לה מכונית?', questionTranslation: 'Did she have a car?', answer: 'כן, הייתה לה מכונית.', answerTranslation: 'Yes, she had a car.' },
+      ],
+    },
+    {
+      heading: 'לא היה לי — שלילה',
+      noteInline: 'לא היה לי = I did not have · hייתה agrees with the POSSESSED THING (m/f)',
+      pairs: [
+        { imageWord: 'טלפון', imageDescription: 'an old landline telephone from the 1980s on a side table', question: 'היה לך טלפון נייד כשהיית קטן?', questionTranslation: 'Did you have a cell phone when you were little?', answer: 'לא, לא היה לי טלפון נייד.', answerTranslation: 'No, I did not have a cell phone.' },
+        { imageWord: 'אחות', imageDescription: 'a single child sitting alone reading a book', question: 'הייתה לו אחות?', questionTranslation: 'Did he have a sister?', answer: 'לא, לא הייתה לו אחות.', answerTranslation: 'No, he did not have a sister.' },
+      ],
+      sentenceColumns: [
+        { label: 'עבר', items: [{ text: 'היה לי', translation: 'I had' }, { text: 'היה לו', translation: 'He had' }, { text: 'הייתה לה', translation: 'She had (f noun)' }, { text: 'לא היה לי', translation: 'I did not have' }] },
+        { label: 'עצם', items: [{ text: 'כלב.', translation: 'a dog.' }, { text: 'אופניים.', translation: 'a bicycle.' }, { text: 'חבר טוב.', translation: 'a good friend.' }, { text: 'מכונית.', translation: 'a car.' }, { text: 'טלפון נייד.', translation: 'a cell phone.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_LO_LAH: HayUnitContent = {
+  chapterTitleKey: 'to him hebrew',
+  conceptLabel: 'לו / לה',
+  conceptDefinition: 'To him · to her · indirect object prepositional pronouns',
+  introNote: 'Hebrew combines the preposition ל with pronouns into single words: לי (to me), לך (to you), לו (to him), לה (to her), לנו (to us). These are the indirect object pronouns.',
+  clusters: [
+    {
+      heading: 'לו / לה — מושא עקיף',
+      pairs: [
+        { imageWord: 'ספר', imageDescription: 'a person handing a book to another person with both hands', question: 'למי נתת את הספר?', questionTranslation: 'To whom did you give the book?', answer: 'נתתי לו את הספר.', answerTranslation: 'I gave him the book.' },
+        { imageWord: 'הודעה', imageDescription: 'a text message being typed on a phone screen', question: 'למי שלחת הודעה?', questionTranslation: 'To whom did you send a message?', answer: 'שלחתי לה הודעה.', answerTranslation: 'I sent her a message.' },
+        { imageWord: 'מתנה', imageDescription: 'a wrapped birthday gift being presented to a woman', question: 'קנית מתנה למי?', questionTranslation: 'For whom did you buy a gift?', answer: 'קניתי לה מתנה.', answerTranslation: 'I bought her a gift.' },
+        { imageWord: 'כסף', imageDescription: 'a parent handing money to a teenager', question: 'נתת לו כסף?', questionTranslation: 'Did you give him money?', answer: 'כן, נתתי לו כסף.', answerTranslation: 'Yes, I gave him money.' },
+      ],
+    },
+    {
+      heading: 'לי / לך / לנו — כל גוף',
+      noteInline: 'לי · לך · לו · לה · לנו · לכם · להם — the full prepositional pronoun series',
+      pairs: [
+        { imageWord: 'אמרת', imageDescription: 'two people having a serious conversation face to face', question: 'מה אמרת לו?', questionTranslation: 'What did you say to him?', answer: 'אמרתי לו שלום.', answerTranslation: 'I said hello to him.' },
+        { imageWord: 'הראית', imageDescription: 'a person pointing at a map and showing directions to another', question: 'הראית לה את הדרך?', questionTranslation: 'Did you show her the way?', answer: 'כן, הראיתי לה את הדרך.', answerTranslation: 'Yes, I showed her the way.' },
+      ],
+      sentenceColumns: [
+        { label: 'פועל', items: [{ text: 'נתתי', translation: 'I gave' }, { text: 'שלחתי', translation: 'I sent' }, { text: 'אמרתי', translation: 'I said/told' }, { text: 'הראיתי', translation: 'I showed' }] },
+        { label: 'ל + גוף', items: [{ text: 'לי.', translation: 'to me.' }, { text: 'לך.', translation: 'to you.' }, { text: 'לו.', translation: 'to him.' }, { text: 'לה.', translation: 'to her.' }, { text: 'לנו.', translation: 'to us.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_NAKI_MELUCHLACH: HayUnitContent = {
+  chapterTitleKey: 'clean dirty hebrew',
+  conceptLabel: 'נקי / מלוכלך',
+  conceptDefinition: 'Clean · dirty · adjective gender agreement in Hebrew',
+  introNote: 'Hebrew adjectives agree in gender with the noun they describe. נקי (m) / נקייה (f) · מלוכלך (m) / מלוכלכת (f). The adjective always follows the noun.',
+  clusters: [
+    {
+      heading: 'נקי / מלוכלך — תיאורים',
+      pairs: [
+        { imageWord: 'חדר נקי', imageDescription: 'a spotlessly tidy bedroom with a made bed and organized shelves', question: 'איך החדר?', questionTranslation: 'What is the room like?', answer: 'החדר נקי.', answerTranslation: 'The room is clean.' },
+        { imageWord: 'כיתה מלוכלכת', imageDescription: 'a messy classroom with paper scraps on the floor and chairs askew', question: 'איך הכיתה?', questionTranslation: 'What is the classroom like?', answer: 'הכיתה מלוכלכת.', answerTranslation: 'The classroom is dirty.' },
+        { imageWord: 'כלב מלוכלך', imageDescription: 'a muddy dog standing in a garden after playing in the rain', question: 'איך הכלב?', questionTranslation: 'What is the dog like?', answer: 'הכלב מלוכלך.', answerTranslation: 'The dog is dirty.' },
+        { imageWord: 'חולצה נקייה', imageDescription: 'a freshly laundered white shirt hanging neatly on a hanger', question: 'איך החולצה?', questionTranslation: 'What is the shirt like?', answer: 'החולצה נקייה.', answerTranslation: 'The shirt is clean.' },
+      ],
+    },
+    {
+      heading: 'עוד תיאורים — More Adjective Pairs',
+      noteInline: 'גדול/גדולה · קטן/קטנה · חדש/חדשה · ישן/ישנה · יפה/יפה · מהיר/מהירה',
+      pairs: [
+        { imageWord: 'בית גדול', imageDescription: 'a large beautiful Israeli villa with a garden and pool', question: 'איך הבית?', questionTranslation: 'What is the house like?', answer: 'הבית גדול.', answerTranslation: 'The house is big.' },
+        { imageWord: 'ילדה קטנה', imageDescription: 'a small child standing next to a very tall adult for size comparison', question: 'איך הילדה?', questionTranslation: 'What is the girl like?', answer: 'הילדה קטנה.', answerTranslation: 'The girl is small.' },
+      ],
+      sentenceColumns: [
+        { label: 'שם עצם', items: [{ text: 'החדר (m)', translation: 'the room' }, { text: 'הכיתה (f)', translation: 'the classroom' }, { text: 'הכלב (m)', translation: 'the dog' }, { text: 'החולצה (f)', translation: 'the shirt' }] },
+        { label: 'תואר', items: [{ text: 'נקי / נקייה', translation: 'clean (m/f)' }, { text: 'מלוכלך / מלוכלכת', translation: 'dirty (m/f)' }, { text: 'גדול / גדולה', translation: 'big (m/f)' }, { text: 'קטן / קטנה', translation: 'small (m/f)' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_LAMADTI: HayUnitContent = {
+  chapterTitleKey: 'i studied hebrew',
+  conceptLabel: 'למדתי',
+  conceptDefinition: 'I studied · he studied · she studied · regular Pa\'al past of ל-מ-ד',
+  introNote: '"למדתי" models the regular Pa\'al past tense pattern: root + personal suffix. Suffixes: -תי (I), -תָ (you m), -תְ (you f), ∅ (he), -ה (she), -נו (we), -תם (you pl m), -ו (they).',
+  clusters: [
+    {
+      heading: 'למדתי — מה למדת?',
+      pairs: [
+        { imageWord: 'עברית', imageDescription: 'an open Hebrew workbook with handwritten practice exercises', question: 'מה למדת?', questionTranslation: 'What did you study?', answer: 'למדתי עברית.', answerTranslation: 'I studied Hebrew.' },
+        { imageWord: 'מתמטיקה', imageDescription: 'a student working through math problems on graph paper', question: 'מה למדת בבית הספר?', questionTranslation: 'What did you study at school?', answer: 'למדתי מתמטיקה.', answerTranslation: 'I studied mathematics.' },
+        { imageWord: 'לנהוג', imageDescription: 'a young person in a driving lesson car with an instructor', question: 'מה הוא למד?', questionTranslation: 'What did he study/learn?', answer: 'הוא למד לנהוג.', answerTranslation: 'He learned to drive.' },
+        { imageWord: 'שיר', imageDescription: 'a singer studying sheet music with headphones and a piano', question: 'מה היא למדה?', questionTranslation: 'What did she learn?', answer: 'היא למדה שיר חדש.', answerTranslation: 'She learned a new song.' },
+      ],
+    },
+    {
+      heading: 'לא למדתי — שלילה',
+      noteInline: 'Regular Pa\'al past: root + suffix · -תי/-תָ/-∅/-ה/-נו/-תם/-ו',
+      pairs: [
+        { imageWord: 'היסטוריה', imageDescription: 'a history textbook left unopened on a student\'s desk', question: 'למדת היסטוריה?', questionTranslation: 'Did you study history?', answer: 'לא, לא למדתי היסטוריה.', answerTranslation: 'No, I did not study history.' },
+        { imageWord: 'לגלוש', imageDescription: 'a surfboard on the shore while a person watches the waves but doesn\'t enter', question: 'הוא למד לגלוש?', questionTranslation: 'Did he learn to surf?', answer: 'לא, הוא לא למד לגלוש.', answerTranslation: 'No, he did not learn to surf.' },
+      ],
+      sentenceColumns: [
+        { label: 'נושא', items: [{ text: 'למדתי', translation: 'I studied' }, { text: 'הוא למד', translation: 'He studied' }, { text: 'היא למדה', translation: 'She studied' }, { text: 'למדנו', translation: 'We studied' }] },
+        { label: 'נושא לימוד', items: [{ text: 'עברית.', translation: 'Hebrew.' }, { text: 'מתמטיקה.', translation: 'mathematics.' }, { text: 'לנהוג.', translation: 'to drive.' }, { text: 'שיר חדש.', translation: 'a new song.' }, { text: 'היסטוריה.', translation: 'history.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_KIBALTI: HayUnitContent = {
+  chapterTitleKey: 'i received hebrew',
+  conceptLabel: 'קיבלתי',
+  conceptDefinition: 'I received · I got · he received · Pi\'el past of ק-ב-ל',
+  introNote: '"קיבלתי" is Pi\'el binyan — the middle root letter ב is doubled (קיבֵּל). Pi\'el past uses the same personal suffixes as Pa\'al past. This root is extremely common: receiving, getting, accepting.',
+  clusters: [
+    {
+      heading: 'קיבלתי — מה קיבלת?',
+      pairs: [
+        { imageWord: 'מתנה', imageDescription: 'a person unwrapping a birthday present with a big smile', question: 'מה קיבלת ביום הולדת?', questionTranslation: 'What did you receive for your birthday?', answer: 'קיבלתי מתנה.', answerTranslation: 'I received a gift.' },
+        { imageWord: 'הודעה', imageDescription: 'a phone screen showing a new text message notification', question: 'קיבלת הודעה?', questionTranslation: 'Did you receive a message?', answer: 'כן, קיבלתי הודעה.', answerTranslation: 'Yes, I received a message.' },
+        { imageWord: 'ציון', imageDescription: 'a test paper handed back with a grade written in red', question: 'מה הוא קיבל?', questionTranslation: 'What did he receive?', answer: 'הוא קיבל ציון טוב.', answerTranslation: 'He received a good grade.' },
+        { imageWord: 'חדשות', imageDescription: 'a person looking at their phone with a surprised expression', question: 'מה היא קיבלה?', questionTranslation: 'What did she receive?', answer: 'היא קיבלה חדשות טובות.', answerTranslation: 'She received good news.' },
+      ],
+    },
+    {
+      heading: 'לא קיבלתי — שלילה',
+      noteInline: 'Pi\'el past: middle root letter doubled · same suffixes as Pa\'al',
+      pairs: [
+        { imageWord: 'מכתב', imageDescription: 'an empty mailbox with the door hanging open', question: 'קיבלת מכתב?', questionTranslation: 'Did you receive a letter?', answer: 'לא, לא קיבלתי מכתב.', answerTranslation: 'No, I did not receive a letter.' },
+        { imageWord: 'עודף', imageDescription: 'a receipt showing no change returned at a cashier', question: 'הוא קיבל עודף?', questionTranslation: 'Did he receive change?', answer: 'לא, הוא לא קיבל עודף.', answerTranslation: 'No, he did not receive change.' },
+      ],
+      sentenceColumns: [
+        { label: 'נושא', items: [{ text: 'קיבלתי', translation: 'I received' }, { text: 'הוא קיבל', translation: 'He received' }, { text: 'היא קיבלה', translation: 'She received' }, { text: 'לא קיבלתי', translation: 'I did not receive' }] },
+        { label: 'מושא', items: [{ text: 'מתנה.', translation: 'a gift.' }, { text: 'הודעה.', translation: 'a message.' }, { text: 'ציון טוב.', translation: 'a good grade.' }, { text: 'חדשות טובות.', translation: 'good news.' }, { text: 'מכתב.', translation: 'a letter.' }] },
+      ],
+    },
+  ],
+};
+
+const HEBREW_ANI_ELECH: HayUnitContent = {
+  chapterTitleKey: 'i will hebrew',
+  conceptLabel: 'אני אלך — עתיד',
+  conceptDefinition: 'I will go · he will · she will · Pa\'al future tense (prefix conjugation)',
+  introNote: 'Hebrew future tense uses prefixes: א (I), ת (you m / she), י (he), נ (we), ת+ו (you pl / they). "אני אלך" — I will go. "הוא ילך" — he will go. One prefix set works for all Pa\'al roots.',
+  clusters: [
+    {
+      heading: 'עתיד — I Will',
+      pairs: [
+        { imageWord: 'לסופרמרקט', imageDescription: 'a modern supermarket with bright lights and produce displays', question: 'מה אתה תעשה מחר?', questionTranslation: 'What will you do tomorrow?', answer: 'מחר אני אלך לסופרמרקט.', answerTranslation: 'Tomorrow I will go to the supermarket.' },
+        { imageWord: 'ללמוד', imageDescription: 'a student sitting at a library table planning their study schedule', question: 'מה תעשה בערב?', questionTranslation: 'What will you do in the evening?', answer: 'בערב אני אלמד.', answerTranslation: 'In the evening I will study.' },
+        { imageWord: 'יכתוב', imageDescription: 'a man settling down at a desk to write a letter', question: 'מה הוא יעשה?', questionTranslation: 'What will he do?', answer: 'הוא יכתוב מכתב.', answerTranslation: 'He will write a letter.' },
+        { imageWord: 'תקנה', imageDescription: 'a woman browsing clothing items in a store', question: 'מה היא תעשה?', questionTranslation: 'What will she do?', answer: 'היא תקנה בגדים.', answerTranslation: 'She will buy clothes.' },
+      ],
+    },
+    {
+      heading: 'עתיד — כל הגופות',
+      noteInline: 'Future prefix set: א-/ת-/י-/ת-/נ- · root unchanged · א = I, ת = you/she, י = he, נ = we',
+      pairs: [
+        { imageWord: 'נלך', imageDescription: 'a group of friends making plans together around a table', question: 'מה תעשו ביחד?', questionTranslation: 'What will you all do together?', answer: 'נלך לים ביחד.', answerTranslation: 'We will go to the sea together.' },
+        { imageWord: 'ילמדו', imageDescription: 'a classroom of students raising their hands to answer a question', question: 'מה הם יעשו בכיתה?', questionTranslation: 'What will they do in class?', answer: 'הם ילמדו עברית.', answerTranslation: 'They will study Hebrew.' },
+      ],
+      sentenceColumns: [
+        { label: 'גוף', items: [{ text: 'אני (א-)', translation: 'I → אלך / אלמד / אקנה' }, { text: 'אתה (ת-)', translation: 'you m → תלך / תלמד / תקנה' }, { text: 'הוא (י-)', translation: 'he → ילך / ילמד / יקנה' }, { text: 'היא (ת-)', translation: 'she → תלך / תלמד / תקנה' }, { text: 'אנחנו (נ-)', translation: 'we → נלך / נלמד / נקנה' }] },
+        { label: 'פועל', items: [{ text: 'ללכת → אלך', translation: 'go → I will go' }, { text: 'ללמוד → אלמד', translation: 'study → I will study' }, { text: 'לקנות → אקנה', translation: 'buy → I will buy' }, { text: 'לכתוב → אכתוב', translation: 'write → I will write' }] },
+      ],
+    },
+  ],
+};
+
 const HAY_UNITS: HayUnitContent[] = [
   PUEDO_IR,
   HAY_CHAPTER,
@@ -5182,6 +5846,29 @@ const HAY_UNITS: HayUnitContent[] = [
   ENGLISH_THERE_IS,
   ENGLISH_I_LIKE,
   ENGLISH_I_WOULD_LIKE,
+  // ── Hebrew verb chain units ───────────────────────────────────────────────
+  HEBREW_HOLECH,
+  HEBREW_LAKACHTI,
+  HEBREW_KANITI,
+  HEBREW_HOLECH_LE,
+  HEBREW_YESH_LI,
+  HEBREW_ANI_ROTZE,
+  HEBREW_ANI_ZEHUT,
+  HEBREW_EIFOH_ANI,
+  HEBREW_YACHOL,
+  HEBREW_MIVNE_HAPOEL,
+  HEBREW_YESH,
+  HEBREW_OHEV,
+  HEBREW_HAYITI_ROTZE,
+  HEBREW_HALACHTI,
+  HEBREW_HU_HOLECH_LE,
+  HEBREW_MA_HU_ASA,
+  HEBREW_HAYA_LO,
+  HEBREW_LO_LAH,
+  HEBREW_NAKI_MELUCHLACH,
+  HEBREW_LAMADTI,
+  HEBREW_KIBALTI,
+  HEBREW_ANI_ELECH,
 ];
 
 /**
