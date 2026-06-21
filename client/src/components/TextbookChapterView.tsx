@@ -774,7 +774,6 @@ export function TextbookChapterView({
             Unit {chapter.number}
           </p>
           <h1 className="text-2xl font-bold">{chapter.title}</h1>
-          <p className="text-sm text-muted-foreground">{chapter.description}</p>
         </div>
 
         <SocialPhraseUnit language={language} lessonId={chapter.sections[0]?.id} />
@@ -826,13 +825,6 @@ export function TextbookChapterView({
           Chapter {chapter.number}
         </Badge>
         <h1 className="text-2xl md:text-3xl font-bold">{chapter.title}</h1>
-        <p className="text-muted-foreground max-w-lg mx-auto">{chapter.description}</p>
-        {chapter.culturalTheme && (
-          <p className="text-sm text-primary">
-            <Sparkles className="h-3 w-3 inline mr-1" />
-            Cultural focus: {chapter.culturalTheme}
-          </p>
-        )}
       </div>
 
       {/* ── See It, Say It — primary vocab presentation (method) ── */}
