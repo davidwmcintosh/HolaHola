@@ -1799,9 +1799,239 @@ const HAY_CHAPTER: HayUnitContent = {
   ],
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// French present-tense verb units — Madrigal method applied to French
+// Same 4-step sequence: anchor → model sentences → combinator → Q&A pivot
+// Content law applies: every element is pedagogically intentional.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const FRENCH_VOULOIR: HayUnitContent = {
+  chapterTitleKey: "je veux",
+  conceptLabel: "Je veux",
+  conceptDefinition: "I want · do you want? · voulez-vous?",
+  introNote: "\"Je veux\" works the same way every time — drop it in front of any noun or infinitive and you have a complete thought.",
+  clusters: [
+    {
+      heading: "Je veux — Model Sentences",
+      pairs: [
+        { imageWord: "café", imageDescription: "a steaming cup of French café coffee", question: "Voulez-vous du café?", questionTranslation: "Do you want some coffee?", answer: "Oui, je veux du café.", answerTranslation: "Yes, I want some coffee." },
+        { imageWord: "eau", imageDescription: "a glass of clear water on a table", question: "Voulez-vous de l'eau?", questionTranslation: "Do you want some water?", answer: "Oui, je veux de l'eau.", answerTranslation: "Yes, I want some water." },
+        { imageWord: "pain", imageDescription: "a fresh French baguette on a wooden board", question: "Voulez-vous du pain?", questionTranslation: "Do you want some bread?", answer: "Oui, je veux du pain.", answerTranslation: "Yes, I want some bread." },
+        { imageWord: "pomme", imageDescription: "a red apple on a white surface", question: "Voulez-vous une pomme?", questionTranslation: "Do you want an apple?", answer: "Oui, je veux une pomme.", answerTranslation: "Yes, I want an apple." },
+      ],
+    },
+    {
+      heading: "Je veux + infinitif",
+      noteInline: "je veux + infinitive = I want to …",
+      pairs: [
+        { imageWord: "manger", imageDescription: "a person sitting down to eat a meal", question: "Voulez-vous manger?", questionTranslation: "Do you want to eat?", answer: "Oui, je veux manger.", answerTranslation: "Yes, I want to eat." },
+        { imageWord: "dormir", imageDescription: "a person yawning and looking tired", question: "Voulez-vous dormir?", questionTranslation: "Do you want to sleep?", answer: "Oui, je veux dormir.", answerTranslation: "Yes, I want to sleep." },
+        { imageWord: "sortir", imageDescription: "a person walking out the front door of a house", question: "Voulez-vous sortir?", questionTranslation: "Do you want to go out?", answer: "Oui, je veux sortir.", answerTranslation: "Yes, I want to go out." },
+      ],
+      sentenceColumns: [
+        { label: "Sujet", items: [{ text: "Je veux", translation: "I want" }, { text: "Il veut", translation: "He wants" }, { text: "Elle veut", translation: "She wants" }] },
+        { label: "Objet / Infinitif", items: [{ text: "du café.", translation: "some coffee." }, { text: "de l'eau.", translation: "some water." }, { text: "manger.", translation: "to eat." }, { text: "sortir.", translation: "to go out." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_AVOIR: HayUnitContent = {
+  chapterTitleKey: "j'ai",
+  conceptLabel: "J'ai",
+  conceptDefinition: "I have · do you have? · avez-vous?",
+  introNote: "\"J'ai\" is one of the most useful verbs in French — possession, age, and many expressions all run through avoir.",
+  clusters: [
+    {
+      heading: "J'ai — Model Sentences",
+      pairs: [
+        { imageWord: "livre", imageDescription: "an open book on a desk", question: "Avez-vous un livre?", questionTranslation: "Do you have a book?", answer: "Oui, j'ai un livre.", answerTranslation: "Yes, I have a book." },
+        { imageWord: "voiture", imageDescription: "a car parked on a street", question: "Avez-vous une voiture?", questionTranslation: "Do you have a car?", answer: "Oui, j'ai une voiture.", answerTranslation: "Yes, I have a car." },
+        { imageWord: "chat", imageDescription: "a cat sitting on a windowsill", question: "Avez-vous un chat?", questionTranslation: "Do you have a cat?", answer: "Oui, j'ai un chat.", answerTranslation: "Yes, I have a cat." },
+        { imageWord: "argent", imageDescription: "euro banknotes and coins on a table", question: "Avez-vous de l'argent?", questionTranslation: "Do you have any money?", answer: "Oui, j'ai de l'argent.", answerTranslation: "Yes, I have some money." },
+      ],
+    },
+    {
+      heading: "J'ai faim · J'ai soif · J'ai …",
+      noteInline: "French uses avoir (to have) where English uses to be: j'ai faim = I am hungry · j'ai soif = I am thirsty",
+      pairs: [
+        { imageWord: "faim", imageDescription: "a person holding their stomach looking hungry", question: "Avez-vous faim?", questionTranslation: "Are you hungry?", answer: "Oui, j'ai faim.", answerTranslation: "Yes, I am hungry." },
+        { imageWord: "soif", imageDescription: "a person looking thirsty reaching for a glass of water", question: "Avez-vous soif?", questionTranslation: "Are you thirsty?", answer: "Oui, j'ai soif.", answerTranslation: "Yes, I am thirsty." },
+        { imageWord: "chance", imageDescription: "a four-leaf clover, symbol of luck", question: "Avez-vous de la chance?", questionTranslation: "Are you lucky?", answer: "Oui, j'ai de la chance.", answerTranslation: "Yes, I am lucky." },
+      ],
+      sentenceColumns: [
+        { label: "Sujet", items: [{ text: "J'ai", translation: "I have" }, { text: "Il a", translation: "He has" }, { text: "Elle a", translation: "She has" }] },
+        { label: "Objet", items: [{ text: "un livre.", translation: "a book." }, { text: "une voiture.", translation: "a car." }, { text: "faim.", translation: "hunger (I'm hungry)." }, { text: "soif.", translation: "thirst (I'm thirsty)." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_ALLER: HayUnitContent = {
+  chapterTitleKey: "je vais",
+  conceptLabel: "Je vais",
+  conceptDefinition: "I am going · where are you going? · où allez-vous?",
+  introNote: "\"Aller\" moves you anywhere — drop it before \"à\" and a place, or before an infinitive to talk about the future.",
+  clusters: [
+    {
+      heading: "Je vais — Places",
+      pairs: [
+        { imageWord: "café", imageDescription: "a Parisian café with outdoor terrace", question: "Allez-vous au café?", questionTranslation: "Are you going to the café?", answer: "Oui, je vais au café.", answerTranslation: "Yes, I am going to the café." },
+        { imageWord: "banque", imageDescription: "a bank building exterior with columns", question: "Allez-vous à la banque?", questionTranslation: "Are you going to the bank?", answer: "Oui, je vais à la banque.", answerTranslation: "Yes, I am going to the bank." },
+        { imageWord: "cinéma", imageDescription: "a cinema marquee lit up at night", question: "Allez-vous au cinéma?", questionTranslation: "Are you going to the cinema?", answer: "Oui, je vais au cinéma.", answerTranslation: "Yes, I am going to the cinema." },
+        { imageWord: "hôpital", imageDescription: "a hospital building exterior with a red cross sign", question: "Allez-vous à l'hôpital?", questionTranslation: "Are you going to the hospital?", answer: "Oui, je vais à l'hôpital.", answerTranslation: "Yes, I am going to the hospital." },
+      ],
+    },
+    {
+      heading: "Je vais + infinitif — Near Future",
+      noteInline: "je vais + infinitive = I am going to …  (the easiest way to talk about the future)",
+      pairs: [
+        { imageWord: "manger", imageDescription: "a set dinner table with food ready to eat", question: "Allez-vous manger?", questionTranslation: "Are you going to eat?", answer: "Oui, je vais manger.", answerTranslation: "Yes, I am going to eat." },
+        { imageWord: "travailler", imageDescription: "a person sitting at a desk working on a laptop", question: "Allez-vous travailler?", questionTranslation: "Are you going to work?", answer: "Oui, je vais travailler.", answerTranslation: "Yes, I am going to work." },
+        { imageWord: "voyage", imageDescription: "a suitcase packed next to an airport departure board", question: "Allez-vous voyager?", questionTranslation: "Are you going to travel?", answer: "Oui, je vais voyager.", answerTranslation: "Yes, I am going to travel." },
+      ],
+      sentenceColumns: [
+        { label: "Sujet", items: [{ text: "Je vais", translation: "I am going" }, { text: "Il va", translation: "He is going" }, { text: "Elle va", translation: "She is going" }] },
+        { label: "Destination / Infinitif", items: [{ text: "au café.", translation: "to the café." }, { text: "à la banque.", translation: "to the bank." }, { text: "manger.", translation: "to eat." }, { text: "travailler.", translation: "to work." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_ETRE: HayUnitContent = {
+  chapterTitleKey: "je suis",
+  conceptLabel: "Je suis",
+  conceptDefinition: "I am · are you? · êtes-vous?",
+  introNote: "\"Être\" is the verb of identity — nationality, profession, personality. One verb, endless self-expression.",
+  clusters: [
+    {
+      heading: "Je suis — Identity",
+      pairs: [
+        { imageWord: "américain", imageDescription: "an American flag waving outdoors", question: "Êtes-vous américain?", questionTranslation: "Are you American?", answer: "Oui, je suis américain.", answerTranslation: "Yes, I am American." },
+        { imageWord: "étudiant", imageDescription: "a student sitting in a university lecture hall", question: "Êtes-vous étudiant?", questionTranslation: "Are you a student?", answer: "Oui, je suis étudiant.", answerTranslation: "Yes, I am a student." },
+        { imageWord: "professeur", imageDescription: "a teacher writing on a classroom blackboard", question: "Êtes-vous professeur?", questionTranslation: "Are you a teacher?", answer: "Oui, je suis professeur.", answerTranslation: "Yes, I am a teacher." },
+        { imageWord: "médecin", imageDescription: "a doctor in a white coat with a stethoscope", question: "Êtes-vous médecin?", questionTranslation: "Are you a doctor?", answer: "Oui, je suis médecin.", answerTranslation: "Yes, I am a doctor." },
+      ],
+    },
+    {
+      heading: "Je suis + adjectif",
+      noteInline: "Adjectives agree with gender: fatigué (m) · fatiguée (f) · content (m) · contente (f)",
+      pairs: [
+        { imageWord: "fatigué", imageDescription: "a person looking tired and yawning at a desk", question: "Êtes-vous fatigué?", questionTranslation: "Are you tired?", answer: "Oui, je suis fatigué.", answerTranslation: "Yes, I am tired." },
+        { imageWord: "content", imageDescription: "a person smiling broadly, looking happy", question: "Êtes-vous content?", questionTranslation: "Are you happy?", answer: "Oui, je suis content.", answerTranslation: "Yes, I am happy." },
+        { imageWord: "prêt", imageDescription: "a person standing at the door ready to leave, coat and bag in hand", question: "Êtes-vous prêt?", questionTranslation: "Are you ready?", answer: "Oui, je suis prêt.", answerTranslation: "Yes, I am ready." },
+      ],
+      sentenceColumns: [
+        { label: "Sujet", items: [{ text: "Je suis", translation: "I am" }, { text: "Il est", translation: "He is" }, { text: "Elle est", translation: "She is" }] },
+        { label: "Attribut", items: [{ text: "américain.", translation: "American." }, { text: "étudiant.", translation: "a student." }, { text: "fatigué.", translation: "tired." }, { text: "content.", translation: "happy." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_AIMER: HayUnitContent = {
+  chapterTitleKey: "j'aime",
+  conceptLabel: "J'aime",
+  conceptDefinition: "I like · I love · do you like? · aimez-vous?",
+  introNote: "\"J'aime\" is stronger than the English \"I like\" — it often means love. Use \"j'aime bien\" to dial it back to a friendly like.",
+  clusters: [
+    {
+      heading: "J'aime — Nouns",
+      pairs: [
+        { imageWord: "musique", imageDescription: "a person listening to music with headphones, eyes closed", question: "Aimez-vous la musique?", questionTranslation: "Do you like music?", answer: "Oui, j'aime la musique.", answerTranslation: "Yes, I like music." },
+        { imageWord: "sport", imageDescription: "a variety of sports equipment — ball, racket, sneakers", question: "Aimez-vous le sport?", questionTranslation: "Do you like sport?", answer: "Oui, j'aime le sport.", answerTranslation: "Yes, I like sport." },
+        { imageWord: "cinéma", imageDescription: "a cinema screen with an audience watching a film", question: "Aimez-vous le cinéma?", questionTranslation: "Do you like the cinema?", answer: "Oui, j'aime le cinéma.", answerTranslation: "Yes, I like cinema." },
+        { imageWord: "café", imageDescription: "a person enjoying a coffee at a café table", question: "Aimez-vous le café?", questionTranslation: "Do you like coffee?", answer: "Oui, j'aime le café.", answerTranslation: "Yes, I like coffee." },
+      ],
+    },
+    {
+      heading: "J'aime + infinitif",
+      noteInline: "j'aime + infinitive = I like to … · j'aime bien = I quite like",
+      pairs: [
+        { imageWord: "lire", imageDescription: "a person reading a book in an armchair", question: "Aimez-vous lire?", questionTranslation: "Do you like to read?", answer: "Oui, j'aime lire.", answerTranslation: "Yes, I like to read." },
+        { imageWord: "voyager", imageDescription: "a plane window view of clouds and landscape below", question: "Aimez-vous voyager?", questionTranslation: "Do you like to travel?", answer: "Oui, j'aime voyager.", answerTranslation: "Yes, I like to travel." },
+        { imageWord: "cuisine", imageDescription: "a person cooking at a stove, steam rising from a pot", question: "Aimez-vous cuisiner?", questionTranslation: "Do you like to cook?", answer: "Oui, j'aime cuisiner.", answerTranslation: "Yes, I like to cook." },
+      ],
+      sentenceColumns: [
+        { label: "Sujet", items: [{ text: "J'aime", translation: "I like / love" }, { text: "Il aime", translation: "He likes / loves" }, { text: "Elle aime", translation: "She likes / loves" }] },
+        { label: "Objet / Infinitif", items: [{ text: "la musique.", translation: "music." }, { text: "le sport.", translation: "sport." }, { text: "lire.", translation: "to read." }, { text: "voyager.", translation: "to travel." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_IL_Y_A: HayUnitContent = {
+  chapterTitleKey: "il y a",
+  conceptLabel: "Il y a",
+  conceptDefinition: "there is · there are · is there? · are there?",
+  introNote: "\"Il y a\" is invariable — the same three words cover singular and plural, statement and question.",
+  clusters: [
+    {
+      heading: "Il y a — En ville",
+      pairs: [
+        { imageWord: "café", imageDescription: "a Parisian café on a corner with outdoor chairs", question: "Y a-t-il un café?", questionTranslation: "Is there a café?", answer: "Oui, il y a un café.", answerTranslation: "Yes, there is a café." },
+        { imageWord: "hôtel", imageDescription: "a classic hotel building exterior with a canopy", question: "Y a-t-il un hôtel?", questionTranslation: "Is there a hotel?", answer: "Oui, il y a un hôtel.", answerTranslation: "Yes, there is a hotel." },
+        { imageWord: "banque", imageDescription: "a bank building with large glass doors", question: "Y a-t-il une banque?", questionTranslation: "Is there a bank?", answer: "Oui, il y a une banque.", answerTranslation: "Yes, there is a bank." },
+        { imageWord: "parc", imageDescription: "a city park with trees and benches in sunlight", question: "Y a-t-il un parc?", questionTranslation: "Is there a park?", answer: "Oui, il y a un parc.", answerTranslation: "Yes, there is a park." },
+      ],
+    },
+    {
+      heading: "Il y a beaucoup de · Il n'y a pas de",
+      noteInline: "il y a beaucoup de = there are many · il n'y a pas de = there is no / there are no",
+      pairs: [
+        { imageWord: "voiture", imageDescription: "many cars on a busy city street", question: "Y a-t-il beaucoup de voitures?", questionTranslation: "Are there many cars?", answer: "Oui, il y a beaucoup de voitures.", answerTranslation: "Yes, there are many cars." },
+        { imageWord: "restaurant", imageDescription: "a busy restaurant street with many choices", question: "Y a-t-il des restaurants?", questionTranslation: "Are there restaurants?", answer: "Oui, il y a des restaurants.", answerTranslation: "Yes, there are restaurants." },
+        { imageWord: "place", imageDescription: "an empty quiet town square with no people", question: "Y a-t-il des gens?", questionTranslation: "Are there people?", answer: "Non, il n'y a pas de gens.", answerTranslation: "No, there are no people.", extraNote: "il n'y a pas de = there is no / there are no" },
+      ],
+      sentenceColumns: [
+        { label: "Formule", items: [{ text: "Il y a", translation: "There is / There are" }, { text: "Il n'y a pas de", translation: "There is no / There are no" }, { text: "Il y a beaucoup de", translation: "There are many" }] },
+        { label: "Lieu / Objet", items: [{ text: "un café.", translation: "a café." }, { text: "une banque.", translation: "a bank." }, { text: "voitures.", translation: "cars." }, { text: "gens.", translation: "people." }] },
+      ],
+    },
+  ],
+};
+
+const FRENCH_POUVOIR: HayUnitContent = {
+  chapterTitleKey: "je peux",
+  conceptLabel: "Je peux",
+  conceptDefinition: "I can · I am able to · can you? · pouvez-vous?",
+  introNote: "\"Pouvoir\" unlocks everything — it turns any infinitive into something you have the power to do. Always followed by an infinitive.",
+  clusters: [
+    {
+      heading: "Je peux — Abilities",
+      pairs: [
+        { imageWord: "parler", imageDescription: "two people having a conversation, speech bubbles visible", question: "Pouvez-vous parler français?", questionTranslation: "Can you speak French?", answer: "Oui, je peux parler français.", answerTranslation: "Yes, I can speak French." },
+        { imageWord: "nager", imageDescription: "a swimmer doing freestyle in a pool", question: "Pouvez-vous nager?", questionTranslation: "Can you swim?", answer: "Oui, je peux nager.", answerTranslation: "Yes, I can swim." },
+        { imageWord: "venir", imageDescription: "a person walking toward a group of friends outdoors", question: "Pouvez-vous venir?", questionTranslation: "Can you come?", answer: "Oui, je peux venir.", answerTranslation: "Yes, I can come." },
+        { imageWord: "aider", imageDescription: "one person helping another carry heavy boxes", question: "Pouvez-vous aider?", questionTranslation: "Can you help?", answer: "Oui, je peux vous aider.", answerTranslation: "Yes, I can help you." },
+      ],
+    },
+    {
+      heading: "Je ne peux pas — Can't Do",
+      noteInline: "je ne peux pas = I cannot · je ne peux pas + infinitive = I cannot …",
+      pairs: [
+        { imageWord: "voler", imageDescription: "a cartoon person looking up at the sky wishing they could fly", question: "Pouvez-vous voler?", questionTranslation: "Can you fly?", answer: "Non, je ne peux pas voler.", answerTranslation: "No, I cannot fly." },
+        { imageWord: "attendre", imageDescription: "a person tapping their watch, looking impatient", question: "Pouvez-vous attendre?", questionTranslation: "Can you wait?", answer: "Non, je ne peux pas attendre.", answerTranslation: "No, I cannot wait." },
+      ],
+      sentenceColumns: [
+        { label: "Sujet", items: [{ text: "Je peux", translation: "I can" }, { text: "Il peut", translation: "He can" }, { text: "Elle peut", translation: "She can" }, { text: "Je ne peux pas", translation: "I cannot" }] },
+        { label: "Infinitif", items: [{ text: "parler.", translation: "speak." }, { text: "venir.", translation: "come." }, { text: "nager.", translation: "swim." }, { text: "vous aider.", translation: "help you." }] },
+      ],
+    },
+  ],
+};
+
 const HAY_UNITS: HayUnitContent[] = [
   PUEDO_IR,
   HAY_CHAPTER,
+  // ── French present-tense verb units ─────────────────────────────────────────
+  FRENCH_VOULOIR,
+  FRENCH_AVOIR,
+  FRENCH_ALLER,
+  FRENCH_ETRE,
+  FRENCH_AIMER,
+  FRENCH_IL_Y_A,
+  FRENCH_POUVOIR,
 ];
 
 /**
