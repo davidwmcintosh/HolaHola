@@ -2052,8 +2052,1097 @@ const FRENCH_UNITS: MadrigalLoopUnit[] = [
 
 ];
 
-// Merge all units — Spanish first, then French (preserves existing index order for Spanish)
-const ALL_UNITS = [...UNITS, ...FRENCH_UNITS];
+const ITALIAN_UNITS: MadrigalLoopUnit[] = [
+
+  // ─── Andare — Dove vai? / Dove va? ────────────────────────────────────────
+  {
+    contentKey: 'where are you going',
+    language: 'italian',
+    displayName: 'Andare — Vado / Va',
+    unitType: 'verb',
+    vocabTerms: ['vado', 'va', 'andare', 'going', 'I am going', 'she is going', 'dove vai', 'andiamo', 'vanno', 'al', 'alla', 'in Italia'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Vado" — I am going. "Va" — she / he is going. The verb is andare. It is irregular — nothing looks like "and-". Say them: vado, va.',
+        studentAction: 'Repeat vado and va.',
+        teacherHint: 'The irregularity mirrors Spanish ir (voy/va) and French aller (vais/va). Stress the near-future use: vado a + infinitive. Two verbs, two payoffs.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a destination. Read: Vado al... / alla... / in... Masc places: al. Fem places: alla. Countries: in.',
+        studentAction: 'Read vado / va sentences with destination images.',
+        teacherHint: 'Al/alla/in distinction is critical. Masc: al cinema, al ristorante. Fem: alla banca, alla scuola. Countries: in Italia, in Francia.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Eyes across the columns — who is going where?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Check al vs alla vs in on each substitution. Mistakes solidify here if uncorrected.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Dove vai stasera? Where are you going tonight? Answer with vado. Then extend: what are you going to do there?',
+        studentAction: 'Produce: Vado al/alla/in + destination, then vado a + infinitive.',
+        teacherHint: 'Vado a + infinitive unlocks the futuro prossimo. Vado a mangiare — I am going to eat. Most productive construction of Italian 1.',
+      },
+    ],
+  },
+
+  // ─── Prendere al passato (ho preso / ha preso) ────────────────────────────
+  {
+    contentKey: 'i took',
+    language: 'italian',
+    displayName: 'Passato Prossimo — Ho preso / Ha preso',
+    unitType: 'verb',
+    vocabTerms: ['ho preso', 'ha preso', 'prendere', 'took', 'I took', 'she took', 'hai preso', 'abbiamo preso', 'passato prossimo', 'ho + participio'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ho preso" — I took. "Ha preso" — she/he took. This is the passato prossimo. Ho + participio. Say them: ho preso, ha preso.',
+        studentAction: 'Repeat ho preso and ha preso.',
+        teacherHint: 'Prendere → preso is irregular. The passato prossimo = ho/ha + past participle. This mirrors French j\'ai pris. The auxiliary ho/ha comes from avere.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows something someone took or grabbed. Read: Ho preso... / Ha preso...',
+        studentAction: 'Read ho preso / ha preso sentences with images.',
+        teacherHint: 'Prendere covers took, grabbed, had (food/drink). Ho preso un caffè = I had a coffee. High-frequency in Italian daily life.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who took what?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Keep ho vs ha sharp. Students often confuse auxiliary with subject.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Cosa hai preso stamattina? What did you have this morning? Answer with ho preso.',
+        studentAction: 'Produce: Ho preso + noun.',
+        teacherHint: 'Personalize: ho preso un caffè, ho preso l\'autobus, ho preso un libro. Any accurate prendere sentence works.',
+      },
+    ],
+  },
+
+  // ─── Comprare al passato (ho comprato / ha comprato) ──────────────────────
+  {
+    contentKey: 'i bought',
+    language: 'italian',
+    displayName: 'Passato Prossimo — Ho comprato / Ha comprato',
+    unitType: 'verb',
+    vocabTerms: ['ho comprato', 'ha comprato', 'comprare', 'bought', 'I bought', 'she bought', 'hai comprato', 'abbiamo comprato', '-are → -ato', 'participio'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ho comprato" — I bought. "Ha comprato" — she/he bought. -are verbs → -ato. The pattern: drop -are, add -ato. Say them: ho comprato, ha comprato.',
+        studentAction: 'Repeat ho comprato and ha comprato.',
+        teacherHint: 'Comprare → comprato is regular. This unlocks all regular -are verbs in the past. Once this clicks, students have hundreds of past tense forms.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a purchase. Read: Ho comprato... / Ha comprato...',
+        studentAction: 'Read ho comprato / ha comprato sentences with images.',
+        teacherHint: 'Focus on the -are → -ato transformation. All regular -are verbs follow this. This is the high-frequency pattern to drill.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who bought what?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Mix ho and ha. Students should hold both forms automatically without pause.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Cosa hai comprato recentemente? What did you buy recently? Answer with ho comprato.',
+        studentAction: 'Produce: Ho comprato + noun.',
+        teacherHint: 'Accept any accurate -are participle too: ho mangiato, ho studiato, ho parlato. Extend the pattern.',
+      },
+    ],
+  },
+
+  // ─── Futuro Prossimo — Vado a + infinito ──────────────────────────────────
+  {
+    contentKey: 'i am going to',
+    language: 'italian',
+    displayName: 'Futuro Prossimo — Vado a / Va a',
+    unitType: 'verb',
+    vocabTerms: ['vado a', 'va a', 'futuro prossimo', 'going to', 'I am going to', 'she is going to', 'andiamo a', 'infinito', 'domani', 'stasera'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Vado a mangiare" — I am going to eat. "Va a comprare" — she is going to buy. Vado/va + a + infinitive = near future. Say them: vado a, va a.',
+        studentAction: 'Repeat vado a and va a with an infinitive.',
+        teacherHint: 'Mirrors French vais à / va à and Spanish voy a / va a. Italian drops the preposition before the infinitive in common speech, but vado a + inf is standard.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a planned action. Read: Vado a + infinitive / Va a + infinitive.',
+        studentAction: 'Read vado a / va a sentences with images.',
+        teacherHint: 'Any -are, -ere, or -ire infinitive can follow. Keep the infinitive — no conjugation after vado a.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Eyes across — who is going to do what?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'This is the most useful future structure in Italian 1. Make sure the infinitive form holds.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Cosa vai a fare domani? What are you going to do tomorrow? Answer with vado a + infinitive.',
+        studentAction: 'Produce: Vado a + infinitive.',
+        teacherHint: 'Accept any infinitive. Push students to generate sentences about their actual plans.',
+      },
+    ],
+  },
+
+  // ─── Avere (ho / ha) ──────────────────────────────────────────────────────
+  {
+    contentKey: 'i have',
+    language: 'italian',
+    displayName: 'Avere — Ho / Ha',
+    unitType: 'verb',
+    vocabTerms: ['ho', 'ha', 'avere', 'have', 'I have', 'she has', 'hai', 'abbiamo', 'hanno', 'ho fame', 'ho sete'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ho" — I have. "Ha" — she/he has. The verb is avere. Say them: ho, ha.',
+        studentAction: 'Repeat ho and ha.',
+        teacherHint: 'Avere is both content verb (to have) and auxiliary for passato prossimo. Getting these two forms automatic now pays off enormously later.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows something someone has. Read: Ho un/una... / Ha un/una...',
+        studentAction: 'Read ho / ha sentences with images.',
+        teacherHint: 'Gender agreement with un/una: ho un gatto (m), ho una macchina (f). Flag mismatches. Also: ho fame, ho sete — avere for states like French avoir.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who has what?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Keep ho vs ha sharp throughout.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Cosa hai nella tua borsa? What do you have in your bag? Answer with ho.',
+        studentAction: 'Produce: Ho un/una + noun.',
+        teacherHint: 'Personalize freely. Any accurate avere sentence works.',
+      },
+    ],
+  },
+
+  // ─── Volere (voglio / vuole) ───────────────────────────────────────────────
+  {
+    contentKey: 'i want',
+    language: 'italian',
+    displayName: 'Volere — Voglio / Vuole',
+    unitType: 'verb',
+    vocabTerms: ['voglio', 'vuole', 'volere', 'want', 'I want', 'she wants', 'vuoi', 'vogliamo', 'vogliono', 'voglio + infinito'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Voglio" — I want. "Vuole" — she/he wants. The verb is volere. The stem changes: vol → vogli / vuo. Say them: voglio, vuole.',
+        studentAction: 'Repeat voglio and vuole.',
+        teacherHint: 'Stem change mirrors Spanish querer (quiero/quiere) and French vouloir (veux/veut). Boot verb pattern: voglio, vuoi, vuole, vogliamo, volete, vogliono.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows something someone wants. Read: Voglio... / Vuole...',
+        studentAction: 'Read voglio / vuole sentences with images.',
+        teacherHint: 'Voglio + infinitive is the key construction. Ensure students produce the infinitive — not a conjugated form — after voglio.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Eyes across the columns — who wants what?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Check voglio vs vuole form accuracy. Combinator drills volere + infinitive automaticity.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Cosa vuoi fare oggi? What do you want to do today? Answer with voglio.',
+        studentAction: 'Produce: Voglio + infinitive.',
+        teacherHint: 'Voglio + infinitive is extremely high-frequency. Personalize: voglio mangiare, voglio andare, voglio comprare. Accept any accurate infinitive.',
+      },
+    ],
+  },
+
+  // ─── Essere: la natura delle cose (sono / è) ─────────────────────────────
+  {
+    contentKey: 'to be',
+    language: 'italian',
+    displayName: 'Essere — Sono / È',
+    unitType: 'ser_estar',
+    vocabTerms: ['sono', 'è', 'essere', 'to be', 'I am', 'she is', 'sei', 'siamo', 'sono (they)', 'nazionalità', 'professione'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Sono" — I am. "È" — she/he/it is. The verb is essere. It is irregular. Italian uses essere for both identity AND states. Say them: sono, è.',
+        studentAction: 'Repeat sono and è.',
+        teacherHint: 'Like French être, Italian essere covers nationality, profession, and personality. Unlike Spanish, there is no ser/estar split for identity vs state — essere handles both (with stare for progressive).',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows identity or description. Read: Sono... / È... Adjectives agree with gender.',
+        studentAction: 'Read essere sentences with images.',
+        teacherHint: 'Adjective agreement: stanco/stanca, americano/americana, contento/contenta. Feminine adds -a. Flag both gender and spelling.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who is what?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Watch gender agreement of adjectives throughout the drill.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Chi sei? Tell me two things about yourself with essere — nationality or profession, and one personality trait.',
+        studentAction: 'Produce two sono sentences.',
+        teacherHint: 'Nationality, profession, personality — all essere. Accept any accurate response.',
+      },
+    ],
+  },
+
+  // ─── Dove sono? — Essere: Luoghi ──────────────────────────────────────────
+  {
+    contentKey: 'where am i',
+    language: 'italian',
+    displayName: 'Essere — Dove sono? / Dov\'è?',
+    unitType: 'verb',
+    vocabTerms: ['sono a', 'è a', 'dove sei', 'dove sono', 'essere + luogo', 'in città', 'al piano', 'a Roma', 'in ufficio', 'locations'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Sono in classe" — I am in class. "È al cinema" — she is at the cinema. Essere expresses location too. Say: sono a, è a.',
+        studentAction: 'Repeat sono a and è a with a location.',
+        teacherHint: 'In Italian, essere handles location (not stare, except for progressive). Sono in classe, sono a casa, sono al lavoro. A + il → al, a + la → alla.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a location. Read: Sono al... / alla... / in... È al... / alla... / in...',
+        studentAction: 'Read sono/è location sentences with images.',
+        teacherHint: 'Al (masc), alla (fem), in (open spaces, countries, rooms). Sono a Roma, sono in Italia, sono al caffè.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who is where?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Al vs alla vs in — check each substitution carefully.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Dove sei adesso? Where are you right now? Answer with sono.',
+        studentAction: 'Produce: Sono + location.',
+        teacherHint: 'Accept any accurate location. Push for variety: sono a scuola, sono in classe, sono al bar.',
+      },
+    ],
+  },
+
+  // ─── Potere (posso / può) ─────────────────────────────────────────────────
+  {
+    contentKey: 'i can',
+    language: 'italian',
+    displayName: 'Potere — Posso / Può',
+    unitType: 'verb',
+    vocabTerms: ['posso', 'può', 'potere', 'can', 'I can', 'she can', 'puoi', 'possiamo', 'possono', 'non posso', 'posso + infinito'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Posso" — I can. "Può" — she/he can. The verb is potere. Stem change: pot → poss / pu. Say them: posso, può.',
+        studentAction: 'Repeat posso and può.',
+        teacherHint: 'Boot verb pattern mirrors Spanish poder (puedo/puede) and French pouvoir (peux/peut). Posso + infinitive. Non posso + infinitive for negation.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows something someone can or cannot do. Read: Posso... / Può... / Non posso...',
+        studentAction: 'Read posso / può sentences with images.',
+        teacherHint: 'Potere + infinitive. Non posso andare — I cannot go. Può venire — she can come. Keep infinitive after modal.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who can do what?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Check posso vs può form accuracy throughout.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Cosa puoi fare bene? What can you do well? Answer with posso. Then say one thing you cannot do: non posso + infinitive.',
+        studentAction: 'Produce: Posso + infinitive, then Non posso + infinitive.',
+        teacherHint: 'Non posso + infinitive: the non goes before the conjugated verb, not the infinitive. Non posso andare — correct. Posso non andare — different meaning (I can choose not to go).',
+      },
+    ],
+  },
+
+  // ─── C'è / Ci sono ────────────────────────────────────────────────────────
+  {
+    contentKey: 'there is',
+    language: 'italian',
+    displayName: "C'è / Ci sono",
+    unitType: 'verb',
+    vocabTerms: ["c'è", 'ci sono', 'hay equivalent', 'there is', 'there are', 'non c\'è', 'non ci sono', 'quante persone', 'quanto'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"C\'è" — there is. "Ci sono" — there are. One item: c\'è. Many items: ci sono. Say them: c\'è, ci sono.',
+        studentAction: "Repeat c'è and ci sono.",
+        teacherHint: "Exact mirror of Spanish hay / French il y a. C'è is singular, ci sono is plural. Non c'è = there isn't. Non ci sono = there aren't.",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: "Each image shows a scene. Describe what's in it: C'è un/una... / Ci sono...",
+        studentAction: "Produce c'è or ci sono sentences based on images.",
+        teacherHint: "Singular noun → c'è. Plural noun → ci sono. Un gatto → c'è un gatto. Tre studenti → ci sono tre studenti.",
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: "C'è o ci sono? Describe the scene rapidly.",
+        studentAction: "Combine c'è / ci sono with nouns from images.",
+        teacherHint: "Drill the singular/plural choice. Students should hear the noun and auto-select c'è or ci sono.",
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: "Quante persone ci sono nella tua famiglia? How many people are in your family? Answer with ci sono.",
+        studentAction: "Produce: Ci sono + number + noun.",
+        teacherHint: "Personalize: ci sono quattro persone. Extend: c'è un cane? Non c'è nessuno. Any accurate response works.",
+      },
+    ],
+  },
+
+  // ─── Mi piace / Mi piacciono (Piacere) ────────────────────────────────────
+  {
+    contentKey: 'i like',
+    language: 'italian',
+    displayName: 'Piacere — Mi piace / Mi piacciono',
+    unitType: 'verb',
+    vocabTerms: ['mi piace', 'mi piacciono', 'piacere', 'like', 'I like', 'she likes', 'ti piace', 'le piace', 'non mi piace', 'cosa ti piace'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Mi piace" — I like (one thing). "Mi piacciono" — I like (many things). Piacere is backwards: the thing is the subject. Say them: mi piace, mi piacciono.',
+        studentAction: 'Repeat mi piace and mi piacciono.',
+        teacherHint: 'Direct mirror of Spanish gustar. Mi piace il gelato = the ice cream pleases me. Mi piacciono i gelati = the ice creams please me. The noun controls singular vs plural.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows something enjoyable. Read: Mi piace... / Mi piacciono...',
+        studentAction: 'Read mi piace / mi piacciono sentences with images.',
+        teacherHint: 'Singular noun after mi piace (no article change). Plural noun after mi piacciono. Non mi piace = I don\'t like it. Non mi piacciono = I don\'t like them.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — what do they like?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Check mi piace vs mi piacciono based on singular/plural object. This is the key distinction to drill.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Cosa ti piace fare nel tempo libero? What do you like to do in your free time? Answer with mi piace.',
+        studentAction: 'Produce: Mi piace + noun or infinitive.',
+        teacherHint: 'Mi piace + infinitive is also valid: mi piace leggere, mi piace ballare. Accept any accurate piacere sentence.',
+      },
+    ],
+  },
+
+  // ─── Mi piacerebbe — Il Condizionale ──────────────────────────────────────
+  {
+    contentKey: 'i would like',
+    language: 'italian',
+    displayName: 'Condizionale — Mi piacerebbe',
+    unitType: 'verb',
+    vocabTerms: ['mi piacerebbe', 'vorrei', 'condizionale', 'would like', 'I would like', 'she would like', 'potrei', 'potrebbe', 'vorrebbe', 'per favore'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Mi piacerebbe" — I would like. "Vorrei" — I would like (to do). These are the polite, conditional forms. Say them: mi piacerebbe, vorrei.',
+        studentAction: 'Repeat mi piacerebbe and vorrei.',
+        teacherHint: 'Mi piacerebbe mirrors Spanish me gustaría. Vorrei = volere conditional — equally important for polite requests. Both are extremely high-frequency.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Polite ordering, requests, and wishes. Read: Mi piacerebbe... / Vorrei...',
+        studentAction: 'Read mi piacerebbe / vorrei sentences with images.',
+        teacherHint: 'Vorrei un caffè = I would like a coffee. Mi piacerebbe viaggiare = I would like to travel. Vorrei + noun (ordering); mi piacerebbe + infinitive (wishes).',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — what would they like?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Both forms are correct. Let students choose which fits the context — ordering vs wishing.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Cosa le piacerebbe fare quest\'estate? What would you like to do this summer? Answer with mi piacerebbe.',
+        studentAction: 'Produce: Mi piacerebbe + infinitive.',
+        teacherHint: 'Personalize freely. Mi piacerebbe andare in Italia, mi piacerebbe imparare a cucinare. Any conditional form works.',
+      },
+    ],
+  },
+
+  // ─── Essere al passato (sono andato/a) ───────────────────────────────────
+  {
+    contentKey: 'i went',
+    language: 'italian',
+    displayName: 'Passato Prossimo con Essere — Sono andato/a',
+    unitType: 'verb',
+    vocabTerms: ['sono andato', 'sono andata', 'è andato', 'è andata', 'essere + participio', 'went', 'I went', 'she went', 'accordo genere', '-ato/-ata'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Sono andato" — I went (male). "Sono andata" — I went (female). With andare the auxiliary is ESSERE, not avere. And the participle agrees with gender. Say them: sono andato, sono andata.',
+        studentAction: 'Repeat sono andato and sono andata.',
+        teacherHint: 'This is a major Italian-specific rule: verbs of motion use essere, not avere. Mirrors French être verbs (je suis allé/allée). Participle must agree with subject gender.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a past trip or movement. Read: Sono andato/a al... / Lui è andato... / Lei è andata...',
+        studentAction: 'Read sono andato/a sentences with images.',
+        teacherHint: 'Reinforce: essere verbs = motion + state change verbs. Andare, venire, uscire, partire, arrivare — all take essere. Participle changes based on who went.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who went where?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Enforce gender agreement: -o for male subjects, -a for female subjects. Plural: -i (m/mixed), -e (all female).',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Dove sei andato/a il fine settimana scorso? Where did you go last weekend? Answer with sono andato/a.',
+        studentAction: 'Produce: Sono andato/a + location.',
+        teacherHint: 'Let students self-select gender. Accept any accurate essere-auxiliary sentence.',
+      },
+    ],
+  },
+
+  // ─── Va a + infinito (3rd person near future) ─────────────────────────────
+  {
+    contentKey: 'he is going to',
+    language: 'italian',
+    displayName: 'Futuro Prossimo — Va a / Andiamo a',
+    unitType: 'verb',
+    vocabTerms: ['va a', 'andiamo a', 'lui va a', 'lei va a', 'vanno a', 'he is going to', 'she is going to', 'we are going to', 'futuro prossimo', 'vendere', 'leggere'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Va a comprare" — she is going to buy. "Andiamo a mangiare" — we are going to eat. Extend the futuro prossimo to third person and we. Say them: va a, andiamo a.',
+        studentAction: 'Repeat va a and andiamo a with an infinitive.',
+        teacherHint: 'Students already know vado a. Now drill va a (3rd) and andiamo a (we). This completes the most useful future pattern in Italian 1.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a planned action by someone else. Read: Va a... / Andiamo a...',
+        studentAction: 'Read va a / andiamo a sentences with images.',
+        teacherHint: 'Push beyond -are verbs: va a vendere (-ere), va a partire (-ire). All infinitives work. The pattern is universal.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who is going to do what?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Mix vado a, va a, andiamo a. Students should hold all three forms without hesitation.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Cosa va a fare tua madre stasera? What is your mother going to do tonight? Answer with va a.',
+        studentAction: 'Produce: Va a + infinitive.',
+        teacherHint: 'Any accurate third-person futuro prossimo works. Extend to vanno a for "they are going to".',
+      },
+    ],
+  },
+
+  // ─── Cosa ha fatto? — Il Passato Prossimo ────────────────────────────────
+  {
+    contentKey: 'what did he do',
+    language: 'italian',
+    displayName: 'Passato Prossimo — Cosa ha fatto? / Ho fatto',
+    unitType: 'verb',
+    vocabTerms: ['ha fatto', 'ho fatto', 'fare', 'cosa ha fatto', 'what did he do', 'I did', 'she did', 'feci', 'participio irregolare', 'fatto'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ho fatto" — I did/made. "Ha fatto" — she/he did/made. Fare → fatto is the key irregular past participle. Say them: ho fatto, ha fatto.',
+        studentAction: 'Repeat ho fatto and ha fatto.',
+        teacherHint: 'Fare is one of the most frequent Italian verbs. Fatto is its irregular past participle. Like French fait. Cosa hai fatto? is the most natural conversation opener.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a completed action. Read: Ho fatto... / Ha fatto...',
+        studentAction: 'Read ho fatto / ha fatto sentences with images.',
+        teacherHint: 'Fare compounds: fare colazione, fare la spesa, fare una passeggiata. These are extremely frequent and all take fare.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who did what?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Mix with other past participles already known: ho comprato, ho preso, ho fatto. Build automaticity across the set.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: "Cosa hai fatto ieri sera? What did you do last night? Answer with ho fatto.",
+        studentAction: 'Produce: Ho fatto + noun.',
+        teacherHint: 'Accept any accurate past tense. This question is the natural bridge to narrative past tense conversations.',
+      },
+    ],
+  },
+
+  // ─── Ha avuto — Avere al passato ─────────────────────────────────────────
+  {
+    contentKey: 'he had',
+    language: 'italian',
+    displayName: 'Passato Prossimo — Ho avuto / Ha avuto',
+    unitType: 'verb',
+    vocabTerms: ['ho avuto', 'ha avuto', 'avere', 'I had', 'she had', 'avuto', 'ho avuto fortuna', 'ho avuto paura', 'irregular participle', 'passato prossimo'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ho avuto" — I had. "Ha avuto" — she/he had. Avere → avuto. Avere takes avere as its own auxiliary (avere ha avuto). Say them: ho avuto, ha avuto.',
+        studentAction: 'Repeat ho avuto and ha avuto.',
+        teacherHint: 'Avere uses itself as auxiliary. This is a mind-bender worth flagging explicitly. Ho avuto = ho + avuto. The auxiliary and the main verb are the same family.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a past state or experience. Read: Ho avuto... / Ha avuto...',
+        studentAction: 'Read ho avuto / ha avuto sentences with images.',
+        teacherHint: 'Ho avuto fortuna (I was lucky), ho avuto paura (I was scared), ho avuto un problema. Avere expressions carry into the past tense.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who had what?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Reinforce avuto as an irregular participle. The pattern: avere/fare/dire all end in -uto/-ato/-etto irregularly.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Hai mai avuto paura di qualcosa? Have you ever been scared of something? Answer with ho avuto.',
+        studentAction: 'Produce: Ho avuto + noun phrase.',
+        teacherHint: 'Accept any accurate avuto sentence. This is also a good opportunity to review avere idiom expressions.',
+      },
+    ],
+  },
+
+  // ─── Gli / Le — Il Pronome Indiretto ─────────────────────────────────────
+  {
+    contentKey: 'to him',
+    language: 'italian',
+    displayName: 'Pronomi Indiretti — Gli / Le',
+    unitType: 'verb',
+    vocabTerms: ['gli', 'le', 'pronome indiretto', 'to him', 'to her', 'gli ho dato', 'le ho detto', 'indirect object', 'a lui', 'a lei'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Gli" — to him. "Le" — to her. These are indirect object pronouns. They replace à + person. Say them: gli, le.',
+        studentAction: 'Repeat gli and le.',
+        teacherHint: 'Direct mirror of Spanish le (both genders) but Italian distinguishes: gli (masc), le (fem). Gli ho parlato = I spoke to him. Le ho parlato = I spoke to her.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows giving, saying, or sending. Read: Gli ho dato... / Le ho scritto...',
+        studentAction: 'Read gli / le sentences with images.',
+        teacherHint: 'Position: indirect pronoun goes before the conjugated verb. Gli ho mandato una lettera. Le ho comprato un regalo.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who sent / gave / said what to whom?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Verify gli vs le based on who receives. The distinction is the core of this unit.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Hai scritto a tua madre di recente? Have you written to your mother recently? Answer with le ho scritto.',
+        studentAction: 'Produce: Gli/Le ho + past participle.',
+        teacherHint: 'Accept any accurate indirect pronoun sentence. Push toward both gli and le sentences.',
+      },
+    ],
+  },
+
+  // ─── È pulito / È sporco — Essere: descrizioni ────────────────────────────
+  {
+    contentKey: 'it is clean',
+    language: 'italian',
+    displayName: "Essere — È pulito / È sporco",
+    unitType: 'verb',
+    vocabTerms: ['è pulito', 'è sporca', 'essere + aggettivo', 'it is clean', 'it is dirty', 'è grande', 'è piccolo', 'com\'è', 'description adjectives', 'gender agreement'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"È pulito" — it is clean (m). "È pulita" — it is clean (f). Essere + adjective. The adjective agrees with what\'s being described. Say them: è pulito, è pulita.',
+        studentAction: 'Repeat è pulito and è pulita.',
+        teacherHint: 'Mirrors Spanish estar + adjective for descriptions. Key Italian rule: adjective agrees with noun gender. Il tavolo è pulito (m). La cucina è pulita (f).',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a room, object, or space. Describe it: È pulito/a... / È sporco/a...',
+        studentAction: 'Read descriptive essere sentences with images.',
+        teacherHint: 'Expand beyond clean/dirty: è grande/piccolo, è vecchio/nuovo, è caro/economico. All follow the same gender agreement pattern.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — describe each thing.',
+        studentAction: 'Combine essere with adjectives from images.',
+        teacherHint: 'Enforce gender agreement on every substitution. Students should pause to check before speaking.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: "Com'è la tua camera? What is your room like? Answer with è... and describe it with two adjectives.",
+        studentAction: 'Produce: È + adjective (with gender agreement).',
+        teacherHint: 'Accept any accurate description. Push students to use two descriptors separated by e (and).',
+      },
+    ],
+  },
+
+  // ─── Ho studiato — Verbi in -are al passato ───────────────────────────────
+  {
+    contentKey: 'i studied',
+    language: 'italian',
+    displayName: 'Passato Prossimo — Ho studiato / Ha studiato',
+    unitType: 'verb',
+    vocabTerms: ['ho studiato', 'ha studiato', '-are → -ato', 'passato prossimo', 'I studied', 'she studied', 'ho parlato', 'ho mangiato', 'ho lavorato', 'regular -are'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ho studiato" — I studied. "Ha studiato" — she/he studied. Drop -are, add -ato. This unlocks all regular -are verbs in the past. Say them: ho studiato, ha studiato.',
+        studentAction: 'Repeat ho studiato and ha studiato.',
+        teacherHint: 'This is the master pattern. Hundreds of -are verbs follow: parlato, mangiato, lavorato, comprato, studiato, viaggiato. Once this clicks, past tense is mostly solved.',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a completed routine or activity. Read: Ho studiato... / Ha parlato... / Ho mangiato...',
+        studentAction: 'Read -ato past participle sentences with images.',
+        teacherHint: 'Rotate through multiple -are participles. Students should recognize the pattern, not memorize each word separately.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — who did what with -ato verbs?',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Mix ho and ha. Push students to generate new -are participles not on the list. The pattern should feel generative.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Cos\'hai studiato ieri? What did you study yesterday? Answer with ho studiato.',
+        studentAction: 'Produce: Ho studiato + subject.',
+        teacherHint: 'Accept any -are past tense sentence. This is the payoff moment — students can now narrate in the past tense freely.',
+      },
+    ],
+  },
+
+  // ─── Ho ricevuto — Participi Irregolari ───────────────────────────────────
+  {
+    contentKey: 'i received',
+    language: 'italian',
+    displayName: 'Participi Irregolari — Ho ricevuto / Ha ricevuto',
+    unitType: 'verb',
+    vocabTerms: ['ho ricevuto', 'ha ricevuto', 'participi irregolari', 'I received', 'she received', 'ho visto', 'ho letto', 'ho scritto', '-uto/-isto/-etto/-itto', 'irregular'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"Ho ricevuto" — I received. -ere and -ire verbs often have irregular participles. Ricevere → ricevuto. Vedere → visto. Leggere → letto. Say them: ho ricevuto, ho visto, ho letto.',
+        studentAction: 'Repeat ho ricevuto, ho visto, and ho letto.',
+        teacherHint: 'Irregular participles must be memorized. Group them by ending family: -uto (ricevuto, bevuto, dovuto), -sto (visto, rimasto), -tto (scritto, detto, fatto, letto).',
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: 'Each image shows a past action with an irregular verb. Read: Ho visto... / Ho letto... / Ho scritto...',
+        studentAction: 'Read irregular participio sentences with images.',
+        teacherHint: 'Vedere→visto, leggere→letto, scrivere→scritto, dire→detto, fare→fatto. These five are the highest-frequency irregulars to lock in now.',
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: 'Column drill — mix regular and irregular past participles.',
+        studentAction: 'Combine across columns rapidly.',
+        teacherHint: 'Mix -ato regulars with these irregulars. Students should handle both without hesitation now.',
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: 'Hai visto un buon film di recente? Have you seen a good film lately? Answer with ho visto.',
+        studentAction: 'Produce: Ho + irregular participio + noun.',
+        teacherHint: 'Accept any accurate irregular past tense sentence. Push students to use at least two different irregular participles.',
+      },
+    ],
+  },
+
+];
+
+// ── Portuguese Madrigal chain units ──────────────────────────────────────────
+const PORTUGUESE_UNITS: MadrigalLoopUnit[] = [
+
+  // ─── Ir (vou / ela vai) ────────────────────────────────────────────────────
+  {
+    contentKey: 'onde vai',
+    language: 'portuguese',
+    displayName: 'Ir — Vou / Ela vai',
+    unitType: 'verb',
+    vocabTerms: ['vou', 'ela vai', 'ir', 'go', 'I am going', 'she is going', 'onde vai?', 'vamos', 'vai', 'vão'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Vou" — I am going. "Ela vai" — she is going. The verb is ir. Totally irregular: no stem survives. Say them: vou, ela vai.', studentAction: 'Repeat vou and ela vai.', teacherHint: 'Ir is the most irregular verb in Portuguese — identical to Spanish in this respect. Vou, vai, vamos, vão. The boot verb pattern: boot forms change stems.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a place. Read the sentence: Vou ao cinema... / Ela vai ao banco...', studentAction: 'Read vou / ela vai sentences with places.', teacherHint: 'ao = a + o (masculine), à = a + a (feminine). This contraction is obligatory in Portuguese. Drill the contraction alongside the verb.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Eyes across the columns — who is going where? Build your sentence.', studentAction: 'Combine subject with destination.', teacherHint: 'Enforce ao/à contractions. Check vou vs. vai forms.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Onde vai hoje? Where are you going today? Answer with vou.', studentAction: 'Produce: Vou + destination.', teacherHint: 'Personalize the target: Vou ao mercado, Vou à escola, Vou ao trabalho. Accept any accurate destination.' },
+    ],
+  },
+
+  // ─── Pegar (peguei / ela pegou) ────────────────────────────────────────────
+  {
+    contentKey: 'peguei',
+    language: 'portuguese',
+    displayName: 'Pegar — Peguei / Ela pegou',
+    unitType: 'verb',
+    vocabTerms: ['peguei', 'ela pegou', 'pegar', 'took', 'I took', 'she took', 'pegou', 'pegar o ônibus', 'pegar táxi', 'pegamos'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Peguei" — I took/caught. "Ela pegou" — she took. The verb is pegar. Regular -ar in the preterite: -ei, -ou. Say them.', studentAction: 'Repeat peguei and ela pegou.', teacherHint: 'Pegar has a spelling change in the first person singular: peg + ei = peguei (the u preserves the hard g). This is a critical pattern in Portuguese orthography.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows transport or an object. Read: Peguei o ônibus... / Ela pegou o táxi...', studentAction: 'Read peguei / ela pegou sentences.', teacherHint: 'Pegar is used for taking/catching transport, items, and opportunities in Brazilian Portuguese. European Portuguese may use tomar for transport.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build your sentence: who took what?', studentAction: 'Combine subject with object.', teacherHint: 'Check peguei vs. pegou. The spelling change in peguei is the biggest error point.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'O que você pegou hoje? What did you take/catch today? Answer with peguei.', studentAction: 'Produce: Peguei + object.', teacherHint: 'Personalize: Peguei o ônibus, Peguei o guarda-chuva, Peguei um resfriado.' },
+    ],
+  },
+
+  // ─── Comprar (comprei / ela comprou) ───────────────────────────────────────
+  {
+    contentKey: 'comprei',
+    language: 'portuguese',
+    displayName: 'Comprar — Comprei / Ela comprou',
+    unitType: 'verb',
+    vocabTerms: ['comprei', 'ela comprou', 'comprar', 'bought', 'I bought', 'she bought', 'comprou', '-ar → -ei/-ou', 'compramos', 'comprou sapatos'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Comprei" — I bought. "Ela comprou" — she bought. The verb is comprar. This is the regular -ar preterite pattern: -ei, -ou. Say them.', studentAction: 'Repeat comprei and ela comprou.', teacherHint: 'Comprar is the model -ar preterite verb. Once students own comprei/comprou, all regular -ar preterites follow: falei, falou; trabalhei, trabalhou.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a purchase. Read: Comprei o pão... / Ela comprou os sapatos...', studentAction: 'Read comprei / ela comprou sentences.', teacherHint: 'Article + noun: o pão (m), os sapatos (m pl), a blusa (f), as flores (f pl). Drill the articles alongside the verb.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build: who bought what?', studentAction: 'Combine subject with purchased item.', teacherHint: 'Check the -ei vs. -ou ending. Students commonly confuse the first-person and third-person forms.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'O que você comprou recentemente? What did you buy recently? Answer with comprei.', studentAction: 'Produce: Comprei + item.', teacherHint: 'Personalize: Comprei um livro, Comprei um café, Comprei roupas. Accept any accurate object.' },
+    ],
+  },
+
+  // ─── Ter (tenho / ela tem) ─────────────────────────────────────────────────
+  {
+    contentKey: 'tenho / ter',
+    language: 'portuguese',
+    displayName: 'Ter — Tenho / Ela tem',
+    unitType: 'verb',
+    vocabTerms: ['tenho', 'ela tem', 'ter', 'have', 'I have', 'she has', 'tem', 'tenho fome', 'tenho sede', 'temos'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Tenho" — I have. "Ela tem" — she has. The verb is ter. Like Spanish tener, ter is used for both possession and physical states. Say them.', studentAction: 'Repeat tenho and ela tem.', teacherHint: 'Ter = Spanish tener. Critical: tenho fome (I\'m hungry), tenho sede (I\'m thirsty), tenho frio (I\'m cold), tenho medo (I\'m scared) — the body-state expressions students need immediately.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a possession or state. Read: Tenho um livro... / Ela tem uma fome enorme...', studentAction: 'Read tenho / ela tem sentences.', teacherHint: 'Push the body-state idioms hard. Tenho fome, tenho sede, tenho pressa, tenho sorte are daily survival expressions in Portuguese.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build your sentence: who has what?', studentAction: 'Combine across columns.', teacherHint: 'Check tenho vs. tem. Watch for *tem eu — the inversion does not work in Portuguese the way it does in French.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'O que você tem agora? What do you have right now? Answer with tenho.', studentAction: 'Produce: Tenho + noun or state.', teacherHint: 'Personalize: Tenho fome, Tenho uma pergunta, Tenho um irmão. Accept any accurate completion.' },
+    ],
+  },
+
+  // ─── Querer (quero / ela quer) ─────────────────────────────────────────────
+  {
+    contentKey: 'quero / querer',
+    language: 'portuguese',
+    displayName: 'Querer — Quero / Ela quer',
+    unitType: 'verb',
+    vocabTerms: ['quero', 'ela quer', 'querer', 'want', 'I want', 'she wants', 'quer', 'quero comer', 'quero ir', 'queremos'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Quero" — I want. "Ela quer" — she wants. The verb is querer. Same boot pattern as Spanish querer. Say them.', studentAction: 'Repeat quero and ela quer.', teacherHint: 'Querer mirrors Spanish querer perfectly. Boot verb: quer- in boot, quer- (same) outside. No stem change needed — already simple. Quero + infinitive = I want to…' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows something wanted. Read: Quero comer... / Ela quer comprar...', studentAction: 'Read quero / ela quer sentences.', teacherHint: 'Querer + infinitive is the key construction. Push students to produce: Quero ir, Quero comer, Quero aprender.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build your sentence: who wants what?', studentAction: 'Combine subject with infinitive or noun.', teacherHint: 'Check quero vs. quer. The combinator builds querer + infinitive automaticity.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'O que você quer fazer hoje? What do you want to do today? Answer with quero.', studentAction: 'Produce: Quero + infinitive.', teacherHint: 'Accept any accurate infinitive: Quero dormir, Quero sair, Quero estudar.' },
+    ],
+  },
+
+  // ─── Ser (sou / ela é) ─────────────────────────────────────────────────────
+  {
+    contentKey: 'ser: a natureza',
+    language: 'portuguese',
+    displayName: 'Ser — Sou / Ela é',
+    unitType: 'verb',
+    vocabTerms: ['sou', 'ela é', 'ser', 'be', 'I am', 'she is', 'é', 'sou americano', 'sou estudante', 'somos'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Sou" — I am. "Ela é" — she is. The verb is ser. Ser expresses identity and permanent characteristics. Say them.', studentAction: 'Repeat sou and ela é.', teacherHint: 'Portuguese has two "to be" verbs: ser (identity, origin, nature) and estar (states, location). Ser is the identity verb. Begin with the most concrete: nationality, profession.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows an identity. Read: Sou americano... / Ela é professora...', studentAction: 'Read sou / ela é sentences with identity words.', teacherHint: 'No article before profession in Portuguese: sou médico, não sou *um médico* (exception: with adjectives: sou um médico excelente).' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build: who is what?', studentAction: 'Combine subject with identity.', teacherHint: 'Check sou vs. é. Watch gender agreement: sou americano (m) / sou americana (f).' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'O que você é? What are you? Quem é você? Who are you? Answer with sou.', studentAction: 'Produce: Sou + identity.', teacherHint: 'Accept nationality, profession, or personal quality. Sou brasileiro, Sou estudante, Sou tímido.' },
+    ],
+  },
+
+  // ─── Estar (estou / ela está) ──────────────────────────────────────────────
+  {
+    contentKey: 'onde estou',
+    language: 'portuguese',
+    displayName: 'Estar — Estou / Ela está',
+    unitType: 'verb',
+    vocabTerms: ['estou', 'ela está', 'estar', 'am/is', 'I am (location)', 'she is (location)', 'está', 'estou em casa', 'onde está?', 'estamos'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Estou" — I am (location/state). "Ela está" — she is (location/state). The verb is estar. Say them.', studentAction: 'Repeat estou and ela está.', teacherHint: 'Estar = location and temporary states. Estou em casa, estou cansado. Contrast with ser immediately: sou cansado (*wrong) vs. estou cansado (correct). Location ALWAYS uses estar.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a place or state. Read: Estou em casa... / Ela está no trabalho...', studentAction: 'Read estou / ela está location sentences.', teacherHint: 'em + o = no, em + a = na. These contractions are obligatory: estou no mercado, ela está na escola. Drill em/no/na alongside estar.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build: who is where?', studentAction: 'Combine subject with location.', teacherHint: 'Check estou vs. está. Enforce no/na contractions. Correct any *em o or *em a immediately.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Onde você está agora? Where are you right now? Answer with estou.', studentAction: 'Produce: Estou + location.', teacherHint: 'Personalize: Estou na aula, Estou em casa, Estou no trabalho. Accept any accurate location.' },
+    ],
+  },
+
+  // ─── Poder (posso / ela pode) ──────────────────────────────────────────────
+  {
+    contentKey: 'posso ir',
+    language: 'portuguese',
+    displayName: 'Poder — Posso / Ela pode',
+    unitType: 'verb',
+    vocabTerms: ['posso', 'ela pode', 'poder', 'can', 'I can', 'she can', 'pode', 'posso falar', 'não posso', 'podemos'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Posso" — I can. "Ela pode" — she can. The verb is poder. Boot verb: pos-/pod-. Say them.', studentAction: 'Repeat posso and ela pode.', teacherHint: 'Poder = Spanish poder. Boot: posso, pode, podemos, podem. The double-consonant in posso is the signature form — hardest for students to spell.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows an ability. Read: Posso falar português... / Ela pode ajudar...', studentAction: 'Read posso / ela pode sentences.', teacherHint: 'Poder + infinitive is the construction. Check that students produce the infinitive after posso — not a conjugated form.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build: who can do what?', studentAction: 'Combine across columns.', teacherHint: 'Check posso vs. pode. The combinator drills poder + infinitive automaticity.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'O que você pode fazer bem? What can you do well? Answer with posso.', studentAction: 'Produce: Posso + infinitive.', teacherHint: 'Personalize: Posso cozinhar, Posso falar inglês, Posso dirigir.' },
+    ],
+  },
+
+  // ─── Haver / Ter (há / tem) ────────────────────────────────────────────────
+  {
+    contentKey: 'tem / há',
+    language: 'portuguese',
+    displayName: 'Há / Tem — There Is / There Are',
+    unitType: 'verb',
+    vocabTerms: ['há', 'tem', 'there is', 'there are', 'não há', 'não tem', 'há um café', 'tem três pessoas', 'quanto tem?', 'existência'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Há" — there is / there are (formal). "Tem" — there is / there are (informal, Brazilian). Both are equally important. Say them.', studentAction: 'Repeat há and tem (existential).', teacherHint: 'Brazilian Portuguese strongly prefers tem for existential meaning (Tem café aqui). European Portuguese uses há. Há is standard in writing. Teach both — students will encounter both.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows something that exists. Read: Há um banco aqui... / Tem três estudantes...', studentAction: 'Read há / tem existential sentences.', teacherHint: 'Há is invariable (há um, há vinte — same form). Tem as existential is also invariable: tem muita gente, tem dois bancos. Check students are not pluralizing.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build: what exists where?', studentAction: 'Combine há/tem with location and noun.', teacherHint: 'Check existential vs. possessive tem. Context should make it clear.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'O que há / tem no seu bairro? What is there in your neighborhood? Answer with há or tem.', studentAction: 'Produce: Há/Tem + noun.', teacherHint: 'Accept either há or tem. Both are correct. Reward both without prescribing one.' },
+    ],
+  },
+
+  // ─── Gostar (gosto / ela gosta) ────────────────────────────────────────────
+  {
+    contentKey: 'gosto / gosto de',
+    language: 'portuguese',
+    displayName: 'Gostar — Gosto de / Ela gosta de',
+    unitType: 'verb',
+    vocabTerms: ['gosto de', 'ela gosta de', 'gostar', 'like', 'I like', 'she likes', 'não gosto', 'você gosta?', 'gosto de música', 'gostamos'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Gosto de" — I like. "Ela gosta de" — she likes. The verb is gostar. The preposition de is ALWAYS required. Say them.', studentAction: 'Repeat gosto de and ela gosta de.', teacherHint: 'Unlike gustar in Spanish, gostar is a normal -ar verb — it conjugates like any -ar verb. The key is the obligatory preposition de: gosto de música (*gosto música is wrong). Drill gosto de every time.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows something liked. Read: Gosto de futebol... / Ela gosta de ler...', studentAction: 'Read gosto de / ela gosta de sentences.', teacherHint: 'Gosto de + noun (without article usually) or gosto de + infinitive. Both are correct and equally useful.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build: who likes what?', studentAction: 'Combine subject with gosto de / gosta de + object.', teacherHint: 'Enforce de. Every sentence must have de. This is the biggest error in Portuguese likes/dislikes.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Do que você gosta? What do you like? Answer with gosto de.', studentAction: 'Produce: Gosto de + noun or infinitive.', teacherHint: 'Personalize: Gosto de música, Gosto de viajar, Gosto de animais.' },
+    ],
+  },
+
+  // ─── Conditional (eu gostaria / ela gostaria) ──────────────────────────────
+  {
+    contentKey: 'eu gostaria',
+    language: 'portuguese',
+    displayName: 'Gostaria / Queria — I Would Like',
+    unitType: 'verb',
+    vocabTerms: ['gostaria', 'queria', 'I would like', 'ela gostaria', 'gostaria de', 'queria um café', 'por favor', 'condicional', 'seria', 'poderia'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Gostaria de" — I would like. "Queria" — I would like (equally common, imperfect used as conditional). Both are polite. Say them.', studentAction: 'Repeat gostaria de and queria.', teacherHint: 'Brazilian Portuguese uses both gostaria (formal conditional) and queria (imperfect used as a polite form). Both are correct and extremely common. Teach both immediately.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a polite request. Read: Gostaria de um café... / Queria fazer uma reserva...', studentAction: 'Read gostaria de / queria sentences.', teacherHint: 'At a restaurant: Queria um café, por favor. At a hotel: Gostaria de fazer uma reserva. These are the highest-frequency polite forms in Portuguese.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build a polite request: what would you like?', studentAction: 'Combine gostaria de or queria with noun or infinitive.', teacherHint: 'Check gostaria de + infinitive vs. queria + infinitive. Both patterns work.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'O que você gostaria de fazer nas férias? What would you like to do on vacation? Answer with gostaria de or queria.', studentAction: 'Produce: Gostaria de / Queria + infinitive.', teacherHint: 'Accept either form. Gostaria de viajar, Queria visitar o Brasil. Both are elegant Portuguese.' },
+    ],
+  },
+
+  // ─── Ir no passado (fui / ela foi) ────────────────────────────────────────
+  {
+    contentKey: 'fui — ir no passado',
+    language: 'portuguese',
+    displayName: 'Ir — Fui / Ela foi',
+    unitType: 'verb',
+    vocabTerms: ['fui', 'ela foi', 'ir', 'went', 'I went', 'she went', 'foi', 'fui ao cinema', 'fomos', 'foram'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Fui" — I went. "Ela foi" — she went. The verb is ir in the preterite. Totally irregular: vai → fui. Same as Spanish: voy → fui. Say them.', studentAction: 'Repeat fui and ela foi.', teacherHint: 'Fui/foi is the same supletive preterite as Spanish ir/ser. Ser also uses fui/foi in the preterite! Context distinguishes them. Students who know Spanish will find this familiar.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a destination in the past. Read: Fui ao cinema ontem... / Ela foi ao médico...', studentAction: 'Read fui / ela foi sentences.', teacherHint: 'ao = a + o (masculine), à = a + a (feminine). These contractions are obligatory even in the past tense: fui ao mercado, não fui *a o mercado.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build: who went where?', studentAction: 'Combine subject with destination.', teacherHint: 'Check fui vs. foi. Enforce ao/à contractions in all answers.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Onde você foi no fim de semana? Where did you go last weekend? Answer with fui.', studentAction: 'Produce: Fui + destination.', teacherHint: 'Personalize: Fui ao shopping, Fui à praia, Fui à casa de um amigo.' },
+    ],
+  },
+
+  // ─── Vou + infinitivo (futuro imediato) ────────────────────────────────────
+  {
+    contentKey: 'vou: o futuro imediato',
+    language: 'portuguese',
+    displayName: 'Vou + Infinitivo — Futuro Imediato',
+    unitType: 'verb',
+    vocabTerms: ['vou comer', 'ela vai comprar', 'vou estudar', 'futuro imediato', 'vou dormir', 'amanhã', 'esta noite', 'vamos', 'vai', 'vão'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Vou comer" — I am going to eat. "Ela vai comprar" — she is going to buy. Ir + infinitive = near future. Say them.', studentAction: 'Repeat vou + infinitive and ela vai + infinitive.', teacherHint: 'Ir + infinitive is the most common future expression in Brazilian Portuguese (the simple future is considered formal/literary). Vou, vai, vamos, vão + infinitive covers nearly all everyday future expression.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a future action. Read: Vou estudar hoje à noite... / Ela vai viajar amanhã...', studentAction: 'Read vou / ela vai + infinitive sentences.', teacherHint: 'No preposition between ir and the infinitive in Portuguese: vou comer (correct), *vou a comer (wrong in Portuguese). This contrasts with Spanish where a is sometimes inserted in colloquial speech.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build: who is going to do what?', studentAction: 'Combine subject with vai + infinitive.', teacherHint: 'Check vou vs. vai. Enforce no preposition between vai and the infinitive.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'O que você vai fazer amanhã? What are you going to do tomorrow? Answer with vou.', studentAction: 'Produce: Vou + infinitive.', teacherHint: 'Personalize: Vou trabalhar, Vou ao cinema, Vou ligar para minha família.' },
+    ],
+  },
+
+  // ─── Vai + infinitivo (3a pessoa) ──────────────────────────────────────────
+  {
+    contentKey: 'vai: vender / ler / escrever',
+    language: 'portuguese',
+    displayName: 'Vai — 3ª Pessoa + Infinitivo',
+    unitType: 'verb',
+    vocabTerms: ['ela vai vender', 'ele vai ler', 'ela vai escrever', 'vai', 'vender', 'ler', 'escrever', 'verbos -er/-ir', 'vai trabalhar', 'vai sair'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Ela vai vender" — she is going to sell. "Ele vai ler" — he is going to read. Same ir + infinitive, third person. Say them.', studentAction: 'Repeat ela vai + infinitive forms.', teacherHint: 'This step extends the near future to -er and -ir verbs. The infinitive is always the same form regardless of subject. No changes to the infinitive at all.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a third-person future action. Read: Ela vai vender o carro... / Ele vai escrever uma carta...', studentAction: 'Read ela vai / ele vai sentences with -er/-ir verbs.', teacherHint: 'Focus on the infinitive endings: vender (-er), ler (-er), escrever (-er), sair (-ir), abrir (-ir). These are the second and third conjugation infinitives.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build: who is going to do what (3rd person)?', studentAction: 'Combine ela/ele vai with -er/-ir infinitives.', teacherHint: 'Check vai form. All third-person subjects use vai + infinitive in the singular.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'O que ela vai fazer este verão? What is she going to do this summer? Answer with ela vai.', studentAction: 'Produce: Ela vai + infinitive.', teacherHint: 'Personalize: Ela vai viajar, Ela vai estudar, Ela vai trabalhar no exterior.' },
+    ],
+  },
+
+  // ─── Fazer (fez / fiz) ─────────────────────────────────────────────────────
+  {
+    contentKey: 'o que fez?',
+    language: 'portuguese',
+    displayName: 'Fazer — Fiz / Ela fez',
+    unitType: 'verb',
+    vocabTerms: ['fiz', 'ela fez', 'fazer', 'did/made', 'I did', 'she did', 'fez', 'fazer compras', 'fazer exercício', 'o que fez?'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Fiz" — I did / I made. "Ela fez" — she did. The verb is fazer in the preterite. Irregular: faço → fiz. Say them.', studentAction: 'Repeat fiz and ela fez.', teacherHint: 'Fazer is irregular in the preterite: fiz, fez, fizemos, fizeram. The z in fiz/fez is the marker. Fazer covers "to do" and "to make" — both meanings in the same verb, just like Spanish hacer.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a completed activity. Read: Fiz as compras... / Ela fez os deveres...', studentAction: 'Read fiz / ela fez sentences.', teacherHint: 'Fazer expressions: fazer as compras, fazer exercício, fazer uma viagem, fazer um bolo. These collocations are extremely high frequency in Portuguese.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build: who did what?', studentAction: 'Combine subject with fiz/fez + activity.', teacherHint: 'Check fiz vs. fez. Push students to use fazer collocations, not just generic objects.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'O que você fez ontem? What did you do yesterday? Answer with fiz.', studentAction: 'Produce: Fiz + activity.', teacherHint: 'Personalize: Fiz exercício, Fiz o jantar, Fiz as compras, Fiz nada (I did nothing).' },
+    ],
+  },
+
+  // ─── Ter no passado (tive / ela teve) ─────────────────────────────────────
+  {
+    contentKey: 'teve — ter no passado',
+    language: 'portuguese',
+    displayName: 'Ter — Tive / Ela teve',
+    unitType: 'verb',
+    vocabTerms: ['tive', 'ela teve', 'ter', 'had', 'I had', 'she had', 'teve', 'tive sorte', 'tive medo', 'tivemos'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Tive" — I had. "Ela teve" — she had. The verb is ter in the preterite. Irregular: tenho → tive. Say them.', studentAction: 'Repeat tive and ela teve.', teacherHint: 'Ter preterite is irregular: tive, teve, tivemos, tiveram. The pattern is the same as Spanish tener: tuve, tuvo. If students know Spanish, this is a direct parallel.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a past experience or state. Read: Tive sorte... / Ela teve um problema...', studentAction: 'Read tive / ela teve sentences.', teacherHint: 'Push body-state idioms in the past: tive medo, tive pressa, tive azar. These are the same expressions as the present but in the preterite.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build: who had what experience?', studentAction: 'Combine subject with tive/teve + noun.', teacherHint: 'Check tive vs. teve. Push idioms over simple possession.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Você já teve sorte grande? Have you ever had great luck? Answer with tive.', studentAction: 'Produce: Tive + experience.', teacherHint: 'Personalize: Tive muita sorte, Tive um dia difícil, Tive uma ideia.' },
+    ],
+  },
+
+  // ─── Lhe (pronome indireto) ─────────────────────────────────────────────────
+  {
+    contentKey: 'lhe — o pronome indireto',
+    language: 'portuguese',
+    displayName: 'Lhe — To Him / To Her',
+    unitType: 'verb',
+    vocabTerms: ['lhe', 'I gave him/her', 'dei-lhe', 'escrevi-lhe', 'mandei-lhe', 'pronome indireto', 'a ele / a ela', 'lhe disse', 'lhe enviei', 'te'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Lhe" — to him / to her. "Dei-lhe" — I gave to him/her. Lhe replaces a + person. Say it: lhe.', studentAction: 'Repeat lhe and dei-lhe.', teacherHint: 'Lhe in European Portuguese and formal Brazilian Portuguese = indirect object pronoun (to him/her). In colloquial Brazilian, "para ele/ela" is increasingly used. Teach lhe as the literary/formal form, and mention the colloquial alternative.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows giving or communicating. Read: Dei-lhe o livro... / Escrevi-lhe uma carta...', studentAction: 'Read lhe sentences.', teacherHint: 'Clitic placement is complex in Portuguese — European uses enclisis (verb-lhe), Brazilian may use proclisis (lhe-verb). For now, focus on European-standard: verb-lhe.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build: who gave / said / sent what to whom?', studentAction: 'Combine verb + lhe + object.', teacherHint: 'Check enclitic position. Reward correct lhe placement.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'O que você deu a um amigo recentemente? What did you give a friend recently? Answer with dei-lhe.', studentAction: 'Produce: sentence with lhe.', teacherHint: 'Accept colloquial Brazilian alternative: Dei para ele um livro. Both are valid — explain the register difference.' },
+    ],
+  },
+
+  // ─── Estar + adjetivo (está limpo / sujo) ─────────────────────────────────
+  {
+    contentKey: 'está limpo / está sujo',
+    language: 'portuguese',
+    displayName: 'Estar — Está limpo / Está sujo',
+    unitType: 'verb',
+    vocabTerms: ['está limpo', 'está sujo', 'está grande', 'está pequeno', 'está bonito', 'como está?', 'estar + adjetivo', 'está certo', 'está errado', 'está pronto'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Está limpo" — it is clean. "Está sujo" — it is dirty. Estar + adjective = current state. Say them.', studentAction: 'Repeat está limpo and está sujo.', teacherHint: 'Estar + adjective describes conditions and states (not permanent nature). Está limpo (it is currently clean) vs. é branco (it is white, always). The ser/estar distinction in descriptions is the core lesson.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a condition. Read: Está limpo... / Está cheio...', studentAction: 'Read está + adjective sentences.', teacherHint: 'Gender agreement: limpo/limpa, sujo/suja, bonito/bonita. Adjectives agree with the noun in Portuguese. Check gender endings.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build: what is in what state?', studentAction: 'Combine subject + está + adjective.', teacherHint: 'Check gender agreement. Push students to describe objects around them.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Como está o seu quarto hoje? How is your room today? Answer with está.', studentAction: 'Produce: está + adjective.', teacherHint: 'Personalize: Está limpo, Está bagunçado (messy), Está arrumado (tidy).' },
+    ],
+  },
+
+  // ─── -ar no passado (estudei / ela estudou) ────────────────────────────────
+  {
+    contentKey: 'estudei — verbos em -ar no passado',
+    language: 'portuguese',
+    displayName: 'Estudar — Estudei / Ela estudou',
+    unitType: 'verb',
+    vocabTerms: ['estudei', 'ela estudou', 'estudar', 'studied', 'I studied', 'she studied', '-ar → -ei/-ou', 'falei', 'trabalhei', 'viajei'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Estudei" — I studied. "Ela estudou" — she studied. This is the regular -ar preterite: -ei, -ou. It covers ALL regular -ar verbs. Say them.', studentAction: 'Repeat estudei and ela estudou.', teacherHint: 'Estudar is the model: estudei, estudou, estudamos, estudaram. Students who know comprei/comprou already know this pattern. Now make it conscious: ANY -ar verb follows this pattern.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a completed past action. Read: Estudei muito ontem... / Ela trabalhou o dia todo...', studentAction: 'Read estudei / ela estudou sentences.', teacherHint: 'Chain multiple -ar preterites: estudei, trabalhei, falei, viajei. Students should begin to feel the -ei ending as automatic for first-person past -ar verbs.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build: who studied/worked/traveled in the past?', studentAction: 'Combine subject with -ar preterite.', teacherHint: 'Check -ei (1st) vs. -ou (3rd). Push students to use multiple -ar preterites in one sentence.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'O que você fez ontem à noite? What did you do last night? Answer using -ar preterite verbs.', studentAction: 'Produce 1-2 sentences with -ar preterite verbs.', teacherHint: 'Personalize: Estudei português, Trabalhei até tarde, Jantar com a família.' },
+    ],
+  },
+
+  // ─── Particípios irregulares (recebi / ela recebeu) ───────────────────────
+  {
+    contentKey: 'recebi — particípios irregulares',
+    language: 'portuguese',
+    displayName: 'Receber — Recebi / Ela recebeu',
+    unitType: 'verb',
+    vocabTerms: ['recebi', 'ela recebeu', 'receber', 'received', 'I received', 'she received', 'vi', 'li', 'escrevi', 'disse', 'fiz', 'irregulares'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"Recebi" — I received. "Ela recebeu" — she received. Then the irregulars: vi (saw), li (read), escrevi (wrote), disse (said), fiz (did). Say each one.', studentAction: 'Repeat recebi, ela recebeu, and the irregular preterites.', teacherHint: 'Receber is actually regular -er: recebi, recebeu. The irregulars are the core high-frequency verbs: ver→vi, ler→li, escrever→escrevi, dizer→disse, fazer→fiz, vir→vim. These need to be memorized.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a past action. Read: Recebi uma carta... / Vi um filme... / Li o livro...', studentAction: 'Read irregular preterite sentences.', teacherHint: 'Group them: vi/li/escrevi feel like a family (short, clean, -i ending). Disse and fiz are their own patterns. Expose all, but let students find the pattern.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build: what did you receive, see, read, write, say, do?', studentAction: 'Combine irregular preterite + object.', teacherHint: 'Check the irregular forms. Correct *veei, *lia, *fazi immediately — these incorrect attempts show students are trying to apply regular patterns.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'O que você viu ou leu recentemente? What did you see or read recently? Answer with vi or li.', studentAction: 'Produce: Vi + film/show or Li + book.', teacherHint: 'Personalize: Vi um filme ótimo, Li um livro interessante. Connect to real student life.' },
+    ],
+  },
+
+];
+
+// Merge all units — Spanish first, then French, then Italian, then Portuguese
+const ALL_UNITS = [...UNITS, ...FRENCH_UNITS, ...ITALIAN_UNITS, ...PORTUGUESE_UNITS];
 
 export const MADRIGAL_LOOP_CATALOG: readonly MadrigalLoopUnit[] = ALL_UNITS;
 

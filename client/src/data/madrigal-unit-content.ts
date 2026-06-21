@@ -2384,6 +2384,713 @@ const FRENCH_JAI_RECU: HayUnitContent = {
   ],
 };
 
+// ── Italian present-tense verb units ──────────────────────────────────────────
+
+const ITALIAN_VOGLIO: HayUnitContent = {
+  chapterTitleKey: "voglio",
+  conceptLabel: "Voglio",
+  conceptDefinition: "I want · do you want? · vuoi?",
+  introNote: "\"Voglio\" works the same way every time — drop it in front of any noun or infinitive and you have a complete thought.",
+  clusters: [
+    {
+      heading: "Voglio — Frasi Modello",
+      pairs: [
+        { imageWord: "caffè", imageDescription: "a steaming cup of Italian espresso on a saucer", question: "Vuoi un caffè?", questionTranslation: "Do you want a coffee?", answer: "Sì, voglio un caffè.", answerTranslation: "Yes, I want a coffee." },
+        { imageWord: "acqua", imageDescription: "a glass of still water on a restaurant table", question: "Vuoi dell'acqua?", questionTranslation: "Do you want some water?", answer: "Sì, voglio dell'acqua.", answerTranslation: "Yes, I want some water." },
+        { imageWord: "pane", imageDescription: "a fresh Italian bread roll on a white surface", question: "Vuoi del pane?", questionTranslation: "Do you want some bread?", answer: "Sì, voglio del pane.", answerTranslation: "Yes, I want some bread." },
+        { imageWord: "mela", imageDescription: "a red apple on a white background", question: "Vuoi una mela?", questionTranslation: "Do you want an apple?", answer: "Sì, voglio una mela.", answerTranslation: "Yes, I want an apple." },
+      ],
+    },
+    {
+      heading: "Voglio + infinito",
+      noteInline: "voglio + infinitive = I want to …",
+      pairs: [
+        { imageWord: "mangiare", imageDescription: "a person sitting down to eat a meal at a table", question: "Vuoi mangiare?", questionTranslation: "Do you want to eat?", answer: "Sì, voglio mangiare.", answerTranslation: "Yes, I want to eat." },
+        { imageWord: "dormire", imageDescription: "a person yawning and looking tired in the afternoon", question: "Vuoi dormire?", questionTranslation: "Do you want to sleep?", answer: "Sì, voglio dormire.", answerTranslation: "Yes, I want to sleep." },
+        { imageWord: "uscire", imageDescription: "a person walking out the front door of a house", question: "Vuoi uscire?", questionTranslation: "Do you want to go out?", answer: "Sì, voglio uscire.", answerTranslation: "Yes, I want to go out." },
+      ],
+      sentenceColumns: [
+        { label: "Soggetto", items: [{ text: "Voglio", translation: "I want" }, { text: "Lui vuole", translation: "He wants" }, { text: "Lei vuole", translation: "She wants" }] },
+        { label: "Oggetto / Infinito", items: [{ text: "un caffè.", translation: "a coffee." }, { text: "dell'acqua.", translation: "some water." }, { text: "mangiare.", translation: "to eat." }, { text: "uscire.", translation: "to go out." }] },
+      ],
+    },
+  ],
+};
+
+const ITALIAN_HO: HayUnitContent = {
+  chapterTitleKey: "ho / avere",
+  conceptLabel: "Ho",
+  conceptDefinition: "I have · do you have? · hai?",
+  introNote: "\"Ho\" is one of the most essential verbs in Italian — possession, age expressions, and the entire passato prossimo all run through avere.",
+  clusters: [
+    {
+      heading: "Ho — Frasi Modello",
+      pairs: [
+        { imageWord: "libro", imageDescription: "an open book on a wooden desk", question: "Hai un libro?", questionTranslation: "Do you have a book?", answer: "Sì, ho un libro.", answerTranslation: "Yes, I have a book." },
+        { imageWord: "macchina", imageDescription: "a car parked on a sunny Italian street", question: "Hai una macchina?", questionTranslation: "Do you have a car?", answer: "Sì, ho una macchina.", answerTranslation: "Yes, I have a car." },
+        { imageWord: "gatto", imageDescription: "a cat sitting on a sunny windowsill", question: "Hai un gatto?", questionTranslation: "Do you have a cat?", answer: "Sì, ho un gatto.", answerTranslation: "Yes, I have a cat." },
+        { imageWord: "soldi", imageDescription: "euro banknotes and coins spread on a table", question: "Hai dei soldi?", questionTranslation: "Do you have any money?", answer: "Sì, ho dei soldi.", answerTranslation: "Yes, I have some money." },
+      ],
+    },
+    {
+      heading: "Ho fame · Ho sete · Ho …",
+      noteInline: "Italian uses avere (to have) where English uses to be: ho fame = I am hungry · ho sete = I am thirsty · ho freddo = I am cold",
+      pairs: [
+        { imageWord: "fame", imageDescription: "a person holding their stomach looking very hungry", question: "Hai fame?", questionTranslation: "Are you hungry?", answer: "Sì, ho fame.", answerTranslation: "Yes, I am hungry." },
+        { imageWord: "sete", imageDescription: "a person reaching for a glass of water looking thirsty", question: "Hai sete?", questionTranslation: "Are you thirsty?", answer: "Sì, ho sete.", answerTranslation: "Yes, I am thirsty." },
+        { imageWord: "freddo", imageDescription: "a person wrapped in a scarf shivering in the cold", question: "Hai freddo?", questionTranslation: "Are you cold?", answer: "Sì, ho freddo.", answerTranslation: "Yes, I am cold." },
+      ],
+      sentenceColumns: [
+        { label: "Soggetto", items: [{ text: "Ho", translation: "I have" }, { text: "Lui ha", translation: "He has" }, { text: "Lei ha", translation: "She has" }] },
+        { label: "Oggetto", items: [{ text: "un libro.", translation: "a book." }, { text: "una macchina.", translation: "a car." }, { text: "fame.", translation: "hunger (I'm hungry)." }, { text: "sete.", translation: "thirst (I'm thirsty)." }] },
+      ],
+    },
+  ],
+};
+
+const ITALIAN_VADO: HayUnitContent = {
+  chapterTitleKey: "dove vai",
+  conceptLabel: "Vado",
+  conceptDefinition: "I am going · where are you going? · dove vai?",
+  introNote: "\"Andare\" moves you anywhere — drop it before \"al\" and a place, or before \"a\" and an infinitive to talk about the future.",
+  clusters: [
+    {
+      heading: "Vado — Places",
+      pairs: [
+        { imageWord: "caffè", imageDescription: "the exterior of an Italian café with tables outside", question: "Vai al caffè?", questionTranslation: "Are you going to the café?", answer: "Sì, vado al caffè.", answerTranslation: "Yes, I am going to the café." },
+        { imageWord: "banca", imageDescription: "a bank building exterior on an Italian street", question: "Vai alla banca?", questionTranslation: "Are you going to the bank?", answer: "Sì, vado alla banca.", answerTranslation: "Yes, I am going to the bank." },
+        { imageWord: "cinema", imageDescription: "a cinema marquee lit up at night on an Italian piazza", question: "Vai al cinema?", questionTranslation: "Are you going to the cinema?", answer: "Sì, vado al cinema.", answerTranslation: "Yes, I am going to the cinema." },
+        { imageWord: "ospedale", imageDescription: "a hospital building exterior with a red cross sign", question: "Vai all'ospedale?", questionTranslation: "Are you going to the hospital?", answer: "Sì, vado all'ospedale.", answerTranslation: "Yes, I am going to the hospital." },
+      ],
+    },
+    {
+      heading: "Vado a + infinito — Futuro Prossimo",
+      noteInline: "vado a + infinitive = I am going to …  (the easiest way to talk about the near future in Italian)",
+      pairs: [
+        { imageWord: "mangiare", imageDescription: "a set dinner table with Italian food ready to eat", question: "Vai a mangiare?", questionTranslation: "Are you going to eat?", answer: "Sì, vado a mangiare.", answerTranslation: "Yes, I am going to eat." },
+        { imageWord: "lavorare", imageDescription: "a person sitting at a desk working on a laptop", question: "Vai a lavorare?", questionTranslation: "Are you going to work?", answer: "Sì, vado a lavorare.", answerTranslation: "Yes, I am going to work." },
+        { imageWord: "viaggio", imageDescription: "a suitcase packed next to an airport departure board", question: "Vai a viaggiare?", questionTranslation: "Are you going to travel?", answer: "Sì, vado a viaggiare.", answerTranslation: "Yes, I am going to travel." },
+      ],
+      sentenceColumns: [
+        { label: "Soggetto", items: [{ text: "Vado", translation: "I am going" }, { text: "Lui va", translation: "He is going" }, { text: "Lei va", translation: "She is going" }] },
+        { label: "Destinazione / Infinito", items: [{ text: "al caffè.", translation: "to the café." }, { text: "alla banca.", translation: "to the bank." }, { text: "a mangiare.", translation: "to eat." }, { text: "a lavorare.", translation: "to work." }] },
+      ],
+    },
+  ],
+};
+
+const ITALIAN_SONO: HayUnitContent = {
+  chapterTitleKey: "essere: la natura",
+  conceptLabel: "Sono",
+  conceptDefinition: "I am · are you? · sei?",
+  introNote: "\"Essere\" is the verb of identity — nationality, profession, personality. One verb, endless self-expression.",
+  clusters: [
+    {
+      heading: "Sono — Identità",
+      pairs: [
+        { imageWord: "americano", imageDescription: "an American flag waving in the wind outdoors", question: "Sei americano?", questionTranslation: "Are you American?", answer: "Sì, sono americano.", answerTranslation: "Yes, I am American." },
+        { imageWord: "studente", imageDescription: "a student sitting in a university lecture hall with a notebook", question: "Sei studente?", questionTranslation: "Are you a student?", answer: "Sì, sono studente.", answerTranslation: "Yes, I am a student." },
+        { imageWord: "professore", imageDescription: "a teacher writing on a classroom blackboard", question: "Sei professore?", questionTranslation: "Are you a teacher?", answer: "Sì, sono professore.", answerTranslation: "Yes, I am a teacher." },
+        { imageWord: "medico", imageDescription: "a doctor in a white coat with a stethoscope around their neck", question: "Sei medico?", questionTranslation: "Are you a doctor?", answer: "Sì, sono medico.", answerTranslation: "Yes, I am a doctor." },
+      ],
+    },
+    {
+      heading: "Sono + aggettivo",
+      noteInline: "Adjectives agree with gender: stanco (m) · stanca (f) · contento (m) · contenta (f)",
+      pairs: [
+        { imageWord: "stanco", imageDescription: "a person looking tired and yawning while sitting at a desk", question: "Sei stanco?", questionTranslation: "Are you tired?", answer: "Sì, sono stanco.", answerTranslation: "Yes, I am tired." },
+        { imageWord: "contento", imageDescription: "a person smiling broadly and looking happy", question: "Sei contento?", questionTranslation: "Are you happy?", answer: "Sì, sono contento.", answerTranslation: "Yes, I am happy." },
+        { imageWord: "pronto", imageDescription: "a person standing at the door ready to leave, coat and bag in hand", question: "Sei pronto?", questionTranslation: "Are you ready?", answer: "Sì, sono pronto.", answerTranslation: "Yes, I am ready." },
+      ],
+      sentenceColumns: [
+        { label: "Soggetto", items: [{ text: "Sono", translation: "I am" }, { text: "Lui è", translation: "He is" }, { text: "Lei è", translation: "She is" }] },
+        { label: "Attributo", items: [{ text: "americano.", translation: "American." }, { text: "studente.", translation: "a student." }, { text: "stanco.", translation: "tired." }, { text: "contento.", translation: "happy." }] },
+      ],
+    },
+  ],
+};
+
+const ITALIAN_MI_PIACE: HayUnitContent = {
+  chapterTitleKey: "mi piace",
+  conceptLabel: "Mi piace",
+  conceptDefinition: "I like · do you like? · ti piace?",
+  introNote: "\"Piacere\" works backwards: the thing liked is the subject. One thing → mi piace. Many things → mi piacciono.",
+  clusters: [
+    {
+      heading: "Mi piace — Frasi Modello",
+      pairs: [
+        { imageWord: "gelato", imageDescription: "a colorful Italian gelato cone on a sunny day", question: "Ti piace il gelato?", questionTranslation: "Do you like gelato?", answer: "Sì, mi piace il gelato.", answerTranslation: "Yes, I like gelato." },
+        { imageWord: "musica", imageDescription: "a person listening to music with headphones and smiling", question: "Ti piace la musica?", questionTranslation: "Do you like music?", answer: "Sì, mi piace la musica.", answerTranslation: "Yes, I like music." },
+        { imageWord: "sport", imageDescription: "a person playing soccer on a sunny Italian field", question: "Ti piace lo sport?", questionTranslation: "Do you like sports?", answer: "Sì, mi piace lo sport.", answerTranslation: "Yes, I like sports." },
+        { imageWord: "cucina", imageDescription: "a rustic Italian kitchen with food being prepared", question: "Ti piace cucinare?", questionTranslation: "Do you like cooking?", answer: "Sì, mi piace cucinare.", answerTranslation: "Yes, I like cooking." },
+      ],
+    },
+    {
+      heading: "Mi piacciono — Al Plurale",
+      noteInline: "one thing → mi piace · many things → mi piacciono · the noun controls the form",
+      pairs: [
+        { imageWord: "libri", imageDescription: "a stack of colorful books on a wooden shelf", question: "Ti piacciono i libri?", questionTranslation: "Do you like books?", answer: "Sì, mi piacciono i libri.", answerTranslation: "Yes, I like books." },
+        { imageWord: "film", imageDescription: "a person watching a movie in a darkened cinema", question: "Ti piacciono i film?", questionTranslation: "Do you like films?", answer: "Sì, mi piacciono i film.", answerTranslation: "Yes, I like films." },
+        { imageWord: "pasta", imageDescription: "several colorful types of pasta displayed together", question: "Ti piacciono le paste?", questionTranslation: "Do you like pasta dishes?", answer: "Sì, mi piacciono le paste.", answerTranslation: "Yes, I like pasta dishes." },
+      ],
+      sentenceColumns: [
+        { label: "Pronome", items: [{ text: "Mi piace", translation: "I like (one thing)" }, { text: "Mi piacciono", translation: "I like (many things)" }, { text: "Non mi piace", translation: "I don't like (one thing)" }, { text: "Non mi piacciono", translation: "I don't like (many things)" }] },
+        { label: "Oggetto", items: [{ text: "il gelato.", translation: "gelato." }, { text: "la musica.", translation: "music." }, { text: "i libri.", translation: "books." }, { text: "i film.", translation: "films." }] },
+      ],
+    },
+  ],
+};
+
+const ITALIAN_CE: HayUnitContent = {
+  chapterTitleKey: "c'è",
+  conceptLabel: "C'è / Ci sono",
+  conceptDefinition: "there is / there are · is there? · c'è?",
+  introNote: "\"C'è\" and \"ci sono\" describe what exists in a space. One thing: c'è. Many things: ci sono.",
+  clusters: [
+    {
+      heading: "C'è — There Is",
+      pairs: [
+        { imageWord: "bar", imageDescription: "an Italian bar counter with a barista serving espresso", question: "C'è un bar qui vicino?", questionTranslation: "Is there a bar nearby?", answer: "Sì, c'è un bar all'angolo.", answerTranslation: "Yes, there is a bar on the corner." },
+        { imageWord: "problema", imageDescription: "a person looking frustrated in front of a stalled car", question: "C'è un problema?", questionTranslation: "Is there a problem?", answer: "Sì, c'è un piccolo problema.", answerTranslation: "Yes, there is a small problem." },
+        { imageWord: "posta", imageDescription: "a post office building exterior on a quiet Italian street", question: "C'è una posta qui vicino?", questionTranslation: "Is there a post office nearby?", answer: "Sì, c'è una posta in centro.", answerTranslation: "Yes, there is a post office downtown." },
+        { imageWord: "treno", imageDescription: "a train arriving at an Italian station platform", question: "C'è un treno per Roma?", questionTranslation: "Is there a train to Rome?", answer: "Sì, c'è un treno alle 14:00.", answerTranslation: "Yes, there is a train at 2:00 PM." },
+      ],
+    },
+    {
+      heading: "Ci sono — There Are",
+      noteInline: "c'è = there is (singular) · ci sono = there are (plural) · non c'è = there isn't · non ci sono = there aren't",
+      pairs: [
+        { imageWord: "studenti", imageDescription: "a group of students sitting in a university classroom", question: "Ci sono molti studenti in classe?", questionTranslation: "Are there many students in class?", answer: "Sì, ci sono venti studenti.", answerTranslation: "Yes, there are twenty students." },
+        { imageWord: "negozi", imageDescription: "a busy Italian shopping street with many stores open", question: "Ci sono negozi vicino?", questionTranslation: "Are there shops nearby?", answer: "Sì, ci sono molti negozi.", answerTranslation: "Yes, there are many shops." },
+      ],
+      sentenceColumns: [
+        { label: "Espressione", items: [{ text: "C'è", translation: "There is" }, { text: "Ci sono", translation: "There are" }, { text: "Non c'è", translation: "There isn't" }, { text: "Non ci sono", translation: "There aren't" }] },
+        { label: "Luogo / Quantità", items: [{ text: "un bar.", translation: "a bar." }, { text: "una farmacia.", translation: "a pharmacy." }, { text: "molti studenti.", translation: "many students." }, { text: "abbastanza tempo.", translation: "enough time." }] },
+      ],
+    },
+  ],
+};
+
+const ITALIAN_POSSO: HayUnitContent = {
+  chapterTitleKey: "posso",
+  conceptLabel: "Posso",
+  conceptDefinition: "I can · can you? · puoi?",
+  introNote: "\"Posso\" opens the door to expressing ability and permission. Drop it in front of any infinitive.",
+  clusters: [
+    {
+      heading: "Posso — Frasi Modello",
+      pairs: [
+        { imageWord: "parlare", imageDescription: "a person speaking confidently to a small group", question: "Puoi parlare italiano?", questionTranslation: "Can you speak Italian?", answer: "Sì, posso parlare un po'.", answerTranslation: "Yes, I can speak a little." },
+        { imageWord: "aiutare", imageDescription: "a person helping a friend carry a heavy box", question: "Puoi aiutarmi?", questionTranslation: "Can you help me?", answer: "Sì, posso aiutarti.", answerTranslation: "Yes, I can help you." },
+        { imageWord: "venire", imageDescription: "a person waving and walking toward the camera to join a group", question: "Puoi venire domani?", questionTranslation: "Can you come tomorrow?", answer: "Sì, posso venire.", answerTranslation: "Yes, I can come." },
+        { imageWord: "guidare", imageDescription: "a person confidently sitting in the driver's seat of a car", question: "Sai guidare?", questionTranslation: "Do you know how to drive?", answer: "Sì, posso guidare.", answerTranslation: "Yes, I can drive." },
+      ],
+    },
+    {
+      heading: "Non posso — I Can't",
+      noteInline: "non posso + infinitive = I cannot · non posso is extremely useful for polite refusals",
+      pairs: [
+        { imageWord: "aspettare", imageDescription: "a person looking at their watch impatiently at a bus stop", question: "Puoi aspettare un momento?", questionTranslation: "Can you wait a moment?", answer: "Mi dispiace, non posso aspettare.", answerTranslation: "I'm sorry, I cannot wait." },
+        { imageWord: "uscire", imageDescription: "a person looking out the window at rain, unable to go out", question: "Puoi uscire stasera?", questionTranslation: "Can you go out tonight?", answer: "No, non posso uscire.", answerTranslation: "No, I cannot go out." },
+      ],
+      sentenceColumns: [
+        { label: "Soggetto", items: [{ text: "Posso", translation: "I can" }, { text: "Lui può", translation: "He can" }, { text: "Lei può", translation: "She can" }, { text: "Non posso", translation: "I cannot" }] },
+        { label: "Infinito", items: [{ text: "parlare.", translation: "speak." }, { text: "venire.", translation: "come." }, { text: "aiutare.", translation: "help." }, { text: "aspettare.", translation: "wait." }] },
+      ],
+    },
+  ],
+};
+
+// ── Italian passato prossimo / preterite chain units ──────────────────────────
+
+const ITALIAN_DOVE_SONO: HayUnitContent = {
+  chapterTitleKey: "dove sono",
+  conceptLabel: "Dove sono?",
+  conceptDefinition: "Where am I? · Where is she? · Dov'è?",
+  introNote: "Italian uses essere for location — the same verb for identity also places you in space. Sono a casa. È al lavoro.",
+  clusters: [
+    {
+      heading: "Essere — Luoghi",
+      pairs: [
+        { imageWord: "casa", imageDescription: "the cozy interior of an Italian home with warm lighting", question: "Dove sei?", questionTranslation: "Where are you?", answer: "Sono a casa.", answerTranslation: "I am at home." },
+        { imageWord: "scuola", imageDescription: "the exterior of an Italian school building", question: "Dove sei di solito al mattino?", questionTranslation: "Where are you usually in the morning?", answer: "Sono a scuola.", answerTranslation: "I am at school." },
+        { imageWord: "ufficio", imageDescription: "a bright modern office with desks and computers", question: "Dov'è tuo padre?", questionTranslation: "Where is your father?", answer: "È in ufficio.", answerTranslation: "He is at the office." },
+        { imageWord: "centro", imageDescription: "a busy Italian city center with piazza and pedestrians", question: "Dove siete?", questionTranslation: "Where are you all?", answer: "Siamo in centro.", answerTranslation: "We are downtown." },
+      ],
+    },
+    {
+      heading: "In / Al / Alla — Location Prepositions",
+      noteInline: "al = at the (masc) · alla = at the (fem) · in = in/at (countries, rooms, open spaces)",
+      pairs: [
+        { imageWord: "biblioteca", imageDescription: "a student reading quietly inside a university library", question: "È in biblioteca?", questionTranslation: "Is she at the library?", answer: "Sì, è in biblioteca.", answerTranslation: "Yes, she is at the library." },
+        { imageWord: "palestra", imageDescription: "a person working out at a gym", question: "È in palestra adesso?", questionTranslation: "Is he at the gym right now?", answer: "Sì, è in palestra.", answerTranslation: "Yes, he is at the gym." },
+      ],
+      sentenceColumns: [
+        { label: "Soggetto", items: [{ text: "Sono", translation: "I am" }, { text: "È", translation: "He/She is" }, { text: "Siamo", translation: "We are" }] },
+        { label: "Luogo", items: [{ text: "a casa.", translation: "at home." }, { text: "a scuola.", translation: "at school." }, { text: "al lavoro.", translation: "at work." }, { text: "in centro.", translation: "downtown." }, { text: "in Italia.", translation: "in Italy." }] },
+      ],
+    },
+  ],
+};
+
+const ITALIAN_HO_PRESO: HayUnitContent = {
+  chapterTitleKey: "ho preso",
+  conceptLabel: "Ho preso",
+  conceptDefinition: "I took / I had · she/he took · ha preso",
+  introNote: "The passato prossimo: ho + participio. Prendere → preso is irregular. This is your first passato prossimo form — the gateway to Italian past tense.",
+  clusters: [
+    {
+      heading: "Ho preso — Al Passato",
+      pairs: [
+        { imageWord: "caffè", imageDescription: "a person picking up an espresso cup at a bar counter", question: "Hai preso un caffè stamattina?", questionTranslation: "Did you have a coffee this morning?", answer: "Sì, ho preso un caffè.", answerTranslation: "Yes, I had a coffee." },
+        { imageWord: "autobus", imageDescription: "a person boarding a city bus at a stop", question: "Hai preso l'autobus?", questionTranslation: "Did you take the bus?", answer: "Sì, ho preso l'autobus.", answerTranslation: "Yes, I took the bus." },
+        { imageWord: "appunti", imageDescription: "a student taking notes in a lecture with pen and paper", question: "Hai preso appunti in classe?", questionTranslation: "Did you take notes in class?", answer: "Sì, ho preso molti appunti.", answerTranslation: "Yes, I took many notes." },
+        { imageWord: "biglietto", imageDescription: "a person holding a train ticket at a station", question: "Hai preso il biglietto?", questionTranslation: "Did you get the ticket?", answer: "Sì, ho preso il biglietto.", answerTranslation: "Yes, I got the ticket." },
+      ],
+    },
+    {
+      heading: "Ha preso — Terza Persona",
+      noteInline: "ho preso = I took · ha preso = he/she took · avere (ho/hai/ha) + participio passato",
+      pairs: [
+        { imageWord: "medicina", imageDescription: "a person taking medicine with a glass of water", question: "Ha preso la medicina?", questionTranslation: "Did she take the medicine?", answer: "Sì, ha preso la medicina.", answerTranslation: "Yes, she took the medicine." },
+        { imageWord: "treno", imageDescription: "a person running to catch a departing train at a platform", question: "Ha preso il treno?", questionTranslation: "Did he catch the train?", answer: "Sì, ha preso il treno per Roma.", answerTranslation: "Yes, he took the train to Rome." },
+      ],
+      sentenceColumns: [
+        { label: "Ausiliare", items: [{ text: "Ho preso", translation: "I took / I had" }, { text: "Hai preso", translation: "You took / You had" }, { text: "Ha preso", translation: "He/She took / had" }, { text: "Non ho preso", translation: "I did not take" }] },
+        { label: "Oggetto", items: [{ text: "un caffè.", translation: "a coffee." }, { text: "l'autobus.", translation: "the bus." }, { text: "il treno.", translation: "the train." }, { text: "appunti.", translation: "notes." }] },
+      ],
+    },
+  ],
+};
+
+const ITALIAN_HO_COMPRATO: HayUnitContent = {
+  chapterTitleKey: "ho comprato",
+  conceptLabel: "Ho comprato",
+  conceptDefinition: "I bought · she/he bought · ha comprato · -are → -ato",
+  introNote: "Comprare → comprato is the regular -are pattern. Drop -are, add -ato. This one formula unlocks hundreds of Italian verbs in the past tense.",
+  clusters: [
+    {
+      heading: "Ho comprato — Al Passato",
+      pairs: [
+        { imageWord: "pane", imageDescription: "a person walking out of a bakery holding a fresh loaf of bread", question: "Hai comprato il pane?", questionTranslation: "Did you buy the bread?", answer: "Sì, ho comprato il pane.", answerTranslation: "Yes, I bought the bread." },
+        { imageWord: "scarpe", imageDescription: "a shopping bag with a pair of new shoes visible inside", question: "Hai comprato le scarpe?", questionTranslation: "Did you buy the shoes?", answer: "Sì, ho comprato le scarpe nuove.", answerTranslation: "Yes, I bought the new shoes." },
+        { imageWord: "regalo", imageDescription: "a person handing over a wrapped gift to someone smiling", question: "Hai comprato un regalo?", questionTranslation: "Did you buy a gift?", answer: "Sì, ho comprato un regalo per lei.", answerTranslation: "Yes, I bought a gift for her." },
+        { imageWord: "biglietto", imageDescription: "a movie ticket stub and popcorn on a cinema counter", question: "Hai comprato i biglietti?", questionTranslation: "Did you buy the tickets?", answer: "Sì, ho comprato i biglietti online.", answerTranslation: "Yes, I bought the tickets online." },
+      ],
+    },
+    {
+      heading: "Il Pattern -ato — Tutti i Verbi -are",
+      noteInline: "comprare→comprato · parlare→parlato · mangiare→mangiato · studiare→studiato · lavorare→lavorato",
+      pairs: [
+        { imageWord: "telefono", imageDescription: "a person looking at a brand new smartphone just unboxed", question: "Ha comprato un telefono nuovo?", questionTranslation: "Did she buy a new phone?", answer: "Sì, ha comprato un telefono nuovo.", answerTranslation: "Yes, she bought a new phone." },
+        { imageWord: "frutta", imageDescription: "a person at a fruit market choosing fresh produce", question: "Ha comprato della frutta?", questionTranslation: "Did he buy some fruit?", answer: "Sì, ha comprato della frutta fresca.", answerTranslation: "Yes, he bought some fresh fruit." },
+      ],
+      sentenceColumns: [
+        { label: "Ausiliare", items: [{ text: "Ho comprato", translation: "I bought" }, { text: "Ho parlato", translation: "I spoke" }, { text: "Ho mangiato", translation: "I ate" }, { text: "Ha comprato", translation: "He/She bought" }] },
+        { label: "Oggetto", items: [{ text: "il pane.", translation: "the bread." }, { text: "le scarpe.", translation: "the shoes." }, { text: "un regalo.", translation: "a gift." }, { text: "al telefono.", translation: "on the phone." }] },
+      ],
+    },
+  ],
+};
+
+const ITALIAN_MI_PIACEREBBE: HayUnitContent = {
+  chapterTitleKey: "mi piacerebbe",
+  conceptLabel: "Mi piacerebbe / Vorrei",
+  conceptDefinition: "I would like · polite conditional · vorrei + noun · mi piacerebbe + infinitive",
+  introNote: "The Italian conditional is essential for polite interaction. \"Vorrei\" orders at a restaurant. \"Mi piacerebbe\" expresses wishes. Both are extremely high-frequency.",
+  clusters: [
+    {
+      heading: "Vorrei — Al Ristorante e Nei Negozi",
+      pairs: [
+        { imageWord: "caffè", imageDescription: "a barista handing an espresso to a customer at an Italian bar", question: "Cosa vorrebbe?", questionTranslation: "What would you like?", answer: "Vorrei un caffè, per favore.", answerTranslation: "I would like a coffee, please." },
+        { imageWord: "tavolo", imageDescription: "an empty table set for dinner in an Italian restaurant", question: "Vorrebbe un tavolo per due?", questionTranslation: "Would you like a table for two?", answer: "Sì, vorrei un tavolo per due.", answerTranslation: "Yes, I would like a table for two." },
+        { imageWord: "informazione", imageDescription: "a person at a tourist information desk in a city", question: "Vorrebbe delle informazioni?", questionTranslation: "Would you like some information?", answer: "Sì, vorrei delle informazioni sul museo.", answerTranslation: "Yes, I would like some information about the museum." },
+        { imageWord: "prenotazione", imageDescription: "a person making a phone reservation at a hotel front desk", question: "Vorrebbe fare una prenotazione?", questionTranslation: "Would you like to make a reservation?", answer: "Sì, vorrei fare una prenotazione.", answerTranslation: "Yes, I would like to make a reservation." },
+      ],
+    },
+    {
+      heading: "Mi piacerebbe — Desideri e Sogni",
+      noteInline: "mi piacerebbe + infinitive = I would like to … · vorrebbe + noun (ordering) vs mi piacerebbe + infinitive (wishing)",
+      pairs: [
+        { imageWord: "Italia", imageDescription: "a stunning view of the Amalfi Coast with colorful villages on cliffs", question: "Le piacerebbe visitare l'Italia?", questionTranslation: "Would you like to visit Italy?", answer: "Sì, mi piacerebbe molto visitare l'Italia.", answerTranslation: "Yes, I would love to visit Italy." },
+        { imageWord: "imparare", imageDescription: "a person absorbed in learning something new, looking excited", question: "Le piacerebbe imparare a cucinare?", questionTranslation: "Would you like to learn to cook?", answer: "Sì, mi piacerebbe imparare a cucinare.", answerTranslation: "Yes, I would like to learn to cook." },
+      ],
+      sentenceColumns: [
+        { label: "Espressione", items: [{ text: "Vorrei", translation: "I would like" }, { text: "Mi piacerebbe", translation: "I would like to" }, { text: "Vorrebbe", translation: "He/She would like" }] },
+        { label: "Oggetto / Infinito", items: [{ text: "un caffè.", translation: "a coffee." }, { text: "viaggiare.", translation: "to travel." }, { text: "imparare.", translation: "to learn." }, { text: "una prenotazione.", translation: "a reservation." }] },
+      ],
+    },
+  ],
+};
+
+const ITALIAN_SONO_ANDATO: HayUnitContent = {
+  chapterTitleKey: "sono andato",
+  conceptLabel: "Sono andato/a",
+  conceptDefinition: "I went · she went · è andata · essere verbs + gender agreement",
+  introNote: "Andare takes essere, not avere, in the passato prossimo. And the past participle changes to match the subject's gender: andato (m) / andata (f).",
+  clusters: [
+    {
+      heading: "Sono andato/a — Al Passato",
+      pairs: [
+        { imageWord: "cinema", imageDescription: "a person walking into a cinema at night", question: "Sei andato al cinema ieri sera?", questionTranslation: "Did you go to the cinema last night?", answer: "Sì, sono andato al cinema.", answerTranslation: "Yes, I went to the cinema." },
+        { imageWord: "spiaggia", imageDescription: "footprints in the sand leading toward the ocean on a sunny day", question: "Sei andata alla spiaggia?", questionTranslation: "Did you go to the beach?", answer: "Sì, sono andata alla spiaggia.", answerTranslation: "Yes, I went to the beach." },
+        { imageWord: "Roma", imageDescription: "the Colosseum in Rome on a bright day with tourists", question: "Sei andato a Roma?", questionTranslation: "Did you go to Rome?", answer: "Sì, sono andato a Roma la scorsa estate.", answerTranslation: "Yes, I went to Rome last summer." },
+        { imageWord: "medico", imageDescription: "a person sitting in a doctor's waiting room", question: "È andata dal medico?", questionTranslation: "Did she go to the doctor?", answer: "Sì, è andata dal medico ieri.", answerTranslation: "Yes, she went to the doctor yesterday." },
+      ],
+    },
+    {
+      heading: "Accordo del Participio — Essere Verbs",
+      noteInline: "essere verbs: andare · venire · uscire · partire · arrivare · all take essere · participio agrees with subject",
+      pairs: [
+        { imageWord: "partenza", imageDescription: "a person waving goodbye at an airport departure gate", question: "È partito stamattina?", questionTranslation: "Did he leave this morning?", answer: "Sì, è partito con il volo delle sette.", answerTranslation: "Yes, he left on the seven o'clock flight." },
+        { imageWord: "arrivo", imageDescription: "a person arriving home with a suitcase looking happy", question: "È arrivata tua sorella?", questionTranslation: "Did your sister arrive?", answer: "Sì, è arrivata ieri sera.", answerTranslation: "Yes, she arrived last night." },
+      ],
+      sentenceColumns: [
+        { label: "Soggetto", items: [{ text: "Sono andato (m)", translation: "I went (male)" }, { text: "Sono andata (f)", translation: "I went (female)" }, { text: "È andato", translation: "He went" }, { text: "È andata", translation: "She went" }] },
+        { label: "Destinazione", items: [{ text: "al cinema.", translation: "to the cinema." }, { text: "a Roma.", translation: "to Rome." }, { text: "alla spiaggia.", translation: "to the beach." }, { text: "dal medico.", translation: "to the doctor." }] },
+      ],
+    },
+  ],
+};
+
+// ── Portuguese present-tense verb units ───────────────────────────────────────
+
+const PORTUGUESE_VOU: HayUnitContent = {
+  chapterTitleKey: 'onde vai',
+  conceptLabel: 'Vou',
+  conceptDefinition: 'I am going · where are you going? · onde vai?',
+  introNote: '"Vou" drops you anywhere — add a destination or an infinitive and the thought is complete.',
+  clusters: [
+    {
+      heading: 'Vou — Destinos',
+      pairs: [
+        { imageWord: 'cinema', imageDescription: 'a cinema marquee lit up at night on a Portuguese street', question: 'Vai ao cinema?', questionTranslation: 'Are you going to the cinema?', answer: 'Sim, vou ao cinema.', answerTranslation: 'Yes, I am going to the cinema.' },
+        { imageWord: 'banco', imageDescription: 'a bank building exterior on a busy Portuguese street', question: 'Vai ao banco?', questionTranslation: 'Are you going to the bank?', answer: 'Sim, vou ao banco.', answerTranslation: 'Yes, I am going to the bank.' },
+        { imageWord: 'praia', imageDescription: 'a sunny Portuguese Atlantic beach with white sand', question: 'Vai à praia?', questionTranslation: 'Are you going to the beach?', answer: 'Sim, vou à praia.', answerTranslation: 'Yes, I am going to the beach.' },
+        { imageWord: 'mercado', imageDescription: 'a traditional Portuguese market with fresh produce stalls', question: 'Vai ao mercado?', questionTranslation: 'Are you going to the market?', answer: 'Sim, vou ao mercado.', answerTranslation: 'Yes, I am going to the market.' },
+      ],
+    },
+    {
+      heading: 'Vou + infinitivo — Futuro Imediato',
+      noteInline: 'vou + infinitive = I am going to … · ao = a + o (masc) · à = a + a (fem)',
+      pairs: [
+        { imageWord: 'comer', imageDescription: 'a person sitting down to eat a full Portuguese meal', question: 'Vai comer agora?', questionTranslation: 'Are you going to eat now?', answer: 'Sim, vou comer agora.', answerTranslation: 'Yes, I am going to eat now.' },
+        { imageWord: 'estudar', imageDescription: 'a student studying at a desk with books and a laptop', question: 'Vai estudar hoje à noite?', questionTranslation: 'Are you going to study tonight?', answer: 'Sim, vou estudar.', answerTranslation: 'Yes, I am going to study.' },
+        { imageWord: 'trabalhar', imageDescription: 'a person heading out the door in work attire with a bag', question: 'Vai trabalhar amanhã?', questionTranslation: 'Are you going to work tomorrow?', answer: 'Sim, vou trabalhar.', answerTranslation: 'Yes, I am going to work.' },
+      ],
+      sentenceColumns: [
+        { label: 'Sujeito', items: [{ text: 'Vou', translation: 'I am going' }, { text: 'Ela vai', translation: 'She is going' }, { text: 'Vamos', translation: 'We are going' }] },
+        { label: 'Destino / Infinitivo', items: [{ text: 'ao cinema.', translation: 'to the cinema.' }, { text: 'à escola.', translation: 'to school.' }, { text: 'comer.', translation: 'to eat.' }, { text: 'estudar.', translation: 'to study.' }] },
+      ],
+    },
+  ],
+};
+
+const PORTUGUESE_PEGUEI: HayUnitContent = {
+  chapterTitleKey: 'peguei',
+  conceptLabel: 'Peguei',
+  conceptDefinition: 'I took / I caught · she took · ela pegou',
+  introNote: '"Peguei" is your first Portuguese preterite — the -ei ending is the signature of 1st-person -ar past. Notice the u in peguei: it keeps the g hard.',
+  clusters: [
+    {
+      heading: 'Peguei — No Passado',
+      pairs: [
+        { imageWord: 'ônibus', imageDescription: 'a person boarding a city bus at a stop in São Paulo', question: 'Pegou o ônibus hoje?', questionTranslation: 'Did you take the bus today?', answer: 'Sim, peguei o ônibus.', answerTranslation: 'Yes, I took the bus.' },
+        { imageWord: 'táxi', imageDescription: 'a yellow taxi cab pulling up to a curb in a Brazilian city', question: 'Pegou um táxi?', questionTranslation: 'Did you take a taxi?', answer: 'Sim, peguei um táxi.', answerTranslation: 'Yes, I took a taxi.' },
+        { imageWord: 'guarda-chuva', imageDescription: 'a person picking up an umbrella before leaving the house on a rainy day', question: 'Pegou o guarda-chuva?', questionTranslation: 'Did you grab the umbrella?', answer: 'Sim, peguei o guarda-chuva.', answerTranslation: 'Yes, I grabbed the umbrella.' },
+        { imageWord: 'bilhete', imageDescription: 'a person holding a bus ticket or transit card', question: 'Ela pegou o bilhete?', questionTranslation: 'Did she get the ticket?', answer: 'Sim, ela pegou o bilhete.', answerTranslation: 'Yes, she got the ticket.' },
+      ],
+    },
+    {
+      heading: 'Peguei / Ela pegou — O Padrão',
+      noteInline: '-ar preterite: peguei (eu) · pegou (ela/ele) · the spelling change: peg + ei = peguei (u keeps g hard)',
+      pairs: [
+        { imageWord: 'resfriado', imageDescription: 'a person sneezing into a tissue, visibly sick', question: 'Ela pegou um resfriado?', questionTranslation: 'Did she catch a cold?', answer: 'Sim, ela pegou um resfriado.', answerTranslation: 'Yes, she caught a cold.' },
+        { imageWord: 'trem', imageDescription: 'a commuter train arriving at a station platform in Brazil', question: 'Pegou o trem certo?', questionTranslation: 'Did you catch the right train?', answer: 'Sim, peguei o trem certo.', answerTranslation: 'Yes, I caught the right train.' },
+      ],
+      sentenceColumns: [
+        { label: 'Sujeito', items: [{ text: 'Peguei', translation: 'I took/caught' }, { text: 'Ela pegou', translation: 'She took/caught' }, { text: 'Ele pegou', translation: 'He took/caught' }] },
+        { label: 'Objeto', items: [{ text: 'o ônibus.', translation: 'the bus.' }, { text: 'um táxi.', translation: 'a taxi.' }, { text: 'o guarda-chuva.', translation: 'the umbrella.' }, { text: 'o bilhete.', translation: 'the ticket.' }] },
+      ],
+    },
+  ],
+};
+
+const PORTUGUESE_COMPREI: HayUnitContent = {
+  chapterTitleKey: 'comprei',
+  conceptLabel: 'Comprei',
+  conceptDefinition: 'I bought · she bought · ela comprou · -ar → -ei / -ou',
+  introNote: '"Comprei" is the -ar preterite model. Master comprei/comprou and you unlock every regular -ar verb in the past tense.',
+  clusters: [
+    {
+      heading: 'Comprei — No Passado',
+      pairs: [
+        { imageWord: 'pão', imageDescription: 'a person walking out of a padaria holding a fresh loaf of bread', question: 'Comprou o pão?', questionTranslation: 'Did you buy the bread?', answer: 'Sim, comprei o pão.', answerTranslation: 'Yes, I bought the bread.' },
+        { imageWord: 'sapatos', imageDescription: 'a shopping bag with a new pair of shoes visible at the top', question: 'Comprou os sapatos?', questionTranslation: 'Did you buy the shoes?', answer: 'Sim, comprei os sapatos novos.', answerTranslation: 'Yes, I bought the new shoes.' },
+        { imageWord: 'presente', imageDescription: 'a person handing a gift-wrapped box to a smiling friend', question: 'Comprou um presente?', questionTranslation: 'Did you buy a gift?', answer: 'Sim, comprei um presente para ela.', answerTranslation: 'Yes, I bought a gift for her.' },
+        { imageWord: 'ingresso', imageDescription: 'a cinema ticket stub and a bag of popcorn on a counter', question: 'Comprou os ingressos?', questionTranslation: 'Did you buy the tickets?', answer: 'Sim, comprei os ingressos online.', answerTranslation: 'Yes, I bought the tickets online.' },
+      ],
+    },
+    {
+      heading: 'O Padrão -ei / -ou — Todos os Verbos -ar',
+      noteInline: 'comprar→comprei/comprou · falar→falei/falou · trabalhar→trabalhei/trabalhou · viajar→viajei/viajou',
+      pairs: [
+        { imageWord: 'celular', imageDescription: 'a person unboxing a brand new smartphone with excitement', question: 'Ela comprou um celular novo?', questionTranslation: 'Did she buy a new phone?', answer: 'Sim, ela comprou um celular novo.', answerTranslation: 'Yes, she bought a new phone.' },
+        { imageWord: 'frutas', imageDescription: 'a person at a feira livre choosing fresh tropical fruits', question: 'Ele comprou frutas?', questionTranslation: 'Did he buy fruit?', answer: 'Sim, ele comprou frutas frescas.', answerTranslation: 'Yes, he bought fresh fruit.' },
+      ],
+      sentenceColumns: [
+        { label: 'Sujeito', items: [{ text: 'Comprei', translation: 'I bought' }, { text: 'Falei', translation: 'I spoke' }, { text: 'Trabalhei', translation: 'I worked' }, { text: 'Ela comprou', translation: 'She bought' }] },
+        { label: 'Objeto', items: [{ text: 'o pão.', translation: 'the bread.' }, { text: 'os sapatos.', translation: 'the shoes.' }, { text: 'um presente.', translation: 'a gift.' }, { text: 'ao telefone.', translation: 'on the phone.' }] },
+      ],
+    },
+  ],
+};
+
+const PORTUGUESE_TENHO: HayUnitContent = {
+  chapterTitleKey: 'tenho / ter',
+  conceptLabel: 'Tenho',
+  conceptDefinition: 'I have · do you have? · você tem?',
+  introNote: '"Ter" covers possession and body-state expressions. Tenho fome means "I am hungry" — literally "I have hunger." Same pattern as Spanish tener.',
+  clusters: [
+    {
+      heading: 'Tenho — Posse',
+      pairs: [
+        { imageWord: 'livro', imageDescription: 'an open book on a wooden desk in a warm-lit room', question: 'Você tem um livro?', questionTranslation: 'Do you have a book?', answer: 'Sim, tenho um livro.', answerTranslation: 'Yes, I have a book.' },
+        { imageWord: 'carro', imageDescription: 'a car parked on a Brazilian street in afternoon sun', question: 'Você tem carro?', questionTranslation: 'Do you have a car?', answer: 'Sim, tenho um carro.', answerTranslation: 'Yes, I have a car.' },
+        { imageWord: 'gato', imageDescription: 'a cat sitting on a sunny windowsill indoors', question: 'Você tem um gato?', questionTranslation: 'Do you have a cat?', answer: 'Sim, tenho um gato.', answerTranslation: 'Yes, I have a cat.' },
+        { imageWord: 'dinheiro', imageDescription: 'Brazilian reais banknotes and coins spread on a table', question: 'Você tem dinheiro?', questionTranslation: 'Do you have money?', answer: 'Sim, tenho algum dinheiro.', answerTranslation: 'Yes, I have some money.' },
+      ],
+    },
+    {
+      heading: 'Tenho fome · Tenho sede · Tenho…',
+      noteInline: 'Portuguese uses ter (to have) where English uses to be: tenho fome = I am hungry · tenho sede = I am thirsty · tenho frio = I am cold',
+      pairs: [
+        { imageWord: 'fome', imageDescription: 'a person holding their stomach looking very hungry', question: 'Você tem fome?', questionTranslation: 'Are you hungry?', answer: 'Sim, tenho fome.', answerTranslation: 'Yes, I am hungry.' },
+        { imageWord: 'sede', imageDescription: 'a person reaching for a glass of water looking very thirsty', question: 'Você tem sede?', questionTranslation: 'Are you thirsty?', answer: 'Sim, tenho sede.', answerTranslation: 'Yes, I am thirsty.' },
+        { imageWord: 'pressa', imageDescription: 'a person checking their watch and hurrying down a street', question: 'Você tem pressa?', questionTranslation: 'Are you in a hurry?', answer: 'Sim, tenho muita pressa.', answerTranslation: 'Yes, I am in a great hurry.' },
+      ],
+      sentenceColumns: [
+        { label: 'Sujeito', items: [{ text: 'Tenho', translation: 'I have' }, { text: 'Ela tem', translation: 'She has' }, { text: 'Ele tem', translation: 'He has' }] },
+        { label: 'Objeto', items: [{ text: 'um livro.', translation: 'a book.' }, { text: 'fome.', translation: 'hunger (I\'m hungry).' }, { text: 'sede.', translation: 'thirst (I\'m thirsty).' }, { text: 'pressa.', translation: 'a hurry (I\'m in a hurry).' }] },
+      ],
+    },
+  ],
+};
+
+const PORTUGUESE_QUERO: HayUnitContent = {
+  chapterTitleKey: 'quero / querer',
+  conceptLabel: 'Quero',
+  conceptDefinition: 'I want · do you want? · você quer?',
+  introNote: '"Quero" + infinitive is your all-purpose engine for expressing desire. Works exactly like Spanish quiero.',
+  clusters: [
+    {
+      heading: 'Quero — Frases Modelo',
+      pairs: [
+        { imageWord: 'café', imageDescription: 'a steaming cup of Brazilian coffee (cafezinho) on a saucer', question: 'Você quer um café?', questionTranslation: 'Do you want a coffee?', answer: 'Sim, quero um café.', answerTranslation: 'Yes, I want a coffee.' },
+        { imageWord: 'água', imageDescription: 'a glass of cold water on a restaurant table', question: 'Você quer água?', questionTranslation: 'Do you want water?', answer: 'Sim, quero água.', answerTranslation: 'Yes, I want water.' },
+        { imageWord: 'pão', imageDescription: 'a fresh bread roll on a white plate at breakfast', question: 'Você quer pão?', questionTranslation: 'Do you want bread?', answer: 'Sim, quero pão.', answerTranslation: 'Yes, I want bread.' },
+        { imageWord: 'maçã', imageDescription: 'a red apple on a clean white background', question: 'Você quer uma maçã?', questionTranslation: 'Do you want an apple?', answer: 'Sim, quero uma maçã.', answerTranslation: 'Yes, I want an apple.' },
+      ],
+    },
+    {
+      heading: 'Quero + infinitivo',
+      noteInline: 'quero + infinitive = I want to … · quero comer, quero ir, quero aprender',
+      pairs: [
+        { imageWord: 'comer', imageDescription: 'a person sitting down at a table with a full meal ready', question: 'Você quer comer?', questionTranslation: 'Do you want to eat?', answer: 'Sim, quero comer.', answerTranslation: 'Yes, I want to eat.' },
+        { imageWord: 'dormir', imageDescription: 'a person yawning and looking tired in the late afternoon', question: 'Você quer dormir?', questionTranslation: 'Do you want to sleep?', answer: 'Sim, quero dormir.', answerTranslation: 'Yes, I want to sleep.' },
+        { imageWord: 'sair', imageDescription: 'a person walking out the front door of a house with a smile', question: 'Você quer sair?', questionTranslation: 'Do you want to go out?', answer: 'Sim, quero sair.', answerTranslation: 'Yes, I want to go out.' },
+      ],
+      sentenceColumns: [
+        { label: 'Sujeito', items: [{ text: 'Quero', translation: 'I want' }, { text: 'Ela quer', translation: 'She wants' }, { text: 'Ele quer', translation: 'He wants' }] },
+        { label: 'Objeto / Infinitivo', items: [{ text: 'um café.', translation: 'a coffee.' }, { text: 'água.', translation: 'water.' }, { text: 'comer.', translation: 'to eat.' }, { text: 'sair.', translation: 'to go out.' }] },
+      ],
+    },
+  ],
+};
+
+const PORTUGUESE_SOU: HayUnitContent = {
+  chapterTitleKey: 'ser: a natureza',
+  conceptLabel: 'Sou',
+  conceptDefinition: 'I am · are you? · você é?',
+  introNote: '"Ser" is the verb of identity — nationality, profession, character. One verb, endless self-expression.',
+  clusters: [
+    {
+      heading: 'Sou — Identidade',
+      pairs: [
+        { imageWord: 'americano', imageDescription: 'an American flag waving in the wind against a blue sky', question: 'Você é americano?', questionTranslation: 'Are you American?', answer: 'Sim, sou americano.', answerTranslation: 'Yes, I am American.' },
+        { imageWord: 'estudante', imageDescription: 'a student sitting in a lecture hall with a notebook open', question: 'Você é estudante?', questionTranslation: 'Are you a student?', answer: 'Sim, sou estudante.', answerTranslation: 'Yes, I am a student.' },
+        { imageWord: 'professor', imageDescription: 'a teacher writing on a classroom blackboard', question: 'Você é professor?', questionTranslation: 'Are you a teacher?', answer: 'Sim, sou professor.', answerTranslation: 'Yes, I am a teacher.' },
+        { imageWord: 'médico', imageDescription: 'a doctor in a white coat with a stethoscope around their neck', question: 'Você é médico?', questionTranslation: 'Are you a doctor?', answer: 'Sim, sou médico.', answerTranslation: 'Yes, I am a doctor.' },
+      ],
+    },
+    {
+      heading: 'Sou + adjetivo',
+      noteInline: 'Adjectives agree with gender: cansado (m) · cansada (f) · contente (invariable)',
+      pairs: [
+        { imageWord: 'cansado', imageDescription: 'a person slumped in a chair looking exhausted', question: 'Você está cansado?', questionTranslation: 'Are you tired?', answer: 'Sim, estou cansado.', answerTranslation: 'Yes, I am tired.' },
+        { imageWord: 'feliz', imageDescription: 'a person smiling broadly in a sunny park', question: 'Você é feliz?', questionTranslation: 'Are you happy?', answer: 'Sim, sou muito feliz.', answerTranslation: 'Yes, I am very happy.' },
+        { imageWord: 'pronto', imageDescription: 'a person standing at the door ready to leave with coat and bag', question: 'Você está pronto?', questionTranslation: 'Are you ready?', answer: 'Sim, estou pronto.', answerTranslation: 'Yes, I am ready.' },
+      ],
+      sentenceColumns: [
+        { label: 'Sujeito', items: [{ text: 'Sou', translation: 'I am (identity)' }, { text: 'Ela é', translation: 'She is' }, { text: 'Estou', translation: 'I am (state)' }] },
+        { label: 'Atributo', items: [{ text: 'americano.', translation: 'American.' }, { text: 'estudante.', translation: 'a student.' }, { text: 'cansado.', translation: 'tired (state).' }, { text: 'feliz.', translation: 'happy (nature).' }] },
+      ],
+    },
+  ],
+};
+
+const PORTUGUESE_ESTOU: HayUnitContent = {
+  chapterTitleKey: 'onde estou',
+  conceptLabel: 'Estou / Onde estou?',
+  conceptDefinition: 'Where am I? · Where is she? · Onde ela está?',
+  introNote: 'Portuguese uses estar for location. The verb that expresses states also places you in space. Estou em casa. Ela está no trabalho.',
+  clusters: [
+    {
+      heading: 'Estar — Lugares',
+      pairs: [
+        { imageWord: 'casa', imageDescription: 'the cozy interior of a Brazilian home with warm afternoon light', question: 'Onde você está?', questionTranslation: 'Where are you?', answer: 'Estou em casa.', answerTranslation: 'I am at home.' },
+        { imageWord: 'escola', imageDescription: 'the exterior of a Brazilian school building with students outside', question: 'Onde você está de manhã?', questionTranslation: 'Where are you in the morning?', answer: 'Estou na escola.', answerTranslation: 'I am at school.' },
+        { imageWord: 'escritório', imageDescription: 'a bright modern office with open desks and large windows', question: 'Onde está seu pai?', questionTranslation: 'Where is your father?', answer: 'Ele está no escritório.', answerTranslation: 'He is at the office.' },
+        { imageWord: 'centro', imageDescription: 'a busy Brazilian city center with people and storefronts', question: 'Onde vocês estão?', questionTranslation: 'Where are you all?', answer: 'Estamos no centro.', answerTranslation: 'We are downtown.' },
+      ],
+    },
+    {
+      heading: 'Em / No / Na — Preposições de Lugar',
+      noteInline: 'no = em + o (masc) · na = em + a (fem) · em = in/at with countries and open spaces',
+      pairs: [
+        { imageWord: 'biblioteca', imageDescription: 'a student reading quietly inside a university library', question: 'Ela está na biblioteca?', questionTranslation: 'Is she at the library?', answer: 'Sim, ela está na biblioteca.', answerTranslation: 'Yes, she is at the library.' },
+        { imageWord: 'academia', imageDescription: 'a person working out with weights at a gym', question: 'Ele está na academia agora?', questionTranslation: 'Is he at the gym right now?', answer: 'Sim, ele está na academia.', answerTranslation: 'Yes, he is at the gym.' },
+      ],
+      sentenceColumns: [
+        { label: 'Sujeito', items: [{ text: 'Estou', translation: 'I am' }, { text: 'Ela está', translation: 'She is' }, { text: 'Estamos', translation: 'We are' }] },
+        { label: 'Lugar', items: [{ text: 'em casa.', translation: 'at home.' }, { text: 'na escola.', translation: 'at school.' }, { text: 'no trabalho.', translation: 'at work.' }, { text: 'no centro.', translation: 'downtown.' }, { text: 'no Brasil.', translation: 'in Brazil.' }] },
+      ],
+    },
+  ],
+};
+
+const PORTUGUESE_POSSO: HayUnitContent = {
+  chapterTitleKey: 'posso ir',
+  conceptLabel: 'Posso',
+  conceptDefinition: 'I can · can you? · você pode?',
+  introNote: '"Posso" opens ability and permission. Drop it before any infinitive.',
+  clusters: [
+    {
+      heading: 'Posso — Frases Modelo',
+      pairs: [
+        { imageWord: 'falar', imageDescription: 'a person speaking confidently to a small group outdoors', question: 'Você pode falar português?', questionTranslation: 'Can you speak Portuguese?', answer: 'Sim, posso falar um pouco.', answerTranslation: 'Yes, I can speak a little.' },
+        { imageWord: 'ajudar', imageDescription: 'a person helping a friend carry a heavy box up stairs', question: 'Você pode me ajudar?', questionTranslation: 'Can you help me?', answer: 'Sim, posso te ajudar.', answerTranslation: 'Yes, I can help you.' },
+        { imageWord: 'vir', imageDescription: 'a person waving and walking toward a group of friends', question: 'Você pode vir amanhã?', questionTranslation: 'Can you come tomorrow?', answer: 'Sim, posso vir.', answerTranslation: 'Yes, I can come.' },
+        { imageWord: 'dirigir', imageDescription: 'a person sitting confidently in the driver\'s seat of a car', question: 'Você sabe dirigir?', questionTranslation: 'Can you drive?', answer: 'Sim, posso dirigir.', answerTranslation: 'Yes, I can drive.' },
+      ],
+    },
+    {
+      heading: 'Não posso — I Can\'t',
+      noteInline: 'não posso + infinitive = I cannot · useful for polite refusals in Portuguese',
+      pairs: [
+        { imageWord: 'esperar', imageDescription: 'a person looking at their watch impatiently at a bus stop', question: 'Você pode esperar um momento?', questionTranslation: 'Can you wait a moment?', answer: 'Desculpe, não posso esperar.', answerTranslation: 'Sorry, I cannot wait.' },
+        { imageWord: 'sair', imageDescription: 'a person looking out at rain through a window, unable to leave', question: 'Você pode sair hoje à noite?', questionTranslation: 'Can you go out tonight?', answer: 'Não, não posso sair.', answerTranslation: 'No, I cannot go out.' },
+      ],
+      sentenceColumns: [
+        { label: 'Sujeito', items: [{ text: 'Posso', translation: 'I can' }, { text: 'Ela pode', translation: 'She can' }, { text: 'Ele pode', translation: 'He can' }, { text: 'Não posso', translation: 'I cannot' }] },
+        { label: 'Infinitivo', items: [{ text: 'falar.', translation: 'speak.' }, { text: 'vir.', translation: 'come.' }, { text: 'ajudar.', translation: 'help.' }, { text: 'esperar.', translation: 'wait.' }] },
+      ],
+    },
+  ],
+};
+
+// ── Portuguese passado / preterite chain units ────────────────────────────────
+
+const PORTUGUESE_GOSTO: HayUnitContent = {
+  chapterTitleKey: 'gosto / gosto de',
+  conceptLabel: 'Gosto de',
+  conceptDefinition: 'I like · do you like? · você gosta de?',
+  introNote: '"Gostar" always needs "de" — it\'s not optional. Gosto de música. Not gosto música. The preposition is part of the verb.',
+  clusters: [
+    {
+      heading: 'Gosto de — Frases Modelo',
+      pairs: [
+        { imageWord: 'futebol', imageDescription: 'a person cheering at a Brazilian soccer match in the stands', question: 'Você gosta de futebol?', questionTranslation: 'Do you like soccer?', answer: 'Sim, gosto muito de futebol.', answerTranslation: 'Yes, I really like soccer.' },
+        { imageWord: 'música', imageDescription: 'a person listening to music with headphones and smiling', question: 'Você gosta de música?', questionTranslation: 'Do you like music?', answer: 'Sim, gosto de música.', answerTranslation: 'Yes, I like music.' },
+        { imageWord: 'cozinhar', imageDescription: 'a person happily cooking in a kitchen with fresh ingredients', question: 'Você gosta de cozinhar?', questionTranslation: 'Do you like cooking?', answer: 'Sim, gosto muito de cozinhar.', answerTranslation: 'Yes, I really like cooking.' },
+        { imageWord: 'viajar', imageDescription: 'a person with a backpack looking at a scenic coastal view', question: 'Você gosta de viajar?', questionTranslation: 'Do you like traveling?', answer: 'Sim, gosto de viajar.', answerTranslation: 'Yes, I like traveling.' },
+      ],
+    },
+    {
+      heading: 'Não gosto de — Negativo',
+      noteInline: 'gosto de + noun or infinitive · não gosto de = I don\'t like · the de is ALWAYS required',
+      pairs: [
+        { imageWord: 'livros', imageDescription: 'a stack of colorful books on a library shelf', question: 'Você gosta de ler livros?', questionTranslation: 'Do you like reading books?', answer: 'Sim, gosto muito de ler.', answerTranslation: 'Yes, I really like reading.' },
+        { imageWord: 'acordar cedo', imageDescription: 'a person reluctantly turning off an alarm clock very early in the morning', question: 'Você gosta de acordar cedo?', questionTranslation: 'Do you like waking up early?', answer: 'Não, não gosto de acordar cedo.', answerTranslation: 'No, I don\'t like waking up early.' },
+      ],
+      sentenceColumns: [
+        { label: 'Sujeito', items: [{ text: 'Gosto de', translation: 'I like' }, { text: 'Não gosto de', translation: 'I don\'t like' }, { text: 'Ela gosta de', translation: 'She likes' }] },
+        { label: 'Objeto / Infinitivo', items: [{ text: 'futebol.', translation: 'soccer.' }, { text: 'música.', translation: 'music.' }, { text: 'cozinhar.', translation: 'cooking.' }, { text: 'viajar.', translation: 'traveling.' }] },
+      ],
+    },
+  ],
+};
+
+const PORTUGUESE_GOSTARIA: HayUnitContent = {
+  chapterTitleKey: 'eu gostaria',
+  conceptLabel: 'Gostaria / Queria',
+  conceptDefinition: 'I would like · polite request · gostaria de + noun · queria + noun',
+  introNote: 'Both "gostaria de" and "queria" mean "I would like" in Portuguese. Both are polite and extremely common.',
+  clusters: [
+    {
+      heading: 'Queria / Gostaria — No Restaurante',
+      pairs: [
+        { imageWord: 'café', imageDescription: 'a barista handing a small cup of Brazilian coffee across a counter', question: 'O que você gostaria?', questionTranslation: 'What would you like?', answer: 'Queria um café, por favor.', answerTranslation: 'I would like a coffee, please.' },
+        { imageWord: 'mesa', imageDescription: 'an empty table set for dinner in a Brazilian restaurant', question: 'Você gostaria de uma mesa para dois?', questionTranslation: 'Would you like a table for two?', answer: 'Sim, gostaria de uma mesa para dois.', answerTranslation: 'Yes, I would like a table for two.' },
+        { imageWord: 'informação', imageDescription: 'a person at a tourist information desk in a city center', question: 'Você gostaria de mais informações?', questionTranslation: 'Would you like more information?', answer: 'Sim, gostaria de informações sobre o museu.', answerTranslation: 'Yes, I would like information about the museum.' },
+        { imageWord: 'reserva', imageDescription: 'a person making a hotel reservation over the phone at a front desk', question: 'Você gostaria de fazer uma reserva?', questionTranslation: 'Would you like to make a reservation?', answer: 'Sim, gostaria de fazer uma reserva.', answerTranslation: 'Yes, I would like to make a reservation.' },
+      ],
+    },
+    {
+      heading: 'Gostaria de — Desejos e Sonhos',
+      noteInline: 'queria + noun (ordering) · gostaria de + infinitive (wishing) · both are equally elegant',
+      pairs: [
+        { imageWord: 'Brasil', imageDescription: 'a stunning view of Rio de Janeiro with Sugarloaf Mountain', question: 'Você gostaria de visitar o Brasil?', questionTranslation: 'Would you like to visit Brazil?', answer: 'Sim, gostaria muito de visitar o Brasil.', answerTranslation: 'Yes, I would love to visit Brazil.' },
+        { imageWord: 'aprender', imageDescription: 'a person absorbed in learning something new, looking excited and engaged', question: 'Você gostaria de aprender a cozinhar?', questionTranslation: 'Would you like to learn to cook?', answer: 'Sim, gostaria de aprender a cozinhar.', answerTranslation: 'Yes, I would like to learn to cook.' },
+      ],
+      sentenceColumns: [
+        { label: 'Expressão', items: [{ text: 'Queria', translation: 'I would like (common)' }, { text: 'Gostaria de', translation: 'I would like (formal)' }, { text: 'Ela gostaria de', translation: 'She would like' }] },
+        { label: 'Objeto / Infinitivo', items: [{ text: 'um café.', translation: 'a coffee.' }, { text: 'viajar.', translation: 'to travel.' }, { text: 'aprender.', translation: 'to learn.' }, { text: 'uma reserva.', translation: 'a reservation.' }] },
+      ],
+    },
+  ],
+};
+
+const PORTUGUESE_FUI: HayUnitContent = {
+  chapterTitleKey: 'fui — ir no passado',
+  conceptLabel: 'Fui',
+  conceptDefinition: 'I went · she went · ela foi · totally irregular preterite',
+  introNote: '"Ir" drops its stem entirely in the preterite — fui, foi. Same as Spanish: voy → fui. If you know Spanish, this is already familiar.',
+  clusters: [
+    {
+      heading: 'Fui — No Passado',
+      pairs: [
+        { imageWord: 'cinema', imageDescription: 'a person walking into a cinema at night under bright lights', question: 'Você foi ao cinema ontem à noite?', questionTranslation: 'Did you go to the cinema last night?', answer: 'Sim, fui ao cinema.', answerTranslation: 'Yes, I went to the cinema.' },
+        { imageWord: 'praia', imageDescription: 'footprints in the sand leading toward the ocean on a sunny day', question: 'Você foi à praia?', questionTranslation: 'Did you go to the beach?', answer: 'Sim, fui à praia no fim de semana.', answerTranslation: 'Yes, I went to the beach on the weekend.' },
+        { imageWord: 'Brasil', imageDescription: 'a colorful view of a Brazilian city skyline with the ocean in the background', question: 'Você foi ao Brasil?', questionTranslation: 'Did you go to Brazil?', answer: 'Sim, fui ao Brasil no verão passado.', answerTranslation: 'Yes, I went to Brazil last summer.' },
+        { imageWord: 'médico', imageDescription: 'a person sitting in a doctor\'s waiting room reading a magazine', question: 'Ela foi ao médico?', questionTranslation: 'Did she go to the doctor?', answer: 'Sim, ela foi ao médico ontem.', answerTranslation: 'Yes, she went to the doctor yesterday.' },
+      ],
+    },
+    {
+      heading: 'Fui / Ela foi — O Verbo Ir no Pretérito',
+      noteInline: 'fui (I went) · foi (she/he went) · fomos (we went) · foram (they went) · ao = a + o · à = a + a',
+      pairs: [
+        { imageWord: 'viagem', imageDescription: 'a person waving goodbye at an airport departure gate with a suitcase', question: 'Ele foi ao aeroporto cedo?', questionTranslation: 'Did he go to the airport early?', answer: 'Sim, ele foi muito cedo.', answerTranslation: 'Yes, he went very early.' },
+        { imageWord: 'chegada', imageDescription: 'a person arriving home after a long trip, looking happy', question: 'Sua irmã foi a Lisboa?', questionTranslation: 'Did your sister go to Lisbon?', answer: 'Sim, ela foi a Lisboa em junho.', answerTranslation: 'Yes, she went to Lisbon in June.' },
+      ],
+      sentenceColumns: [
+        { label: 'Sujeito', items: [{ text: 'Fui', translation: 'I went' }, { text: 'Ela foi', translation: 'She went' }, { text: 'Ele foi', translation: 'He went' }, { text: 'Fomos', translation: 'We went' }] },
+        { label: 'Destino', items: [{ text: 'ao cinema.', translation: 'to the cinema.' }, { text: 'ao Brasil.', translation: 'to Brazil.' }, { text: 'à praia.', translation: 'to the beach.' }, { text: 'ao médico.', translation: 'to the doctor.' }] },
+      ],
+    },
+  ],
+};
+
 const HAY_UNITS: HayUnitContent[] = [
   PUEDO_IR,
   HAY_CHAPTER,
@@ -2408,6 +3115,33 @@ const HAY_UNITS: HayUnitContent[] = [
   FRENCH_CEST_PROPRE,
   FRENCH_JAI_ETUDIE,
   FRENCH_JAI_RECU,
+  // ── Italian present-tense verb units ─────────────────────────────────────────
+  ITALIAN_VOGLIO,
+  ITALIAN_HO,
+  ITALIAN_VADO,
+  ITALIAN_SONO,
+  ITALIAN_MI_PIACE,
+  ITALIAN_CE,
+  ITALIAN_POSSO,
+  // ── Italian passato prossimo / preterite chain units ──────────────────────────
+  ITALIAN_DOVE_SONO,
+  ITALIAN_HO_PRESO,
+  ITALIAN_HO_COMPRATO,
+  ITALIAN_MI_PIACEREBBE,
+  ITALIAN_SONO_ANDATO,
+  // ── Portuguese present-tense verb units ──────────────────────────────────────
+  PORTUGUESE_VOU,
+  PORTUGUESE_PEGUEI,
+  PORTUGUESE_COMPREI,
+  PORTUGUESE_TENHO,
+  PORTUGUESE_QUERO,
+  PORTUGUESE_SOU,
+  PORTUGUESE_ESTOU,
+  PORTUGUESE_POSSO,
+  // ── Portuguese passado / preterite chain units ────────────────────────────────
+  PORTUGUESE_GOSTO,
+  PORTUGUESE_GOSTARIA,
+  PORTUGUESE_FUI,
 ];
 
 /**

@@ -24,6 +24,25 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 21, 2026 (late) — Portuguese curriculum parity complete**
+
+Portuguese 1–4 is now at full structural + content parity with Spanish 1–4 (48/17/8/8).
+
+**What was completed this session:**
+- **Portuguese loop catalog** — 22 `PORTUGUESE_UNITS` entries added to `server/data/madrigal-loop-catalog.ts`, covering all PT1 Madrigal chain verbs: ir, pegar, comprar, ter, querer, ser, estar, poder, haver/ter-existential, gostar, gostaria, ir-passado, vou+infinitivo, vai-3rd-person, fazer, ter-passado, lhe, estar+adjetivo, -ar-passado, particípios. `ALL_UNITS` updated to include Portuguese.
+- **Portuguese HayUnitContent** — 11 entries added to `client/src/data/madrigal-unit-content.ts` covering: vou, peguei, comprei, tenho, quero, sou, estou, posso, gosto de, gostaria, fui. All follow the same visual-image cluster format as Spanish/French/Italian.
+- **Portuguese vocab rows** — 22 `textbook_lesson_content` rows inserted for all PT1 chain lessons (orders 3–24). Each has 7 vocabulary items covering the core forms, patterns, and expressions for that lesson.
+
+**Language parity status:**
+- Spanish 1–4: 48/17/8/8 ✓ (master template)
+- French 1–4: 48/17/8/8 ✓ (loop catalog 19 entries, HayUnitContent 19, vocab rows done)
+- Italian 1–4: 48/17/8/8 ✓ (loop catalog 22, HayUnitContent 12, vocab rows done)
+- Portuguese 1–4: 48/17/8/8 ✓ (loop catalog 22, HayUnitContent 11, vocab rows done)
+
+**What's left for Portuguese (lower priority):**
+- Portuguese 2–4 structural/thematic content not yet reviewed for chapter_type alignment (DB counts correct, types may need audit)
+- No Portuguese HayUnitContent for units 13–24 (hab-style verbs: há, gostar, gostaria, fui only — others rely on AI micro-cycle content generation)
+
 **Session: June 21, 2026 (evening) — Gemini second-pass audit + 4 follow-up fixes**
 
 All 4 items flagged in the June 21 morning Gemini review are now fixed and re-verified. Full audit at `docs/gemini-audit-2026-06-21.md`. All 4 got APPROVED in the second pass. Overall verdict: Clean / Production Ready.
