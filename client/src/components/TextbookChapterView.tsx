@@ -984,41 +984,6 @@ export function TextbookChapterView({
           ));
       })()}
 
-      {/* ── Flat lesson sections ── */}
-      {chapter.sections.length > 0 && (
-        <div className="space-y-8" data-testid="flat-lesson-sections">
-          <div className="flex items-center gap-2 px-1">
-            <BookOpen className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-              Lesson Notes
-            </h2>
-          </div>
-          {chapter.sections.map((section, index) => (
-            <FlatLessonSection
-              key={section.id}
-              section={{
-                ...section,
-                textbookRead: section.textbookRead || locallyReadIds.has(section.id),
-              }}
-              index={index}
-              language={language}
-              onViewed={() => handleSectionViewed(section.id)}
-              onMarkedRead={handleMarkedRead}
-            />
-          ))}
-        </div>
-      )}
-
-      {chapter.sections.length === 0 && (
-        <Card className="p-8 text-center bg-muted/30">
-          <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="font-semibold mb-2">Lessons Coming Soon</h3>
-          <p className="text-sm text-muted-foreground">
-            This chapter's content is being prepared. Check back soon!
-          </p>
-        </Card>
-      )}
-
       {/* ── CTAs — at the bottom, after all content ── */}
       <div className="space-y-2 pt-2" data-testid="chapter-cta-section">
         <Button
@@ -1029,17 +994,6 @@ export function TextbookChapterView({
           <MessageSquare className="h-5 w-5" />
           Chat about this chapter
         </Button>
-        {firstDrillSectionId && totalDrillCount > 0 && (
-          <Button
-            variant="outline"
-            className="w-full min-h-[44px] gap-2"
-            onClick={() => onStartDrill(firstDrillSectionId)}
-            data-testid="button-start-chapter-drill"
-          >
-            <Dumbbell className="h-4 w-4" />
-            {totalDrillCount} Practice Activities
-          </Button>
-        )}
       </div>
 
       {kindleNav}
