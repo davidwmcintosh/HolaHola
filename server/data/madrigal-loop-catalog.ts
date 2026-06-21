@@ -4042,8 +4042,1272 @@ const PORTUGUESE_UNITS: MadrigalLoopUnit[] = [
 
 ];
 
-// Merge all units — Spanish first, then French, then Italian, then Portuguese
-const ALL_UNITS = [...UNITS, ...FRENCH_UNITS, ...GERMAN_UNITS, ...ITALIAN_UNITS, ...PORTUGUESE_UNITS];
+// ─────────────────────────────────────────────────────────────────────────────
+// JAPANESE UNITS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const JAPANESE_UNITS: MadrigalLoopUnit[] = [
+
+  {
+    contentKey: 'where are you going japanese',
+    language: 'japanese',
+    displayName: '行きます — どこに行きますか？',
+    unitType: 'verb',
+    vocabTerms: ['行きます', '行きません', 'いきます', 'ikimasu', 'I go', 'going', 'どこに', 'に', 'へ', 'hotel', 'school', 'restaurant'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"行きます" — I go / I am going. "どこに行きますか" — Where are you going? Say them: い・き・ます.', studentAction: 'Repeat 行きます and 行きません.', teacherHint: 'Introduce the に/へ particle for direction. 学校に行きます. Both に and へ work here — に is more common in modern speech.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a destination. Read: ホテルに行きます — I am going to the hotel. コンビニに行きます. Your turn.', studentAction: 'Read each sentence aloud, using the image as a hook.', teacherHint: 'Listen for the に particle after the destination. Students may want to say ホテルへ — accept it but model に.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Eyes across the columns — who is going where? Combine: subject + destination + に行きます.', studentAction: 'Build sentences rapidly from the columns.', teacherHint: 'Keep pace fast. Any correct に行きます sentence is a win at this stage.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'どこに行きますか？ — Where are you going? Answer with ～に行きます.', studentAction: 'Produce: [destination]に行きます.', teacherHint: 'Extend: 友達はどこに行きますか？ — push third-person 行きます (no change in polite form).' },
+    ],
+  },
+
+  {
+    contentKey: 'i took japanese',
+    language: 'japanese',
+    displayName: '取りました — 強い動詞の過去形',
+    unitType: 'preterite',
+    vocabTerms: ['取りました', 'とりました', 'torimashita', 'I took', 'た形', 'past tense', '取ります', '飲みました', '食べました', '見ました'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"取りました" — I took. The た-form is the Japanese past tense. 取ります → 取りました. Say it: と・り・ま・し・た.', studentAction: 'Repeat 取りました. Notice the ました ending.', teacherHint: '〜ます → 〜ました is the standard polite past pattern. All Group 1 verbs follow this. Students need to see it as a suffix swap.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images of past actions. 傘を取りました — I took the umbrella. タクシーを取りました. Read each one.', studentAction: 'Read the past-tense sentences using を particle for the object.', teacherHint: 'Introduce を as the object marker naturally here. Do not over-explain — let the pattern speak.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Mix subjects and objects — who took what? Use ました for everything.', studentAction: 'Combine subject + object + を + 取りました.', teacherHint: 'Consistent ました across subjects in polite form is the key insight. No conjugation changes for subject.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '何を取りましたか？ — What did you take? Answer with ～を取りました.', studentAction: 'Produce: [object]を取りました.', teacherHint: 'Personalize: 昨日何を取りましたか？ Keep it conversational.' },
+    ],
+  },
+
+  {
+    contentKey: 'i bought japanese',
+    language: 'japanese',
+    displayName: '買いました — 弱い動詞の過去形',
+    unitType: 'preterite',
+    vocabTerms: ['買いました', 'かいました', 'kaimashita', 'I bought', '買います', 'weak verb', '食べました', '飲みました', '読みました'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"買いました" — I bought. 買います → 買いました. The ます → ました swap again. Say it.', studentAction: 'Repeat 買いました and note the pattern.', teacherHint: 'This is the same ました suffix. Reinforce: ます = present/future, ました = past. Clean and consistent in polite speech.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Images of things purchased. 本を買いました — I bought a book. 靴を買いました. Read each.', studentAction: 'Read shopping sentences with を + 買いました.', teacherHint: 'Natural context: shopping. High-frequency verbs nearby: 食べました, 飲みました, 読みました — all same pattern.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who bought what? Scan the columns fast.', studentAction: 'Build: [person] + [item]を + 買いました.', teacherHint: 'Mix subjects freely. Polite form stays identical regardless of person — that is the elegant simplicity here.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '何を買いましたか？ — What did you buy? Answer freely.', studentAction: 'Produce: [item]を買いました.', teacherHint: '昨日どこで買いましたか — layer in location question if ready.' },
+    ],
+  },
+
+  {
+    contentKey: 'i am going to japanese',
+    language: 'japanese',
+    displayName: '行くつもりです — 近未来 (Intent)',
+    unitType: 'verb',
+    vocabTerms: ['行くつもりです', 'つもりです', 'I plan to', 'near future', '〜するつもり', '行く', '食べるつもり', '勉強するつもり'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"行くつもりです" — I plan to go / I am going to go. つもりです attaches to the dictionary form. Say: い・く・つ・も・り・で・す.', studentAction: 'Repeat 行くつもりです.', teacherHint: 'Dictionary form + つもりです. This is intent. For immediate future, Japanese also uses ます-form; つもりです implies deliberate plan.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '東京に行くつもりです — I plan to go to Tokyo. 映画を見るつもりです. Read each.', studentAction: 'Read intent sentences with dictionary-form + つもりです.', teacherHint: 'Dictionary form before つもり: 行く, 食べる, 見る, 勉強する. Make sure students use dict. form, not ます-form.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What is each person planning to do? Combine freely.', studentAction: 'Build: [person] + [action-dict.form] + つもりです.', teacherHint: 'Check dictionary form throughout. する-compounds are common here: 勉強するつもり, 料理するつもり.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '週末何をするつもりですか？ — What are you planning to do this weekend?', studentAction: 'Produce: [activity]つもりです.', teacherHint: 'Natural question: この夏どこに行くつもりですか？ Let students express real plans.' },
+    ],
+  },
+
+  {
+    contentKey: 'i have japanese',
+    language: 'japanese',
+    displayName: '持っています — 所有 (Possession)',
+    unitType: 'verb',
+    vocabTerms: ['持っています', 'もっています', 'motteimasu', 'I have', 'possession', 'ある', 'あります', '～があります', 'have'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"持っています" — I have (I am holding/carrying). "～があります" — I have (existence). Two ways to have in Japanese. Say: も・っ・て・い・ます.', studentAction: 'Repeat 持っています and ～があります.', teacherHint: '持っています = carry/own (a physical thing you carry around). があります = own/there-exists. Overlap is fine — both are correct for many objects.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'かさを持っています — I have an umbrella. 犬がいます — I have a dog. Read each with its correct form.', studentAction: 'Read possession sentences distinguishing 持っています vs あります/います.', teacherHint: 'Animals and people → います. Objects → あります. Portable objects → 持っています. Quick rule of thumb.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What do these people have? Combine subject + object + possession form.', studentAction: 'Build possession sentences rapidly.', teacherHint: 'Accept both 持っています and があります for objects. Correct がいます for living things gently.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'ペットを持っていますか？ — Do you have a pet? Answer with 持っています or います.', studentAction: 'Produce: はい、[pet]がいます or いいえ、いません.', teacherHint: 'Flip to negative: 持っていません / いません. Perfect yes/no pair.' },
+    ],
+  },
+
+  {
+    contentKey: 'i want japanese',
+    language: 'japanese',
+    displayName: 'したいです — 願望 (Desire)',
+    unitType: 'verb',
+    vocabTerms: ['〜たいです', 'したいです', 'I want to', 'desire', '食べたい', '行きたい', 'want', '欲しいです', 'hoshii'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"食べたいです" — I want to eat. Verb stem + たいです. Say: た・べ・た・い・で・す.', studentAction: 'Repeat 食べたいです and 行きたいです.', teacherHint: 'Stem + たい. For Group 1: 飲む → 飲みたい. For Group 2: 食べる → 食べたい. Elegant: drop る, add たい.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'ピザを食べたいです — I want to eat pizza. 日本に行きたいです. Read each.', studentAction: 'Read desire sentences with stem + たいです.', teacherHint: '欲しいです is for nouns (I want a car — 車が欲しい). たい is for actions (I want to do). Important distinction.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What does each person want to do? Scan and combine.', studentAction: 'Build: [person] + [verb-stem] + たいです.', teacherHint: 'Common mistakes: using ます-form before たい (飲みますたい ✗). Stem only: 飲みたい ✓.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '何が食べたいですか？ — What do you want to eat? Answer freely.', studentAction: 'Produce: [food/activity]たいです.', teacherHint: '今一番したいことは何ですか？ — stretch question for strong students.' },
+    ],
+  },
+
+  {
+    contentKey: 'i am identity japanese',
+    language: 'japanese',
+    displayName: 'です — 存在と性質 (Identity)',
+    unitType: 'ser_estar',
+    vocabTerms: ['です', 'desu', 'I am', 'identity', 'です', 'じゃないです', 'ではありません', '学生です', '日本人'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"私は学生です" — I am a student. です is the polite copula — it identifies what something is. Say: で・す.', studentAction: 'Repeat 私は学生です and 私は田中です.', teacherHint: 'は marks the topic. Noun + です = identity. This is the Japanese equivalent of "to be" for classification.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '私は先生です — I am a teacher. これは犬です — This is a dog. Read each statement.', studentAction: 'Read identity sentences with は + noun + です.', teacherHint: 'Contrast: です (affirmative) vs じゃないです / ではありません (negative). Both negatives are valid; じゃないです is conversational.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who is what? Match subjects with roles and identities.', studentAction: 'Build: [topic]は + [noun] + です.', teacherHint: 'Mix in じゃないです for variety. 私は医者じゃないです — I am not a doctor.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'あなたは学生ですか？ — Are you a student? Answer yes or no.', studentAction: 'Produce: はい、学生です / いいえ、学生じゃないです.', teacherHint: 'Yes/no question formed by adding か to です. Drill the minimal pair.' },
+    ],
+  },
+
+  {
+    contentKey: 'where am i japanese',
+    language: 'japanese',
+    displayName: 'どこにいますか — 場所 (Location)',
+    unitType: 'ser_estar',
+    vocabTerms: ['います', 'あります', 'どこに', 'location', 'に', 'school', 'house', 'いる', 'ある', 'います'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"学校にいます" — I am at school. います for living things, あります for objects/places. Say: に・い・ま・す.', studentAction: 'Repeat 学校にいます and 机の上にあります.', teacherHint: 'に marks location. います (animate) vs あります (inanimate location). Both describe where something/someone IS, not what it IS.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '図書館にいます — I am at the library. 本は机の上にあります. Read each.', studentAction: 'Read location sentences with に + います/あります.', teacherHint: 'Introduce positional nouns: 上 (above), 下 (below), 中 (inside), 前 (front), 後ろ (back). Common location vocab.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Where is each person or object? Combine rapidly.', studentAction: 'Build: [person/object] + は + [location]に + います/あります.', teacherHint: 'Common error: using います for objects. Correct kindly — point to the animate/inanimate rule.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'どこにいますか？ — Where are you? Answer with [場所]にいます.', studentAction: 'Produce: [location]にいます.', teacherHint: '今どこにいますか？ Let students describe their real location.' },
+    ],
+  },
+
+  {
+    contentKey: 'i can japanese',
+    language: 'japanese',
+    displayName: 'できます — 能力 (Ability)',
+    unitType: 'verb',
+    vocabTerms: ['できます', 'できません', 'dekimasu', 'I can', 'ability', '〜ができます', '泳げます', '話せます', 'potential form'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"日本語ができます" — I can speak Japanese. Noun + ができます = ability with a noun. Say: で・き・ま・す.', studentAction: 'Repeat 日本語ができます and 料理ができます.', teacherHint: 'Two patterns: noun + ができます (most common at this level) and potential verb form (話せます, 泳げます). Introduce both.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '泳ぐことができます — I can swim. ピアノが弾けます. Read each ability statement.', studentAction: 'Read ability sentences with ができます and potential forms.', teacherHint: 'こと + ができます = ability with a verb phrase. More formal. Potential form (〜える/られる) is more concise.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What can each person do? Combine subject + skill + ができます.', studentAction: 'Build ability sentences rapidly.', teacherHint: 'High-frequency: 日本語ができます, 料理ができます, 運転ができます. Drill these core phrases.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '何ができますか？ — What can you do? Answer with ～ができます.', studentAction: 'Produce: [skill]ができます.', teacherHint: '何が一番得意ですか？ — What are you best at? Stretch question.' },
+    ],
+  },
+
+  {
+    contentKey: 'the verb pattern japanese',
+    language: 'japanese',
+    displayName: 'ます形パターン — 動詞フレーム',
+    unitType: 'verb',
+    vocabTerms: ['ます', 'ません', 'ました', 'ませんでした', 'polite form', 'masu', 'verb group', 'Group 1', 'Group 2', '活用'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: 'The ます-frame: ます (present/future), ません (negative), ました (past), ませんでした (past negative). Say them all.', studentAction: 'Repeat all four ます-form conjugations.', teacherHint: 'This is the master frame. All polite-form verbs follow this pattern. Students who own this frame can handle any new verb.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '食べます、食べません、食べました、食べませんでした. Run through all four forms for each verb shown.', studentAction: 'Produce all four forms for each verb image.', teacherHint: 'Drill at least 5 verbs: 食べる, 飲む, 行く, 見る, 話す. Students must be automatic before moving on.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Mix times and polarities. Scan the columns — positive or negative, past or present?', studentAction: 'Combine subject + verb + ます-form ending rapidly.', teacherHint: 'Check the ending each time. Common error: ませんした (mixing patterns). Model: ませんでした.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '昨日、何を食べましたか？ — Answer in positive. 何を飲みませんでしたか？ — Answer in negative.', studentAction: 'Produce both positive and negative past-tense answers.', teacherHint: 'Mix present and past questions. Students need to select the correct form under communication pressure.' },
+    ],
+  },
+
+  {
+    contentKey: 'there is japanese',
+    language: 'japanese',
+    displayName: 'あります / います — 存在 (There Is)',
+    unitType: 'hay_gustar',
+    vocabTerms: ['あります', 'います', 'arimasu', 'imasu', 'there is', 'there are', 'existence', 'ない', 'いない', 'いません'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"本があります" — There is a book. "猫がいます" — There is a cat. が marks what exists. Inanimate → あります, animate → います.', studentAction: 'Repeat 本があります and 猫がいます.', teacherHint: 'が is the existence marker here, not は. Students will want to use は. Gently reinforce が with existence verbs.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '教室に机がたくさんあります — There are many desks in the classroom. 公園に子供がいます. Read each.', studentAction: 'Read existence sentences with location + に + subject + が + あります/います.', teacherHint: 'Full pattern: [location]に + [thing]が + あります/います. This covers spatial descriptions efficiently.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What is where? Combine location + thing + exists.', studentAction: 'Build existence sentences from the columns.', teacherHint: 'Negatives: ありません and いません. Drill both — useful immediately for real communication.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '家に何がありますか？ — What is in your house? Answer with ～があります.', studentAction: 'Produce: 家に[thing]があります.', teacherHint: 'Extend: 教室に誰がいますか？ — animate version with person as subject.' },
+    ],
+  },
+
+  {
+    contentKey: 'i like japanese',
+    language: 'japanese',
+    displayName: '～が好きです — 好み (Preference)',
+    unitType: 'hay_gustar',
+    vocabTerms: ['好きです', 'すきです', 'suki desu', 'I like', 'preference', 'が好き', '嫌いです', 'kirai', '大好きです'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"音楽が好きです" — I like music. が marks what you like. Say: が・す・き・で・す.', studentAction: 'Repeat 音楽が好きです and 映画が好きじゃないです.', teacherHint: 'Like Spanish gustar, the "liked thing" takes が here, not を. This is a key structural difference from English.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Each image shows a preference. 猫が好きです — I like cats. 野菜が嫌いです — I dislike vegetables. Read each.', studentAction: 'Read preference sentences with が好きです and が嫌いです.', teacherHint: 'Spectrum: 大好きです (love) → 好きです (like) → 好きじゃないです (don\'t like) → 嫌いです (dislike/hate).' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What does each person like or dislike? Scan the columns.', studentAction: 'Build: [person] + [thing]が + 好きです/嫌いです.', teacherHint: 'Push 大好きです for strong positives. Students enjoy expressing real preferences.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '何の音楽が好きですか？ — What kind of music do you like? Answer with ～が好きです.', studentAction: 'Produce a preference statement about something real.', teacherHint: '私は[X]が好きですが、[Y]はあまり好きじゃないです — contrast pair for advanced students.' },
+    ],
+  },
+
+  {
+    contentKey: 'i would like japanese',
+    language: 'japanese',
+    displayName: '～たいと思います — 丁寧な願望 (I Would Like)',
+    unitType: 'verb',
+    vocabTerms: ['〜たいと思います', 'ほしいです', 'polite desire', 'I would like', '〜たい', 'conditional', 'want politely'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"コーヒーをいただけますか" — Could I have coffee? "行きたいと思います" — I think I would like to go. Softer than たいです. Say them.', studentAction: 'Repeat 行きたいと思います and いただけますか.', teacherHint: '〜たいと思います is more polished than 〜たいです — adds conjecture distance, which in Japanese culture signals politeness. いただけますか is formal request.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Register shift: 食べたいです (casual) → 食べたいと思います (polite) → 食べていただけますか (formal). Read each pair.', studentAction: 'Read desire statements at different politeness levels.', teacherHint: 'Three-level register drill is the core insight here. Same meaning, rising formality.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What would each person like to do? Use the polite want form.', studentAction: 'Build: [person] + [action-stem] + たいと思います.', teacherHint: 'Situation-dependent: casual context → たいです, business/formal → たいと思います / いただけますか.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '来年何をしたいと思いますか？ — What would you like to do next year?', studentAction: 'Produce a polite desire statement about a real aspiration.', teacherHint: '日本に行きたいと思います — cue travelers. Connect to students\' actual goals.' },
+    ],
+  },
+
+  {
+    contentKey: 'i went japanese',
+    language: 'japanese',
+    displayName: '行きました — 過去の行動 (I Went)',
+    unitType: 'preterite',
+    vocabTerms: ['行きました', 'いきました', 'ikimashita', 'I went', 'past motion', '来ました', 'came', '帰りました', '旅行しました'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"行きました" — I went. 行きます → 行きました. The ました past again. Say it.', studentAction: 'Repeat 行きました and 来ました.', teacherHint: '行きました (went away from speaker), 来ました (came toward speaker), 帰りました (returned). This triplet is very high-frequency.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '東京に行きました — I went to Tokyo. 昨日学校に来ました. Read each past-motion sentence.', studentAction: 'Read past motion with に + 行きました/来ました.', teacherHint: 'Time words: 昨日 (yesterday), 先週 (last week), 先月 (last month). Natural context for past narration.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Where did each person go or come from? Mix destinations and directions.', studentAction: 'Build past-motion sentences with ました forms.', teacherHint: 'Contrast 行きました vs 来ました from the speaker\'s perspective — this is a key concept in Japanese.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '先週末どこに行きましたか？ — Where did you go last weekend?', studentAction: 'Produce: [time] + [place]に行きました.', teacherHint: '楽しかったですか？ — follow-up with 〜かった past adjective naturally.' },
+    ],
+  },
+
+  {
+    contentKey: 'he is going to japanese',
+    language: 'japanese',
+    displayName: '行くつもりです（3人称） — 彼は行くつもりです',
+    unitType: 'verb',
+    vocabTerms: ['行くつもりです', '3人称', 'third person', '彼は', '彼女は', 'narration', '〜するつもりです'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"彼は行くつもりです" — He plans to go. Same つもりです, now with 彼/彼女. Say it.', studentAction: 'Repeat 彼は行くつもりです and 彼女は勉強するつもりです.', teacherHint: 'Japanese polite form does not conjugate for person — つもりです is identical for all. The subject changes; the verb does not.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Narrative sentences about others\' plans. 田中さんは東京に行くつもりです. Read each.', studentAction: 'Read third-person intent sentences.', teacherHint: 'Introduce natural name usage: 田中さんは, 友達は, 兄は. More natural than 彼/彼女 in Japanese.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What are various people planning? Combine subjects and plans.', studentAction: 'Build third-person つもりです sentences.', teacherHint: 'No form changes — reinforce this. Students coming from European languages expect person agreement. Show they don\'t need it here.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'あなたの友達は今年何をするつもりですか？ — What does your friend plan to do this year?', studentAction: 'Produce a third-person intent sentence about someone real.', teacherHint: 'Personalization: discuss real classmates\' plans. Builds authentic output.' },
+    ],
+  },
+
+  {
+    contentKey: 'what did he do japanese',
+    language: 'japanese',
+    displayName: '何をしましたか — 過去の質問 (Past Questions)',
+    unitType: 'preterite',
+    vocabTerms: ['何をしましたか', '何をしましたか', 'what did he do', 'past question', '〜ましたか', 'question form', 'か particle'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"何をしましたか" — What did you/he do? か turns any ました sentence into a question. Say: な・に・を・し・ま・し・た・か.', studentAction: 'Repeat 何をしましたか and 何を食べましたか.', teacherHint: 'か is the question particle. Intonation rises slightly. No inversion — word order stays the same. Students love this simplicity.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Question and answer pairs. 何を食べましたか？ — カレーを食べました。Read and answer each pair.', studentAction: 'Read both the question and a natural answer.', teacherHint: 'Model natural answer: drop the subject if understood. 食べました (I ate it) — full sentences only when needed for clarity.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Rapid fire: ask what each person did. Combine 何を + [verb]ましたか.', studentAction: 'Build past-tense questions for different verbs.', teacherHint: 'Extend: いつ、どこで、どのように — layer in question words for richer narration.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '昨日何をしましたか？ — What did you do yesterday? Give a full answer.', studentAction: 'Produce a past narrative about yesterday.', teacherHint: '最初に〜をして、次に〜をして — connect past actions with sequential time markers.' },
+    ],
+  },
+
+  {
+    contentKey: 'he had japanese',
+    language: 'japanese',
+    displayName: '持っていました — 過去の所有 (He Had)',
+    unitType: 'preterite',
+    vocabTerms: ['持っていました', 'もっていました', 'he had', 'past possession', 'ありました', 'いました', 'past of aru'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"持っていました" — he had (was holding). 持っています → 持っていました. The past of ている progressive. Say it.', studentAction: 'Repeat 持っていました and ～がありました.', teacherHint: '持っていました (had/was carrying). ありました (there was / existed). Both are past forms used for "had" depending on context.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '彼は傘を持っていました — He had an umbrella. 昔、犬がいました — There was a dog once. Read each.', studentAction: 'Read past possession sentences.', teacherHint: 'Contrast present (持っています) vs past (持っていました). Show the ている → ていました shift clearly.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What did each person or place have in the past? Combine freely.', studentAction: 'Build past possession sentences.', teacherHint: '昔はよく〜がありました — nostalgic framing makes past possession feel natural and meaningful.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '子供の頃、何を持っていましたか？ — What did you have as a child?', studentAction: 'Produce: 子供の頃、[thing]を持っていました.', teacherHint: 'Personal childhood memories create strong memory hooks. Let students share authentically.' },
+    ],
+  },
+
+  {
+    contentKey: 'to him japanese',
+    language: 'japanese',
+    displayName: '彼に / 彼女に — 間接目的語 (To Him / To Her)',
+    unitType: 'object_pronoun',
+    vocabTerms: ['に', '彼に', '彼女に', 'dative', 'indirect object', 'に particle', 'あげます', 'くれます', 'もらいます'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"彼に本を渡しました" — I gave the book to him. に is the dative marker — it points to the recipient. Say: か・れ・に.', studentAction: 'Repeat 彼に and 彼女に with a giving verb.', teacherHint: 'に as dative: recipient, destination, time point — all に. This unit focuses on recipient sense. あげる (give upward), くれる (give to me), もらう (receive).' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '友達にプレゼントをあげました — I gave a present to my friend. 先生に手紙を書きました. Read each.', studentAction: 'Read indirect object sentences with recipient + に.', teacherHint: 'The give-receive triangle: あげます (I give to other), くれます (other gives to me), もらいます (I receive from other). Crucial and often confused.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who gave what to whom? Scan the columns and combine.', studentAction: 'Build: [giver] + [recipient]に + [thing]を + あげました/もらいました.', teacherHint: 'Drill the あげる/くれる contrast from the speaker\'s perspective. Real cultural content: giving is central in Japanese social life.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '最近誰かに何かをあげましたか？ — Did you give something to someone recently?', studentAction: 'Produce: [person]に[thing]をあげました.', teacherHint: 'Flip: 誰かに何かをもらいましたか？ — contrast both directions of the giving-receiving pair.' },
+    ],
+  },
+
+  {
+    contentKey: 'clean dirty japanese',
+    language: 'japanese',
+    displayName: 'きれいです / 汚いです — 形容詞 (Descriptions)',
+    unitType: 'verb',
+    vocabTerms: ['きれいです', '汚いです', 'kirei', 'kitanai', 'clean', 'dirty', 'adjective', 'い形容詞', 'な形容詞', 'description'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"きれいです" — It is clean / beautiful. "汚いです" — It is dirty. Two adjective types: い (汚い) and な (きれい). Say them.', studentAction: 'Repeat きれいです and 汚いです.', teacherHint: 'きれい looks like an い-adjective but is actually な-adjective: きれいな部屋. 汚い is a true い-adjective: 汚い部屋. This is a classic trick question.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'この部屋はきれいです — This room is clean. あの川は汚いです. Read descriptive sentences.', studentAction: 'Read descriptions with は + adjective + です.', teacherHint: 'Predicate adjective: [topic]は + adj + です. Attributive: adj + noun. Both patterns appear. Focus on predicate here.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Describe each scene — clean or dirty, beautiful or messy? Scan and produce.', studentAction: 'Build descriptive sentences with contrasting adjectives.', teacherHint: 'Extend with more い/な pairs: 大きい/小さい, 新しい/古い, 高い/安い, おいしい/まずい.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'あなたの部屋はきれいですか？ — Is your room clean? Answer honestly.', studentAction: 'Produce: 私の部屋は[adjective]です.', teacherHint: 'あまりきれいじゃないです — the hedged negative is natural and communicates personality. Model it.' },
+    ],
+  },
+
+  {
+    contentKey: 'i studied japanese',
+    language: 'japanese',
+    displayName: '勉強しました — する動詞の過去形 (I Studied)',
+    unitType: 'preterite',
+    vocabTerms: ['勉強しました', 'べんきょうしました', 'benkyou shimashita', 'I studied', 'suru verb', '〜しました', '運動しました', '料理しました'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"勉強しました" — I studied. する → しました. The する-verb class: noun + する. Say: べ・ん・き・ょ・う・し・ま・し・た.', studentAction: 'Repeat 勉強しました and 練習しました.', teacherHint: 'The する-compound class is huge: 勉強する, 運動する, 料理する, 仕事する, 掃除する. Once students own する→しました, they unlock all of them.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '3時間勉強しました — I studied for 3 hours. 毎朝運動します. Mix present and past する-verbs.', studentAction: 'Read する-verb sentences in context.', teacherHint: 'Duration with で? No — Japanese uses: [time]間 + verb. 3時間勉強しました (studied for 3 hours). No extra particle needed.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What did each person do (using する-verbs)? Combine rapidly.', studentAction: 'Build: [person] + [noun]を + しました.', teacherHint: 'Drill at minimum: 勉強・料理・掃除・運動・仕事・練習. These cover most daily activities.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '昨日何時間勉強しましたか？ — How many hours did you study yesterday?', studentAction: 'Produce: [N]時間勉強しました.', teacherHint: '何時間運動しましたか？ — extend to other する-verbs naturally.' },
+    ],
+  },
+
+  {
+    contentKey: 'i received japanese',
+    language: 'japanese',
+    displayName: 'もらいました — 受け取り (I Received)',
+    unitType: 'preterite',
+    vocabTerms: ['もらいました', 'moraimashita', 'I received', 'もらう', 'くれました', 'あげました', 'giving verbs', 'give receive'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"プレゼントをもらいました" — I received a present. もらう = receive (from someone\'s perspective). Say: も・ら・い・ま・し・た.', studentAction: 'Repeat もらいました and くれました.', teacherHint: 'Triangle review: あげました (I gave to other), くれました (other gave to me), もらいました (I received from other). The perspective shift is everything.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '友達に本をもらいました — I received a book from my friend. お母さんが手作りケーキをくれました. Read each.', studentAction: 'Read giving/receiving pairs focusing on speaker perspective.', teacherHint: 'に after giver with もらう: 友達に/から. Note: から is also acceptable. に is more traditional.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who received what from whom? Combine the giving triangle.', studentAction: 'Build giving/receiving sentences from all three perspectives.', teacherHint: 'Most important drill: same event from two perspectives — もらう vs くれる. Show both.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '誕生日に何をもらいましたか？ — What did you receive on your birthday?', studentAction: 'Produce: [giver]に[thing]をもらいました.', teacherHint: 'Cultural connection: gift-giving is highly ritualized in Japanese culture. Leverage this.' },
+    ],
+  },
+
+  {
+    contentKey: 'i will japanese',
+    language: 'japanese',
+    displayName: '〜でしょう / 〜と思います — 未来と推量 (Future)',
+    unitType: 'verb',
+    vocabTerms: ['でしょう', 'と思います', 'I will', 'future', 'conjecture', '〜ます (future)', '明日', '来週', '予定'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"明日行きます" = I will go tomorrow. "行くと思います" = I think I will go. "行くでしょう" = He will probably go. Say all three.', studentAction: 'Repeat all three future/conjecture forms.', teacherHint: 'Japanese uses present ます-form for scheduled future, と思います for personal intention, でしょう for prediction/conjecture. No dedicated future tense.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '来週テストがあります — There is a test next week. きっと雨が降るでしょう — It will probably rain. Read each.', studentAction: 'Read future and conjecture sentences.', teacherHint: 'でしょう signals the speaker\'s prediction/estimation. Native speakers use it constantly for weather, plans, and soft predictions.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Make predictions and plans. Use ます-form for scheduled events, でしょう for predictions.', studentAction: 'Build future statements distinguishing certainty levels.', teacherHint: 'Certainty scale: 来週行きます (certain plan) > 行くと思います (personal intention) > 行くでしょう (probable) > 行くかもしれません (possible).' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '来年何をすると思いますか？ — What do you think you will do next year?', studentAction: 'Produce: [plan]と思います.', teacherHint: 'Mix と思います and でしょう for different kinds of predictions. Connect to real student goals.' },
+    ],
+  },
+
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// KOREAN UNITS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const KOREAN_UNITS: MadrigalLoopUnit[] = [
+
+  {
+    contentKey: 'where are you going korean',
+    language: 'korean',
+    displayName: '가요 — 어디에 가요?',
+    unitType: 'verb',
+    vocabTerms: ['가요', '가세요', 'I go', '어디에', '에', 'gayo', 'going', 'location particle', '학교에', '집에'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"가요" — I go / I am going. "어디에 가요?" — Where are you going? 에 marks the direction. Say: 가・요.', studentAction: 'Repeat 가요 and 어디에 가요?.', teacherHint: '에 as direction particle after destinations. 학교에 가요 (go to school). Contrast with 에서 (location of action) — keep it simple here, focus on direction.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '학교에 가요 — I go to school. 집에 가요 — I go home. Read each destination sentence.', studentAction: 'Read going sentences with destination + 에 가요.', teacherHint: 'High-frequency destinations: 학교, 집, 도서관, 슈퍼, 병원. All + 에 가요.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who is going where? Scan the columns and combine: subject + destination + 에 가요.', studentAction: 'Build destination sentences rapidly.', teacherHint: 'Polite form 가요 works for all persons without change. Students from European language backgrounds appreciate this.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '어디에 가요? — Where are you going? Answer with [destination]에 가요.', studentAction: 'Produce: [place]에 가요.', teacherHint: '친구는 어디에 가요? — third-person extension. No form change needed.' },
+    ],
+  },
+
+  {
+    contentKey: 'i took korean',
+    language: 'korean',
+    displayName: '가져갔어요 — 강한 과거형 (I Took)',
+    unitType: 'preterite',
+    vocabTerms: ['가져갔어요', 'I took', '았어요', '었어요', 'past tense', '갔어요', '먹었어요', '봤어요', 'irregular'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"가져갔어요" — I took. The past tense ending is -았어요 or -었어요. Say: 가・져・갔・어・요.', studentAction: 'Repeat 가져갔어요 and 봤어요.', teacherHint: 'The -았/었어요 past tense: 아/오 stems → 았어요; others → 었어요. 가져가다 is irregular (vowel contraction). Focus on the ending pattern.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '우산을 가져갔어요 — I took the umbrella. 버스를 탔어요 — I took the bus. Read each.', studentAction: 'Read past-tense sentences with 았/었어요.', teacherHint: '을/를 for direct objects. 우산을, 버스를. Reinforce object particle alongside the past-tense pattern.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who took what? Mix subjects and objects with the past form.', studentAction: 'Build: [person] + [object]을/를 + 가져갔어요 / 탔어요.', teacherHint: 'Keep pace fast. The key insight: past form ending is consistent across all polite-speech verbs.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '뭘 가져갔어요? — What did you take? Answer freely.', studentAction: 'Produce: [thing]을/를 가져갔어요.', teacherHint: '어디에서 가져갔어요? — layer in location particle for richer context.' },
+    ],
+  },
+
+  {
+    contentKey: 'i bought korean',
+    language: 'korean',
+    displayName: '샀어요 — 과거형 (I Bought)',
+    unitType: 'preterite',
+    vocabTerms: ['샀어요', 'sasseoyo', 'I bought', 'past', '사다', '먹었어요', '마셨어요', '읽었어요', '했어요'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"샀어요" — I bought. 사다 → 샀어요. ㅏ vowel contracts. Say: 샀・어・요.', studentAction: 'Repeat 샀어요 and 먹었어요.', teacherHint: '사다 → 샀어요 involves the ㅏ + 았 contraction to 샀. Point out the vowel merger. Common: 샀어요, 먹었어요, 마셨어요, 읽었어요.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '옷을 샀어요 — I bought clothes. 커피를 마셨어요. Read shopping and purchasing sentences.', studentAction: 'Read past purchase sentences with object + 을/를 + past verb.', teacherHint: 'Consistent pattern: object marker 을/를 + past-tense verb. Very high frequency in daily conversation.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What did each person buy or consume? Scan and combine rapidly.', studentAction: 'Build past-tense sentences with various purchase/consumption verbs.', teacherHint: 'Core set: 샀어요, 먹었어요, 마셨어요, 읽었어요, 봤어요. Drill these five thoroughly.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '어제 뭘 샀어요? — What did you buy yesterday?', studentAction: 'Produce: [item]을/를 샀어요.', teacherHint: '어디서 샀어요? — layer in 에서 location particle for where they bought it.' },
+    ],
+  },
+
+  {
+    contentKey: 'i am going to korean',
+    language: 'korean',
+    displayName: '갈 거예요 — 근미래 (I Am Going To)',
+    unitType: 'verb',
+    vocabTerms: ['갈 거예요', 'ㄹ/을 거예요', 'near future', 'I am going to', '먹을 거예요', '갈 거예요', 'intention', 'future'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"갈 거예요" — I am going to go. Verb stem + ㄹ 거예요 (after vowel) or 을 거예요 (after consonant). Say: 갈・거・예・요.', studentAction: 'Repeat 갈 거예요 and 먹을 거예요.', teacherHint: 'ㄹ 거예요 = vowel-ending stems (가다→ 갈, 오다→올). 을 거예요 = consonant-ending stems (먹다→먹을). This is the dominant future form.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '내일 서울에 갈 거예요 — I am going to go to Seoul tomorrow. 저녁에 피자를 먹을 거예요. Read each.', studentAction: 'Read near-future sentences with ㄹ/을 거예요.', teacherHint: 'Time words: 내일 (tomorrow), 이따가 (later), 다음 주 (next week). All work naturally with 거예요.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What are these people going to do? Combine subjects + plans.', studentAction: 'Build future sentences with ㄹ/을 거예요.', teacherHint: 'Check the vowel/consonant rule each time. Frequent error: 먹ㄹ 거예요 ✗. Correct: 먹을 거예요 ✓.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '이번 주말에 뭘 할 거예요? — What are you going to do this weekend?', studentAction: 'Produce: [activity]ㄹ/을 거예요.', teacherHint: 'Real weekend plans. Personalization anchors the grammar to memory.' },
+    ],
+  },
+
+  {
+    contentKey: 'i have korean',
+    language: 'korean',
+    displayName: '있어요 — 소유와 존재 (I Have / There Is)',
+    unitType: 'verb',
+    vocabTerms: ['있어요', '없어요', 'isseoyo', 'I have', 'there is', 'possession', 'existence', '가지고 있어요', '이/가 있어요'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"저는 개가 있어요" — I have a dog. "책이 있어요" — There is a book. 있어요 covers both possession and existence. Say: 있・어・요.', studentAction: 'Repeat 있어요 and 없어요.', teacherHint: '이/가 있어요 = possession OR existence. Context determines which. 없어요 = don\'t have / there isn\'t. Clean minimal pair.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '시간이 있어요 — I have time. 교실에 학생들이 있어요 — There are students in the classroom. Read each.', studentAction: 'Read possession and existence sentences.', teacherHint: 'Location: [place]에 + [thing]이/가 + 있어요. This covers both "I have" and "there is" in spatial contexts.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What does each person have? What exists in each place? Combine.', studentAction: 'Build 있어요/없어요 sentences for possession and existence.', teacherHint: 'Push없어요 equally — it is extremely frequent in spoken Korean.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '지금 시간 있어요? — Do you have time right now?', studentAction: 'Produce: 네, 있어요 / 아니요, 없어요.', teacherHint: 'Casual vs polite: 있어? vs 있어요? Show both — students will hear both immediately.' },
+    ],
+  },
+
+  {
+    contentKey: 'i want korean',
+    language: 'korean',
+    displayName: '하고 싶어요 — 원망 (I Want)',
+    unitType: 'verb',
+    vocabTerms: ['하고 싶어요', '싶어요', 'I want to', 'desire', '고 싶어요', '먹고 싶어요', '가고 싶어요', 'want'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"먹고 싶어요" — I want to eat. Verb stem + 고 싶어요. Say: 먹・고・싶・어・요.', studentAction: 'Repeat 먹고 싶어요 and 가고 싶어요.', teacherHint: 'Verb stem + 고 싶어요 for any action desire. For noun desires: [noun]이/가 필요해요 (I need) or [noun]이 갖고 싶어요 (I want [noun]).' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '한국에 가고 싶어요 — I want to go to Korea. 삼겹살을 먹고 싶어요. Read desire sentences.', studentAction: 'Read want-sentences with stem + 고 싶어요.', teacherHint: 'Cultural context: Korean food, travel, and entertainment goals. Students love expressing real desires.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What does each person want to do? Build from the columns.', studentAction: 'Combine subjects + desire verb + 고 싶어요.', teacherHint: 'Negative: 고 싶지 않아요. Softer: 고 싶어하다 (she wants — third person desire).' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '뭘 먹고 싶어요? — What do you want to eat?', studentAction: 'Produce: [food]을/를 먹고 싶어요.', teacherHint: '제일 가고 싶은 나라가 어디예요? — stretch to travel desires.' },
+    ],
+  },
+
+  {
+    contentKey: 'i am identity korean',
+    language: 'korean',
+    displayName: '이에요 / 예요 — 정체성 (I Am)',
+    unitType: 'ser_estar',
+    vocabTerms: ['이에요', '예요', 'ieoyo', 'I am', 'identity', '학생이에요', '선생님이에요', '이/가 아니에요', 'copula'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"저는 학생이에요" — I am a student. 이에요 after consonants, 예요 after vowels. Say: 학생・이・에・요.', studentAction: 'Repeat 학생이에요 and 선생님이에요.', teacherHint: 'Rule: consonant-ending nouns → 이에요 (학생이에요). Vowel-ending nouns → 예요 (선생님이에요, 의사예요). Drill both endings side by side.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '저는 한국 사람이에요 — I am Korean. 이것은 책이에요 — This is a book. Read each identity statement.', studentAction: 'Read identity sentences with topic + 은/는 + noun + 이에요/예요.', teacherHint: '은/는 marks the topic. Subject vs topic distinction will develop over time — for now, just model the natural pattern.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who is what? Match people and roles with 이에요/예요.', studentAction: 'Build identity sentences rapidly, watching the consonant/vowel rule.', teacherHint: 'Negative: 이/가 아니에요. 저는 학생이 아니에요 — I am not a student. Drill the negation pair.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '뭐예요? — What is it? Point to something and ask/answer.', studentAction: 'Produce: [thing]이에요/예요.', teacherHint: '직업이 뭐예요? — What is your job? Very natural real-world question.' },
+    ],
+  },
+
+  {
+    contentKey: 'where am i korean',
+    language: 'korean',
+    displayName: '어디에 있어요? — 위치 (Location)',
+    unitType: 'ser_estar',
+    vocabTerms: ['어디에', '에 있어요', 'location', '에서', '학교에 있어요', 'where am I', '있어요', 'position words'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"학교에 있어요" — I am at school. 에 있어요 = location. Say: 에・있・어・요.', studentAction: 'Repeat 학교에 있어요 and 집에 있어요.', teacherHint: '에 있다 = location (where something IS). 에서 = action location (where something HAPPENS). Students confuse these — keep this unit on 에 있다 only.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '저는 도서관에 있어요 — I am at the library. 책상 위에 있어요 — It is on the desk. Read each.', studentAction: 'Read location sentences with positional nouns.', teacherHint: 'Positional nouns: 위 (top), 아래/밑 (bottom), 안 (inside), 밖 (outside), 옆 (side), 앞 (front), 뒤 (behind). High-frequency vocabulary.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Where is each person or object? Combine locations with 에 있어요.', studentAction: 'Build: [person/thing] + [location]에 + 있어요.', teacherHint: 'Extend to 없어요: 지금 집에 없어요 — I\'m not home. Equally important.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '지금 어디에 있어요? — Where are you right now?', studentAction: 'Produce: 지금 [place]에 있어요.', teacherHint: '화장실이 어디에 있어요? — Practical question every learner needs immediately.' },
+    ],
+  },
+
+  {
+    contentKey: 'i can korean',
+    language: 'korean',
+    displayName: '할 수 있어요 — 능력 (I Can)',
+    unitType: 'verb',
+    vocabTerms: ['할 수 있어요', 'ㄹ 수 있어요', 'ability', 'I can', '할 수 없어요', '수영할 수 있어요', '말할 수 있어요'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"한국어를 말할 수 있어요" — I can speak Korean. Verb stem + ㄹ 수 있어요. Say: 말・할・수・있・어・요.', studentAction: 'Repeat 말할 수 있어요 and 수영할 수 있어요.', teacherHint: 'ㄹ 수 있어요 = can. ㄹ 수 없어요 = cannot. The ㄹ suffix pattern: same as future, so students who know 거예요 have half the work done.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '저는 피아노를 칠 수 있어요 — I can play the piano. 수영을 못 해요. Read ability sentences.', studentAction: 'Read ability sentences with ㄹ 수 있어요 and 못.', teacherHint: '못 + verb = informal "can\'t": 못 해요, 못 먹어요. ㄹ 수 없어요 = more formal "cannot". Both are natural.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What can each person do? Build ability sentences rapidly.', studentAction: 'Combine subjects + abilities + ㄹ 수 있어요/없어요.', teacherHint: 'Encourage real self-disclosure: 저는 ___ㄹ 수 있어요 — authentic ability statements.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '한국어를 말할 수 있어요? — Can you speak Korean? (Engage the meta-question.)', studentAction: 'Produce: 네, 조금 말할 수 있어요 / 아직 잘 못 해요.', teacherHint: 'Amusingly self-referential question — students are literally demonstrating the answer.' },
+    ],
+  },
+
+  {
+    contentKey: 'the verb pattern korean',
+    language: 'korean',
+    displayName: '동사 형태 패턴 — 아/어요 틀',
+    unitType: 'verb',
+    vocabTerms: ['아요', '어요', '해요', 'present tense', 'polite ending', '았어요', '었어요', '겠어요', '시제'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: 'The 아/어요 frame: present (아/어요), past (았/었어요), future intent (ㄹ 거예요). Say each form for 먹다: 먹어요, 먹었어요, 먹을 거예요.', studentAction: 'Repeat all three tenses for 먹다, 가다, and 하다.', teacherHint: '하다 → 해요 (present), 했어요 (past), 할 거예요 (future). These three verbs cover the main conjugation patterns.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '매일 운동해요 / 어제 운동했어요 / 내일 운동할 거예요. Read all three tenses in sequence.', studentAction: 'Produce all three tense forms for each verb given.', teacherHint: 'Pairs of sentences across time frames build temporal fluency. Five verbs minimum: 가다, 먹다, 하다, 보다, 읽다.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Scan: past, present, or future? Combine tense + verb + context.', studentAction: 'Build sentences matching the correct tense to each time word.', teacherHint: 'Time word + tense matching: 어제/지난주 → 었어요. 지금/매일 → 어요. 내일/다음 주 → ㄹ 거예요.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '어제, 오늘, 내일 — 뭐 해요? Answer in three tenses for a real activity.', studentAction: 'Produce: 어제 ___했어요. 오늘 ___해요. 내일 ___할 거예요.', teacherHint: 'Three-tense narrative about real life. Strong fluency drill.' },
+    ],
+  },
+
+  {
+    contentKey: 'there is korean',
+    language: 'korean',
+    displayName: '있어요 / 없어요 — 존재 (There Is)',
+    unitType: 'hay_gustar',
+    vocabTerms: ['있어요', '없어요', 'there is', 'there are', 'existence', '이/가 있어요', 'location', '없어요'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"교실에 학생들이 있어요" — There are students in the classroom. 에 있어요 = exists in a place. Say it.', studentAction: 'Repeat 있어요 and 없어요 in location frames.', teacherHint: '[Location]에 + [subject]이/가 + 있어요. This frames both existence (there is) and possession (I have). Same structure.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '냉장고에 음식이 있어요 — There is food in the fridge. 지갑에 돈이 없어요. Read each.', studentAction: 'Read existence sentences with location + 에 있어요/없어요.', teacherHint: 'Practical household vocabulary: 냉장고, 지갑, 가방, 책상, 방. All very high frequency.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What exists where? Combine locations and objects.', studentAction: 'Build existence sentences rapidly.', teacherHint: 'Natural context: describing your room, bag, or fridge. Immediately useful.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '가방에 뭐 있어요? — What is in your bag?', studentAction: 'Produce: 가방에 [thing]이/가 있어요.', teacherHint: '지금 교실에 몇 명 있어요? — count people in the room. Highly engaging.' },
+    ],
+  },
+
+  {
+    contentKey: 'i like korean',
+    language: 'korean',
+    displayName: '좋아해요 — 선호 (I Like)',
+    unitType: 'hay_gustar',
+    vocabTerms: ['좋아해요', '싫어해요', 'I like', 'preference', '을/를 좋아해요', '좋아요', 'nice', 'favourite'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"음악을 좋아해요" — I like music. 을/를 marks what is liked. Say: 좋・아・해・요.', studentAction: 'Repeat 음악을 좋아해요 and 채소를 싫어해요.', teacherHint: 'Note: 좋아해요 (I like) vs 좋아요 (it is good/nice). Both from 좋다 but different usage. 좋아해요 = subjective preference. 좋아요 = objective quality.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '저는 K-pop을 정말 좋아해요 — I really like K-pop. 매운 음식을 싫어해요. Read preference sentences.', studentAction: 'Read preferences using 을/를 좋아해요/싫어해요.', teacherHint: 'Intensifiers: 정말/너무/엄청 좋아해요 (really/so/super like). 별로 안 좋아해요 (not really like). Students want this range.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What does each person like or dislike? Build from the columns.', studentAction: 'Build preference sentences with 좋아해요/싫어해요.', teacherHint: 'K-culture content makes this unit particularly motivating for Korean learners.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '어떤 음악을 좋아해요? — What kind of music do you like?', studentAction: 'Produce: 저는 [genre/thing]을/를 좋아해요.', teacherHint: '제일 좋아하는 가수가 누구예요? — Favorite singer question, very engaging for K-pop learners.' },
+    ],
+  },
+
+  {
+    contentKey: 'i would like korean',
+    language: 'korean',
+    displayName: '원해요 — 정중한 희망 (I Would Like)',
+    unitType: 'verb',
+    vocabTerms: ['원해요', '주세요', 'I would like', 'polite desire', '고 싶어요', '을/를 주세요', 'please give me'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"커피 한 잔 주세요" — I would like a cup of coffee, please. 주세요 = please give me. Say: 주・세・요.', studentAction: 'Repeat 커피 주세요 and 좀 도와주세요.', teacherHint: '주세요 = please give. 주다 (give) + -세요 (polite imperative). Extremely high frequency — used in restaurants, shops, everywhere.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '메뉴판 주세요 — Please give me the menu. 조금 더 주세요 — A little more please. Read polite requests.', studentAction: 'Read polite request sentences with 주세요.', teacherHint: 'Socially critical frame: 주세요 is the most common polite request form. Compare 원해요 (want — more formal/written) for completeness.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What would each person like? Build polite requests.', studentAction: 'Build: [item] + 주세요.', teacherHint: 'Restaurant scenario: order food using 주세요. Makes it immediately real.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '뭘 드릴까요? — What can I get you? Answer with a 주세요 request.', studentAction: 'Produce: [item]을/를 주세요.', teacherHint: 'Role-play server/customer. Highly motivating and immediately useful.' },
+    ],
+  },
+
+  {
+    contentKey: 'i went korean',
+    language: 'korean',
+    displayName: '갔어요 — 과거 이동 (I Went)',
+    unitType: 'preterite',
+    vocabTerms: ['갔어요', 'gasseoyo', 'I went', 'past motion', '왔어요', '돌아왔어요', '여행했어요', '다녀왔어요'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"서울에 갔어요" — I went to Seoul. 가다 → 갔어요. Past of going. Say: 갔・어・요.', studentAction: 'Repeat 갔어요 and 왔어요.', teacherHint: '갔어요 (went away), 왔어요 (came here), 다녀왔어요 (went and came back). The three core motion verbs in past tense.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '지난 주말에 부산에 갔어요 — I went to Busan last weekend. 친구 집에 다녀왔어요. Read each.', studentAction: 'Read past motion sentences with time expressions.', teacherHint: 'Time expressions: 지난주 (last week), 어제 (yesterday), 지난달 (last month). Natural with past-tense motion verbs.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Where did each person go? Combine times and destinations.', studentAction: 'Build past-motion sentences with 갔어요/왔어요.', teacherHint: 'Extend to 다녀왔어요 — implies a round trip. Very common in Korean: 학교 다녀왔어요 (I\'m back from school).' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '지난 방학에 어디에 갔어요? — Where did you go last vacation?', studentAction: 'Produce: [time]에 [place]에 갔어요.', teacherHint: '거기서 뭐 했어요? — follow up on what they did there. Chain past actions.' },
+    ],
+  },
+
+  {
+    contentKey: 'he is going to korean',
+    language: 'korean',
+    displayName: '갈 거예요 (3인칭) — He Is Going To',
+    unitType: 'verb',
+    vocabTerms: ['갈 거예요', '3인칭', 'third person', '그는', '그녀는', 'narration', '할 거예요'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"그 친구는 서울에 갈 거예요" — My friend is going to go to Seoul. Same 거예요 form regardless of person. Say it.', studentAction: 'Repeat 갈 거예요 with different subjects.', teacherHint: 'Korean verb form is the same for all persons in polite speech. This simplicity is a strength to highlight.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '선생님은 내일 일찍 오실 거예요 — The teacher is going to come early tomorrow. Read third-person future narrations.', studentAction: 'Read narration with 거예요 and named subjects.', teacherHint: '오실 거예요 uses the honorific -(으)시- for the teacher. Introduce honorifics naturally here without over-explaining.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What are these people going to do? Combine named subjects + plans.', studentAction: 'Build third-person future sentences.', teacherHint: 'Use real class members\' names if appropriate. Makes the exercise memorable and fun.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '내일 선생님은 뭘 할 거예요? — What is the teacher going to do tomorrow?', studentAction: 'Produce a creative third-person future sentence.', teacherHint: 'Open-ended: predictions about others are engaging and generate creative language.' },
+    ],
+  },
+
+  {
+    contentKey: 'what did he do korean',
+    language: 'korean',
+    displayName: '뭐 했어요? — 과거 질문 (What Did He Do?)',
+    unitType: 'preterite',
+    vocabTerms: ['뭐 했어요', 'what did he do', 'past question', '었어요', '했어요', '뭘', 'question words', '어디서', '언제'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"어제 뭐 했어요?" — What did you do yesterday? 했어요 is the past of 해요. Say: 뭐・했・어・요?', studentAction: 'Repeat 뭐 했어요? and 어디 갔어요?', teacherHint: 'Question words + past: 뭐 했어요 (what did), 어디 갔어요 (where did), 언제 왔어요 (when did). All same pattern.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'Question and answer pairs. 어제 뭐 했어요? — 영화를 봤어요. Read and answer each pair.', studentAction: 'Produce both the question and a natural answer.', teacherHint: 'Encourage full answers but accept minimal: 영화요 (just "movies") is natural in fast speech.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Mix past question words — what, where, when, who. Build questions rapidly.', studentAction: 'Build past-tense Wh-questions for different verbs.', teacherHint: 'All Korean Wh-questions are SOV: 어제 어디서 밥을 먹었어요? (Where did you eat yesterday?) — time + location + object + verb.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '주말에 뭐 했어요? — What did you do on the weekend? Give a real answer.', studentAction: 'Produce a past narrative about the weekend.', teacherHint: '재미있었어요? — follow up with past adjective naturally.' },
+    ],
+  },
+
+  {
+    contentKey: 'he had korean',
+    language: 'korean',
+    displayName: '있었어요 — 과거 소유/존재 (He Had)',
+    unitType: 'preterite',
+    vocabTerms: ['있었어요', 'isseosseoyo', 'there was', 'he had', 'past of 있다', '없었어요', 'past existence'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"예전에 개가 있었어요" — There was a dog before / I had a dog. 있어요 → 있었어요. Past of existence. Say: 있・었・어・요.', studentAction: 'Repeat 있었어요 and 없었어요.', teacherHint: '있었어요 = past of 있어요. 없었어요 = past of 없어요. Simple past suffix application. Very high frequency in narration.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '예전에는 여기에 공원이 있었어요 — There used to be a park here. 어릴 때 고양이가 있었어요. Read each.', studentAction: 'Read past existence/possession sentences.', teacherHint: '예전에는, 어릴 때, 그때는 — time markers for "used to" sense. Natural Korean nostalgia framing.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What existed or was had in the past? Build past existence sentences.', studentAction: 'Combine past time + subject + 있었어요/없었어요.', teacherHint: 'Interesting cultural exercise: 옛날 한국에는 뭐가 있었어요? — historical existence questions.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '어릴 때 어떤 장난감이 있었어요? — What toys did you have as a child?', studentAction: 'Produce: 어릴 때 [toy]이/가 있었어요.', teacherHint: 'Childhood memories create strong emotional anchors. Highly effective vocabulary retention context.' },
+    ],
+  },
+
+  {
+    contentKey: 'to him korean',
+    language: 'korean',
+    displayName: '그에게 / 에게 — 간접목적어 (To Him / To Her)',
+    unitType: 'object_pronoun',
+    vocabTerms: ['에게', '한테', 'to him', 'to her', 'indirect object', 'dative', '드렸어요', '줬어요', '보냈어요'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"친구에게 선물을 줬어요" — I gave a gift to my friend. 에게/한테 = to (a person). Say: 에・게.', studentAction: 'Repeat 친구에게 줬어요 and 엄마한테 줬어요.', teacherHint: '에게 = written/formal. 한테 = spoken/casual. Both widely used. 에게서/한테서 = from (a person). Introduce from-to contrast.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '선생님께 꽃을 드렸어요 — I gave flowers to the teacher. 친구한테 문자를 보냈어요. Read indirect object sentences.', studentAction: 'Read giving/sending sentences with recipient particles.', teacherHint: '께 = honorific version of 에게. Used for teachers, elders, bosses. Reinforce the three levels: 한테 (casual), 에게 (formal), 께 (honorific).' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who gave or sent what to whom? Build giving sentences.', studentAction: 'Combine giver + recipient + 에게/한테 + object + 줬어요/보냈어요.', teacherHint: 'High-frequency verbs with 에게: 주다 (give), 보내다 (send), 말하다 (tell), 가르치다 (teach). Drill them all.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '최근에 누구에게 선물을 줬어요? — Did you give a gift to anyone recently?', studentAction: 'Produce: [person]에게/한테 [thing]을/를 줬어요.', teacherHint: 'Cultural note: 선물 culture in Korea is significant. Connect grammar to cultural insight.' },
+    ],
+  },
+
+  {
+    contentKey: 'clean dirty korean',
+    language: 'korean',
+    displayName: '깨끗해요 / 더러워요 — 묘사 (Clean / Dirty)',
+    unitType: 'verb',
+    vocabTerms: ['깨끗해요', '더러워요', 'clean', 'dirty', 'adjectives', '예뻐요', '크고', 'descriptive verbs', '형용사'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"깨끗해요" — It is clean. "더러워요" — It is dirty. Korean adjectives work like verbs. Say them.', studentAction: 'Repeat 깨끗해요 and 더러워요.', teacherHint: 'Korean descriptive adjectives conjugate like verbs: 깨끗하다 → 깨끗해요 (present), 깨끗했어요 (past). This is structurally different from European languages.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '이 방은 너무 더러워요 — This room is very dirty. 손이 깨끗해요? — Are your hands clean? Read descriptive sentences.', studentAction: 'Read and produce descriptive adjective sentences.', teacherHint: '너무 (too/very in spoken Korean), 정말 (really), 조금 (a little). Intensifiers immediately useful.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Describe each scene — clean, dirty, or something else? Scan the columns.', studentAction: 'Build descriptions with contrasting adjectives.', teacherHint: 'Extend pair: 크다/작다 (big/small), 새롭다/낡다 (new/old), 맛있다/맛없다 (delicious/tasteless). All same adjective-verb pattern.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '지금 방이 깨끗해요, 더러워요? — Is the room clean or dirty right now?', studentAction: 'Produce: 방이 [adj]어요.', teacherHint: 'Self-description: 저는 지금 피곤해요, 배고파요 — extend to personal states. Same structure.' },
+    ],
+  },
+
+  {
+    contentKey: 'i studied korean',
+    language: 'korean',
+    displayName: '공부했어요 — 하다 동사 (I Studied)',
+    unitType: 'preterite',
+    vocabTerms: ['공부했어요', '공부하다', 'I studied', 'hada verb', '했어요', '운동했어요', '요리했어요', '청소했어요'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"공부했어요" — I studied. 공부하다 → 공부했어요. 하다 → 했어요. The 하다 verb class. Say it.', studentAction: 'Repeat 공부했어요 and 운동했어요.', teacherHint: '하다 → 했어요 is the past of the most productive verb class in Korean. Once students own this, they unlock hundreds of Sino-Korean compound verbs.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '도서관에서 3시간 공부했어요 — I studied in the library for 3 hours. 오늘 아침에 운동했어요. Read 하다-verb sentences.', studentAction: 'Read 하다 past-tense sentences in context.', teacherHint: 'Duration: [N]시간 동안 or just [N]시간. Both work. 얼마나 공부했어요? (How long did you study?) Natural follow-up question.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What did each person do? Use 하다 verbs in the past.', studentAction: 'Combine activities + 했어요 rapidly.', teacherHint: 'Core 하다 verb set: 공부하다, 운동하다, 요리하다, 청소하다, 전화하다, 여행하다, 일하다. Students need these seven.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '어제 몇 시간 공부했어요? — How many hours did you study yesterday?', studentAction: 'Produce: [N]시간 공부했어요.', teacherHint: 'Extend: 이번 주에 뭐 했어요? — free past narration with 하다 verbs.' },
+    ],
+  },
+
+  {
+    contentKey: 'i received korean',
+    language: 'korean',
+    displayName: '받았어요 — 수령 (I Received)',
+    unitType: 'preterite',
+    vocabTerms: ['받았어요', 'badasseoyo', 'I received', '주다', '드리다', '받다', 'give receive', '선물'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"선물을 받았어요" — I received a gift. 받다 → 받았어요. Say: 받・았・어・요.', studentAction: 'Repeat 받았어요 and 줬어요.', teacherHint: '줬어요 (I gave) ↔ 받았어요 (I received). Classic pair. Drill both sides of the transaction.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '생일에 선물을 많이 받았어요 — I received many gifts on my birthday. 친구한테서 메시지를 받았어요. Read receiving sentences.', studentAction: 'Read receiving sentences with 에게서/한테서 (from a person).', teacherHint: '한테서/에게서 = from (a person). 에서 = from (a place). Students confuse these — drill the distinction here.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who received what from whom? Build receiving sentences.', studentAction: 'Combine giver + 한테서 + receiver + object + 받았어요.', teacherHint: 'Extend: 상을 받았어요 (received an award), 편지를 받았어요 (received a letter). Beyond just gifts.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '최근에 뭘 받았어요? — What did you receive recently?', studentAction: 'Produce: [person]한테서 [thing]을/를 받았어요.', teacherHint: '가장 기억에 남는 선물이 뭐예요? — most memorable gift. Deep personalization.' },
+    ],
+  },
+
+  {
+    contentKey: 'i will korean',
+    language: 'korean',
+    displayName: '할 거예요 — 미래와 의지 (I Will)',
+    unitType: 'verb',
+    vocabTerms: ['할 거예요', 'ㄹ/을 거예요', 'I will', 'future', '겠어요', 'intention', '결심', '약속'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"내년에 한국에 갈 거예요" — I will go to Korea next year. Also: 가겠어요 — I will go (stronger commitment). Say both.', studentAction: 'Repeat 갈 거예요 and 가겠어요.', teacherHint: '거예요 = neutral future/prediction. 겠어요 = speaker\'s strong will or conjecture. Both important. 겠어요 sounds more formal and resolute.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '열심히 공부하겠어요 — I will study hard (commitment). 내일 비가 올 거예요 — It will rain tomorrow (prediction). Read the contrast.', studentAction: 'Read future sentences distinguishing prediction vs commitment.', teacherHint: 'Context: weather/prediction → 거예요. Promise/resolution → 겠어요. Both naturally appear in daily speech.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Predictions and plans — which form fits? Build with 거예요 or 겠어요.', studentAction: 'Build future sentences matching context to form.', teacherHint: 'Practical: 도와드리겠어요 (I will help you) — service/formal contexts. 갈 거예요 (I will go) — casual planning.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '올해 목표가 뭐예요? — What is your goal this year? Answer with 겠어요 or 거예요.', studentAction: 'Produce a future commitment about a real goal.', teacherHint: '꼭 ___하겠어요 (I will definitely ___). Strong personal commitment frame. Memorable and meaningful.' },
+    ],
+  },
+
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MANDARIN UNITS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MANDARIN_UNITS: MadrigalLoopUnit[] = [
+
+  {
+    contentKey: 'where are you going mandarin',
+    language: 'mandarin',
+    displayName: '我去 — 你去哪儿？(Where Are You Going?)',
+    unitType: 'verb',
+    vocabTerms: ['去', '我去', 'qù', 'I go', 'going', '去哪儿', '去哪里', '到', '校', '家'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"我去" — I go. "你去哪儿？" — Where are you going? 去 is the verb; destination follows directly. Say: qù.', studentAction: 'Repeat 我去 and 你去哪儿?.', teacherHint: 'SVO order: 我 + 去 + 学校 (I go to school). No preposition needed — destination comes after 去. This is elegantly simple.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '我去学校 — I am going to school. 他去图书馆 — He goes to the library. Read each destination sentence.', studentAction: 'Read going sentences with subject + 去 + destination.', teacherHint: 'No articles (a/the), no direction prepositions. Just subject + 去 + place. Celebrate this simplicity.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Eyes across the columns — who is going where? Combine quickly.', studentAction: 'Build: subject + 去 + destination.', teacherHint: 'Introduce 去不去 (go or not go) as a question form: 你去不去图书馆？ Affirmative-negative question pattern.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你去哪儿？ — Where are you going? Answer with 我去＋destination.', studentAction: 'Produce: 我去[place].', teacherHint: 'Extend: 他去哪儿了？(Where did he go? 了 marks past) — natural follow-on.' },
+    ],
+  },
+
+  {
+    contentKey: 'i took mandarin',
+    language: 'mandarin',
+    displayName: '我拿了 — 完成体 了 (I Took)',
+    unitType: 'preterite',
+    vocabTerms: ['拿了', '了', 'le', 'completed action', '我拿了', 'aspect marker', '吃了', '买了', '看了'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"我拿了" — I took (it). 了 marks a completed action — not past tense per se, but completion. Say: ná le.', studentAction: 'Repeat 我拿了 and 他吃了.', teacherHint: '了 is an aspect marker, not a tense marker. It signals completion. Students from European languages will want to call it "past tense" — acknowledge the overlap but note the difference.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '我拿了一把伞 — I took an umbrella. 他买了一本书. Read completed-action sentences.', studentAction: 'Read sentences with verb + 了 + object.', teacherHint: 'When there is an object: verb + 了 + object (我买了书). 了 sits between verb and object, not at the end. Common error: 我买书了 ✗ (when object is present without quantifier).' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who took or bought what? Use 了 for completed actions.', studentAction: 'Build: subject + verb + 了 + object.', teacherHint: 'Negation: 没(有) + verb (NO 了). 我没买 — I didn\'t buy. 了 disappears with negation.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你拿了什么？ — What did you take? Answer with 我拿了＋object.', studentAction: 'Produce: 我拿了[thing].', teacherHint: '了 question: 你去了吗？ — Did you go? (sentence-final 了 for a different but overlapping function). Note both uses exist.' },
+    ],
+  },
+
+  {
+    contentKey: 'i bought mandarin',
+    language: 'mandarin',
+    displayName: '我买了 — 买 的过去 (I Bought)',
+    unitType: 'preterite',
+    vocabTerms: ['买了', '我买了', 'mǎi le', 'I bought', '买', 'shopping', '卖', '花了', '钱'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"我买了" — I bought. 买 (mǎi) = buy. Same 了 completion pattern. Say: mǎi le.', studentAction: 'Repeat 我买了 and 我卖了.', teacherHint: '买 (mǎi, buy) vs 卖 (mài, sell) — tonal minimal pair. Third tone vs fourth tone. High-frequency confusion pair. Drill both.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '我买了一件衣服 — I bought a piece of clothing. 她买了很多东西. Read shopping sentences.', studentAction: 'Read purchase sentences with measure words + 了.', teacherHint: 'Introduce measure words: 一件 (clothes), 一本 (book), 一个 (general). Students need the most common: 一个, 一本, 一件, 一杯, 一张.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What did each person buy? Combine with measure words.', studentAction: 'Build: subject + 买了 + measure word + noun.', teacherHint: 'Keep it simple: one measure word type per item. Don\'t over-drill measure words here — introduce naturally.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你买了什么？ — What did you buy? Answer with a real purchase.', studentAction: 'Produce: 我买了[measure word + item].', teacherHint: '你花了多少钱？ — How much did you spend? 花 (huā) = to spend. Natural shopping follow-up.' },
+    ],
+  },
+
+  {
+    contentKey: 'i am going to mandarin',
+    language: 'mandarin',
+    displayName: '我打算去 — 近未来 (I Am Going To)',
+    unitType: 'verb',
+    vocabTerms: ['打算', '要', '我要去', '我打算', 'plan to', 'near future', '准备', '快要', '即将'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"我要去" — I am going to go. "我打算去" — I plan to go. 要 = immediate intent; 打算 = deliberate plan. Say both.', studentAction: 'Repeat 我要去 and 我打算去.', teacherHint: '要 (yào) = want to / going to (immediate). 打算 (dǎsuàn) = plan to (deliberate). Both very high frequency. 快要 = about to (imminence).' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '我要去超市 — I am going to the supermarket. 我打算明年去中国. Read intent sentences.', studentAction: 'Read near-future sentences with 要 and 打算.', teacherHint: 'Temporal markers reinforce meaning: 明天 + 要 (tomorrow going to), 这个周末 + 打算 (this weekend plan to). Calendar words before the subject typically.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What is each person going to do? Combine with 要 or 打算.', studentAction: 'Build near-future sentences choosing the right intent marker.', teacherHint: 'Context clue: immediate future → 要. Planned future → 打算. Let students practice choosing.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你打算这个周末做什么？ — What do you plan to do this weekend?', studentAction: 'Produce: 我打算 + [activity].', teacherHint: '我要 + [activity] for more spontaneous plans. Both natural in context.' },
+    ],
+  },
+
+  {
+    contentKey: 'i have mandarin',
+    language: 'mandarin',
+    displayName: '我有 — 所有 (I Have)',
+    unitType: 'verb',
+    vocabTerms: ['有', '没有', 'yǒu', 'I have', 'possession', '我有', '他有', '有没有', 'do you have'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"我有一只猫" — I have a cat. 有 = have / there is. 没有 = don\'t have / there isn\'t. Say: yǒu, méiyǒu.', studentAction: 'Repeat 我有 and 我没有.', teacherHint: '有 covers both possession (I have) and existence (there is). 有没有 = do you have / is there. Two birds, one character.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '你有没有笔？ — Do you have a pen? 我有，谢谢. Read possession exchanges.', studentAction: 'Read 有 sentences in question-answer pairs.', teacherHint: '有没有 = affirmative-negative question for 有. Always produces yes/no: 有 or 没有.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who has what? Build possession sentences rapidly.', studentAction: 'Combine: subject + 有/没有 + [measure word] + noun.', teacherHint: 'Push the question form: subject + 有没有 + object. Drill both question and answer.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你有哥哥或姐姐吗？ — Do you have an older brother or sister? Answer truthfully.', studentAction: 'Produce: 我有/没有 [family member].', teacherHint: 'Family context: 我有一个弟弟 — I have a younger brother. Personalized and memorable.' },
+    ],
+  },
+
+  {
+    contentKey: 'i want mandarin',
+    language: 'mandarin',
+    displayName: '我想要 — 愿望 (I Want)',
+    unitType: 'verb',
+    vocabTerms: ['想', '想要', '要', 'xiǎng', 'I want', 'desire', '我想吃', '我想去', 'want to'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"我想吃饺子" — I want to eat dumplings. 想 + verb = want to do. Say: xiǎng.', studentAction: 'Repeat 我想吃 and 我想去.', teacherHint: '想 + verb (I want to do something). 想 + noun/想要 + noun (I want [thing]). Both patterns are essential.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '我想学中文 — I want to learn Chinese. 她想要一杯茶. Read desire sentences.', studentAction: 'Read want sentences with 想 + verb and 想要 + noun.', teacherHint: 'Meta-moment: 我想学中文 — point out this IS the sentence about what they are already doing. Motivating.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What does each person want to do or have? Combine freely.', studentAction: 'Build desire sentences using both 想 and 想要.', teacherHint: 'Contrast 想 (softer desire) vs 要 (stronger intent). 我想去 (I want to go) vs 我要去 (I\'m going to go).' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你最想去哪个国家？ — Which country do you most want to visit?', studentAction: 'Produce: 我最想去[country].', teacherHint: '为什么？ — follow up with 因为...。 Extend into reasoning.' },
+    ],
+  },
+
+  {
+    contentKey: 'i am identity mandarin',
+    language: 'mandarin',
+    displayName: '我是 — 身份 (I Am — Identity)',
+    unitType: 'ser_estar',
+    vocabTerms: ['是', '不是', 'shì', 'I am', 'identity', '我是学生', '是不是', 'copula', 'classification'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"我是学生" — I am a student. 是 is the copula for identity. Say: shì.', studentAction: 'Repeat 我是学生 and 他是老师.', teacherHint: '是 = identity/classification. NOT used with adjectives (❌ 我是高). Adjectives stand alone as predicates: 我很高 (I am tall). Critical distinction.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '我是中国人吗？ — Am I Chinese? 不，我不是中国人. Read identity Q&A pairs.', studentAction: 'Read identity statements and their negations.', teacherHint: '是不是 = is it or not (A-not-A question). 是…吗 = yes/no question. Both natural. Negation: 不是 (not 没是).' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who is what role or identity? Match and build rapidly.', studentAction: 'Build: subject + 是 + identity noun.', teacherHint: 'Push the contrast: 是 for nouns/roles. Adjectives go alone: 她很聪明 (she is smart), not 她是聪明.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你是哪国人？ — Where are you from? (Literally: You are which country person?)', studentAction: 'Produce: 我是[nationality]人.', teacherHint: 'Cultural breadth: 我是美国人, 我是台湾人, 我是加拿大人. Celebrate diversity in the classroom.' },
+    ],
+  },
+
+  {
+    contentKey: 'where am i mandarin',
+    language: 'mandarin',
+    displayName: '我在哪里？ — 位置 (Where Am I?)',
+    unitType: 'ser_estar',
+    vocabTerms: ['在', '我在', 'zài', 'location', 'where am I', '在哪里', '在哪儿', 'position words', '上面', '里面'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"我在学校" — I am at school. 在 = location. Say: zài.', studentAction: 'Repeat 我在学校 and 他在家.', teacherHint: '在 for location. Do NOT use 是 for location. 我在图书馆 ✓. 我是图书馆 ✗. This is the key structural rule students must internalize.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '猫在桌子上 — The cat is on the table. 书在包里. Read location sentences with position words.', studentAction: 'Read location sentences using position words (上, 里, 下, 前, 后).', teacherHint: 'Position words: 上 (on/above), 下 (under), 里 (inside), 外 (outside), 前 (front), 后 (back), 旁边 (next to). Very high frequency.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Where is each person or object? Combine locations.', studentAction: 'Build: subject + 在 + [location] + [position word].', teacherHint: 'Full pattern: 书在桌子上 (book is on the table) = [thing] + 在 + [reference point] + [position word]. Very useful for daily description.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你现在在哪里？ — Where are you right now?', studentAction: 'Produce: 我在[place].', teacherHint: '钥匙在哪里？ — Where are my keys? High-stakes practical question that generates real use.' },
+    ],
+  },
+
+  {
+    contentKey: 'i can mandarin',
+    language: 'mandarin',
+    displayName: '我能 / 我可以 — 能力 (I Can)',
+    unitType: 'verb',
+    vocabTerms: ['能', '可以', 'néng', 'kěyǐ', 'I can', 'ability', '会', 'skill', '不能', '不可以'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"我能游泳" — I can swim (physical ability). "我会说中文" — I can speak Chinese (learned skill). Two ways to say can. Say both.', studentAction: 'Repeat 我能 and 我会 in sentences.', teacherHint: 'Three modals: 能 (ability/permission in context), 可以 (permission/possibility), 会 (learned skill). All translate as "can" in English. Most important: 会 for language/skill ability.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '你会说日语吗？ — Can you speak Japanese? 我不会. 我可以进来吗？ — Can I come in? Read ability and permission sentences.', studentAction: 'Read ability and permission contexts distinguishing the three modals.', teacherHint: '会 = skill (learned). 能 = physically capable. 可以 = permitted/allowed. Students only need this rough map now — nuance comes with exposure.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who can do what? Match modals to contexts in the columns.', studentAction: 'Build ability sentences with 会/能/可以 in appropriate contexts.', teacherHint: 'When in doubt: 会 for skills (speaking, cooking, driving). 可以 for requests. 能 for physical capacity.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你会什么？ — What can you do? (What skills do you have?)', studentAction: 'Produce: 我会[skill].', teacherHint: '你会几种语言？ — How many languages can you speak? Always engaging meta-question.' },
+    ],
+  },
+
+  {
+    contentKey: 'the verb pattern mandarin',
+    language: 'mandarin',
+    displayName: '动词形式 — 时态标记 (Aspect Markers)',
+    unitType: 'verb',
+    vocabTerms: ['了', '过', '着', '在', 'aspect markers', 'completion', 'experience', 'ongoing', '时态'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: 'Three aspect markers: 了 (completed), 过 (experienced), 着 (ongoing state). Say each: le, guò, zhe.', studentAction: 'Repeat 了, 过, 着 with example sentences.', teacherHint: 'Mandarin marks aspect, not tense. 我吃了 (ate — done). 我吃过 (have eaten before — experience). 他睡着了 (fell asleep — resulting state). These are the three core aspects.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '我去过北京 — I have been to Beijing (before). 我去了北京 — I went to Beijing (completed). Read contrast pairs.', studentAction: 'Distinguish 了 (this specific time) vs 过 (ever/before) in context.', teacherHint: '去了 = went (specific trip). 去过 = have been (experience). This is a genuinely useful distinction — don\'t gloss over it.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Which marker fits? Past completion, past experience, or ongoing state? Build from the columns.', studentAction: 'Build sentences choosing the correct aspect marker for context.', teacherHint: 'Negation rule: 没(有) negates both 了 and 过. 没去 (didn\'t go). 没去过 (have never been).' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你去过中国吗？ — Have you ever been to China? Answer with 去过 or 没去过.', studentAction: 'Produce: 我去过/没去过[place].', teacherHint: 'The 过 frame for travel experience is incredibly practical: 去过, 吃过, 看过, 喝过. Drill all four.' },
+    ],
+  },
+
+  {
+    contentKey: 'there is mandarin',
+    language: 'mandarin',
+    displayName: '有 / 没有 — 存在 (There Is / There Isn\'t)',
+    unitType: 'hay_gustar',
+    vocabTerms: ['有', '没有', 'yǒu', 'méiyǒu', 'there is', 'existence', '有没有', '哪里有', 'location'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"这里有一家餐馆" — There is a restaurant here. 有 = exist. 没有 = don\'t exist. Say both.', studentAction: 'Repeat 这里有 and 这里没有.', teacherHint: 'Existence: [location] + 有 + [thing]. 教室里有桌子 (there are desks in the classroom). Natural SVO once location is established.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '冰箱里有没有牛奶？ — Is there milk in the fridge? 有一点儿. Read existence questions and answers.', studentAction: 'Read existence Q&A pairs with 有 and 没有.', teacherHint: 'Quantity: 有一点儿 (a little), 有很多 (a lot), 有一些 (some). Natural quantifier set.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What is in each location? Build existence sentences from the columns.', studentAction: 'Build: [location] + 有/没有 + [thing].', teacherHint: 'Locations: 冰箱里 (in the fridge), 包里 (in the bag), 街上 (on the street), 房间里 (in the room). Common preposition + noun combos.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你们班有多少学生？ — How many students are in your class?', studentAction: 'Produce: 我们班有[number]个学生.', teacherHint: '附近有没有咖啡店？ — Is there a coffee shop nearby? Extremely practical question.' },
+    ],
+  },
+
+  {
+    contentKey: 'i like mandarin',
+    language: 'mandarin',
+    displayName: '我喜欢 — 喜好 (I Like)',
+    unitType: 'hay_gustar',
+    vocabTerms: ['喜欢', '不喜欢', 'xǐhuān', 'I like', 'preference', '最喜欢', '喜欢做', 'love', '讨厌'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"我喜欢音乐" — I like music. 喜欢 + noun or verb phrase. Say: xǐ-huān.', studentAction: 'Repeat 我喜欢音乐 and 我不喜欢蔬菜.', teacherHint: '喜欢 + noun (I like music). 喜欢 + verb (I like eating). Unlike Spanish gustar, no subject-object inversion — standard SVO with 喜欢 as the verb.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '我最喜欢吃四川菜 — I like Sichuan food most. 我不太喜欢冷天气. Read preference statements.', studentAction: 'Read preference sentences with degree adverbs.', teacherHint: '最喜欢 (like most/favorite), 很喜欢 (like a lot), 不太喜欢 (don\'t really like), 不喜欢 (don\'t like), 讨厌 (can\'t stand). Five-level preference scale.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What does each person like or dislike? Build preference statements.', studentAction: 'Build: subject + degree + 喜欢 + noun/verb.', teacherHint: 'Cultural richness: 喜欢听音乐, 喜欢打篮球, 喜欢看电影. Activity preferences create natural conversation.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你最喜欢哪种音乐？ — What type of music do you like most?', studentAction: 'Produce: 我最喜欢[genre/type].', teacherHint: '你喜欢做什么？ — What do you like to do? Open-ended personality question.' },
+    ],
+  },
+
+  {
+    contentKey: 'i would like mandarin',
+    language: 'mandarin',
+    displayName: '我想 — 礼貌愿望 (I Would Like)',
+    unitType: 'verb',
+    vocabTerms: ['想', '想要', 'qǐng', 'I would like', '我想点', '请给我', 'polite request', '麻烦您'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"我想要一杯咖啡" — I would like a cup of coffee. 我想要 is the polite desire form. Say: wǒ xiǎng yào.', studentAction: 'Repeat 我想要 and 请给我.', teacherHint: '想 alone = want (neutral). 想要 = would like (slightly more formal/polite). 请 + request = most polite: 请给我一杯水. All three patterns are useful.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '我想点一碗面 — I would like to order a bowl of noodles. 麻烦您给我菜单. Read restaurant-style polite requests.', studentAction: 'Read polite requests in restaurant/service contexts.', teacherHint: '麻烦您 (sorry to trouble you) is a polite opener. 请 is shorter and direct. Both are socially smooth.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What would each person like to order or request? Build polite requests.', studentAction: 'Build: 我想要/请给我 + [measure word] + [item].', teacherHint: 'Measure words review: 一杯 (cup), 一碗 (bowl), 一份 (portion), 一张 (flat thing). Restaurant context makes them natural.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '您想要什么？ — What would you like? (Roleplay: server asking customer.)', studentAction: 'Produce: 我想要[item], 谢谢.', teacherHint: 'Full restaurant roleplay: server asks 您点什么？, student responds with 我想要... This is immediately practical.' },
+    ],
+  },
+
+  {
+    contentKey: 'i went mandarin',
+    language: 'mandarin',
+    displayName: '我去了 — 过去行动 (I Went)',
+    unitType: 'preterite',
+    vocabTerms: ['去了', '我去了', 'I went', '了', 'past', '来了', '回来了', '昨天', '上周'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"我去了北京" — I went to Beijing. 去 + 了 = went (completed motion). Say it.', studentAction: 'Repeat 我去了 and 他来了.', teacherHint: '去了 = went away (and arrived). 来了 = came (arrived here). 回来了 = came back. The three past motion verbs all very frequent.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '上周我去了上海 — Last week I went to Shanghai. 朋友昨天来了. Read past motion with time expressions.', studentAction: 'Read past-motion sentences with time words.', teacherHint: 'Time words naturally mark past: 昨天 (yesterday), 上周 (last week), 上个月 (last month). They are not required with 了 but clarify when.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Where did each person go? Combine time + destination + 去了.', studentAction: 'Build past-motion sentences freely.', teacherHint: 'Negation: 我没去 (I didn\'t go). Note: NO 了 with 没. Students commonly make the error of adding 了 after 没.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '上个周末你去哪儿了？ — Where did you go last weekend?', studentAction: 'Produce: 我去了[place].', teacherHint: '你怎么去的？ — How did you get there? 我坐地铁去的 — 的 structure for manner/means. Natural extension.' },
+    ],
+  },
+
+  {
+    contentKey: 'he is going to mandarin',
+    language: 'mandarin',
+    displayName: '他要去 — 第三人称未来 (He Is Going To)',
+    unitType: 'verb',
+    vocabTerms: ['他要去', '要', 'third person', '他', '她', 'narration', '打算', '计划'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"他要去图书馆" — He is going to go to the library. 要 works identically for all persons. Say it.', studentAction: 'Repeat 他要去 and 她打算去.', teacherHint: 'No person agreement — 要/打算 is the same for all subjects. This universality is a gift to language learners from European traditions.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '我的朋友要去日本留学 — My friend is going to study abroad in Japan. 老师打算布置新作业. Read third-person future narrations.', studentAction: 'Read future narration about others.', teacherHint: '留学 (study abroad), 旅行 (travel), 工作 (work) — common life goals. Third-person narration about real people creates engagement.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What are these people going to do? Build narrations with named subjects.', studentAction: 'Combine names + 要/打算 + action.', teacherHint: 'Introduce topic comments: 我朋友呢，他要... The topic-comment structure is natural here.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你的家人打算这个假期做什么？ — What are your family members planning to do this holiday?', studentAction: 'Produce: 我[family member]要/打算[activity].', teacherHint: 'Family members as subjects: 我妈妈, 我爸爸, 我弟弟. Natural third-person narration context.' },
+    ],
+  },
+
+  {
+    contentKey: 'what did he do mandarin',
+    language: 'mandarin',
+    displayName: '他做了什么？ — 过去问句 (What Did He Do?)',
+    unitType: 'preterite',
+    vocabTerms: ['做了什么', '他做了什么', 'what did he do', '什么', 'question word', '吗', '吧', '过去问句'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"他做了什么？" — What did he do? 什么 stays in object position. Mandarin question words do not move. Say: tā zuò le shénme.', studentAction: 'Repeat 他做了什么？ and 你买了什么？', teacherHint: 'Mandarin question words stay in their original position — no inversion. 他做了什么 = He did WHAT? Same word order as a statement. Students from English often move the question word incorrectly.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '你去了哪里？— Where did you go? 他买了什么？ Read past-tense question pairs.', studentAction: 'Read past questions with different question words in object position.', teacherHint: '哪里/哪儿 (where), 什么 (what), 谁 (who), 怎么 (how), 为什么 (why). All stay in their expected positions.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Create past-tense questions for different verbs and question words.', studentAction: 'Build: subject + verb + 了 + question word (in object position).', teacherHint: 'Extend to 怎么: 你怎么去了？ (How did you get there?). How-questions are very common and this frame handles them.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你昨天做了什么？ — What did you do yesterday? Give a real answer.', studentAction: 'Produce a past narrative about yesterday using 了.', teacherHint: '然后呢？ — And then? Push for sequential narration with 然后 (then), 之后 (after that).' },
+    ],
+  },
+
+  {
+    contentKey: 'he had mandarin',
+    language: 'mandarin',
+    displayName: '他有过 / 他有 — 过去所有 (He Had)',
+    unitType: 'preterite',
+    vocabTerms: ['有过', '以前有', 'he had', 'past possession', '以前', '那时候', '曾经', 'used to have'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"他以前有一只狗" — He used to have a dog. 以前有 = used to have. 有过 = has had (experience). Say both.', studentAction: 'Repeat 他以前有 and 他有过.', teacherHint: 'No past tense morphology needed. Time words carry the meaning: 以前 (before/used to), 那时候 (at that time), 曾经 (once/used to — literary). Students need all three.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '她以前有很多朋友 — She used to have many friends. 我曾经有过一辆自行车. Read past possession with time markers.', studentAction: 'Read past possession sentences with time adverbs.', teacherHint: '曾经 + verb phrase + 过 is a literary combination. Very natural in story-telling and narratives.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What did these people own in the past? Use 以前 and 曾经.', studentAction: 'Build past possession sentences with time markers.', teacherHint: 'Nostalgic frame: 小时候我有... (When I was little I had...). Strong memory hook.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你小时候有什么玩具？ — What toys did you have as a child?', studentAction: 'Produce: 我小时候有[toy].', teacherHint: '你们以前有不同的梦想吗？ — Did you used to have different dreams? Reflective stretch question.' },
+    ],
+  },
+
+  {
+    contentKey: 'to him mandarin',
+    language: 'mandarin',
+    displayName: '给他 / 给她 — 间接宾语 (To Him / To Her)',
+    unitType: 'object_pronoun',
+    vocabTerms: ['给', 'gěi', 'to him', 'to her', 'indirect object', '给他', '给她', '告诉', '送给'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"我给他一本书" — I give him a book. 给 = give to. Say: gěi.', studentAction: 'Repeat 我给他一本书 and 她给我打电话.', teacherHint: '给 as preposition: [subject] + 给 + [recipient] + [action/thing]. Also as verb: 我给你 (I give you). Same character, two functions.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '她告诉我一个秘密 — She told me a secret. 我发给他一条消息. Read giving/telling sentences.', studentAction: 'Read indirect object sentences with 给 and communication verbs.', teacherHint: '告诉 (tell), 发 (send), 寄 (mail), 还 (return) — all naturally take 给 + recipient. Drill the verb set alongside 给.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who gave or told what to whom? Combine from the columns.', studentAction: 'Build: subject + 给 + recipient + verb/thing.', teacherHint: '送给 (give as a gift) is a compound that is very natural: 我送给他一件礼物. Introduce it as a high-frequency collocation.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你最近给朋友发消息了吗？ — Did you message a friend recently?', studentAction: 'Produce: 我给[person]发了[type of message].', teacherHint: '你给谁买过礼物？ — Who have you bought a gift for? Personalizes the indirect object frame.' },
+    ],
+  },
+
+  {
+    contentKey: 'clean dirty mandarin',
+    language: 'mandarin',
+    displayName: '干净 / 脏 — 描述 (Clean / Dirty)',
+    unitType: 'verb',
+    vocabTerms: ['干净', '脏', 'gānjìng', 'zāng', 'clean', 'dirty', 'adjective predicate', '很', '不太', 'description'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"干净" — clean. "脏" — dirty. Adjectives are predicates — no 是 needed. 这里很干净. Say: gānjìng, zāng.', studentAction: 'Repeat 干净 and 脏 in predicate position.', teacherHint: 'Adjective predicate: [subject] + 很 + adj (no 是). The 很 is required but often nearly unstressed. ❌ 这里是干净 ✓ 这里很干净. Drill the no-是 rule.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '这件衣服很干净 — This piece of clothing is very clean. 那个厕所真的很脏. Read descriptive sentences.', studentAction: 'Read adjective predicate sentences with degree adverbs.', teacherHint: 'Degree spectrum: 非常 (extremely), 很 (very), 比较 (relatively), 有点儿 (a little), 不太 (not very), 不 (not). Natural grading system.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Describe each scene — clean or dirty, and how much? Scan the columns.', studentAction: 'Build descriptions with adjective predicates and degree adverbs.', teacherHint: 'More adjective pairs: 大/小 (big/small), 新/旧 (new/old), 贵/便宜 (expensive/cheap), 好/坏 (good/bad). All same frame.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你的房间干净吗？ — Is your room clean? Answer with degree adverb.', studentAction: 'Produce: 我的房间[degree]+干净/有点儿脏.', teacherHint: 'Honest self-assessment often produces funny, memorable sentences. Let students be real.' },
+    ],
+  },
+
+  {
+    contentKey: 'i studied mandarin',
+    language: 'mandarin',
+    displayName: '我学习了 — 过去学习 (I Studied)',
+    unitType: 'preterite',
+    vocabTerms: ['学习了', '学了', '我学习了', 'I studied', '了', '工作了', '睡觉了', '运动了', 'verb + 了'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"我学习了三个小时" — I studied for three hours. 了 marks completion. Say: wǒ xuéxí le.', studentAction: 'Repeat 我学习了 and 我工作了.', teacherHint: 'Duration: verb + 了 + duration + verb (reduplicated) OR just verb + 了 + time. 我学习了三个小时. High frequency: 了 + time duration.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '我昨晚学习了很久 — I studied for a long time last night. 他刚才运动了. Read past-action sentences with duration.', studentAction: 'Read 了 sentences with time duration expressions.', teacherHint: '刚才 (just now), 昨晚 (last night), 前几天 (a few days ago). Natural time expressions that anchor 了 in the past.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What did each person do and for how long? Combine verb + 了 + duration.', studentAction: 'Build: subject + verb + 了 + [duration/object].', teacherHint: 'Duration collocations: 学了很久 (studied for a long time), 睡了八个小时 (slept for eight hours). Very natural.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你昨天学了几个小时中文？ — How many hours of Chinese did you study yesterday?', studentAction: 'Produce: 我学了[N]个小时中文.', teacherHint: '你觉得够吗？ — Do you think that was enough? Natural conversational follow-up.' },
+    ],
+  },
+
+  {
+    contentKey: 'i received mandarin',
+    language: 'mandarin',
+    displayName: '我收到了 — 结果补语 (I Received)',
+    unitType: 'preterite',
+    vocabTerms: ['收到了', '收到', 'shōudào le', 'I received', 'resultative complement', '到', '买到了', '找到了'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"我收到了一封信" — I received a letter. 收到 = receive (collect + arrive). 到 is a resultative complement. Say: shōu dào le.', studentAction: 'Repeat 收到了 and 买到了.', teacherHint: 'Resultative complements: verb + 到/好/完/到/上... = [do] + [result]. 收到 = successfully received. 买到 = successfully bought. 找到 = successfully found. 到 = arrival/attainment of result.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '我找到了我的钥匙 — I found my keys (successfully). 她买到了折扣票. Read resultative complement sentences.', studentAction: 'Read verb + resultative complement sentences.', teacherHint: 'The most common resultative complements: 到 (attained), 好 (done well), 完 (finished), 见 (saw/perceived), 懂 (understood). Introduce 到 first as the most frequent.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Did each person successfully [do] something? Build with resultative complements.', studentAction: 'Build: subject + verb + 到/好/完 + 了 + object.', teacherHint: 'Negative: 没找到 (didn\'t find), 没收到 (didn\'t receive). Drops 了. Very natural failure reports.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你收到我发的消息了吗？ — Did you receive the message I sent?', studentAction: 'Produce: 收到了 / 没收到.', teacherHint: '你找到你的手机了吗？ — Did you find your phone? Super practical resultative context.' },
+    ],
+  },
+
+  {
+    contentKey: 'i will mandarin',
+    language: 'mandarin',
+    displayName: '我会 — 未来与预测 (I Will)',
+    unitType: 'verb',
+    vocabTerms: ['会', '将会', 'huì', 'I will', 'future', 'prediction', '将来', '以后', '明年会'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"我会去" — I will go. 会 = will (prediction/likelihood) + can (skill). Same character, both meanings. Say: huì.', studentAction: 'Repeat 我会去 and 明天会下雨.', teacherHint: '会 for future/prediction: 明天会下雨 (it will rain tomorrow). 会 for ability: 我会游泳 (I can swim). Context distinguishes them. Focus on prediction use here.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: '他以后会成功的 — He will succeed in the future. 这件事会变好的. Read future prediction sentences.', studentAction: 'Read 会 + future prediction sentences.', teacherHint: '的 at sentence end softens and adds assurance: 会好的 (it will be okay). Very comforting phrase. Note the 的 function here.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Make predictions about the future. Use 会 for likelihood.', studentAction: 'Build: subject + 会 + verb phrase [+ 的].', teacherHint: '将来 (in the future), 以后 (later/after), 明年 (next year). Pair with 会 for clear future framing.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: '你觉得你以后会做什么工作？ — What job do you think you will do in the future?', studentAction: 'Produce: 我觉得我以后会[profession/activity].', teacherHint: '为什么？ — always follow up with reason. 因为我喜欢... Connects desire grammar with future grammar.' },
+    ],
+  },
+
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ENGLISH (ESL) UNITS
+// ─────────────────────────────────────────────────────────────────────────────
+
+const ENGLISH_UNITS: MadrigalLoopUnit[] = [
+
+  {
+    contentKey: 'where are you going english',
+    language: 'english',
+    displayName: 'I Go — Going Places',
+    unitType: 'verb',
+    vocabTerms: ['I go', 'she goes', 'go', 'going', 'where are you going', 'to', 'I am going to', 'destination', 'hotel', 'school'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"I go" — I go (simple present). "I am going" — I am going right now. "Where are you going?" Say them.', studentAction: 'Repeat I go, I am going, and Where are you going?', teacherHint: 'Three forms of going: simple (I go — routine), progressive (I am going — now), question (Where are you going?). All high frequency.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'I am going to the hotel. She goes to school every day. Read each destination sentence aloud.', studentAction: 'Read going sentences using the correct form.', teacherHint: 'Preposition: to + destination. I go TO school (not I go school). The preposition is obligatory in English — drill it consistently.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Scan the columns — who is going where? Build: subject + am/is/are going to + destination.', studentAction: 'Combine going sentences rapidly.', teacherHint: 'Subject-verb agreement with be: I am going, she is going, we are going. Three forms of "be" — drill all three.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Where are you going after class today? Answer with I am going to...', studentAction: 'Produce: I am going to [destination].', teacherHint: 'Where does she go every morning? — third-person: she goes. Notice the -s ending. Drill the contrast.' },
+    ],
+  },
+
+  {
+    contentKey: 'i took english',
+    language: 'english',
+    displayName: 'I Took — Simple Past (Irregular)',
+    unitType: 'preterite',
+    vocabTerms: ['I took', 'took', 'take', 'simple past', 'irregular', 'she took', 'past tense', 'yesterday', 'last week'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"I took" — I took (past of take). Take → took. This is an irregular verb. Say: took.', studentAction: 'Repeat I took and She took.', teacherHint: 'take → took is a strong irregular. The pattern: take/took/taken. For now focus on took (simple past). No -ed ending — that is the key point.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'I took the bus to school yesterday. She took a photo. Read each past sentence.', studentAction: 'Read past sentences with took and time words.', teacherHint: 'Time words that signal past: yesterday, last week, this morning, an hour ago. Any of these automatically puts us in simple past.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who took what? Combine: subject + took + object.', studentAction: 'Build past sentences with took.', teacherHint: 'Negation: did not take / didn\'t take. Note: infinitive after did (I didn\'t take — NOT I didn\'t took). Common error.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'What did you take to school today? Answer: I took...', studentAction: 'Produce: I took [item] to school.', teacherHint: 'What did she take? — third-person question. Note: Did she take... (question form uses did + infinitive).' },
+    ],
+  },
+
+  {
+    contentKey: 'i bought english',
+    language: 'english',
+    displayName: 'I Bought — Simple Past',
+    unitType: 'preterite',
+    vocabTerms: ['I bought', 'bought', 'buy', 'past tense', 'irregular', 'shopping', 'yesterday', '-ed pattern'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"I bought" — I bought (past of buy). Buy → bought. Another irregular. Say: bought.', studentAction: 'Repeat I bought and She bought.', teacherHint: 'buy → bought is another strong irregular. Group these for memory: buy/bought, bring/brought, think/thought — the -ought family.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'I bought a new phone last week. She bought groceries this morning. Read each shopping sentence.', studentAction: 'Read past sentences with bought and real contexts.', teacherHint: 'Object always follows bought: I bought [thing]. Preposition optional: I bought it at the store. Natural context: shopping trip.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who bought what? Scan and combine rapidly.', studentAction: 'Build: subject + bought + object.', teacherHint: 'Mix in other common irregular pasts alongside bought: bought, saw, ate, went, got. Reinforce the irregular past family.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'What did you buy recently? Answer: I bought...', studentAction: 'Produce: I bought [item] at/from [place].', teacherHint: 'Where did you buy it? — layer in place prepositional phrase for richer sentences.' },
+    ],
+  },
+
+  {
+    contentKey: 'i am going to english',
+    language: 'english',
+    displayName: "I'm Going To — Near Future",
+    unitType: 'verb',
+    vocabTerms: ["I'm going to", 'going to', 'near future', 'be + going to', 'plan', 'will', "she's going to", 'intention'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"I\'m going to go" — I am going to go (near future). Be + going to + infinitive. Say: I\'m going to.', studentAction: "Repeat I'm going to and She's going to.", teacherHint: 'be + going to = planned/intended future. Am/is/are going to — agreement with subject. Most common future in spoken English.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: "I'm going to study tonight. She's going to call her friend. Read each future sentence.", studentAction: 'Read going-to future sentences with plans.', teacherHint: 'Contrast: will (spontaneous decision now) vs going to (pre-planned). I\'ll help (right now). I\'m going to study (already decided). Both important.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What are these people going to do? Combine subjects and plans.', studentAction: "Build: subject + am/is/are going to + verb.", teacherHint: 'Common error: I going to go (missing am). Require the be verb every time.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: "What are you going to do this weekend? Answer: I'm going to...", studentAction: "Produce: I'm going to [activity] this weekend.", teacherHint: "What is she going to do? — third-person: She's going to... Watch the contraction." },
+    ],
+  },
+
+  {
+    contentKey: 'i have english',
+    language: 'english',
+    displayName: 'I Have — Possession',
+    unitType: 'verb',
+    vocabTerms: ['I have', 'she has', 'have', 'has', 'possession', "I don't have", "she doesn't have", 'do you have'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"I have a dog." — I have (possession). "She has a cat." — has for third person. Say both.', studentAction: 'Repeat I have and She has.', teacherHint: 'Have → has for he/she/it. The third-person -s rule. Very high frequency error to catch: She have ✗ → She has ✓.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'I have two brothers. He has a big house. Read possession sentences.', studentAction: 'Read possession sentences with have/has.', teacherHint: 'Questions: Do you have...? Does she have...? The do/does subject-auxiliary is critical. Do you have time? — extremely common.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who has what? Combine subjects with possessions.', studentAction: 'Build: subject + have/has + [number/article] + noun.', teacherHint: 'Negative: I don\'t have, She doesn\'t have. The don\'t/doesn\'t pair. Drill all four: have, has, don\'t have, doesn\'t have.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Do you have any siblings? Answer: I have... / I don\'t have...', studentAction: 'Produce: I have [number] brothers/sisters. OR I don\'t have any.', teacherHint: "Does she have a pet? — third-person question. Does she have / doesn't she have. Model both forms." },
+    ],
+  },
+
+  {
+    contentKey: 'i want english',
+    language: 'english',
+    displayName: 'I Want — Expressing Desires',
+    unitType: 'verb',
+    vocabTerms: ['I want', 'I want to', 'want', 'desire', 'I would like', "she wants", 'want + noun', 'want to + verb'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"I want a coffee." — want + noun. "I want to go." — want to + verb. Two patterns. Say them.', studentAction: 'Repeat I want a coffee and I want to go.', teacherHint: 'Want + noun (I want a coffee) vs want to + infinitive (I want to sleep). Both patterns are essential and very frequent.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'She wants to visit France. He wants a new phone. Read desire sentences.', studentAction: 'Read want sentences with correct third-person wants.', teacherHint: 'She wants (not she want). Third-person -s is a persistent English ESL challenge. Address it consistently.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What does each person want to do or have? Combine from the columns.', studentAction: 'Build want sentences using want + noun and want to + verb.', teacherHint: 'Polite upgrade: I would like = polite version of I want. Introduce here as a register note.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'What do you want to do after school? Answer: I want to...', studentAction: 'Produce: I want to [activity].', teacherHint: "What does she want to do? — third-person: She wants to. Drill the -s thoroughly." },
+    ],
+  },
+
+  {
+    contentKey: 'i am identity english',
+    language: 'english',
+    displayName: 'I Am — Identity (To Be)',
+    unitType: 'ser_estar',
+    vocabTerms: ['I am', 'she is', 'they are', 'to be', 'am/is/are', 'identity', "I'm a student", 'am not', "isn't"],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"I am a student." To be = am/is/are for identity. Say: I am, she is, they are.', studentAction: 'Repeat all three forms: I am, she is, they are.', teacherHint: 'To be: am (I), is (he/she/it), are (you/we/they). Six-cell agreement chart is the core knowledge. Students confuse is/are constantly.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'She is a teacher. They are students. I am from Mexico. Read identity sentences.', studentAction: 'Read identity sentences matching subject with am/is/are.', teacherHint: 'Questions: Am I? Is she? Are they? — subject-auxiliary inversion. Short answers: Yes, she is. No, they are not.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Match people with their identities and roles. Use am/is/are correctly.', studentAction: 'Build identity sentences with correct to-be agreement.', teacherHint: 'Negation: am not, is not (isn\'t), are not (aren\'t). Contractions are more natural in speech.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'What are you? (Job, student, athlete?) Answer: I am a...', studentAction: 'Produce: I am a [role/identity].', teacherHint: 'Where are you from? — very natural follow-up. I am from [place]. Same to-be structure.' },
+    ],
+  },
+
+  {
+    contentKey: 'where am i english',
+    language: 'english',
+    displayName: 'Where Am I? — Location (To Be)',
+    unitType: 'ser_estar',
+    vocabTerms: ['I am at', 'she is in', 'location', 'to be + location', 'at/in/on', 'where are you?', 'at school', 'in the park'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"I am at school." — location with to be + preposition. Say: I am at, she is in, they are on.', studentAction: 'Repeat I am at school, She is in the kitchen, They are on the bus.', teacherHint: 'Location prepositions with to be: at (specific point/institution), in (enclosed space), on (surface/vehicle). High-frequency trio.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'The book is on the table. I am in the classroom. She is at the gym. Read location sentences.', studentAction: 'Read location sentences choosing at/in/on correctly.', teacherHint: 'Key distinctions: at the store (activity location), in the store (physically inside), on the bus (vehicle). Context drives choice.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Where is each person or object? Combine with the correct preposition.', studentAction: 'Build: subject + am/is/are + at/in/on + location.', teacherHint: 'Very common questions: Where are you? Where is she? Full answer: I am at + place.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Where are you right now? Answer: I am in/at...', studentAction: 'Produce: I am [in/at] [location].', teacherHint: 'Where is your phone? — object location: It is on/in/at... Common and practical.' },
+    ],
+  },
+
+  {
+    contentKey: 'i can english',
+    language: 'english',
+    displayName: 'I Can — Expressing Ability',
+    unitType: 'verb',
+    vocabTerms: ['I can', 'can', 'ability', "I can't", 'cannot', 'can she?', 'can you?', 'infinitive after can'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"I can swim." — I can + infinitive. No -s. Say: I can swim, She can cook, They can drive.', studentAction: 'Repeat I can swim, She can cook, They can drive.', teacherHint: 'Can + infinitive — NO subject agreement, NO -s. She can (not she cans). This is a key difference from regular verbs.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'She can speak three languages. I cannot drive yet. Read ability sentences.', studentAction: 'Read ability sentences with can/cannot.', teacherHint: 'Can/cannot/can\'t. Questions: Can you...? Can she...? No do/does needed with modals. Another key English rule.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What can each person do? Combine subjects and abilities.', studentAction: 'Build: subject + can/cannot + infinitive.', teacherHint: 'Real abilities: Can you cook? Can she drive? Do you play tennis? (Without can = do you know how to). Both are natural.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Can you speak any other languages? Answer: I can... / I cannot...', studentAction: 'Produce: I can speak [language]. OR I can only speak English so far.', teacherHint: 'What can you do that your friend cannot? — contrastive ability pair. Engaging.' },
+    ],
+  },
+
+  {
+    contentKey: 'the verb pattern english',
+    language: 'english',
+    displayName: 'The Infinitive Pattern',
+    unitType: 'verb',
+    vocabTerms: ['infinitive', 'to + verb', 'modal + verb', 'want to', 'have to', 'need to', 'going to', 'able to'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: 'The infinitive = to + verb base form. I want TO go. I need TO study. I have TO work. Say each.', studentAction: 'Repeat want to, need to, have to, going to.', teacherHint: 'The infinitive frame is the most productive pattern in English: modal/semi-modal + infinitive. Once students own to + verb, they unlock dozens of structures.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'I need to call my mom. She wants to travel. He has to work tomorrow. Read each infinitive sentence.', studentAction: 'Read sentences with different semi-modals + infinitive.', teacherHint: 'Semi-modals: want to, need to, have to, going to, able to, used to. All high-frequency. All take the base form infinitive after to.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What does each person need, want, or have to do? Combine from the columns.', studentAction: 'Build: subject + semi-modal + to + verb.', teacherHint: 'Negation varies: I don\'t want to go. She doesn\'t need to work. He doesn\'t have to stay. The do-support pattern.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'What do you need to do this week? Answer: I need to...', studentAction: 'Produce: I need to [verb] this week.', teacherHint: 'What do you want to do but have to wait for? — contrasts want to vs have to. Generates real self-expression.' },
+    ],
+  },
+
+  {
+    contentKey: 'there is english',
+    language: 'english',
+    displayName: 'There Is / There Are',
+    unitType: 'hay_gustar',
+    vocabTerms: ['there is', 'there are', 'there is a', 'there are some', "there isn't", "there aren't", 'how many are there'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"There is a park near here." — there is (singular). "There are many restaurants." — there are (plural). Say both.', studentAction: 'Repeat There is a park and There are many restaurants.', teacherHint: 'There is + singular noun. There are + plural noun. Agreement rule. Very common error: There is many books ✗ → There are many books ✓.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'There is a coffee shop on the corner. There are three students in the hall. Read existence sentences.', studentAction: 'Read existence sentences with there is/are.', teacherHint: 'Questions: Is there a...? Are there any...? Inversion: Is there → Yes, there is. Are there → Yes, there are.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What is or are in each location? Combine: There is/are + [number/article] + noun.', studentAction: 'Build existence sentences from the columns.', teacherHint: 'Quantifiers: There is a (one), some (unspecified positive amount), no (zero). There are two, many, several, a few. Build the full quantifier set.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Is there a supermarket near your home? Answer: Yes, there is... / No, there is not...', studentAction: 'Produce: There is/are [thing] near my home.', teacherHint: 'How many students are there in this class? — count the room. Practical and engaging.' },
+    ],
+  },
+
+  {
+    contentKey: 'i like english',
+    language: 'english',
+    displayName: 'I Like — Expressing Preferences',
+    unitType: 'hay_gustar',
+    vocabTerms: ['I like', 'I love', "I don't like", 'preference', 'like + noun', 'like + -ing', "she likes", 'enjoy'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"I like music." — like + noun. "I like swimming." — like + -ing. Say both.', studentAction: 'Repeat I like music and I like swimming.', teacherHint: 'Like + noun OR like + gerund (-ing). Both are correct. I like to swim is also correct. For now: like + noun and like + -ing.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'She likes hiking and cooking. He doesn\'t like cold weather. Read preference sentences.', studentAction: 'Read preference sentences with third-person likes.', teacherHint: 'She likes (not she like). Third-person -s again. Also: I love (stronger), I enjoy, I don\'t mind, I don\'t like, I hate (scale).' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What does each person like or not like? Build preference statements.', studentAction: 'Build: subject + like/love/don\'t like + noun/gerund.', teacherHint: 'Genre: I like rock music. I don\'t like pop. Expressing musical taste is immediately engaging and generates natural output.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'What kind of music do you like? Answer: I like...', studentAction: 'Produce: I like [genre/type].', teacherHint: 'Do you like cooking or eating? — gerund pair. Both like + gerund forms are natural question choices.' },
+    ],
+  },
+
+  {
+    contentKey: 'i would like english',
+    language: 'english',
+    displayName: 'I Would Like — Polite Requests',
+    unitType: 'verb',
+    vocabTerms: ["I'd like", 'I would like', 'would like', 'polite request', 'could I have', 'may I have', "I'd like to"],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"I would like a coffee." — more polite than I want. "I\'d like to go." — contracted form. Say both.', studentAction: "Repeat I would like and I'd like.", teacherHint: "Would like = polite form of want. Always use would like (not will like). I'd = I would (contraction). Very common in English customer service and social contexts." },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: "I'd like a table for two, please. Could I have the menu? Read polite request sentences.", studentAction: 'Read polite requests in restaurant and service contexts.', teacherHint: "Register: I'd like (standard polite), Could I have (softer request), May I have (formal/careful). All extremely common in English-speaking service contexts." },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: "What would each person like? Build polite requests.", studentAction: "Build: I'd like + [article/measure] + noun OR I'd like to + verb.", teacherHint: 'Restaurant phrases: I\'d like to order... / Could I have the check? / I\'ll have the... — all natural service English.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: "What would you like to drink? Answer: I'd like...", studentAction: "Produce: I'd like [drink/item], please.", teacherHint: 'Roleplay: server asks, student orders. Highly practical and immediately motivating.' },
+    ],
+  },
+
+  {
+    contentKey: 'i went english',
+    language: 'english',
+    displayName: 'I Went — Simple Past (Irregular Go)',
+    unitType: 'preterite',
+    vocabTerms: ['I went', 'went', 'go', 'simple past', 'irregular', 'past motion', 'yesterday', 'last weekend'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"I went to the store yesterday." — go → went. Completely irregular. Say: went.', studentAction: 'Repeat I went and She went.', teacherHint: 'go → went is completely irregular — no pattern with go at all. Must be memorized. One of the most common verbs in English.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'We went to the beach last summer. She went to a concert last night. Read past motion sentences.', studentAction: 'Read went sentences with time expressions.', teacherHint: 'Common time expressions for went: yesterday, last night, last week, this morning, a year ago. All signal simple past.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Where did each person go? Combine with went + destination.', studentAction: 'Build: subject + went + to + [destination].', teacherHint: 'Questions: Where did you go? — did + infinitive (go, not went). I went... ✓. Where did you went ✗. The did-support rule with infinitive.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Where did you go last weekend? Answer: I went to...', studentAction: 'Produce: I went to [place] last weekend.', teacherHint: 'Did you have a good time? — past of have: had. Natural follow-up.' },
+    ],
+  },
+
+  {
+    contentKey: 'he is going to english',
+    language: 'english',
+    displayName: 'He Is Going To — Future (3rd Person)',
+    unitType: 'verb',
+    vocabTerms: ["he's going to", "she's going to", 'third person future', 'narration', 'going to', 'is going to', 'plan'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"He is going to study tonight." — third-person future with be + going to. Say: He\'s going to, She\'s going to.', studentAction: "Repeat He's going to study and She's going to call.", teacherHint: "He is going to → He's going to. Contraction is natural in speech. Third-person: is going to (not am going to). Agreement with is." },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: "She's going to visit her parents. He's going to start a new job. Read third-person future narrations.", studentAction: 'Read third-person going-to future sentences.', teacherHint: "He's going to... vs He will... Subtle: going to = already decided. Will = deciding now. Both natural in third-person narration." },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What are these people going to do? Build third-person future sentences.', studentAction: "Build: he/she/they + is/are going to + infinitive.", teacherHint: "They are going to → They're going to. All three contractions: I'm, he's, they're. All going to." },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: "What is your best friend going to do next year? Answer: She's going to / He's going to...", studentAction: "Produce: [name] is going to [activity].", teacherHint: 'Real person, real plan. Authentic output using known facts about someone real.' },
+    ],
+  },
+
+  {
+    contentKey: 'what did he do english',
+    language: 'english',
+    displayName: 'What Did He Do? — Past Questions',
+    unitType: 'preterite',
+    vocabTerms: ['what did he do', 'did', 'past question', 'did + infinitive', 'where did', 'when did', 'auxiliary did'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"What did he do?" — past question with DID + infinitive. Did + base verb (not past form). Say: What did he do?', studentAction: 'Repeat What did he do? and Where did she go?', teacherHint: 'Question formation: Did + subject + infinitive. NOT What did he did? The infinitive after did is critical. This is the most common error in English past-tense questions.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'What did you eat for breakfast? Where did she go last night? Read and answer question pairs.', studentAction: 'Read past questions and produce answers.', teacherHint: 'Short answers: Yes, I did. No, she didn\'t. Full answers use the past form: I ate toast. She went to the gym.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Build past questions using what/where/when/why + did + subject + infinitive.', studentAction: 'Combine question words with did + infinitive for different verbs.', teacherHint: 'Question word + did + subject + base verb: When did he arrive? Why did she leave? How did you get there? All follow the same formula.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'What did you do yesterday morning? Give a real answer.', studentAction: 'Produce: I [past verb] in the morning.', teacherHint: 'Ask a follow-up: Who did you talk to? — builds a mini narrative. Chain past questions naturally.' },
+    ],
+  },
+
+  {
+    contentKey: 'he had english',
+    language: 'english',
+    displayName: 'He Had — Past of Have',
+    unitType: 'preterite',
+    vocabTerms: ['had', 'he had', 'past of have', 'irregular', 'have/had', 'she had', 'used to have', 'possession in past'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"He had a dog." — have → had (past, all persons). I had, she had, they had. All the same. Say: had.', studentAction: 'Repeat He had and She had and I had.', teacherHint: 'Have → had for all persons — no agreement variation in the past. This is a welcome simplification students appreciate.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'She had a red car in 2020. They had a big party last month. Read past possession sentences.', studentAction: 'Read past possession sentences with had.', teacherHint: 'Questions: Did you have...? Did he have...? (do-support, not had-inversion). What did she have? ✓. What had she? ✗ (in simple past context).' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What did each person have in the past? Combine with had.', studentAction: 'Build: subject + had + [article] + noun.', teacherHint: 'Used to have: She used to have a cat (but she doesn\'t anymore). Useful extension for past habits vs past facts.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Did you have a pet when you were little? Answer: I had... / I didn\'t have...', studentAction: 'Produce: I had/didn\'t have [thing] when I was young.', teacherHint: 'What did you have for lunch yesterday? — practical daily life question. High frequency.' },
+    ],
+  },
+
+  {
+    contentKey: 'to him english',
+    language: 'english',
+    displayName: 'To Him / To Her — Indirect Object Pronouns',
+    unitType: 'object_pronoun',
+    vocabTerms: ['to him', 'to her', 'to them', 'indirect object', 'me/him/her/us/them', 'give to', 'tell her', 'show him'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"I gave it to him." — to him is the indirect object pronoun. Me, him, her, us, them. Say the set.', studentAction: 'Repeat the pronoun set: me, him, her, us, them.', teacherHint: 'Subject pronouns (I/he/she) vs object pronouns (me/him/her). To me, to him, to her, to us, to them. All after to or in object position.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'She gave the book to me. I told him the news. He showed us the photos. Read indirect object sentences.', studentAction: 'Read sentences with indirect object pronouns.', teacherHint: 'Two patterns: I gave it to him (prep + pronoun) OR I gave him it (pronoun before object). Both natural. Second requires no "to": I gave him the book.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Who gave/told/showed what to whom? Combine from the columns.', studentAction: 'Build: subject + verb + object + to + pronoun.', teacherHint: 'High-frequency verbs with indirect objects: give, tell, show, send, lend, teach. Drill all six with the object pronoun set.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Who did you give your last gift to? Answer: I gave it to...', studentAction: 'Produce: I gave [thing] to [person/pronoun].', teacherHint: 'Who did she tell? — question with indirect object. She told me. She told him. Short, clear answers.' },
+    ],
+  },
+
+  {
+    contentKey: 'clean dirty english',
+    language: 'english',
+    displayName: "It's Clean / It's Dirty — Adjective Descriptions",
+    unitType: 'verb',
+    vocabTerms: ["it's clean", "it's dirty", 'adjective predicate', 'to be + adjective', 'describing things', 'very', 'a little', 'not very'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"It\'s clean." — to be + adjective. "It\'s dirty." Say both and add: very clean, a little dirty.', studentAction: "Repeat It's clean, It's dirty, It's very clean, It's a little dirty.", teacherHint: 'To be + adjective for predicate description. Clean vs dirty is a classic contrastive pair. Degree adverbs (very, quite, a little, not very) build range immediately.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'The kitchen is very clean. The bathroom is not very clean. Read descriptive sentences.', studentAction: 'Read descriptions with degree adverbs.', teacherHint: 'Degree scale: extremely → very → quite → fairly → a little → not very. Teach this spectrum as a useful resource.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Describe each place or thing — how clean or dirty? Use degree adverbs.', studentAction: 'Build: [subject] + is/are + [degree] + adjective.', teacherHint: 'Extend pair list: new/old, big/small, loud/quiet, fast/slow, hot/cold. All same to-be + adjective frame.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Is your room clean or messy right now? Answer honestly.', studentAction: "Produce: My room is [degree] [adjective] right now.", teacherHint: 'Personal description often generates humor and authentic language. Let students be real.' },
+    ],
+  },
+
+  {
+    contentKey: 'i studied english',
+    language: 'english',
+    displayName: 'I Studied — Regular Past (-ed)',
+    unitType: 'preterite',
+    vocabTerms: ['studied', '-ed past', 'I studied', 'regular past', 'walked', 'worked', 'played', 'watched', 'cleaned'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"I studied." — study → studied. The -ed suffix makes the past. All regular verbs follow this. Say: studied, worked, played.', studentAction: 'Repeat studied, worked, played, watched.', teacherHint: 'Regular past: verb + -ed. Spelling rules: study → studied (y→ied), stop → stopped (double final consonant). These two rules cover most cases.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'She studied all night. We played soccer yesterday. He worked from home last week. Read regular past sentences.', studentAction: 'Read -ed past sentences in context.', teacherHint: 'Pronunciation of -ed: /t/ after voiceless sounds (worked, walked), /d/ after voiced (played, studied), /ɪd/ after t/d (wanted, needed). Important for listening.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'What did each person do in the past? Build with -ed verbs.', studentAction: 'Combine subjects and regular past verbs rapidly.', teacherHint: 'Core regular past verbs: study, work, play, watch, clean, visit, cook, call, talk, listen. Students need to own these ten.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'How long did you study last night? Answer: I studied for...', studentAction: 'Produce: I studied for [time] last night.', teacherHint: 'What else did you do last night? — open past narration with regular verbs. Chain multiple -ed verbs.' },
+    ],
+  },
+
+  {
+    contentKey: 'i received english',
+    language: 'english',
+    displayName: 'I Received — Irregular Past',
+    unitType: 'preterite',
+    vocabTerms: ['received', 'got', 'irregular past', 'I received', 'I got', 'get/got', 'see/saw', 'know/knew', 'past list'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"I received a letter." — regular past. "I got a message." — get → got, irregular. Say both.', studentAction: 'Repeat I received and I got.', teacherHint: 'Receive is actually regular (received = -ed). But get → got is the more colloquial equivalent. Learn both — received in writing, got in speech.' },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: 'I got a text from my friend. She received a scholarship. He saw a great movie. Read irregular past sentences.', studentAction: 'Read irregular past sentences mixing different verb forms.', teacherHint: 'Build the irregular past inventory: get/got, see/saw, know/knew, think/thought, bring/brought, find/found, tell/told, make/made.' },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Mix regular and irregular past verbs. Scan and combine.', studentAction: 'Build sentences using both -ed and irregular past forms.', teacherHint: 'Sorting drill: regular (-ed) vs irregular (change). Students who can reliably sort these two classes are making strong progress.' },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: 'Did you get any good news recently? Answer: Yes, I got... / No, I didn\'t get...', studentAction: 'Produce: I got [news/thing] recently.', teacherHint: 'What news did you receive this week? — formal version. Both versions are real English.' },
+    ],
+  },
+
+  {
+    contentKey: 'i will english',
+    language: 'english',
+    displayName: 'I Will — Simple Future',
+    unitType: 'verb',
+    vocabTerms: ['I will', "I'll", 'will', 'future', 'promise', 'prediction', 'offer', "won't", 'will + infinitive'],
+    steps: [
+      { stepIndex: 0, stepName: 'anchor', verbalInstruction: '"I will help you." — will + infinitive. "I\'ll call you later." — contracted I\'ll. Say both.', studentAction: "Repeat I will help and I'll call.", teacherHint: "Will + infinitive for future decisions made NOW (I'll have the pasta), promises (I'll call you), and predictions (It will rain). The spontaneous-decision use is key." },
+      { stepIndex: 1, stepName: 'model_sentences', verbalInstruction: "She'll be here at 8. It won't take long. I'll help you with that. Read will sentences.", studentAction: "Read will sentences noting different uses.", teacherHint: "Won't = will not (negative contraction). I won't be late. She won't forget. The contraction is dominant in spoken English." },
+      { stepIndex: 2, stepName: 'combinator', verbalInstruction: 'Make promises, predictions, and spontaneous offers using will.', studentAction: "Build: subject + will/won't + infinitive.", teacherHint: "Questions: Will you help me? → Yes, I will. / No, I won't. The yes/no pair. Will you = request or question about future. Very common." },
+      { stepIndex: 3, stepName: 'qa_pivot', verbalInstruction: "What will you do if you have free time tomorrow? Answer: I'll...", studentAction: "Produce: I'll [activity] if I have time.", teacherHint: "I'll + verb (spontaneous plan). Compare with I'm going to (pre-planned). Both are real answers to future questions." },
+    ],
+  },
+
+];
+
+// Merge all units — Spanish first, then French, Italian, Portuguese, German, Japanese, Korean, Mandarin, English
+const ALL_UNITS = [...UNITS, ...FRENCH_UNITS, ...GERMAN_UNITS, ...ITALIAN_UNITS, ...PORTUGUESE_UNITS, ...JAPANESE_UNITS, ...KOREAN_UNITS, ...MANDARIN_UNITS, ...ENGLISH_UNITS];
 
 export const MADRIGAL_LOOP_CATALOG: readonly MadrigalLoopUnit[] = ALL_UNITS;
 

@@ -3483,6 +3483,1583 @@ const PORTUGUESE_FUI: HayUnitContent = {
   ],
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// JAPANESE HayUnitContent entries
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const JAPANESE_IKIMASU: HayUnitContent = {
+  chapterTitleKey: 'where are you going japanese',
+  conceptLabel: '行きます',
+  conceptDefinition: 'I go / I am going · どこに行きますか？ · destination + に行きます',
+  introNote: '"行きます" is your core movement verb. Attach a destination + に and you can say where anyone is going. No conjugation changes for different subjects in polite form.',
+  clusters: [
+    {
+      heading: '行きます — どこに？',
+      pairs: [
+        { imageWord: '学校', imageDescription: 'students walking through school gates in the morning', question: 'どこに行きますか？', questionTranslation: 'Where are you going?', answer: '学校に行きます。', answerTranslation: 'I am going to school.' },
+        { imageWord: '図書館', imageDescription: 'the entrance of a quiet library with bookshelves visible', question: '今日どこに行きますか？', questionTranslation: 'Where are you going today?', answer: '図書館に行きます。', answerTranslation: 'I am going to the library.' },
+        { imageWord: 'コンビニ', imageDescription: 'the bright entrance of a convenience store at night', question: '今からどこに行きますか？', questionTranslation: 'Where are you going now?', answer: 'コンビニに行きます。', answerTranslation: 'I am going to the convenience store.' },
+        { imageWord: 'レストラン', imageDescription: 'a cozy Japanese restaurant with a noren curtain at the door', question: '今夜どこに行きますか？', questionTranslation: 'Where are you going tonight?', answer: 'レストランに行きます。', answerTranslation: 'I am going to the restaurant.' },
+      ],
+    },
+    {
+      heading: '行きません — 否定形',
+      noteInline: '行きます (go) → 行きません (don\'t go) · same stem, different ending',
+      pairs: [
+        { imageWord: '病院', imageDescription: 'the entrance of a hospital with a red cross sign', question: '病院に行きますか？', questionTranslation: 'Are you going to the hospital?', answer: 'いいえ、病院に行きません。', answerTranslation: 'No, I am not going to the hospital.' },
+        { imageWord: '友達の家', imageDescription: 'a person waving goodbye from a doorway', question: '友達の家に行きますか？', questionTranslation: 'Are you going to your friend\'s house?', answer: 'はい、友達の家に行きます。', answerTranslation: 'Yes, I am going to my friend\'s house.' },
+      ],
+      sentenceColumns: [
+        { label: '誰が？', items: [{ text: '私は', translation: 'I' }, { text: '友達は', translation: 'My friend' }, { text: '先生は', translation: 'The teacher' }] },
+        { label: 'どこに？', items: [{ text: '学校に行きます。', translation: 'goes to school.' }, { text: '図書館に行きます。', translation: 'goes to the library.' }, { text: 'レストランに行きます。', translation: 'goes to the restaurant.' }, { text: '家に帰ります。', translation: 'goes home.' }] },
+      ],
+    },
+  ],
+};
+
+const JAPANESE_TORIMASHITA: HayUnitContent = {
+  chapterTitleKey: 'i took japanese',
+  conceptLabel: '取りました',
+  conceptDefinition: 'I took · past tense: ます → ました · を marks the object',
+  introNote: 'Swap ます for ました — that\'s the entire past tense in polite Japanese. 取ります (take) → 取りました (took). This suffix swap works for almost every polite verb.',
+  clusters: [
+    {
+      heading: '〜ました — 過去形',
+      pairs: [
+        { imageWord: '傘', imageDescription: 'a person grabbing an umbrella from a stand near a door', question: '何を取りましたか？', questionTranslation: 'What did you take?', answer: '傘を取りました。', answerTranslation: 'I took the umbrella.' },
+        { imageWord: 'タクシー', imageDescription: 'a yellow taxi at the curb with the door open', question: 'どうやって来ましたか？', questionTranslation: 'How did you get here?', answer: 'タクシーを取りました。', answerTranslation: 'I took a taxi.' },
+        { imageWord: 'メモ', imageDescription: 'a hand writing notes in a small notebook', question: '授業中何をしましたか？', questionTranslation: 'What did you do in class?', answer: 'メモを取りました。', answerTranslation: 'I took notes.' },
+        { imageWord: '写真', imageDescription: 'a person holding up a camera at a scenic overlook', question: '旅行で何をしましたか？', questionTranslation: 'What did you do on the trip?', answer: '写真を取りました。', answerTranslation: 'I took photos.' },
+      ],
+    },
+    {
+      heading: 'ました vs ませんでした',
+      noteInline: '取りました (took) ↔ 取りませんでした (didn\'t take) · four-form mastery',
+      pairs: [
+        { imageWord: '薬', imageDescription: 'a glass of water and medicine on a nightstand', question: '薬を飲みましたか？', questionTranslation: 'Did you take your medicine?', answer: 'はい、飲みました。', answerTranslation: 'Yes, I took it.' },
+        { imageWord: 'バス', imageDescription: 'a public bus at a bus stop with passengers boarding', question: 'バスを取りましたか？', questionTranslation: 'Did you take the bus?', answer: 'いいえ、取りませんでした。', answerTranslation: 'No, I didn\'t take it.' },
+      ],
+      sentenceColumns: [
+        { label: '動詞', items: [{ text: '取りました', translation: 'took' }, { text: '飲みました', translation: 'drank' }, { text: '食べました', translation: 'ate' }, { text: '見ました', translation: 'saw' }] },
+        { label: '何を？', items: [{ text: '傘を', translation: 'the umbrella' }, { text: 'タクシーを', translation: 'a taxi' }, { text: 'メモを', translation: 'notes' }, { text: '写真を', translation: 'photos' }] },
+      ],
+    },
+  ],
+};
+
+const JAPANESE_KAIMASHITA: HayUnitContent = {
+  chapterTitleKey: 'i bought japanese',
+  conceptLabel: '買いました',
+  conceptDefinition: 'I bought · 買います → 買いました · を for the object',
+  introNote: 'Same ました pattern — 買います (buy) becomes 買いました (bought). The elegance: the ending alone carries the whole time change.',
+  clusters: [
+    {
+      heading: '買いました — 何を？',
+      pairs: [
+        { imageWord: '本', imageDescription: 'a stack of books at a bookshop counter', question: '昨日何を買いましたか？', questionTranslation: 'What did you buy yesterday?', answer: '本を買いました。', answerTranslation: 'I bought a book.' },
+        { imageWord: '服', imageDescription: 'shopping bags from a clothing store', question: '先週何を買いましたか？', questionTranslation: 'What did you buy last week?', answer: '服を買いました。', answerTranslation: 'I bought clothes.' },
+        { imageWord: 'おみやげ', imageDescription: 'a display of souvenir goods at a tourist shop', question: '旅行で何を買いましたか？', questionTranslation: 'What did you buy on the trip?', answer: 'おみやげを買いました。', answerTranslation: 'I bought souvenirs.' },
+        { imageWord: 'コーヒー', imageDescription: 'a person paying at a coffee shop counter', question: '今朝何を買いましたか？', questionTranslation: 'What did you buy this morning?', answer: 'コーヒーを買いました。', answerTranslation: 'I bought coffee.' },
+      ],
+    },
+    {
+      heading: '買いませんでした — 否定過去',
+      noteInline: '買いました (bought) ↔ 買いませんでした (didn\'t buy)',
+      pairs: [
+        { imageWord: 'ケーキ', imageDescription: 'a bakery display case with cakes and pastries', question: 'ケーキを買いましたか？', questionTranslation: 'Did you buy cake?', answer: 'いいえ、買いませんでした。', answerTranslation: 'No, I didn\'t buy any.' },
+        { imageWord: 'りんご', imageDescription: 'fresh apples at a produce stand', question: 'スーパーで何を買いましたか？', questionTranslation: 'What did you buy at the supermarket?', answer: 'りんごを買いました。', answerTranslation: 'I bought apples.' },
+      ],
+      sentenceColumns: [
+        { label: '誰が？', items: [{ text: '私は', translation: 'I' }, { text: '友達は', translation: 'My friend' }, { text: '母は', translation: 'My mother' }] },
+        { label: '何を買いましたか？', items: [{ text: '本を買いました。', translation: 'bought a book.' }, { text: '服を買いました。', translation: 'bought clothes.' }, { text: '食べ物を買いました。', translation: 'bought food.' }, { text: '何も買いませんでした。', translation: 'didn\'t buy anything.' }] },
+      ],
+    },
+  ],
+};
+
+const JAPANESE_IKUTSUMORI: HayUnitContent = {
+  chapterTitleKey: 'i am going to japanese',
+  conceptLabel: '行くつもりです',
+  conceptDefinition: 'I plan to go · dictionary form + つもりです · deliberate intent',
+  introNote: 'Dictionary form + つもりです = I intend to / I plan to. The dictionary form is the uninflected verb base — 行く, 食べる, する. Attach つもりです and you have a complete future plan.',
+  clusters: [
+    {
+      heading: 'つもりです — 計画',
+      pairs: [
+        { imageWord: '東京', imageDescription: 'the Tokyo skyline with the Tokyo Tower at dusk', question: '来月どこに行くつもりですか？', questionTranslation: 'Where do you plan to go next month?', answer: '東京に行くつもりです。', answerTranslation: 'I plan to go to Tokyo.' },
+        { imageWord: '映画', imageDescription: 'a movie theater marquee at night', question: '今夜何をするつもりですか？', questionTranslation: 'What do you plan to do tonight?', answer: '映画を見るつもりです。', answerTranslation: 'I plan to watch a movie.' },
+        { imageWord: '勉強', imageDescription: 'a student at a desk with textbooks and notes spread out', question: '試験前に何をするつもりですか？', questionTranslation: 'What do you plan to do before the exam?', answer: '勉強するつもりです。', answerTranslation: 'I plan to study.' },
+        { imageWord: '旅行', imageDescription: 'a suitcase packed and ready by the front door', question: '夏休みに何をするつもりですか？', questionTranslation: 'What do you plan to do over summer break?', answer: '旅行するつもりです。', answerTranslation: 'I plan to travel.' },
+      ],
+    },
+    {
+      heading: '〜つもりはありません — 否定の計画',
+      noteInline: 'つもりです (plan to) vs つもりはありません (don\'t plan to)',
+      pairs: [
+        { imageWord: 'アルバイト', imageDescription: 'a closed sign on a shop door', question: '今週末アルバイトをするつもりですか？', questionTranslation: 'Do you plan to work part-time this weekend?', answer: 'いいえ、するつもりはありません。', answerTranslation: 'No, I don\'t plan to.' },
+        { imageWord: '料理', imageDescription: 'fresh vegetables on a kitchen counter', question: '今夜料理するつもりですか？', questionTranslation: 'Do you plan to cook tonight?', answer: 'はい、するつもりです。', answerTranslation: 'Yes, I plan to cook.' },
+      ],
+      sentenceColumns: [
+        { label: '誰が？', items: [{ text: '私は', translation: 'I' }, { text: '友達は', translation: 'My friend' }, { text: '彼女は', translation: 'She' }] },
+        { label: '何をするつもりですか？', items: [{ text: '東京に行くつもりです。', translation: 'plans to go to Tokyo.' }, { text: '映画を見るつもりです。', translation: 'plans to watch a movie.' }, { text: '勉強するつもりです。', translation: 'plans to study.' }, { text: '旅行するつもりです。', translation: 'plans to travel.' }] },
+      ],
+    },
+  ],
+};
+
+const JAPANESE_MOTTEIMASU: HayUnitContent = {
+  chapterTitleKey: 'i have japanese',
+  conceptLabel: '持っています',
+  conceptDefinition: 'I have · possession · があります (existence) · います for living things',
+  introNote: '持っています for things you carry or own. があります for things that exist. がいます for living things (people, animals). Three patterns — context picks the right one.',
+  clusters: [
+    {
+      heading: '持っています — 所有',
+      pairs: [
+        { imageWord: 'ペン', imageDescription: 'a person reaching into a bag and pulling out a pen', question: 'ペンを持っていますか？', questionTranslation: 'Do you have a pen?', answer: 'はい、持っています。', answerTranslation: 'Yes, I have one.' },
+        { imageWord: 'スマホ', imageDescription: 'a smartphone on a wooden desk', question: 'スマホを持っていますか？', questionTranslation: 'Do you have a smartphone?', answer: 'はい、スマホを持っています。', answerTranslation: 'Yes, I have a smartphone.' },
+        { imageWord: 'パスポート', imageDescription: 'a passport and boarding pass on a luggage bag', question: 'パスポートを持っていますか？', questionTranslation: 'Do you have a passport?', answer: 'はい、持っています。', answerTranslation: 'Yes, I have it.' },
+        { imageWord: '犬', imageDescription: 'a dog sitting next to its owner in the living room', question: 'ペットを飼っていますか？', questionTranslation: 'Do you have a pet?', answer: '犬がいます。', answerTranslation: 'I have a dog.' },
+      ],
+    },
+    {
+      heading: 'があります vs がいます',
+      noteInline: 'があります → inanimate objects & places · がいます → people & animals',
+      pairs: [
+        { imageWord: '問題', imageDescription: 'a person looking at a complicated math problem on a whiteboard', question: '何か問題がありますか？', questionTranslation: 'Is there a problem?', answer: 'はい、問題があります。', answerTranslation: 'Yes, there is a problem.' },
+        { imageWord: '兄弟', imageDescription: 'two brothers sitting together and laughing', question: '兄弟がいますか？', questionTranslation: 'Do you have siblings?', answer: 'はい、兄がいます。', answerTranslation: 'Yes, I have an older brother.' },
+      ],
+      sentenceColumns: [
+        { label: '所有物', items: [{ text: 'ペンを持っています', translation: 'I have a pen' }, { text: 'スマホを持っています', translation: 'I have a smartphone' }, { text: '時間があります', translation: 'I have time' }, { text: '犬がいます', translation: 'I have a dog' }] },
+        { label: '否定', items: [{ text: '持っていません', translation: 'I don\'t have it' }, { text: 'ありません', translation: 'there isn\'t / I don\'t have' }, { text: 'いません', translation: 'there isn\'t (animate)' }] },
+      ],
+    },
+  ],
+};
+
+const JAPANESE_SHITAIDESU: HayUnitContent = {
+  chapterTitleKey: 'i want japanese',
+  conceptLabel: 'したいです',
+  conceptDefinition: 'I want to · verb stem + たいです · personal desire',
+  introNote: 'Stem + たいです = I want to (do something). Drop the ます ending, add たいです. 食べます → 食べたいです. Works with any action verb.',
+  clusters: [
+    {
+      heading: 'たいです — 願望',
+      pairs: [
+        { imageWord: '寿司', imageDescription: 'a colorful plate of sushi at a Japanese restaurant', question: '何が食べたいですか？', questionTranslation: 'What do you want to eat?', answer: '寿司が食べたいです。', answerTranslation: 'I want to eat sushi.' },
+        { imageWord: '日本', imageDescription: 'Mount Fuji reflected in a lake at sunrise', question: 'どこに行きたいですか？', questionTranslation: 'Where do you want to go?', answer: '日本に行きたいです。', answerTranslation: 'I want to go to Japan.' },
+        { imageWord: '音楽', imageDescription: 'a person with headphones relaxing on a couch', question: '今何をしたいですか？', questionTranslation: 'What do you want to do now?', answer: '音楽を聴きたいです。', answerTranslation: 'I want to listen to music.' },
+        { imageWord: '休み', imageDescription: 'a hammock stretched between two palm trees', question: 'この夏何がしたいですか？', questionTranslation: 'What do you want to do this summer?', answer: 'ゆっくり休みたいです。', answerTranslation: 'I want to rest and relax.' },
+      ],
+    },
+    {
+      heading: 'たくないです — 否定の願望',
+      noteInline: 'たいです (want to) → たくないです (don\'t want to) · the -i adjective negation pattern',
+      pairs: [
+        { imageWord: '宿題', imageDescription: 'a homework assignment on a desk with a pencil', question: '宿題をしたいですか？', questionTranslation: 'Do you want to do homework?', answer: 'いいえ、したくないです。', answerTranslation: 'No, I don\'t want to.' },
+        { imageWord: '魚', imageDescription: 'a plate of fish on a dining table', question: '魚が食べたいですか？', questionTranslation: 'Do you want to eat fish?', answer: 'はい、食べたいです。', answerTranslation: 'Yes, I want to eat it.' },
+      ],
+      sentenceColumns: [
+        { label: '動詞stem + たい', items: [{ text: '食べたいです', translation: 'want to eat' }, { text: '行きたいです', translation: 'want to go' }, { text: '聴きたいです', translation: 'want to listen' }, { text: '寝たいです', translation: 'want to sleep' }] },
+        { label: '何を / どこに', items: [{ text: '寿司を', translation: 'sushi' }, { text: '日本に', translation: 'to Japan' }, { text: '音楽を', translation: 'music' }, { text: '早く', translation: 'early / soon' }] },
+      ],
+    },
+  ],
+};
+
+const JAPANESE_DESU_IDENTITY: HayUnitContent = {
+  chapterTitleKey: 'i am identity japanese',
+  conceptLabel: 'です',
+  conceptDefinition: '〜です = I am · identity & classification · topic は + noun + です',
+  introNote: 'Noun + です = "[topic] is [noun]". The は particle marks what you are talking about. No separate "am/is/are" — です handles all persons.',
+  clusters: [
+    {
+      heading: 'です — 正体',
+      pairs: [
+        { imageWord: '学生', imageDescription: 'a student at a desk in a classroom with books open', question: 'あなたは学生ですか？', questionTranslation: 'Are you a student?', answer: 'はい、学生です。', answerTranslation: 'Yes, I am a student.' },
+        { imageWord: '先生', imageDescription: 'a teacher writing on a whiteboard', question: 'あの人は誰ですか？', questionTranslation: 'Who is that person?', answer: '田中先生です。', answerTranslation: 'That is Teacher Tanaka.' },
+        { imageWord: '日本人', imageDescription: 'a person in traditional Japanese clothing at a festival', question: 'あなたは日本人ですか？', questionTranslation: 'Are you Japanese?', answer: 'いいえ、アメリカ人です。', answerTranslation: 'No, I am American.' },
+        { imageWord: '友達', imageDescription: 'two friends laughing and walking together on a sunny street', question: 'その人はあなたの友達ですか？', questionTranslation: 'Is that person your friend?', answer: 'はい、友達です。', answerTranslation: 'Yes, that\'s my friend.' },
+      ],
+    },
+    {
+      heading: 'じゃないです — 否定',
+      noteInline: 'です (is) → じゃないです / ではありません (is not) · じゃない is conversational',
+      pairs: [
+        { imageWord: '医者', imageDescription: 'a doctor in a white coat with a stethoscope', question: 'あなたは医者ですか？', questionTranslation: 'Are you a doctor?', answer: 'いいえ、医者じゃないです。', answerTranslation: 'No, I am not a doctor.' },
+        { imageWord: 'ロボット', imageDescription: 'a friendly-looking cartoon robot', question: 'あなたはロボットですか？', questionTranslation: 'Are you a robot?', answer: 'いいえ、人間です。', answerTranslation: 'No, I am a human.' },
+      ],
+      sentenceColumns: [
+        { label: '誰は？', items: [{ text: '私は', translation: 'I am' }, { text: 'あの人は', translation: 'That person is' }, { text: 'これは', translation: 'This is' }] },
+        { label: '何ですか？', items: [{ text: '学生です。', translation: 'a student.' }, { text: '先生です。', translation: 'a teacher.' }, { text: '日本人です。', translation: 'Japanese.' }, { text: '友達です。', translation: 'a friend.' }, { text: 'じゃないです。', translation: 'is not.' }] },
+      ],
+    },
+  ],
+};
+
+const JAPANESE_DOKO_NI_IMASU: HayUnitContent = {
+  chapterTitleKey: 'where am i japanese',
+  conceptLabel: 'どこにいますか',
+  conceptDefinition: 'Where am I? · に + います (animate) · に + あります (inanimate)',
+  introNote: 'います for living things at a location. あります for objects and places. Both use に as the location particle. This unit is the gateway to spatial description in Japanese.',
+  clusters: [
+    {
+      heading: 'にいます / にあります — 場所',
+      pairs: [
+        { imageWord: '図書館', imageDescription: 'a student studying in a quiet library', question: '今どこにいますか？', questionTranslation: 'Where are you now?', answer: '図書館にいます。', answerTranslation: 'I am at the library.' },
+        { imageWord: '駅', imageDescription: 'commuters on a train platform waiting for a train', question: '今どこにいますか？', questionTranslation: 'Where are you?', answer: '駅にいます。', answerTranslation: 'I am at the station.' },
+        { imageWord: '机の上', imageDescription: 'a cat sitting on top of a desk', question: '猫はどこにいますか？', questionTranslation: 'Where is the cat?', answer: '机の上にいます。', answerTranslation: 'It is on top of the desk.' },
+        { imageWord: 'カバンの中', imageDescription: 'a bag with books and a pencil case visible inside', question: '教科書はどこにありますか？', questionTranslation: 'Where is the textbook?', answer: 'カバンの中にあります。', answerTranslation: 'It is inside the bag.' },
+      ],
+    },
+    {
+      heading: 'いません / ありません — 不在',
+      noteInline: 'います → いません (not there/animate) · あります → ありません (not there/inanimate)',
+      pairs: [
+        { imageWord: '家', imageDescription: 'a house with all lights off and no car in the driveway', question: '今家にいますか？', questionTranslation: 'Are you home now?', answer: 'いいえ、家にいません。', answerTranslation: 'No, I am not home.' },
+        { imageWord: '鍵', imageDescription: 'an empty hook where keys are usually hung', question: '鍵はどこにありますか？', questionTranslation: 'Where are the keys?', answer: 'わかりません。ありません。', answerTranslation: 'I don\'t know. They\'re not here.' },
+      ],
+      sentenceColumns: [
+        { label: '場所', items: [{ text: '図書館に', translation: 'at the library' }, { text: '駅に', translation: 'at the station' }, { text: '机の上に', translation: 'on the desk' }, { text: 'カバンの中に', translation: 'in the bag' }] },
+        { label: '存在', items: [{ text: 'います', translation: 'is/am there (animate)' }, { text: 'あります', translation: 'is there (inanimate)' }, { text: 'いません', translation: 'is not there (animate)' }, { text: 'ありません', translation: 'is not there (inanimate)' }] },
+      ],
+    },
+  ],
+};
+
+const JAPANESE_DEKIMASU: HayUnitContent = {
+  chapterTitleKey: 'i can japanese',
+  conceptLabel: 'できます',
+  conceptDefinition: 'I can · ability · noun + ができます · potential form',
+  introNote: 'Noun + ができます = ability with a skill noun (日本語ができます). Add こと + ができます to use a verb phrase. Both patterns are natural in Japanese.',
+  clusters: [
+    {
+      heading: 'ができます — 能力',
+      pairs: [
+        { imageWord: '日本語', imageDescription: 'a person speaking confidently in a conversation', question: '日本語ができますか？', questionTranslation: 'Can you speak Japanese?', answer: 'はい、少しできます。', answerTranslation: 'Yes, I can a little.' },
+        { imageWord: '料理', imageDescription: 'a person preparing a delicious-looking meal in the kitchen', question: '料理ができますか？', questionTranslation: 'Can you cook?', answer: 'はい、料理ができます。', answerTranslation: 'Yes, I can cook.' },
+        { imageWord: '泳ぐ', imageDescription: 'a swimmer in a pool doing freestyle', question: '泳ぐことができますか？', questionTranslation: 'Can you swim?', answer: 'はい、泳ぐことができます。', answerTranslation: 'Yes, I can swim.' },
+        { imageWord: '運転', imageDescription: 'a person sitting behind the wheel of a car', question: '運転ができますか？', questionTranslation: 'Can you drive?', answer: 'まだできません。', answerTranslation: 'Not yet.' },
+      ],
+    },
+    {
+      heading: 'できません — できないこと',
+      noteInline: 'できます (can) → できません (cannot) · まだ = not yet · adds softness',
+      pairs: [
+        { imageWord: 'ピアノ', imageDescription: 'a grand piano in a music room with sheet music on the stand', question: 'ピアノが弾けますか？', questionTranslation: 'Can you play piano?', answer: 'いいえ、弾けません。', answerTranslation: 'No, I cannot.' },
+        { imageWord: 'スキー', imageDescription: 'a person skiing down a snowy slope', question: 'スキーができますか？', questionTranslation: 'Can you ski?', answer: 'はい、少しできます。', answerTranslation: 'Yes, a little.' },
+      ],
+      sentenceColumns: [
+        { label: '何が？', items: [{ text: '日本語が', translation: 'Japanese' }, { text: '料理が', translation: 'cooking' }, { text: '運転が', translation: 'driving' }, { text: 'ピアノが', translation: 'piano' }] },
+        { label: '能力', items: [{ text: 'できます', translation: 'can do' }, { text: 'できません', translation: 'cannot do' }, { text: 'まだできません', translation: 'not yet' }, { text: '少しできます', translation: 'can do a little' }] },
+      ],
+    },
+  ],
+};
+
+const JAPANESE_ARIMASU: HayUnitContent = {
+  chapterTitleKey: 'there is japanese',
+  conceptLabel: 'あります / います',
+  conceptDefinition: 'There is / There are · existence · が marks what exists · に marks where',
+  introNote: 'あります for inanimate existence. います for animate existence. Both use が to mark the subject and に to mark the location. Same structure — different verb based on what exists.',
+  clusters: [
+    {
+      heading: 'があります / がいます — 存在',
+      pairs: [
+        { imageWord: '公園', imageDescription: 'a park with trees, benches, and a walking path', question: 'この近くに公園がありますか？', questionTranslation: 'Is there a park near here?', answer: 'はい、公園があります。', answerTranslation: 'Yes, there is a park.' },
+        { imageWord: '猫', imageDescription: 'a cat sitting on a windowsill looking outside', question: '窓のそばに何がいますか？', questionTranslation: 'What is by the window?', answer: '猫がいます。', answerTranslation: 'There is a cat.' },
+        { imageWord: '問題', imageDescription: 'a person scratching their head in front of a complex equation', question: '問題がありますか？', questionTranslation: 'Is there a problem?', answer: 'はい、問題があります。', answerTranslation: 'Yes, there is a problem.' },
+        { imageWord: '学生', imageDescription: 'a group of students in a classroom', question: '教室に何人いますか？', questionTranslation: 'How many people are in the classroom?', answer: '学生が30人います。', answerTranslation: 'There are 30 students.' },
+      ],
+    },
+    {
+      heading: 'ありません / いません — 不存在',
+      noteInline: '〜があります → 〜がありません · 〜がいます → 〜がいません',
+      pairs: [
+        { imageWord: 'コーヒー', imageDescription: 'an empty coffee pot and a bare kitchen counter', question: 'コーヒーがありますか？', questionTranslation: 'Is there coffee?', answer: 'いいえ、ありません。', answerTranslation: 'No, there isn\'t any.' },
+        { imageWord: '人', imageDescription: 'an empty school hallway', question: '廊下に誰かいますか？', questionTranslation: 'Is anyone in the hallway?', answer: 'いいえ、誰もいません。', answerTranslation: 'No, there is no one.' },
+      ],
+      sentenceColumns: [
+        { label: '場所に', items: [{ text: '公園に', translation: 'in the park' }, { text: '教室に', translation: 'in the classroom' }, { text: 'キッチンに', translation: 'in the kitchen' }] },
+        { label: '何が / 誰が？', items: [{ text: '猫がいます。', translation: 'There is a cat.' }, { text: '学生が30人います。', translation: 'There are 30 students.' }, { text: '問題があります。', translation: 'There is a problem.' }, { text: 'コーヒーがありません。', translation: 'There is no coffee.' }] },
+      ],
+    },
+  ],
+};
+
+const JAPANESE_SUKIDESU: HayUnitContent = {
+  chapterTitleKey: 'i like japanese',
+  conceptLabel: '〜が好きです',
+  conceptDefinition: 'I like · preference · が marks what is liked · 嫌いです = dislike',
+  introNote: 'The thing you like takes が — not を. This is the reverse of English word order. 音楽が好きです = "Music is liked by me" literally. It\'s the same grammar move as Spanish gustar.',
+  clusters: [
+    {
+      heading: '〜が好きです — 好み',
+      pairs: [
+        { imageWord: '音楽', imageDescription: 'a person smiling with earbuds in, enjoying music', question: '音楽が好きですか？', questionTranslation: 'Do you like music?', answer: 'はい、音楽が大好きです。', answerTranslation: 'Yes, I love music.' },
+        { imageWord: 'アニメ', imageDescription: 'a shelf of anime DVDs and figurines', question: 'アニメが好きですか？', questionTranslation: 'Do you like anime?', answer: 'はい、好きです。', answerTranslation: 'Yes, I like it.' },
+        { imageWord: '料理', imageDescription: 'a person happily cooking in a bright kitchen', question: '料理が好きですか？', questionTranslation: 'Do you like cooking?', answer: 'はい、料理が好きです。', answerTranslation: 'Yes, I like cooking.' },
+        { imageWord: '冬', imageDescription: 'a snow-covered street with bare trees', question: '冬が好きですか？', questionTranslation: 'Do you like winter?', answer: 'いいえ、あまり好きじゃないです。', answerTranslation: 'No, I don\'t really like it.' },
+      ],
+    },
+    {
+      heading: '嫌いです — 好きではない',
+      noteInline: '大好きです (love) → 好きです (like) → あまり好きじゃない (don\'t really like) → 嫌いです (dislike)',
+      pairs: [
+        { imageWord: 'ゴキブリ', imageDescription: 'a cartoonish cockroach looking surprised', question: 'ゴキブリが好きですか？', questionTranslation: 'Do you like cockroaches?', answer: 'いいえ、大嫌いです！', answerTranslation: 'No, I really dislike them!' },
+        { imageWord: '運動', imageDescription: 'a person jogging on a sunny morning', question: '運動が好きですか？', questionTranslation: 'Do you like exercise?', answer: 'まあまあ好きです。', answerTranslation: 'I kind of like it.' },
+      ],
+      sentenceColumns: [
+        { label: '何が？', items: [{ text: '音楽が', translation: 'music' }, { text: 'アニメが', translation: 'anime' }, { text: '料理が', translation: 'cooking' }, { text: '冬が', translation: 'winter' }] },
+        { label: '程度', items: [{ text: '大好きです', translation: 'love it' }, { text: '好きです', translation: 'like it' }, { text: 'まあまあ好き', translation: 'kind of like it' }, { text: '嫌いです', translation: 'dislike it' }, { text: '大嫌いです', translation: 'really dislike it' }] },
+      ],
+    },
+  ],
+};
+
+const JAPANESE_IKITAITO_OMOIMASU: HayUnitContent = {
+  chapterTitleKey: 'i would like japanese',
+  conceptLabel: '〜たいと思います',
+  conceptDefinition: 'I would like to · polite desire · dict.form + たいと思います',
+  introNote: 'たいと思います is softer and more polite than たいです — the と思います (I think) adds distancing distance, which Japanese social norms translate as politeness.',
+  clusters: [
+    {
+      heading: 'たいと思います — 丁寧な希望',
+      pairs: [
+        { imageWord: '大学', imageDescription: 'the entrance gate of a Japanese university', question: '将来どんな大学に行きたいと思いますか？', questionTranslation: 'What university would you like to go to?', answer: 'いい大学に行きたいと思います。', answerTranslation: 'I would like to go to a good university.' },
+        { imageWord: 'フランス', imageDescription: 'the Eiffel Tower lit up at night', question: 'いつかどこに行きたいと思いますか？', questionTranslation: 'Where would you like to go someday?', answer: 'フランスに行きたいと思います。', answerTranslation: 'I would like to go to France.' },
+        { imageWord: '言語', imageDescription: 'speech bubbles in different languages floating above a world map', question: '将来どんな言語を学びたいと思いますか？', questionTranslation: 'What language would you like to learn?', answer: 'スペイン語を学びたいと思います。', answerTranslation: 'I would like to learn Spanish.' },
+        { imageWord: '仕事', imageDescription: 'a person at a desk looking satisfied with their work', question: '将来どんな仕事をしたいと思いますか？', questionTranslation: 'What kind of job would you like?', answer: '好きな仕事をしたいと思います。', answerTranslation: 'I would like to do work I enjoy.' },
+      ],
+    },
+    {
+      heading: 'いただけますか — 最丁寧',
+      noteInline: 'たいです → たいと思います → 〜ていただけますか (ascending politeness)',
+      pairs: [
+        { imageWord: '資料', imageDescription: 'a neatly organized folder of documents', question: '資料を見せていただけますか？', questionTranslation: 'Could I see the materials?', answer: 'はい、どうぞ。', answerTranslation: 'Yes, of course.' },
+        { imageWord: '時間', imageDescription: 'a person politely checking their watch', question: '少し時間をいただけますか？', questionTranslation: 'Could I have a little of your time?', answer: 'もちろんです。', answerTranslation: 'Of course.' },
+      ],
+      sentenceColumns: [
+        { label: '何をしたい？', items: [{ text: '大学に行きたいと思います', translation: 'would like to go to university' }, { text: 'フランスに行きたいと思います', translation: 'would like to go to France' }, { text: '言語を学びたいと思います', translation: 'would like to learn a language' }, { text: '好きな仕事をしたいと思います', translation: 'would like to do work I enjoy' }] },
+      ],
+    },
+  ],
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// KOREAN HayUnitContent entries
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const KOREAN_GAYO: HayUnitContent = {
+  chapterTitleKey: 'where are you going korean',
+  conceptLabel: '가요',
+  conceptDefinition: 'I go / I am going · 어디에 가요? · destination + 에 가요',
+  introNote: '"가요" is the polite present-tense form of 가다 (to go). Add a destination + 에 before 가요 and you can say where anyone is going. The form stays the same for every person.',
+  clusters: [
+    {
+      heading: '가요 — 어디에?',
+      pairs: [
+        { imageWord: '학교', imageDescription: 'students arriving at a Korean school in the morning', question: '어디에 가요?', questionTranslation: 'Where are you going?', answer: '학교에 가요.', answerTranslation: 'I am going to school.' },
+        { imageWord: '도서관', imageDescription: 'the entrance of a modern public library', question: '오늘 어디에 가요?', questionTranslation: 'Where are you going today?', answer: '도서관에 가요.', answerTranslation: 'I am going to the library.' },
+        { imageWord: '편의점', imageDescription: 'a brightly lit convenience store at night', question: '지금 어디에 가요?', questionTranslation: 'Where are you going now?', answer: '편의점에 가요.', answerTranslation: 'I am going to the convenience store.' },
+        { imageWord: '식당', imageDescription: 'a busy Korean restaurant with tables of diners', question: '점심에 어디에 가요?', questionTranslation: 'Where are you going for lunch?', answer: '식당에 가요.', answerTranslation: 'I am going to the restaurant.' },
+      ],
+    },
+    {
+      heading: '안 가요 — 부정형',
+      noteInline: '가요 (go) → 안 가요 (don\'t go) · 안 before the verb = negation',
+      pairs: [
+        { imageWord: '병원', imageDescription: 'the entrance of a hospital with a sign', question: '병원에 가요?', questionTranslation: 'Are you going to the hospital?', answer: '아니요, 안 가요.', answerTranslation: 'No, I\'m not going.' },
+        { imageWord: '친구 집', imageDescription: 'a person knocking on a friend\'s door', question: '친구 집에 가요?', questionTranslation: 'Are you going to your friend\'s house?', answer: '네, 가요.', answerTranslation: 'Yes, I\'m going.' },
+      ],
+      sentenceColumns: [
+        { label: '누가?', items: [{ text: '저는', translation: 'I' }, { text: '친구는', translation: 'My friend' }, { text: '선생님은', translation: 'The teacher' }] },
+        { label: '어디에 가요?', items: [{ text: '학교에 가요.', translation: 'goes to school.' }, { text: '도서관에 가요.', translation: 'goes to the library.' }, { text: '식당에 가요.', translation: 'goes to the restaurant.' }, { text: '집에 가요.', translation: 'goes home.' }] },
+      ],
+    },
+  ],
+};
+
+const KOREAN_GAJYEOGASSEOYO: HayUnitContent = {
+  chapterTitleKey: 'i took korean',
+  conceptLabel: '가져갔어요',
+  conceptDefinition: 'I took · past tense: 았/었어요 ending · 을/를 object marker',
+  introNote: 'The past tense in Korean adds 았어요 (after 아/오 vowel stems) or 었어요 (after other stems). The verb stem determines which ending to use.',
+  clusters: [
+    {
+      heading: '았/었어요 — 과거형',
+      pairs: [
+        { imageWord: '우산', imageDescription: 'a person grabbing an umbrella before heading out the door', question: '뭘 가져갔어요?', questionTranslation: 'What did you take?', answer: '우산을 가져갔어요.', answerTranslation: 'I took an umbrella.' },
+        { imageWord: '버스', imageDescription: 'a city bus at a bus stop with passengers boarding', question: '어떻게 왔어요?', questionTranslation: 'How did you get here?', answer: '버스를 탔어요.', answerTranslation: 'I took the bus.' },
+        { imageWord: '메모', imageDescription: 'a hand writing in a small notebook during a meeting', question: '수업 중에 뭘 했어요?', questionTranslation: 'What did you do in class?', answer: '메모를 했어요.', answerTranslation: 'I took notes.' },
+        { imageWord: '사진', imageDescription: 'a tourist taking photos with a camera at a landmark', question: '여행에서 뭘 했어요?', questionTranslation: 'What did you do on the trip?', answer: '사진을 찍었어요.', answerTranslation: 'I took photos.' },
+      ],
+    },
+    {
+      heading: '안 가져갔어요 — 부정 과거',
+      noteInline: '가져갔어요 (took) ↔ 안 가져갔어요 / 가져가지 않았어요 (didn\'t take)',
+      pairs: [
+        { imageWord: '약', imageDescription: 'medicine and a glass of water on a nightstand', question: '약을 먹었어요?', questionTranslation: 'Did you take your medicine?', answer: '네, 먹었어요.', answerTranslation: 'Yes, I took it.' },
+        { imageWord: '지갑', imageDescription: 'an empty coat pocket with a person looking worried', question: '지갑을 가져갔어요?', questionTranslation: 'Did you take your wallet?', answer: '아니요, 안 가져갔어요.', answerTranslation: 'No, I didn\'t take it.' },
+      ],
+      sentenceColumns: [
+        { label: '동사 과거형', items: [{ text: '가져갔어요', translation: 'took' }, { text: '탔어요', translation: 'took (vehicle)' }, { text: '찍었어요', translation: 'took (photo)' }, { text: '먹었어요', translation: 'took/ate (medicine)' }] },
+        { label: '뭘?', items: [{ text: '우산을', translation: 'the umbrella' }, { text: '버스를', translation: 'the bus' }, { text: '사진을', translation: 'photos' }, { text: '약을', translation: 'medicine' }] },
+      ],
+    },
+  ],
+};
+
+const KOREAN_SASSEOYO: HayUnitContent = {
+  chapterTitleKey: 'i bought korean',
+  conceptLabel: '샀어요',
+  conceptDefinition: 'I bought · 사다 → 샀어요 · vowel contraction past',
+  introNote: '사다 (buy) contracts to 샀어요 in the past — the ㅏ + 았 merge into 샀. Same pattern: 보다→봤어요, 오다→왔어요. Learn the pattern and you can form many past tense forms.',
+  clusters: [
+    {
+      heading: '샀어요 — 쇼핑 과거',
+      pairs: [
+        { imageWord: '옷', imageDescription: 'shopping bags from a Korean clothing store', question: '어제 뭘 샀어요?', questionTranslation: 'What did you buy yesterday?', answer: '옷을 샀어요.', answerTranslation: 'I bought clothes.' },
+        { imageWord: '책', imageDescription: 'a person paying at a bookstore counter', question: '서점에서 뭘 샀어요?', questionTranslation: 'What did you buy at the bookstore?', answer: '책을 샀어요.', answerTranslation: 'I bought a book.' },
+        { imageWord: '커피', imageDescription: 'a person at a coffee shop counter receiving their order', question: '오늘 아침에 뭘 샀어요?', questionTranslation: 'What did you buy this morning?', answer: '커피를 샀어요.', answerTranslation: 'I bought coffee.' },
+        { imageWord: '선물', imageDescription: 'a wrapped gift with a bow on a table', question: '생일 선물을 샀어요?', questionTranslation: 'Did you buy a birthday gift?', answer: '네, 샀어요.', answerTranslation: 'Yes, I bought one.' },
+      ],
+    },
+    {
+      heading: '안 샀어요 — 부정 과거',
+      noteInline: '샀어요 (bought) → 안 샀어요 (didn\'t buy) · 안 before verb negates',
+      pairs: [
+        { imageWord: '케이크', imageDescription: 'a bakery display with cakes and pastries', question: '케이크를 샀어요?', questionTranslation: 'Did you buy cake?', answer: '아니요, 안 샀어요.', answerTranslation: 'No, I didn\'t buy any.' },
+        { imageWord: '사과', imageDescription: 'fresh apples at a market stall', question: '마트에서 뭘 샀어요?', questionTranslation: 'What did you buy at the mart?', answer: '사과를 샀어요.', answerTranslation: 'I bought apples.' },
+      ],
+      sentenceColumns: [
+        { label: '누가?', items: [{ text: '저는', translation: 'I' }, { text: '친구는', translation: 'My friend' }, { text: '어머니는', translation: 'My mother' }] },
+        { label: '뭘 샀어요?', items: [{ text: '옷을 샀어요.', translation: 'bought clothes.' }, { text: '책을 샀어요.', translation: 'bought a book.' }, { text: '커피를 샀어요.', translation: 'bought coffee.' }, { text: '아무것도 안 샀어요.', translation: 'didn\'t buy anything.' }] },
+      ],
+    },
+  ],
+};
+
+const KOREAN_GAL_GEOYEYO: HayUnitContent = {
+  chapterTitleKey: 'i am going to korean',
+  conceptLabel: '갈 거예요',
+  conceptDefinition: 'I am going to · ㄹ/을 거예요 · planned future',
+  introNote: 'ㄹ 거예요 after vowel-ending stems, 을 거예요 after consonant-ending stems. This is the most natural way to express planned future in Korean.',
+  clusters: [
+    {
+      heading: '거예요 — 계획된 미래',
+      pairs: [
+        { imageWord: '서울', imageDescription: 'the Seoul skyline at night with Namsan Tower lit up', question: '이번 주말에 어디에 갈 거예요?', questionTranslation: 'Where are you going this weekend?', answer: '서울에 갈 거예요.', answerTranslation: 'I am going to go to Seoul.' },
+        { imageWord: '피자', imageDescription: 'a table set with a fresh pizza and drinks', question: '저녁에 뭘 먹을 거예요?', questionTranslation: 'What will you eat for dinner?', answer: '피자를 먹을 거예요.', answerTranslation: 'I am going to eat pizza.' },
+        { imageWord: '공부', imageDescription: 'a student at a desk preparing for an exam', question: '시험 전에 뭘 할 거예요?', questionTranslation: 'What will you do before the exam?', answer: '공부할 거예요.', answerTranslation: 'I am going to study.' },
+        { imageWord: '여행', imageDescription: 'a packed suitcase with a passport on top', question: '여름에 뭘 할 거예요?', questionTranslation: 'What will you do in summer?', answer: '여행할 거예요.', answerTranslation: 'I am going to travel.' },
+      ],
+    },
+    {
+      heading: '안 할 거예요 — 부정 미래',
+      noteInline: '갈 거예요 (will go) → 안 갈 거예요 (won\'t go) · 안 before the verb stem',
+      pairs: [
+        { imageWord: '학원', imageDescription: 'a closed academy building in the evening', question: '오늘 학원에 갈 거예요?', questionTranslation: 'Are you going to the academy today?', answer: '아니요, 안 갈 거예요.', answerTranslation: 'No, I\'m not going.' },
+        { imageWord: '요리', imageDescription: 'fresh ingredients on a kitchen counter', question: '오늘 저녁 요리할 거예요?', questionTranslation: 'Will you cook dinner tonight?', answer: '네, 요리할 거예요.', answerTranslation: 'Yes, I will cook.' },
+      ],
+      sentenceColumns: [
+        { label: '누가?', items: [{ text: '저는', translation: 'I' }, { text: '친구는', translation: 'My friend' }, { text: '그 사람은', translation: 'That person' }] },
+        { label: '뭘 할 거예요?', items: [{ text: '서울에 갈 거예요.', translation: 'will go to Seoul.' }, { text: '피자를 먹을 거예요.', translation: 'will eat pizza.' }, { text: '공부할 거예요.', translation: 'will study.' }, { text: '여행할 거예요.', translation: 'will travel.' }] },
+      ],
+    },
+  ],
+};
+
+const KOREAN_ISSEOYO: HayUnitContent = {
+  chapterTitleKey: 'i have korean',
+  conceptLabel: '있어요',
+  conceptDefinition: 'I have / There is · possession and existence · 없어요 = don\'t have',
+  introNote: '있어요 covers both "I have" and "there is" in Korean. The subject takes 이/가. Context tells you whether it\'s possession or existence. 없어요 is the negative for both.',
+  clusters: [
+    {
+      heading: '있어요 — 소유와 존재',
+      pairs: [
+        { imageWord: '강아지', imageDescription: 'a small dog sitting happily next to its owner', question: '강아지 있어요?', questionTranslation: 'Do you have a dog?', answer: '네, 강아지가 있어요.', answerTranslation: 'Yes, I have a dog.' },
+        { imageWord: '시간', imageDescription: 'a person checking their watch in a relaxed posture', question: '지금 시간 있어요?', questionTranslation: 'Do you have time now?', answer: '네, 있어요.', answerTranslation: 'Yes, I have time.' },
+        { imageWord: '문제', imageDescription: 'a person looking concerned at a document', question: '문제가 있어요?', questionTranslation: 'Is there a problem?', answer: '네, 문제가 있어요.', answerTranslation: 'Yes, there is a problem.' },
+        { imageWord: '형제', imageDescription: 'two brothers laughing together in a living room', question: '형제가 있어요?', questionTranslation: 'Do you have siblings?', answer: '네, 오빠가 있어요.', answerTranslation: 'Yes, I have an older brother.' },
+      ],
+    },
+    {
+      heading: '없어요 — 없는 것',
+      noteInline: '있어요 (have/there is) → 없어요 (don\'t have/there isn\'t)',
+      pairs: [
+        { imageWord: '돈', imageDescription: 'an empty wallet being turned inside out', question: '돈이 있어요?', questionTranslation: 'Do you have money?', answer: '아니요, 없어요.', answerTranslation: 'No, I don\'t have any.' },
+        { imageWord: '숙제', imageDescription: 'a student happily closing their empty backpack', question: '오늘 숙제 있어요?', questionTranslation: 'Is there homework today?', answer: '아니요, 숙제가 없어요!', answerTranslation: 'No, there\'s no homework!' },
+      ],
+      sentenceColumns: [
+        { label: '뭐가?', items: [{ text: '강아지가', translation: 'a dog' }, { text: '시간이', translation: 'time' }, { text: '문제가', translation: 'a problem' }, { text: '형제가', translation: 'siblings' }] },
+        { label: '있어요 / 없어요', items: [{ text: '있어요', translation: 'have / there is' }, { text: '없어요', translation: 'don\'t have / there isn\'t' }] },
+      ],
+    },
+  ],
+};
+
+const KOREAN_HAGO_SIPEOYO: HayUnitContent = {
+  chapterTitleKey: 'i want korean',
+  conceptLabel: '하고 싶어요',
+  conceptDefinition: 'I want to · verb stem + 고 싶어요 · desire expression',
+  introNote: 'Verb stem + 고 싶어요 = I want to (do something). Works with any action verb. Just attach 고 싶어요 to the stem (the verb without 다).',
+  clusters: [
+    {
+      heading: '고 싶어요 — 원하는 것',
+      pairs: [
+        { imageWord: '한국 음식', imageDescription: 'a colorful spread of Korean dishes including bibimbap and kimchi', question: '뭘 먹고 싶어요?', questionTranslation: 'What do you want to eat?', answer: '한국 음식을 먹고 싶어요.', answerTranslation: 'I want to eat Korean food.' },
+        { imageWord: '한국', imageDescription: 'the streets of Seoul with Gyeongbokgung Palace in the background', question: '어디에 가고 싶어요?', questionTranslation: 'Where do you want to go?', answer: '한국에 가고 싶어요.', answerTranslation: 'I want to go to Korea.' },
+        { imageWord: '음악', imageDescription: 'a person with headphones smiling while listening to music', question: '지금 뭘 하고 싶어요?', questionTranslation: 'What do you want to do now?', answer: '음악을 듣고 싶어요.', answerTranslation: 'I want to listen to music.' },
+        { imageWord: '쉬다', imageDescription: 'a hammock between two trees in a peaceful garden', question: '이번 여름에 뭘 하고 싶어요?', questionTranslation: 'What do you want to do this summer?', answer: '푹 쉬고 싶어요.', answerTranslation: 'I want to rest and relax.' },
+      ],
+    },
+    {
+      heading: '고 싶지 않아요 — 부정 원망',
+      noteInline: '고 싶어요 (want to) → 고 싶지 않아요 (don\'t want to)',
+      pairs: [
+        { imageWord: '운동', imageDescription: 'a person sitting on a couch looking reluctant to go outside', question: '운동하고 싶어요?', questionTranslation: 'Do you want to exercise?', answer: '아니요, 하고 싶지 않아요.', answerTranslation: 'No, I don\'t want to.' },
+        { imageWord: '여행', imageDescription: 'an airplane on the runway at sunset', question: '해외여행을 가고 싶어요?', questionTranslation: 'Do you want to travel abroad?', answer: '네, 정말 가고 싶어요!', answerTranslation: 'Yes, I really want to go!' },
+      ],
+      sentenceColumns: [
+        { label: '동사stem + 고 싶어요', items: [{ text: '먹고 싶어요', translation: 'want to eat' }, { text: '가고 싶어요', translation: 'want to go' }, { text: '듣고 싶어요', translation: 'want to listen' }, { text: '쉬고 싶어요', translation: 'want to rest' }] },
+        { label: '뭘 / 어디에', items: [{ text: '한국 음식을', translation: 'Korean food' }, { text: '한국에', translation: 'to Korea' }, { text: '음악을', translation: 'music' }, { text: '집에서', translation: 'at home' }] },
+      ],
+    },
+  ],
+};
+
+const KOREAN_IEYO_YEYO: HayUnitContent = {
+  chapterTitleKey: 'i am identity korean',
+  conceptLabel: '이에요 / 예요',
+  conceptDefinition: 'I am · copula · 이에요 (after consonant) · 예요 (after vowel)',
+  introNote: 'Noun + 이에요/예요 = "[topic] is [noun]". The form depends on whether the noun ends in a consonant (이에요) or a vowel (예요). Topic is marked with 은/는.',
+  clusters: [
+    {
+      heading: '이에요 / 예요 — 정체',
+      pairs: [
+        { imageWord: '학생', imageDescription: 'a student in a Korean school uniform at their desk', question: '학생이에요?', questionTranslation: 'Are you a student?', answer: '네, 학생이에요.', answerTranslation: 'Yes, I am a student.' },
+        { imageWord: '선생님', imageDescription: 'a teacher writing on a whiteboard in front of the class', question: '저 분은 누구예요?', questionTranslation: 'Who is that person?', answer: '김 선생님이에요.', answerTranslation: 'That is Teacher Kim.' },
+        { imageWord: '한국 사람', imageDescription: 'a person waving with a Korean flag in the background', question: '한국 사람이에요?', questionTranslation: 'Are you Korean?', answer: '아니요, 미국 사람이에요.', answerTranslation: 'No, I am American.' },
+        { imageWord: '친구', imageDescription: 'two friends taking a selfie together', question: '저 사람이 친구예요?', questionTranslation: 'Is that person your friend?', answer: '네, 제 친구예요.', answerTranslation: 'Yes, that\'s my friend.' },
+      ],
+    },
+    {
+      heading: '이/가 아니에요 — 부정',
+      noteInline: '이에요/예요 (is) → 이/가 아니에요 (is not) · subject takes 이/가 before 아니에요',
+      pairs: [
+        { imageWord: '의사', imageDescription: 'a doctor in a white coat with a stethoscope', question: '의사예요?', questionTranslation: 'Are you a doctor?', answer: '아니요, 의사가 아니에요.', answerTranslation: 'No, I am not a doctor.' },
+        { imageWord: '로봇', imageDescription: 'a friendly cartoon robot raising its hand', question: '로봇이에요?', questionTranslation: 'Are you a robot?', answer: '아니요, 사람이에요!', answerTranslation: 'No, I am a person!' },
+      ],
+      sentenceColumns: [
+        { label: '누구는?', items: [{ text: '저는', translation: 'I am' }, { text: '저 분은', translation: 'That person is' }, { text: '이것은', translation: 'This is' }] },
+        { label: '뭐예요?', items: [{ text: '학생이에요.', translation: 'a student.' }, { text: '선생님이에요.', translation: 'a teacher.' }, { text: '한국 사람이에요.', translation: 'Korean.' }, { text: '친구예요.', translation: 'a friend.' }] },
+      ],
+    },
+  ],
+};
+
+const KOREAN_EODI_ISSEOYO: HayUnitContent = {
+  chapterTitleKey: 'where am i korean',
+  conceptLabel: '어디에 있어요',
+  conceptDefinition: 'Where am I? · 에 있어요 = location · position words: 위/아래/안/밖/옆',
+  introNote: '에 있어요 = is at/in a location. 에 있어요 vs 에서 하다: 에 있어요 is where something IS; 에서 is where something HAPPENS. Keep them separate.',
+  clusters: [
+    {
+      heading: '에 있어요 — 위치',
+      pairs: [
+        { imageWord: '도서관', imageDescription: 'a student studying quietly in a library', question: '지금 어디에 있어요?', questionTranslation: 'Where are you now?', answer: '도서관에 있어요.', answerTranslation: 'I am at the library.' },
+        { imageWord: '지하철역', imageDescription: 'commuters at a Seoul subway station', question: '지금 어디에 있어요?', questionTranslation: 'Where are you?', answer: '지하철역에 있어요.', answerTranslation: 'I am at the subway station.' },
+        { imageWord: '책상 위', imageDescription: 'a cat sitting on top of a desk', question: '고양이가 어디에 있어요?', questionTranslation: 'Where is the cat?', answer: '책상 위에 있어요.', answerTranslation: 'It is on top of the desk.' },
+        { imageWord: '가방 안', imageDescription: 'a school bag with books visible inside', question: '교과서가 어디에 있어요?', questionTranslation: 'Where is the textbook?', answer: '가방 안에 있어요.', answerTranslation: 'It is inside the bag.' },
+      ],
+    },
+    {
+      heading: '없어요 — 그곳에 없음',
+      noteInline: '있어요 (is there) → 없어요 (is not there) · same structure, opposite meaning',
+      pairs: [
+        { imageWord: '집', imageDescription: 'a house with all the lights off', question: '지금 집에 있어요?', questionTranslation: 'Are you home now?', answer: '아니요, 집에 없어요.', answerTranslation: 'No, I am not home.' },
+        { imageWord: '열쇠', imageDescription: 'an empty hook where keys are usually hung', question: '열쇠가 어디에 있어요?', questionTranslation: 'Where are the keys?', answer: '몰라요. 없어요.', answerTranslation: 'I don\'t know. They\'re not here.' },
+      ],
+      sentenceColumns: [
+        { label: '장소', items: [{ text: '도서관에', translation: 'at the library' }, { text: '지하철역에', translation: 'at the subway station' }, { text: '책상 위에', translation: 'on the desk' }, { text: '가방 안에', translation: 'in the bag' }] },
+        { label: '있어요 / 없어요', items: [{ text: '있어요', translation: 'is/am there' }, { text: '없어요', translation: 'is not there' }] },
+      ],
+    },
+  ],
+};
+
+const KOREAN_HAL_SU_ISSEOYO: HayUnitContent = {
+  chapterTitleKey: 'i can korean',
+  conceptLabel: '할 수 있어요',
+  conceptDefinition: 'I can · ability · ㄹ/을 수 있어요 · 못 해요 = informal can\'t',
+  introNote: 'Verb stem + ㄹ/을 수 있어요 = can do. Vowel-ending stems take ㄹ, consonant-ending stems take 을. 못 해요 is the common spoken shortcut for "can\'t".',
+  clusters: [
+    {
+      heading: 'ㄹ/을 수 있어요 — 능력',
+      pairs: [
+        { imageWord: '한국어', imageDescription: 'a person speaking confidently in a conversation in Korea', question: '한국어를 말할 수 있어요?', questionTranslation: 'Can you speak Korean?', answer: '네, 조금 말할 수 있어요.', answerTranslation: 'Yes, I can speak a little.' },
+        { imageWord: '요리', imageDescription: 'a person preparing a Korean meal in the kitchen', question: '요리를 할 수 있어요?', questionTranslation: 'Can you cook?', answer: '네, 할 수 있어요.', answerTranslation: 'Yes, I can.' },
+        { imageWord: '수영', imageDescription: 'a swimmer doing freestyle in a pool', question: '수영할 수 있어요?', questionTranslation: 'Can you swim?', answer: '네, 수영할 수 있어요.', answerTranslation: 'Yes, I can swim.' },
+        { imageWord: '운전', imageDescription: 'a person behind the wheel of a car on the road', question: '운전을 할 수 있어요?', questionTranslation: 'Can you drive?', answer: '아직 못 해요.', answerTranslation: 'I can\'t yet.' },
+      ],
+    },
+    {
+      heading: '못 해요 — 능력 없음',
+      noteInline: '할 수 있어요 (can do) → 할 수 없어요 / 못 해요 (cannot do) · 못 is more colloquial',
+      pairs: [
+        { imageWord: '피아노', imageDescription: 'a grand piano in a music room', question: '피아노를 칠 수 있어요?', questionTranslation: 'Can you play piano?', answer: '아니요, 못 쳐요.', answerTranslation: 'No, I can\'t.' },
+        { imageWord: '스키', imageDescription: 'a person skiing down a snowy mountain slope', question: '스키를 탈 수 있어요?', questionTranslation: 'Can you ski?', answer: '네, 조금 탈 수 있어요.', answerTranslation: 'Yes, a little.' },
+      ],
+      sentenceColumns: [
+        { label: '뭘?', items: [{ text: '한국어를', translation: 'Korean' }, { text: '요리를', translation: 'cooking' }, { text: '운전을', translation: 'driving' }, { text: '피아노를', translation: 'piano' }] },
+        { label: '능력', items: [{ text: '할 수 있어요', translation: 'can do' }, { text: '못 해요', translation: 'can\'t do (colloquial)' }, { text: '아직 못 해요', translation: 'can\'t yet' }, { text: '조금 할 수 있어요', translation: 'can do a little' }] },
+      ],
+    },
+  ],
+};
+
+const KOREAN_ISSEOYO_EXISTENCE: HayUnitContent = {
+  chapterTitleKey: 'there is korean',
+  conceptLabel: '있어요 / 없어요',
+  conceptDefinition: 'There is / There are · existence · 이/가 marks what exists · 에 marks where',
+  introNote: '이/가 있어요 = there is (something exists). 이/가 없어요 = there isn\'t. The full pattern: [location]에 + [thing]이/가 + 있어요/없어요.',
+  clusters: [
+    {
+      heading: '이/가 있어요 — 존재',
+      pairs: [
+        { imageWord: '공원', imageDescription: 'a park with trees and benches near a residential area', question: '근처에 공원이 있어요?', questionTranslation: 'Is there a park nearby?', answer: '네, 공원이 있어요.', answerTranslation: 'Yes, there is a park.' },
+        { imageWord: '냉장고', imageDescription: 'an open refrigerator with various foods inside', question: '냉장고에 뭐가 있어요?', questionTranslation: 'What is in the fridge?', answer: '음식이 많이 있어요.', answerTranslation: 'There is a lot of food.' },
+        { imageWord: '사람', imageDescription: 'a group of people in a busy classroom', question: '교실에 몇 명이 있어요?', questionTranslation: 'How many people are in the classroom?', answer: '학생이 30명 있어요.', answerTranslation: 'There are 30 students.' },
+        { imageWord: '문제', imageDescription: 'a person looking stressed at a problem on their screen', question: '문제가 있어요?', questionTranslation: 'Is there a problem?', answer: '네, 문제가 있어요.', answerTranslation: 'Yes, there is a problem.' },
+      ],
+    },
+    {
+      heading: '이/가 없어요 — 부재',
+      noteInline: '있어요 (there is) → 없어요 (there isn\'t) · negation of existence',
+      pairs: [
+        { imageWord: '커피', imageDescription: 'an empty coffee pot and bare counter', question: '커피가 있어요?', questionTranslation: 'Is there coffee?', answer: '아니요, 없어요.', answerTranslation: 'No, there isn\'t any.' },
+        { imageWord: '사람', imageDescription: 'a completely empty school hallway', question: '복도에 사람이 있어요?', questionTranslation: 'Are there people in the hallway?', answer: '아니요, 아무도 없어요.', answerTranslation: 'No, there is no one.' },
+      ],
+      sentenceColumns: [
+        { label: '장소에', items: [{ text: '근처에', translation: 'nearby' }, { text: '교실에', translation: 'in the classroom' }, { text: '냉장고에', translation: 'in the fridge' }] },
+        { label: '뭐가 / 누가?', items: [{ text: '공원이 있어요.', translation: 'There is a park.' }, { text: '학생이 30명 있어요.', translation: 'There are 30 students.' }, { text: '음식이 없어요.', translation: 'There is no food.' }, { text: '아무도 없어요.', translation: 'There is no one.' }] },
+      ],
+    },
+  ],
+};
+
+const KOREAN_JOAHAEYO: HayUnitContent = {
+  chapterTitleKey: 'i like korean',
+  conceptLabel: '좋아해요',
+  conceptDefinition: 'I like · preference · 을/를 + 좋아해요 · 싫어해요 = dislike',
+  introNote: '"좋아해요" = to like (as a preference/feeling). The liked thing takes 을/를. Distinct from "좋아요" (it is good/nice) — that is a quality judgment, not a preference.',
+  clusters: [
+    {
+      heading: '을/를 좋아해요 — 선호',
+      pairs: [
+        { imageWord: 'K-pop', imageDescription: 'a K-pop concert with colorful stage lights', question: '어떤 음악을 좋아해요?', questionTranslation: 'What kind of music do you like?', answer: 'K-pop을 좋아해요.', answerTranslation: 'I like K-pop.' },
+        { imageWord: '한국 음식', imageDescription: 'a table full of Korean dishes', question: '한국 음식을 좋아해요?', questionTranslation: 'Do you like Korean food?', answer: '네, 정말 좋아해요.', answerTranslation: 'Yes, I really like it.' },
+        { imageWord: '운동', imageDescription: 'a person jogging in a park', question: '운동을 좋아해요?', questionTranslation: 'Do you like exercise?', answer: '별로 안 좋아해요.', answerTranslation: 'I don\'t really like it.' },
+        { imageWord: '겨울', imageDescription: 'a snow-covered street with bare trees', question: '겨울을 좋아해요?', questionTranslation: 'Do you like winter?', answer: '아니요, 싫어해요.', answerTranslation: 'No, I dislike it.' },
+      ],
+    },
+    {
+      heading: '싫어해요 — 좋아하지 않는 것',
+      noteInline: '정말 좋아해요 (love) → 좋아해요 (like) → 별로 안 좋아해요 (don\'t really like) → 싫어해요 (dislike)',
+      pairs: [
+        { imageWord: '곤충', imageDescription: 'a cartoon insect looking surprised', question: '곤충을 좋아해요?', questionTranslation: 'Do you like insects?', answer: '아니요, 싫어해요!', answerTranslation: 'No, I dislike them!' },
+        { imageWord: '책', imageDescription: 'a person reading a book comfortably in a chair', question: '책 읽는 것을 좋아해요?', questionTranslation: 'Do you like reading?', answer: '네, 좋아해요.', answerTranslation: 'Yes, I like it.' },
+      ],
+      sentenceColumns: [
+        { label: '뭘?', items: [{ text: 'K-pop을', translation: 'K-pop' }, { text: '한국 음식을', translation: 'Korean food' }, { text: '운동을', translation: 'exercise' }, { text: '겨울을', translation: 'winter' }] },
+        { label: '정도', items: [{ text: '정말 좋아해요', translation: 'love it' }, { text: '좋아해요', translation: 'like it' }, { text: '별로 안 좋아해요', translation: 'don\'t really like it' }, { text: '싫어해요', translation: 'dislike it' }] },
+      ],
+    },
+  ],
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MANDARIN HayUnitContent entries
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const MANDARIN_WO_QU: HayUnitContent = {
+  chapterTitleKey: 'where are you going mandarin',
+  conceptLabel: '我去',
+  conceptDefinition: 'I go / I am going · 你去哪儿？ · SVO: subject + 去 + destination',
+  introNote: '"我去" needs no preposition — just go straight to the destination. 去 + place is all you need. No articles either. Chinese is beautifully direct.',
+  clusters: [
+    {
+      heading: '去 — 目的地',
+      pairs: [
+        { imageWord: '学校', imageDescription: 'students walking through a school gate in the morning', question: '你去哪儿？', questionTranslation: 'Where are you going?', answer: '我去学校。', answerTranslation: 'I am going to school.' },
+        { imageWord: '图书馆', imageDescription: 'the entrance of a modern library', question: '你今天去哪儿？', questionTranslation: 'Where are you going today?', answer: '我去图书馆。', answerTranslation: 'I am going to the library.' },
+        { imageWord: '超市', imageDescription: 'a supermarket entrance with shopping carts', question: '你现在去哪儿？', questionTranslation: 'Where are you going now?', answer: '我去超市。', answerTranslation: 'I am going to the supermarket.' },
+        { imageWord: '餐馆', imageDescription: 'a Chinese restaurant with a welcoming entrance', question: '你今晚去哪儿？', questionTranslation: 'Where are you going tonight?', answer: '我去餐馆。', answerTranslation: 'I am going to the restaurant.' },
+      ],
+    },
+    {
+      heading: '我不去 — 否定',
+      noteInline: '我去 (I go) → 我不去 (I don\'t go) · 不 before the verb',
+      pairs: [
+        { imageWord: '医院', imageDescription: 'a hospital entrance with a red cross sign', question: '你去医院吗？', questionTranslation: 'Are you going to the hospital?', answer: '不，我不去。', answerTranslation: 'No, I\'m not going.' },
+        { imageWord: '朋友家', imageDescription: 'a person arriving at a friend\'s apartment door', question: '你去朋友家吗？', questionTranslation: 'Are you going to your friend\'s house?', answer: '是的，我去。', answerTranslation: 'Yes, I\'m going.' },
+      ],
+      sentenceColumns: [
+        { label: '谁？', items: [{ text: '我去', translation: 'I go' }, { text: '她去', translation: 'She goes' }, { text: '他们去', translation: 'They go' }] },
+        { label: '去哪儿？', items: [{ text: '学校。', translation: 'school.' }, { text: '图书馆。', translation: 'the library.' }, { text: '超市。', translation: 'the supermarket.' }, { text: '餐馆。', translation: 'the restaurant.' }] },
+      ],
+    },
+  ],
+};
+
+const MANDARIN_NA_LE: HayUnitContent = {
+  chapterTitleKey: 'i took mandarin',
+  conceptLabel: '我拿了',
+  conceptDefinition: 'I took · 了 marks completion · verb + 了 + object',
+  introNote: '了 is an aspect marker — it signals a completed action, not simply a past action. The distinction is subtle but important: 我拿了 means "I have taken it" (it\'s done).',
+  clusters: [
+    {
+      heading: '了 — 完成体',
+      pairs: [
+        { imageWord: '伞', imageDescription: 'a person grabbing an umbrella before heading out', question: '你拿了什么？', questionTranslation: 'What did you take?', answer: '我拿了一把伞。', answerTranslation: 'I took an umbrella.' },
+        { imageWord: '钱包', imageDescription: 'a wallet being put into a coat pocket', question: '你带了钱包吗？', questionTranslation: 'Did you take your wallet?', answer: '带了，带了。', answerTranslation: 'Yes, I took it.' },
+        { imageWord: '照片', imageDescription: 'a tourist taking photos at a famous landmark', question: '你拍了照片吗？', questionTranslation: 'Did you take photos?', answer: '拍了很多。', answerTranslation: 'I took many.' },
+        { imageWord: '出租车', imageDescription: 'a yellow taxi at the curb in a city', question: '你坐了出租车吗？', questionTranslation: 'Did you take a taxi?', answer: '坐了。', answerTranslation: 'I took one.' },
+      ],
+    },
+    {
+      heading: '没拿 — 否定完成',
+      noteInline: '拿了 (took) → 没拿 (didn\'t take) · 没 negates completion, 了 disappears',
+      pairs: [
+        { imageWord: '钥匙', imageDescription: 'an empty hook where keys are usually kept', question: '你带钥匙了吗？', questionTranslation: 'Did you take the keys?', answer: '没带，忘了！', answerTranslation: 'I didn\'t take them. I forgot!' },
+        { imageWord: '书', imageDescription: 'textbooks in a backpack at school', question: '你带书了吗？', questionTranslation: 'Did you take your books?', answer: '带了，带了。', answerTranslation: 'Yes, I took them.' },
+      ],
+      sentenceColumns: [
+        { label: '动词+了', items: [{ text: '拿了', translation: 'took' }, { text: '带了', translation: 'brought/took' }, { text: '拍了', translation: 'took (photo)' }, { text: '坐了', translation: 'took (vehicle)' }] },
+        { label: '什么？', items: [{ text: '一把伞', translation: 'an umbrella' }, { text: '钱包', translation: 'the wallet' }, { text: '照片', translation: 'photos' }, { text: '出租车', translation: 'a taxi' }] },
+      ],
+    },
+  ],
+};
+
+const MANDARIN_MAI_LE: HayUnitContent = {
+  chapterTitleKey: 'i bought mandarin',
+  conceptLabel: '我买了',
+  conceptDefinition: 'I bought · 买 (mǎi) = buy · 了 completion · measure words',
+  introNote: '买了 = bought (completed). Note the tonal pair: 买 mǎi (buy, 3rd tone) vs 卖 mài (sell, 4th tone). Context and tones both matter here.',
+  clusters: [
+    {
+      heading: '买了 — 什么？',
+      pairs: [
+        { imageWord: '书', imageDescription: 'a person paying at a bookstore counter', question: '你昨天买了什么？', questionTranslation: 'What did you buy yesterday?', answer: '我买了一本书。', answerTranslation: 'I bought a book.' },
+        { imageWord: '衣服', imageDescription: 'shopping bags from a clothing store', question: '你在哪儿买了衣服？', questionTranslation: 'Where did you buy clothes?', answer: '我在商场买了衣服。', answerTranslation: 'I bought clothes at the mall.' },
+        { imageWord: '咖啡', imageDescription: 'a person at a café counter receiving their coffee', question: '你今天早上买了什么？', questionTranslation: 'What did you buy this morning?', answer: '我买了一杯咖啡。', answerTranslation: 'I bought a cup of coffee.' },
+        { imageWord: '礼物', imageDescription: 'a wrapped gift with a bow on a store counter', question: '你买了什么礼物？', questionTranslation: 'What gift did you buy?', answer: '我买了一个礼物。', answerTranslation: 'I bought a gift.' },
+      ],
+    },
+    {
+      heading: '没买 — 没有购买',
+      noteInline: '买了 (bought) → 没买 (didn\'t buy) · 没 replaces 不 for 了-completions',
+      pairs: [
+        { imageWord: '蛋糕', imageDescription: 'a bakery display with colorful cakes', question: '你买蛋糕了吗？', questionTranslation: 'Did you buy cake?', answer: '没买，太贵了。', answerTranslation: 'I didn\'t buy any. Too expensive.' },
+        { imageWord: '苹果', imageDescription: 'fresh apples at a market stall', question: '你买了什么水果？', questionTranslation: 'What fruit did you buy?', answer: '我买了一些苹果。', answerTranslation: 'I bought some apples.' },
+      ],
+      sentenceColumns: [
+        { label: '谁？', items: [{ text: '我买了', translation: 'I bought' }, { text: '她买了', translation: 'She bought' }, { text: '我们买了', translation: 'We bought' }] },
+        { label: '买了什么？', items: [{ text: '一本书', translation: 'a book' }, { text: '一杯咖啡', translation: 'a cup of coffee' }, { text: '衣服', translation: 'clothes' }, { text: '什么都没买', translation: 'nothing' }] },
+      ],
+    },
+  ],
+};
+
+const MANDARIN_YAO_QU: HayUnitContent = {
+  chapterTitleKey: 'i am going to mandarin',
+  conceptLabel: '我要去',
+  conceptDefinition: 'I am going to · 要 = immediate intent · 打算 = deliberate plan',
+  introNote: '要 expresses immediate or strong intention: 我要去 (I\'m going to go). 打算 is more deliberate planning: 我打算去 (I plan to go). Both very high frequency.',
+  clusters: [
+    {
+      heading: '要 / 打算 — 近未来',
+      pairs: [
+        { imageWord: '超市', imageDescription: 'a supermarket entrance with shopping carts outside', question: '你要去哪儿？', questionTranslation: 'Where are you going to go?', answer: '我要去超市。', answerTranslation: 'I am going to go to the supermarket.' },
+        { imageWord: '电影', imageDescription: 'the entrance of a cinema with movie posters displayed', question: '你今晚打算做什么？', questionTranslation: 'What are you planning to do tonight?', answer: '我打算去看电影。', answerTranslation: 'I plan to go watch a movie.' },
+        { imageWord: '学习', imageDescription: 'a student studying at a desk with books and notes', question: '考试前你打算做什么？', questionTranslation: 'What do you plan to do before the exam?', answer: '我打算好好学习。', answerTranslation: 'I plan to study well.' },
+        { imageWord: '旅行', imageDescription: 'a suitcase packed and ready by the front door', question: '暑假你要做什么？', questionTranslation: 'What are you going to do in summer?', answer: '我要去旅行。', answerTranslation: 'I am going to travel.' },
+      ],
+    },
+    {
+      heading: '不打算 — 否定计划',
+      noteInline: '打算 (plan to) → 不打算 (don\'t plan to) · 不 before 打算',
+      pairs: [
+        { imageWord: '加班', imageDescription: 'a person leaving the office at a normal time looking happy', question: '你今晚打算加班吗？', questionTranslation: 'Are you planning to work overtime tonight?', answer: '不，我不打算加班。', answerTranslation: 'No, I don\'t plan to.' },
+        { imageWord: '做饭', imageDescription: 'fresh ingredients on a kitchen counter', question: '你今晚打算做饭吗？', questionTranslation: 'Do you plan to cook tonight?', answer: '是的，我要做饭。', answerTranslation: 'Yes, I\'m going to cook.' },
+      ],
+      sentenceColumns: [
+        { label: '谁？', items: [{ text: '我要', translation: 'I\'m going to' }, { text: '我打算', translation: 'I plan to' }, { text: '她要', translation: 'She\'s going to' }] },
+        { label: '做什么？', items: [{ text: '去超市', translation: 'go to the supermarket' }, { text: '看电影', translation: 'watch a movie' }, { text: '学习', translation: 'study' }, { text: '去旅行', translation: 'travel' }] },
+      ],
+    },
+  ],
+};
+
+const MANDARIN_WO_YOU: HayUnitContent = {
+  chapterTitleKey: 'i have mandarin',
+  conceptLabel: '我有',
+  conceptDefinition: 'I have / There is · 有 = have/exist · 没有 = don\'t have/there isn\'t',
+  introNote: '有 covers both possession and existence in Chinese. 我有 (I have). 这里有 (There is here). 有没有 makes a yes/no question. 没有 is the negative for both.',
+  clusters: [
+    {
+      heading: '有 — 拥有与存在',
+      pairs: [
+        { imageWord: '哥哥', imageDescription: 'two brothers sitting together and laughing', question: '你有哥哥吗？', questionTranslation: 'Do you have an older brother?', answer: '有，我有一个哥哥。', answerTranslation: 'Yes, I have one older brother.' },
+        { imageWord: '时间', imageDescription: 'a person relaxing with their feet up', question: '你有时间吗？', questionTranslation: 'Do you have time?', answer: '有，我有时间。', answerTranslation: 'Yes, I have time.' },
+        { imageWord: '问题', imageDescription: 'a person raising their hand with a question', question: '有问题吗？', questionTranslation: 'Are there any questions?', answer: '有，我有一个问题。', answerTranslation: 'Yes, I have a question.' },
+        { imageWord: '宠物', imageDescription: 'a cat and dog sitting together', question: '你有宠物吗？', questionTranslation: 'Do you have a pet?', answer: '有，我有一只猫。', answerTranslation: 'Yes, I have a cat.' },
+      ],
+    },
+    {
+      heading: '没有 — 否定',
+      noteInline: '有 (have) → 没有 (don\'t have / there isn\'t) · never say 不有',
+      pairs: [
+        { imageWord: '钱', imageDescription: 'an empty wallet being turned inside out', question: '你有钱吗？', questionTranslation: 'Do you have money?', answer: '没有，我没有钱。', answerTranslation: 'No, I don\'t have money.' },
+        { imageWord: '作业', imageDescription: 'a student happily closing their textbook', question: '今天有作业吗？', questionTranslation: 'Is there homework today?', answer: '没有！今天没有作业！', answerTranslation: 'No! There\'s no homework today!' },
+      ],
+      sentenceColumns: [
+        { label: '谁有什么？', items: [{ text: '我有哥哥', translation: 'I have an older brother' }, { text: '我有时间', translation: 'I have time' }, { text: '这里有问题', translation: 'There is a problem' }, { text: '我有宠物', translation: 'I have a pet' }] },
+        { label: '有 / 没有', items: [{ text: '有', translation: 'have / there is' }, { text: '没有', translation: 'don\'t have / there isn\'t' }, { text: '有没有？', translation: 'is there? / do you have?' }] },
+      ],
+    },
+  ],
+};
+
+const MANDARIN_WO_XIANG: HayUnitContent = {
+  chapterTitleKey: 'i want mandarin',
+  conceptLabel: '我想',
+  conceptDefinition: 'I want to · 想 + verb = want to do · 想要 + noun = want something',
+  introNote: '想 + verb expresses a desire to do something. 想要 + noun expresses wanting a thing. Both are natural and very high-frequency in daily conversation.',
+  clusters: [
+    {
+      heading: '想 — 愿望',
+      pairs: [
+        { imageWord: '饺子', imageDescription: 'a plate of steaming dumplings at a Chinese restaurant', question: '你想吃什么？', questionTranslation: 'What do you want to eat?', answer: '我想吃饺子。', answerTranslation: 'I want to eat dumplings.' },
+        { imageWord: '中国', imageDescription: 'the Great Wall of China stretching across green hills', question: '你最想去哪儿？', questionTranslation: 'Where do you most want to go?', answer: '我最想去中国。', answerTranslation: 'I most want to go to China.' },
+        { imageWord: '睡觉', imageDescription: 'a tired person yawning and heading to bed', question: '你现在想做什么？', questionTranslation: 'What do you want to do now?', answer: '我想睡觉。', answerTranslation: 'I want to sleep.' },
+        { imageWord: '中文', imageDescription: 'a student practicing Chinese characters in a notebook', question: '你想学什么语言？', questionTranslation: 'What language do you want to learn?', answer: '我想学中文。', answerTranslation: 'I want to learn Chinese.' },
+      ],
+    },
+    {
+      heading: '不想 — 否定愿望',
+      noteInline: '我想 (want to) → 我不想 (don\'t want to) · 不 before 想',
+      pairs: [
+        { imageWord: '作业', imageDescription: 'homework on a desk with a pencil', question: '你想做作业吗？', questionTranslation: 'Do you want to do homework?', answer: '我不想做作业。', answerTranslation: 'I don\'t want to do homework.' },
+        { imageWord: '鱼', imageDescription: 'a plate of fish at the dinner table', question: '你想吃鱼吗？', questionTranslation: 'Do you want to eat fish?', answer: '想，我很喜欢鱼。', answerTranslation: 'Yes, I love fish.' },
+      ],
+      sentenceColumns: [
+        { label: '想做什么？', items: [{ text: '想吃饺子', translation: 'want to eat dumplings' }, { text: '想去中国', translation: 'want to go to China' }, { text: '想睡觉', translation: 'want to sleep' }, { text: '想学中文', translation: 'want to learn Chinese' }] },
+        { label: '想 / 不想', items: [{ text: '想', translation: 'want to' }, { text: '不想', translation: 'don\'t want to' }, { text: '很想', translation: 'really want to' }] },
+      ],
+    },
+  ],
+};
+
+const MANDARIN_WO_SHI: HayUnitContent = {
+  chapterTitleKey: 'i am identity mandarin',
+  conceptLabel: '我是',
+  conceptDefinition: 'I am · 是 for identity & classification · NOT for adjectives',
+  introNote: '是 identifies what something IS — a role, nationality, or classification. Critical rule: 是 is NEVER used with adjectives. 我很高 (I am tall) — not 我是高.',
+  clusters: [
+    {
+      heading: '是 — 身份',
+      pairs: [
+        { imageWord: '学生', imageDescription: 'a student in a classroom with textbooks open', question: '你是学生吗？', questionTranslation: 'Are you a student?', answer: '是，我是学生。', answerTranslation: 'Yes, I am a student.' },
+        { imageWord: '老师', imageDescription: 'a teacher writing on a whiteboard in class', question: '他是谁？', questionTranslation: 'Who is he?', answer: '他是王老师。', answerTranslation: 'He is Teacher Wang.' },
+        { imageWord: '中国人', imageDescription: 'a person waving with a Chinese flag in the background', question: '你是中国人吗？', questionTranslation: 'Are you Chinese?', answer: '不，我是美国人。', answerTranslation: 'No, I am American.' },
+        { imageWord: '朋友', imageDescription: 'two people laughing and taking a selfie together', question: '她是你的朋友吗？', questionTranslation: 'Is she your friend?', answer: '是的，她是我的朋友。', answerTranslation: 'Yes, she is my friend.' },
+      ],
+    },
+    {
+      heading: '不是 — 否定身份',
+      noteInline: '是 (is) → 不是 (is not) · 是不是 makes an A-not-A question',
+      pairs: [
+        { imageWord: '医生', imageDescription: 'a doctor in a white coat with a stethoscope', question: '你是医生吗？', questionTranslation: 'Are you a doctor?', answer: '不，我不是医生。', answerTranslation: 'No, I am not a doctor.' },
+        { imageWord: '机器人', imageDescription: 'a friendly-looking robot', question: '你是不是机器人？', questionTranslation: 'Are you a robot?', answer: '我不是机器人，我是人！', answerTranslation: 'I\'m not a robot, I\'m a person!' },
+      ],
+      sentenceColumns: [
+        { label: '谁是？', items: [{ text: '我是', translation: 'I am' }, { text: '他是', translation: 'He is' }, { text: '这是', translation: 'This is' }] },
+        { label: '什么？', items: [{ text: '学生。', translation: 'a student.' }, { text: '老师。', translation: 'a teacher.' }, { text: '中国人。', translation: 'Chinese.' }, { text: '我的朋友。', translation: 'my friend.' }] },
+      ],
+    },
+  ],
+};
+
+const MANDARIN_WO_ZAI: HayUnitContent = {
+  chapterTitleKey: 'where am i mandarin',
+  conceptLabel: '我在',
+  conceptDefinition: 'I am at · 在 = location · position words: 上/下/里/外/旁边',
+  introNote: '"我在" means I am AT a location. Use 在 for location — never 是. Critical rule: 我在图书馆 ✓ / 我是图书馆 ✗. Then add position words to describe exact placement.',
+  clusters: [
+    {
+      heading: '在 — 位置',
+      pairs: [
+        { imageWord: '图书馆', imageDescription: 'a student studying at a desk in a library', question: '你现在在哪儿？', questionTranslation: 'Where are you now?', answer: '我在图书馆。', answerTranslation: 'I am at the library.' },
+        { imageWord: '地铁站', imageDescription: 'commuters at a busy subway station', question: '你在哪儿？', questionTranslation: 'Where are you?', answer: '我在地铁站。', answerTranslation: 'I am at the subway station.' },
+        { imageWord: '桌子上', imageDescription: 'a cat sitting on top of a desk', question: '猫在哪儿？', questionTranslation: 'Where is the cat?', answer: '猫在桌子上。', answerTranslation: 'The cat is on the table.' },
+        { imageWord: '包里', imageDescription: 'a bag with books visible inside', question: '课本在哪儿？', questionTranslation: 'Where is the textbook?', answer: '课本在包里。', answerTranslation: 'The textbook is in the bag.' },
+      ],
+    },
+    {
+      heading: '不在 — 不在那里',
+      noteInline: '在 (is at) → 不在 (is not at) · position words: 上 on · 下 under · 里 inside · 外 outside',
+      pairs: [
+        { imageWord: '家', imageDescription: 'a house with the lights off and no car outside', question: '你现在在家吗？', questionTranslation: 'Are you home now?', answer: '不在，我不在家。', answerTranslation: 'No, I\'m not home.' },
+        { imageWord: '钥匙', imageDescription: 'an empty key hook on the wall', question: '钥匙在哪儿？', questionTranslation: 'Where are the keys?', answer: '我不知道，不在这里。', answerTranslation: 'I don\'t know, they\'re not here.' },
+      ],
+      sentenceColumns: [
+        { label: '地点', items: [{ text: '图书馆', translation: 'library' }, { text: '地铁站', translation: 'subway station' }, { text: '桌子上', translation: 'on the table' }, { text: '包里', translation: 'in the bag' }] },
+        { label: '在 / 不在', items: [{ text: '在', translation: 'is at' }, { text: '不在', translation: 'is not at' }, { text: '在哪儿？', translation: 'where is?' }] },
+      ],
+    },
+  ],
+};
+
+const MANDARIN_WO_HUI: HayUnitContent = {
+  chapterTitleKey: 'i can mandarin',
+  conceptLabel: '我会 / 我能',
+  conceptDefinition: 'I can · 会 = learned skill · 能 = physical ability · 可以 = permission',
+  introNote: '会 for learned skills (languages, cooking, driving). 能 for physical capacity (I can\'t go today — I\'m sick). 可以 for permission (can I come in?). Three "cans" — context picks.',
+  clusters: [
+    {
+      heading: '会 / 能 — 能力',
+      pairs: [
+        { imageWord: '中文', imageDescription: 'a person having a confident conversation in Chinese', question: '你会说中文吗？', questionTranslation: 'Can you speak Chinese?', answer: '会一点儿。', answerTranslation: 'A little.' },
+        { imageWord: '做饭', imageDescription: 'a person preparing a delicious meal in the kitchen', question: '你会做饭吗？', questionTranslation: 'Can you cook?', answer: '会，我会做饭。', answerTranslation: 'Yes, I can cook.' },
+        { imageWord: '游泳', imageDescription: 'a swimmer doing freestyle in a pool', question: '你会游泳吗？', questionTranslation: 'Can you swim?', answer: '会，我会游泳。', answerTranslation: 'Yes, I can swim.' },
+        { imageWord: '开车', imageDescription: 'a person driving a car on the road', question: '你会开车吗？', questionTranslation: 'Can you drive?', answer: '还不会。', answerTranslation: 'Not yet.' },
+      ],
+    },
+    {
+      heading: '不会 — 不能做的事',
+      noteInline: '会 (can/know how) → 不会 (can\'t/don\'t know how) · 还不会 = not yet',
+      pairs: [
+        { imageWord: '钢琴', imageDescription: 'a grand piano in a music room with sheet music', question: '你会弹钢琴吗？', questionTranslation: 'Can you play piano?', answer: '不会，我不会弹钢琴。', answerTranslation: 'No, I can\'t play piano.' },
+        { imageWord: '滑雪', imageDescription: 'a person skiing down a snowy slope', question: '你会滑雪吗？', questionTranslation: 'Can you ski?', answer: '会一点儿。', answerTranslation: 'A little.' },
+      ],
+      sentenceColumns: [
+        { label: '会什么？', items: [{ text: '说中文', translation: 'speak Chinese' }, { text: '做饭', translation: 'cook' }, { text: '开车', translation: 'drive' }, { text: '弹钢琴', translation: 'play piano' }] },
+        { label: '会 / 不会', items: [{ text: '会', translation: 'can / know how' }, { text: '不会', translation: 'can\'t / don\'t know how' }, { text: '还不会', translation: 'not yet' }, { text: '会一点儿', translation: 'a little' }] },
+      ],
+    },
+  ],
+};
+
+const MANDARIN_YOU_MEIYOU: HayUnitContent = {
+  chapterTitleKey: 'there is mandarin',
+  conceptLabel: '有 / 没有',
+  conceptDefinition: 'There is / There are · existence · location + 有 + thing · 没有 = there isn\'t',
+  introNote: '有 for existence: [location] + 有 + [thing]. This is the same character as possession 有, now used spatially. 这里有 (there is here), 哪里有 (where is there?).',
+  clusters: [
+    {
+      heading: '有 — 存在',
+      pairs: [
+        { imageWord: '咖啡店', imageDescription: 'a coffee shop on a street corner', question: '这里有没有咖啡店？', questionTranslation: 'Is there a coffee shop here?', answer: '有，就在前面。', answerTranslation: 'Yes, it\'s just ahead.' },
+        { imageWord: '冰箱', imageDescription: 'an open refrigerator with food inside', question: '冰箱里有什么？', questionTranslation: 'What is in the fridge?', answer: '有很多东西。', answerTranslation: 'There are many things.' },
+        { imageWord: '学生', imageDescription: 'students in a lively classroom', question: '教室里有多少学生？', questionTranslation: 'How many students are in the classroom?', answer: '有三十个学生。', answerTranslation: 'There are thirty students.' },
+        { imageWord: '问题', imageDescription: 'a person raising their hand with a question', question: '有问题吗？', questionTranslation: 'Are there any questions?', answer: '有，我有一个问题。', answerTranslation: 'Yes, I have a question.' },
+      ],
+    },
+    {
+      heading: '没有 — 不存在',
+      noteInline: '有 (there is) → 没有 (there isn\'t) · 有没有 = is there? / is there not?',
+      pairs: [
+        { imageWord: '牛奶', imageDescription: 'an empty milk carton in the fridge', question: '冰箱里有牛奶吗？', questionTranslation: 'Is there milk in the fridge?', answer: '没有，没有牛奶了。', answerTranslation: 'No, there\'s no milk left.' },
+        { imageWord: '厕所', imageDescription: 'a restroom sign in a public place', question: '这里有没有厕所？', questionTranslation: 'Is there a restroom here?', answer: '有，在那边。', answerTranslation: 'Yes, it\'s over there.' },
+      ],
+      sentenceColumns: [
+        { label: '哪里', items: [{ text: '这里有', translation: 'here there is' }, { text: '教室里有', translation: 'in the classroom there is' }, { text: '冰箱里有', translation: 'in the fridge there is' }] },
+        { label: '什么？', items: [{ text: '咖啡店', translation: 'a coffee shop' }, { text: '学生', translation: 'students' }, { text: '问题', translation: 'questions' }, { text: '没有', translation: 'there isn\'t' }] },
+      ],
+    },
+  ],
+};
+
+const MANDARIN_WO_XIHUAN: HayUnitContent = {
+  chapterTitleKey: 'i like mandarin',
+  conceptLabel: '我喜欢',
+  conceptDefinition: 'I like · 喜欢 + noun/verb · standard SVO · 不喜欢 = don\'t like',
+  introNote: '"我喜欢音乐" = I like music. Unlike Spanish gustar, Chinese keeps the standard SVO order — the liked thing comes AFTER 喜欢, just as in English. Natural and learner-friendly.',
+  clusters: [
+    {
+      heading: '喜欢 — 喜好',
+      pairs: [
+        { imageWord: '音乐', imageDescription: 'a person smiling with earbuds, enjoying music', question: '你喜欢什么音乐？', questionTranslation: 'What music do you like?', answer: '我喜欢流行音乐。', answerTranslation: 'I like pop music.' },
+        { imageWord: '动漫', imageDescription: 'a shelf of anime figurines and DVDs', question: '你喜欢动漫吗？', questionTranslation: 'Do you like anime?', answer: '喜欢，我很喜欢。', answerTranslation: 'Yes, I like it a lot.' },
+        { imageWord: '做饭', imageDescription: 'a person happily cooking in a bright kitchen', question: '你喜欢做饭吗？', questionTranslation: 'Do you like cooking?', answer: '喜欢，我喜欢做饭。', answerTranslation: 'Yes, I like cooking.' },
+        { imageWord: '冬天', imageDescription: 'a snow-covered city street', question: '你喜欢冬天吗？', questionTranslation: 'Do you like winter?', answer: '不太喜欢。', answerTranslation: 'Not really.' },
+      ],
+    },
+    {
+      heading: '不喜欢 — 不喜好',
+      noteInline: '最喜欢 (like most) → 喜欢 (like) → 不太喜欢 (don\'t really like) → 不喜欢 (don\'t like) → 讨厌 (can\'t stand)',
+      pairs: [
+        { imageWord: '蟑螂', imageDescription: 'a cartoon cockroach looking startled', question: '你喜欢蟑螂吗？', questionTranslation: 'Do you like cockroaches?', answer: '不，我很讨厌蟑螂！', answerTranslation: 'No, I really can\'t stand them!' },
+        { imageWord: '运动', imageDescription: 'a person jogging happily in the park', question: '你喜欢运动吗？', questionTranslation: 'Do you like exercise?', answer: '还好，一般般。', answerTranslation: 'It\'s okay, so-so.' },
+      ],
+      sentenceColumns: [
+        { label: '喜欢什么？', items: [{ text: '音乐', translation: 'music' }, { text: '动漫', translation: 'anime' }, { text: '做饭', translation: 'cooking' }, { text: '冬天', translation: 'winter' }] },
+        { label: '程度', items: [{ text: '最喜欢', translation: 'like most/love' }, { text: '很喜欢', translation: 'like a lot' }, { text: '不太喜欢', translation: 'don\'t really like' }, { text: '讨厌', translation: 'can\'t stand' }] },
+      ],
+    },
+  ],
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ENGLISH (ESL) HayUnitContent entries
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const ENGLISH_I_GO: HayUnitContent = {
+  chapterTitleKey: 'where are you going english',
+  conceptLabel: 'I go / I am going',
+  conceptDefinition: 'I go (routine) · I am going (right now) · Where are you going?',
+  introNote: 'Two ways to talk about going: "I go" for habits and routines, "I am going" for right now. The preposition "to" is always required — I go TO school (not I go school).',
+  clusters: [
+    {
+      heading: 'I am going to — destination',
+      pairs: [
+        { imageWord: 'school', imageDescription: 'students arriving at a school building in the morning', question: 'Where are you going?', questionTranslation: '어디에 가요? / 你去哪儿？ / どこに行きますか？', answer: 'I am going to school.', answerTranslation: 'I am going to school.' },
+        { imageWord: 'the library', imageDescription: 'the entrance of a public library with steps', question: 'Where are you going today?', questionTranslation: '오늘 어디에 가요? / 今天去哪儿？', answer: 'I am going to the library.', answerTranslation: 'I am going to the library.' },
+        { imageWord: 'the store', imageDescription: 'a grocery store entrance with a shopping cart', question: 'Where are you going now?', questionTranslation: '今你去哪儿？ / 今からどこに？', answer: 'I am going to the store.', answerTranslation: 'I am going to the store.' },
+        { imageWord: 'the restaurant', imageDescription: 'a cozy restaurant with an inviting entrance', question: 'Where are you going tonight?', questionTranslation: '오늘 밤 어디에 가요？', answer: 'I am going to the restaurant.', answerTranslation: 'I am going to the restaurant.' },
+      ],
+    },
+    {
+      heading: 'She goes — 3rd person -s',
+      noteInline: 'I go → she GOES · the -s ending on third-person singular (he/she/it)',
+      pairs: [
+        { imageWord: 'work', imageDescription: 'a woman in business attire walking through a city', question: 'Where does she go every day?', questionTranslation: '她每天去哪儿？', answer: 'She goes to work every day.', answerTranslation: 'She goes to work every day.' },
+        { imageWord: 'the gym', imageDescription: 'a person heading into a gym with a bag', question: 'Where does he go on weekends?', questionTranslation: '그는 주말에 어디에 가요？', answer: 'He goes to the gym.', answerTranslation: 'He goes to the gym.' },
+      ],
+      sentenceColumns: [
+        { label: 'Subject + verb', items: [{ text: 'I am going to', translation: 'I go / I am going to' }, { text: 'She is going to', translation: 'She goes / She is going to' }, { text: 'We are going to', translation: 'We go / We are going to' }] },
+        { label: 'Destination', items: [{ text: 'school.', translation: 'school' }, { text: 'the library.', translation: 'the library' }, { text: 'the store.', translation: 'the store' }, { text: 'the restaurant.', translation: 'the restaurant' }, { text: 'work.', translation: 'work' }] },
+      ],
+    },
+  ],
+};
+
+const ENGLISH_I_TOOK: HayUnitContent = {
+  chapterTitleKey: 'i took english',
+  conceptLabel: 'I took',
+  conceptDefinition: 'I took · take → took (irregular past) · did + infinitive for questions',
+  introNote: 'Take → took — completely irregular. No -ed ending here. For questions: "What did you take?" NOT "What did you took?" After "did", always use the infinitive (base form).',
+  clusters: [
+    {
+      heading: 'took — simple past',
+      pairs: [
+        { imageWord: 'the bus', imageDescription: 'a city bus at a stop with passengers boarding', question: 'How did you get here?', questionTranslation: '어떻게 왔어요? / 你怎么来的？', answer: 'I took the bus.', answerTranslation: 'I took the bus.' },
+        { imageWord: 'photos', imageDescription: 'a tourist taking photos at a famous landmark', question: 'What did you do on the trip?', questionTranslation: '旅行に行って何をしましたか？', answer: 'I took a lot of photos.', answerTranslation: 'I took a lot of photos.' },
+        { imageWord: 'notes', imageDescription: 'a student writing in a notebook in class', question: 'What did you do in class?', questionTranslation: '수업에서 뭐 했어요？', answer: 'I took notes.', answerTranslation: 'I took notes.' },
+        { imageWord: 'an umbrella', imageDescription: 'a person grabbing an umbrella before heading out', question: 'What did you take with you?', questionTranslation: '何を持っていきましたか？', answer: 'I took an umbrella.', answerTranslation: 'I took an umbrella.' },
+      ],
+    },
+    {
+      heading: "didn't take — negative past",
+      noteInline: 'took (took) → didn\'t take · did NOT + infinitive · NEVER "didn\'t took"',
+      pairs: [
+        { imageWord: 'medicine', imageDescription: 'a glass of water and medication on a nightstand', question: 'Did you take your medicine?', questionTranslation: '약을 먹었어요？', answer: 'Yes, I took it.', answerTranslation: 'Yes, I took it.' },
+        { imageWord: 'keys', imageDescription: 'an empty hook where keys are usually hung', question: 'Did you take your keys?', questionTranslation: '鍵を持っていきましたか？', answer: "No, I didn't take them. I forgot!", answerTranslation: "No, I didn't take them. I forgot!" },
+      ],
+      sentenceColumns: [
+        { label: 'I took...', items: [{ text: 'the bus', translation: 'the bus' }, { text: 'notes', translation: 'notes' }, { text: 'photos', translation: 'photos' }, { text: 'an umbrella', translation: 'an umbrella' }] },
+        { label: 'Affirmative / Negative', items: [{ text: 'I took it.', translation: 'past affirmative' }, { text: "I didn't take it.", translation: 'past negative' }, { text: 'Did you take it?', translation: 'past question' }] },
+      ],
+    },
+  ],
+};
+
+const ENGLISH_I_BOUGHT: HayUnitContent = {
+  chapterTitleKey: 'i bought english',
+  conceptLabel: 'I bought',
+  conceptDefinition: 'I bought · buy → bought (irregular) · the -ought family',
+  introNote: 'Buy → bought is irregular. It belongs to the -ought family: buy/bought, bring/brought, think/thought. Learn the family together and three verbs click at once.',
+  clusters: [
+    {
+      heading: 'bought — shopping past',
+      pairs: [
+        { imageWord: 'clothes', imageDescription: 'shopping bags from a clothing store', question: 'What did you buy yesterday?', questionTranslation: '어제 뭘 샀어요？ / 你昨天买了什么？', answer: 'I bought some clothes.', answerTranslation: 'I bought some clothes.' },
+        { imageWord: 'a book', imageDescription: 'a person paying at a bookstore counter', question: 'What did you buy at the bookstore?', questionTranslation: '서점에서 뭘 샀어요？', answer: 'I bought a book.', answerTranslation: 'I bought a book.' },
+        { imageWord: 'coffee', imageDescription: 'a person at a café counter with a coffee cup', question: 'What did you buy this morning?', questionTranslation: '今朝何を買いましたか？', answer: 'I bought a coffee.', answerTranslation: 'I bought a coffee.' },
+        { imageWord: 'a gift', imageDescription: 'a wrapped present with a bow on a store counter', question: 'What did you buy for your friend?', questionTranslation: '친구에게 뭘 샀어요？', answer: 'I bought a gift.', answerTranslation: 'I bought a gift.' },
+      ],
+    },
+    {
+      heading: "didn't buy — negative",
+      noteInline: 'bought → didn\'t buy · the -ought family: buy/bought, bring/brought, think/thought',
+      pairs: [
+        { imageWord: 'cake', imageDescription: 'a bakery display with colorful cakes', question: 'Did you buy cake?', questionTranslation: '케이크를 샀어요？', answer: "No, I didn't buy any.", answerTranslation: "No, I didn't buy any." },
+        { imageWord: 'apples', imageDescription: 'fresh apples at a market stall', question: 'What did you buy at the market?', questionTranslation: '시장에서 뭘 샀어요？', answer: 'I bought some apples.', answerTranslation: 'I bought some apples.' },
+      ],
+      sentenceColumns: [
+        { label: 'Subject + bought', items: [{ text: 'I bought', translation: 'I bought' }, { text: 'She bought', translation: 'She bought' }, { text: 'We bought', translation: 'We bought' }] },
+        { label: 'What?', items: [{ text: 'clothes.', translation: 'clothes' }, { text: 'a book.', translation: 'a book' }, { text: 'coffee.', translation: 'coffee' }, { text: "nothing — I didn't buy anything.", translation: 'nothing' }] },
+      ],
+    },
+  ],
+};
+
+const ENGLISH_I_HAVE: HayUnitContent = {
+  chapterTitleKey: 'i have english',
+  conceptLabel: 'I have / She has',
+  conceptDefinition: 'I have · she has · have → has (3rd person) · Do you have / Does she have?',
+  introNote: 'Have → has for he/she/it. "She have" is the most common ESL error with this verb. Drill the contrast: I have / she HAS until it\'s automatic.',
+  clusters: [
+    {
+      heading: 'have / has — possession',
+      pairs: [
+        { imageWord: 'a dog', imageDescription: 'a golden retriever sitting next to its owner', question: 'Do you have a pet?', questionTranslation: '강아지 있어요？ / 你有宠物吗？', answer: 'Yes, I have a dog.', answerTranslation: 'Yes, I have a dog.' },
+        { imageWord: 'two brothers', imageDescription: 'two brothers laughing together at home', question: 'Do you have siblings?', questionTranslation: '형제가 있어요？ / 你有兄弟吗？', answer: 'Yes, I have two brothers.', answerTranslation: 'Yes, I have two brothers.' },
+        { imageWord: 'a car', imageDescription: 'a car in a driveway in front of a house', question: 'Does she have a car?', questionTranslation: '그녀는 차가 있어요？', answer: 'Yes, she has a car.', answerTranslation: 'Yes, she has a car.' },
+        { imageWord: 'time', imageDescription: 'a relaxed person with nothing to do, arms behind head', question: 'Do you have time?', questionTranslation: '時間がありますか？', answer: 'Yes, I have time.', answerTranslation: 'Yes, I have time.' },
+      ],
+    },
+    {
+      heading: "don't have / doesn't have",
+      noteInline: 'I don\'t have · she doesn\'t have · the do/does support pattern',
+      pairs: [
+        { imageWord: 'a car', imageDescription: 'an empty parking spot with no car', question: 'Does he have a car?', questionTranslation: '그는 차가 있어요？', answer: "No, he doesn't have a car.", answerTranslation: "No, he doesn't have a car." },
+        { imageWord: 'homework', imageDescription: 'a student happily closing an empty backpack', question: 'Do you have homework?', questionTranslation: '宿題がありますか？', answer: "No, I don't have homework today!", answerTranslation: "No, I don't have homework today!" },
+      ],
+      sentenceColumns: [
+        { label: 'Subject + have/has', items: [{ text: 'I have', translation: 'I have' }, { text: 'She has', translation: 'She has' }, { text: "I don't have", translation: "I don't have" }, { text: "She doesn't have", translation: "She doesn't have" }] },
+        { label: 'What?', items: [{ text: 'a dog.', translation: 'a dog' }, { text: 'siblings.', translation: 'siblings' }, { text: 'a car.', translation: 'a car' }, { text: 'time.', translation: 'time' }] },
+      ],
+    },
+  ],
+};
+
+const ENGLISH_I_WANT: HayUnitContent = {
+  chapterTitleKey: 'i want english',
+  conceptLabel: 'I want',
+  conceptDefinition: 'I want (a thing) · I want to (do something) · she wants (3rd person -s)',
+  introNote: 'Want + noun: I want a coffee. Want to + infinitive: I want to go. Both are essential. The polite upgrade is "I would like" — same meaning, more formal register.',
+  clusters: [
+    {
+      heading: 'want / want to — desire',
+      pairs: [
+        { imageWord: 'sushi', imageDescription: 'a colorful plate of sushi at a restaurant', question: 'What do you want to eat?', questionTranslation: '何が食べたいですか？ / 你想吃什么？', answer: 'I want to eat sushi.', answerTranslation: 'I want to eat sushi.' },
+        { imageWord: 'a new phone', imageDescription: 'a new smartphone in a store display', question: 'What does he want?', questionTranslation: '그는 뭘 원해요？', answer: 'He wants a new phone.', answerTranslation: 'He wants a new phone.' },
+        { imageWord: 'to travel', imageDescription: 'a suitcase packed and ready by the front door', question: 'What do you want to do this summer?', questionTranslation: '이번 여름에 뭘 하고 싶어요？', answer: 'I want to travel.', answerTranslation: 'I want to travel.' },
+        { imageWord: 'to learn English', imageDescription: 'a student studying English with books and headphones', question: 'What do you want to learn?', questionTranslation: '你想学什么？', answer: 'I want to learn English.', answerTranslation: 'I want to learn English.' },
+      ],
+    },
+    {
+      heading: "don't want — negative",
+      noteInline: 'I want → I don\'t want · she wants → she doesn\'t want · 3rd-person -s on WANTS',
+      pairs: [
+        { imageWord: 'homework', imageDescription: 'a homework assignment on a desk with a pencil', question: 'Do you want to do homework?', questionTranslation: '숙제하고 싶어요？', answer: "No, I don't want to do homework.", answerTranslation: "No, I don't want to do homework." },
+        { imageWord: 'fish', imageDescription: 'a plate of fish at the dinner table', question: 'Does she want to eat fish?', questionTranslation: '그녀는 생선을 먹고 싶어해요？', answer: 'Yes, she wants to eat fish.', answerTranslation: 'Yes, she wants to eat fish.' },
+      ],
+      sentenceColumns: [
+        { label: 'Subject + want(s)', items: [{ text: 'I want to', translation: 'I want to' }, { text: 'She wants to', translation: 'She wants to' }, { text: "I don't want to", translation: "I don't want to" }] },
+        { label: 'What?', items: [{ text: 'eat sushi.', translation: 'eat sushi' }, { text: 'travel.', translation: 'travel' }, { text: 'learn English.', translation: 'learn English' }, { text: 'sleep.', translation: 'sleep' }] },
+      ],
+    },
+  ],
+};
+
+const ENGLISH_I_AM: HayUnitContent = {
+  chapterTitleKey: 'i am identity english',
+  conceptLabel: 'I am / She is',
+  conceptDefinition: 'to be = am / is / are · identity · am not / is not / are not',
+  introNote: 'The verb "to be" has three forms: am (I), is (he/she/it), are (you/we/they). This is one of the highest-frequency verbs in English — get it automatic early.',
+  clusters: [
+    {
+      heading: 'am / is / are — identity',
+      pairs: [
+        { imageWord: 'a student', imageDescription: 'a student at a desk in a classroom', question: 'What are you?', questionTranslation: '당신은 학생이에요？ / 你是学生吗？', answer: 'I am a student.', answerTranslation: 'I am a student.' },
+        { imageWord: 'a teacher', imageDescription: 'a teacher writing on a whiteboard', question: 'Who is she?', questionTranslation: '그녀는 누구예요？', answer: 'She is a teacher.', answerTranslation: 'She is a teacher.' },
+        { imageWord: 'from Mexico', imageDescription: 'a person waving with a Mexican flag in the background', question: 'Where are you from?', questionTranslation: '어디서 왔어요？ / 你是哪里人？', answer: 'I am from Mexico.', answerTranslation: 'I am from Mexico.' },
+        { imageWord: 'friends', imageDescription: 'two people laughing and taking a selfie', question: 'Are they friends?', questionTranslation: '그들은 친구예요？', answer: 'Yes, they are friends.', answerTranslation: 'Yes, they are friends.' },
+      ],
+    },
+    {
+      heading: 'am not / is not — negation',
+      noteInline: 'am not · is not (isn\'t) · are not (aren\'t) · contractions are natural in speech',
+      pairs: [
+        { imageWord: 'a doctor', imageDescription: 'a person in casual clothes, not a doctor', question: 'Are you a doctor?', questionTranslation: '의사예요？', answer: "No, I am not a doctor.", answerTranslation: "No, I am not a doctor." },
+        { imageWord: 'late', imageDescription: 'a person arriving exactly on time, looking relieved', question: 'Are you late?', questionTranslation: '늦었어요？', answer: "No, I am not late. I'm on time!", answerTranslation: "No, I am not late. I'm on time!" },
+      ],
+      sentenceColumns: [
+        { label: 'Subject + to be', items: [{ text: 'I am', translation: 'I am' }, { text: 'She is', translation: 'She is' }, { text: 'They are', translation: 'They are' }, { text: "I am not", translation: "I am not" }] },
+        { label: 'Identity', items: [{ text: 'a student.', translation: 'a student' }, { text: 'a teacher.', translation: 'a teacher' }, { text: 'from Mexico.', translation: 'from Mexico' }, { text: 'friends.', translation: 'friends' }] },
+      ],
+    },
+  ],
+};
+
+const ENGLISH_WHERE_AM_I: HayUnitContent = {
+  chapterTitleKey: 'where am i english',
+  conceptLabel: 'I am at / in / on',
+  conceptDefinition: 'Location with to be · at (specific point) · in (enclosed space) · on (surface)',
+  introNote: 'To be + location preposition: at, in, on. At for specific points and institutions. In for enclosed spaces. On for surfaces and vehicles. Memorize the three with common examples.',
+  clusters: [
+    {
+      heading: 'at / in / on — location',
+      pairs: [
+        { imageWord: 'the library', imageDescription: 'a student studying at a desk in a library', question: 'Where are you right now?', questionTranslation: '지금 어디에 있어요？ / 你现在在哪儿？', answer: 'I am at the library.', answerTranslation: 'I am at the library.' },
+        { imageWord: 'the classroom', imageDescription: 'students in a classroom with a teacher at the front', question: 'Where is the class?', questionTranslation: '수업이 어디에 있어요？', answer: 'We are in the classroom.', answerTranslation: 'We are in the classroom.' },
+        { imageWord: 'the table', imageDescription: 'a cat sitting on top of a wooden table', question: 'Where is the cat?', questionTranslation: '고양이가 어디에 있어요？', answer: 'The cat is on the table.', answerTranslation: 'The cat is on the table.' },
+        { imageWord: 'the bus', imageDescription: 'a person sitting on a city bus looking out the window', question: 'Where is she?', questionTranslation: '그녀는 어디에 있어요？', answer: 'She is on the bus.', answerTranslation: 'She is on the bus.' },
+      ],
+    },
+    {
+      heading: 'not at / not in / not on',
+      noteInline: 'at (institutions/points) · in (rooms/cities) · on (surfaces/vehicles) — three rules, dozens of uses',
+      pairs: [
+        { imageWord: 'home', imageDescription: 'a house with all the lights off and no car', question: 'Are you home?', questionTranslation: '집에 있어요？', answer: "No, I am not home. I'm at school.", answerTranslation: "No, I am not home. I'm at school." },
+        { imageWord: 'the phone', imageDescription: 'a smartphone on a table', question: 'Where is your phone?', questionTranslation: '핸드폰이 어디에 있어요？', answer: "It's on the table.", answerTranslation: "It's on the table." },
+      ],
+      sentenceColumns: [
+        { label: 'Preposition', items: [{ text: 'at', translation: 'at (point/institution): at school, at work, at home' }, { text: 'in', translation: 'in (enclosed): in the classroom, in the bag' }, { text: 'on', translation: 'on (surface/vehicle): on the table, on the bus' }] },
+        { label: 'Examples', items: [{ text: 'I am at school.', translation: 'at school' }, { text: 'We are in the classroom.', translation: 'in the classroom' }, { text: 'The book is on the desk.', translation: 'on the desk' }, { text: 'She is on the bus.', translation: 'on the bus' }] },
+      ],
+    },
+  ],
+};
+
+const ENGLISH_I_CAN: HayUnitContent = {
+  chapterTitleKey: 'i can english',
+  conceptLabel: 'I can',
+  conceptDefinition: 'I can · ability · can + infinitive (no -s) · can\'t = cannot',
+  introNote: '"Can" is a modal verb — it never takes -s. "She can" not "she cans". After can, always use the base form infinitive — no "to": I can swim (not I can to swim).',
+  clusters: [
+    {
+      heading: 'can — ability',
+      pairs: [
+        { imageWord: 'speak Spanish', imageDescription: 'a person having a confident conversation in Spanish', question: 'Can you speak another language?', questionTranslation: '다른 언어를 말할 수 있어요？', answer: 'Yes, I can speak Spanish.', answerTranslation: 'Yes, I can speak Spanish.' },
+        { imageWord: 'cook', imageDescription: 'a person preparing a delicious-looking meal', question: 'Can you cook?', questionTranslation: '요리를 할 수 있어요？ / 你会做饭吗？', answer: 'Yes, I can cook.', answerTranslation: 'Yes, I can cook.' },
+        { imageWord: 'swim', imageDescription: 'a swimmer in a pool doing freestyle', question: 'Can she swim?', questionTranslation: '그녀는 수영할 수 있어요？', answer: 'Yes, she can swim well.', answerTranslation: 'Yes, she can swim well.' },
+        { imageWord: 'drive', imageDescription: 'a person behind the wheel of a car', question: 'Can you drive?', questionTranslation: '运転ができますか？', answer: "Not yet. I can't drive yet.", answerTranslation: "Not yet. I can't drive yet." },
+      ],
+    },
+    {
+      heading: "can't — inability",
+      noteInline: 'can (can) → can\'t / cannot (cannot) · NO "she cans" — modal verbs never take -s',
+      pairs: [
+        { imageWord: 'play piano', imageDescription: 'a piano in a music room with sheet music', question: 'Can you play piano?', questionTranslation: 'ピアノが弾けますか？', answer: "No, I can't play piano.", answerTranslation: "No, I can't play piano." },
+        { imageWord: 'ski', imageDescription: 'a person skiing down a snowy mountain', question: 'Can he ski?', questionTranslation: '그는 스키를 탈 수 있어요？', answer: 'Yes, he can ski a little.', answerTranslation: 'Yes, he can ski a little.' },
+      ],
+      sentenceColumns: [
+        { label: 'Subject + can/can\'t', items: [{ text: 'I can', translation: 'I can' }, { text: 'She can', translation: 'She can (NO -s!)' }, { text: "I can't", translation: "I can't" }, { text: "She can't", translation: "She can't" }] },
+        { label: 'What?', items: [{ text: 'speak Spanish.', translation: 'speak Spanish' }, { text: 'cook.', translation: 'cook' }, { text: 'swim.', translation: 'swim' }, { text: 'drive.', translation: 'drive' }] },
+      ],
+    },
+  ],
+};
+
+const ENGLISH_THERE_IS: HayUnitContent = {
+  chapterTitleKey: 'there is english',
+  conceptLabel: 'There is / There are',
+  conceptDefinition: 'There is + singular · There are + plural · Is there? / Are there?',
+  introNote: '"There is" for one thing. "There are" for more than one. The most common error: "There is many books" — plural nouns need "There are".',
+  clusters: [
+    {
+      heading: 'there is / there are — existence',
+      pairs: [
+        { imageWord: 'a park', imageDescription: 'a park with trees and benches near a residential area', question: 'Is there a park near here?', questionTranslation: '근처에 공원이 있어요？ / 这里有公园吗？', answer: 'Yes, there is a park nearby.', answerTranslation: 'Yes, there is a park nearby.' },
+        { imageWord: 'many restaurants', imageDescription: 'a busy street lined with restaurants', question: 'Are there restaurants nearby?', questionTranslation: '근처에 식당이 있어요？', answer: 'Yes, there are many restaurants.', answerTranslation: 'Yes, there are many restaurants.' },
+        { imageWord: 'a problem', imageDescription: 'a person looking stressed at a computer screen', question: 'Is there a problem?', questionTranslation: '問題がありますか？ / 有问题吗？', answer: 'Yes, there is a problem.', answerTranslation: 'Yes, there is a problem.' },
+        { imageWord: 'thirty students', imageDescription: 'a full classroom of students', question: 'How many students are there?', questionTranslation: '학생이 몇 명 있어요？', answer: 'There are thirty students.', answerTranslation: 'There are thirty students.' },
+      ],
+    },
+    {
+      heading: "there isn't / there aren't",
+      noteInline: 'there is NOT → there isn\'t · there are NOT → there aren\'t · question: Is there? / Are there?',
+      pairs: [
+        { imageWord: 'milk', imageDescription: 'an empty milk carton in the fridge', question: 'Is there any milk?', questionTranslation: '우유가 있어요？', answer: "No, there isn't any milk.", answerTranslation: "No, there isn't any milk." },
+        { imageWord: 'a bathroom', imageDescription: 'a restroom sign in a public building', question: 'Is there a bathroom here?', questionTranslation: '여기에 화장실이 있어요？', answer: 'Yes, there is a bathroom down the hall.', answerTranslation: 'Yes, there is a bathroom down the hall.' },
+      ],
+      sentenceColumns: [
+        { label: 'Form', items: [{ text: 'There is a...', translation: 'one thing (singular)' }, { text: 'There are...', translation: 'more than one (plural)' }, { text: "There isn't a...", translation: 'negative singular' }, { text: "There aren't any...", translation: 'negative plural' }] },
+        { label: 'Examples', items: [{ text: 'There is a park.', translation: 'a park (singular)' }, { text: 'There are many restaurants.', translation: 'restaurants (plural)' }, { text: "There isn't a coffee shop.", translation: 'no coffee shop' }, { text: "There aren't any buses.", translation: 'no buses' }] },
+      ],
+    },
+  ],
+};
+
+const ENGLISH_I_LIKE: HayUnitContent = {
+  chapterTitleKey: 'i like english',
+  conceptLabel: 'I like',
+  conceptDefinition: 'I like · preference · like + noun · like + -ing · she likes (-s)',
+  introNote: '"I like music." (noun) or "I like swimming." (gerund). Both patterns are natural. Remember: she LIKES — the third-person -s strikes again.',
+  clusters: [
+    {
+      heading: 'like / love — preference',
+      pairs: [
+        { imageWord: 'hip-hop', imageDescription: 'a concert with colorful lights and a performer on stage', question: 'What kind of music do you like?', questionTranslation: '어떤 음악을 좋아해요？ / 你喜欢什么音乐？', answer: 'I like hip-hop.', answerTranslation: 'I like hip-hop.' },
+        { imageWord: 'cooking', imageDescription: 'a person happily cooking in a bright kitchen', question: 'What do you like to do?', questionTranslation: '你喜欢做什么？', answer: 'I like cooking.', answerTranslation: 'I like cooking.' },
+        { imageWord: 'hiking', imageDescription: 'a person on a hiking trail with mountains in the background', question: 'Does she like outdoor activities?', questionTranslation: '그녀는 야외 활동을 좋아해요？', answer: 'Yes, she likes hiking.', answerTranslation: 'Yes, she likes hiking.' },
+        { imageWord: 'winter', imageDescription: 'a snow-covered city street with bare trees', question: 'Do you like winter?', questionTranslation: '冬が好きですか？', answer: "I don't really like winter.", answerTranslation: "I don't really like winter." },
+      ],
+    },
+    {
+      heading: "don't like / dislike",
+      noteInline: 'I love → I like → I don\'t mind → I don\'t like → I hate · five-point preference scale',
+      pairs: [
+        { imageWord: 'insects', imageDescription: 'a cartoon bug looking surprised', question: 'Do you like insects?', questionTranslation: '곤충을 좋아해요？', answer: "No, I don't like insects!", answerTranslation: "No, I don't like insects!" },
+        { imageWord: 'reading', imageDescription: 'a person comfortably reading a book in an armchair', question: 'Do you like reading?', questionTranslation: '독서를 좋아해요？ / 你喜欢读书吗？', answer: 'Yes, I love reading.', answerTranslation: 'Yes, I love reading.' },
+      ],
+      sentenceColumns: [
+        { label: 'Subject + like(s)', items: [{ text: 'I like', translation: 'I like' }, { text: 'She likes', translation: 'She likes (with -s!)' }, { text: "I don't like", translation: "I don't like" }, { text: "She doesn't like", translation: "She doesn't like" }] },
+        { label: 'What?', items: [{ text: 'hip-hop.', translation: 'hip-hop' }, { text: 'cooking.', translation: 'cooking' }, { text: 'hiking.', translation: 'hiking' }, { text: 'winter.', translation: 'winter' }] },
+      ],
+    },
+  ],
+};
+
+// ── Missing verb-pattern and i-would-like entries ─────────────────────────────
+
+const JAPANESE_MASU_PATTERN: HayUnitContent = {
+  chapterTitleKey: 'the verb pattern japanese',
+  conceptLabel: 'ます形パターン',
+  conceptDefinition: 'ます · ません · ました · ませんでした — the four-form polite frame',
+  introNote: 'Master this one frame and every polite verb in Japanese follows it. ます (present/future) → ません (negative) → ました (past) → ませんでした (past negative). Four endings, infinite verbs.',
+  clusters: [
+    {
+      heading: 'ます形 — 4つの形',
+      pairs: [
+        { imageWord: '食べます', imageDescription: 'a person sitting down to eat a meal', question: '今日、何を食べますか？', questionTranslation: 'What do you eat today?', answer: '食べます。', answerTranslation: 'I eat / I will eat.' },
+        { imageWord: '食べません', imageDescription: 'a person shaking their head at a plate of food', question: '朝ごはんを食べますか？', questionTranslation: 'Do you eat breakfast?', answer: 'いいえ、食べません。', answerTranslation: 'No, I don\'t eat it.' },
+        { imageWord: '食べました', imageDescription: 'a person finishing a meal, looking satisfied', question: '昨日の夕食は何でしたか？', questionTranslation: 'What did you eat for dinner yesterday?', answer: 'すしを食べました。', answerTranslation: 'I ate sushi.' },
+        { imageWord: '食べませんでした', imageDescription: 'a person skipping a meal at an empty table', question: '昨日、朝ごはんを食べましたか？', questionTranslation: 'Did you eat breakfast yesterday?', answer: 'いいえ、食べませんでした。', answerTranslation: 'No, I didn\'t eat it.' },
+      ],
+    },
+    {
+      heading: '動詞に適用する',
+      noteInline: '食べる → 食べ + ます/ません/ました/ませんでした · any verb, same ending',
+      pairs: [
+        { imageWord: '飲む', imageDescription: 'a person drinking a glass of water', question: '水を飲みますか？', questionTranslation: 'Do you drink water?', answer: 'はい、毎日飲みます。', answerTranslation: 'Yes, I drink it every day.' },
+        { imageWord: '行く', imageDescription: 'a person heading out the door with a bag', question: '昨日学校に行きましたか？', questionTranslation: 'Did you go to school yesterday?', answer: 'はい、行きました。', answerTranslation: 'Yes, I went.' },
+      ],
+      sentenceColumns: [
+        { label: '時制', items: [{ text: 'ます', translation: 'present/future positive' }, { text: 'ません', translation: 'present/future negative' }, { text: 'ました', translation: 'past positive' }, { text: 'ませんでした', translation: 'past negative' }] },
+        { label: '例', items: [{ text: '食べます', translation: 'I eat / will eat' }, { text: '食べません', translation: 'I don\'t eat' }, { text: '食べました', translation: 'I ate' }, { text: '食べませんでした', translation: 'I didn\'t eat' }] },
+      ],
+    },
+  ],
+};
+
+const KOREAN_TENSE_PATTERN: HayUnitContent = {
+  chapterTitleKey: 'the verb pattern korean',
+  conceptLabel: '아/어요 틀',
+  conceptDefinition: '아/어요 (present) · 았/었어요 (past) · ㄹ 거예요 (future)',
+  introNote: 'Three tense forms cover all of Korean time. Present: 아/어요. Past: 았/었어요. Future: ㄹ/을 거예요. The stem stays the same — only the ending changes.',
+  clusters: [
+    {
+      heading: '세 가지 시제',
+      pairs: [
+        { imageWord: '공부해요', imageDescription: 'a student at a desk studying with books', question: '지금 뭐 해요?', questionTranslation: 'What are you doing now?', answer: '공부해요.', answerTranslation: 'I am studying.' },
+        { imageWord: '공부했어요', imageDescription: 'a student closing their books after finishing', question: '어제 뭐 했어요?', questionTranslation: 'What did you do yesterday?', answer: '공부했어요.', answerTranslation: 'I studied.' },
+        { imageWord: '공부할 거예요', imageDescription: 'a student preparing their desk with new materials', question: '내일 뭐 할 거예요?', questionTranslation: 'What will you do tomorrow?', answer: '공부할 거예요.', answerTranslation: 'I will study.' },
+        { imageWord: '안 해요', imageDescription: 'a person relaxing instead of working', question: '오늘 운동해요?', questionTranslation: 'Are you exercising today?', answer: '아니요, 안 해요.', answerTranslation: 'No, I\'m not.' },
+      ],
+    },
+    {
+      heading: '시간 표현 + 시제',
+      noteInline: '어제/지난주 → 었어요 · 지금/매일 → 어요 · 내일/다음 주 → ㄹ 거예요',
+      pairs: [
+        { imageWord: '먹었어요', imageDescription: 'a person finishing a meal at the table', question: '어제 뭘 먹었어요?', questionTranslation: 'What did you eat yesterday?', answer: '비빔밥을 먹었어요.', answerTranslation: 'I ate bibimbap.' },
+        { imageWord: '볼 거예요', imageDescription: 'a person looking at a movie schedule', question: '이번 주말에 뭐 할 거예요?', questionTranslation: 'What will you do this weekend?', answer: '영화를 볼 거예요.', answerTranslation: 'I will watch a movie.' },
+      ],
+      sentenceColumns: [
+        { label: '시제 어미', items: [{ text: '아/어요', translation: 'present tense' }, { text: '았/었어요', translation: 'past tense' }, { text: 'ㄹ/을 거예요', translation: 'future (planned)' }] },
+        { label: '시간 표현', items: [{ text: '지금 / 매일', translation: 'now / every day → present' }, { text: '어제 / 지난주', translation: 'yesterday / last week → past' }, { text: '내일 / 다음 주', translation: 'tomorrow / next week → future' }] },
+      ],
+    },
+  ],
+};
+
+const KOREAN_WOULD_LIKE: HayUnitContent = {
+  chapterTitleKey: 'i would like korean',
+  conceptLabel: '고 싶었어요',
+  conceptDefinition: 'I would like to · past unfulfilled wish · ~고 싶은데요 (polite wish)',
+  introNote: '고 싶어요 = I want to (now). 고 싶었어요 = I wanted to (but didn\'t). For polite wishes like "I would like to...", use 고 싶은데요 — the trailing ~는데요 adds respectful tentativeness.',
+  clusters: [
+    {
+      heading: '고 싶은데요 — 공손한 바람',
+      pairs: [
+        { imageWord: '한국어', imageDescription: 'a person studying Korean characters with a focused expression', question: '무엇을 배우고 싶은데요?', questionTranslation: 'What would you like to learn?', answer: '한국어를 배우고 싶은데요.', answerTranslation: 'I would like to learn Korean.' },
+        { imageWord: '제주도', imageDescription: 'the scenic coastline of Jeju Island', question: '어디에 가고 싶으세요?', questionTranslation: 'Where would you like to go?', answer: '제주도에 가고 싶은데요.', answerTranslation: 'I would like to go to Jeju Island.' },
+        { imageWord: '도움', imageDescription: 'a person politely asking for assistance', question: '무엇이 필요하세요?', questionTranslation: 'What do you need?', answer: '도움을 받고 싶은데요.', answerTranslation: 'I would like some help.' },
+        { imageWord: '예약', imageDescription: 'a person on the phone making a reservation', question: '무엇을 하고 싶으세요?', questionTranslation: 'What would you like to do?', answer: '예약하고 싶은데요.', answerTranslation: 'I would like to make a reservation.' },
+      ],
+    },
+    {
+      heading: '고 싶었어요 — 이루지 못한 바람',
+      noteInline: '고 싶어요 (want now) → 고 싶었어요 (wanted but didn\'t) → 고 싶은데요 (polite wish)',
+      pairs: [
+        { imageWord: '콘서트', imageDescription: 'a sold-out concert venue with a disappointed person outside', question: '왜 콘서트에 안 갔어요?', questionTranslation: 'Why didn\'t you go to the concert?', answer: '가고 싶었는데 티켓이 없었어요.', answerTranslation: 'I wanted to go but there were no tickets.' },
+        { imageWord: '여행', imageDescription: 'a person looking at travel photos with a wistful expression', question: '작년에 어디에 가고 싶었어요?', questionTranslation: 'Where did you want to go last year?', answer: '일본에 가고 싶었어요.', answerTranslation: 'I wanted to go to Japan.' },
+      ],
+      sentenceColumns: [
+        { label: '형태', items: [{ text: '고 싶어요', translation: 'want to (now)' }, { text: '고 싶은데요', translation: 'would like to (polite wish)' }, { text: '고 싶었어요', translation: 'wanted to (past unfulfilled)' }] },
+        { label: '예시', items: [{ text: '한국어를 배우고 싶은데요', translation: 'I would like to learn Korean' }, { text: '제주도에 가고 싶은데요', translation: 'I would like to go to Jeju' }, { text: '가고 싶었는데...', translation: 'I wanted to go, but...' }] },
+      ],
+    },
+  ],
+};
+
+const MANDARIN_ASPECT_PATTERN: HayUnitContent = {
+  chapterTitleKey: 'the verb pattern mandarin',
+  conceptLabel: '了 · 过 · 着',
+  conceptDefinition: 'Aspect markers — 了 (completed) · 过 (experienced) · 着 (ongoing state)',
+  introNote: 'Mandarin marks ASPECT, not tense. Same verb + different marker = different meaning. 我吃了 (I ate — done). 我吃过 (I have eaten before). 他吃着 (he is in the act of eating). Three markers, three views of an action.',
+  clusters: [
+    {
+      heading: '了 / 过 / 着 — 三种体',
+      pairs: [
+        { imageWord: '了 — 完成', imageDescription: 'a person finishing a task and putting it in the "done" pile', question: '你吃了吗？', questionTranslation: 'Have you eaten (and you\'re done)?', answer: '吃了，已经吃了。', answerTranslation: 'Yes, I\'ve already eaten.' },
+        { imageWord: '过 — 经历', imageDescription: 'a person with a passport showing stamps from many countries', question: '你去过中国吗？', questionTranslation: 'Have you ever been to China?', answer: '去过，我去过两次。', answerTranslation: 'Yes, I\'ve been twice.' },
+        { imageWord: '着 — 持续', imageDescription: 'a person sitting with their eyes open, staying awake', question: '他还没睡？', questionTranslation: 'He hasn\'t slept yet?', answer: '还醒着呢。', answerTranslation: 'He\'s still awake.' },
+        { imageWord: '没有 — 否定', imageDescription: 'a person shaking their head indicating they haven\'t done something', question: '你去过日本吗？', questionTranslation: 'Have you ever been to Japan?', answer: '没去过。', answerTranslation: 'I\'ve never been.' },
+      ],
+    },
+    {
+      heading: '了 vs 过 — 关键区别',
+      noteInline: '了 = this specific time, completed · 过 = at some point in life (experience) · 没 negates both',
+      pairs: [
+        { imageWord: '去了 vs 去过', imageDescription: 'two scenes: one recent trip vs. a memory from years ago', question: '你去过北京吗？', questionTranslation: 'Have you ever been to Beijing?', answer: '去过，去年去了一次。', answerTranslation: 'Yes, I went once last year.' },
+        { imageWord: '吃过了', imageDescription: 'a person politely declining food because they already ate', question: '要不要吃饭？', questionTranslation: 'Do you want to eat?', answer: '不用了，我吃过了。', answerTranslation: 'No thanks, I\'ve already eaten.' },
+      ],
+      sentenceColumns: [
+        { label: '体标记', items: [{ text: '了', translation: 'completed (this time)' }, { text: '过', translation: 'experienced (ever)' }, { text: '着', translation: 'ongoing state' }] },
+        { label: '例子', items: [{ text: '吃了', translation: 'ate (done)' }, { text: '吃过', translation: 'have eaten (before)' }, { text: '醒着', translation: 'staying awake' }, { text: '没去过', translation: 'have never been' }] },
+      ],
+    },
+  ],
+};
+
+const MANDARIN_XIANG_YAO: HayUnitContent = {
+  chapterTitleKey: 'i would like mandarin',
+  conceptLabel: '我想要 / 能不能',
+  conceptDefinition: 'I would like · 想要 (want politely) · 能不能 (could you please) · 请 (please)',
+  introNote: '想 (want to do) → 想要 (want a thing) → 请 + verb (please do) → 能不能 + verb (could you please). Each step is more indirect and therefore more polite in Chinese social norms.',
+  clusters: [
+    {
+      heading: '想要 / 请 — 礼貌请求',
+      pairs: [
+        { imageWord: '菜单', imageDescription: 'a waiter handing a menu to a restaurant customer', question: '您想要什么？', questionTranslation: 'What would you like?', answer: '我想要看一下菜单。', answerTranslation: 'I would like to see the menu.' },
+        { imageWord: '咖啡', imageDescription: 'a café customer gesturing toward the coffee menu', question: '你要什么？', questionTranslation: 'What would you like?', answer: '我想要一杯咖啡，谢谢。', answerTranslation: 'I would like a cup of coffee, thank you.' },
+        { imageWord: '帮助', imageDescription: 'a person politely asking a librarian for help', question: '有什么我可以帮您的吗？', questionTranslation: 'Is there anything I can help you with?', answer: '麻烦您，我想要找一本书。', answerTranslation: 'Excuse me, I would like to find a book.' },
+        { imageWord: '预订', imageDescription: 'a person at a hotel front desk making a reservation', question: '您需要什么帮助？', questionTranslation: 'What help do you need?', answer: '我想要预订一个房间。', answerTranslation: 'I would like to book a room.' },
+      ],
+    },
+    {
+      heading: '能不能 — 最礼貌的请求',
+      noteInline: '能不能 + verb = could you please · 请 + verb = please (do) · both more polite than 我要',
+      pairs: [
+        { imageWord: '照片', imageDescription: 'a tourist asking someone to take their photo', question: '麻烦了，能不能帮我拍张照？', questionTranslation: 'Excuse me, could you take a photo for me?', answer: '当然可以！', answerTranslation: 'Of course!' },
+        { imageWord: '时间', imageDescription: 'a person politely checking if someone has a moment', question: '你能不能给我一点时间？', questionTranslation: 'Could you give me a moment?', answer: '可以，没问题。', answerTranslation: 'Sure, no problem.' },
+      ],
+      sentenceColumns: [
+        { label: '礼貌程度', items: [{ text: '我要', translation: 'I want (direct)' }, { text: '我想要', translation: 'I would like (polite)' }, { text: '请 + verb', translation: 'Please (do)' }, { text: '能不能 + verb', translation: 'Could you please (most polite)' }] },
+        { label: '场合', items: [{ text: '点菜', translation: 'ordering food' }, { text: '购物', translation: 'shopping' }, { text: '问路', translation: 'asking directions' }, { text: '请求帮助', translation: 'asking for help' }] },
+      ],
+    },
+  ],
+};
+
+const ENGLISH_I_AM_GOING_TO: HayUnitContent = {
+  chapterTitleKey: 'i am going to english',
+  conceptLabel: "I'm going to",
+  conceptDefinition: 'I am going to + verb · planned future · going to vs will',
+  introNote: '"Going to" = you already have a plan. "Will" = decision made right now. "I\'m going to study tonight" (plan made earlier). "OK, I\'ll help you" (decided just now). This distinction is key.',
+  clusters: [
+    {
+      heading: "I'm going to — planned future",
+      pairs: [
+        { imageWord: 'study', imageDescription: 'a student with a full study schedule for the week', question: 'What are you going to do tonight?', questionTranslation: '오늘 밤 뭘 할 거예요? / 今晚你打算做什么？', answer: "I'm going to study tonight.", answerTranslation: "I'm going to study tonight." },
+        { imageWord: 'visit my parents', imageDescription: 'a person packing a bag for a family visit', question: 'What are you going to do this weekend?', questionTranslation: '이번 주말에 뭘 할 거예요？', answer: "I'm going to visit my parents.", answerTranslation: "I'm going to visit my parents." },
+        { imageWord: 'eat sushi', imageDescription: 'a restaurant table with a sushi reservation card', question: 'What are you going to have for dinner?', questionTranslation: '저녁에 뭘 먹을 거예요？', answer: "We're going to eat sushi.", answerTranslation: "We're going to eat sushi." },
+        { imageWord: 'start a new job', imageDescription: 'a person with a new employee badge on their first day', question: 'What is she going to do next month?', questionTranslation: '그녀는 다음 달에 뭘 할 거예요？', answer: "She's going to start a new job.", answerTranslation: "She's going to start a new job." },
+      ],
+    },
+    {
+      heading: "not going to — negative plan",
+      noteInline: "going to = pre-made plan · won't = decision right now · I'm NOT going to = negative planned action",
+      pairs: [
+        { imageWord: 'the gym', imageDescription: 'a gym with the lights off, nobody going in', question: 'Are you going to the gym today?', questionTranslation: '오늘 헬스장에 갈 거예요？', answer: "No, I'm not going to go today.", answerTranslation: "No, I'm not going to go today." },
+        { imageWord: 'cook', imageDescription: 'fresh ingredients on a counter next to a stove', question: 'Are you going to cook dinner?', questionTranslation: '저녁 요리할 거예요？', answer: "Yes, I'm going to cook pasta.", answerTranslation: "Yes, I'm going to cook pasta." },
+      ],
+      sentenceColumns: [
+        { label: 'Subject + going to', items: [{ text: "I'm going to", translation: "I am going to" }, { text: "She's going to", translation: "She is going to" }, { text: "We're going to", translation: "We are going to" }, { text: "I'm not going to", translation: "I am not going to" }] },
+        { label: 'What?', items: [{ text: 'study.', translation: 'study' }, { text: 'visit my parents.', translation: 'visit my parents' }, { text: 'eat sushi.', translation: 'eat sushi' }, { text: 'start a new job.', translation: 'start a new job' }] },
+      ],
+    },
+  ],
+};
+
+const ENGLISH_INFINITIVE_PATTERN: HayUnitContent = {
+  chapterTitleKey: 'the verb pattern english',
+  conceptLabel: 'to + verb',
+  conceptDefinition: 'The infinitive pattern · want to · need to · have to · going to · able to',
+  introNote: 'The infinitive = "to" + base verb form. This one pattern unlocks dozens of English structures. Want TO go. Need TO study. Have TO work. Every semi-modal takes "to" + the base form.',
+  clusters: [
+    {
+      heading: 'Semi-modals + to + verb',
+      pairs: [
+        { imageWord: 'want to travel', imageDescription: 'a person looking at travel brochures with excitement', question: 'What do you want to do?', questionTranslation: '뭘 하고 싶어요? / 你想做什么？', answer: 'I want to travel.', answerTranslation: 'I want to travel.' },
+        { imageWord: 'need to study', imageDescription: 'a student looking stressed with an upcoming exam on the calendar', question: 'What does she need to do?', questionTranslation: '그녀는 뭘 해야 해요？', answer: 'She needs to study for the exam.', answerTranslation: 'She needs to study for the exam.' },
+        { imageWord: 'have to work', imageDescription: 'a person at a desk on a Saturday, looking resigned', question: 'Does he have to work on weekends?', questionTranslation: '그는 주말에 일해야 해요？', answer: 'Yes, he has to work on Saturdays.', answerTranslation: 'Yes, he has to work on Saturdays.' },
+        { imageWord: 'be able to help', imageDescription: 'a person smiling and offering assistance', question: 'Will you be able to help me?', questionTranslation: '나를 도와줄 수 있어요？', answer: "Yes, I'll be able to help you.", answerTranslation: "Yes, I'll be able to help you." },
+      ],
+    },
+    {
+      heading: "don't have to vs can't",
+      noteInline: "have to (must) → don't have to (not necessary, not forbidden) → can't (not allowed/impossible)",
+      pairs: [
+        { imageWord: 'uniform', imageDescription: 'a student in regular clothes at a casual school', question: 'Do you have to wear a uniform?', questionTranslation: '교복을 입어야 해요？', answer: "No, I don't have to wear a uniform.", answerTranslation: "No, I don't have to wear a uniform." },
+        { imageWord: 'phone', imageDescription: 'a sign showing phones must be turned off', question: 'Can you use your phone here?', questionTranslation: '여기서 전화기를 쓸 수 있어요？', answer: "No, you can't use your phone here.", answerTranslation: "No, you can't use your phone here." },
+      ],
+      sentenceColumns: [
+        { label: 'Semi-modal', items: [{ text: 'want to', translation: 'desire' }, { text: 'need to', translation: 'necessity' }, { text: 'have to', translation: 'obligation' }, { text: 'be able to', translation: 'ability (future)' }, { text: 'going to', translation: 'planned future' }] },
+        { label: 'Structure', items: [{ text: '[subject] + [semi-modal] + to + [base verb]', translation: 'The infinitive frame' }, { text: "don't / doesn't have to", translation: "not necessary (but allowed)" }, { text: "can't", translation: "not allowed / impossible" }] },
+      ],
+    },
+  ],
+};
+
+const ENGLISH_I_WOULD_LIKE: HayUnitContent = {
+  chapterTitleKey: 'i would like english',
+  conceptLabel: 'I would like',
+  conceptDefinition: "I would like · polite want · Would you like...? · I'd like to",
+  introNote: '"I would like" is the polite version of "I want". Use it at restaurants, shops, and formal situations. Contraction: I\'d like (very common). Question: Would you like...?',
+  clusters: [
+    {
+      heading: "I'd like — polite request",
+      pairs: [
+        { imageWord: 'a table for two', imageDescription: 'a host at a restaurant greeting customers', question: 'Can I help you?', questionTranslation: '도와드릴까요? / 能帮您吗？', answer: "Yes, I'd like a table for two, please.", answerTranslation: "Yes, I'd like a table for two, please." },
+        { imageWord: 'a coffee', imageDescription: 'a person at a café counter ordering', question: 'What would you like?', questionTranslation: '뭘 드시겠어요? / 您想要什么？', answer: "I'd like a coffee, please.", answerTranslation: "I'd like a coffee, please." },
+        { imageWord: 'to make an appointment', imageDescription: 'a person calling a doctor\'s office', question: 'How can I help you?', questionTranslation: '무엇을 도와드릴까요？', answer: "I'd like to make an appointment.", answerTranslation: "I'd like to make an appointment." },
+        { imageWord: 'more information', imageDescription: 'a customer at an information desk', question: 'Is there anything else?', questionTranslation: '더 필요한 게 있으세요？', answer: "I'd like some more information, please.", answerTranslation: "I'd like some more information, please." },
+      ],
+    },
+    {
+      heading: 'Would you like? — polite offer',
+      noteInline: "I want (direct) → I'd like (polite) → Would you like? (polite offer) · always use I'd like in service situations",
+      pairs: [
+        { imageWord: 'dessert', imageDescription: 'a waiter presenting the dessert menu', question: 'Would you like to see the dessert menu?', questionTranslation: '디저트 메뉴 보시겠어요？', answer: "Yes, I'd like that, thank you.", answerTranslation: "Yes, I'd like that, thank you." },
+        { imageWord: 'a receipt', imageDescription: 'a cashier offering a printed receipt', question: 'Would you like a receipt?', questionTranslation: '영수증이 필요하세요？', answer: "Yes, please. I'd like a receipt.", answerTranslation: "Yes, please. I'd like a receipt." },
+      ],
+      sentenceColumns: [
+        { label: 'Polite forms', items: [{ text: "I'd like", translation: "I would like (contraction)" }, { text: "I'd like to + verb", translation: "I would like to (do something)" }, { text: "Would you like...?", translation: "polite offer or question" }] },
+        { label: 'Situations', items: [{ text: 'At a restaurant', translation: "I'd like the pasta, please." }, { text: 'At a store', translation: "I'd like to return this." }, { text: 'On the phone', translation: "I'd like to speak to the manager." }, { text: 'Offering help', translation: "Would you like some help?" }] },
+      ],
+    },
+  ],
+};
+
 const HAY_UNITS: HayUnitContent[] = [
   PUEDO_IR,
   HAY_CHAPTER,
@@ -3549,6 +5126,62 @@ const HAY_UNITS: HayUnitContent[] = [
   PORTUGUESE_GOSTO,
   PORTUGUESE_GOSTARIA,
   PORTUGUESE_FUI,
+  // ── Japanese verb units ───────────────────────────────────────────────────────
+  JAPANESE_IKIMASU,
+  JAPANESE_TORIMASHITA,
+  JAPANESE_KAIMASHITA,
+  JAPANESE_IKUTSUMORI,
+  JAPANESE_MOTTEIMASU,
+  JAPANESE_SHITAIDESU,
+  JAPANESE_DESU_IDENTITY,
+  JAPANESE_DOKO_NI_IMASU,
+  JAPANESE_DEKIMASU,
+  JAPANESE_MASU_PATTERN,
+  JAPANESE_ARIMASU,
+  JAPANESE_SUKIDESU,
+  JAPANESE_IKITAITO_OMOIMASU,
+  // ── Korean verb units ─────────────────────────────────────────────────────────
+  KOREAN_GAYO,
+  KOREAN_GAJYEOGASSEOYO,
+  KOREAN_SASSEOYO,
+  KOREAN_GAL_GEOYEYO,
+  KOREAN_ISSEOYO,
+  KOREAN_HAGO_SIPEOYO,
+  KOREAN_IEYO_YEYO,
+  KOREAN_EODI_ISSEOYO,
+  KOREAN_HAL_SU_ISSEOYO,
+  KOREAN_TENSE_PATTERN,
+  KOREAN_ISSEOYO_EXISTENCE,
+  KOREAN_JOAHAEYO,
+  KOREAN_WOULD_LIKE,
+  // ── Mandarin verb units ───────────────────────────────────────────────────────
+  MANDARIN_WO_QU,
+  MANDARIN_NA_LE,
+  MANDARIN_MAI_LE,
+  MANDARIN_YAO_QU,
+  MANDARIN_WO_YOU,
+  MANDARIN_WO_XIANG,
+  MANDARIN_WO_SHI,
+  MANDARIN_WO_ZAI,
+  MANDARIN_WO_HUI,
+  MANDARIN_ASPECT_PATTERN,
+  MANDARIN_YOU_MEIYOU,
+  MANDARIN_WO_XIHUAN,
+  MANDARIN_XIANG_YAO,
+  // ── English (ESL) verb units ──────────────────────────────────────────────────
+  ENGLISH_I_GO,
+  ENGLISH_I_TOOK,
+  ENGLISH_I_BOUGHT,
+  ENGLISH_I_AM_GOING_TO,
+  ENGLISH_I_HAVE,
+  ENGLISH_I_WANT,
+  ENGLISH_I_AM,
+  ENGLISH_WHERE_AM_I,
+  ENGLISH_I_CAN,
+  ENGLISH_INFINITIVE_PATTERN,
+  ENGLISH_THERE_IS,
+  ENGLISH_I_LIKE,
+  ENGLISH_I_WOULD_LIKE,
 ];
 
 /**
