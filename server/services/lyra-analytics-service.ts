@@ -102,7 +102,6 @@ interface CurriculumAuditData {
     language: string;
     verboseCount: number;
     totalCount: number;
-    avgIntroLength: number;
     avgGrammarLength: number;
   }>;
   unseededLanguages: Array<{
@@ -638,37 +637,9 @@ export class LyraAnalyticsService {
       }
     }
 
-    if (data.templatedContent.length > 0) {
-      const totalTemplated = data.templatedContent.reduce((sum, t) => sum + Number(t.templated_count), 0);
-      const languagesAffected = data.templatedContent.filter(t => Number(t.pct_templated) > 20);
-      const worst = data.templatedContent[0];
-      insights.push({
-        category: 'content_quality',
-        severity: languagesAffected.length > 5 ? 'high' : 'medium',
-        confidence: 0.98,
-        title: `${totalTemplated} lessons across ${languagesAffected.length} languages still use templated placeholder descriptions`,
-        description: (() => {
-          const allLanguages = data.languageCoverage.map(c => c.language);
-          const templatedLanguages = new Set(data.templatedContent.map(t => t.language));
-          const cleanLanguages = allLanguages.filter(lang => !templatedLanguages.has(lang));
-          const cleanNote = cleanLanguages.length > 0 
-            ? ` ${cleanLanguages.join(', ')} ${cleanLanguages.length === 1 ? 'has' : 'have'} fully original descriptions.` 
-            : '';
-          return `${worst.language} has the most: ${worst.templated_count} of ${worst.total_count} lessons (${worst.pct_templated}%) use auto-generated descriptions like "Practice real conversations about..." instead of real pedagogical content.${cleanNote}`;
-        })(),
-        data: { 
-          totalTemplated, 
-          byLanguage: data.templatedContent.map(t => ({
-            language: t.language,
-            templated: Number(t.templated_count),
-            total: Number(t.total_count),
-            pct: Number(t.pct_templated),
-          }))
-        },
-        recommendation: `Replace templated descriptions with hand-crafted pedagogical content, starting with the highest-traffic languages after Spanish. Each description should explain what students will learn, prerequisite knowledge, and expected outcomes.`,
-        needsReview: false,
-      });
-    }
+    // Templated placeholder descriptions check retired June 21 2026:
+    // chapter.description is no longer rendered in the textbook UI, so boilerplate text
+    // in that field is invisible to students. Not a UX issue — data-only concern.
 
     return insights;
   }
@@ -1116,6 +1087,7 @@ Write your analysis as Lyra. Sign off with your name. Keep it 4-6 paragraphs —
     const db = getSharedDb();
 
     // Check 1: Lessons with no textbook_lesson_content row
+    // Excludes: conversation (AI-chat only, no textbook needed) and vocabulary (visual content, not textbook)
     const missingTextbookResult = await db.execute(sql`
       SELECT cl.id as lesson_id, cl.name as lesson_name, cl.lesson_type,
              cu.name as unit_name, cp.language
@@ -1123,6 +1095,7 @@ Write your analysis as Lyra. Sign off with your name. Keep it 4-6 paragraphs —
       JOIN curriculum_units cu ON cu.id = cl.curriculum_unit_id
       JOIN curriculum_paths cp ON cp.id = cu.curriculum_path_id
       WHERE cp.is_published = true
+        AND cl.lesson_type NOT IN ('conversation', 'vocabulary')
         AND NOT EXISTS (
           SELECT 1 FROM textbook_lesson_content tlc WHERE tlc.lesson_id = cl.id
         )
@@ -1145,22 +1118,22 @@ Write your analysis as Lyra. Sign off with your name. Keep it 4-6 paragraphs —
       LIMIT 50
     `);
 
-    // Check 3: Verbosity regression — intro > 600ch or grammar > 800ch (should be 0 after compact reseed)
+    // Check 3: Verbosity regression — grammar_explanation > 800ch only.
+    // Introduction field is no longer rendered in the UI (removed June 21 2026), so intro length is not a UX issue.
     const verbosityResult = await db.execute(sql`
       SELECT
         tlc.language,
         COUNT(*) FILTER (
-          WHERE LENGTH(tlc.introduction) > 600 OR LENGTH(tlc.grammar_explanation) > 800
+          WHERE LENGTH(tlc.grammar_explanation) > 800
         ) as verbose_count,
         COUNT(*) as total_count,
-        ROUND(AVG(LENGTH(tlc.introduction)))::int as avg_intro_length,
         ROUND(AVG(LENGTH(tlc.grammar_explanation)))::int as avg_grammar_length
       FROM textbook_lesson_content tlc
       JOIN curriculum_lessons cl ON cl.id = tlc.lesson_id
       WHERE tlc.language IN ('spanish','french','portuguese','german','italian','korean')
       GROUP BY tlc.language
       HAVING COUNT(*) FILTER (
-        WHERE LENGTH(tlc.introduction) > 600 OR LENGTH(tlc.grammar_explanation) > 800
+        WHERE LENGTH(tlc.grammar_explanation) > 800
       ) > 0
       ORDER BY verbose_count DESC
     `);
@@ -1208,7 +1181,6 @@ Write your analysis as Lyra. Sign off with your name. Keep it 4-6 paragraphs —
         language: r.language,
         verboseCount: parseInt(r.verbose_count || '0'),
         totalCount: parseInt(r.total_count || '0'),
-        avgIntroLength: parseInt(r.avg_intro_length || '0'),
         avgGrammarLength: parseInt(r.avg_grammar_length || '0'),
       })),
       unseededLanguages: (unseededResult.rows || []).map((r: any) => ({
@@ -1231,10 +1203,10 @@ Write your analysis as Lyra. Sign off with your name. Keep it 4-6 paragraphs —
         category: 'content_quality',
         severity: totalVerbose > 50 ? 'high' : 'medium',
         confidence: 1.0,
-        title: `Textbook verbosity regression: ${totalVerbose} lessons have bloated intro or grammar text`,
-        description: `Affected languages: ${affected}. Compact textbook content (intro ≤ 220ch, grammar ≤ 400ch) was enforced in March 2026. Verbose content re-appearing means a seeding job ran with the old prompt format. Students see wall-of-text lesson openers that bury the actual teaching point.`,
+        title: `Textbook verbosity regression: ${totalVerbose} lessons have bloated grammar_explanation text`,
+        description: `Affected languages: ${affected}. Grammar explanations should be ≤ 800ch — concise, pattern-focused, no prose padding. Note: introduction field is no longer rendered in the UI (removed June 21 2026) so intro length is not flagged here.`,
         data: { totalVerbose, affectedLanguages: data.verboseTextbook },
-        recommendation: `Re-run server/scripts/compact-textbook-reseed.ts --run to restore compact format. Then find the seeding job that generated the verbose content and update its prompt to match the compact format.`,
+        recommendation: `Review grammar_explanation content in affected languages. Trim to the core pattern + 1-2 examples. No "Welcome to..." preambles, no cultural preamble, no restatement of the lesson title.`,
         needsReview: true,
       });
     }
