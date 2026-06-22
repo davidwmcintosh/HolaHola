@@ -34,3 +34,4 @@
 - [System health verifier](system-health-verifier.md) — run `npx tsx server/scripts/verify-system-health.ts` before marking done; checks 26 tables, seeded data, curriculum baseline, worker wiring; zero failures required.
 - [Hybrid INDEX_ONLY / VERBATIM markers](hybrid-index-verbatim-markers.md) — pointer blocks get [INDEX_ONLY], verbatim quotes get [VERBATIM], prose for internalized wisdom; brackets correct for index entries by design.
 - [Pedagogical state machine](pedagogical-state-machine.md) — GL context decay fix; FK gotcha (sessionId = tutorSession.id not GL session ID); State Envelope pattern; Shadow Auditor wired to GL stop().
+- [Typecheck zero-error patterns](typecheck-zero-error-patterns.md) — key field mismatches that caused 2,758→0 cleanup; prevents recurrence.
