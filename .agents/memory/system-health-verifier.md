@@ -29,6 +29,10 @@ Zero red failures required. Yellow warnings must be reviewed and either fixed or
 - If you add a new table, worker, or seeded dataset this session, add a check for it to the script FIRST, then run it
 - The one known persistent warning: Hebrew novice_low has 2 paths (intentional — David's decision June 22, 2026; "Hebrew 1 — Complete Beginner" may be folded into Hebrew 1 later)
 
+## chapter_type NULL pattern
+
+All L5 (advanced_low) units default to `advanced_unit`. L1/L2 thematic units map to their Spanish-baseline equivalent at the same `order_index`. Key types: `school`, `hobbies`, `food`, `vocabulary_cluster`, `verb_unit`, `skills`, `health`, `travel`, `culture`, `grammar_concept`, `technology`. When the verifier surfaces NULLs, look up the Spanish unit at the same order_index to determine the correct type.
+
 ## Location
 
-`server/skills/verify-system-health.ts` — also referenced in `holahola-build` and `holahola-session-end` skills
+`server/scripts/verify-system-health.ts` — also referenced in `holahola-build` and `holahola-session-end` skills

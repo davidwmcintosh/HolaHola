@@ -198,6 +198,22 @@ async function checkCurriculum() {
       );
     }
   }
+
+  // chapter_type NULL check — every unit must have a chapter_type
+  const nullTypes = await pool.query(`
+    SELECT cp.language, cp.name as path_name, COUNT(cu.id)::int null_count
+    FROM curriculum_units cu
+    JOIN curriculum_paths cp ON cu.curriculum_path_id = cp.id
+    WHERE cu.chapter_type IS NULL
+    GROUP BY cp.language, cp.name
+    ORDER BY cp.language
+  `);
+  if (nullTypes.rows.length > 0) {
+    console.log("");
+    for (const r of nullTypes.rows) {
+      warn(`chapter_type NULLs`, `${r.path_name}: ${r.null_count} units have NULL chapter_type`);
+    }
+  }
 }
 
 // ─── WORKER WIRING ───────────────────────────────────────────────────────────

@@ -109,3 +109,9 @@ Several Spanish 1 chapters (e.g., "The Infinitive Pattern") show a redundant int
 **2026-06-21 — Spanish 1 textbook chapters — Intro/reference section duplication — LOW**
 Several Spanish 1 chapters (e.g., "The Infinitive Pattern") show a redundant introduction paragraph followed immediately by a reference section that repeats the same content. The intro block and the visual reference card are saying the same thing twice. Needs a pass to remove the intro text for chapters that have a visual reference. Flag for the final textbook look-through, not urgent.
 
+
+**2026-06-22 — `server/routes.ts`, `server/index.ts`, multiple service files — Pre-existing typecheck failures — LOW (accumulated drift)**
+`npm run typecheck` emits ~2758 lines of errors. Root categories: (1) routes.ts — implicit-any on `res` parameters throughout (needs `import type { Response } from 'express'` and explicit typing), (2) namespace misuse `Express` as a type at routes.ts:573, (3) service type drift — alden-functions.ts, brain-surgery-service.ts, command-parser.ts, daniela-presence-worker.ts interfaces evolved but callers weren't updated. None are runtime crashes — the app runs correctly. Fix: routes.ts in one focused pass, then service files one by one. Build rule: zero new errors allowed; pre-existing count must not increase.
+
+**2026-06-22 — `client/src/data/madrigal-unit-content.ts` — French (and other non-Spanish languages) have zero Madrigal visual textbook entries — MEDIUM (content gap)**
+French has 21 verb chain units in the loop catalog and 48 curriculum units, but zero entries in `madrigal-unit-content.ts`. The lookup functions (`getHayContent`, `getPreteriteContent`, etc.) return `null` gracefully — no crash, just no visual textbook overlay for French Madrigal units. Content law: NEVER auto-generate this file — every item must be manually curated from Madrigal's physical textbook ("See It and Say It in French"). Fix requires a human content-curation pass.

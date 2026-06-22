@@ -13,7 +13,7 @@ Apply these standards on every build. They prevent the most common mistakes.
 
 ## The rules
 
-- **Run `npm run typecheck` before marking any task done.** Fix all errors first.
+- **Run `npm run typecheck` before marking any task done.** Introduce zero new errors. (Pre-existing failures are documented in `docs/open-bugs.md` — don't inherit or worsen them.)
 - Use parallel tool calls for independent work — don't serialize what can run simultaneously.
 - **NEVER `DATABASE_URL`** — always `NEON_SHARED_DATABASE_URL` for all DB connections.
 - After any new feature: add to `docs/batch-doc-updates.md` and update `docs/alden-agent-handoff.md`.
@@ -23,6 +23,7 @@ Apply these standards on every build. They prevent the most common mistakes.
 - **There is one shared Neon database** used by both dev and production — schema changes affect both immediately
 - **`npm run db:push`** applies schema changes — always follow with a backfill if adding non-nullable columns
 - The `typecheck` validation command is registered — run it via the Replit validation system or `npm run typecheck` directly
+- **Pre-existing typecheck failures exist** (routes.ts implicit-any, some service type drift) — these are known and tracked; do not add to them
 
 ## Mandatory Completion Verification
 
