@@ -2089,6 +2089,45 @@ const FRENCH_UNITS: MadrigalLoopUnit[] = [
     ],
   },
 
+  // ─── J'ai regardé — Le Présent Parfait (present perfect framing) ──────────
+  {
+    contentKey: 'i have watched french',
+    language: 'french',
+    displayName: "Le Présent Parfait — J'ai regardé / As-tu déjà...?",
+    unitType: 'perfect',
+    vocabTerms: ["j'ai regardé", "j'ai mangé", "j'ai vu", "as-tu déjà", "je n'ai jamais", 'présent parfait', 'present perfect', 'passé composé', 'have you ever', 'already', 'never', 'déjà', 'jamais'],
+    steps: [
+      {
+        stepIndex: 0,
+        stepName: 'anchor',
+        verbalInstruction: '"J\'ai regardé" means both "I watched" AND "I have watched." One form, two meanings in English. Déjà = already. Jamais = never. Say them: j\'ai regardé, j\'ai déjà vu, je n\'ai jamais mangé.',
+        studentAction: "Repeat j'ai regardé, j'ai déjà vu, je n'ai jamais mangé.",
+        teacherHint: "The insight here: French passé composé IS the present perfect. Students who have only seen it as preterite will have an 'aha' moment. As-tu déjà vu ce film? (Have you seen this film?) is the gateway to present perfect fluency.",
+      },
+      {
+        stepIndex: 1,
+        stepName: 'model_sentences',
+        verbalInstruction: "Each image shows a life experience. Read: J'ai déjà... / Je n'ai jamais... Use the passé composé as present perfect.",
+        studentAction: "Read j'ai déjà / je n'ai jamais + past participle with images.",
+        teacherHint: "Highlight déjà (before the past participle in passé composé: j'ai DÉJÀ regardé) and jamais (je n'ai JAMAIS mangé). These adverbs slot between avoir and the participle — drill placement explicitly.",
+      },
+      {
+        stepIndex: 2,
+        stepName: 'combinator',
+        verbalInstruction: "Scan the columns — have you ever done this? Build: As-tu déjà + past participle?",
+        studentAction: 'Combine subject + ai/a + déjà/jamais + past participle rapidly.',
+        teacherHint: "Column 1: j'ai déjà, je n'ai jamais, il a déjà. Column 2: regardé, mangé, vu, lu, voyagé, visité. This drill builds automatic placement of déjà/jamais between auxiliaire and participe.",
+      },
+      {
+        stepIndex: 3,
+        stepName: 'qa_pivot',
+        verbalInstruction: "As-tu déjà visité Paris? Answer with oui, j'ai déjà... OR non, je n'ai jamais...",
+        studentAction: "Produce: Oui, j'ai déjà visité Paris. / Non, je n'ai jamais visité Paris.",
+        teacherHint: "This is real conversational French — native speakers ask as-tu déjà + passé composé constantly. Accept both yes and no answers. Extend: et tes parents, ont-ils déjà visité Paris?",
+      },
+    ],
+  },
+
 ];
 
 const GERMAN_UNITS: MadrigalLoopUnit[] = [

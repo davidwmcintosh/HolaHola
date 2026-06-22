@@ -7106,7 +7106,7 @@ ${memoryContext}
       const compassContext = await sessionCompassService.getCompassContext(conversationId);
       if (!compassContext) return;
       const tutorName = "Daniela"; // default — the WS handler will use the real name anyway
-      const synthesis = await generatePreSessionSynthesis(compassContext, tutorName);
+      const synthesis = await generatePreSessionSynthesis(compassContext, tutorName, String(userId), req.body?.language || 'spanish');
       if (synthesis) {
         setWarmSynthesis(String(userId), synthesis);
         console.log(`[WarmSynthesis] ✓ Pre-computed for user ${String(userId).substring(0, 8)} (${synthesis.length} chars)`);

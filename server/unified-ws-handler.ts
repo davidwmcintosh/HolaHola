@@ -67,6 +67,8 @@ import { eq, and, gt, lt, ne, desc, sql } from 'drizzle-orm';
 import { getPendingSuggestions } from './services/daniela-reflection';
 import { generatePreSessionSynthesis, wrapSynthesisForSystemPrompt, consumeWarmSynthesis } from './services/pre-session-synthesis';
 import { schedulePendingReflectionIfMissing, buildTranscriptPreview, processAndClearPendingReflection, MIN_EXCHANGES_FOR_REFLECTION } from './services/session-reflection-worker';
+import { generateAndStorePedagogicalBrief, MIN_EXCHANGES_FOR_BRIEF } from './services/pedagogical-brief-worker';
+import { analyzeSessionForMasteryEvidence, MIN_EXCHANGES_FOR_MASTERY } from './services/mastery-evidence-worker';
 
 // Use /api/ paths - Replit's proxy properly routes these
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
@@ -1811,6 +1813,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             // ══════════════════════════════════════════════════════════════
             const isSubjectSession = isBiologySession(config.subject, config.targetLanguage) || isHistorySession(config.subject, config.targetLanguage) || isMathSession(config.subject, config.targetLanguage) || isBusinessSession(config.subject, config.targetLanguage);
             let systemPrompt: string;
+            let resolvedActflLevel: string | null = null;
             if (cachedContextPrompt) {
               // RECONNECT CACHE HIT: Use the prompt baked at session start.
               // Skips the entire Phase 3 assembly (600-2000ms synchronous work).
@@ -1871,7 +1874,8 @@ ${buildNativeFunctionCallingSection()}`;
             } else {
               // Resolve ACTFL level: users.actfl_level is rarely populated, so fall back
               // to actfl_progress.current_actfl_level (same fix as the Twilio bridge).
-              const resolvedActflLevel = user?.actflLevel || actflProgressRow?.currentActflLevel || null;
+              // Declared with let so it's accessible in the snapshot block below.
+              resolvedActflLevel = user?.actflLevel || actflProgressRow?.currentActflLevel || null;
               if (resolvedActflLevel) {
                 console.log(`[SessionInit] ACTFL level resolved: ${resolvedActflLevel} (${effectiveLanguage})`);
               }
@@ -2712,7 +2716,7 @@ ${lastNote.tutorNotes}`);
                     // If it's there and fresh (< 3 min), use it and skip the 1-2s await here.
                     const warmedNote = userId ? consumeWarmSynthesis(String(userId)) : null;
                     const synthesisNote = warmedNote
-                      ?? await generatePreSessionSynthesis(compassContext, tutorName);
+                      ?? await generatePreSessionSynthesis(compassContext, tutorName, userId ? String(userId) : undefined, effectiveLanguage || undefined);
                     if (warmedNote) {
                       console.log(`[GeminiLive] ✓ Using pre-warmed synthesis (${warmedNote.length} chars) — 0ms latency`);
                     }
@@ -4281,6 +4285,33 @@ ${lastNote.tutorNotes}`);
                 sessionLanguage || 'spanish',
               );
             }).catch((err: Error) => console.warn('[GeminiLive] Deferred reflection scheduling failed:', err.message));
+          }
+
+          // Pedagogical brief — Daniela's working theory for next session (fire-and-forget)
+          if (disconnectExchangeCount >= MIN_EXCHANGES_FOR_BRIEF && disconnectUserId && compassSession?.id) {
+            storage.getMessagesByConversation(conversationId).then((msgs: Array<{ role: string; content: string }>) => {
+              const preview = buildTranscriptPreview(msgs, 3000);
+              return generateAndStorePedagogicalBrief(
+                disconnectUserId,
+                compassSession!.id,
+                sessionLanguage || 'spanish',
+                preview,
+              );
+            }).catch((err: Error) => console.warn('[GeminiLive] Pedagogical brief generation failed:', err.message));
+          }
+
+          // Mastery evidence — ACTFL Can-Do analysis (fire-and-forget)
+          if (disconnectExchangeCount >= MIN_EXCHANGES_FOR_MASTERY && disconnectUserId && compassSession?.id) {
+            storage.getMessagesByConversation(conversationId).then((msgs: Array<{ role: string; content: string }>) => {
+              const preview = buildTranscriptPreview(msgs, 3000);
+              return analyzeSessionForMasteryEvidence(
+                disconnectUserId,
+                compassSession!.id,
+                sessionLanguage || 'spanish',
+                preview,
+                null, // actflLevel resolved at next mastery digest read
+              );
+            }).catch((err: Error) => console.warn('[GeminiLive] Mastery evidence analysis failed:', err.message));
           }
         }
       }

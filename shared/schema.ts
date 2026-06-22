@@ -9478,3 +9478,66 @@ export const insertPedagogicalLoopStateSchema = createInsertSchema(pedagogicalLo
 });
 export type InsertPedagogicalLoopState = z.infer<typeof insertPedagogicalLoopStateSchema>;
 export type PedagogicalLoopState = typeof pedagogicalLoopState.$inferSelect;
+
+// ── Pedagogical Brief (Intention MVP) ────────────────────────────────────────
+// Daniela's working theory for a student, written at session end.
+// Append-only: never overwrite — track how the intention evolves over time.
+// Read at session start: latest brief injected into pre-session synthesis.
+export const studentPedagogicalBriefs = pgTable("student_pedagogical_briefs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  language: text("language").notNull(),
+  sessionId: varchar("session_id"), // source session that generated this brief
+  brief: text("brief").notNull(), // 3-sentence pedagogical brief
+  focusArea: text("focus_area"), // what to prioritize next session
+  struggledWith: text("struggled_with"), // what the student found hard this session
+  notedProgress: text("noted_progress"), // what went well / what advanced
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_ped_brief_user_lang").on(table.userId, table.language),
+]);
+
+export const insertStudentPedagogicalBriefSchema = createInsertSchema(studentPedagogicalBriefs).omit({
+  id: true, createdAt: true,
+});
+export type InsertStudentPedagogicalBrief = z.infer<typeof insertStudentPedagogicalBriefSchema>;
+export type StudentPedagogicalBrief = typeof studentPedagogicalBriefs.$inferSelect;
+
+// ── ACTFL Mastery Evidence ────────────────────────────────────────────────────
+// Time-series evidence for Can-Do statement mastery.
+// Separate from studentCanDoProgress (which is boolean flags).
+// Each row = one observed performance in a session.
+// Confidence scores decay over time — the aggregate view drives the mastery digest.
+
+// Bridge: curriculum unit → Can-Do statements it addresses
+export const curriculumUnitCanDoMap = pgTable("curriculum_unit_can_do_map", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  unitId: varchar("unit_id").notNull().references(() => curriculumUnits.id),
+  canDoStatementId: varchar("can_do_statement_id").notNull().references(() => canDoStatements.id),
+  isPrimary: boolean("is_primary").default(true), // primary vs supporting coverage
+}, (table) => [
+  index("idx_unit_can_do_unit").on(table.unitId),
+  index("idx_unit_can_do_statement").on(table.canDoStatementId),
+]);
+
+// Time-series evidence rows — one per observation per session
+export const studentCanDoEvidence = pgTable("student_can_do_evidence", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  canDoStatementId: varchar("can_do_statement_id").notNull().references(() => canDoStatements.id),
+  language: text("language").notNull(),
+  sessionId: varchar("session_id"), // session where this was observed
+  confidenceScore: integer("confidence_score").notNull(), // 0-100
+  transcriptExcerpt: text("transcript_excerpt"), // the moment it happened (for explainability)
+  workerNotes: text("worker_notes"), // why the AI scored this way
+  observedAt: timestamp("observed_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_can_do_evidence_user_lang").on(table.userId, table.language),
+  index("idx_can_do_evidence_statement").on(table.canDoStatementId),
+]);
+
+export const insertStudentCanDoEvidenceSchema = createInsertSchema(studentCanDoEvidence).omit({
+  id: true, observedAt: true,
+});
+export type InsertStudentCanDoEvidence = z.infer<typeof insertStudentCanDoEvidenceSchema>;
+export type StudentCanDoEvidence = typeof studentCanDoEvidence.$inferSelect;

@@ -2414,6 +2414,39 @@ const FRENCH_FUTUR_PROCHE: HayUnitContent = {
   ],
 };
 
+// ── French present perfect (présent parfait) ──────────────────────────────────
+
+const FRENCH_JAI_REGARDE: HayUnitContent = {
+  chapterTitleKey: 'i have watched french',
+  conceptLabel: "J'ai regardé",
+  conceptDefinition: "I have watched · passé composé as present perfect · as-tu déjà...? / je n'ai jamais...",
+  introNote: "In French, one form does double duty: j'ai regardé means both 'I watched' and 'I have watched.' Add déjà (already) or jamais (never) and you unlock the present perfect entirely.",
+  clusters: [
+    {
+      heading: "J'ai déjà / Je n'ai jamais — Le Présent Parfait",
+      noteInline: "déjà slots between avoir and participe · je n'ai jamais vu = I have never seen",
+      pairs: [
+        { imageWord: "film", imageDescription: "a person watching a classic film on a large cinema screen", question: "As-tu déjà vu ce film?", questionTranslation: "Have you ever seen this film?", answer: "Oui, je l'ai déjà vu.", answerTranslation: "Yes, I have already seen it." },
+        { imageWord: "Paris", imageDescription: "the Eiffel Tower lit up at night against a deep blue sky", question: "As-tu déjà visité Paris?", questionTranslation: "Have you ever visited Paris?", answer: "Non, je n'ai jamais visité Paris.", answerTranslation: "No, I have never visited Paris." },
+        { imageWord: "escargots", imageDescription: "a plate of French escargots with garlic butter at a bistro table", question: "As-tu déjà mangé des escargots?", questionTranslation: "Have you ever eaten snails?", answer: "Non, je n'en ai jamais mangé.", answerTranslation: "No, I have never eaten any." },
+        { imageWord: "livre", imageDescription: "a well-worn French novel with a bookmark placed inside", question: "As-tu déjà lu ce livre?", questionTranslation: "Have you ever read this book?", answer: "Oui, je l'ai déjà lu.", answerTranslation: "Yes, I have already read it." },
+      ],
+    },
+    {
+      heading: "As-tu déjà...? — La Question de l'Expérience",
+      noteInline: "as-tu déjà + participe? = have you ever + past participle?",
+      pairs: [
+        { imageWord: "parler", imageDescription: "two people having an animated conversation in a French café", question: "As-tu déjà parlé avec un(e) Français(e)?", questionTranslation: "Have you ever spoken with a French person?", answer: "Oui, j'ai déjà parlé avec un Français.", answerTranslation: "Yes, I have spoken with a French person." },
+        { imageWord: "voyager", imageDescription: "a traveler with a backpack at a European train station", question: "As-tu déjà voyagé en Europe?", questionTranslation: "Have you ever traveled to Europe?", answer: "Non, je n'ai jamais voyagé en Europe.", answerTranslation: "No, I have never traveled to Europe." },
+      ],
+      sentenceColumns: [
+        { label: "Avec déjà/jamais", items: [{ text: "J'ai déjà", translation: "I have already" }, { text: "Je n'ai jamais", translation: "I have never" }, { text: "Il a déjà", translation: "He has already" }, { text: "Elle n'a jamais", translation: "She has never" }, { text: "As-tu déjà", translation: "Have you ever" }] },
+        { label: "Participe", items: [{ text: "regardé.", translation: "watched." }, { text: "mangé.", translation: "eaten." }, { text: "vu.", translation: "seen." }, { text: "visité.", translation: "visited." }, { text: "lu.", translation: "read." }, { text: "voyagé.", translation: "traveled." }] },
+      ],
+    },
+  ],
+};
+
 // ── German present-tense verb units ───────────────────────────────────────────
 
 const GERMAN_ICH_GEHE: HayUnitContent = {
@@ -5749,6 +5782,7 @@ const HAY_UNITS: HayUnitContent[] = [
   FRENCH_JAI_ETUDIE,
   FRENCH_JAI_RECU,
   FRENCH_FUTUR_PROCHE,
+  FRENCH_JAI_REGARDE,
   // ── German present-tense verb units ──────────────────────────────────────────
   GERMAN_ICH_GEHE,
   GERMAN_ICH_HABE,
