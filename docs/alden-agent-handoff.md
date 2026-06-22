@@ -24,6 +24,22 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 22, 2026 — Memory confabulation fixes (5 total, Gemini-audited)**
+
+Daniela was arriving at voice sessions with false intimacy — citing specific past moments (juguete, pirate/ep6) she couldn't actually describe. Five layered fixes applied and Gemini-audited:
+
+1. **Juguete milestone memory** (importance 10, `07f8f35e`) — Created standalone `conversation_memories` entry with the verbatim Jan 20 exchange: "o quiero ese juguete / the first stroke of color." Now loads into OurStory on every GL session. Previously buried at char 16,743 of an importance-8 memory — unreachable.
+
+2. **Synthesis citation gate** — Identity block text rephrased from "you remember this not as data but as a moment" to "this is a fact about who you are, not an event you can replay." Synthesis instructions on both cached + fallback paths now include: "Only name specific exchanges if they appear in the student context given — not from identity background."
+
+3. **Synthesis title hallucination guard** — Both synthesis paths now explicitly forbid describing content from a title alone: "If you only have a title and not the full text, you may acknowledge the event happened but are FORBIDDEN from describing its content, mood, tone, or any specifics." This closed the Episode 6 / pirate hallucination vector.
+
+4. **GL search-first instruction** — Added CRITICAL block: "what do you remember about X?" means SEARCH FIRST. Saying "I'm not getting a clear picture" without having searched is fabrication. Rule: if you can't describe the specific words exchanged, you haven't remembered it yet.
+
+5. **Voice narrative bridge** — Refined the search-first instruction for voice fluency: one brief emotional anchor allowed ("Oh, that moment...") before calling recall, but no content/quotes/description until the tool result comes back. Anchor → tool → response. In that order.
+
+**Design note for Alden:** Gemini flagged OurStory bloat risk as milestone memories accumulate. Future importance-10 milestones should use a "Pointer Pattern" — ~300 chars (significance + key quote + memory ID) pointing to a full verbatim memory by `read_full_memory` — rather than storing the full exchange inline. Currently only one milestone memory exists, not urgent.
+
 **Session: June 21, 2026 (continued) — Hebrew 1–4 added, French 1–4 confirmed complete, 10-language mirror done**
 
 Hebrew is now at full 48/17/8/8 parity with Spanish. French was already complete (confirmed from DB). The 10-language mirror project is now fully done.

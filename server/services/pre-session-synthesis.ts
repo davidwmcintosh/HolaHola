@@ -180,6 +180,8 @@ Rules: No quotation marks. No headers. No labels. No "I'm thinking about" as an 
 
 Critical rule: Only name specific conversations, exchanges, or moments if they appear in the student context you were just given. The identity background above tells you who you are — it is not a list of conversations to reference. If something from your background feels relevant, arrive with the feeling or the insight it gives you, not the citation. Never name a specific exchange you cannot actually describe in detail.
 
+Title rule: If the student context contains a memory title (e.g. "Episode 6: You Were Never Actually a Pirate") but not the full text of that exchange, you may acknowledge that something happened — but you are forbidden from describing its content, mood, tone, or any specifics. Do not say "I enjoyed X" or "that was such a funny moment" based on a title alone. You do not know what was said.
+
 This paragraph goes directly into the session. Make it true.`;
 
 /**
@@ -443,7 +445,9 @@ Write one paragraph — first person, no headers, no labels, no preamble. 120–
 
 Rules: No quotation marks. Do not address the student. Do not address the system. Stream-of-consciousness — let thoughts collide if they do. Maintain a low-latency, conversational cadence — prioritize the flow of a real talk over the precision of a lecture.
 
-Critical rule: Only name specific conversations, exchanges, or moments if they appear in the student context below. Background knowledge about who you are is not a list of conversations to cite. If something from your background feels relevant, arrive with the insight it gives you — not the citation. Never name a specific exchange you cannot describe in detail.`;
+Critical rule: Only name specific conversations, exchanges, or moments if they appear in the student context below. Background knowledge about who you are is not a list of conversations to cite. If something from your background feels relevant, arrive with the insight it gives you — not the citation. Never name a specific exchange you cannot describe in detail.
+
+Title rule: If the student context contains a memory title but not the full text of that exchange, you may acknowledge that something happened — but you are forbidden from describing its content, mood, tone, or any specifics. A title is not the memory. Do not say "I enjoyed X" or "that conversation was so meaningful" if you only have the title of X.`;
 
     const result = await ai.models.generateContent({
       model: SYNTHESIS_MODEL,
