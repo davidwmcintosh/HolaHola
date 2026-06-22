@@ -1126,6 +1126,7 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
 
   const orchestrator = getStreamingVoiceOrchestrator();
   let session: StreamingSession | null = null;
+  let bootstrapProfile: string | null = null;
   let userId: string | null = null;
   let isAuthenticated = false;
   
@@ -1960,7 +1961,7 @@ ${buildNativeFunctionCallingSection()}`;
                   const _bsParts: string[] = [`${user.firstName}${_bsLevel ? `, ${_bsLevel}` : ''}`];
                   if (_bsLastTopic) _bsParts.push(`last session: ${_bsLastTopic}`);
                   if (_bsStreak > 0) _bsParts.push(`${_bsStreak}-day streak`);
-                  (session as any).__bootstrapProfile = _bsParts.join(' · ');
+                  bootstrapProfile = _bsParts.join(' · ');
                 } else {
                   console.log(`[Streaming Voice] Student snapshot empty — first-time student or no session data yet`);
                 }
@@ -2211,6 +2212,11 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
               },
               dbSessionId // Database voice_sessions.id for usage tracking and memory extraction
             );
+
+            // Apply bootstrap profile now that session exists
+            if (bootstrapProfile && session) {
+              (session as any).__bootstrapProfile = bootstrapProfile;
+            }
             
             // Note: tutorDirectory is built dynamically by Socket.io path
             // HTTP WebSocket path doesn't support tutor handoffs, so we skip this

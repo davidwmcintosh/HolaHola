@@ -35,3 +35,4 @@
 - [Hybrid INDEX_ONLY / VERBATIM markers](hybrid-index-verbatim-markers.md) — pointer blocks get [INDEX_ONLY], verbatim quotes get [VERBATIM], prose for internalized wisdom; brackets correct for index entries by design.
 - [Pedagogical state machine](pedagogical-state-machine.md) — GL context decay fix; FK gotcha (sessionId = tutorSession.id not GL session ID); State Envelope pattern; Shadow Auditor wired to GL stop().
 - [Typecheck zero-error patterns](typecheck-zero-error-patterns.md) — key field mismatches that caused 2,758→0 cleanup; prevents recurrence.
+- [GL bootstrapProfile null crash](gl-bootstrap-profile-null.md) — session is null when __bootstrapProfile is set (233 lines before createSession); store in local var, apply after session creation.
