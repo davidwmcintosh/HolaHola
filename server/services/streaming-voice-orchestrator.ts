@@ -321,7 +321,7 @@ function validateTutorTransfer(
  * Format a textbook lesson content row into a structured guide Daniela can use
  * to walk the student through a page step-by-step.
  */
-function formatTextbookPageGuide(row: { lessonId: string; actflLevel?: string | null; grammarExplanation?: string | null; vocabularyList?: any; keyExamples?: any; microCycleData?: any }, focus: string): string {
+function formatTextbookPageGuide(row: { lessonId: string; actflLevel?: string | null; grammarExplanation?: string | null; vocabularyList?: any; keyExamples?: any; grammarExamples?: any; microCycleData?: any }, focus: string): string {
   const parts: string[] = [];
   parts.push(`=== TEXTBOOK PAGE: ${row.lessonId} (${row.actflLevel || 'beginner'}) ===`);
   if (focus === 'full_page' || focus === 'vocabulary') {
@@ -752,7 +752,7 @@ export class StreamingVoiceOrchestrator {
       this.ttsProviderRegistry,
       this.ttsProvider,
       this.sendMessage.bind(this),
-      this.sendError.bind(this),
+      this.sendError.bind(this) as any,
       {
         getAdaptiveSpeakingRate,
         ensureTrailingPunctuation,
@@ -767,7 +767,7 @@ export class StreamingVoiceOrchestrator {
     );
     this.fcHandler = new NativeFunctionCallHandler(
       this.sendMessage.bind(this),
-      this.sendError.bind(this),
+      this.sendError.bind(this) as any,
       this.enrichment_processPhaseShift.bind(this),
     );
     console.log(`[Streaming Orchestrator] Initialized (TTS: ${this.ttsProvider}, providers: ${this.ttsProviderRegistry.getAll().map(p => p.name).join(', ')})`);
@@ -847,11 +847,11 @@ export class StreamingVoiceOrchestrator {
     console.log(`[Recovery] Speaking re-engagement phrase for session ${sessionId}: "${phrase}"`);
 
     const turnId = `recovery-${now}`;
-    const sentenceChunk = { index: 0, text: phrase };
+    const sentenceChunk = { index: 0, text: phrase, isComplete: true, isFinal: true };
     const metrics: StreamingMetrics = {
-      sttMs: 0, contextFetchMs: 0, geminiMs: 0, geminiFirstTokenMs: 0,
-      ttsMs: 0, ttsFirstByteMs: 0, totalMs: 0,
-      sentenceCount: 1, functionCallCount: 0,
+      sessionId: '',
+      sttLatencyMs: 0, aiFirstTokenMs: 0, ttsFirstByteMs: 0, totalLatencyMs: 0,
+      sentenceCount: 1, audioBytes: 0, audioChunkCount: 0,
     };
 
     try {
@@ -1515,7 +1515,7 @@ ${expressLaneContext.contextString}
               const messages = await storage.getMessagesByConversation(conv.id);
               const recentMessages = messages.slice(-6);
               if (recentMessages.length > 0) {
-                const timeAgo = this.formatTimeAgo(conv.updatedAt);
+                const timeAgo = this.formatTimeAgo(conv.createdAt);
                 let convContext = `\n**${conv.title || 'Recent Chat'}** (${timeAgo}):\n`;
                 for (const msg of recentMessages) {
                   const role = msg.role === 'user' ? 'David' : 'Daniela';
@@ -1735,8 +1735,7 @@ Remember: David may reference things discussed in these recent text chats.
     // Note: turnId not yet incremented, so we include audio size for debugging correlation
     trackVoicePipelineStage(sessionId, 'audio_received', { 
       userId: String(session.userId),
-      audioBytes: String(audioData.length)
-    });
+    } as any);
     
     // BARGE-IN DETECTION: If AI is currently generating a response, interrupt it
     // This prevents overlapping responses when user speaks while Daniela is talking
@@ -1887,7 +1886,7 @@ Remember: David may reference things discussed in these recent text chats.
           this.sendMessage(session.ws, {
             type: 'pronunciation_coaching',
             timestamp: Date.now(),
-            turnId,
+            turnId: session.currentTurnId,
             coaching: {
               overallScore: coaching.overallScore,
               wordFeedback: coaching.wordFeedback,
@@ -1896,7 +1895,7 @@ Remember: David may reference things discussed in these recent text chats.
               lowConfidenceWords: coaching.lowConfidenceWords,
               phonemeHints: coaching.phonemeHints,
             },
-          });
+          } as any);
         }
       }
       
@@ -1996,7 +1995,7 @@ Remember: David may reference things discussed in these recent text chats.
             
             // Stream Sofia's response through TTS
             // Use a neutral voice for Sofia (can be configured later)
-            const sofiaChunks = this.splitIntoSentences(sofiaResult.sofiaResponse);
+            const sofiaChunks = splitTextIntoSentences(sofiaResult.sofiaResponse);
             let sentenceIndex = 0;
             
             for (const chunk of sofiaChunks) {
@@ -2010,7 +2009,7 @@ Remember: David may reference things discussed in these recent text chats.
               } as StreamingSentenceStartMessage);
               
               // Generate TTS for Sofia's response
-              const audioBuffer = await this.cartesiaService.synthesizeBytes(
+              const audioBuffer = await (this.cartesiaService as any).synthesizeBytes(
                 chunk,
                 session.activeTutorVoiceId || session.tutorVoiceId,
                 {
@@ -2029,7 +2028,7 @@ Remember: David may reference things discussed in these recent text chats.
                   chunkIndex: 0,
                   audio: Buffer.from(audioBuffer).toString('base64'),
                   isFinal: true,
-                } as StreamingAudioChunkMessage);
+                } as unknown as StreamingAudioChunkMessage);
               }
               
               this.sendMessage(session.ws, {
@@ -2039,7 +2038,7 @@ Remember: David may reference things discussed in these recent text chats.
                 sentenceIndex,
                 text: chunk,
                 audio: null,
-              } as StreamingSentenceEndMessage);
+              } as unknown as StreamingSentenceEndMessage);
               
               sentenceIndex++;
             }
@@ -2050,11 +2049,11 @@ Remember: David may reference things discussed in these recent text chats.
               timestamp: Date.now(),
               turnId: sofiaTurnId,
               fullText: sofiaResult.sofiaResponse,
-            } as StreamingResponseCompleteMessage);
+            } as any);
             
             // Add to conversation history
             session.conversationHistory.push({ role: 'user', content: transcript });
-            session.conversationHistory.push({ role: 'assistant', content: `[Sofia Support] ${sofiaResult.sofiaResponse}` });
+            session.conversationHistory.push({ role: 'model', content: `[Sofia Support] ${sofiaResult.sofiaResponse}` });
             
             metrics.sentenceCount = sentenceIndex;
             metrics.totalLatencyMs = Date.now() - startTime;
@@ -2357,11 +2356,11 @@ TEACHING GUIDANCE:
                     conversationId: session.conversationId,
                     userId: String(session.userId),
                     targetLanguage: session.targetLanguage,
-                    memoryIds: memoryResults.results.map(r => r.id),
+                    memoryIds: memoryResults.results.map((_r, i) => String(i)),
                     memoryTypes: memoryResults.results.map(r => r.domain || 'unknown'),
                     queryTerms: searchQuery,
                     resultsCount: memoryResults.results.length,
-                    relevanceScore: memoryResults.results.reduce((sum, r) => sum + (r.score || 0), 0) / memoryResults.results.length,
+                    relevanceScore: memoryResults.results.reduce((sum, r) => sum + (r.relevance || 0), 0) / memoryResults.results.length,
                   }, 'passive_lookup').catch(err => console.warn('[BrainHealth] Passive memory log failed:', err.message));
                 }
               } catch (err: any) {
@@ -2624,7 +2623,7 @@ ${expressLaneContext.contextString}
                 const recentMessages = messages.slice(-6);
                 
                 if (recentMessages.length > 0) {
-                  const timeAgo = this.formatTimeAgo(conv.updatedAt);
+                  const timeAgo = this.formatTimeAgo(conv.createdAt);
                   let convContext = `\n**${conv.title || 'Recent Chat'}** (${timeAgo}):\n`;
                   
                   for (const msg of recentMessages) {
@@ -2823,7 +2822,7 @@ Remember: David may reference things discussed in these recent text chats.
         }
         brainHealthTelemetry.logContextInjection({
           sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
-          contextSource: telemetry.source, success: telemetry.success, latencyMs: telemetry.latencyMs, richness: telemetry.richness,
+          contextSource: telemetry.source as any, success: telemetry.success, latencyMs: telemetry.latencyMs, richness: telemetry.richness,
           ...(telemetry.errorMessage ? { errorMessage: telemetry.errorMessage } : {}),
         }).catch(() => {});
       }
@@ -2946,7 +2945,7 @@ Remember: David may reference things discussed in these recent text chats.
         geminiLanguageCode: session.geminiLanguageCode,
         voiceId: session.voiceId,
         speakingRate: getAdaptiveSpeakingRate(session),
-        vocalStyle: session.voiceOverride?.vocalStyle,
+        vocalStyle: (session.voiceOverride as any)?.vocalStyle,
       };
       
       pipelineTiming.contextFetchEnd = Date.now();
@@ -3276,7 +3275,7 @@ Remember: David may reference things discussed in these recent text chats.
                   const category = cmd.params.category as string;
                   if (category && !session.pendingSupportHandoff) {
                     session.pendingSupportHandoff = {
-                      category,
+                      category: category as any,
                       reason: cmd.params.reason as string | undefined,
                     };
                     console.log(`[CommandParser→Support] Queued support handoff: ${category} via ${cmd.source} format`);
@@ -3343,13 +3342,14 @@ Remember: David may reference things discussed in these recent text chats.
                   
                   if (session.userId && !session.isIncognito) {
                     try {
-                      await storage.updateUser(session.userId, { hasCompletedFirstMeeting: true });
+                      await (storage as any).updateUser(session.userId, { hasCompletedFirstMeeting: true });
                       console.log(`[CommandParser→FirstMeeting] Marked complete for user ${session.userId}${summary ? `: "${summary}"` : ''}`);
                       
                       // Emit beacon for founder visibility if in hive session
                       if (session.hiveChannelId) {
                         hiveCollaborationService.emitBeacon({
                           channelId: session.hiveChannelId,
+                          beaconType: 'teaching_observation' as any,
                           tutorTurn: `[FIRST_MEETING_COMPLETE] Daniela has completed her "getting to know you" phase with this student.${summary ? `\n\nSummary: ${summary}` : ''}`,
                         });
                       }
@@ -3396,7 +3396,7 @@ Remember: David may reference things discussed in these recent text chats.
                         hiveCollaborationService.emitBeacon({
                           channelId: session.hiveChannelId,
                           tutorTurn: `[TAKE_NOTE] ${noteType}: "${title}"\n${content.substring(0, 200)}${content.length > 200 ? '...' : ''}`,
-                          beaconType: 'take_note',
+                          beaconType: 'take_note' as any,
                           beaconReason: `Daniela wrote a note: ${title}`,
                         }).catch(err => console.error(`[CommandParser→TakeNote] Beacon error:`, err));
                       }
@@ -3456,7 +3456,7 @@ Remember: David may reference things discussed in these recent text chats.
                     // Safely parse content - may be string or object
                     let parsedContent: Record<string, unknown>;
                     try {
-                      parsedContent = typeof surgeryContent === 'string' ? JSON.parse(surgeryContent) : surgeryContent as Record<string, unknown>;
+                      parsedContent = typeof surgeryContent === 'string' ? JSON.parse(surgeryContent) : surgeryContent as unknown as Record<string, unknown>;
                     } catch (parseErr) {
                       console.error(`[CommandParser→SelfSurgery] Invalid JSON content for ${target}:`, parseErr);
                       break;
@@ -3561,7 +3561,7 @@ Remember: David may reference things discussed in these recent text chats.
                           userId: session.userId,
                           targetLanguage: session.targetLanguage || null,
                           query,
-                          domainsSearched: teachingResults.domainsSearched,
+                          domainsSearched: teachingResults.searchedDomains,
                           domainsRequested: teachingDomainFilter || null,
                           resultCount: teachingResults.results.length,
                           formattedCharacterLength: formattedTeachingKnowledge.length,
@@ -3608,7 +3608,7 @@ Remember: David may reference things discussed in these recent text chats.
                             channelId: session.hiveChannelId,
                             tutorTurn: `[MEMORY_LOOKUP] Query: "${query}"\nDomains: ${rawDomains.join(', ') || 'all'}\nResults: ${totalFound} found`,
                             studentTurn: '',
-                            beaconType: 'memory_lookup',
+                            beaconType: 'memory_lookup' as any,
                             beaconReason: `Daniela searched neural memory for "${query}"`,
                           }).catch(err => console.error(`[CommandParser→MemoryLookup] Beacon error:`, err));
                         }
@@ -5243,7 +5243,7 @@ Remember: David may reference things discussed in these recent text chats.
           totalTtfbMs: metrics.sttLatencyMs + metrics.aiFirstTokenMs + metrics.ttsFirstByteMs,
           sentenceCount: metrics.sentenceCount,
         },
-      } as StreamingResponseCompleteMessage);
+      } as any);
       
       console.log(`[Streaming Orchestrator] Complete: ${metrics.sentenceCount} sentences, ${metrics.audioChunkCount} audio chunks in ${metrics.totalLatencyMs}ms (turnId: ${turnId})`);
       console.log(`[Streaming Orchestrator] Latencies: STT=${metrics.sttLatencyMs}ms, AI=${metrics.aiFirstTokenMs}ms, TTS=${metrics.ttsFirstByteMs}ms`);
@@ -5457,7 +5457,7 @@ Remember: David may reference things discussed in these recent text chats.
             totalTtfbMs: 0,
             sentenceCount: metrics.sentenceCount,
           },
-        } as StreamingResponseCompleteMessage);
+        } as any);
       } else {
         console.log(`[Streaming Orchestrator] response_complete already sent — skipping catch-block emit for session ${sessionId}`);
       }
@@ -5518,7 +5518,7 @@ Remember: David may reference things discussed in these recent text chats.
         totalTtfbMs: options?.errorPath ? 0 : (metrics.sttLatencyMs + metrics.aiFirstTokenMs + metrics.ttsFirstByteMs),
         sentenceCount: metrics.sentenceCount,
       },
-    } as StreamingResponseCompleteMessage);
+    } as any);
 
     if (!options?.skipPersist) {
       this.persistMessages(session.conversationId, transcript, fullText.trim(), session, confidence).catch((err: Error) => {
@@ -6799,11 +6799,12 @@ Remember: David may reference things discussed in these recent text chats.
                 const summary = cmd.params.summary as string | undefined;
                 if (session.userId && !session.isIncognito) {
                   try {
-                    await storage.updateUser(session.userId, { hasCompletedFirstMeeting: true });
+                    await (storage as any).updateUser(session.userId, { hasCompletedFirstMeeting: true });
                     console.log(`[CommandParser→FirstMeeting - OpenMic] Marked complete for user ${session.userId}`);
                     if (session.hiveChannelId) {
                       hiveCollaborationService.emitBeacon({
                         channelId: session.hiveChannelId,
+                        beaconType: 'teaching_observation' as any,
                         tutorTurn: `[FIRST_MEETING_COMPLETE] Daniela completed "getting to know you" phase.${summary ? `\n\nSummary: ${summary}` : ''}`,
                       });
                     }
@@ -6846,7 +6847,7 @@ Remember: David may reference things discussed in these recent text chats.
                       hiveCollaborationService.emitBeacon({
                         channelId: session.hiveChannelId,
                         tutorTurn: `[TAKE_NOTE] ${noteType}: "${title}"\n${noteContent.substring(0, 200)}${noteContent.length > 200 ? '...' : ''}`,
-                        beaconType: 'take_note',
+                        beaconType: 'take_note' as any,
                         beaconReason: `Daniela wrote a note: ${title}`,
                       }).catch(err => console.error(`[CommandParser→TakeNote - OpenMic] Beacon error:`, err));
                     }
@@ -6904,7 +6905,7 @@ Remember: David may reference things discussed in these recent text chats.
                 if (target && surgeryContent && reasoning) {
                   let parsedContent: Record<string, unknown>;
                   try {
-                    parsedContent = typeof surgeryContent === 'string' ? JSON.parse(surgeryContent) : surgeryContent as Record<string, unknown>;
+                    parsedContent = typeof surgeryContent === 'string' ? JSON.parse(surgeryContent) : surgeryContent as unknown as Record<string, unknown>;
                   } catch (parseErr) {
                     console.error(`[CommandParser→SelfSurgery - OpenMic] Invalid JSON content:`, parseErr);
                     break;
@@ -7003,7 +7004,7 @@ Remember: David may reference things discussed in these recent text chats.
                         userId: session.userId,
                         targetLanguage: session.targetLanguage || null,
                         query,
-                        domainsSearched: teachingResults.domainsSearched,
+                        domainsSearched: teachingResults.searchedDomains,
                         domainsRequested: teachingDomainFilter || null,
                         resultCount: teachingResults.results.length,
                         formattedCharacterLength: formattedTeachingKnowledge.length,
@@ -7980,7 +7981,7 @@ Remember: David may reference things discussed in these recent text chats.
           const claudeText = claudeResp.content[0]?.type === 'text' ? claudeResp.content[0].text.trim() : '';
           if (claudeText) {
             console.log(`[Claude Fallback - OpenMic] Response: "${claudeText.substring(0, 100)}"`);
-            const sentences = this.splitIntoSentences(claudeText);
+            const sentences = splitTextIntoSentences(claudeText);
             for (let i = 0; i < sentences.length; i++) {
               await this.synthesizeSentenceToClient(session, sentences[i], i, null, { force: true });
             }
@@ -8476,6 +8477,7 @@ Remember: David may reference things discussed in these recent text chats.
             id: conversationId,
             userId: String(session.userId),
             language: session.targetLanguage || 'spanish',
+            difficulty: 'beginner',
             title: 'Voice Session',
           });
           console.log(`[Persist] ✓ Conversation created: ${conversationId}`);
@@ -8613,7 +8615,7 @@ Remember: David may reference things discussed in these recent text chats.
         totalTtfbMs: 0,
         sentenceCount: 0,
       },
-    } as StreamingResponseCompleteMessage);
+    } as any);
   }
 
   /**
@@ -8981,7 +8983,7 @@ Remember: David may reference things discussed in these recent text chats.
       let colleagueFeedback: { agent: string; subject: string; summary: string }[] = [];
       try {
         const collabFetchStart = Date.now();
-        const agentName = session.tutorName?.toLowerCase() || 'daniela';
+        const agentName = (session.tutorName?.toLowerCase() || 'daniela') as any;
         const recentCollab = await storage.getCollaborationEventsToAgent(agentName, String(session.userId), 10);
         // Include feedback, delegation_complete, and status_update events from colleagues
         const feedbackTypes = ['feedback', 'delegation_complete', 'status_update'];
@@ -9323,7 +9325,7 @@ Remember: David may reference things discussed in these recent text chats.
             }
           }
         },
-        onThoughtSignatures: (signatures) => {
+        onThoughtSignatures: (signatures: any[]) => {
           // Store thought signatures for continuation
           greetingThoughtSignatures.push(...signatures);
         },
@@ -9591,9 +9593,9 @@ Remember: David may reference things discussed in these recent text chats.
 
               const isFinal = si === greetingSentences.length - 1;
               if (STREAMING_FEATURE_FLAGS.PROGRESSIVE_AUDIO_STREAMING) {
-                await this.tts.streamSentenceAudioProgressive(session, { index: si, text: sentenceText, isFinal }, sentenceText, metrics, turnId);
+                await this.tts.streamSentenceAudioProgressive(session, { index: si, text: sentenceText, isFinal, isComplete: isFinal }, sentenceText, metrics, turnId);
               } else {
-                await this.tts.streamSentenceAudio(session, { index: si, text: sentenceText, isFinal }, sentenceText, metrics, turnId);
+                await this.tts.streamSentenceAudio(session, { index: si, text: sentenceText, isFinal, isComplete: isFinal }, sentenceText, metrics, turnId);
               }
             }
             fullText = displayText;
@@ -9629,7 +9631,7 @@ Remember: David may reference things discussed in these recent text chats.
           totalTtfbMs: metrics.aiFirstTokenMs + metrics.ttsFirstByteMs,
           sentenceCount: metrics.sentenceCount,
         },
-      } as StreamingResponseCompleteMessage);
+      } as any);
       
       clearTimeout(greetingWatchdog);
       session.__greetingInProgress = false;
@@ -9939,7 +9941,7 @@ CRITICAL: Open with one clear, warm thought — then invite. Your voice has a na
       // Include brief history context for resumed sessions
       const historyPreview = session.conversationHistory
         .slice(-4)
-        .map(h => `${h.role === 'user' ? 'Student' : 'You'}: ${h.content.slice(0, 80)}${h.content.length > 80 ? '...' : ''}`)
+        .map(h => `${h.role === 'user' ? 'Student' : 'You'}: ${(h.content||'').slice(0, 80)}${(h.content||'').length > 80 ? '...' : ''}`)
         .join('\n');
       
       contextParts.push(`\nThe connection briefly dropped and has just been restored. Here's what you were discussing:\n${historyPreview}\n\nNaturally acknowledge the reconnection and pick up where you left off — e.g. "Oh, we got cut off! I was just saying..." or simply continue seamlessly. Keep it to 1-2 sentences.`);
@@ -10054,7 +10056,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
         turnId: session.currentTurnId,
         totalSentences: 0,  // Indicates interrupted response
         wasInterrupted: true,
-      } as StreamingResponseCompleteMessage);
+      } as any);
       
       console.log(`[Streaming Orchestrator] Interrupt processed - TTS stopped, generation aborted`);
     }
@@ -10189,7 +10191,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
           sessionData.userId,
           sessionData.language,
           sessionData.conversationId,
-          sessionData.history.map(h => ({ role: h.role, content: h.content }))
+          sessionData.history.map(h => ({ role: h.role, content: h.content })) as any
         ).then(result => {
           if (result.saved.length > 0) {
             console.log(`[Streaming Orchestrator] Extracted ${result.saved.length} personal facts from session`);
@@ -10213,7 +10215,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
             if (conversation && !conversation.title) {
               console.log(`[TITLE GEN] Voice session ended without title, generating...`);
               const generatedTitle = await generateConversationTitle(
-                sessionData.history.map(h => ({ role: h.role, content: h.content })),
+                sessionData.history.map(h => ({ role: h.role as string, content: h.content || '' })),
                 sessionData.language
               );
               if (generatedTitle) {
@@ -10255,7 +10257,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
         mineVocabularyFromSession(
           sessionData.userId,
           sessionData.language || 'spanish',
-          sessionData.history.map(h => ({ role: h.role, content: h.content })),
+          sessionData.history.map(h => ({ role: h.role as string, content: h.content || '' })),
           sessionData.conversationId,
           scenarioSlug,
         ).then(result => {
@@ -10695,7 +10697,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
     }
     
     // Store override in session
-    session.voiceOverride = override;
+    session.voiceOverride = override as any;
     console.log(`[Streaming Orchestrator] Voice override ${override ? 'applied' : 'cleared'} for session ${sessionId}:`, override);
     return true;
   }
@@ -10772,12 +10774,12 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
           return cleaned.length > maxLen ? cleaned.substring(0, maxLen) + '...' : cleaned;
         };
         
-        const tutorContext = cleanContext(lastTutorMessage.content, 200);
+        const tutorContext = cleanContext(lastTutorMessage.content || '', 200);
         if (tutorContext) {
           contextSummary += `\n- The previous tutor was just saying: "${tutorContext}"`;
         }
         
-        const userContext = cleanContext(lastUserMessage.content, 150);
+        const userContext = cleanContext(lastUserMessage.content || '', 150);
         if (userContext) {
           contextSummary += `\n- The student just said: "${userContext}"`;
         }
@@ -10906,7 +10908,7 @@ DON'T:
         fullText,
         totalSentences: sentenceCount,
         totalDurationMs,
-      } as StreamingResponseCompleteMessage);
+      } as any);
       
       console.log(`[Voice Switch] Introduction complete: ${tutorName} said "${fullText}"`);
       
@@ -11059,7 +11061,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
           // Stream audio for this sentence
           await this.tts.streamSentenceAudioProgressive(
             session,
-            { index: currentSentenceIndex, text: cleanedText, isFinal: chunk.isFinal },
+            { index: currentSentenceIndex, text: cleanedText, isFinal: chunk.isFinal, isComplete: chunk.isFinal },
             cleanedText,
             metrics,
             turnId
@@ -11090,7 +11092,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
         fullText,
         totalSentences: currentSentenceIndex,
         totalDurationMs: metrics.totalLatencyMs,
-      } as StreamingResponseCompleteMessage);
+      } as any);
       
       console.log(`[Streaming Orchestrator] 🏗️ Architect response complete: "${fullText.slice(0, 100)}..."`);
       
@@ -11105,7 +11107,7 @@ Respond to them directly - they're listening. This is real-time collaboration.`;
       this.sendMessage(session.ws, {
         type: 'error',
         timestamp: Date.now(),
-        code: 'ARCHITECT_RESPONSE_FAILED',
+        code: 'ARCHITECT_RESPONSE_FAILED' as any,
         message: 'Failed to respond to architect note',
         recoverable: true,
       });

@@ -643,7 +643,7 @@ export class NativeFunctionCallHandler {
             
             const creditSummary = `[CREDIT CHECK RESULT] Remaining: ${remainingHours}h (${Math.round(balance.percentRemaining)}% left), Used: ${usedHours}h of ${totalHours}h total, This session: ${sessionMinutes} minutes, Status: ${balance.warningLevel === 'none' ? 'Healthy' : balance.warningLevel.toUpperCase()}`;
             
-            session.lastCreditCheck = creditSummary;
+            session.lastCreditCheck = creditSummary as any;
             session.creditContextInjected = false;
             
             console.log(`[Native Function→CheckCredits] Balance: ${remainingHours}h remaining (${balance.warningLevel}), session: ${sessionMinutes}min, reason: ${reason || 'not specified'}`);
@@ -3096,7 +3096,7 @@ export class NativeFunctionCallHandler {
               let vision = await getImageVision(resolvedImageUrl, visionDesc, session);
 
               // Self-correcting loop: if vision fetch failed, retry with a tighter image prompt
-              if (vision.mode === 'error' || vision.mode === 'no-image') {
+              if (vision.mode === 'error' || (vision.mode as string) === 'no-image') {
                 console.log(`[Vision→VocabCard] Vision failed (${vision.mode}), retrying image for "${vcWord}"`);
                 try {
                   const { resolveVocabularyImage } = await import('../services/vocabulary-image-resolver');
@@ -3660,12 +3660,12 @@ export class NativeFunctionCallHandler {
           db.insert(conversationMemories).values({
             title: memTitle,
             content: memContent,
-            summary: memSummary || null,
+            summary: memSummary || memContent.substring(0, 200),
             importance: Math.min(10, Math.max(1, Math.round(memImportance ?? 7))),
             participants: 'David + Daniela',
             tags: memTags || [],
             recordedAt: new Date(),
-          })
+          } as any)
           .then(() => console.log(`[Native Function→SaveConversationMemory] ✓ Saved: "${memTitle}" (importance: ${memImportance})`))
           .catch((err: Error) => console.error(`[Native Function→SaveConversationMemory] Error:`, err.message));
         }
@@ -3825,7 +3825,7 @@ export class NativeFunctionCallHandler {
                         .from(danielaGrowthMemories).where(eq(danielaGrowthMemories.id, hit.memoryId)).limit(1);
                       title = row?.title ?? null;
                     } else if (hit.memoryType === 'personal_fact') {
-                      const [row] = await db.select({ content: learnerPersonalFacts.content })
+                      const [row] = await db.select({ content: learnerPersonalFacts.context })
                         .from(learnerPersonalFacts).where(eq(learnerPersonalFacts.id, hit.memoryId)).limit(1);
                       title = row?.content?.slice(0, 80) ?? null;
                     }
@@ -3982,7 +3982,7 @@ export class NativeFunctionCallHandler {
             description,
             reasoning: fn.args.reasoning as string | undefined,
             priority: fn.args.priority as number | undefined,
-          })().catch(err => console.error(`[Native Function→Hive] Error:`, err));
+          }).catch(err => console.error(`[Native Function→Hive] Error:`, err));
           console.log(`[Native Function→Hive] Suggestion: ${category} - ${title}`);
         }
         break;
@@ -3996,12 +3996,13 @@ export class NativeFunctionCallHandler {
         }
         if (session.userId && !session.isIncognito) {
           try {
-            await storage.updateUser(session.userId, { hasCompletedFirstMeeting: true });
+            await (storage as any).updateUser(session.userId, { hasCompletedFirstMeeting: true });
             console.log(`[Native Function→FirstMeeting] Marked complete for user ${session.userId}`);
             if (session.hiveChannelId) {
               hiveCollaborationService.emitBeacon({
                 channelId: session.hiveChannelId,
                 tutorTurn: `[FIRST_MEETING_COMPLETE] Daniela completed "getting to know you" phase.${summary ? `\n\nSummary: ${summary}` : ''}`,
+                beaconType: 'teaching_observation' as BeaconType,
               });
             }
           } catch (err) {
@@ -5112,7 +5113,7 @@ export class NativeFunctionCallHandler {
             if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
             session.pendingWhiteboardUpdates.push(menuUpdate);
           }
-          console.log(`[Native Function→ShowMenu] Placed "${menuPropName}" on scene with ${menuSections?.length || 0} sections`);
+          console.log(`[Native Function→ShowMenu] Placed "${menuPropName}" on scene with ${resolvedSections?.length || 0} sections`);
         } catch (err: any) {
           console.error('[Native Function→ShowMenu] Error:', err.message);
         }
@@ -5819,9 +5820,9 @@ export class NativeFunctionCallHandler {
             const progressData: Record<string, unknown> = {
               actflLevel: actflProgress?.currentActflLevel || 'Novice Low',
               wordsLearned: userProgressData?.wordsLearned || 0,
-              lessonsCompleted: userProgressData?.lessonsCompleted || 0,
-              totalMinutes: userProgressData?.totalMinutes || 0,
-              streakDays: userProgressData?.streakDays || 0,
+              lessonsCompleted: 0,
+              totalMinutes: userProgressData?.practiceMinutes || 0,
+              streakDays: userProgressData?.currentStreak || 0,
             };
 
             if (activeClass?.class) {
@@ -7080,7 +7081,7 @@ export class NativeFunctionCallHandler {
             channelId: session.hiveChannelId,
             tutorTurn: `[MEMORY_LOOKUP] Query: "${query}"\nDomains: ${rawDomains.join(', ') || 'all'}\nResults: ${totalFound} found`,
             studentTurn: '',
-            beaconType: 'memory_lookup',
+            beaconType: 'memory_lookup' as BeaconType,
             beaconReason: `Daniela searched neural memory for "${query}"`,
           }).catch(err => console.error(`[MemoryLookup] Beacon error:`, err));
         }
@@ -7184,7 +7185,7 @@ export class NativeFunctionCallHandler {
             channelId: session.hiveChannelId,
             tutorTurn: `[EXPRESS_LANE_LOOKUP] ${label}\nResults: ${results.length} messages found`,
             studentTurn: '',
-            beaconType: 'express_lane_lookup',
+            beaconType: 'express_lane_lookup' as BeaconType,
             beaconReason: `Daniela ${query ? 'searched' : 'browsed'} Express Lane history`,
           }).catch(err => console.error(`[ExpressLaneLookup] Beacon error:`, err));
         }
@@ -7372,7 +7373,7 @@ export class NativeFunctionCallHandler {
             try {
               if (hit.memoryType === 'student_insight') {
                 const { studentInsights } = await import('@shared/schema');
-                const [row] = await sharedDb.select({ insight: studentInsights.insight, category: studentInsights.category })
+                const [row] = await sharedDb.select({ insight: studentInsights.insight, category: studentInsights.insightType })
                   .from(studentInsights).where(eq(studentInsights.id, hit.memoryId)).limit(1);
                 if (row) lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | ${row.category}] ${row.insight}`);
               } else if (hit.memoryType === 'hive_snapshot') {
@@ -7387,7 +7388,7 @@ export class NativeFunctionCallHandler {
                 if (row) lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | ${row.factType}] ${row.fact}`);
               } else if (hit.memoryType === 'growth_memory') {
                 const { danielaGrowthMemories } = await import('@shared/schema');
-                const [row] = await sharedDb.select({ content: danielaGrowthMemories.content })
+                const [row] = await sharedDb.select({ content: danielaGrowthMemories.lesson })
                   .from(danielaGrowthMemories).where(eq(danielaGrowthMemories.id, hit.memoryId)).limit(1);
                 if (row) lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | growth] ${row.content ?? ''}`);
               } else if (hit.memoryType === 'collaboration_message') {
@@ -7905,7 +7906,7 @@ export class NativeFunctionCallHandler {
           channelId: session.hiveChannelId,
           tutorTurn: `[RECALL_IMAGE] Query: "${imageQuery}"\nFound: ${images.map(i => i.imageName).join(', ')}`,
           studentTurn: '',
-          beaconType: 'express_lane_lookup',
+          beaconType: 'express_lane_lookup' as BeaconType,
           beaconReason: `Daniela recalled Express Lane image(s) for "${imageQuery}"`,
         }).catch(err => console.error(`[RecallImage] Beacon error:`, err));
       }
@@ -8197,7 +8198,7 @@ export class NativeFunctionCallHandler {
       
       console.log(`[Self-Surgery] ✅ Proposal created #${proposal.id} - awaiting review`);
       console.log(`[Self-Surgery] Target: ${data.targetTable}, Priority: ${priority}, Confidence: ${confidence}`);
-      console.log(`[Self-Surgery] Reasoning: ${data.reasoning?.substring(0, 100) || 'No reasoning provided'}...`);
+      console.log(`[Self-Surgery] Reasoning: ${(data as any).reasoning?.substring(0, 100) || 'No reasoning provided'}...`);
       
       if (session.hiveChannelId) {
         try {

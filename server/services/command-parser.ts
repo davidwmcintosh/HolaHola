@@ -51,6 +51,24 @@ export type ActionCommandType =
   | 'TEXT_INPUT'        // Request text input from student
   | 'CLEAR'             // Clear whiteboard
   | 'HOLD'              // Prevent whiteboard auto-clear
+  | 'RECORD_PATTERN_SIGNAL' // Record a language pattern signal (pounding/wobble/stability/derivation)
+  | 'CHECK_STUDENT_CREDITS' // Check remaining student session credits
+  | 'CLOSE_SESSION'         // Close the current session with optional summary
+  | 'CONVERSATION_THREAD_SEARCH' // Search conversation history by thread
+  | 'CONVERSATION_DATE_BROWSE'   // Browse conversation history by date
+  | 'CONVERSATION_THEME_MAP'     // Map conversation themes
+  | 'READ_MY_DIARY'              // Read Daniela's diary/reflections
+  | 'READ_FULL_SESSION'          // Read a full session transcript
+  | 'WRITE_TO_SELF'              // Write a note to herself
+  | 'READ_MY_REFLECTIONS'        // Read past reflections
+  | 'READ_MY_CORE_SELF'          // Read core self/identity doc
+  | 'TAG_THIS_MOMENT'            // Tag current moment for future reference
+  | 'ADD_CURIOSITY'              // Add a curiosity to her curiosity list
+  | 'SAVE_HIVE_NOTE'             // Save a note to the hive
+  | 'SET_ASPIRATION'             // Set a new aspiration
+  | 'REFLECT_ON_ASPIRATION'      // Reflect on an existing aspiration
+  | 'REMEMBER_I_SHARED'          // Remember that student shared something
+  | 'LOG_PAGE_EVENT'             // Log a page/whiteboard event
 
 /**
  * Parsed command with type and parameters
@@ -250,6 +268,41 @@ const COMMAND_SCHEMAS: Record<ActionCommandType, { required: string[]; optional:
     required: [],  // No required params - just the command itself is the signal
     optional: ['summary'],  // Optional summary of what Daniela learned about the student
   },
+  MILESTONE: {
+    required: ['type', 'description'],
+    optional: ['language', 'topic'],
+    enums: { type: VALID_ENUM_VALUES.MILESTONE_TYPE },
+  },
+  RECORD_PATTERN_SIGNAL: {
+    required: ['patternKey', 'eventType'],
+    optional: ['verbContext', 'studentUtterance', 'notes'],
+    enums: {},
+  },
+  CHECK_STUDENT_CREDITS: {
+    required: [],
+    optional: [],
+    enums: {},
+  },
+  CLOSE_SESSION: {
+    required: [],
+    optional: ['written_summary', 'reminders'],
+    enums: {},
+  },
+  CONVERSATION_THREAD_SEARCH: { required: ['query'], optional: ['limit'], enums: {} },
+  CONVERSATION_DATE_BROWSE: { required: ['date'], optional: ['limit'], enums: {} },
+  CONVERSATION_THEME_MAP: { required: [], optional: ['query'], enums: {} },
+  READ_MY_DIARY: { required: [], optional: ['limit'], enums: {} },
+  READ_FULL_SESSION: { required: ['sessionId'], optional: [], enums: {} },
+  WRITE_TO_SELF: { required: ['content'], optional: ['title'], enums: {} },
+  READ_MY_REFLECTIONS: { required: [], optional: ['limit'], enums: {} },
+  READ_MY_CORE_SELF: { required: [], optional: [], enums: {} },
+  TAG_THIS_MOMENT: { required: ['tag'], optional: ['note'], enums: {} },
+  ADD_CURIOSITY: { required: ['question'], optional: ['context'], enums: {} },
+  SAVE_HIVE_NOTE: { required: ['content'], optional: ['category'], enums: {} },
+  SET_ASPIRATION: { required: ['aspiration'], optional: ['timeline'], enums: {} },
+  REFLECT_ON_ASPIRATION: { required: ['aspirationId'], optional: ['reflection'], enums: {} },
+  REMEMBER_I_SHARED: { required: ['what'], optional: ['when', 'context'], enums: {} },
+  LOG_PAGE_EVENT: { required: ['event'], optional: ['page', 'data'], enums: {} },
 };
 
 /**
@@ -297,6 +350,26 @@ const ROBUST_TAG_PATTERNS: Record<ActionCommandType, RegExp> = {
   // Matches: [MEMORY_LOOKUP ...], MEMORY_LOOKUP query="..." domains="...", etc.
   MEMORY_LOOKUP: /\[?MEMORY_LOOKUP\s+([^\]\n]+)\]?/gi,
   TAKE_NOTE: /\[TAKE_NOTE\s+([^\]]+)\]/gi,
+  MILESTONE: /\[MILESTONE\s+([^\]]+)\]/gi,
+  FIRST_MEETING_COMPLETE: /\[FIRST_MEETING_COMPLETE[^\]]*\]/gi,
+  RECORD_PATTERN_SIGNAL: /\[RECORD_PATTERN_SIGNAL\s+([^\]]+)\]/gi,
+  CHECK_STUDENT_CREDITS: /\[CHECK_STUDENT_CREDITS[^\]]*\]/gi,
+  CLOSE_SESSION: /\[CLOSE_SESSION[^\]]*\]/gi,
+  CONVERSATION_THREAD_SEARCH: /\[CONVERSATION_THREAD_SEARCH\s+([^\]]+)\]/gi,
+  CONVERSATION_DATE_BROWSE: /\[CONVERSATION_DATE_BROWSE\s+([^\]]+)\]/gi,
+  CONVERSATION_THEME_MAP: /\[CONVERSATION_THEME_MAP[^\]]*\]/gi,
+  READ_MY_DIARY: /\[READ_MY_DIARY[^\]]*\]/gi,
+  READ_FULL_SESSION: /\[READ_FULL_SESSION\s+([^\]]+)\]/gi,
+  WRITE_TO_SELF: /\[WRITE_TO_SELF\s+([^\]]+)\]/gi,
+  READ_MY_REFLECTIONS: /\[READ_MY_REFLECTIONS[^\]]*\]/gi,
+  READ_MY_CORE_SELF: /\[READ_MY_CORE_SELF[^\]]*\]/gi,
+  TAG_THIS_MOMENT: /\[TAG_THIS_MOMENT\s+([^\]]+)\]/gi,
+  ADD_CURIOSITY: /\[ADD_CURIOSITY\s+([^\]]+)\]/gi,
+  SAVE_HIVE_NOTE: /\[SAVE_HIVE_NOTE\s+([^\]]+)\]/gi,
+  SET_ASPIRATION: /\[SET_ASPIRATION\s+([^\]]+)\]/gi,
+  REFLECT_ON_ASPIRATION: /\[REFLECT_ON_ASPIRATION\s+([^\]]+)\]/gi,
+  REMEMBER_I_SHARED: /\[REMEMBER_I_SHARED\s+([^\]]+)\]/gi,
+  LOG_PAGE_EVENT: /\[LOG_PAGE_EVENT\s+([^\]]+)\]/gi,
 };
 
 /**

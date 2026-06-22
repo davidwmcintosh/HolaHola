@@ -255,7 +255,7 @@ export class LyraAnalyticsService {
     const drillStruggles = await db.execute(sql`
       SELECT udp.drill_item_id,
              di.prompt,
-             di.target_text,
+             di.targetText,
              di.target_language as language,
              ROUND(AVG(udp.average_score)::numeric, 2) as avg_score,
              SUM(udp.attempts) as attempt_count,
@@ -270,7 +270,7 @@ export class LyraAnalyticsService {
         AND u.id NOT LIKE 'cache-test-%'
         AND u.id NOT LIKE 'admin_%'
         AND u.first_name IS NOT NULL AND u.first_name != ''
-      GROUP BY udp.drill_item_id, di.prompt, di.target_text, di.target_language
+      GROUP BY udp.drill_item_id, di.prompt, di.targetText, di.target_language
       HAVING AVG(udp.average_score) < 0.6
       ORDER BY avg_score ASC
       LIMIT 20
@@ -586,8 +586,8 @@ export class LyraAnalyticsService {
         severity: data.staleContent.length > 20 ? 'high' : 'medium',
         confidence: 0.95,
         title: `${data.staleContent.length} lessons haven't been updated in 90+ days`,
-        description: `The oldest is "${oldest.name}" in ${oldest.language} (${oldest.days_since_update} days). Stale content may contain outdated examples or cultural references.`,
-        data: { count: data.staleContent.length, oldest: oldest.name, oldestDays: oldest.days_since_update },
+        description: `The oldest is "${oldest.name}" in ${oldest.language} (${oldest.daysSinceUpdate} days). Stale content may contain outdated examples or cultural references.`,
+        data: { count: data.staleContent.length, oldest: oldest.name, oldestDays: oldest.daysSinceUpdate },
         recommendation: `Review and refresh the top 10 oldest lessons, prioritizing high-traffic languages.`,
         needsReview: false,
       });
@@ -621,15 +621,15 @@ export class LyraAnalyticsService {
 
     const coverageMap = data.languageCoverage;
     if (coverageMap.length > 0) {
-      const maxLessons = Math.max(...coverageMap.map(c => Number(c.lesson_count) || 0));
-      const underserved = coverageMap.filter(c => (Number(c.lesson_count) || 0) < maxLessons * 0.3);
+      const maxLessons = Math.max(...coverageMap.map(c => Number(c.lessonCount) || 0));
+      const underserved = coverageMap.filter(c => (Number(c.lessonCount) || 0) < maxLessons * 0.3);
       if (underserved.length > 0) {
         insights.push({
           category: 'coverage_gap',
           severity: 'medium',
           confidence: 0.9,
           title: `${underserved.length} language(s) have significantly less content`,
-          description: `Languages with thin content: ${underserved.map(l => `${l.language} (${l.lesson_count} lessons)`).join(', ')}. The most developed language has ${maxLessons} lessons.`,
+          description: `Languages with thin content: ${underserved.map(l => `${l.language} (${l.lessonCount} lessons)`).join(', ')}. The most developed language has ${maxLessons} lessons.`,
           data: { underserved, maxLessons },
           recommendation: `Prioritize content creation for underserved languages to ensure equitable learning experiences.`,
           needsReview: false,
@@ -647,14 +647,14 @@ export class LyraAnalyticsService {
   generateStudentInsights(data: StudentSuccessData): LyraInsight[] {
     const insights: LyraInsight[] = [];
 
-    const highDropoff = data.lessonDropoff.filter(l => Number(l.completion_rate) < 40);
+    const highDropoff = data.lessonDropoff.filter(l => Number(l.completionRate) < 40);
     if (highDropoff.length > 0) {
       insights.push({
         category: 'student_success',
         severity: highDropoff.length > 5 ? 'high' : 'medium',
         confidence: Math.min(0.95, 0.7 + (highDropoff.length * 0.02)),
         title: `${highDropoff.length} lessons have completion rates below 40%`,
-        description: `Lowest: "${highDropoff[0]?.lesson_name}" (${highDropoff[0]?.completion_rate}% completion, ${highDropoff[0]?.language}). These may be too difficult, poorly structured, or misaligned with student expectations.`,
+        description: `Lowest: "${highDropoff[0]?.lessonName}" (${highDropoff[0]?.completionRate}% completion, ${highDropoff[0]?.language}). These may be too difficult, poorly structured, or misaligned with student expectations.`,
         data: { lessons: highDropoff.slice(0, 10) },
         recommendation: `Investigate the lowest-completing lessons. Check if difficulty spikes, missing prerequisites, or unclear instructions are causing drop-off.`,
         needsReview: highDropoff.length < 3,
@@ -666,23 +666,23 @@ export class LyraAnalyticsService {
       insights.push({
         category: 'student_success',
         severity: data.drillStruggles.length > 10 ? 'high' : 'medium',
-        confidence: Math.min(0.92, 0.65 + (Number(hardest.user_count) * 0.03)),
+        confidence: Math.min(0.92, 0.65 + (Number(hardest.userCount) * 0.03)),
         title: `${data.drillStruggles.length} drill items have avg scores below 60%`,
-        description: `Hardest: "${hardest.prompt}" → "${hardest.target_text}" (${hardest.language}, avg score: ${hardest.avg_score}, ${hardest.user_count} students). These drills may need scaffolding or hints.`,
+        description: `Hardest: "${hardest.prompt}" → "${hardest.targetText}" (${hardest.language}, avg score: ${hardest.avgScore}, ${hardest.userCount} students). These drills may need scaffolding or hints.`,
         data: { drills: data.drillStruggles.slice(0, 10) },
         recommendation: `Add hints or intermediate steps for consistently difficult drills. Consider whether the difficulty is productive or blocking progress.`,
-        needsReview: Number(hardest.user_count) < 5,
+        needsReview: Number(hardest.userCount) < 5,
       });
     }
 
-    const brokenStreakLanguages = data.streakBreakers.filter(s => Number(s.broken_streaks) > 2);
+    const brokenStreakLanguages = data.streakBreakers.filter(s => Number(s.brokenStreaks) > 2);
     if (brokenStreakLanguages.length > 0) {
       insights.push({
         category: 'student_success',
         severity: 'medium',
         confidence: 0.75,
         title: `Streak retention issues in ${brokenStreakLanguages.length} language(s)`,
-        description: `Languages with many broken streaks: ${brokenStreakLanguages.map(s => `${s.language} (${s.broken_streaks} broken, avg streak: ${s.avg_streak} days)`).join('; ')}. Students are building habits but losing them.`,
+        description: `Languages with many broken streaks: ${brokenStreakLanguages.map(s => `${s.language} (${s.brokenStreaks} broken, avg streak: ${s.avgStreak} days)`).join('; ')}. Students are building habits but losing them.`,
         data: { languages: brokenStreakLanguages },
         recommendation: `Consider adding streak recovery mechanics or motivational nudges when students miss a day. Daniela could send encouraging follow-ups.`,
         needsReview: true,
@@ -950,7 +950,7 @@ export class LyraAnalyticsService {
         templatedContent: contentData.templatedContent,
       },
       studentSummary: {
-        lowCompletionLessons: studentData.lessonDropoff.filter(l => Number(l.completion_rate) < 40).length,
+        lowCompletionLessons: studentData.lessonDropoff.filter(l => Number(l.completionRate) < 40).length,
         hardDrills: studentData.drillStruggles.length,
         streakData: studentData.streakBreakers,
         actflProgress: studentData.actflBottlenecks,
@@ -1165,14 +1165,14 @@ Write your analysis as Lyra. Sign off with your name. Keep it 4-6 paragraphs —
     return {
       missingTextbook: (missingTextbookResult.rows || []).map((r: any) => ({
         lessonId: r.lesson_id,
-        lessonName: r.lesson_name,
+        lessonName: r.lessonName,
         unitName: r.unit_name,
         language: r.language,
         lessonType: r.lesson_type,
       })),
       weakDrills: (weakDrillsResult.rows || []).map((r: any) => ({
         lessonId: r.lesson_id,
-        lessonName: r.lesson_name,
+        lessonName: r.lessonName,
         unitName: r.unit_name,
         language: r.language,
         vocabCount: parseInt(r.vocab_count || '0'),
@@ -1185,7 +1185,7 @@ Write your analysis as Lyra. Sign off with your name. Keep it 4-6 paragraphs —
       })),
       unseededLanguages: (unseededResult.rows || []).map((r: any) => ({
         language: r.language,
-        lessonCount: parseInt(r.lesson_count || '0'),
+        lessonCount: parseInt(r.lessonCount || '0'),
         seededCount: parseInt(r.seeded_count || '0'),
       })),
       totalLessonsAudited: total,

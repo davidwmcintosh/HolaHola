@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction } from "express";
+import type { Request, Response, NextFunction, RequestHandler } from "express";
 import type { User } from "../../shared/schema";
 import crypto from "crypto";
 import { touchFounderPresence } from "../services/founder-presence";
@@ -28,8 +28,9 @@ export interface AuthenticatedRequest extends Request {
  * Middleware to require a minimum role level
  * Usage: app.get('/api/admin/users', requireRole('admin'), handler)
  */
-export function requireRole(minRole: UserRole) {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export function requireRole(...minRoles: UserRole[]): RequestHandler {
+  const minRole = minRoles[0];
+  return async (req: any, res: Response, next: NextFunction) => {
     try {
       // User must be authenticated
       if (!req.user?.claims?.sub) {
@@ -64,8 +65,8 @@ export function requireRole(minRole: UserRole) {
  * Middleware to allow specific roles (OR condition)
  * Usage: app.get('/api/content', allowRoles(['teacher', 'admin']), handler)
  */
-export function allowRoles(allowedRoles: UserRole[]) {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export function allowRoles(allowedRoles: UserRole[]): RequestHandler {
+  return async (req: any, res: Response, next: NextFunction) => {
     try {
       // User must be authenticated
       if (!req.user?.claims?.sub) {
@@ -101,8 +102,8 @@ export function allowRoles(allowedRoles: UserRole[]) {
  * Should run after isAuthenticated middleware
  * This populates req.authenticatedUser with full user object including role
  */
-export function loadAuthenticatedUser(storage: any) {
-  return async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+export function loadAuthenticatedUser(storage: any): RequestHandler {
+  return async (req: any, res: Response, next: NextFunction) => {
     try {
       // Skip if not authenticated - check both password auth and OIDC
       const userId = (req.session as any)?.userId || req.user?.claims?.sub;

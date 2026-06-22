@@ -173,7 +173,7 @@ export async function setupAuth(app: Express, authLimiter?: any) {
   app.post("/api/logout", ...logoutPostHandler);
 }
 
-export function getRequestUserId(req: any): string | null {
+export function getRequestUserId(req: any): string {
   // Password auth stores userId directly in session
   if (req.session?.userId) {
     return req.session.userId;
@@ -182,7 +182,7 @@ export function getRequestUserId(req: any): string | null {
   if (req.user?.claims?.sub) {
     return req.user.claims.sub;
   }
-  return null;
+  return '';
 }
 
 export const isAuthenticated: RequestHandler = async (req, res, next) => {

@@ -38,7 +38,7 @@ async function getStripeClient(): Promise<Stripe | null> {
   if (!stripeClient) {
     const secretKey = await getStripeSecretKey();
     if (!secretKey) return null;
-    stripeClient = new Stripe(secretKey, { apiVersion: '2025-01-27.acacia' });
+    stripeClient = new Stripe(secretKey, { apiVersion: '2025-11-17.clover' });
   }
   return stripeClient;
 }

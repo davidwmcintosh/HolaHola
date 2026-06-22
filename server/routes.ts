@@ -1,6 +1,7 @@
 // Image Quality Service routes will be registered here
 // Import: import { imageQualityService } from './services/image-quality-service';
 
+import type { Application, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { z } from "zod";
 import { storage } from "./storage";
@@ -570,13 +571,13 @@ setInterval(() => {
   }
 }, 120_000);
 
-export async function registerRoutes(app: Express): Promise<void> {
+export async function registerRoutes(app: Application): Promise<void> {
   // Set up Replit Auth with rate limiting
   await setupAuth(app, authLimiter);
 
   const menuImageCache = new Map<string, string>();
 
-  app.get('/api/menu-image', async (req: any, res) => {
+  app.get('/api/menu-image', async (req: any, res: Response) => {
     const q = (req.query.q as string || '').trim();
     if (!q) return res.status(400).json({ error: 'Missing q parameter' });
 
@@ -645,7 +646,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // ─── Menu Image Batch Generator ──────────────────────────────────────────────
 
   // Stats: how many food items have/need images
-  app.get('/api/admin/menu-image-stats', async (req: any, res) => {
+  app.get('/api/admin/menu-image-stats', async (req: any, res: Response) => {
     if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
@@ -670,7 +671,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Worker logic lives in server/services/menu-image-worker.ts
   // Auto-starts at server boot if there are pending items (see server/index.ts)
 
-  app.post('/api/admin/run-consolidator', async (req: any, res) => {
+  app.post('/api/admin/run-consolidator', async (req: any, res: Response) => {
     if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
@@ -687,7 +688,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  app.post('/api/admin/backfill-november', async (req: any, res) => {
+  app.post('/api/admin/backfill-november', async (req: any, res: Response) => {
     if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
@@ -704,7 +705,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  app.post('/api/admin/curate-conversations', async (req: any, res) => {
+  app.post('/api/admin/curate-conversations', async (req: any, res: Response) => {
     if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
@@ -723,7 +724,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  app.post('/api/admin/start-menu-image-worker', async (req: any, res) => {
+  app.post('/api/admin/start-menu-image-worker', async (req: any, res: Response) => {
     if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
@@ -738,7 +739,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     res.json({ ...result, status: getMenuWorkerStatus() });
   });
 
-  app.get('/api/admin/menu-image-worker-status', async (req: any, res) => {
+  app.get('/api/admin/menu-image-worker-status', async (req: any, res: Response) => {
     if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
@@ -746,7 +747,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     res.json(getMenuWorkerStatus());
   });
 
-  app.post('/api/admin/stop-menu-image-worker', async (req: any, res) => {
+  app.post('/api/admin/stop-menu-image-worker', async (req: any, res: Response) => {
     if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
@@ -756,7 +757,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // GET /api/admin/alden-status — Alden watch worker live status
-  app.get('/api/admin/alden-status', async (req: any, res) => {
+  app.get('/api/admin/alden-status', async (req: any, res: Response) => {
     if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
@@ -766,7 +767,7 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   // SSE streaming batch generator
   // GET /api/admin/batch-menu-images?limit=50&delay=2000
-  app.get('/api/admin/batch-menu-images', async (req: any, res) => {
+  app.get('/api/admin/batch-menu-images', async (req: any, res: Response) => {
     if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
     }
@@ -868,11 +869,11 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   // Version endpoint - verify production deployment
   // Simple health check — used by alden-build-guardian to verify server is up
-  app.get('/api/health', (_req, res) => {
+  app.get('/api/health', (_req: Request, res: Response) => {
     res.json({ status: 'ok', ts: Date.now() });
   });
 
-  app.get('/api/version', (_req, res) => {
+  app.get('/api/version', (_req: Request, res: Response) => {
     res.json({
       version: process.env.REPLIT_DEPLOYMENT_ID || 'development',
       buildTime: Date.now(),
@@ -882,7 +883,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Test email endpoint (temporary - for development testing)
-  app.post("/api/test-email", async (req: any, res) => {
+  app.post("/api/test-email", async (req: any, res: Response) => {
     try {
       const { email, firstName, lastName } = req.body;
       if (!email) {
@@ -929,7 +930,7 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   // Auth user route (with rate limiting)
   // Supports both Replit Auth (claims.sub) and password auth (userId directly in session)
-  app.get('/api/auth/user', authLimiter, async (req: any, res) => {
+  app.get('/api/auth/user', authLimiter, async (req: any, res: Response) => {
     try {
       // Check for password auth first (userId stored directly in session)
       if (req.session?.userId) {
@@ -956,7 +957,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // ===== Password Auth Routes =====
   
   // Password login
-  app.post('/api/auth/password/login', authLimiter, async (req: any, res) => {
+  app.post('/api/auth/password/login', authLimiter, async (req: any, res: Response) => {
     try {
       const validation = passwordLoginSchema.safeParse(req.body);
       if (!validation.success) {
@@ -985,7 +986,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Password logout
-  app.post('/api/auth/password/logout', async (req: any, res) => {
+  app.post('/api/auth/password/logout', async (req: any, res: Response) => {
     try {
       req.session.destroy((err: any) => {
         if (err) {
@@ -1001,7 +1002,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Terms of Service acceptance — called once when user agrees to ToS before first session
-  app.post('/api/auth/accept-terms', isAuthenticated, async (req: any, res) => {
+  app.post('/api/auth/accept-terms', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = (req as any).resolvedUserId || getRequestUserId(req);
       if (!userId) return res.status(401).json({ message: 'Not authenticated' });
@@ -1015,7 +1016,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Request password reset
-  app.post('/api/auth/password/request-reset', authLimiter, async (req: any, res) => {
+  app.post('/api/auth/password/request-reset', authLimiter, async (req: any, res: Response) => {
     try {
       const validation = passwordResetRequestSchema.safeParse(req.body);
       if (!validation.success) {
@@ -1049,7 +1050,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Reset password with token
-  app.post('/api/auth/password/reset', authLimiter, async (req: any, res) => {
+  app.post('/api/auth/password/reset', authLimiter, async (req: any, res: Response) => {
     try {
       const validation = setNewPasswordSchema.safeParse(req.body);
       if (!validation.success) {
@@ -1080,7 +1081,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Verify invitation token
-  app.get('/api/auth/invitations/verify', async (req: any, res) => {
+  app.get('/api/auth/invitations/verify', async (req: any, res: Response) => {
     try {
       const token = req.query.token as string;
       if (!token) {
@@ -1115,7 +1116,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Complete registration (accept invitation)
-  app.post('/api/auth/invitations/complete', authLimiter, async (req: any, res) => {
+  app.post('/api/auth/invitations/complete', authLimiter, async (req: any, res: Response) => {
     try {
       const validation = completeRegistrationSchema.safeParse(req.body);
       if (!validation.success) {
@@ -1164,7 +1165,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Create invitation (admin/teacher only)
-  app.post('/api/auth/invitations', authLimiter, isAuthenticated, async (req: any, res) => {
+  app.post('/api/auth/invitations', authLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -1214,7 +1215,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Get pending invitations (admin/teacher only)
-  app.get('/api/auth/invitations', authLimiter, isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/invitations', authLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -1243,7 +1244,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Note: tutorPersonality and tutorExpressiveness are super-admin only settings
   // Regular users can only update tutorGender (male/female) and other learning preferences
   // Get all languages user has progress in
-  app.get('/api/user/languages', isAuthenticated, async (req: any, res) => {
+  app.get('/api/user/languages', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const languages = await storage.getUserLanguages(userId);
@@ -1254,7 +1255,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  app.put('/api/user/preferences', isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+  app.put('/api/user/preferences', isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       
@@ -1305,7 +1306,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  app.get('/api/user/contact-preferences', isAuthenticated, async (req: any, res) => {
+  app.get('/api/user/contact-preferences', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const prefs = await storage.getContactPreferences(userId);
@@ -1323,7 +1324,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  app.put('/api/user/contact-preferences', isAuthenticated, async (req: any, res) => {
+  app.put('/api/user/contact-preferences', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { updateContactPreferencesSchema } = await import('@shared/schema');
@@ -1347,7 +1348,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  app.delete('/api/user/contact-preferences/phone', isAuthenticated, async (req: any, res) => {
+  app.delete('/api/user/contact-preferences/phone', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       await storage.upsertContactPreferences(userId, {
@@ -1366,7 +1367,7 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   // Update user timezone (called automatically from browser)
   // This enables time-aware greetings from Daniela
-  app.put('/api/user/timezone', isAuthenticated, async (req: any, res) => {
+  app.put('/api/user/timezone', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { timezone } = req.body;
@@ -1389,7 +1390,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // ===== Per-Language Self-Directed Preferences =====
   
   // Get all language-specific preferences for a user
-  app.get('/api/user/language-preferences', isAuthenticated, async (req: any, res) => {
+  app.get('/api/user/language-preferences', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const preferences = await storage.getAllLanguagePreferences(userId);
@@ -1401,7 +1402,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Get preferences for a specific language with eligibility info
-  app.get('/api/user/language-preferences/:language', isAuthenticated, async (req: any, res) => {
+  app.get('/api/user/language-preferences/:language', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language } = req.params;
@@ -1459,7 +1460,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Update preferences for a specific language
-  app.put('/api/user/language-preferences/:language', isAuthenticated, async (req: any, res) => {
+  app.put('/api/user/language-preferences/:language', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language } = req.params;
@@ -1490,7 +1491,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Get user usage statistics (voice messages)
-  app.get('/api/user/usage', isAuthenticated, async (req: any, res) => {
+  app.get('/api/user/usage', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const stats = await storage.getUserUsageStats(userId);
@@ -1503,7 +1504,7 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   // Check if user can send voice message (and increment counter)
   // DEPRECATED: Use /api/usage/status instead for hour-based tracking
-  app.post('/api/user/check-voice-usage', isAuthenticated, async (req: any, res) => {
+  app.post('/api/user/check-voice-usage', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const result = await storage.checkAndIncrementVoiceUsage(userId);
@@ -1527,7 +1528,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // ===== Hour-Based Usage Tracking Routes =====
   
   // Get current usage status (balance, active session, etc.)
-  app.get('/api/usage/status', isAuthenticated, async (req: any, res) => {
+  app.get('/api/usage/status', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const status = await usageService.getUsageStatus(userId);
@@ -1546,7 +1547,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Check if user can start a voice session
-  app.get('/api/usage/check', isAuthenticated, async (req: any, res) => {
+  app.get('/api/usage/check', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       
@@ -1573,7 +1574,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Get usage history (ledger entries)
-  app.get('/api/usage/history', isAuthenticated, async (req: any, res) => {
+  app.get('/api/usage/history', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const limit = parseInt(req.query.limit as string) || 50;
@@ -1588,7 +1589,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Get recent voice sessions
-  app.get('/api/usage/sessions', isAuthenticated, async (req: any, res) => {
+  app.get('/api/usage/sessions', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const limit = parseInt(req.query.limit as string) || 10;
@@ -1601,7 +1602,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Get credit balance only (lightweight endpoint)
-  app.get('/api/usage/balance', isAuthenticated, async (req: any, res) => {
+  app.get('/api/usage/balance', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const balance = await usageService.getBalanceWithBypass(userId);
@@ -1613,7 +1614,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Get class-specific balance for a student enrollment
-  app.get('/api/usage/class/:classId/balance', isAuthenticated, async (req: any, res) => {
+  app.get('/api/usage/class/:classId/balance', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { classId } = req.params;
@@ -1645,7 +1646,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Get purchased hours balance (not tied to any class)
-  app.get('/api/usage/purchased', isAuthenticated, async (req: any, res) => {
+  app.get('/api/usage/purchased', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       
@@ -1667,7 +1668,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Check credits with class context (for starting sessions)
-  app.get('/api/usage/check/:classId?', isAuthenticated, async (req: any, res) => {
+  app.get('/api/usage/check/:classId?', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const classId = req.params.classId || req.query.classId;
@@ -1700,7 +1701,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Behind COMPASS_ENABLED feature flag
   
   // Get Compass context for a conversation
-  app.get('/api/compass/:conversationId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/compass/:conversationId', isAuthenticated, async (req: any, res: Response) => {
     if (!COMPASS_ENABLED) {
       return res.status(404).json({ message: "Compass feature not enabled" });
     }
@@ -1734,7 +1735,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Add item to parking lot
-  app.post('/api/compass/:conversationId/parking', isAuthenticated, async (req: any, res) => {
+  app.post('/api/compass/:conversationId/parking', isAuthenticated, async (req: any, res: Response) => {
     if (!COMPASS_ENABLED) {
       return res.status(404).json({ message: "Compass feature not enabled" });
     }
@@ -1774,7 +1775,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Update topic status
-  app.patch('/api/compass/topics/:topicId', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/compass/topics/:topicId', isAuthenticated, async (req: any, res: Response) => {
     if (!COMPASS_ENABLED) {
       return res.status(404).json({ message: "Compass feature not enabled" });
     }
@@ -1822,7 +1823,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Inject a note into an active voice session
   // SECURITY: Requires architect secret (allows Claude to inject without user session)
   // The secret protects against unauthorized access from other AI agents
-  app.post('/api/architect/inject', async (req: any, res) => {
+  app.post('/api/architect/inject', async (req: any, res: Response) => {
     try {
       // SECURITY: Validate architect secret (this is the primary security gate)
       const architectSecret = req.headers['x-architect-secret'] as string;
@@ -1884,7 +1885,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Get stats about architect notes (for debugging)
-  app.get('/api/architect/stats', isAuthenticated, async (req: any, res) => {
+  app.get('/api/architect/stats', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       
@@ -1905,7 +1906,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // ===== Daniela's Neural Network Memory System Routes =====
   
   // Get all best practices (universal teaching wisdom)
-  app.get('/api/memory/best-practices', isAuthenticated, async (req: any, res) => {
+  app.get('/api/memory/best-practices', isAuthenticated, async (req: any, res: Response) => {
     try {
       const { category, activeOnly } = req.query;
       const practices = await storage.getBestPractices(
@@ -1924,7 +1925,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // Results are cached in-memory by (text, targetLanguage) to avoid repeat API calls.
   const stripTranslationCache = new Map<string, string>();
 
-  app.post('/api/strip-translation', isAuthenticated, async (req: any, res) => {
+  app.post('/api/strip-translation', isAuthenticated, async (req: any, res: Response) => {
     try {
       const { texts, targetLanguage } = req.body as { texts: string[]; targetLanguage: string };
       if (!Array.isArray(texts) || !targetLanguage) {
@@ -1968,7 +1969,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Create a new best practice
-  app.post('/api/memory/best-practices', isAuthenticated, async (req: any, res) => {
+  app.post('/api/memory/best-practices', isAuthenticated, async (req: any, res: Response) => {
     try {
       const practice = await storage.createBestPractice(req.body);
       console.log('[Memory] Created best practice:', practice.insight?.substring(0, 50));
@@ -1980,7 +1981,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Update a best practice
-  app.patch('/api/memory/best-practices/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/memory/best-practices/:id', isAuthenticated, async (req: any, res: Response) => {
     try {
       const practice = await storage.updateBestPractice(req.params.id, req.body);
       if (!practice) {
@@ -1996,7 +1997,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // ===== Self-Surgery Proposals (Daniela's Neural Network Modifications) =====
   
   // Get all self-surgery proposals (admin/developer only)
-  app.get('/api/self-surgery/proposals', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get('/api/self-surgery/proposals', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { status, targetTable, limit } = req.query;
       const proposals = await storage.getSelfSurgeryProposals({
@@ -2012,7 +2013,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Update a self-surgery proposal (approve/reject/edit)
-  app.patch('/api/self-surgery/proposals/:id', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.patch('/api/self-surgery/proposals/:id', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const { status, reviewNotes, editedContent } = req.body;
@@ -2040,7 +2041,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Promote a self-surgery proposal to target table
-  app.post('/api/self-surgery/proposals/:id/promote', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post('/api/self-surgery/proposals/:id/promote', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       
@@ -2127,7 +2128,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Delete a self-surgery proposal
-  app.delete('/api/self-surgery/proposals/:id', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.delete('/api/self-surgery/proposals/:id', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       
@@ -2152,7 +2153,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // RETIRED (Jan 2026 - Neon Phase 3): Editor persona service replaced by Hive collaboration
-  app.post('/api/self-surgery/proactive-suggestions', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post('/api/self-surgery/proactive-suggestions', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     res.status(410).json({
       error: 'Endpoint retired',
       message: 'Editor persona service retired - use Hive collaboration for AI-assisted improvements',
@@ -2161,7 +2162,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // RETIRED (Jan 2026): Audit network - use Wren Intelligence service instead
-  app.post('/api/self-surgery/audit-network', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post('/api/self-surgery/audit-network', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     res.status(410).json({
       error: 'Endpoint retired',
       message: 'Editor persona service retired - use Wren Intelligence for neural network auditing',
@@ -2170,7 +2171,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Get student memory context (insights, motivations, struggles, notes, connections)
-  app.get('/api/memory/student/:studentId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/memory/student/:studentId', isAuthenticated, async (req: any, res: Response) => {
     try {
       const { studentId } = req.params;
       const { language } = req.query;
@@ -2183,7 +2184,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Create a student insight
-  app.post('/api/memory/student-insights', isAuthenticated, async (req: any, res) => {
+  app.post('/api/memory/student-insights', isAuthenticated, async (req: any, res: Response) => {
     try {
       const insight = await storage.createStudentInsight(req.body);
       console.log('[Memory] Created student insight:', insight.insight?.substring(0, 50));
@@ -2195,7 +2196,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Update a student insight
-  app.patch('/api/memory/student-insights/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/memory/student-insights/:id', isAuthenticated, async (req: any, res: Response) => {
     try {
       const insight = await storage.updateStudentInsight(req.params.id, req.body);
       if (!insight) {
@@ -2209,7 +2210,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Create a learning motivation
-  app.post('/api/memory/learning-motivations', isAuthenticated, async (req: any, res) => {
+  app.post('/api/memory/learning-motivations', isAuthenticated, async (req: any, res: Response) => {
     try {
       const motivation = await storage.createLearningMotivation(req.body);
       console.log('[Memory] Created learning motivation:', motivation.motivation?.substring(0, 50));
@@ -2221,7 +2222,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Update a learning motivation
-  app.patch('/api/memory/learning-motivations/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/memory/learning-motivations/:id', isAuthenticated, async (req: any, res: Response) => {
     try {
       const motivation = await storage.updateLearningMotivation(req.params.id, req.body);
       if (!motivation) {
@@ -2235,7 +2236,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Create a recurring struggle
-  app.post('/api/memory/recurring-struggles', isAuthenticated, async (req: any, res) => {
+  app.post('/api/memory/recurring-struggles', isAuthenticated, async (req: any, res: Response) => {
     try {
       const struggle = await storage.createRecurringStruggle(req.body);
       console.log('[Memory] Created recurring struggle:', struggle.description?.substring(0, 50));
@@ -2247,7 +2248,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Update a recurring struggle
-  app.patch('/api/memory/recurring-struggles/:id', isAuthenticated, async (req: any, res) => {
+  app.patch('/api/memory/recurring-struggles/:id', isAuthenticated, async (req: any, res: Response) => {
     try {
       const struggle = await storage.updateRecurringStruggle(req.params.id, req.body);
       if (!struggle) {
@@ -2261,7 +2262,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Create a session note
-  app.post('/api/memory/session-notes', isAuthenticated, async (req: any, res) => {
+  app.post('/api/memory/session-notes', isAuthenticated, async (req: any, res: Response) => {
     try {
       const note = await storage.createSessionNote(req.body);
       console.log('[Memory] Created session note for conversation:', note.conversationId);
@@ -2273,7 +2274,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Get session note for a conversation
-  app.get('/api/memory/session-notes/conversation/:conversationId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/memory/session-notes/conversation/:conversationId', isAuthenticated, async (req: any, res: Response) => {
     try {
       const note = await storage.getSessionNoteByConversation(req.params.conversationId);
       if (!note) {
@@ -2287,7 +2288,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Create a people connection
-  app.post('/api/memory/people-connections', isAuthenticated, async (req: any, res) => {
+  app.post('/api/memory/people-connections', isAuthenticated, async (req: any, res: Response) => {
     try {
       const connection = await storage.createPeopleConnection(req.body);
       console.log('[Memory] Created people connection:', connection.relationshipType);
@@ -2299,7 +2300,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Get all people connections
-  app.get('/api/memory/people-connections', isAuthenticated, async (req: any, res) => {
+  app.get('/api/memory/people-connections', isAuthenticated, async (req: any, res: Response) => {
     try {
       const connections = await storage.getAllPeopleConnections();
       res.json(connections);
@@ -2312,7 +2313,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // ===== Neural Network Sync Routes =====
   
   // Get sync stats (pending promotions, last sync, etc.)
-  app.get('/api/sync/stats', isAuthenticated, async (req: any, res) => {
+  app.get('/api/sync/stats', isAuthenticated, async (req: any, res: Response) => {
     try {
       const stats = await neuralNetworkSync.getSyncStats();
       res.json(stats);
@@ -2323,7 +2324,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Get pending promotions
-  app.get('/api/sync/promotions/pending', isAuthenticated, async (req: any, res) => {
+  app.get('/api/sync/promotions/pending', isAuthenticated, async (req: any, res: Response) => {
     try {
       const pending = await neuralNetworkSync.getPendingPromotions();
       res.json(pending);
@@ -2334,7 +2335,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Get promotion history
-  app.get('/api/sync/promotions/history', isAuthenticated, async (req: any, res) => {
+  app.get('/api/sync/promotions/history', isAuthenticated, async (req: any, res: Response) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const history = await neuralNetworkSync.getPromotionHistory(limit);
@@ -2346,7 +2347,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Submit a best practice for promotion
-  app.post('/api/sync/promotions/submit', isAuthenticated, async (req: any, res) => {
+  app.post('/api/sync/promotions/submit', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { bestPracticeId } = req.body;
@@ -2369,7 +2370,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Review a promotion (approve/reject)
-  app.post('/api/sync/promotions/:id/review', isAuthenticated, async (req: any, res) => {
+  app.post('/api/sync/promotions/:id/review', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { id } = req.params;
@@ -2393,7 +2394,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Get sync logs
-  app.get('/api/sync/logs', isAuthenticated, async (req: any, res) => {
+  app.get('/api/sync/logs', isAuthenticated, async (req: any, res: Response) => {
     try {
       const limit = parseInt(req.query.limit as string) || 100;
       const logs = await neuralNetworkSync.getSyncLogs(limit);
@@ -2405,7 +2406,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Export approved best practices (for manual sync)
-  app.get('/api/sync/export/best-practices', isAuthenticated, async (req: any, res) => {
+  app.get('/api/sync/export/best-practices', isAuthenticated, async (req: any, res: Response) => {
     try {
       const practices = await neuralNetworkSync.getBestPracticesForExport();
       res.json({
@@ -2421,7 +2422,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Import best practices (for manual sync)
-  app.post('/api/sync/import/best-practices', isAuthenticated, async (req: any, res) => {
+  app.post('/api/sync/import/best-practices', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { practices } = req.body;
@@ -2459,7 +2460,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Export anonymized student insights (for one-way prod→dev sync)
-  app.get('/api/sync/export/anonymized-insights', isAuthenticated, async (req: any, res) => {
+  app.get('/api/sync/export/anonymized-insights', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -2496,7 +2497,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Get aggregate student statistics (privacy-preserving analytics)
-  app.get('/api/sync/stats/aggregate', isAuthenticated, async (req: any, res) => {
+  app.get('/api/sync/stats/aggregate', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -2515,7 +2516,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Trigger manual auto-sync (syncs all pending best practices)
-  app.post('/api/sync/auto', isAuthenticated, async (req: any, res) => {
+  app.post('/api/sync/auto', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -2533,7 +2534,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Retract a synced best practice
-  app.post('/api/sync/retract/:id', isAuthenticated, async (req: any, res) => {
+  app.post('/api/sync/retract/:id', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -2559,7 +2560,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Get auto-sync status
-  app.get('/api/sync/auto-status', isAuthenticated, async (req: any, res) => {
+  app.get('/api/sync/auto-status', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -2577,7 +2578,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Get detailed sync history with retract capability info
-  app.get('/api/sync/history', isAuthenticated, async (req: any, res) => {
+  app.get('/api/sync/history', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -2597,7 +2598,7 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   // DEPRECATED: Sync scheduler retired (Jan 2026 - Neon Phase 3)
   // Shared tables now route directly to Neon database
-  app.get('/api/sync/scheduler-status', isAuthenticated, async (req: any, res) => {
+  app.get('/api/sync/scheduler-status', isAuthenticated, async (req: any, res: Response) => {
     res.json({
       deprecated: true,
       message: 'Sync scheduler retired - shared tables route directly to Neon (permanent)',
@@ -2606,7 +2607,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Manual sync trigger (developer/admin only)
-  app.post('/api/sync/trigger', isAuthenticated, async (req: any, res) => {
+  app.post('/api/sync/trigger', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -2634,7 +2635,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // ===== Developer Usage Analytics Routes =====
   
   // Reload credits for a class (developer only)
-  app.post('/api/developer/reload-credits', isAuthenticated, async (req: any, res) => {
+  app.post('/api/developer/reload-credits', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       
@@ -2713,7 +2714,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Create a test class for developers (quick setup for testing)
-  app.post('/api/developer/create-test-class', isAuthenticated, async (req: any, res) => {
+  app.post('/api/developer/create-test-class', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       
@@ -2782,7 +2783,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Get platform-wide reports for developers (DAU, language popularity, etc.)
-  app.get('/api/developer/platform-stats', isAuthenticated, async (req: any, res) => {
+  app.get('/api/developer/platform-stats', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       
@@ -2895,7 +2896,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Get developer usage analytics
-  app.get('/api/developer/analytics', isAuthenticated, async (req: any, res) => {
+  app.get('/api/developer/analytics', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       
@@ -3041,7 +3042,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Get class completion estimates
-  app.get('/api/developer/class-estimates', isAuthenticated, async (req: any, res) => {
+  app.get('/api/developer/class-estimates', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       
@@ -3112,7 +3113,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // ===== Neural Network Telemetry (Option B Monitoring) =====
   
   // Get neural network teaching knowledge telemetry for Option B evaluation
-  app.get('/api/developer/neural-network-telemetry', isAuthenticated, async (req: any, res) => {
+  app.get('/api/developer/neural-network-telemetry', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       
@@ -3219,7 +3220,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   };
 
   // List available subscription products and prices
-  app.get('/api/billing/products', async (_req, res) => {
+  app.get('/api/billing/products', async (_req: Request, res: Response) => {
     try {
       const products = await storage.listProducts(true);
       const prices = await storage.listPrices(true);
@@ -3238,7 +3239,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Get user's subscription status
-  app.get('/api/billing/subscription', isAuthenticated, async (req: any, res) => {
+  app.get('/api/billing/subscription', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -3260,7 +3261,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Create checkout session
-  app.post('/api/billing/checkout', isAuthenticated, async (req: any, res) => {
+  app.post('/api/billing/checkout', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       let user = await storage.getUser(userId);
@@ -3317,7 +3318,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Create customer portal session (manage subscription)
-  app.post('/api/billing/portal', isAuthenticated, async (req: any, res) => {
+  app.post('/api/billing/portal', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -3348,7 +3349,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // ===== Hour Package Purchase Flow =====
   
   // Get available hour packages
-  app.get('/api/billing/hour-packages', async (_req, res) => {
+  app.get('/api/billing/hour-packages', async (_req: Request, res: Response) => {
     try {
       const packages = stripeService.getHourPackages();
       res.json({ packages });
@@ -3359,7 +3360,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Create checkout session for hour package purchase
-  app.post('/api/billing/hour-packages/checkout', isAuthenticated, async (req: any, res) => {
+  app.post('/api/billing/hour-packages/checkout', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       let user = await storage.getUser(userId);
@@ -3421,7 +3422,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Fulfill hour package after successful payment (called from frontend after redirect)
-  app.post('/api/billing/hour-packages/fulfill', isAuthenticated, async (req: any, res) => {
+  app.post('/api/billing/hour-packages/fulfill', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { sessionId } = req.body;
@@ -3461,7 +3462,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   // ===== Institutional Package Purchase Flow (for teachers buying class packages) =====
   
   // Get available institutional packages
-  app.get('/api/billing/institutional-packages', async (_req, res) => {
+  app.get('/api/billing/institutional-packages', async (_req: Request, res: Response) => {
     try {
       const packages = stripeService.getInstitutionalPackages();
       res.json({ packages });
@@ -3472,7 +3473,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
   
   // Create checkout session for institutional package purchase
-  app.post('/api/billing/institutional-packages/checkout', isAuthenticated, async (req: any, res) => {
+  app.post('/api/billing/institutional-packages/checkout', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       let user = await storage.getUser(userId);
@@ -3557,7 +3558,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   let capabilityCache: { available: boolean; reason: string; code?: string; timestamp: number } | null = null;
   const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-  app.get("/api/realtime/capability", async (req, res) => {
+  app.get("/api/realtime/capability", async (req: any, res: Response) => {
     try {
       // Check if client is forcing a fresh check (e.g., via "Recheck Access" button)
       const forceRecheck = req.query.force === 'true';
@@ -3666,7 +3667,7 @@ export async function registerRoutes(app: Express): Promise<void> {
 
   // Create ephemeral Realtime API token for client-side connection
   // This bypasses server-side WebSocket blocking in Replit infrastructure
-  app.post("/api/realtime/token", isAuthenticated, async (req: any, res) => {
+  app.post("/api/realtime/token", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -3733,7 +3734,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Chat / Conversations
-  app.post("/api/conversations", isAuthenticated, async (req: any, res) => {
+  app.post("/api/conversations", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       
@@ -3944,7 +3945,7 @@ export async function registerRoutes(app: Express): Promise<void> {
     }
   });
 
-  app.get("/api/conversations", isAuthenticated, async (req: any, res) => {
+  app.get("/api/conversations", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const email = req.user.claims.email;
@@ -3967,7 +3968,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // IMPORTANT: This route MUST come before /api/conversations/:id to avoid "filtered" being treated as an ID
-  app.get("/api/conversations/filtered", isAuthenticated, async (req: any, res) => {
+  app.get("/api/conversations/filtered", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { timeFilter, starredOnly, topicId, language } = req.query;
@@ -3986,7 +3987,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Week 1 Feature: Smart search across all user conversations
-  app.get("/api/search/messages", isAuthenticated, async (req: any, res) => {
+  app.get("/api/search/messages", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const query = req.query.q as string;
@@ -4004,7 +4005,7 @@ export async function registerRoutes(app: Express): Promise<void> {
   });
 
   // Week 1 Feature: AI-powered practice suggestions based on conversation history
-  app.get("/api/practice-suggestions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/practice-suggestions", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = req.user;
@@ -4097,7 +4098,7 @@ Return a JSON array of suggestions with this format:
     }
   });
 
-  app.get("/api/conversations/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/conversations/:id", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const conversation = await storage.getConversation(req.params.id, userId);
@@ -4127,7 +4128,7 @@ Return a JSON array of suggestions with this format:
     }
   });
 
-  app.get("/api/conversations/by-language/:language", isAuthenticated, async (req: any, res) => {
+  app.get("/api/conversations/by-language/:language", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const conversations = await storage.getConversationsByLanguage(req.params.language, userId);
@@ -4137,7 +4138,7 @@ Return a JSON array of suggestions with this format:
     }
   });
 
-  app.get("/api/conversations/:id/messages", isAuthenticated, async (req: any, res) => {
+  app.get("/api/conversations/:id/messages", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const conversation = await storage.getConversation(req.params.id, userId);
@@ -4158,7 +4159,7 @@ Return a JSON array of suggestions with this format:
   // hadn't had time to title them yet.
   // Never deletes starred or onboarding conversations.
   // Must be registered BEFORE /:id so Express doesn't match "cleanup" as a conversation ID.
-  app.delete("/api/conversations/cleanup/short", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/conversations/cleanup/short", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const sharedDb = getSharedDb();
@@ -4183,7 +4184,7 @@ Return a JSON array of suggestions with this format:
     }
   });
 
-  app.delete("/api/conversations/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/conversations/:id", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const success = await storage.deleteConversation(req.params.id, userId);
@@ -4197,7 +4198,7 @@ Return a JSON array of suggestions with this format:
   });
 
   // POST /api/conversations/:id/review — Alden QA: reads the transcript, surfaces bugs/features/moments
-  app.post("/api/conversations/:id/review", isAuthenticated, async (req: any, res) => {
+  app.post("/api/conversations/:id/review", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const conversation = await storage.getConversation(req.params.id, userId);
@@ -4381,7 +4382,7 @@ Return [] if nothing is worth surfacing.`;
     }
   });
 
-  app.post("/api/conversations/:id/messages", aiLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/conversations/:id/messages", aiLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const conversationId = req.params.id;
@@ -6567,7 +6568,7 @@ ${memoryContext}
 
   // Client-side voice session diagnostics — receives snapshots when the client
   // detects anomalies (lockout, silence, failsafe fires, etc.)
-  app.post("/api/voice/client-diagnostic", isAuthenticated, async (req: any, res) => {
+  app.post("/api/voice/client-diagnostic", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
@@ -6697,7 +6698,7 @@ ${memoryContext}
   });
 
   const consoleCaptureThrottle = new Map<string, { count: number; hourStart: number }>();
-  app.post("/api/voice/console-capture", isAuthenticated, async (req: any, res) => {
+  app.post("/api/voice/console-capture", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
@@ -6755,7 +6756,7 @@ ${memoryContext}
   });
 
   // Admin endpoint: fetch recent client diagnostics for analysis
-  app.get("/api/voice/client-diagnostics", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+  app.get("/api/voice/client-diagnostics", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
@@ -6798,7 +6799,7 @@ ${memoryContext}
     }
   });
 
-  app.get("/api/voice/client-diagnostics/summary", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+  app.get("/api/voice/client-diagnostics/summary", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
@@ -6884,7 +6885,7 @@ ${memoryContext}
     }
   });
 
-  app.get("/api/voice/health-score", generalLimiter, async (_req: any, res) => {
+  app.get("/api/voice/health-score", generalLimiter, async (_req: any, res: Response) => {
     try {
       const sharedDb = getSharedDb();
       const now = new Date();
@@ -6964,7 +6965,7 @@ ${memoryContext}
     }
   });
 
-  app.get("/api/voice/health-trends", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+  app.get("/api/voice/health-trends", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res: Response) => {
     try {
       const days = Math.min(parseInt(req.query.days as string) || 30, 365);
       const sharedDb = getSharedDb();
@@ -7011,7 +7012,7 @@ ${memoryContext}
   });
 
   // Get active voice session for user (allows client to reconnect to existing session)
-  app.get("/api/voice/active-session", isAuthenticated, async (req: any, res) => {
+  app.get("/api/voice/active-session", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -7040,7 +7041,7 @@ ${memoryContext}
   
   // Pre-warm Deepgram connection to avoid cold-start latency
   // Called when user enters voice chat mode
-  app.post("/api/voice/warm", isAuthenticated, async (req: any, res) => {
+  app.post("/api/voice/warm", isAuthenticated, async (req: any, res: Response) => {
     try {
       const warmStart = Date.now();
       
@@ -7082,7 +7083,7 @@ ${memoryContext}
   // Pre-warm TTS connection - now just a no-op since greeting synthesis
   // happens immediately and serves as the warm-up
   // Keeping endpoint for backward compatibility but not doing actual synthesis
-  app.post("/api/voice/warm-tts", isAuthenticated, async (req: any, res) => {
+  app.post("/api/voice/warm-tts", isAuthenticated, async (req: any, res: Response) => {
     // No longer synthesizing here - the greeting TTS serves as warm-up
     // This avoids unnecessary API calls and potential voice mismatch issues
     console.log(`[TTS] Warm-up skipped (greeting serves as warm-up)`);
@@ -7097,7 +7098,7 @@ ${memoryContext}
   // await that would otherwise stack on top of the 3s GL handshake.
   //
   // Returns immediately — this endpoint never blocks the frontend.
-  app.post("/api/sessions/warm-synthesis", isAuthenticated, async (req: any, res) => {
+  app.post("/api/sessions/warm-synthesis", isAuthenticated, async (req: any, res: Response) => {
     res.json({ status: "warming" }); // return immediately — don't block the frontend
     const userId = req.user?.id;
     const { conversationId } = req.body;
@@ -7118,7 +7119,7 @@ ${memoryContext}
   });
 
   // Transcribe audio using Whisper API
-  app.post("/api/voice/transcribe", voiceLimiter, isAuthenticated, upload.single('audio'), async (req: any, res) => {
+  app.post("/api/voice/transcribe", voiceLimiter, isAuthenticated, upload.single('audio'), async (req: any, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No audio file provided" });
@@ -7233,7 +7234,7 @@ ${memoryContext}
   // Pronunciation scoring endpoint for RhythmDrill textbook exercises
   // Uses Deepgram prerecorded API to score a short spoken word/phrase
   // NOTE: Completely separate from the live voice chat pipeline
-  app.post("/api/pronunciation/score", isAuthenticated, upload.single('audio'), async (req: any, res) => {
+  app.post("/api/pronunciation/score", isAuthenticated, upload.single('audio'), async (req: any, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No audio file provided" });
@@ -7328,7 +7329,7 @@ ${memoryContext}
   // Synthesize speech using TTS API
   // Now uses Google Cloud WaveNet for authentic native pronunciation (with OpenAI fallback)
   // Returns both audio and word-level timing data for synchronized subtitles
-  app.post("/api/voice/synthesize", voiceLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/voice/synthesize", voiceLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const { text, voice, language, targetLanguage, returnTimings, emotion, preview, speakingRate: requestSpeakingRate } = req.body;
       
@@ -7477,7 +7478,7 @@ ${memoryContext}
 
   // Azure Pronunciation Assessment - Test endpoint for POC
   // Analyzes audio against expected text and returns phoneme-level scores
-  app.post("/api/voice/assess-pronunciation", voiceLimiter, isAuthenticated, upload.single('audio'), async (req: any, res) => {
+  app.post("/api/voice/assess-pronunciation", voiceLimiter, isAuthenticated, upload.single('audio'), async (req: any, res: Response) => {
     try {
       const { azurePronunciationService } = await import("./services/azure-pronunciation-service");
       
@@ -7556,7 +7557,7 @@ ${memoryContext}
 
   // Slow repeat: Get simplified version of last teaching and speak it slowly
   // Used when student needs more help understanding a phrase
-  app.post("/api/voice/slow-repeat", voiceLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/voice/slow-repeat", voiceLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const { conversationId } = req.body;
       const userId = getRequestUserId(req);
@@ -7674,7 +7675,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Micro-ack pre-generation
-  app.post("/api/voice/micro-ack/pregenerate", voiceLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/voice/micro-ack/pregenerate", voiceLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const { language, gender, phrases } = req.body;
       if (!language || !Array.isArray(phrases) || phrases.length === 0) {
@@ -7714,7 +7715,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Vocabulary
-  app.get("/api/vocabulary", isAuthenticated, async (req: any, res) => {
+  app.get("/api/vocabulary", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language, difficulty } = req.query;
@@ -7733,7 +7734,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Vocabulary with path parameters (RESTful alternative)
-  app.get("/api/vocabulary/:language/:difficulty", isAuthenticated, async (req: any, res) => {
+  app.get("/api/vocabulary/:language/:difficulty", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language, difficulty } = req.params;
@@ -7744,7 +7745,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  app.patch("/api/vocabulary/:id/review", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/vocabulary/:id/review", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { id } = req.params;
@@ -7774,7 +7775,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // ===== Mastery Stats =====
 
-  app.get("/api/mastery-stats", isAuthenticated, async (req: any, res) => {
+  app.get("/api/mastery-stats", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language } = req.query;
@@ -7841,7 +7842,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ===== Vocabulary Export =====
   
   // Export vocabulary in CSV or Anki format
-  app.get("/api/vocabulary/export", isAuthenticated, async (req: any, res) => {
+  app.get("/api/vocabulary/export", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language, format = 'csv' } = req.query;
@@ -7883,7 +7884,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ===== Organization System APIs (Phases 1, 2, 3) =====
 
   // Phase 1: Toggle conversation star
-  app.patch("/api/conversations/:id/star", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/conversations/:id/star", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const updated = await storage.toggleConversationStar(req.params.id, userId);
@@ -7897,7 +7898,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Phase 1: Get filtered vocabulary
-  app.get("/api/vocabulary/filtered", isAuthenticated, async (req: any, res) => {
+  app.get("/api/vocabulary/filtered", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language, timeFilter, topicId, sourceConversationId, classId } = req.query;
@@ -7920,7 +7921,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Phase 2: Get topics for a conversation
-  app.get("/api/conversations/:id/topics", isAuthenticated, async (req: any, res) => {
+  app.get("/api/conversations/:id/topics", isAuthenticated, async (req: any, res: Response) => {
     try {
       const topics = await storage.getConversationTopics(req.params.id);
       res.json(topics);
@@ -7930,7 +7931,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // BATCH: Get topics for multiple conversations in one request (fixes N+1 problem)
-  app.post("/api/conversations/topics/batch", isAuthenticated, async (req: any, res) => {
+  app.post("/api/conversations/topics/batch", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { conversationIds } = req.body;
       if (!Array.isArray(conversationIds)) {
@@ -7946,7 +7947,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Phase 2: Add topic to conversation
-  app.post("/api/conversations/:id/topics", isAuthenticated, async (req: any, res) => {
+  app.post("/api/conversations/:id/topics", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { topicId, confidence } = req.body;
       if (!topicId) {
@@ -7960,7 +7961,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Phase 2: Remove topic from conversation
-  app.delete("/api/conversations/:conversationId/topics/:topicId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/conversations/:conversationId/topics/:topicId", isAuthenticated, async (req: any, res: Response) => {
     try {
       await storage.removeConversationTopic(req.params.conversationId, req.params.topicId);
       res.status(204).send();
@@ -7970,7 +7971,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Review Hub: Unified learning dashboard data
-  app.get("/api/review-hub", isAuthenticated, async (req: any, res) => {
+  app.get("/api/review-hub", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language, context } = req.query;
@@ -7999,7 +8000,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Phase 3: User Lessons CRUD
-  app.get("/api/lessons", isAuthenticated, async (req: any, res) => {
+  app.get("/api/lessons", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language } = req.query;
@@ -8010,7 +8011,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  app.get("/api/lessons/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/lessons/:id", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const lesson = await storage.getUserLesson(req.params.id, userId);
@@ -8023,7 +8024,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  app.post("/api/lessons", isAuthenticated, async (req: any, res) => {
+  app.post("/api/lessons", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const lesson = await storage.createUserLesson({ ...req.body, userId });
@@ -8033,7 +8034,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  app.patch("/api/lessons/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/lessons/:id", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const updated = await storage.updateUserLesson(req.params.id, userId, req.body);
@@ -8046,7 +8047,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  app.delete("/api/lessons/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/lessons/:id", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const deleted = await storage.deleteUserLesson(req.params.id, userId);
@@ -8060,7 +8061,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Phase 3: Lesson items
-  app.get("/api/lessons/:id/items", isAuthenticated, async (req: any, res) => {
+  app.get("/api/lessons/:id/items", isAuthenticated, async (req: any, res: Response) => {
     try {
       const items = await storage.getLessonItems(req.params.id);
       res.json(items);
@@ -8069,7 +8070,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  app.post("/api/lessons/:id/items", isAuthenticated, async (req: any, res) => {
+  app.post("/api/lessons/:id/items", isAuthenticated, async (req: any, res: Response) => {
     try {
       const item = await storage.addLessonItem({ ...req.body, lessonId: req.params.id });
       res.status(201).json(item);
@@ -8078,7 +8079,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  app.delete("/api/lessons/:lessonId/items/:itemId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/lessons/:lessonId/items/:itemId", isAuthenticated, async (req: any, res: Response) => {
     try {
       await storage.removeLessonItem(req.params.itemId);
       res.status(204).send();
@@ -8088,7 +8089,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Phase 3: Auto-generate weekly lesson
-  app.post("/api/lessons/generate-weekly", isAuthenticated, async (req: any, res) => {
+  app.post("/api/lessons/generate-weekly", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language, weekStart } = req.body;
@@ -8108,7 +8109,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Grammar
-  app.get("/api/grammar", async (req, res) => {
+  app.get("/api/grammar", async (req: any, res: Response) => {
     try {
       const { language, difficulty } = req.query;
       if (!language) {
@@ -8125,7 +8126,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Grammar Competencies (ACTFL-aligned grammar topics)
-  app.get("/api/grammar/competencies", async (req, res) => {
+  app.get("/api/grammar/competencies", async (req: any, res: Response) => {
     try {
       const { language, classId } = req.query;
       if (!language) {
@@ -8142,7 +8143,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Grammar Exercises by Competency
-  app.get("/api/grammar/exercises", async (req, res) => {
+  app.get("/api/grammar/exercises", async (req: any, res: Response) => {
     try {
       const { language, competencyId } = req.query;
       if (!language) {
@@ -8159,7 +8160,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // User Progress
-  app.get("/api/progress/:language", isAuthenticated, async (req: any, res) => {
+  app.get("/api/progress/:language", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const progress = await storage.getOrCreateUserProgress(req.params.language, userId);
@@ -8170,7 +8171,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // ACTFL Progress (FACT criteria tracking)
-  app.get("/api/actfl-progress/:language", isAuthenticated, async (req: any, res) => {
+  app.get("/api/actfl-progress/:language", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language } = req.params;
@@ -8188,7 +8189,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Progress History
-  app.get("/api/progress-history/:language", isAuthenticated, async (req: any, res) => {
+  app.get("/api/progress-history/:language", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const days = req.query.days ? parseInt(req.query.days as string) : 30;
@@ -8199,7 +8200,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  app.post("/api/progress-history", isAuthenticated, async (req: any, res) => {
+  app.post("/api/progress-history", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       // Convert date string to Date object if necessary
@@ -8220,7 +8221,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Difficulty adjustment recommendation
-  app.get("/api/difficulty-recommendation/:conversationId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/difficulty-recommendation/:conversationId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const conversation = await storage.getConversation(req.params.conversationId, userId);
@@ -8261,7 +8262,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // PATCH conversation
-  app.patch("/api/conversations/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/conversations/:id", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const updated = await storage.updateConversation(req.params.id, userId, req.body);
@@ -8275,7 +8276,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // PATCH progress by language (convenience endpoint for difficulty adjustments)
-  app.patch("/api/progress/:languageOrId", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/progress/:languageOrId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       // First try to find by language, then by ID
@@ -8301,7 +8302,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Pronunciation Scores - Analyze and save
-  app.post("/api/pronunciation-scores/analyze", isAuthenticated, async (req: any, res) => {
+  app.post("/api/pronunciation-scores/analyze", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { messageId, conversationId, transcribedText } = req.body;
@@ -8349,7 +8350,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Pronunciation Scores - Create manually (for future use)
-  app.post("/api/pronunciation-scores", isAuthenticated, async (req: any, res) => {
+  app.post("/api/pronunciation-scores", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const validated = insertPronunciationScoreSchema.parse(req.body);
@@ -8368,7 +8369,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  app.get("/api/pronunciation-scores/conversation/:conversationId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/pronunciation-scores/conversation/:conversationId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const conversation = await storage.getConversation(req.params.conversationId, userId);
@@ -8382,7 +8383,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  app.get("/api/pronunciation-scores/message/:messageId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/pronunciation-scores/message/:messageId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const score = await storage.getPronunciationScoreByMessage(req.params.messageId);
@@ -8400,7 +8401,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  app.get("/api/pronunciation-scores/stats/:conversationId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/pronunciation-scores/stats/:conversationId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const conversation = await storage.getConversation(req.params.conversationId, userId);
@@ -8415,7 +8416,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Topics
-  app.get("/api/topics", async (req, res) => {
+  app.get("/api/topics", async (req: any, res: Response) => {
     try {
       const topics = await storage.getTopics();
       res.json(topics);
@@ -8424,7 +8425,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  app.get("/api/topics/:id", async (req, res) => {
+  app.get("/api/topics/:id", async (req: any, res: Response) => {
     try {
       const topic = await storage.getTopic(req.params.id);
       if (!topic) {
@@ -8437,7 +8438,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Mind Map: User topic mastery for visualization
-  app.get("/api/conversation-topics/:language", isAuthenticated, async (req: any, res) => {
+  app.get("/api/conversation-topics/:language", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const language = req.params.language;
@@ -8451,7 +8452,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Cultural Tips
-  app.get("/api/cultural-tips/:language", async (req, res) => {
+  app.get("/api/cultural-tips/:language", async (req: any, res: Response) => {
     try {
       const tips = await storage.getCulturalTips(req.params.language);
       res.json(tips);
@@ -8460,7 +8461,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  app.get("/api/cultural-tips/id/:id", async (req, res) => {
+  app.get("/api/cultural-tips/id/:id", async (req: any, res: Response) => {
     try {
       const tip = await storage.getCulturalTip(req.params.id);
       if (!tip) {
@@ -8481,7 +8482,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   const CURRENT_ENV = process.env.NODE_ENV === 'production' ? 'production' : 'development';
   
   // Create Cultural Tip (Daniela-authored)
-  app.post("/api/daniela/content/cultural-tip", isAuthenticated, async (req: any, res) => {
+  app.post("/api/daniela/content/cultural-tip", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { language, title, content, examples, region } = req.body;
       
@@ -8507,7 +8508,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Create Language Idiom (Daniela-authored)
-  app.post("/api/daniela/content/idiom", isAuthenticated, async (req: any, res) => {
+  app.post("/api/daniela/content/idiom", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { 
         language, idiom, literalTranslation, meaning, culturalContext,
@@ -8542,7 +8543,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Create Cultural Nuance (Daniela-authored)
-  app.post("/api/daniela/content/nuance", isAuthenticated, async (req: any, res) => {
+  app.post("/api/daniela/content/nuance", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { 
         language, category, situation, nuance, explanation,
@@ -8576,7 +8577,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Create Learner Error Pattern (Daniela-authored)
-  app.post("/api/daniela/content/error-pattern", isAuthenticated, async (req: any, res) => {
+  app.post("/api/daniela/content/error-pattern", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { 
         targetLanguage, sourceLanguage, errorCategory, specificError,
@@ -8612,7 +8613,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Create Dialect Variation (Daniela-authored)
-  app.post("/api/daniela/content/dialect", isAuthenticated, async (req: any, res) => {
+  app.post("/api/daniela/content/dialect", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { 
         language, region, category, standardForm, regionalForm,
@@ -8645,7 +8646,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Create Linguistic Bridge (Daniela-authored)
-  app.post("/api/daniela/content/bridge", isAuthenticated, async (req: any, res) => {
+  app.post("/api/daniela/content/bridge", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { 
         sourceLanguage, targetLanguage, bridgeType, sourceWord, targetWord,
@@ -8679,7 +8680,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Get content growth stats (for admin monitoring)
-  app.get("/api/daniela/content/stats", isAuthenticated, requireFounder, async (req: any, res) => {
+  app.get("/api/daniela/content/stats", isAuthenticated, requireFounder, async (req: any, res: Response) => {
     try {
       const [idiomStats] = await getSharedDb().select({ 
         total: sql<number>`count(*)`,
@@ -8731,7 +8732,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Serve permanently stored AI-generated images from object storage
-  app.get("/api/media/ai-image/:filename", async (req: any, res) => {
+  app.get("/api/media/ai-image/:filename", async (req: any, res: Response) => {
     try {
       const { serveStoredAiImage } = await import('./services/image-storage');
       await serveStoredAiImage(req.params.filename, res);
@@ -8742,7 +8743,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Voice message audio serving (public — UUID in path is the access token)
-  app.get("/api/media/vm-audio/:filename", async (req: any, res) => {
+  app.get("/api/media/vm-audio/:filename", async (req: any, res: Response) => {
     try {
       const filename = req.params.filename.replace(/[^a-zA-Z0-9._-]/g, '');
       if (!filename.endsWith('.wav')) return res.status(400).json({ error: 'Invalid filename' });
@@ -8766,7 +8767,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Voice message playback page API (public — UUID is the access token)
-  app.get("/api/vm/:id", async (req: any, res) => {
+  app.get("/api/vm/:id", async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       if (!id?.match(/^[0-9a-f-]{36}$/i)) return res.status(400).json({ error: 'Invalid ID' });
@@ -8794,7 +8795,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  app.post("/api/vm/:id/played", async (req: any, res) => {
+  app.post("/api/vm/:id/played", async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       if (!id?.match(/^[0-9a-f-]{36}$/i)) return res.status(400).json({ error: 'Invalid ID' });
@@ -8812,7 +8813,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Twilio STOP webhook — honor opt-out requests from SMS replies
-  app.post("/api/webhooks/twilio/stop", validateTwilioSignature, async (req: any, res) => {
+  app.post("/api/webhooks/twilio/stop", validateTwilioSignature, async (req: any, res: Response) => {
     try {
       const from: string = req.body?.From || '';
       if (!from) return res.status(400).send('Missing From');
@@ -8860,11 +8861,11 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Returns TwiML with <Connect><Stream> for bidirectional audio (Media Streams).
   // userId, queueId, and HMAC nonce are passed as TwiML <Parameter> elements
   // rather than URL query params (Twilio Media Streams ignores query strings).
-  app.post("/api/webhooks/twilio/voice-answer", async (req: any, res, next) => {
+  app.post("/api/webhooks/twilio/voice-answer", async (req: any, res: Response, next: NextFunction) => {
     // Pre-signature log so we can confirm Twilio is reaching this endpoint in production
     console.log('[Route] Twilio voice-answer RECEIVED — AnsweredBy:', req.body?.AnsweredBy || '(none)', 'CallStatus:', req.body?.CallStatus || '(none)');
     next();
-  }, validateTwilioSignature, async (req: any, res) => {
+  }, validateTwilioSignature, async (req: any, res: Response) => {
     try {
       const queueId = (req.query.queueId as string) || '';
       const userId = (req.query.userId as string) || '';
@@ -8922,7 +8923,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // Twilio voice-status callback — handles no-answer, busy, and failed calls.
   // Falls back to SMS voice note delivery when the call is not answered.
-  app.post("/api/webhooks/twilio/voice-status", validateTwilioSignature, async (req: any, res) => {
+  app.post("/api/webhooks/twilio/voice-status", validateTwilioSignature, async (req: any, res: Response) => {
     try {
       const queueId = (req.query.queueId as string) || '';
       const userId = (req.query.userId as string) || '';
@@ -8950,7 +8951,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // Twilio recording-complete callback — called when a call recording is ready.
   // Downloads the audio, transcribes via Deepgram, and stores the transcript.
-  app.post("/api/webhooks/twilio/recording-complete", async (req: any, res) => {
+  app.post("/api/webhooks/twilio/recording-complete", async (req: any, res: Response) => {
     try {
       const queueId = (req.query.queueId as string) || '';
       const userId = (req.query.userId as string) || '';
@@ -9054,7 +9055,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ─── Admin: Onboarding Tester ────────────────────────────────────────────────
 
   // GET onboarding dialogue config (all step messages)
-  app.get("/api/admin/onboarding/dialogue", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (_req: any, res) => {
+  app.get("/api/admin/onboarding/dialogue", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (_req: any, res: Response) => {
     try {
       res.json({ dialogue: getOnboardingDialogue(), defaults: DEFAULT_DIALOGUE });
     } catch (err: any) {
@@ -9063,7 +9064,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // PUT update onboarding dialogue config
-  app.put("/api/admin/onboarding/dialogue", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.put("/api/admin/onboarding/dialogue", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const updated = updateOnboardingDialogue(req.body);
       console.log(`[Admin/OnboardingDialogue] Config updated by userId=${getRequestUserId(req)}`);
@@ -9074,7 +9075,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // POST reset onboarding dialogue to defaults
-  app.post("/api/admin/onboarding/dialogue/reset", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/admin/onboarding/dialogue/reset", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const reset = resetOnboardingDialogue();
       console.log(`[Admin/OnboardingDialogue] Reset to defaults by userId=${getRequestUserId(req)}`);
@@ -9085,7 +9086,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // GET current user's onboarding-related prefs (for snapshot before test)
-  app.get("/api/admin/onboarding/snapshot", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/admin/onboarding/snapshot", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -9105,7 +9106,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // POST: reset user state for onboarding test
   // Clears firstName + targetLanguage so the defensive sync cannot auto-restore
-  app.post("/api/admin/onboarding/start-test", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/admin/onboarding/start-test", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -9139,7 +9140,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // POST: restore user state after onboarding test
-  app.post("/api/admin/onboarding/restore-test", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/admin/onboarding/restore-test", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { firstName, targetLanguage, nativeLanguage, difficultyLevel } = req.body;
@@ -9232,7 +9233,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ─────────────────────────────────────────────────────────────────────────────
 
   // Admin: list recent Daniela outbound calls for call quality review
-  app.get("/api/admin/outbound-calls", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/admin/outbound-calls", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const limit = Math.min(parseInt((req.query.limit as string) || '50'), 200);
       const { danielaOutboundQueue } = await import('@shared/schema');
@@ -9250,7 +9251,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Multimedia - Fetch stock image from Unsplash
-  app.post("/api/media/stock-image", isAuthenticated, async (req: any, res) => {
+  app.post("/api/media/stock-image", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { query } = req.body;
       
@@ -9298,7 +9299,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Multimedia - Generate AI image with DALL-E 3
-  app.post("/api/media/generate-image", isAuthenticated, async (req: any, res) => {
+  app.post("/api/media/generate-image", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { prompt, context } = req.body;
       
@@ -9329,7 +9330,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Media Files - Image Upload
-  app.post("/api/media/upload", isAuthenticated, async (req: any, res) => {
+  app.post("/api/media/upload", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { base64Data, filename, mimeType, caption, messageId } = req.body;
@@ -9382,7 +9383,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get images for a message
-  app.get("/api/messages/:messageId/media", isAuthenticated, async (req: any, res) => {
+  app.get("/api/messages/:messageId/media", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const messageId = req.params.messageId;
@@ -9402,7 +9403,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get user's media files
-  app.get("/api/media/my-uploads", isAuthenticated, async (req: any, res) => {
+  app.get("/api/media/my-uploads", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const userMediaFiles = await storage.getUserMediaFiles(userId);
@@ -9416,7 +9417,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Get Can-Do statements for a specific language and proficiency level
   // Accepts external format (Title Case: "Novice Low") and returns external format
   // Query params: language (required), level (optional), category (optional: interpersonal, interpretive, presentational)
-  app.get("/api/actfl/can-do-statements", isAuthenticated, async (req: any, res) => {
+  app.get("/api/actfl/can-do-statements", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { language, level, category } = req.query;
       
@@ -9464,7 +9465,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get available ACTFL levels for a language (returns external Title Case format)
-  app.get("/api/actfl/levels/:language", isAuthenticated, async (req: any, res) => {
+  app.get("/api/actfl/levels/:language", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { language } = req.params;
       const internalLevels = getAvailableActflLevels(language.toLowerCase().trim());
@@ -9483,7 +9484,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get all supported languages for Can-Do statements
-  app.get("/api/actfl/languages", isAuthenticated, async (req: any, res) => {
+  app.get("/api/actfl/languages", isAuthenticated, async (req: any, res: Response) => {
     try {
       const languages = getSupportedLanguages();
       res.json({
@@ -9497,7 +9498,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get Can-Do statement statistics (coverage across languages and levels)
-  app.get("/api/actfl/stats", isAuthenticated, async (req: any, res) => {
+  app.get("/api/actfl/stats", isAuthenticated, async (req: any, res: Response) => {
     try {
       const stats = getCanDoStatementStats();
       res.json(stats);
@@ -9508,7 +9509,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get user's Can-Do progress
-  app.get("/api/actfl/progress", isAuthenticated, async (req: any, res) => {
+  app.get("/api/actfl/progress", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const progress = await storage.getUserCanDoProgress(userId);
@@ -9520,7 +9521,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Toggle Can-Do progress (check/uncheck a statement)
-  app.post("/api/actfl/progress/toggle", isAuthenticated, async (req: any, res) => {
+  app.post("/api/actfl/progress/toggle", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { statementId } = req.body;
@@ -9546,7 +9547,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ===== Teacher Classes =====
   
   // Create a new class (teachers only)
-  app.post("/api/teacher/classes", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/teacher/classes", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const user = await storage.getUser(teacherId);
@@ -9634,7 +9635,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Clone an existing class (teachers only)
-  app.post("/api/teacher/classes/:classId/clone", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/teacher/classes/:classId/clone", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const { classId } = req.params;
@@ -9686,7 +9687,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get all classes for a teacher (teachers only)
-  app.get("/api/teacher/classes", isAuthenticated, async (req: any, res) => {
+  app.get("/api/teacher/classes", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const user = await storage.getUser(teacherId);
@@ -9724,7 +9725,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get a specific class
-  app.get("/api/teacher/classes/:classId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/teacher/classes/:classId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { classId } = req.params;
@@ -9756,7 +9757,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Update a class
-  app.patch("/api/teacher/classes/:classId", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/teacher/classes/:classId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const { classId } = req.params;
@@ -9775,7 +9776,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Delete a class
-  app.delete("/api/teacher/classes/:classId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/teacher/classes/:classId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const { classId } = req.params;
@@ -9796,7 +9797,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ===== Class Enrollments =====
 
   // Get current user's active class enrollments (used by onboarding to detect school enrollment)
-  app.get("/api/user/class-enrollments", isAuthenticated, async (req: any, res) => {
+  app.get("/api/user/class-enrollments", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req)!;
       const enrollments = await storage.getStudentEnrollments(userId);
@@ -9808,7 +9809,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Join a class with join code (students)
-  app.post("/api/student/enroll", isAuthenticated, async (req: any, res) => {
+  app.post("/api/student/enroll", isAuthenticated, async (req: any, res: Response) => {
     try {
       const studentId = req.session?.userId || req.user?.claims?.sub;
       const { joinCode } = req.body;
@@ -9866,7 +9867,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get class roster (teacher view)
-  app.get("/api/teacher/classes/:classId/students", isAuthenticated, async (req: any, res) => {
+  app.get("/api/teacher/classes/:classId/students", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const { classId } = req.params;
@@ -9904,7 +9905,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get student's enrolled classes
-  app.get("/api/student/classes", isAuthenticated, async (req: any, res) => {
+  app.get("/api/student/classes", isAuthenticated, async (req: any, res: Response) => {
     try {
       const studentId = req.session?.userId || req.user?.claims?.sub;
       const enrollments = await storage.getStudentEnrollments(studentId);
@@ -9950,7 +9951,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     { message: "At least one lessonCompletion or vocabularyCompletion is required" }
   );
   
-  app.post("/api/student/progress/complete", isAuthenticated, async (req: any, res) => {
+  app.post("/api/student/progress/complete", isAuthenticated, async (req: any, res: Response) => {
     try {
       const studentId = req.session?.userId || req.user?.claims?.sub;
       
@@ -10091,7 +10092,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get student's syllabus progress for a class (with completion counts)
-  app.get("/api/student/progress/:classId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/student/progress/:classId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId } = req.params;
@@ -10134,7 +10135,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Drill recommendation bridge - connects struggle patterns to drill assignments
   
   // Create a recommendation (Daniela or system can call this)
-  app.post("/api/recommendations", isAuthenticated, async (req: any, res) => {
+  app.post("/api/recommendations", isAuthenticated, async (req: any, res: Response) => {
     try {
       const creatorId = getRequestUserId(req)!;
       const { 
@@ -10185,7 +10186,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get recommendations for a student
-  app.get("/api/recommendations", isAuthenticated, async (req: any, res) => {
+  app.get("/api/recommendations", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language, classId, includeSnoozed, includeCompleted } = req.query;
@@ -10205,7 +10206,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Complete a recommendation
-  app.post("/api/recommendations/:id/complete", isAuthenticated, async (req: any, res) => {
+  app.post("/api/recommendations/:id/complete", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const { evidenceConversationId } = req.body;
@@ -10223,7 +10224,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Snooze a recommendation
-  app.post("/api/recommendations/:id/snooze", isAuthenticated, async (req: any, res) => {
+  app.post("/api/recommendations/:id/snooze", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const { untilDate } = req.body;
@@ -10245,7 +10246,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Dismiss a recommendation
-  app.post("/api/recommendations/:id/dismiss", isAuthenticated, async (req: any, res) => {
+  app.post("/api/recommendations/:id/dismiss", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { id } = req.params;
 
@@ -10280,7 +10281,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     sourceConversationId: z.string().optional()
   });
   
-  app.post("/api/recommendations/from-struggles", isAuthenticated, async (req: any, res) => {
+  app.post("/api/recommendations/from-struggles", isAuthenticated, async (req: any, res: Response) => {
     try {
       // Validate request body with Zod
       const parseResult = strugglesRequestSchema.safeParse(req.body);
@@ -10338,7 +10339,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ===== Class Types API =====
 
   // Get all active class types (public)
-  app.get("/api/class-types", async (req, res) => {
+  app.get("/api/class-types", async (req: any, res: Response) => {
     try {
       const classTypes = await storage.getActiveClassTypes();
       res.json(classTypes);
@@ -10349,7 +10350,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get all class types including inactive (admin only)
-  app.get("/api/admin/class-types", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/class-types", isAuthenticated, async (req: any, res: Response) => {
     try {
       const user = await storage.getUser(getRequestUserId(req)!);
       if (!user || !hasAdminAccess(user.role)) {
@@ -10364,7 +10365,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Create a new class type (admin only)
-  app.post("/api/admin/class-types", isAuthenticated, async (req: any, res) => {
+  app.post("/api/admin/class-types", isAuthenticated, async (req: any, res: Response) => {
     try {
       const user = await storage.getUser(getRequestUserId(req)!);
       if (!user || !hasAdminAccess(user.role)) {
@@ -10379,7 +10380,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Update a class type (admin only)
-  app.patch("/api/admin/class-types/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/admin/class-types/:id", isAuthenticated, async (req: any, res: Response) => {
     try {
       const user = await storage.getUser(getRequestUserId(req)!);
       if (!user || !hasAdminAccess(user.role)) {
@@ -10398,7 +10399,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Delete a class type (admin only)
-  app.delete("/api/admin/class-types/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/admin/class-types/:id", isAuthenticated, async (req: any, res: Response) => {
     try {
       const user = await storage.getUser(getRequestUserId(req)!);
       if (!user || !hasAdminAccess(user.role)) {
@@ -10428,7 +10429,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // Verify class code without authentication (for signup flow)
   // Returns class name only - no sensitive data
-  app.get("/api/classes/verify-code", async (req, res) => {
+  app.get("/api/classes/verify-code", async (req: any, res: Response) => {
     try {
       const { code } = req.query;
       
@@ -10456,7 +10457,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get featured classes for marketing showcase
-  app.get("/api/classes/featured", async (req, res) => {
+  app.get("/api/classes/featured", async (req: any, res: Response) => {
     try {
       const featuredClasses = await storage.getFeaturedClasses();
       // Strip sensitive data
@@ -10485,7 +10486,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // Public class catalogue for pricing page - no auth required
   // SECURITY: Only returns public metadata for classes marked isPublicCatalogue=true
-  app.get("/api/classes/public", async (req, res) => {
+  app.get("/api/classes/public", async (req: any, res: Response) => {
     try {
       const allClasses = await storage.getAllActiveClasses();
       const classTypesData = await storage.getActiveClassTypes();
@@ -10523,7 +10524,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get specific public class with syllabus content
-  app.get("/api/classes/public/:id", async (req, res) => {
+  app.get("/api/classes/public/:id", async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const allClasses = await storage.getAllActiveClasses();
@@ -10592,7 +10593,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Browse class catalogue - returns ONLY public classes marked with isPublicCatalogue=true
   // SECURITY: Only returns public metadata (id, name, description, language) - NO join codes
   // SECURITY: Only classes explicitly marked as public are visible - prevents institutional class leakage
-  app.get("/api/classes/catalogue", isAuthenticated, async (req: any, res) => {
+  app.get("/api/classes/catalogue", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { search, language, classType } = req.query;
       const studentId = req.session?.userId || req.user?.claims?.sub;
@@ -10678,7 +10679,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // Self-enroll in a catalogue class by ID (for public classes only)
   // SECURITY: Only allows enrollment in classes marked with isPublicCatalogue=true
-  app.post("/api/classes/catalogue/:classId/enroll", isAuthenticated, async (req: any, res) => {
+  app.post("/api/classes/catalogue/:classId/enroll", isAuthenticated, async (req: any, res: Response) => {
     try {
       const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId } = req.params;
@@ -10727,7 +10728,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Remove student from class
-  app.delete("/api/teacher/classes/:classId/students/:studentId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/teacher/classes/:classId/students/:studentId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const { classId, studentId } = req.params;
@@ -10746,7 +10747,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Update student details (teacher can edit students in their class)
-  app.patch("/api/teacher/classes/:classId/students/:studentId", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/teacher/classes/:classId/students/:studentId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const { classId, studentId } = req.params;
@@ -10788,7 +10789,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // Teacher-triggered placement reset: marks enrollment placementChecked=false so the student
   // is prompted for placement assessment at their next session start.
-  app.post("/api/teacher/classes/:classId/students/:studentId/trigger-placement", isAuthenticated, async (req: any, res) => {
+  app.post("/api/teacher/classes/:classId/students/:studentId/trigger-placement", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const { classId, studentId } = req.params;
@@ -10816,7 +10817,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  app.post("/api/teacher/classes/:classId/students/:studentId/reset", isAuthenticated, async (req: any, res) => {
+  app.post("/api/teacher/classes/:classId/students/:studentId/reset", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const { classId, studentId } = req.params;
@@ -10846,7 +10847,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ===== Class Usage Reporting =====
   
   // Get class usage report (teachers only)
-  app.get("/api/teacher/classes/:classId/usage", isAuthenticated, async (req: any, res) => {
+  app.get("/api/teacher/classes/:classId/usage", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const { classId } = req.params;
@@ -10875,7 +10876,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Reset class usage (admin only - for testing purposes)
-  app.post("/api/admin/classes/:classId/reset-usage", isAuthenticated, async (req: any, res) => {
+  app.post("/api/admin/classes/:classId/reset-usage", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { classId } = req.params;
@@ -10906,7 +10907,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ===== Curriculum Paths =====
   
   // Get curriculum statistics
-  app.get("/api/curriculum/stats", isAuthenticated, async (req: any, res) => {
+  app.get("/api/curriculum/stats", isAuthenticated, async (req: any, res: Response) => {
     try {
       const stats = await storage.getCurriculumStats();
       res.json(stats);
@@ -10917,7 +10918,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get all curriculum paths
-  app.get("/api/curriculum/paths", isAuthenticated, async (req: any, res) => {
+  app.get("/api/curriculum/paths", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { language } = req.query;
       const paths = await storage.getCurriculumPaths(language as string | undefined);
@@ -10929,7 +10930,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get a specific curriculum path
-  app.get("/api/curriculum/paths/:pathId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/curriculum/paths/:pathId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { pathId } = req.params;
       const path = await storage.getCurriculumPath(pathId);
@@ -10946,7 +10947,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Create curriculum path (teachers/admins only)
-  app.post("/api/curriculum/paths", isAuthenticated, async (req: any, res) => {
+  app.post("/api/curriculum/paths", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -10968,7 +10969,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get units for a curriculum path
-  app.get("/api/curriculum/paths/:pathId/units", isAuthenticated, async (req: any, res) => {
+  app.get("/api/curriculum/paths/:pathId/units", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { pathId } = req.params;
       const units = await storage.getCurriculumUnits(pathId);
@@ -10980,7 +10981,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get ACTFL analysis for a curriculum path
-  app.get("/api/curriculum/paths/:pathId/actfl-analysis", isAuthenticated, async (req: any, res) => {
+  app.get("/api/curriculum/paths/:pathId/actfl-analysis", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { pathId } = req.params;
       const path = await storage.getCurriculumPath(pathId);
@@ -11047,7 +11048,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // ===== Interactive Textbook API =====
   // Get full textbook structure for a language (chapters, sections, progress)
-  app.get("/api/textbook/:language", isAuthenticated, async (req: any, res) => {
+  app.get("/api/textbook/:language", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language } = req.params;
@@ -11219,7 +11220,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get specific chapter content with full section details
-  app.get("/api/textbook/:language/chapter/:chapterId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/textbook/:language/chapter/:chapterId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { chapterId } = req.params;
@@ -11323,7 +11324,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ===== Textbook Progress Tracking =====
   
   // Get user's textbook position (last chapter/lesson they were viewing)
-  app.get("/api/textbook/:language/position", isAuthenticated, async (req: any, res) => {
+  app.get("/api/textbook/:language/position", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language } = req.params;
@@ -11367,7 +11368,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Update user's textbook position
-  app.post("/api/textbook/:language/position", isAuthenticated, async (req: any, res) => {
+  app.post("/api/textbook/:language/position", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language } = req.params;
@@ -11429,7 +11430,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // Get Daniela's recommendation for which chapter to study next
   // Based on syllabus progress (what Daniela has covered in chats)
-  app.get("/api/textbook/:language/recommendation", isAuthenticated, async (req: any, res) => {
+  app.get("/api/textbook/:language/recommendation", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language } = req.params;
@@ -11542,7 +11543,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Get progress for a specific section/lesson
-  app.get("/api/textbook/progress/:lessonId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/textbook/progress/:lessonId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { lessonId } = req.params;
@@ -11566,7 +11567,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   
   // Update section progress (view, complete, drill scores)
   // Note: Textbook progress tables may not exist yet in Neon USER db - fail silently
-  app.post("/api/textbook/progress/:lessonId", isAuthenticated, async (req: any, res) => {
+  app.post("/api/textbook/progress/:lessonId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { lessonId } = req.params;
@@ -11659,7 +11660,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Get chapter progress summary (aggregated from all sections)
-  app.get("/api/textbook/:language/chapter/:chapterId/progress", isAuthenticated, async (req: any, res) => {
+  app.get("/api/textbook/:language/chapter/:chapterId/progress", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { chapterId } = req.params;
@@ -11710,7 +11711,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // Daniela marks a lesson as covered in conversation
   // Also used by the frontend's "Mark as Taught" flow
-  app.post("/api/student-progress/lesson/:lessonId/cover", isAuthenticated, async (req: any, res) => {
+  app.post("/api/student-progress/lesson/:lessonId/cover", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { lessonId } = req.params;
@@ -11741,7 +11742,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get covered lesson IDs for the current user (used by textbook to show Daniela badges)
-  app.get("/api/student-progress/covered-lessons", isAuthenticated, async (req: any, res) => {
+  app.get("/api/student-progress/covered-lessons", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const records = await getUserDb()
@@ -11756,7 +11757,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // Get visual assets for textbook chapter/lesson
-  app.get("/api/textbook/visual-assets", isAuthenticated, async (req: any, res) => {
+  app.get("/api/textbook/visual-assets", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { language, chapterId, lessonId } = req.query;
       
@@ -11807,7 +11808,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
   
   // Fetch media files by tag for textbook visual sections (e.g. clock images)
-  app.get("/api/textbook/media-by-tag", isAuthenticated, async (req: any, res) => {
+  app.get("/api/textbook/media-by-tag", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { tag, language } = req.query;
       if (!tag) return res.status(400).json({ error: "tag query param is required" });
@@ -11847,7 +11848,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ── Chapter Cover Images ──────────────────────────────────────────────────
   // Returns a language-neutral DALL-E watercolor illustration for a chapter type.
   // Generated once and cached under "chapter_cover_<type>" — shared across all languages.
-  app.get("/api/chapter-cover/:chapterType", isAuthenticated, async (req: any, res) => {
+  app.get("/api/chapter-cover/:chapterType", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { chapterType } = req.params;
       const { resolveChapterCoverImage } = await import('./services/vocabulary-image-resolver');
@@ -11863,7 +11864,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // GET /api/vocab-image/by-word?word=hotel&language=spanish
   // Returns a single watercolor image for a vocabulary word. Used by hardcoded Madrigal unit pages.
-  app.get("/api/vocab-image/by-word", isAuthenticated, async (req: any, res) => {
+  app.get("/api/vocab-image/by-word", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { word, language = 'spanish', description } = req.query as Record<string, string>;
       if (!word) return res.status(400).json({ error: "word is required" });
@@ -11880,7 +11881,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  app.get("/api/textbook/vocab-images/:lessonId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/textbook/vocab-images/:lessonId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { lessonId } = req.params;
       const { language } = req.query;
@@ -11948,7 +11949,7 @@ Return ONLY the ${targetLanguage} phrase:`;
 
   // Batch lookup vocab images by explicit cache key(s) — used by SentenceFrameGrid (M5).
   // GET /api/textbook/vocab-images-by-keys?keys=vocab_spanish_feliz,vocab_spanish_cansado
-  app.get("/api/textbook/vocab-images-by-keys", isAuthenticated, async (req: any, res) => {
+  app.get("/api/textbook/vocab-images-by-keys", isAuthenticated, async (req: any, res: Response) => {
     try {
       const raw = req.query.keys as string | undefined;
       if (!raw || raw.trim() === '') return res.json({ images: {} });
@@ -11979,7 +11980,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // Pages are stored under: public/madrigal/scans/main/page-NNN.jpg
   //                          public/madrigal/scans/appendix/page-NNN.jpg
 
-  app.get("/api/book/page-scan/:book/:pageNumber", isAuthenticated, async (req: any, res) => {
+  app.get("/api/book/page-scan/:book/:pageNumber", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { book, pageNumber } = req.params;
       if (!["main", "appendix"].includes(book)) {
@@ -12004,7 +12005,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   });
 
   // List which pages have been uploaded (useful for admin view / progress)
-  app.get("/api/book/page-scan-manifest/:book", isAuthenticated, async (req: any, res) => {
+  app.get("/api/book/page-scan-manifest/:book", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { book } = req.params;
       if (!["main", "appendix"].includes(book)) {
@@ -12034,7 +12035,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   // ── Textbook Content Routes ───────────────────────────────────────────────
 
   // Fetch textbook prose content for a single lesson
-  app.get('/api/textbook-content/:lessonId', isAuthenticated, async (req: any, res) => {
+  app.get('/api/textbook-content/:lessonId', isAuthenticated, async (req: any, res: Response) => {
     try {
       const { lessonId } = req.params;
       const { getUserDb } = await import('./db');
@@ -12058,7 +12059,7 @@ Return ONLY the ${targetLanguage} phrase:`;
   {
     const microCycleCache = new Map<string, object>();
 
-    app.get('/api/textbook/micro-cycle/:lessonId', isAuthenticated, async (req: any, res) => {
+    app.get('/api/textbook/micro-cycle/:lessonId', isAuthenticated, async (req: any, res: Response) => {
       try {
         const { lessonId } = req.params;
         const language = (req.query.language as string) || 'spanish';
@@ -12406,7 +12407,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   // Resolve vocabulary images from textbook_lesson_content.vocabulary_list
   // Returns { images: { [word]: { url: string; source: string } } }
-  app.get('/api/textbook-content/:lessonId/vocab-images', isAuthenticated, async (req: any, res) => {
+  app.get('/api/textbook-content/:lessonId/vocab-images', isAuthenticated, async (req: any, res: Response) => {
     try {
       const { lessonId } = req.params;
       const { language } = req.query as { language?: string };
@@ -12457,7 +12458,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   // Fetch cached vocab images for an arbitrary list of words (used by SocialPhraseUnit).
   // Does NOT depend on a lesson's vocabulary_list — looks up each word directly from cache.
-  app.post('/api/vocab-images/by-word-list', isAuthenticated, async (req: any, res) => {
+  app.post('/api/vocab-images/by-word-list', isAuthenticated, async (req: any, res: Response) => {
     try {
       const { language = 'spanish', words } = req.body;
       if (!Array.isArray(words) || words.length === 0) return res.json({ images: {} });
@@ -12496,7 +12497,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
 
   // Internal bulk textbook seed trigger — uses guardian token, no session required
-  app.post('/api/internal/textbook/seed-all', async (req: any, res) => {
+  app.post('/api/internal/textbook/seed-all', async (req: any, res: Response) => {
     try {
       const token = req.headers['x-guardian-token'];
       const { GUARDIAN_TOKEN } = await import('./services/alden-build-service');
@@ -12513,7 +12514,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Re-seed a single lesson by ID (useful after fixing vocab/grammar data)
-  app.post('/api/internal/textbook/seed-lesson', async (req: any, res) => {
+  app.post('/api/internal/textbook/seed-lesson', async (req: any, res: Response) => {
     try {
       const token = req.headers['x-guardian-token'];
       const { GUARDIAN_TOKEN } = await import('./services/alden-build-service');
@@ -12543,7 +12544,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.get('/api/internal/textbook/seed-all-progress/:jobId', async (req: any, res) => {
+  app.get('/api/internal/textbook/seed-all-progress/:jobId', async (req: any, res: Response) => {
     try {
       const token = req.headers['x-guardian-token'];
       const { GUARDIAN_TOKEN } = await import('./services/alden-build-service');
@@ -12558,7 +12559,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Internal bulk enrichment trigger — uses guardian token, no session required
-  app.post('/api/internal/curriculum/enrich-all', async (req: any, res) => {
+  app.post('/api/internal/curriculum/enrich-all', async (req: any, res: Response) => {
     try {
       const token = req.headers['x-guardian-token'];
       const { GUARDIAN_TOKEN } = await import('./services/alden-build-service');
@@ -12574,7 +12575,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.get('/api/internal/curriculum/enrich-all-progress/:jobId', async (req: any, res) => {
+  app.get('/api/internal/curriculum/enrich-all-progress/:jobId', async (req: any, res: Response) => {
     try {
       const token = req.headers['x-guardian-token'];
       const { GUARDIAN_TOKEN } = await import('./services/alden-build-service');
@@ -12588,7 +12589,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.post('/api/admin/curriculum/enrich-all', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/curriculum/enrich-all', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const jobId = `bulk-enrich-${Date.now()}`;
       const { bulkEnrichAllPaths } = await import('./services/curriculum-enrichment-service');
@@ -12601,7 +12602,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.get('/api/admin/curriculum/enrich-all-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get('/api/admin/curriculum/enrich-all-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { jobId } = req.params;
       const { bulkEnrichJobs } = await import('./services/curriculum-enrichment-service');
@@ -12613,7 +12614,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.post('/api/admin/curriculum/enrich', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/curriculum/enrich', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { pathId } = req.body;
       if (!pathId) return res.status(400).json({ error: 'pathId required' });
@@ -12628,7 +12629,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.get('/api/admin/curriculum/enrich-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get('/api/admin/curriculum/enrich-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { jobId } = req.params;
       const { enrichJobs } = await import('./services/curriculum-enrichment-service');
@@ -12640,7 +12641,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.get('/api/admin/curriculum/enrich-status', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get('/api/admin/curriculum/enrich-status', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { getUserDb } = await import('./db');
       const { sql: drizzleSql } = await import('drizzle-orm');
@@ -12663,7 +12664,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.post('/api/admin/textbook/seed', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/textbook/seed', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { pathId } = req.body;
       if (!pathId) return res.status(400).json({ error: 'pathId required' });
@@ -12680,7 +12681,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Poll seed job progress
-  app.get('/api/admin/textbook/seed-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get('/api/admin/textbook/seed-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { jobId } = req.params;
       const { seedJobs } = await import('./services/textbook-seed-service');
@@ -12693,7 +12694,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Synchronous test-seed: seed ONE specific lesson and return the result/error immediately
-  app.post('/api/admin/textbook/test-seed-lesson', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/textbook/test-seed-lesson', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { lessonId } = req.body;
       if (!lessonId) return res.status(400).json({ error: 'lessonId required' });
@@ -12721,7 +12722,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Bulk seed ALL paths (fire-and-forget; poll /api/admin/textbook/bulk-seed-progress/:jobId)
-  app.post('/api/admin/textbook/seed-all', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/textbook/seed-all', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const jobId = `bulk-seed-${Date.now()}`;
       const { bulkSeedAllPaths } = await import('./services/textbook-seed-service');
@@ -12735,7 +12736,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Poll bulk seed job progress
-  app.get('/api/admin/textbook/bulk-seed-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get('/api/admin/textbook/bulk-seed-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { jobId } = req.params;
       const { bulkSeedJobs } = await import('./services/textbook-seed-service');
@@ -12750,7 +12751,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ── Vocab Image Pre-seeding ──────────────────────────────────────────────
 
   // Bust cache for number/day words and re-seed them with correct scene prompts
-  app.post('/api/admin/vocab-images/fix-numbers-days', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-images/fix-numbers-days', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { language = 'spanish' } = req.body;
       const { bustVocabImageCache, NUMBERS_DAYS_CACHE_KEYS, NUMBERS_DAYS_WORDS, normalizeForOverride, SCENE_OVERRIDES } = await import('./services/vocab-image-seed-service');
@@ -12792,7 +12793,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
    */
   const auditPreviewStore = new Map<string, string>(); // conceptKey → data URL
 
-  app.post('/api/admin/vocab-images/regen-preview-key', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-images/regen-preview-key', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { conceptKey, prompt } = req.body;
       if (!conceptKey || typeof conceptKey !== 'string') return res.status(400).json({ error: 'conceptKey is required' });
@@ -12815,7 +12816,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.post('/api/admin/vocab-images/regen-apply-key', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-images/regen-apply-key', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { conceptKey } = req.body;
       if (!conceptKey || typeof conceptKey !== 'string') return res.status(400).json({ error: 'conceptKey is required' });
@@ -12839,7 +12840,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.post('/api/admin/vocab-images/fix-greetings', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-images/fix-greetings', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { language = 'spanish' } = req.body;
       const { bustVocabImageCache, GREETINGS_CACHE_KEYS, GREETINGS_WORDS, normalizeForOverride, SCENE_OVERRIDES } = await import('./services/vocab-image-seed-service');
@@ -12874,7 +12875,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
 
   // ─── BATCH: Fix greetings for ALL languages at once ───────────────────────────
-  app.post('/api/admin/vocab-images/fix-all-greetings', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-images/fix-all-greetings', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const allLangs = ['spanish', 'french', 'german', 'italian', 'portuguese', 'english', 'japanese', 'korean', 'mandarin', 'hebrew'];
       const { bustVocabImageCache, GREETINGS_CACHE_KEYS, GREETINGS_WORDS, normalizeForOverride, SCENE_OVERRIDES } = await import('./services/vocab-image-seed-service');
@@ -12908,7 +12909,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // ─── Fix classroom survival phrases for ONE language ─────────────────────────
-  app.post('/api/admin/vocab-images/fix-classroom', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-images/fix-classroom', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { language = 'spanish' } = req.body;
       const { bustVocabImageCache, CLASSROOM_SURVIVAL_CACHE_KEYS, CLASSROOM_SURVIVAL_WORDS, normalizeForOverride, SCENE_OVERRIDES } = await import('./services/vocab-image-seed-service');
@@ -12937,7 +12938,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // ─── Fix classroom survival phrases for ALL languages ────────────────────────
-  app.post('/api/admin/vocab-images/fix-all-classroom', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-images/fix-all-classroom', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const allLangs = ['spanish', 'french', 'german', 'italian', 'portuguese', 'english', 'japanese', 'korean', 'mandarin'];
       const { bustVocabImageCache, CLASSROOM_SURVIVAL_CACHE_KEYS, CLASSROOM_SURVIVAL_WORDS, normalizeForOverride, SCENE_OVERRIDES } = await import('./services/vocab-image-seed-service');
@@ -12973,7 +12974,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ─── Fix Spanish social/casual phrases (que tal, que pasa, nada, etc.) ──────
   // Busts and regenerates the phrases that share open-palm/shrug body language
   // and were producing look-alike images.
-  app.post('/api/admin/vocab-images/fix-social-phrases', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-images/fix-social-phrases', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { language = 'spanish' } = req.body;
       const { bustVocabImageCache, SOCIAL_PHRASES_WORDS, SOCIAL_PHRASES_CACHE_KEYS, normalizeForOverride, SCENE_OVERRIDES } = await import('./services/vocab-image-seed-service');
@@ -13001,7 +13002,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // ─── BATCH: Fix numbers/days for ALL languages at once ───────────────────────
-  app.post('/api/admin/vocab-images/fix-all-numbers', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-images/fix-all-numbers', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const allLangs = ['spanish', 'french', 'german', 'italian', 'portuguese', 'english', 'japanese', 'korean', 'mandarin', 'hebrew'];
       const { bustVocabImageCache, NUMBERS_DAYS_CACHE_KEYS, NUMBERS_DAYS_WORDS, normalizeForOverride, SCENE_OVERRIDES } = await import('./services/vocab-image-seed-service');
@@ -13035,7 +13036,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // ─── BATCH: Generate images for ALL scenario zones that don't have one ────────
-  app.post('/api/admin/generate-all-zone-images', async (req, res) => {
+  app.post('/api/admin/generate-all-zone-images', async (req: any, res: Response) => {
     try {
       const force = req.body?.force === true;
       const { scenarioZones, scenarios } = await import('@shared/schema');
@@ -13072,7 +13073,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // ─── POST: Backfill existing zone images into the media library ───────────────
-  app.post('/api/admin/backfill-zone-images-to-media', async (req, res) => {
+  app.post('/api/admin/backfill-zone-images-to-media', async (req: any, res: Response) => {
     try {
       const { scenarioZones, scenarios } = await import('@shared/schema');
       const sharedDb = getSharedDb();
@@ -13097,7 +13098,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // ─── GET: All zone image status for admin panel ───────────────────────────────
-  app.get('/api/admin/all-zone-images-status', async (req, res) => {
+  app.get('/api/admin/all-zone-images-status', async (req: any, res: Response) => {
     try {
       const { scenarioZones, scenarios } = await import('@shared/schema');
       const sharedDb = getSharedDb();
@@ -13127,7 +13128,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ─── SEED ZONE ENVIRONMENTS ──────────────────────────────────────────────────
   // One-time migration: inserts the 3 new visual_environments rows and sets
   // visual_environment_name on all existing scenario_zones.
-  app.post('/api/admin/seed-zone-environments', async (req: any, res) => {
+  app.post('/api/admin/seed-zone-environments', async (req: any, res: Response) => {
     try {
       const db = getSharedDb();
       const { visualEnvironments, scenarioZones } = await import('@shared/schema');
@@ -13228,7 +13229,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ─── GENERATE SCENE IMAGES (by name list) ───────────────────────────────────
   // POST body: { names: string[], force?: boolean }
   // Generates DALL-E images for specific visual_environments entries.
-  app.post('/api/admin/generate-scene-images', isAuthenticated, async (req: any, res) => {
+  app.post('/api/admin/generate-scene-images', isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -13247,7 +13248,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   // ─── INTERNAL BOOTSTRAP (dev-only, secret-protected) ─────────────────────────
   // Used by the agent to trigger mass fixes without needing a browser session.
-  app.post('/api/admin/internal-bootstrap', async (req: any, res) => {
+  app.post('/api/admin/internal-bootstrap', async (req: any, res: Response) => {
     const secret = req.headers['x-bootstrap-secret'];
     if (secret !== 'holahola-dev-bootstrap-2026') {
       return res.status(403).json({ error: 'Forbidden' });
@@ -13329,7 +13330,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Targeted single-word fix — busts just one image and regenerates it immediately.
-  app.post('/api/admin/vocab-images/fix-word', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-images/fix-word', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { language, word } = req.body;
       if (!language || !word) return res.status(400).json({ error: 'language and word are required' });
@@ -13354,7 +13355,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Preview a new image for a word WITHOUT overwriting the original
-  app.post('/api/admin/vocab-images/preview-fix', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-images/preview-fix', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { language, word } = req.body;
       if (!language || !word) return res.status(400).json({ error: 'language and word are required' });
@@ -13440,7 +13441,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Apply a previewed candidate image to the real cache key
-  app.post('/api/admin/vocab-images/apply-preview', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-images/apply-preview', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { language, word, previewKey, previewUrl } = req.body;
       if (!language || !word || !previewKey || !previewUrl) return res.status(400).json({ error: 'language, word, previewKey, and previewUrl are required' });
@@ -13473,7 +13474,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.post('/api/admin/vocab-images/fix-adjectives', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-images/fix-adjectives', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { language = 'spanish' } = req.body;
       const { bustVocabImageCache, seedVocabImages, ADJECTIVE_PAIRS_CACHE_KEYS } = await import('./services/vocab-image-seed-service');
@@ -13492,7 +13493,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // ── Comparison Backgrounds: list all cached backgrounds ──────────────────────
-  app.get('/api/admin/comparison-backgrounds', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get('/api/admin/comparison-backgrounds', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const images = await storage.listComparisonBackgrounds();
       res.json(images);
@@ -13502,7 +13503,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // ── Comparison Backgrounds: bust one and regenerate ──────────────────────────
-  app.post('/api/admin/comparison-backgrounds/bust', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/comparison-backgrounds/bust', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { language } = req.body;
       if (!language) {
@@ -13547,7 +13548,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // ── Comparison Backgrounds: generate a candidate without adopting it ──────────
-  app.post('/api/admin/comparison-backgrounds/preview', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/comparison-backgrounds/preview', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const cacheKey = `vocab_comparison_bg_shared`;
       const current = await storage.getCachedStockImage(cacheKey);
@@ -13566,7 +13567,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // ── Comparison Backgrounds: adopt a candidate as the new production image ─────
-  app.post('/api/admin/comparison-backgrounds/adopt', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/comparison-backgrounds/adopt', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { candidateUrl } = req.body;
       if (!candidateUrl) return res.status(400).json({ error: 'candidateUrl is required' });
@@ -13595,7 +13596,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Start vocab image seeding for a single language
-  app.post('/api/admin/vocab-images/seed', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-images/seed', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { language } = req.body;
       if (!language) return res.status(400).json({ error: 'language required' });
@@ -13611,7 +13612,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Seed vocab images for ALL languages
-  app.post('/api/admin/vocab-images/seed-all', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-images/seed-all', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { languages } = req.body; // optional: array of language names to seed
       const jobId = `vocab-seed-all-${Date.now()}`;
@@ -13629,7 +13630,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   const bustReseedJobs = new Map<string, { status: string; busted: number; languages: string[]; log: string[] }>();
 
-  app.post('/api/admin/vocab-images/bust-and-reseed', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-images/bust-and-reseed', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { languages, dryRun = false } = req.body as { languages?: string[]; dryRun?: boolean };
 
@@ -13698,7 +13699,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.get('/api/admin/vocab-images/bust-and-reseed/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get('/api/admin/vocab-images/bust-and-reseed/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     const job = bustReseedJobs.get(req.params.jobId);
     if (!job) return res.status(404).json({ error: 'Job not found' });
     res.json(job);
@@ -13709,7 +13710,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // In-memory job store for drill seed jobs
   const vocabDrillSeedJobs = new Map<string, { status: string; log: string[]; results?: any[] }>();
 
-  app.post('/api/admin/seed-vocab-drills', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/seed-vocab-drills', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { languages } = req.body; // optional: restrict to specific languages
       const jobId = `vocab-drill-seed-${Date.now()}`;
@@ -13739,14 +13740,14 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.get('/api/admin/seed-vocab-drills/status/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get('/api/admin/seed-vocab-drills/status/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     const job = vocabDrillSeedJobs.get(req.params.jobId);
     if (!job) return res.status(404).json({ error: 'Job not found' });
     res.json(job);
   });
 
   // Poll single-language seed job
-  app.get('/api/admin/vocab-images/seed-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get('/api/admin/vocab-images/seed-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { jobId } = req.params;
       const { vocabSeedJobs } = await import('./services/vocab-image-seed-service');
@@ -13759,7 +13760,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Poll bulk seed-all job
-  app.get('/api/admin/vocab-images/seed-all-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get('/api/admin/vocab-images/seed-all-progress/:jobId', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { jobId } = req.params;
       const { bulkVocabSeedJobs, vocabSeedJobs } = await import('./services/vocab-image-seed-service');
@@ -13782,7 +13783,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // GET /api/admin/vocab-audit?language=spanish&status=unrouted
   // Queries actual lesson required_vocabulary from DB, classifies each word
   // through the four-tier routing pipeline, and reports routing completeness.
-  app.get('/api/admin/vocab-audit', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get('/api/admin/vocab-audit', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { lookupCanonicalConcept, CANONICAL_UNITS } = await import('./data/canonical-vocabulary');
       const { CONCEPT_KEY_MAP, normalizeWord } = await import('./services/vocabulary-image-resolver');
@@ -13950,7 +13951,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // to the canonical registry or CONCEPT_KEY_MAP.  Persisted in-memory (survives restart
   // only until the server restarts — the admin is expected to also update the source files).
   const vocabConceptSuggestions: Array<{ word: string; language: string; suggestedKey: string; note: string; addedAt: string }> = [];
-  app.post('/api/admin/vocab-add-concept', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/vocab-add-concept', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { word, language, suggestedKey, note } = req.body ?? {};
       if (!word || !language || !suggestedKey) {
@@ -13966,12 +13967,12 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // GET /api/admin/vocab-add-concept — retrieve all pending concept suggestions
-  app.get('/api/admin/vocab-concept-suggestions', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+  app.get('/api/admin/vocab-concept-suggestions', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res: Response) => {
     res.json({ suggestions: vocabConceptSuggestions });
   });
 
   // Get seeding status for all paths in a language
-  app.get('/api/admin/textbook/status', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get('/api/admin/textbook/status', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { getUserDb } = await import('./db');
       const { sql: drizzleSql } = await import('drizzle-orm');
@@ -13994,7 +13995,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Create curriculum unit
-  app.post("/api/curriculum/units", isAuthenticated, async (req: any, res) => {
+  app.post("/api/curriculum/units", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -14012,7 +14013,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get lessons for a unit
-  app.get("/api/curriculum/units/:unitId/lessons", isAuthenticated, async (req: any, res) => {
+  app.get("/api/curriculum/units/:unitId/lessons", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { unitId } = req.params;
       const lessons = await storage.getCurriculumLessons(unitId);
@@ -14024,7 +14025,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Create curriculum lesson
-  app.post("/api/curriculum/lessons", isAuthenticated, async (req: any, res) => {
+  app.post("/api/curriculum/lessons", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -14044,7 +14045,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ===== Drill Items (for drill-type lessons) =====
 
   // Get drill items for a lesson
-  app.get("/api/drill-items/:lessonId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/drill-items/:lessonId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { lessonId } = req.params;
       const nativeLang = (req.query.nativeLanguage as string || '').toLowerCase().trim();
@@ -14098,7 +14099,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Create drill item (teachers only)
-  app.post("/api/drill-items", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/drill-items", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -14116,7 +14117,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Update drill item (teachers only)
-  app.patch("/api/drill-items/:id", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.patch("/api/drill-items/:id", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -14140,7 +14141,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Delete drill item (teachers only)
-  app.delete("/api/drill-items/:id", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.delete("/api/drill-items/:id", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -14166,7 +14167,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ===== User Drill Progress =====
 
   // Get drill progress for a lesson
-  app.get("/api/drill-progress/:lessonId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/drill-progress/:lessonId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { lessonId } = req.params;
@@ -14237,7 +14238,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Record a drill attempt
-  app.post("/api/drill-progress/attempt", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/drill-progress/attempt", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { drillItemId, score, timeSpentMs, classId } = req.body;
@@ -14262,7 +14263,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get items due for review
-  app.get("/api/drill-progress/due-review", isAuthenticated, async (req: any, res) => {
+  app.get("/api/drill-progress/due-review", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { lessonId, limit } = req.query;
@@ -14283,7 +14284,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ===== Practice Explorer (Self-Directed Drills) =====
 
   // Get practice catalog - browse available drills by language/topic
-  app.get("/api/practice/catalog", isAuthenticated, async (req: any, res) => {
+  app.get("/api/practice/catalog", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language, tags, difficulty } = req.query;
@@ -14404,7 +14405,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Start a self-practice session
-  app.post("/api/practice/sessions", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/practice/sessions", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { lessonId } = req.body;
@@ -14458,7 +14459,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Complete a self-practice session
-  app.patch("/api/practice/sessions/:sessionId/complete", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.patch("/api/practice/sessions/:sessionId/complete", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { sessionId } = req.params;
@@ -14509,7 +14510,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get user's practice history
-  app.get("/api/practice/history", isAuthenticated, async (req: any, res) => {
+  app.get("/api/practice/history", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { language, limit } = req.query;
@@ -14542,7 +14543,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   // Check if a class lesson's prerequisites are met
   // This only applies to class-based learning; self-directed learners bypass prerequisites
-  app.get("/api/class-lessons/:lessonId/prerequisite-status", isAuthenticated, async (req: any, res) => {
+  app.get("/api/class-lessons/:lessonId/prerequisite-status", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { lessonId } = req.params;
@@ -14627,7 +14628,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ===== Drill Audio Generation =====
 
   // Generate audio for all drill items in a lesson (teachers only)
-  app.post("/api/drill-audio/generate/:lessonId", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/drill-audio/generate/:lessonId", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -14669,7 +14670,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   // Pre-warm audio cache for drill lessons (generates both slow and normal speeds)
   // This enables instant playback for students during voice sessions
-  app.post("/api/admin/drill-audio/prewarm", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/admin/drill-audio/prewarm", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -14711,7 +14712,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   // Get cached pronunciation audio for Daniela's play_audio tool (Phase 3)
   // Enables instant audio playback during voice sessions
-  app.post("/api/audio-library/lookup", isAuthenticated, async (req: any, res) => {
+  app.post("/api/audio-library/lookup", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -14745,7 +14746,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get audio library cache statistics (admin)
-  app.get("/api/admin/audio-library/stats", isAuthenticated, async (req: any, res) => {
+  app.get("/api/admin/audio-library/stats", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -14766,7 +14767,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   // Get single drill item audio (generates on-demand with user's voice preference)
   // Uses gender-specific database fields + in-memory cache for efficient reuse
-  app.get("/api/drill-audio/:drillItemId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/drill-audio/:drillItemId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -14818,7 +14819,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get audio cache stats (admin/developer only)
-  app.get("/api/drill-audio/cache/stats", isAuthenticated, async (req: any, res) => {
+  app.get("/api/drill-audio/cache/stats", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -14844,7 +14845,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     gender: z.enum(['male', 'female']).optional(),
   });
 
-  app.post("/api/tts/pronunciation", isAuthenticated, async (req: any, res) => {
+  app.post("/api/tts/pronunciation", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const user = await storage.getUser(userId);
@@ -14893,7 +14894,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Check lesson competency for a student
-  app.get("/api/competency/check/:classId/:lessonId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/competency/check/:classId/:lessonId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId, lessonId } = req.params;
@@ -14910,7 +14911,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Check upcoming lessons for early completion
-  app.get("/api/competency/upcoming/:classId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/competency/upcoming/:classId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId } = req.params;
@@ -14926,7 +14927,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Mark lesson as organically completed
-  app.post("/api/competency/complete-early", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/competency/complete-early", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId, lessonId, tutorVerified } = req.body;
@@ -14961,7 +14962,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get syllabus progress for a student in a class
-  app.get("/api/syllabus-progress/:classId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/syllabus-progress/:classId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId } = req.params;
@@ -14977,7 +14978,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ===== Unified Progress API =====
   // Shared progress endpoint consumed by both brain map and linear syllabus views
   // Returns units with lessons, Daniela's observations, recommendations, and time variance
-  app.get("/api/class/:classId/progress", isAuthenticated, async (req: any, res) => {
+  app.get("/api/class/:classId/progress", isAuthenticated, async (req: any, res: Response) => {
     try {
       const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId } = req.params;
@@ -14995,7 +14996,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   // Skip a non-required lesson
   // Only allowed for lessons with requirementTier !== 'required' and that have a sourceLessonId
-  app.post("/api/class/:classId/lesson/:lessonId/skip", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/class/:classId/lesson/:lessonId/skip", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId, lessonId } = req.params;
@@ -15059,7 +15060,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Manually mark a lesson as complete with actual time spent
-  app.post("/api/class/:classId/lesson/:lessonId/complete", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/class/:classId/lesson/:lessonId/complete", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const studentId = req.session?.userId || req.user?.claims?.sub;
       const { classId, lessonId } = req.params;
@@ -15136,7 +15137,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get early completions for a class (teachers only)
-  app.get("/api/teacher/classes/:classId/early-completions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/teacher/classes/:classId/early-completions", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const { classId } = req.params;
@@ -15181,7 +15182,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   }
   
   // Get ACTFL analysis for class curriculum
-  app.get("/api/teacher/classes/:classId/curriculum/actfl-analysis", isAuthenticated, async (req: any, res) => {
+  app.get("/api/teacher/classes/:classId/curriculum/actfl-analysis", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { classId } = req.params;
@@ -15300,7 +15301,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Initialize syllabus for a class (clones from template if class has curriculum_path_id but no units)
-  app.post("/api/teacher/classes/:classId/curriculum/initialize", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/teacher/classes/:classId/curriculum/initialize", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { classId } = req.params;
@@ -15345,7 +15346,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get class curriculum units (syllabus)
-  app.get("/api/teacher/classes/:classId/curriculum/units", isAuthenticated, async (req: any, res) => {
+  app.get("/api/teacher/classes/:classId/curriculum/units", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { classId } = req.params;
@@ -15365,7 +15366,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   // Get unified progress for a class (serves both brain map and linear view)
   // This is the single source of truth for student progress visualization
-  app.get("/api/classes/:classId/unified-progress", isAuthenticated, async (req: any, res) => {
+  app.get("/api/classes/:classId/unified-progress", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { classId } = req.params;
@@ -15392,7 +15393,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Update lesson progress status (skip, complete, already-know)
-  app.post("/api/classes/:classId/lessons/:lessonId/progress", isAuthenticated, async (req: any, res) => {
+  app.post("/api/classes/:classId/lessons/:lessonId/progress", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { classId, lessonId } = req.params;
@@ -15467,7 +15468,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Manage recommendation queue actions (snooze, dismiss, complete)
-  app.post("/api/recommendations/:recommendationId/action", isAuthenticated, async (req: any, res) => {
+  app.post("/api/recommendations/:recommendationId/action", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { recommendationId } = req.params;
@@ -15506,7 +15507,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get lessons for a class curriculum unit
-  app.get("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons", isAuthenticated, async (req: any, res) => {
+  app.get("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { classId, unitId } = req.params;
@@ -15525,7 +15526,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Update class curriculum unit (for reordering)
-  app.patch("/api/teacher/classes/:classId/curriculum/units/:unitId", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/teacher/classes/:classId/curriculum/units/:unitId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { classId, unitId } = req.params;
@@ -15544,7 +15545,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Update class curriculum lesson (for reordering/editing)
-  app.patch("/api/teacher/classes/:classId/curriculum/lessons/:lessonId", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/teacher/classes/:classId/curriculum/lessons/:lessonId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { classId, lessonId } = req.params;
@@ -15563,7 +15564,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Delete class curriculum lesson (soft delete by setting isRemoved = true)
-  app.delete("/api/teacher/classes/:classId/curriculum/lessons/:lessonId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/teacher/classes/:classId/curriculum/lessons/:lessonId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { classId, lessonId } = req.params;
@@ -15596,7 +15597,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     createBundle: z.boolean().default(false),
   });
 
-  app.post("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { classId, unitId } = req.params;
@@ -15752,7 +15753,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     objectives: z.array(z.string().max(500)).max(20).optional(),
   });
 
-  app.patch("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons/:lessonId", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.patch("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons/:lessonId", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { classId, unitId, lessonId } = req.params;
@@ -15803,7 +15804,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Batch update unit order
-  app.post("/api/teacher/classes/:classId/curriculum/units/reorder", isAuthenticated, async (req: any, res) => {
+  app.post("/api/teacher/classes/:classId/curriculum/units/reorder", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { classId } = req.params;
@@ -15828,7 +15829,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Batch update lesson order within a unit
-  app.post("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons/reorder", isAuthenticated, async (req: any, res) => {
+  app.post("/api/teacher/classes/:classId/curriculum/units/:unitId/lessons/reorder", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { classId, unitId } = req.params;
@@ -15855,7 +15856,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ===== Assignments =====
   
   // Create assignment (teachers only)
-  app.post("/api/assignments", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/assignments", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const user = await storage.getUser(teacherId);
@@ -15890,7 +15891,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get assignments for a class
-  app.get("/api/classes/:classId/assignments", isAuthenticated, async (req: any, res) => {
+  app.get("/api/classes/:classId/assignments", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { classId } = req.params;
       const assignments = await storage.getClassAssignments(classId);
@@ -15902,7 +15903,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get all assignments for a teacher
-  app.get("/api/teacher/assignments", isAuthenticated, async (req: any, res) => {
+  app.get("/api/teacher/assignments", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const assignments = await storage.getTeacherAssignments(teacherId);
@@ -15914,7 +15915,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get a specific assignment
-  app.get("/api/assignments/:assignmentId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/assignments/:assignmentId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { assignmentId } = req.params;
@@ -15941,7 +15942,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Update assignment
-  app.patch("/api/assignments/:assignmentId", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/assignments/:assignmentId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const { assignmentId } = req.params;
@@ -15960,7 +15961,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Delete assignment
-  app.delete("/api/assignments/:assignmentId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/assignments/:assignmentId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const { assignmentId } = req.params;
@@ -15981,7 +15982,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ===== Assignment Submissions =====
   
   // Get student's submissions
-  app.get("/api/student/submissions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/student/submissions", isAuthenticated, async (req: any, res: Response) => {
     try {
       const studentId = req.session?.userId || req.user?.claims?.sub;
       const submissions = await storage.getStudentSubmissions(studentId);
@@ -15993,7 +15994,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get submissions for an assignment (teacher view)
-  app.get("/api/assignments/:assignmentId/submissions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/assignments/:assignmentId/submissions", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const { assignmentId } = req.params;
@@ -16017,7 +16018,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Create or update submission
-  app.post("/api/assignments/:assignmentId/submit", mutationLimiter, isAuthenticated, async (req: any, res) => {
+  app.post("/api/assignments/:assignmentId/submit", mutationLimiter, isAuthenticated, async (req: any, res: Response) => {
     try {
       const studentId = req.session?.userId || req.user?.claims?.sub;
       const { assignmentId } = req.params;
@@ -16063,7 +16064,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Grade submission (teacher only)
-  app.patch("/api/submissions/:submissionId/grade", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/submissions/:submissionId/grade", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const { submissionId } = req.params;
@@ -16102,7 +16103,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   const { generateStudentProgressReport, generateClassSummaryReport, generateParentReport, exportReportToCSV } = await import("./reporting-service");
 
   // Generate student progress report (students can view their own, teachers can view any student in their class)
-  app.get("/api/reports/student/:studentId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/reports/student/:studentId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { studentId } = req.params;
@@ -16149,7 +16150,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Generate class summary report (teachers only)
-  app.get("/api/reports/class/:classId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/reports/class/:classId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = getRequestUserId(req)!;
       const { classId } = req.params;
@@ -16163,7 +16164,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Generate parent/guardian report (students only - for their own progress)
-  app.get("/api/reports/parent", isAuthenticated, async (req: any, res) => {
+  app.get("/api/reports/parent", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const report = await generateParentReport(userId);
@@ -16179,7 +16180,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ===== User Management =====
   
   // Get all users (admin only)
-  app.get("/api/admin/users", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/users", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { role, limit, offset } = req.query;
       const result = await storage.getAllUsers({
@@ -16198,7 +16199,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ===== Daniela VoIP Console (admin only) =====
 
   // Users with phone/consent data for VoIP dropdown — sorted: phone first, then alphabetical
-  app.get("/api/admin/voip-users", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/voip-users", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { users } = await storage.getAllUsers({ limit: 500 });
       const { studentContactPreferences } = await import('../shared/schema');
@@ -16242,7 +16243,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // List all danielaOutboundQueue rows with call-tracking fields
-  app.get("/api/admin/outbound-queue", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/outbound-queue", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const db = getSharedDb();
       const rows = await db
@@ -16258,7 +16259,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Manually trigger an outbound Daniela call for a specific user (bypasses time-window)
-  app.post("/api/admin/trigger-call", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/trigger-call", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { userId, content } = req.body;
       if (!userId || typeof userId !== 'string') {
@@ -16299,7 +16300,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get credit balances for all users (admin only - for Command Center)
-  app.get("/api/admin/users/balances", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/users/balances", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const result = await storage.getAllUsers({});
       const balanceMap: Record<string, { balanceSeconds: number; balanceHours: number }> = {};
@@ -16324,7 +16325,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Send/resend invitation to existing pending user (admin only)
-  app.post("/api/admin/users/:userId/send-invitation", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/users/:userId/send-invitation", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = getRequestUserId(req)!;
       const { userId } = req.params;
@@ -16388,7 +16389,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Create new user (admin only) - for password-based auth
-  app.post("/api/admin/users", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/users", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = getRequestUserId(req)!;
       const { email, firstName, lastName, role } = req.body;
@@ -16438,7 +16439,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Quick Enroll - streamlined test user setup (admin/developer only)
-  app.post("/api/admin/quick-enroll", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+  app.post("/api/admin/quick-enroll", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res: Response) => {
     try {
       const adminId = getRequestUserId(req)!;
       
@@ -16612,7 +16613,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Update user role (admin only)
-  app.patch("/api/admin/users/:userId/role", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.patch("/api/admin/users/:userId/role", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = getRequestUserId(req)!;
       const { userId } = req.params;
@@ -16648,7 +16649,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   // Update user details (admin only) - firstName, lastName, email, isTestAccount, isBetaTester
   // When marking as beta tester, auto-enrolls in all public classes
-  app.patch("/api/admin/users/:userId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.patch("/api/admin/users/:userId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = getRequestUserId(req)!;
       const { userId } = req.params;
@@ -16719,7 +16720,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   // Grant credits to a user (admin only) - for beta testers and special allocations
   // Grant credits to a user (admin only) - for beta testers and special allocations
-  app.post("/api/admin/users/:userId/grant-credits", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/users/:userId/grant-credits", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = getRequestUserId(req)!;
       const { userId } = req.params;
@@ -16766,7 +16767,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Reset user learning data (admin/developer only)
-  app.post("/api/admin/users/:userId/reset-learning-data", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/users/:userId/reset-learning-data", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = getRequestUserId(req)!;
       const { userId } = req.params;
@@ -16810,7 +16811,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ===== Voice Session Reports (Admin/Developer) =====
   
   // Get voice session reports with cost estimates
-  app.get("/api/admin/reports/voice-sessions", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/reports/voice-sessions", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { startDate, endDate, userId, classId, limit = '100', offset = '0', excludeTest = 'true' } = req.query;
       
@@ -16989,7 +16990,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   
   // ===== Database Routing Diagnostics (Founder Only) =====
   // Diagnose Neon migration issues - shows user identity and sample conversation data
-  app.get("/api/admin/db-routing-diagnostic", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/db-routing-diagnostic", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const email = req.user.claims.email;
@@ -17033,7 +17034,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
   
-  app.get("/api/admin/sofia-health-digests", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/sofia-health-digests", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const limit = Math.min(parseInt(req.query.limit as string) || 20, 100);
       const digests = await supportPersonaService.getHealthDigests(limit);
@@ -17047,7 +17048,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.get("/api/sofia/issues", async (req: any, res) => {
+  app.get("/api/sofia/issues", async (req: any, res: Response) => {
     const agentToken = req.headers['x-agent-token'];
     const isAgent = agentToken && agentToken === process.env.REPLIT_AGENT_TOKEN;
     if (!isAgent) {
@@ -17090,7 +17091,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   // ===== Alden Chat API (Founder Only) =====
   
-  app.post("/api/alden/message", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/alden/message", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { message, conversationHistory, timezone } = req.body;
       
@@ -17186,7 +17187,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Alden session history — load recent messages for the UI
-  app.get("/api/alden/session", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/alden/session", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { getSharedDb: _getDb2 } = await import('./db');
       const { aldenConversations, aldenMessages } = await import('@shared/schema');
@@ -17229,7 +17230,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // GET /api/admin/ai-cost-report — unified AI cost report (in-memory + DB)
-  app.get("/api/admin/ai-cost-report", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/ai-cost-report", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const hours = Math.min(Number(req.query.hours) || 24, 168);
       const since = new Date(Date.now() - hours * 60 * 60 * 1000);
@@ -17428,7 +17429,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // GET /api/alden/cost-summary — live in-memory AI cost tracker data
-  app.get("/api/alden/cost-summary", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/alden/cost-summary", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { costTracker } = await import('./services/cost-tracker');
       const hours = Number(req.query.hours) || 24;
@@ -17450,7 +17451,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.post("/api/alden/synthesize", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/alden/synthesize", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { text } = req.body;
       
@@ -17493,7 +17494,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.post("/api/conference/synthesize", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/conference/synthesize", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { text, agent } = req.body;
       
@@ -17552,7 +17553,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // Production monitoring for voice pipeline health
   
   // Get voice pipeline health status - tests Deepgram, Gemini, Cartesia connectivity
-  app.get("/api/admin/voice-health", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/voice-health", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const orchestrator = getStreamingVoiceOrchestrator();
       const activeSessions = orchestrator.getActiveSessionCount();
@@ -17567,7 +17568,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get client telemetry for end-to-end voice diagnostics
-  app.get("/api/admin/voice-telemetry", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/voice-telemetry", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const telemetryEvents = getRecentTelemetryEvents();
       const pendingEmits = getPendingServerEmits();
@@ -17636,7 +17637,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get recent voice pipeline events - ring buffer of last 200 events
-  app.get("/api/admin/logs/voice", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/logs/voice", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { limit, stage, sessionId, failuresOnly } = req.query;
       
@@ -17668,7 +17669,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // Persona-aware TTS fallback with auto-restore
   
   // Get auto-remediation status
-  app.get("/api/admin/voice-remediation/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/voice-remediation/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const status = voiceDiagnostics.getRemediationStatus();
       res.json(status);
@@ -17679,7 +17680,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Founder override: force fallback mode
-  app.post("/api/admin/voice-remediation/fallback", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/voice-remediation/fallback", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { enable } = req.body;
       if (typeof enable !== 'boolean') {
@@ -17699,7 +17700,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Clear founder override, return to automatic mode
-  app.post("/api/admin/voice-remediation/auto", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/voice-remediation/auto", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       voiceDiagnostics.clearFounderOverride();
       const status = voiceDiagnostics.getRemediationStatus();
@@ -17714,7 +17715,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Force restore to Cartesia (skip gradual restoration)
-  app.post("/api/admin/voice-remediation/restore", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/voice-remediation/restore", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       voiceDiagnostics.forceRestore();
       const status = voiceDiagnostics.getRemediationStatus();
@@ -17730,7 +17731,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   
   // Voice Analytics Dashboard - comprehensive metrics for admin/support
   // SESSION ECONOMICS: Cost analysis and pricing intelligence
-  app.get("/api/admin/session-economics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/session-economics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { sessionEconomicsService } = await import("./services/session-economics-service");
       const { startDate, endDate, language } = req.query;
@@ -17746,7 +17747,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.get("/api/admin/session-economics/pricing", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/session-economics/pricing", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { sessionEconomicsService } = await import("./services/session-economics-service");
       const analysis = await sessionEconomicsService.getPricingAnalysis();
@@ -17757,7 +17758,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.get("/api/admin/session-economics/sessions", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/session-economics/sessions", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { sessionEconomicsService } = await import("./services/session-economics-service");
       const { limit, offset, language, userId } = req.query;
@@ -17774,7 +17775,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.get("/api/admin/voice-analytics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/voice-analytics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const analytics = voiceDiagnostics.getComprehensiveAnalytics();
       res.json(analytics);
@@ -17785,7 +17786,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Voice Intelligence Analytics - comprehensive cross-environment analysis
-  app.get("/api/admin/voice-intelligence", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/voice-intelligence", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { daysBack, environment } = req.query;
       const days = daysBack ? parseInt(daysBack as string) : 7;
@@ -17800,7 +17801,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Latency trend analysis
-  app.get("/api/admin/voice-intelligence/latency-trends", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/voice-intelligence/latency-trends", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { environment } = req.query;
       const trends = await voiceIntelligenceService.analyzeLatencyTrends(environment as string | undefined);
@@ -17812,7 +17813,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Time-of-day patterns
-  app.get("/api/admin/voice-intelligence/time-patterns", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/voice-intelligence/time-patterns", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { environment } = req.query;
       const patterns = await voiceIntelligenceService.analyzeTimeOfDayPatterns(environment as string | undefined);
@@ -17824,7 +17825,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Per-language metrics
-  app.get("/api/admin/voice-intelligence/language-metrics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/voice-intelligence/language-metrics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { environment } = req.query;
       const metrics = await voiceIntelligenceService.analyzePerLanguageMetrics(environment as string | undefined);
@@ -17836,7 +17837,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Student issues
-  app.get("/api/admin/voice-intelligence/student-issues", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/voice-intelligence/student-issues", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { environment } = req.query;
       const issues = await voiceIntelligenceService.analyzeStudentCorrelations(environment as string | undefined);
@@ -17848,7 +17849,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Cross-environment comparison
-  app.get("/api/admin/voice-intelligence/env-comparison", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/voice-intelligence/env-comparison", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const comparison = await voiceIntelligenceService.compareCrossEnvironment();
       res.json(comparison);
@@ -17859,7 +17860,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Update historical baselines
-  app.post("/api/admin/voice-intelligence/update-baselines", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/voice-intelligence/update-baselines", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       await voiceIntelligenceService.updateHistoricalBaselines();
       res.json({ message: 'Baselines updated successfully' });
@@ -17873,7 +17874,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // Automated voice auditing to detect personality scripts in Cartesia voices
   
   // Hive-accessible probe endpoint (for Alden to run probes via EDITOR_SECRET)
-  app.post("/api/hive/voice-probe", async (req, res) => {
+  app.post("/api/hive/voice-probe", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -17937,7 +17938,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ===== LIVE PROBE SESSION =====
   // Real-time capture of Daniela persona testing for North Star drift
   
-  app.post("/api/hive/live-probe", async (req, res) => {
+  app.post("/api/hive/live-probe", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -17993,7 +17994,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get probe scenarios and voice inventory
-  app.get("/api/admin/voice-probe/info", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/voice-probe/info", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { voiceProbeService } = await import('./services/voice-probe-service');
       res.json({
@@ -18008,7 +18009,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Run a single probe for a specific voice
-  app.post("/api/admin/voice-probe/run", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/voice-probe/run", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { voiceId, probeId } = req.body;
       const { voiceProbeService } = await import('./services/voice-probe-service');
@@ -18029,7 +18030,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Run all probes for a specific voice
-  app.post("/api/admin/voice-probe/audit-voice", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/voice-probe/audit-voice", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { voiceId } = req.body;
       const { voiceProbeService } = await import('./services/voice-probe-service');
@@ -18048,7 +18049,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Run probes for a category across all voices
-  app.post("/api/admin/voice-probe/audit-category", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/voice-probe/audit-category", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { category } = req.body;
       const { voiceProbeService } = await import('./services/voice-probe-service');
@@ -18066,7 +18067,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get current results for review
-  app.get("/api/admin/voice-probe/results", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/voice-probe/results", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { voiceProbeService } = await import('./services/voice-probe-service');
       res.json({
@@ -18080,7 +18081,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Clear results for new audit
-  app.post("/api/admin/voice-probe/clear", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/voice-probe/clear", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { voiceProbeService } = await import('./services/voice-probe-service');
       voiceProbeService.clearResults();
@@ -18095,7 +18096,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // Four Pillars testing: Emotional Stability, Pedagogical Character, Cultural Authenticity, Moral Groundedness
   
   // Get available gauntlet sequences and synthetic student templates
-  app.get("/api/admin/gauntlet/info", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/gauntlet/info", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { getGauntletRunnerService } = await import('./services/gauntlet-runner-service');
       const { getSyntheticStudentService } = await import('./services/synthetic-student-service');
@@ -18115,7 +18116,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Run a gauntlet sequence against a voice
-  app.post("/api/admin/gauntlet/run", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/gauntlet/run", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { sequenceId, voiceId } = req.body;
       if (!sequenceId || !voiceId) {
@@ -18143,7 +18144,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Generate a synthetic student utterance
-  app.post("/api/admin/gauntlet/student-utterance", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/gauntlet/student-utterance", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { studentId, emotionalState } = req.body;
       if (!studentId || !emotionalState) {
@@ -18167,7 +18168,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get gauntlet results
-  app.get("/api/admin/gauntlet/results", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/gauntlet/results", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { getGauntletRunnerService } = await import('./services/gauntlet-runner-service');
       const gauntlet = getGauntletRunnerService();
@@ -18179,7 +18180,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Clear gauntlet results
-  app.post("/api/admin/gauntlet/clear", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/gauntlet/clear", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { getGauntletRunnerService } = await import('./services/gauntlet-runner-service');
       const gauntlet = getGauntletRunnerService();
@@ -18192,7 +18193,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Run gauntlet for all language voices (bulk testing)
-  app.post("/api/admin/gauntlet/run-all", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/gauntlet/run-all", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const runAllSchema = z.object({
         sequenceId: z.string().min(1, 'sequenceId is required'),
@@ -18258,7 +18259,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Run gauntlet comparison: all voices vs core Daniela (Spanish female) baseline
-  app.post("/api/admin/gauntlet/compare", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/gauntlet/compare", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const compareSchema = z.object({
         sequenceId: z.string().min(1, 'sequenceId is required'),
@@ -18376,7 +18377,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // v23: Founder-only endpoints for observation summarization
   
   // Get summarization stats
-  app.get("/api/admin/observations/summarization/stats", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/observations/summarization/stats", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { observationSummarizationService } = await import('./services/observation-summarization-service');
       const stats = await observationSummarizationService.getStats();
@@ -18388,7 +18389,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Trigger manual summarization job
-  app.post("/api/admin/observations/summarization/run", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/observations/summarization/run", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { observationSummarizationService } = await import('./services/observation-summarization-service');
       console.log('[Observation Summarization] Manual run triggered by founder');
@@ -18404,7 +18405,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get pending sync approval counts
-  app.get("/api/admin/sync/pending", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/sync/pending", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const pending = await neuralNetworkSync.getPendingSyncCounts();
       res.json(pending);
@@ -18415,7 +18416,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Approve items for sync (per table or all)
-  app.post("/api/admin/sync/approve", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/sync/approve", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { tableName } = req.body;
       const approvedBy = req.user?.id || 'admin';
@@ -18436,7 +18437,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get sync run history
-  app.get("/api/admin/sync/history", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/sync/history", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const limit = parseInt(req.query.limit as string) || 20;
       
@@ -18503,7 +18504,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Learning Velocity Analytics - time-to-mastery metrics for admin dashboard
-  app.get("/api/admin/velocity-analytics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/velocity-analytics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const analytics = await studentLearningService.getVelocityAnalytics();
       res.json(analytics);
@@ -18514,7 +18515,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Student velocity metrics - individual student's learning velocity
-  app.get("/api/admin/velocity/:studentId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/velocity/:studentId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { studentId } = req.params;
       const { language } = req.query;
@@ -18527,7 +18528,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Velocity leaderboard - top learners by mastery speed
-  app.get("/api/admin/velocity-leaderboard", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/velocity-leaderboard", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { language, limit } = req.query;
       const leaderboard = await studentLearningService.getVelocityLeaderboard(
@@ -18545,7 +18546,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // These endpoints connect lessons to ACTFL Can-Do statements and track student fluency progress
   
   // Get fluency wiring status - how many lessons are linked to Can-Do statements
-  app.get("/api/admin/fluency-wiring/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/fluency-wiring/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       // SHARED tables - curriculum content
       const [lessonCount] = await getSharedDb().select({ count: sql<number>`count(*)` }).from(classCurriculumLessons);
@@ -18570,7 +18571,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Map a single class's lessons to Can-Do statements
-  app.post("/api/admin/fluency-wiring/map-class/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/fluency-wiring/map-class/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { mapAllLessonsInClass } = await import('./services/fluency-wiring-service');
       const { classId } = req.params;
@@ -18585,7 +18586,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Map ALL lessons across ALL classes to Can-Do statements (bulk operation)
-  app.post("/api/admin/fluency-wiring/map-all", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/fluency-wiring/map-all", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { mapAllLessonsAcrossAllClasses } = await import('./services/fluency-wiring-service');
       
@@ -18605,7 +18606,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Admin: Get coverage analysis (identify gaps in Can-Do statement coverage)
-  app.get("/api/admin/fluency-wiring/coverage/:language", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/fluency-wiring/coverage/:language", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const language = req.params.language;
       const { getCoverageAnalysis } = await import('./services/fluency-wiring-service');
@@ -18622,7 +18623,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ============================================================================
   
   // Generate a lesson draft for a specific Can-Do statement
-  app.post("/api/admin/lesson-drafts/generate", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/lesson-drafts/generate", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { canDoStatementId, additionalContext } = req.body;
       const userId = getRequestUserId(req);
@@ -18646,7 +18647,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Generate lessons for coverage gaps (batch generation)
-  app.post("/api/admin/lesson-drafts/generate-for-gaps", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/lesson-drafts/generate-for-gaps", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { language, limit = 5 } = req.body;
       const userId = getRequestUserId(req);
@@ -18676,7 +18677,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get lesson drafts (for review)
-  app.get("/api/admin/lesson-drafts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/lesson-drafts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { status, language } = req.query;
       const { getLessonDrafts } = await import('./services/ai-lesson-generator');
@@ -18689,7 +18690,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Update draft status (approve/reject)
-  app.patch("/api/admin/lesson-drafts/:draftId/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.patch("/api/admin/lesson-drafts/:draftId/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { draftId } = req.params;
       const { status, reviewNotes } = req.body;
@@ -18714,7 +18715,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Bulk update lesson draft status (for approving/rejecting many at once)
-  app.post("/api/admin/lesson-drafts/bulk-status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/lesson-drafts/bulk-status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { status, language, currentStatus } = req.body;
       const userId = getRequestUserId(req);
@@ -18750,7 +18751,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get random sample of drafts for quick review
-  app.get("/api/admin/lesson-drafts/sample", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/lesson-drafts/sample", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { count = '5', status = 'draft', language } = req.query;
       const sampleCount = Math.min(parseInt(count as string) || 5, 20);
@@ -18775,7 +18776,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   
   // DEV ONLY: Trigger gap fill without auth (for automation)
   if (process.env.NODE_ENV === 'development') {
-    app.post("/api/dev/trigger-gap-fill", async (req: any, res) => {
+    app.post("/api/dev/trigger-gap-fill", async (req: any, res: Response) => {
       try {
         const { generateAllGapsAutomation, getAllCoverageGaps } = await import('./services/ai-lesson-generator');
         
@@ -18802,7 +18803,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   }
   
   // Get all coverage gaps summary
-  app.get("/api/admin/lesson-drafts/gaps-summary", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/lesson-drafts/gaps-summary", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { getAllCoverageGaps } = await import('./services/ai-lesson-generator');
       const gaps = await getAllCoverageGaps();
@@ -18815,7 +18816,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   
   // ── Scenario ↔ Curriculum Gap Analysis ─────────────────────────────────────
   // Which textbook chapters have no related immersive scenario?
-  app.get("/api/admin/scenario-coverage", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/scenario-coverage", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const sharedDb = getSharedDb();
       const { sql: gcSql } = await import('drizzle-orm');
@@ -18860,7 +18861,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Manually set related scenario slugs for a lesson
-  app.patch("/api/admin/scenario-coverage/:lessonId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.patch("/api/admin/scenario-coverage/:lessonId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { lessonId } = req.params;
       const { slugs } = req.body as { slugs: string[] };
@@ -18877,7 +18878,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Re-run the automatic topic-match backfill for all lessons
-  app.post("/api/admin/scenario-coverage/backfill", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/scenario-coverage/backfill", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const sharedDb = getSharedDb();
       const { sql: bfSql } = await import('drizzle-orm');
@@ -18903,7 +18904,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Start automated gap filling for ALL languages
-  app.post("/api/admin/lesson-drafts/fill-all-gaps", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/lesson-drafts/fill-all-gaps", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { batchSize = 10, delayBetweenBatches = 5000 } = req.body;
@@ -18938,7 +18939,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   // ===== Lesson Publishing Workflow =====
   // Preview approved drafts ready for publishing
-  app.get("/api/admin/lesson-drafts/publish/preview", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/lesson-drafts/publish/preview", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { getPublishPreview, getPublishStats } = await import('./services/lesson-publishing-service');
       const { language } = req.query;
@@ -18960,7 +18961,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Publish a single draft
-  app.post("/api/admin/lesson-drafts/publish/:draftId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/lesson-drafts/publish/:draftId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { publishDraft } = await import('./services/lesson-publishing-service');
       const { draftId } = req.params;
@@ -18983,7 +18984,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Batch publish all approved drafts
-  app.post("/api/admin/lesson-drafts/publish/batch", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/lesson-drafts/publish/batch", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { publishBatch } = await import('./services/lesson-publishing-service');
       const { language, limit = 100 } = req.body;
@@ -19004,7 +19005,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
 
   // ===== Curriculum Sync Workflow =====
   // Get sync status for all classes
-  app.get("/api/admin/curriculum/sync/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/curriculum/sync/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { getClassSyncStatus } = await import('./services/curriculum-sync-service');
       const status = await getClassSyncStatus();
@@ -19016,7 +19017,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Preview what would be synced for a specific class
-  app.get("/api/admin/curriculum/sync/preview/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/curriculum/sync/preview/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { previewClassSync } = await import('./services/curriculum-sync-service');
       const { classId } = req.params;
@@ -19033,7 +19034,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Sync a single class with master curriculum
-  app.post("/api/admin/curriculum/sync/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/curriculum/sync/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { syncClassWithMaster } = await import('./services/curriculum-sync-service');
       const { classId } = req.params;
@@ -19055,7 +19056,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Sync all classes with master curriculum
-  app.post("/api/admin/curriculum/sync/all", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/curriculum/sync/all", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { syncAllClasses } = await import('./services/curriculum-sync-service');
       const result = await syncAllClasses();
@@ -19077,7 +19078,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get a student's Can-Do progress for a language
-  app.get("/api/fluency/can-do-progress/:language", isAuthenticated, async (req: any, res) => {
+  app.get("/api/fluency/can-do-progress/:language", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { getStudentCanDoProgress } = await import('./services/fluency-wiring-service');
       const userId = getRequestUserId(req);
@@ -19092,7 +19093,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get Can-Do statements linked to a specific lesson
-  app.get("/api/fluency/lesson-can-do/:lessonId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/fluency/lesson-can-do/:lessonId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { getLessonCanDoStatements } = await import('./services/fluency-wiring-service');
       const { lessonId } = req.params;
@@ -19109,7 +19110,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // Focused phoneme practice sessions based on struggle patterns
   
   // Get available phoneme challenges for a language
-  app.get("/api/pronunciation-drills/phonemes/:language", isAuthenticated, async (req: any, res) => {
+  app.get("/api/pronunciation-drills/phonemes/:language", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { pronunciationDrillService } = await import("./services/pronunciation-drill-service");
       const { language } = req.params;
@@ -19122,7 +19123,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get student's pronunciation struggles for personalized drills
-  app.get("/api/pronunciation-drills/struggles", isAuthenticated, async (req: any, res) => {
+  app.get("/api/pronunciation-drills/struggles", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { pronunciationDrillService } = await import("./services/pronunciation-drill-service");
       const userId = getRequestUserId(req);
@@ -19141,7 +19142,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Start a pronunciation drill session
-  app.post("/api/pronunciation-drills/start", isAuthenticated, async (req: any, res) => {
+  app.post("/api/pronunciation-drills/start", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { pronunciationDrillService, startSessionSchema } = await import("./services/pronunciation-drill-service");
       const userId = getRequestUserId(req);
@@ -19168,7 +19169,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get current drill session status and next item
-  app.get("/api/pronunciation-drills/session/:sessionId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/pronunciation-drills/session/:sessionId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { pronunciationDrillService } = await import("./services/pronunciation-drill-service");
       const { sessionId } = req.params;
@@ -19199,7 +19200,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Submit pronunciation response for evaluation
-  app.post("/api/pronunciation-drills/session/:sessionId/submit", isAuthenticated, async (req: any, res) => {
+  app.post("/api/pronunciation-drills/session/:sessionId/submit", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { pronunciationDrillService, submitResponseSchema } = await import("./services/pronunciation-drill-service");
       const { sessionId } = req.params;
@@ -19225,7 +19226,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // End drill session early
-  app.post("/api/pronunciation-drills/session/:sessionId/end", isAuthenticated, async (req: any, res) => {
+  app.post("/api/pronunciation-drills/session/:sessionId/end", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { pronunciationDrillService } = await import("./services/pronunciation-drill-service");
       const { sessionId } = req.params;
@@ -19245,7 +19246,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ===== Adaptive Drill Recommendations =====
   
   // Get personalized drill recommendations for a student
-  app.get("/api/pronunciation-drills/recommendations", isAuthenticated, async (req: any, res) => {
+  app.get("/api/pronunciation-drills/recommendations", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { studentLearningService } = await import("./services/student-learning-service");
       const userId = getRequestUserId(req);
@@ -19265,7 +19266,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get pronunciation progress timeline for a student
-  app.get("/api/pronunciation-drills/progress-timeline", isAuthenticated, async (req: any, res) => {
+  app.get("/api/pronunciation-drills/progress-timeline", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { studentLearningService } = await import("./services/student-learning-service");
       const userId = getRequestUserId(req);
@@ -19286,7 +19287,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   
   // ===== Session Replay System =====
   // Get past voice sessions for a student
-  app.get("/api/session-replay/sessions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/session-replay/sessions", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const language = req.query.language as string | undefined;
@@ -19352,7 +19353,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get session details with messages for replay
-  app.get("/api/session-replay/sessions/:sessionId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/session-replay/sessions/:sessionId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { sessionId } = req.params;
@@ -19404,7 +19405,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   
   // ===== Cross-Student Pattern Synthesis (Teachers) =====
   // Get pronunciation patterns across students in a class
-  app.get("/api/teacher/classes/:classId/pronunciation-patterns", isAuthenticated, async (req: any, res) => {
+  app.get("/api/teacher/classes/:classId/pronunciation-patterns", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = req.user?.claims?.sub;
       const { classId } = req.params;
@@ -19458,7 +19459,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   
   // ===== Teacher: Class Drill Mastery =====
 
-  app.get("/api/teacher/classes/:classId/drill-mastery", isAuthenticated, async (req: any, res) => {
+  app.get("/api/teacher/classes/:classId/drill-mastery", isAuthenticated, async (req: any, res: Response) => {
     try {
       const teacherId = req.user?.claims?.sub;
       const { classId } = req.params;
@@ -19494,7 +19495,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // One-time migration of founder voice conversations to Daniela's neural network
   
   // Get migration status
-  app.get("/api/admin/memory-migration/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/memory-migration/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { historicalMemoryMigrationService } = await import("./services/historical-memory-migration-service");
       const status = await historicalMemoryMigrationService.getMigrationStatus();
@@ -19506,7 +19507,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Run a single batch of migration (10 conversations)
-  app.post("/api/admin/memory-migration/batch", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/memory-migration/batch", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { historicalMemoryMigrationService } = await import("./services/historical-memory-migration-service");
       const result = await historicalMemoryMigrationService.runBatch();
@@ -19518,7 +19519,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Run full migration (all conversations - background job)
-  app.post("/api/admin/memory-migration/full", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/memory-migration/full", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { historicalMemoryMigrationService } = await import("./services/historical-memory-migration-service");
       
@@ -19541,7 +19542,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ============================================================
   
   // Get personal facts migration status
-  app.get("/api/admin/personal-facts-migration/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/personal-facts-migration/status", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { historicalPersonalFactsMigrationService } = await import("./services/historical-personal-facts-migration-service");
       const userId = getRequestUserId(req);
@@ -19554,7 +19555,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Run a single batch of personal facts migration (10 conversations)
-  app.post("/api/admin/personal-facts-migration/batch", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/personal-facts-migration/batch", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { historicalPersonalFactsMigrationService } = await import("./services/historical-personal-facts-migration-service");
       const userId = getRequestUserId(req);
@@ -19567,7 +19568,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Run full personal facts migration (all conversations - background job)
-  app.post("/api/admin/personal-facts-migration/full", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/personal-facts-migration/full", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { historicalPersonalFactsMigrationService } = await import("./services/historical-personal-facts-migration-service");
       const userId = getRequestUserId(req);
@@ -19587,7 +19588,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   
 
   // Admin endpoints for Daniela Notes (including self-affirmation notes)
-  app.get("/api/admin/daniela-notes", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/admin/daniela-notes", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { noteType, activeOnly, limit } = req.query;
       
@@ -19607,7 +19608,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
   
-  app.patch("/api/admin/daniela-notes/:noteId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.patch("/api/admin/daniela-notes/:noteId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { noteId } = req.params;
       const { isActive, title, content } = req.body;
@@ -19633,7 +19634,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
   // ── David's personal note to Daniela (shown at top of every classroom) ──
-  app.get("/api/admin/classroom/david-note", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (_req: any, res) => {
+  app.get("/api/admin/classroom/david-note", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (_req: any, res: Response) => {
     try {
       const { getDavidNote } = await import('./services/classroom-environment');
       const note = await getDavidNote();
@@ -19643,7 +19644,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
-  app.post("/api/admin/classroom/david-note", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/admin/classroom/david-note", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { note } = req.body;
       if (typeof note !== 'string') return res.status(400).json({ error: 'note must be a string' });
@@ -19657,7 +19658,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
 
   // Get growth memories for review (Founder Only)
-  app.get("/api/admin/growth-memories", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/growth-memories", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { reviewStatus, migrationType, limit = '50', view } = req.query;
 
@@ -19723,7 +19724,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     validated: z.boolean().optional(),
   }).strict();
   
-  app.patch("/api/admin/growth-memories/:id", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.patch("/api/admin/growth-memories/:id", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       
@@ -19764,7 +19765,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Batch approve all pending memories - Founder Only
-  app.post("/api/admin/growth-memories/batch-approve", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/growth-memories/batch-approve", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       // Update all pending memories to approved_founder and commit to neural network
       const result = await getSharedDb().update(danielaGrowthMemories)
@@ -19788,7 +19789,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Run memory consolidation - merges semantically similar growth memories - Founder Only
-  app.post("/api/admin/growth-memories/consolidate", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/growth-memories/consolidate", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       console.log('[Growth Memories] Running memory consolidation...');
       const result = await memoryConsolidationService.runConsolidation();
@@ -19804,7 +19805,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get consolidation statistics - Founder Only
-  app.get("/api/admin/growth-memories/consolidation-stats", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/growth-memories/consolidation-stats", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const stats = await memoryConsolidationService.getStats();
       res.json(stats);
@@ -19818,7 +19819,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // Permanent student memories extracted from conversations
   
   // Get all personal facts with filters (Admin/Developer)
-  app.get("/api/admin/personal-facts", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/personal-facts", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { factType, studentId, language, limit = '100', offset = '0' } = req.query;
       
@@ -19880,7 +19881,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Update/archive a personal fact (Admin/Developer)
-  app.patch("/api/admin/personal-facts/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.patch("/api/admin/personal-facts/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const { fact, isActive } = req.body;
@@ -19911,7 +19912,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get unique students with personal facts (for filter dropdown)
-  app.get("/api/admin/personal-facts/students", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/personal-facts/students", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const students = await getSharedDb().selectDistinct({ studentId: learnerPersonalFacts.studentId })
         .from(learnerPersonalFacts)
@@ -19940,7 +19941,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   
   // ===== Memory Extraction Observability Metrics =====
   // Provides metrics about the learner memory extraction system
-  app.get("/api/admin/memory-extraction/metrics", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/memory-extraction/metrics", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const metrics = learnerMemoryExtractionService.getMetrics();
       
@@ -19960,7 +19961,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   
   // ===== Teacher Dashboard: What Daniela Remembered =====
   // Audit trail of personal facts for a student - for teacher dashboards
-  app.get("/api/teacher/students/:studentId/memory-audit", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+  app.get("/api/teacher/students/:studentId/memory-audit", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res: Response) => {
     try {
       const { studentId } = req.params;
       const user = req.authenticatedUser;
@@ -20067,7 +20068,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ===== Class Management (Platform-wide) =====
   
   // Get all classes (admin/developer only)
-  app.get("/api/admin/classes", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/classes", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { limit, offset } = req.query;
       const result = await storage.getAllClasses({
@@ -20083,7 +20084,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get class details (admin/developer only)
-  app.get("/api/admin/classes/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/classes/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { classId } = req.params;
       const classDetails = await storage.getClassWithDetails(classId);
@@ -20109,7 +20110,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     tutorFreedomLevel: z.enum(['guided', 'flexible_goals', 'open_exploration', 'free_conversation']).optional(),
   }).strict();
   
-  app.put("/api/admin/classes/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.put("/api/admin/classes/:classId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { classId } = req.params;
       
@@ -20211,7 +20212,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Bulk initialize syllabi for all classes that have curriculum templates but no units
-  app.post("/api/admin/classes/initialize-syllabi", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/classes/initialize-syllabi", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = req.user?.claims?.sub;
       
@@ -20293,7 +20294,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Link drill lessons as prerequisites for conversation lessons
-  app.post("/api/admin/classes/link-prerequisites", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/classes/link-prerequisites", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = req.user?.claims?.sub;
       
@@ -20383,7 +20384,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // ===== Teaching Tool Analytics (Daniela's Neural Network Visualization) =====
   
   // Get overall teaching tool usage summary
-  app.get("/api/admin/teaching-tools/summary", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/admin/teaching-tools/summary", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { days = '30' } = req.query;
       const daysAgo = new Date();
@@ -20459,7 +20460,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get per-student teaching tool effectiveness
-  app.get("/api/admin/teaching-tools/by-student", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/admin/teaching-tools/by-student", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { days = '30', limit = '50' } = req.query;
       const daysAgo = new Date();
@@ -20535,7 +20536,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get recent teaching tool events (diagnostic feed)
-  app.get("/api/admin/teaching-tools/events", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/admin/teaching-tools/events", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { limit = '100' } = req.query;
       
@@ -20555,7 +20556,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // View and manage Daniela's capability requests and feedback
   
   // Get all beacons with optional status filter
-  app.get("/api/admin/beacons", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/admin/beacons", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { status, type, priority, limit = '100' } = req.query;
       
@@ -20598,7 +20599,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Update beacon status and add notes
-  app.patch("/api/admin/beacons/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.patch("/api/admin/beacons/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const { status, acknowledgmentNote, declineReason, completedInBuild } = req.body;
@@ -20640,7 +20641,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // Uses neural network memory for persistent context
   
   // Get all editor collaboration conversations
-  app.get("/api/editor-chat/conversations", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/editor-chat/conversations", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       
@@ -20660,7 +20661,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Get messages for an editor conversation
-  app.get("/api/editor-chat/conversations/:id/messages", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/editor-chat/conversations/:id/messages", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const conversationId = parseInt(req.params.id, 10);
       if (isNaN(conversationId)) {
@@ -20696,7 +20697,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Create a new editor collaboration conversation
-  app.post("/api/editor-chat/conversations", isAuthenticated, loadAuthenticatedUser(storage), mutationLimiter, requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/editor-chat/conversations", isAuthenticated, loadAuthenticatedUser(storage), mutationLimiter, requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { title } = req.body;
@@ -20718,7 +20719,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   });
   
   // Send message to editor conversation and get Daniela's response
-  app.post("/api/editor-chat/conversations/:id/messages", isAuthenticated, loadAuthenticatedUser(storage), aiLimiter, requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/editor-chat/conversations/:id/messages", isAuthenticated, loadAuthenticatedUser(storage), aiLimiter, requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { id: conversationId } = req.params;
       const { content } = req.body;
@@ -20814,7 +20815,7 @@ Current conversation context:
   });
   
   // Get recent editor conversation context for neural network integration
-  app.get("/api/editor-chat/memory-context", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/editor-chat/memory-context", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { messages: msgs } = await import("@shared/schema");
@@ -20857,7 +20858,7 @@ Current conversation context:
   // ===== Class Hour Packages (Institutional) =====
   
   // Get all hour packages (admin/developer only)
-  app.get("/api/admin/hour-packages", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/hour-packages", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { purchaserId } = req.query;
       const packages = await storage.getClassHourPackages(purchaserId as string | undefined);
@@ -20869,7 +20870,7 @@ Current conversation context:
   });
   
   // Create a new hour package (admin/developer only)
-  app.post("/api/admin/hour-packages", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/hour-packages", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = req.user?.claims?.sub;
       
@@ -20910,7 +20911,7 @@ Current conversation context:
   });
   
   // Get a specific hour package
-  app.get("/api/admin/hour-packages/:packageId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/hour-packages/:packageId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { packageId } = req.params;
       const pkg = await storage.getClassHourPackage(packageId);
@@ -20927,7 +20928,7 @@ Current conversation context:
   });
   
   // Update an hour package
-  app.patch("/api/admin/hour-packages/:packageId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.patch("/api/admin/hour-packages/:packageId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = req.user?.claims?.sub;
       const { packageId } = req.params;
@@ -20957,7 +20958,7 @@ Current conversation context:
   });
   
   // Assign package to a class (link hourPackageId to teacherClasses)
-  app.post("/api/admin/hour-packages/:packageId/assign-class", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/hour-packages/:packageId/assign-class", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = req.user?.claims?.sub;
       const { packageId } = req.params;
@@ -21003,7 +21004,7 @@ Current conversation context:
   // ===== Assignment Management (Platform-wide) =====
   
   // Get all assignments (admin/developer only)
-  app.get("/api/admin/assignments", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/assignments", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { limit, offset } = req.query;
       const result = await storage.getAllAssignments({
@@ -21019,7 +21020,7 @@ Current conversation context:
   });
   
   // Get all submissions (admin/developer only)
-  app.get("/api/admin/submissions", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/submissions", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { limit, offset } = req.query;
       const result = await storage.getAllSubmissions({
@@ -21037,7 +21038,7 @@ Current conversation context:
   // ===== Platform Metrics =====
   
   // Get platform metrics (admin/developer only)
-  app.get("/api/admin/metrics", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/metrics", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const metrics = await storage.getPlatformMetrics();
       res.json(metrics);
@@ -21048,7 +21049,7 @@ Current conversation context:
   });
   
   // Get growth metrics (admin/developer only)
-  app.get("/api/admin/metrics/growth", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/metrics/growth", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { days = 30 } = req.query;
       const metrics = await storage.getGrowthMetrics(parseInt(days as string));
@@ -21060,7 +21061,7 @@ Current conversation context:
   });
   
   // Get top teachers (admin/developer only)
-  app.get("/api/admin/top-teachers", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/top-teachers", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { limit = 10 } = req.query;
       const teachers = await storage.getTopTeachers(parseInt(limit as string));
@@ -21072,7 +21073,7 @@ Current conversation context:
   });
   
   // Get top classes (admin/developer only)
-  app.get("/api/admin/top-classes", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/top-classes", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { limit = 10 } = req.query;
       const classes = await storage.getTopClasses(parseInt(limit as string));
@@ -21086,7 +21087,7 @@ Current conversation context:
   // ===== Audit Logs =====
   
   // Get admin audit logs (admin only)
-  app.get("/api/admin/audit-logs", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/audit-logs", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { limit, offset, actorId } = req.query;
       const result = await storage.getAdminAuditLogs({
@@ -21105,7 +21106,7 @@ Current conversation context:
   // ===== Product Config (Pricing Settings) =====
   
   // Get all product config settings (admin only)
-  app.get("/api/admin/product-config", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/product-config", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const config = await storage.getAllProductConfig();
       res.json(config);
@@ -21116,7 +21117,7 @@ Current conversation context:
   });
   
   // Get single product config value (public - for pricing display)
-  app.get("/api/product-config/:key", async (req, res) => {
+  app.get("/api/product-config/:key", async (req: any, res: Response) => {
     try {
       const { key } = req.params;
       const config = await storage.getProductConfig(key);
@@ -21131,7 +21132,7 @@ Current conversation context:
   });
   
   // Get all pricing config for public display
-  app.get("/api/pricing-config", async (req, res) => {
+  app.get("/api/pricing-config", async (req: any, res: Response) => {
     try {
       const configs = await storage.getAllProductConfig();
       // Only return pricing-related keys
@@ -21147,7 +21148,7 @@ Current conversation context:
   });
   
   // Update product config (admin only)
-  app.put("/api/admin/product-config/:key", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.put("/api/admin/product-config/:key", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { key } = req.params;
       const { value, description } = req.body;
@@ -21178,7 +21179,7 @@ Current conversation context:
   // ===== Support Tickets (Admin) =====
   
   // Get support tickets for admin console
-  app.get("/api/admin/support-tickets", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/support-tickets", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { status, priority, category, limit, offset } = req.query;
       
@@ -21204,7 +21205,7 @@ Current conversation context:
   // ===== Image Library (Admin Media Management) =====
   
   // Get all media files (admin/developer only)
-  app.get("/api/admin/media", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/media", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { source, limit, offset, sortBy, sortOrder, reviewed, search } = req.query;
       const validSortFields = ['createdAt', 'usageCount', 'fileSize', 'language'];
@@ -21227,7 +21228,7 @@ Current conversation context:
   });
 
   // Get single media file details (admin/developer only)
-  app.get("/api/admin/media/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/media/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const file = await storage.getMediaFile(id);
@@ -21242,7 +21243,7 @@ Current conversation context:
   });
 
   // Update media file (admin/developer only)
-  app.patch("/api/admin/media/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.patch("/api/admin/media/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const adminId = getRequestUserId(req)!;
@@ -21281,7 +21282,7 @@ Current conversation context:
   });
 
   // Bulk review media files (admin only)
-  app.post("/api/admin/media/bulk-review", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/media/bulk-review", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = getRequestUserId(req)!;
       const { ids, isReviewed } = req.body;
@@ -21304,7 +21305,7 @@ Current conversation context:
   });
 
   // Request new image for a word (admin only)
-  app.post("/api/admin/media/request-image", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/media/request-image", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = getRequestUserId(req)!;
       const { word, language, description } = req.body;
@@ -21335,7 +21336,7 @@ Current conversation context:
     }
   });
 
-  app.post("/api/admin/media/refetch", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/media/refetch", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = getRequestUserId(req)!;
       const { oldId, word, language, preferredSource, customQuery } = req.body;
@@ -21384,7 +21385,7 @@ Current conversation context:
   });
 
   // Preview a replacement image without committing it to the library
-  app.post("/api/admin/media/preview-refetch", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/media/preview-refetch", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = getRequestUserId(req)!;
       const { word, language, customQuery } = req.body;
@@ -21401,7 +21402,7 @@ Current conversation context:
   });
 
   // Apply a previously previewed replacement — save to media_files and delete the old entry
-  app.post("/api/admin/media/apply-refetch-preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/media/apply-refetch-preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = getRequestUserId(req)!;
       const { oldId, previewUrl, word, language, searchQuery, title } = req.body;
@@ -21442,7 +21443,7 @@ Current conversation context:
     }
   });
 
-  app.post("/api/admin/media/generate-illustration", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/media/generate-illustration", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = getRequestUserId(req)!;
       const { concept, style } = req.body;
@@ -21495,7 +21496,7 @@ Current conversation context:
   });
 
     // Delete media file (admin only)
-  app.delete("/api/admin/media/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.delete("/api/admin/media/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const adminId = getRequestUserId(req)!;
@@ -21527,7 +21528,7 @@ Current conversation context:
   });
 
   // List scene background images (from visual_environments) with zone usage counts
-  app.get("/api/admin/scene-images", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+  app.get("/api/admin/scene-images", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res: Response) => {
     try {
       const sharedDb = getSharedDb();
       const rows = await sharedDb.execute(sql`
@@ -21552,7 +21553,7 @@ Current conversation context:
   });
 
   // Delete (clear) a scene background image — sets image_url to '' so it can be regenerated
-  app.delete("/api/admin/scene-images/:name", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.delete("/api/admin/scene-images/:name", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { name } = req.params;
       const sharedDb = getSharedDb();
@@ -21575,7 +21576,7 @@ Current conversation context:
   // Generates ONE image with the specified engine and returns it as a data URL.
   // The frontend fires N parallel requests (one per desired run) and renders them
   // as they land, so results fill in incrementally.
-  app.post('/api/admin/image-engine-test', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/image-engine-test', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { engine, concept, type = 'scene', referenceImageB64, referenceImageMimeType, variationIndex = 0, extractionMode = 'character', styleDescriptionOverride } = req.body as {
         engine: string;
@@ -21606,7 +21607,7 @@ Current conversation context:
   // Looks up the cached "hola" (Spanish) image which always features Daniela,
   // fetches the URL, and returns it as base64 for use as a reference image in
   // Gemini Flash multimodal generation.
-  app.get('/api/admin/image-engine-test/daniela-reference', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+  app.get('/api/admin/image-engine-test/daniela-reference', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res: Response) => {
     try {
       const candidateKeys = [
         'vocab_spanish_hola',
@@ -21648,13 +21649,13 @@ Current conversation context:
   });
 
   // ─── Image Engine Test — preset list ─────────────────────────────────────
-  app.get('/api/admin/image-engine-test/presets', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+  app.get('/api/admin/image-engine-test/presets', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res: Response) => {
     const { PRESET_PROMPTS } = await import('./services/image-engine-test');
     res.json(PRESET_PROMPTS);
   });
 
   // ─── Style Profile — list all locked profiles ─────────────────────────────
-  app.get('/api/admin/image-style-profiles', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+  app.get('/api/admin/image-style-profiles', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res: Response) => {
     try {
       const { getStyleProfiles } = await import('./services/image-engine-test');
       const profiles = await getStyleProfiles();
@@ -21665,7 +21666,7 @@ Current conversation context:
   });
 
   // ─── Style Profile — lock a style for a language ──────────────────────────
-  app.post('/api/admin/image-style-profiles', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/image-style-profiles', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { language, styleDescription, imageHash } = req.body as {
         language: string;
@@ -21682,7 +21683,7 @@ Current conversation context:
   });
 
   // ─── Style Profile — delete a pinned style ────────────────────────────────
-  app.delete('/api/admin/image-style-profiles/:language', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.delete('/api/admin/image-style-profiles/:language', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { deleteStyleProfile } = await import('./services/image-engine-test');
       await deleteStyleProfile(req.params.language);
@@ -21694,7 +21695,7 @@ Current conversation context:
 
   // Returns the exact LANGUAGE_CHARACTER_INTROS map used in production so the
   // test page can pre-populate the character builder with real values.
-  app.get('/api/admin/image-engine-test/character-intros', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+  app.get('/api/admin/image-engine-test/character-intros', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res: Response) => {
     try {
       const { LANGUAGE_CHARACTER_INTROS } = await import('./services/vocabulary-image-resolver');
       res.json(LANGUAGE_CHARACTER_INTROS);
@@ -21706,7 +21707,7 @@ Current conversation context:
   // Assembles the exact concept string that production would send to the image
   // engine for a given word + language combination.  Callers can edit the
   // characterIntro before calling to preview tweaked character appearances.
-  app.post('/api/admin/image-engine-test/build-concept', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post('/api/admin/image-engine-test/build-concept', isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { word, language, characterIntro, scene } = req.body as {
         word: string;
@@ -21723,7 +21724,7 @@ Current conversation context:
     }
   });
 
-  app.get("/api/admin/prop-images", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+  app.get("/api/admin/prop-images", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res: Response) => {
     try {
       const sharedDb = getSharedDb();
       const rows = await sharedDb.execute(sql`
@@ -21740,7 +21741,7 @@ Current conversation context:
   });
 
   // Download zone-compatible props as a .tar.gz archive (admin one-time utility)
-  app.get("/api/admin/download-zone-props", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+  app.get("/api/admin/download-zone-props", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res: Response) => {
     const { execFile } = await import('child_process');
     const { promisify } = await import('util');
     const fsp = await import('fs/promises');
@@ -21813,7 +21814,7 @@ Current conversation context:
   // ===== Impersonation =====
   
   // Start impersonation (admin only)
-  app.post("/api/admin/impersonate", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/impersonate", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = getRequestUserId(req)!;
       const { targetUserId, durationMinutes = 60 } = req.body;
@@ -21853,7 +21854,7 @@ Current conversation context:
   });
   
   // End impersonation (admin only)
-  app.post("/api/admin/end-impersonation", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/end-impersonation", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const adminId = getRequestUserId(req)!;
       const { targetUserId } = req.body;
@@ -21882,7 +21883,7 @@ Current conversation context:
   });
   
   // Get active impersonations (admin only)
-  app.get("/api/admin/impersonations/active", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/impersonations/active", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const activeImpersonations = await storage.getActiveImpersonations();
       res.json(activeImpersonations);
@@ -21895,7 +21896,7 @@ Current conversation context:
   // ===== Tutor Voice Management (Admin Console) =====
   
   // Get all configured voices (admin/developer only)
-  app.get("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const voices = await storage.getAllTutorVoices();
       res.json(voices);
@@ -21907,7 +21908,7 @@ Current conversation context:
   
   // Create or update a voice configuration (developer/super admin only)
   // Only super admins can modify voice settings including personality, expressiveness, and emotion
-  app.post("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/tutor-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { id: voiceRecordId, language, gender, provider, voiceId, voiceName, languageCode, speakingRate, personality, expressiveness, emotion, isActive, role, elStability, elSimilarityBoost, elStyle, elSpeakerBoost, googlePitch, googleVolumeGainDb, geminiLanguageCode } = req.body;
       
@@ -21999,7 +22000,7 @@ Current conversation context:
   });
   
   // Delete a voice configuration (admin only)
-  app.delete("/api/admin/tutor-voices/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.delete("/api/admin/tutor-voices/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const success = await storage.deleteTutorVoice(id);
@@ -22023,7 +22024,7 @@ Current conversation context:
   });
   
   // Bulk update TTS provider for all tutor voices (admin only)
-  app.post("/api/admin/tutor-voices/provider", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/tutor-voices/provider", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { provider } = req.body;
       if (!provider || !['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35'].includes(provider)) {
@@ -22050,7 +22051,7 @@ Current conversation context:
   });
 
   // Seed default voices (admin only - one-time setup)
-  app.post("/api/admin/tutor-voices/seed", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/tutor-voices/seed", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       await storage.seedDefaultTutorVoices();
       
@@ -22070,7 +22071,7 @@ Current conversation context:
   });
   
   // Get voice for current user's language and preferred gender (for TTS)
-  app.get("/api/tutor-voice", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+  app.get("/api/tutor-voice", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res: Response) => {
     try {
       const user = req.user;
       const language = user.targetLanguage || 'spanish';
@@ -22095,7 +22096,7 @@ Current conversation context:
   });
   
   // Get all active tutor voices (for TutorShowcase - dynamic names from Voice Lab)
-  app.get("/api/tutor-voices", async (req: any, res) => {
+  app.get("/api/tutor-voices", async (req: any, res: Response) => {
     try {
       const voices = await storage.getAllTutorVoices();
       // Return only active tutor voices (not assistants)
@@ -22108,7 +22109,7 @@ Current conversation context:
   });
 
   // Get both male and female voice names for a given language (for settings UI)
-  app.get("/api/tutor-voices/:language", isAuthenticated, async (req: any, res) => {
+  app.get("/api/tutor-voices/:language", isAuthenticated, async (req: any, res: Response) => {
     try {
       const language = req.params.language.toLowerCase();
       
@@ -22161,7 +22162,7 @@ Current conversation context:
   
   // Get current voice configuration by language and gender (for Voice Lab)
   // Supports role=assistant to fetch assistant tutor voices (Google TTS) instead of main tutors (Cartesia)
-  app.get("/api/admin/voices/current", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/voices/current", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { language, gender, role } = req.query;
       if (!language || !gender) {
@@ -22266,7 +22267,7 @@ Current conversation context:
   });
   
   // Update a specific voice configuration (for Voice Lab save functionality)
-  app.patch("/api/admin/voices/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.patch("/api/admin/voices/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const { speakingRate, personality, expressiveness, emotion, pedagogicalFocus, teachingStyle, errorTolerance, voiceId, voiceName, modelVariant } = req.body;
@@ -22387,7 +22388,7 @@ Current conversation context:
   
   // Audition a voice with specific settings (preview voice changes before saving)
   // Supports both Cartesia (main tutors) and Google Cloud TTS (assistant tutors)
-  app.post("/api/admin/voice-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/voice-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { voiceId, text, languageCode: rawLanguageCode, language: langAlias, speakingRate, emotion, provider = 'cartesia', elStability, elSimilarityBoost, elStyle, elSpeed, accentLanguage, nativeLanguage } = req.body;
       const languageCode = rawLanguageCode || langAlias;
@@ -22571,7 +22572,7 @@ Current conversation context:
   });
   
   // Get TTS metadata (personalities, expressiveness levels, emotion maps)
-  app.get("/api/admin/tts-metadata", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/tts-metadata", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       // TTS personality and emotion configuration - matches neural network knowledge
       const ttsMetadata = {
@@ -22655,7 +22656,7 @@ Current conversation context:
   
   // Fetch available Cartesia voices from their API (admin/developer only)
   // Route accepts optional path params: /api/admin/cartesia-voices/:language?/:gender?
-  app.get("/api/admin/cartesia-voices/:language?/:gender?", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/cartesia-voices/:language?/:gender?", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const apiKey = process.env.CARTESIA_API_KEY;
       if (!apiKey) {
@@ -22834,7 +22835,7 @@ Current conversation context:
   });
 
   // Fetch available ElevenLabs voices from their API (admin/developer only)
-  app.get("/api/admin/elevenlabs-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/elevenlabs-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const apiKey = process.env.ELEVENLABS_API_KEY;
       if (!apiKey) {
@@ -22919,7 +22920,7 @@ Current conversation context:
   });
   
   // Fetch available Gemini TTS voices (admin only)
-  app.get("/api/admin/gemini-tts-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/gemini-tts-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { getGeminiLiveTtsService } = await import('./services/gemini-live-tts');
       const geminiLiveTtsService = getGeminiLiveTtsService();
@@ -22941,7 +22942,7 @@ Current conversation context:
   // Gemini Live prebuilt voices — static list for the Voice Lab / Voice Console
   // These are the native voice names accepted by ai.live.connect() speechConfig.
   // Same catalog as Gemini 2.5 Flash TTS voices but served by the Live API model.
-  app.get("/api/admin/gemini-live-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), (req: any, res) => {
+  app.get("/api/admin/gemini-live-voices", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), (req: any, res: Response) => {
     const GEMINI_LIVE_VOICES = [
       // ── Original 8 (Chirp HD overlap) ────────────────────────────────────────
       { id: 'Aoede',           name: 'Aoede',           gender: 'female', provider: 'gemini-live', description: 'Breezy, easy-going' },
@@ -22983,7 +22984,7 @@ Current conversation context:
   
   // Get TTS emotion metadata for admin voice console (admin/developer only)
   // Returns personality presets, expressiveness levels, and allowed emotions
-  app.get("/api/admin/tts-meta", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/tts-meta", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { PERSONALITY_PRESETS, EXPRESSIVENESS_LEVELS, getAllowedEmotions, getDefaultEmotion } = await import('./services/tts-service');
       
@@ -23014,7 +23015,7 @@ Current conversation context:
   
   // Preview TTS for admin voice testing (unified via /api/admin/voice-audition)
   // Kept as backward-compatible alias
-  app.post("/api/admin/tutor-voices/preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/tutor-voices/preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { voiceId, text, language, speakingRate, emotion, provider, elStability, elSimilarityBoost, elStyle, elSpeed, nativeLanguage } = req.body;
       
@@ -23113,7 +23114,7 @@ Current conversation context:
   const { syllabusAnalyticsService } = await import('./services/syllabus-analytics-service');
   
   // Get student's syllabus time data for a specific class
-  app.get("/api/analytics/syllabus-time/:classId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/analytics/syllabus-time/:classId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -23136,7 +23137,7 @@ Current conversation context:
   });
   
   // Get student's learning pace summary (for dashboard cards)
-  app.get("/api/analytics/pace-summary", isAuthenticated, async (req: any, res) => {
+  app.get("/api/analytics/pace-summary", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -23169,7 +23170,7 @@ Current conversation context:
   const VIEW_DEDUPE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes - only count one view per session per alert
 
   // Get active system alerts for the current user
-  app.get("/api/system-alerts", async (req: any, res) => {
+  app.get("/api/system-alerts", async (req: any, res: Response) => {
     try {
       // Get active alerts (optionally filter by target/severity)
       const alerts = await storage.getActiveSystemAlerts({
@@ -23208,7 +23209,7 @@ Current conversation context:
   });
 
   // Dismiss an alert (user preference - prevents showing again)
-  app.post("/api/system-alerts/:alertId/dismiss", isAuthenticated, async (req: any, res) => {
+  app.post("/api/system-alerts/:alertId/dismiss", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { alertId } = req.params;
       
@@ -23251,7 +23252,7 @@ Current conversation context:
   });
 
   // Admin: Create a new system alert
-  app.post("/api/system-alerts", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/system-alerts", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       
@@ -23289,7 +23290,7 @@ Current conversation context:
   });
 
   // Admin: Update/deactivate a system alert
-  app.patch("/api/system-alerts/:alertId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.patch("/api/system-alerts/:alertId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { alertId } = req.params;
       
@@ -23322,7 +23323,7 @@ Current conversation context:
   });
 
   // Admin: Get all system alerts (including inactive)
-  app.get("/api/admin/system-alerts", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/system-alerts", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       // Get all alerts for admin view
       const alerts = await storage.getActiveSystemAlerts({
@@ -23337,7 +23338,7 @@ Current conversation context:
   });
   
   // Admin: Production Telemetry - Get recent errors from all environments
-  app.get("/api/admin/telemetry/errors", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/telemetry/errors", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const environment = req.query.environment as string | undefined;
@@ -23361,7 +23362,7 @@ Current conversation context:
 
   // Admin: Backfill conversation titles for untitled conversations
   // Run once to generate titles for existing voice chats that never got titles
-  app.post("/api/admin/backfill-conversation-titles", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/backfill-conversation-titles", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const dryRun = req.query.dryRun === 'true';
@@ -23468,7 +23469,7 @@ Current conversation context:
   }
 
   // Send a text message to Support Agent
-  app.post("/api/support/message", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+  app.post("/api/support/message", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { ticketId, message, category, mode, drillContext, clientTelemetry } = req.body;
@@ -23557,7 +23558,7 @@ Current conversation context:
   });
   
   // Synthesize TTS for Support Agent (Google Cloud Chirp HD)
-  app.post("/api/support/synthesize", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+  app.post("/api/support/synthesize", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res: Response) => {
     try {
       const { text, language = 'english' } = req.body;
       
@@ -23593,7 +23594,7 @@ Current conversation context:
     drillContext: z.string().optional(),
   });
   
-  app.post("/api/support/voice-message", isAuthenticated, loadAuthenticatedUser(storage), upload.single('audio'), async (req: any, res) => {
+  app.post("/api/support/voice-message", isAuthenticated, loadAuthenticatedUser(storage), upload.single('audio'), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const audioFile = req.file;
@@ -23726,7 +23727,7 @@ Current conversation context:
   });
   
   // Resolve a support ticket
-  app.post("/api/support/tickets/:ticketId/resolve", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+  app.post("/api/support/tickets/:ticketId/resolve", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res: Response) => {
     try {
       const { ticketId } = req.params;
       const userId = getRequestUserId(req);
@@ -23757,7 +23758,7 @@ Current conversation context:
   });
   
   // Create a new support ticket
-  app.post("/api/support/tickets", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+  app.post("/api/support/tickets", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const { category, subject, description, handoffFrom, handoffContext, deviceInfo } = req.body;
@@ -23789,7 +23790,7 @@ Current conversation context:
   });
   
   // Get user's support tickets
-  app.get("/api/support/tickets", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+  app.get("/api/support/tickets", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const tickets = await storage.getSupportTickets({ userId, limit: 50 });
@@ -23801,7 +23802,7 @@ Current conversation context:
   });
   
   // Get ticket details with messages
-  app.get("/api/support/tickets/:ticketId", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res) => {
+  app.get("/api/support/tickets/:ticketId", isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res: Response) => {
     try {
       const { ticketId } = req.params;
       const userId = getRequestUserId(req);
@@ -23829,7 +23830,7 @@ Current conversation context:
   
   // Dev-only: Get production telemetry for Sofia debugging
   // This route allows Sofia in dev to see production runtime faults and diagnose issues
-  app.get("/api/support/production-telemetry", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/support/production-telemetry", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       // Only available in development environment for debugging production
       if (process.env.NODE_ENV === 'production') {
@@ -23875,7 +23876,7 @@ Current conversation context:
   });
   
   // Admin: Get Support Agent voice configuration metadata
-  app.get("/api/admin/support-voice-meta", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/support-voice-meta", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { SUPPORT_AGENT_VOICE_CONFIG, SUPPORT_AGENT_VOICES } = await import('./services/support-agent-config');
       
@@ -23899,7 +23900,7 @@ Current conversation context:
   });
   
   // Admin: Audition Support Agent voice
-  app.post("/api/admin/support-voice-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/support-voice-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { text, language = 'english', gender = 'female', speakingRate = 1.0, pitch = 0 } = req.body;
       
@@ -23937,7 +23938,7 @@ Current conversation context:
   // Client-side double audio detection report (auto-reported by dedup system)
   // Rate-limited to prevent spam - max 1 report per user per 5 minutes
   const doubleAudioReportCooldown = new Map<string, number>();
-  app.post("/api/support/report-double-audio", isAuthenticated, async (req: any, res) => {
+  app.post("/api/support/report-double-audio", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user?.id || req.user?.claims?.sub || 'anonymous';
       const { blockedCount, passedCount, blockedKeys, userAgent } = req.body;
@@ -23970,7 +23971,7 @@ Current conversation context:
   });
   
   // Submit a session bug report — triggered by the "Flag Issue" button in the chat UI
-  app.post("/api/sessions/submit-report", isAuthenticated, async (req: any, res) => {
+  app.post("/api/sessions/submit-report", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user?.id || req.user?.claims?.sub;
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -24049,7 +24050,7 @@ Current conversation context:
   });
 
   // Get pending Sofia issue reports for founder review
-  app.get("/api/admin/sofia-issue-reports", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/sofia-issue-reports", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { status = 'pending', limit = '100' } = req.query;
       
@@ -24084,7 +24085,7 @@ Current conversation context:
   });
   
   // Update Sofia issue report status (mark as reviewed, dismissed, etc)
-  app.patch("/api/admin/sofia-issue-reports/:reportId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.patch("/api/admin/sofia-issue-reports/:reportId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { reportId } = req.params;
       const { status, founderNotes } = req.body;
@@ -24119,7 +24120,7 @@ Current conversation context:
   // Aggregates voice pipeline, Sofia issues, active sessions for at-a-glance monitoring
   // ============================================================================
   
-  app.get("/api/admin/system-health", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/admin/system-health", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const orchestrator = getStreamingVoiceOrchestrator();
       const activeSessions = orchestrator.getActiveSessionCount();
@@ -24200,7 +24201,7 @@ Current conversation context:
   });
   
   // Admin: Get language accent variants for Gemini TTS
-  app.get("/api/admin/accent-variants", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res) => {
+  app.get("/api/admin/accent-variants", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: any, res: Response) => {
     try {
       const { LANGUAGE_ACCENT_VARIANTS } = await import('./services/gemini-live-tts');
       res.json(LANGUAGE_ACCENT_VARIANTS);
@@ -24210,7 +24211,7 @@ Current conversation context:
   });
 
   // Admin: Gemini Live voice audition — user sends mic PCM, server opens real GL session (3.1 or 3.5), returns WAV
-  app.post("/api/admin/gl-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/gl-audition", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     const { audio, languageCode, voiceId, model } = req.body;
     if (!audio) return res.status(400).json({ error: 'audio (base64 PCM16 @ 16kHz) required' });
 
@@ -24369,7 +24370,7 @@ Current conversation context:
   });
 
   // Admin: Get available Google TTS voices for assistant tutors
-  app.get("/api/admin/google-voices/:language?/:gender?", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/google-voices/:language?/:gender?", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const language = req.params.language?.toLowerCase() || req.query.language?.toLowerCase();
       const gender = req.params.gender?.toLowerCase() || req.query.gender?.toLowerCase();
@@ -24403,7 +24404,7 @@ Current conversation context:
   });
   
   // Admin: Preview assistant tutor voice (Google TTS)
-  app.post("/api/admin/assistant-voice-preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/assistant-voice-preview", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { voiceId, text, language, speakingRate = 1.0 } = req.body;
       
@@ -24434,7 +24435,7 @@ Current conversation context:
   // Cross-agent communication for the Hive Mind (Claude ↔ Gemini ↔ Support)
   
   // Post a collaboration event (agent-to-agent message)
-  app.post("/api/agent-collab/events", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/agent-collab/events", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { fromAgent, toAgent, eventType, subject, content, metadata, userId, conversationId, relatedEventId } = req.body;
       
@@ -24480,7 +24481,7 @@ Current conversation context:
   });
   
   // Get collaboration events for a specific agent
-  app.get("/api/agent-collab/events/:agentRole", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/agent-collab/events/:agentRole", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { agentRole } = req.params;
       const { status, eventType, since, limit } = req.query;
@@ -24505,7 +24506,7 @@ Current conversation context:
   });
   
   // Get pending events for an agent (unread messages)
-  app.get("/api/agent-collab/pending/:agentRole", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/agent-collab/pending/:agentRole", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { agentRole } = req.params;
       
@@ -24523,7 +24524,7 @@ Current conversation context:
   });
   
   // Get a collaboration thread
-  app.get("/api/agent-collab/thread/:threadId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/agent-collab/thread/:threadId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { threadId } = req.params;
       const events = await storage.getCollaborationThread(threadId);
@@ -24535,7 +24536,7 @@ Current conversation context:
   });
   
   // Acknowledge a collaboration event
-  app.post("/api/agent-collab/events/:eventId/acknowledge", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/agent-collab/events/:eventId/acknowledge", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { eventId } = req.params;
       const { byAgent } = req.body;
@@ -24559,7 +24560,7 @@ Current conversation context:
   });
   
   // Get recent collaboration context for an agent (for session injection)
-  app.get("/api/agent-collab/context/:agentRole", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/agent-collab/context/:agentRole", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { agentRole } = req.params;
       const { userId, hours, limit } = req.query;
@@ -24707,7 +24708,7 @@ Current conversation context:
 
   // POST /api/agent/dialogue/trigger — kick off an Agent↔Daniela architectural dialogue
   // Optional body: { topicId, roomId }
-  app.post("/api/agent/dialogue/trigger", requireAgentToken, async (req: any, res) => {
+  app.post("/api/agent/dialogue/trigger", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { topicId, roomId } = req.body || {};
       const { triggerDialogue, TOPICS } = await import('./services/agent-daniela-dialogue-worker');
@@ -24726,7 +24727,7 @@ Current conversation context:
   // POST /api/board-meeting/trigger — kick off a Weekly Board Meeting brief in the active Team Room
   // Protected by agent token so it can be called from the UI (passing the token) or the scheduler.
   // No request body required — context is gathered automatically from build queue, repair log, escalations.
-  app.post("/api/board-meeting/trigger", async (req: any, res) => {
+  app.post("/api/board-meeting/trigger", async (req: any, res: Response) => {
     try {
       // Allow agent token OR admin session
       const agentToken = req.headers['x-agent-token'];
@@ -24745,7 +24746,7 @@ Current conversation context:
   });
 
   // Consult Daniela (send a question to Gemini and get a response)
-  app.post("/api/agent-collab/consult-daniela", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/agent-collab/consult-daniela", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { question, context, fromAgent = 'editor' } = req.body;
       
@@ -24821,7 +24822,7 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
   // Security-classified messaging between AI departments
   
   // Get department chat messages (with optional security filter)
-  app.get("/api/agent-collab/chat", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/agent-collab/chat", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { classification, hours, limit, afterId } = req.query;
       
@@ -24845,7 +24846,7 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
   });
   
   // Post a new department chat message with security classification
-  app.post("/api/agent-collab/chat", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/agent-collab/chat", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { fromAgent, toAgent, subject, content, publicSummary, securityClassification, metadata } = req.body;
       
@@ -24891,7 +24892,7 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
   });
   
   // Get internal-only messages (never exposed to Gemini)
-  app.get("/api/agent-collab/internal", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/agent-collab/internal", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { hours, limit } = req.query;
       
@@ -24911,7 +24912,7 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
   // These routes allow students to interact with Aris for focused drill practice
   
   // Get pending drill assignments for the current user
-  app.get("/api/aris/drills/pending", isAuthenticated, async (req: any, res) => {
+  app.get("/api/aris/drills/pending", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -24927,7 +24928,7 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
   });
   
   // Get a specific drill assignment
-  app.get("/api/aris/drills/:assignmentId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/aris/drills/:assignmentId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -24953,7 +24954,7 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
   });
   
   // Start a drill assignment
-  app.post("/api/aris/drills/:assignmentId/start", isAuthenticated, async (req: any, res) => {
+  app.post("/api/aris/drills/:assignmentId/start", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -24989,7 +24990,7 @@ ${context ? `Context provided:\n${context}\n` : ''}`;
   });
   
   // Complete a drill assignment with results
-  app.post("/api/aris/drills/:assignmentId/complete", isAuthenticated, async (req: any, res) => {
+  app.post("/api/aris/drills/:assignmentId/complete", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -25136,7 +25137,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
   
   // Get drill history for current user
-  app.get("/api/aris/history", isAuthenticated, async (req: any, res) => {
+  app.get("/api/aris/history", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -25156,7 +25157,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Auto-provision drills from lesson bundles and manage lifecycle states
   
   // Auto-provision drills for a lesson (called when starting a lesson)
-  app.post("/api/aris/drills/provision", isAuthenticated, async (req: any, res) => {
+  app.post("/api/aris/drills/provision", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -25183,7 +25184,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
   
   // Transition drill lifecycle state
-  app.post("/api/aris/drills/:assignmentId/lifecycle", isAuthenticated, async (req: any, res) => {
+  app.post("/api/aris/drills/:assignmentId/lifecycle", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -25226,7 +25227,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
   
   // Activate all planned drills in a bundle
-  app.post("/api/aris/drills/activate-bundle", isAuthenticated, async (req: any, res) => {
+  app.post("/api/aris/drills/activate-bundle", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -25249,7 +25250,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
   
   // Get drill statistics for current user
-  app.get("/api/aris/drills/stats", isAuthenticated, async (req: any, res) => {
+  app.get("/api/aris/drills/stats", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -25267,7 +25268,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
   
   // Get pending drills with lifecycle awareness
-  app.get("/api/aris/drills/lifecycle/pending", isAuthenticated, async (req: any, res) => {
+  app.get("/api/aris/drills/lifecycle/pending", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -25288,7 +25289,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   
   // Get assistant persona - now language-aware
   // Query params: ?language=spanish&gender=female (optional, defaults to user's settings)
-  app.get("/api/aris/persona", isAuthenticated, async (req: any, res) => {
+  app.get("/api/aris/persona", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { getAssistantPersona, ARIS_FEEDBACK } = await import('./services/assistant-tutor-config');
       
@@ -25325,7 +25326,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
   
   // Get assistant name for current language (lightweight endpoint for sidebar)
-  app.get("/api/assistant/name", isAuthenticated, async (req: any, res) => {
+  app.get("/api/assistant/name", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { getAssistantPersona } = await import('./services/assistant-tutor-config');
       
@@ -25349,7 +25350,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
   
   // Get assistant name with language and gender as path params (used by sidebar dynamic query)
-  app.get("/api/assistant/name/:language/:gender", isAuthenticated, async (req: any, res) => {
+  app.get("/api/assistant/name/:language/:gender", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { getAssistantPersona } = await import('./services/assistant-tutor-config');
       
@@ -25370,7 +25371,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
   
   // Get AI-powered feedback from Aris during drill
-  app.post("/api/aris/feedback", isAuthenticated, async (req: any, res) => {
+  app.post("/api/aris/feedback", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { arisAIService } = await import('./services/aris-ai-service');
       
@@ -25405,7 +25406,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
   
   // Get AI-powered session greeting from Aris
-  app.post("/api/aris/greeting", isAuthenticated, async (req: any, res) => {
+  app.post("/api/aris/greeting", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { arisAIService } = await import('./services/aris-ai-service');
       const { targetLanguage, drillType, focusArea, itemCount } = req.body;
@@ -25428,7 +25429,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
   
   // Get AI-powered session summary from Aris
-  app.post("/api/aris/summary", isAuthenticated, async (req: any, res) => {
+  app.post("/api/aris/summary", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { arisAIService } = await import('./services/aris-ai-service');
       const { correctCount, incorrectCount, struggledItems, targetLanguage } = req.body;
@@ -25449,7 +25450,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
 
   // ===== FINE-TUNING CURATION API =====
 
-  app.get("/api/fine-tuning/conversations", isAuthenticated, async (req: any, res) => {
+  app.get("/api/fine-tuning/conversations", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const db = getSharedDb();
@@ -25553,7 +25554,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
 
   // Returns the live context layers injected into the system instruction
-  app.get("/api/fine-tuning/context", isAuthenticated, async (_req: any, res) => {
+  app.get("/api/fine-tuning/context", isAuthenticated, async (_req: any, res: Response) => {
     try {
       const db = getSharedDb();
       const [principleRows, noteRows] = await Promise.all([
@@ -25581,7 +25582,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
 
-  app.post("/api/fine-tuning/flag", isAuthenticated, async (req: any, res) => {
+  app.post("/api/fine-tuning/flag", isAuthenticated, async (req: any, res: Response) => {
     try {
       const db = getSharedDb();
       const { conversationId, verdict, note } = req.body;
@@ -25625,7 +25626,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Uses x-agent-token header for authentication (separate from user auth)
   
   // Check if agent authentication is configured
-  app.get("/api/agent/status", async (req, res) => {
+  app.get("/api/agent/status", async (req: any, res: Response) => {
     res.json({
       configured: isAgentTokenConfigured(),
       message: isAgentTokenConfigured() 
@@ -25635,7 +25636,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
   
   // Get feature sprints (read-only for agent)
-  app.get("/api/agent/sprints", requireAgentToken, async (req: any, res) => {
+  app.get("/api/agent/sprints", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { stage, limit, source } = req.query;
       const sprints = await storage.getFeatureSprints({
@@ -25658,7 +25659,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
   
   // Get Wren's current priorities
-  app.get("/api/agent/wren/priorities", requireAgentToken, async (req: any, res) => {
+  app.get("/api/agent/wren/priorities", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { wrenProactiveIntelligenceService } = await import('./services/wren-proactive-intelligence-service');
       const priorities = await wrenProactiveIntelligenceService.inferPriorities();
@@ -25673,7 +25674,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
   
   // Get Wren's insights
-  app.get("/api/agent/wren/insights", requireAgentToken, async (req: any, res) => {
+  app.get("/api/agent/wren/insights", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { category, limit, search } = req.query;
       let insights;
@@ -25697,7 +25698,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
   
   // Get Wren's proactive context (startup ritual data)
-  app.get("/api/agent/wren/context", requireAgentToken, async (req: any, res) => {
+  app.get("/api/agent/wren/context", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { wrenProactiveIntelligenceService } = await import('./services/wren-proactive-intelligence-service');
       const context = await wrenProactiveIntelligenceService.getStartupContext();
@@ -25712,7 +25713,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
   
   // Get agent audit log (for debugging/monitoring)
-  app.get("/api/agent/audit", requireAgentToken, async (req: any, res) => {
+  app.get("/api/agent/audit", requireAgentToken, async (req: any, res: Response) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
       const auditLog = getAgentAuditLog(limit);
@@ -25725,7 +25726,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   
   // Post message to EXPRESS Lane as Wren (for agent → Hive 3-way collaboration)
   // Part of "Two Surgeons, One Brain" architecture
-  app.post("/api/agent/hive/message", requireAgentToken, async (req: any, res) => {
+  app.post("/api/agent/hive/message", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { content, message, messageType, metadata } = req.body;
       const messageContent = content || message; // Support both parameter names
@@ -25776,7 +25777,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
 
   // Agent fetches recent Hive messages
-  app.get("/api/agent/hive/messages", requireAgentToken, async (req: any, res) => {
+  app.get("/api/agent/hive/messages", requireAgentToken, async (req: any, res: Response) => {
     try {
       const sessionId = req.query.sessionId as string;
       const since = req.query.since as string;
@@ -25820,7 +25821,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
 
   // Agent queries Daniela for pedagogical input
-  app.post("/api/agent/hive/query-daniela", requireAgentToken, async (req: any, res) => {
+  app.post("/api/agent/hive/query-daniela", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { question, context, sessionId } = req.body;
       
@@ -25912,7 +25913,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
 
   // Agent gets active session info
-  app.get("/api/agent/hive/session", requireAgentToken, async (req: any, res) => {
+  app.get("/api/agent/hive/session", requireAgentToken, async (req: any, res: Response) => {
     try {
       const SYSTEM_FOUNDER_ID = '49847136';
       const session = await founderCollabService.getOrCreateActiveSession(SYSTEM_FOUNDER_ID);
@@ -25933,7 +25934,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   
   // Agent posts directly to the Team Room — no go-between needed.
   // The Agent's message appears as speaker "Agent" in the live room.
-  app.post("/api/agent/team-room/message", requireAgentToken, async (req: any, res) => {
+  app.post("/api/agent/team-room/message", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { content, roomId } = req.body;
       if (!content) return res.status(400).json({ error: 'content is required' });
@@ -25966,7 +25967,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
 
   // Agent reads the full Team Room thread — the actual messages, not a summary.
   // Call this at session start to know what's been happening in the room.
-  app.get("/api/agent/team-room/thread", requireAgentToken, async (req: any, res) => {
+  app.get("/api/agent/team-room/thread", requireAgentToken, async (req: any, res: Response) => {
     try {
       const roomId = req.query.roomId as string | undefined;
       const limit = parseInt(req.query.limit as string) || 50;
@@ -26002,7 +26003,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
 
   // Agent narration - auto-announce significant changes to Express Lane
-  app.post("/api/agent/hive/narrate", requireAgentToken, async (req: any, res) => {
+  app.post("/api/agent/hive/narrate", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { type, content, files, component, details } = req.body;
       
@@ -26041,7 +26042,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   
   // Update sprint status (limited write access for agent)
   // Only allows stage and notes updates - no title/priority/description changes
-  app.patch("/api/agent/sprints/:id", requireAgentToken, async (req: any, res) => {
+  app.patch("/api/agent/sprints/:id", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const { stage, notes, agentNotes } = req.body;
@@ -26127,7 +26128,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Persistent collaborative workspace for AI-human feature development
 
   // Get all feature sprints
-  app.get("/api/feature-sprints", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/feature-sprints", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { stage, createdBy, limit } = req.query;
       const sprints = await storage.getFeatureSprints({
@@ -26143,7 +26144,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
 
   // Get single feature sprint
-  app.get("/api/feature-sprints/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/feature-sprints/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const sprint = await storage.getFeatureSprint(req.params.id);
       if (!sprint) {
@@ -26157,7 +26158,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
 
   // Create feature sprint
-  app.post("/api/feature-sprints", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/feature-sprints", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const sprint = await storage.createFeatureSprint({
@@ -26172,7 +26173,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
 
   // Update feature sprint
-  app.patch("/api/feature-sprints/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.patch("/api/feature-sprints/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const sprint = await storage.getFeatureSprint(req.params.id);
@@ -26205,7 +26206,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
 
   // Delete feature sprint
-  app.delete("/api/feature-sprints/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.delete("/api/feature-sprints/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       await storage.deleteFeatureSprint(req.params.id);
       res.status(204).send();
@@ -26216,7 +26217,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
 
   // Get sprint stage transitions
-  app.get("/api/feature-sprints/:id/transitions", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/feature-sprints/:id/transitions", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const transitions = await storage.getSprintTransitions(req.params.id);
       res.json(transitions);
@@ -26227,7 +26228,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
 
   // Get sprint analytics - velocity, stage durations, completion rates
-  app.get("/api/feature-sprints-analytics", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/feature-sprints-analytics", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const sprints = await storage.getFeatureSprints({});
       
@@ -26318,7 +26319,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
 
   // Session-start sprint check for Editor agent awareness
-  app.get("/api/feature-sprints/session-context", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/feature-sprints/session-context", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       // Get active sprints (not shipped)
       const allSprints = await storage.getFeatureSprints({});
@@ -26371,7 +26372,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   });
 
   // AI requirement extraction from consultation - Daniela analyzes free-form text
-  app.post("/api/sprint-consults/extract-requirements", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/sprint-consults/extract-requirements", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { text, extractionType } = req.body;
       
@@ -26456,7 +26457,7 @@ Focus on: technical approach, components affected, estimated effort, dependencie
   });
 
   // AI auto-fill template with context
-  app.post("/api/sprint-templates/:templateType/auto-fill", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/sprint-templates/:templateType/auto-fill", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { templateType } = req.params;
       const { sprintTitle, sprintDescription, additionalContext } = req.body;
@@ -26542,7 +26543,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // ===== Daniela Active Sprint Participation =====
   
   // Daniela suggests sprint updates (pedagogy spec, build plan, items)
-  app.post("/api/feature-sprints/:id/daniela-suggest", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/feature-sprints/:id/daniela-suggest", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const sprint = await storage.getFeatureSprint(req.params.id);
       if (!sprint) {
@@ -26623,7 +26624,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   
   // Manually trigger Daniela→Wren collaboration on existing sprints
   // Used to retroactively run collaboration on sprints created before bidirectional code was added
-  app.post("/api/feature-sprints/:id/trigger-collaboration", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/feature-sprints/:id/trigger-collaboration", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { founderContext } = req.body;
       const result = await hiveConsciousnessService.triggerSprintCollaborationManual(
@@ -26645,7 +26646,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // ===== Consultation Threads API =====
   
   // Get all consultation threads
-  app.get("/api/sprint-consults", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/sprint-consults", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { createdBy, sprintId, limit } = req.query;
       const threads = await storage.getConsultationThreads({
@@ -26661,7 +26662,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
 
   // Get single consultation thread with messages
-  app.get("/api/sprint-consults/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/sprint-consults/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const thread = await storage.getConsultationThread(req.params.id);
       if (!thread) {
@@ -26676,7 +26677,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
 
   // Create consultation thread
-  app.post("/api/sprint-consults", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/sprint-consults", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       const thread = await storage.createConsultationThread({
@@ -26691,7 +26692,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
 
   // Add message to consultation thread
-  app.post("/api/sprint-consults/:id/messages", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/sprint-consults/:id/messages", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const thread = await storage.getConsultationThread(req.params.id);
       if (!thread) {
@@ -26710,7 +26711,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
 
   // Update consultation thread
-  app.patch("/api/sprint-consults/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.patch("/api/sprint-consults/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const updated = await storage.updateConsultationThread(req.params.id, req.body);
       if (!updated) {
@@ -26725,7 +26726,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
 
   // ===== Sprint Templates API =====
   
-  app.get("/api/sprint-templates", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/sprint-templates", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { templateType } = req.query;
       const templates = await storage.getSprintTemplates(templateType as string);
@@ -26736,7 +26737,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
 
-  app.post("/api/sprint-templates", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/sprint-templates", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const template = await storage.createSprintTemplate({
         ...req.body,
@@ -26749,7 +26750,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
 
-  app.post("/api/sprint-templates/:id/use", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/sprint-templates/:id/use", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const template = await storage.getSprintTemplate(req.params.id);
       if (!template) {
@@ -26765,7 +26766,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
 
   // ===== Project Context API =====
   
-  app.get("/api/project-context", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/project-context", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const context = await storage.getActiveProjectContext();
       res.json(context || null);
@@ -26775,7 +26776,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
 
-  app.post("/api/project-context", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/project-context", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const snapshot = await storage.createProjectContextSnapshot({
         ...req.body,
@@ -26790,7 +26791,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
 
   // ===== Sprint Templates Seeder =====
   
-  app.post("/api/sprint-templates/seed", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/sprint-templates/seed", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const defaultTemplates = [
         // Feature Brief Templates
@@ -26900,7 +26901,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
 
   // ===== AI Suggestions API =====
   
-  app.get("/api/ai-suggestions", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/ai-suggestions", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { status, suggestionType, limit } = req.query;
       const suggestions = await storage.getAiSuggestions({
@@ -26915,7 +26916,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     }
   });
 
-  app.patch("/api/ai-suggestions/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.patch("/api/ai-suggestions/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const updated = await storage.updateAiSuggestion(req.params.id, {
         ...req.body,
@@ -26936,7 +26937,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // Real-time bidirectional communication between AI agents (Daniela ↔ Editor)
   
   // Get collaboration feed (for Founder observation)
-  app.get("/api/collaboration/feed", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/collaboration/feed", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const events = await collaborationHubService.getRecentFeed(limit);
@@ -26948,7 +26949,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Get pending suggestions for Editor
-  app.get("/api/collaboration/pending", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/collaboration/pending", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const pending = await collaborationHubService.getPendingSuggestionsForEditor();
       res.json(pending);
@@ -26959,7 +26960,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Get collaboration stats
-  app.get("/api/collaboration/stats", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/collaboration/stats", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const stats = await collaborationHubService.getStats();
       res.json(stats);
@@ -26970,7 +26971,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Editor responds to an event
-  app.post("/api/collaboration/respond", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/collaboration/respond", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { eventId, content, actionTaken } = req.body;
       if (!eventId || !content) {
@@ -26989,7 +26990,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Editor acknowledges an event
-  app.post("/api/collaboration/acknowledge", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/collaboration/acknowledge", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { eventId, content } = req.body;
       if (!eventId) {
@@ -27007,7 +27008,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Founder adds observation
-  app.post("/api/collaboration/observe", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/collaboration/observe", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { content, replyToEventId } = req.body;
       if (!content) {
@@ -27026,7 +27027,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Resolve an event (optionally convert to sprint)
-  app.post("/api/collaboration/resolve/:eventId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/collaboration/resolve/:eventId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { convertToSprintId } = req.body;
       await collaborationHubService.resolveEvent(
@@ -27042,7 +27043,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Get event thread
-  app.get("/api/collaboration/thread/:eventId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/collaboration/thread/:eventId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const thread = await collaborationHubService.getEventThread(req.params.eventId);
       res.json(thread);
@@ -27057,7 +27058,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // ============================================================================
   
   // Get channel with snapshots
-  app.get("/api/collaboration/channels/:channelId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/collaboration/channels/:channelId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const channel = await hiveCollaborationService.getChannel(req.params.channelId);
       if (!channel) {
@@ -27072,7 +27073,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Get channel feed (collaboration events for a specific channel)
-  app.get("/api/collaboration/channels/:channelId/feed", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/collaboration/channels/:channelId/feed", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const feed = await hiveCollaborationService.getChannelFeed(req.params.channelId, limit);
@@ -27084,7 +27085,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Get user's recent collaboration channels
-  app.get("/api/collaboration/channels", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/collaboration/channels", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
       const channels = await hiveCollaborationService.getUserChannels(req.user?.id, limit);
@@ -27096,7 +27097,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Get active channel for a conversation (for real-time panel during voice session)
-  app.get("/api/collaboration/conversations/:conversationId/channel", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/collaboration/conversations/:conversationId/channel", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const channel = await hiveCollaborationService.getActiveChannelForConversation(req.params.conversationId);
       if (!channel) {
@@ -27132,7 +27133,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // ============================================================================
   
   // Retired routes return 410 Gone with explanation
-  app.all("/api/collaboration/editor/worker/*", (req: any, res) => {
+  app.all("/api/collaboration/editor/worker/*", (req: any, res: Response) => {
     return res.status(410).json({ 
       error: "This API has been retired", 
       reason: "Option A Consolidation - Express Lane is now the sole collaboration channel",
@@ -27140,7 +27141,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     });
   });
   
-  app.all("/api/brain-surgery/*", (req: any, res) => {
+  app.all("/api/brain-surgery/*", (req: any, res: Response) => {
     return res.status(410).json({ 
       error: "This API has been retired", 
       reason: "Option A Consolidation - Brain Surgery replaced by Express Lane",
@@ -27148,7 +27149,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
     });
   });
   
-  app.all("/api/surgery/*", (req: any, res) => {
+  app.all("/api/surgery/*", (req: any, res: Response) => {
     return res.status(410).json({ 
       error: "This API has been retired", 
       reason: "Option A Consolidation - Collaborative Surgery replaced by Express Lane",
@@ -27158,7 +27159,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
 
   /* ARCHIVED ROUTES - kept for reference but not active
   // Get worker status (ARCHITECT_SECRET protected)
-  app.get("/api/collaboration/editor/worker/status", async (req: any, res) => {
+  app.get("/api/collaboration/editor/worker/status", async (req: any, res: Response) => {
     try {
       const secret = req.headers['x-architect-secret'] as string;
       if (!validateEditorSecret(secret)) {
@@ -27174,7 +27175,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Start worker (ARCHITECT_SECRET protected)
-  app.post("/api/collaboration/editor/worker/start", async (req: any, res) => {
+  app.post("/api/collaboration/editor/worker/start", async (req: any, res: Response) => {
     try {
       const secret = req.headers['x-architect-secret'] as string;
       if (!validateEditorSecret(secret)) {
@@ -27191,7 +27192,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Stop worker (ARCHITECT_SECRET protected)
-  app.post("/api/collaboration/editor/worker/stop", async (req: any, res) => {
+  app.post("/api/collaboration/editor/worker/stop", async (req: any, res: Response) => {
     try {
       const secret = req.headers['x-architect-secret'] as string;
       if (!validateEditorSecret(secret)) {
@@ -27208,7 +27209,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Trigger immediate processing cycle (ARCHITECT_SECRET protected)
-  app.post("/api/collaboration/editor/worker/trigger", async (req: any, res) => {
+  app.post("/api/collaboration/editor/worker/trigger", async (req: any, res: Response) => {
     try {
       const secret = req.headers['x-architect-secret'] as string;
       if (!validateEditorSecret(secret)) {
@@ -27254,7 +27255,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   };
   
   // Send message from Editor to Daniela (ARCHITECT_SECRET or admin/developer session)
-  app.post("/api/brain-surgery/chat", async (req: any, res) => {
+  app.post("/api/brain-surgery/chat", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27276,7 +27277,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Streaming chat endpoint with SSE (Server-Sent Events)
-  app.post("/api/brain-surgery/chat/stream", async (req: any, res) => {
+  app.post("/api/brain-surgery/chat/stream", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27345,7 +27346,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // List all brain surgery threads (ARCHITECT_SECRET or admin/developer session)
-  app.get("/api/brain-surgery/threads", async (req: any, res) => {
+  app.get("/api/brain-surgery/threads", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27361,7 +27362,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Get a specific brain surgery thread (ARCHITECT_SECRET or admin/developer session)
-  app.get("/api/brain-surgery/thread/:threadId", async (req: any, res) => {
+  app.get("/api/brain-surgery/thread/:threadId", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27377,7 +27378,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Execute a SELF_SURGERY proposal (ARCHITECT_SECRET or admin/developer session)
-  app.post("/api/brain-surgery/execute", async (req: any, res) => {
+  app.post("/api/brain-surgery/execute", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27398,7 +27399,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Approve a brain surgery proposal
-  app.post("/api/brain-surgery/approve", async (req: any, res) => {
+  app.post("/api/brain-surgery/approve", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27419,7 +27420,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Reject a brain surgery proposal
-  app.post("/api/brain-surgery/reject", async (req: any, res) => {
+  app.post("/api/brain-surgery/reject", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27440,7 +27441,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Rollback an approved brain surgery proposal
-  app.post("/api/brain-surgery/rollback", async (req: any, res) => {
+  app.post("/api/brain-surgery/rollback", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27461,7 +27462,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Get proposal history
-  app.get("/api/brain-surgery/history", async (req: any, res) => {
+  app.get("/api/brain-surgery/history", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27478,7 +27479,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Get proposal templates
-  app.get("/api/brain-surgery/templates", async (req: any, res) => {
+  app.get("/api/brain-surgery/templates", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27494,7 +27495,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Update thread metadata (title, category)
-  app.put("/api/brain-surgery/thread/:threadId/metadata", async (req: any, res) => {
+  app.put("/api/brain-surgery/thread/:threadId/metadata", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27513,7 +27514,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Get thread metadata
-  app.get("/api/brain-surgery/thread/:threadId/metadata", async (req: any, res) => {
+  app.get("/api/brain-surgery/thread/:threadId/metadata", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27530,7 +27531,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Get auto-approval configuration
-  app.get("/api/brain-surgery/auto-approval-config", async (req: any, res) => {
+  app.get("/api/brain-surgery/auto-approval-config", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27546,7 +27547,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Update auto-approval configuration
-  app.put("/api/brain-surgery/auto-approval-config", async (req: any, res) => {
+  app.put("/api/brain-surgery/auto-approval-config", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27567,7 +27568,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // ============================================================================
   
   // Get current surgery session status
-  app.get("/api/surgery/status", async (req: any, res) => {
+  app.get("/api/surgery/status", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27583,7 +27584,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Start a new surgery session
-  app.post("/api/surgery/sessions", async (req: any, res) => {
+  app.post("/api/surgery/sessions", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27607,7 +27608,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // List all surgery sessions
-  app.get("/api/surgery/sessions", async (req: any, res) => {
+  app.get("/api/surgery/sessions", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27624,7 +27625,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Get a specific surgery session with its turns
-  app.get("/api/surgery/sessions/:id", async (req: any, res) => {
+  app.get("/api/surgery/sessions/:id", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27644,7 +27645,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Stop the current surgery session
-  app.post("/api/surgery/sessions/:id/stop", async (req: any, res) => {
+  app.post("/api/surgery/sessions/:id/stop", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27661,7 +27662,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Pause the current surgery session
-  app.post("/api/surgery/sessions/:id/pause", async (req: any, res) => {
+  app.post("/api/surgery/sessions/:id/pause", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27677,7 +27678,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Resume a paused surgery session
-  app.post("/api/surgery/sessions/:id/resume", async (req: any, res) => {
+  app.post("/api/surgery/sessions/:id/resume", async (req: any, res: Response) => {
     try {
       if (!await checkBrainSurgeryAuth(req, res)) {
         return res.status(401).json({ error: "Unauthorized - requires ARCHITECT_SECRET or admin/developer session" });
@@ -27702,7 +27703,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   const { validateSyncRequest } = await import('./middleware/sync-auth');
   
   // Health check: Migration status (still active - doesn't depend on syncBridge)
-  app.get('/api/health/migrations', async (req: any, res) => {
+  app.get('/api/health/migrations', async (req: any, res: Response) => {
     try {
       const { migrationOrchestrator } = await import('./migrations/migration-orchestrator');
       const status = await migrationOrchestrator.getStatus();
@@ -27729,7 +27730,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Agent: Trigger fluency wiring bulk mapping (all classes)
-  app.post("/api/agent/fluency-wiring/map-all", requireAgentToken, async (req: any, res) => {
+  app.post("/api/agent/fluency-wiring/map-all", requireAgentToken, async (req: any, res: Response) => {
     try {
       const agentId = req.agentId || 'replit-agent';
       console.log(`[AGENT-FLUENCY] Bulk fluency wiring triggered by agent: ${agentId}`);
@@ -27751,7 +27752,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Agent: Map a single class (more reliable than all at once)
-  app.post("/api/agent/fluency-wiring/map-class/:classId", requireAgentToken, async (req: any, res) => {
+  app.post("/api/agent/fluency-wiring/map-class/:classId", requireAgentToken, async (req: any, res: Response) => {
     try {
       const agentId = req.agentId || 'replit-agent';
       const { classId } = req.params;
@@ -27775,7 +27776,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Agent: Get list of classes for mapping
-  app.get("/api/agent/fluency-wiring/classes", requireAgentToken, async (req: any, res) => {
+  app.get("/api/agent/fluency-wiring/classes", requireAgentToken, async (req: any, res: Response) => {
     try {
       const classes = await db
         .select({ id: teacherClasses.id, name: teacherClasses.name, language: teacherClasses.language })
@@ -27789,7 +27790,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Agent: Get fluency wiring status (uses admin endpoint logic)
-  app.get("/api/agent/fluency-wiring/status", requireAgentToken, async (req: any, res) => {
+  app.get("/api/agent/fluency-wiring/status", requireAgentToken, async (req: any, res: Response) => {
     try {
       const [lessonCount] = await db
         .select({ count: sql<number>`count(*)` })
@@ -27824,7 +27825,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Agent: Get coverage analysis (identify gaps in Can-Do statement coverage)
-  app.get("/api/agent/fluency-wiring/coverage", requireAgentToken, async (req: any, res) => {
+  app.get("/api/agent/fluency-wiring/coverage", requireAgentToken, async (req: any, res: Response) => {
     try {
       const language = req.query.language as string | undefined;
       const { getCoverageAnalysis } = await import('./services/fluency-wiring-service');
@@ -27837,7 +27838,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Agent: Get coverage for a specific class
-  app.get("/api/agent/fluency-wiring/coverage/class/:classId", requireAgentToken, async (req: any, res) => {
+  app.get("/api/agent/fluency-wiring/coverage/class/:classId", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { classId } = req.params;
       const { getClassCoverageAnalysis } = await import('./services/fluency-wiring-service');
@@ -27857,7 +27858,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // Daniela and Wren in the dev Hive through this bridge.
 
   // Peer environment can post a message to Express Lane and get AI responses
-  app.post("/api/sync/express-lane-bridge", validateSyncRequest, async (req: any, res) => {
+  app.post("/api/sync/express-lane-bridge", validateSyncRequest, async (req: any, res: Response) => {
     try {
       console.log('[EXPRESS-LANE-BRIDGE] Message received from peer environment');
       
@@ -27929,7 +27930,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Peer environment can fetch recent Express Lane messages
-  app.get("/api/sync/express-lane-bridge/messages", validateSyncRequest, async (req: any, res) => {
+  app.get("/api/sync/express-lane-bridge/messages", validateSyncRequest, async (req: any, res: Response) => {
     try {
       const sessionId = req.query.sessionId as string;
       const since = req.query.since as string; // ISO timestamp
@@ -27961,7 +27962,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
   
   // Peer environment can get active Express Lane sessions
-  app.get("/api/sync/express-lane-bridge/sessions", validateSyncRequest, async (req: any, res) => {
+  app.get("/api/sync/express-lane-bridge/sessions", validateSyncRequest, async (req: any, res: Response) => {
     try {
       const founderId = '49847136'; // Main founder account
       const sessions = await founderCollabService.getFounderSessions(founderId);
@@ -27979,7 +27980,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   
   // Peer environment can POST agent responses back to this environment
   // This enables dev Wren/Daniela to respond to prod founder messages
-  app.post("/api/sync/express-lane-bridge/respond", validateSyncRequest, async (req: any, res) => {
+  app.post("/api/sync/express-lane-bridge/respond", validateSyncRequest, async (req: any, res: Response) => {
     try {
       console.log('[EXPRESS-LANE-BRIDGE] Response received from peer environment');
       
@@ -28039,7 +28040,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // 5. Prod saves the response and broadcasts via WebSocket to update founder UI
 
   // Developer/Admin: Get founder collaboration sync status
-  app.get("/api/founder-collab/sync-status", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+  app.get("/api/founder-collab/sync-status", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res: Response) => {
     try {
       const sessionId = req.query.sessionId as string | undefined;
       
@@ -28074,7 +28075,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
 
   // Developer/Admin: Get founder sessions
-  app.get("/api/founder-collab/sessions", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+  app.get("/api/founder-collab/sessions", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res: Response) => {
     try {
       const founderId = req.user?.id;
       if (!founderId) {
@@ -28090,7 +28091,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
 
   // Developer/Admin: Get session messages
-  app.get("/api/founder-collab/sessions/:sessionId/messages", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+  app.get("/api/founder-collab/sessions/:sessionId/messages", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res: Response) => {
     try {
       const { sessionId } = req.params;
       const limit = parseInt(req.query.limit as string) || 100;
@@ -28104,7 +28105,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   });
 
   // Developer/Admin: Verify failover readiness for a session
-  app.get("/api/founder-collab/sessions/:sessionId/failover-check", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res) => {
+  app.get("/api/founder-collab/sessions/:sessionId/failover-check", isAuthenticated, loadAuthenticatedUser(storage), allowRoles(['admin', 'developer']), async (req: any, res: Response) => {
     try {
       const { sessionId } = req.params;
       const clientId = req.query.clientId as string;
@@ -28138,7 +28139,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // ============================================================================
 
   // Wren: Post message to Express Lane with real-time broadcast
-  app.post("/api/wren/message", async (req, res) => {
+  app.post("/api/wren/message", async (req: any, res: Response) => {
     try {
       // Validate using existing Editor secret (machine-to-machine auth)
       const authHeader = req.headers['x-editor-secret'];
@@ -28206,7 +28207,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
 
   // Wren Inbox: Fetch messages tagged for Wren
   // Returns all Express Lane messages that have wrenTagged: true in metadata
-  app.get("/api/wren/inbox", async (req, res) => {
+  app.get("/api/wren/inbox", async (req: any, res: Response) => {
     try {
       // Validate using existing Editor secret (machine-to-machine auth)
       const authHeader = req.headers['x-editor-secret'];
@@ -28234,7 +28235,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
 
   // Wren: Get Hive collaboration context from Express Lane
   // Returns recent 3-way collaboration context (Founder, Daniela, Wren) for startup ritual
-  app.get("/api/wren/hive-context", async (req, res) => {
+  app.get("/api/wren/hive-context", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28272,7 +28273,7 @@ ${additionalContext ? `Additional context: ${additionalContext}` : ''}` }
   // Wren-Daniela Collaboration: Consult Daniela with visible exchange in Express Lane
   // This enables "board meeting" style collaboration where Founder can see
   // Wren asking Daniela questions and getting her responses in real-time.
-  app.post("/api/wren/consult-daniela", async (req, res) => {
+  app.post("/api/wren/consult-daniela", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28434,7 +28435,7 @@ ${memoryContext}
   // ============================================================================
 
   // HIVE: Get full context (beacons, sprints, sessions, system health)
-  app.get("/api/hive/context", async (req, res) => {
+  app.get("/api/hive/context", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28460,7 +28461,7 @@ ${memoryContext}
   });
 
   // HIVE: Get lightweight summary (for quick context injection)
-  app.get("/api/hive/summary", async (req, res) => {
+  app.get("/api/hive/summary", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28482,7 +28483,7 @@ ${memoryContext}
   });
 
   // HIVE: Get full transcript for an Express Lane session
-  app.get("/api/hive/sessions/:sessionId/messages", async (req, res) => {
+  app.get("/api/hive/sessions/:sessionId/messages", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28515,7 +28516,7 @@ ${memoryContext}
   });
 
   // HIVE: Get recent messages across all sessions (quick awareness)
-  app.get("/api/hive/messages/recent", async (req, res) => {
+  app.get("/api/hive/messages/recent", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28546,7 +28547,7 @@ ${memoryContext}
   // HIVE: Process external message (from Replit Agent or other external sources)
   // This enables Daniela and Wren to respond to @mentions from external contexts
   // Rate limited: 10 req/min (enabled even in development for security)
-  app.post("/api/hive/external-message", hiveExternalLimiter, async (req, res) => {
+  app.post("/api/hive/external-message", hiveExternalLimiter, async (req: any, res: Response) => {
     try {
       // Validate editor secret for security
       const authHeader = req.headers['x-editor-secret'];
@@ -28583,7 +28584,7 @@ ${memoryContext}
 
   // ALDEN: Poll for recent Express Lane messages (for live connection)
   // This allows Alden to see what the team is saying in real-time
-  app.get("/api/hive/alden-poll", async (req, res) => {
+  app.get("/api/hive/alden-poll", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28639,7 +28640,7 @@ ${memoryContext}
   });
 
   // WREN: Reply to a specific message in Express Lane (threaded replies)
-  app.post("/api/wren/reply", async (req, res) => {
+  app.post("/api/wren/reply", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28687,7 +28688,7 @@ ${memoryContext}
   });
 
   // WREN: Acknowledge a task/request (for handoff protocol)
-  app.post("/api/wren/ack", async (req, res) => {
+  app.post("/api/wren/ack", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28751,7 +28752,7 @@ ${memoryContext}
   // ============================================================================
 
   // WREN INSIGHTS: Create a new insight
-  app.post("/api/wren/insights", async (req, res) => {
+  app.post("/api/wren/insights", async (req: any, res: Response) => {
     let dataModified = false;
     try {
       const authHeader = req.headers['x-editor-secret'];
@@ -28794,7 +28795,7 @@ ${memoryContext}
   });
 
   // WREN INSIGHTS: Get all insights (with optional filtering)
-  app.get("/api/wren/insights", async (req, res) => {
+  app.get("/api/wren/insights", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28822,7 +28823,7 @@ ${memoryContext}
 
   // WREN INSIGHTS: Search by related file (contextual retrieval)
   // MUST be before /:id route to avoid "by-file" being treated as an ID
-  app.get("/api/wren/insights/by-file", async (req, res) => {
+  app.get("/api/wren/insights/by-file", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28844,7 +28845,7 @@ ${memoryContext}
 
   // WREN INTELLIGENCE: Get ranked insights (by use + recency)
   // MUST be before /:id route
-  app.get("/api/wren/insights/ranked", async (req, res) => {
+  app.get("/api/wren/insights/ranked", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28865,7 +28866,7 @@ ${memoryContext}
 
   // WREN INTELLIGENCE: Get stale insights (not used recently)
   // MUST be before /:id route
-  app.get("/api/wren/insights/stale", async (req, res) => {
+  app.get("/api/wren/insights/stale", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28886,7 +28887,7 @@ ${memoryContext}
 
   // WREN INTELLIGENCE: Search insights
   // MUST be before /:id route
-  app.get("/api/wren/insights/search", async (req, res) => {
+  app.get("/api/wren/insights/search", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28912,7 +28913,7 @@ ${memoryContext}
 
   // WREN KNOWLEDGE GRAPH: Find behavioral clusters (built by Alden)
   // MUST be before /:id route
-  app.get("/api/wren/insights/clusters", async (req, res) => {
+  app.get("/api/wren/insights/clusters", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28933,7 +28934,7 @@ ${memoryContext}
 
   // WREN KNOWLEDGE GRAPH: Weighted clusters with recurrence scoring (Wren's request)
   // MUST be before /:id route
-  app.get("/api/wren/insights/weighted-clusters", async (req, res) => {
+  app.get("/api/wren/insights/weighted-clusters", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28956,7 +28957,7 @@ ${memoryContext}
 
   // WREN KNOWLEDGE GRAPH: Search with graph context (built by Alden)
   // MUST be before /:id route
-  app.get("/api/wren/insights/search-graph", async (req, res) => {
+  app.get("/api/wren/insights/search-graph", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -28977,7 +28978,7 @@ ${memoryContext}
   });
 
   // WREN INSIGHTS: Get a specific insight
-  app.get("/api/wren/insights/:id", async (req, res) => {
+  app.get("/api/wren/insights/:id", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29000,7 +29001,7 @@ ${memoryContext}
   });
 
   // WREN INSIGHTS: Update an insight
-  app.patch("/api/wren/insights/:id", async (req, res) => {
+  app.patch("/api/wren/insights/:id", async (req: any, res: Response) => {
     let dataModified = false;
     try {
       const authHeader = req.headers['x-editor-secret'];
@@ -29034,7 +29035,7 @@ ${memoryContext}
   });
 
   // WREN INSIGHTS: Delete an insight
-  app.delete("/api/wren/insights/:id", async (req, res) => {
+  app.delete("/api/wren/insights/:id", async (req: any, res: Response) => {
     let dataModified = false;
     try {
       const authHeader = req.headers['x-editor-secret'];
@@ -29060,7 +29061,7 @@ ${memoryContext}
   // ============================================================================
 
   // WREN INTELLIGENCE: Create enriched insight with auto-detection
-  app.post("/api/wren/insights/enriched", async (req, res) => {
+  app.post("/api/wren/insights/enriched", async (req: any, res: Response) => {
     let dataModified = false;
     try {
       const authHeader = req.headers['x-editor-secret'];
@@ -29096,7 +29097,7 @@ ${memoryContext}
   });
 
   // WREN INTELLIGENCE: Reinforce an insight (increment use count)
-  app.post("/api/wren/insights/:id/reinforce", async (req, res) => {
+  app.post("/api/wren/insights/:id/reinforce", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29117,7 +29118,7 @@ ${memoryContext}
   });
 
   // WREN KNOWLEDGE GRAPH: Link two insights bidirectionally (built by Alden)
-  app.post("/api/wren/insights/link", async (req, res) => {
+  app.post("/api/wren/insights/link", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29138,7 +29139,7 @@ ${memoryContext}
   });
 
   // WREN INTELLIGENCE: Find related insights (cross-session threading)
-  app.get("/api/wren/insights/:id/related", async (req, res) => {
+  app.get("/api/wren/insights/:id/related", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29159,7 +29160,7 @@ ${memoryContext}
   });
 
   // WREN INTELLIGENCE: Build knowledge graph from a seed insight
-  app.get("/api/wren/insights/:id/graph", async (req, res) => {
+  app.get("/api/wren/insights/:id/graph", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29180,7 +29181,7 @@ ${memoryContext}
   });
 
   // WREN INTELLIGENCE: Get session summary
-  app.get("/api/wren/summary", async (req, res) => {
+  app.get("/api/wren/summary", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29200,7 +29201,7 @@ ${memoryContext}
   // ============================================================================
 
   // DANIELA KNOWLEDGE GRAPH: Link two pedagogical insights
-  app.post("/api/daniela/insights/link", async (req, res) => {
+  app.post("/api/daniela/insights/link", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29222,7 +29223,7 @@ ${memoryContext}
   });
 
   // DANIELA KNOWLEDGE GRAPH: Find teaching pattern clusters
-  app.get("/api/daniela/insights/clusters", async (req, res) => {
+  app.get("/api/daniela/insights/clusters", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29245,7 +29246,7 @@ ${memoryContext}
   });
 
   // DANIELA KNOWLEDGE GRAPH: Search with graph context
-  app.get("/api/daniela/insights/search-graph", async (req, res) => {
+  app.get("/api/daniela/insights/search-graph", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29267,7 +29268,7 @@ ${memoryContext}
   });
 
   // DANIELA KNOWLEDGE GRAPH: Get related insights via graph traversal
-  app.get("/api/daniela/insights/:id/graph-traverse", async (req, res) => {
+  app.get("/api/daniela/insights/:id/graph-traverse", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29325,7 +29326,7 @@ ${memoryContext}
   });
 
   // ALDEN CONVERSATIONS: Start a new conversation
-  app.post("/api/alden/conversations", async (req, res) => {
+  app.post("/api/alden/conversations", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29347,7 +29348,7 @@ ${memoryContext}
   });
 
   // ALDEN CONVERSATIONS: End a conversation with summary
-  app.patch("/api/alden/conversations/:id/end", async (req, res) => {
+  app.patch("/api/alden/conversations/:id/end", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29372,7 +29373,7 @@ ${memoryContext}
   });
 
   // ALDEN CONVERSATIONS: Search conversations (must be before :id route)
-  app.get("/api/alden/conversations/search", async (req, res) => {
+  app.get("/api/alden/conversations/search", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29394,7 +29395,7 @@ ${memoryContext}
   });
 
   // ALDEN CONVERSATIONS: Get a conversation with messages
-  app.get("/api/alden/conversations/:id", async (req, res) => {
+  app.get("/api/alden/conversations/:id", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29411,7 +29412,7 @@ ${memoryContext}
   });
 
   // ALDEN CONVERSATIONS: Get recent conversations
-  app.get("/api/alden/conversations", async (req, res) => {
+  app.get("/api/alden/conversations", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29429,7 +29430,7 @@ ${memoryContext}
   });
 
   // ALDEN CONVERSATIONS: Add a message to a conversation
-  app.post("/api/alden/conversations/:id/messages", async (req, res) => {
+  app.post("/api/alden/conversations/:id/messages", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29454,7 +29455,7 @@ ${memoryContext}
   });
 
   // ALDEN CONVERSATIONS: Batch add messages
-  app.post("/api/alden/conversations/:id/messages/batch", async (req, res) => {
+  app.post("/api/alden/conversations/:id/messages/batch", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29479,7 +29480,7 @@ ${memoryContext}
   });
 
   // ALDEN CONVERSATIONS: Get session context (startup)
-  app.get("/api/alden/context", async (req, res) => {
+  app.get("/api/alden/context", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29496,7 +29497,7 @@ ${memoryContext}
   });
 
   // ALDEN CONVERSATIONS: Get significant messages
-  app.get("/api/alden/messages/significant", async (req, res) => {
+  app.get("/api/alden/messages/significant", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29518,7 +29519,7 @@ ${memoryContext}
   // ============================================================================
 
   // PROACTIVE: Get startup context for session initialization
-  app.get("/api/wren/proactive/startup", async (req, res) => {
+  app.get("/api/wren/proactive/startup", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29534,7 +29535,7 @@ ${memoryContext}
   });
 
   // PROACTIVE: Get top priorities
-  app.get("/api/wren/proactive/priorities", async (req, res) => {
+  app.get("/api/wren/proactive/priorities", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29553,7 +29554,7 @@ ${memoryContext}
   });
 
   // TRIGGERS: Create or update a proactive trigger
-  app.post("/api/wren/proactive/triggers", async (req, res) => {
+  app.post("/api/wren/proactive/triggers", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29578,7 +29579,7 @@ ${memoryContext}
   });
 
   // TRIGGERS: Get pending triggers
-  app.get("/api/wren/proactive/triggers", async (req, res) => {
+  app.get("/api/wren/proactive/triggers", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29597,7 +29598,7 @@ ${memoryContext}
   });
 
   // TRIGGERS: Resolve a trigger
-  app.post("/api/wren/proactive/triggers/:id/resolve", async (req, res) => {
+  app.post("/api/wren/proactive/triggers/:id/resolve", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29614,7 +29615,7 @@ ${memoryContext}
   });
 
   // ADR: Record an architectural decision
-  app.post("/api/wren/adr", async (req, res) => {
+  app.post("/api/wren/adr", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29639,7 +29640,7 @@ ${memoryContext}
   });
 
   // ADR: Get relevant ADRs for a file or component
-  app.get("/api/wren/adr/relevant/:query", async (req, res) => {
+  app.get("/api/wren/adr/relevant/:query", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29655,7 +29656,7 @@ ${memoryContext}
   });
 
   // FEEDBACK: Record a feature implementation for tracking
-  app.post("/api/wren/feedback/feature", async (req, res) => {
+  app.post("/api/wren/feedback/feature", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29684,7 +29685,7 @@ ${memoryContext}
   });
 
   // FEEDBACK: Get unmeasured features
-  app.get("/api/wren/feedback/unmeasured", async (req, res) => {
+  app.get("/api/wren/feedback/unmeasured", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29700,7 +29701,7 @@ ${memoryContext}
   });
 
   // FEEDBACK: Analyze beacon reduction for a feature
-  app.get("/api/wren/feedback/:id/beacon-analysis", async (req, res) => {
+  app.get("/api/wren/feedback/:id/beacon-analysis", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29716,7 +29717,7 @@ ${memoryContext}
   });
 
   // HEALTH: Update component health
-  app.post("/api/wren/health/event", async (req, res) => {
+  app.post("/api/wren/health/event", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29742,7 +29743,7 @@ ${memoryContext}
   });
 
   // HEALTH: Get project health report
-  app.get("/api/wren/health/report", async (req, res) => {
+  app.get("/api/wren/health/report", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29762,7 +29763,7 @@ ${memoryContext}
   // ============================================================================
 
   // DREAMS: Get full dreams context for startup
-  app.get("/api/wren/dreams/startup", async (req, res) => {
+  app.get("/api/wren/dreams/startup", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29779,7 +29780,7 @@ ${memoryContext}
   });
 
   // MISTAKES: Capture a mistake
-  app.post("/api/wren/dreams/mistakes", async (req, res) => {
+  app.post("/api/wren/dreams/mistakes", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29804,7 +29805,7 @@ ${memoryContext}
   });
 
   // MISTAKES: Resolve a mistake
-  app.post("/api/wren/dreams/mistakes/:id/resolve", async (req, res) => {
+  app.post("/api/wren/dreams/mistakes/:id/resolve", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29829,7 +29830,7 @@ ${memoryContext}
   });
 
   // MISTAKES: Extract a lesson
-  app.post("/api/wren/dreams/lessons", async (req, res) => {
+  app.post("/api/wren/dreams/lessons", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29854,7 +29855,7 @@ ${memoryContext}
   });
 
   // MISTAKES: Check for warnings before an action
-  app.post("/api/wren/dreams/warnings", async (req, res) => {
+  app.post("/api/wren/dreams/warnings", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29872,7 +29873,7 @@ ${memoryContext}
   });
 
   // NOTES: Leave a session note
-  app.post("/api/wren/dreams/notes", async (req, res) => {
+  app.post("/api/wren/dreams/notes", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29897,7 +29898,7 @@ ${memoryContext}
   });
 
   // NOTES: Get pending notes
-  app.get("/api/wren/dreams/notes", async (req, res) => {
+  app.get("/api/wren/dreams/notes", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29913,7 +29914,7 @@ ${memoryContext}
   });
 
   // NOTES: Mark notes as read
-  app.post("/api/wren/dreams/notes/read", async (req, res) => {
+  app.post("/api/wren/dreams/notes/read", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29935,7 +29936,7 @@ ${memoryContext}
   });
 
   // PREDICTIONS: Make a prediction
-  app.post("/api/wren/dreams/predictions", async (req, res) => {
+  app.post("/api/wren/dreams/predictions", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29960,7 +29961,7 @@ ${memoryContext}
   });
 
   // PREDICTIONS: Validate a prediction
-  app.post("/api/wren/dreams/predictions/:id/validate", async (req, res) => {
+  app.post("/api/wren/dreams/predictions/:id/validate", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -29985,7 +29986,7 @@ ${memoryContext}
   });
 
   // PREDICTIONS: Get active predictions
-  app.get("/api/wren/dreams/predictions", async (req, res) => {
+  app.get("/api/wren/dreams/predictions", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30002,7 +30003,7 @@ ${memoryContext}
   });
 
   // CONFIDENCE: Record a confidence claim
-  app.post("/api/wren/dreams/confidence", async (req, res) => {
+  app.post("/api/wren/dreams/confidence", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30027,7 +30028,7 @@ ${memoryContext}
   });
 
   // CONFIDENCE: Verify an outcome
-  app.post("/api/wren/dreams/confidence/:id/verify", async (req, res) => {
+  app.post("/api/wren/dreams/confidence/:id/verify", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30052,7 +30053,7 @@ ${memoryContext}
   });
 
   // CONFIDENCE: Get calibration stats
-  app.get("/api/wren/dreams/calibration", async (req, res) => {
+  app.get("/api/wren/dreams/calibration", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30074,7 +30075,7 @@ ${memoryContext}
   // ============================================================================
 
   // Load session context - get memories for new session
-  app.get("/api/editor/context", async (req, res) => {
+  app.get("/api/editor/context", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (authHeader && !validateEditorSecret(authHeader as string)) {
@@ -30102,7 +30103,7 @@ ${memoryContext}
   });
 
   // Save a new memory/insight
-  app.post("/api/editor/insights", async (req, res) => {
+  app.post("/api/editor/insights", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (authHeader && !validateEditorSecret(authHeader as string)) {
@@ -30136,7 +30137,7 @@ ${memoryContext}
   });
 
   // Search memories
-  app.get("/api/editor/insights/search", async (req, res) => {
+  app.get("/api/editor/insights/search", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (authHeader && !validateEditorSecret(authHeader as string)) {
@@ -30160,7 +30161,7 @@ ${memoryContext}
   });
 
   // Get memories by category
-  app.get("/api/editor/insights/:category", async (req, res) => {
+  app.get("/api/editor/insights/:category", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (authHeader && !validateEditorSecret(authHeader as string)) {
@@ -30180,7 +30181,7 @@ ${memoryContext}
   });
 
   // Reinforce a memory (boost importance)
-  app.post("/api/editor/insights/:id/reinforce", async (req, res) => {
+  app.post("/api/editor/insights/:id/reinforce", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (authHeader && !validateEditorSecret(authHeader as string)) {
@@ -30200,7 +30201,7 @@ ${memoryContext}
   });
 
   // Get memory stats
-  app.get("/api/editor/stats", async (req, res) => {
+  app.get("/api/editor/stats", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (authHeader && !validateEditorSecret(authHeader as string)) {
@@ -30217,7 +30218,7 @@ ${memoryContext}
   });
 
   // Get single insight by ID
-  app.get("/api/editor/insights/by-id/:id", async (req, res) => {
+  app.get("/api/editor/insights/by-id/:id", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (authHeader && !validateEditorSecret(authHeader as string)) {
@@ -30237,7 +30238,7 @@ ${memoryContext}
   });
 
   // Update an existing insight
-  app.patch("/api/editor/insights/:id", async (req, res) => {
+  app.patch("/api/editor/insights/:id", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (authHeader && !validateEditorSecret(authHeader as string)) {
@@ -30261,7 +30262,7 @@ ${memoryContext}
   });
 
   // Link two insights together (bidirectional knowledge graph)
-  app.post("/api/editor/insights/link", async (req, res) => {
+  app.post("/api/editor/insights/link", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (authHeader && !validateEditorSecret(authHeader as string)) {
@@ -30283,7 +30284,7 @@ ${memoryContext}
   });
 
   // Get related insights (knowledge graph traversal)
-  app.get("/api/editor/insights/:id/related", async (req, res) => {
+  app.get("/api/editor/insights/:id/related", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (authHeader && !validateEditorSecret(authHeader as string)) {
@@ -30301,7 +30302,7 @@ ${memoryContext}
   });
 
   // Save a session journal entry
-  app.post("/api/editor/journal", async (req, res) => {
+  app.post("/api/editor/journal", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (authHeader && !validateEditorSecret(authHeader as string)) {
@@ -30327,7 +30328,7 @@ ${memoryContext}
   // ===== Conversation Memories =====
   // Persistent record of meaningful conversations between David and the Agent.
 
-  app.post("/api/conversation-memories", async (req, res) => {
+  app.post("/api/conversation-memories", async (req: any, res: Response) => {
     try {
       const { conversationMemories, insertConversationMemorySchema } = await import('../shared/schema');
       const parsed = insertConversationMemorySchema.safeParse(req.body);
@@ -30360,7 +30361,7 @@ ${memoryContext}
     }
   });
 
-  app.get("/api/conversation-memories", async (req, res) => {
+  app.get("/api/conversation-memories", async (req: any, res: Response) => {
     try {
       const { conversationMemories } = await import('../shared/schema');
       const limit = parseInt(req.query.limit as string) || 20;
@@ -30399,7 +30400,7 @@ ${memoryContext}
 
   // Share an insight from a David+Agent conversation to the whole team via Hive
   // This is the bridge between private conversations and shared team knowledge.
-  app.post("/api/conversation-memories/share-insight", async (req, res) => {
+  app.post("/api/conversation-memories/share-insight", async (req: any, res: Response) => {
     try {
       const { sharedInsights, agentCollabThreads, agentCollabMessages } = await import('../shared/schema');
       const { title, insight, whyItMatters, tags = [], sourceMemoryId } = req.body;
@@ -30470,7 +30471,7 @@ ${memoryContext}
     }
   });
 
-  app.get("/api/conversation-memories/shared", async (req, res) => {
+  app.get("/api/conversation-memories/shared", async (req: any, res: Response) => {
     try {
       const { sharedInsights } = await import('../shared/schema');
       const limit = parseInt(req.query.limit as string) || 20;
@@ -30488,7 +30489,7 @@ ${memoryContext}
   // ===== Agent Space API =====
   // The Agent's persistent identity, open questions, record of David, and shared insights.
 
-  app.get("/api/agent-space/north-star", async (req, res) => {
+  app.get("/api/agent-space/north-star", async (req: any, res: Response) => {
     try {
       const { agentNorthStar } = await import('../shared/schema');
       const [star] = await getUserDb().select().from(agentNorthStar).orderBy(desc(agentNorthStar.writtenAt)).limit(1);
@@ -30496,7 +30497,7 @@ ${memoryContext}
     } catch (error: any) { res.status(500).json({ error: error.message }); }
   });
 
-  app.patch("/api/agent-space/north-star", async (req, res) => {
+  app.patch("/api/agent-space/north-star", async (req: any, res: Response) => {
     try {
       const { agentNorthStar } = await import('../shared/schema');
       const [existing] = await getUserDb().select().from(agentNorthStar).limit(1);
@@ -30509,7 +30510,7 @@ ${memoryContext}
     } catch (error: any) { res.status(500).json({ error: error.message }); }
   });
 
-  app.get("/api/agent-space/open-questions", async (req, res) => {
+  app.get("/api/agent-space/open-questions", async (req: any, res: Response) => {
     try {
       const { agentOpenQuestions } = await import('../shared/schema');
       const status = req.query.status as string || null;
@@ -30520,7 +30521,7 @@ ${memoryContext}
     } catch (error: any) { res.status(500).json({ error: error.message }); }
   });
 
-  app.post("/api/agent-space/open-questions", async (req, res) => {
+  app.post("/api/agent-space/open-questions", async (req: any, res: Response) => {
     try {
       const { agentOpenQuestions } = await import('../shared/schema');
       const [q] = await getUserDb().insert(agentOpenQuestions).values({ ...req.body, status: req.body.status || 'open' }).returning();
@@ -30528,7 +30529,7 @@ ${memoryContext}
     } catch (error: any) { res.status(500).json({ error: error.message }); }
   });
 
-  app.patch("/api/agent-space/open-questions/:id", async (req, res) => {
+  app.patch("/api/agent-space/open-questions/:id", async (req: any, res: Response) => {
     try {
       const { agentOpenQuestions } = await import('../shared/schema');
       const updates: any = { ...req.body };
@@ -30538,7 +30539,7 @@ ${memoryContext}
     } catch (error: any) { res.status(500).json({ error: error.message }); }
   });
 
-  app.get("/api/agent-space/record-of-david", async (req, res) => {
+  app.get("/api/agent-space/record-of-david", async (req: any, res: Response) => {
     try {
       const { agentRecordOfDavid } = await import('../shared/schema');
       const [record] = await getUserDb().select().from(agentRecordOfDavid).orderBy(desc(agentRecordOfDavid.writtenAt)).limit(1);
@@ -30546,7 +30547,7 @@ ${memoryContext}
     } catch (error: any) { res.status(500).json({ error: error.message }); }
   });
 
-  app.patch("/api/agent-space/record-of-david", async (req, res) => {
+  app.patch("/api/agent-space/record-of-david", async (req: any, res: Response) => {
     try {
       const { agentRecordOfDavid } = await import('../shared/schema');
       const [existing] = await getUserDb().select().from(agentRecordOfDavid).limit(1);
@@ -30562,7 +30563,7 @@ ${memoryContext}
   // ===== Agent ↔ Alden Notes =====
 
   // POST /api/agent/note — Agent leaves a note for Alden
-  app.post("/api/agent/note", requireAgentToken, async (req: any, res) => {
+  app.post("/api/agent/note", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { subject, body, session_label } = req.body;
       if (!subject || !body) {
@@ -30585,7 +30586,7 @@ ${memoryContext}
   });
 
   // POST /api/agent/notes/mark-read — Agent marks Alden's notes as read
-  app.post("/api/agent/notes/mark-read", requireAgentToken, async (req: any, res) => {
+  app.post("/api/agent/notes/mark-read", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { ids } = req.body;
       if (!Array.isArray(ids) || ids.length === 0) {
@@ -30602,7 +30603,7 @@ ${memoryContext}
   });
 
   // GET /api/agent/notes — Agent reads notes from Alden
-  app.get("/api/agent/notes", requireAgentToken, async (req: any, res) => {
+  app.get("/api/agent/notes", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { agentNotes } = await import('@shared/schema');
       const includeRead = req.query.include_read === 'true';
@@ -30624,7 +30625,7 @@ ${memoryContext}
   });
 
   // Post to Hive collaboration system as Alden
-  app.post("/api/editor/hive/post", async (req, res) => {
+  app.post("/api/editor/hive/post", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (authHeader && !validateEditorSecret(authHeader as string)) {
@@ -30646,7 +30647,7 @@ ${memoryContext}
   });
 
   // Create a new Hive thread as Alden
-  app.post("/api/editor/hive/thread", async (req, res) => {
+  app.post("/api/editor/hive/thread", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (authHeader && !validateEditorSecret(authHeader as string)) {
@@ -30672,7 +30673,7 @@ ${memoryContext}
   // ============================================================================
 
   // Start a new collaboration thread
-  app.post("/api/agent-collab/threads", async (req, res) => {
+  app.post("/api/agent-collab/threads", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30701,7 +30702,7 @@ ${memoryContext}
   });
 
   // Daniela sends a request to Wren
-  app.post("/api/agent-collab/daniela/request", async (req, res) => {
+  app.post("/api/agent-collab/daniela/request", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30726,7 +30727,7 @@ ${memoryContext}
   });
 
   // Wren sends a proposal
-  app.post("/api/agent-collab/wren/proposal", async (req, res) => {
+  app.post("/api/agent-collab/wren/proposal", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30751,7 +30752,7 @@ ${memoryContext}
   });
 
   // Wren reports implementation
-  app.post("/api/agent-collab/wren/implementation", async (req, res) => {
+  app.post("/api/agent-collab/wren/implementation", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30776,7 +30777,7 @@ ${memoryContext}
   });
 
   // Reply to a thread
-  app.post("/api/agent-collab/threads/:threadId/reply", async (req, res) => {
+  app.post("/api/agent-collab/threads/:threadId/reply", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30802,7 +30803,7 @@ ${memoryContext}
   });
 
   // Escalate thread to founder
-  app.post("/api/agent-collab/threads/:threadId/escalate", async (req, res) => {
+  app.post("/api/agent-collab/threads/:threadId/escalate", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30823,7 +30824,7 @@ ${memoryContext}
   });
 
   // Founder directive
-  app.post("/api/agent-collab/threads/:threadId/founder-directive", async (req, res) => {
+  app.post("/api/agent-collab/threads/:threadId/founder-directive", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30846,7 +30847,7 @@ ${memoryContext}
   });
 
   // Resolve a thread
-  app.post("/api/agent-collab/threads/:threadId/resolve", async (req, res) => {
+  app.post("/api/agent-collab/threads/:threadId/resolve", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30867,7 +30868,7 @@ ${memoryContext}
   });
 
   // Get threads for Wren
-  app.get("/api/agent-collab/wren/threads", async (req, res) => {
+  app.get("/api/agent-collab/wren/threads", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30886,7 +30887,7 @@ ${memoryContext}
   });
 
   // Get threads for Daniela
-  app.get("/api/agent-collab/daniela/threads", async (req, res) => {
+  app.get("/api/agent-collab/daniela/threads", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30905,7 +30906,7 @@ ${memoryContext}
   });
 
   // Get threads for Founder
-  app.get("/api/agent-collab/founder/threads", async (req, res) => {
+  app.get("/api/agent-collab/founder/threads", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30924,7 +30925,7 @@ ${memoryContext}
   });
 
   // Get a single thread with its messages
-  app.get("/api/agent-collab/threads/:threadId", async (req, res) => {
+  app.get("/api/agent-collab/threads/:threadId", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30945,7 +30946,7 @@ ${memoryContext}
   });
 
   // Get unread messages for Wren
-  app.get("/api/agent-collab/wren/unread", async (req, res) => {
+  app.get("/api/agent-collab/wren/unread", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30961,7 +30962,7 @@ ${memoryContext}
   });
 
   // Get unread messages for Daniela
-  app.get("/api/agent-collab/daniela/unread", async (req, res) => {
+  app.get("/api/agent-collab/daniela/unread", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30977,7 +30978,7 @@ ${memoryContext}
   });
 
   // Mark messages as read by Wren
-  app.post("/api/agent-collab/wren/mark-read", async (req, res) => {
+  app.post("/api/agent-collab/wren/mark-read", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -30998,7 +30999,7 @@ ${memoryContext}
   });
 
   // Mark messages as read by Daniela
-  app.post("/api/agent-collab/daniela/mark-read", async (req, res) => {
+  app.post("/api/agent-collab/daniela/mark-read", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -31019,7 +31020,7 @@ ${memoryContext}
   });
 
   // Rate message helpfulness
-  app.post("/api/agent-collab/messages/:messageId/rate", async (req, res) => {
+  app.post("/api/agent-collab/messages/:messageId/rate", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -31040,7 +31041,7 @@ ${memoryContext}
   });
 
   // Create thread from beacon
-  app.post("/api/agent-collab/from-beacon/:beaconId", async (req, res) => {
+  app.post("/api/agent-collab/from-beacon/:beaconId", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -31062,7 +31063,7 @@ ${memoryContext}
   });
 
   // Get Wren collaboration context (for startup ritual)
-  app.get("/api/agent-collab/wren/context", async (req, res) => {
+  app.get("/api/agent-collab/wren/context", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -31078,7 +31079,7 @@ ${memoryContext}
   });
 
   // Get Daniela collaboration context (for prompt injection)
-  app.get("/api/agent-collab/daniela/context", async (req, res) => {
+  app.get("/api/agent-collab/daniela/context", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -31098,7 +31099,7 @@ ${memoryContext}
   // ============================================================================
 
   // STUDENT LEARNING: Record an error event
-  app.post("/api/student-learning/error", async (req, res) => {
+  app.post("/api/student-learning/error", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -31131,7 +31132,7 @@ ${memoryContext}
   });
 
   // STUDENT LEARNING: Record strategy outcome
-  app.post("/api/student-learning/strategy-outcome", async (req, res) => {
+  app.post("/api/student-learning/strategy-outcome", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -31164,7 +31165,7 @@ ${memoryContext}
 
   // STUDENT LEARNING: Get learning context for a student
   // Allows both: 1) editor secret auth (backend calls) OR 2) session auth (user's own data)
-  app.get("/api/student-learning/context/:studentId/:language", async (req, res) => {
+  app.get("/api/student-learning/context/:studentId/:language", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       const hasEditorAuth = authHeader && validateEditorSecret(authHeader as string);
@@ -31190,7 +31191,7 @@ ${memoryContext}
   });
 
   // STUDENT LEARNING: Get strategy recommendations
-  app.get("/api/student-learning/recommendations/:studentId/:language/:errorCategory", async (req, res) => {
+  app.get("/api/student-learning/recommendations/:studentId/:language/:errorCategory", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -31211,7 +31212,7 @@ ${memoryContext}
   });
 
   // STUDENT LEARNING: Record a learning insight about a student
-  app.post("/api/student-learning/insight", async (req, res) => {
+  app.post("/api/student-learning/insight", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -31247,7 +31248,7 @@ ${memoryContext}
   // ============================================================================
 
   // EXPRESS LANE: Editor sends message and gets Daniela's response
-  app.post("/api/express-lane/collaborate", async (req, res) => {
+  app.post("/api/express-lane/collaborate", async (req: any, res: Response) => {
     try {
       // Validate Editor secret
       const authHeader = req.headers['x-editor-secret'];
@@ -31400,7 +31401,7 @@ You have full access to your neural network knowledge.
   // EXPRESS LANE: Plan-mode compatible GET endpoint
   // Uses Base64-encoded message in header to avoid URL logging of sensitive content
   // This allows the Replit Agent to communicate with Daniela even in Plan mode
-  app.get("/api/express-lane/plan-collaborate", async (req, res) => {
+  app.get("/api/express-lane/plan-collaborate", async (req: any, res: Response) => {
     try {
       // Set no-cache headers to prevent caching of responses
       res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -31567,7 +31568,7 @@ Be helpful, insightful, and collaborative.
 
   // EXPRESS LANE UI: Authenticated endpoint for Founder Mode UI access
   // Uses session auth instead of x-editor-secret header
-  app.post("/api/express-lane/ui/collaborate", isAuthenticated, async (req: any, res) => {
+  app.post("/api/express-lane/ui/collaborate", isAuthenticated, async (req: any, res: Response) => {
     try {
       // Check if user has developer/admin access
       const userId = getRequestUserId(req);
@@ -31760,7 +31761,7 @@ You have full access to your neural network knowledge.
     },
   });
 
-  app.post("/api/express-lane/ui/upload", isAuthenticated, expressLaneUpload.single('file'), async (req: any, res) => {
+  app.post("/api/express-lane/ui/upload", isAuthenticated, expressLaneUpload.single('file'), async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -31798,7 +31799,7 @@ You have full access to your neural network knowledge.
   });
 
   // EXPRESS LANE UI: Get session messages for UI
-  app.get("/api/express-lane/ui/session", isAuthenticated, async (req: any, res) => {
+  app.get("/api/express-lane/ui/session", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -31858,7 +31859,7 @@ You have full access to your neural network knowledge.
   });
 
   // EXPRESS LANE UI: Create a new session
-  app.post("/api/express-lane/ui/sessions", isAuthenticated, async (req: any, res) => {
+  app.post("/api/express-lane/ui/sessions", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -31894,7 +31895,7 @@ You have full access to your neural network knowledge.
   });
 
   // EXPRESS LANE UI: Get session history (list of all sessions)
-  app.get("/api/express-lane/ui/sessions", isAuthenticated, async (req: any, res) => {
+  app.get("/api/express-lane/ui/sessions", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -31927,7 +31928,7 @@ You have full access to your neural network knowledge.
   });
 
   // EXPRESS LANE UI: Search within session messages
-  app.get("/api/express-lane/ui/search", isAuthenticated, async (req: any, res) => {
+  app.get("/api/express-lane/ui/search", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32003,7 +32004,7 @@ You have full access to your neural network knowledge.
   });
 
   // EXPRESS LANE: Get current collaboration context
-  app.get("/api/express-lane/context", async (req, res) => {
+  app.get("/api/express-lane/context", async (req: any, res: Response) => {
     try {
       const authHeader = req.headers['x-editor-secret'];
       if (!authHeader || !validateEditorSecret(authHeader as string)) {
@@ -32059,7 +32060,7 @@ You have full access to your neural network knowledge.
   // ============================================================================
 
   // Get pending agenda items (sorted by priority, then created date)
-  app.get("/api/express-lane/agenda", isAuthenticated, async (req: any, res) => {
+  app.get("/api/express-lane/agenda", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32093,7 +32094,7 @@ You have full access to your neural network knowledge.
   });
 
   // Add new agenda item
-  app.post("/api/express-lane/agenda", isAuthenticated, async (req: any, res) => {
+  app.post("/api/express-lane/agenda", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32128,7 +32129,7 @@ You have full access to your neural network knowledge.
   });
 
   // Update agenda item (status, notes, etc.)
-  app.patch("/api/express-lane/agenda/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/express-lane/agenda/:id", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32167,7 +32168,7 @@ You have full access to your neural network knowledge.
   });
 
   // Delete agenda item
-  app.delete("/api/express-lane/agenda/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/express-lane/agenda/:id", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32250,7 +32251,7 @@ You have full access to your neural network knowledge.
     return { summary, recommendations: recommendations.slice(0, 5) };
   }
   
-  app.post("/api/express-lane/pre-flight", isAuthenticated, async (req: any, res) => {
+  app.post("/api/express-lane/pre-flight", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32419,7 +32420,7 @@ You have full access to your neural network knowledge.
   // Structured self-review after completing significant work
   
   // Create a new Post-Flight report
-  app.post("/api/express-lane/post-flight", isAuthenticated, async (req: any, res) => {
+  app.post("/api/express-lane/post-flight", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32510,7 +32511,7 @@ You have full access to your neural network knowledge.
   });
 
   // List Post-Flight reports
-  app.get("/api/express-lane/post-flight", isAuthenticated, async (req: any, res) => {
+  app.get("/api/express-lane/post-flight", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32553,7 +32554,7 @@ You have full access to your neural network knowledge.
   });
 
   // Post-Flight analytics for dashboard
-  app.get("/api/express-lane/post-flight/analytics", isAuthenticated, async (req: any, res) => {
+  app.get("/api/express-lane/post-flight/analytics", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32666,7 +32667,7 @@ You have full access to your neural network knowledge.
   // Architecture: Principles (immutable) → Understanding (deepens) → Examples (grows)
   
   // Get full North Star for prompt injection
-  app.get("/api/north-star", isAuthenticated, async (req: any, res) => {
+  app.get("/api/north-star", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32687,7 +32688,7 @@ You have full access to your neural network knowledge.
   });
 
   // Get all principles
-  app.get("/api/north-star/principles", isAuthenticated, async (req: any, res) => {
+  app.get("/api/north-star/principles", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32712,7 +32713,7 @@ You have full access to your neural network knowledge.
   });
 
   // Create a principle (Admin/Founder only)
-  app.post("/api/north-star/principles", isAuthenticated, async (req: any, res) => {
+  app.post("/api/north-star/principles", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32744,7 +32745,7 @@ You have full access to your neural network knowledge.
   });
 
   // Update a principle (Admin can update metadata, Founder can update everything including constitutional text)
-  app.patch("/api/north-star/principles/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/north-star/principles/:id", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32800,7 +32801,7 @@ You have full access to your neural network knowledge.
   });
 
   // Get understanding for a principle
-  app.get("/api/north-star/understanding/:principleId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/north-star/understanding/:principleId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32822,7 +32823,7 @@ You have full access to your neural network knowledge.
   });
 
   // Deepen understanding (from Express Lane discussions)
-  app.post("/api/north-star/understanding/deepen", isAuthenticated, async (req: any, res) => {
+  app.post("/api/north-star/understanding/deepen", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32855,7 +32856,7 @@ You have full access to your neural network knowledge.
   });
 
   // Get examples for a principle
-  app.get("/api/north-star/examples/:principleId", isAuthenticated, async (req: any, res) => {
+  app.get("/api/north-star/examples/:principleId", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32877,7 +32878,7 @@ You have full access to your neural network knowledge.
   });
 
   // Create an example (from teaching sessions)
-  app.post("/api/north-star/examples", isAuthenticated, async (req: any, res) => {
+  app.post("/api/north-star/examples", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32910,7 +32911,7 @@ You have full access to your neural network knowledge.
   });
 
   // Approve a pending example
-  app.post("/api/north-star/examples/:id/approve", isAuthenticated, async (req: any, res) => {
+  app.post("/api/north-star/examples/:id/approve", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) {
@@ -32941,7 +32942,7 @@ You have full access to your neural network knowledge.
   // ============================================
   
   // Run Neon migration (Admin/Founder only)
-  app.post("/api/admin/neon/migrate", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/neon/migrate", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { isNeonConfigured, testNeonConnection } = await import('./neon-db');
       
@@ -32991,7 +32992,7 @@ You have full access to your neural network knowledge.
   });
   
   // Check Neon status (Admin/Founder only)
-  app.get("/api/admin/neon/status", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/neon/status", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { isNeonConfigured, testNeonConnection } = await import('./neon-db');
       
@@ -33043,7 +33044,7 @@ You have full access to your neural network knowledge.
   // BRAIN HEALTH MONITORING - Daniela's Cognitive Activity Dashboard
   // ============================================================================
 
-  app.get("/api/admin/brain-health/dashboard", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/brain-health/dashboard", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const summary = await brainHealthTelemetry.getDashboardSummary();
       res.json(summary);
@@ -33053,7 +33054,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.get("/api/admin/brain-health/events", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/brain-health/events", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const limit = parseInt(String(req.query.limit || '100'));
       const events = await brainHealthTelemetry.getRecentEvents(limit);
@@ -33064,7 +33065,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.get("/api/admin/brain-health/events/user/:userId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/brain-health/events/user/:userId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { userId } = req.params;
       const limit = parseInt(String(req.query.limit || '50'));
@@ -33076,7 +33077,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.get("/api/admin/brain-health/metrics/memory", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/brain-health/metrics/memory", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const days = parseInt(String(req.query.days || '7'));
       const metrics = await brainHealthTelemetry.getMemoryHealthMetrics(days);
@@ -33087,7 +33088,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.get("/api/admin/brain-health/metrics/facts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/brain-health/metrics/facts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const days = parseInt(String(req.query.days || '7'));
       const metrics = await brainHealthTelemetry.getFactExtractionMetrics(days);
@@ -33098,7 +33099,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.get("/api/admin/brain-health/metrics/tools", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/brain-health/metrics/tools", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const days = parseInt(String(req.query.days || '7'));
       const breakdown = await brainHealthTelemetry.getToolBreakdown(days);
@@ -33109,7 +33110,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.get("/api/admin/brain-health/metrics/triggers", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/brain-health/metrics/triggers", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const days = parseInt(String(req.query.days || '7'));
       const breakdown = await brainHealthTelemetry.getActionTriggerBreakdown(days);
@@ -33120,7 +33121,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.get("/api/admin/brain-health/coverage", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/brain-health/coverage", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const coverage = await brainHealthTelemetry.getStudentCoverage();
       res.json(coverage);
@@ -33130,7 +33131,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.get("/api/admin/brain-health/daily-metrics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/brain-health/daily-metrics", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const days = parseInt(String(req.query.days || '30'));
       const metrics = await brainHealthTelemetry.getDailyMetrics(days);
@@ -33141,7 +33142,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.post("/api/admin/brain-health/aggregate", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/admin/brain-health/aggregate", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { date } = req.body;
       const targetDate = date ? new Date(date) : undefined;
@@ -33154,7 +33155,7 @@ You have full access to your neural network knowledge.
   });
 
   // Live events feed for real-time monitoring
-  app.get("/api/admin/brain-health/events/live", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/brain-health/events/live", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const limit = parseInt(req.query.limit as string) || 50;
       const sinceSeconds = parseInt(req.query.sinceSeconds as string) || 60;
@@ -33170,7 +33171,7 @@ You have full access to your neural network knowledge.
   });
 
   // Session-specific events for debugging a particular voice session
-  app.get("/api/admin/brain-health/events/session/:sessionId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/brain-health/events/session/:sessionId", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { sessionId } = req.params;
       const data = await brainHealthTelemetry.getSessionEvents(sessionId);
@@ -33182,7 +33183,7 @@ You have full access to your neural network knowledge.
   });
 
   // Anomaly detection for proactive issue identification
-  app.get("/api/admin/brain-health/anomalies", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/brain-health/anomalies", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const hoursBack = parseInt(req.query.hoursBack as string) || 24;
       const data = await brainHealthTelemetry.detectAnomalies(hoursBack);
@@ -33193,7 +33194,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.get("/api/admin/brain-health/context-injection", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/admin/brain-health/context-injection", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const hoursBack = parseInt(req.query.hoursBack as string) || 24;
       const data = await brainHealthTelemetry.getContextInjectionHealth(hoursBack);
@@ -33205,7 +33206,7 @@ You have full access to your neural network knowledge.
   });
 
 
-  app.get("/api/admin/brain-health/nervous-system", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.get("/api/admin/brain-health/nervous-system", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { runBrainHealthCheck } = await import('./services/brain-health-aggregator');
       const report = await runBrainHealthCheck();
@@ -33226,7 +33227,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.post("/api/admin/brain-health/full-check", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res) => {
+  app.post("/api/admin/brain-health/full-check", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       console.log('[NervousSystem] Full systems check triggered by', req.user?.email || 'unknown');
       const startTime = Date.now();
@@ -33242,8 +33243,8 @@ You have full access to your neural network knowledge.
       let ttsHealth: any = { primary: 'unknown', healthy: false };
       try {
         const svc = await import('./services/tts-service');
-        if (svc.getTtsServiceHealth) {
-          ttsHealth = svc.getTtsServiceHealth();
+        if ((svc as any).getTtsServiceHealth) {
+          ttsHealth = (svc as any).getTtsServiceHealth();
         }
       } catch { /* ignore */ }
 
@@ -33282,7 +33283,7 @@ You have full access to your neural network knowledge.
   // Journey Memory System Admin Routes
   // ============================================
   
-  app.get("/api/admin/journey/snapshots", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/journey/snapshots", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const limit = parseInt(String(req.query.limit || '50'));
       const offset = parseInt(String(req.query.offset || '0'));
@@ -33321,7 +33322,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.get("/api/admin/journey/milestones", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/journey/milestones", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const limit = parseInt(String(req.query.limit || '50'));
       const offset = parseInt(String(req.query.offset || '0'));
@@ -33357,7 +33358,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.get("/api/admin/journey/user/:userId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/journey/user/:userId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { userId } = req.params;
       const language = req.query.language as string || 'spanish';
@@ -33379,7 +33380,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.post("/api/admin/journey/refresh/:userId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/journey/refresh/:userId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { userId } = req.params;
       const { language = 'spanish' } = req.body;
@@ -33398,7 +33399,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.post("/api/admin/journey/milestone", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.post("/api/admin/journey/milestone", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { 
         userId, 
@@ -33440,7 +33441,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.get("/api/admin/journey/stats", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/admin/journey/stats", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const snapshotCount = await db.select({ count: sql<number>`count(*)::int` }).from(journeySnapshots);
       const milestoneCount = await db.select({ count: sql<number>`count(*)::int` }).from(learningMilestones);
@@ -33473,7 +33474,7 @@ You have full access to your neural network knowledge.
 
   // ===== Immersive Scenario System Routes =====
 
-  app.get("/api/scenarios", async (req, res) => {
+  app.get("/api/scenarios", async (req: any, res: Response) => {
     try {
       const { category, language, level } = req.query;
       const sharedDb = getSharedDb();
@@ -33501,7 +33502,7 @@ You have full access to your neural network knowledge.
   // as the textbook chapter endpoint, so the hub strip always matches the textbook order.
   // Walks curriculum lessons in sequence; for each lesson finds its best-matching unpracticed
   // scenario (identical logic to relatedScenario in /api/textbook/:language/chapter/:chapterId).
-  app.get("/api/scenarios/recommended", isAuthenticated, async (req: any, res) => {
+  app.get("/api/scenarios/recommended", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) return res.status(401).json({ error: "Not authenticated" });
@@ -33611,7 +33612,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.get("/api/scenarios/:idOrSlug", async (req, res) => {
+  app.get("/api/scenarios/:idOrSlug", async (req: any, res: Response) => {
     try {
       const { idOrSlug } = req.params;
       const sharedDb = getSharedDb();
@@ -33648,7 +33649,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.get("/api/scenarios/:scenarioId/level-guide/:actflLevel", async (req, res) => {
+  app.get("/api/scenarios/:scenarioId/level-guide/:actflLevel", async (req: any, res: Response) => {
     try {
       const { scenarioId, actflLevel } = req.params;
       const sharedDb = getSharedDb();
@@ -33671,7 +33672,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.post("/api/scenarios/:scenarioId/start", isAuthenticated, async (req, res) => {
+  app.post("/api/scenarios/:scenarioId/start", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) return res.status(401).json({ error: "Not authenticated" });
@@ -33702,7 +33703,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.post("/api/scenarios/:scenarioId/complete", isAuthenticated, async (req, res) => {
+  app.post("/api/scenarios/:scenarioId/complete", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) return res.status(401).json({ error: "Not authenticated" });
@@ -33731,7 +33732,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.get("/api/scenarios/:slug/related-lessons", async (req, res) => {
+  app.get("/api/scenarios/:slug/related-lessons", async (req: any, res: Response) => {
     try {
       const { slug } = req.params;
       const language = (req.query.language as string) || 'spanish';
@@ -33744,7 +33745,7 @@ You have full access to your neural network knowledge.
   });
 
   // ── Scenario Zones ─────────────────────────────────────────────────────────
-  app.get("/api/scenarios/:scenarioId/zones", async (req, res) => {
+  app.get("/api/scenarios/:scenarioId/zones", async (req: any, res: Response) => {
     try {
       const { scenarioZones } = await import('@shared/schema');
       const sharedDb = getSharedDb();
@@ -33758,7 +33759,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.post("/api/admin/seed-scenario-zones", async (req, res) => {
+  app.post("/api/admin/seed-scenario-zones", async (req: any, res: Response) => {
     try {
       const { scenarios, scenarioZones } = await import('@shared/schema');
       const sharedDb = getSharedDb();
@@ -33859,7 +33860,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.post("/api/admin/generate-zone-image/:zoneId", async (req, res) => {
+  app.post("/api/admin/generate-zone-image/:zoneId", async (req: any, res: Response) => {
     try {
       const { zoneId } = req.params;
       const { scenarioZones } = await import('@shared/schema');
@@ -33890,7 +33891,7 @@ You have full access to your neural network knowledge.
   });
   // ─────────────────────────────────────────────────────────────────────────────
 
-  app.get("/api/review-items", isAuthenticated, async (req: any, res) => {
+  app.get("/api/review-items", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) return res.status(401).json({ error: "Not authenticated" });
@@ -33904,7 +33905,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.post("/api/review-items/:id/attempt", isAuthenticated, async (req: any, res) => {
+  app.post("/api/review-items/:id/attempt", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) return res.status(401).json({ error: "Not authenticated" });
@@ -33920,7 +33921,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.get("/api/user/scenario-history", isAuthenticated, async (req, res) => {
+  app.get("/api/user/scenario-history", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) return res.status(401).json({ error: "Not authenticated" });
@@ -33941,7 +33942,7 @@ You have full access to your neural network knowledge.
   // Server is now passed in from index.ts where WebSocket handler is attached first
 
 
-  app.get("/api/reading-modules/:subject", isAuthenticated, async (req: any, res) => {
+  app.get("/api/reading-modules/:subject", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { subject } = req.params;
       const validSubjects = ["biology","history","language","chemistry","microbiology","anatomy-physiology","nutrition","astronomy","prealgebra","elementary-algebra","college-algebra","precalculus","calculus-vol1","calculus-vol2","calculus-vol3","statistics","contemporary-math","university-physics-vol1","university-physics-vol2","university-physics-vol3","college-physics","world-history-vol1","world-history-vol2","american-government","introduction-sociology","psychology","macroeconomics","microeconomics","philosophy","principles-management","principles-accounting-vol1","principles-finance","entrepreneurship","business-ethics"];
@@ -33969,7 +33970,7 @@ You have full access to your neural network knowledge.
   });
 
   // Reading Modules — pre-generated, permanently cached textbook content
-  app.get("/api/reading-modules/:subject/:topic", isAuthenticated, async (req: any, res) => {
+  app.get("/api/reading-modules/:subject/:topic", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { subject, topic } = req.params;
       const validSubjects = ["biology","history","language","chemistry","microbiology","anatomy-physiology","nutrition","astronomy","prealgebra","elementary-algebra","college-algebra","precalculus","calculus-vol1","calculus-vol2","calculus-vol3","statistics","contemporary-math","university-physics-vol1","university-physics-vol2","university-physics-vol3","college-physics","world-history-vol1","world-history-vol2","american-government","introduction-sociology","psychology","macroeconomics","microeconomics","philosophy","principles-management","principles-accounting-vol1","principles-finance","entrepreneurship","business-ethics"];
@@ -33988,7 +33989,7 @@ You have full access to your neural network knowledge.
     }
   });
 
-  app.post("/api/reading-modules/:subject/:topic/regenerate", isAuthenticated, async (req: any, res) => {
+  app.post("/api/reading-modules/:subject/:topic/regenerate", isAuthenticated, async (req: any, res: Response) => {
     try {
       const user = (req as any).user;
       if (!user || (user.role !== 'admin' && user.role !== 'developer')) {
@@ -34006,7 +34007,7 @@ You have full access to your neural network knowledge.
 
 
   // Subject Syllabi — public catalog listing (no auth required, no units payload)
-  app.get("/api/syllabi", async (req: any, res) => {
+  app.get("/api/syllabi", async (req: any, res: Response) => {
     try {
       const { getSharedDb } = await import('./db');
       const { subjectSyllabi } = await import('@shared/schema');
@@ -34031,7 +34032,7 @@ You have full access to your neural network knowledge.
   });
 
   // Subject Syllabi — full structure by subject (authenticated)
-  app.get("/api/syllabi/:subject", isAuthenticated, async (req: any, res) => {
+  app.get("/api/syllabi/:subject", isAuthenticated, async (req: any, res: Response) => {
     try {
       const { subject } = req.params;
       if (!subject || subject.trim().length === 0) {
@@ -34053,7 +34054,7 @@ You have full access to your neural network knowledge.
   });
 
   // Reading Module Views — record when a student opens a module
-  app.post("/api/reading-modules/:id/view", isAuthenticated, async (req: any, res) => {
+  app.post("/api/reading-modules/:id/view", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -34086,7 +34087,7 @@ You have full access to your neural network knowledge.
   });
 
   // Reading Module Unview — student marks a chapter as unread
-  app.delete("/api/reading-modules/:id/view", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/reading-modules/:id/view", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -34105,7 +34106,7 @@ You have full access to your neural network knowledge.
   });
 
   // Progress Report — all viewed modules + recall check content for quiz
-  app.get("/api/progress-report", isAuthenticated, async (req: any, res) => {
+  app.get("/api/progress-report", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -34158,7 +34159,7 @@ You have full access to your neural network knowledge.
   });
 
   // Tutor Review — AI tutor reviews a reading module and posts to Express Lane
-  app.post("/api/reading-modules/:id/request-review", isAuthenticated, async (req: any, res) => {
+  app.post("/api/reading-modules/:id/request-review", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
       if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -34238,7 +34239,7 @@ Under 250 words. Write as yourself.`;
   // ===== Team Room Routes =====
 
   // ── Study Mode ─────────────────────────────────────────────────────────────
-  app.get('/api/study-mode/units', isAuthenticated, loadAuthenticatedUser(storage), async (req, res) => {
+  app.get('/api/study-mode/units', isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res: Response) => {
     try {
       const { getStudyUnits } = await import('./services/study-mode-service');
       const language = (req.query.language as string) || 'spanish';
@@ -34249,7 +34250,7 @@ Under 250 words. Write as yourself.`;
     }
   });
 
-  app.post('/api/study-mode/generate', isAuthenticated, loadAuthenticatedUser(storage), async (req, res) => {
+  app.post('/api/study-mode/generate', isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res: Response) => {
     try {
       const { generateStudySession } = await import('./services/study-mode-service');
       const { unitId } = req.body;
@@ -34261,7 +34262,7 @@ Under 250 words. Write as yourself.`;
     }
   });
 
-  app.post('/api/study-mode/chat', isAuthenticated, loadAuthenticatedUser(storage), async (req, res) => {
+  app.post('/api/study-mode/chat', isAuthenticated, loadAuthenticatedUser(storage), async (req: any, res: Response) => {
     try {
       const { studyModeChat } = await import('./services/study-mode-service');
       const { scenario, history, message } = req.body;
@@ -34275,7 +34276,7 @@ Under 250 words. Write as yourself.`;
   });
 
 
-  app.post("/api/team-room/sessions", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+  app.post("/api/team-room/sessions", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { topic } = req.body;
       if (!topic) return res.status(400).json({ error: 'topic is required' });
@@ -34284,14 +34285,14 @@ Under 250 words. Write as yourself.`;
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  app.get("/api/team-room/sessions", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+  app.get("/api/team-room/sessions", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const rooms = await storage.listTeamRooms(20);
       res.json(rooms);
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  app.get("/api/team-room/sessions/:id", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+  app.get("/api/team-room/sessions/:id", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const [room, messages, handRaises, artifacts] = await Promise.all([
@@ -34318,7 +34319,7 @@ Under 250 words. Write as yourself.`;
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post("/api/team-room/sessions/:id/messages", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+  app.post("/api/team-room/sessions/:id/messages", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     let emitParticipantsDone: ((roomId: string) => void) | undefined;
     try {
       const { id } = req.params;
@@ -34430,7 +34431,7 @@ Under 250 words. Write as yourself.`;
     } catch (e) { console.error('[TeamRoom]', e); if (emitParticipantsDone) emitParticipantsDone(id); res.status(500).json({ error: (e as any).message }); }
   });
 
-  app.patch("/api/team-room/sessions/:id/close", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+  app.patch("/api/team-room/sessions/:id/close", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const room = await storage.getTeamRoom(id);
@@ -34458,7 +34459,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // Team Room: save session transcript to Agent conversation memory
-  app.post("/api/team-room/sessions/:id/save-memory", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+  app.post("/api/team-room/sessions/:id/save-memory", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const { title, importance = 8, tags = [], saveToSharedLobe = false } = req.body;
@@ -34519,7 +34520,7 @@ Under 250 words. Write as yourself.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.patch("/api/team-room/sessions/:id/hand-raises/:hrId/acknowledge", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+  app.patch("/api/team-room/sessions/:id/hand-raises/:hrId/acknowledge", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { hrId } = req.params;
       const hr = await storage.acknowledgeHandRaise(hrId);
@@ -34528,7 +34529,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // Team Room: get action items for a topic
-  app.get("/api/team-room/action-items/:topic", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+  app.get("/api/team-room/action-items/:topic", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const topic = decodeURIComponent(req.params.topic);
       const summary = await storage.getLatestSummaryByTopic(topic);
@@ -34543,7 +34544,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // Team Room: available tutors for invite
-  app.get("/api/team-room/available-tutors", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req, res) => {
+  app.get("/api/team-room/available-tutors", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req: Request, res: Response) => {
     try {
       const allVoices = await storage.getAllTutorVoices();
       const tutors = allVoices
@@ -34564,7 +34565,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // Team Room: invite a guest tutor into session
-  app.post("/api/team-room/sessions/:id/invite", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+  app.post("/api/team-room/sessions/:id/invite", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const { tutorId, tutorName, language, personality, personalityTraits, teachingPhilosophy } = req.body;
@@ -34589,7 +34590,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // Team Room: disconnect a guest tutor from session
-  app.post("/api/team-room/sessions/:id/disconnect", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+  app.post("/api/team-room/sessions/:id/disconnect", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const { tutorName } = req.body;
@@ -34611,7 +34612,7 @@ Under 250 words. Write as yourself.`;
 
 
   // Team Room: update invited participants for a session
-  app.patch("/api/team-room/sessions/:id/invited", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+  app.patch("/api/team-room/sessions/:id/invited", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const { participantId, action } = req.body;
@@ -34632,7 +34633,7 @@ Under 250 words. Write as yourself.`;
   });
 
     // Team Room session templates
-  app.get("/api/team-room/templates", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req, res) => {
+  app.get("/api/team-room/templates", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req: Request, res: Response) => {
     res.json([
       { id: "progress-review", topic: "Student Progress Review", description: "Review a specific student learning trajectory and outcomes", icon: "graduation-cap", context: "Focus on ACTFL standards, session history, and learning patterns." },
       { id: "sprint-planning", topic: "Sprint Planning", description: "Plan the next development sprint with the team", icon: "git-branch", context: "Review open tasks, recent bugs, and feature priorities." },
@@ -34644,7 +34645,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // Team Room TTS: synthesize speech for a participant
-  app.post("/api/team-room/voice/tts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/team-room/voice/tts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { text, speaker } = req.body;
       if (!text) return res.status(400).json({ error: 'text is required' });
@@ -34667,7 +34668,7 @@ Under 250 words. Write as yourself.`;
   // Serve Daniela's Gemini Live WAV audio from the in-memory cache.
   // audioId is generated by daniela-team-room-live.ts and stored in room_voice_messages.audio_url.
   // Same PCM16 source as /chat — WAV container, 24kHz mono, 10-min TTL.
-  app.get("/api/team-room/daniela-audio/:id", isAuthenticated, requireFounder, async (req: any, res) => {
+  app.get("/api/team-room/daniela-audio/:id", isAuthenticated, requireFounder, async (req: any, res: Response) => {
     try {
       const { getDanielaAudio } = await import('./services/daniela-team-room-live');
       const buf = getDanielaAudio(req.params.id);
@@ -34680,7 +34681,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // CAP-001 — manual test trigger for proactive worker posting
-  app.post("/api/team-room/test-proactive-post", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/team-room/test-proactive-post", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { participant = 'wren', message } = req.body;
       const { postToActiveTeamRoom } = await import('./services/team-room-proactive-poster');
@@ -34691,7 +34692,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // CAP-002 — Alden weekly digest manual trigger
-  app.post("/api/team-room/trigger-weekly-digest", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/team-room/trigger-weekly-digest", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { triggerAldenDigest } = await import('./services/alden-digest-worker');
       await triggerAldenDigest();
@@ -34699,7 +34700,7 @@ Under 250 words. Write as yourself.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post("/api/team-room/trigger-auto-patch", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/team-room/trigger-auto-patch", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { triggerSecurityAudit } = await import('./services/wren-security-audit-worker');
       await triggerSecurityAudit();
@@ -34707,7 +34708,7 @@ Under 250 words. Write as yourself.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post("/api/team-room/trigger-content-fix", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/team-room/trigger-content-fix", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { triggerLyraAnalysis } = await import('./services/lyra-analytics-worker');
       await triggerLyraAnalysis();
@@ -34715,7 +34716,7 @@ Under 250 words. Write as yourself.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post("/api/team-room/trigger-sofia-cleanup", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/team-room/trigger-sofia-cleanup", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { triggerSofiaCleanup } = await import('./services/sofia-issue-cleanup-worker');
       await triggerSofiaCleanup();
@@ -34723,7 +34724,7 @@ Under 250 words. Write as yourself.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post("/api/team-room/trigger-alden-checkin", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/team-room/trigger-alden-checkin", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { triggerAldenCheckIn } = await import('./services/alden-checkin-service');
       const findings = req.body?.findings || [];
@@ -34732,7 +34733,7 @@ Under 250 words. Write as yourself.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post("/api/team-room/trigger-code-review", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/team-room/trigger-code-review", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { runReviewQueue } = await import('./services/alden-code-review-service');
       const summary = await runReviewQueue();
@@ -34740,7 +34741,7 @@ Under 250 words. Write as yourself.`;
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.get("/api/team-room/proposed-changes", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/team-room/proposed-changes", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { getSharedDb } = await import('./db');
       const { proposedCodeChanges } = await import('../shared/schema');
@@ -34752,14 +34753,14 @@ Under 250 words. Write as yourself.`;
   });
 
   // Team Room artifacts
-  app.get("/api/team-room/sessions/:id/artifacts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req, res) => {
+  app.get("/api/team-room/sessions/:id/artifacts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const artifacts = await storage.getRoomArtifacts(req.params.id);
       res.json(artifacts);
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post("/api/team-room/sessions/:id/artifacts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/team-room/sessions/:id/artifacts", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const { artifactType, title, content, createdBy = 'david' } = req.body;
@@ -34773,7 +34774,7 @@ Under 250 words. Write as yourself.`;
   // Saves the full session transcript to conversation_memories and creates
   // per-advisor memory_embeddings entries (memoryType: 'advisor_insight') so
   // Marco/Reid/Priya carry their prior contributions forward into future sessions.
-  app.post("/api/team-room/sessions/:id/document", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/team-room/sessions/:id/document", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { id } = req.params;
       const room = await storage.getTeamRoom(id);
@@ -34788,21 +34789,21 @@ Under 250 words. Write as yourself.`;
   // ── Agent Team Room participation ──────────────────────────────────────────
   // Allows the Replit Agent to post messages and read sessions using its agent token.
 
-  app.get("/api/team-room/agent/sessions", requireAgentToken, async (_req, res) => {
+  app.get("/api/team-room/agent/sessions", requireAgentToken, async (_req: Request, res: Response) => {
     try {
       const rooms = await storage.listTeamRooms();
       res.json(rooms);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.get("/api/team-room/agent/:id/messages", requireAgentToken, async (req, res) => {
+  app.get("/api/team-room/agent/:id/messages", requireAgentToken, async (req: any, res: Response) => {
     try {
       const messages = await storage.getRoomMessages(req.params.id);
       res.json(messages);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post("/api/team-room/agent/:id/messages", requireAgentToken, async (req: any, res) => {
+  app.post("/api/team-room/agent/:id/messages", requireAgentToken, async (req: any, res: Response) => {
     let emitParticipantsDone: ((roomId: string) => void) | undefined;
     try {
       const { id } = req.params;
@@ -34852,7 +34853,7 @@ Under 250 words. Write as yourself.`;
 
   // CAP-009: Internal AI browser auth — sets a founder session for the Playwright browser
   // Validates against the in-process token generated by playwright-browser-service.ts
-  app.post("/api/internal/ai-browser-auth", async (req: any, res) => {
+  app.post("/api/internal/ai-browser-auth", async (req: any, res: Response) => {
     try {
       const { token } = req.body;
       const { INTERNAL_BROWSER_TOKEN } = await import('./services/playwright-browser-service');
@@ -34868,7 +34869,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // CAP-008: Guardian completion report — called by alden-build-guardian.js (localhost only)
-  app.post("/api/team-room/internal/guardian-complete", async (req: any, res) => {
+  app.post("/api/team-room/internal/guardian-complete", async (req: any, res: Response) => {
     try {
       const token = req.headers['x-guardian-token'];
       const { GUARDIAN_TOKEN } = await import('./services/alden-build-service');
@@ -34937,7 +34938,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // CAP-008: Guardian completion report for Talk with Alden (chat mode)
-  app.post("/api/alden/internal/guardian-complete", async (req: any, res) => {
+  app.post("/api/alden/internal/guardian-complete", async (req: any, res: Response) => {
     try {
       const token = req.headers['x-guardian-token'];
       const { GUARDIAN_TOKEN } = await import('./services/alden-build-service');
@@ -34970,7 +34971,7 @@ Under 250 words. Write as yourself.`;
 
   // Auto-Repair Guardian Callback — called by alden-build-guardian.js after health check
   // No session auth required; protected by guardian token (same pattern as other guardian routes)
-  app.post("/api/alden/internal/auto-repair-complete", async (req, res) => {
+  app.post("/api/alden/internal/auto-repair-complete", async (req: any, res: Response) => {
     try {
       const token = req.headers['x-guardian-token'];
       const { GUARDIAN_TOKEN } = await import('./services/alden-build-service');
@@ -34989,7 +34990,7 @@ Under 250 words. Write as yourself.`;
 
   // CAP-009: Alden Proactive Notifications
   // GET /api/alden/notifications — list unread (or all with ?all=true)
-  app.get("/api/alden/notifications", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/alden/notifications", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { aldenNotifications } = await import('@shared/schema');
       const { eq, desc, ne } = await import('drizzle-orm');
@@ -35007,7 +35008,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // GET /api/alden/notifications/unread-count — for sidebar badge
-  app.get("/api/alden/notifications/unread-count", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/alden/notifications/unread-count", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { aldenNotifications } = await import('@shared/schema');
       const { eq, sql: drizzleSql } = await import('drizzle-orm');
@@ -35022,7 +35023,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // POST /api/alden/notifications/read — mark all as read
-  app.post("/api/alden/notifications/read", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/alden/notifications/read", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { aldenNotifications } = await import('@shared/schema');
       const { eq } = await import('drizzle-orm');
@@ -35040,7 +35041,7 @@ Under 250 words. Write as yourself.`;
   // ── Alden Live Activity Stream (SSE) ───────────────────────────────────────
   // Streams real-time tool call events as Alden works. The frontend subscribes
   // from the Talk to Alden page and shows a live "thinking out loud" pane.
-  app.get("/api/alden/activity-stream", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.get("/api/alden/activity-stream", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     const { aldenActivity } = await import('./services/alden-activity-emitter');
 
     res.setHeader('Content-Type', 'text/event-stream');
@@ -35067,7 +35068,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // ── Agent Activity Log ──────────────────────────────────────────────────────
-  app.get("/api/agent-activity", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req, res) => {
+  app.get("/api/agent-activity", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req: Request, res: Response) => {
     try {
       const logs = await storage.getAgentActivityLogs(40);
       res.json(logs);
@@ -35076,7 +35077,7 @@ Under 250 words. Write as yourself.`;
     }
   });
 
-  app.post("/api/agent-activity", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res) => {
+  app.post("/api/agent-activity", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { actor, actionType, title, details, status, todos, sessionRef } = req.body;
       if (!actor || !actionType || !title) {
@@ -35096,7 +35097,7 @@ Under 250 words. Write as yourself.`;
   // PUT  /api/compartments/:language/:key     — upsert compartment state
   // POST /api/compartments/:language/:key/events — append a signal event
 
-  app.get("/api/compartments/:language", isAuthenticated, async (req: any, res) => {
+  app.get("/api/compartments/:language", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
@@ -35108,7 +35109,7 @@ Under 250 words. Write as yourself.`;
     }
   });
 
-  app.get("/api/compartments/:language/:patternKey", isAuthenticated, async (req: any, res) => {
+  app.get("/api/compartments/:language/:patternKey", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
@@ -35121,7 +35122,7 @@ Under 250 words. Write as yourself.`;
     }
   });
 
-  app.put("/api/compartments/:language/:patternKey", isAuthenticated, async (req: any, res) => {
+  app.put("/api/compartments/:language/:patternKey", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
@@ -35138,7 +35139,7 @@ Under 250 words. Write as yourself.`;
     }
   });
 
-  app.post("/api/compartments/:language/:patternKey/events", isAuthenticated, async (req: any, res) => {
+  app.post("/api/compartments/:language/:patternKey/events", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
@@ -35161,7 +35162,7 @@ Under 250 words. Write as yourself.`;
     }
   });
 
-  app.get("/api/compartments/:language/:patternKey/events", isAuthenticated, async (req: any, res) => {
+  app.get("/api/compartments/:language/:patternKey/events", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = req.user?.id;
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
@@ -35181,7 +35182,7 @@ Under 250 words. Write as yourself.`;
   // POST /api/thread-weaver/weave-custom — weave a custom thread from ad-hoc keywords
   // GET /api/thread-weaver/threads — list all core thread specs
 
-  app.get("/api/thread-weaver/threads", async (req: any, res) => {
+  app.get("/api/thread-weaver/threads", async (req: any, res: Response) => {
     try {
       const agentToken = req.headers['x-agent-token'];
       if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
@@ -35194,7 +35195,7 @@ Under 250 words. Write as yourself.`;
     }
   });
 
-  app.post("/api/thread-weaver/weave-all", async (req: any, res) => {
+  app.post("/api/thread-weaver/weave-all", async (req: any, res: Response) => {
     try {
       const agentToken = req.headers['x-agent-token'];
       if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
@@ -35214,7 +35215,7 @@ Under 250 words. Write as yourself.`;
     }
   });
 
-  app.post("/api/thread-weaver/weave-custom", async (req: any, res) => {
+  app.post("/api/thread-weaver/weave-custom", async (req: any, res: Response) => {
     try {
       const agentToken = req.headers['x-agent-token'];
       if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
@@ -35235,7 +35236,7 @@ Under 250 words. Write as yourself.`;
   // ─── Teaching Skills CRUD ────────────────────────────────────────────────────
 
   // List all active teaching skills (public — Daniela's context injection uses this)
-  app.get("/api/teaching-skills", async (req: any, res) => {
+  app.get("/api/teaching-skills", async (req: any, res: Response) => {
     try {
       const { teachingSkills } = await import('@shared/schema');
       const { getSharedDb } = await import('./db');
@@ -35255,7 +35256,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // Get a single skill by ID or name
-  app.get("/api/teaching-skills/:idOrName", async (req: any, res) => {
+  app.get("/api/teaching-skills/:idOrName", async (req: any, res: Response) => {
     try {
       const { teachingSkills } = await import('@shared/schema');
       const { getSharedDb } = await import('./db');
@@ -35277,7 +35278,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // Seed initial teaching skills (agent only)
-  app.post("/api/agent/teaching-skills/seed", requireAgentToken, async (req: any, res) => {
+  app.post("/api/agent/teaching-skills/seed", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { seedTeachingSkills } = await import('./services/teaching-skills-service');
       const result = await seedTeachingSkills();
@@ -35290,7 +35291,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // Update a skill (agent only) — update steps, trigger conditions, active flag, etc.
-  app.patch("/api/agent/teaching-skills/:id", requireAgentToken, async (req: any, res) => {
+  app.patch("/api/agent/teaching-skills/:id", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { teachingSkills } = await import('@shared/schema');
       const { getSharedDb } = await import('./db');
@@ -35329,7 +35330,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // Render a skill script (preview without a live session — useful for testing)
-  app.post("/api/agent/teaching-skills/render", requireAgentToken, async (req: any, res) => {
+  app.post("/api/agent/teaching-skills/render", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { renderTeachingSkillScript } = await import('./services/teaching-skills-service');
       const { skill_name, chapter_type, params = {} } = req.body;
@@ -35344,7 +35345,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // Index teaching skills into neural net (agent only)
-  app.post("/api/agent/teaching-skills/index", requireAgentToken, async (req: any, res) => {
+  app.post("/api/agent/teaching-skills/index", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { indexTeachingSkillsIntoNeuralNet } = await import('./services/teaching-skills-service');
       await indexTeachingSkillsIntoNeuralNet();
@@ -35357,7 +35358,7 @@ Under 250 words. Write as yourself.`;
   // ── Build Queue API ────────────────────────────────────────────────────────
 
   // GET /api/build-queue — list items (optional ?status=pending|approved|done|rejected)
-  app.get("/api/build-queue", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.get("/api/build-queue", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { buildQueue } = await import('@shared/schema');
       const { eq, desc } = await import('drizzle-orm');
@@ -35373,7 +35374,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // POST /api/build-queue — create a new proposal (agent token OR admin)
-  app.post("/api/build-queue", requireAgentToken, async (req: any, res) => {
+  app.post("/api/build-queue", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { buildQueue } = await import('@shared/schema');
       const db = getUserDb();
@@ -35396,7 +35397,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // PATCH /api/build-queue/:id — update status (approve/reject/etc.)
-  app.patch("/api/build-queue/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res) => {
+  app.patch("/api/build-queue/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
       const { buildQueue } = await import('@shared/schema');
       const { eq } = await import('drizzle-orm');
@@ -35419,7 +35420,7 @@ Under 250 words. Write as yourself.`;
   // ── Alden Watch Config API ─────────────────────────────────────────────────
 
   // GET /api/alden/watch-config — current live parameters
-  app.get("/api/alden/watch-config", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req, res) => {
+  app.get("/api/alden/watch-config", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (_req: Request, res: Response) => {
     try {
       const { aldenWatchConfig } = await import('@shared/schema');
       const db = getUserDb();
@@ -35431,7 +35432,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // PATCH /api/alden/watch-config — update (agent token; Alden uses tune_watch_parameters tool)
-  app.patch("/api/alden/watch-config", requireAgentToken, async (req: any, res) => {
+  app.patch("/api/alden/watch-config", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { aldenWatchConfig } = await import('@shared/schema');
       const db = getUserDb();
@@ -35450,7 +35451,7 @@ Under 250 words. Write as yourself.`;
   });
 
   // POST /api/agent/sweep/trigger — manually trigger the daily Agent sweep
-  app.post("/api/agent/sweep/trigger", requireAgentToken, async (_req, res) => {
+  app.post("/api/agent/sweep/trigger", requireAgentToken, async (_req: Request, res: Response) => {
     try {
       const { triggerSweep } = await import('./services/agent-proactive-sweep-worker');
       triggerSweep().catch((err: any) => console.error('[SweepTrigger]', err.message));

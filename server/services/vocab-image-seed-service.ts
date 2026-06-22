@@ -1291,7 +1291,6 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'sauber':       SPLIT('sauber', 'a sparkling clean white plate gleaming under light', 'schmutzig', 'a dirty muddy plate covered in smudges'),
   'schmutzig':    SPLIT('sauber', 'a sparkling clean white plate gleaming under light', 'schmutzig', 'a dirty muddy plate covered in smudges'),
   'voll':         SPLIT('voll', 'a completely full glass of water to the brim', 'leer', 'a completely empty glass with nothing in it'),
-  'leer':         SPLIT('voll', 'a completely full glass of water to the brim', 'leer', 'a completely empty glass with nothing in it'),
 
   // ── Adjective Pairs — Italian ─────────────────────────────────────────────
   'buono':       SPLIT('buono', 'a bright sunny day with a smiling happy face and a green checkmark', 'cattivo', 'a stormy grey sky with a frowning face and a red X'),
@@ -1359,8 +1358,6 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'orgullosa':        'a single large round emoji face with a smug satisfied smile, eyebrows slightly raised in pride, chest-puffed look, warm golden circle on a clean white background, modern bold flat emoji style, no text, no other objects',
   'alegre':           'a single large round emoji face with a wide beaming smile, bright cheerful eyes, and small sparkle lines around it, bright warm yellow circle on a clean white background, modern bold flat emoji style, no text, no other objects',
   // Cross-language emotion synonyms — same emoji concept as Spanish originals (language-neutral)
-  'triste':           'a single large round emoji face with a deeply downturned mouth and big glistening teary eyes, pale blue circle on a clean white background, modern bold flat emoji style, no text, no other objects',
-  'heureux':          'a single large round emoji face with a wide beaming smile and bright sparkling eyes, golden yellow circle on a clean white background, modern bold flat emoji style, no text, no other objects',
   'heureuse':         'a single large round emoji face with a wide beaming smile and bright sparkling eyes, golden yellow circle on a clean white background, modern bold flat emoji style, no text, no other objects',
   'en colere':        'a single large round emoji face with deeply furrowed brows, clenched teeth, and a hot angry flush, bright red-orange circle on a clean white background, modern bold flat emoji style, no text, no other objects',
   'nerveux':          'a single large round emoji face with wide jittery eyes, a wavy uncertain mouth, and sweat drop on forehead, pale green circle on a clean white background, modern bold flat emoji style, no text, no other objects',
@@ -1370,8 +1367,6 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'effraye':          'a single large round emoji face with enormous frightened eyes, eyebrows arched to the top, and a screaming open mouth, pale purple-blue circle on a clean white background, modern bold flat emoji style, no text, no other objects',
   'excite':           'a single large round emoji face with a huge excited grin, sparkling star-shaped eyes, vibrant orange-yellow circle on a clean white background, modern bold flat emoji style, no text, no other objects',
   // German
-  'glucklich':        'a single large round emoji face with a wide beaming smile and bright sparkling eyes, golden yellow circle on a clean white background, modern bold flat emoji style, no text, no other objects',
-  'traurig':          'a single large round emoji face with a deeply downturned mouth and big glistening teary eyes, pale blue circle on a clean white background, modern bold flat emoji style, no text, no other objects',
   'wutend':           'a single large round emoji face with deeply furrowed brows and clenched teeth, bright red-orange circle on a clean white background, modern bold flat emoji style, no text, no other objects',
   'uberrascht':       'a single large round emoji face with eyebrows shooting up and a wide O-shaped mouth, bright white circle with light gray ring, modern bold flat emoji style, no text, no other objects',
   'mude':             'a single large round emoji face with drooping sleepy eyelids and a yawning mouth, soft indigo-blue circle on a clean white background, modern bold flat emoji style, no text, no other objects',
@@ -1401,7 +1396,6 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'me llamo...':               'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
   'me llamo your name':        'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
   // Italian
-  'mi chiamo':                 'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
   // French
   'je mappelle':               'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
   'je m appelle':              'warmly pressing a hand to their chest and pointing to themselves with a confident friendly smile, making a self-introduction gesture',
@@ -1425,14 +1419,10 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'yo desayuno':               'cozy breakfast table scene with a bowl of cereal, toast, orange juice glass, and a small plant, morning sunlight streaming in through a window, no people, soft watercolor children\'s book illustration style, warm gentle colors, no text no words',
   'desayuno':                  'cozy breakfast table scene with a bowl of cereal, toast, orange juice glass, and a small plant, morning sunlight streaming in through a window, no people, soft watercolor children\'s book illustration style, warm gentle colors, no text no words',
   // "más despacio, por favor" → gentle slow-down gesture
-  'mas despacio por favor':    'a person calmly holding up one open palm in a slow calming gesture, patient and kind expression, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
   'mas despacio':              'a person calmly holding up one open palm in a slow calming gesture, patient and kind expression, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
   // "no entiendo" → friendly puzzled shrug
-  'no entiendo':               'a young student with a gentle puzzled expression, head tilted slightly, soft question mark doodle floating nearby, friendly and relatable, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
   'no comprendo':              'a young student with a gentle puzzled expression, head tilted slightly, soft question mark doodle floating nearby, friendly and relatable, soft watercolor children\'s book illustration style, warm gentle colors, clean fine ink outlines, no text no words',
   // "¿qué significa?" / "¿cómo se dice?" — already 4-word filtered on frontend, but give them decent images if they slip through
-  'que significa':             'a person pointing at a word on a chalkboard with a curious expression, thought bubble with a question mark, soft watercolor children\'s book illustration style, no text in image no words',
-  'como se dice':              'two friends having a friendly conversation, one pointing to their mouth while speaking, the other listening attentively, soft watercolor children\'s book illustration style, no text no words',
   // ── Health & Body — avoid literal/graphic AI interpretations ──────────────
   // "dolor" / "el dolor" → mild relatable discomfort, NOT a dramatic heart or wound
   'dolor':           'a young woman sitting down, gently pressing her fingertips to her temple with a mild wince, soft warm watercolor, no blood or wounds',
@@ -1440,9 +1430,7 @@ export const SCENE_OVERRIDES: Record<string, string> = {
   'pain':            'a person gently holding their shoulder with a slightly pained expression, mild and relatable',
   'duele':           'a person gently rubbing their knee with a slight frown',
   'me duele':        'a person gently holding their head with a slight uncomfortable expression',
-  'fiebre':          'a person lying in bed with a warm blanket pulled up, holding a thermometer, soft warm watercolor',
   'la fiebre':       'a person lying in bed with a warm blanket pulled up, holding a thermometer, soft warm watercolor',
-  'enfermo':         'a person in pajamas sitting in an armchair wrapped in a blanket looking unwell',
   'enferma':         'a person in pajamas sitting in an armchair wrapped in a blanket looking unwell',
   'el resfriado':    'a person wrapped in a cozy scarf blowing their nose with a tissue, warm soft watercolor',
   'la gripe':        'a person in bed with a box of tissues nearby and a warm mug',

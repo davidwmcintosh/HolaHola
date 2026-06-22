@@ -1660,7 +1660,7 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(teacherClasses, eq(classEnrollments.classId, teacherClasses.id))
       .where(and(
         eq(classEnrollments.studentId, userId),
-        eq(classEnrollments.status, 'active'),
+        eq(classEnrollments.isActive, true),
         sql`LOWER(${teacherClasses.language}) = ${normalizedLanguage}`
       ))
       .limit(1);
@@ -2110,7 +2110,7 @@ export class DatabaseStorage implements IStorage {
       ))
       .limit(1);
     
-    return result[0];
+    return result[0] as Message | undefined;
   }
 
   async getMessagesByConversation(conversationId: string): Promise<Message[]> {
@@ -2156,7 +2156,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(messages.createdAt))
       .limit(limit);
     
-    return results;
+    return results as Array<Message & { conversationTitle: string | null }>;
   }
 
   async createVocabularyWord(data: InsertVocabularyWord): Promise<VocabularyWord> {
@@ -6027,7 +6027,7 @@ export class DatabaseStorage implements IStorage {
     const role = data.role || 'tutor';
     
     const validTutorProviders = ['cartesia', 'elevenlabs', 'google', 'gemini', 'gemini-live', 'gemini-live-35'];
-    if (role === 'tutor' && !validTutorProviders.includes(data.provider)) {
+    if (role === 'tutor' && !validTutorProviders.includes(data.provider!)) {
       throw new Error('[Voice Guard] Main tutors must use Cartesia, ElevenLabs, Google, Gemini, or Gemini Live voices.');
     }
     if ((role === 'assistant' || role === 'support') && data.provider !== 'google') {
@@ -6301,6 +6301,7 @@ export class DatabaseStorage implements IStorage {
     conversationsDeleted: number;
     progressReset: boolean;
     lessonsDeleted: number;
+    firstMeetingReset: boolean;
   }> {
     const opts = {
       resetVocabulary: true,
@@ -6461,7 +6462,7 @@ export class DatabaseStorage implements IStorage {
       })
       .where(and(
         eq(classEnrollments.classId, classId),
-        eq(classEnrollments.userId, studentId)
+        eq(classEnrollments.studentId, studentId)
       ));
     placementReset = true;
 
@@ -7373,7 +7374,7 @@ export class DatabaseStorage implements IStorage {
   // ===== AGENT COLLABORATION METHODS =====
   
   async createCollaborationEvent(event: InsertAgentCollaborationEvent): Promise<AgentCollaborationEvent> {
-    const [created] = await db.insert(agentCollaborationEvents).values([event]).returning();
+    const [created] = await db.insert(agentCollaborationEvents).values([event as any]).returning();
     return created;
   }
   
@@ -7597,7 +7598,7 @@ export class DatabaseStorage implements IStorage {
   // ===== ARIS (ASSISTANT TUTOR) STORAGE =====
   
   async createArisDrillAssignment(assignment: InsertArisDrillAssignment): Promise<ArisDrillAssignment> {
-    const [created] = await db.insert(arisDrillAssignments).values([assignment]).returning();
+    const [created] = await db.insert(arisDrillAssignments).values([assignment as any]).returning();
     return created;
   }
   
@@ -7633,7 +7634,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createArisDrillResult(result: InsertArisDrillResult): Promise<ArisDrillResult> {
-    const [created] = await db.insert(arisDrillResults).values([result]).returning();
+    const [created] = await db.insert(arisDrillResults).values([result as any]).returning();
     return created;
   }
   
@@ -7684,7 +7685,7 @@ export class DatabaseStorage implements IStorage {
   // ===== FEATURE SPRINT SYSTEM STORAGE =====
 
   async createFeatureSprint(data: InsertFeatureSprint): Promise<FeatureSprint> {
-    const [created] = await db.insert(featureSprints).values([data]).returning();
+    const [created] = await db.insert(featureSprints).values([data as any]).returning();
     return created;
   }
 
@@ -7819,7 +7820,7 @@ export class DatabaseStorage implements IStorage {
   async createProjectContextSnapshot(data: InsertProjectContextSnapshot): Promise<ProjectContextSnapshot> {
     // First deactivate all existing snapshots
     await this.deactivateOldSnapshots();
-    const [created] = await db.insert(projectContextSnapshots).values([{ ...data, isActive: true }]).returning();
+    const [created] = await db.insert(projectContextSnapshots).values([{ ...data, isActive: true } as any]).returning();
     return created;
   }
 
@@ -7830,7 +7831,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAiSuggestion(data: InsertAiSuggestion): Promise<AiSuggestion> {
-    const [created] = await db.insert(aiSuggestions).values([data]).returning();
+    const [created] = await db.insert(aiSuggestions).values([data as any]).returning();
     return created;
   }
 
@@ -7896,7 +7897,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async insertDanielaGrowthMemory(data: InsertDanielaGrowthMemory): Promise<string> {
-    const [created] = await db.insert(danielaGrowthMemories).values([data]).returning();
+    const [created] = await db.insert(danielaGrowthMemories).values([data as any]).returning();
     return created.id;
   }
   
@@ -8018,7 +8019,7 @@ export class DatabaseStorage implements IStorage {
   // ===== COLLABORATIVE SURGERY SESSIONS =====
   
   async createSurgerySession(data: InsertSurgerySession): Promise<SurgerySession> {
-    const [created] = await db.insert(surgerySessions).values([data]).returning();
+    const [created] = await db.insert(surgerySessions).values([data as any]).returning();
     return created;
   }
   
@@ -8054,7 +8055,7 @@ export class DatabaseStorage implements IStorage {
   }
   
   async createSurgeryTurn(data: InsertSurgeryTurn): Promise<SurgeryTurn> {
-    const [created] = await db.insert(surgeryTurns).values([data]).returning();
+    const [created] = await db.insert(surgeryTurns).values([data as any]).returning();
     return created;
   }
   

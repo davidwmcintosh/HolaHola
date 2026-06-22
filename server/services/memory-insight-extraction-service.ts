@@ -17,6 +17,9 @@ import type { HiveSnapshotType, InsertDanielaGrowthMemory, GrowthMemoryCategory,
 import { desc, eq, and, sql, gte, lte, isNull, or, asc } from "drizzle-orm";
 import { callGemini, GEMINI_MODELS } from "../gemini-utils";
 
+// Shared db instance
+const db = getSharedDb();
+
 // Cached North Star principles for efficient validation
 let cachedNorthStarPrinciples: NorthStarPrinciple[] | null = null;
 let cacheTimestamp = 0;

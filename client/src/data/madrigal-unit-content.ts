@@ -2417,7 +2417,7 @@ const FRENCH_FUTUR_PROCHE: HayUnitContent = {
 // ── French present perfect (présent parfait) ──────────────────────────────────
 
 const FRENCH_JAI_REGARDE: HayUnitContent = {
-  chapterTitleKey: 'i have watched french',
+  chapterTitleKey: "j'ai regardé",
   conceptLabel: "J'ai regardé",
   conceptDefinition: "I have watched · passé composé as present perfect · as-tu déjà...? / je n'ai jamais...",
   introNote: "In French, one form does double duty: j'ai regardé means both 'I watched' and 'I have watched.' Add déjà (already) or jamais (never) and you unlock the present perfect entirely.",
@@ -5760,7 +5760,26 @@ const HEBREW_ANI_ELECH: HayUnitContent = {
 const HAY_UNITS: HayUnitContent[] = [
   PUEDO_IR,
   HAY_CHAPTER,
-  // ── French present-tense verb units ─────────────────────────────────────────
+  // ── French passé composé / preterite chain units ─────────────────────────────
+  // More-specific keys MUST come before less-specific ones that are substrings:
+  //   "j'ai pris/acheté/étudié/reçu/regardé" before "j'ai"
+  //   "je suis allé" before "je suis"
+  //   "je vais + infinitif" before "je vais"
+  FRENCH_JAI_PRIS,
+  FRENCH_JAI_ACHETE,
+  FRENCH_JAI_ETUDIE,
+  FRENCH_JAI_RECU,
+  FRENCH_JAI_REGARDE,
+  FRENCH_JE_SUIS_ALLE,
+  FRENCH_FUTUR_PROCHE,
+  FRENCH_OU_SUIS_JE,
+  FRENCH_QU_EST_CE_QU_IL_A_FAIT,
+  FRENCH_IL_A_EU,
+  FRENCH_LUI,
+  FRENCH_CEST_PROPRE,
+  FRENCH_JE_VOUDRAIS,
+  FRENCH_IL_VA,
+  // ── French present-tense verb units (less-specific keys last) ────────────────
   FRENCH_VOULOIR,
   FRENCH_AVOIR,
   FRENCH_ALLER,
@@ -5768,21 +5787,6 @@ const HAY_UNITS: HayUnitContent[] = [
   FRENCH_AIMER,
   FRENCH_IL_Y_A,
   FRENCH_POUVOIR,
-  // ── French passé composé / preterite chain units ─────────────────────────────
-  FRENCH_OU_SUIS_JE,
-  FRENCH_JAI_PRIS,
-  FRENCH_JAI_ACHETE,
-  FRENCH_JE_VOUDRAIS,
-  FRENCH_JE_SUIS_ALLE,
-  FRENCH_IL_VA,
-  FRENCH_QU_EST_CE_QU_IL_A_FAIT,
-  FRENCH_IL_A_EU,
-  FRENCH_LUI,
-  FRENCH_CEST_PROPRE,
-  FRENCH_JAI_ETUDIE,
-  FRENCH_JAI_RECU,
-  FRENCH_FUTUR_PROCHE,
-  FRENCH_JAI_REGARDE,
   // ── German present-tense verb units ──────────────────────────────────────────
   GERMAN_ICH_GEHE,
   GERMAN_ICH_HABE,

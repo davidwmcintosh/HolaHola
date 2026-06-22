@@ -637,26 +637,11 @@ export const CONCEPT_KEY_MAP: Record<string, string> = {
 
   // Numbers — kanji (also shared with Mandarin for the same characters)
   '〇': 'concept_num_0', '零': 'concept_num_0',
-  '一': 'concept_num_1', '二': 'concept_num_2', '三': 'concept_num_3',
-  '四': 'concept_num_4', '五': 'concept_num_5', '六': 'concept_num_6',
-  '七': 'concept_num_7', '八': 'concept_num_8', '九': 'concept_num_9',
-  '十': 'concept_num_10', '十一': 'concept_num_11', '十二': 'concept_num_12',
-  '十三': 'concept_num_13', '十四': 'concept_num_14', '十五': 'concept_num_15',
-  '十六': 'concept_num_16', '十七': 'concept_num_17', '十八': 'concept_num_18',
-  '十九': 'concept_num_19', '二十': 'concept_num_20', '二十一': 'concept_num_21',
   '三十': 'concept_num_30', '四十': 'concept_num_40', '五十': 'concept_num_50',
   '六十': 'concept_num_60', '七十': 'concept_num_70', '八十': 'concept_num_80',
   '九十': 'concept_num_90', '百': 'concept_num_100', '千': 'concept_num_1000',
 
   // Numbers — hiragana/katakana phonetic forms
-  'ゼロ': 'concept_num_0', 'れい': 'concept_num_0',
-  'いち': 'concept_num_1', 'に': 'concept_num_2', 'さん': 'concept_num_3',
-  'し': 'concept_num_4', 'よん': 'concept_num_4',
-  'ご': 'concept_num_5', 'ろく': 'concept_num_6',
-  'なな': 'concept_num_7', 'しち': 'concept_num_7',
-  'はち': 'concept_num_8', 'きゅう': 'concept_num_9', 'く': 'concept_num_9',
-  'じゅう': 'concept_num_10', 'ひゃく': 'concept_num_100', 'せん': 'concept_num_1000',
-  'にじゅう': 'concept_num_20', 'さんじゅう': 'concept_num_30',
 
   // Colors
   '赤': 'concept_color_red', '赤色': 'concept_color_red',
@@ -722,21 +707,6 @@ export const CONCEPT_KEY_MAP: Record<string, string> = {
   // ══════════════════════════════════════════════════════════════════════
 
   // Numbers — Sino-Korean (한자어)
-  '영': 'concept_num_0', '공': 'concept_num_0',
-  '일': 'concept_num_1',
-  '이': 'concept_num_2',
-  '삼': 'concept_num_3',
-  '사': 'concept_num_4',
-  '오': 'concept_num_5',
-  '육': 'concept_num_6', '륙': 'concept_num_6',
-  '칠': 'concept_num_7',
-  '팔': 'concept_num_8',
-  '구': 'concept_num_9',
-  '십': 'concept_num_10',
-  '십일': 'concept_num_11', '십이': 'concept_num_12', '십삼': 'concept_num_13',
-  '십사': 'concept_num_14', '십오': 'concept_num_15', '십육': 'concept_num_16',
-  '십칠': 'concept_num_17', '십팔': 'concept_num_18', '십구': 'concept_num_19',
-  '이십': 'concept_num_20', '삼십': 'concept_num_30', '사십': 'concept_num_40',
   '오십': 'concept_num_50', '육십': 'concept_num_60', '칠십': 'concept_num_70',
   '팔십': 'concept_num_80', '구십': 'concept_num_90',
   '백': 'concept_num_100', '천': 'concept_num_1000',
@@ -1075,7 +1045,6 @@ export const CONCEPT_KEY_MAP: Record<string, string> = {
   // FR/DE "orange" → color was excluded from color map due to fruit ambiguity; here we map to fruit
   'orange':      'vocab_spanish_naranja_fruta', // FR/DE/EN — fruit image
   'arancia':     'vocab_spanish_naranja_fruta', // IT
-  'オレンジ':       'vocab_spanish_naranja_fruta', // JA
   '오렌지':        'vocab_spanish_naranja_fruta', // KO
   '橙子':         'vocab_spanish_naranja_fruta', // ZH
 
@@ -1521,8 +1490,6 @@ export const CONCEPT_KEY_MAP: Record<string, string> = {
   'ir dormir':      'vocab_spanish_acostarse', // PT alt
   'go to bed':      'vocab_spanish_acostarse', // EN
   'goes to bed':    'vocab_spanish_acostarse', // EN he/she
-  'ねる':           'vocab_spanish_acostarse', // JA (寝る)
-  '자다':          'vocab_spanish_acostarse', // KO
 
   // get dressed (vestirse)
   // "s'habiller" → normalizeWord → "shabiller" (apostrophe removed, no space)
@@ -1540,33 +1507,23 @@ export const CONCEPT_KEY_MAP: Record<string, string> = {
 
   // speak / talk (hablar) — conjugated FR/DE/IT/PT/ES/EN forms included
   // "Tu parles." → strip tu → parles → vocab_spanish_hablar ✓
-  'parler':      'vocab_spanish_hablar', // FR infinitive
   'parle':       'vocab_spanish_hablar', // FR je/il/elle parle
   'parles':      'vocab_spanish_hablar', // FR tu parles
   'parlons':     'vocab_spanish_hablar', // FR nous parlons
   'parlez':      'vocab_spanish_hablar', // FR vous parlez
   'parlent':     'vocab_spanish_hablar', // FR ils parlent
-  'sprechen':    'vocab_spanish_hablar', // DE infinitive
   'spreche':     'vocab_spanish_hablar', // DE ich spreche
   'sprichst':    'vocab_spanish_hablar', // DE du sprichst
   'spricht':     'vocab_spanish_hablar', // DE er/sie/es spricht
-  'parlare':     'vocab_spanish_hablar', // IT infinitive
   'parlo':       'vocab_spanish_hablar', // IT io parlo
   'parla':       'vocab_spanish_hablar', // IT lui/lei parla
   'parlano':     'vocab_spanish_hablar', // IT loro parlano
-  'falar':       'vocab_spanish_hablar', // PT infinitive
   'falo':        'vocab_spanish_hablar', // PT eu falo
   'fala':        'vocab_spanish_hablar', // PT ele/ela fala
-  'speak':       'vocab_spanish_hablar', // EN
   'speaks':      'vocab_spanish_hablar', // EN he/she speaks
-  'talk':        'vocab_spanish_hablar', // EN alt
   'talks':       'vocab_spanish_hablar', // EN he/she talks
   'hablo':       'vocab_spanish_hablar', // ES yo hablo
   'habla':       'vocab_spanish_hablar', // ES él/ella habla
-  'はなす':       'vocab_spanish_hablar', // JA
-  '話す':        'vocab_spanish_hablar', // JA kanji
-  '말하다':       'vocab_spanish_hablar', // KO
-  '说话':        'vocab_spanish_hablar', // ZH
 
   // ── Body Parts (all point to shared body diagram) ─────────────────────────
   // head (cabeza)
@@ -1606,7 +1563,6 @@ export const CONCEPT_KEY_MAP: Record<string, string> = {
   'braco':       'vocab_spanish_brazo', // PT (braço)
   'うで':         'vocab_spanish_brazo', // JA
   '腕':           'vocab_spanish_brazo', // JA/ZH
-  '팔':           'vocab_spanish_brazo', // KO
 
   // eye (ojo)
   'oeil':        'vocab_spanish_ojo', // FR (œil)
@@ -1647,8 +1603,6 @@ export const CONCEPT_KEY_MAP: Record<string, string> = {
   'gamba':       'vocab_spanish_pierna', // IT
   'perna':       'vocab_spanish_pierna', // PT
   'leg':         'vocab_spanish_pierna', // EN
-  'あし':         'vocab_spanish_pierna', // JA (same kana as foot; body diagram covers both)
-  '脚':           'vocab_spanish_pierna', // ZH
   '다리':         'vocab_spanish_pierna', // KO
 
   // ear (oreja)
@@ -1941,7 +1895,6 @@ export const CONCEPT_KEY_MAP: Record<string, string> = {
   'leger':       'vocab_spanish_ligero', // FR (léger)
   'leicht':      'vocab_spanish_ligero', // DE
   'leggero':     'vocab_spanish_ligero', // IT
-  'leve':        'vocab_spanish_ligero', // PT
   'light':       'vocab_spanish_ligero', // EN (lightweight sense; color sense is "claro")
   'かるい':        'vocab_spanish_ligero', // JA
   '軽い':         'vocab_spanish_ligero', // JA
@@ -2401,7 +2354,6 @@ export const CONCEPT_KEY_MAP: Record<string, string> = {
   'ship':        'vocab_spanish_barco', // EN alt
   'ふね':         'vocab_spanish_barco', // JA
   '船':           'vocab_spanish_barco', // JA/ZH shared
-  '배':           'vocab_spanish_barco', // KO
   // Note: "barco" same in ES and PT
 
   // subway / metro (metro)

@@ -337,16 +337,6 @@ const GOOGLE_VOICE_MAP: Record<string, { name: string; languageCode: string }> =
  * Chirp 3 HD doesn't support SSML - must use WaveNet/Neural2 for phoneme pronunciation
  */
 const GOOGLE_SSML_VOICE_MAP: Record<string, { name: string; languageCode: string }> = {
-  'spanish': { name: 'es-US-Neural2-A', languageCode: 'es-US' }, // Female Neural2
-  'english': { name: 'en-US-Neural2-F', languageCode: 'en-US' }, // Female Neural2
-  'french': { name: 'fr-FR-Neural2-A', languageCode: 'fr-FR' }, // Female Neural2
-  'german': { name: 'de-DE-Neural2-A', languageCode: 'de-DE' }, // Female Neural2
-  'italian': { name: 'it-IT-Neural2-A', languageCode: 'it-IT' }, // Female Neural2
-  'portuguese': { name: 'pt-BR-Neural2-A', languageCode: 'pt-BR' }, // Female Neural2
-  'japanese': { name: 'ja-JP-Neural2-B', languageCode: 'ja-JP' }, // Female Neural2
-  'mandarin chinese': { name: 'cmn-CN-Wavenet-A', languageCode: 'cmn-CN' }, // Female Wavenet
-  'korean': { name: 'ko-KR-Neural2-A', languageCode: 'ko-KR' }, // Female Neural2
-  'hebrew': { name: 'he-IL-Wavenet-A', languageCode: 'he-IL' }, // Female Wavenet
 };
 
 /**
@@ -437,50 +427,50 @@ export function getAssistantVoice(
  * Selected voices optimized for language tutoring (conversational, clear pronunciation)
  */
 const CARTESIA_VOICE_MAP: Record<string, { voiceId: string; languageCode: string; name: string }> = {
-  'english': { 
+  'english': {
     voiceId: '573e3144-a684-4e72-ac2b-9b2063a50b53', // Teacher Lady - perfect for teaching!
     languageCode: 'en',
-    name: 'Teacher Lady'
+    name: 'Teacher Lady',
   },
-  'spanish': { 
+  'spanish': {
     voiceId: '5c5ad5e7-1020-476b-8b91-fdcbe9cc313c', // Mexican Woman - natural Spanish
     languageCode: 'es',
-    name: 'Mexican Woman'
+    name: 'Mexican Woman',
   },
-  'french': { 
+  'french': {
     voiceId: 'a249eaff-1e96-4d2c-b23b-12efa4f66f41', // French Conversational Lady
     languageCode: 'fr',
-    name: 'French Conversational Lady'
+    name: 'French Conversational Lady',
   },
-  'german': { 
+  'german': {
     voiceId: '3f4ade23-6eb4-4279-ab05-6a144947c4d5', // German Conversational Woman
     languageCode: 'de',
-    name: 'German Conversational Woman'
+    name: 'German Conversational Woman',
   },
-  'italian': { 
+  'italian': {
     voiceId: '0e21713a-5e9a-428a-bed4-90d410b87f13', // Italian Narrator Woman
     languageCode: 'it',
-    name: 'Italian Narrator Woman'
+    name: 'Italian Narrator Woman',
   },
-  'portuguese': { 
+  'portuguese': {
     voiceId: '700d1ee3-a641-4018-ba6e-899dcadc9e2b', // Pleasant Brazilian Lady
     languageCode: 'pt',
-    name: 'Pleasant Brazilian Lady'
+    name: 'Pleasant Brazilian Lady',
   },
-  'japanese': { 
+  'japanese': {
     voiceId: '2b568345-1d48-4047-b25f-7baccf842eb0', // Japanese Woman Conversational
     languageCode: 'ja',
-    name: 'Japanese Woman Conversational'
+    name: 'Japanese Woman Conversational',
   },
-  'mandarin chinese': { 
+  'mandarin chinese': {
     voiceId: 'e90c6678-f0d3-4767-9883-5d0ecf5894a8', // Chinese Female Conversational
     languageCode: 'zh',
-    name: 'Chinese Female Conversational'
+    name: 'Chinese Female Conversational',
   },
-  'korean': { 
+  'korean': {
     voiceId: '29e5f8b4-b953-4160-848f-40fae182235b', // Korean Calm Woman
     languageCode: 'ko',
-    name: 'Korean Calm Woman'
+    name: 'Korean Calm Woman',
   },
 };
 

@@ -91,7 +91,7 @@ function buildToolKnowledgeRow(entry: (typeof DANIELA_FUNCTION_REGISTRY)[number]
   const schema = decl.parametersJsonSchema as any;
 
   // Derive purpose: first paragraph of the description (up to first blank line)
-  const firstParagraph = decl.description.split(/\n\n/)[0].trim();
+  const firstParagraph = (decl.description || "").split('\n\n')[0].trim();
   const purpose = firstParagraph.length > 500
     ? firstParagraph.slice(0, 497) + '...'
     : firstParagraph;
@@ -109,7 +109,7 @@ function buildToolKnowledgeRow(entry: (typeof DANIELA_FUNCTION_REGISTRY)[number]
     : `${decl.name}()`;
 
   // Derive bestUsedFor: look for WHEN TO USE section in the description
-  const whenToUseMatch = decl.description.match(/WHEN TO USE:?\s*\n([\s\S]*?)(\n\n|$)/i);
+  const whenToUseMatch = (decl.description || "").match(/WHEN TO USE:?\s*\n([\s\S]*?)(\n\n|$)/i);
   let bestUsedFor: string[] | null = null;
   if (whenToUseMatch) {
     bestUsedFor = whenToUseMatch[1]
@@ -218,7 +218,7 @@ export async function runDanielaToolIndexer(): Promise<void> {
     }
     try {
       const row = buildToolKnowledgeRow(tool);
-      const [inserted] = await db.insert(toolKnowledge).values(row).returning({ id: toolKnowledge.id });
+      const [inserted] = await db.insert(toolKnowledge).values(row as any).returning({ id: toolKnowledge.id });
       nameToId.set(name, inserted.id);
       l2Inserted++;
     } catch (err: any) {
@@ -244,12 +244,12 @@ export async function runDanielaToolIndexer(): Promise<void> {
   // Fetch full rows for any tool that needs an embedding
   const toolsNeedingEmbedding = tools.filter(t => {
     const id = nameToId.get(t.declaration.name);
-    return id && !existingEmbedIds.has(id);
+    return id != null && !existingEmbedIds.has(id);
   });
 
   if (toolsNeedingEmbedding.length > 0) {
     const idsNeeded = toolsNeedingEmbedding
-      .map(t => nameToId.get(t.declaration.name))
+      .map(t => nameToId.get(t.declaration.name)!)
       .filter(Boolean) as string[];
 
     const fullRows = await db

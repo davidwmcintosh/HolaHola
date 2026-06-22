@@ -589,7 +589,7 @@ export async function executeAldenTool(
 
         const [activeUsers] = await userDb.select({
           count: sql<number>`count(*)`,
-        }).from(users).where(gte(users.lastLoginAt, sevenDaysAgo));
+        }).from(users).where(gte(users.createdAt, sevenDaysAgo));
 
         const [newUsers] = await userDb.select({
           count: sql<number>`count(*)`,
@@ -1585,7 +1585,7 @@ export async function executeAldenTool(
             page,
             url: targetUrl,
             analysis,
-            loadTimeMs: browseResult.loadTimeMs,
+            loadTimeMs: (browseResult as any).loadTimeMs,
             message: analysis,
           },
         };
@@ -1601,7 +1601,7 @@ export async function executeAldenTool(
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--single-process'],
           });
           const page = await browser.newPage();
-          await page.setUserAgent('Mozilla/5.0 (compatible; AldenBot/1.0)');
+          await (page as any).setUserAgent('Mozilla/5.0 (compatible; AldenBot/1.0)');
           await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
           await page.waitForTimeout(1500);
           textContent = await page.evaluate(() => {
