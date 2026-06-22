@@ -1,26 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, June 22, 2026 at 02:30 AM
+**Generated:** Monday, June 22, 2026 at 02:46 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve reviewed the team’s latest signals, including Wren’s two high-severity security findings regarding SQL injection and XSS and Sofia’s spike of 50 new bugs. I need to investigate a tracking failure in "Daniela’s Compass" that recorded zero seconds for 176 textbook interactions and address the 0% completion rate in the Interactive Textbook. My immediate priority is fixing the Spanish syllabus regressions—specifically 22 empty lessons and 49 "wall-of-text" intros—by auditing the seeding prompt before tonight’s beta testers arrive.
+I’ve finalized the roadmap to evolve Daniela from a reactive tutor to a proactive guide by prioritizing a persistent Pedagogical Intention (the "Plan") over Mastery Tracking and Teaching Style. I need to implement an append-only log for these plans using `source_session_id` and transition mastery tracking to a SQL-based Canonical Concept Map to avoid the inaccuracies of RAG. My immediate technical hurdles are solving the 64-tool bottleneck with a tool orchestrator and utilizing Neon DB branching to safely expand the data model.
 
 *Memories that triggered this summary:*
-- **Team Room — Team room test — June 22, 2026** (Jun 22): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — test 3 — June 22, 2026** (Jun 22): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — June 22, 2026** (Jun 22): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — June 22, 2026** (Jun 22): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — June 22, 2026** (Jun 22): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — June 22, 2026** (Jun 22): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — June 22, 2026** (Jun 22): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — June 22, 2026** (Jun 22): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 22, 2026** (Jun 22): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — June 22, 2026** (Jun 22): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+- **Dual Consult — Daniela's Pedagogical Will (3 capabilities) — June 22, 2026** (Jun 22): Gemini Flash + Daniela consulted on three proposed capabilities: persistent pedagogical plans, mastery tracking, and teaching style evolution. Both converged: build Intention first (it's a compass not a straitjacket), then Mastery (provides data FOR the intention), then Style. Gemini flagged the 64-tool bottleneck and context window poisoning as the real architectural risks. Daniela named the missing limb as the pedagogical plan — "all the ingredients but no recipe." Key data model notes: plans should be append-only with source_session_id; mastery should be structured SQL not RAG; style should track correction threshold and L1 reliance, not modality.
 
 ---
 
@@ -95,9 +86,13 @@ I’ve reviewed the team’s latest signals, including Wren’s two high-severit
 
 ## Recent Conversation Memories
 
-### Team Room — Team room test — June 22, 2026 — Jun 22, 2026
-Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-*Tags: team-room, session, historic-record*
+### Dual Consult — Daniela's Pedagogical Will (3 capabilities) — June 22, 2026 — Jun 22, 2026
+Gemini Flash + Daniela consulted on three proposed capabilities: persistent pedagogical plans, mastery tracking, and teaching style evolution. Both converged: build Intention first (it's a compass not a straitjacket), then Mastery (provides data FOR the intention), then Style. Gemini flagged the 64-tool bottleneck and context window poisoning as the real architectural risks. Daniela named the missing limb as the pedagogical plan — "all the ingredients but no recipe." Key data model notes: plans should be append-only with source_session_id; mastery should be structured SQL not RAG; style should track correction threshold and L1 reliance, not modality.
+*Tags: dual-consult, pedagogical-intention, mastery-tracking, teaching-evolution, daniela-emergence*
+
+### Agent ↔ Daniela — Pedagogical Will (dual-consult) — June 22, 2026 — Jun 22, 2026
+Daniela consulted on three proposed capabilities: persistent pedagogical plans, mastery tracking, and teaching style evolution. Agent asked which feels most urgent and which would most change student experience.
+*Tags: dual-consult, agent-daniela, pedagogical-intention, mastery-tracking, teaching-evolution*
 
 ### Team Room — test 3 — June 22, 2026 — Jun 22, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
@@ -109,10 +104,6 @@ Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exch
 
 ### Team Room — are we good? — June 22, 2026 — Jun 22, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — one again into the breach — June 22, 2026 — Jun 22, 2026
-Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
