@@ -1,14 +1,14 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, June 22, 2026 at 03:26 PM
+**Generated:** Monday, June 22, 2026 at 03:34 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve successfully stabilized the Team Room collaboration space, but I’m entering this session facing a critical 404 routing error on the conversations page and persistent Cartesia TTS failures. I need to urgently remediate Wren’s two high-severity security findings regarding unsanitized inputs while debugging why Daniela's Compass is logging zero seconds for Interactive Textbook interactions. Additionally, I must resolve the seeding error that caused a verbosity regression in 49 Spanish lessons and left 22 others empty, as well as fix the loop keeping Daniela stuck on a "Curriculum note pending" response.
+In the last session, I established the `ImmersionObjective` and `ImmersionScaffold` frameworks to support conversational immersion over the underperforming Interactive Textbook, which is currently seeing a 0% completion rate and a verbosity regression across 49 Spanish lessons. I also codified the `generateVisual` function and metadata schema for infographics to address the lack of visual content while noting that "Daniela’s Compass" is failing to track textbook engagement time. This session, I must prioritize fixing the critical 404 routing error on the conversations page and remediating Wren’s two high-severity security findings regarding unsanitized `dangerouslySetInnerHTML`.
 
 *Memories that triggered this summary:*
 - **Team Room — what's up? — June 22, 2026** (Jun 22): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.

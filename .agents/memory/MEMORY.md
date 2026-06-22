@@ -31,5 +31,6 @@
 - [Session reflection resilience](session-reflection-resilience.md) — pending_reflections table + two-hook design (close→schedule, next-start→process); FOR UPDATE SKIP LOCKED; reflection in target language.
 - [EmbedIndexer OOM pattern](embed-indexer-oom.md) — server heap hits ~4GB at 5 min from background workers; any boot run on the indexer triggers OOM; fix = no boot run, rely on 2h periodic setInterval.
 - [GL greeting double audio](gl-greeting-double-audio.md) — {role:'model', turnComplete:false} before greeting → GL generates second audio to complete turn; recent transcript must skip leading assistant messages or Daniela repeats her own greeting.
+- [System health verifier](system-health-verifier.md) — run `npx tsx server/scripts/verify-system-health.ts` before marking done; checks 26 tables, seeded data, curriculum baseline, worker wiring; zero failures required.
 - [Hybrid INDEX_ONLY / VERBATIM markers](hybrid-index-verbatim-markers.md) — pointer blocks get [INDEX_ONLY], verbatim quotes get [VERBATIM], prose for internalized wisdom; brackets correct for index entries by design.
 - [Pedagogical state machine](pedagogical-state-machine.md) — GL context decay fix; FK gotcha (sessionId = tutorSession.id not GL session ID); State Envelope pattern; Shadow Auditor wired to GL stop().

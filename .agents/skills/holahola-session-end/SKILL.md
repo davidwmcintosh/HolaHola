@@ -11,6 +11,16 @@ description: HolaHola session end checklist — update handoff, batch doc, share
 
 Do all of these before closing a session. Nothing should be skipped on a meaningful build session.
 
+## Step 0 — Run the system verifier first (non-negotiable)
+
+Before anything else:
+
+```
+npx tsx server/scripts/verify-system-health.ts
+```
+
+Zero red failures required. Yellow warnings must be reviewed. **Do not proceed to steps 1–6 if failures exist — fix them first.** This is the gate that prevents "marked done but missing tables / unwired workers / incomplete curriculum."
+
 ## The 6 steps (in order)
 
 1. Update `docs/alden-agent-handoff.md` — "From Agent" section: what was built, decisions, unresolved, what Alden should know
@@ -25,3 +35,4 @@ Do all of these before closing a session. Nothing should be skipped on a meaning
 - `conversation_memories.content` = **verbatim transcript** — never a summary or description
 - Shared lobe only for facts that would still matter 6 months from now
 - MEMORY.md entries must be derivable by topic, not conversation ID
+- The verifier in Step 0 is not optional — it exists because tasks have been marked done with missing DB tables, unwired workers, and incomplete curriculum. Show your work.
