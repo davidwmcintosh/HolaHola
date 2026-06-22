@@ -340,7 +340,7 @@ export async function executeSofiaHelplineTool(
 
       const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
       founderCollabService.emitSofiaIssueAlert({
-        reportId: 0,
+        reportId: String(0),
         issueType: 'ticket_escalation',
         userDescription: `[ESCALATED] ${args.reason}`,
         environment,

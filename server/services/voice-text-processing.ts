@@ -89,7 +89,7 @@ interface ArchitectMessage {
  * 
  * Returns: Array of messages extracted, and text with tags stripped (preserving original whitespace)
  */
-function extractArchitectMessages(text: string): { messages: ArchitectMessage[]; cleanedText: string } {
+export function extractArchitectMessages(text: string): { messages: ArchitectMessage[]; cleanedText: string } {
   const messages: ArchitectMessage[] = [];
   let cleanedText = text;
   

@@ -1132,7 +1132,7 @@ class VoiceDiagnosticsService {
       recentFailures,
       timeDistribution,
       remediation: this.getRemediationStatus(),
-    };
+    } as any;
   }
   // ============================================================
   // SUPPORT SYSTEM INTEGRATION

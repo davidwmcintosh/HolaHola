@@ -966,7 +966,7 @@ app.use((req, res, next) => {
 
       // 3. Flush voice telemetry
       try {
-        await voiceTelemetry.flush();
+        await (voiceTelemetry as any).flush();
         console.log('[Shutdown] Voice telemetry flushed');
       } catch (err: any) {
         console.warn('[Shutdown] Telemetry flush error:', err.message);

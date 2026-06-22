@@ -1617,7 +1617,7 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
       const diagnosticFingerprint = issueType === 'voice_health_transition'
         ? 'vht'
         : reports.slice(0, 5).map(r => {
-            const desc = r.description || '';
+            const desc = (r as any).description || '';
             const expectedMatch = desc.match(/expected=(\?|\d+)/);
             const receivedMatch = desc.match(/received=(\d+)/);
             const audioMatch = desc.match(/playing=(\w+)/);

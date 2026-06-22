@@ -1684,7 +1684,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               // to pause and receive the image before responding to it. (3-flash audit June 13 2026)
               const imageHint = inlineParts.length > 0 ? '\n\n[Image incoming via visual channel — wait to receive it before describing or responding to it]' : '';
               toolResponsePayload = { result: (textOnly || 'done') + imageHint };
-              console.log(`[GeminiLive] Tool ${fcName}: multimodal — returning ${toolResponsePayload.result.length} chars text + ${inlineParts.length} inline part(s) via realtimeInput`);
+              console.log(`[GeminiLive] Tool ${fcName}: multimodal — returning ${(toolResponsePayload.result as string).length} chars text + ${inlineParts.length} inline part(s) via realtimeInput`);
               // Queue inline parts to send after tool response is dispatched.
               // H4 fix: push onto typed array instead of overwriting — batched tool calls
               // (functionCalls[]) would otherwise silently drop earlier calls' images.
@@ -1763,7 +1763,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               break;
             }
             try {
-              this.liveSession.sendRealtimeInput({
+              (this.liveSession as any).sendRealtimeInput({
                 mediaChunks: [{ mimeType: part.mimeType, data: part.data }],
               });
               console.log(`[GeminiLive] Vision inline data sent via realtimeInput (${part.mimeType})`);
@@ -1788,13 +1788,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.session.telemetryLlmInputTokens =
           (this.session.telemetryLlmInputTokens || 0) + meta.promptTokenCount;
       }
-      if (meta.candidatesTokenCount) {
+      if ((meta as any).candidatesTokenCount) {
         this.session.telemetryLlmOutputTokens =
-          (this.session.telemetryLlmOutputTokens || 0) + meta.candidatesTokenCount;
+          (this.session.telemetryLlmOutputTokens || 0) + (meta as any).candidatesTokenCount;
       }
       if (meta.totalTokenCount) {
         console.log(
-          `[GeminiLive] Usage — in: ${meta.promptTokenCount ?? 0}, out: ${meta.candidatesTokenCount ?? 0}, total: ${meta.totalTokenCount} (session cumulative: ${this.session.telemetryLlmInputTokens}in/${this.session.telemetryLlmOutputTokens}out)`,
+          `[GeminiLive] Usage — in: ${meta.promptTokenCount ?? 0}, out: ${(meta as any).candidatesTokenCount ?? 0}, total: ${meta.totalTokenCount} (session cumulative: ${this.session.telemetryLlmInputTokens}in/${this.session.telemetryLlmOutputTokens}out)`,
         );
       }
     }

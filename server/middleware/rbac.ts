@@ -207,12 +207,13 @@ export function isFounder(user: User | undefined): boolean {
  * Middleware to require founder access only
  * Usage: app.get('/api/admin/voice-health', requireFounder, handler)
  */
-export function requireFounder(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+export function requireFounder(req: Request, res: Response, next: NextFunction) {
+  const _req = req as AuthenticatedRequest;
   try {
     // Password auth path: session.userId set directly (covers AI browser + password login)
     const sessionUserId = (req.session as any)?.userId;
     if (sessionUserId === FOUNDER_USER_ID) {
-      if (!req.authenticatedUser) {
+      if (!_req.authenticatedUser) {
         return res.status(500).json({ error: "User data not loaded. Ensure loadAuthenticatedUser middleware runs first." });
       }
       touchFounderPresence();
@@ -220,15 +221,15 @@ export function requireFounder(req: AuthenticatedRequest, res: Response, next: N
     }
 
     // OIDC / Replit Auth path
-    if (!req.user?.claims?.sub) {
+    if (!_req.user?.claims?.sub) {
       return res.status(401).json({ error: "Authentication required" });
     }
     
-    if (!req.authenticatedUser) {
+    if (!_req.authenticatedUser) {
       return res.status(500).json({ error: "User data not loaded. Ensure loadAuthenticatedUser middleware runs first." });
     }
     
-    if (req.authenticatedUser.id !== FOUNDER_USER_ID) {
+    if (_req.authenticatedUser.id !== FOUNDER_USER_ID) {
       return res.status(403).json({ error: "Founder access required" });
     }
 

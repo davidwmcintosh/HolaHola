@@ -116,7 +116,7 @@ export async function enrichLesson(lessonId: string, language: string): Promise<
     WHERE cl.id = ${lessonId}
     LIMIT 1
   `);
-  if (rows.rows.length === 0) return { backfilled: false, validated: false };
+  if (rows.rows.length === 0) return { backfilled: false, validated: false, usedGemini: false };
 
   const lesson = rows.rows[0] as any;
   const lang = language || lesson.path_language;

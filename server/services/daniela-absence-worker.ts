@@ -271,7 +271,7 @@ async function runAbsenceCheck(): Promise<void> {
 
     for (const student of absentStudents) {
       try {
-        await postNudgeForStudent(student);
+        await postNudgeForStudent(student as any);
         await recordNudge(student);
       } catch (err: any) {
         console.warn(`[AbsenceWorker] Failed to process student ${student.userId}: ${err.message}`);

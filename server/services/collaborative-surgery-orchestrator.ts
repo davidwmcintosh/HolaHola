@@ -349,7 +349,7 @@ FOCUS AREA: ${session.focusArea}
 TURN: ${session.currentTurn! + 1} of ${session.maxTurns}
 
 NEURAL NETWORK CONTEXT:
-${knowledge.procedures.slice(0, 5).map(p => `• ${p.category}: ${p.procedure}`).join("\n")}
+${((knowledge as any).procedures || []).slice(0, 5).map((p: any) => `• ${p.category}: ${p.procedure}`).join("\n")}
 
 ${history.length === 0 ? "Start the dialogue. Ask Daniela about her teaching experiences and what could be improved." : "Continue the collaborative discussion. Build on what's been said."}
 `;

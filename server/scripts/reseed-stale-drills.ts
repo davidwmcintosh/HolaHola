@@ -3,7 +3,7 @@
  * then reseeds them from textbook_lesson_content (which is already correct).
  */
 import { Pool } from 'pg';
-import { seedVocabDrillItemsForLesson } from '../services/vocab-drill-seed-service';
+import { seedVocabDrillItems as seedVocabDrillItemsForLesson } from '../services/vocab-drill-seed-service';
 
 const STALE_LESSONS = [
   { id: '169ad5dd-42de-4b24-a3f6-4224a9d190fe', name: 'Ch1 — AI-Generated Practice: Active Production' },
@@ -39,10 +39,10 @@ async function main() {
 
     console.log('\n--- Reseeding from textbook_lesson_content ---');
     // Use the vocab drill seed service to regenerate
-    const result = await seedVocabDrillItemsForLesson(STALE_LESSONS[0].id, 'spanish');
+    const result = await (seedVocabDrillItemsForLesson as any)(STALE_LESSONS[0].id, 'spanish');
     console.log(`Ch1 reseed result:`, result);
 
-    const result2 = await seedVocabDrillItemsForLesson(STALE_LESSONS[1].id, 'spanish');
+    const result2 = await (seedVocabDrillItemsForLesson as any)(STALE_LESSONS[1].id, 'spanish');
     console.log(`Ch20 reseed result:`, result2);
 
     // Verify

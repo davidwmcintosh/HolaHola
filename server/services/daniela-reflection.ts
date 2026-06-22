@@ -499,8 +499,8 @@ async function storeSignificantInsights(
         compassSnapshot: context.compass ? {
           elapsedSeconds: context.compass.elapsedSeconds,
           remainingSeconds: context.compass.remainingSeconds,
-          sessionPhase: context.compass.sessionPhase,
-          sessionMomentum: context.compass.sessionMomentum,
+          sessionPhase: (context.compass as any).sessionPhase,
+          sessionMomentum: (context.compass as any).sessionMomentum,
           // Omit any student-identifying data from compass
         } : null,
         syncStatus: 'local',

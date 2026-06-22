@@ -68,7 +68,7 @@ import { ensureTrailingPunctuation } from './voice-text-utils';
 import { VoiceSpeedOption, voiceSpeedToRate } from './voice-speed-config';
 import type { StreamingSession, StreamingMetrics } from './streaming-session-types';
 import { calculateAdaptiveSpeedMultiplier, getAdaptiveSpeakingRate, trackSttConfidence, trackStruggle } from './adaptive-speed-control';
-import { splitTextIntoSentences, cleanTextForDisplay, applyWordEmphases } from './voice-text-processing';
+import { splitTextIntoSentences, cleanTextForDisplay, applyWordEmphases, extractArchitectMessages } from './voice-text-processing';
 import { deepgram, gemini } from './voice-ai-clients';
 import { transcribeWithGoogleSTT } from './google-stt-fallback';
 import { containsSeverelyInappropriateContent, containsMildlyInappropriateContent } from './content-moderation';
@@ -2691,7 +2691,7 @@ Remember: David may reference things discussed in these recent text chats.
         contextPromises.push(
           getExpressLaneHistoryForVoice(session.userId, 15)
             .then(history => {
-              expressLaneHistory = history;
+              expressLaneHistory = history as any;
               const elMs = Date.now() - elHistStart;
               console.log(`[EXPRESS Lane Memory] Prefetched ${history.length} messages from text chat (${elMs}ms)`);
               if (elMs > 2000) {
@@ -2972,7 +2972,7 @@ Remember: David may reference things discussed in these recent text chats.
           const promise = this.geminiLiveTtsService.preGenerateAudio({
             ...lookaheadTtsRequest,
             text: cleaned,
-            vocalStyle: session.voiceOverride?.vocalStyle,
+            vocalStyle: (session.voiceOverride as any)?.vocalStyle,
           } as any).catch(err => {
             console.warn(`[TTS Lookahead] Pre-gen failed for sentence ${chunk.index}: ${err.message}`);
             return null;
@@ -3118,7 +3118,7 @@ Remember: David may reference things discussed in these recent text chats.
             if (fcArgsPTT) {
               const cmdTypePTT = TEXT_FC_COMMAND_MAP[fcNamePTT];
               if (cmdTypePTT) {
-                commandParseResult.commands.push({ type: cmdTypePTT as any, params: fcArgsPTT, source: 'text_fc_fallback' as any });
+                commandParseResult.commands.push({ type: cmdTypePTT as any, params: fcArgsPTT as any, source: 'text_fc_fallback' as any, rawMatch: '' } as any);
                 console.log(`[Text FC Fallback - PTT] Injected command: ${cmdTypePTT}(${JSON.stringify(fcArgsPTT)})`);
               }
             }
@@ -3276,7 +3276,8 @@ Remember: David may reference things discussed in these recent text chats.
                   if (category && !session.pendingSupportHandoff) {
                     session.pendingSupportHandoff = {
                       category: category as any,
-                      reason: cmd.params.reason as string | undefined,
+                      reason: String(cmd.params.reason ?? ""),
+                      priority: "normal" as any,
                     };
                     console.log(`[CommandParser→Support] Queued support handoff: ${category} via ${cmd.source} format`);
                   }
@@ -4381,7 +4382,7 @@ Remember: David may reference things discussed in these recent text chats.
                     ...currentOverride,
                     ...(speed && { speakingRate: speedMap[speed] || 0.9 }),
                     ...(mappedEmotion && { emotion: mappedEmotion }),
-                    ...(validatedPersonality && { personality: validatedPersonality }),
+                    ...(validatedPersonality && { personality: validatedPersonality as any }),
                     ...(vocalStyle && { vocalStyle }),
                   };
                   
@@ -5173,7 +5174,7 @@ Remember: David may reference things discussed in these recent text chats.
             text: fallbackText,
             hasTargetContent: false,
           } as StreamingSentenceStartMessage);
-          await this.tts.streamSentenceAudioProgressive(session, { index: 0, text: fallbackText }, fallbackText, metrics, turnId);
+          await this.tts.streamSentenceAudioProgressive(session, { index: 0, text: fallbackText, isComplete: true, isFinal: true }, fallbackText, metrics, turnId);
           fullText = fallbackText;
           metrics.sentenceCount = 1;
         } catch (fallbackErr: any) {
@@ -5305,14 +5306,14 @@ Remember: David may reference things discussed in these recent text chats.
       const recentHistory = session.conversationHistory.slice(-6);
       phaseTransitionService.detectPhaseTransition(
         String(session.userId),
-        recentHistory.map(h => ({ role: h.role, content: h.content })),
+        recentHistory.map(h => ({ role: h.role as any, content: h.content ?? "" })),
       ).then(async (newPhase) => {
         if (newPhase) {
           const event = await phaseTransitionService.transitionPhase(
             String(session.userId),
             newPhase,
             'conversation_pattern_detected',
-            recentHistory.map(h => ({ role: h.role, content: h.content })),
+            recentHistory.map(h => ({ role: h.role as any, content: h.content ?? "" })),
             session.targetLanguage
           );
           console.log(`[Phase Transition] ${event.fromPhase} → ${event.toPhase}: ${event.reason}`);
@@ -5383,7 +5384,7 @@ Remember: David may reference things discussed in these recent text chats.
         console.log(`[Gemini Recovery - PTT] 429 rate limit detected, providing spoken fallback`);
         const fallbackText = "One moment, I'm having a little trouble connecting. Could you say that again?";
         try {
-          await this.synthesizeSentenceToClient(session, fallbackText, 0, null, { force: true });
+          await (this as any).synthesizeSentenceToClient(session, fallbackText, 0, null, { force: true });
           metrics.sentenceCount = 1;
           console.log(`[Gemini Recovery - PTT] Fallback response sent successfully`);
         } catch (ttsError: any) {
@@ -5436,17 +5437,17 @@ Remember: David may reference things discussed in these recent text chats.
         userId: session.userId,
         sessionId,
         stage: errorType,
-        turnId: String(turnId),
+        turnId: String((session as any).currentTurnId || 'unknown'),
       }).catch(err => console.error('[Telemetry] Failed to log error:', err.message));
       
       this.sendError(session.ws, 'UNKNOWN', error.message, true);
       
-      if (!responseCompleteSentPtt.sent) {
-        responseCompleteSentPtt.sent = true;
+      if (!(session as any).__responseCompleteSentPtt?.sent) {
+        (session as any).__responseCompleteSentPtt = { sent: true };
         this.sendMessage(session.ws, {
           type: 'response_complete',
           timestamp: Date.now(),
-          turnId,
+          turnId: (session as any).currentTurnId || 'unknown',
           totalSentences: metrics.sentenceCount,
           totalDurationMs: Date.now() - startTime,
           fullText: '',
@@ -5779,7 +5780,7 @@ Remember: David may reference things discussed in these recent text chats.
               undefined,
               undefined,
               undefined,
-              session.tutorPersona
+              session.tutorPersona as any
             );
             console.log(`[Tutor Switch] Language switched to ${effectiveLanguage}, voice: ${matchingVoice.voiceName}, system prompt regenerated`);
           } else {
@@ -5817,7 +5818,7 @@ Remember: David may reference things discussed in these recent text chats.
               undefined,
               undefined,
               undefined,
-              session.tutorPersona
+              session.tutorPersona as any
             );
             console.log(`[Tutor Switch] Same-language switch, new voice: ${matchingVoice.voiceName}, persona updated for ${tutorName}`);
           }
@@ -5834,7 +5835,7 @@ Remember: David may reference things discussed in these recent text chats.
           isLanguageSwitch,
           requiresGreeting: true,
           mode: requestedMode,
-        });
+        } as any);
 
         if (tutorName && !isAssistantSwitch) {
           session.greetingTriggeredByOrchestrator = true;
@@ -5852,7 +5853,7 @@ Remember: David may reference things discussed in these recent text chats.
         targetGender,
         isLanguageSwitch: false,
         mode: requestedMode,
-      });
+      } as any);
     }
   }
 
@@ -6334,7 +6335,7 @@ Remember: David may reference things discussed in these recent text chats.
         }
         brainHealthTelemetry.logContextInjection({
           sessionId: session.id, userId: String(session.userId), targetLanguage: session.targetLanguage,
-          contextSource: telemetry.source, success: telemetry.success, latencyMs: telemetry.latencyMs, richness: telemetry.richness,
+          contextSource: telemetry.source as any, success: telemetry.success, latencyMs: telemetry.latencyMs, richness: telemetry.richness,
           ...(telemetry.errorMessage ? { errorMessage: telemetry.errorMessage } : {}),
         }).catch(() => {});
       }
@@ -6417,7 +6418,7 @@ Remember: David may reference things discussed in these recent text chats.
         geminiLanguageCode: session.geminiLanguageCode,
         voiceId: session.voiceId,
         speakingRate: getAdaptiveSpeakingRate(session),
-        vocalStyle: session.voiceOverride?.vocalStyle,
+        vocalStyle: (session.voiceOverride as any)?.vocalStyle,
       };
       
       await retryWithBackoff(
@@ -6441,7 +6442,7 @@ Remember: David may reference things discussed in these recent text chats.
           const promise = this.geminiLiveTtsService.preGenerateAudio({
             ...lookaheadTtsRequestOM,
             text: cleaned,
-            vocalStyle: session.voiceOverride?.vocalStyle,
+            vocalStyle: (session.voiceOverride as any)?.vocalStyle,
           } as any).catch(err => {
             console.warn(`[TTS Lookahead OM] Pre-gen failed for sentence ${chunk.index}: ${err.message}`);
             return null;
@@ -6560,9 +6561,10 @@ Remember: David may reference things discussed in these recent text chats.
               if (cmdType) {
                 openMicCommandResult.commands.push({
                   type: cmdType as any,
-                  params: fcArgs,
+                  params: fcArgs as any,
                   source: 'text_fc_fallback' as any,
-                });
+                  rawMatch: '',
+                } as any);
                 console.log(`[Text FC Fallback - OpenMic] Injected command: ${cmdType}(${JSON.stringify(fcArgs)})`);
               }
             }
@@ -6667,7 +6669,7 @@ Remember: David may reference things discussed in these recent text chats.
               case 'CALL_SOFIA': {
                 const category = cmd.params.category as string;
                 if (category && !session.pendingSupportHandoff) {
-                  session.pendingSupportHandoff = { category, reason: cmd.params.reason as string | undefined };
+                  session.pendingSupportHandoff = { category: category as any, reason: String(cmd.params.reason ?? ''), priority: "normal" as any };
                   console.log(`[CommandParser→Support - OpenMic] Queued: ${category}`);
                 }
                 break;
@@ -7168,7 +7170,7 @@ Remember: David may reference things discussed in these recent text chats.
                   ...currentOverride,
                   ...(speed && { speakingRate: speedMap[speed] || 0.9 }),
                   ...(mappedEmotion && { emotion: mappedEmotion }),
-                  ...(validatedPersonality && { personality: validatedPersonality }),
+                  ...(validatedPersonality && { personality: validatedPersonality as any }),
                 };
                 console.log(`[CommandParser→VoiceAdjust - OpenMic] Applied: speed=${speed || 'unchanged'}, emotion=${mappedEmotion || 'unchanged'}`);
                 break;
@@ -7486,7 +7488,7 @@ Remember: David may reference things discussed in these recent text chats.
               ...(si === 0 && contSentences.length > 1 ? { totalSentences: contSentences.length } : {}),
             } as StreamingSentenceStartMessage);
 
-            await this.tts.streamSentenceAudioProgressive(session, { index: si, text: sentenceText }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, contBoldWords);
+            await this.tts.streamSentenceAudioProgressive(session, { index: si, text: sentenceText, isComplete: true, isFinal: true }, sentenceText, metrics, session.turnId || `turn-${Date.now()}`, contBoldWords);
           }
 
           session.functionCallText = undefined;
@@ -7648,7 +7650,7 @@ Remember: David may reference things discussed in these recent text chats.
               const fcDirectBoldWords = extractBoldMarkedWords(rawEmbeddedTextFromFC || '');
               const fcAccumulatedWords: string[] = session.accumulatedBoldWords || [];
               const fcBoldWords = [...new Set([...fcDirectBoldWords, ...fcAccumulatedWords])];
-              await this.tts.streamSentenceAudioProgressive(session, { index: 0, text: embeddedTextFromFC }, embeddedTextFromFC, metrics, session.turnId || `turn-${Date.now()}`, fcBoldWords);
+              await this.tts.streamSentenceAudioProgressive(session, { index: 0, text: embeddedTextFromFC, isComplete: true, isFinal: true }, embeddedTextFromFC, metrics, session.turnId || `turn-${Date.now()}`, fcBoldWords);
               
               // Clear after use
               session.functionCallText = undefined;
@@ -7727,8 +7729,8 @@ Remember: David may reference things discussed in these recent text chats.
                 delete session.lastLoadedLesson;
               } else if (fc.legacyType === 'LOAD_VOCAB_SET') {
                 const vocabData = session.lastVocabSet;
-                responseText = vocabData?.length > 0
-                  ? `Vocabulary loaded: ${vocabData.length} words.\n${JSON.stringify(vocabData, null, 1)}\n\nTeach these words with show_image.`
+                responseText = (vocabData?.length ?? 0) > 0
+                  ? `Vocabulary loaded: ${vocabData!.length} words.\n${JSON.stringify(vocabData, null, 1)}\n\nTeach these words with show_image.`
                   : `No vocabulary found for this lesson.`;
                 delete session.lastVocabSet;
               } else if (fc.legacyType === 'SHOW_PROGRESS') {
@@ -7741,8 +7743,8 @@ Remember: David may reference things discussed in these recent text chats.
                 delete session.lastRecommendation;
               } else if (fc.legacyType === 'DRILL_SESSION') {
                 const data = session.lastDrillSessionData;
-                responseText = data?.totalItems > 0
-                  ? `Drill session started with ${data.totalItems} items. First item displayed. Walk the student through it, then use drill_session_next.`
+                responseText = (data?.totalItems ?? 0) > 0
+                  ? `Drill session started with ${data!.totalItems} items. First item displayed. Walk the student through it, then use drill_session_next.`
                   : `No drill items found. Offer conversational practice instead.`;
                 delete session.lastDrillSessionData;
               } else if (fc.legacyType === 'DRILL_SESSION_NEXT') {
@@ -7760,8 +7762,8 @@ Remember: David may reference things discussed in these recent text chats.
                 delete session.lastDrillSessionData;
               } else if (fc.legacyType === 'REVIEW_DUE_VOCAB') {
                 const dueVocab = session.lastDueVocab;
-                responseText = dueVocab?.length > 0
-                  ? `${dueVocab.length} vocab words due:\n${JSON.stringify(dueVocab.map((w: any) => ({ word: w.word, translation: w.translation })), null, 1)}\n\nQuiz the student.`
+                responseText = (dueVocab?.length ?? 0) > 0
+                  ? `${dueVocab!.length} vocab words due:\n${JSON.stringify(dueVocab!.map((w: any) => ({ word: w.word, translation: w.translation })), null, 1)}\n\nQuiz the student.`
                   : `No words due for review. All caught up!`;
                 delete session.lastDueVocab;
               } else {
@@ -7915,7 +7917,7 @@ Remember: David may reference things discussed in these recent text chats.
             text: fallbackText,
             hasTargetContent: false,
           } as StreamingSentenceStartMessage);
-          await this.tts.streamSentenceAudioProgressive(session, { index: 0, text: fallbackText }, fallbackText, metrics, turnId);
+          await this.tts.streamSentenceAudioProgressive(session, { index: 0, text: fallbackText, isComplete: true, isFinal: true }, fallbackText, metrics, turnId);
           fullText = fallbackText;
           metrics.sentenceCount = 1;
         } catch (fallbackErr: any) {
@@ -7983,7 +7985,7 @@ Remember: David may reference things discussed in these recent text chats.
             console.log(`[Claude Fallback - OpenMic] Response: "${claudeText.substring(0, 100)}"`);
             const sentences = splitTextIntoSentences(claudeText);
             for (let i = 0; i < sentences.length; i++) {
-              await this.synthesizeSentenceToClient(session, sentences[i], i, null, { force: true });
+              await (this as any).synthesizeSentenceToClient(session, sentences[i], i, null, { force: true });
             }
             metrics.sentenceCount = sentences.length;
             fullText = claudeText;
@@ -7999,7 +8001,7 @@ Remember: David may reference things discussed in these recent text chats.
         try {
           const lang = session.targetLanguage || 'spanish';
           const apologyText = lang === 'french' ? "Excuse-moi, essaie encore." : "Perdón, ¿puedes repetir eso?";
-          await this.synthesizeSentenceToClient(session, apologyText, 0, null, { force: true });
+          await (this as any).synthesizeSentenceToClient(session, apologyText, 0, null, { force: true });
           metrics.sentenceCount = 1;
           console.log('[Claude Fallback - OpenMic] Apology TTS sent');
         } catch (ttsError: any) {
@@ -8008,7 +8010,7 @@ Remember: David may reference things discussed in these recent text chats.
       } else if (isJsonParseError) {
         console.log('[Gemini Recovery - OpenMic] JSON parse error detected, providing spoken fallback');
         try {
-          await this.synthesizeSentenceToClient(session, "Sorry, I had a brief hiccup. What were you saying?", 0, null, { force: true });
+          await (this as any).synthesizeSentenceToClient(session, "Sorry, I had a brief hiccup. What were you saying?", 0, null, { force: true });
           metrics.sentenceCount = 1;
         } catch (ttsError: any) {
           console.error('[Gemini Recovery - OpenMic] Fallback TTS failed:', ttsError.message);

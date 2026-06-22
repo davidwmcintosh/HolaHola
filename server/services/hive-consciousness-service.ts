@@ -3089,7 +3089,7 @@ export async function getExpressLaneHistoryForVoice(
     // Reverse to chronological order and format for Gemini
     const orderedMessages = [...recentMessages].reverse();
     
-    return orderedMessages.map((msg: CollaborationMessage) => {
+    return (orderedMessages as any[]).map((msg: CollaborationMessage) => {
       // Map roles to Gemini format
       // Founder = user, Daniela/Wren = model (assistant perspective)
       const role = msg.role === 'founder' ? 'user' : 'model';

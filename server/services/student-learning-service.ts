@@ -718,11 +718,12 @@ export class StudentLearningService {
     ].filter(Boolean).join('\n');
     
     await getSharedDb().insert(hiveSnapshots).values({
+      title: `Breakthrough: ${struggleArea}`,
       snapshotType: 'breakthrough',
       userId: studentId,
       language,
       content,
-      importance: occurrenceCount >= 5 ? 'high' : occurrenceCount >= 3 ? 'medium' : 'low',
+      importance: occurrenceCount >= 5 ? 10 : occurrenceCount >= 3 ? 7 : 4,
       metadata: {
         struggleArea,
         description,
@@ -2314,7 +2315,7 @@ export class StudentLearningService {
       const candidates = existingFacts.map(f => ({
         id: f.id,
         fact: f.fact,
-        mentionCount: f.mentionCount,
+        mentionCount: f.mentionCount ?? 0,
         lastMentionedAt: f.lastMentionedAt ? new Date(f.lastMentionedAt) : null,
       }));
 
@@ -2373,7 +2374,7 @@ export class StudentLearningService {
    */
   private async syncToHiveSnapshot(fact: LearnerPersonalFact): Promise<void> {
     // Only sync high-confidence facts (>= 0.75)
-    if (fact.confidenceScore < 0.75) return;
+    if ((fact.confidenceScore ?? 0) < 0.75) return;
     
     // Only sync meaningful fact types
     const meaningfulTypes = ['life_event', 'goal', 'travel', 'work', 'family'];
@@ -2391,7 +2392,7 @@ export class StudentLearningService {
         title: `${fact.factType}: ${fact.fact.slice(0, 50)}`,
         content: fact.fact,
         context: fact.context || `Extracted from conversation`,
-        importance: Math.round(fact.confidenceScore * 10), // Convert to 1-10 scale
+        importance: Math.round((fact.confidenceScore ?? 0) * 10), // Convert to 1-10 scale
         metadata: {
           personalFactId: fact.id,
           factType: fact.factType,

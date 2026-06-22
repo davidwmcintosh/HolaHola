@@ -470,7 +470,7 @@ export async function executeSofiaTool(
       }
       const environment = process.env.NODE_ENV === 'production' ? 'production' : 'development';
       await founderCollabService.emitSofiaIssueAlert({
-        reportId: 0,
+        reportId: String(0),
         issueType: 'voice_health_escalation',
         userDescription: `[ESCALATION ${args.severity.toUpperCase()}] ${args.summary}`,
         environment,

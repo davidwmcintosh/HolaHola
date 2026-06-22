@@ -66,6 +66,7 @@ export interface FunctionResponseContext {
 export interface DanielaFunctionEntry {
   declaration: FunctionDeclaration;
   legacyType: string;
+  excludeFromGL?: boolean;
   buildContinuationResponse?: (ctx: FunctionResponseContext) => string | { multimodal: true; parts: any[] } | null;
 }
 

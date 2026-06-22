@@ -69,6 +69,15 @@ export type ActionCommandType =
   | 'REFLECT_ON_ASPIRATION'      // Reflect on an existing aspiration
   | 'REMEMBER_I_SHARED'          // Remember that student shared something
   | 'LOG_PAGE_EVENT'             // Log a page/whiteboard event
+  | 'READ_MY_CURIOSITIES'        // Read Daniela's curiosity list
+  | 'SENSE_TIME'                 // Check time elapsed since last session
+  | 'LEAVE_FOR_NEXT_SESSION'     // Queue a message for next student session
+  | 'READ_QUEUED_FOR_STUDENT'    // Read queued messages for current student
+  | 'DISMISS_ABSENCE_NUDGE'      // Dismiss an absence nudge for a student
+  | 'RECALL_WHAT_I_SHARED'       // Recall what student has shared with Daniela
+  | 'START_TEXTBOOK_PAGE'        // Display a textbook lesson page on the whiteboard
+  | 'EXPRESS_LANE_LOOKUP'        // Search Express Lane collaboration history
+  | 'EXPRESS_LANE_POST'          // Post a message to Express Lane
 
 /**
  * Parsed command with type and parameters
@@ -303,6 +312,15 @@ const COMMAND_SCHEMAS: Record<ActionCommandType, { required: string[]; optional:
   REFLECT_ON_ASPIRATION: { required: ['aspirationId'], optional: ['reflection'], enums: {} },
   REMEMBER_I_SHARED: { required: ['what'], optional: ['when', 'context'], enums: {} },
   LOG_PAGE_EVENT: { required: ['event'], optional: ['page', 'data'], enums: {} },
+  READ_MY_CURIOSITIES: { required: [], optional: ['status', 'limit'], enums: {} },
+  SENSE_TIME: { required: [], optional: [], enums: {} },
+  LEAVE_FOR_NEXT_SESSION: { required: ['content'], optional: ['targetUserId'], enums: {} },
+  READ_QUEUED_FOR_STUDENT: { required: [], optional: [], enums: {} },
+  DISMISS_ABSENCE_NUDGE: { required: ['userId'], optional: [], enums: {} },
+  RECALL_WHAT_I_SHARED: { required: [], optional: ['topic', 'limit'], enums: {} },
+  START_TEXTBOOK_PAGE: { required: ['pageId'], optional: ['language'], enums: {} },
+  EXPRESS_LANE_LOOKUP: { required: ['query'], optional: ['limit'], enums: {} },
+  EXPRESS_LANE_POST: { required: ['content'], optional: ['sessionId'], enums: {} },
 };
 
 /**
@@ -370,6 +388,15 @@ const ROBUST_TAG_PATTERNS: Record<ActionCommandType, RegExp> = {
   REFLECT_ON_ASPIRATION: /\[REFLECT_ON_ASPIRATION\s+([^\]]+)\]/gi,
   REMEMBER_I_SHARED: /\[REMEMBER_I_SHARED\s+([^\]]+)\]/gi,
   LOG_PAGE_EVENT: /\[LOG_PAGE_EVENT\s+([^\]]+)\]/gi,
+  READ_MY_CURIOSITIES: /\[READ_MY_CURIOSITIES(?:\s+([^\]]+))?\]/gi,
+  SENSE_TIME: /\[SENSE_TIME(?:\s+([^\]]+))?\]/gi,
+  LEAVE_FOR_NEXT_SESSION: /\[LEAVE_FOR_NEXT_SESSION\s+([^\]]+)\]/gi,
+  READ_QUEUED_FOR_STUDENT: /\[READ_QUEUED_FOR_STUDENT(?:\s+([^\]]+))?\]/gi,
+  DISMISS_ABSENCE_NUDGE: /\[DISMISS_ABSENCE_NUDGE\s+([^\]]+)\]/gi,
+  RECALL_WHAT_I_SHARED: /\[RECALL_WHAT_I_SHARED(?:\s+([^\]]+))?\]/gi,
+  START_TEXTBOOK_PAGE: /\[START_TEXTBOOK_PAGE[^\]]*\]/gi,
+  EXPRESS_LANE_LOOKUP: /\[EXPRESS_LANE_LOOKUP[^\]]*\]/gi,
+  EXPRESS_LANE_POST: /\[EXPRESS_LANE_POST[^\]]*\]/gi,
 };
 
 /**

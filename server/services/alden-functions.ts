@@ -1731,9 +1731,9 @@ ${agentSection}`;
         const analysis = await analyzePatterns(metricType as any, days);
         return {
           data: {
-            metricType,
             period: `last ${days} days`,
             ...analysis,
+            metricType,
           },
         };
       }

@@ -352,7 +352,7 @@ function buildExample(messages: DbMessage[], language: string | null, danielaIns
 // ─── Synthetic example generation ────────────────────────────────────────────
 
 async function generateSyntheticExamples(danielaInstruction: string): Promise<VertexExample[]> {
-  const { GoogleGenerativeAI } = await import('@google/generative-ai');
+  const { GoogleGenerativeAI } = await import('@google/generative-ai' as any);
   const apiKey = process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY;
   if (!apiKey) {
     console.warn('  ⚠ No GOOGLE_AI_API_KEY/GEMINI_API_KEY — skipping synthetic generation');

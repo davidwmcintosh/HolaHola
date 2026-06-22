@@ -829,7 +829,7 @@ ${expressLaneContext.contextString}
           ).slice(0, 8); // Cap at 8 messages per conversation
           
           if (selectedMessages.length > 0) {
-            const timeAgo = formatTimeAgo(conv.updatedAt);
+            const timeAgo = formatTimeAgo((conv as any).updatedAt ?? conv.lastMessageAt ?? conv.createdAt);
             textChatContext += `\n**${conv.title || 'Recent Chat'}** (${timeAgo}):\n`;
             
             for (const msg of selectedMessages) {

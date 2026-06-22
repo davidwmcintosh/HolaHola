@@ -28,6 +28,7 @@ import {
   AUDIO_STREAMING_CONFIG,
   WordTiming,
 } from '@shared/streaming-voice-types';
+export type { WordTiming };
 import {
   stripWhiteboardMarkup,
 } from '@shared/whiteboard-types';

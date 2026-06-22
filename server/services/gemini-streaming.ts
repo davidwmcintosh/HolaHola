@@ -424,6 +424,10 @@ export interface StreamingGenerationConfig {
   abortSignal?: { aborted: boolean };
   // Token usage callback - called when stream completes with actual Gemini token counts
   onTokenUsage?: (inputTokens: number, outputTokens: number) => void;
+  // Pass-through session reference for function execution context
+  session?: any;
+  // Thought signature callback (extended Gemini feature)
+  onThoughtSignatures?: (signatures: any[]) => void;
 }
 
 /**
@@ -1008,14 +1012,14 @@ export class GeminiStreamingService {
               usingCachedContext = true;
               // CRITICAL: Must use the cache-compatible model for the request
               // Otherwise Gemini won't honor the cached content
-              requestModel = getCacheCompatibleModel(model);
+              requestModel = getCacheCompatibleModel(model) || requestModel;
             } else {
               // Fall back to inline system instruction
-              generationConfig.systemInstruction = systemPrompt;
+              generationConfig.systemInstruction = systemPrompt ?? undefined;
             }
           } else {
             // No caching - use inline system instruction
-            generationConfig.systemInstruction = systemPrompt;
+            generationConfig.systemInstruction = systemPrompt ?? undefined;
           }
           
           // Add thinking level if model supports it (Gemini 3+)
@@ -1596,8 +1600,8 @@ export class GeminiStreamingService {
         await drainSentenceQueue();
         
         const durationMs = Date.now() - startTime;
-        const recoveryInputTokens = lastUsageMetadata?.promptTokenCount ?? 0;
-        const recoveryOutputTokens = lastUsageMetadata?.candidatesTokenCount ?? 0;
+        const recoveryInputTokens = 0;
+        const recoveryOutputTokens = 0;
         if (onTokenUsage && (recoveryInputTokens > 0 || recoveryOutputTokens > 0)) {
           try { onTokenUsage(recoveryInputTokens, recoveryOutputTokens); } catch {}
         }

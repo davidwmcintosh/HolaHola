@@ -521,8 +521,8 @@ export async function indexNewMemoriesForUser(userId: string): Promise<void> {
       .select({
         id: studentInsights.id,
         insight: studentInsights.insight,
-        details: studentInsights.details,
-        category: studentInsights.category,
+        details: (studentInsights as any).details,
+        category: (studentInsights as any).category,
         observationCount: studentInsights.observationCount,
       })
       .from(studentInsights)

@@ -107,7 +107,7 @@ export class TtsDispatcher {
         autoDetectLanguage: true,
         targetLanguage: session.targetLanguage,
         geminiLanguageCode: session.geminiLanguageCode,
-        voiceId: voiceOverride?.voiceId ?? session.voiceId,
+        voiceId: (voiceOverride as any)?.voiceId ?? session.voiceId,
         speakingRate: effectiveSpeakingRate,
         emotion: effectiveEmotion as CartesiaEmotion,
         personality: effectivePersonality,
@@ -123,7 +123,7 @@ export class TtsDispatcher {
         const ttsService = getTTSService();
         await ttsService.streamSynthesizeWithGoogle({
           text: textWithEmphases,
-          voiceId: (voiceOverride?.voiceId ?? session.voiceId) || '',
+          voiceId: ((voiceOverride as any)?.voiceId ?? session.voiceId) || '',
           speakingRate: effectiveSpeakingRate,
           targetLanguage: session.targetLanguage,
           accentLanguageCode: session.geminiLanguageCode || undefined,
@@ -666,7 +666,7 @@ export class TtsDispatcher {
         targetLanguage: session.targetLanguage,
         nativeLanguage: session.nativeLanguage || 'english',
         geminiLanguageCode: session.geminiLanguageCode,
-        voiceId: voiceOverride?.voiceId ?? session.voiceId,
+        voiceId: (voiceOverride as any)?.voiceId ?? session.voiceId,
         speakingRate: effectiveSpeakingRate,
         emotion: effectiveEmotion as CartesiaEmotion,
         personality: effectivePersonality,
@@ -1050,7 +1050,7 @@ export class TtsDispatcher {
       // SPEAK_CHARACTER_LINE atomic restore: revert to tutor voice now that character line is done
       if (session._restoreVoiceAfterLine) {
         session.voiceId = session._restoreVoiceAfterLine.voiceId;
-        session.ttsProvider = session._restoreVoiceAfterLine.ttsProvider;
+        session.ttsProvider = session._restoreVoiceAfterLine.ttsProvider as any;
         session._restoreVoiceAfterLine = null;
         session.activeCharacter = null;
         console.log(`[TTS] Auto-restored tutor voice after character line. voiceId=${session.voiceId}`);
@@ -1087,7 +1087,7 @@ export class TtsDispatcher {
       // SPEAK_CHARACTER_LINE atomic restore: revert to tutor voice now that character line is done
       if (session._restoreVoiceAfterLine) {
         session.voiceId = session._restoreVoiceAfterLine.voiceId;
-        session.ttsProvider = session._restoreVoiceAfterLine.ttsProvider;
+        session.ttsProvider = session._restoreVoiceAfterLine.ttsProvider as any;
         session._restoreVoiceAfterLine = null;
         session.activeCharacter = null;
         console.log(`[TTS] Auto-restored tutor voice after character line. voiceId=${session.voiceId}`);

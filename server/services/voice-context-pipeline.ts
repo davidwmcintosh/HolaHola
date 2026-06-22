@@ -49,10 +49,10 @@ export async function buildClassroomDynamicContext(params: ClassroomBuildParams)
     const { buildClassroomEnvironment } = await import('./classroom-environment');
     const classroomEnv = await buildClassroomEnvironment({
       userId: String(session.userId),
-      sessionStartTime: session.startTime,
+      sessionStartTime: session.startTime instanceof Date ? session.startTime.getTime() : (session.startTime as any as number),
       targetLanguage: session.targetLanguage,
-      isFounderMode: session.isFounderMode,
-      isRawHonestyMode: session.isRawHonestyMode,
+      isFounderMode: session.isFounderMode ?? false,
+      isRawHonestyMode: session.isRawHonestyMode ?? false,
       isBetaTester: session.isBetaTester,
       isIncognito: session.isIncognito,
       whiteboardItems: session.classroomWhiteboardItems || [],
@@ -66,7 +66,7 @@ export async function buildClassroomDynamicContext(params: ClassroomBuildParams)
       tutorName: session.tutorName || 'Daniela',
       studentLearningSection: studentLearningSection || undefined,
       technicalHealthNote: voiceDiagnostics.getTechnicalHealthContext(),
-      currentLessonId: session.lessonBundleContext?.lessonId,
+      currentLessonId: (session as any).lessonBundleContext?.lessonId,
       activeScenario: session.activeScenario ? {
         title: session.activeScenario.title,
         location: session.activeScenario.location || session.activeScenario.title,
@@ -147,19 +147,13 @@ export async function fetchPassiveMemories(
       const formatted = formatMemoryForConversation(memoryResults);
       brainHealthTelemetry.logContextInjection({
         sessionId,
-        conversationId,
         userId,
         targetLanguage: targetLanguage || 'unknown',
-        contextSource: 'passive_memory',
+        contextSource: 'passive_memory' as any,
         success: true,
         latencyMs: 0,
         richness: memoryResults.results.length,
-        memoryIds: memoryResults.results.map((r: any) => r.id),
-        memoryTypes: memoryResults.results.map((r: any) => r.domain || 'unknown'),
-        queryTerms: searchQuery,
-        resultsCount: memoryResults.results.length,
-        relevanceScore: memoryResults.results.reduce((sum: number, r: any) => sum + (r.score || 0), 0) / memoryResults.results.length,
-      }, 'passive_lookup').catch(() => {});
+      }).catch(() => {});
       
       return {
         section: `\n\n${formatted}`,

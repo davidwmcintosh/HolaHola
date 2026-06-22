@@ -211,7 +211,7 @@ export async function runDanielaToolIndexer(): Promise<void> {
   const nameToId = new Map(existingRows.map(r => [r.toolName, r.id]));
 
   for (const tool of tools) {
-    const name = tool.declaration.name;
+    const name = tool.declaration.name!;
     if (existingNames.has(name)) {
       l2Skipped++;
       continue;
@@ -219,7 +219,7 @@ export async function runDanielaToolIndexer(): Promise<void> {
     try {
       const row = buildToolKnowledgeRow(tool);
       const [inserted] = await db.insert(toolKnowledge).values(row as any).returning({ id: toolKnowledge.id });
-      nameToId.set(name, inserted.id);
+      if (inserted?.id) nameToId.set(name!, inserted.id);
       l2Inserted++;
     } catch (err: any) {
       l2Errors++;
@@ -243,14 +243,13 @@ export async function runDanielaToolIndexer(): Promise<void> {
 
   // Fetch full rows for any tool that needs an embedding
   const toolsNeedingEmbedding = tools.filter(t => {
-    const id = nameToId.get(t.declaration.name);
+    const id = nameToId.get(t.declaration.name!);
     return id != null && !existingEmbedIds.has(id);
   });
 
   if (toolsNeedingEmbedding.length > 0) {
     const idsNeeded = toolsNeedingEmbedding
-      .map(t => nameToId.get(t.declaration.name)!)
-      .filter(Boolean) as string[];
+      .map(t => nameToId.get(t.declaration.name!) as string).filter(Boolean) as string[];
 
     const fullRows = await db
       .select({ id: toolKnowledge.id, toolName: toolKnowledge.toolName, purpose: toolKnowledge.purpose, syntax: toolKnowledge.syntax, bestUsedFor: toolKnowledge.bestUsedFor })

@@ -636,10 +636,10 @@ export const CONCEPT_KEY_MAP: Record<string, string> = {
   // ══════════════════════════════════════════════════════════════════════
 
   // Numbers — kanji (also shared with Mandarin for the same characters)
-  '〇': 'concept_num_0', '零': 'concept_num_0',
+  '〇': 'concept_num_0',
   '三十': 'concept_num_30', '四十': 'concept_num_40', '五十': 'concept_num_50',
   '六十': 'concept_num_60', '七十': 'concept_num_70', '八十': 'concept_num_80',
-  '九十': 'concept_num_90', '百': 'concept_num_100', '千': 'concept_num_1000',
+  '九十': 'concept_num_90',
 
   // Numbers — hiragana/katakana phonetic forms
 
@@ -686,8 +686,7 @@ export const CONCEPT_KEY_MAP: Record<string, string> = {
   '红': 'concept_color_red', '红色': 'concept_color_red',
   '蓝': 'concept_color_blue', '蓝色': 'concept_color_blue',
   '绿': 'concept_color_green', '绿色': 'concept_color_green',
-  // 黄/黄色, 白/白色, 黑/黑色, 紫/紫色, 灰色/灰 already covered by JP
-  '橙': 'concept_color_orange', '橙色': 'concept_color_orange',
+  // 黄/黄色, 白/白色, 黑/黑色, 紫/紫色, 灰色/灰, 橙/橙色 already covered by JP
   '粉': 'concept_color_pink', '粉色': 'concept_color_pink', '粉红': 'concept_color_pink',
   '棕': 'concept_color_brown', '棕色': 'concept_color_brown',
   '咖啡色': 'concept_color_brown',
@@ -1572,7 +1571,6 @@ export const CONCEPT_KEY_MAP: Record<string, string> = {
   'eye':         'vocab_spanish_ojo', // EN
   'め':           'vocab_spanish_ojo', // JA
   '目':           'vocab_spanish_ojo', // JA/ZH
-  '눈':           'vocab_spanish_ojo', // KO
   '眼睛':         'vocab_spanish_ojo', // ZH
 
   // nose (nariz)

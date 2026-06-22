@@ -149,16 +149,16 @@ export async function postToActiveTeamRoom(opts: ProactivePostOptions): Promise<
 
     const speakerName = participant.charAt(0).toUpperCase() + participant.slice(1);
     const message = await storage.createRoomMessage({
-      roomId,
+      roomId: roomId as string,
       speaker: speakerName,
-      content: voiceContent,
+      content: voiceContent ?? '',
     });
 
-    emitNewMessage(roomId, message);
-    console.log(`[ProactivePoster:${tag}] Posted to Team Room ${roomId}: "${voiceContent.slice(0, 80)}..."`);
+    emitNewMessage(roomId as string, message);
+    console.log(`[ProactivePoster:${tag}] Posted to Team Room ${roomId}: "${(voiceContent ?? '').slice(0, 80)}..."`);
 
     if (expressContent) {
-      emitExpressLane(roomId, [{ participant, content: expressContent }]);
+      emitExpressLane(roomId as string, [{ participant, content: expressContent }]);
     }
 
     return true;

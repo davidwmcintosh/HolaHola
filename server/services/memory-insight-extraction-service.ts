@@ -168,7 +168,7 @@ Format as JSON:
       };
       
       const result = await getSharedDb().insert(danielaGrowthMemories)
-        .values([growthMemory])
+        .values([growthMemory] as any)
         .returning({ id: danielaGrowthMemories.id });
       
       console.log(`[Memory Extraction] Created growth memory: "${insight.title}" (${insight.category})`);
@@ -250,7 +250,7 @@ Format as JSON:
       };
       
       const result = await getSharedDb().insert(danielaGrowthMemories)
-        .values([growthMemory])
+        .values(growthMemory as any)
         .returning({ id: danielaGrowthMemories.id });
       
       console.log(`[Memory Extraction] Created humor growth memory: "${growthMemory.title}"`);

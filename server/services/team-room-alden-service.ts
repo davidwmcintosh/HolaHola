@@ -1380,7 +1380,7 @@ EXPRESS: none`;
   // Note: Agent removed from group greetings — only the real Replit Agent speaks as "Agent".
   const participants: ParticipantResponse[] = [
     { participant: 'alden', handRaise: greetingHandRaise, voiceContent: aldenResult.voiceContent },
-    { participant: 'daniela', handRaise: greetingHandRaise, voiceContent: danielaResult.voiceContent, audioId: danielaResult.audioId },
+    { participant: 'daniela', handRaise: greetingHandRaise, voiceContent: danielaResult.voiceContent, audioId: (danielaResult as any).audioId },
     { participant: 'sofia', handRaise: greetingHandRaise, voiceContent: sofiaResult.voiceContent },
     { participant: 'lyra', handRaise: greetingHandRaise, voiceContent: lyraResult.voiceContent },
     { participant: 'wren', handRaise: greetingHandRaise, voiceContent: wrenResult.voiceContent },

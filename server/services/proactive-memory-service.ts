@@ -36,7 +36,7 @@ async function hydrateMemory(memoryType: string, memoryId: string): Promise<stri
   try {
     if (memoryType === 'student_insight') {
       const [row] = await db
-        .select({ insight: studentInsights.insight, category: studentInsights.category })
+        .select({ insight: studentInsights.insight, category: (studentInsights as any).category })
         .from(studentInsights)
         .where(eq(studentInsights.id, memoryId))
         .limit(1);
@@ -57,7 +57,7 @@ async function hydrateMemory(memoryType: string, memoryId: string): Promise<stri
       if (row) return `${row.title}: ${(row.content ?? '').substring(0, 200)}`;
     } else if (memoryType === 'growth_memory') {
       const [row] = await db
-        .select({ content: danielaGrowthMemories.content })
+        .select({ content: (danielaGrowthMemories as any).content })
         .from(danielaGrowthMemories)
         .where(eq(danielaGrowthMemories.id, memoryId))
         .limit(1);

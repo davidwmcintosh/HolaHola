@@ -97,7 +97,7 @@ async function generatePresenceDoc(userId: string): Promise<void> {
       curiosities,
     ] = await Promise.all([
       // Student info
-      db.select({ firstName: users.firstName, username: users.username })
+      db.select({ firstName: users.firstName })
         .from(users)
         .where(eq(users.id, userId))
         .limit(1),
@@ -107,7 +107,6 @@ async function generatePresenceDoc(userId: string): Promise<void> {
         wins: sessionNotes.wins,
         challenges: sessionNotes.challenges,
         nextSteps: sessionNotes.nextSteps,
-        teachingFocus: sessionNotes.teachingFocus,
         createdAt: sessionNotes.createdAt,
       })
         .from(sessionNotes)
@@ -162,7 +161,7 @@ async function generatePresenceDoc(userId: string): Promise<void> {
         .limit(5),
     ]);
 
-    const studentName = userRow[0]?.firstName || userRow[0]?.username || 'the student';
+    const studentName = userRow[0]?.firstName || (userRow[0] as any)?.username || 'the student';
 
     // If there's nothing recent to work with, skip
     const hasData = recentSessionNotes.length > 0 || relationshipMoments.length > 0 || selfReflections.length > 0;
@@ -179,7 +178,7 @@ async function generatePresenceDoc(userId: string): Promise<void> {
       for (const note of recentSessionNotes) {
         const date = new Date(note.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         const parts = [];
-        if (note.teachingFocus) parts.push(`Focus: ${note.teachingFocus}`);
+        if ((note as any).teachingFocus) parts.push(`Focus: ${(note as any).teachingFocus}`);
         if (note.wins) parts.push(`Wins: ${note.wins}`);
         if (note.challenges) parts.push(`Challenges: ${note.challenges}`);
         if (note.nextSteps) parts.push(`Next: ${note.nextSteps}`);

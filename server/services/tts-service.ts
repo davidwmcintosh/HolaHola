@@ -589,10 +589,6 @@ export const MFA_IPA_PRONUNCIATIONS: Record<string, Record<string, string>> = {
     'De nada': 'd|e|n|a|ð|a',           // Capitalized
     'lo siento': 'l|o|s|j|e|n|t|o',     // lo SIEN-to
     'Lo siento': 'l|o|s|j|e|n|t|o',     // Capitalized
-    'amigo': 'a|m|i|ɣ|o',               // friend
-    'Amigo': 'a|m|i|ɣ|o',               // Capitalized
-    'amiga': 'a|m|i|ɣ|a',               // friend (f)
-    'Amiga': 'a|m|i|ɣ|a',               // Capitalized
     'español': 'e|s|p|a|ɲ|o|l',         // Spanish
     'Español': 'e|s|p|a|ɲ|o|l',         // Capitalized
     'inglés': 'i|n|ɡ|l|e|s',            // English

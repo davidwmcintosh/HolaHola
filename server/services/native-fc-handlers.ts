@@ -8203,7 +8203,7 @@ export class NativeFunctionCallHandler {
       if (session.hiveChannelId) {
         try {
           const contentPreview = typeof data.content === 'string' 
-            ? data.content.substring(0, 200) 
+            ? (data.content as string).substring(0, 200) 
             : JSON.stringify(data.content).substring(0, 200);
           
           await hiveCollaborationService.emitBeacon({

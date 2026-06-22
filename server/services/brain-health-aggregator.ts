@@ -292,8 +292,8 @@ async function assessMemoryHealth(): Promise<HealthDimension> {
       const emptyCount = Number(row?.empty_count ?? 0);
       const emptyGrowth = emptyCount - SEARCH_VECTOR_EMPTY_BASELINE;
 
-      metrics.searchVectorNullCount = nullCount;
-      metrics.searchVectorEmptyCount = emptyCount;
+      (metrics as any).searchVectorNullCount = nullCount;
+      (metrics as any).searchVectorEmptyCount = emptyCount;
 
       if (nullCount > 0) {
         score -= 30;

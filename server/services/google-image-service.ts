@@ -120,8 +120,8 @@ async function callGemini(prompt: string): Promise<Buffer> {
   const response = await ai.models.generateContent({
     model: MODEL,
     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } as any,
-  });
+    generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
+  } as any);
 
   const candidate = response.candidates?.[0];
   for (const part of candidate?.content?.parts ?? []) {
