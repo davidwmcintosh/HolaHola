@@ -643,11 +643,13 @@ NON-LATIN SCRIPT LANGUAGES (Korean, Japanese, Mandarin, Hebrew): Always include 
         return `Image displayed for "${displayLabel}".${descLine}\n[Already in your visual context from this session — reference by name without re-describing.]`;
       }
 
-      // Fallback when vision promise didn't resolve in time
+      // Async-Ack receipt: show_image now returns immediately without waiting for generation.
+      // The image will appear on the student's whiteboard within a few seconds via WS push.
+      // Daniela gets the full vision data via realtimeInput when generation completes.
       if (scene && !fc.args.description) {
-        return `Image for "${displayLabel}" is loading. Continue speaking naturally.`;
+        return `Image for "${displayLabel}" generating — it will appear on the whiteboard in a few seconds. Keep teaching; describe the scene in words as it loads.`;
       }
-      return `Image displayed for "${displayLabel}". Continue teaching.`;
+      return `Image for "${displayLabel}" generating — it will appear on the student's whiteboard as you speak. Continue teaching now; name and describe the concept while the visual loads.`;
     },
   },
 

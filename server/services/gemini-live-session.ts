@@ -1681,74 +1681,102 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     if (msg.toolCall?.functionCalls && msg.toolCall.functionCalls.length > 0) {
       const responses: Array<{ id: string; name: string; response: Record<string, unknown> }> = [];
 
-      for (const fc of msg.toolCall.functionCalls) {
+      // Phase 1: Build extractedFcs upfront (order-safe) then fire all handlers in parallel.
+      // fcHandler.handle() returns quickly — it queues background work into
+      // session.pendingMemoryLookupPromises or session.pendingAsyncImagePromises and breaks.
+      // No slow I/O (DALL-E, Unsplash, vector search) happens inside handle() itself.
+      // Previously: for...await serialized each tool → latency = Sum(all background work).
+      // Now: Promise.allSettled fires all handlers concurrently → latency = Max(slowest tool).
+      const extractedFcs: ExtractedFunctionCall[] = msg.toolCall.functionCalls.map(fc => ({
+        name: fc.name || '',
+        legacyType: lookupLegacyType(fc.name || ''),
+        args: (fc.args as Record<string, unknown>) || {},
+      }));
+
+      const toolErrors = new Map<string, string>();
+
+      await Promise.allSettled(
+        msg.toolCall.functionCalls.map(async (fc, idx) => {
+          const fcName = fc.name || '';
+          const extractedFc = extractedFcs[idx];
+
+          console.log(`[GeminiLive] Tool call: ${fcName} (${extractedFc.legacyType})`);
+
+          // Signal client that a function is executing — keeps thinking avatar alive
+          // during long tool calls (memory searches, image generation, etc.).
+          try {
+            this.sendWsMessage(this.session.ws, {
+              type: 'function_executing',
+              functionName: fcName,
+              timestamp: Date.now(),
+            }, this.session);
+          } catch (_sigErr) { /* non-critical */ }
+
+          try {
+            await this.fcHandler.handle(this.session.id, this.session, extractedFc);
+            reportGlToolCallSuccess({
+              toolName: fcName,
+              sessionId: this.session.id,
+              userId: this.session.userId,
+            }).catch(() => {});
+          } catch (err) {
+            const errMsg = (err as Error).message || String(err);
+            console.error(`[GeminiLive] Tool call failed (${fcName}):`, err);
+            toolErrors.set(fcName, errMsg);
+            reportGlToolCallFailure({
+              toolName: fcName,
+              sessionId: this.session.id,
+              userId: this.session.userId,
+              error: errMsg,
+            }).catch(() => {});
+          }
+        })
+      );
+
+      // Phase 2: Await ALL background work from ALL handlers in one combined wait.
+      // Tools like UNIFIED_RECALL, show_vocab_card, open_scene etc. push async promises
+      // to pendingMemoryLookupPromises during handle(). Previously awaited per-tool inside
+      // the loop, serializing them. Now all resolve concurrently.
+      // TIMEOUT GUARD: cap at 8s — if any lookup hangs, GL stalls forever.
+      if (this.session.pendingMemoryLookupPromises?.length) {
+        const LOOKUP_TIMEOUT_MS = 8000;
+        await Promise.race([
+          Promise.all(this.session.pendingMemoryLookupPromises),
+          new Promise<void>(resolve => setTimeout(resolve, LOOKUP_TIMEOUT_MS)),
+        ]);
+        this.session.pendingMemoryLookupPromises = [];
+      }
+
+      // Subtitle mode change: check once after all handlers have run.
+      // (Previously checked per-tool inside the loop — same outcome since JS is single-threaded.)
+      if (this.session.subtitleMode !== 'off' && !this.karaokeTracker) {
+        this.karaokeTracker = new GLKaraokeTracker(
+          this.session.targetLanguage,
+          (msg: any) => this.sendWsMessage(this.session.ws, msg),
+        );
+        this.karaokeTracker.start().catch(err =>
+          console.warn('[GeminiLive] Karaoke tracker late-start failed:', err?.message ?? err)
+        );
+        console.log('[GeminiLive] Karaoke tracker started (subtitle mode activated mid-session)');
+      } else if (this.session.subtitleMode === 'off' && this.karaokeTracker) {
+        this.karaokeTracker.destroy();
+        this.karaokeTracker = null;
+        console.log('[GeminiLive] Karaoke tracker stopped (subtitle mode turned off)');
+      }
+
+      // Phase 3: Build responses. Session caches are now fully populated (Phase 2 done).
+      // For data-returning tools (memory_lookup, express_lane_lookup, etc.) the handler
+      // populates session caches (e.g. session.recallResults). buildFunctionContinuationResponse
+      // reads those caches and returns the formatted payload for Daniela.
+      for (const [idx, fc] of msg.toolCall.functionCalls.entries()) {
         const fcName = fc.name || '';
-        const legacyType = lookupLegacyType(fcName);
-
-        const extractedFc: ExtractedFunctionCall = {
-          name: fcName,
-          legacyType,
-          args: (fc.args as Record<string, unknown>) || {},
-        };
-
-        console.log(`[GeminiLive] Tool call: ${fcName} (${legacyType})`);
-
-        // Signal client that a function is executing — keeps thinking avatar alive
-        // during long tool calls (memory searches, image generation, etc.).
-        // Without this, the avatar can drop to 'listening' during 5-30s searches.
-        try {
-          this.sendWsMessage(this.session.ws, {
-            type: 'function_executing',
-            functionName: fcName,
-            timestamp: Date.now(),
-          }, this.session);
-        } catch (_sigErr) { /* non-critical */ }
+        const extractedFc = extractedFcs[idx];
 
         let toolResponsePayload: Record<string, unknown> = { result: 'done' };
 
-        try {
-          await this.fcHandler.handle(this.session.id, this.session, extractedFc);
-
-          // If subtitle mode just became active (Daniela called the subtitle tool mid-session)
-          // and the karaoke tracker wasn't started at init (because mode was 'off' then),
-          // start it now so word_timing_delta events fire for upcoming sentences.
-          if (this.session.subtitleMode !== 'off' && !this.karaokeTracker) {
-            this.karaokeTracker = new GLKaraokeTracker(
-              this.session.targetLanguage,
-              (msg: any) => this.sendWsMessage(this.session.ws, msg),
-            );
-            this.karaokeTracker.start().catch(err =>
-              console.warn('[GeminiLive] Karaoke tracker late-start failed:', err?.message ?? err)
-            );
-            console.log('[GeminiLive] Karaoke tracker started (subtitle mode activated mid-session)');
-          } else if (this.session.subtitleMode === 'off' && this.karaokeTracker) {
-            this.karaokeTracker.destroy();
-            this.karaokeTracker = null;
-            console.log('[GeminiLive] Karaoke tracker stopped (subtitle mode turned off)');
-          }
-
-          // Await any async memory lookups before reading session caches.
-          // Tools like UNIFIED_RECALL fire processUnifiedRecall() as a fire-and-forget
-          // promise pushed to pendingMemoryLookupPromises. Without this await,
-          // buildFunctionContinuationResponse reads session.recallResults before the
-          // search completes and returns the "Nothing found" fallback.
-          // TIMEOUT GUARD: cap at 8s — if any lookup hangs (e.g. open_scene vision fetch
-          // on a slow image URL), GL stalls forever waiting to send the tool response.
-          // On timeout we continue with whatever results have resolved so far.
-          if (this.session.pendingMemoryLookupPromises?.length) {
-            const LOOKUP_TIMEOUT_MS = 8000;
-            await Promise.race([
-              Promise.all(this.session.pendingMemoryLookupPromises),
-              new Promise<void>(resolve => setTimeout(resolve, LOOKUP_TIMEOUT_MS)),
-            ]);
-            this.session.pendingMemoryLookupPromises = [];
-          }
-
-          // For data-returning tools (memory_lookup, express_lane_lookup, etc.) the handler
-          // populates session caches (e.g. session.memoryLookupResults[query]). We use
-          // buildFunctionContinuationResponse() — the same path as non-GL streaming — to format
-          // the results and send them back to Gemini Live as the tool response payload.
-          // Without this, GL receives only { result: 'done' } and Daniela has no memory data.
+        if (toolErrors.has(fcName)) {
+          toolResponsePayload = { result: `Tool call failed: ${toolErrors.get(fcName)}` };
+        } else {
           const continuationText = buildFunctionContinuationResponse(this.session, extractedFc);
           if (continuationText) {
             if (typeof continuationText === 'string') {
@@ -1769,8 +1797,6 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               toolResponsePayload = { result: (textOnly || 'done') + imageHint };
               console.log(`[GeminiLive] Tool ${fcName}: multimodal — returning ${(toolResponsePayload.result as string).length} chars text + ${inlineParts.length} inline part(s) via realtimeInput`);
               // Queue inline parts to send after tool response is dispatched.
-              // H4 fix: push onto typed array instead of overwriting — batched tool calls
-              // (functionCalls[]) would otherwise silently drop earlier calls' images.
               if (inlineParts.length > 0 && this.liveSession) {
                 for (const p of inlineParts) {
                   this.pendingInlineParts.push({ mimeType: (p as any).inlineData.mimeType, data: (p as any).inlineData.data });
@@ -1782,24 +1808,6 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               console.log(`[GeminiLive] Tool ${fcName}: returning ${text.length} chars of result data`);
             }
           }
-        // Telemetry: record successful tool dispatch so Sofia can compute success rates
-        reportGlToolCallSuccess({
-          toolName: fcName,
-          sessionId: this.session.id,
-          userId: this.session.userId,
-        }).catch(() => {});
-
-        } catch (err) {
-          const errMsg = (err as Error).message || String(err);
-          console.error(`[GeminiLive] Tool call failed (${fcName}):`, err);
-          toolResponsePayload = { result: `Tool call failed: ${errMsg}` };
-          // File a Sofia report — clusters of the same tool failing reveal systemic bugs
-          reportGlToolCallFailure({
-            toolName: fcName,
-            sessionId: this.session.id,
-            userId: this.session.userId,
-            error: errMsg,
-          }).catch(() => {});
         }
 
         responses.push({
@@ -1896,6 +1904,29 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               console.warn('[GeminiLive] Failed to send vision inline data:', (vErr as Error).message);
             }
           }
+        }
+
+        // Async-Ack image delivery: show_image queues into pendingAsyncImagePromises rather
+        // than pendingMemoryLookupPromises so the tool response returns immediately.
+        // When image generation completes, send the vision inline data to Daniela so she
+        // can see what she showed the student on the next turn. The student's whiteboard
+        // receives the image earlier via a direct WS push inside the show_image IIFE.
+        const asyncImagePromises: Promise<void>[] | undefined = (this.session as any).pendingAsyncImagePromises;
+        if (asyncImagePromises?.length) {
+          (this.session as any).pendingAsyncImagePromises = [];
+          Promise.allSettled(asyncImagePromises).then(() => {
+            const visionEntry = (this.session as any).visionBuffer?.['show_image'];
+            if (visionEntry?.inlineData && this.liveSession) {
+              try {
+                (this.liveSession as any).sendRealtimeInput({
+                  mediaChunks: [{ mimeType: visionEntry.inlineData.mimeType, data: visionEntry.inlineData.data }],
+                });
+                console.log('[GeminiLive] Async-Ack: show_image vision data delivered to Daniela via realtimeInput');
+              } catch (_asyncVErr) {
+                // Non-critical — Daniela will pick up the image on the next show_image call
+              }
+            }
+          });
         }
       }
     }

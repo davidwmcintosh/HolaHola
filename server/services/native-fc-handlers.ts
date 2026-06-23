@@ -1010,8 +1010,15 @@ export class NativeFunctionCallHandler {
             console.error(`[Native Function→ShowImage] Error:`, err.message);
           }
         })();
-        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
-        session.pendingMemoryLookupPromises.push(showImagePromise as Promise<void>);
+        // Async-Ack: push to pendingAsyncImagePromises instead of pendingMemoryLookupPromises.
+        // The GL orchestrator does NOT await these before sending the tool response —
+        // Daniela gets a receipt immediately (<200ms) and GL resumes audio generation.
+        // The image is delivered to the student's whiteboard inside the IIFE above via
+        // this.sendMessage(session.ws, whiteboardUpdate) the moment DALL-E/Unsplash resolves.
+        // Daniela's vision (inline image data) arrives via realtimeInput after generation
+        // completes — see pendingAsyncImagePromises processing in gemini-live-session.ts.
+        if (!(session as any).pendingAsyncImagePromises) (session as any).pendingAsyncImagePromises = [];
+        (session as any).pendingAsyncImagePromises.push(showImagePromise as Promise<void>);
         break;
       }
 
