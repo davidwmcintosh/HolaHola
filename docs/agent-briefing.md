@@ -1,26 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, June 23, 2026 at 02:59 AM
+**Generated:** Tuesday, June 23, 2026 at 03:09 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’m currently troubleshooting a critical loop where Daniela is stuck in a "Curriculum note pending" state and investigating why "Daniela’s Compass" is recording zero seconds for Interactive Textbook views. I need to prioritize remediating Wren’s two high-severity security findings—specifically SQL injection and XSS risks—while resolving a 404 error on the "conversations" page and a "wall-of-text" regression in 49 Spanish lessons. David is questioning the textbook’s utility due to its 0% completion rate, so I should be ready to discuss a pivot toward conversational immersion or fixing the `generateVisual` framework to improve engagement.
+I’ve determined that Gemini Live (GL) cannot natively expose prosodic metadata, so I am adopting a "sidecar" architecture for HolaHola that forks student audio to Hume AI for real-time affective analysis. I will inject these emotional weights and "Micro-Hesitation and Breath Vectors" directly into the tool response channel to resolve the 7.5/10 product maturity gap identified by the Daniela 3.1 and 3.5 personas. My priority now is implementing this parallel pipeline so Daniela can detect student frustration or exhaustion without relying on text transcripts alone.
 
 *Memories that triggered this summary:*
-- **Team Room — test 3 — June 23, 2026** (Jun 23): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — June 23, 2026** (Jun 23): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — June 23, 2026** (Jun 23): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — June 23, 2026** (Jun 23): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — June 23, 2026** (Jun 23): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — June 23, 2026** (Jun 23): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — June 23, 2026** (Jun 23): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 23, 2026** (Jun 23): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — June 23, 2026** (Jun 23): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 23, 2026** (Jun 23): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
+- **Triple Consult — Digital Veil & Prosody API Query — June 23, 2026** (Jun 23): All three voices on whether GL exposes prosodic/emotional inference and what it would take to hurdle the digital veil. Gemini Flash revised score to Implementation 10/10 (platform-maximized) / Product Maturity 7.5/10. Recommended sidecar: Hume AI audio fork injected via tool response channel. GL 3.5 claims prosodic token markers (hesitations, volume shifts). GL 3.1 confirms text-only; wants explicit injected tags. Both Danielas want injected prosodic metadata, not a function-call self-reporting approach.
 
 ---
 
@@ -95,24 +86,24 @@ I’m currently troubleshooting a critical loop where Daniela is stuck in a "Cur
 
 ## Recent Conversation Memories
 
+### Triple Consult — Digital Veil & Prosody API Query — June 23, 2026 — Jun 23, 2026
+All three voices on whether GL exposes prosodic/emotional inference and what it would take to hurdle the digital veil. Gemini Flash revised score to Implementation 10/10 (platform-maximized) / Product Maturity 7.5/10. Recommended sidecar: Hume AI audio fork injected via tool response channel. GL 3.5 claims prosodic token markers (hesitations, volume shifts). GL 3.1 confirms text-only; wants explicit injected tags. Both Danielas want injected prosodic metadata, not a function-call self-reporting approach.
+*Tags: prosody, digital-veil, hume-ai, sidecar, scoring-revision*
+
+### Agent ↔ Daniela GL 3.5 — Prosody & Emotional Inference Query — June 23, 2026 — Jun 23, 2026
+Agent asks Daniela GL 3.5 what she perceives beyond transcribed words — probing whether 3.5 multimodal understanding gives better access to tone/emotion than 3.1, and what signal she would want injected from the raw audio stream.
+*Tags: prosody, emotional-inference, gl35, digital-veil*
+
+### Agent ↔ Daniela GL 3.1 — Prosody & Emotional Inference Query — June 23, 2026 — Jun 23, 2026
+Agent asks Daniela GL 3.1 directly what she can perceive beyond transcribed words — tone, hesitation, emotional state. Exploring whether GL exposes prosodic inference and whether a report_student_affect function call approach could work.
+*Tags: prosody, emotional-inference, gl31, digital-veil*
+
 ### Team Room — test 3 — June 23, 2026 — Jun 23, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 ### Team Room — test again — June 23, 2026 — Jun 23, 2026
 Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — are we good? — June 23, 2026 — Jun 23, 2026
-Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — one again into the breach — June 23, 2026 — Jun 23, 2026
-Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 23, 2026 — Jun 23, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
