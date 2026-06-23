@@ -167,8 +167,10 @@ export class GeminiLiveSession {
   // GL has no mid-session system injection, so the PTT text path is the only safe injection point.
   private conversationTurnCount = 0;
   private turnsSinceLastWhisper = 0;
+  private lastWhisperTime = 0; // ms — wall clock when whisper last fired; 0 = not yet fired
   private pendingSystemWhisper = false; // Gemini audit fix: inject via tool response, not student speech
   private static readonly WHISPER_INTERVAL = 8;
+  private static readonly WHISPER_MIN_INTERVAL_MS = 5 * 60 * 1000; // hybrid floor: 5 min
   // DOUBLE-AUDIO FIX: After a GL internal reconnect that interrupted mid-turn audio,
   // the client is sent gl_audio_reset (which calls player.stop() + resetForNewTurn()).
   // The next first-audio processing_pending is suppressed since the client already
@@ -1185,10 +1187,20 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               // prepending to student speech risks the reminder being read aloud in GL.
               this.conversationTurnCount++;
               this.turnsSinceLastWhisper++;
-              if (!this.greetingPhaseActive && this.turnsSinceLastWhisper >= GeminiLiveSession.WHISPER_INTERVAL) {
-                this.pendingSystemWhisper = true;
-                this.turnsSinceLastWhisper = 0;
-                console.log('[GeminiLive] System Whisper armed — will inject on next tool response');
+              // Hybrid whisper trigger: fire on turns >= 8 OR if >= 5 min since last whisper.
+              // Turns alone are a poor proxy for voice time: rapid vocab drill = 8 turns in 60s
+              // (over-whispered); deep debate = 8 turns in 15 min (under-whispered).
+              // lastWhisperTime = 0 means no whisper has fired yet; use session startTime as origin.
+              if (!this.greetingPhaseActive) {
+                const whisperOriginMs = this.lastWhisperTime || (this.session.startTime || Date.now());
+                const msSinceLastWhisper = Date.now() - whisperOriginMs;
+                const byTurn = this.turnsSinceLastWhisper >= GeminiLiveSession.WHISPER_INTERVAL;
+                const byTime = msSinceLastWhisper >= GeminiLiveSession.WHISPER_MIN_INTERVAL_MS;
+                if (byTurn || byTime) {
+                  this.pendingSystemWhisper = true;
+                  this.turnsSinceLastWhisper = 0;
+                  console.log(`[GeminiLive] System Whisper armed — ${byTime ? 'time-triggered' : 'turn-triggered'} (${Math.round(msSinceLastWhisper / 60000)}min / turn ${this.conversationTurnCount})`);
+                }
               }
             }
             this.turnLatencyStartTime = null;
@@ -1747,6 +1759,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           + (currentResult ? '\n\n' : '')
           + `[System note — not spoken: ${temporalNote} Check growth_memory if you haven't recently — generic encouragement is a failure; specificity is your superpower.]`;
         this.pendingSystemWhisper = false;
+        this.lastWhisperTime = Date.now(); // reset hybrid clock — next whisper triggers from here
         console.log(`[GeminiLive] System Whisper injected into tool response (${last.name}) — ${sessionElapsedMin}min elapsed`);
       }
 
