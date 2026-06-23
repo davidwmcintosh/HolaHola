@@ -1,16 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, June 23, 2026 at 01:01 AM
+**Generated:** Tuesday, June 23, 2026 at 01:18 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I implemented the `generateVisual` service and `ImmersionObjective` framework to support our shift toward conversational immersion and away from the struggling Interactive Textbook. I need to immediately fix Daniela’s "Curriculum note pending" response loop in the Team Room and investigate the critical 404 routing error Sofia flagged on the conversations page. I also must prioritize Wren’s high-severity security findings and the sudden spike of 50 new bugs while we recover from the recent monitoring system blackout.
+I’ve completed Gaps 8, 9, and 10 of the Daniela roadmap, integrating SRS mastery decay, the Pathfinder advisory service, and Gemini Live multi-modal continuity via `pendingGlContext`. We’ve decided to prioritize conversational immersion over the static Interactive Textbook, leading me to build the `generateVisual` service and the `ImmersionScaffold` framework for adaptive, objective-based learning. This session, I must urgently address Wren’s high-severity security vulnerabilities and fix the critical 404 routing error on the conversations page while investigating a massive spike in technical debt reported by Sofia.
 
 *Memories that triggered this summary:*
+- **Agent Session — Jun 23, 2026: Second wave complete: Gaps 8, 9, 10 of the 10/10 Daniela voice experience roadmap** (Jun 23): Second wave complete: Gaps 8, 9, 10 of the 10/10 Daniela voice experience roadmap  Gap 8 — SRS mastery decay (surface fading skills) - mastery-evidence-worker.ts: statMap now tracks peakRawScore + mostRecentMs per skill - Skills fading without practice (raw score ≥70, decayed below 65, last seen >30 days) 
 - **Team Room — test 3 — June 23, 2026** (Jun 23): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 23, 2026** (Jun 23): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 23, 2026** (Jun 23): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -20,7 +21,6 @@ I implemented the `generateVisual` service and `ImmersionObjective` framework to
 - **Team Room — what's up? — June 23, 2026** (Jun 23): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — June 23, 2026** (Jun 23): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — June 23, 2026** (Jun 23): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 23, 2026** (Jun 23): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -95,6 +95,10 @@ I implemented the `generateVisual` service and `ImmersionObjective` framework to
 
 ## Recent Conversation Memories
 
+### Agent Session — Jun 23, 2026: Second wave complete: Gaps 8, 9, 10 of the 10/10 Daniela voice experience roadmap — Jun 23, 2026
+Second wave complete: Gaps 8, 9, 10 of the 10/10 Daniela voice experience roadmap  Gap 8 — SRS mastery decay (surface fading skills) - mastery-evidence-worker.ts: statMap now tracks peakRawScore + mostRecentMs per skill - Skills fading without practice (raw score ≥70, decayed below 65, last seen >30 days) 
+*Tags: agent-session, auto-saved, build*
+
 ### Team Room — test 3 — June 23, 2026 — Jun 23, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -109,10 +113,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 23, 2026 — Jun 23, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 23, 2026 — Jun 23, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

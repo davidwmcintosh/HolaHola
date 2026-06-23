@@ -199,8 +199,14 @@ export async function getMasteryDigest(
   try {
     const { studentCanDoEvidence, canDoStatements } = await import("@shared/schema");
 
-    // Get evidence for this student+language, last 90 days
-    const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+    // Get evidence for this student+language, last 365 days.
+    // 90 days was too narrow — skills practiced once and then left for a semester
+    // would silently disappear from the digest (neither Mastered nor Fading), making
+    // Daniela treat a returning student as a complete beginner. 365 days catches
+    // long-dormant mastered skills so the Fading category can surface them properly.
+    // Decay math still handles signal-to-noise: a score from 50 weeks ago decays to
+    // confidenceScore × 0.9^50 ≈ 0.5%, so stale entries naturally fall below thresholds.
+    const cutoff = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
     const evidenceRows = await db
       .select({
         statementId: studentCanDoEvidence.canDoStatementId,

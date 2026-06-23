@@ -1749,7 +1749,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       if (pendingCtx?.length && responses.length > 0) {
         const last = responses[responses.length - 1];
         const currentResult = (last.response as any)?.result ?? '';
-        const ctxNote = '[Screen context — not spoken: ' + pendingCtx.join(' | ') + ']';
+        // Observer-report format (Gemini audit recommendation): state what IS showing now,
+        // not what was shown before. Model reads this as the current visual state post-tool.
+        const ctxNote = '[SYSTEM UPDATE — not spoken: The student\'s screen now shows: ' + pendingCtx.join(' | ') + ']';
         (last.response as any).result = currentResult + (currentResult ? '\n\n' : '') + ctxNote;
         this.session.pendingGlContext = [];
         console.log(`[GeminiLive] Gap 10: flushed ${pendingCtx.length} frontend context item(s) into tool response`);

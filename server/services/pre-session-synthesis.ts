@@ -327,9 +327,11 @@ function buildLiteContext(
   }
 
   // Advisory goal (Gap 9) — soft curriculum suggestion, not a mandate.
-  // Daniela reads this as a compass bearing, not a lesson plan override.
+  // Labeled explicitly as optional so the synthesis model doesn't harden it
+  // into a required session goal. Daniela should ignore it if the conversation
+  // is flowing naturally elsewhere. Student agency beats the algorithm.
   if (advisoryGoal) {
-    parts.push(`CURRICULUM COMPASS (advisory only — your call):\n${advisoryGoal}`);
+    parts.push(`OPTIONAL CURRICULUM HINT (skip if conversation is flowing — student agency comes first):\n${advisoryGoal}`);
   }
 
   return parts.join("\n\n");
