@@ -1832,7 +1832,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
         (last.response as any).result = currentResult
           + (currentResult ? '\n\n' : '')
-          + `[System note — not spoken: ${temporalNote}${frictionSignal ? ` ${frictionSignal}` : ''} Check growth_memory if you haven't recently — generic encouragement is a failure; specificity is your superpower.]`;
+          + `[System note — not spoken: ${temporalNote}${frictionSignal ? ` ${frictionSignal}` : ''} Trust the student's voice over the score — if they sound confident despite HIGH friction, don't slow down. Check growth_memory if you haven't recently — generic encouragement is a failure; specificity is your superpower.]`;
         this.pendingSystemWhisper = false;
         this.lastWhisperTime = Date.now(); // reset hybrid clock — next whisper triggers from here
         console.log(`[GeminiLive] System Whisper injected into tool response (${last.name}) — ${sessionElapsedMin}min elapsed${frictionSignal ? ` | ${frictionSignal}` : ''}`);
