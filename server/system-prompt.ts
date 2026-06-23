@@ -963,9 +963,13 @@ ${isSameLanguage
     
     // Command syntax (action triggers vs function calling)
     const commandSection = buildNativeFunctionCallingSection();
+
+    // Voice tool guide — same visual teaching mindset as Founder/student GL paths
+    const voiceToolGuide = isStreamingVoiceMode ? buildVoiceToolGuideSync() : '';
     
     return `${buildRawHonestyModeContext(name, language, languageName, tutorName)}${voiceNote}
 ${timezoneSection}${sharedCore}
+${voiceToolGuide}
 
 ${commandSection}`;
   }
