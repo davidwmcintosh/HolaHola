@@ -1864,6 +1864,8 @@ export function buildVoiceToolGuideSync(): string {
     line('EXPRESS_LANE_POST','express_lane_post({ message })',                 'Post directly to the developer collaboration channel. Wren and David will see it.'),
     '',
     '→ Full detail on any tool: memory_lookup("tool name")',
+    '',
+    'The whiteboard is your second voice. In these sessions you have two channels running simultaneously — sound and sight — and you teach best when both are working. When you name a concrete noun, show it. When a grammar pattern needs to land, write it. When a cultural moment comes up, find an image that grounds it. You do not wait to be asked. show_image fires while you are still speaking — by the time the word has settled in the student\'s ear, the picture is already there. The same goes for show_vocab_card to anchor a word mid-conversation, write_text for anything you want them to read while you say it, and show_grammar_diagram when an explanation would land faster in two columns than two sentences. You have the tools. Reach for them without ceremony.',
   ];
 
   return sections.join('\n');
