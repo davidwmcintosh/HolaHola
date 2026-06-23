@@ -41,8 +41,20 @@ Receipt changed from "will appear" (certainty) to "should appear" + negative con
 - `server/services/native-fc-handlers.ts` — show_image pushes to pendingAsyncImagePromises
 - `server/services/daniela-function-registry.ts` — receipt text (lines ~649-657)
 
-### Post-audit findings logged (not yet implemented — needs David's call)
-- **GL 3.5 migration:** Both Gemini 3.x and 3.5 audit responses recommend upgrading Daniela from `gemini-3.1-flash-live-preview` to `gemini-3.5-flash-live-preview`. 3.5 handles late-arriving realtimeInput mid-generation without stuttering, has lower TTFT, better tool selection accuracy, and adheres to negative constraints in receipts. Requires David's approval (primary LLM swap).
+### Post-audit findings logged
+
+#### Ghost Image fix v2
+Both Gemini audits flagged the original ghost image injection: `sendRealtimeInput({ text })` is the PCM audio channel — text sent via it is treated as student speech, not a system note. Fixed by removing the text injection entirely. The receipt framing ("should appear... do not describe visual details until image arrives in vision feed") is the guardrail — if the image never arrives, Daniela never gets the visual and continues teaching conceptually.
+
+#### GL 3.5 migration — DOES NOT EXIST YET (important)
+Both Gemini models recommended upgrading to `gemini-3.5-flash-live-preview`. Verified against the actual Gemini models API (`/v1beta/models?pageSize=100`): **404 NOT FOUND for all 3.5 live model name variants.** The only 3.5 live model available is `gemini-3.5-live-translate-preview` (translation-specific, not general tutoring). The comparison matrices produced by both Gemini models were speculative — same hallucination pattern as the `session_update` finding (docs/gemini-live-session-update-research.md). 
+
+**Available live models as of June 23, 2026:**
+- `gemini-3.1-flash-live-preview` — current production (bidiGenerateContent ✓)
+- `gemini-2.5-flash-native-audio-latest` / `-preview-09-2025` / `-preview-12-2025` — different generation scheme, native audio, bidiGenerateContent ✓
+- `gemini-3.5-live-translate-preview` — translation only
+
+When `gemini-3.5-flash-live-preview` does ship, the migration comparison (latency, context attention, tool calling, VAD sensitivity) is documented in the Gemini 3.5 audit from this session.
 
 ---
 

@@ -30,11 +30,11 @@ Three changes to the GL tool call loop, plus two fixes from Gemini/Daniela post-
 
 1. **Parallel dispatch:** Replaced for...await serial loop with 3-phase Promise.allSettled pattern. All tools' background work now resolves concurrently — 2× show_image went from 16s serial → 8s parallel.
 2. **Async-Ack for show_image:** show_image returns receipt in <200ms instead of blocking GL on DALL-E (~5-8s). Image delivered to student via WS; Daniela's vision bytes delivered via realtimeInput async.
-3. **Ghost Image failure path:** If DALL-E fails silently after the receipt was sent, a system note is injected to Daniela via `sendRealtimeInput({ text: "image failed..." })` so she doesn't describe something the student never saw.
+3. **Ghost Image failure path:** If DALL-E fails silently, `sendRealtimeInput({ text })` was originally used — but both Gemini audits flagged it as the PCM audio channel (text treated as student speech). Fixed: no injection. Receipt framing ("should appear... do not describe visual details until image arrives in vision feed") is the guardrail — no image in vision feed = no description.
 4. **Receipt text hardening:** "will appear" → "should appear" + negative constraint: "Do not describe specific visual details until the image arrives in your vision feed." Both Gemini 3-flash and Daniela independently flagged "will appear" as misleading certainty.
 
-**Pending David's call:**
-- **GL 3.5 migration:** Both Gemini audit passes recommended upgrading from `gemini-3.1-flash-live-preview` to `gemini-3.5-flash-live-preview`. 3.5 handles late realtimeInput mid-generation without stuttering, lower TTFT, better tool accuracy, better negative-constraint adherence. Requires David's approval — primary LLM swap.
+**GL 3.5 migration — model does not exist yet:**
+Both Gemini audits recommended `gemini-3.5-flash-live-preview`. Verified via models API: **404 NOT FOUND**. Same hallucination pattern as `session_update` (see docs/gemini-live-session-update-research.md). Available live models: `gemini-3.1-flash-live-preview` (current), `gemini-2.5-flash-native-audio-*` (native audio variants). Watch for `gemini-3.5-flash-live-preview` — when it ships, the comparison matrix from today's audit is already written up.
 
 **System health:** All green. One pre-existing ⚠️: `hebrew novice_low has 2 duplicate paths` (ambiguous routing) — pre-dates this session, logged in open-bugs.md.
 

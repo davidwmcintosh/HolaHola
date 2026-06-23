@@ -1926,19 +1926,19 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               } catch (_asyncVErr) {
                 // Non-critical — Daniela will pick up the image on the next show_image call
               }
-            } else if (this.liveSession) {
-              // Ghost Image failure path: all promises settled but no vision data arrived.
-              // The receipt already told Daniela the image "should" appear — now it hasn't.
-              // Inject a system note so she doesn't describe something the student never saw.
+            } else {
+              // Ghost Image failure: all promises settled but no vision data arrived.
+              // DO NOT inject via sendRealtimeInput({ text }) — that channel is for PCM audio
+              // only. Text sent via sendRealtimeInput is treated as student speech, not a
+              // system note, and Daniela would read it aloud or respond to it as student input.
+              // The safe channel (sendClientContent) risks audio doubling mid-session.
+              //
+              // Instead we rely on the receipt framing: "should appear... do not describe
+              // specific visual details until the image arrives in your vision feed."
+              // If it never arrives, she simply never gets the visual confirmation and
+              // continues teaching conceptually — which is exactly the right behavior.
               const anyFailed = results.some((r) => r.status === 'rejected');
-              console.log(`[GeminiLive] Async-Ack: show_image resolved with no vision data (anyFailed=${anyFailed}) — injecting failure note`);
-              try {
-                (this.liveSession as any).sendRealtimeInput({
-                  text: 'System note: The image you called for did not generate successfully — it did not appear on the student\'s whiteboard. Acknowledge this briefly ("I\'ll skip the image for now") and continue the lesson without describing the image.',
-                });
-              } catch (_ghostErr) {
-                // Nothing more we can do — lesson continues without the image
-              }
+              console.log(`[GeminiLive] Async-Ack: show_image resolved with no vision data (anyFailed=${anyFailed}) — receipt framing guards against hallucination, no injection needed`);
             }
           });
         }
