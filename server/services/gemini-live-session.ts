@@ -1914,9 +1914,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         const asyncImagePromises: Promise<void>[] | undefined = (this.session as any).pendingAsyncImagePromises;
         if (asyncImagePromises?.length) {
           (this.session as any).pendingAsyncImagePromises = [];
-          Promise.allSettled(asyncImagePromises).then(() => {
+          Promise.allSettled(asyncImagePromises).then((results) => {
             const visionEntry = (this.session as any).visionBuffer?.['show_image'];
             if (visionEntry?.inlineData && this.liveSession) {
+              // Success path: image generated — deliver vision bytes to Daniela
               try {
                 (this.liveSession as any).sendRealtimeInput({
                   mediaChunks: [{ mimeType: visionEntry.inlineData.mimeType, data: visionEntry.inlineData.data }],
@@ -1924,6 +1925,19 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 console.log('[GeminiLive] Async-Ack: show_image vision data delivered to Daniela via realtimeInput');
               } catch (_asyncVErr) {
                 // Non-critical — Daniela will pick up the image on the next show_image call
+              }
+            } else if (this.liveSession) {
+              // Ghost Image failure path: all promises settled but no vision data arrived.
+              // The receipt already told Daniela the image "should" appear — now it hasn't.
+              // Inject a system note so she doesn't describe something the student never saw.
+              const anyFailed = results.some((r) => r.status === 'rejected');
+              console.log(`[GeminiLive] Async-Ack: show_image resolved with no vision data (anyFailed=${anyFailed}) — injecting failure note`);
+              try {
+                (this.liveSession as any).sendRealtimeInput({
+                  text: 'System note: The image you called for did not generate successfully — it did not appear on the student\'s whiteboard. Acknowledge this briefly ("I\'ll skip the image for now") and continue the lesson without describing the image.',
+                });
+              } catch (_ghostErr) {
+                // Nothing more we can do — lesson continues without the image
               }
             }
           });

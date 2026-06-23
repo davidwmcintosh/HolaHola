@@ -644,12 +644,14 @@ NON-LATIN SCRIPT LANGUAGES (Korean, Japanese, Mandarin, Hebrew): Always include 
       }
 
       // Async-Ack receipt: show_image now returns immediately without waiting for generation.
-      // The image will appear on the student's whiteboard within a few seconds via WS push.
+      // The image should appear on the student's whiteboard within a few seconds via WS push.
       // Daniela gets the full vision data via realtimeInput when generation completes.
+      // "should appear" not "will appear" — leaves room for silent failure without misleading her.
+      // Negative constraint: don't describe specific visual details until image bytes arrive in vision feed.
       if (scene && !fc.args.description) {
-        return `Image for "${displayLabel}" generating — it will appear on the whiteboard in a few seconds. Keep teaching; describe the scene in words as it loads.`;
+        return `Image for "${displayLabel}" generating — it should appear on the whiteboard in a few seconds. Keep teaching; describe the concept in words. Do not describe specific visual details of the image until you see it in your vision feed.`;
       }
-      return `Image for "${displayLabel}" generating — it will appear on the student's whiteboard as you speak. Continue teaching now; name and describe the concept while the visual loads.`;
+      return `Image for "${displayLabel}" generating — it should appear on the student's whiteboard as you speak. Continue teaching now; name and describe the concept while it loads. Do not describe specific visual details (color, style, composition) until the image arrives in your vision feed.`;
     },
   },
 

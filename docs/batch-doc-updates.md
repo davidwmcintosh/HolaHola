@@ -8,6 +8,44 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jun 23, 2026 — GL parallel tool dispatch + Async-Ack for show_image + Ghost Image failure path
+
+### What was built
+
+**Problem:** GL tool calls were serialized — each tool's background work (image gen, memory lookups) awaited one at a time. Two tools with an 8s image generation blocked 16s total. The show_image handler also blocked GL on DALL-E before returning the tool response, causing 5-8s of dead air before Daniela could speak.
+
+**Three changes shipped:**
+
+#### 1. Promise.allSettled parallel dispatch (`server/services/gemini-live-session.ts`)
+Replaced for...await serial loop with 3-phase structure:
+- **Phase 1:** `Promise.allSettled(fcs.map(fc => fcHandler.handle(...)))` — all handlers fire simultaneously (they return fast, just queue background work)
+- **Phase 2:** One combined `await Promise.all(session.pendingMemoryLookupPromises)` — all tools' async work (image gen, memory search, vocab card) resolves in parallel
+- **Phase 3:** Build continuation responses per tool (reads session caches populated in Phase 2)
+
+Result: 2× show_image calls went from 16s serial → 8s parallel.
+
+#### 2. Async-Ack for show_image (`server/services/native-fc-handlers.ts` + `gemini-live-session.ts`)
+show_image now pushes to `session.pendingAsyncImagePromises` (not `pendingMemoryLookupPromises`). The orchestrator doesn't await it before sendToolResponse.
+- GL gets the tool response in **<200ms** with a receipt
+- Student's whiteboard: image pushed via WS inside the IIFE when DALL-E/Unsplash resolves (unchanged)
+- Daniela's vision: inline image bytes sent via `realtimeInput` after `.then()` on asyncImagePromises
+
+#### 3. Ghost Image failure path (added post-Gemini-review)
+If all asyncImagePromises settle but no vision data arrives (DALL-E failed silently), a system note is injected to Daniela via `sendRealtimeInput({ text: "The image did not generate..." })` so she doesn't describe an image the student never saw.
+
+#### 4. Receipt text hardening (added post-Daniela-review)
+Receipt changed from "will appear" (certainty) to "should appear" + negative constraint: "Do not describe specific visual details until the image arrives in your vision feed." Both Gemini 3-flash and Daniela independently flagged this issue.
+
+### Key files
+- `server/services/gemini-live-session.ts` — parallel dispatch (Phase 1/2/3), async delivery hook, ghost image failure path
+- `server/services/native-fc-handlers.ts` — show_image pushes to pendingAsyncImagePromises
+- `server/services/daniela-function-registry.ts` — receipt text (lines ~649-657)
+
+### Post-audit findings logged (not yet implemented — needs David's call)
+- **GL 3.5 migration:** Both Gemini 3.x and 3.5 audit responses recommend upgrading Daniela from `gemini-3.1-flash-live-preview` to `gemini-3.5-flash-live-preview`. 3.5 handles late-arriving realtimeInput mid-generation without stuttering, has lower TTFT, better tool selection accuracy, and adheres to negative constraints in receipts. Requires David's approval (primary LLM swap).
+
+---
+
 ## Session — Jun 20, 2026 — Pedagogical state machine + documentation layer audit + loop-to-progress bridge
 
 ### What was built

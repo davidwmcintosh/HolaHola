@@ -10,6 +10,9 @@ Format: `[date found] — location — description — severity`
 ~~**2026-06-14 — `server/services/native-fc-handlers.ts` + `daniela-function-registry.ts` — Por vs Para visual_compare text hallucination — MEDIUM**~~
 **FIXED 2026-06-14** — `visual_compare` now sends a DOM-rendered two-column comparison widget (`type: 'comparison'`) immediately (no image generation delay). Concept labels, meanings, and example sentences are always DOM text — never baked into AI pixels. A label-free background scene image (no text in prompt) generates async and enriches the widget in-place via stable ID. Added `a_example`/`b_example` fields to the schema. Works for all languages + RTL (Arabic). The Gemini image engine has the same fundamental limitation as DALL-E for in-image text rendering.
 
+**2026-06-23 — `verify-system-health.ts` warning — `hebrew novice_low` has 2 duplicate curriculum paths — ambiguous routing — LOW**
+Pre-existing duplicate path in Hebrew curriculum. verify-system-health ⚠️ warns on this every run. Does not affect other languages. Fix: find the duplicate row in `curriculum_paths` for `language='hebrew', level='novice_low'` and remove the spurious one. Not urgent — Hebrew routing works, just ambiguous.
+
 **2026-06-12 — `server/services/streaming-voice-orchestrator.ts:1732` — setTimeout timer leak in contextCacheReady race — LOW**
 `Promise.race([session.contextCacheReady, new Promise(r => setTimeout(r, 500))])` — the 500ms timer is never cleared after the race resolves. One leaked timer per `processUserAudio` call. Impact is minimal (timers are GC'd after firing) but accumulates under load. Fix: save the timeout ID and `clearTimeout` after the race resolves.
 
