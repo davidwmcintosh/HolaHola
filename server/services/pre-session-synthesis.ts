@@ -44,6 +44,7 @@ import { GoogleGenAI } from "@google/genai";
 import type { CompassContext } from "@shared/schema";
 import { getLatestPedagogicalBrief } from "./pedagogical-brief-worker";
 import { getMasteryDigest } from "./mastery-evidence-worker";
+import { getAdvisoryGoal } from "./pathfinder-service";
 
 const SYNTHESIS_MODEL = "gemini-3-flash-preview";
 const SYNTHESIS_MODEL_CACHED = "gemini-2.5-flash";
@@ -249,6 +250,7 @@ function buildLiteContext(
   tutorName: string,
   pedagogicalBrief?: { brief: string; focusArea: string | null; struggledWith: string | null; notedProgress: string | null } | null,
   masteryDigest?: string | null,
+  advisoryGoal?: string | null,
 ): string {
   const parts: string[] = [];
 
@@ -319,9 +321,15 @@ function buildLiteContext(
     parts.push(briefLines.join("\n"));
   }
 
-  // Mastery digest — compact ACTFL Can-Do status (Mastered / Working On)
+  // Mastery digest — compact ACTFL Can-Do status (Mastered / Fading / Working On)
   if (masteryDigest) {
     parts.push(`WHAT THEY'VE BUILT (ACTFL Can-Do evidence):\n${masteryDigest}`);
+  }
+
+  // Advisory goal (Gap 9) — soft curriculum suggestion, not a mandate.
+  // Daniela reads this as a compass bearing, not a lesson plan override.
+  if (advisoryGoal) {
+    parts.push(`CURRICULUM COMPASS (advisory only — your call):\n${advisoryGoal}`);
   }
 
   return parts.join("\n\n");
@@ -371,13 +379,15 @@ export async function generatePreSessionSynthesis(
 ): Promise<string | null> {
   const startMs = Date.now();
   try {
-    // Load pedagogical brief and mastery digest if we have identity (non-fatal if missing)
+    // Load pedagogical brief, mastery digest, and advisory goal (non-fatal if any missing)
     let pedagogicalBrief = null;
     let masteryDigest = null;
+    let advisoryGoal: string | null = null;
     if (userId && language) {
-      [pedagogicalBrief, masteryDigest] = await Promise.all([
+      [pedagogicalBrief, masteryDigest, advisoryGoal] = await Promise.all([
         getLatestPedagogicalBrief(userId, language).catch(() => null),
         getMasteryDigest(userId, language, compassContext.studentActflLevel ?? null).catch(() => null),
+        getAdvisoryGoal(userId, language, compassContext.studentActflLevel ?? null).catch(() => null),
       ]);
       if (pedagogicalBrief) {
         console.log(`[PreSynthesis] ✓ Pedagogical brief loaded for ${userId.substring(0, 8)}`);
@@ -385,8 +395,11 @@ export async function generatePreSessionSynthesis(
       if (masteryDigest) {
         console.log(`[PreSynthesis] ✓ Mastery digest loaded for ${userId.substring(0, 8)}`);
       }
+      if (advisoryGoal) {
+        console.log(`[PreSynthesis] ✓ Advisory goal loaded for ${userId.substring(0, 8)}`);
+      }
     }
-    const liteContext = buildLiteContext(compassContext, tutorName, pedagogicalBrief, masteryDigest);
+    const liteContext = buildLiteContext(compassContext, tutorName, pedagogicalBrief, masteryDigest, advisoryGoal);
     if (!liteContext.trim()) {
       console.log("[PreSynthesis] No usable context — skipping synthesis");
       return null;

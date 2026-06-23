@@ -1741,6 +1741,20 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         console.log(`[GeminiLive] System Whisper injected into tool response (${last.name})`);
       }
 
+      // Gap 10 — Multi-modal continuity: flush any queued frontend context into the tool response.
+      // These are brief, factual notes about what the student is currently seeing on screen
+      // (widget opened, lesson page displayed, scene image shown). Queued via session.pendingGlContext
+      // by native-fc-handlers when dispatching whiteboard events. Safe channel — never spoken aloud.
+      const pendingCtx = this.session.pendingGlContext;
+      if (pendingCtx?.length && responses.length > 0) {
+        const last = responses[responses.length - 1];
+        const currentResult = (last.response as any)?.result ?? '';
+        const ctxNote = '[Screen context — not spoken: ' + pendingCtx.join(' | ') + ']';
+        (last.response as any).result = currentResult + (currentResult ? '\n\n' : '') + ctxNote;
+        this.session.pendingGlContext = [];
+        console.log(`[GeminiLive] Gap 10: flushed ${pendingCtx.length} frontend context item(s) into tool response`);
+      }
+
       // Always send tool responses — Gemini Live stalls if we don't
       if (this.liveSession && responses.length > 0) {
         try {

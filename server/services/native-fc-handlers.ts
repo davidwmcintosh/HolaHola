@@ -824,6 +824,12 @@ export class NativeFunctionCallHandler {
             items: [{ type: contentType || 'write', content }],
           });
           console.log(`[Native Function Call] SHOW -> type: ${contentType}`);
+          // Gap 10: queue screen context for GL so Daniela knows what's visible
+          if (!session.pendingGlContext) session.pendingGlContext = [];
+          const ctxLabel = contentType === 'image' ? 'image displayed on whiteboard'
+            : contentType === 'write' ? `text shown: "${content.slice(0, 60)}${content.length > 60 ? '…' : ''}"`
+            : `${contentType ?? 'content'} shown on whiteboard`;
+          session.pendingGlContext.push(ctxLabel);
         }
         if (spokenText && !session.functionCallText) {
           session.functionCallText = spokenText;
@@ -9214,6 +9220,10 @@ export class NativeFunctionCallHandler {
           },
         }],
       });
+
+      // Gap 10: queue screen context so GL knows what lesson page is on screen
+      if (!session.pendingGlContext) session.pendingGlContext = [];
+      session.pendingGlContext.push(`textbook lesson page open: ${lessonId}${row.actflLevel ? ` [${row.actflLevel}]` : ''}, focus: ${focus}`);
 
       // Log page-started event (fire-and-forget)
       if (!session.isIncognito && session.userId) {

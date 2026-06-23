@@ -24,6 +24,22 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 23, 2026 — Voice experience second wave: Gaps 8, 9, 10**
+
+Three more gaps from the Gemini 10/10 blueprint shipped and typecheck-clean:
+
+1. **Gap 8 — SRS mastery decay (surface fading skills)**: `getMasteryDigest()` in `mastery-evidence-worker.ts` now tracks `peakRawScore` and `mostRecentMs` per skill. Skills that once scored ≥70 (confirmed learned) but haven't been practiced in 30+ days and have decayed below 65 now appear as a third category: "Fading without practice (worth revisiting)". Gives Daniela a specific reinforcement signal, not just a binary Mastered/Working-on read.
+
+2. **Gap 9 — Curriculum-forward advisory goal**: New `server/services/pathfinder-service.ts` queries `canDoStatements` for the student's ACTFL level, cross-references `studentCanDoEvidence`, and selects the most useful next candidate: ripe-for-consolidation (20-50% confidence) > untouched > near-horizon stretch. Returns soft advisory prose injected into the synthesis context as "CURRICULUM COMPASS (advisory only — your call)". Daniela decides whether and how to act on it. Does NOT override Madrigal lesson sequencing.
+
+3. **Gap 10 — Multi-modal continuity (screen → GL context)**: Added `pendingGlContext?: string[]` to `StreamingSession`. Two push sites in `native-fc-handlers.ts`: the `SHOW` case (whiteboard content/images) and `processStartTextbookPage`. `GeminiLiveSession` flushes the queue into tool responses alongside the system whisper — safe channel, model sees but never speaks. Daniela now knows what's on the student's screen between turns.
+
+All changes: non-destructive, reversible, typecheck-clean. No schema migrations. No new tools (service-level changes only).
+
+**Next:** Gap 7 (hierarchical memory) and remaining gaps require separate wave planning. Gaps 2/4/5 have architectural blockers — deferred.
+
+---
+
 **Session: June 23, 2026 — Voice experience first wave: Gaps 1, 3, 6**
 
 Three gaps from the Gemini 10/10 blueprint shipped and typecheck-clean:

@@ -212,6 +212,7 @@ export interface StreamingSession {
   surfacedMemoryIds?: Set<string>;    // memory IDs already injected this session (dedup)
   pendingMemorySurfaces?: string[];   // formatted memory lines staged for next turn's context
   lastCommittedMemoryId?: string;     // Gap 1: ID of most recently committed real-time memory
+  pendingGlContext?: string[];        // Gap 10: frontend events queued for GL context injection (flushed via tool response)
   studentPulse?: {                    // Gap 6: rolling frustration/engagement read from student messages
     frustrationScore: number;         // 0-10, decays toward 0 between messages
     signals: string[];                // recent signal descriptions (capped at 10)

@@ -223,10 +223,16 @@ export async function getMasteryDigest(
 
     // Aggregate with time decay: score × (0.9 ^ weeks_since)
     const now = Date.now();
-    const statMap = new Map<string, { statement: string; actflLevel: string; mode: string | null; scores: number[]; count: number }>();
+    const statMap = new Map<string, {
+      statement: string; actflLevel: string; mode: string | null;
+      scores: number[]; count: number;
+      peakRawScore: number;   // Gap 8: highest raw confidence ever seen for this skill
+      mostRecentMs: number;   // Gap 8: timestamp of most recent observation
+    }>();
 
     for (const row of evidenceRows) {
-      const weeksSince = (now - new Date(row.observedAt).getTime()) / (7 * 24 * 60 * 60 * 1000);
+      const observedMs = new Date(row.observedAt).getTime();
+      const weeksSince = (now - observedMs) / (7 * 24 * 60 * 60 * 1000);
       const decayedScore = row.confidenceScore * Math.pow(0.9, weeksSince);
 
       if (!statMap.has(row.statementId)) {
@@ -236,31 +242,47 @@ export async function getMasteryDigest(
           mode: row.mode,
           scores: [],
           count: 0,
+          peakRawScore: 0,
+          mostRecentMs: 0,
         });
       }
       const entry = statMap.get(row.statementId)!;
       entry.scores.push(decayedScore);
       entry.count++;
+      // Gap 8: track peak raw confidence and most recent observation
+      if (row.confidenceScore > entry.peakRawScore) entry.peakRawScore = row.confidenceScore;
+      if (observedMs > entry.mostRecentMs) entry.mostRecentMs = observedMs;
     }
 
     const mastered: string[] = [];
+    const fading: string[] = [];   // Gap 8: was learned, now eroding without practice
     const workingOn: string[] = [];
 
     for (const [, entry] of statMap) {
       const avg = entry.scores.reduce((a, b) => a + b, 0) / entry.scores.length;
       const label = `${entry.statement} [${entry.actflLevel}]`;
-      if (avg >= 80 && entry.count >= 2) {
+      // Gap 8: compute days since this skill was last observed
+      const daysSincePracticed = (now - entry.mostRecentMs) / (24 * 60 * 60 * 1000);
+      const FADING_DAYS = 30; // a skill unvisited for 30+ days starts fading
+
+      if (avg >= 75 && entry.count >= 2) {
         mastered.push(label);
+      } else if (entry.peakRawScore >= 70 && avg < 65 && daysSincePracticed > FADING_DAYS) {
+        // Was confirmed learned (raw score ≥70) but hasn't been reinforced recently
+        fading.push(label);
       } else if (avg >= 40) {
         workingOn.push(label);
       }
     }
 
-    if (!mastered.length && !workingOn.length) return null;
+    if (!mastered.length && !fading.length && !workingOn.length) return null;
 
     const lines: string[] = [];
     if (mastered.length) {
       lines.push(`Mastered (can use freely): ${mastered.slice(0, 4).join("; ")}`);
+    }
+    if (fading.length) {
+      lines.push(`Fading without practice (worth revisiting): ${fading.slice(0, 3).join("; ")}`);
     }
     if (workingOn.length) {
       lines.push(`Working on (actively developing): ${workingOn.slice(0, 3).join("; ")}`);
