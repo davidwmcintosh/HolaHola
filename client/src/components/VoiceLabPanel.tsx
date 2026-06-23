@@ -88,13 +88,13 @@ const GL_MODELS: { value: string; label: string; badge: string; description: str
     value: 'gemini-3.1-flash-live-preview',
     label: 'GL 3.1 Flash',
     badge: '3.1',
-    description: 'Current production model',
+    description: 'Current production model — 3rd gen, 65K output tokens',
   },
   {
     value: 'gemini-2.5-flash-native-audio-preview-12-2025',
-    label: 'GL 3.5 Native Audio',
-    badge: '3.5',
-    description: '30 voices · 24 langs · better barge-in',
+    label: '2.5 Native Audio',
+    badge: '2.5',
+    description: '2nd gen (older) · async tools · affective dialog · 8K output limit',
   },
 ];
 
