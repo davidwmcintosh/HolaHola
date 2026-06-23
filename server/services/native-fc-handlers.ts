@@ -4398,6 +4398,49 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      // ─── Gap 1: Real-time memory commit ───────────────────────────────────────
+      case 'COMMIT_TO_MEMORY': {
+        if (session.isIncognito) {
+          console.log('[Native Function→CommitToMemory] INCOGNITO — skipping');
+          break;
+        }
+        const cmTitle = fn.args.title as string | undefined;
+        const cmContent = fn.args.content as string | undefined;
+        const cmImportance = Math.min(10, Math.max(7, Number(fn.args.importance ?? 8)));
+        const cmTags = (fn.args.tags as string[] | undefined) ?? [];
+
+        if (!cmTitle?.trim() || !cmContent?.trim()) {
+          console.warn('[Native Function→CommitToMemory] Missing title or content — skipping');
+          break;
+        }
+        try {
+          const { db } = await import('../db');
+          const [row] = await db.insert(conversationMemories).values({
+            title: cmTitle.trim(),
+            summary: cmContent.trim().slice(0, 300),
+            content: cmContent.trim(),
+            importance: cmImportance,
+            tags: cmTags,
+            entryType: 'conversation',
+            recordedAt: new Date(),
+          }).returning({ id: conversationMemories.id });
+          session.lastCommittedMemoryId = row?.id;
+          console.log(`[Native Function→CommitToMemory] Saved "${cmTitle.trim().slice(0, 60)}" (importance=${cmImportance}, id=${row?.id?.slice(0, 8)})`);
+        } catch (err: any) {
+          console.error('[Native Function→CommitToMemory] DB error:', err.message);
+        }
+        break;
+      }
+
+      // ─── Gap 6: Student pulse read ─────────────────────────────────────────
+      case 'GET_STUDENT_PULSE': {
+        // The pulse is computed from session.studentPulse which is updated
+        // by updateStudentPulse() called on each incoming student transcript.
+        // buildContinuationResponse reads session.studentPulse directly.
+        console.log(`[Native Function→GetStudentPulse] score=${session.studentPulse?.frustrationScore ?? 'n/a'} messages=${session.studentPulse?.messageCount ?? 0}`);
+        break;
+      }
+
       case 'DRILL': {
         const text = fn.args.text as string | undefined;
         const drillType = fn.args.type as string | undefined;

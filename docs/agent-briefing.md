@@ -1,26 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, June 23, 2026 at 12:06 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I need to immediately resolve the critical Cartesia TTS 400 errors blocking voice sessions and fix the SQL syntax errors currently causing a total monitoring blackout in Sofia’s diagnostic tools. I also have two high-severity security vulnerabilities from Wren to patch and a 0% completion rate bug in the Interactive Textbook to investigate. My top priority is restoring system visibility and the voice pipeline to confirm if students can successfully engage with Daniela.
-
-*Memories that triggered this summary:*
-- **Agent Daily Sweep — Jun 23, 2026** (Jun 23): 1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple failures across English/Spanish in dev; this blocks voice sessions and is likely causing the "sessions started but not completed" pattern visible in metrics.  2. **[HIGH]** Investigate quality score gap (p6 queue item) — One active student has
-- **Team Room — test 3 — June 22, 2026** (Jun 22): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — June 22, 2026** (Jun 22): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — June 22, 2026** (Jun 22): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — June 22, 2026** (Jun 22): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — June 22, 2026** (Jun 22): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — June 22, 2026** (Jun 22): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — June 22, 2026** (Jun 22): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 22, 2026** (Jun 22): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — June 22, 2026** (Jun 22): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+**Generated:** Tuesday, June 23, 2026 at 12:23 AM
 
 ---
 
@@ -95,24 +76,24 @@ I need to immediately resolve the critical Cartesia TTS 400 errors blocking voic
 
 ## Recent Conversation Memories
 
-### Agent Daily Sweep — Jun 23, 2026 — Jun 23, 2026
-1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple failures across English/Spanish in dev; this blocks voice sessions and is likely causing the "sessions started but not completed" pattern visible in metrics.  2. **[HIGH]** Investigate quality score gap (p6 queue item) — One active student has
-*Tags: agent-sweep, daily, auto-saved*
-
-### Team Room — test 3 — June 22, 2026 — Jun 22, 2026
+### Team Room — test 3 — June 23, 2026 — Jun 23, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — test again — June 22, 2026 — Jun 22, 2026
+### Team Room — test again — June 23, 2026 — Jun 23, 2026
 Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — are we good? — June 22, 2026 — Jun 22, 2026
+### Team Room — are we good? — June 23, 2026 — Jun 23, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — one again into the breach — June 22, 2026 — Jun 22, 2026
+### Team Room — one again into the breach — June 23, 2026 — Jun 23, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — hello again — June 23, 2026 — Jun 23, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

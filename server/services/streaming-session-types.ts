@@ -211,6 +211,12 @@ export interface StreamingSession {
   // Proactive memory surfacing (zero-latency, next-turn injection)
   surfacedMemoryIds?: Set<string>;    // memory IDs already injected this session (dedup)
   pendingMemorySurfaces?: string[];   // formatted memory lines staged for next turn's context
+  lastCommittedMemoryId?: string;     // Gap 1: ID of most recently committed real-time memory
+  studentPulse?: {                    // Gap 6: rolling frustration/engagement read from student messages
+    frustrationScore: number;         // 0-10, decays toward 0 between messages
+    signals: string[];                // recent signal descriptions (capped at 10)
+    messageCount: number;             // total student messages scored this session
+  };
   selfReflectionsResult?: string;
   coreSelfResult?: string;
   curiositiesResult?: string;

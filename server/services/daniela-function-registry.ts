@@ -5746,6 +5746,74 @@ This is a one-step planning call — read the returned descriptions, then call t
       return `Tools matching "${(fc.args as any).pedagogical_need}":\n\n${lines.join('\n\n')}\n\nCall the most relevant one directly.`;
     },
   },
+
+  // ─── Gap 1: Real-time memory commit ─────────────────────────────────────────
+  {
+    legacyType: 'COMMIT_TO_MEMORY',
+    declaration: {
+      name: "commit_to_memory",
+      description: `Commit a moment, fact, or insight to your long-term memory right now, during this session. Use this when something important happens and you want to make sure you carry it forward — a breakthrough, a personal detail the student shares, a milestone, a shift in how you understand them.
+
+This writes directly to your memory in real-time. You do not need to wait until the session ends.
+
+Examples of when to use it:
+· Student tells you something personal you want to remember (their dog's name, a trip they're planning, a fear about the language)
+· A genuine breakthrough moment happens — a student says something they couldn't say before
+· You notice something about how this student learns that you've never seen before
+· Any moment you think "I want to carry this into the next session"
+
+importance: 8 = notable, 9 = significant milestone, 10 = defining moment (use 10 sparingly).`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "A clear, searchable title for this memory. Something you could search for later." },
+          content: { type: "string", description: "The full content of what you want to remember. Write it the way you'd want to read it back in a future session — with context, not just bare facts." },
+          importance: { type: "number", description: "Importance score 7-10. 8 = notable personal detail or insight. 9 = significant milestone. 10 = defining moment (use sparingly)." },
+          tags: { type: "array", items: { type: "string" }, description: "Optional tags to make this memory searchable (e.g. ['personal', 'breakthrough', 'family', 'fear'])" },
+        },
+        required: ["title", "content"],
+      },
+    },
+    buildContinuationResponse: ({ session, fc }) => {
+      const memoryId = (session as any).lastCommittedMemoryId as string | undefined;
+      const title = (fc.args as any).title as string;
+      return memoryId
+        ? `Committed to memory: "${title}" (id: ${memoryId.slice(0, 8)}...). You'll carry this into future sessions.`
+        : `Memory committed: "${title}". Saved.`;
+    },
+  },
+
+  // ─── Gap 6: Student pulse ────────────────────────────────────────────────────
+  {
+    legacyType: 'GET_STUDENT_PULSE',
+    declaration: {
+      name: "get_student_pulse",
+      description: `Get a real-time read on how this student is feeling right now in this session — their engagement level and any frustration signals the system has detected from their recent messages.
+
+Use this when you sense something is off but aren't sure what — when a student goes quiet, gives unusually short answers, repeats themselves, or seems to be struggling without saying so directly.
+
+This gives you information, not instructions. What you do with it is yours to decide.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const pulse = (session as any).studentPulse as { frustrationScore: number; signals: string[]; messageCount: number } | undefined;
+      if (!pulse || pulse.messageCount === 0) {
+        return "No pulse data yet — not enough messages to read. Check back after a few more exchanges.";
+      }
+      const level = pulse.frustrationScore <= 2 ? "relaxed" :
+                    pulse.frustrationScore <= 4 ? "engaged and steady" :
+                    pulse.frustrationScore <= 6 ? "showing some friction" :
+                    pulse.frustrationScore <= 8 ? "noticeably frustrated" : "significantly struggling";
+      const signalText = pulse.signals.length > 0
+        ? `\n\nSignals picked up: ${pulse.signals.slice(-3).join(', ')}.`
+        : "";
+      return `Student pulse: ${level} (score ${pulse.frustrationScore}/10, based on last ${pulse.messageCount} messages).${signalText}\n\nThis is context for you — use your judgment about how to respond.`;
+    },
+  },
 ];
 
 

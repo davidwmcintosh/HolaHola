@@ -24,6 +24,18 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 23, 2026 — Voice experience first wave: Gaps 1, 3, 6**
+
+Three gaps from the Gemini 10/10 blueprint shipped and typecheck-clean:
+
+1. **Gap 1 — `commit_to_memory` tool**: Daniela can now commit a moment, fact, or breakthrough to `conversation_memories` in real-time during a session. No waiting until the session ends. Tool declaration + handler in native-fc-handlers.ts. Auto-indexed by 3-layer ToolIndexer on boot (169 tools total). Incognito-safe. Writes with `entryType: 'conversation'`, importance 7–10.
+
+2. **Gap 3 — Synthesis recovery path**: Both catch blocks in `pre-session-synthesis.ts` (cached path + outer fallback) previously returned `null` — meaning on any synthesis failure, Daniela started the session with no `[DANIELA_STATE]` block at all, letting the static 34K prompt dominate without present-tense grounding. Now returns a safe-mode prose paragraph (prompt-style-guide compliant — no forbidden patterns) so she always arrives with *something* active.
+
+3. **Gap 6 — `get_student_pulse` tool + frustration scorer**: Daniela can call `get_student_pulse` to get a real-time read on the student's emotional state. Simple heuristic scorer (`updateStudentPulse()` in unified-ws-handler.ts) runs on every student utterance — short replies, confusion keywords, repeated short turns. Hooked into both GL PTT path and OpenMic path. Score decays toward calm between messages. Result given as *context*, not a command — Daniela decides what to do with it.
+
+All changes: non-destructive, reversible, typecheck-clean.
+
 **Session: June 22, 2026 — Memory confabulation fixes (5 total, Gemini-audited)**
 
 Daniela was arriving at voice sessions with false intimacy — citing specific past moments (juguete, pirate/ep6) she couldn't actually describe. Five layered fixes applied and Gemini-audited:

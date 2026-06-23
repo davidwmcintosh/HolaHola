@@ -417,6 +417,64 @@ function normalizeLanguageKey(lang: string): string {
 }
 
 /**
+ * Gap 6: Update student pulse from incoming transcript text.
+ * Simple heuristic frustration scorer — runs on every student utterance.
+ * STT artifacts are common (David uses speech-to-text), so we use word-level
+ * signals rather than exact string matching.
+ */
+function updateStudentPulse(session: any, text: string): void {
+  if (!text?.trim()) return;
+  const lower = text.toLowerCase().trim();
+  const words = lower.split(/\s+/).filter(w => w.length > 0);
+  const wordCount = words.length;
+
+  // Initialize pulse if not present
+  if (!session.studentPulse) {
+    session.studentPulse = { frustrationScore: 0, signals: [], messageCount: 0 };
+  }
+  const pulse = session.studentPulse;
+  pulse.messageCount += 1;
+
+  // Decay score slightly toward calm on each message (frustration fades)
+  pulse.frustrationScore = Math.max(0, pulse.frustrationScore * 0.85);
+
+  // Signal: very short message (1-2 words after prior exchange) → possible disengagement
+  if (wordCount <= 2) {
+    pulse.frustrationScore = Math.min(10, pulse.frustrationScore + 1.2);
+    pulse.signals.push(`short reply (${wordCount} word${wordCount === 1 ? '' : 's'})`);
+  }
+
+  // Signal: confusion keywords
+  const confusionPatterns = ['don\'t understand', 'do not understand', 'no entiendo',
+    'again', 'what', 'huh', 'wait wait', 'confused', 'confusing', 'lost',
+    'sorry what', 'can you repeat', 'say that again', 'one more time'];
+  const hasConfusion = confusionPatterns.some(p => lower.includes(p));
+  if (hasConfusion) {
+    pulse.frustrationScore = Math.min(10, pulse.frustrationScore + 1.8);
+    pulse.signals.push('confusion signal detected');
+  }
+
+  // Signal: question marks at end of single-word utterances
+  if (wordCount <= 3 && lower.endsWith('?')) {
+    pulse.frustrationScore = Math.min(10, pulse.frustrationScore + 0.8);
+    pulse.signals.push('short question');
+  }
+
+  // Signal: repetitive single-word answers
+  const prevSignals = pulse.signals;
+  const prevWasShort = prevSignals.length > 0 && prevSignals[prevSignals.length - 1].startsWith('short reply');
+  if (prevWasShort && wordCount <= 2) {
+    pulse.frustrationScore = Math.min(10, pulse.frustrationScore + 1.0);
+    pulse.signals.push('repeated short reply');
+  }
+
+  // Cap signals array at 10 entries
+  if (pulse.signals.length > 10) {
+    pulse.signals = pulse.signals.slice(-10);
+  }
+}
+
+/**
  * Socket.io to ws-compatible adapter
  * Allows existing handleStreamingVoiceConnection to work with Socket.io
  */
@@ -3406,6 +3464,8 @@ ${lastNote.tutorNotes}`);
                 }
                 
                 if (!isEmptyTranscript && session) {
+                  // Gap 6: score student pulse on every real utterance
+                  updateStudentPulse(session, transcript);
                   try {
                     const omMetrics = await orchestrator.processOpenMicTranscript(
                       session.id,
@@ -3917,6 +3977,8 @@ ${lastNote.tutorNotes}`);
               // handler may still have a transcript to contribute via sendTextTurn.
               // NOTE: local const snapshot avoids TypeScript's mutable-let narrowing-to-never
               if (finalTranscript && finalWordCount >= 1) {
+                // Gap 6: score student pulse on every real GL utterance
+                if (session) updateStudentPulse(session, finalTranscript);
                 console.log(`[GeminiLive PTT] Routing transcript via text turn (${finalWordCount} words): "${finalTranscript.slice(0, 80)}"`);
                 glSessionSnap.sendTextTurn(finalTranscript);
               } else {

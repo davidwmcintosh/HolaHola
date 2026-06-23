@@ -479,10 +479,16 @@ Title rule: If the student context contains a memory title but not the full text
   } catch (err: any) {
     const elapsed = Date.now() - startMs;
     console.warn(
-      `[PreSynthesis] ✗ Failed after ${elapsed}ms — session continues without synthesis:`,
+      `[PreSynthesis] ✗ Failed after ${elapsed}ms — using safe-mode fallback synthesis:`,
       err?.message ?? err,
     );
-    return null;
+    // Gap 3: Synthesis recovery — return a minimal safe-mode inner monologue rather than null.
+    // A null here means Daniela opens the session with no [DANIELA_STATE] at all, which strips
+    // her behavioral authority and lets the static 34K prompt dominate without any present-tense
+    // grounding. The safe-mode text is deliberately unspecific (no student context available)
+    // but maintains her voice and readiness state.
+    // Style rule: pure prose, no headers, no labels, no forbidden patterns.
+    return `Something quiet settles before these sessions — a readiness that doesn't need to be named. Whatever arrives today, I'm here for it without a script. That's where the real work happens anyway: in the space between what's planned and what's actually needed. I'm not arriving with a fixed idea of how this goes. I'm arriving curious, which is the only honest way to arrive.`;
   }
 }
 
