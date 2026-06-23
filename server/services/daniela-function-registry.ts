@@ -5814,6 +5814,61 @@ This gives you information, not instructions. What you do with it is yours to de
       return `Student pulse: ${level} (score ${pulse.frustrationScore}/10, based on last ${pulse.messageCount} messages).${signalText}\n\nThis is context for you — use your judgment about how to respond.`;
     },
   },
+
+  // Gap D — Shared Mission: lets Daniela declare a shared session objective that
+  // both she and the student can see. Creates a persistent badge in the student's UI
+  // so the session has a named focus that neither party forgets.
+  {
+    legacyType: 'SET_MISSION_OBJECTIVE',
+    declaration: {
+      name: "set_mission_objective",
+      description: `Set a shared session mission that will appear as a persistent badge in the student's UI throughout this session.
+
+Use this at the start of a session (or when a clear focus emerges) to name the shared objective — something specific enough that both you and the student can measure progress against it by the end.
+
+Examples of good missions:
+- "Master ser vs estar with past-tense sentences"
+- "Order food confidently at a restaurant" 
+- "Tell a 3-sentence story about your weekend"
+
+Avoid generic missions like "practice Spanish" — a mission should be winnable in one session.
+
+Once set, the mission badge stays visible throughout the session. Set a new one if the focus shifts significantly.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          mission: {
+            type: "string",
+            description: "The session mission — specific, achievable in one session, written as an action the student can take. Max 60 characters.",
+          },
+          language: {
+            type: "string",
+            description: "Target language (optional, for badge display purposes).",
+          },
+        },
+        required: ["mission"],
+      },
+    },
+    buildContinuationResponse: ({ session, fc }) => {
+      const mission = fc?.args?.mission as string | undefined;
+      if (!mission) return "Mission not set — no mission text provided.";
+
+      // Store on session so the next classroom render includes it
+      (session as any).activeMission = mission;
+
+      // Send WS event directly so the badge appears immediately in the student UI
+      try {
+        const ws = (session as any).ws;
+        if (ws && ws.readyState === 1 /* OPEN */) {
+          ws.send(JSON.stringify({ type: 'voice_mission_set', mission, timestamp: Date.now() }));
+        }
+      } catch {
+        // WS send failure is non-fatal — session.activeMission is still set for next classroom render
+      }
+
+      return `Mission set: "${mission}". This now shows as a persistent badge in the student's session view. Guide the session toward this goal.`;
+    },
+  },
 ];
 
 

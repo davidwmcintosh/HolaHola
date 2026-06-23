@@ -363,6 +363,9 @@ export function StreamingVoiceChat({
     id: string; zone: string; message: string; durationMs: number;
   } | null>(null);
   const spotlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Gap D — Shared Mission: persistent badge showing the session objective set by Daniela
+  const [activeMission, setActiveMission] = useState<string | null>(null);
   
   // Sync whiteboard items to parent for desktop panel rendering
   const onWhiteboardItemsChangeRef = useRef(onWhiteboardItemsChange);
@@ -1058,6 +1061,9 @@ export function StreamingVoiceChat({
             if (spotlightTimerRef.current) clearTimeout(spotlightTimerRef.current);
             setSpotlight(data);
             spotlightTimerRef.current = setTimeout(() => setSpotlight(null), data.durationMs);
+          },
+          onMissionSet: (mission) => {
+            setActiveMission(mission);
           },
           onWhiteboardUpdate: (items, shouldClear) => {
             const imageItems = items.filter((item: any) => item.type === 'image' && item.data?.imageUrl);
@@ -4066,6 +4072,26 @@ export function StreamingVoiceChat({
                 </a>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Gap D — Shared Mission Badge: persistent objective set by Daniela */}
+        {activeMission && (
+          <div
+            className="absolute top-3 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium shadow-sm max-w-[280px]"
+            data-testid="badge-active-mission"
+            title="Session mission"
+          >
+            <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-primary" />
+            <span className="truncate">{activeMission}</span>
+            <button
+              className="shrink-0 ml-0.5 opacity-50 hover:opacity-100 transition-opacity"
+              onClick={() => setActiveMission(null)}
+              data-testid="button-dismiss-mission"
+              aria-label="Dismiss mission"
+            >
+              ×
+            </button>
           </div>
         )}
 

@@ -25,6 +25,11 @@ export interface StreamingSession {
   ws: WS;
   startTime: number;
   isActive: boolean;
+  /** Gap C — visual tool failure signal: set by native-fc-handlers when image generation fails,
+   * cleared by gemini-live-session after injecting the correction note into the tool response. */
+  lastVisualFailure?: string;
+  /** Gap D — shared mission: set by set_mission_objective tool, shown as persistent badge in UI */
+  activeMission?: string;
   isFounderMode: boolean;
   isRawHonestyMode: boolean;
   isReadingRoom: boolean;

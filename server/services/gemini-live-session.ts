@@ -1734,11 +1734,32 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       if (this.pendingSystemWhisper && responses.length > 0) {
         const last = responses[responses.length - 1];
         const currentResult = (last.response as any)?.result ?? '';
+
+        // Gap B — Temporal Pacing: inject session elapsed time so Daniela can self-pace.
+        // When > 25 minutes in, shift into landing mode (synthesize wins, set cliffhanger).
+        const sessionElapsedMs = Date.now() - (this.session.startTime || Date.now());
+        const sessionElapsedMin = Math.floor(sessionElapsedMs / 60000);
+        const temporalNote = sessionElapsedMin >= 25
+          ? `Session clock: ~${sessionElapsedMin} min in. Begin pivoting toward a natural close — name today's wins, set a cliffhanger that makes them want to come back. Don't start new grammar topics.`
+          : `Session clock: ~${sessionElapsedMin} min in.`;
+
         (last.response as any).result = currentResult
           + (currentResult ? '\n\n' : '')
-          + '[System note — not spoken: check growth_memory if you haven\'t recently. Generic encouragement is a failure; specificity is your superpower.]';
+          + `[System note — not spoken: ${temporalNote} Check growth_memory if you haven't recently — generic encouragement is a failure; specificity is your superpower.]`;
         this.pendingSystemWhisper = false;
-        console.log(`[GeminiLive] System Whisper injected into tool response (${last.name})`);
+        console.log(`[GeminiLive] System Whisper injected into tool response (${last.name}) — ${sessionElapsedMin}min elapsed`);
+      }
+
+      // Gap C — Silent Tool Failure Recovery: if a visual tool failed this turn,
+      // inject an explicit correction note so Daniela doesn't reference an image
+      // the student never saw. Cleared after injection so it fires once per failure.
+      if ((this.session as any).lastVisualFailure && responses.length > 0) {
+        const last = responses[responses.length - 1];
+        const currentResult = (last.response as any)?.result ?? '';
+        const failureNote = `[System note — not spoken: A visual failed to load (${(this.session as any).lastVisualFailure}). Do not reference the image or ask the student about it. Describe the concept in words instead — act as if you had intended to use words all along.]`;
+        (last.response as any).result = currentResult + (currentResult ? '\n\n' : '') + failureNote;
+        (this.session as any).lastVisualFailure = undefined;
+        console.log(`[GeminiLive] Gap C: visual failure note injected into tool response`);
       }
 
       // Gap 10 — Multi-modal continuity: flush any queued frontend context into the tool response.

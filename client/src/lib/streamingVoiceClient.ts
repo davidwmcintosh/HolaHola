@@ -250,6 +250,7 @@ type StreamingEventType =
   | 'quizPresented'
   | 'culturalContextShown'
   | 'spotlightShown'
+  | 'missionSet'
   | 'error';
 
 /**
@@ -1316,6 +1317,11 @@ export class StreamingVoiceClient {
 
         case 'spotlight_shown':
           this.emit('spotlightShown', message as { type: string; timestamp: number; data: any });
+          break;
+
+        case 'voice_mission_set':
+          // Gap D: Daniela set a shared session mission — show persistent badge in UI
+          this.emit('missionSet', message as { type: string; mission: string; timestamp: number });
           break;
           
         case 'vad_speech_started':

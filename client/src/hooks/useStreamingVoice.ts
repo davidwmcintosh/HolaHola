@@ -88,6 +88,8 @@ export interface StreamingSessionConfig {
   onCulturalContextShown?: (data: { id: string; title: string; text: string; category?: string; sourceUrl?: string; timestamp: number }) => void;
   /** Called when Daniela spotlights a UI element */
   onSpotlightShown?: (data: { id: string; zone: string; message: string; durationMs: number; timestamp: number }) => void;
+  /** Called when Daniela sets a shared session mission (Gap D) */
+  onMissionSet?: (mission: string) => void;
   /** Called when VAD detects speech start (open mic mode) */
   onVadSpeechStarted?: () => void;
   /** Called when VAD detects utterance end (open mic mode) */
@@ -1432,6 +1434,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       sessionConfigRef.current.onSpotlightShown(message.data);
     }
   }, []);
+
+  // Gap D — Shared Mission
+  const handleMissionSet = useCallback((message: { type: string; mission: string; timestamp: number }) => {
+    if (sessionConfigRef.current?.onMissionSet && message.mission) {
+      sessionConfigRef.current.onMissionSet(message.mission);
+    }
+  }, []);
   
   /**
    * Handle pronunciation coaching feedback from server
@@ -1818,6 +1827,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('quizPresented', handleQuizPresented);
       clientRef.current.on('culturalContextShown', handleCulturalContextShown);
       clientRef.current.on('spotlightShown', handleSpotlightShown);
+      clientRef.current.on('missionSet', handleMissionSet);  // Gap D: shared session mission badge
       clientRef.current.on('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.on('error', handleError);
       clientRef.current.on('ttsError', handleTtsError);
@@ -1942,6 +1952,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('quizPresented', handleQuizPresented);
       clientRef.current.off('culturalContextShown', handleCulturalContextShown);
       clientRef.current.off('spotlightShown', handleSpotlightShown);
+      clientRef.current.off('missionSet', handleMissionSet);  // Gap D
       clientRef.current.off('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.off('error', handleError);
       clientRef.current.off('noSpeechDetected', handleNoSpeechDetected);  // Empty PTT reset

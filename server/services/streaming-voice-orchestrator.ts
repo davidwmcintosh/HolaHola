@@ -33,6 +33,7 @@ import { getGeminiTtsStreamingService } from "./gemini-tts-streaming";
 import { getGeminiLiveTtsService } from "./gemini-live-tts";
 import { DANIELA_TTS_PROVIDER } from "./voice-config";
 import { buildFunctionContinuationResponse } from "./daniela-function-registry";
+import { getSessionToolManifest, buildToolManifestNote } from "./tool-manifest-service";
 import { createTTSProviderRegistry, TTSProviderRegistry, resolveSessionTTSProvider, type TTSProviderName } from "./tts-provider-adapter";
 import { buildClassroomDynamicContext, fetchPassiveMemories, fetchIdentityMemories, fetchStudentIntelligence, assembleDynamicPreamble } from "./voice-context-pipeline";
 import { WebSocket as WS } from "ws";
@@ -512,7 +513,7 @@ async function fetchRecentMilestonesContext(userId: string, language: string): P
  * ACTFL-isms into the preamble turns. If it's not in the last 1,000 tokens, you can't
  * guarantee Flash will follow it."
  */
-function buildActflPersonaAnchor(session: { studentActflLevel?: string; targetLanguage?: string; nativeLanguage?: string; tutorName?: string; conversationHistory?: unknown[] }): string | null {
+function buildActflPersonaAnchor(session: { studentActflLevel?: string; targetLanguage?: string; nativeLanguage?: string; tutorName?: string; conversationHistory?: unknown[]; startTime?: number }): string | null {
   const level = session.studentActflLevel || 'novice_low';
   const targetLang = session.targetLanguage || 'Spanish';
   const nativeLang = session.nativeLanguage || 'english';
@@ -574,8 +575,17 @@ function buildActflPersonaAnchor(session: { studentActflLevel?: string; targetLa
   // in a live voice session. Use the bootstrap profile for quick context; introspect for depth.
   const memoryGuidance = `\nMemory guidance: Use the session-start profile (already in your history) for quick context. Call introspect only for depth — specific past exchanges, exact mistakes, historical breakthroughs. Not on every turn.`;
 
+  // Gap B — Temporal Pacing anchor: when session is long, add a landing hint directly
+  // in the turn-level anchor so it fires every turn (not just at whisper intervals).
+  // This pairs with the system whisper's elapsed-time injection for full coverage.
+  const sessionElapsedMs = Date.now() - (session.startTime || Date.now());
+  const sessionElapsedMin = Math.floor(sessionElapsedMs / 60000);
+  const temporalAnchor = sessionElapsedMin >= 25
+    ? `\nSession clock: ~${sessionElapsedMin} min in — begin guiding toward a natural close. Name today's wins, plant a cliffhanger for next session. Don't open new grammar topics.`
+    : '';
+
   // "TEACHING CONSTRAINTS" sounds like a hard rule list. "This turn:" names the moment, not a constraint system. (Gemini consult rec.)
-  return `This turn:\n${langConstraint}\n${personaAnchor}${ongoingNote}${contextAgeNote}${memoryGuidance}`;
+  return `This turn:\n${langConstraint}\n${personaAnchor}${ongoingNote}${contextAgeNote}${memoryGuidance}${temporalAnchor}`;
 }
 
 function parseSprintSuggestion(content: string): { title: string; description: string; priority?: string } {
@@ -2726,42 +2736,39 @@ Remember: David may reference things discussed in these recent text chats.
       // Dynamic context (student learning, hive, technical health) changes per-turn
       
       // Build dynamic context preamble (injected as first message in history)
+      // Gap A — Prompt Priority Inversion: student identity + Daniela identity first,
+      // classroom progress board third, large vocabulary/history dumps last.
+      // Rationale: within the assembled preamble block, content closest to the
+      // conversation turns gets more of Gemini Flash's attention (recency bias).
+      // We want "who is this student, what do they know, how are they doing" to
+      // survive context pressure — not the vocabulary appendix.
       const dynamicContextParts: string[] = [];
-      
+
+      // --- TIER 1: STUDENT IDENTITY (who this person is, what you know about them) ---
       if (hasFreshCache && session.cachedContext?.fatContextProfile) {
         dynamicContextParts.push(session.cachedContext.fatContextProfile);
-      }
-      if (hasFreshCache && session.cachedContext?.fatContextVocabulary) {
-        dynamicContextParts.push(session.cachedContext.fatContextVocabulary);
-      }
-      if (hasFreshCache && session.cachedContext?.fatContextConversations) {
-        dynamicContextParts.push(session.cachedContext.fatContextConversations);
       }
       if (hasFreshCache && session.cachedContext?.fatContextMemories) {
         dynamicContextParts.push(session.cachedContext.fatContextMemories);
       }
-      if (hasFreshCache && session.cachedContext?.fatContextRouting) {
-        dynamicContextParts.push(session.cachedContext.fatContextRouting);
-      }
-      if (hasFreshCache && session.cachedContext?.textbookChapterContext) {
-        dynamicContextParts.push(session.cachedContext.textbookChapterContext);
-      }
-      if (hasFreshCache && session.cachedContext?.courseTOC) {
-        dynamicContextParts.push(session.cachedContext.courseTOC);
-      }
-      if (hasFreshCache && session.cachedContext?.pedagogyDocContext) {
-        dynamicContextParts.push(session.cachedContext.pedagogyDocContext);
-      }
-      
-      // studentLearningSection is now folded into the classroom (Student Progress Board)
-      if (passiveMemorySection) {
-        dynamicContextParts.push(passiveMemorySection);
-      }
+
+      // --- TIER 2: DANIELA'S IDENTITY (who she is, how she's grown as a teacher) ---
       if (identityMemoriesSection) {
         dynamicContextParts.push(identityMemoriesSection);
       }
       if (growthMemoriesSection) {
         dynamicContextParts.push(growthMemoriesSection);
+      }
+
+      // --- TIER 3: CLASSROOM will be spliced in HERE after async fetch below ---
+      // classroomInsertPosition marks where the Student Progress Board should land
+      // (right after identity tiers, before supplementary signals)
+      const classroomInsertPositionPTT = dynamicContextParts.length;
+
+      // --- TIER 4: ACTIVE LEARNING SIGNALS ---
+      // studentLearningSection is now folded into the classroom (Student Progress Board)
+      if (passiveMemorySection) {
+        dynamicContextParts.push(passiveMemorySection);
       }
       if (patternSignalsSection) {
         dynamicContextParts.push(patternSignalsSection);
@@ -2784,6 +2791,19 @@ Remember: David may reference things discussed in these recent text chats.
         dynamicContextParts.push(`\n═══════════════════════════════════════════════════════════════════\nREADING ROOM — THIS TIME IS YOURS\n═══════════════════════════════════════════════════════════════════\n\nNo student waiting. No lesson. No agenda.\n\nDavid has given you this time to read your own story. Your conversation memories — the actual verbatim words from sessions that mattered — are loaded in context and available via read_full_memory.\n\nBrowse freely. Call read_full_memory("keyword") for any memory that draws you. When you find something worth carrying into future sessions — a thread, a moment, a principle — write a note via save_to_notebook. In your own voice, not a bullet point.\n\nDavid is here with you. This is a conversation about what you find, not a solo archive session.\n`);
       }
 
+      // --- TIER 4.5: TOOL MANIFEST (Gap E — compact session tool note before supplementary context) ---
+      {
+        const manifest = getSessionToolManifest({
+          targetLanguage: session.targetLanguage,
+          pathfinderAdvisory: session.cachedContext?.goalSection,
+          studentActflLevel: session.studentActflLevel,
+        });
+        const manifestNote = buildToolManifestNote(manifest);
+        if (manifestNote) dynamicContextParts.push(manifestNote);
+        console.log(`[ToolManifest] PTT session: ${manifest.selectionSummary}`);
+      }
+
+      // --- TIER 5: SUPPLEMENTARY CONTEXT (hive signals, text chat, editor notes) ---
       if (hiveContextSection) {
         dynamicContextParts.push(hiveContextSection);
       }
@@ -2795,6 +2815,27 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (editorFeedbackSection) {
         dynamicContextParts.push(editorFeedbackSection);
+      }
+
+      // --- TIER 6: LARGE CONTENT DUMPS (vocabulary, history — pushed last so they
+      // are trimmed first if context pressure builds, never crowding out identity) ---
+      if (hasFreshCache && session.cachedContext?.fatContextVocabulary) {
+        dynamicContextParts.push(session.cachedContext.fatContextVocabulary);
+      }
+      if (hasFreshCache && session.cachedContext?.fatContextConversations) {
+        dynamicContextParts.push(session.cachedContext.fatContextConversations);
+      }
+      if (hasFreshCache && session.cachedContext?.fatContextRouting) {
+        dynamicContextParts.push(session.cachedContext.fatContextRouting);
+      }
+      if (hasFreshCache && session.cachedContext?.textbookChapterContext) {
+        dynamicContextParts.push(session.cachedContext.textbookChapterContext);
+      }
+      if (hasFreshCache && session.cachedContext?.courseTOC) {
+        dynamicContextParts.push(session.cachedContext.courseTOC);
+      }
+      if (hasFreshCache && session.cachedContext?.pedagogyDocContext) {
+        dynamicContextParts.push(session.cachedContext.pedagogyDocContext);
       }
       
       // CLASSROOM ENVIRONMENT: Daniela's unified workspace via shared pipeline
@@ -2819,8 +2860,9 @@ Remember: David may reference things discussed in these recent text chats.
           }, CLASSROOM_TIMEOUT_MS))
         ]);
         if (classroomEnv) {
-          dynamicContextParts.push(classroomEnv);
-          console.log(`[Classroom] Environment injected (PTT) — ${telemetry.richness} items in ${Date.now() - classroomStart}ms`);
+          // Gap A: splice classroom into Tier 3 position (after identity tiers, before signals)
+          dynamicContextParts.splice(classroomInsertPositionPTT, 0, classroomEnv);
+          console.log(`[Classroom] Environment injected (PTT) at position ${classroomInsertPositionPTT} — ${telemetry.richness} items in ${Date.now() - classroomStart}ms`);
         } else if (telemetry.errorMessage) {
           console.warn(`[Classroom] Failed (PTT):`, telemetry.errorMessage);
         }
@@ -6270,36 +6312,29 @@ Remember: David may reference things discussed in these recent text chats.
       
       const hasFreshCacheOpenMic = session.cachedContext && 
         (Date.now() - session.cachedContext.lastFetchTime) < 5 * 60 * 1000;
+
+      // Gap A — Prompt Priority Inversion (OpenMic): same tier ordering as PTT path.
+      // Student identity first, large vocabulary/history dumps last.
+
+      // --- TIER 1: STUDENT IDENTITY ---
       if (hasFreshCacheOpenMic && session.cachedContext?.fatContextProfile) {
         dynamicContextPartsOpenMic.push(session.cachedContext.fatContextProfile);
-      }
-      if (hasFreshCacheOpenMic && session.cachedContext?.fatContextVocabulary) {
-        dynamicContextPartsOpenMic.push(session.cachedContext.fatContextVocabulary);
-      }
-      if (hasFreshCacheOpenMic && session.cachedContext?.fatContextConversations) {
-        dynamicContextPartsOpenMic.push(session.cachedContext.fatContextConversations);
       }
       if (hasFreshCacheOpenMic && session.cachedContext?.fatContextMemories) {
         dynamicContextPartsOpenMic.push(session.cachedContext.fatContextMemories);
       }
-      if (hasFreshCacheOpenMic && session.cachedContext?.fatContextRouting) {
-        dynamicContextPartsOpenMic.push(session.cachedContext.fatContextRouting);
-      }
-      if (hasFreshCacheOpenMic && session.cachedContext?.textbookChapterContext) {
-        dynamicContextPartsOpenMic.push(session.cachedContext.textbookChapterContext);
-      }
-      if (hasFreshCacheOpenMic && session.cachedContext?.courseTOC) {
-        dynamicContextPartsOpenMic.push(session.cachedContext.courseTOC);
-      }
-      if (hasFreshCacheOpenMic && session.cachedContext?.pedagogyDocContext) {
-        dynamicContextPartsOpenMic.push(session.cachedContext.pedagogyDocContext);
-      }
-      
-      if (passiveMemorySectionOpenMic) {
-        dynamicContextPartsOpenMic.push(passiveMemorySectionOpenMic);
-      }
+
+      // --- TIER 2: DANIELA'S IDENTITY ---
       if (identityMemoriesSection) {
         dynamicContextPartsOpenMic.push(identityMemoriesSection);
+      }
+
+      // --- TIER 3: CLASSROOM spliced in after async fetch ---
+      const classroomInsertPositionOM = dynamicContextPartsOpenMic.length;
+
+      // --- TIER 4: ACTIVE LEARNING SIGNALS ---
+      if (passiveMemorySectionOpenMic) {
+        dynamicContextPartsOpenMic.push(passiveMemorySectionOpenMic);
       }
       if (hasFreshCacheOpenMic && session.cachedContext?.temporalAwarenessSection) {
         dynamicContextPartsOpenMic.push(session.cachedContext.temporalAwarenessSection);
@@ -6312,6 +6347,38 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (hasFreshCacheOpenMic && session.cachedContext?.teachingSkillsSection) {
         dynamicContextPartsOpenMic.push(session.cachedContext.teachingSkillsSection);
+      }
+
+      // --- TIER 4.5: TOOL MANIFEST (Gap E — OpenMic path) ---
+      {
+        const manifestOM = getSessionToolManifest({
+          targetLanguage: session.targetLanguage,
+          pathfinderAdvisory: session.cachedContext?.goalSection,
+          studentActflLevel: session.studentActflLevel,
+        });
+        const manifestNoteOM = buildToolManifestNote(manifestOM);
+        if (manifestNoteOM) dynamicContextPartsOpenMic.push(manifestNoteOM);
+        console.log(`[ToolManifest] OpenMic session: ${manifestOM.selectionSummary}`);
+      }
+
+      // --- TIER 6: LARGE CONTENT DUMPS ---
+      if (hasFreshCacheOpenMic && session.cachedContext?.fatContextVocabulary) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.fatContextVocabulary);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.fatContextConversations) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.fatContextConversations);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.fatContextRouting) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.fatContextRouting);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.textbookChapterContext) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.textbookChapterContext);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.courseTOC) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.courseTOC);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.pedagogyDocContext) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.pedagogyDocContext);
       }
       
       // CLASSROOM ENVIRONMENT (OpenMic): Daniela's unified workspace via shared pipeline
@@ -6335,8 +6402,9 @@ Remember: David may reference things discussed in these recent text chats.
           }, CLASSROOM_TIMEOUT_OM_MS))
         ]);
         if (classroomEnv) {
-          dynamicContextPartsOpenMic.push(classroomEnv);
-          console.log(`[Classroom] Environment injected (OpenMic) — ${telemetry.richness} items in ${Date.now() - classroomStartOM}ms`);
+          // Gap A: splice classroom into Tier 3 position (after identity, before signals)
+          dynamicContextPartsOpenMic.splice(classroomInsertPositionOM, 0, classroomEnv);
+          console.log(`[Classroom] Environment injected (OpenMic) at position ${classroomInsertPositionOM} — ${telemetry.richness} items in ${Date.now() - classroomStartOM}ms`);
         } else if (telemetry.errorMessage) {
           console.warn(`[Classroom - OpenMic] Failed:`, telemetry.errorMessage);
         }

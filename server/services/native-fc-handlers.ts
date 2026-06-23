@@ -1207,8 +1207,11 @@ export class NativeFunctionCallHandler {
             session.classroomSessionImages.push(compareLabel);
             console.log(`[Native Function→VisualCompare] Background image enriched: "${compareLabel}"`);
           } catch (err: any) {
-            // Non-fatal: the DOM widget is already showing correctly without a background
+            // Non-fatal: the DOM widget is already showing correctly without a background.
+            // Gap C: set visual failure flag so gemini-live-session can inject a correction note
+            // preventing Daniela from referencing an image the student never saw.
             console.warn(`[Native Function→VisualCompare] Background image failed (widget still functional):`, err.message);
+            session.lastVisualFailure = `comparison background image failed: ${err.message?.slice(0, 80) ?? 'unknown error'}`;
           }
         })();
         if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
