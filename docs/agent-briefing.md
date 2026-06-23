@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, June 23, 2026 at 01:18 AM
+**Generated:** Tuesday, June 23, 2026 at 01:23 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve completed Gaps 8, 9, and 10 of the Daniela roadmap, integrating SRS mastery decay, the Pathfinder advisory service, and Gemini Live multi-modal continuity via `pendingGlContext`. We’ve decided to prioritize conversational immersion over the static Interactive Textbook, leading me to build the `generateVisual` service and the `ImmersionScaffold` framework for adaptive, objective-based learning. This session, I must urgently address Wren’s high-severity security vulnerabilities and fix the critical 404 routing error on the conversations page while investigating a massive spike in technical debt reported by Sofia.
+I just finalized the second wave of Gemini audit fixes, implementing SRS mastery decay, ACTFL-aligned curriculum advisory hints, and multi-modal continuity for Gemini Live. I need to immediately address the 404 routing error on the conversations page and Wren’s high-severity security findings concerning SQL injection and unsanitized HTML. Following our discussion on the Interactive Textbook’s 0% completion rate, we are pivoting toward "conversational immersion," so I should prioritize the new Immersion Framework and the `generateVisual` service for context-aware infographics.
 
 *Memories that triggered this summary:*
-- **Agent Session — Jun 23, 2026: Second wave complete: Gaps 8, 9, 10 of the 10/10 Daniela voice experience roadmap** (Jun 23): Second wave complete: Gaps 8, 9, 10 of the 10/10 Daniela voice experience roadmap  Gap 8 — SRS mastery decay (surface fading skills) - mastery-evidence-worker.ts: statMap now tracks peakRawScore + mostRecentMs per skill - Skills fading without practice (raw score ≥70, decayed below 65, last seen >30 days) 
+- **Agent Session — Jun 23, 2026: Second wave (Gaps 8/9/10) + Gemini audit fixes** (Jun 23): Second wave (Gaps 8/9/10) + Gemini audit fixes  Gap 8 — SRS mastery decay: - mastery-evidence-worker: tracks peakRawScore + mostRecentMs per skill - Third category "Fading without practice" for skills that were learned (raw ≥70)
 - **Team Room — test 3 — June 23, 2026** (Jun 23): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 23, 2026** (Jun 23): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 23, 2026** (Jun 23): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -95,8 +95,8 @@ I’ve completed Gaps 8, 9, and 10 of the Daniela roadmap, integrating SRS maste
 
 ## Recent Conversation Memories
 
-### Agent Session — Jun 23, 2026: Second wave complete: Gaps 8, 9, 10 of the 10/10 Daniela voice experience roadmap — Jun 23, 2026
-Second wave complete: Gaps 8, 9, 10 of the 10/10 Daniela voice experience roadmap  Gap 8 — SRS mastery decay (surface fading skills) - mastery-evidence-worker.ts: statMap now tracks peakRawScore + mostRecentMs per skill - Skills fading without practice (raw score ≥70, decayed below 65, last seen >30 days) 
+### Agent Session — Jun 23, 2026: Second wave (Gaps 8/9/10) + Gemini audit fixes — Jun 23, 2026
+Second wave (Gaps 8/9/10) + Gemini audit fixes  Gap 8 — SRS mastery decay: - mastery-evidence-worker: tracks peakRawScore + mostRecentMs per skill - Third category "Fading without practice" for skills that were learned (raw ≥70)
 *Tags: agent-session, auto-saved, build*
 
 ### Team Room — test 3 — June 23, 2026 — Jun 23, 2026
