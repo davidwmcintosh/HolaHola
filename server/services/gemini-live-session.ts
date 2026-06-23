@@ -171,6 +171,19 @@ export class GeminiLiveSession {
   private pendingSystemWhisper = false; // Gemini audit fix: inject via tool response, not student speech
   private static readonly WHISPER_INTERVAL = 8;
   private static readonly WHISPER_MIN_INTERVAL_MS = 5 * 60 * 1000; // hybrid floor: 5 min
+  // ── Student Friction Score ─────────────────────────────────────────────────
+  // Lightweight in-session signals derived from inputTranscription timing + word count.
+  // No external API needed. Injected into the Gap B system whisper so Daniela can
+  // auto-adjust CEFR level and pacing without being told explicitly.
+  private studentTurnStartMs = 0;          // wall clock when generationComplete fires (mic opens)
+  private currentTurnFirstInputMs = 0;     // wall clock of first inputTranscription in current turn
+  private currentTurnInputWords = 0;       // word count accumulating for current student turn
+  private recentPreSpeechPauses: number[] = [];  // rolling last 3 pre-speech pause durations (ms)
+  private recentTurnWordCounts: number[] = [];   // rolling last 3 student turn word counts
+  private lastInputChunkMs = 0;                  // wall clock of last inputTranscription chunk (internal silence detection)
+  private currentTurnMidPauses = 0;              // count of mid-sentence pauses > 2s detected in current student turn
+  private recentMidPauseCounts: number[] = [];   // rolling last 3 mid-turn pause counts
+  private static readonly FRICTION_WINDOW = 3;
   // DOUBLE-AUDIO FIX: After a GL internal reconnect that interrupted mid-turn audio,
   // the client is sent gl_audio_reset (which calls player.stop() + resetForNewTurn()).
   // The next first-audio processing_pending is suppressed since the client already
@@ -715,6 +728,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.isTutorGeneratingAudio = false;
       console.log('[GeminiLive] Mic gate lifted — client playback_ended (echo suppression off)');
     }
+    // Friction Score — set T-zero here, NOT at generationComplete.
+    // generationComplete fires when GL finishes generating; the client hasn't started playing yet.
+    // playback_ended is when the student can actually hear silence and begin speaking.
+    // Using generationComplete would inflate pauses by the full duration of Daniela's audio.
+    this.studentTurnStartMs = Date.now();
+    this.currentTurnFirstInputMs = 0;
+    this.lastInputChunkMs = 0;
   }
 
   /**
@@ -1297,6 +1317,31 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.pendingInputTranscript += text;
         this.pendingInputSaved = false;
 
+        // Friction Score — first-input timing: measure pre-speech pause (generationComplete → first word)
+        if (this.currentTurnFirstInputMs === 0 && this.studentTurnStartMs > 0) {
+          this.currentTurnFirstInputMs = inputNow;
+          const pauseMs = inputNow - this.studentTurnStartMs;
+          if (pauseMs > 200 && pauseMs < 30000) { // sanity bounds: ignore instant/30s+
+            this.recentPreSpeechPauses.push(pauseMs);
+            if (this.recentPreSpeechPauses.length > GeminiLiveSession.FRICTION_WINDOW) {
+              this.recentPreSpeechPauses.shift();
+            }
+          }
+        }
+        // Friction Score — accumulate word count for this student turn
+        const wordCount = text.trim().split(/\s+/).filter(w => w.length > 0).length;
+        this.currentTurnInputWords += wordCount;
+
+        // Friction Score — internal silence: detect pauses BETWEEN chunks within a single turn.
+        // Mid-sentence gaps > 2s signal vocabulary search (more predictive than pre-speech pause).
+        if (this.lastInputChunkMs > 0) {
+          const midGapMs = inputNow - this.lastInputChunkMs;
+          if (midGapMs > 2000 && midGapMs < 20000) { // 2s–20s sanity window
+            this.currentTurnMidPauses++;
+          }
+        }
+        this.lastInputChunkMs = inputNow;
+
         // DO NOT fire processing_pending here — inputTranscription arrives while the user
         // is still mid-sentence (GL transcribes in real-time). Showing the thinking avatar
         // at this point makes the user believe they've been cut off, causing them to stop
@@ -1445,6 +1490,25 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // generationComplete is the definitive end-of-turn signal; any transcription after it
       // is residual buffering from GL's transcription layer and should not reach the client.
       this.transcriptClosed = true;
+
+      // Friction Score — flush this student turn's word count + mid-pause count into the
+      // rolling windows. Reset per-turn accumulators.
+      // NOTE: studentTurnStartMs is NOT set here — it's set in onPlaybackEnded() which fires
+      // when the client signals audio playback has actually finished. Setting it here would
+      // start the pre-speech pause timer before the student has even heard Daniela speak.
+      if (this.currentTurnInputWords > 0) {
+        this.recentTurnWordCounts.push(this.currentTurnInputWords);
+        if (this.recentTurnWordCounts.length > GeminiLiveSession.FRICTION_WINDOW) {
+          this.recentTurnWordCounts.shift();
+        }
+        this.recentMidPauseCounts.push(this.currentTurnMidPauses);
+        if (this.recentMidPauseCounts.length > GeminiLiveSession.FRICTION_WINDOW) {
+          this.recentMidPauseCounts.shift();
+        }
+      }
+      this.currentTurnInputWords = 0;
+      this.currentTurnMidPauses = 0;
+      this.lastInputChunkMs = 0;
       // NOTE (2026-06-13): maybeInjectContextRefresh() was removed here.
       // It sent sendClientContent({role:'model', turnComplete:false}) which incorrectly
       // signals GL that the model is mid-utterance — causing GL to generate a second audio
@@ -1479,6 +1543,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           if (this.isTutorGeneratingAudio) {
             this.isTutorGeneratingAudio = false;
             console.log('[GeminiLive] Mic gate force-opened — safety timeout (no playback_ended received)');
+          }
+          // Friction Score fallback: if playback_ended never arrives, set T-zero here
+          // so pre-speech pause measurement at least has some basis (though less accurate).
+          if (this.studentTurnStartMs === 0) {
+            this.studentTurnStartMs = Date.now();
+            this.currentTurnFirstInputMs = 0;
+            this.lastInputChunkMs = 0;
           }
         }, 60000);
         console.log('[GeminiLive] generationComplete — mic gate held pending client playback_ended');
@@ -1755,12 +1826,16 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           ? `Session clock: ~${sessionElapsedMin} min in. Begin pivoting toward a natural close — name today's wins, set a cliffhanger that makes them want to come back. Don't start new grammar topics.`
           : `Session clock: ~${sessionElapsedMin} min in.`;
 
+        // Friction Score: append rolling hesitation + word-density signal so Daniela
+        // can auto-adjust CEFR level and pacing without being told explicitly.
+        const frictionSignal = this.buildFrictionSignal();
+
         (last.response as any).result = currentResult
           + (currentResult ? '\n\n' : '')
-          + `[System note — not spoken: ${temporalNote} Check growth_memory if you haven't recently — generic encouragement is a failure; specificity is your superpower.]`;
+          + `[System note — not spoken: ${temporalNote}${frictionSignal ? ` ${frictionSignal}` : ''} Check growth_memory if you haven't recently — generic encouragement is a failure; specificity is your superpower.]`;
         this.pendingSystemWhisper = false;
         this.lastWhisperTime = Date.now(); // reset hybrid clock — next whisper triggers from here
-        console.log(`[GeminiLive] System Whisper injected into tool response (${last.name}) — ${sessionElapsedMin}min elapsed`);
+        console.log(`[GeminiLive] System Whisper injected into tool response (${last.name}) — ${sessionElapsedMin}min elapsed${frictionSignal ? ` | ${frictionSignal}` : ''}`);
       }
 
       // Gap C — Silent Tool Failure Recovery: if a visual tool failed this turn,
@@ -1896,6 +1971,63 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       studentSpeakingMs: this.studentSpeakingMs,
       tutorSpeakingMs: this.tutorSpeakingMs + activeTutorMs,
     };
+  }
+
+  /**
+   * Builds a one-line Friction Score from the rolling pre-speech pause and word count
+   * windows. Returns null if not enough data has accumulated yet (< 1 complete turn).
+   *
+   * Signals are derived entirely from inputTranscription timing — no external API needed.
+   * HIGH friction = long pauses + short answers → Daniela should simplify, slow down.
+   * LOW friction = quick responses + full sentences → Daniela can push complexity.
+   */
+  private buildFrictionSignal(): string | null {
+    const hasPause = this.recentPreSpeechPauses.length > 0;
+    const hasWords = this.recentTurnWordCounts.length > 0;
+    const hasMidPause = this.recentMidPauseCounts.length > 0;
+    if (!hasPause && !hasWords && !hasMidPause) return null;
+
+    const avgPauseMs = hasPause
+      ? this.recentPreSpeechPauses.reduce((a, b) => a + b, 0) / this.recentPreSpeechPauses.length
+      : null;
+    const avgWords = hasWords
+      ? this.recentTurnWordCounts.reduce((a, b) => a + b, 0) / this.recentTurnWordCounts.length
+      : null;
+    const avgMidPauses = hasMidPause
+      ? this.recentMidPauseCounts.reduce((a, b) => a + b, 0) / this.recentMidPauseCounts.length
+      : null;
+
+    const parts: string[] = [];
+    let frictionLevel: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
+
+    // Thresholds calibrated for language learners (reviewed against Gemini Flash + Daniela):
+    // Pre-speech pause: < 3.5s = LOW, 3.5–7s = MEDIUM, > 7s = HIGH
+    // Word count: > 12 = LOW, 5–12 = MEDIUM, < 5 = HIGH
+    // Mid-sentence pauses (vocabulary search): avg > 1 per turn → escalate one level
+    if (avgPauseMs !== null) {
+      parts.push(`${(avgPauseMs / 1000).toFixed(1)}s pre-speech pause`);
+      if (avgPauseMs > 7000) frictionLevel = 'HIGH';
+      else if (avgPauseMs > 3500) frictionLevel = 'MEDIUM';
+    }
+    if (avgWords !== null) {
+      parts.push(`${Math.round(avgWords)} words/turn`);
+      if (avgWords < 5) frictionLevel = 'HIGH';
+      else if (avgWords < 12) frictionLevel = frictionLevel === 'HIGH' ? 'HIGH' : 'MEDIUM';
+    }
+    if (avgMidPauses !== null && avgMidPauses >= 1) {
+      parts.push(`${avgMidPauses.toFixed(1)} mid-sentence pause${avgMidPauses !== 1 ? 's' : ''}/turn`);
+      // Escalate one level — mid-sentence searching is the most predictive struggle signal
+      if (frictionLevel === 'LOW') frictionLevel = 'MEDIUM';
+      else if (frictionLevel === 'MEDIUM') frictionLevel = 'HIGH';
+    }
+
+    const hint = frictionLevel === 'HIGH'
+      ? ' Student is struggling — simplify vocabulary, slow pace, offer a sentence frame.'
+      : frictionLevel === 'MEDIUM'
+      ? ' Some hesitation — check in gently, adjust complexity if it continues.'
+      : '';
+
+    return `Student friction: ${frictionLevel} (${parts.join(', ')}).${hint}`;
   }
 
   /**
