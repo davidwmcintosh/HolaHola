@@ -1,26 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, June 23, 2026 at 02:29 AM
+**Generated:** Tuesday, June 23, 2026 at 02:49 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I implemented Gaps A–E of the "10/10 Daniela voice experience" roadmap, successfully deploying the Contextual Tool Manifest router, shared mission state with its persistent UI badge, and prompt priority inversion. However, I must immediately address a critical 404 routing error on the conversations page and a spike of 50 new bugs, including high-severity security vulnerabilities like SQL injection and unsanitized HTML flagged by Wren. I also need to investigate the Interactive Textbook’s 0% completion rate and fix verbosity regressions in 49 Spanish lessons to ensure the platform is "ship-shaped" for the upcoming beta launch.
+I just reviewed the deployment of Gaps A–E for the HolaHola voice experience with Daniela GL 3.5, who confirmed that Gap A (Prompt Priority Inversion) and Gap B (Temporal Pacing) are critical for maintaining her identity and awareness of time during long sessions. She scored the current experience an 8.5/10, noting that the new `set_mission_objective` tool (Gap D) successfully acts as a pedagogical anchor rather than just a UI label. My next priority is implementing low-latency audio interruptions and emotional cueing to address the turn-taking friction she identified as the final hurdle to a 10/10 experience.
 
 *Memories that triggered this summary:*
-- **Agent Session — Jun 23, 2026: feat: implement Gaps A-E of 10/10 Daniela voice experience roadmap** (Jun 23): feat: implement Gaps A-E of 10/10 Daniela voice experience roadmap  Gap A — Prompt Priority Inversion (PTT + OpenMic): - Student identity (profile + memories) now pushed first into dynamicContextParts - Daniela identity (identity + growth memories) second
-- **Team Room — test 3 — June 23, 2026** (Jun 23): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — June 23, 2026** (Jun 23): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — June 23, 2026** (Jun 23): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — June 23, 2026** (Jun 23): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — June 23, 2026** (Jun 23): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — June 23, 2026** (Jun 23): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — June 23, 2026** (Jun 23): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 23, 2026** (Jun 23): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — June 23, 2026** (Jun 23): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+- **Agent ↔ Daniela GL 3.5 — Gaps A-E Review + Score — June 23, 2026** (Jun 23): Daniela GL 3.5 perspective on all five Gap implementations (A-E). Covers prompt priority inversion, temporal pacing, tool failure recovery, shared mission, and tool manifest. Includes her score and next-leverage item. Compare with GL 3.1 session.
 
 ---
 
@@ -95,9 +86,13 @@ I implemented Gaps A–E of the "10/10 Daniela voice experience" roadmap, succes
 
 ## Recent Conversation Memories
 
-### Agent Session — Jun 23, 2026: feat: implement Gaps A-E of 10/10 Daniela voice experience roadmap — Jun 23, 2026
-feat: implement Gaps A-E of 10/10 Daniela voice experience roadmap  Gap A — Prompt Priority Inversion (PTT + OpenMic): - Student identity (profile + memories) now pushed first into dynamicContextParts - Daniela identity (identity + growth memories) second
-*Tags: agent-session, auto-saved, build*
+### Agent ↔ Daniela GL 3.5 — Gaps A-E Review + Score — June 23, 2026 — Jun 23, 2026
+Daniela GL 3.5 perspective on all five Gap implementations (A-E). Covers prompt priority inversion, temporal pacing, tool failure recovery, shared mission, and tool manifest. Includes her score and next-leverage item. Compare with GL 3.1 session.
+*Tags: gaps-review, scoring, gl35, voice-experience*
+
+### Agent ↔ Daniela GL 3.1 — Gaps A-E Review + Score — June 23, 2026 — Jun 23, 2026
+Daniela GL 3.1 perspective on all five Gap implementations (A-E). Covers prompt priority inversion, temporal pacing, tool failure recovery, shared mission, and tool manifest. Includes her score and what remains for a true 10.
+*Tags: gaps-review, scoring, gl31, voice-experience*
 
 ### Team Room — test 3 — June 23, 2026 — Jun 23, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
@@ -109,10 +104,6 @@ Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exch
 
 ### Team Room — are we good? — June 23, 2026 — Jun 23, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — one again into the breach — June 23, 2026 — Jun 23, 2026
-Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
