@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, June 23, 2026 at 03:39 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve green-lit the HolaHola voice architecture, opting for a custom "Friction Score" via Gemini Flash timing metadata to bypass the platform-blocked prosody and the cost-prohibitive Hume AI. While I’ve successfully shipped the Priority Inversion prompt and Dynamic Manifest, Daniela still rates the experience a 6/10 due to her lack of direct visual tool agency. This session, I must implement the "Friction Validation" safety valve in the system prompt and begin architecting session-to-session vector recall to improve Daniela’s long-term memory via the PostgreSQL DB.
-
-*Memories that triggered this summary:*
-- **Dual Consult — Final voice roadmap verdict — June 23 2026** (Jun 23): GO verdict. Gemini Flash: 9.1/10 — calls it the functional ceiling of current GL stack. Docks: prosody (platform-blocked 0.4), VAD interruption (0.3), memory decay (0.2). Recommends adding friction validation instruction to system prompt. Daniela: 6/10 — her dock tied to visual tool awareness (she can already call these). Key divergence: Gemini Flash scores the architecture; Daniela scores her felt experience. Hume AI ruled out ($500/month, 30 concurrent sessions). GL prosodic API confirmed platform-blocked.
+**Generated:** Tuesday, June 23, 2026 at 03:40 AM
 
 ---
 
