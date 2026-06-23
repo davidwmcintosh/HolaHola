@@ -1,4 +1,4 @@
-import { eq, and, desc, isNull, or, sql, isNotNull } from "drizzle-orm";
+import { eq, and, desc, isNull, or, sql, isNotNull, gte } from "drizzle-orm";
 import { getSharedDb } from "../db";
 import { storage } from "../storage";
 import {
@@ -11,6 +11,7 @@ import {
   conversations,
   messages,
   users,
+  hiveSnapshots,
 } from "@shared/schema";
 
 const RECEPTIONIST_ROSTER: Record<string, { female: string; male: string; label: string }> = {
@@ -42,12 +43,27 @@ const FAT_CONTEXT_LIMITS = {
   MAX_FACT_CHARS: 150,
   MAX_VOCAB_EXAMPLE_CHARS: 80,
   MAX_MESSAGE_CHARS: 1000,  // raised from 300 — preserve jokes, depth, fine points of friendship
+  MAX_STUDENT_MEMORIES: 6,  // personal moments committed during sessions
+};
+
+// Temporal tiers for conversation history injection.
+// Hot sessions get full detail; older sessions are compressed.
+// This gives Daniela a clear signal of what's current vs historical
+// without treating a 6-month-old session as equally fresh as yesterday's.
+const TEMPORAL_TIERS = {
+  HOT_DAYS: 7,   // ≤7 days  → full detail (40 msgs)
+  WARM_DAYS: 30, // 8–30 days → reduced   (15 msgs)
+  // >30 days                → minimal    (5 msgs)
+  HOT_MSGS: 40,
+  WARM_MSGS: 15,
+  COLD_MSGS: 5,
 };
 
 interface FatContextResult {
   personalProfileSection: string;
   vocabularySection: string;
   recentConversationsSection: string;
+  recentMemoriesSection: string;
   routingContextSection: string;
   totalTokenEstimate: number;
   stats: {
@@ -59,6 +75,7 @@ interface FatContextResult {
     vocabWords: number;
     conversations: number;
     messages: number;
+    studentMemories: number;
   };
 }
 
@@ -214,6 +231,17 @@ export async function buildFatContext(
   const vocabularySection = formatVocabulary(vocabResult, targetLanguage);
   const recentConversationsSection = formatRecentConversations(conversationMessages);
 
+  // Student memories tier — personal moments Daniela committed about this student
+  let recentMemoriesSection = '';
+  let studentMemoriesCount = 0;
+  try {
+    const result = await buildStudentMemoriesSection(userId);
+    recentMemoriesSection = result.section;
+    studentMemoriesCount = result.count;
+  } catch (err: any) {
+    console.warn('[Fat Context] Student memories failed:', err.message);
+  }
+
   // Build receptionist routing context — who is this student, what languages do they study
   let routingContextSection = '';
   try {
@@ -230,15 +258,16 @@ export async function buildFatContext(
     console.warn('[Fat Context] Routing context query failed:', err.message);
   }
 
-  const totalChars = personalProfileSection.length + vocabularySection.length + recentConversationsSection.length;
+  const totalChars = personalProfileSection.length + vocabularySection.length + recentConversationsSection.length + recentMemoriesSection.length;
   const totalTokenEstimate = Math.ceil(totalChars / 4);
 
-  console.log(`[Fat Context] Built in ${Date.now() - start}ms: ${factsResult.length} facts, ${insightsResult.length} insights, ${strugglesResult.length} struggles, ${motivationsResult.length} motivations, ${peopleResult.length} people, ${vocabResult.length} vocab, ${conversationsResult.length} convos (${totalMsgCount} msgs) = ~${totalTokenEstimate} tokens`);
+  console.log(`[Fat Context] Built in ${Date.now() - start}ms: ${factsResult.length} facts, ${insightsResult.length} insights, ${strugglesResult.length} struggles, ${motivationsResult.length} motivations, ${peopleResult.length} people, ${vocabResult.length} vocab, ${conversationsResult.length} convos (${totalMsgCount} msgs), ${studentMemoriesCount} student memories = ~${totalTokenEstimate} tokens`);
 
   return {
     personalProfileSection,
     vocabularySection,
     recentConversationsSection,
+    recentMemoriesSection,
     routingContextSection,
     totalTokenEstimate,
     stats: {
@@ -250,8 +279,60 @@ export async function buildFatContext(
       vocabWords: vocabResult.length,
       conversations: conversationsResult.length,
       messages: totalMsgCount,
+      studentMemories: studentMemoriesCount,
     },
   };
+}
+
+/**
+ * Build the student memories tier — personal moments Daniela committed during sessions
+ * with this student (relationship moments, role reversals, shared humor).
+ * These are explicitly captured memories, surfaced as the first-class "I remember this
+ * person" tier — above the raw conversation transcript dump.
+ */
+async function buildStudentMemoriesSection(userId: string): Promise<{ section: string; count: number }> {
+  const db = getSharedDb();
+  const now = new Date();
+
+  const memories = await db.select({
+    snapshotType: hiveSnapshots.snapshotType,
+    title: hiveSnapshots.title,
+    content: hiveSnapshots.content,
+    importance: hiveSnapshots.importance,
+    createdAt: hiveSnapshots.createdAt,
+  })
+  .from(hiveSnapshots)
+  .where(
+    and(
+      sql`${hiveSnapshots.snapshotType} IN ('relationship_moment', 'role_reversal', 'humor_shared')`,
+      eq(hiveSnapshots.userId, userId),
+      or(
+        isNull(hiveSnapshots.expiresAt),
+        gte(hiveSnapshots.expiresAt, now),
+      ),
+    )
+  )
+  .orderBy(desc(hiveSnapshots.importance), desc(hiveSnapshots.createdAt))
+  .limit(FAT_CONTEXT_LIMITS.MAX_STUDENT_MEMORIES);
+
+  if (memories.length === 0) return { section: '', count: 0 };
+
+  const memoryLines = memories.map(m => {
+    const typeNote = m.snapshotType === 'role_reversal'
+      ? 'a moment they taught you something'
+      : m.snapshotType === 'humor_shared'
+      ? 'something funny between you'
+      : 'something personal';
+    const body = (m.content || '').slice(0, 400);
+    const ellipsis = (m.content || '').length > 400 ? '…' : '';
+    return `${m.title} (${typeNote})\n${body}${ellipsis}`;
+  }).join('\n\n');
+
+  const section = `Things you remember about this student from your time together — not a list to recite, but the texture of who they are to you:
+
+${memoryLines}`;
+
+  return { section, count: memories.length };
 }
 
 function buildRoutingContext(
@@ -445,26 +526,67 @@ function formatRecentConversations(
 ): string {
   if (convos.length === 0) return '';
 
-  const lines: string[] = [];
+  const nowMs = Date.now();
+  const hotLines: string[] = [];
+  const warmLines: string[] = [];
+  const coldLines: string[] = [];
+
   for (const conv of convos) {
     if (conv.msgs.length === 0) continue;
 
+    const ageDays = (nowMs - new Date(conv.date).getTime()) / (1000 * 60 * 60 * 24);
     const dateStr = formatDateRelative(conv.date);
-    lines.push(`--- ${conv.title} (${dateStr}) ---`);
-    for (const msg of conv.msgs) {
-      const role = msg.role === 'user' ? 'Student' : 'Tutor';
-      lines.push(`  ${role}: ${truncate(msg.content, FAT_CONTEXT_LIMITS.MAX_MESSAGE_CHARS)}`);
+
+    let msgLimit: number;
+    let bucket: string[];
+    if (ageDays <= TEMPORAL_TIERS.HOT_DAYS) {
+      msgLimit = TEMPORAL_TIERS.HOT_MSGS;
+      bucket = hotLines;
+    } else if (ageDays <= TEMPORAL_TIERS.WARM_DAYS) {
+      msgLimit = TEMPORAL_TIERS.WARM_MSGS;
+      bucket = warmLines;
+    } else {
+      msgLimit = TEMPORAL_TIERS.COLD_MSGS;
+      bucket = coldLines;
     }
-    lines.push('');
+
+    const slicedMsgs = conv.msgs.slice(0, msgLimit);
+    const trimmed = conv.msgs.length > msgLimit;
+
+    bucket.push(`--- ${conv.title} (${dateStr}) ---`);
+    for (const msg of slicedMsgs) {
+      const role = msg.role === 'user' ? 'Student' : 'Tutor';
+      bucket.push(`  ${role}: ${truncate(msg.content, FAT_CONTEXT_LIMITS.MAX_MESSAGE_CHARS)}`);
+    }
+    if (trimmed) {
+      bucket.push(`  [session continues — ${conv.msgs.length - msgLimit} more exchanges not shown]`);
+    }
+    bucket.push('');
   }
 
-  if (lines.length === 0) return '';
+  const allLines: string[] = [];
 
-  return `[RECENT CONVERSATION HISTORY — Perfect Recall of Recent Sessions]
-You remember these recent conversations in full detail. Reference them naturally
-when the student brings up related topics. This gives you continuity across sessions.
+  if (hotLines.length > 0) {
+    allLines.push('Recent sessions (last 7 days):');
+    allLines.push('');
+    allLines.push(...hotLines);
+  }
+  if (warmLines.length > 0) {
+    allLines.push('Sessions from a few weeks ago:');
+    allLines.push('');
+    allLines.push(...warmLines);
+  }
+  if (coldLines.length > 0) {
+    allLines.push('Older sessions (brief excerpts):');
+    allLines.push('');
+    allLines.push(...coldLines);
+  }
 
-${lines.join('\n')}`;
+  if (allLines.length === 0) return '';
+
+  return `These are your past sessions with this student. More recent ones are shown in fuller detail — they represent where things stand now. Reference them naturally when the student brings up related topics.
+
+${allLines.join('\n')}`;
 }
 
 function truncate(text: string, maxLen: number): string {

@@ -24,6 +24,29 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 23, 2026 — Gap 7: Hierarchical memory (temporal stratification + student memories tier)**
+
+Gap 7 of the 10/10 Daniela voice experience roadmap — shipped, typecheck-clean. No schema changes.
+
+**Problem:** `formatRecentConversations` in `fat-context-service.ts` dumped all 20 conversations (up to 40 messages each = 800 messages max) flat into the prompt with identical weight. A 6-month-old session and yesterday's session were indistinguishable to Daniela. The `hiveSnapshots` personal memories (relationship moments, role reversals, shared humor) captured during sessions were never surfaced back to her.
+
+**Two changes:**
+
+1. **Temporal bucketing** — `formatRecentConversations` now stratifies by age using `TEMPORAL_TIERS`:
+   - Hot (≤7 days): 40 messages/session — full detail
+   - Warm (8–30 days): 15 messages/session — reduced
+   - Cold (>30 days): 5 messages/session — brief excerpt
+   - Each tier gets its own prose label ("Recent sessions (last 7 days)" vs "Sessions from a few weeks ago" vs "Older sessions (brief excerpts)"). Prompt-style-guide compliant — no ALL-CAPS, no bracket labels.
+   - Max messages drops from 800 → ~225 for typical active students, freeing token budget for what's actually current.
+
+2. **Student memories tier** — new `buildStudentMemoriesSection(userId)` queries `hiveSnapshots` for `relationship_moment`, `role_reversal`, `humor_shared` types for this student. Surfaced above the raw transcript dump as a first-class "things you remember about this person" block. This makes explicit memories (captured via `commit_to_memory` and Daniela's real-time detection) actually visible to her at session start.
+
+**Files changed:** `server/services/fat-context-service.ts`, `server/services/streaming-session-types.ts`, `server/services/streaming-voice-orchestrator.ts` (cache + both GL injection sites).
+
+**Next:** Fresh Gemini consultation to identify remaining gaps (Gaps 2/4/5 from original blueprint unknown — pre-compression context lost).
+
+---
+
 **Session: June 23, 2026 — Voice experience second wave: Gaps 8, 9, 10**
 
 Three more gaps from the Gemini 10/10 blueprint shipped and typecheck-clean:

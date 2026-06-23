@@ -1565,9 +1565,10 @@ Remember: David may reference things discussed in these recent text chats.
             cache.fatContextProfile = fatResult.personalProfileSection;
             cache.fatContextVocabulary = fatResult.vocabularySection;
             cache.fatContextConversations = fatResult.recentConversationsSection;
+            cache.fatContextMemories = fatResult.recentMemoriesSection;
             cache.fatContextRouting = fatResult.routingContextSection;
             cache.fatContextTokenEstimate = fatResult.totalTokenEstimate;
-            console.log(`[Fat Context] Loaded ~${fatResult.totalTokenEstimate} tokens: ${fatResult.stats.facts} facts, ${fatResult.stats.vocabWords} vocab, ${fatResult.stats.conversations} convos (${fatResult.stats.messages} msgs), ${fatResult.stats.struggles} struggles, ${fatResult.stats.motivations} motivations, ${fatResult.stats.people} people, ${fatResult.stats.insights} insights`);
+            console.log(`[Fat Context] Loaded ~${fatResult.totalTokenEstimate} tokens: ${fatResult.stats.facts} facts, ${fatResult.stats.vocabWords} vocab, ${fatResult.stats.conversations} convos (${fatResult.stats.messages} msgs), ${fatResult.stats.struggles} struggles, ${fatResult.stats.motivations} motivations, ${fatResult.stats.people} people, ${fatResult.stats.insights} insights, ${fatResult.stats.studentMemories} student memories`);
           })
           .catch(err => console.warn(`[Context Prefetch] Fat context failed:`, err.message))
       );
@@ -2735,6 +2736,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (hasFreshCache && session.cachedContext?.fatContextConversations) {
         dynamicContextParts.push(session.cachedContext.fatContextConversations);
+      }
+      if (hasFreshCache && session.cachedContext?.fatContextMemories) {
+        dynamicContextParts.push(session.cachedContext.fatContextMemories);
       }
       if (hasFreshCache && session.cachedContext?.fatContextRouting) {
         dynamicContextParts.push(session.cachedContext.fatContextRouting);
@@ -6274,6 +6278,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (hasFreshCacheOpenMic && session.cachedContext?.fatContextConversations) {
         dynamicContextPartsOpenMic.push(session.cachedContext.fatContextConversations);
+      }
+      if (hasFreshCacheOpenMic && session.cachedContext?.fatContextMemories) {
+        dynamicContextPartsOpenMic.push(session.cachedContext.fatContextMemories);
       }
       if (hasFreshCacheOpenMic && session.cachedContext?.fatContextRouting) {
         dynamicContextPartsOpenMic.push(session.cachedContext.fatContextRouting);
