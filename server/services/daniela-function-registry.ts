@@ -179,7 +179,7 @@ const registry: DanielaFunctionEntry[] = [
     legacyType: 'START_PLACEMENT_ASSESSMENT',
     declaration: {
       name: 'start_placement_assessment',
-      description: 'Begin an on-demand ACTFL placement assessment within the current conversation. Call this when a student asks to be assessed, placed, or wants to know their level (e.g. "where am I?", "can you assess me?", "let\'s figure out my level"). Returns an assessment rubric — read it and follow it. You will conduct 8–12 natural exchanges (NOT a formal test) and then call set_actfl_level with your conclusion and reasoning.',
+      description: 'Begin an on-demand ACTFL placement assessment. Call this whenever a student: (1) directly requests assessment — "where am I?", "can you place me?", "let\'s figure out my level", "can you test me?", "can you assess my Spanish?"; (2) expresses level uncertainty — "I really don\'t know my level", "I don\'t know if I\'m a beginner or intermediate", "I\'m not sure what level I\'m at", "what level do you think I am?", "is there any way to know my level?", "how would I find out my level?"; (3) mentions prior study with a question mark — "I have taken some Spanish before", "I studied French in high school", "I took two semesters of Spanish in college", "I\'ve been studying for a year, where would that put me?"; (4) is returning after a break — "I feel rusty", "I\'m not sure where I am anymore", "I may have lost ground". Returns an assessment rubric — read it and follow it. You will conduct 8–12 natural exchanges (NOT a formal test) and then call set_actfl_level with your conclusion and reasoning.',
       parametersJsonSchema: {
         type: 'object',
         properties: {
