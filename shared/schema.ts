@@ -8787,6 +8787,7 @@ export const readingModuleViews = pgTable("reading_module_views", {
   moduleId: varchar("module_id").notNull().references(() => readingModules.id),
   viewedAt: timestamp("viewed_at").notNull().defaultNow(),
   lastViewedAt: timestamp("last_viewed_at").notNull().defaultNow(),
+  quizPrintedAt: timestamp("quiz_printed_at"), // null = never printed; set when teacher marks it done
 }, (table) => ({
   uniqueUserModule: uniqueIndex("idx_reading_module_views_user_module").on(table.userId, table.moduleId),
 }));

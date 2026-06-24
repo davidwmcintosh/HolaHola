@@ -34142,6 +34142,7 @@ You have full access to your neural network knowledge.
         .select({
           viewedAt: readingModuleViews.viewedAt,
           lastViewedAt: readingModuleViews.lastViewedAt,
+          quizPrintedAt: readingModuleViews.quizPrintedAt,
           id: readingModules.id,
           topic: readingModules.topic,
           subjectDomain: readingModules.subjectDomain,
@@ -34166,6 +34167,7 @@ You have full access to your neural network knowledge.
         subjectDomain: r.subjectDomain,
         viewedAt: r.viewedAt,
         lastViewedAt: r.lastViewedAt,
+        quizPrintedAt: r.quizPrintedAt ?? null,
         content: {
           recallCheck: (r.content as any)?.recallCheck ?? [],
           keyTerms: (r.content as any)?.keyTerms ?? [],
@@ -34222,6 +34224,27 @@ You have full access to your neural network knowledge.
       res.json({ viewedModules, bySubject, languageProgress });
     } catch (error: any) {
       console.error('[ProgressReport] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Mark a reading module's quiz questions as printed for the current user
+  app.patch("/api/reading-module-views/:moduleId/mark-printed", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = getRequestUserId(req);
+      if (!userId) return res.status(401).json({ error: 'Unauthorized' });
+      const { moduleId } = req.params;
+      const { getSharedDb } = await import('./db');
+      const { readingModuleViews } = await import('@shared/schema');
+      const { eq, and } = await import('drizzle-orm');
+      const db = getSharedDb();
+      await db
+        .update(readingModuleViews)
+        .set({ quizPrintedAt: new Date() })
+        .where(and(eq(readingModuleViews.moduleId, moduleId), eq(readingModuleViews.userId, userId)));
+      res.json({ ok: true });
+    } catch (error: any) {
+      console.error('[MarkPrinted] Error:', error);
       res.status(500).json({ error: error.message });
     }
   });

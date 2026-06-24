@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,6 +38,7 @@ interface ViewedModule {
   subjectDomain: string;
   viewedAt: string;
   lastViewedAt: string;
+  quizPrintedAt: string | null;
   content: {
     recallCheck: RecallItem[];
     keyTerms: Array<{ term: string; definition: string }>;
@@ -318,17 +319,79 @@ function SummaryTab({ report }: { report: ProgressReport }) {
 
 // ─── Quiz Tab ─────────────────────────────────────────────────────────────────
 
+const WINDOW_DAYS = 14;
+
 function QuizTab({ report, studentName }: { report: ProgressReport; studentName: string }) {
   const [showAnswers, setShowAnswers] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  // Optimistic local printed set — seed from server data
+  const [localPrinted, setLocalPrinted] = useState<Set<string>>(
+    () => new Set(report.viewedModules.filter(m => m.quizPrintedAt).map(m => m.id))
+  );
 
-  const bySubject: Record<string, { mod: ViewedModule; questions: RecallItem[] }[]> = {};
-  for (const mod of report.viewedModules) {
+  const cutoff = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000);
+
+  // Apply rolling window filter (bypass when showAll)
+  const visibleModules = report.viewedModules.filter(m => {
+    if (showAll) return true;
+    return new Date(m.lastViewedAt) >= cutoff;
+  });
+
+  // Mark-printed mutation
+  const markPrintedMutation = useMutation({
+    mutationFn: async (moduleId: string) => {
+      const res = await fetch(`/api/reading-module-views/${moduleId}/mark-printed`, {
+        method: "PATCH",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error("Failed to mark printed");
+    },
+    onMutate: (moduleId: string) => {
+      setLocalPrinted(prev => new Set([...prev, moduleId]));
+    },
+  });
+
+  // Group by subject — sort printed sections to bottom within each group
+  const bySubject: Record<string, { mod: ViewedModule; questions: RecallItem[]; printed: boolean }[]> = {};
+  for (const mod of visibleModules) {
     if (!mod.content.recallCheck?.length) continue;
     if (!bySubject[mod.subjectDomain]) bySubject[mod.subjectDomain] = [];
-    bySubject[mod.subjectDomain].push({ mod, questions: mod.content.recallCheck });
+    bySubject[mod.subjectDomain].push({
+      mod,
+      questions: mod.content.recallCheck,
+      printed: localPrinted.has(mod.id),
+    });
+  }
+  // Within each subject, unprinted modules first
+  for (const domain of Object.keys(bySubject)) {
+    bySubject[domain].sort((a, b) => Number(a.printed) - Number(b.printed));
   }
 
   const hasQuestions = Object.values(bySubject).some(arr => arr.length > 0);
+  const hiddenCount = report.viewedModules.filter(m =>
+    m.content.recallCheck?.length && new Date(m.lastViewedAt) < cutoff
+  ).length;
+
+  if (!hasQuestions && !showAll) {
+    return (
+      <div
+        className="flex flex-col items-center justify-center h-64 text-center text-muted-foreground gap-3"
+        data-testid="quiz-empty-state"
+      >
+        <ClipboardList className="w-12 h-12 opacity-20" />
+        <p className="text-sm font-medium">No modules studied in the last {WINDOW_DAYS} days.</p>
+        {hiddenCount > 0 && (
+          <button
+            onClick={() => setShowAll(true)}
+            className="text-sm text-primary underline underline-offset-2"
+            data-testid="button-show-all-from-empty"
+          >
+            Show all {hiddenCount} older module{hiddenCount !== 1 ? "s" : ""}
+          </button>
+        )}
+      </div>
+    );
+  }
 
   if (!hasQuestions) {
     return (
@@ -345,6 +408,7 @@ function QuizTab({ report, studentName }: { report: ProgressReport; studentName:
   const totalQuestions = Object.values(bySubject).reduce(
     (n, arr) => n + arr.reduce((m, g) => m + g.questions.length, 0), 0
   );
+  const totalModules = Object.values(bySubject).reduce((n, arr) => n + arr.length, 0);
 
   return (
     <div>
@@ -359,10 +423,25 @@ function QuizTab({ report, studentName }: { report: ProgressReport; studentName:
       </div>
 
       {/* Screen controls */}
-      <div className="flex items-center gap-3 mb-6 print:hidden">
+      <div className="flex items-center gap-3 mb-6 print:hidden flex-wrap">
         <p className="text-sm text-muted-foreground mr-auto" data-testid="text-question-count">
-          {totalQuestions} {totalQuestions === 1 ? "question" : "questions"} from {report.viewedModules.filter(m => m.content.recallCheck?.length).length} modules
+          {totalQuestions} {totalQuestions === 1 ? "question" : "questions"} from {totalModules} {totalModules === 1 ? "module" : "modules"}
+          {!showAll && <span className="text-xs ml-1">(last {WINDOW_DAYS} days)</span>}
         </p>
+        {/* Rolling-window toggle */}
+        <button
+          onClick={() => setShowAll(a => !a)}
+          data-testid="button-toggle-window"
+          className={[
+            "text-xs px-2.5 py-1 rounded-full border transition-colors",
+            showAll
+              ? "bg-muted text-foreground border-border"
+              : "bg-background text-muted-foreground border-border hover:text-foreground",
+          ].join(" ")}
+        >
+          {showAll ? "Showing all" : `Last ${WINDOW_DAYS} days`}
+          {!showAll && hiddenCount > 0 && <span className="ml-1 opacity-60">+{hiddenCount} older</span>}
+        </button>
         <Button
           variant="outline"
           onClick={() => setShowAnswers(a => !a)}
@@ -378,27 +457,60 @@ function QuizTab({ report, studentName }: { report: ProgressReport; studentName:
           size="sm"
         >
           <Printer className="w-4 h-4 mr-1.5" />
-          Print Quiz
+          Print
         </Button>
       </div>
 
-      {/* Questions — student copy (answers hidden in print via .answer-block CSS) */}
+      {/* Questions — grouped by subject */}
       <div className="space-y-8 quiz-questions" data-testid="quiz-questions-section">
         {Object.entries(bySubject).map(([domain, groups]) => {
           const cfg = getSubjectCfg(domain);
+          const allPrinted = groups.every(g => g.printed);
           let qNum = 0;
           return (
-            <div key={domain}>
-              <div className="flex items-center gap-2 mb-3">
+            <div key={domain} className={allPrinted ? "opacity-60" : ""}>
+              {/* Subject header with mark-printed button */}
+              <div className="flex items-center gap-2 mb-3 print:hidden">
                 <cfg.Icon className={`w-4 h-4 ${cfg.iconClass}`} />
                 <h3 className="font-semibold text-sm">{cfg.label}</h3>
+                {allPrinted ? (
+                  <Badge
+                    variant="outline"
+                    className="ml-auto text-xs bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800"
+                    data-testid={`badge-printed-${domain}`}
+                  >
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Printed
+                  </Badge>
+                ) : (
+                  <button
+                    onClick={() => {
+                      groups
+                        .filter(g => !g.printed)
+                        .forEach(g => markPrintedMutation.mutate(g.mod.id));
+                    }}
+                    className="ml-auto text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 transition-colors"
+                    data-testid={`button-mark-printed-${domain}`}
+                  >
+                    Mark as printed
+                  </button>
+                )}
               </div>
+              {/* Print-only subject header */}
+              <div className="hidden print:flex items-center gap-2 mb-3">
+                <h3 className="font-semibold text-sm">{cfg.label}</h3>
+              </div>
+
               <div className="space-y-5">
-                {groups.map(({ mod, questions }) =>
+                {groups.map(({ mod, questions, printed }) =>
                   questions.map((q, qi) => {
                     qNum++;
                     return (
-                      <div key={`${mod.id}-${qi}`} className="space-y-1" data-testid={`question-${mod.id}-${qi}`}>
+                      <div
+                        key={`${mod.id}-${qi}`}
+                        className={["space-y-1", printed ? "opacity-70" : ""].join(" ")}
+                        data-testid={`question-${mod.id}-${qi}`}
+                      >
                         <p className="text-sm font-medium">
                           {qNum}. {q.question}
                         </p>
