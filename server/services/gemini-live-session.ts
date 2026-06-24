@@ -423,7 +423,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     const reconnectRubric = (this.session as any)._reconnectAssessmentRubric as string | undefined;
     (this.session as any)._reconnectAssessmentRubric = undefined; // consumed — clear it
     const reconnectRubricBlock = reconnectRubric
-      ? `\n\n── ASSESSMENT IN PROGRESS (session resumed) ──\nThe student was mid-assessment when their connection dropped. Resume the placement assessment seamlessly — do not acknowledge the reconnection or mention it. Continue with the same behavioral constraints:\n\n${reconnectRubric}`
+      ? `\n\n── ASSESSMENT IN PROGRESS (session resumed) ──\nThe student was mid-assessment when their connection dropped. Resume the placement assessment seamlessly — do not acknowledge the reconnection or mention it. Review the conversation history to see how many exchanges have occurred and what topics have been covered, then continue from where you left off. Do not repeat the opening question. Apply the same behavioral constraints:\n\n${reconnectRubric}`
       : '';
     const effectiveSystemPrompt = (accentDirective ? systemPrompt + accentDirective : systemPrompt) + reconnectRubricBlock;
 
@@ -2213,9 +2213,32 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // Hybrid heuristic: count it if wordCount > 3, OR if wordCount <= 3 but not in the
       // known-filler set. This correctly admits short but meaningful answers ("Why?", "I agree",
       // "No lo sé") and discards passive acknowledgements ("okay", "uh-huh", "si").
+      // Multi-language filler list (Round 6 audit): students in a placement test often
+      // revert to native-language or target-language single-word acknowledgements.
+      // Extended to cover all 10 HolaHola languages so "Oui", "Ja", "Sì", "Hai" etc.
+      // are correctly ghosted. Only exact normalized matches (trim+lowercase+strip punct).
       const GHOST_TURN_FILLERS = new Set([
-        'ok', 'okay', 'yes', 'no', 'si', 'ya', 'mm-hmm', 'uh-huh', 'sure',
-        'right', 'yeah', 'yep', 'nope', 'mhm', 'hmm', 'ah', 'oh', 'alright',
+        // English
+        'ok', 'okay', 'yes', 'no', 'sure', 'right', 'yeah', 'yep', 'nope',
+        'mhm', 'mm-hmm', 'uh-huh', 'hmm', 'ah', 'oh', 'alright',
+        // Spanish
+        'si', 'sí', 'no', 'ya', 'bueno', 'claro', 'dale', 'vale',
+        // French
+        'oui', 'non', 'ouais', 'bah', 'bon', 'bien', 'd\'accord', 'daccord',
+        // German
+        'ja', 'nein', 'ok', 'gut', 'genau', 'klar', 'stimmt', 'ach',
+        // Italian
+        'sì', 'si', 'no', 'certo', 'esatto', 'bene', 'ok', 'dai',
+        // Portuguese
+        'sim', 'não', 'nao', 'ok', 'tá', 'ta', 'certo', 'bom',
+        // Japanese (romaji)
+        'hai', 'iie', 'ee', 'un', 'sou', 'ne', 'ma',
+        // Korean (romaji)
+        'ne', 'ani', 'eung', 'geurae', 'ok',
+        // Mandarin (pinyin)
+        'dui', 'shì', 'shi', 'hao', 'en', '嗯', '对', '是', '好',
+        // Hebrew (transliterated)
+        'ken', 'lo', 'beseder', 'nu',
       ]);
       const normalizedUtterance = userText.trim().toLowerCase().replace(/[.!?,;:]/g, '').trim();
       const wordCount = normalizedUtterance.split(/\s+/).filter(w => w.length > 0).length;

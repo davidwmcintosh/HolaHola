@@ -232,3 +232,34 @@ Non-blocking (deferred):
 - SET_ACTFL_LEVEL final write could be awaited + retried (fire-and-forget is acceptable for beta)
 
 Schema: added assessment_rubric text (nullable) to voice_sessions — db:push applied.
+
+=== Gemini Audit Round 6 — 2026-06-24 ===
+
+APPROVED FOR PRODUCTION
+
+Round 6 questions and answers:
+
+1. Ghost Turn correctness: RISK — multi-language filler gap. Students revert to target-language fillers not in the English/Spanish list. Fix: extend to all 10 HolaHola languages.
+
+2. Reconnect rubric positioning: END is correct (recency bias). Optimization: add instruction to check conversation history so GL doesn't repeat the opening question.
+
+3. Block message: Plain English is superior to JSON for GL tool results. Strengthen with "SYSTEM ERROR" / "REQUIRED" framing to trigger instruction-following behavior.
+
+4. Turn count precision (off-by-one): Acceptable for Beta. Fix 4 (linguistic evidence requirement) means exact turn count is no longer a single point of failure.
+
+5. Assessment restart risk: CRITICAL — no guard existed. START_PLACEMENT_ASSESSMENT could wipe turn count and rubric if called twice. Fix: guard at top of handler, return in-progress message without state mutation.
+
+6. Polite Deadlock — single most likely failure mode: Student gives 8 short non-filler sentences → counter hits 8 → GL calls SET_ACTFL_LEVEL with no real grammatical evidence. Fix: LINGUISTIC EVIDENCE REQUIREMENT rule added to rubric — turn count is a minimum, not a trigger.
+
+Fixes implemented:
+1. Restart guard — fires before any state mutation, returns SYSTEM message, does not break DB state
+2. Multi-language filler list — all 10 HolaHola languages including Romaji and Hanzi
+3. Block message — SYSTEM ERROR / REQUIRED framing, specific next-action prompt
+4. Linguistic evidence requirement — 8th rubric rule, explicitly names what evidence is required
+5. Reconnect history-check — "review conversation history, do not repeat opening question"
+
+Deferred (accepted for Beta):
+- Turn count precision (off-by-one): fire-and-forget timing, covered by Fix 4
+- Short non-fillers ("Yes please", "I am ready"): correctly count as turns, covered by Fix 4
+
+Final verdict: APPROVED FOR PRODUCTION

@@ -4161,7 +4161,7 @@ export class NativeFunctionCallHandler {
           if (actualTurns < minTurns) {
             console.warn(`[Native Function→SetActflLevel] BLOCKED — placement mode active with only ${actualTurns} real exchanges (min ${minTurns} required)`);
             (session as any).setActflLevelBlocked = true;
-            (session as any).setActflLevelBlockReason = `Assessment incomplete. You have had ${actualTurns} exchanges so far. You need at least ${minTurns} before you can conclude. Continue the conversation — ask about another topic or situation — and gather more evidence.`;
+            (session as any).setActflLevelBlockReason = `SYSTEM ERROR: SET_ACTFL_LEVEL blocked. Insufficient linguistic evidence. Current exchange count: ${actualTurns}/${minTurns} required. REQUIRED: You must engage the student in at least ${minTurns} substantive exchanges before concluding. Ask about a new topic — past experiences, future plans, opinions, hypotheticals — to elicit more complex language and grammar evidence.`;
             break;
           }
           // Enough exchanges — clear placement mode and proceed with the write.
@@ -4241,6 +4241,15 @@ export class NativeFunctionCallHandler {
           console.log('[Native Function→StartPlacementAssessment] INCOGNITO — skipping');
           break;
         }
+        // Guard: prevent mid-session restart from wiping turn count (Round 6 audit).
+        // If Daniela gets confused and calls START again, we return the already-in-progress
+        // message without resetting anything. The rubric is still in GL's tool-result history.
+        if ((session as any).placementMode?.active) {
+          const alreadyCount = (session as any).assessmentTurnCount || 0;
+          console.warn(`[Native Function→StartPlacementAssessment] BLOCKED — assessment already active (${alreadyCount} turns). Ignoring restart attempt.`);
+          (session as any).placementAssessmentResult = `SYSTEM: Placement assessment is already in progress (${alreadyCount} exchanges completed). Do not restart — continue the current assessment. Follow the rubric you received when the assessment began.`;
+          break;
+        }
         const assessmentContext = fn.args.context as string | undefined;
         const targetLang = (session.targetLanguage ?? 'spanish').toLowerCase();
         const langCap = targetLang.charAt(0).toUpperCase() + targetLang.slice(1);
@@ -4263,9 +4272,10 @@ export class NativeFunctionCallHandler {
               'Do NOT explain vocabulary or fill in gaps when the student struggles',
               'Do NOT signal that this is a test or assessment',
               'Keep the conversation warm, natural, and genuinely curious',
-              `You MUST have at least 8 exchanges before calling set_actfl_level`,
+              `You MUST have at least 8 exchanges before calling set_actfl_level — this is a minimum, not a target`,
               'When you call set_actfl_level, you MUST include the "reasoning" argument summarizing your evidence',
               'During this assessment, do NOT call any tool except set_actfl_level — no teaching loops, no textbook pages, no whiteboard, no images. If the student asks for something that would normally use a tool, acknowledge briefly and redirect the conversation.',
+              'LINGUISTIC EVIDENCE REQUIREMENT: 8 exchanges is the minimum, but you must not call set_actfl_level based solely on short or simple sentences. You must have elicited at least three complex responses OR observed past/future/subjunctive tense use OR confirmed the student can (or cannot) sustain paragraph-length discourse. If the student is giving only one-line answers, probe harder — change topics, ask for opinions, ask them to describe a memory or make a prediction.',
             ],
             levels_to_identify: {
               novice: 'Memorized phrases only — cannot create original sentences independently',
