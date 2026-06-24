@@ -1,0 +1,13 @@
+With regard to not having used the tutor yet, I just haven't been comfortable with Daniela's past abilities to use correct English-to-Spanish and tense-appropriate conversations that fit my needs. This is what we've been working to build: the ACTFL levels, putting those into loops, and tracking progress. Those pieces have been missing. Every time I asked Daniela to use more English, she would just go to straight English; she wouldn't mix and match Spanish and English based on how I was responding or what I needed.
+
+Especially now that we've seen Gemini Live is not good at multi-step processing, we had to build background workers and systems that mark the ACTFL levels for her and pass her that information. Maybe she is now gaining the ability to engage with me at the correct level, but I have yet to test that. 
+
+I'm wondering how "conversation guided" actually works with Gemini Live, since it isn't very good at multi-step processes or analyzing data to guide a conversation turn-by-turn. We have artificially created some non-spontaneous loops where we give her specific pieces to execute. I'm afraid we may have over-sterilized the process, and that's my main worry. However, if the choice is between a system that can't follow directions at all or one that gets you there too sterilely, I'll choose the sterile option every time.
+
+As for a button, I'm not sure if we need one. I don't think Daniela needs to say, "I think you're ready for a check-in," because she should already have all the data she needs. It should probably just be something where I can say, "Hey Daniela, could you give me an assessment and try to place me?" 
+
+I'm not sure how that should organically grow, but if students don't know they have the option, they won't use it. It's a tricky balance: 
+1. A button sitting there all the time might go unused because I'm not going to test myself every two minutes.
+2. Without a clear prompt, the feature remains hidden.
+
+We may have to think about that a little bit more.
