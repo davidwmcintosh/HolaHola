@@ -16,7 +16,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Loader2, EyeOff, VolumeX, Flag, BookOpen, X, Download, Globe, Sparkles } from "lucide-react";
+import { Mic, MicOff, Loader2, EyeOff, VolumeX, Flag, BookOpen, X, Download, Globe, Sparkles, Camera, Monitor } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { type Message, type User } from "@shared/schema";
@@ -28,6 +28,7 @@ import { LanguageSelector } from "@/components/LanguageSelector";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { VoiceChatViewManager } from "@/components/VoiceChatViewManager";
 import { useStreamingVoice } from "@/hooks/useStreamingVoice";
+import { useVisionCapture } from "@/hooks/useVisionCapture";
 import { usePlaybackState, getGlobalPlaybackState, setGlobalPlaybackState } from "@/lib/playbackStateStore";
 import { useUser } from "@/lib/auth";
 import { useLearningFilter } from "@/contexts/LearningFilterContext";
@@ -406,6 +407,12 @@ export function StreamingVoiceChat({
   // Streaming voice mode for low-latency responses
   const streamingVoice = useStreamingVoice();
   const globalPlaybackState = usePlaybackState(); // Global store - reliable during HMR
+
+  // Vision capture — opt-in webcam + screen share sent to Daniela's GL session
+  const visionIsConnected = (['connected', 'ready', 'streaming'] as const).includes(
+    streamingVoice.state.connectionState as any
+  );
+  const vision = useVisionCapture(streamingVoice.sendVideoFrame, visionIsConnected);
   const streamingConnectedRef = useRef(false);
   const useStreamingMode = ENABLE_STREAMING_MODE && streamingVoice.isSupported();
   // Keep connectionStateRef in sync (must be after streamingVoice is defined)
@@ -4112,6 +4119,32 @@ export function StreamingVoiceChat({
                 Got it
               </Button>
             </div>
+          </div>
+        )}
+
+        {/* Vision toggles — opt-in webcam + screen share for Daniela */}
+        {useStreamingMode && visionIsConnected && vision.isVisionSupported && (
+          <div className="absolute bottom-24 right-3 z-50 flex flex-col gap-1.5 items-end">
+            <Button
+              size="icon"
+              variant={vision.webcamActive ? 'default' : 'ghost'}
+              onClick={vision.toggleWebcam}
+              className="opacity-70 hover:opacity-100"
+              data-testid="button-vision-webcam"
+              title={vision.webcamActive ? 'Stop sharing camera with Daniela' : 'Share your camera with Daniela'}
+            >
+              <Camera className="w-4 h-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant={vision.screenActive ? 'default' : 'ghost'}
+              onClick={vision.toggleScreen}
+              className="opacity-70 hover:opacity-100"
+              data-testid="button-vision-screen"
+              title={vision.screenActive ? 'Stop sharing screen with Daniela' : 'Share your screen with Daniela'}
+            >
+              <Monitor className="w-4 h-4" />
+            </Button>
           </div>
         )}
 

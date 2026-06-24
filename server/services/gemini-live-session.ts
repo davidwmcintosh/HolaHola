@@ -726,6 +726,27 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
   }
 
   /**
+   * Forward a video frame (base64 JPEG) from the student's webcam or screen share
+   * into the Gemini Live session.  Fires-and-forgets — no awaiting so audio is
+   * never blocked by a frame send (avoids TCP head-of-line blocking).
+   *
+   * Called at ~0.5fps by the server's video_frame WS message handler.
+   * The model receives the frame as ambient visual context; no system prompt
+   * scripting — Daniela decides what to do with what she sees.
+   */
+  sendVideoFrame(base64Jpeg: string): void {
+    if (!this.liveSession || this.isStopped) return;
+    try {
+      this.liveSession.sendRealtimeInput({
+        video: { data: base64Jpeg, mimeType: 'image/jpeg' },
+      } as any);
+    } catch (err) {
+      // Non-fatal — log and continue; audio must not be affected
+      console.warn('[GeminiLive] sendVideoFrame error (non-fatal):', (err as Error).message);
+    }
+  }
+
+  /**
    * Called by the WS handler when the client's playback_ended telemetry arrives.
    * This is the true end of Daniela's audio from the student's perspective — speakers
    * have gone quiet and there is no more echo risk. We open the mic gate here instead

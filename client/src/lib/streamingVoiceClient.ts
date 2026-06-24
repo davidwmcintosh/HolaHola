@@ -947,6 +947,20 @@ export class StreamingVoiceClient {
   }
   
   /**
+   * Send a video frame to Daniela's GL session (webcam or screen share).
+   * Called at ~0.5fps by the useVisionCapture hook.
+   */
+  sendVideoFrame(base64Jpeg: string, source: 'webcam' | 'screen'): void {
+    if (this.isReady()) {
+      this.socket!.emit('message', {
+        type: 'video_frame',
+        data: base64Jpeg,
+        source,
+      });
+    }
+  }
+
+  /**
    * Request a voice handoff - current tutor says goodbye, then new tutor introduces themselves
    * This provides a natural transition between tutors
    */

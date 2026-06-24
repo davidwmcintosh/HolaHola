@@ -199,6 +199,7 @@ export interface UseStreamingVoiceReturn {
     emotion?: string;
     geminiLanguageCode?: string;
   } | null) => void;
+  sendVideoFrame: (base64Jpeg: string, source: string) => void;
   sendToggleIncognito: (enabled: boolean) => void;
   forceResetProcessing: () => void;
   microAckPlaying: boolean;
@@ -2243,6 +2244,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
   }, []);
   
+  const sendVideoFrame = useCallback((base64Jpeg: string, source: string) => {
+    if (clientRef.current) {
+      (clientRef.current as any).sendVideoFrame(base64Jpeg, source);
+    }
+  }, []);
+
   const forceResetProcessing = useCallback(() => {
     console.warn('[StreamingVoice] forceResetProcessing called — clearing all audio and processing state');
     setIsProcessing(false);
@@ -2309,6 +2316,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     sendDrillResult,
     sendTextInput,
     sendVoiceOverride,
+    sendVideoFrame,
     forceResetProcessing,
     microAckPlaying,
   };

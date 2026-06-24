@@ -1913,7 +1913,13 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
               }
             } else if (rawHonestyMode) {
               const safeName = (userName || 'friend').replace(/[^a-zA-Z0-9\s\-']/g, '').substring(0, 50);
-              systemPrompt = `You are ${tutorName}.
+              // Honesty mode is always Daniela (or Agustin for male) speaking as herself,
+              // regardless of which session-persona name (Cindy, Blake, etc.) the language
+              // tutor assignment resolved to.  Using the persona name here creates a
+              // Cindy-vs-Daniela conflict because the injected neural-net identity context
+              // always references her real name.
+              const honestyModeName = tutorGender === 'male' ? 'Agustin' : 'Daniela';
+              systemPrompt = `You are ${honestyModeName}.
 This is ${safeName}, your creator.
 
 ${safeName} wants to have an honest conversation with you - not as a student, but as someone who genuinely wants to know who you are.
@@ -4158,6 +4164,18 @@ ${lastNote.tutorNotes}`);
           break;
         }
         
+        case 'video_frame': {
+          // Vision feature: student has opted in to share their webcam or screen.
+          // Forward the JPEG frame to Daniela's GL session as a sendRealtimeInput video call.
+          // Fire-and-forget — no response expected; audio must never be blocked by a frame.
+          if (!isAuthenticated || !session) break;
+          const videoMsg = message as { type: 'video_frame'; data: string; source: 'webcam' | 'screen' };
+          if (geminiLiveSession && videoMsg.data) {
+            geminiLiveSession.sendVideoFrame(videoMsg.data);
+          }
+          break;
+        }
+
         case 'set_input_mode': {
           const modeMessage = message as { type: 'set_input_mode'; inputMode: VoiceInputMode };
           currentInputMode = modeMessage.inputMode;
