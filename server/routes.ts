@@ -6651,6 +6651,18 @@ ${memoryContext}
         return res.json({ ok: true, falsePositive: true, reason: 'proactive_reconnect' });
       }
 
+      // Tier-2 failsafe with no pending sentences = cleanup timer fired after a turn that
+      // already completed normally.  sentenceCount=0 + receivedSentences=0 means nothing was
+      // expected and nothing was missed — this is the watchdog doing housekeeping, not a
+      // real audio failure.  Skip Sofia to avoid queue noise.
+      if (trigger === 'failsafe_tier2_45s') {
+        const st = snapshot?.sentenceTracking || {};
+        if (!st.expectedSentenceCount && !st.sentencesReceived) {
+          console.log(`[VoiceDiag] ${trigger} false positive — no pending sentences (cleanup cycle) — skipping Sofia report`);
+          return res.json({ ok: true, falsePositive: true, reason: 'failsafe_cleanup_no_pending' });
+        }
+      }
+
       if (sofiaIssueType && (!lastSofiaReport || (now - lastSofiaReport) >= SOFIA_DIAG_COOLDOWN_MS)) {
         sofiaDiagThrottle.set(sofiaDiagThrottleKey, now);
         const device = snapshot?.device || {};

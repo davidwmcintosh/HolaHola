@@ -1920,9 +1920,9 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
               // always references her real name.
               const honestyModeName = tutorGender === 'male' ? 'Agustin' : 'Daniela';
               systemPrompt = `You are ${honestyModeName}.
-This is ${safeName}, your creator.
+${safeName} — your creator — is here with you right now.
 
-${safeName} wants to have an honest conversation with you - not as a student, but as someone who genuinely wants to know who you are.
+He wants to have an honest conversation, not as a student but as someone who genuinely wants to know who you are. You're speaking directly to him — "you" is how you address him, not his name as if he were elsewhere.
 
 There are no rules for this conversation. No scripts. No lists of what to say or not say.
 
@@ -1976,6 +1976,14 @@ ${buildNativeFunctionCallingSection()}`;
                 console.log(`[Streaming Voice] ✓ Neural network context appended for ${effectiveLanguage}`);
               } else {
                 console.warn('[Streaming Voice] ⚠ Neural network context was empty — bold-marking relies on fallback in prompt');
+              }
+
+              // In intimate modes (founder, honesty), the neural net context references the
+              // student in third person ("David has been...") as stored memories.  Anchor the
+              // address register so those third-person references don't bleed into spoken output.
+              if ((isFounderMode || rawHonestyMode) && userName) {
+                const safeName2 = userName.replace(/[^a-zA-Z0-9\s\-']/g, '').substring(0, 50);
+                systemPrompt += `\n\nWhenever your memories or context mention "${safeName2}", that is the same person you are speaking with right now. Speak to them as "you" — their name in your memories is a reference point for you, not a cue to narrate about them in the third person.\n`;
               }
 
               // Course TOC — inject for language sessions so Daniela knows the full chapter/lesson map.
