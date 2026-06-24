@@ -165,6 +165,37 @@ const registry: DanielaFunctionEntry[] = [
         required: ["level"],
       },
     },
+    buildContinuationResponse: ({ session }) => {
+      const blocked = (session as any).setActflLevelBlocked;
+      if (blocked) {
+        const reason = (session as any).setActflLevelBlockReason || 'Assessment incomplete. Continue the conversation and gather more evidence before concluding.';
+        (session as any).setActflLevelBlocked = false;
+        return JSON.stringify({ status: 'blocked', message: reason });
+      }
+      return JSON.stringify({ status: 'ok', message: 'Placement level recorded successfully. Assessment complete.' });
+    },
+  },
+  {
+    legacyType: 'START_PLACEMENT_ASSESSMENT',
+    declaration: {
+      name: 'start_placement_assessment',
+      description: 'Begin an on-demand ACTFL placement assessment within the current conversation. Call this when a student asks to be assessed, placed, or wants to know their level (e.g. "where am I?", "can you assess me?", "let\'s figure out my level"). Returns an assessment rubric — read it and follow it. You will conduct 8–12 natural exchanges (NOT a formal test) and then call set_actfl_level with your conclusion and reasoning.',
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          context: {
+            type: 'string',
+            description: 'Optional: why the student is requesting assessment (e.g. "returning after a break", "wants to confirm level before starting a new unit")',
+          },
+        },
+        required: [],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const r = (session as any).placementAssessmentResult;
+      if (!r) return JSON.stringify({ status: 'placement_assessment_started', instruction: 'Begin the placement conversation naturally. Sample language, do not teach or correct.' });
+      return JSON.stringify(r);
+    },
   },
   {
     legacyType: 'SYLLABUS_PROGRESS',
