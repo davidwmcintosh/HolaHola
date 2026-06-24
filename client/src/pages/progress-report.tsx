@@ -224,8 +224,8 @@ function LanguageProgressSection({ entries }: { entries: LanguageProgressEntry[]
 // ─── Summary Tab ──────────────────────────────────────────────────────────────
 
 function SummaryTab({ report }: { report: ProgressReport }) {
-  const hasReadingModules = report.viewedModules.length > 0;
-  const hasLanguage = report.languageProgress.length > 0;
+  const hasReadingModules = (report.viewedModules ?? []).length > 0;
+  const hasLanguage = (report.languageProgress ?? []).length > 0;
 
   if (!hasReadingModules && !hasLanguage) {
     return (
@@ -247,7 +247,7 @@ function SummaryTab({ report }: { report: ProgressReport }) {
   return (
     <div className="space-y-8">
       {/* Language section — always first when present */}
-      {hasLanguage && <LanguageProgressSection entries={report.languageProgress} />}
+      {hasLanguage && <LanguageProgressSection entries={report.languageProgress ?? []} />}
 
       {/* Reading module subject cards */}
       {hasReadingModules && (
