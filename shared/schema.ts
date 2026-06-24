@@ -1518,6 +1518,8 @@ export const voiceSessions = pgTable("voice_sessions", {
   // Placement assessment persistence — survives browser disconnect/reconnect within the same DB session
   assessmentActive: boolean("assessment_active").default(false),
   assessmentTurnCount: integer("assessment_turn_count").default(0),
+  // Rubric string stored so GL system prompt can be re-injected on reconnect (fixes "Amnesia" problem)
+  assessmentRubric: text("assessment_rubric"),
 }, (table) => [
   index("idx_voice_sessions_user").on(table.userId),
   index("idx_voice_sessions_started").on(table.startedAt),

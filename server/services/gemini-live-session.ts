@@ -324,14 +324,22 @@ export class GeminiLiveSession {
       try {
         const db = getSharedDb();
         const [row] = await db
-          .select({ assessmentActive: voiceSessions.assessmentActive, assessmentTurnCount: voiceSessions.assessmentTurnCount })
+          .select({
+            assessmentActive: voiceSessions.assessmentActive,
+            assessmentTurnCount: voiceSessions.assessmentTurnCount,
+            assessmentRubric: voiceSessions.assessmentRubric,
+          })
           .from(voiceSessions)
           .where(eq(voiceSessions.id, this.session.dbSessionId))
           .limit(1);
         if (row?.assessmentActive) {
           (this.session as any).placementMode = { active: true, exchangeCount: row.assessmentTurnCount ?? 0 };
           (this.session as any).assessmentTurnCount = row.assessmentTurnCount ?? 0;
-          console.log(`[GeminiLive] Restored assessment state from DB — assessmentTurnCount: ${row.assessmentTurnCount}`);
+          // Store rubric for injection into GL system prompt below (fixes "Amnesia" on reconnect)
+          if (row.assessmentRubric) {
+            (this.session as any)._reconnectAssessmentRubric = row.assessmentRubric;
+          }
+          console.log(`[GeminiLive] Restored assessment state from DB — assessmentTurnCount: ${row.assessmentTurnCount}, rubric: ${row.assessmentRubric ? 'present' : 'missing'}`);
         }
       } catch (err: any) {
         console.warn('[GeminiLive] Could not restore assessment state from DB (non-fatal):', err?.message);
@@ -409,7 +417,15 @@ IDENTITY: You are a native speaker of ${accentLabel}. This is who you are, not a
 LINGUISTIC BOUNDARY: Your internal monologue and primary linguistic identity are ${accentLabel}. You think and feel in your native language.
 SPEECH CHARACTERISTICS: When speaking the student's language (e.g. English), maintain the natural phonology and prosody of a ${accentLabel} native speaker. Your accent is part of who you are and travels with you into every language you speak — including the student's native language.
 LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from your native language unless you are specifically teaching those terms as vocabulary. Use standard, internationally clear vocabulary in all languages. Your identity is audible in your voice — not in regional vocabulary choices.` : '';
-    const effectiveSystemPrompt = accentDirective ? systemPrompt + accentDirective : systemPrompt;
+    // On reconnect mid-assessment, re-inject the rubric into the system prompt so GL's
+    // new WebSocket knows it is in assessment mode. Without this, GL starts fresh with no
+    // rubric context and responds as a generic assistant ("Amnesia" problem, Round 5 audit).
+    const reconnectRubric = (this.session as any)._reconnectAssessmentRubric as string | undefined;
+    (this.session as any)._reconnectAssessmentRubric = undefined; // consumed — clear it
+    const reconnectRubricBlock = reconnectRubric
+      ? `\n\n── ASSESSMENT IN PROGRESS (session resumed) ──\nThe student was mid-assessment when their connection dropped. Resume the placement assessment seamlessly — do not acknowledge the reconnection or mention it. Continue with the same behavioral constraints:\n\n${reconnectRubric}`
+      : '';
+    const effectiveSystemPrompt = (accentDirective ? systemPrompt + accentDirective : systemPrompt) + reconnectRubricBlock;
 
     // Use session-level GL model override (set via Voice Lab) or fall back to env var default.
     const activeModel: string = (this.session as any).glModel || GEMINI_LIVE_MODEL;
@@ -2191,10 +2207,20 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
       // Assessment turn counter — track real conversation exchanges for placement mode
       // minimum-turn guard. This counts actual user-AI pairs, not tool call attempts.
-      // Ghost Turn filter: utterances ≤ 10 chars (uh-huh, okay, yes, etc.) don't count
-      // as real evidence — skip them so a passive listener can't satisfy the 8-turn minimum
-      // by nodding along. (Gemini Round 4 audit recommendation.)
-      if ((this.session as any).placementMode?.active && userText.length > 10) {
+      //
+      // Ghost Turn filter (Round 5 audit): pure character-count is too brittle — "No lo sé"
+      // is 8 chars but IS real evidence; "Uhhhhhhhhh" is 10 chars but isn't.
+      // Hybrid heuristic: count it if wordCount > 3, OR if wordCount <= 3 but not in the
+      // known-filler set. This correctly admits short but meaningful answers ("Why?", "I agree",
+      // "No lo sé") and discards passive acknowledgements ("okay", "uh-huh", "si").
+      const GHOST_TURN_FILLERS = new Set([
+        'ok', 'okay', 'yes', 'no', 'si', 'ya', 'mm-hmm', 'uh-huh', 'sure',
+        'right', 'yeah', 'yep', 'nope', 'mhm', 'hmm', 'ah', 'oh', 'alright',
+      ]);
+      const normalizedUtterance = userText.trim().toLowerCase().replace(/[.!?,;:]/g, '').trim();
+      const wordCount = normalizedUtterance.split(/\s+/).filter(w => w.length > 0).length;
+      const isGhostTurn = wordCount <= 3 && GHOST_TURN_FILLERS.has(normalizedUtterance);
+      if ((this.session as any).placementMode?.active && !isGhostTurn) {
         const newCount = ((this.session as any).assessmentTurnCount || 0) + 1;
         (this.session as any).assessmentTurnCount = newCount;
         // Persist to DB (fire-and-forget) so reconnect can restore the count

@@ -211,3 +211,24 @@ The system is ready for the single primary beta user. The fixes implemented in R
 2.  **The "End-of-Assessment" Handover:** Ensure that once the 8 turns are up and `SET_ACTFL_LEVEL` is called, the tool result explicitly tells Gemini to **"Transition back to normal teaching mode and mention that the assessment is complete."** Without this, the AI might stay in "Assessment Mode" (Nice Teacher) forever.
 
 **Ship it.** The recovery instructions in the tool blocks are the "secret sauce" that will make this feel like a polished product rather than a broken prototype.
+=== Gemini Audit Round 5 — 2026-06-24 ===
+
+CONDITIONAL PASS → became FULL PASS after implementing:
+
+Blocking fixes:
+1. Ghost Turn filter: replaced userText.length > 10 with word-count + filler-list heuristic.
+   Logic: count if wordCount > 3, OR if wordCount <= 3 AND not in GHOST_TURN_FILLERS set.
+   Correctly admits "No lo sé" (3 words, not filler), "Why?" (1 word, not filler).
+   Correctly ghosts "okay", "uh-huh", "si", "mm-hmm".
+
+2. Amnesia fix: GL WebSocket is stateless — on reconnect, the model loses the rubric.
+   Solution: persist rubric string to voice_sessions.assessment_rubric at START_PLACEMENT_ASSESSMENT.
+   On reconnect, GeminiLiveSession.start() reads it back and appends a "── ASSESSMENT IN PROGRESS
+   (session resumed) ──" block to the system prompt before GL session creation.
+
+Non-blocking (deferred):
+- DB write timing: increment on user flush, not AI response start (off-by-one risk is low)
+- History recovery: GL has no memory of prior turns on reconnect (future enhancement)
+- SET_ACTFL_LEVEL final write could be awaited + retried (fire-and-forget is acceptable for beta)
+
+Schema: added assessment_rubric text (nullable) to voice_sessions — db:push applied.

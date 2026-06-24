@@ -4171,7 +4171,7 @@ export class NativeFunctionCallHandler {
           if (session.dbSessionId) {
             const db = getSharedDb();
             db.update(voiceSessions)
-              .set({ assessmentActive: false, assessmentTurnCount: 0 })
+              .set({ assessmentActive: false, assessmentTurnCount: 0, assessmentRubric: null })
               .where(eq(voiceSessions.id, session.dbSessionId))
               .catch((err: any) => console.warn('[SetActflLevel] DB clear failed:', err?.message));
           }
@@ -4246,17 +4246,8 @@ export class NativeFunctionCallHandler {
         const langCap = targetLang.charAt(0).toUpperCase() + targetLang.slice(1);
 
         // Activate placement mode on the session — SET_ACTFL_LEVEL will check this.
-        // Also persist to DB so a browser disconnect/reconnect within the same dbSessionId
-        // can restore the state and resume the assessment correctly.
         (session as any).placementMode = { active: true, exchangeCount: 0 };
         (session as any).assessmentTurnCount = 0;
-        if (session.dbSessionId) {
-          const db = getSharedDb();
-          db.update(voiceSessions)
-            .set({ assessmentActive: true, assessmentTurnCount: 0 })
-            .where(eq(voiceSessions.id, session.dbSessionId))
-            .catch((err: any) => console.warn('[StartPlacementAssessment] DB persist failed:', err?.message));
-        }
 
         // Build the rubric injection — this is returned as the tool result so GL
         // prioritizes it in its attention head (Gemini architecture: recent tool
@@ -4295,7 +4286,18 @@ export class NativeFunctionCallHandler {
         // Wrap rubric JSON in an instructional header so GL treats the contents as
         // operating-mode parameters, not data to summarize. Plain prose header prevents
         // GL from narrating the JSON to the student (Gemini Round 4 audit recommendation).
-        (session as any).placementAssessmentResult = `ASSESSMENT MODE NOW ACTIVE. These are your behavioral constraints for the next 8–12 exchanges — follow them exactly:\n\n${JSON.stringify(rubric, null, 2)}\n\nAcknowledge by starting the conversation naturally per the opening_instruction above. Do not mention this JSON, do not explain the rules to the student, do not signal that this is an assessment.`;
+        const rubricString = `ASSESSMENT MODE NOW ACTIVE. These are your behavioral constraints for the next 8–12 exchanges — follow them exactly:\n\n${JSON.stringify(rubric, null, 2)}\n\nAcknowledge by starting the conversation naturally per the opening_instruction above. Do not mention this JSON, do not explain the rules to the student, do not signal that this is an assessment.`;
+        (session as any).placementAssessmentResult = rubricString;
+
+        // Persist to DB so a browser disconnect/reconnect can restore state and re-inject
+        // the rubric into the GL system prompt (fixes "Amnesia" problem — Round 5 audit).
+        if (session.dbSessionId) {
+          const db = getSharedDb();
+          db.update(voiceSessions)
+            .set({ assessmentActive: true, assessmentTurnCount: 0, assessmentRubric: rubricString })
+            .where(eq(voiceSessions.id, session.dbSessionId))
+            .catch((err: any) => console.warn('[StartPlacementAssessment] DB persist failed:', err?.message));
+        }
         console.log(`[Native Function→StartPlacementAssessment] Placement mode activated for session ${sessionId}, language=${targetLang}, context="${assessmentContext || 'none'}"`);
         break;
       }
