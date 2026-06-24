@@ -1,16 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, June 24, 2026 at 01:33 AM
+**Generated:** Wednesday, June 24, 2026 at 01:40 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve implemented a new Immersion Framework with adaptive scaffolding and grammar integration to prioritize conversational learning, following David’s decision to move away from the underperforming and "half-baked" Interactive Textbook. I need to immediately resolve a critical 404 routing error on the conversations page and address Wren’s high-severity security findings regarding SQL injection risks and a hardcoded secret. Finally, I must investigate the ongoing monitoring system blackout and debug the loop causing Daniela to get stuck in a "Curriculum note pending" response state.
+I’ve integrated Gemini Live vision cost tracking into Lyra’s burn report and must now prioritize Wren’s two high-severity security fixes and the 50-bug spike flagged by Sofia. We’re debating retiring the underperforming Interactive Textbook in favor of conversational immersion, though I first need to resolve a 404 routing error on the conversations page and telemetry gaps in Daniela’s Compass. I also have a list of 49 Spanish lessons hitting verbosity regressions and 22 empty chapters that require immediate re-seeding before tonight’s beta.
 
 *Memories that triggered this summary:*
+- **Agent Session — Jun 24, 2026: feat: vision cost tracking in burn report** (Jun 24): feat: vision cost tracking in burn report  - GeminiLiveSession: private videoFramesSent counter, incremented in   sendVideoFrame(); exposed in getUsageSummary() return type - cost-tracker: new 'gemini-live-vision' pricing entry ($0.10/1M input,
 - **Team Room — test 3 — June 24, 2026** (Jun 24): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 24, 2026** (Jun 24): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 24, 2026** (Jun 24): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -20,7 +21,6 @@ I’ve implemented a new Immersion Framework with adaptive scaffolding and gramm
 - **Team Room — what's up? — June 24, 2026** (Jun 24): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — June 24, 2026** (Jun 24): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — June 24, 2026** (Jun 24): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 24, 2026** (Jun 24): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -95,6 +95,10 @@ I’ve implemented a new Immersion Framework with adaptive scaffolding and gramm
 
 ## Recent Conversation Memories
 
+### Agent Session — Jun 24, 2026: feat: vision cost tracking in burn report — Jun 24, 2026
+feat: vision cost tracking in burn report  - GeminiLiveSession: private videoFramesSent counter, incremented in   sendVideoFrame(); exposed in getUsageSummary() return type - cost-tracker: new 'gemini-live-vision' pricing entry ($0.10/1M input,
+*Tags: agent-session, auto-saved, build*
+
 ### Team Room — test 3 — June 24, 2026 — Jun 24, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -109,10 +113,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 24, 2026 — Jun 24, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 24, 2026 — Jun 24, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
