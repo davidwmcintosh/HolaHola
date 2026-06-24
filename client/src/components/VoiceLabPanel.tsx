@@ -92,9 +92,9 @@ const GL_MODELS: { value: string; label: string; badge: string; description: str
   },
   {
     value: 'gemini-2.5-flash-native-audio-preview-12-2025',
-    label: '2.5 Native Audio',
-    badge: '2.5',
-    description: '2nd gen (older) · async tools · affective dialog · 8K output limit',
+    label: 'GL 3.5 Native Audio',
+    badge: '3.5',
+    description: '2nd gen · async tools · affective dialog · 8K output limit',
   },
 ];
 
@@ -323,7 +323,7 @@ export function VoiceLabPanel({
       ...(selectedVoiceId && selectedVoiceId !== currentVoice?.voiceId ? { voiceId: selectedVoiceId } : {}),
       ...(isElevenLabs ? { elStability, elSimilarityBoost, elStyle } : {}),
       ...((isGemini || isGeminiLive) && selectedAccent ? { geminiLanguageCode: selectedAccent } : {}),
-      ...(selectedGlModel && selectedGlModel !== GL_MODELS[0].value ? { glModel: selectedGlModel } : {}),
+      glModel: selectedGlModel,
     };
     onOverrideChange(override);
     setHasChanges(true);

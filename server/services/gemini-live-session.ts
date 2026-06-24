@@ -387,8 +387,12 @@ SPEECH CHARACTERISTICS: When speaking the student's language (e.g. English), mai
 LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from your native language unless you are specifically teaching those terms as vocabulary. Use standard, internationally clear vocabulary in all languages. Your identity is audible in your voice — not in regional vocabulary choices.` : '';
     const effectiveSystemPrompt = accentDirective ? systemPrompt + accentDirective : systemPrompt;
 
+    // Use session-level GL model override (set via Voice Lab) or fall back to env var default.
+    const activeModel: string = (this.session as any).glModel || GEMINI_LIVE_MODEL;
+    const is25NativeAudio = activeModel.includes('native-audio');
+
     this.liveSession = await ai.live.connect({
-      model: GEMINI_LIVE_MODEL,
+      model: activeModel,
       config: {
         systemInstruction: effectiveSystemPrompt,
         tools: tools.length > 0 ? [{ functionDeclarations: tools }] : undefined,
@@ -439,8 +443,14 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // without blocking voice streaming. (June 12 2026 audit: dropped from HIGH)
         //
         // SDK: "An error will be returned if this field is set for models that
-        // don't support thinking." — clean explicit failure, not a silent 1011.
-        thinkingConfig: { thinkingLevel: 'MEDIUM' as any },
+        // don't support thinking." — native-audio skips it to avoid that error.
+        ...(!is25NativeAudio ? { thinkingConfig: { thinkingLevel: 'MEDIUM' as any } } : {}),
+
+        // ── Turn coverage (2.5 native audio only) ────────────────────────
+        // 2.5 native audio defaults to TURN_INCLUDES_ONLY_ACTIVITY, which can
+        // drop image frames that arrive between activity events.  Explicitly set
+        // the same value 3.1 uses so whiteboard image delivery stays reliable.
+        ...(is25NativeAudio ? { turnCoverage: 'TURN_INCLUDES_AUDIO_ACTIVITY_AND_ALL_VIDEO' as any } : {}),
 
         // ── VAD / Turn-taking configuration ───────────────────────────────
         // Gemini Live's audio model does semantic turn detection — it

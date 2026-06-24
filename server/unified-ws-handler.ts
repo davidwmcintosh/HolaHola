@@ -4086,14 +4086,17 @@ ${lastNote.tutorNotes}`);
               teachingStyle?: string;
               errorTolerance?: string;
               geminiLanguageCode?: string;
+              glModel?: string;
             } | null;
           };
           
-          // Detect if the voice or language code changed so we can restart the Gemini Live session
+          // Detect if the voice, language code, or GL model changed so we can restart the GL session
           const prevVoiceId = (session as any).voiceOverride?.voiceId ?? session.voiceId;
           const prevLangCode = (session as any).voiceOverride?.geminiLanguageCode;
+          const prevGlModel = (session as any).glModel ?? null;
           const nextVoiceId = overrideMsg.override?.voiceId;
           const nextLangCode = overrideMsg.override?.geminiLanguageCode;
+          const nextGlModel = overrideMsg.override?.glModel ?? null;
 
           // Store override in session for use by TTS
           (session as any).voiceOverride = overrideMsg.override;
@@ -4109,8 +4112,11 @@ ${lastNote.tutorNotes}`);
           // whenever either changes.
           const voiceChanged = nextVoiceId && nextVoiceId !== prevVoiceId;
           const langCodeChanged = nextLangCode !== prevLangCode;
-          if ((voiceChanged || langCodeChanged) && geminiLiveSession && geminiLiveSystemPromptCache) {
-            const changeReason = voiceChanged
+          const glModelChanged = nextGlModel !== prevGlModel;
+          if ((voiceChanged || langCodeChanged || glModelChanged) && geminiLiveSession && geminiLiveSystemPromptCache) {
+            const changeReason = glModelChanged
+              ? `GL model changed ${prevGlModel ?? 'default (3.1)'} → ${nextGlModel ?? 'default (3.1)'}`
+              : voiceChanged
               ? `voice changed ${prevVoiceId} → ${nextVoiceId}`
               : `languageCode changed ${prevLangCode ?? 'default'} → ${nextLangCode ?? 'default'}`;
             console.log(`[GeminiLive] ${changeReason}, reconnecting…`);

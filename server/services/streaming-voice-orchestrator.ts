@@ -10745,6 +10745,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
     elSimilarityBoost?: number;
     elStyle?: number;
     geminiLanguageCode?: string;
+    glModel?: string;
   } | null): boolean {
     const session = this.sessions.get(sessionId);
     if (!session) {
@@ -10771,6 +10772,12 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
       if (override.elStability !== undefined) session.elStability = override.elStability;
       if (override.elSimilarityBoost !== undefined) session.elSimilarityBoost = override.elSimilarityBoost;
       if (override.elStyle !== undefined) session.elStyle = override.elStyle;
+    }
+
+    // Store GL model override on session — read by GeminiLiveSession.open() at reconnect time
+    if (override?.glModel !== undefined) {
+      (session as any).glModel = override.glModel || null;
+      console.log(`[Streaming Orchestrator] GL model override set to: ${override.glModel || 'cleared (default)'}`);
     }
     
     // Store override in session
