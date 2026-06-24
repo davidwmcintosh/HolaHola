@@ -1,5 +1,5 @@
 import { sql, eq, and, desc, ilike, or } from "drizzle-orm";
-import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes, users } from "@shared/schema";
+import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes, users, voiceSessions } from "@shared/schema";
 import { isValidActflLevel } from "../actfl-utils";
 import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
@@ -4164,9 +4164,17 @@ export class NativeFunctionCallHandler {
             (session as any).setActflLevelBlockReason = `Assessment incomplete. You have had ${actualTurns} exchanges so far. You need at least ${minTurns} before you can conclude. Continue the conversation — ask about another topic or situation — and gather more evidence.`;
             break;
           }
-          // Enough exchanges — clear placement mode and proceed with the write
+          // Enough exchanges — clear placement mode and proceed with the write.
+          // Also clear the DB persist so reconnect doesn't restore a completed assessment.
           (session as any).placementMode = null;
           (session as any).assessmentTurnCount = 0;
+          if (session.dbSessionId) {
+            const db = getSharedDb();
+            db.update(voiceSessions)
+              .set({ assessmentActive: false, assessmentTurnCount: 0 })
+              .where(eq(voiceSessions.id, session.dbSessionId))
+              .catch((err: any) => console.warn('[SetActflLevel] DB clear failed:', err?.message));
+          }
           console.log(`[Native Function→SetActflLevel] Placement mode complete after ${actualTurns} real exchanges — proceeding with level write`);
         }
         
@@ -4237,8 +4245,18 @@ export class NativeFunctionCallHandler {
         const targetLang = (session.targetLanguage ?? 'spanish').toLowerCase();
         const langCap = targetLang.charAt(0).toUpperCase() + targetLang.slice(1);
 
-        // Activate placement mode on the session — SET_ACTFL_LEVEL will check this
+        // Activate placement mode on the session — SET_ACTFL_LEVEL will check this.
+        // Also persist to DB so a browser disconnect/reconnect within the same dbSessionId
+        // can restore the state and resume the assessment correctly.
         (session as any).placementMode = { active: true, exchangeCount: 0 };
+        (session as any).assessmentTurnCount = 0;
+        if (session.dbSessionId) {
+          const db = getSharedDb();
+          db.update(voiceSessions)
+            .set({ assessmentActive: true, assessmentTurnCount: 0 })
+            .where(eq(voiceSessions.id, session.dbSessionId))
+            .catch((err: any) => console.warn('[StartPlacementAssessment] DB persist failed:', err?.message));
+        }
 
         // Build the rubric injection — this is returned as the tool result so GL
         // prioritizes it in its attention head (Gemini architecture: recent tool

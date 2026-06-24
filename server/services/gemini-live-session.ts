@@ -33,7 +33,8 @@ import { lookupLegacyType, buildFunctionContinuationResponse } from './daniela-f
 import type { ExtractedFunctionCall } from './gemini-function-declarations';
 import { reportGlToolCallFailure, reportGlToolCallSuccess } from './sofia-billing-monitor';
 import { getSharedDb } from '../db';
-import { sql } from 'drizzle-orm';
+import { sql, eq } from 'drizzle-orm';
+import { voiceSessions } from '@shared/schema';
 import { GLKaraokeTracker } from './gl-karaoke-tracker';
 import { PostResponseEnrichmentService } from './post-response-enrichment';
 import { storage } from '../storage';
@@ -315,6 +316,27 @@ export class GeminiLiveSession {
     // Store for use by auto-reconnect
     this.lastSystemPrompt = systemPrompt;
     this.lastTools = tools;
+
+    // Restore assessment state from DB if this is a reconnect into an active placement session.
+    // Without this, a browser disconnect mid-assessment resets placementMode and assessmentTurnCount
+    // to zero, requiring the student to repeat all 8+ turns from scratch.
+    if (this.session.dbSessionId) {
+      try {
+        const db = getSharedDb();
+        const [row] = await db
+          .select({ assessmentActive: voiceSessions.assessmentActive, assessmentTurnCount: voiceSessions.assessmentTurnCount })
+          .from(voiceSessions)
+          .where(eq(voiceSessions.id, this.session.dbSessionId))
+          .limit(1);
+        if (row?.assessmentActive) {
+          (this.session as any).placementMode = { active: true, exchangeCount: row.assessmentTurnCount ?? 0 };
+          (this.session as any).assessmentTurnCount = row.assessmentTurnCount ?? 0;
+          console.log(`[GeminiLive] Restored assessment state from DB — assessmentTurnCount: ${row.assessmentTurnCount}`);
+        }
+      } catch (err: any) {
+        console.warn('[GeminiLive] Could not restore assessment state from DB (non-fatal):', err?.message);
+      }
+    }
 
     // Start karaoke tracker when subtitles are active — taps GL output audio
     // and runs it through a parallel Deepgram STT leg for word-level timestamps.
@@ -2168,10 +2190,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       }
 
       // Assessment turn counter — track real conversation exchanges for placement mode
-      // minimum-turn guard. This counts actual user-AI pairs, not tool call attempts,
-      // so the SET_ACTFL_LEVEL guard measures real evidence gathered, not retry count.
-      if ((this.session as any).placementMode?.active) {
-        (this.session as any).assessmentTurnCount = ((this.session as any).assessmentTurnCount || 0) + 1;
+      // minimum-turn guard. This counts actual user-AI pairs, not tool call attempts.
+      // Ghost Turn filter: utterances ≤ 10 chars (uh-huh, okay, yes, etc.) don't count
+      // as real evidence — skip them so a passive listener can't satisfy the 8-turn minimum
+      // by nodding along. (Gemini Round 4 audit recommendation.)
+      if ((this.session as any).placementMode?.active && userText.length > 10) {
+        const newCount = ((this.session as any).assessmentTurnCount || 0) + 1;
+        (this.session as any).assessmentTurnCount = newCount;
+        // Persist to DB (fire-and-forget) so reconnect can restore the count
+        if (this.session.dbSessionId) {
+          const db = getSharedDb();
+          db.update(voiceSessions)
+            .set({ assessmentTurnCount: newCount })
+            .where(eq(voiceSessions.id, this.session.dbSessionId))
+            .catch((err: any) => console.warn('[GeminiLive] assessmentTurnCount DB persist failed:', err?.message));
+        }
       }
 
       // Fire the tool-detection shadow turn in the background.

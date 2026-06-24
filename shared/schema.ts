@@ -1515,6 +1515,9 @@ export const voiceSessions = pgTable("voice_sessions", {
   isTestSession: boolean("is_test_session").default(false),
   // Environment tracking - which server created this session
   environment: environmentOriginEnum("environment"),
+  // Placement assessment persistence — survives browser disconnect/reconnect within the same DB session
+  assessmentActive: boolean("assessment_active").default(false),
+  assessmentTurnCount: integer("assessment_turn_count").default(0),
 }, (table) => [
   index("idx_voice_sessions_user").on(table.userId),
   index("idx_voice_sessions_started").on(table.startedAt),
