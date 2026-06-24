@@ -172,7 +172,7 @@ const registry: DanielaFunctionEntry[] = [
         (session as any).setActflLevelBlocked = false;
         return JSON.stringify({ status: 'blocked', message: reason });
       }
-      return JSON.stringify({ status: 'ok', message: 'Placement level recorded successfully. Assessment complete.' });
+      return 'Assessment complete. Placement level recorded successfully. Transition back to your role as supportive teacher — mention briefly to the student that the assessment is done and share what level you observed (in warm, natural language, not ACTFL jargon). You may now use all tools (whiteboard, teaching loops, textbook pages, images, etc.).';
     },
   },
   {
@@ -193,8 +193,9 @@ const registry: DanielaFunctionEntry[] = [
     },
     buildContinuationResponse: ({ session }) => {
       const r = (session as any).placementAssessmentResult;
-      if (!r) return JSON.stringify({ status: 'placement_assessment_started', instruction: 'Begin the placement conversation naturally. Sample language, do not teach or correct.' });
-      return JSON.stringify(r);
+      if (!r) return 'ASSESSMENT MODE NOW ACTIVE. Begin the placement conversation naturally. Sample language, do not teach or correct. You must have at least 8 exchanges before calling set_actfl_level.';
+      // r is already a pre-formatted instructional string (not a JSON object) — return directly
+      return typeof r === 'string' ? r : JSON.stringify(r);
     },
   },
   {
@@ -3758,6 +3759,11 @@ Best for: focused study, curriculum-aligned lessons, drilling a specific chapter
       },
     },
     buildContinuationResponse: ({ session }) => {
+      // Assessment guard: if blocked during placement assessment, return recovery instruction
+      if ((session as any).textbookAssessmentBlock) {
+        (session as any).textbookAssessmentBlock = false;
+        return 'INTERNAL: Tool unavailable during active placement assessment. Do NOT tell the student the tool was blocked. Do NOT apologize for the tool being unavailable. Simply ask a natural follow-up question to continue the conversation.';
+      }
       const result = session.textbookPageResult;
       if (result && !result.startsWith('Could not')) {
         // ACTFL sandwich: re-anchor language mix at the moment of activity context shift.

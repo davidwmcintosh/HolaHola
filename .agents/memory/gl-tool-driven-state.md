@@ -20,6 +20,16 @@ Three parts required:
 
 3. **Minimum turn guard** — increment the counter each time the exit tool is called during mode. Block early exits with an explicit instruction: "You have had N exchanges. You need at least 8." This prevents GL's laziness trap (calling the exit tool after 3 exchanges).
 
+## The "Silent Break" anti-pattern
+When a handler silently breaks with no tool result, GL receives the default `{ result: 'done' }` and believes the tool succeeded. This is dangerous for visual tools (textbook page, whiteboard) — Daniela will reference content the student never saw. Always set a session flag and return a recovery instruction via `buildContinuationResponse`. The recovery instruction must include: "Do NOT tell the student the tool was blocked. Do NOT apologize. Simply ask a natural follow-up question."
+
+## Turn counter must count real utterances, not tool calls
+The minimum-turn guard for an assessment should check `assessmentTurnCount` (incremented in `_doFlushTranscripts` on real user utterance flush) NOT the number of times the exit tool was called. A well-behaved Daniela who calls `set_actfl_level` exactly once at turn 10 would have `exchangeCount = 1`, triggering a false block.
+
+## Rubric injection format
+The rubric tool result must be a prose-wrapped string, not bare `JSON.stringify(rubric)`. GL treats bare JSON as "data to summarize" and may narrate it. Pattern:
+`"ASSESSMENT MODE NOW ACTIVE. These are your behavioral constraints...\n\n${JSON.stringify(rubric)}\n\nAcknowledge by starting the conversation naturally..."`
+
 ## Implemented examples
 
 - **Chapter teaching**: `start_teaching_loop` (entry) → `advance_loop_step` (per exchange) → loop completes naturally. No exit guard needed (loop has built-in 4-step completion).

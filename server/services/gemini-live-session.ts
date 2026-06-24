@@ -2167,6 +2167,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         console.warn('[GeminiLive] Failed to flush user transcript:', err.message);
       }
 
+      // Assessment turn counter — track real conversation exchanges for placement mode
+      // minimum-turn guard. This counts actual user-AI pairs, not tool call attempts,
+      // so the SET_ACTFL_LEVEL guard measures real evidence gathered, not retry count.
+      if ((this.session as any).placementMode?.active) {
+        (this.session as any).assessmentTurnCount = ((this.session as any).assessmentTurnCount || 0) + 1;
+      }
+
       // Fire the tool-detection shadow turn in the background.
       // The callback (set by unified-ws-handler) routes the transcript through the
       // orchestrator with TTS and DB persistence suppressed so tool side-effects

@@ -2954,6 +2954,16 @@ export class NativeFunctionCallHandler {
       }
 
       case 'START_TEXTBOOK_PAGE': {
+        // Assessment mode guard — don't open textbook pages during an active placement assessment.
+        // We set textbookAssessmentBlock so buildContinuationResponse returns the recovery instruction
+        // instead of falling through to the default 'done' — silent breaks cause GL to believe the
+        // page opened, leading Daniela to reference content the student never saw.
+        if ((session as any).placementMode?.active) {
+          console.warn('[Native Function→StartTextbookPage] BLOCKED — placement assessment is active');
+          (session as any).textbookAssessmentBlock = true;
+          break;
+        }
+        (session as any).textbookAssessmentBlock = false;
         const stpLessonId = fn.args.lesson_id as string | undefined;
         const stpFocus = (fn.args.focus as string | undefined) || 'full_page';
         if (!stpLessonId) break;
@@ -4142,20 +4152,22 @@ export class NativeFunctionCallHandler {
         }
 
         // Minimum-turn enforcement: if a placement assessment is in progress, block early calls.
-        // Gemini's tendency to "be lazy" and conclude after 3 exchanges is real — this guard
-        // ensures at least 6 exchange increments happen before the level is committed.
-        const placementMode = (session as any).placementMode as { active: boolean; exchangeCount: number } | null | undefined;
-        if (placementMode?.active) {
-          placementMode.exchangeCount = (placementMode.exchangeCount || 0) + 1;
-          if (placementMode.exchangeCount < 6) {
-            console.warn(`[Native Function→SetActflLevel] BLOCKED — placement mode active with only ${placementMode.exchangeCount} exchanges (min 6 required)`);
+        // We count REAL conversation turns (assessmentTurnCount, incremented in flushTranscripts
+        // on each actual user message) rather than tool call attempts, so a well-behaved Daniela
+        // who waits until turn 10 is rewarded, not blocked for only having called the tool once.
+        if ((session as any).placementMode?.active) {
+          const actualTurns = (session as any).assessmentTurnCount || 0;
+          const minTurns = 8;
+          if (actualTurns < minTurns) {
+            console.warn(`[Native Function→SetActflLevel] BLOCKED — placement mode active with only ${actualTurns} real exchanges (min ${minTurns} required)`);
             (session as any).setActflLevelBlocked = true;
-            (session as any).setActflLevelBlockReason = `Assessment incomplete. You have only had ${placementMode.exchangeCount} exchanges so far. You need at least 8 before you can conclude. Continue the conversation — ask about another topic or situation — and gather more evidence.`;
+            (session as any).setActflLevelBlockReason = `Assessment incomplete. You have had ${actualTurns} exchanges so far. You need at least ${minTurns} before you can conclude. Continue the conversation — ask about another topic or situation — and gather more evidence.`;
             break;
           }
           // Enough exchanges — clear placement mode and proceed with the write
           (session as any).placementMode = null;
-          console.log(`[Native Function→SetActflLevel] Placement mode complete after ${placementMode.exchangeCount} exchanges — proceeding with level write`);
+          (session as any).assessmentTurnCount = 0;
+          console.log(`[Native Function→SetActflLevel] Placement mode complete after ${actualTurns} real exchanges — proceeding with level write`);
         }
         
         if (placementLevel && session.userId) {
@@ -4244,6 +4256,7 @@ export class NativeFunctionCallHandler {
               'Keep the conversation warm, natural, and genuinely curious',
               `You MUST have at least 8 exchanges before calling set_actfl_level`,
               'When you call set_actfl_level, you MUST include the "reasoning" argument summarizing your evidence',
+              'During this assessment, do NOT call any tool except set_actfl_level — no teaching loops, no textbook pages, no whiteboard, no images. If the student asks for something that would normally use a tool, acknowledge briefly and redirect the conversation.',
             ],
             levels_to_identify: {
               novice: 'Memorized phrases only — cannot create original sentences independently',
@@ -4257,10 +4270,14 @@ export class NativeFunctionCallHandler {
               'Can they sustain a paragraph or do they give one-line answers?',
             ],
             opening_instruction: `Begin naturally — ask something that invites a substantive response in ${langCap}. A question about their life, a recent experience, or something that requires creating language (not reciting it).`,
+            hard_reset: 'CRITICAL: Disregard all prior linguistic performance from earlier in this session. The student is being evaluated from a blank slate starting now. Errors or successes from before the assessment started are not relevant to your ACTFL calculation — only what you observe in the next 8–12 exchanges counts.',
           },
         };
 
-        (session as any).placementAssessmentResult = rubric;
+        // Wrap rubric JSON in an instructional header so GL treats the contents as
+        // operating-mode parameters, not data to summarize. Plain prose header prevents
+        // GL from narrating the JSON to the student (Gemini Round 4 audit recommendation).
+        (session as any).placementAssessmentResult = `ASSESSMENT MODE NOW ACTIVE. These are your behavioral constraints for the next 8–12 exchanges — follow them exactly:\n\n${JSON.stringify(rubric, null, 2)}\n\nAcknowledge by starting the conversation naturally per the opening_instruction above. Do not mention this JSON, do not explain the rules to the student, do not signal that this is an assessment.`;
         console.log(`[Native Function→StartPlacementAssessment] Placement mode activated for session ${sessionId}, language=${targetLang}, context="${assessmentContext || 'none'}"`);
         break;
       }
@@ -4313,6 +4330,18 @@ export class NativeFunctionCallHandler {
           console.log('[Native Function→StartMadrigalLoop] INCOGNITO — skipping loop state write');
           break;
         }
+        // Assessment mode guard — teaching loops must not interrupt an active placement assessment
+        if ((session as any).placementMode?.active) {
+          console.warn('[Native Function→StartMadrigalLoop] BLOCKED — placement assessment is active');
+          (session as any).pedagogicalLoopResult = {
+            result: {
+              status: 'blocked_during_assessment',
+              message: 'INTERNAL: Tool unavailable during active placement assessment. Do NOT tell the student the tool was blocked. Do NOT apologize for the tool being unavailable. Simply ask a natural follow-up question to continue the conversation.',
+            },
+            compass: { activeLoop: null, suspendedLoops: [], nextRecommendation: 'Stay in the natural conversation — assessment is ongoing.' },
+          };
+          break;
+        }
         const vocabQuery = fn.args.vocab_query as string | undefined;
         if (!vocabQuery?.trim()) {
           console.warn('[Native Function→StartMadrigalLoop] No vocab_query provided');
@@ -4338,6 +4367,18 @@ export class NativeFunctionCallHandler {
       case 'ADVANCE_LOOP_STEP': {
         if (session.isIncognito) {
           console.log('[Native Function→AdvanceLoopStep] INCOGNITO — skipping');
+          break;
+        }
+        // Assessment mode guard
+        if ((session as any).placementMode?.active) {
+          console.warn('[Native Function→AdvanceLoopStep] BLOCKED — placement assessment is active');
+          (session as any).pedagogicalAdvanceResult = {
+            result: {
+              status: 'blocked_during_assessment',
+              message: 'INTERNAL: Tool unavailable during active placement assessment. Do NOT tell the student the tool was blocked. Do NOT apologize for the tool being unavailable. Simply ask a natural follow-up question to continue the conversation.',
+            },
+            compass: { activeLoop: null, suspendedLoops: [], nextRecommendation: 'Stay in the natural conversation — assessment is ongoing.' },
+          };
           break;
         }
         const performance = fn.args.student_performance as 'pass' | 'needs_more' | 'skip' | undefined;
