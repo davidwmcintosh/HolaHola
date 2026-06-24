@@ -4293,10 +4293,24 @@ ${lastNote.tutorNotes}`);
       studentSpeakingSeconds += glSpeaking.studentSpeakingMs / 1000;
       tutorSpeakingSeconds += glSpeaking.tutorSpeakingMs / 1000;
       if (glMetrics.inputTokens > 0 || glMetrics.outputTokens > 0) {
-        console.log(`[GeminiLive] Session end metrics — exchanges: ${glExchanges}, outputChars: ${glOutputChars}, tokens: ${glMetrics.inputTokens}in/${glMetrics.outputTokens}out`);
+        const visionNote = glMetrics.videoFramesSent > 0
+          ? `, vision: ${glMetrics.videoFramesSent} frames`
+          : '';
+        console.log(`[GeminiLive] Session end metrics — exchanges: ${glExchanges}, outputChars: ${glOutputChars}, tokens: ${glMetrics.inputTokens}in/${glMetrics.outputTokens}out${visionNote}`);
         // Log GL token costs to ai_cost_logs so burn report's per-model breakdown
         // includes GL usage. costTracker persists to DB via the wired DbPersister.
         costTracker.track(GEMINI_LIVE_MODEL, glMetrics.inputTokens, glMetrics.outputTokens, 'gemini-live-session');
+      }
+      // Vision burn report line — separate entry so the report shows the vision
+      // portion of GL input cost as its own line item.  Estimated at ~2,000 tokens/frame
+      // (webcam ≈ 1,548 · screen ≈ 3,870 · 2,000 is a conservative midpoint).
+      // These tokens are already counted inside the GL session usageMetadata above,
+      // so this is a visibility breakdown, not an additional charge.
+      if (glMetrics.videoFramesSent > 0) {
+        const TOKENS_PER_FRAME_EST = 2000;
+        const estimatedVisionTokens = glMetrics.videoFramesSent * TOKENS_PER_FRAME_EST;
+        costTracker.track('gemini-live-vision', estimatedVisionTokens, 0, `${glMetrics.videoFramesSent} frames est.`);
+        console.log(`[GeminiLive] Vision cost est. — ${glMetrics.videoFramesSent} frames × ${TOKENS_PER_FRAME_EST} tokens/frame = ~${estimatedVisionTokens.toLocaleString()} tokens`);
       }
       if (glLatency.count > 0) {
         console.log(`[GeminiLive] Latency stats — avg: ${glLatency.avgMs}ms, p50: ${glLatency.p50Ms}ms, p95: ${glLatency.p95Ms}ms (${glLatency.count} turns)`);

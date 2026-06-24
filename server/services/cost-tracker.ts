@@ -24,6 +24,11 @@ const PRICING: Record<string, ModelPricing> = {
   'gemini-3.1-flash-live-preview':              { inputPerMillion: 0.10,  outputPerMillion: 0.40,  label: 'Gemini Live 3.1'       },
   'gemini-2.5-flash-native-audio-preview-12-2025': { inputPerMillion: 0.10, outputPerMillion: 0.40, label: 'Gemini Live 3.5 (Native Audio)' },
   'gemini-2.0-flash-live-001':                  { inputPerMillion: 0.10,  outputPerMillion: 0.40,  label: 'Gemini 2 Flash Live'   },
+  // Vision frames sent via GL sendRealtimeInput({ video }) — estimated at ~2,000 tokens/frame
+  // (640×480 webcam ≈ 1,548 tokens; 1280×720 screen ≈ 3,870 tokens; 2,000 is a conservative midpoint)
+  // These tokens ARE included in the GL session's usageMetadata, so this line shows the vision
+  // portion of the GL input cost for visibility — not an additional charge.
+  'gemini-live-vision':                         { inputPerMillion: 0.10,  outputPerMillion: 0.00,  label: 'Gemini Live Vision (est.)' },
   // Claude Haiku
   'claude-3-haiku-20240307':      { inputPerMillion: 0.25,  outputPerMillion: 1.25,  label: 'Claude Haiku'       },
   'claude-3-5-haiku-20241022':    { inputPerMillion: 0.80,  outputPerMillion: 4.00,  label: 'Claude Haiku 3.5'   },

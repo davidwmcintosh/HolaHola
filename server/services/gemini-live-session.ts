@@ -115,6 +115,8 @@ export class GeminiLiveSession {
   private completedExchanges = 0;
   /** Cumulative length of all Daniela output transcripts — used as TTS char proxy for billing. */
   private totalOutputCharacters = 0;
+  /** Frames forwarded via sendVideoFrame() — used for burn-report vision cost estimate. */
+  private videoFramesSent = 0;
 
   // ── Session-level speaking & latency metrics ────────────────────────────
   // These are accumulated per-turn and exposed at session end for billing/telemetry.
@@ -740,6 +742,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.liveSession.sendRealtimeInput({
         video: { data: base64Jpeg, mimeType: 'image/jpeg' },
       } as any);
+      this.videoFramesSent++;
     } catch (err) {
       // Non-fatal — log and continue; audio must not be affected
       console.warn('[GeminiLive] sendVideoFrame error (non-fatal):', (err as Error).message);
@@ -2016,10 +2019,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
    * Expose accumulated token counts so the orchestrator can log them
    * to the burn report when the session ends.
    */
-  getUsageSummary(): { inputTokens: number; outputTokens: number } {
+  getUsageSummary(): { inputTokens: number; outputTokens: number; videoFramesSent: number } {
     return {
-      inputTokens: this.session.telemetryLlmInputTokens || 0,
-      outputTokens: this.session.telemetryLlmOutputTokens || 0,
+      inputTokens:     this.session.telemetryLlmInputTokens  || 0,
+      outputTokens:    this.session.telemetryLlmOutputTokens || 0,
+      videoFramesSent: this.videoFramesSent,
     };
   }
 
