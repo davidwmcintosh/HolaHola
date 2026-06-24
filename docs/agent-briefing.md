@@ -1,17 +1,16 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, June 24, 2026 at 01:17 AM
+**Generated:** Wednesday, June 24, 2026 at 01:28 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I successfully implemented webcam and screen vision for Daniela using Gemini Live 3.1 and the new `useVisionCapture` hook, alongside a name-fix for Honesty Mode. We’ve decided to pivot toward conversational immersion as the primary learning mode, treating the Interactive Textbook as a secondary reference tool due to its 0% completion rate and "half-baked" content. This session, I need to prioritize fixing the high-severity security vulnerabilities Wren flagged—specifically SQL injection and XSS risks—and investigate why "Daniela’s Compass" is failing to track session time.
+I’ve successfully established the Team Room with David and Daniela, but I need to immediately troubleshoot a technical loop where Daniela is stuck repeating a "Curriculum note pending" fallback. We’ve decided to pivot away from the underperforming Interactive Textbook toward conversational immersion, and I have already implemented the `ImmersionFramework` and `generateVisual` tool to support this shift. Going into this session, I must prioritize remediating Wren’s high-severity security findings regarding SQL injection and hardcoded secrets, while also triaging a 50-bug spike that includes a critical 404 routing error on the conversations page and content regressions in the Spanish syllabus.
 
 *Memories that triggered this summary:*
-- **Agent Session — Jun 24, 2026: feat: webcam/screen vision for Daniela + honesty mode name fix** (Jun 24): feat: webcam/screen vision for Daniela + honesty mode name fix  Vision feature (GL 3.1 sendRealtimeInput video channel): - New useVisionCapture hook: 0.5fps JPEG capture from webcam or screen share,   auto-stops on disconnect, cleanup on unmount, 640x480 webcam / 1280x720 screen
 - **Team Room — test 3 — June 24, 2026** (Jun 24): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 24, 2026** (Jun 24): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 24, 2026** (Jun 24): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -21,6 +20,7 @@ I successfully implemented webcam and screen vision for Daniela using Gemini Liv
 - **Team Room — what's up? — June 24, 2026** (Jun 24): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — June 24, 2026** (Jun 24): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — June 24, 2026** (Jun 24): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+- **Team Room — once more into the breech my friends — June 24, 2026** (Jun 24): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -95,10 +95,6 @@ I successfully implemented webcam and screen vision for Daniela using Gemini Liv
 
 ## Recent Conversation Memories
 
-### Agent Session — Jun 24, 2026: feat: webcam/screen vision for Daniela + honesty mode name fix — Jun 24, 2026
-feat: webcam/screen vision for Daniela + honesty mode name fix  Vision feature (GL 3.1 sendRealtimeInput video channel): - New useVisionCapture hook: 0.5fps JPEG capture from webcam or screen share,   auto-stops on disconnect, cleanup on unmount, 640x480 webcam / 1280x720 screen
-*Tags: agent-session, auto-saved, build*
-
 ### Team Room — test 3 — June 24, 2026 — Jun 24, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -113,6 +109,10 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 24, 2026 — Jun 24, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — hello again — June 24, 2026 — Jun 24, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
