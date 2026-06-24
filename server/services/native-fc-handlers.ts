@@ -4166,6 +4166,31 @@ export class NativeFunctionCallHandler {
                   .where(eq(conversations.id, String(session.conversationId)));
               }
               console.log(`[Native Function→SetActflLevel] Wrote placement level "${placementLevel}" for userId=${session.userId}, language=${placementLanguage}. Reasoning: ${placementReasoning || 'not provided'}`);
+
+              // Audit log — record the before/after level so the change can be
+              // traced back to this exact conversation without reconstructing history.
+              try {
+                const { actflLevelChanges, actflProgress: actflProgressTable } = await import('@shared/schema');
+                const [prev] = await db
+                  .select({ currentActflLevel: actflProgressTable.currentActflLevel })
+                  .from(actflProgressTable)
+                  .where(and(
+                    eq(actflProgressTable.userId, String(session.userId)),
+                    eq(actflProgressTable.language, placementLanguage)
+                  ))
+                  .limit(1);
+                await db.insert(actflLevelChanges).values({
+                  userId: String(session.userId),
+                  language: placementLanguage,
+                  fromLevel: prev?.currentActflLevel ?? null,
+                  toLevel: placementLevel,
+                  conversationId: session.conversationId ? String(session.conversationId) : null,
+                  triggeredBy: 'placement_tool',
+                  reason: placementReasoning ?? null,
+                });
+              } catch (logErr: any) {
+                console.error(`[Native Function→SetActflLevel] Audit log write failed (non-fatal):`, logErr.message);
+              }
             } catch (err: any) {
               console.error(`[Native Function→SetActflLevel] DB write failed:`, err.message);
             }

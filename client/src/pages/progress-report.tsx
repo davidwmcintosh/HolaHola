@@ -20,6 +20,9 @@ import {
   Calculator,
   Briefcase,
   GraduationCap,
+  Clock,
+  BookMarked,
+  TrendingUp,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -42,9 +45,21 @@ interface ViewedModule {
   };
 }
 
+interface LanguageProgressEntry {
+  language: string;
+  wordsLearned: number;
+  practiceMinutes: number;
+  currentStreak: number;
+  currentActflLevel: string | null;
+  topicsTotal: number;
+  tasksTotal: number;
+  canDoAchieved: number;
+}
+
 interface ProgressReport {
   viewedModules: ViewedModule[];
   bySubject: Record<string, { count: number; lastActivity: string | null }>;
+  languageProgress: LanguageProgressEntry[];
 }
 
 // ─── Subject config ───────────────────────────────────────────────────────────
@@ -92,7 +107,7 @@ const SUBJECT_CONFIG: Record<string, {
     borderClass: "border-violet-200 dark:border-violet-800",
   },
   language: {
-    label: "Spanish",
+    label: "Language",
     Icon: Languages,
     badgeClass: "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300",
     iconClass: "text-rose-600 dark:text-rose-400",
@@ -129,10 +144,90 @@ function todayLong() {
   });
 }
 
+function formatActflLevel(level: string | null): string {
+  if (!level) return "Not assessed";
+  return level.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function formatMinutes(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+// ─── Language Progress Section ────────────────────────────────────────────────
+
+function LanguageProgressSection({ entries }: { entries: LanguageProgressEntry[] }) {
+  if (entries.length === 0) return null;
+
+  return (
+    <div data-testid="language-progress-section">
+      <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
+        Language Practice
+      </h3>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {entries.map(entry => (
+          <Card
+            key={entry.language}
+            className="border-rose-200 dark:border-rose-800"
+            data-testid={`card-language-${entry.language}`}
+          >
+            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Languages className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                <span className="capitalize" data-testid={`text-language-name-${entry.language}`}>
+                  {entry.language}
+                </span>
+              </CardTitle>
+              {entry.currentActflLevel && (
+                <Badge
+                  variant="outline"
+                  className="bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300 text-xs"
+                  data-testid={`badge-actfl-${entry.language}`}
+                >
+                  {formatActflLevel(entry.currentActflLevel)}
+                </Badge>
+              )}
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-1.5" data-testid={`stat-time-${entry.language}`}>
+                  <Clock className="w-3 h-3 shrink-0" />
+                  <span>{formatMinutes(entry.practiceMinutes)} practiced</span>
+                </div>
+                <div className="flex items-center gap-1.5" data-testid={`stat-words-${entry.language}`}>
+                  <BookMarked className="w-3 h-3 shrink-0" />
+                  <span>{entry.wordsLearned} words</span>
+                </div>
+                {entry.canDoAchieved > 0 && (
+                  <div className="flex items-center gap-1.5" data-testid={`stat-cando-${entry.language}`}>
+                    <CheckCircle2 className="w-3 h-3 shrink-0 text-emerald-500" />
+                    <span>{entry.canDoAchieved} can-do{entry.canDoAchieved !== 1 ? "s" : ""} achieved</span>
+                  </div>
+                )}
+                {entry.topicsTotal > 0 && (
+                  <div className="flex items-center gap-1.5" data-testid={`stat-topics-${entry.language}`}>
+                    <TrendingUp className="w-3 h-3 shrink-0" />
+                    <span>{entry.topicsTotal} topics covered</span>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Summary Tab ──────────────────────────────────────────────────────────────
 
 function SummaryTab({ report }: { report: ProgressReport }) {
-  if (report.viewedModules.length === 0) {
+  const hasReadingModules = report.viewedModules.length > 0;
+  const hasLanguage = report.languageProgress.length > 0;
+
+  if (!hasReadingModules && !hasLanguage) {
     return (
       <div
         className="flex flex-col items-center justify-center h-64 text-center text-muted-foreground gap-3"
@@ -140,8 +235,8 @@ function SummaryTab({ report }: { report: ProgressReport }) {
       >
         <BookOpen className="w-12 h-12 opacity-20" />
         <div>
-          <p className="font-medium">No reading modules studied yet.</p>
-          <p className="text-sm mt-1">Open a chapter in the Reading Library to get started.</p>
+          <p className="font-medium">No study activity yet.</p>
+          <p className="text-sm mt-1">Start a language session or open a Reading Library chapter to get started.</p>
         </div>
       </div>
     );
@@ -150,59 +245,73 @@ function SummaryTab({ report }: { report: ProgressReport }) {
   const subjects = Object.keys(report.bySubject);
 
   return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {subjects.map(domain => {
-          const cfg = getSubjectCfg(domain);
-          const stats = report.bySubject[domain];
-          return (
-            <Card key={domain} className={cfg.borderClass} data-testid={`card-subject-${domain}`}>
-              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <cfg.Icon className={`w-4 h-4 ${cfg.iconClass}`} />
-                  <span data-testid={`text-subject-title-${domain}`}>{cfg.label}</span>
-                </CardTitle>
-                <Badge variant="outline" className={cfg.badgeClass} data-testid={`badge-count-${domain}`}>
-                  {stats.count} {stats.count === 1 ? "topic" : "topics"}
-                </Badge>
-              </CardHeader>
-              <CardContent>
-                {stats.lastActivity && (
-                  <p className="text-xs text-muted-foreground flex items-center gap-1.5" data-testid={`text-last-activity-${domain}`}>
-                    <Calendar className="w-3 h-3" />
-                    Last studied {formatDate(stats.lastActivity)}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+    <div className="space-y-8">
+      {/* Language section — always first when present */}
+      {hasLanguage && <LanguageProgressSection entries={report.languageProgress} />}
 
-      <div>
-        <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
-          Recently Studied
-        </h3>
-        <div className="space-y-2">
-          {report.viewedModules.map(mod => {
-            const cfg = getSubjectCfg(mod.subjectDomain);
-            return (
-              <div
-                key={mod.id}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-md border bg-card"
-                data-testid={`row-module-${mod.id}`}
-              >
-                <CheckCircle2 className={`w-4 h-4 shrink-0 ${cfg.iconClass}`} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate capitalize" data-testid={`text-topic-${mod.id}`}>{mod.topic}</p>
-                  <p className="text-xs text-muted-foreground">{cfg.label}</p>
-                </div>
-                <p className="text-xs text-muted-foreground shrink-0">{formatDate(mod.lastViewedAt)}</p>
-              </div>
-            );
-          })}
+      {/* Reading module subject cards */}
+      {hasReadingModules && (
+        <div>
+          <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
+            Reading Modules
+          </h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {subjects.map(domain => {
+              const cfg = getSubjectCfg(domain);
+              const stats = report.bySubject[domain];
+              return (
+                <Card key={domain} className={cfg.borderClass} data-testid={`card-subject-${domain}`}>
+                  <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                      <cfg.Icon className={`w-4 h-4 ${cfg.iconClass}`} />
+                      <span data-testid={`text-subject-title-${domain}`}>{cfg.label}</span>
+                    </CardTitle>
+                    <Badge variant="outline" className={cfg.badgeClass} data-testid={`badge-count-${domain}`}>
+                      {stats.count} {stats.count === 1 ? "topic" : "topics"}
+                    </Badge>
+                  </CardHeader>
+                  <CardContent>
+                    {stats.lastActivity && (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1.5" data-testid={`text-last-activity-${domain}`}>
+                        <Calendar className="w-3 h-3" />
+                        Last studied {formatDate(stats.lastActivity)}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Recently studied reading modules */}
+      {hasReadingModules && (
+        <div>
+          <h3 className="text-sm font-semibold mb-3 text-muted-foreground uppercase tracking-wide">
+            Recently Studied
+          </h3>
+          <div className="space-y-2">
+            {report.viewedModules.map(mod => {
+              const cfg = getSubjectCfg(mod.subjectDomain);
+              return (
+                <div
+                  key={mod.id}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-md border bg-card"
+                  data-testid={`row-module-${mod.id}`}
+                >
+                  <CheckCircle2 className={`w-4 h-4 shrink-0 ${cfg.iconClass}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate capitalize" data-testid={`text-topic-${mod.id}`}>{mod.topic}</p>
+                    <p className="text-xs text-muted-foreground">{cfg.label}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground shrink-0">{formatDate(mod.lastViewedAt)}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -279,72 +388,28 @@ function QuizTab({ report, studentName }: { report: ProgressReport; studentName:
           const cfg = getSubjectCfg(domain);
           let qNum = 0;
           return (
-            <div key={domain} data-testid={`quiz-subject-${domain}`}>
-              <div className={`flex items-center gap-2 mb-4 pb-2 border-b ${cfg.borderClass}`}>
+            <div key={domain}>
+              <div className="flex items-center gap-2 mb-3">
                 <cfg.Icon className={`w-4 h-4 ${cfg.iconClass}`} />
-                <h2 className="text-base font-semibold">{cfg.label}</h2>
+                <h3 className="font-semibold text-sm">{cfg.label}</h3>
               </div>
-              <div className="space-y-4">
-                {groups.map(({ mod, questions }) => (
-                  <div key={mod.id}>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium mb-2 capitalize">
-                      {mod.topic}
-                    </p>
-                    {questions.map((item, i) => {
-                      qNum++;
-                      const n = qNum;
-                      return (
-                        <div key={i} className="mb-4" data-testid={`question-${n}`}>
-                          <p className="text-sm">
-                            <span className="font-semibold">{n}.</span> {item.question}
-                          </p>
-                          {/* Shown on screen only when toggle is on */}
-                          <div className={`answer-block mt-1 ml-5 ${showAnswers ? "" : "hidden"}`} data-testid={`answer-${n}`}>
-                            <p className="text-sm text-muted-foreground italic">{item.answer}</p>
-                          </div>
-                          {/* Blank lines for writing — hidden in print on answer key page via CSS */}
-                          <div className="mt-2 ml-5 answer-line-block">
-                            <div className="border-b border-dashed border-muted-foreground/30 mt-5" />
-                            <div className="border-b border-dashed border-muted-foreground/30 mt-5" />
-                          </div>
+              <div className="space-y-5">
+                {groups.map(({ mod, questions }) =>
+                  questions.map((q, qi) => {
+                    qNum++;
+                    return (
+                      <div key={`${mod.id}-${qi}`} className="space-y-1" data-testid={`question-${mod.id}-${qi}`}>
+                        <p className="text-sm font-medium">
+                          {qNum}. {q.question}
+                        </p>
+                        <div className={`answer-block pl-4 ${showAnswers ? "" : "print:block hidden"}`}>
+                          <p className="text-sm text-muted-foreground italic">{q.answer}</p>
                         </div>
-                      );
-                    })}
-                  </div>
-                ))}
+                      </div>
+                    );
+                  })
+                )}
               </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Answer Key — print only, page 2 */}
-      <div className="answer-key hidden print:block mt-16 page-break-before">
-        <h2 className="text-lg font-bold mb-1">Answer Key</h2>
-        <p className="text-sm mb-4">
-          <strong>Student:</strong> {studentName} &nbsp;&nbsp;
-          <strong>Date:</strong> {todayLong()}
-        </p>
-        <hr className="mb-4" />
-        {Object.entries(bySubject).map(([domain, groups]) => {
-          const cfg = getSubjectCfg(domain);
-          let qNum = 0;
-          return (
-            <div key={domain} className="mb-6">
-              <h3 className="font-semibold mb-2 flex items-center gap-2">
-                <cfg.Icon className={`w-4 h-4 ${cfg.iconClass}`} />
-                {cfg.label}
-              </h3>
-              {groups.map(({ questions }) =>
-                questions.map((item, i) => {
-                  qNum++;
-                  return (
-                    <p key={i} className="text-sm mb-1.5">
-                      <span className="font-semibold">{qNum}.</span> {item.answer}
-                    </p>
-                  );
-                })
-              )}
             </div>
           );
         })}
@@ -357,9 +422,9 @@ function QuizTab({ report, studentName }: { report: ProgressReport; studentName:
 
 function ReportSkeleton() {
   return (
-    <div className="space-y-3">
-      {[...Array(4)].map((_, i) => (
-        <Skeleton key={i} className="h-16 rounded-md" />
+    <div className="space-y-4" data-testid="report-skeleton">
+      {[1, 2, 3].map(i => (
+        <Skeleton key={i} className="h-24 w-full rounded-md" />
       ))}
     </div>
   );
@@ -367,13 +432,12 @@ function ReportSkeleton() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function ProgressReport() {
-  const [, setLocation] = useLocation();
+export default function ProgressReportPage() {
   const [activeTab, setActiveTab] = useState<"summary" | "quiz">("summary");
+  const [, setLocation] = useLocation();
 
   const { data: report, isLoading } = useQuery<ProgressReport>({
     queryKey: ["/api/progress-report"],
-    staleTime: 30_000,
   });
 
   const { data: authUser } = useQuery<{ firstName?: string; username?: string }>({

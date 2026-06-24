@@ -34173,7 +34173,53 @@ You have full access to your neural network knowledge.
         },
       }));
 
-      res.json({ viewedModules, bySubject });
+      // Language learning progress — separate from reading modules, sourced from
+      // user_progress (session stats), actfl_progress (level/topics), and
+      // student_can_do_progress (achieved statements).
+      const { userProgress, actflProgress: actflProgressTable, studentCanDoProgress, canDoStatements } = await import('@shared/schema');
+      const { gt } = await import('drizzle-orm');
+
+      const [langProgressRows, actflRows, canDoRows] = await Promise.all([
+        db.select({
+          language: userProgress.language,
+          wordsLearned: userProgress.wordsLearned,
+          practiceMinutes: userProgress.practiceMinutes,
+          currentStreak: userProgress.currentStreak,
+        })
+          .from(userProgress)
+          .where(and(eq(userProgress.userId, userId), gt(userProgress.practiceMinutes, 0))),
+
+        db.select({
+          language: actflProgressTable.language,
+          currentActflLevel: actflProgressTable.currentActflLevel,
+          topicsTotal: actflProgressTable.topicsTotal,
+          tasksTotal: actflProgressTable.tasksTotal,
+        })
+          .from(actflProgressTable)
+          .where(eq(actflProgressTable.userId, userId)),
+
+        db.select({ language: canDoStatements.language })
+          .from(studentCanDoProgress)
+          .innerJoin(canDoStatements, eq(studentCanDoProgress.canDoStatementId, canDoStatements.id))
+          .where(eq(studentCanDoProgress.userId, userId)),
+      ]);
+
+      const actflByLang = new Map(actflRows.map(r => [r.language, r]));
+      const canDoByLang: Record<string, number> = {};
+      for (const r of canDoRows) canDoByLang[r.language] = (canDoByLang[r.language] || 0) + 1;
+
+      const languageProgress = langProgressRows.map(r => ({
+        language: r.language,
+        wordsLearned: r.wordsLearned,
+        practiceMinutes: r.practiceMinutes,
+        currentStreak: r.currentStreak,
+        currentActflLevel: actflByLang.get(r.language)?.currentActflLevel ?? null,
+        topicsTotal: actflByLang.get(r.language)?.topicsTotal ?? 0,
+        tasksTotal: actflByLang.get(r.language)?.tasksTotal ?? 0,
+        canDoAchieved: canDoByLang[r.language] ?? 0,
+      }));
+
+      res.json({ viewedModules, bySubject, languageProgress });
     } catch (error: any) {
       console.error('[ProgressReport] Error:', error);
       res.status(500).json({ error: error.message });

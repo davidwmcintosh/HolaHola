@@ -9541,3 +9541,28 @@ export const insertStudentCanDoEvidenceSchema = createInsertSchema(studentCanDoE
 });
 export type InsertStudentCanDoEvidence = z.infer<typeof insertStudentCanDoEvidenceSchema>;
 export type StudentCanDoEvidence = typeof studentCanDoEvidence.$inferSelect;
+
+// ===== ACTFL Level Change Audit Log =====
+// Append-only record of every time a student's ACTFL level changes, with a
+// pointer back to the conversation that provided the evidence.  Enables
+// review, dispute, and re-testing without losing the triggering context.
+export const actflLevelChanges = pgTable("actfl_level_changes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  language: text("language").notNull(),
+  fromLevel: text("from_level"),           // null = first ever assessment
+  toLevel: text("to_level").notNull(),
+  conversationId: text("conversation_id"), // conversation that produced the evidence
+  triggeredBy: text("triggered_by").notNull(), // 'placement_tool' | 'placement_chat' | 'manual'
+  reason: text("reason"),                  // AI reasoning or human note
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_actfl_level_changes_user_lang").on(table.userId, table.language),
+]);
+
+export const insertActflLevelChangesSchema = createInsertSchema(actflLevelChanges).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertActflLevelChange = z.infer<typeof insertActflLevelChangesSchema>;
+export type ActflLevelChange = typeof actflLevelChanges.$inferSelect;
