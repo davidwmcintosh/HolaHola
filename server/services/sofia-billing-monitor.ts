@@ -261,6 +261,39 @@ export async function reportAbnormalDisconnect(opts: {
 }
 
 /**
+ * Called when an OpenAI embedding API call fails (e.g. 429 quota, network error).
+ * Covers both TeamRoom AutoSave and the neural-net EmbedIndexer.
+ * Deduped by HTTP status per 10 minutes so a burst of simultaneous failures
+ * (e.g. 13 concurrent boot-sweep calls) files exactly one report.
+ */
+export async function reportEmbeddingApiError(opts: {
+  source: string;           // e.g. 'TeamRoomAutoSave', 'EmbedIndexer'
+  error: string;
+  sessionId?: string;
+  consecutiveCount?: number; // how many failed in this sweep/batch
+}): Promise<void> {
+  const { source, error, sessionId, consecutiveCount } = opts;
+
+  // Extract HTTP status from message like "OpenAI embedding failed (429): ..."
+  const statusMatch = error.match(/\((\d{3})\)/);
+  const httpStatus = statusMatch ? statusMatch[1] : 'unknown';
+
+  const countNote = consecutiveCount && consecutiveCount > 1
+    ? ` (${consecutiveCount} failures in this sweep)`
+    : '';
+
+  await fileSofiaReport(
+    'infra_fault:embedding_api_error',
+    `OpenAI embedding API returned HTTP ${httpStatus} in ${source}${countNote}.` +
+      (sessionId ? ` Session: ${sessionId.substring(0, 8)}…` : '') +
+      ` Error: ${error.substring(0, 200)}` +
+      ` This may indicate a quota limit, key issue, or transient OpenAI outage.`,
+    { source, httpStatus, sessionId, consecutiveCount, error: error.substring(0, 500) },
+    `embedding_api_error:${httpStatus}`,
+  );
+}
+
+/**
  * FLARE — called when Gemini Live starts but Daniela produces no audio within the
  * watchdog window (default 90s).  This is the "tutor didn't answer the call" signal.
  * Triggers an immediate Sofia monitoring check.

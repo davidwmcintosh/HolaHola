@@ -1694,6 +1694,14 @@ export function startTeamRoomAutoSaveWorker(): void {
           console.log(`[TeamRoom AutoSave] ${room.id} — ${result.messageCount} msgs, advisors: ${result.advisorsIndexed.join(', ') || 'none'}`);
         } catch (e: any) {
           console.error(`[TeamRoom AutoSave] Failed for session ${room.id}:`, e.message);
+          if (e.message?.includes('OpenAI embedding failed') || e.message?.includes('embedding')) {
+            const { reportEmbeddingApiError } = await import('./sofia-billing-monitor');
+            reportEmbeddingApiError({
+              source: 'TeamRoomAutoSave',
+              error: e.message,
+              sessionId: room.id,
+            }).catch(() => {});
+          }
         }
       }
     } catch (e: any) {

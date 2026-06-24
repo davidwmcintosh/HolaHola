@@ -478,6 +478,10 @@ async function runIndexer(): Promise<void> {
           if (errors <= 3) {
             console.warn(`[EmbedIndexer] Failed to embed ${t.memoryType}/${t.id}:`, err.message);
           }
+          if (err.message?.includes('OpenAI embedding failed') && errors === 1) {
+            const { reportEmbeddingApiError } = await import('./sofia-billing-monitor');
+            reportEmbeddingApiError({ source: 'EmbedIndexer', error: err.message }).catch(() => {});
+          }
         }
       }
     } else {
@@ -490,6 +494,10 @@ async function runIndexer(): Promise<void> {
             errors++;
             if (errors <= 3) {
               console.warn(`[EmbedIndexer] Failed to embed ${t.memoryType}/${t.id}:`, err.message);
+            }
+            if (err.message?.includes('OpenAI embedding failed') && errors === 1) {
+              const { reportEmbeddingApiError } = await import('./sofia-billing-monitor');
+              reportEmbeddingApiError({ source: 'EmbedIndexer', error: err.message }).catch(() => {});
             }
           }
         })

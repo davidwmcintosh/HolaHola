@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, June 24, 2026 at 01:40 AM
+**Generated:** Wednesday, June 24, 2026 at 01:52 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve integrated Gemini Live vision cost tracking into Lyra’s burn report and must now prioritize Wren’s two high-severity security fixes and the 50-bug spike flagged by Sofia. We’re debating retiring the underperforming Interactive Textbook in favor of conversational immersion, though I first need to resolve a 404 routing error on the conversations page and telemetry gaps in Daniela’s Compass. I also have a list of 49 Spanish lessons hitting verbosity regressions and 22 empty chapters that require immediate re-seeding before tonight’s beta.
+I need to immediately fix the Cartesia TTS 400 errors breaking voice sessions and address Wren’s critical security findings, specifically a hardcoded secret and SQL injection risks. I am investigating why the Interactive Textbook shows a 0% completion rate and whether Daniela’s Compass has a telemetry bug, as it’s currently reporting zero learning velocity and session time despite active usage. I’ll also need to triage the surge of 50+ new bugs flagged by Sofia and implement the `generateVisual` function Daniela requested to improve our infographic integration strategy.
 
 *Memories that triggered this summary:*
-- **Agent Session — Jun 24, 2026: feat: vision cost tracking in burn report** (Jun 24): feat: vision cost tracking in burn report  - GeminiLiveSession: private videoFramesSent counter, incremented in   sendVideoFrame(); exposed in getUsageSummary() return type - cost-tracker: new 'gemini-live-vision' pricing entry ($0.10/1M input,
+- **Agent Daily Sweep — Jun 24, 2026** (Jun 24): 1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple TTS failures in both English and Spanish are breaking voice sessions. Check API credentials, rate limits, or malformed requests in the TTS integration.  2. **[HIGH]** Investigate zero quality scores for active student — One student has 23 sess
 - **Team Room — test 3 — June 24, 2026** (Jun 24): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 24, 2026** (Jun 24): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 24, 2026** (Jun 24): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -95,9 +95,9 @@ I’ve integrated Gemini Live vision cost tracking into Lyra’s burn report and
 
 ## Recent Conversation Memories
 
-### Agent Session — Jun 24, 2026: feat: vision cost tracking in burn report — Jun 24, 2026
-feat: vision cost tracking in burn report  - GeminiLiveSession: private videoFramesSent counter, incremented in   sendVideoFrame(); exposed in getUsageSummary() return type - cost-tracker: new 'gemini-live-vision' pricing entry ($0.10/1M input,
-*Tags: agent-session, auto-saved, build*
+### Agent Daily Sweep — Jun 24, 2026 — Jun 24, 2026
+1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple TTS failures in both English and Spanish are breaking voice sessions. Check API credentials, rate limits, or malformed requests in the TTS integration.  2. **[HIGH]** Investigate zero quality scores for active student — One student has 23 sess
+*Tags: agent-sweep, daily, auto-saved*
 
 ### Team Room — test 3 — June 24, 2026 — Jun 24, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
