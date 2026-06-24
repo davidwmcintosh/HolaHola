@@ -407,16 +407,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // for sessions with many tools — high temp increases parameter hallucination
         // in function calls. Personality/prosody variety is better controlled via
         // system prompt language than by temperature. (Was 0.8; see audit notes.)
-        // maxOutputTokens 1500: GL has an internal audio budget (~120-150 words ~=
-        // ~45-60s before cutoff). Setting an explicit cap prevents runaway monologues
-        // and forces Daniela to use the "speak then invite" pacing pattern. Without
-        // this, the internal limit causes abrupt mid-sentence audio cutoff with ghost
-        // transcription continuing beyond what was spoken.
+        // maxOutputTokens 2500: ~200-250 words — enough for a complete thought
+        // (including philosophical/emotional responses) without enabling runaway
+        // monologues. Was 1500 (~120-150 words), which caused mid-sentence cutoffs
+        // on deeper responses. The cap still forces "speak then invite" pacing;
+        // it just gives enough room to finish the sentence before the handoff.
+        // Without any cap, the internal GL audio budget causes abrupt cutoff with
+        // ghost transcription continuing beyond what was spoken.
         // candidateCount 1: multiple candidates in Live mode cause latency spikes and
         // audio buffer sync issues. Explicitly set to 1. (Gemini audit June 19 2026)
         generationConfig: {
           temperature: 0.6,
-          maxOutputTokens: 1500,
+          maxOutputTokens: 2500,
           candidateCount: 1,
         },
 
