@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { learnerPersonalFacts, learningMilestones, productConfig, users, northStarPrinciples, danielaNotes, compartmentInstallation, pedagogicalSnapshots } from "@shared/schema";
-import { eq, and, desc, sql, asc, isNull, ne } from "drizzle-orm";
+import { learnerPersonalFacts, learningMilestones, productConfig, users, northStarPrinciples, danielaNotes, compartmentInstallation, pedagogicalSnapshots, vocabularyWords } from "@shared/schema";
+import { eq, and, desc, sql, asc, isNull, ne, lte } from "drizzle-orm";
 import { phaseTransitionService } from "./phase-transition-service";
 import { getCharacterListDescription } from "./character-registry";
 
@@ -403,7 +403,7 @@ export async function buildClassroomEnvironment(params: {
     isGL = false,
   } = params;
 
-  const [personalFacts, milestoneCount, danielaPhoto, classroomWindow, davidNote, userRow, principles, recentNotes, textbookContent, sceneZones, compartmentRows, lastPedagogicalSnapshot] = await Promise.all([
+  const [personalFacts, milestoneCount, danielaPhoto, classroomWindow, davidNote, userRow, principles, recentNotes, textbookContent, sceneZones, compartmentRows, lastPedagogicalSnapshot, dueVocabCount] = await Promise.all([
     db
       .select({ factType: learnerPersonalFacts.factType, fact: learnerPersonalFacts.fact })
       .from(learnerPersonalFacts)
@@ -503,6 +503,21 @@ export async function buildClassroomEnvironment(params: {
       .limit(1)
       .then((r) => r[0] ?? null)
       .catch(() => null),
+
+    // DUE VOCAB COUNT: how many words are overdue for spaced-repetition review.
+    // Surfaced in the classroom block so Daniela knows to call review_due_vocab
+    // proactively when it feels natural — without having to guess whether words are waiting.
+    // Applies to all session types (GL and PTT/streaming) — the tool exists in both modes.
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(vocabularyWords)
+      .where(and(
+        eq(vocabularyWords.userId, userId),
+        eq(vocabularyWords.language, targetLanguage),
+        lte(vocabularyWords.nextReviewDate, new Date()),
+      ))
+      .then((r) => Number(r[0]?.count || 0))
+      .catch(() => 0),
   ]);
 
   // ── GL COMPACT PATH ─────────────────────────────────────────────────────────
@@ -534,6 +549,10 @@ export async function buildClassroomEnvironment(params: {
       ? `\nLast session gear: ${lastPedagogicalSnapshot.gear}/5 (${lastPedagogicalSnapshot.fluencyMomentary}) — open calibrated from here, not from zero`
       : '';
 
+    const dueVocabLine = (dueVocabCount ?? 0) > 0
+      ? `\nVocabulary: ${dueVocabCount} word${dueVocabCount === 1 ? '' : 's'} due for review — call review_due_vocab when it feels natural`
+      : '';
+
     const sessionIntentBlock = (sessionActflLevel || sessionCurriculumUnit || sessionCurriculumLesson || sessionTopStruggles?.length)
       ? `\n<session_intent>\nTarget: ${sessionActflLevel || 'General'} | Unit: ${sessionCurriculumUnit || 'General'}\nGoal: ${sessionCurriculumLesson || 'Natural Conversation'}\nStruggles: ${sessionTopStruggles?.join(', ') || 'None identified'}\n</session_intent>`
       : '';
@@ -546,7 +565,7 @@ export async function buildClassroomEnvironment(params: {
 ${davidNoteSection}<your_window_view>${classroomWindow}</your_window_view>
 <your_photo_on_wall>${danielaPhoto}</your_photo_on_wall>
 Mode: ${modeLabel} | Exchanges: ${exchangeCount}${creditLine ? ` | Credits: ${creditLine}` : ''}
-Student: ${studentName}${topFacts ? `\nWhat you know: ${topFacts}` : ''}${activeScenarioLine}${lastGearLine}${sessionIntentBlock}${sessionPhaseLine}${incognitoLine}=== END CLASSROOM ===`.trim();
+Student: ${studentName}${topFacts ? `\nWhat you know: ${topFacts}` : ''}${activeScenarioLine}${lastGearLine}${dueVocabLine}${sessionIntentBlock}${sessionPhaseLine}${incognitoLine}=== END CLASSROOM ===`.trim();
   }
 
   const phaseContext = phaseTransitionService.getCurrentPhase(userId);

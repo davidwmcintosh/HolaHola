@@ -41,6 +41,29 @@ Last-gear injection at session start: query final pedagogical snapshot from prev
 
 ---
 
+## Session — Jun 25, 2026 — Cold-Start Gear Seeding + Due Vocab Awareness (Gemini-reviewed)
+
+### What was built
+
+Two session quality refinements — both Gemini-reviewed with corrections applied.
+
+#### Refinement 1: Cold-start gear seeding (`server/services/streaming-voice-orchestrator.ts`)
+
+**Problem:** `session._lastGear` and `session._lastFluency` were always `undefined` at session start. `evaluatePedagogicalState()` and `computeScaffoldingLevel()` use these fields — without them both fall back to ACTFL-only logic for the entire first portion of every session, even though Daniela's classroom text already showed her the last gear in prose.
+
+**Fix:** At session creation (after tutor voice loading), `await` a DB query for the last `pedagogical_snapshots` row for the student and seed both fields. Awaited (not fire-and-forget) to ensure turn 1 is calibrated — Gemini flagged fire-and-forget as a race condition (~20-50ms overhead, negligible). Logs via `[GearSeed]`. Added `pedagogicalSnapshots` to `@shared/schema` imports in orchestrator.
+
+#### Refinement 2: Due vocab awareness in classroom block (`server/services/classroom-environment.ts`)
+
+**Problem:** The `review_due_vocab` tool and handler already existed and worked perfectly. The gap was that Daniela had no signal telling her vocab was due — so she'd teach the lesson and never think to check.
+
+**Fix:** Added due vocab count query to classroom `Promise.all`. Added `dueVocabLine` to the GL compact block: `"X words due for review — call review_due_vocab when it feels natural"`. Applies to all session types (Gemini recommended removing the original `isGL` guard since the tool exists in all modes). Added `vocabularyWords` + `lte` to classroom-environment.ts imports.
+
+#### Gemini re-verify: APPROVED — Ship it
+Two corrections applied mid-session per Gemini feedback: (1) await the gear seed to close race condition, (2) remove isGL guard on vocab count.
+
+---
+
 ## Session — Jun 25, 2026 — Gemini Strategic Consult: Heartbeat + History Scrub (Gemini-reviewed)
 
 ### What was built

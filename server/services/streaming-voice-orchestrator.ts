@@ -249,6 +249,7 @@ import {
   arisDrillResults,
   tutorSessions,
   hiveSnapshots,
+  pedagogicalSnapshots,
 } from "@shared/schema";
 
 /**
@@ -1053,7 +1054,39 @@ export class StreamingVoiceOrchestrator {
         expressiveness: 3,  // Standard baseline
       };
     }
-    
+
+    // COLD-START GEAR SEEDING: Read the last pedagogical snapshot from DB and seed
+    // session._lastGear + session._lastFluency so the PedagogicalSupervisor and
+    // ScaffoldingSlider don't start blind every session.
+    //
+    // Without this, evaluatePedagogicalState() sees undefined gear on turn 1 and
+    // computeScaffoldingLevel() falls back to ACTFL-only logic — ignoring that the
+    // student was at gear 4 yesterday. The classroom text already shows Daniela the
+    // last gear; this seeds the backend fields so the supervisor's math matches.
+    //
+    // Awaited (not fire-and-forget): ensures turn 1 is calibrated, not just turn 2+.
+    // ~20-50ms overhead at session start — negligible vs. session value.
+    // (Gemini consult rec. June 2026 — open-bugs.md ref; race condition fix June 2026)
+    if (userId) {
+      try {
+        const gearRows = await db.select({
+            gear: pedagogicalSnapshots.gear,
+            fluencyMomentary: pedagogicalSnapshots.fluencyMomentary,
+          })
+          .from(pedagogicalSnapshots)
+          .where(eq(pedagogicalSnapshots.userId, String(userId)))
+          .orderBy(desc(pedagogicalSnapshots.createdAt))
+          .limit(1);
+        if (gearRows[0]) {
+          (session as any)._lastGear = gearRows[0].gear;
+          (session as any)._lastFluency = gearRows[0].fluencyMomentary;
+          console.log(`[GearSeed] Seeded _lastGear=${gearRows[0].gear} _lastFluency=${gearRows[0].fluencyMomentary} from last snapshot`);
+        }
+      } catch (err: any) {
+        console.warn(`[GearSeed] Could not seed last gear — supervisor starts cold:`, err?.message);
+      }
+    }
+
     // TUTOR DIRECTORY: Populate at session start for name-based language inference
     // This enables inferLanguageFromTutorName to work during SWITCH_TUTOR parsing
     // (If Daniela says "Let me get Juliette" but forgets language="french", we can infer it)
