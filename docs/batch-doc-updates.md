@@ -34,6 +34,36 @@ Stanford Smallville ("Generative Agents" paper) — 25 AI agents, no human scrip
 
 ---
 
+## Session — Jun 25, 2026 — Magic Circle Maintenance (Path 3)
+
+### What was built
+
+**New service: `server/services/magic-circle-filter.ts`**
+
+Three exports:
+
+1. `MAGIC_CIRCLE_NEGATIVE_CONSTRAINTS` — prose injected into Daniela's GL compact classroom block every session. Identity-based framing ("she knows what she is without naming it") rather than a ban list. Includes a positive alternative: when she hits a genuine limit, she expresses it as a human trait (distraction, stubbornness) not a technical error.
+
+2. `MEMORY_ANCHOR_INSTRUCTION` — injected when `activeScenario` is set. Reminds Daniela that the room is always present — furniture, sounds, the other person's body. Prevents generic "Great job!" responses when she should be reacting to the scene.
+
+3. `debotText(text)` — 12-pattern scanner covering identity reveals (`as-an-ai`, `i-am-an-ai`, `programmed-to`, `as-a-model`, `language-model`, `my-programming`), frame breaks (`in-this-scenario`, `as-your-tutor`), helpful-assistant tone (`here-to-assist`, `how-can-i-help`, `i-apologize-for`), and limitation confessions (`sorry-cannot`). Logs breaches, strips phrase, runs post-strip cleanup (double spaces, leading commas, orphaned punctuation). Falls back to original text if cleaned output < 10 chars.
+
+**Injection points:**
+- `server/services/classroom-environment.ts` GL compact block — constraints + anchor active every GL voice session
+- `server/services/streaming-voice-orchestrator.ts` persist path — `debotText()` applied before `cleanedAiResponse` is saved and sent to TTS
+
+**What was NOT built:** Latency masker (social filler audio) — GL already streams with near-zero latency; REST path would require per-language pre-recorded audio assets + deep orchestrator surgery.
+
+### Worldness Framework — all 3 paths complete
+
+| Path | Status |
+|---|---|
+| Path 1: Consequence Engine (Tension Variable) | ✅ Shipped + Gemini-calibrated |
+| Path 2: GOAP Planner (Daniela as DM) | ✅ Shipped + Gemini-approved |
+| Path 3: Magic Circle Maintenance | ✅ Shipped + Gemini-approved |
+
+---
+
 ## Session — Jun 25, 2026 — Consequence Engine (Path 1) + GOAP Planner (Path 2)
 
 ### Path 1 — Consequence Engine calibrated (post-Gemini review)

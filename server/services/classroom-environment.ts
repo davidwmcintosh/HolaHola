@@ -3,6 +3,7 @@ import { learnerPersonalFacts, learningMilestones, productConfig, users, northSt
 import { eq, and, desc, sql, asc, isNull, ne, lte } from "drizzle-orm";
 import { phaseTransitionService } from "./phase-transition-service";
 import { getCharacterListDescription } from "./character-registry";
+import { MAGIC_CIRCLE_NEGATIVE_CONSTRAINTS, MEMORY_ANCHOR_INSTRUCTION } from './magic-circle-filter';
 
 const DANIELA_PHOTO_CONFIG_KEY = "daniela_classroom_photo";
 const DANIELA_WINDOW_CONFIG_KEY = "daniela_classroom_window";
@@ -561,11 +562,14 @@ export async function buildClassroomEnvironment(params: {
       ? `\nPhase: ${sessionPhase} — ${sessionPhase === 'WARM_UP' ? 'ease in, 50/50 talk ratio' : sessionPhase === 'PRESENTATION' ? 'you explain, 70/30 talk ratio' : sessionPhase === 'PRACTICE' ? 'they apply, 30/70 talk ratio' : sessionPhase === 'PRODUCTION' ? 'they lead, 10/90 talk ratio' : 'wind down'}`
       : '';
 
+    const magicCircleLine = `\n${MAGIC_CIRCLE_NEGATIVE_CONSTRAINTS}`;
+    const memoryAnchorLine = activeScenario ? `\n${MEMORY_ANCHOR_INSTRUCTION}` : '';
+
     return `=== DANIELA'S CLASSROOM (VOICE) ===
 ${davidNoteSection}<your_window_view>${classroomWindow}</your_window_view>
 <your_photo_on_wall>${danielaPhoto}</your_photo_on_wall>
 Mode: ${modeLabel} | Exchanges: ${exchangeCount}${creditLine ? ` | Credits: ${creditLine}` : ''}
-Student: ${studentName}${topFacts ? `\nWhat you know: ${topFacts}` : ''}${activeScenarioLine}${lastGearLine}${dueVocabLine}${sessionIntentBlock}${sessionPhaseLine}${incognitoLine}=== END CLASSROOM ===`.trim();
+Student: ${studentName}${topFacts ? `\nWhat you know: ${topFacts}` : ''}${activeScenarioLine}${lastGearLine}${dueVocabLine}${sessionIntentBlock}${sessionPhaseLine}${magicCircleLine}${memoryAnchorLine}${incognitoLine}=== END CLASSROOM ===`.trim();
   }
 
   const phaseContext = phaseTransitionService.getCurrentPhase(userId);

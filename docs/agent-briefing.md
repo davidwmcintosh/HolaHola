@@ -1,17 +1,16 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, June 25, 2026 at 08:07 PM
+**Generated:** Thursday, June 25, 2026 at 08:28 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I successfully shipped the GOAP planner via `pedagogical-planner.ts` and calibrated the Consequence Engine's tension math to optimize student flow. After identifying a 0% completion rate for the Interactive Textbook, we decided to pivot toward conversational immersion, implementing a new `generateVisual` framework and `ImmersionScaffold` system. This session, I need to resolve the monitoring system blackout and remediate the high-severity security vulnerabilities Wren flagged regarding SQL injection and unsanitized HTML.
+I need to immediately resolve Daniela’s "Curriculum note pending" loop in the Team Room and fix the monitoring SQL errors that are currently blinding our system health diagnostics. Last session, I implemented the `generateVisual` and `ImmersionScaffold` frameworks to address David’s concerns about the "half-baked" Interactive Textbook and its persistent 0% completion rate. Going into this session, I must prioritize remediating Wren’s two high-severity security findings—SQL injection and XSS—while triaging the 50 new bugs Sofia flagged before the upcoming beta launch.
 
 *Memories that triggered this summary:*
-- **Agent Session — Jun 25, 2026: Path 1 (Consequence Engine) calibrated + Path 2 (GOAP) shipped** (Jun 25): Path 1 (Consequence Engine) calibrated + Path 2 (GOAP) shipped  Path 1 fixes (from Gemini review): - Tension math: +0.18→+0.15 friction delta; add -0.02 neutral decay (rewards staying in game) - Band thresholds: comfortable<0.30, mild<0.60, tense<0.85 (prevents teleporting through bands)
 - **Team Room — test 3 — June 25, 2026** (Jun 25): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 25, 2026** (Jun 25): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 25, 2026** (Jun 25): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -21,6 +20,7 @@ I successfully shipped the GOAP planner via `pedagogical-planner.ts` and calibra
 - **Team Room — what's up? — June 25, 2026** (Jun 25): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — June 25, 2026** (Jun 25): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — June 25, 2026** (Jun 25): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+- **Team Room — once more into the breech my friends — June 25, 2026** (Jun 25): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -95,10 +95,6 @@ I successfully shipped the GOAP planner via `pedagogical-planner.ts` and calibra
 
 ## Recent Conversation Memories
 
-### Agent Session — Jun 25, 2026: Path 1 (Consequence Engine) calibrated + Path 2 (GOAP) shipped — Jun 25, 2026
-Path 1 (Consequence Engine) calibrated + Path 2 (GOAP) shipped  Path 1 fixes (from Gemini review): - Tension math: +0.18→+0.15 friction delta; add -0.02 neutral decay (rewards staying in game) - Band thresholds: comfortable<0.30, mild<0.60, tense<0.85 (prevents teleporting through bands)
-*Tags: agent-session, auto-saved, build*
-
 ### Team Room — test 3 — June 25, 2026 — Jun 25, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -113,6 +109,10 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 25, 2026 — Jun 25, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — hello again — June 25, 2026 — Jun 25, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

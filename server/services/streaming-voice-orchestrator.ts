@@ -227,6 +227,7 @@ import { phonemeAnalyticsService } from "./phoneme-analytics-service";
 import { supportPersonaService } from "./support-persona-service";
 import { journeyMemoryService } from "./journey-memory-service";
 import { evaluatePedagogicalState } from "./pedagogical-supervisor";
+import { debotText } from './magic-circle-filter';
 import { db, getSharedDb } from "../db";
 import { studentSessionHealth } from "@shared/schema";
 import { logVoiceOrchestratorError, trackVoicePipelineStage, logGeminiTimeout, logTtsFailure, logGeminiNoAudio } from "./production-telemetry";
@@ -8740,7 +8741,9 @@ Remember: David may reference things discussed in these recent text chats.
       // Strip TTS style directives before saving — these are audio-pipeline-only instructions
       // that should never appear in stored message content or the transcript UI.
       // Pattern: "text-to-speech:sotto;" or "text-to-speech:calm;" at the start of the string.
-      const cleanedAiResponse = aiResponse.replace(/^text-to-speech:\w+;\s*/i, '').trim();
+      const ttsStripped = aiResponse.replace(/^text-to-speech:\w+;\s*/i, '').trim();
+      // Magic Circle filter: monitor + clean immersion-breaking chatbot phrases (Path 3)
+      const { text: cleanedAiResponse } = debotText(ttsStripped);
 
       // Extract target language text for the AI response
       const targetLanguageText = extractTargetLanguageText(cleanedAiResponse);
