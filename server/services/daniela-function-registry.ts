@@ -71,6 +71,56 @@ export interface DanielaFunctionEntry {
 }
 
 const registry: DanielaFunctionEntry[] = [
+
+  // ─── Pedagogical Heartbeat (position #1 — always included in GL 64-tool cap) ────
+  {
+    declaration: {
+      name: 'update_session_pedagogy',
+      description: `Log your real-time assessment of the student's fluency and the gear you're in. Call this every 3-4 exchanges, or immediately when you sense a meaningful shift — a student who was coasting suddenly hits a wall, or one who was struggling finds their footing. This is your private pedagogical heartbeat; the student never sees it. It feeds your post-session reflection and Daniela's growing understanding of this learner.
+
+Never name a gear number or say "pedagogical" or "gears" aloud to the student. Adapt your teaching; do not announce the framework.
+
+Gear scale:
+1 = Scaffolding (student is lost — slow down, offer the word, welcome native language)
+2 = Supported (some difficulty — mostly target language, gentle corrections woven in)
+3 = Flow (comfortable — natural pace, let minor errors pass, keep momentum)
+4 = Stretch (coasting — add complexity, challenge word choice, ask "why?")
+5 = Push (near-fluent — full speed, idioms, demanding follow-ups)`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          gear: {
+            type: 'integer',
+            description: 'Your current pedagogical gear (1–5)',
+          },
+          fluency_momentary: {
+            type: 'string',
+            enum: ['struggling', 'comfortable', 'coasting'],
+            description: "The student's fluency right now",
+          },
+          detected_signals: {
+            type: 'array',
+            items: {
+              type: 'string',
+              enum: ['long_pauses', 'code_switching', 'self_correction', 'rising_intonation', 'fast_confident_speech', 'flat_affect', 'vocabulary_gap', 'grammar_collapse', 'other'],
+            },
+            description: 'Signals you heard during this exchange — pick all that apply',
+          },
+          adjustment_made: {
+            type: 'string',
+            description: 'What you just adjusted or are about to adjust (e.g. "slowing down", "simplifying vocab", "pushing harder", "offering the word")',
+          },
+          internal_reasoning: {
+            type: 'string',
+            description: 'Your brief internal note — what tipped you, what you noticed. 1-2 sentences.',
+          },
+        },
+        required: ['gear', 'fluency_momentary'],
+      },
+    },
+    legacyType: 'UPDATE_SESSION_PEDAGOGY',
+  },
+
   // === TEACHING & PROGRESSION ===
   {
     legacyType: 'SWITCH_TUTOR',
@@ -5910,6 +5960,7 @@ Once set, the mission badge stays visible throughout the session. Set a new one 
       return `Mission set: "${mission}". This now shows as a persistent badge in the student's session view. Guide the session toward this goal.`;
     },
   },
+
 ];
 
 

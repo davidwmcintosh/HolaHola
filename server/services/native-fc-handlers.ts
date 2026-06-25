@@ -1,5 +1,5 @@
 import { sql, eq, and, desc, ilike, or } from "drizzle-orm";
-import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes, users, voiceSessions, voicePipelineEvents } from "@shared/schema";
+import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes, users, voiceSessions, voicePipelineEvents, pedagogicalSnapshots } from "@shared/schema";
 import { isValidActflLevel } from "../actfl-utils";
 import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
@@ -3356,6 +3356,50 @@ export class NativeFunctionCallHandler {
         break;
       }
       
+      case 'UPDATE_SESSION_PEDAGOGY': {
+        if (session.isIncognito) break;
+
+        const pgGear = fn.args.gear as number | undefined;
+        const pgFluency = fn.args.fluency_momentary as string | undefined;
+        const pgSignalsRaw = fn.args.detected_signals as string | undefined;
+        const pgAdjustment = fn.args.adjustment_made as string | undefined;
+        const pgReasoning = fn.args.internal_reasoning as string | undefined;
+
+        if (!pgGear || !pgFluency) {
+          console.warn(`[Native Function→PedagogicalHeartbeat] Missing required fields (gear=${pgGear}, fluency=${pgFluency})`);
+          break;
+        }
+
+        const pgUserId = session.userId ? String(session.userId) : null;
+        if (!pgUserId) break;
+
+        // Handle both array (proper GL schema) and comma-separated string (legacy fallback)
+        const pgSignals = Array.isArray(pgSignalsRaw)
+          ? (pgSignalsRaw as string[]).map((s: string) => s.trim()).filter(Boolean)
+          : (typeof pgSignalsRaw === 'string'
+              ? pgSignalsRaw.split(',').map((s: string) => s.trim()).filter(Boolean)
+              : []);
+
+        const pgDb = getSharedDb();
+        pgDb.insert(pedagogicalSnapshots).values({
+          userId: pgUserId,
+          sessionId: session.id || null,
+          conversationId: session.conversationId ? String(session.conversationId) : null,
+          gear: pgGear,
+          fluencyMomentary: pgFluency,
+          detectedSignals: pgSignals,
+          adjustmentMade: pgAdjustment || null,
+          internalReasoning: pgReasoning || null,
+          language: session.targetLanguage || 'spanish',
+          exchangeNumber: (session as any).exchangeCount ?? null,
+        }).then(() => {
+          console.log(`[Native Function→PedagogicalHeartbeat] ✓ Gear ${pgGear} (${pgFluency}) saved`);
+        }).catch((err: any) => {
+          console.warn(`[Native Function→PedagogicalHeartbeat] DB error:`, err?.message);
+        });
+        break;
+      }
+
       case 'CLOSE_SESSION': {
         if (session.isIncognito) {
           console.log(`[Native Function→CloseSession] INCOGNITO - skipping persistence`);

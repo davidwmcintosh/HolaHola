@@ -3451,6 +3451,30 @@ export const pendingReflections = pgTable("pending_reflections", {
 ]);
 export type PendingReflection = typeof pendingReflections.$inferSelect;
 
+// ─── Pedagogical Snapshots ────────────────────────────────────────────────────
+// Mid-session heartbeat records — Daniela's real-time assessment of student
+// fluency and gear shifts. Written by update_session_pedagogy tool every 3-4
+// exchanges. Feeds post-session reflection synthesis.
+export const pedagogicalSnapshots = pgTable("pedagogical_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  sessionId: varchar("session_id"),         // tutor_sessions.id or GL session ID
+  conversationId: varchar("conversation_id"), // conversations.id
+  gear: integer("gear").notNull(),           // 1=scaffolding … 5=push
+  fluencyMomentary: varchar("fluency_momentary", { length: 20 }).notNull(), // 'struggling'|'comfortable'|'coasting'
+  detectedSignals: text("detected_signals").array(), // ['long_pauses','code_switching',…]
+  adjustmentMade: varchar("adjustment_made", { length: 80 }),
+  internalReasoning: text("internal_reasoning"),
+  language: varchar("language", { length: 50 }).default('spanish'),
+  exchangeNumber: integer("exchange_number"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_pedagogical_snapshots_user").on(table.userId),
+  index("idx_pedagogical_snapshots_session").on(table.sessionId),
+  index("idx_pedagogical_snapshots_created").on(table.createdAt),
+]);
+export type PedagogicalSnapshot = typeof pedagogicalSnapshots.$inferSelect;
+
 // ─── Daniela Curiosities ─────────────────────────────────────────────────────
 // Questions Daniela holds between sessions — things she genuinely wonders about.
 export const danielaCuriosities = pgTable("daniela_curiosities", {

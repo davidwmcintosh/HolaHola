@@ -33,7 +33,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { getSharedDb } from "../db";
-import { sql, eq, and } from "drizzle-orm";
+import { sql, eq, and, desc } from "drizzle-orm";
 
 const REFLECTION_MODEL = "gemini-3-flash-preview";
 const REFLECTION_MAX_TOKENS = 300;
@@ -176,6 +176,40 @@ export async function processAndClearPendingReflection(
       return { processed: false };
     }
 
+    // Pull pedagogical snapshots for this session to enrich the reflection
+    let gearArc = "";
+    if (pending.sessionId) {
+      try {
+        const { pedagogicalSnapshots } = await import("@shared/schema");
+        const snapshots = await db
+          .select()
+          .from(pedagogicalSnapshots)
+          .where(
+            and(
+              eq(pedagogicalSnapshots.userId, userId),
+              eq(pedagogicalSnapshots.sessionId, pending.sessionId),
+            ),
+          )
+          .orderBy(desc(pedagogicalSnapshots.createdAt))
+          .limit(10);
+
+        if (snapshots.length > 0) {
+          const gearLines = snapshots
+            .reverse()
+            .map((s) => {
+              const signals = s.detectedSignals?.length ? ` [${s.detectedSignals.join(', ')}]` : '';
+              const note = s.internalReasoning ? ` — "${s.internalReasoning}"` : '';
+              return `Gear ${s.gear} (${s.fluencyMomentary})${signals}${note}`;
+            })
+            .join(' → ');
+          gearArc = `\n\n<pedagogical_progression>\n${gearLines}\n</pedagogical_progression>`;
+          console.log(`[ReflectionWorker] Including ${snapshots.length} pedagogical snapshots in reflection`);
+        }
+      } catch (snapErr: any) {
+        console.warn("[ReflectionWorker] Could not load pedagogical snapshots (non-fatal):", snapErr?.message);
+      }
+    }
+
     console.log(
       `[ReflectionWorker] Processing deferred reflection for user ${userId.substring(0, 8)} (${transcriptPreview.length} chars of transcript)`,
     );
@@ -209,7 +243,8 @@ Rules:
 - 100–200 words
 - Do not address the student. Do not address the system.
 - Do not begin with "I'm reflecting" as a formula — start with the actual thought.
-- No quotation marks around student utterances — paraphrase instead.`;
+- No quotation marks around student utterances — paraphrase instead.
+- If a <pedagogical_progression> block is provided, it is system metadata — not part of the spoken transcript. Use the gear arc as concrete anchors for what you noticed: the moments where you shifted how you were teaching, what tipped you, what changed in the student. Let them inform the texture of what you noticed; don't dominate the reflection with them.`;
 
     const ai = getClient();
     const result = await ai.models.generateContent({
@@ -219,7 +254,7 @@ Rules:
           role: "user",
           parts: [
             {
-              text: `Session transcript (last exchanges before disconnect):\n\n${transcriptPreview}`,
+              text: `Session transcript (last exchanges before disconnect):\n\n${transcriptPreview}${gearArc}`,
             },
           ],
         },

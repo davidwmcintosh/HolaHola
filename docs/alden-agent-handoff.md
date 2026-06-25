@@ -24,6 +24,18 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 25, 2026 — Pedagogical Adaptive Loop (built + Gemini-reviewed)**
+
+Full Pedagogical Adaptive Loop shipped and Gemini-approved across 3 review rounds:
+
+- **New table:** `pedagogical_snapshots` — mid-session heartbeats with gear (1-5), fluencyMomentary, detectedSignals (array), adjustmentMade, internalReasoning
+- **New GL tool:** `update_session_pedagogy` at position #1 in registry (always in GL 64-tool cap). Daniela calls every 3-4 exchanges or on meaningful shift. Fire-and-forget handler, incognito-safe.
+- **System prompt:** Short "Pedagogical Gears" pointer line + negative constraint (never say "Gear" or "pedagogical" to student). Full definitions in tool description to avoid leakage.
+- **Session reflection:** `processAndClearPendingReflection()` now pulls gear arc from pedagogical_snapshots and injects it as `<pedagogical_progression>` XML block before generating deferred reflection.
+- **Day 2 item logged:** "last gear injection" at session start (Daniela starts sessions without knowing last gear — acceptable for v1, see open-bugs.md).
+
+---
+
 **Session: June 25, 2026 — Textbook time tracking, grammar verbosity, Alden escalation cooldown**
 
 Four fixes from Alden's Lyra escalations + the escalation routing bug itself:

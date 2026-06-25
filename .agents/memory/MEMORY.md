@@ -36,5 +36,6 @@
 - [Pedagogical state machine](pedagogical-state-machine.md) — GL context decay fix; FK gotcha (sessionId = tutorSession.id not GL session ID); State Envelope pattern; Shadow Auditor wired to GL stop().
 - [Typecheck zero-error patterns](typecheck-zero-error-patterns.md) — key field mismatches that caused 2,758→0 cleanup; prevents recurrence.
 - [GL bootstrapProfile null crash](gl-bootstrap-profile-null.md) — session is null when __bootstrapProfile is set (233 lines before createSession); store in local var, apply after session creation.
+- [Pedagogical heartbeat tool position](pedagogical-heartbeat-tool-position.md) — system heartbeat tools (e.g. update_session_pedagogy) must be at registry position #1 to survive GL's 64-tool hard cap; also use parametersJsonSchema not parameters to avoid Type enum errors.
 - [GL Tool-Driven State pattern](gl-tool-driven-state.md) — entry tool injects protocol as tool result (highest GL attention); exit tool enforces minimum turns; "tools exist, procedure doesn't" is the most common Daniela knowledge gap.
 - [GL Friction Score — timing gotcha](gl-friction-score-timing.md) — studentTurnStartMs MUST be set at playback_ended, not generationComplete; generationComplete fires before audio plays, inflating ALL pauses by Daniela's audio duration. Dual consult saved: 480f588c.

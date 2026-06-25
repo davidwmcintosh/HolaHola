@@ -8,6 +8,39 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jun 25, 2026 — Pedagogical Adaptive Loop (Gemini-reviewed, 3 rounds)
+
+### What was built
+
+Daniela now has a real-time pedagogical heartbeat during GL voice sessions — she reads student signals (hesitation, code-switching, speech confidence) and adapts fluidly through a five-gear teaching framework, logging each shift to the DB.
+
+#### Components
+
+**1. `pedagogical_snapshots` table** (`shared/schema.ts`)
+New DB table. Stores each mid-session heartbeat: `gear` (1-5), `fluencyMomentary` (struggling/comfortable/coasting), `detectedSignals` (array), `adjustmentMade`, `internalReasoning`, `language`, `exchangeNumber`. Indexes on userId, sessionId, createdAt. No FK risk on sessionId (plain varchar).
+
+**2. `update_session_pedagogy` GL tool** (`server/services/daniela-function-registry.ts`)
+Registered at **position #1** in the function registry — guaranteeing it is always within GL's 64-tool hard cap. `parametersJsonSchema` format (consistent with all other tools). `detected_signals` uses array type with enum + `other` safety valve. Full gear scale (1-5) defined in tool description so GL reads it at call time, not from system prompt. Negative constraint baked in: "Never name a gear number or say 'pedagogical' to the student."
+
+**3. `UPDATE_SESSION_PEDAGOGY` handler** (`server/services/native-fc-handlers.ts`)
+Fire-and-forget DB insert (non-blocking — no race condition risk). Handles both GL array format and comma-separated string fallback. Skips in incognito mode.
+
+**4. GL system prompt update** (`server/services/classroom-environment.ts`)
+Shortened Pedagogical Gears line: pointer to tool definition only + negative constraint. Full definitions live in tool description to save system prompt tokens and reduce leakage risk (Gemini R2 recommendation).
+
+**5. Session reflection enhancement** (`server/services/session-reflection-worker.ts`)
+`processAndClearPendingReflection()` now queries `pedagogical_snapshots` by userId+sessionId before generating the deferred reflection. Gear arc injected as `<pedagogical_progression>` XML block (not raw appended). systemInstruction explicitly flags it as system metadata. Error-isolated — snapshot query failure is non-fatal.
+
+#### Gemini review results (3 rounds)
+- R1: Tool at position #140 = excluded from GL cap → moved to #1. Detected_signals as CSV string → array+enum. Gear arc raw appended → XML delimited. System prompt too verbose → shorten.
+- R2: All R1 fixes applied. APPROVED with 2 remaining items: add `other` to enum (safety valve), metadata instruction in reflection prompt.
+- R3: All items resolved. **APPROVED — Ship it.**
+
+#### Day 2 follow-up (not a blocker — logged)
+Last-gear injection at session start: query final pedagogical snapshot from previous session and inject into GL system prompt so Daniela doesn't start cold. See `docs/open-bugs.md`.
+
+---
+
 ## Session — Jun 25, 2026 — Textbook time tracking, grammar verbosity fix, Alden escalation cooldown
 
 ### What was built
