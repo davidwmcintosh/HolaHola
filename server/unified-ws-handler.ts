@@ -2353,6 +2353,13 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
                     studentLearningSection: session.cachedContext?.studentLearningSection,
                     technicalHealthNote: voiceDiagnostics.getTechnicalHealthContext(),
                     activeScenario: null,
+                    sessionActflLevel: session.studentActflLevel || undefined,
+                    sessionCurriculumLesson: (session as any).lessonBundleContext?.lessonName || undefined,
+                    sessionTopStruggles: (session.cachedContext?.studentLearningData?.struggles as any[] | undefined)
+                      ?.filter((s: any) => s.status === 'active')
+                      .slice(0, 3)
+                      .map((s: any) => s.description || s.struggleArea) || undefined,
+                    sessionPhase: session.currentSessionPhase || undefined,
                     isGL: true,
                   });
                   if (classroomCtx) {

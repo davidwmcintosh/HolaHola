@@ -976,6 +976,7 @@ export class StreamingVoiceOrchestrator {
       // Adaptive Speech Rate tracking
       recentSttConfidences: [],     // Rolling window of STT confidence scores
       sessionStruggleCount: 0,       // Count of struggles detected this session
+      currentSessionPhase: 'WARM_UP' as 'WARM_UP' | 'PRESENTATION' | 'PRACTICE' | 'PRODUCTION' | 'COOL_DOWN',  // Default: ease in
       adaptiveSpeedEnabled: false,   // Auto-enabled when low confidence/struggles detected
       // Phoneme analytics tracking
       sessionWordAnalyses: [],       // Accumulated word-level data for phoneme analysis on session end

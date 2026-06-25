@@ -170,6 +170,7 @@ export interface StreamingSession {
   // Scenario immersion state
   activeScenario?: Record<string, any> | null;
   studentActflLevel?: string;
+  currentSessionPhase?: 'WARM_UP' | 'PRESENTATION' | 'PRACTICE' | 'PRODUCTION' | 'COOL_DOWN';
   voiceGender?: string;
   // Cached data from function call handlers
   lastSyllabusData?: Record<string, any>;

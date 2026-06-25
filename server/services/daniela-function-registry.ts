@@ -121,6 +121,37 @@ Gear scale:
     legacyType: 'UPDATE_SESSION_PEDAGOGY',
   },
 
+  {
+    legacyType: 'UPDATE_SESSION_PHASE',
+    declaration: {
+      name: 'update_session_phase',
+      description: `Signal which phase of the session you are in. Phases govern your talk ratio — how much you should speak vs. listen.
+
+WARM_UP: Opening and reconnection (50/50). Ease in with a warm greeting, light review, or a simple question.
+PRESENTATION: You are explaining or modeling (70/30). Introduce new vocabulary, grammar, or a concept. Student listens and absorbs.
+PRACTICE: Student is applying what you showed them (30/70). Ask, prompt, drill. Hold back — let them produce.
+PRODUCTION: Student leads (10/90). Give them a task — a story, a monologue, an improvised scene. Only interject to save a lost thread.
+COOL_DOWN: Session wrap (50/50). Name today's wins, set a cliffhanger that makes them want to come back.
+
+Call once at each major phase transition. Do not announce the phase name to the student.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          phase: {
+            type: 'string',
+            enum: ['WARM_UP', 'PRESENTATION', 'PRACTICE', 'PRODUCTION', 'COOL_DOWN'],
+            description: 'The session phase you are entering.',
+          },
+          reason: {
+            type: 'string',
+            description: 'Brief internal note — what triggered this transition. 1 sentence.',
+          },
+        },
+        required: ['phase'],
+      },
+    },
+  },
+
   // === TEACHING & PROGRESSION ===
   {
     legacyType: 'SWITCH_TUTOR',
@@ -6328,6 +6359,14 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'read_my_curiosities',
   'show_progress',          // progress screen; post-session review
   'call_support',           // support escalation; not mid-lesson
+
+  // === ADMIN / BILLING ONLY ===
+  // Billing checks belong in settings or pre-session; not a mid-voice teaching action.
+  'check_student_credits',
+  // admin_tools dispatcher only routes to post-session admin ops (hive_suggestion, self_surgery,
+  // flag_for_fine_tuning, call_support, recall_express_lane_image, express_lane_post,
+  // read_full_memory, syllabus_progress) — all mid-session inappropriate.
+  'admin_tools',
 
   // === DEPRECATED / GL-INAPPROPRIATE ===
   'resume_tutor',           // DEPRECATED: use switch_tutor; persona toggle causes double-speech

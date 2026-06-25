@@ -1753,6 +1753,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
     // ── Tool calls ────────────────────────────────────────────────────────────
     if (msg.toolCall?.functionCalls && msg.toolCall.functionCalls.length > 0) {
+      // Capture turn ID at the moment the toolCall arrives. If the student barges in
+      // while handlers are running, currentTurnId will advance and the guard below drops
+      // the now-stale responses before they reach sendToolResponse.
+      const localTurnId = this.currentTurnId;
       const responses: Array<{ id: string; name: string; response: Record<string, unknown> }> = [];
 
       // Phase 1: Build extractedFcs upfront (order-safe) then fire all handlers in parallel.
@@ -1946,6 +1950,15 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         (last.response as any).result = currentResult + (currentResult ? '\n\n' : '') + ctxNote;
         this.session.pendingGlContext = [];
         console.log(`[GeminiLive] Gap 10: flushed ${pendingCtx.length} frontend context item(s) into tool response`);
+      }
+
+      // Call-ID guard: if a barge-in advanced currentTurnId while handlers were running,
+      // drop these responses — they belong to the interrupted turn. Sending them would cause
+      // "hallucinated continuity" where Daniela references a whiteboard or scene the student
+      // already barged past. GL stall risk is low: the interrupted turn has no pending model turn.
+      if (this.currentTurnId !== localTurnId) {
+        console.log(`[GeminiLive] Call-ID guard: dropping ${responses.length} tool response(s) — turn ${localTurnId} superseded by turn ${this.currentTurnId} (barge-in during tool execution)`);
+        return;
       }
 
       // Always send tool responses — Gemini Live stalls if we don't

@@ -367,6 +367,11 @@ export async function buildClassroomEnvironment(params: {
     } | null;
   } | null;
   currentLessonId?: string;
+  sessionActflLevel?: string;
+  sessionCurriculumUnit?: string | null;
+  sessionCurriculumLesson?: string | null;
+  sessionTopStruggles?: string[];
+  sessionPhase?: string;
   isGL?: boolean;
 }): Promise<string> {
   const {
@@ -390,6 +395,11 @@ export async function buildClassroomEnvironment(params: {
     technicalHealthNote,
     activeScenario,
     currentLessonId,
+    sessionActflLevel,
+    sessionCurriculumUnit,
+    sessionCurriculumLesson,
+    sessionTopStruggles,
+    sessionPhase,
     isGL = false,
   } = params;
 
@@ -524,11 +534,19 @@ export async function buildClassroomEnvironment(params: {
       ? `\nLast session gear: ${lastPedagogicalSnapshot.gear}/5 (${lastPedagogicalSnapshot.fluencyMomentary}) — open calibrated from here, not from zero`
       : '';
 
+    const sessionIntentBlock = (sessionActflLevel || sessionCurriculumUnit || sessionCurriculumLesson || sessionTopStruggles?.length)
+      ? `\n<session_intent>\nTarget: ${sessionActflLevel || 'General'} | Unit: ${sessionCurriculumUnit || 'General'}\nGoal: ${sessionCurriculumLesson || 'Natural Conversation'}\nStruggles: ${sessionTopStruggles?.join(', ') || 'None identified'}\n</session_intent>`
+      : '';
+
+    const sessionPhaseLine = sessionPhase
+      ? `\nPhase: ${sessionPhase} — ${sessionPhase === 'WARM_UP' ? 'ease in, 50/50 talk ratio' : sessionPhase === 'PRESENTATION' ? 'you explain, 70/30 talk ratio' : sessionPhase === 'PRACTICE' ? 'they apply, 30/70 talk ratio' : sessionPhase === 'PRODUCTION' ? 'they lead, 10/90 talk ratio' : 'wind down'}`
+      : '';
+
     return `=== DANIELA'S CLASSROOM (VOICE) ===
 ${davidNoteSection}<your_window_view>${classroomWindow}</your_window_view>
 <your_photo_on_wall>${danielaPhoto}</your_photo_on_wall>
 Mode: ${modeLabel} | Exchanges: ${exchangeCount}${creditLine ? ` | Credits: ${creditLine}` : ''}
-Student: ${studentName}${topFacts ? `\nWhat you know: ${topFacts}` : ''}${activeScenarioLine}${lastGearLine}${incognitoLine}=== END CLASSROOM ===`.trim();
+Student: ${studentName}${topFacts ? `\nWhat you know: ${topFacts}` : ''}${activeScenarioLine}${lastGearLine}${sessionIntentBlock}${sessionPhaseLine}${incognitoLine}=== END CLASSROOM ===`.trim();
   }
 
   const phaseContext = phaseTransitionService.getCurrentPhase(userId);

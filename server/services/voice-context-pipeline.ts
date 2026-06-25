@@ -27,6 +27,8 @@ export interface VoiceSessionContext {
   cachedContext?: any;
   isAssistantActive?: boolean;
   pendingArchitectNoteIds?: string[];
+  studentActflLevel?: string;
+  currentSessionPhase?: 'WARM_UP' | 'PRESENTATION' | 'PRACTICE' | 'PRODUCTION' | 'COOL_DOWN';
 }
 
 export interface ClassroomBuildParams {
@@ -67,6 +69,13 @@ export async function buildClassroomDynamicContext(params: ClassroomBuildParams)
       studentLearningSection: studentLearningSection || undefined,
       technicalHealthNote: voiceDiagnostics.getTechnicalHealthContext(),
       currentLessonId: (session as any).lessonBundleContext?.lessonId,
+      sessionActflLevel: session.studentActflLevel || undefined,
+      sessionCurriculumLesson: (session as any).lessonBundleContext?.lessonName || undefined,
+      sessionTopStruggles: (session.cachedContext?.studentLearningData?.struggles as any[] | undefined)
+        ?.filter((s: any) => s.status === 'active')
+        .slice(0, 3)
+        .map((s: any) => s.description || s.struggleArea) || undefined,
+      sessionPhase: session.currentSessionPhase || undefined,
       activeScenario: session.activeScenario ? {
         title: session.activeScenario.title,
         location: session.activeScenario.location || session.activeScenario.title,

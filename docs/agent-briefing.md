@@ -1,14 +1,14 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, June 25, 2026 at 03:13 PM
+**Generated:** Thursday, June 25, 2026 at 03:45 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I need to resolve the critical 404 routing errors on the conversations page and fix the "Curriculum note pending" loop currently affecting Daniela’s responses. I am investigating why the Interactive Textbook shows a 0% completion rate and verbosity regressions, while weighing a pivot toward conversational immersion using the newly designed `generateVisual` and `ImmersionObjective` frameworks. I must also prioritize remediating Wren’s two high-severity security findings and triaging the sudden spike of 49 new bugs reported by Sofia.
+I need to resolve the "Curriculum note pending" loop currently breaking Daniela's Team Room responses and fix the 404 router error Sofia identified on the conversations page. I am prioritizing remediation of Wren’s high-severity security findings—specifically SQL injection and `dangerouslySetInnerHTML` vulnerabilities—while triaging the sudden spike of 50 new bugs in Sofia's tech health monitor. Following David’s feedback on the "half-baked" Interactive Textbook, we are shifting toward a conversational immersion model, which requires implementing the `generateVisual` framework for Gemini-powered infographics and fixing the telemetry bug causing zero recorded completions across David's Spanish syllabus.
 
 *Memories that triggered this summary:*
 - **Team Room — test 3 — June 25, 2026** (Jun 25): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.

@@ -3400,6 +3400,16 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'UPDATE_SESSION_PHASE': {
+        const phaseValue = fn.args.phase as string | undefined;
+        const phaseReason = fn.args.reason as string | undefined;
+        if (phaseValue) {
+          (session as StreamingSession).currentSessionPhase = phaseValue as StreamingSession['currentSessionPhase'];
+          console.log(`[Native Function→SessionPhase] Phase → ${phaseValue}${phaseReason ? ` (${phaseReason})` : ''}`);
+        }
+        break;
+      }
+
       case 'CLOSE_SESSION': {
         if (session.isIncognito) {
           console.log(`[Native Function→CloseSession] INCOGNITO - skipping persistence`);

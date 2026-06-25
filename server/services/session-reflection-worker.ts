@@ -194,16 +194,26 @@ export async function processAndClearPendingReflection(
           .limit(10);
 
         if (snapshots.length > 0) {
-          const gearLines = snapshots
-            .reverse()
+          const ordered = [...snapshots].reverse(); // oldest → newest chronological order
+          const current = ordered[ordered.length - 1];
+          const previous = ordered.length > 1 ? ordered[ordered.length - 2] : null;
+          const trend = previous
+            ? current.gear > previous.gear
+              ? 'RECOVERING'
+              : current.gear < previous.gear
+              ? 'SLIPPING'
+              : 'STABLE'
+            : 'STABLE';
+          const primarySignal = current.detectedSignals?.[0] || 'none';
+          const rawArc = ordered
             .map((s) => {
               const signals = s.detectedSignals?.length ? ` [${s.detectedSignals.join(', ')}]` : '';
               const note = s.internalReasoning ? ` — "${s.internalReasoning}"` : '';
-              return `Gear ${s.gear} (${s.fluencyMomentary})${signals}${note}`;
+              return `Gear ${s.gear} (${s.fluencyMomentary ?? 'N/A'})${signals}${note}`;
             })
             .join(' → ');
-          gearArc = `\n\n<pedagogical_progression>\n${gearLines}\n</pedagogical_progression>`;
-          console.log(`[ReflectionWorker] Including ${snapshots.length} pedagogical snapshots in reflection`);
+          gearArc = `\n\n<pedagogical_progression>\nTREND: ${trend} | Current: Gear ${current.gear} (${current.fluencyMomentary ?? 'N/A'}) | Signal: ${primarySignal}\n${rawArc}\n</pedagogical_progression>`;
+          console.log(`[ReflectionWorker] Including ${snapshots.length} pedagogical snapshots — trend: ${trend}, current gear: ${current.gear}`);
         }
       } catch (snapErr: any) {
         console.warn("[ReflectionWorker] Could not load pedagogical snapshots (non-fatal):", snapErr?.message);
