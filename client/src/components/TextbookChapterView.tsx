@@ -373,6 +373,7 @@ function FlatLessonSection({
   const sectionRef = useRef<HTMLDivElement>(null);
   const viewedRef = useRef(false);
   const markedReadRef = useRef(false);
+  const viewStartTimeRef = useRef<number | null>(null);
   const queryClient = useQueryClient();
 
   const markReadMutation = useMutation({
@@ -389,18 +390,38 @@ function FlatLessonSection({
     },
   });
 
-  // Auto-mark read + viewed when scrolled into view
+  // Auto-mark read + viewed when scrolled into view; track time spent
   useEffect(() => {
     const el = sectionRef.current;
     if (!el) return;
+
+    const postTime = (startMs: number) => {
+      const seconds = Math.round((Date.now() - startMs) / 1000);
+      if (seconds >= 3) {
+        apiRequest("POST", `/api/textbook/progress/${section.id}`, {
+          sectionType: "content",
+          timeSpentSeconds: seconds,
+        }).catch(() => {});
+      }
+    };
+
     if (typeof IntersectionObserver === 'undefined') {
       viewedRef.current = true;
       onViewed();
-      return;
+      viewStartTimeRef.current = Date.now();
+      return () => {
+        if (viewStartTimeRef.current !== null) {
+          postTime(viewStartTimeRef.current);
+          viewStartTimeRef.current = null;
+        }
+      };
     }
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
+          if (viewStartTimeRef.current === null) {
+            viewStartTimeRef.current = Date.now();
+          }
           if (!viewedRef.current) {
             viewedRef.current = true;
             onViewed();
@@ -409,12 +430,23 @@ function FlatLessonSection({
             markedReadRef.current = true;
             markReadMutation.mutate();
           }
+        } else {
+          if (viewStartTimeRef.current !== null) {
+            postTime(viewStartTimeRef.current);
+            viewStartTimeRef.current = null;
+          }
         }
       },
       { threshold: 0.4 }
     );
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      if (viewStartTimeRef.current !== null) {
+        postTime(viewStartTimeRef.current);
+        viewStartTimeRef.current = null;
+      }
+      observer.disconnect();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

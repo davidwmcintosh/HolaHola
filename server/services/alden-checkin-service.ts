@@ -9,7 +9,7 @@
 import { db } from '../db';
 import { getSharedDb } from '../db';
 import { learnerPersonalFacts, editorInsights, founderSessions, users } from '@shared/schema';
-import { eq, and, inArray, desc, or, isNull } from 'drizzle-orm';
+import { eq, and, inArray, desc, or, isNull, sql } from 'drizzle-orm';
 import { founderCollabService } from './founder-collaboration-service';
 import { postToActiveTeamRoom } from './team-room-proactive-poster';
 import { callGeminiWithSchema, GEMINI_MODELS } from '../gemini-utils';
@@ -173,6 +173,30 @@ export async function triggerAldenCheckIn(
   if (lastCheckInTime && Date.now() - lastCheckInTime.getTime() < MIN_CHECKIN_GAP_MS) {
     console.log(`[AldenCheckIn] Recent check-in ${lastCheckInTime.toISOString()} — skipping (gap: 4h)`);
     return { triggered: false, confidence: 0 };
+  }
+
+  // DB-persistent cooldown — survives server restarts (in-memory resets on every deploy)
+  if (!lastCheckInTime) {
+    try {
+      const sessionId = await getOrCreateAldenSession();
+      const sharedDb = getSharedDb();
+      const result = await sharedDb.execute(sql`
+        SELECT MAX(created_at) as last_ts
+        FROM collaboration_messages
+        WHERE session_id = ${sessionId} AND role = 'system'
+      `);
+      const lastTs = (result as any)?.rows?.[0]?.last_ts;
+      if (lastTs) {
+        const lastDb = new Date(lastTs);
+        if (Date.now() - lastDb.getTime() < MIN_CHECKIN_GAP_MS) {
+          lastCheckInTime = lastDb;
+          console.log(`[AldenCheckIn] Recent check-in from DB (${lastDb.toISOString()}) — skipping`);
+          return { triggered: false, confidence: 0 };
+        }
+      }
+    } catch (err: any) {
+      console.warn(`[AldenCheckIn] DB cooldown check failed: ${err.message}`);
+    }
   }
 
   console.log(`[AldenCheckIn] Assessing ${findings.length} findings from ${source} for memory connections...`);

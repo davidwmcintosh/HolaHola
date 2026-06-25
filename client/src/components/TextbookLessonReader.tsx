@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,22 @@ interface TextbookLessonReaderProps {
 export function TextbookLessonReader({ lessonId, lessonName, language = 'spanish', open, onClose, onMarkedRead }: TextbookLessonReaderProps) {
   const [showTranslation, setShowTranslation] = useState(false);
   const queryClient = useQueryClient();
+  const openedAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (open) {
+      openedAtRef.current = Date.now();
+    } else if (openedAtRef.current && lessonId) {
+      const seconds = Math.round((Date.now() - openedAtRef.current) / 1000);
+      openedAtRef.current = null;
+      if (seconds >= 3) {
+        apiRequest("POST", `/api/textbook/progress/${lessonId}`, {
+          sectionType: "content",
+          timeSpentSeconds: seconds,
+        }).catch(() => {});
+      }
+    }
+  }, [open, lessonId]);
 
   const { data, isLoading, error } = useQuery<{ content: TextbookContent | null }>({
     queryKey: ["/api/textbook-content", lessonId],

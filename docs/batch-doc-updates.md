@@ -8,6 +8,50 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jun 25, 2026 — Textbook time tracking, grammar verbosity fix, Alden escalation cooldown
+
+### What was built
+
+Four bugs from Alden's Lyra escalations, plus the escalation routing bug itself.
+
+#### 1. Textbook time tracking — client sends time now (`TextbookChapterView.tsx`, `TextbookLessonReader.tsx`)
+
+**Problem:** All 185 rows in `textbook_section_progress` had `time_spent_seconds = 0`. Server-side accumulation was correct; client never sent the field.
+
+**Fix:** Two timer patterns added:
+- `FlatLessonSection` (inline chapter view): `IntersectionObserver` now starts a `viewStartTimeRef` timer when the section enters viewport (≥40% threshold), pauses when it leaves, fires a fire-and-forget `POST /api/textbook/progress/{id}` with `timeSpentSeconds` on exit/unmount. Minimum 3s threshold filters accidental glances.
+- `TextbookLessonReader` (dialog view): `useEffect` on `open` state starts timer on open, POSTs elapsed seconds on close.
+
+#### 2. Grammar explanation verbosity — 619 lessons truncated + prompt fixed (`textbook-seed-service.ts`, DB)
+
+**Problem:** 619 textbook lessons had `grammar_explanation` > 800 chars (max 2526 chars in English). Lyra correctly flagged this as content quality regression.
+
+**Fix (two-part):**
+- DB: `UPDATE textbook_lesson_content SET grammar_explanation = LEFT(grammar_explanation, 800) WHERE LENGTH(grammar_explanation) > 800` — 619 rows truncated, 0 remaining over limit.
+- Prompt: Line 183 in `textbook-seed-service.ts` now reads "maximum 800 characters, no padding or repetition" — future seeds will be tighter.
+
+#### 3. Alden escalation cooldown — now survives server restarts (`alden-checkin-service.ts`)
+
+**Problem:** `lastCheckInTime` was an in-memory `let` variable (line 162). Every server restart reset it to `null`, so the 4-hour cooldown never survived deploys. Alden was firing on every Lyra analysis cycle after each code push — 10+ identical messages in one day.
+
+**Fix:** Before the existing in-memory check, a DB query runs when `lastCheckInTime === null` (i.e., after restart): queries `MAX(created_at)` from `collaboration_messages WHERE session_id = aldenSessionId AND role = 'system'`. If the last message was within 4 hours, skips and also populates `lastCheckInTime` to warm the in-memory cache.
+
+#### 4. Missing textbook content — not a bug (documented)
+
+931 lessons have no `textbook_lesson_content` row. This is expected behavior — content is auto-generated on demand when a student first opens a lesson. Lyra should not flag it. Verdict: Alden shouldn't have escalated this one.
+
+### Alden Autonomy Verdict
+
+| Finding | Alden should have… |
+|---|---|
+| Time tracking always 0 | Fixed autonomously (existing feature bug, non-destructive) |
+| Grammar verbosity >800 chars | Fixed autonomously (content quality, non-destructive — prompt + DB truncation) |
+| Missing textbook content | Recognized as expected behavior, not escalated |
+| Pattern deduplication | Correctly escalated (requires schema changes) |
+| Escalation cooldown bug | The bug prevented him from knowing it was broken — neutral |
+
+---
+
 ## Session — Jun 23, 2026 — GL parallel tool dispatch + Async-Ack for show_image + Ghost Image failure path
 
 ### What was built

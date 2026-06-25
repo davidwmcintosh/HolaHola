@@ -177,7 +177,7 @@ ${culturalSeed ? culturalSeed.slice(0, 1500) : '(none available)'}
 Write a complete textbook lesson. Respond ONLY with a JSON object (no markdown fences) with this exact structure:
 {
   "introduction": "2-3 engaging paragraphs framing the lesson topic and why it matters to learners",
-  "grammarExplanation": "Clear prose explanation of the grammar concept(s) for this level, 2-4 paragraphs",
+  "grammarExplanation": "Clear prose explanation of the grammar concept(s) for this level. Keep it focused and tight — maximum 800 characters, no padding or repetition.",
   "grammarExamples": [
     {"target": "${language} example sentence", "translation": "English translation", "note": "short grammatical annotation"}
   ],

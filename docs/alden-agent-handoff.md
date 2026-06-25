@@ -24,6 +24,26 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: June 25, 2026 — Textbook time tracking, grammar verbosity, Alden escalation cooldown**
+
+Four fixes from Alden's Lyra escalations + the escalation routing bug itself:
+
+1. **Textbook time tracking (client-side):** `FlatLessonSection` in `TextbookChapterView.tsx` now starts a `viewStartTimeRef` timer when a section enters viewport and POSTs `timeSpentSeconds` on exit/unmount (min 3s threshold). `TextbookLessonReader.tsx` tracks dialog open→close time the same way. Server accumulation was already correct — client was just never sending the field. 185 rows all had `time_spent_seconds = 0`; should fill now.
+
+2. **Grammar verbosity:** 619 lessons had `grammar_explanation` > 800 chars (worst: 2526 chars in English). Two-part fix: DB `UPDATE` truncated all 619 to 800 chars (0 remaining over limit); seeder prompt now says "maximum 800 characters" to prevent future regressions.
+
+3. **Alden escalation cooldown (DB-persistent):** `lastCheckInTime` was an in-memory `let` — reset on every server restart, so the 4-hour cooldown never survived deploys. Alden fired 10+ times in one day with identical messages. Fix: when `lastCheckInTime === null` (fresh restart), `alden-checkin-service.ts` now queries `MAX(created_at)` from `collaboration_messages` for the Alden session before deciding to post. Warms the in-memory cache if within 4h.
+
+4. **Missing textbook content (931 lessons) — not a bug:** Auto-generated on demand. Alden should recognize this as expected behavior and not escalate. Autonomy verdict written to batch docs.
+
+**Alden autonomy verdict for your reference:**
+- Time tracking bug → should fix autonomously
+- Grammar verbosity → should fix autonomously
+- Missing textbook content → recognize as expected, don't escalate
+- Pattern deduplication → correctly escalated (schema change needed)
+
+---
+
 **Session: June 23, 2026 (2) — GL parallel dispatch + Async-Ack + Ghost Image + receipt hardening**
 
 Three changes to the GL tool call loop, plus two fixes from Gemini/Daniela post-audit review:
