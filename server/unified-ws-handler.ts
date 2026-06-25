@@ -69,7 +69,7 @@ import { generatePreSessionSynthesis, wrapSynthesisForSystemPrompt, consumeWarmS
 import { schedulePendingReflectionIfMissing, buildTranscriptPreview, processAndClearPendingReflection, MIN_EXCHANGES_FOR_REFLECTION } from './services/session-reflection-worker';
 import { generateAndStorePedagogicalBrief, MIN_EXCHANGES_FOR_BRIEF } from './services/pedagogical-brief-worker';
 import { analyzeSessionForMasteryEvidence, MIN_EXCHANGES_FOR_MASTERY } from './services/mastery-evidence-worker';
-import { evaluateAndUpdateTension } from './services/tension-evaluator';
+import { evaluateAndUpdateTension, selectStyleShaper } from './services/tension-evaluator';
 import { selectPedagogicalDirective } from './services/pedagogical-planner';
 
 // Use /api/ paths - Replit's proxy properly routes these
@@ -3245,7 +3245,8 @@ ${lastNote.tutorNotes}`);
                 evaluateAndUpdateTension(transcript, session)
                   .then(worldEvent => {
                     const directive = selectPedagogicalDirective(session);
-                    const combined = [worldEvent, directive].filter(Boolean).join(' ');
+                    const shaper = selectStyleShaper(session);
+                    const combined = [worldEvent, directive, shaper].filter(Boolean).join(' ');
                     if (combined) glSnapTension.sendTextTurn(combined);
                   })
                   .catch(() => {});
@@ -4038,7 +4039,8 @@ ${lastNote.tutorNotes}`);
                   evaluateAndUpdateTension(finalTranscript, session)
                     .then(worldEvent => {
                       const directive = selectPedagogicalDirective(session);
-                      const combined = [worldEvent, directive].filter(Boolean).join(' ');
+                      const shaper = selectStyleShaper(session);
+                      const combined = [worldEvent, directive, shaper].filter(Boolean).join(' ');
                       if (combined) glForTension.sendTextTurn(combined);
                     })
                     .catch(() => {});

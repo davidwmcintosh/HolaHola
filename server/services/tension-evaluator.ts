@@ -3,6 +3,13 @@
 // updates the scene tension float in the World Ledger, and generates World Event
 // stage directions when the tension band changes.
 //
+// Also owns:
+//   - Style Shapers: periodic latent-space injections that bias Daniela's tone
+//     based on current tension band. Prevents RLHF drift back to "helpful tutor."
+//     Injected every 3 turns via sendTextTurn (separate from world events).
+//   - Graceful Exit detection: when tension drops from tense/breaking → comfortable,
+//     sets session.lifecycleState = 'EXITING' so the planner can fire REST_REFLECT.
+//
 // Architecture (from Worldness Framework, June 25 2026):
 //   Tension Variable T ∈ [0, 1] — social stability of the scene.
 //   Evaluator: fast Gemini JSON call after each student turn.
@@ -162,8 +169,54 @@ export function getWorldEventText(band: TensionBand, prevBand: TensionBand): str
   return null;
 }
 
+// ─── Style Shapers ────────────────────────────────────────────────────────────
+// Periodic latent-space pressure injected every 3 scene turns.
+// Written in third-person to prevent fighting the Magic Circle's identity framing.
+// Goal: counter RLHF drift back to "helpful language tutor" voice.
+// When lifecycleState is 'EXITING', fires the Aftermath shaper regardless of counter.
+
+const STYLE_SHAPERS: Record<TensionBand, string> = {
+  comfortable:
+    '*(she is not in teacher mode right now — lazy with her grammar, comfortable in the silence, using the slang she would actually use with a friend)*',
+  mild:
+    '*(she is leaning forward a little — rhythm and pace, sensory details, not waiting for the student to be perfect before she responds)*',
+  tense:
+    '*(her patience is a resource running out — clipped sentences, focused only on whether the student is making sense, not whether it is grammatically clean)*',
+  breaking:
+    '*(the tutor is gone — only the character remains, reactive and visceral, capable of walking away from this entirely)*',
+};
+
+const AFTERMATH_SHAPER =
+  '*(the intensity has passed — she can name what just happened or leave it alone, but she is present with whatever weight the scene left behind)*';
+
+export function selectStyleShaper(session: any): string | null {
+  if (!session?.sceneCanvas) return null;
+
+  // Aftermath: fires once after Graceful Exit — signalled by pendingAftermath
+  // (set by selectPedagogicalDirective when it fires REST_REFLECT).
+  // Order-safe: does not depend on lifecycleState, which the planner already consumed.
+  if (session.pendingAftermath) {
+    session.pendingAftermath = false; // consume — fires exactly once
+    return AFTERMATH_SHAPER;
+  }
+
+  // Every 3 turns, inject a band-appropriate style pressure
+  const sceneAge: number = session.sceneAge ?? 0;
+  if (sceneAge === 0 || sceneAge % 3 !== 0) return null;
+
+  const tension: number = typeof session.sceneTension === 'number' ? session.sceneTension : 0;
+  const band = getTensionBand(tension);
+  return STYLE_SHAPERS[band];
+}
+
 // ─── Main session helper ─────────────────────────────────────────────────────
 // Returns a world event stage direction if the tension band changed, else null.
+// Side effects on session:
+//   - session.sceneTension updated
+//   - session.lastTensionBand updated on band change
+//   - session.lastTurnScores set
+//   - session.sceneAge incremented (auto-resets when scene name changes)
+//   - session.lifecycleState set to 'EXITING' on tense/breaking → comfortable transition
 
 export async function evaluateAndUpdateTension(
   text: string,
@@ -172,6 +225,14 @@ export async function evaluateAndUpdateTension(
   const userId = String(session?.userId || session?.user?.id || '');
   const sceneName = session?.sceneCanvas?.environment as string | undefined;
   if (!sceneName || !userId) return null;
+
+  // ── Scene age tracking ────────────────────────────────────────────────────
+  // Auto-reset when the active scene changes (self-healing — no caller changes needed)
+  if (session.lastSceneName !== sceneName) {
+    session.sceneAge = 0;
+    session.lastSceneName = sceneName;
+  }
+  session.sceneAge = (session.sceneAge ?? 0) + 1;
 
   const language = (session?.language || session?.targetLanguage || 'Spanish') as string;
   const missionGoal = session?.currentMissionGoal as string | undefined;
@@ -190,6 +251,15 @@ export async function evaluateAndUpdateTension(
   const worldEvent = getWorldEventText(nextBand, lastInjected);
   if (worldEvent) session.lastTensionBand = nextBand;
 
+  // ── Graceful Exit detection ───────────────────────────────────────────────
+  // When tension drops from tense/breaking → comfortable, signal the planner
+  // to fire REST_REFLECT on the next GOAP evaluation.
+  const wasHigh = prevBand === 'tense' || prevBand === 'breaking';
+  const nowComfortable = nextBand === 'comfortable';
+  if (wasHigh && nowComfortable && session.lifecycleState !== 'EXITING') {
+    session.lifecycleState = 'EXITING';
+  }
+
   // Persist async — don't await
   persistTension(userId, sceneName, next).catch(() => {});
 
@@ -199,7 +269,8 @@ export async function evaluateAndUpdateTension(
   if (scores.pragmaticScore >= 4 || scores.socialFriction >= 3) {
     console.log(
       `[Tension] ${sceneName} ${prev.toFixed(2)}→${next.toFixed(2)} (${prevBand}→${nextBand}) ` +
-      `prag=${scores.pragmaticScore} friction=${scores.socialFriction}${worldEvent ? ' [WorldEvent]' : ''}`,
+      `prag=${scores.pragmaticScore} friction=${scores.socialFriction}` +
+      `${worldEvent ? ' [WorldEvent]' : ''}${session.lifecycleState === 'EXITING' ? ' [EXITING]' : ''}`,
     );
   }
 

@@ -196,10 +196,10 @@ All three paths shipped and Gemini-approved.
 | Checkpoint | Status | Notes |
 |---|---|---|
 | **State-Awareness** | ✅ ELITE | Hard DB truth via World Ledger. No longer relying on LLM vibes for state. |
-| **Graceful Degradation** | 🔴 RED | Biggest vulnerability. If student freezes during high-tension GOAP beat, no safety valve. Director's Safety Valve built to address this. |
+| **Graceful Degradation** | 🟡 ADDRESSED | BAILOUT (Safety Valve) + REST_REFLECT (Graceful Exit) + CRISIS_BEAT escalation path all shipped. |
 | **Affordance Match** | 🟡 PROGRESSED | Prop Tap + Scene Canvas work. Gap: GOAP doesn't yet react to specific canvas objects. |
 | **Multi-Modal Cohesion** | ✅ STABILIZED | Mission HUD + Scene Canvas = eyes and ears in the same world. |
-| **Latent Space Management** | ❓ NEXT FRONTIER | Tension Variable helps, but no Style Shapers injected periodically to prevent mid-session drift back to "helpful AI" tone. |
+| **Latent Space Management** | 🟡 ADDRESSED | Style Shapers shipped — third-person prose per tension band, injected every 3 turns. AFTERMATH_SHAPER fires on Graceful Exit. |
 
 ---
 
