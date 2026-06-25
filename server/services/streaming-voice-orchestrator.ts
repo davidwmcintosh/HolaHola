@@ -226,6 +226,7 @@ import { memoryCheckpointService } from "./memory-checkpoint-service";
 import { phonemeAnalyticsService } from "./phoneme-analytics-service";
 import { supportPersonaService } from "./support-persona-service";
 import { journeyMemoryService } from "./journey-memory-service";
+import { evaluatePedagogicalState } from "./pedagogical-supervisor";
 import { db, getSharedDb } from "../db";
 import { studentSessionHealth } from "@shared/schema";
 import { logVoiceOrchestratorError, trackVoicePipelineStage, logGeminiTimeout, logTtsFailure, logGeminiNoAudio } from "./production-telemetry";
@@ -2925,6 +2926,25 @@ Remember: David may reference things discussed in these recent text chats.
       } else {
         historyToSend = session.conversationHistory;
       }
+
+      // HISTORY SCRUB (PTT): Strip accumulated [bracket] system notes from entries older than
+      // the last 5. [Scaffolding Level], [Pedagogical Supervisor], and [SYSTEM DIRECTIVE] notes
+      // injected into old tool results create "conflicting signal" noise as the session ages —
+      // the current instruction sits in the live preamble; stale copies confuse Flash into
+      // blending old + new instructions. The recent 5 entries are kept verbatim.
+      // (Gemini consult rec. June 2026 — "the history scrub pattern")
+      const SCRUB_THRESHOLD_PTT = historyToSend.length - 5;
+      historyToSend = historyToSend.map((entry, idx) => {
+        if (idx < SCRUB_THRESHOLD_PTT && typeof entry.content === 'string' && entry.content.includes('[')) {
+          const cleaned = entry.content.replace(
+            /\n?\[(?:Scaffolding Level|Pedagogical Supervisor|SYSTEM NOTE|SYSTEM UPDATE|SYSTEM DIRECTIVE)[^\]]*\]/g,
+            ''
+          ).trim();
+          return cleaned !== entry.content ? { ...entry, content: cleaned } : entry;
+        }
+        return entry;
+      });
+
       conversationHistoryWithContext.push(...historyToSend);
 
       // PROACTIVE MEMORY INJECTION (PTT): Inject any memory surfaces staged from the previous turn.
@@ -2951,7 +2971,24 @@ Remember: David may reference things discussed in these recent text chats.
           );
         }
       }
-      
+
+      // PEDAGOGICAL SUPERVISOR — UNCONDITIONAL (PTT): Closes the "no-tool heartbeat" gap.
+      // The existing injection in gemini-live-session.ts only fires when tool responses exist.
+      // If Daniela enters a chatter loop and stops calling tools, the Emergency Brake
+      // disconnects entirely. This preamble check fires every turn — the moment the next
+      // student utterance arrives, the directive is the last thing she reads.
+      // (Gemini consult rec. June 2026 — "a mandate without a forcing function is just a suggestion")
+      {
+        const pttSupDirective = evaluatePedagogicalState(session);
+        if (pttSupDirective) {
+          conversationHistoryWithContext.push({
+            role: 'user',
+            content: `[SYSTEM DIRECTIVE — not spoken: ${pttSupDirective.directive}]`,
+          });
+          console.log(`[Supervisor-PTT] Unconditional preamble directive: ${pttSupDirective.urgency} — ${pttSupDirective.directive.slice(0, 80)}`);
+        }
+      }
+
       // MESSAGE CHECKPOINTING: Save user message BEFORE Gemini call
       // This ensures user messages are preserved even if Gemini fails/times out
       // Latency impact: ~5-10ms (negligible vs 1-2s LLM response time)
@@ -6440,6 +6477,22 @@ Remember: David may reference things discussed in these recent text chats.
       } else {
         historyToSendOpenMic = session.conversationHistory;
       }
+
+      // HISTORY SCRUB (OpenMic): mirrors PTT path — strip stale [bracket] system notes
+      // from entries older than the last 5 to prevent conflicting signal accumulation.
+      // (Gemini consult rec. June 2026 — "the history scrub pattern")
+      const SCRUB_THRESHOLD_OM = historyToSendOpenMic.length - 5;
+      historyToSendOpenMic = historyToSendOpenMic.map((entry, idx) => {
+        if (idx < SCRUB_THRESHOLD_OM && typeof entry.content === 'string' && entry.content.includes('[')) {
+          const cleaned = entry.content.replace(
+            /\n?\[(?:Scaffolding Level|Pedagogical Supervisor|SYSTEM NOTE|SYSTEM UPDATE|SYSTEM DIRECTIVE)[^\]]*\]/g,
+            ''
+          ).trim();
+          return cleaned !== entry.content ? { ...entry, content: cleaned } : entry;
+        }
+        return entry;
+      });
+
       conversationHistoryWithContext.push(...historyToSendOpenMic);
 
       // PROACTIVE MEMORY INJECTION (OpenMic): same as PTT path
@@ -6463,7 +6516,21 @@ Remember: David may reference things discussed in these recent text chats.
           );
         }
       }
-      
+
+      // PEDAGOGICAL SUPERVISOR — UNCONDITIONAL (OpenMic): mirrors PTT path.
+      // Closes the "no-tool heartbeat" gap — fires every turn regardless of tool usage.
+      // (Gemini consult rec. June 2026)
+      {
+        const omSupDirective = evaluatePedagogicalState(session);
+        if (omSupDirective) {
+          conversationHistoryWithContext.push({
+            role: 'user',
+            content: `[SYSTEM DIRECTIVE — not spoken: ${omSupDirective.directive}]`,
+          });
+          console.log(`[Supervisor-OpenMic] Unconditional preamble directive: ${omSupDirective.urgency} — ${omSupDirective.directive.slice(0, 80)}`);
+        }
+      }
+
       // MESSAGE CHECKPOINTING (OpenMic): Save user message BEFORE Gemini call
       // This ensures user messages are preserved even if Gemini fails/times out
       await this.checkpointUserMessage(session, transcript);

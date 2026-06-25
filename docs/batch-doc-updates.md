@@ -41,6 +41,33 @@ Last-gear injection at session start: query final pedagogical snapshot from prev
 
 ---
 
+## Session — Jun 25, 2026 — Gemini Strategic Consult: Heartbeat + History Scrub (Gemini-reviewed)
+
+### What was built
+
+Three-topic Gemini architectural review of HolaHola's voice pipeline, followed by two production fixes.
+
+#### Strategic Consult Findings
+
+**Q1 (HIGH) — "No-Tool Heartbeat" gap:** The Emergency Brake (`evaluatePedagogicalState`) only fired when Daniela called tools. In a chatter loop — the exact failure mode the Brake exists to catch — no tools → no brake. Fix: move the Supervisor check unconditionally into the PTT preamble so it fires every turn, regardless of tool usage.
+
+**Q2 (MEDIUM) — Context pollution:** `[Scaffolding Level]` and `[Pedagogical Supervisor]` notes accumulate in old tool result entries. By turn 40 Flash was reading 8 conflicting scaffolding signals. Fix: history scrub strips those specific bracket notes from entries older than last-5.
+
+**Q3 (already solved) — 34K cap / assembly order:** Gemini flagged classroom-last as a "Silent Lobotomy." Confirmed this was already fixed in a previous session: `GL_HARD_CAP = 39_500` trimmer + classroom-first reorder exist in `unified-ws-handler.ts` (lines 2366–2385).
+
+#### Components
+
+**1. Unconditional Pedagogical Supervisor injection** (`server/services/streaming-voice-orchestrator.ts`)  
+Added to the PTT preamble assembly (after ACTFL anchor, ~line 2978) and OpenMic preamble (~line 6523). Calls `evaluatePedagogicalState(session)` every turn. If a directive exists, injects `[SYSTEM DIRECTIVE — not spoken: ...]` as the last user turn before Gemini processes the student's utterance. Added `evaluatePedagogicalState` import from `./pedagogical-supervisor`. Logs via `[Supervisor-PTT]` and `[Supervisor-OpenMic]`.
+
+**2. History scrubber** (`server/services/streaming-voice-orchestrator.ts`)  
+Applied in both PTT (~line 2933) and OpenMic (~line 6484) paths. Strips `[Scaffolding Level|Pedagogical Supervisor|SYSTEM NOTE|SYSTEM UPDATE|SYSTEM DIRECTIVE]` bracket notes from entries older than `historyToSend.length - 5`. Uses `content.includes('[')` guard for performance. Immutable pattern — only creates a new object when content actually changed.
+
+#### Gemini re-verify verdict: APPROVED — Ship it
+Gemini confirmed: regex is precise enough to avoid false positives on user text; ordering is correct (supervisor fires last, after ACTFL anchor); short-history edge case (length < 5) handled correctly by `idx < 0` guard.
+
+---
+
 ## Session — Jun 25, 2026 — Textbook time tracking, grammar verbosity fix, Alden escalation cooldown
 
 ### What was built
