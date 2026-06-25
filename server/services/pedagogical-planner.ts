@@ -8,9 +8,11 @@
 //
 // Rule-based (no extra LLM call). Re-plans every turn.
 // Injects on action type CHANGE or every 3 turns (heartbeat) to fight recency bias.
+// BAILOUT fires unconditionally on 3+ consecutive struggle turns (Director's Safety Valve).
 // Full doc: docs/worldness-framework.md — Path 2
 
 export type PedagogicalActionType =
+  | 'BAILOUT'         // Safety Valve — student stuck 3+ turns under pressure: lower the bar in-character
   | 'SCAFFOLD'        // Student failing or scene breaking — ease in, reduce pressure
   | 'CHALLENGE'       // Student comfortable and capable — raise the bar
   | 'ELICIT'          // Default: draw out response without filling the silence
@@ -22,6 +24,7 @@ export type PedagogicalActionType =
 // Describe Daniela's internal awareness, not external system commands.
 
 const DIRECTIVES: Record<PedagogicalActionType, string> = {
+  BAILOUT:        '*(they are stuck — lower the bar right now, drop a hint in character, make it possible for them to succeed with one simple phrase)*',
   SCAFFOLD:       '*(they are reaching for it — ease in, meet them where they are)*',
   CHALLENGE:      '*(they have their footing — make them earn the next step, don\'t hand it to them)*',
   ELICIT:         '*(find the opening — let them construct it, don\'t fill the silence for them)*',
@@ -41,7 +44,6 @@ export function selectPedagogicalDirective(session: any, isQuietTurn = false): s
   if (!session?.sceneCanvas) return null;
 
   // ── Silence handling ───────────────────────────────────────────────────────
-  // Short or empty student turn inside a tense scene — nudge without evaluating.
   const tension: number = typeof session.sceneTension === 'number' ? session.sceneTension : 0;
   if (isQuietTurn && tension > 0.40) {
     return SILENCE_DIRECTIVE;
@@ -55,43 +57,57 @@ export function selectPedagogicalDirective(session: any, isQuietTurn = false): s
   const pragmaticScore: number = session.lastTurnScores?.pragmaticScore ?? 3;
   const socialFriction: number = session.lastTurnScores?.socialFriction ?? 1;
 
+  // ── Director's Safety Valve (Graceful Degradation) ────────────────────────
+  // Track consecutive struggle turns. Reset on any clear communication.
+  // BAILOUT fires unconditionally — bypasses cooldown. It is the emergency signal.
+  const isStruggleTurn = pragmaticScore <= 2 && tension > 0.40;
+  const prevStreak: number = session.consecutiveStruggleTurns ?? 0;
+  if (isStruggleTurn) {
+    session.consecutiveStruggleTurns = prevStreak + 1;
+  } else {
+    session.consecutiveStruggleTurns = 0;
+  }
+
+  if ((session.consecutiveStruggleTurns ?? 0) >= 3) {
+    // Hard reset the streak so bailout fires once, not every turn
+    session.consecutiveStruggleTurns = 0;
+    session.lastPedagogicalActionType = 'BAILOUT';
+    session.pedagogicalTurnsSinceDirective = 0;
+    console.log(
+      `[GOAP] ${session.sceneCanvas?.environment} action=BAILOUT [Safety Valve] ` +
+      `(prag=${pragmaticScore} tension=${tension.toFixed(2)} exchanges=${exchangeCount})`,
+    );
+    return DIRECTIVES.BAILOUT;
+  }
+
   // ── Selection rules (priority order) ─────────────────────────────────────
-  // NOTE: Scaffold threshold is 0.80 (not 0.60) to avoid killing "flow state".
-  // High tension + high pragmatic score = student in flow — don't intervene.
+  // Scaffold threshold 0.80 — preserve flow state (high tension + high performance).
 
   let action: PedagogicalActionType;
 
   if ((tension > 0.80) || (pragmaticScore <= 1) || (socialFriction >= 4)) {
-    // True distress: scene is breaking OR student is completely lost
     action = 'SCAFFOLD';
   } else if (pragmaticScore >= 5 && lastAction !== 'CELEBRATE') {
-    // Student nailed it (no tension cap — celebrate even under mild pressure)
     action = 'CELEBRATE';
   } else if (pragmaticScore >= 4 && tension < 0.40) {
-    // Comfortable and capable — challenge them
     action = 'CHALLENGE';
   } else if (exchangeCount > 14) {
-    // Scene has run its natural arc — nudge toward completion
     action = 'PROGRESS_SCENE';
   } else {
-    // Default: hold space, let them construct the response
     action = 'ELICIT';
   }
 
   // ── Inject decision ───────────────────────────────────────────────────────
   // Inject if: action changed (course correction) OR heartbeat (3 turns without directive)
-  // This fights LLM recency bias — Daniela needs reminders to hold a sustained mode.
 
   const actionChanged = action !== lastAction;
   const heartbeatFired = turnsSinceLast >= 3;
 
   if (!actionChanged && !heartbeatFired) {
-    // Increment turns-since counter but don't inject
     session.pedagogicalTurnsSinceDirective = turnsSinceLast + 1;
     return null;
   }
 
-  // Inject — reset counter and record action
   session.lastPedagogicalActionType = action;
   session.pedagogicalTurnsSinceDirective = 0;
 
