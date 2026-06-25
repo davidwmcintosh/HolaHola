@@ -1454,6 +1454,10 @@ Keep responses concise and helpful (2-4 sentences unless detailed steps are need
       // This confirms the double-audio fix is exercised and lets the Agent verify playback quality.
       await this.checkGlReconnectMidTurn(lastCheck);
 
+      // Assessment restart blocked watch — fires an agent note if GL calls START_PLACEMENT_ASSESSMENT
+      // more than once per session. Frequent hits = GL forgetting state, rubric needs higher priority.
+      await this.checkAssessmentRestartBlocked(lastCheck);
+
       this.lastCheckTime = now;
       console.log(`[Sofia Monitor] Check complete: ${allPending.length} pending, ${newSinceLastCheck} new`);
       
@@ -1802,6 +1806,60 @@ Use request_continuation to work across multiple phases if needed. This task was
 
     } catch (err) {
       console.warn('[Sofia Monitor] GL reconnect watch error:', (err as Error).message);
+    }
+  }
+
+  /**
+   * Assessment restart blocked watch — fires an agent note when GL calls
+   * START_PLACEMENT_ASSESSMENT a second time mid-session. Per Gemini Round 6 audit:
+   * if this fires frequently, GL is forgetting its rubric context and the rubric
+   * should be moved to a higher-priority position in the system prompt.
+   * Threshold: >1 event since last check. 4-hour cooldown to avoid noise.
+   */
+  private async checkAssessmentRestartBlocked(since: Date): Promise<void> {
+    try {
+      const COOLDOWN_KEY = 'assessment_restart_blocked';
+      const COOLDOWN_MS = 4 * 60 * 60 * 1000;
+      const THRESHOLD = 1; // alert on any occurrence
+
+      const lastAlert = this.patternAlertCooldown.get(COOLDOWN_KEY);
+      if (lastAlert && Date.now() - lastAlert.getTime() < COOLDOWN_MS) return;
+
+      const result = await getSharedDb().execute(sql`
+        SELECT COUNT(*) AS count,
+               MAX(created_at) AS last_seen,
+               string_agg(DISTINCT COALESCE(session_id, 'unknown'), ', ') AS sessions
+        FROM voice_pipeline_events
+        WHERE event_type = 'assessment_restart_blocked'
+          AND created_at > ${since.toISOString()}
+      `);
+
+      const row = result.rows[0] as { count: string; last_seen: string | null; sessions: string | null };
+      const count = parseInt(row?.count ?? '0', 10);
+      if (count <= THRESHOLD) return;
+
+      const lastSeen = row.last_seen ? new Date(row.last_seen).toISOString() : 'unknown';
+      const sessions = row.sessions ?? 'unknown';
+
+      await getUserDb().execute(sql`
+        INSERT INTO agent_notes (id, from_agent, to_agent, subject, body, session_label, created_at)
+        VALUES (
+          gen_random_uuid(),
+          'alden',
+          'agent',
+          ${'[Sofia Watch] Assessment restart blocked — GL forgetting rubric state'},
+          ${`Sofia detected ${count} assessment_restart_blocked event(s) since the last monitoring check.\n\nLast seen: ${lastSeen}\nSession(s): ${sessions}\n\nThis means Daniela called START_PLACEMENT_ASSESSMENT a second time while an assessment was already in progress. The restart guard caught it, so no state was corrupted — but frequent occurrences indicate GL is losing its rubric context faster than expected.\n\nPer Gemini Round 6 audit recommendation: if this happens regularly, the assessment rubric should be moved to a higher-priority position in the system prompt (earlier, not appended at the end) so GL's attention head weights it more heavily.\n\nAction: review voice session logs around these events. If pattern persists across multiple students, escalate for system prompt restructuring.`},
+          'Sofia Monitor — Assessment Restart Watch',
+          NOW()
+        )
+      `);
+
+      console.log(`[Sofia Monitor] Assessment restart blocked detected (${count}x since last check) — agent note filed`);
+      this.patternAlertCooldown.set(COOLDOWN_KEY, new Date());
+      setTimeout(() => this.patternAlertCooldown.delete(COOLDOWN_KEY), COOLDOWN_MS);
+
+    } catch (err) {
+      console.warn('[Sofia Monitor] Assessment restart watch error:', (err as Error).message);
     }
   }
 

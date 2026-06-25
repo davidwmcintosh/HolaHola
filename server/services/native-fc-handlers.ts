@@ -1,5 +1,5 @@
 import { sql, eq, and, desc, ilike, or } from "drizzle-orm";
-import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes, users, voiceSessions } from "@shared/schema";
+import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes, users, voiceSessions, voicePipelineEvents } from "@shared/schema";
 import { isValidActflLevel } from "../actfl-utils";
 import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
@@ -4248,6 +4248,16 @@ export class NativeFunctionCallHandler {
           const alreadyCount = (session as any).assessmentTurnCount || 0;
           console.warn(`[Native Function→StartPlacementAssessment] BLOCKED — assessment already active (${alreadyCount} turns). Ignoring restart attempt.`);
           (session as any).placementAssessmentResult = `SYSTEM: Placement assessment is already in progress (${alreadyCount} exchanges completed). Do not restart — continue the current assessment. Follow the rubric you received when the assessment began.`;
+          // Log to voice_pipeline_events so Sofia can detect if this happens frequently
+          // (Gemini pro-tip from Round 6 audit: if BLOCKED fires often, GL is forgetting state).
+          try {
+            getSharedDb().insert(voicePipelineEvents).values({
+              sessionId: String(session.dbSessionId || session.id || 'unknown'),
+              userId: String(session.userId || 'unknown'),
+              eventType: 'assessment_restart_blocked',
+              eventData: { turnCount: alreadyCount, language: session.targetLanguage },
+            }).catch(() => {}); // fire-and-forget
+          } catch { /* non-fatal */ }
           break;
         }
         const assessmentContext = fn.args.context as string | undefined;
