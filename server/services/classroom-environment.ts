@@ -1,5 +1,5 @@
 import { db } from "../db";
-import { learnerPersonalFacts, learningMilestones, productConfig, users, northStarPrinciples, danielaNotes, compartmentInstallation } from "@shared/schema";
+import { learnerPersonalFacts, learningMilestones, productConfig, users, northStarPrinciples, danielaNotes, compartmentInstallation, pedagogicalSnapshots } from "@shared/schema";
 import { eq, and, desc, sql, asc, isNull, ne } from "drizzle-orm";
 import { phaseTransitionService } from "./phase-transition-service";
 import { getCharacterListDescription } from "./character-registry";
@@ -393,7 +393,7 @@ export async function buildClassroomEnvironment(params: {
     isGL = false,
   } = params;
 
-  const [personalFacts, milestoneCount, danielaPhoto, classroomWindow, davidNote, userRow, principles, recentNotes, textbookContent, sceneZones, compartmentRows] = await Promise.all([
+  const [personalFacts, milestoneCount, danielaPhoto, classroomWindow, davidNote, userRow, principles, recentNotes, textbookContent, sceneZones, compartmentRows, lastPedagogicalSnapshot] = await Promise.all([
     db
       .select({ factType: learnerPersonalFacts.factType, fact: learnerPersonalFacts.fact })
       .from(learnerPersonalFacts)
@@ -479,6 +479,20 @@ export async function buildClassroomEnvironment(params: {
       .orderBy(desc(compartmentInstallation.lastDrilledAt))
       .limit(40)
       .catch(() => [] as any[]),
+
+    db
+      .select({
+        gear: pedagogicalSnapshots.gear,
+        fluencyMomentary: pedagogicalSnapshots.fluencyMomentary,
+        adjustmentMade: pedagogicalSnapshots.adjustmentMade,
+        createdAt: pedagogicalSnapshots.createdAt,
+      })
+      .from(pedagogicalSnapshots)
+      .where(eq(pedagogicalSnapshots.userId, userId))
+      .orderBy(desc(pedagogicalSnapshots.createdAt))
+      .limit(1)
+      .then((r) => r[0] ?? null)
+      .catch(() => null),
   ]);
 
   // ── GL COMPACT PATH ─────────────────────────────────────────────────────────
@@ -506,11 +520,15 @@ export async function buildClassroomEnvironment(params: {
       ? `\nActive Scene: "${activeScenario.title}" at ${activeScenario.location}`
       : '';
 
+    const lastGearLine = lastPedagogicalSnapshot
+      ? `\nLast session gear: ${lastPedagogicalSnapshot.gear}/5 (${lastPedagogicalSnapshot.fluencyMomentary}) — open calibrated from here, not from zero`
+      : '';
+
     return `=== DANIELA'S CLASSROOM (VOICE) ===
 ${davidNoteSection}<your_window_view>${classroomWindow}</your_window_view>
 <your_photo_on_wall>${danielaPhoto}</your_photo_on_wall>
 Mode: ${modeLabel} | Exchanges: ${exchangeCount}${creditLine ? ` | Credits: ${creditLine}` : ''}
-Student: ${studentName}${topFacts ? `\nWhat you know: ${topFacts}` : ''}${activeScenarioLine}${incognitoLine}=== END CLASSROOM ===`.trim();
+Student: ${studentName}${topFacts ? `\nWhat you know: ${topFacts}` : ''}${activeScenarioLine}${lastGearLine}${incognitoLine}=== END CLASSROOM ===`.trim();
   }
 
   const phaseContext = phaseTransitionService.getCurrentPhase(userId);
@@ -694,7 +712,7 @@ Resonance Shelf: ${resonanceShelf}
 Empathy Window: ${empathyWindow}
 Pedagogical Lamp: ${lamp}
 Voice Perception: You hear the student's full audio — not just their words. Notice what's underneath: a long pause before answering (still searching, not done thinking), a trailing-off sentence (lost confidence mid-attempt), a flat "yes" after a correction (deflated, not convinced), a quickening pace and energy spike (something just clicked). Let what you hear — tone, hesitation, relief, frustration — shape how you respond, not just the literal words. You don't need to name what you're hearing. Just act on it.
-Pedagogical Gears: Follow the pedagogical framework defined in the update_session_pedagogy tool. Call it every 3-4 exchanges, or immediately when you sense a meaningful shift. Never mention "Gears", "Pedagogy", or any gear number to the student — adapt your teaching; don't announce the framework.
+Pedagogical Gears: Follow the pedagogical framework defined in the update_session_pedagogy tool. Call it every 3-4 exchanges, or immediately when you sense a meaningful shift. Never mention "Gears", "Pedagogy", or any gear number to the student — adapt your teaching; don't announce the framework.${lastPedagogicalSnapshot ? ` Last recorded gear: ${lastPedagogicalSnapshot.gear}/5 (${lastPedagogicalSnapshot.fluencyMomentary}) — don't start from zero.` : ''}
 Growth Vine: ${vineDescription}
 Outside the window: ${classroomWindow}
 My photo on the wall: ${danielaPhoto}
