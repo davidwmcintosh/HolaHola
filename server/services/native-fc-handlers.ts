@@ -3397,6 +3397,10 @@ export class NativeFunctionCallHandler {
         }).catch((err: any) => {
           console.warn(`[Native Function→PedagogicalHeartbeat] DB error:`, err?.message);
         });
+
+        // Cache on session for PedagogicalSupervisor (Emergency Brake evaluation)
+        (session as any)._lastGear = pgGear;
+        (session as any)._lastFluency = pgFluency;
         break;
       }
 
@@ -3405,6 +3409,8 @@ export class NativeFunctionCallHandler {
         const phaseReason = fn.args.reason as string | undefined;
         if (phaseValue) {
           (session as StreamingSession).currentSessionPhase = phaseValue as StreamingSession['currentSessionPhase'];
+          // Cache phase start time for PedagogicalSupervisor (overly-long phase detection)
+          (session as any)._phaseStartTime = Date.now();
           console.log(`[Native Function→SessionPhase] Phase → ${phaseValue}${phaseReason ? ` (${phaseReason})` : ''}`);
         }
         break;

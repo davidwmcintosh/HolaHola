@@ -37,6 +37,7 @@ import { sql, eq } from 'drizzle-orm';
 import { voiceSessions } from '@shared/schema';
 import { GLKaraokeTracker } from './gl-karaoke-tracker';
 import { PostResponseEnrichmentService } from './post-response-enrichment';
+import { evaluatePedagogicalState, computeScaffoldingLevel } from './pedagogical-supervisor';
 import { storage } from '../storage';
 import type { IStorage } from '../storage';
 
@@ -1950,6 +1951,48 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         (last.response as any).result = currentResult + (currentResult ? '\n\n' : '') + ctxNote;
         this.session.pendingGlContext = [];
         console.log(`[GeminiLive] Gap 10: flushed ${pendingCtx.length} frontend context item(s) into tool response`);
+      }
+
+      // Scaffolding Slider — Contextual Echoing:
+      // Injects the current scaffolding level (1-10) every 5 tool-response batches so
+      // Daniela stays calibrated between tool calls. Level is computed from ACTFL, gear,
+      // and struggle count. This is a background calibration note — not an emergency directive.
+      // Runs BEFORE the Pedagogical Supervisor so the supervisor is always the final word.
+      const scaffoldingCallCount = ((this.session as any)._scaffoldingCallCount || 0) + 1;
+      (this.session as any)._scaffoldingCallCount = scaffoldingCallCount;
+      if (responses.length > 0 && scaffoldingCallCount % 5 === 0) {
+        const level = computeScaffoldingLevel(this.session);
+        const descriptor =
+          level <= 2 ? 'maximum scaffolding — full native-language support, define every word, short sentences' :
+          level <= 4 ? 'heavy scaffolding — native-language explanations, simple target-language phrases only' :
+          level <= 6 ? 'balanced — 50/50 language mix, corrections in native language, practice in target language' :
+          level <= 8 ? 'light scaffolding — mostly target language, native language only for new concept clarification' :
+                       'no scaffolding — full target language, native speed, treat errors as production mistakes';
+        const last = responses[responses.length - 1];
+        if (last?.response) {
+          const currentResult = (last.response as any)?.result ?? '';
+          const note = `[Scaffolding Level — not spoken: ${level}/10 — ${descriptor}]`;
+          (last.response as any).result = currentResult + (currentResult ? '\n\n' : '') + note;
+          console.log(`[GeminiLive] ScaffoldingSlider level ${level}/10 injected (call ${scaffoldingCallCount})`);
+        }
+      }
+
+      // Pedagogical Supervisor — Emergency Brake:
+      // Runs LAST so its directive is the final word Daniela reads before responding —
+      // overriding all earlier phase/context notes per Gemini review recommendation.
+      // Evaluates real-time session state (struggle count, phase, gear, ACTFL level) and
+      // injects a [Pedagogical Supervisor] directive when the backend detects a dangerous
+      // condition. Rate-limited to once per 3 minutes to avoid directive fatigue.
+      if (responses.length > 0) {
+        const pedagogicalDirective = evaluatePedagogicalState(this.session);
+        if (pedagogicalDirective) {
+          const last = responses[responses.length - 1];
+          const currentResult = (last.response as any)?.result ?? '';
+          const urgencyPrefix = pedagogicalDirective.urgency === 'emergency' ? 'URGENT — ' : '';
+          const note = `[Pedagogical Supervisor — not spoken: ${urgencyPrefix}${pedagogicalDirective.directive}]`;
+          (last.response as any).result = currentResult + (currentResult ? '\n\n' : '') + note;
+          console.log(`[GeminiLive] PedagogicalSupervisor [${pedagogicalDirective.urgency}] injected into tool response (${(last as any).name ?? 'unknown'}): ${pedagogicalDirective.directive.slice(0, 80)}...`);
+        }
       }
 
       // Call-ID guard: if a barge-in advanced currentTurnId while handlers were running,

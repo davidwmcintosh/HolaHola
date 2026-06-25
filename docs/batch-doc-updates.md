@@ -2051,3 +2051,54 @@ The tags fire before the model begins completing on the retrieved content, setti
 ### Review
 Gemini Round 4: GO. "Significantly reduces hallucinated paraphrasing of past student mistakes or successes."
 Daniela consulted: correctly modeled old-system failure mode unprompted (conversation_memories: `ae46b34b`).
+
+---
+
+## Pedagogical OS — 3 Post-Gemini-Consult Sessions (June 25, 2026)
+
+### What was built
+Three interconnected systems that give the backend real-time influence over Daniela's in-session behavior via the existing System Whisper injection channel (tool response `result` string).
+
+### Session 1: Emergency Brake / Envelope Pattern
+**New file:** `server/services/pedagogical-supervisor.ts`
+
+`evaluatePedagogicalState(session)` evaluates session state on every tool-response batch and returns a `PedagogicalDirective | null`. Three trigger conditions:
+1. **Death Spiral**: `sessionStruggleCount >= 3` AND phase is PRACTICE/PRODUCTION AND last fluency is 'struggling' or gear ≤ 2
+2. **Phase Too Long**: Stuck in PRACTICE/PRODUCTION > 12 minutes without a phase transition
+3. **ACTFL/Phase Mismatch**: Novice (low/mid) learner in PRODUCTION mode
+
+Rate-limited: fires at most once per 3 minutes per session (`session._lastDirectiveTime`).
+
+`computeScaffoldingLevel(session)` computes a 1-10 scaffolding level from ACTFL, gear, and struggle count. Infrastructure for Session 3.
+
+**Changed files:**
+- `native-fc-handlers.ts`: Caches `_lastGear` and `_lastFluency` on session when `UPDATE_SESSION_PEDAGOGY` fires; caches `_phaseStartTime` when `UPDATE_SESSION_PHASE` fires
+- `streaming-voice-orchestrator.ts`: Initializes `_phaseStartTime = Date.now()` at session creation (covers the first phase)
+- `gemini-live-session.ts`: Injection block appended LAST in the chain (after Gap 10), so supervisor directive is the final word Daniela reads before responding
+- `daniela-function-registry.ts` GL_DISPATCHER_SYSTEM_PROMPT: "Pedagogical Supervisor — Real-Time Behavioral Override" section
+
+### Session 2: Affective Response Matrix + Visual Observation Protocol
+**Affective Response Matrix** (`server/system-prompt.ts`, `buildMinimalIdentityAnchor`):
+7 prose paragraphs inserted after the voice-rhythm section, following the Gemini-iterated prose-memory style (no headers, no bullet+colon):
+- Frustration, Excitement, Disengagement, Overwhelm, Confidence, Perfectionist Freeze, Performative Agreement ("yes I understand" when they don't)
+
+**Visual Observation Protocol** (GL_DISPATCHER_SYSTEM_PROMPT):
+Classroom-window as source of truth — prevents Daniela from referencing a visual during tool latency before it has actually rendered. "Trust what the window reports over what you intended to change."
+
+### Session 3: Scaffolding Slider
+**Injection**: `gemini-live-session.ts` — calls `computeScaffoldingLevel()` and injects `[Scaffolding Level — not spoken: N/10 — descriptor]` every 5 tool-response batches. Uses `session._scaffoldingCallCount` counter.
+
+**GL_DISPATCHER_SYSTEM_PROMPT** new section "Scaffolding Level — Continuous Calibration":
+- 5-bracket behavioral table (1-2, 3-4, 5-6, 7-8, 9-10) mapping levels to language-mix and support expectations
+- Tie-breaking rule: **Supervisor first, Scaffolding Level second, Phase third**
+
+### Full injection chain order (after every tool batch in gemini-live-session.ts)
+1. Gap C — Visual failure note (existing)
+2. Gap 10 — pendingGlContext flush (existing)
+3. Scaffolding Slider — every 5 calls (new)
+4. Pedagogical Supervisor — rate-limited emergency brake (new, runs LAST)
+
+### Gemini review verdicts
+- Session 1: Approved with 3 fixes (ordering, phase-start init, rate-limit placement) — all applied
+- Session 2: Approved with 3 fixes (duplicate paragraphs artifact, Perfectionist Freeze, VOP source-of-truth) — all applied
+- Session 3: "Ship it" verdict — 1 fix applied (tie-breaking priority rule), 1 null-safety guard added (`last?.response`)
