@@ -1494,7 +1494,7 @@ export class NativeFunctionCallHandler {
             try {
               const { sceneWorldLedger: swl } = await import('@shared/schema');
               const { eq: eqLedger, and: andLedger } = await import('drizzle-orm');
-              const ledgerRows = await openDb.select({ ledger: swl.ledger })
+              const ledgerRows = await openDb.select({ ledger: swl.ledger, tension: swl.tension })
                 .from(swl)
                 .where(andLedger(
                   eqLedger(swl.userId, openSceneUserId),
@@ -1506,6 +1506,14 @@ export class NativeFunctionCallHandler {
                 console.log(`[WorldLedger] Loaded for ${openSceneUserId}/${sceneEnv}`);
               } else {
                 (session as any).sceneWorldLedger = null;
+              }
+              // Load persisted tension so the scene picks up where it left off
+              const { getTensionBand } = await import('./tension-evaluator');
+              const savedTension = typeof ledgerRows[0]?.tension === 'number' ? ledgerRows[0].tension : 0;
+              (session as any).sceneTension = savedTension;
+              (session as any).lastTensionBand = getTensionBand(savedTension);
+              if (savedTension > 0) {
+                console.log(`[Tension] Restored ${savedTension.toFixed(2)} (${(session as any).lastTensionBand}) for ${sceneEnv}`);
               }
             } catch (ledgerErr: any) {
               console.warn('[WorldLedger] Failed to load on scene open:', ledgerErr.message);

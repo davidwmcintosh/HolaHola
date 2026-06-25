@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, index, uniqueIndex, jsonb, pgEnum, date } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, index, uniqueIndex, jsonb, pgEnum, date, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -9607,6 +9607,7 @@ export const sceneWorldLedger = pgTable('scene_world_ledger', {
   userId: varchar('user_id').notNull().references(() => users.id),
   sceneName: text('scene_name').notNull(),
   ledger: jsonb('ledger').notNull().default('{}'),
+  tension: doublePrecision('tension').notNull().default(0),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex('idx_scene_world_ledger_user_scene').on(table.userId, table.sceneName),
