@@ -913,7 +913,22 @@ export class StreamingVoiceClient {
       });
     }
   }
-  
+
+  /**
+   * Notify the server that the student tapped a scene prop.
+   * The server injects a context signal so Daniela reacts naturally to the object.
+   */
+  sendPropTap(prop: { propName: string; propLabel: string; nativeLabel?: string }): void {
+    if (this.socket?.connected) {
+      this.socket.emit('message', {
+        type: 'prop_tap',
+        propName: prop.propName,
+        propLabel: prop.propLabel,
+        nativeLabel: prop.nativeLabel,
+      });
+    }
+  }
+
   /**
    * Update the voice mid-session (when user changes tutor)
    */

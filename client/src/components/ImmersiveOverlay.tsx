@@ -6,6 +6,7 @@ import { usePlaybackState } from "@/lib/playbackStateStore";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGlobalVoiceInput } from "@/lib/voiceInputStore";
 import { useGlobalMission } from "@/lib/missionStore";
+import { setGlobalPropTap } from "@/lib/propTapStore";
 import type { SceneCanvasItemData, SceneCanvasRichContent, WhiteboardItem, OverlayPanel } from "@shared/whiteboard-types";
 import { OverlayPanelContent } from "@/components/OverlayPanelContent";
 
@@ -415,7 +416,10 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
                       pointerEvents: tappable ? 'auto' : 'none',
                       cursor: tappable ? 'pointer' : 'default',
                     }}
-                    onClick={tappable ? () => setOpenSheet(prop.richContent!) : undefined}
+                    onClick={tappable ? () => {
+                      setOpenSheet(prop.richContent!);
+                      setGlobalPropTap({ propName: prop.name, propLabel: prop.label, nativeLabel: prop.nativeLabel, timestamp: Date.now() });
+                    } : undefined}
                     data-testid={tappable ? `button-tap-prop-${prop.name}` : undefined}
                   >
                     <img

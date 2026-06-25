@@ -13,6 +13,7 @@ import { getStreamingAudioPlayer, StreamingAudioPlayer, StreamingAudioChunk, Str
 import { useStreamingSubtitles, UseStreamingSubtitlesReturn } from './useStreamingSubtitles';
 import { logAudioChunkReceived, updateDebugTimingState, trackWsMessage } from '../lib/debugTimingState';
 import { setGlobalPlaybackState, getGlobalPlaybackState } from '../lib/playbackStateStore';
+import { useGlobalPropTap } from '../lib/propTapStore';
 import { diagSetSession, diagSetHookRefs, diagEvent, diagMarkConnect, diagMarkFirstAudio, diagMarkResponseComplete, diagMarkDisconnect, diagMarkTurnStart, diagMarkSpeechEnd, diagMarkError, diagMarkTtsError, diagMarkFailsafe, reportDiagnostic, startLockoutWatchdog, startGreetingSilenceWatchdog } from '../lib/lockoutDiagnostics';
 import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock';
 import { preWarmMicroAcks, selectMicroAck, playMicroAck } from '../services/microAckService';
@@ -247,6 +248,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   
   // Ref for greeting silence watchdog (cleanup on disconnect)
   const greetingSilenceWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Prop-to-dialogue binding — watches global prop tap store, sends socket signal
+  const activePropTap = useGlobalPropTap();
+  const prevPropTapTimestampRef = useRef<number>(0);
 
   // Refs
   const clientRef = useRef<StreamingVoiceClient | null>(null);
@@ -2278,7 +2283,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const disconnectRef = useRef(disconnect);
   disconnectRef.current = disconnect;
   
-  // Cleanup on unmount only (empty dependency array)
+  // Send prop_tap signal to server whenever the student taps a scene prop
+  useEffect(() => {
+    if (!activePropTap || activePropTap.timestamp === prevPropTapTimestampRef.current) return;
+    prevPropTapTimestampRef.current = activePropTap.timestamp;
+    clientRef.current?.sendPropTap(activePropTap);
+  }, [activePropTap]);
+
   useEffect(() => {
     return () => {
       disconnectRef.current();

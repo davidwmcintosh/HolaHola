@@ -3309,6 +3309,23 @@ ${lastNote.tutorNotes}`);
           break;
         }
         
+        case 'prop_tap': {
+          // Prop-to-dialogue binding: student tapped a scene object — inject context so Daniela reacts.
+          // Formatted as a stage direction so it reads naturally and doesn't disrupt the narrative.
+          const tapLabel = (message as any).propLabel as string | undefined;
+          const tapNative = (message as any).nativeLabel as string | undefined;
+          if (tapLabel) {
+            const contextText = `*(the student examines the ${tapLabel}${tapNative ? ` — ${tapNative}` : ''})*`;
+            console.log(`[PropTap] Injecting context: "${contextText}"`);
+            if (geminiLiveSession) {
+              geminiLiveSession.sendTextTurn(contextText);
+            } else if (session) {
+              orchestrator.processOpenMicTranscript(session.id, contextText, 1.0);
+            }
+          }
+          break;
+        }
+
         case 'interrupt':
           if (geminiLiveSession) {
             geminiLiveSession.interrupt();
