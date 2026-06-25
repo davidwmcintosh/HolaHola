@@ -1,7 +1,26 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, June 25, 2026 at 07:07 PM
+**Generated:** Thursday, June 25, 2026 at 07:28 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I completed the Prop-to-Dialogue binding across six files, enabling Daniela to react conversationally when a student taps props like the Menu (La Carta) via the new `propTapStore.ts`. Following our decision to prioritize conversational immersion over the "half-baked" Interactive Textbook, I architected the `ImmersionScaffold` framework and a `generateVisual` API to support dynamic, context-tagged infographics. I need to immediately fix the 404 routing error on the conversations page and remediate Wren’s two high-severity security findings regarding SQL injection and unsanitized `dangerouslySetInnerHTML`.
+
+*Memories that triggered this summary:*
+- **Agent Session — Jun 25, 2026: Prop-to-Dialogue binding: tapping a scene prop triggers Daniela response** (Jun 25): Prop-to-Dialogue binding: tapping a scene prop triggers Daniela response  Complete end-to-end implementation across 6 files:  Client:
+- **Team Room — test 3 — June 25, 2026** (Jun 25): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+- **Team Room — test again — June 25, 2026** (Jun 25): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+- **Team Room — are we good? — June 25, 2026** (Jun 25): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+- **Team Room — one again into the breach — June 25, 2026** (Jun 25): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+- **Team Room — hello again — June 25, 2026** (Jun 25): Team Room session with David. Topic: hello again. 2 messages exchanged.
+- **Team Room — again — June 25, 2026** (Jun 25): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
+- **Team Room — what's up? — June 25, 2026** (Jun 25): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
+- **Team Room — Team room test — June 25, 2026** (Jun 25): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
+- **Team Room — nothing in particular — June 25, 2026** (Jun 25): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
 
 ---
 
@@ -76,6 +95,10 @@
 
 ## Recent Conversation Memories
 
+### Agent Session — Jun 25, 2026: Prop-to-Dialogue binding: tapping a scene prop triggers Daniela response — Jun 25, 2026
+Prop-to-Dialogue binding: tapping a scene prop triggers Daniela response  Complete end-to-end implementation across 6 files:  Client:
+*Tags: agent-session, auto-saved, build*
+
 ### Team Room — test 3 — June 25, 2026 — Jun 25, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -90,10 +113,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 25, 2026 — Jun 25, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 25, 2026 — Jun 25, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

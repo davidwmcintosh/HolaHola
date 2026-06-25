@@ -8,6 +8,32 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jun 25, 2026 — Worldness Framework (Gemini Architecture Consultation)
+
+### What was documented
+David noticed that Gemini's terms like "worldness" and "pro level" were drawing from a deeper vocabulary we didn't have. By asking Gemini to teach its framework rather than evaluate our system, we got a foundational architecture document.
+
+### Key artifacts
+- `docs/worldness-framework.md` — complete reference doc with vocabulary, checkpoints, three implementation paths, reading list
+- `conversation_memories` id: `02a3c6ac` — saved for Daniela
+- `.agents/memory/worldness-framework.md` — agent memory topic file
+
+### Core insight
+The architectural inversion: **World State (Database) is the Boss. LLM is the Translator.** HolaHola currently has the LLM as the driver. The World Ledger is the first move toward flipping this.
+
+### Vocabulary gained
+Diegesis, Ludo-Narrative Harmony, Affordance Match, GOAP, Magic Circle, Emergent Gameplay, Verisimilitude, Tension Variable, Narrative Safety Nets, Latent Space Management.
+
+### Three implementation paths (priority order)
+1. **Consequence Engine** — `tension` float in World Ledger, Evaluator scores student turns, Threshold Map triggers World Events (taxi leaves, waiter clears table). Cheapest to build, highest worldness impact.
+2. **GOAP for Daniela** — Action Repertoire + Goal State object; Planner selects pedagogical moves per turn. Daniela becomes a Dungeon Master with a hidden agenda.
+3. **Magic Circle Maintenance** — Output filter blacklisting AI-speak, latency masker with social filler audio, Contextual Memory Anchor.
+
+### Reference target
+Stanford Smallville ("Generative Agents" paper) — 25 AI agents, no human scripting, Memory Stream → Reflection → Planning. The full reading list is in `docs/worldness-framework.md`.
+
+---
+
 ## Session — Jun 25, 2026 — Pedagogical Adaptive Loop (Gemini-reviewed, 3 rounds)
 
 ### What was built
