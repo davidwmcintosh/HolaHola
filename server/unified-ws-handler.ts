@@ -2836,6 +2836,14 @@ ${lastNote.tutorNotes}`);
                 // Cache the final system prompt so voice-override reconnects can reuse it
                 geminiLiveSystemPromptCache = geminiLiveSystemPrompt;
                 geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
+                // Interruption Buffer: capture the in-flight GOAP intent on barge-in so
+                // selectStyleShaper can reference it next turn via session.interruptedIntent.
+                geminiLiveSession.onBargeIn = () => {
+                  if (session) {
+                    (session as any).interruptedIntent =
+                      (session as any).lastPedagogicalActionType ?? 'ELICIT';
+                  }
+                };
                 // Persist each new resumption handle to DB (debounced, ≤1 write per 10s).
                 // This is what lets a server restart restore the handle and give Gemini
                 // full in-session context on reconnect.
@@ -4199,6 +4207,13 @@ ${lastNote.tutorNotes}`);
                 } catch (_) {}
               };
               geminiLiveSession = createGeminiLiveSession(session, glSendMessage);
+              // Interruption Buffer (reconnect path — same wiring as initial session)
+              geminiLiveSession.onBargeIn = () => {
+                if (session) {
+                  (session as any).interruptedIntent =
+                    (session as any).lastPedagogicalActionType ?? 'ELICIT';
+                }
+              };
               if (conversationId) {
                 geminiLiveSession.onResumptionHandleUpdate = makeHandlePersister(conversationId);
               }

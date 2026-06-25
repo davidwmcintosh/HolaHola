@@ -241,6 +241,12 @@ export class GeminiLiveSession {
   // Keeping modelTurnCount as a counter for future use with a safe injection API.
   private modelTurnCount = 0;
 
+  // ── Interruption Buffer callback ─────────────────────────────────────────
+  // Called when GL fires serverContent.interrupted (barge-in detected).
+  // The WS handler registers this to capture lastPedagogicalActionType into
+  // session.interruptedIntent — picked up by selectStyleShaper next turn.
+  public onBargeIn?: () => void;
+
   // ── Transcript accumulators ─────────────────────────────────────────────
   // Both user and assistant transcripts are accumulated across multiple
   // inputTranscription / outputTranscription / turnComplete events and
@@ -1714,6 +1720,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // Close transcript gate — discard any outputTranscription arriving after barge-in.
       this.transcriptClosed = true;
       console.log('[GeminiLive] Barge-in detected — flushing partial transcript and sealing audio sub-turn');
+      // Interruption Buffer: notify WS handler so it can capture lastPedagogicalActionType
+      this.onBargeIn?.();
       // Close tutor speaking timer on barge-in (student interrupted before generation complete)
       if (this.tutorSpeakingStartTime !== null) {
         this.tutorSpeakingMs += Date.now() - this.tutorSpeakingStartTime;

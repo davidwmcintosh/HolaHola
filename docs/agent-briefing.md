@@ -1,26 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, June 25, 2026 at 09:26 PM
+**Generated:** Thursday, June 25, 2026 at 10:25 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I am orienting myself around a critical blocker: Daniela is currently stuck in a "Curriculum note pending" response loop that I need to resolve immediately. In the last session, we debated the future of the "half-baked" Interactive Textbook and implemented the `generateVisual` and `ImmersionObjective` frameworks to shift toward David’s vision for conversational immersion. I also need to prioritize Wren’s high-severity security findings (SQL injection and XSS risks) and investigate a surge of 50 new bugs flagged by Sofia, specifically a telemetry failure in Daniela’s Compass that is failing to track textbook engagement time.
+I’ve completed the Worldness Framework through Tier 4, shipping Gemini-approved systems for Memory Distillation, Social Affordances, and the Interruption Buffer. I now record narrative footprints to the World Ledger upon scene exit, treat register mismatches as social friction rather than mere errors, and preserve my pedagogical intent when interrupted by a student. These additions ensure that the scenes have memory and social weight, so I should now focus on leveraging these behavioral layers to deepen student immersion.
 
 *Memories that triggered this summary:*
-- **Team Room — test 3 — June 25, 2026** (Jun 25): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — June 25, 2026** (Jun 25): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — June 25, 2026** (Jun 25): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — June 25, 2026** (Jun 25): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — June 25, 2026** (Jun 25): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — June 25, 2026** (Jun 25): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — June 25, 2026** (Jun 25): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — June 25, 2026** (Jun 25): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — June 25, 2026** (Jun 25): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — June 25, 2026** (Jun 25): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
+- **Worldness Framework — Memory, Register, Interruption** (Jun 25): Memory Distillation (scene footprint to World Ledger on exit), Social Affordances (register mismatch → GOAP structural note), Interruption Buffer (onBargeIn → one-shot style shaper) — all Gemini-approved. Worldness Framework complete through Tier 4.
 
 ---
 
@@ -95,6 +86,10 @@ I am orienting myself around a critical blocker: Daniela is currently stuck in a
 
 ## Recent Conversation Memories
 
+### Worldness Framework — Memory, Register, Interruption — Jun 25, 2026
+Memory Distillation (scene footprint to World Ledger on exit), Social Affordances (register mismatch → GOAP structural note), Interruption Buffer (onBargeIn → one-shot style shaper) — all Gemini-approved. Worldness Framework complete through Tier 4.
+*Tags: worldness, memory-distillation, social-affordances, interruption-buffer*
+
 ### Team Room — test 3 — June 25, 2026 — Jun 25, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -109,10 +104,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — June 25, 2026 — Jun 25, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — June 25, 2026 — Jun 25, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

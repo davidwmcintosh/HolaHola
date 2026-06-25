@@ -4,20 +4,18 @@
 // stage directions when the tension band changes.
 //
 // Also owns:
-//   - Style Shapers: periodic latent-space injections that bias Daniela's tone
-//     based on current tension band. Prevents RLHF drift back to "helpful tutor."
-//     Injected every 3 turns via sendTextTurn (separate from world events).
-//   - Graceful Exit detection: when tension drops from tense/breaking → comfortable,
-//     sets session.lifecycleState = 'EXITING' so the planner can fire REST_REFLECT.
+//   - Style Shapers: periodic latent-space injections per tension band (every 3 turns)
+//   - Social Affordances: register mismatch detection (INCONGRUENT_TOO_FORMAL / _TOO_CASUAL)
+//   - Graceful Exit detection: tense/breaking → comfortable sets lifecycleState='EXITING'
+//   - Memory Distillation trigger: calls distillSceneMemory fire-and-forget on EXITING
+//   - Interruption Buffer: interruptedIntent check in selectStyleShaper
 //
-// Architecture (from Worldness Framework, June 25 2026):
-//   Tension Variable T ∈ [0, 1] — social stability of the scene.
-//   Evaluator: fast Gemini JSON call after each student turn.
-//   Threshold Map: band changes trigger stage direction injection via sendTextTurn.
-//   World Events: injected as stage directions (same pattern as prop_tap).
-//   Full doc: docs/worldness-framework.md
+// Full doc: docs/worldness-framework.md
 
 import https from 'https';
+import { getUserDb } from '../db';
+import { sql } from 'drizzle-orm';
+import { distillSceneMemory } from './scene-memory-distiller';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = 'gemini-3-flash-preview';
@@ -45,7 +43,6 @@ export function applyFriction(
   else if (socialFriction >= 2) delta = +0.08;
   if (pragmaticScore >= 4) delta -= 0.12;
   else if (pragmaticScore >= 3) delta -= 0.06;
-  // Neutral decay: staying in the game is rewarded — prevents grinding death spirals
   if (socialFriction < 2 && pragmaticScore < 3) delta -= 0.02;
   return Math.max(0, Math.min(1, current + delta));
 }
@@ -55,6 +52,7 @@ export function applyFriction(
 export interface TurnScores {
   pragmaticScore: number;
   socialFriction: number;
+  socialRegister?: 'HARMONIC' | 'INCONGRUENT_TOO_FORMAL' | 'INCONGRUENT_TOO_CASUAL';
 }
 
 export async function evaluateStudentTurn(
@@ -69,12 +67,15 @@ export async function evaluateStudentTurn(
     `You are scoring a language learner's communicative effectiveness. ` +
     `Scene: "${context.sceneName}". Language: ${context.language}. ` +
     (context.missionGoal ? `Goal: ${context.missionGoal}. ` : '') +
-    `Return ONLY valid JSON: {"pragmatic_score": 0-5, "social_friction": 0-5}. ` +
-    `pragmatic_score = how effectively did the student communicate their intent (5=perfect). ` +
-    `social_friction = how much impatience or awkwardness this creates for the other character (5=very disruptive). ` +
-    `IMPORTANT: Distinguish between linguistic struggle and social hostility. ` +
-    `Grammar errors, missing vocabulary, or hesitation = LOW friction (the character is patient with learners). ` +
-    `Only assign HIGH friction for turns that are culturally rude, dismissive, or impossible to understand entirely.`;
+    `Return ONLY valid JSON: {"pragmatic_score": 0-5, "social_friction": 0-5, "social_register": "HARMONIC|INCONGRUENT_TOO_FORMAL|INCONGRUENT_TOO_CASUAL"}. ` +
+    `pragmatic_score = how effectively the student communicated their intent (5=perfect). ` +
+    `social_friction = impatience or awkwardness created for the other character (5=very disruptive). ` +
+    `social_register = whether the formality level fits the scene relationship: ` +
+    `HARMONIC = appropriate register for the context. ` +
+    `INCONGRUENT_TOO_FORMAL = using formal address (usted, Sie, vous) with someone expecting informality. ` +
+    `INCONGRUENT_TOO_CASUAL = using casual address (tú, du, tu) with someone expecting formality. ` +
+    `IMPORTANT: Grammar errors, missing vocabulary, or hesitation = LOW friction. ` +
+    `Only assign HIGH friction for turns that are culturally rude, dismissive, or impossible to understand.`;
 
   const userPrompt = `Student said: "${text.slice(0, 300)}"`;
 
@@ -84,7 +85,7 @@ export async function evaluateStudentTurn(
     generationConfig: {
       responseMimeType: 'application/json',
       temperature: 0.1,
-      maxOutputTokens: 60,
+      maxOutputTokens: 80,
     },
   });
 
@@ -118,9 +119,16 @@ export async function evaluateStudentTurn(
     const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!raw) return { pragmaticScore: 3, socialFriction: 1 };
     const parsed = JSON.parse(raw);
+
+    const validRegisters = ['HARMONIC', 'INCONGRUENT_TOO_FORMAL', 'INCONGRUENT_TOO_CASUAL'];
+    const socialRegister = validRegisters.includes(parsed.social_register)
+      ? parsed.social_register
+      : 'HARMONIC';
+
     return {
       pragmaticScore: Math.max(0, Math.min(5, Number(parsed.pragmatic_score ?? 3))),
       socialFriction: Math.max(0, Math.min(5, Number(parsed.social_friction ?? 1))),
+      socialRegister,
     };
   } catch {
     return { pragmaticScore: 3, socialFriction: 1 };
@@ -135,8 +143,6 @@ export async function persistTension(
   tension: number,
 ): Promise<void> {
   try {
-    const { getUserDb } = await import('../db');
-    const { sql } = await import('drizzle-orm');
     const db = getUserDb();
     await db.execute(sql`
       INSERT INTO scene_world_ledger (id, user_id, scene_name, ledger, tension, updated_at)
@@ -145,7 +151,7 @@ export async function persistTension(
         SET tension = ${tension}, updated_at = now()
     `);
   } catch {
-    // fire-and-forget — don't crash caller
+    // fire-and-forget
   }
 }
 
@@ -161,19 +167,18 @@ export function getWorldEventText(band: TensionBand, prevBand: TensionBand): str
     return '*(the other person\'s body language shifts — a visible impatience, a glance at the door or their watch)*';
   }
   if (band === 'breaking') {
-    return '*(the other person has their hand near the door, face a mask of cold politeness — one more misunderstanding and they are gone. Meet them where they are, right now)*';
+    return '*(the other person has their hand near the door, face a mask of cold politeness — one more misunderstanding and they are gone)*';
   }
   if (band === 'comfortable' && (prevBand === 'tense' || prevBand === 'breaking')) {
-    return '*(their shoulders drop slightly, a slow breath out — something in their eyes softens, like they were waiting to give you this chance)*';
+    return '*(their shoulders drop slightly, a slow breath out — something in their eyes softens)*';
   }
   return null;
 }
 
 // ─── Style Shapers ────────────────────────────────────────────────────────────
 // Periodic latent-space pressure injected every 3 scene turns.
-// Written in third-person to prevent fighting the Magic Circle's identity framing.
-// Goal: counter RLHF drift back to "helpful language tutor" voice.
-// When lifecycleState is 'EXITING', fires the Aftermath shaper regardless of counter.
+// Third-person prose — prevents fighting the Magic Circle's identity framing.
+// Also handles: Aftermath (pendingAftermath), Interruption Buffer (interruptedIntent).
 
 const STYLE_SHAPERS: Record<TensionBand, string> = {
   comfortable:
@@ -189,18 +194,33 @@ const STYLE_SHAPERS: Record<TensionBand, string> = {
 const AFTERMATH_SHAPER =
   '*(the intensity has passed — she can name what just happened or leave it alone, but she is present with whatever weight the scene left behind)*';
 
+const INTERRUPTED_SHAPERS: Record<string, string> = {
+  ELICIT:         '*(she had something she was drawing out of them — she can pick it back up or let the student lead from here)*',
+  CHALLENGE:      '*(she was about to raise the bar — that moment passed, but the expectation is still there)*',
+  SCAFFOLD:       '*(she was about to ease in and help — that opening is still available if they need it)*',
+  CRISIS_BEAT:    '*(she was mid-ultimatum when they cut her off — the stakes have not changed)*',
+  CELEBRATE:      '*(she was about to acknowledge something — she still knows it landed)*',
+  PROGRESS_SCENE: '*(she was moving the scene forward — the thread is still there to pick up)*',
+  DEFAULT:        '*(she had something in mind — she can hold it or let the student carry from here)*',
+};
+
 export function selectStyleShaper(session: any): string | null {
   if (!session?.sceneCanvas) return null;
 
-  // Aftermath: fires once after Graceful Exit — signalled by pendingAftermath
-  // (set by selectPedagogicalDirective when it fires REST_REFLECT).
-  // Order-safe: does not depend on lifecycleState, which the planner already consumed.
+  // Interruption Buffer: fires once after a barge-in, ahead of everything else
+  if (session.interruptedIntent) {
+    const intent = session.interruptedIntent as string;
+    session.interruptedIntent = null;
+    return INTERRUPTED_SHAPERS[intent] ?? INTERRUPTED_SHAPERS.DEFAULT;
+  }
+
+  // Aftermath: fires once after Graceful Exit (signalled by GOAP planner via pendingAftermath)
   if (session.pendingAftermath) {
-    session.pendingAftermath = false; // consume — fires exactly once
+    session.pendingAftermath = false;
     return AFTERMATH_SHAPER;
   }
 
-  // Every 3 turns, inject a band-appropriate style pressure
+  // Every 3 turns: inject band-appropriate style pressure
   const sceneAge: number = session.sceneAge ?? 0;
   if (sceneAge === 0 || sceneAge % 3 !== 0) return null;
 
@@ -210,13 +230,6 @@ export function selectStyleShaper(session: any): string | null {
 }
 
 // ─── Main session helper ─────────────────────────────────────────────────────
-// Returns a world event stage direction if the tension band changed, else null.
-// Side effects on session:
-//   - session.sceneTension updated
-//   - session.lastTensionBand updated on band change
-//   - session.lastTurnScores set
-//   - session.sceneAge incremented (auto-resets when scene name changes)
-//   - session.lifecycleState set to 'EXITING' on tense/breaking → comfortable transition
 
 export async function evaluateAndUpdateTension(
   text: string,
@@ -226,10 +239,11 @@ export async function evaluateAndUpdateTension(
   const sceneName = session?.sceneCanvas?.environment as string | undefined;
   if (!sceneName || !userId) return null;
 
-  // ── Scene age tracking ────────────────────────────────────────────────────
-  // Auto-reset when the active scene changes (self-healing — no caller changes needed)
+  // ── Scene age + peak tracking ─────────────────────────────────────────────
   if (session.lastSceneName !== sceneName) {
     session.sceneAge = 0;
+    session.sceneTensionPeak = 0;
+    session.registerIncongruentCount = 0;
     session.lastSceneName = sceneName;
   }
   session.sceneAge = (session.sceneAge ?? 0) + 1;
@@ -243,6 +257,14 @@ export async function evaluateAndUpdateTension(
   const next = applyFriction(prev, scores.socialFriction, scores.pragmaticScore);
   session.sceneTension = next;
 
+  // Track peak tension for Memory Distillation
+  if (next > (session.sceneTensionPeak ?? 0)) session.sceneTensionPeak = next;
+
+  // Track register incongruence count for Memory Distillation
+  if (scores.socialRegister && scores.socialRegister !== 'HARMONIC') {
+    session.registerIncongruentCount = (session.registerIncongruentCount ?? 0) + 1;
+  }
+
   const prevBand = getTensionBand(prev);
   const nextBand = getTensionBand(next);
 
@@ -252,24 +274,22 @@ export async function evaluateAndUpdateTension(
   if (worldEvent) session.lastTensionBand = nextBand;
 
   // ── Graceful Exit detection ───────────────────────────────────────────────
-  // When tension drops from tense/breaking → comfortable, signal the planner
-  // to fire REST_REFLECT on the next GOAP evaluation.
   const wasHigh = prevBand === 'tense' || prevBand === 'breaking';
   const nowComfortable = nextBand === 'comfortable';
   if (wasHigh && nowComfortable && session.lifecycleState !== 'EXITING') {
     session.lifecycleState = 'EXITING';
+    // Memory Distillation — fire-and-forget (writes narrative footprint to scene_world_ledger.ledger)
+    distillSceneMemory(session).catch(() => {});
   }
 
-  // Persist async — don't await
   persistTension(userId, sceneName, next).catch(() => {});
 
-  // Store scores on session so pedagogical-planner.ts can read them synchronously
   session.lastTurnScores = scores;
 
-  if (scores.pragmaticScore >= 4 || scores.socialFriction >= 3) {
+  if (scores.pragmaticScore >= 4 || scores.socialFriction >= 3 || (scores.socialRegister && scores.socialRegister !== 'HARMONIC')) {
     console.log(
       `[Tension] ${sceneName} ${prev.toFixed(2)}→${next.toFixed(2)} (${prevBand}→${nextBand}) ` +
-      `prag=${scores.pragmaticScore} friction=${scores.socialFriction}` +
+      `prag=${scores.pragmaticScore} friction=${scores.socialFriction} register=${scores.socialRegister ?? 'HARMONIC'}` +
       `${worldEvent ? ' [WorldEvent]' : ''}${session.lifecycleState === 'EXITING' ? ' [EXITING]' : ''}`,
     );
   }

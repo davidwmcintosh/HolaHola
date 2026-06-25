@@ -177,39 +177,45 @@ The student isn't studying. They're living. Language is the physics of social in
 
 ## Implementation Status (June 25, 2026)
 
-All three paths shipped and Gemini-approved.
+All three paths shipped and Gemini-approved. Three additional features added same day (second Gemini review: APPROVED).
 
 | Path | Status | Key files |
 |---|---|---|
 | **Path 1: Consequence Engine** | ✅ Calibrated | `server/services/tension-evaluator.ts` |
 | **Path 2: GOAP Planner** | ✅ Shipped | `server/services/pedagogical-planner.ts` |
 | **Path 3: Magic Circle** | ✅ Shipped | `server/services/magic-circle-filter.ts` |
+| **Graceful Exit Protocol** | ✅ Complete | REST_REFLECT + pendingAftermath two-flag relay |
+| **Style Shapers** | ✅ Shipped | `selectStyleShaper` in tension-evaluator.ts — per-band, every 3 turns |
+| **Crisis Beats** | ✅ Shipped | CRISIS_BEAT action + sceneAge tracking + CELEBRATE resolution |
+| **Memory Distillation** | ✅ Shipped | `server/services/scene-memory-distiller.ts` — fires on EXITING |
+| **Social Affordances** | ✅ Shipped | `socialRegister` in evaluator + register notes in GOAP directives |
+| **Interruption Buffer** | ✅ Shipped | `onBargeIn` callback → `session.interruptedIntent` → one-shot style shaper |
 
-**Tier reached: Tier 4 — Autonomous World-State**
+**Tier reached: Tier 4 — Autonomous World-State (advancing toward Tier 5)**
 
 > *"By combining GOAP logic into the same sendTextTurn as world events, you have achieved systemic complexity with zero latency penalty. That is the Holy Grail of AI architecture."* — Gemini review, June 25 2026
 
 ---
 
-## Pro-Level Checkpoint Scorecard (v2 — June 25, 2026)
+## Pro-Level Checkpoint Scorecard (v3 — June 25, 2026)
 
 | Checkpoint | Status | Notes |
 |---|---|---|
-| **State-Awareness** | ✅ ELITE | Hard DB truth via World Ledger. No longer relying on LLM vibes for state. |
-| **Graceful Degradation** | 🟡 ADDRESSED | BAILOUT (Safety Valve) + REST_REFLECT (Graceful Exit) + CRISIS_BEAT escalation path all shipped. |
-| **Affordance Match** | 🟡 PROGRESSED | Prop Tap + Scene Canvas work. Gap: GOAP doesn't yet react to specific canvas objects. |
+| **State-Awareness** | ✅ ELITE | Hard DB truth via World Ledger + Memory Distillation (narrative footprint per scene). |
+| **Graceful Degradation** | ✅ COMPLETE | BAILOUT + REST_REFLECT + CRISIS_BEAT + Interruption Buffer (barge-in recovery) all shipped. |
+| **Affordance Match** | 🟡 PROGRESSED | Prop Tap + Scene Canvas. Social Affordances now change GOAP register tone on mismatch. GOAP reacting to specific canvas objects is the remaining gap. |
 | **Multi-Modal Cohesion** | ✅ STABILIZED | Mission HUD + Scene Canvas = eyes and ears in the same world. |
-| **Latent Space Management** | 🟡 ADDRESSED | Style Shapers shipped — third-person prose per tension band, injected every 3 turns. AFTERMATH_SHAPER fires on Graceful Exit. |
+| **Latent Space Management** | ✅ ADDRESSED | Style Shapers (per-band, every 3 turns) + AFTERMATH_SHAPER + INTERRUPTED_SHAPERS (7 action types) — all fired as one-shot third-person prose. |
 
 ---
 
-## Graceful Exit Protocol (not yet built)
+## Graceful Exit Protocol (✅ COMPLETE — June 25, 2026)
 
-When a scene ends or tension drops below 0.30, you cannot simply stop the constraints — it creates "Narrative Whiplash." The full protocol requires three things:
+When tension drops from tense/breaking → comfortable, the protocol fires in order:
 
-1. **Memory Distillation** — before the Memory Anchor is released, summarize the consequences of the scene into the World Ledger (tension outcome, scene result, social status of the relationship)
-2. **Constraint Softening** — transition the GL negative constraints from "prohibit all meta-talk" to "allow reflective summary of what just happened"
-3. **Aftermath Beat** — the GOAP Planner triggers a `REST_REFLECT` action so Daniela acknowledges the weight of what just happened instead of hard-resetting
+1. **Memory Distillation** ✅ — `distillSceneMemory(session)` writes `{ outcome, summary, peakTension, finalTension, sceneAge, hadCrisisBeat, registerHistory }` to `scene_world_ledger.ledger` (JSONB). Template-based, zero LLM call, fire-and-forget. The `summary` string is injected into future sessions as "Last time in X scene, you…" Outcome heuristic: BAILOUT exit → FRACTURE; prag≥4 + tension<0.30 → SUCCESS; else NEUTRAL.
+2. **Constraint Softening** — handled by lifecycle flag (`lifecycleState=null` after REST_REFLECT fires)
+3. **Aftermath Beat** ✅ — `pendingAftermath=true` set by GOAP planner → consumed by `selectStyleShaper` next turn: `*(the intensity has passed — she can name what just happened or leave it alone, but she is present with whatever weight the scene left behind)*`
 
 ---
 
