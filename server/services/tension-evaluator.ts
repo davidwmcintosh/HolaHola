@@ -20,8 +20,8 @@ const GEMINI_MODEL = 'gemini-3-flash-preview';
 export type TensionBand = 'comfortable' | 'mild' | 'tense' | 'breaking';
 
 export function getTensionBand(tension: number): TensionBand {
-  if (tension < 0.40) return 'comfortable';
-  if (tension < 0.65) return 'mild';
+  if (tension < 0.30) return 'comfortable';
+  if (tension < 0.60) return 'mild';
   if (tension < 0.85) return 'tense';
   return 'breaking';
 }
@@ -34,10 +34,12 @@ export function applyFriction(
   pragmaticScore: number,
 ): number {
   let delta = 0;
-  if (socialFriction >= 4) delta = +0.18;
+  if (socialFriction >= 4) delta = +0.15;
   else if (socialFriction >= 2) delta = +0.08;
   if (pragmaticScore >= 4) delta -= 0.12;
   else if (pragmaticScore >= 3) delta -= 0.06;
+  // Neutral decay: staying in the game is rewarded — prevents grinding death spirals
+  if (socialFriction < 2 && pragmaticScore < 3) delta -= 0.02;
   return Math.max(0, Math.min(1, current + delta));
 }
 
@@ -62,7 +64,10 @@ export async function evaluateStudentTurn(
     (context.missionGoal ? `Goal: ${context.missionGoal}. ` : '') +
     `Return ONLY valid JSON: {"pragmatic_score": 0-5, "social_friction": 0-5}. ` +
     `pragmatic_score = how effectively did the student communicate their intent (5=perfect). ` +
-    `social_friction = how much impatience or awkwardness this creates for the other character (5=very disruptive).`;
+    `social_friction = how much impatience or awkwardness this creates for the other character (5=very disruptive). ` +
+    `IMPORTANT: Distinguish between linguistic struggle and social hostility. ` +
+    `Grammar errors, missing vocabulary, or hesitation = LOW friction (the character is patient with learners). ` +
+    `Only assign HIGH friction for turns that are culturally rude, dismissive, or impossible to understand entirely.`;
 
   const userPrompt = `Student said: "${text.slice(0, 300)}"`;
 
@@ -149,10 +154,10 @@ export function getWorldEventText(band: TensionBand, prevBand: TensionBand): str
     return '*(the other person\'s body language shifts — a visible impatience, a glance at the door or their watch)*';
   }
   if (band === 'breaking') {
-    return '*(the moment is critical — the other person is on the verge of giving up. Offer the student one simple, direct action they can take right now)*';
+    return '*(the other person has their hand near the door, face a mask of cold politeness — one more misunderstanding and they are gone. Meet them where they are, right now)*';
   }
   if (band === 'comfortable' && (prevBand === 'tense' || prevBand === 'breaking')) {
-    return '*(the tension eases — the connection is re-established)*';
+    return '*(their shoulders drop slightly, a slow breath out — something in their eyes softens, like they were waiting to give you this chance)*';
   }
   return null;
 }
@@ -187,6 +192,9 @@ export async function evaluateAndUpdateTension(
 
   // Persist async — don't await
   persistTension(userId, sceneName, next).catch(() => {});
+
+  // Store scores on session so pedagogical-planner.ts can read them synchronously
+  session.lastTurnScores = scores;
 
   if (scores.pragmaticScore >= 4 || scores.socialFriction >= 3) {
     console.log(

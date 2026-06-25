@@ -34,6 +34,46 @@ Stanford Smallville ("Generative Agents" paper) — 25 AI agents, no human scrip
 
 ---
 
+## Session — Jun 25, 2026 — Consequence Engine (Path 1) + GOAP Planner (Path 2)
+
+### Path 1 — Consequence Engine calibrated (post-Gemini review)
+
+Fixes applied to `server/services/tension-evaluator.ts`:
+- **Tension math**: friction delta +0.18→+0.15; added -0.02 neutral decay (rewards staying in game, prevents death spiral)
+- **Band thresholds**: comfortable<0.30, mild<0.60, tense<0.85 (wider tense band, student can't teleport through it)
+- **World event text — diegetic**: breaking and recovery directions now use muscles/objects/eyes not emotions or states
+- **Evaluator prompt**: explicit grammar-vs-intent distinction — grammar errors ≠ friction unless culturally offensive
+
+### Path 2 — GOAP Planner shipped
+
+New service: `server/services/pedagogical-planner.ts`
+
+**What it does:** Rule-based GOAP planner. Before each of Daniela's turns, selects a pedagogical action and injects it as a stage direction alongside the student's utterance. Zero extra LLM call (sub-ms). Daniela becomes a DM with a hidden agenda rather than a helpful mirror.
+
+**5 actions and their stage directions (actor-note style):**
+- `SCAFFOLD` — `*(they are reaching for it — ease in, meet them where they are)*`
+- `CHALLENGE` — `*(they have their footing — make them earn the next step, don't hand it to them)*`
+- `ELICIT` — `*(find the opening — let them construct it, don't fill the silence for them)*`
+- `PROGRESS_SCENE` — `*(the scene can move forward now — lead them toward the next beat)*`
+- `CELEBRATE` — `*(they just got it — acknowledge it genuinely before pressing on)*`
+
+**Selection rules (priority):**
+1. tension>0.80 OR pragmaticScore≤1 OR socialFriction≥4 → SCAFFOLD (threshold 0.80 preserves flow state)
+2. pragmaticScore≥5 AND lastAction≠CELEBRATE → CELEBRATE
+3. pragmaticScore≥4 AND tension<0.40 → CHALLENGE
+4. exchangeCount>14 → PROGRESS_SCENE
+5. default → ELICIT
+
+**Injection model:**
+- Injects when action type changes (course correction) OR every 3 turns (heartbeat — fights LLM recency bias)
+- Silence detection: if student goes quiet inside tense scene → ELICIT nudge
+- Combined with world event (from tension evaluator) into single `sendTextTurn` — one context update per student turn
+- `tension-evaluator.ts` now stores `session.lastTurnScores` for planner to read synchronously
+
+**Key files:** `server/services/pedagogical-planner.ts` (new), `server/services/tension-evaluator.ts` (lastTurnScores), `server/unified-ws-handler.ts` (two injection points updated)
+
+---
+
 ## Session — Jun 25, 2026 — Pedagogical Adaptive Loop (Gemini-reviewed, 3 rounds)
 
 ### What was built

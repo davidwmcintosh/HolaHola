@@ -70,6 +70,7 @@ import { schedulePendingReflectionIfMissing, buildTranscriptPreview, processAndC
 import { generateAndStorePedagogicalBrief, MIN_EXCHANGES_FOR_BRIEF } from './services/pedagogical-brief-worker';
 import { analyzeSessionForMasteryEvidence, MIN_EXCHANGES_FOR_MASTERY } from './services/mastery-evidence-worker';
 import { evaluateAndUpdateTension } from './services/tension-evaluator';
+import { selectPedagogicalDirective } from './services/pedagogical-planner';
 
 // Use /api/ paths - Replit's proxy properly routes these
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
@@ -3238,11 +3239,15 @@ ${lastNote.tutorNotes}`);
               pendingSpeculativeWordCount = 0;
               console.log(`[GeminiLive PTT] Routing via text turn (${transcript.length} chars): "${transcript.slice(0, 80)}"`);
               geminiLiveSession.sendTextTurn(transcript);
-              // Tension: evaluate async → inject World Event stage direction if band changed
+              // Tension + GOAP: evaluate async → combine world event + pedagogical directive
               if (session && (session as any).sceneCanvas) {
                 const glSnapTension = geminiLiveSession;
                 evaluateAndUpdateTension(transcript, session)
-                  .then(worldEvent => { if (worldEvent) glSnapTension.sendTextTurn(worldEvent); })
+                  .then(worldEvent => {
+                    const directive = selectPedagogicalDirective(session);
+                    const combined = [worldEvent, directive].filter(Boolean).join(' ');
+                    if (combined) glSnapTension.sendTextTurn(combined);
+                  })
                   .catch(() => {});
               }
             } else {
@@ -4027,15 +4032,24 @@ ${lastNote.tutorNotes}`);
                 if (session) updateStudentPulse(session, finalTranscript);
                 console.log(`[GeminiLive PTT] Routing transcript via text turn (${finalWordCount} words): "${finalTranscript.slice(0, 80)}"`);
                 glSessionSnap.sendTextTurn(finalTranscript);
-                // Tension: evaluate async → inject World Event stage direction if band changed
+                // Tension + GOAP: evaluate async → combine world event + pedagogical directive
                 if (session && (session as any).sceneCanvas) {
                   const glForTension = glSessionSnap;
                   evaluateAndUpdateTension(finalTranscript, session)
-                    .then(worldEvent => { if (worldEvent) glForTension.sendTextTurn(worldEvent); })
+                    .then(worldEvent => {
+                      const directive = selectPedagogicalDirective(session);
+                      const combined = [worldEvent, directive].filter(Boolean).join(' ');
+                      if (combined) glForTension.sendTextTurn(combined);
+                    })
                     .catch(() => {});
                 }
               } else {
                 console.log('[GeminiLive PTT] No transcript — GL VAD will handle response from streamed audio');
+                // Quiet turn inside active scene: nudge if tension is elevated
+                if (session && (session as any).sceneCanvas) {
+                  const quietDirective = selectPedagogicalDirective(session, true);
+                  if (quietDirective) glSessionSnap.sendTextTurn(quietDirective);
+                }
               }
             } else if (finalTranscript && finalWordCount >= SPECULATIVE_TRANSCRIPT_MIN_WORDS) {
               console.log(`[SpeculativePTT] No speculative AI - triggering directly with transcript (${finalWordCount} words)`);
