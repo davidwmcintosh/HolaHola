@@ -1488,6 +1488,31 @@ export class NativeFunctionCallHandler {
           }
           console.log(`[Native Function→OpenScene] Opened: ${sceneEnv}`);
 
+          // World Ledger: fetch narrative scene memory for this student+scene
+          const openSceneUserId = String((session as any).userId || '');
+          if (openSceneUserId) {
+            try {
+              const { sceneWorldLedger: swl } = await import('@shared/schema');
+              const { eq: eqLedger, and: andLedger } = await import('drizzle-orm');
+              const ledgerRows = await openDb.select({ ledger: swl.ledger })
+                .from(swl)
+                .where(andLedger(
+                  eqLedger(swl.userId, openSceneUserId),
+                  eqLedger(swl.sceneName, sceneEnv),
+                ))
+                .limit(1);
+              if (ledgerRows[0]?.ledger) {
+                (session as any).sceneWorldLedger = ledgerRows[0].ledger;
+                console.log(`[WorldLedger] Loaded for ${openSceneUserId}/${sceneEnv}`);
+              } else {
+                (session as any).sceneWorldLedger = null;
+              }
+            } catch (ledgerErr: any) {
+              console.warn('[WorldLedger] Failed to load on scene open:', ledgerErr.message);
+              (session as any).sceneWorldLedger = null;
+            }
+          }
+
           // Vision system: fetch background image bytes so Daniela can see the environment
           const openSceneVisionPromise = (async () => {
             try {
@@ -1509,6 +1534,16 @@ export class NativeFunctionCallHandler {
                 inlineData: vision.inlineData,
                 sceneStateText,
               };
+              // World Ledger: append narrative scene memory if available
+              const worldLedger = (session as any).sceneWorldLedger as Record<string, unknown> | null | undefined;
+              if (worldLedger && Object.keys(worldLedger).length > 0) {
+                const ledgerText = Object.entries(worldLedger)
+                  .map(([k, v]) => `${k}: ${String(v)}`)
+                  .join(', ');
+                session.visionBuffer['open_scene'].sceneStateText +=
+                  `\n\nScene Memory from previous visits: ${ledgerText}`;
+                console.log(`[WorldLedger] Injected into scene vision for "${sceneEnv}"`);
+              }
               console.log(`[Vision→OpenScene] Mode: ${vision.mode} for "${sceneEnv}"`);
             } catch (err: any) {
               console.error('[Vision→OpenScene] Error:', err.message);

@@ -9596,3 +9596,22 @@ export const insertActflLevelChangesSchema = createInsertSchema(actflLevelChange
 });
 export type InsertActflLevelChange = z.infer<typeof insertActflLevelChangesSchema>;
 export type ActflLevelChange = typeof actflLevelChanges.$inferSelect;
+
+// ===== SCENE WORLD LEDGER =====
+// Narrative facts about a student's history in a named scene, persisted across sessions.
+// NOT coordinate or prop data — only semantic facts Daniela can reference on scene entry.
+// Examples: { has_paid_tab: true, relationship_with_barista: "friendly", last_item: "croissant" }
+// Daniela writes via update_world_ledger; server injects on OPEN_SCENE.
+export const sceneWorldLedger = pgTable('scene_world_ledger', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar('user_id').notNull().references(() => users.id),
+  sceneName: text('scene_name').notNull(),
+  ledger: jsonb('ledger').notNull().default('{}'),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('idx_scene_world_ledger_user_scene').on(table.userId, table.sceneName),
+]);
+
+export const insertSceneWorldLedgerSchema = createInsertSchema(sceneWorldLedger).omit({ id: true, updatedAt: true });
+export type InsertSceneWorldLedger = z.infer<typeof insertSceneWorldLedgerSchema>;
+export type SceneWorldLedger = typeof sceneWorldLedger.$inferSelect;

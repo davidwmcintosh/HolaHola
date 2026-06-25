@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { usePlaybackState } from "@/lib/playbackStateStore";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useGlobalVoiceInput } from "@/lib/voiceInputStore";
+import { useGlobalMission } from "@/lib/missionStore";
 import type { SceneCanvasItemData, SceneCanvasRichContent, WhiteboardItem, OverlayPanel } from "@shared/whiteboard-types";
 import { OverlayPanelContent } from "@/components/OverlayPanelContent";
 
@@ -299,6 +300,7 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
   const isThinking = playbackState === 'thinking';
   const voice = useGlobalVoiceInput();
 
+  const activeMission = useGlobalMission();
   const [openSheet, setOpenSheet] = useState<SceneCanvasRichContent | null>(null);
 
   // PTT pointer tracking for immersive mode (mirrors ImmersiveTutor pattern)
@@ -498,6 +500,26 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
               ))}
             </div>
           )}
+
+          {/* Objective HUD — top center, visible when Daniela sets a mission */}
+          <AnimatePresence>
+            {activeMission && (
+              <motion.div
+                key="mission-badge"
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.3 }}
+                className="absolute top-4 left-1/2 -translate-x-1/2 z-10 max-w-[60%]"
+                data-testid="immersive-objective-hud"
+              >
+                <div className="flex items-center gap-2 rounded-full px-3 py-1.5 bg-black/50 border border-white/20 backdrop-blur-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-yellow-400 shrink-0" />
+                  <span className="text-xs font-medium text-white/90 truncate">{activeMission}</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Ambient turn indicator — top left */}
           <div className="absolute top-4 left-4 z-10">

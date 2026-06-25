@@ -1438,8 +1438,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
 
   // Gap D — Shared Mission
   const handleMissionSet = useCallback((message: { type: string; mission: string; timestamp: number }) => {
-    if (sessionConfigRef.current?.onMissionSet && message.mission) {
-      sessionConfigRef.current.onMissionSet(message.mission);
+    if (message.mission) {
+      // Update global store so ImmersiveOverlay (outside StreamingVoiceChat tree) can render it
+      import('@/lib/missionStore').then(({ setGlobalMission }) => setGlobalMission(message.mission));
+      if (sessionConfigRef.current?.onMissionSet) {
+        sessionConfigRef.current.onMissionSet(message.mission);
+      }
     }
   }, []);
   
@@ -1610,10 +1614,15 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
 
   const handleScenarioLoaded = useCallback((message: any) => {
     console.log('[StreamingVoice] Scenario loaded:', message.scenario?.title);
+    // New scenario = fresh start; clear any lingering mission from a previous scene.
+    import('@/lib/missionStore').then(({ setGlobalMission }) => setGlobalMission(null));
     sessionConfigRef.current?.onScenarioLoaded?.(message.scenario);
   }, []);
 
   const handleZoneAdvanced = useCallback((message: any) => {
+    // Zone change = new scene context; clear mission so old objective doesn't ghost.
+    // Daniela can re-set it immediately if the mission spans scenes.
+    import('@/lib/missionStore').then(({ setGlobalMission }) => setGlobalMission(null));
     sessionConfigRef.current?.onSceneZoneAdvanced?.({
       zoneIndex: message.zoneIndex,
       zoneName: message.zoneName ?? null,

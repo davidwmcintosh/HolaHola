@@ -5992,6 +5992,72 @@ Once set, the mission badge stays visible throughout the session. Set a new one 
     },
   },
 
+  // ── World Ledger: narrative scene memory across sessions ──────────────────
+  {
+    legacyType: 'UPDATE_WORLD_LEDGER',
+    declaration: {
+      name: 'update_world_ledger',
+      description: `Store narrative facts about the student's history in the current scene. These persist between sessions — when the student returns to this scene, you will see them automatically on entry.
+
+Store only meaningful continuity facts:
+- What the student ordered or bought ("last_item_bought": "croissant")
+- Relationship context ("relationship_with_barista": "friendly, greeted by name")
+- Scenario outcomes ("paid_tab": true, "complaint_resolved": true)
+- Recurring preferences ("regular_order": "café sin azúcar")
+
+Do NOT store: prop coordinates, grammar notes, ACTFL levels, session-specific details.
+Call this when a scene interaction has an outcome worth remembering next visit.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          scene: {
+            type: 'string',
+            description: 'The scene slug (e.g. coffee_shop, restaurant_table, pharmacy)',
+          },
+          facts: {
+            type: 'object',
+            description: 'Key-value narrative facts to merge into the scene ledger. Existing keys are overwritten; unmentioned keys are preserved.',
+          },
+        },
+        required: ['scene', 'facts'],
+      },
+    },
+    buildContinuationResponse: ({ session, fc }) => {
+      const sceneName = fc?.args?.scene as string | undefined;
+      const facts = fc?.args?.facts as Record<string, unknown> | undefined;
+      if (!sceneName || !facts || Object.keys(facts).length === 0) {
+        return 'World ledger not updated — missing scene name or empty facts.';
+      }
+      const userId = String((session as any).userId || '');
+      if (!userId) return 'World ledger not updated — no user ID on session.';
+      // Fire-and-forget: DB write is async but response is synchronous.
+      // A write failure is non-fatal — the session continues unaffected.
+      (async () => {
+        try {
+          const { getUserDb } = await import('../db');
+          const { sceneWorldLedger } = await import('@shared/schema');
+          const { eq, and } = await import('drizzle-orm');
+          const db = getUserDb();
+          const existing = await db.select({ ledger: sceneWorldLedger.ledger })
+            .from(sceneWorldLedger)
+            .where(and(eq(sceneWorldLedger.userId, userId), eq(sceneWorldLedger.sceneName, sceneName)))
+            .limit(1);
+          const merged = { ...(existing[0]?.ledger as Record<string, unknown> ?? {}), ...facts };
+          await db.insert(sceneWorldLedger)
+            .values({ userId, sceneName, ledger: merged })
+            .onConflictDoUpdate({
+              target: [sceneWorldLedger.userId, sceneWorldLedger.sceneName],
+              set: { ledger: merged, updatedAt: new Date() },
+            });
+          console.log(`[WorldLedger] Updated ${userId}/${sceneName}: ${JSON.stringify(facts)}`);
+        } catch (err: any) {
+          console.error('[WorldLedger] Update error:', err.message);
+        }
+      })();
+      return `Scene ledger updated for "${sceneName}" — ${Object.keys(facts).length} fact(s) stored. When the student returns to this scene, you will see these automatically.`;
+    },
+  },
+
 ];
 
 
@@ -6385,7 +6451,7 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'browse_syllabus',
   'start_lesson',           // text-mode lesson loader; use pull_lesson_content in GL
   'recommend_next',
-  'review_due_vocab',
+  'review_due_vocab',       // kept excluded: redirects to existing vocab tools in GL context
   'request_text_input',     // requests text typing; GL is voice-only
   'add_curiosity',
   'read_my_curiosities',
@@ -6458,6 +6524,11 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'show_sentence_builder',
   'show_textbook_section',
   'invoke_teaching_skill',
+
+  // === WORLD LEDGER — bookkeeping, not conversational ===
+  // Narrative scene memory write; runs as a background op via buildContinuationResponse.
+  // Not a mid-voice teaching action — the student never hears it happen.
+  'update_world_ledger',
 ]);
 
 export const DANIELA_GL_FUNCTION_DECLARATIONS: FunctionDeclaration[] =
