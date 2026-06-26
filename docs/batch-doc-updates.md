@@ -2260,3 +2260,28 @@ The diegetic vocab feature (prop.vocab[] field) should eventually pull from the 
 OPEN LOOP: when session.masteredWords gains entries, check if those words map to pending/upcoming Madrigal unit vocab — and surface that connection. "You just used the word you learned in lesson 4 — for real this time." Close this loop when the Madrigal curriculum data model and the scene vocab model are linked.
 
 Key file when building: client/src/data/madrigal-unit-content.ts (has all vocabulary per unit/language).
+
+---
+
+## 2026-06-26 — Roadmap items 1-4
+
+### SRS Bridge (tension-evaluator.ts)
+**What:** When a word is persisted to `mastery_evidence` from a scene high-score turn, it is also upserted into `vocabulary_words` via `onConflictDoNothing`. Scene-proven words are seeded at `repetition=1 / interval=6d` — they skip the 1-day warm-up cycle since the student already demonstrated the word in real-world context.
+**Why it matters:** Previously mastery_evidence and the SM-2 review queue were completely disconnected islands. Now scene mastery feeds directly into the review schedule.
+**Key file:** `server/services/tension-evaluator.ts` — after the mastery_evidence insert block.
+
+### Scene Mastery API
+**What:** `GET /api/mastery/summary?language=X` — returns all words a student has mastered in scenes, with their SRS state (nextReviewDate, interval, correctCount) joined from vocabulary_words. Grouped by sceneName. dueForReview flag per word.
+**Key file:** `server/routes.ts` — inserted before the ACTFL progress routes block.
+
+### Scene Mastery Dashboard (vocabulary page)
+**What:** New `SceneMasterySection` component on `/vocabulary`. Shows total mastered words, how many are due for review, and a collapsible scene-by-scene word list. Words due for review get a Clock badge. Empty state is descriptive.
+**Key file:** `client/src/pages/vocabulary.tsx`
+
+### Reporting — sceneMasteredWords
+**What:** `overallProgress.sceneMasteredWords` added to the `generateStudentProgressReport` return shape. Queries `mastery_evidence` for the student's target language.
+**Key file:** `server/reporting-service.ts`
+
+### Parent email route
+**What:** `POST /api/reports/email-parent` — generates the parent report and emails it via `emailService.send()`. Uses the account email by default; accepts `{ toEmail: '...' }` in the body to override.
+**Key file:** `server/routes.ts` — after the GET /api/reports/parent route.

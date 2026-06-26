@@ -75,6 +75,8 @@ import {
   subjectSyllabi,
   mediaFiles,
   danielaSelfReflections,
+  masteryEvidence,
+  vocabularyWords,
 } from "@shared/schema";
 import { getTOCForSubject } from "./data/subject-tocs";
 import { hasTeacherAccess, hasDeveloperAccess } from "@shared/permissions";
@@ -8187,6 +8189,57 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
+  // Scene Mastery Summary — words mastered in scenes, with SRS status
+  app.get("/api/mastery/summary", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = getRequestUserId(req);
+      const language = (req.query.language as string) || 'spanish';
+      const userDb = getUserDb();
+
+      const words = await userDb
+        .select()
+        .from(masteryEvidence)
+        .where(and(eq(masteryEvidence.userId, userId), eq(masteryEvidence.language, language)))
+        .orderBy(desc(masteryEvidence.masteredAt));
+
+      const srsRows = await userDb
+        .select({
+          word: vocabularyWords.word,
+          nextReviewDate: vocabularyWords.nextReviewDate,
+          interval: vocabularyWords.interval,
+          correctCount: vocabularyWords.correctCount,
+        })
+        .from(vocabularyWords)
+        .where(and(eq(vocabularyWords.userId, userId), eq(vocabularyWords.language, language)));
+
+      const srsMap: Record<string, { nextReviewDate: Date; interval: number; correctCount: number }> =
+        Object.fromEntries(srsRows.map(r => [r.word, r]));
+
+      const now = new Date();
+      const wordsWithSRS = words.map(w => ({
+        ...w,
+        srs: srsMap[w.word] ?? null,
+        dueForReview: srsMap[w.word] ? new Date(srsMap[w.word].nextReviewDate) <= now : false,
+      }));
+
+      const byScene: Record<string, typeof wordsWithSRS> = {};
+      for (const w of wordsWithSRS) {
+        const key = w.sceneName || 'Open Practice';
+        if (!byScene[key]) byScene[key] = [];
+        byScene[key].push(w);
+      }
+
+      res.json({
+        totalWords: words.length,
+        dueForReview: wordsWithSRS.filter(w => w.dueForReview).length,
+        byScene,
+        words: wordsWithSRS,
+      });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ACTFL Progress (FACT criteria tracking)
   app.get("/api/actfl-progress/:language", isAuthenticated, async (req: any, res: Response) => {
     try {
@@ -16188,6 +16241,41 @@ Return ONLY valid JSON, no markdown, no explanation.`;
       res.json(report);
     } catch (error: any) {
       console.error('Error generating parent report:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Email parent/guardian report — sends to the account email or a specified address
+  app.post("/api/reports/email-parent", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = getRequestUserId(req);
+      const { toEmail } = req.body;
+      const report = await generateParentReport(userId);
+
+      const recipientEmail: string = toEmail || report.student.email;
+      if (!recipientEmail) {
+        return res.status(400).json({ error: "No email address available. Pass { toEmail: '...' } in the request body." });
+      }
+
+      const body = `
+        <h2>Progress Update — ${report.student.name}</h2>
+        <p><strong>Proficiency:</strong> ${report.summary?.proficiencyGrowth || report.student.currentActflLevel}</p>
+        <p><strong>Words learned:</strong> ${report.summary?.wordsLearned ?? 0}</p>
+        <p><strong>Practice streak:</strong> ${report.summary?.streakDays ?? 0} day${(report.summary?.streakDays ?? 0) !== 1 ? 's' : ''}</p>
+        ${report.achievements?.length ? `<p><strong>Recent achievements:</strong> ${report.achievements.slice(0, 3).join(', ')}</p>` : ''}
+        ${report.parentTips?.length ? `<h3>Tips for supporting ${report.student.name}</h3><ul>${report.parentTips.map((t: string) => `<li>${t}</li>`).join('')}</ul>` : ''}
+        <p style="color:#888;font-size:12px">Generated ${new Date().toLocaleDateString()} by HolaHola</p>
+      `.trim();
+
+      await emailService.send({
+        to: recipientEmail,
+        subject: `Progress update for ${report.student.name} — HolaHola`,
+        html: body,
+      });
+
+      res.json({ success: true, sentTo: recipientEmail });
+    } catch (error: any) {
+      console.error('Error emailing parent report:', error);
       res.status(500).json({ error: error.message });
     }
   });

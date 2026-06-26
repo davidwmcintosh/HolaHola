@@ -16,7 +16,7 @@ import https from 'https';
 import { getUserDb, db } from '../db';
 import { sql } from 'drizzle-orm';
 import { distillSceneMemory } from './scene-memory-distiller';
-import { masteryEvidence } from '@shared/schema';
+import { masteryEvidence, vocabularyWords } from '@shared/schema';
 import { buildMadrigalLinkNote } from './madrigal-vocab-linker';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
@@ -337,6 +337,29 @@ export async function evaluateAndUpdateTension(
               lastPragmaticScore: scores.pragmaticScore as number,
             },
           })
+          .catch(() => {});
+        // SRS bridge: seed vocabulary_words so scene-mastered words enter the spaced-repetition queue.
+        // Words proven in a scene start at repetition=1 / interval=6d (skip the 1-day warm-up).
+        // onConflictDoNothing preserves any existing SM-2 state for words already in the queue.
+        const vocabForSRS = (activeProp.vocab as { word: string; translation?: string }[])
+          .filter(v => newWords.includes(v.word));
+        db.insert(vocabularyWords)
+          .values(vocabForSRS.map(v => ({
+            userId: session.userId as string,
+            language: (session.language || 'spanish') as string,
+            word: v.word,
+            translation: v.translation || v.word,
+            example: '',
+            pronunciation: '',
+            difficulty: 'intermediate',
+            nextReviewDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000),
+            correctCount: 1,
+            incorrectCount: 0,
+            repetition: 1,
+            easeFactor: 2.5,
+            interval: 6,
+          })))
+          .onConflictDoNothing()
           .catch(() => {});
         console.log(`[LexicalMastery] prag=${scores.pragmaticScore} prop="${session.lastGroundedProp}" → mastered (persisted): ${newWords.join(', ')}`);
       }
