@@ -11,7 +11,7 @@ import { InteractiveTextbookCard } from "@/components/InteractiveTextbookCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessageSquare, Play, ChevronRight, Eye, Sparkles, Phone, ArrowRight, Zap, Heart, Brain } from "lucide-react";
+import { MessageSquare, Play, ChevronRight, ChevronDown, Eye, Sparkles, Phone, ArrowRight, Zap, Heart, Brain, Star, Clock, Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -348,6 +348,137 @@ function SessionModeRow({ isDeveloper, selectedLang }: { isDeveloper: boolean; s
   );
 }
 
+// ── Scene Mastery Dashboard ───────────────────────────────────────────────
+
+interface MasteryWord {
+  word: string;
+  propName: string;
+  attemptsCount: number;
+  lastPragmaticScore: number;
+  masteredAt: string;
+  dueForReview: boolean;
+  srs: { nextReviewDate: string; interval: number; correctCount: number } | null;
+}
+
+interface MasterySummary {
+  totalWords: number;
+  dueForReview: number;
+  byScene: Record<string, MasteryWord[]>;
+  words: MasteryWord[];
+}
+
+function SceneMasterySection({ language }: { language: string }) {
+  const [expandedScenes, setExpandedScenes] = useState<Set<string>>(new Set());
+
+  const { data, isLoading } = useQuery<MasterySummary>({
+    queryKey: ['/api/mastery/summary', language],
+    queryFn: () =>
+      fetch(`/api/mastery/summary?language=${encodeURIComponent(language)}`, {
+        credentials: 'include',
+      }).then(r => r.json()),
+    enabled: !!language,
+  });
+
+  const toggleScene = (scene: string) => {
+    setExpandedScenes(prev => {
+      const next = new Set(prev);
+      if (next.has(scene)) next.delete(scene);
+      else next.add(scene);
+      return next;
+    });
+  };
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-4 flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span className="text-sm">Loading scene mastery...</span>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!data || data.totalWords === 0) return null;
+
+  const scenes = Object.entries(data.byScene);
+
+  return (
+    <Card data-testid="card-scene-mastery">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Star className="h-4 w-4 text-primary" />
+            Scene Mastery
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" data-testid="badge-mastery-total">
+              {data.totalWords} word{data.totalWords !== 1 ? 's' : ''}
+            </Badge>
+            {data.dueForReview > 0 && (
+              <Badge variant="outline" className="gap-1" data-testid="badge-mastery-due">
+                <Clock className="h-3 w-3" />
+                {data.dueForReview} due
+              </Badge>
+            )}
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          Words proven in scene practice — added to your review queue automatically.
+        </p>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-2">
+        {scenes.map(([sceneName, words]) => {
+          const isExpanded = expandedScenes.has(sceneName);
+          const dueInScene = words.filter(w => w.dueForReview).length;
+          return (
+            <div key={sceneName} className="rounded-md border" data-testid={`section-scene-${sceneName}`}>
+              <button
+                onClick={() => toggleScene(sceneName)}
+                className="w-full flex items-center justify-between px-3 py-2 text-sm hover-elevate rounded-md"
+                data-testid={`button-toggle-scene-${sceneName}`}
+              >
+                <div className="flex items-center gap-2">
+                  {isExpanded ? (
+                    <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  )}
+                  <span className="font-medium">{sceneName}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {dueInScene > 0 && (
+                    <Badge variant="outline" className="text-xs gap-1">
+                      <Clock className="h-2.5 w-2.5" />
+                      {dueInScene}
+                    </Badge>
+                  )}
+                  <span className="text-muted-foreground text-xs">{words.length} word{words.length !== 1 ? 's' : ''}</span>
+                </div>
+              </button>
+              {isExpanded && (
+                <div className="px-3 pb-3 pt-1 flex flex-wrap gap-1.5">
+                  {words.map(w => (
+                    <Badge
+                      key={w.word}
+                      variant={w.dueForReview ? "outline" : "secondary"}
+                      className="text-xs"
+                      data-testid={`badge-word-${w.word}`}
+                    >
+                      {w.word}
+                      {w.dueForReview && <Clock className="h-2.5 w-2.5 ml-1" />}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function LanguageHub() {
   const [, navigate] = useLocation();
   const { language, setLanguage, setTutorGender } = useLanguage();
@@ -579,6 +710,13 @@ export default function LanguageHub() {
       <div className="px-6 pb-6">
         <InteractiveTextbookCard />
       </div>
+
+      {/* ── Scene Mastery ─────────────────────────────────────────────────── */}
+      {!isNewStudent && (
+        <div className="px-6 pb-6">
+          <SceneMasterySection language={selectedLang} />
+        </div>
+      )}
 
       {/* ── Scenario strip ────────────────────────────────────────────────── */}
       {topScenarios.length > 0 && (
