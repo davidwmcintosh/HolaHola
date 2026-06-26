@@ -17,6 +17,7 @@ import { getUserDb, db } from '../db';
 import { sql } from 'drizzle-orm';
 import { distillSceneMemory } from './scene-memory-distiller';
 import { masteryEvidence } from '@shared/schema';
+import { buildMadrigalLinkNote } from './madrigal-vocab-linker';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = 'gemini-3-flash-preview';
@@ -310,6 +311,12 @@ export async function evaluateAndUpdateTension(
           if (!session.pendingVocabMutations) session.pendingVocabMutations = [];
           session.pendingVocabMutations.push({ type: 'set_prop_state', propName: session.lastGroundedProp, state: 'success' });
         }
+        // Madrigal ↔ Scene link: check if any mastered word belongs to a Syllabus unit.
+        // If so, queue a parenthetical stage direction for Daniela on the next GL turn.
+        const vocabWithTranslations = (activeProp.vocab as { word: string; translation?: string }[])
+          .filter(v => newWords.includes(v.word));
+        const linkNote = buildMadrigalLinkNote(vocabWithTranslations, session.language || 'spanish');
+        if (linkNote) (session as any).pendingMadrigalLink = linkNote;
         // Fire-and-forget DB insert — mastery is now durable across sessions.
         // ON CONFLICT: upsert so re-mastery increments the attempts counter.
         const sceneName: string | undefined = session.sceneCanvas?.environment;

@@ -3299,7 +3299,9 @@ ${lastNote.tutorNotes}`);
                     const { directive, mutations } = selectPedagogicalDirective(session);
                     fireCanvasMutations(session, mutations, ws);
                     const shaper = selectStyleShaper(session);
-                    const combined = [worldEvent, directive, shaper].filter(Boolean).join(' ');
+                    const madrigalLink: string | undefined = (session as any).pendingMadrigalLink ?? undefined;
+                    if ((session as any).pendingMadrigalLink) (session as any).pendingMadrigalLink = null;
+                    const combined = [worldEvent, directive, shaper, madrigalLink].filter(Boolean).join(' ');
                     if (combined) glSnapTension.sendTextTurn(combined);
                   })
                   .catch(() => {});
@@ -4100,7 +4102,9 @@ ${lastNote.tutorNotes}`);
                       const { directive, mutations } = selectPedagogicalDirective(session);
                       fireCanvasMutations(session, mutations, ws);
                       const shaper = selectStyleShaper(session);
-                      const combined = [worldEvent, directive, shaper].filter(Boolean).join(' ');
+                      const madrigalLink: string | undefined = (session as any).pendingMadrigalLink ?? undefined;
+                      if ((session as any).pendingMadrigalLink) (session as any).pendingMadrigalLink = null;
+                      const combined = [worldEvent, directive, shaper, madrigalLink].filter(Boolean).join(' ');
                       if (combined) glForTension.sendTextTurn(combined);
                     })
                     .catch(() => {});
