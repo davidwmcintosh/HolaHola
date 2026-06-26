@@ -3336,6 +3336,7 @@ ${lastNote.tutorNotes}`);
           // Formatted as a stage direction so it reads naturally and doesn't disrupt the narrative.
           const tapLabel = (message as any).propLabel as string | undefined;
           const tapNative = (message as any).nativeLabel as string | undefined;
+          const tapPropId = (message as any).propId as string | undefined;
           if (tapLabel) {
             const contextText = `*(the student examines the ${tapLabel}${tapNative ? ` — ${tapNative}` : ''})*`;
             console.log(`[PropTap] Injecting context: "${contextText}"`);
@@ -3343,6 +3344,11 @@ ${lastNote.tutorNotes}`);
               geminiLiveSession.sendTextTurn(contextText);
             } else if (session) {
               orchestrator.processOpenMicTranscript(session.id, contextText, 1.0);
+            }
+            // GOAP Prop Awareness: flag this prop as the student's focus so the next ELICIT
+            // directive specifically grounds in it rather than cycling the room randomly.
+            if (session) {
+              (session as any).recentlyTappedProp = { id: tapPropId ?? tapLabel, label: tapLabel };
             }
           }
           break;

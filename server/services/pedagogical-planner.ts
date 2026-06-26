@@ -48,6 +48,57 @@ const REGISTER_NOTES: Record<string, string> = {
 const SILENCE_DIRECTIVE =
   '*(the silence is stretching — give them a gentle nudge to keep the momentum)*';
 
+// ─── Prop Awareness ───────────────────────────────────────────────────────────
+// When ELICIT fires, ground the elicitation in a specific prop from the scene canvas.
+// Fires every other ELICIT — prevents prop-spamming while keeping the room present.
+// Tracks referenced props on session.referencedPropIds to cycle through all available.
+
+interface SceneProp {
+  id: string;
+  label: string;
+  imageUrl?: string;
+}
+
+function selectPropGrounding(session: any): string | null {
+  const props: SceneProp[] = session?.sceneCanvas?.props ?? [];
+  if (props.length === 0) return null;
+
+  // Priority: student just tapped a specific prop — use it directly, no throttle
+  const tapped = session.recentlyTappedProp as { id: string; label: string } | undefined;
+  if (tapped?.label) {
+    session.recentlyTappedProp = null;
+    // Mark it referenced so the cycle knows it's been used
+    const referenced: string[] = session.referencedPropIds ?? [];
+    if (!referenced.includes(tapped.id)) {
+      session.referencedPropIds = [...referenced, tapped.id];
+    }
+    return `*(she focuses on the ${tapped.label.toLowerCase()} the student just touched — the room is speaking, she lets it)*`;
+  }
+
+  // Every other ELICIT only (ambient cycle)
+  const elicitCount: number = session.elicitCount ?? 0;
+  session.elicitCount = elicitCount + 1;
+  if (elicitCount % 2 !== 0) return null;
+
+  // Pick an unreferenced prop first; reset cycle if all used
+  const referenced: string[] = session.referencedPropIds ?? [];
+  const unreferenced = props.filter(p => !referenced.includes(p.id));
+  const pool = unreferenced.length > 0 ? unreferenced : props;
+
+  // Prefer lighter props at low tension, heavier-sounding ones at high tension
+  const tension: number = session.sceneTension ?? 0;
+  const chosen = tension > 0.55
+    ? pool[pool.length - 1]   // last in list — often more dramatic
+    : pool[0];
+
+  if (!chosen) return null;
+
+  if (unreferenced.length === 0) session.referencedPropIds = [chosen.id];
+  else session.referencedPropIds = [...referenced, chosen.id];
+
+  return `*(she lets her eye fall on the ${chosen.label.toLowerCase()} — the room has things in it, she doesn't have to carry the silence alone)*`;
+}
+
 // ─── Planner ─────────────────────────────────────────────────────────────────
 
 export function selectPedagogicalDirective(session: any, isQuietTurn = false): string | null {
@@ -154,5 +205,13 @@ export function selectPedagogicalDirective(session: any, isQuietTurn = false): s
     ` register=${socialRegister} age=${sceneAge}${heartbeatFired && !actionChanged ? ' [heartbeat]' : ''})`,
   );
 
-  return withRegisterNote(DIRECTIVES[action]);
+  const baseDirective = withRegisterNote(DIRECTIVES[action]);
+
+  // Prop Awareness: ground ELICIT in a specific scene prop every other turn
+  if (action === 'ELICIT') {
+    const propGrounding = selectPropGrounding(session);
+    if (propGrounding) return baseDirective + ' ' + propGrounding;
+  }
+
+  return baseDirective;
 }

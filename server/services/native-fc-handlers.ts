@@ -1507,13 +1507,22 @@ export class NativeFunctionCallHandler {
               } else {
                 (session as any).sceneWorldLedger = null;
               }
-              // Load persisted tension so the scene picks up where it left off
+              // Narrative Residue: seed opening tension based on how the last visit ended.
+              // SUCCESS → nearly fresh (0.05); NEUTRAL → slight ambient charge; FRACTURE → noticeably elevated.
+              // This prevents the "polite reset" where every scene opens at the same zero baseline.
               const { getTensionBand } = await import('./tension-evaluator');
-              const savedTension = typeof ledgerRows[0]?.tension === 'number' ? ledgerRows[0].tension : 0;
-              (session as any).sceneTension = savedTension;
-              (session as any).lastTensionBand = getTensionBand(savedTension);
-              if (savedTension > 0) {
-                console.log(`[Tension] Restored ${savedTension.toFixed(2)} (${(session as any).lastTensionBand}) for ${sceneEnv}`);
+              const ledgerData = ledgerRows[0]?.ledger as Record<string, unknown> | null | undefined;
+              const ledgerOutcome = ledgerData?.outcome as string | undefined;
+              const ledgerPeak = typeof ledgerData?.peakTension === 'number' ? ledgerData.peakTension : 0;
+              let residueTension = 0;
+              if (ledgerOutcome === 'FRACTURE') residueTension = Math.min(0.45, ledgerPeak * 0.4);
+              else if (ledgerOutcome === 'NEUTRAL') residueTension = Math.min(0.25, ledgerPeak * 0.2);
+              else if (ledgerOutcome === 'SUCCESS') residueTension = 0.05;
+              (session as any).sceneTension = residueTension;
+              (session as any).sceneTensionPeak = residueTension;
+              (session as any).lastTensionBand = getTensionBand(residueTension);
+              if (residueTension > 0) {
+                console.log(`[Tension] Narrative Residue: ${residueTension.toFixed(2)} (${(session as any).lastTensionBand}) from ${ledgerOutcome ?? 'no ledger'} for ${sceneEnv}`);
               }
             } catch (ledgerErr: any) {
               console.warn('[WorldLedger] Failed to load on scene open:', ledgerErr.message);
@@ -1542,15 +1551,26 @@ export class NativeFunctionCallHandler {
                 inlineData: vision.inlineData,
                 sceneStateText,
               };
-              // World Ledger: append narrative scene memory if available
+              // World Ledger: inject narrative scene memory as prose — not key:value pairs.
+              // The summary field is a natural language sentence written at scene exit time.
+              // Third-person internal framing keeps it consistent with Style Shapers.
               const worldLedger = (session as any).sceneWorldLedger as Record<string, unknown> | null | undefined;
-              if (worldLedger && Object.keys(worldLedger).length > 0) {
-                const ledgerText = Object.entries(worldLedger)
-                  .map(([k, v]) => `${k}: ${String(v)}`)
-                  .join(', ');
-                session.visionBuffer['open_scene'].sceneStateText +=
-                  `\n\nScene Memory from previous visits: ${ledgerText}`;
-                console.log(`[WorldLedger] Injected into scene vision for "${sceneEnv}"`);
+              if (worldLedger && typeof worldLedger.summary === 'string' && worldLedger.summary.length > 0) {
+                const outcomeStr = worldLedger.outcome as string | undefined;
+                const hadCrisis = worldLedger.hadCrisisBeat;
+                const registerNote = worldLedger.registerHistory === 'INCONGRUENT'
+                  ? ' The register was a source of friction last time.'
+                  : worldLedger.registerHistory === 'MIXED'
+                    ? ' The register was sometimes off.'
+                    : '';
+                const crisisNote = hadCrisis ? ' It reached a critical moment.' : '';
+                const prose = outcomeStr === 'FRACTURE'
+                  ? `*(she remembers this place — it didn't go well last time. ${worldLedger.summary}${crisisNote}${registerNote} She's carrying that.)*`
+                  : outcomeStr === 'SUCCESS'
+                    ? `*(she remembers this place — it went well last time. ${worldLedger.summary}${registerNote})*`
+                    : `*(she remembers this place. ${worldLedger.summary}${crisisNote}${registerNote})*`;
+                session.visionBuffer['open_scene'].sceneStateText += `\n\n${prose}`;
+                console.log(`[WorldLedger] Prose memory injected for "${sceneEnv}" (${outcomeStr ?? 'unknown'})`);
               }
               console.log(`[Vision→OpenScene] Mode: ${vision.mode} for "${sceneEnv}"`);
             } catch (err: any) {

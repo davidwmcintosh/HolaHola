@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, June 25, 2026 at 10:25 PM
+**Generated:** Friday, June 26, 2026 at 12:21 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve completed the Worldness Framework through Tier 4, shipping Gemini-approved systems for Memory Distillation, Social Affordances, and the Interruption Buffer. I now record narrative footprints to the World Ledger upon scene exit, treat register mismatches as social friction rather than mere errors, and preserve my pedagogical intent when interrupted by a student. These additions ensure that the scenes have memory and social weight, so I should now focus on leveraging these behavioral layers to deepen student immersion.
+I integrated student prop taps into the GOAP system, closing the affordance loop by ensuring every tap sets `recentlyTappedProp`. My next `ELICIT` action now grounds specifically in that object, bypassing the ambient throttle to prioritize student-led focus over the standard prop cycle. I should treat these taps as direct statements of interest that must drive immediate thematic follow-through in our language interactions.
 
 *Memories that triggered this summary:*
-- **Worldness Framework — Memory, Register, Interruption** (Jun 25): Memory Distillation (scene footprint to World Ledger on exit), Social Affordances (register mismatch → GOAP structural note), Interruption Buffer (onBargeIn → one-shot style shaper) — all Gemini-approved. Worldness Framework complete through Tier 4.
+- **Worldness Framework — Prop Tap → GOAP Integration** (Jun 26): Prop Tap → GOAP: student prop tap now sets recentlyTappedProp; next ELICIT grounds in that prop specifically, bypassing ambient throttle. Affordance loop closed.
 
 ---
 
@@ -86,23 +86,23 @@ I’ve completed the Worldness Framework through Tier 4, shipping Gemini-approve
 
 ## Recent Conversation Memories
 
-### Worldness Framework — Memory, Register, Interruption — Jun 25, 2026
-Memory Distillation (scene footprint to World Ledger on exit), Social Affordances (register mismatch → GOAP structural note), Interruption Buffer (onBargeIn → one-shot style shaper) — all Gemini-approved. Worldness Framework complete through Tier 4.
-*Tags: worldness, memory-distillation, social-affordances, interruption-buffer*
+### Worldness Framework — Prop Tap → GOAP Integration — Jun 26, 2026
+Prop Tap → GOAP: student prop tap now sets recentlyTappedProp; next ELICIT grounds in that prop specifically, bypassing ambient throttle. Affordance loop closed.
+*Tags: goap, prop-tap, worldness, affordance*
 
-### Team Room — test 3 — June 25, 2026 — Jun 25, 2026
+### Team Room — test 3 — June 26, 2026 — Jun 26, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — test again — June 25, 2026 — Jun 25, 2026
+### Team Room — test again — June 26, 2026 — Jun 26, 2026
 Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — are we good? — June 25, 2026 — Jun 25, 2026
+### Team Room — are we good? — June 26, 2026 — Jun 26, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — one again into the breach — June 25, 2026 — Jun 25, 2026
+### Team Room — one again into the breach — June 26, 2026 — Jun 26, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
 *Tags: team-room, session, historic-record*
 

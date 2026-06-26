@@ -190,6 +190,9 @@ All three paths shipped and Gemini-approved. Three additional features added sam
 | **Memory Distillation** | ✅ Shipped | `server/services/scene-memory-distiller.ts` — fires on EXITING |
 | **Social Affordances** | ✅ Shipped | `socialRegister` in evaluator + register notes in GOAP directives |
 | **Interruption Buffer** | ✅ Shipped | `onBargeIn` callback → `session.interruptedIntent` → one-shot style shaper |
+| **Narrative Residue** | ✅ Shipped | Outcome-aware tension seeding + prose memory prose on scene open |
+| **GOAP Prop Awareness** | ✅ Shipped | ELICIT grounds in specific scene props, cycles through room |
+| **Prop Tap → GOAP** | ✅ Shipped | Student prop tap → `recentlyTappedProp` → ELICIT grounds in that specific prop, no throttle |
 
 **Tier reached: Tier 4 — Autonomous World-State (advancing toward Tier 5)**
 
@@ -203,7 +206,7 @@ All three paths shipped and Gemini-approved. Three additional features added sam
 |---|---|---|
 | **State-Awareness** | ✅ ELITE | Hard DB truth via World Ledger + Memory Distillation (narrative footprint per scene). |
 | **Graceful Degradation** | ✅ COMPLETE | BAILOUT + REST_REFLECT + CRISIS_BEAT + Interruption Buffer (barge-in recovery) all shipped. |
-| **Affordance Match** | 🟡 PROGRESSED | Prop Tap + Scene Canvas. Social Affordances now change GOAP register tone on mismatch. GOAP reacting to specific canvas objects is the remaining gap. |
+| **Affordance Match** | ✅ CLOSED | Prop Tap + Scene Canvas + GOAP Prop Awareness (ELICIT grounds in specific props, cycles room). Gap closed. |
 | **Multi-Modal Cohesion** | ✅ STABILIZED | Mission HUD + Scene Canvas = eyes and ears in the same world. |
 | **Latent Space Management** | ✅ ADDRESSED | Style Shapers (per-band, every 3 turns) + AFTERMATH_SHAPER + INTERRUPTED_SHAPERS (7 action types) — all fired as one-shot third-person prose. |
 
@@ -249,21 +252,27 @@ When a user cuts Daniela off, GL receives a "Truncated" signal. What most develo
 
 ---
 
-## Next-Tier Worldness Concepts (not yet built)
+## Next-Tier Worldness Concepts
 
 Concepts from game AI / interactive fiction that have high leverage in a language learning app:
 
-**Social Chemistry ("Prom Week" pattern)**
-Instead of a friction score, use Social Affordances. Wrong register (using "Usted" incorrectly) doesn't just lower a score — it changes the NPC's available moves from "Helpful Advice" to "Offended Silence." The language error has a structural consequence, not just a numeric one.
+**Social Chemistry ("Prom Week" pattern)** ✅ Shipped as Social Affordances
+Wrong register (using "Usted" incorrectly) doesn't just lower a score — the GOAP directive changes: "the distance it creates is something the character feels, not something she corrects." Language error = structural consequence.
 
-**Dramatic Beats ("Façade" architecture)**
-GOAP currently solves for learning outcomes. Next level: solve for *Crisis Beats* — "the character is about to leave; the student must use a specific verb to stop them." Language use becomes the key to the narrative lock, not a practice drill.
+**Dramatic Beats ("Façade" architecture)** ✅ Shipped as Crisis Beats
+CRISIS_BEAT action: the character is about to leave; the student must communicate clearly to stop them. Language becomes the key to the narrative lock. CELEBRATE fires on resolution.
 
-**Narrative Residue (Dwarf Fortress pattern)**
-Scene Canvas props carry tension history before the student speaks. A kitchen prop enters with "burnt toast smell (Tension: 2)" baked in. The environment tells a story before the conversation begins.
+**Narrative Residue (Dwarf Fortress pattern)** ✅ Shipped (June 25, 2026)
+Two components: (1) Tension seeding — scene opens with residue tension from past outcome (FRACTURE → 40% of peak, NEUTRAL → 20%, SUCCESS → 0.05, fresh → 0). (2) Prose memory injection — "*(she remembers this place — it didn't go well last time...)*" — third-person internal framing, injected via sceneStateText when vision builds the scene context.
 
-**The Gossip Engine**
-Information asymmetry between NPCs. NPC A knows something NPC B doesn't. The student's job is to *transfer information* between nodes — creates a "Need to Speak" more powerful than any grammar drill.
+**GOAP Prop Awareness** ✅ Shipped (June 25, 2026)
+ELICIT directive now grounds in a specific scene prop every other turn: "*(she lets her eye fall on the half-drunk coffee — the room has things in it, she doesn't have to carry the silence alone)*". Cycles through all props before repeating. At high tension (>0.55), prefers end-of-list props (heavier-sounding). Tracks `session.referencedPropIds`.
+
+**Prop Tap → GOAP Integration** ✅ Shipped (June 26, 2026)
+When student taps a scene prop, two things now happen simultaneously: (1) existing stage direction injects into GL ("*(the student examines the X)*"), AND (2) `session.recentlyTappedProp` is set so the very next ELICIT grounds in that specific prop ("*(she focuses on the X the student just touched — the room is speaking, she lets it)*"). Bypasses the every-other-ELICIT throttle since it's student-initiated. Student action → GOAP follow-through. The affordance loop is fully closed.
+
+**The Gossip Engine** — not yet built
+Information asymmetry between NPCs. NPC A knows something NPC B doesn't. The student's job is to *transfer information* between nodes — creates a "Need to Speak" more powerful than any grammar drill. Requires multi-NPC session design.
 
 ---
 
