@@ -2248,3 +2248,15 @@ Classroom-window as source of truth — prevents Daniela from referencing a visu
 - Session 1: Approved with 3 fixes (ordering, phase-start init, rate-limit placement) — all applied
 - Session 2: Approved with 3 fixes (duplicate paragraphs artifact, Perfectionist Freeze, VOP source-of-truth) — all applied
 - Session 3: "Ship it" verdict — 1 fix applied (tie-breaking priority rule), 1 null-safety guard added (`last?.response`)
+
+---
+## [June 26, 2026] — Madrigal ↔ Scene Linking (OPEN LOOP — close when building)
+
+The Worldness Framework scene system and the Madrigal visual lesson system are designed as a PIPELINE, not competing approaches:
+  Madrigal lesson → encodes vocabulary visually → Scene activates it → student uses it under pressure → world confirms success
+
+The diegetic vocab feature (prop.vocab[] field) should eventually pull from the same vocabulary introduced in the corresponding Madrigal unit for that scene. A word introduced in Unit 3 that is then used correctly in a scene = transfer from declarative → procedural knowledge, measurable in real time via session.masteredWords.
+
+OPEN LOOP: when session.masteredWords gains entries, check if those words map to pending/upcoming Madrigal unit vocab — and surface that connection. "You just used the word you learned in lesson 4 — for real this time." Close this loop when the Madrigal curriculum data model and the scene vocab model are linked.
+
+Key file when building: client/src/data/madrigal-unit-content.ts (has all vocabulary per unit/language).

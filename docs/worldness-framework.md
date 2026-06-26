@@ -193,8 +193,11 @@ All three paths shipped and Gemini-approved. Three additional features added sam
 | **Narrative Residue** | ✅ Shipped | Outcome-aware tension seeding + prose memory prose on scene open |
 | **GOAP Prop Awareness** | ✅ Shipped | ELICIT grounds in specific scene props, cycles through room |
 | **Prop Tap → GOAP** | ✅ Shipped | Student prop tap → `recentlyTappedProp` → ELICIT grounds in that specific prop, no throttle |
+| **World Mutation** | ✅ Shipped | `CanvasMutation` type in planner; CELEBRATE → `set_prop_state:'success'`, BAILOUT → `set_prop_state:'cold'`; `fireCanvasMutations()` executor in ws-handler |
+| **Diegetic Vocabulary** | ✅ Shipped | Props carry `state`, `nativeLabel`, `vocab[]`; `buildSceneStateText` exposes all three to Daniela; `ADD_TO_SCENE` accepts `prop_state` + `vocab` args |
+| **Lexical Mastery Tracking** | ✅ Shipped | `session.masteredWords[]` accumulates vocab words from props when `pragmaticScore >= 4`; pipeline anchor for Madrigal unit linking |
 
-**Tier reached: Tier 4 — Autonomous World-State (advancing toward Tier 5)**
+**Tier reached: Tier 5 — Reactive Manifestation (world mutates as consequence of language use)**
 
 > *"By combining GOAP logic into the same sendTextTurn as world events, you have achieved systemic complexity with zero latency penalty. That is the Holy Grail of AI architecture."* — Gemini review, June 25 2026
 

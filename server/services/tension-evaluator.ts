@@ -286,6 +286,27 @@ export async function evaluateAndUpdateTension(
 
   session.lastTurnScores = scores;
 
+  // ── Lexical Mastery Tracking ──────────────────────────────────────────────
+  // When the student lands a strong pragmatic turn (score >= 4), check if the
+  // last grounded prop carries vocab — and mark those words as mastered.
+  // This is the bridge back to the Madrigal unit content (see batch-doc-updates.md).
+  // session.masteredWords: string[] accumulates across the session.
+  if (scores.pragmaticScore >= 4 && session.lastGroundedProp && session.sceneCanvas) {
+    const activeProp = (session.sceneCanvas.props as any[]).find(
+      (p: any) => p.name === session.lastGroundedProp,
+    );
+    if (activeProp?.vocab?.length) {
+      if (!session.masteredWords) session.masteredWords = [];
+      const newWords = (activeProp.vocab as { word: string }[])
+        .map(v => v.word)
+        .filter(w => !session.masteredWords.includes(w));
+      if (newWords.length) {
+        session.masteredWords.push(...newWords);
+        console.log(`[LexicalMastery] prag=${scores.pragmaticScore} prop="${session.lastGroundedProp}" → mastered: ${newWords.join(', ')}`);
+      }
+    }
+  }
+
   if (scores.pragmaticScore >= 4 || scores.socialFriction >= 3 || (scores.socialRegister && scores.socialRegister !== 'HARMONIC')) {
     console.log(
       `[Tension] ${sceneName} ${prev.toFixed(2)}→${next.toFixed(2)} (${prevBand}→${nextBand}) ` +

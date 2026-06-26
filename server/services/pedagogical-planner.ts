@@ -12,6 +12,8 @@
 //   ELICIT         — Default: draw out response without filling the silence
 //
 // Social Affordances: register mismatch appended to directive when INCONGRUENT.
+// World Mutation: returns CanvasMutation[] alongside the directive so the caller
+// can mutate the scene canvas as a consequence of pedagogical state changes.
 // Rule-based (no extra LLM call). Full doc: docs/worldness-framework.md — Path 2
 
 export type PedagogicalActionType =
@@ -23,6 +25,19 @@ export type PedagogicalActionType =
   | 'ELICIT'
   | 'PROGRESS_SCENE'
   | 'CELEBRATE';
+
+// ─── World Mutation types ─────────────────────────────────────────────────────
+
+export interface CanvasMutation {
+  type: 'set_prop_state' | 'remove_prop';
+  propName: string;
+  state?: string;
+}
+
+export interface PedagogicalResult {
+  directive: string | null;
+  mutations: CanvasMutation[];
+}
 
 // ─── Directives ──────────────────────────────────────────────────────────────
 
@@ -52,11 +67,15 @@ const SILENCE_DIRECTIVE =
 // When ELICIT fires, ground the elicitation in a specific prop from the scene canvas.
 // Fires every other ELICIT — prevents prop-spamming while keeping the room present.
 // Tracks referenced props on session.referencedPropIds to cycle through all available.
+// Also tracks session.lastGroundedProp (prop name) for world mutation targeting.
 
 interface SceneProp {
-  id: string;
+  name: string;
   label: string;
   imageUrl?: string;
+  nativeLabel?: string;
+  state?: string;
+  vocab?: { word: string; translation: string }[];
 }
 
 function selectPropGrounding(session: any): string | null {
@@ -67,6 +86,7 @@ function selectPropGrounding(session: any): string | null {
   const tapped = session.recentlyTappedProp as { id: string; label: string } | undefined;
   if (tapped?.label) {
     session.recentlyTappedProp = null;
+    session.lastGroundedProp = tapped.id;
     // Mark it referenced so the cycle knows it's been used
     const referenced: string[] = session.referencedPropIds ?? [];
     if (!referenced.includes(tapped.id)) {
@@ -82,7 +102,7 @@ function selectPropGrounding(session: any): string | null {
 
   // Pick an unreferenced prop first; reset cycle if all used
   const referenced: string[] = session.referencedPropIds ?? [];
-  const unreferenced = props.filter(p => !referenced.includes(p.id));
+  const unreferenced = props.filter(p => !referenced.includes(p.name));
   const pool = unreferenced.length > 0 ? unreferenced : props;
 
   // Prefer lighter props at low tension, heavier-sounding ones at high tension
@@ -93,21 +113,46 @@ function selectPropGrounding(session: any): string | null {
 
   if (!chosen) return null;
 
-  if (unreferenced.length === 0) session.referencedPropIds = [chosen.id];
-  else session.referencedPropIds = [...referenced, chosen.id];
+  session.lastGroundedProp = chosen.name;
+
+  if (unreferenced.length === 0) session.referencedPropIds = [chosen.name];
+  else session.referencedPropIds = [...referenced, chosen.name];
 
   return `*(she lets her eye fall on the ${chosen.label.toLowerCase()} — the room has things in it, she doesn't have to carry the silence alone)*`;
 }
 
+// ─── Canvas Mutation Builder ──────────────────────────────────────────────────
+// Decides what prop state changes (if any) should accompany a GOAP action.
+// Gemini's "Reactive Manifestation" principle: every pedagogical change should
+// have a visual manifestation in the world.
+//
+// CELEBRATE: the last grounded prop moves to 'success' state (e.g. empty cup → full)
+// BAILOUT:   the last grounded prop moves to 'cold' state — world reflects the stumble
+//            ("your coffee got cold while we were figuring that out")
+// All others: no mutation — don't mutate the world on every turn, only on clear outcomes
+
+function buildMutations(action: PedagogicalActionType, session: any): CanvasMutation[] {
+  const propName: string | undefined = session.lastGroundedProp;
+  if (!propName) return [];
+
+  if (action === 'CELEBRATE') {
+    return [{ type: 'set_prop_state', propName, state: 'success' }];
+  }
+  if (action === 'BAILOUT') {
+    return [{ type: 'set_prop_state', propName, state: 'cold' }];
+  }
+  return [];
+}
+
 // ─── Planner ─────────────────────────────────────────────────────────────────
 
-export function selectPedagogicalDirective(session: any, isQuietTurn = false): string | null {
-  if (!session?.sceneCanvas) return null;
+export function selectPedagogicalDirective(session: any, isQuietTurn = false): PedagogicalResult {
+  if (!session?.sceneCanvas) return { directive: null, mutations: [] };
 
   const tension: number = typeof session.sceneTension === 'number' ? session.sceneTension : 0;
   const sceneAge: number = session.sceneAge ?? 0;
 
-  if (isQuietTurn && tension > 0.40) return SILENCE_DIRECTIVE;
+  if (isQuietTurn && tension > 0.40) return { directive: SILENCE_DIRECTIVE, mutations: [] };
 
   const exchangeCount: number = session.studentPulse?.messageCount ?? 0;
   const lastAction = session.lastPedagogicalActionType as PedagogicalActionType | undefined;
@@ -129,7 +174,7 @@ export function selectPedagogicalDirective(session: any, isQuietTurn = false): s
     session.lastPedagogicalActionType = 'REST_REFLECT';
     session.pedagogicalTurnsSinceDirective = 0;
     console.log(`[GOAP] ${session.sceneCanvas?.environment} action=REST_REFLECT [Graceful Exit] (tension=${tension.toFixed(2)} age=${sceneAge})`);
-    return DIRECTIVES.REST_REFLECT; // no register note on exit
+    return { directive: DIRECTIVES.REST_REFLECT, mutations: [] };
   }
 
   // ── Director's Safety Valve ───────────────────────────────────────────────
@@ -144,7 +189,7 @@ export function selectPedagogicalDirective(session: any, isQuietTurn = false): s
     session.lastPedagogicalActionType = 'BAILOUT';
     session.pedagogicalTurnsSinceDirective = 0;
     console.log(`[GOAP] ${session.sceneCanvas?.environment} action=BAILOUT [Safety Valve] (prag=${pragmaticScore} tension=${tension.toFixed(2)} age=${sceneAge})`);
-    return DIRECTIVES.BAILOUT;
+    return { directive: DIRECTIVES.BAILOUT, mutations: buildMutations('BAILOUT', session) };
   }
 
   // ── Crisis Beat ───────────────────────────────────────────────────────────
@@ -154,23 +199,23 @@ export function selectPedagogicalDirective(session: any, isQuietTurn = false): s
       session.lastPedagogicalActionType = 'CELEBRATE';
       session.pedagogicalTurnsSinceDirective = 0;
       console.log(`[GOAP] ${session.sceneCanvas?.environment} action=CELEBRATE [Crisis resolved] (prag=${pragmaticScore})`);
-      return withRegisterNote(DIRECTIVES.CELEBRATE);
+      return { directive: withRegisterNote(DIRECTIVES.CELEBRATE), mutations: buildMutations('CELEBRATE', session) };
     }
     if (turnsSinceLast < 2) {
       session.pedagogicalTurnsSinceDirective = turnsSinceLast + 1;
-      return null;
+      return { directive: null, mutations: [] };
     }
     session.pedagogicalTurnsSinceDirective = 0;
-    return withRegisterNote(DIRECTIVES.CRISIS_BEAT);
+    return { directive: withRegisterNote(DIRECTIVES.CRISIS_BEAT), mutations: [] };
   }
 
   if (tension > 0.85 && sceneAge > 8 && pragmaticScore < 3 && lastAction !== 'CRISIS_BEAT') {
     session.crisisBeatActive = true;
-    session.crisisBeatEverActive = true; // for Memory Distillation
+    session.crisisBeatEverActive = true;
     session.lastPedagogicalActionType = 'CRISIS_BEAT';
     session.pedagogicalTurnsSinceDirective = 0;
     console.log(`[GOAP] ${session.sceneCanvas?.environment} action=CRISIS_BEAT [New] (prag=${pragmaticScore} tension=${tension.toFixed(2)} age=${sceneAge})`);
-    return withRegisterNote(DIRECTIVES.CRISIS_BEAT);
+    return { directive: withRegisterNote(DIRECTIVES.CRISIS_BEAT), mutations: [] };
   }
 
   // ── Standard selection ────────────────────────────────────────────────────
@@ -193,7 +238,7 @@ export function selectPedagogicalDirective(session: any, isQuietTurn = false): s
 
   if (!actionChanged && !heartbeatFired) {
     session.pedagogicalTurnsSinceDirective = turnsSinceLast + 1;
-    return null;
+    return { directive: null, mutations: [] };
   }
 
   session.lastPedagogicalActionType = action;
@@ -210,8 +255,10 @@ export function selectPedagogicalDirective(session: any, isQuietTurn = false): s
   // Prop Awareness: ground ELICIT in a specific scene prop every other turn
   if (action === 'ELICIT') {
     const propGrounding = selectPropGrounding(session);
-    if (propGrounding) return baseDirective + ' ' + propGrounding;
+    if (propGrounding) {
+      return { directive: baseDirective + ' ' + propGrounding, mutations: buildMutations(action, session) };
+    }
   }
 
-  return baseDirective;
+  return { directive: baseDirective, mutations: buildMutations(action, session) };
 }

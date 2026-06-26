@@ -1590,6 +1590,8 @@ export class NativeFunctionCallHandler {
         const addPosition = (fn.args.position as string | undefined) || 'center';
         const addLabel = fn.args.label as string | undefined;
         const addNativeLabel = fn.args.native_label as string | undefined;
+        const addPropState = fn.args.prop_state as string | undefined;
+        const addVocab = fn.args.vocab as { word: string; translation: string }[] | undefined;
         const addText = fn.args.text as string | undefined;
         const addRotate = fn.args.rotate as number | undefined;
         const addFlipH = fn.args.flip_h as boolean | undefined;
@@ -1722,6 +1724,8 @@ export class NativeFunctionCallHandler {
             imageUrl: propImageUrl,
           };
           if (addNativeLabel) newProp.nativeLabel = addNativeLabel;
+          if (addPropState) newProp.state = addPropState;
+          if (addVocab?.length) newProp.vocab = addVocab;
           if (addRotate !== undefined) newProp.rotate = Math.max(0, Math.min(359, Math.round(addRotate)));
           if (addFlipH) newProp.flipH = true;
           if (addZ !== undefined) newProp.z = Math.max(1, Math.min(10, Math.round(addZ)));

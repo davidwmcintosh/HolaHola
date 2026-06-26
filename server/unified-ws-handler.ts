@@ -70,7 +70,44 @@ import { schedulePendingReflectionIfMissing, buildTranscriptPreview, processAndC
 import { generateAndStorePedagogicalBrief, MIN_EXCHANGES_FOR_BRIEF } from './services/pedagogical-brief-worker';
 import { analyzeSessionForMasteryEvidence, MIN_EXCHANGES_FOR_MASTERY } from './services/mastery-evidence-worker';
 import { evaluateAndUpdateTension, selectStyleShaper } from './services/tension-evaluator';
-import { selectPedagogicalDirective } from './services/pedagogical-planner';
+import { selectPedagogicalDirective, type CanvasMutation } from './services/pedagogical-planner';
+
+// ── Canvas Mutation Executor ──────────────────────────────────────────────────
+// Fires world mutations returned by the GOAP planner as whiteboard_update WS messages.
+// Runs after the directive is sent so the canvas change feels like a consequence.
+function fireCanvasMutations(session: any, mutations: CanvasMutation[], ws: any): void {
+  if (!mutations.length || !session?.sceneCanvas) return;
+  for (const mutation of mutations) {
+    if (mutation.type === 'set_prop_state') {
+      const prop = (session.sceneCanvas.props as any[]).find(p => p.name === mutation.propName);
+      if (!prop) continue;
+      prop.state = mutation.state;
+    } else if (mutation.type === 'remove_prop') {
+      session.sceneCanvas.props = (session.sceneCanvas.props as any[]).filter(
+        p => p.name !== mutation.propName,
+      );
+    }
+    const update = {
+      type: 'whiteboard_update',
+      timestamp: Date.now(),
+      items: [{
+        id: 'scene-canvas-active',
+        type: 'scene_canvas',
+        content: session.sceneCanvas.environmentLabel || session.sceneCanvas.environment,
+        data: {
+          environment: session.sceneCanvas.environment,
+          environmentImageUrl: session.sceneCanvas.environmentImageUrl,
+          environmentLabel: session.sceneCanvas.environmentLabel,
+          props: [...session.sceneCanvas.props],
+          clockTime: session.sceneCanvas.clockTime,
+          canvasAction: mutation.type,
+        },
+      }],
+    };
+    try { ws.send(JSON.stringify(update)); } catch (_) {}
+    console.log(`[WorldMutation] ${mutation.type} prop="${mutation.propName}"${mutation.state ? ` state="${mutation.state}"` : ''}`);
+  }
+}
 
 // Use /api/ paths - Replit's proxy properly routes these
 const STREAMING_VOICE_PATH = '/api/voice/stream/ws';
@@ -3252,7 +3289,8 @@ ${lastNote.tutorNotes}`);
                 const glSnapTension = geminiLiveSession;
                 evaluateAndUpdateTension(transcript, session)
                   .then(worldEvent => {
-                    const directive = selectPedagogicalDirective(session);
+                    const { directive, mutations } = selectPedagogicalDirective(session);
+                    fireCanvasMutations(session, mutations, ws);
                     const shaper = selectStyleShaper(session);
                     const combined = [worldEvent, directive, shaper].filter(Boolean).join(' ');
                     if (combined) glSnapTension.sendTextTurn(combined);
@@ -4052,7 +4090,8 @@ ${lastNote.tutorNotes}`);
                   const glForTension = glSessionSnap;
                   evaluateAndUpdateTension(finalTranscript, session)
                     .then(worldEvent => {
-                      const directive = selectPedagogicalDirective(session);
+                      const { directive, mutations } = selectPedagogicalDirective(session);
+                      fireCanvasMutations(session, mutations, ws);
                       const shaper = selectStyleShaper(session);
                       const combined = [worldEvent, directive, shaper].filter(Boolean).join(' ');
                       if (combined) glForTension.sendTextTurn(combined);
@@ -4063,7 +4102,8 @@ ${lastNote.tutorNotes}`);
                 console.log('[GeminiLive PTT] No transcript — GL VAD will handle response from streamed audio');
                 // Quiet turn inside active scene: nudge if tension is elevated
                 if (session && (session as any).sceneCanvas) {
-                  const quietDirective = selectPedagogicalDirective(session, true);
+                  const { directive: quietDirective, mutations: quietMutations } = selectPedagogicalDirective(session, true);
+                  fireCanvasMutations(session, quietMutations, ws);
                   if (quietDirective) glSessionSnap.sendTextTurn(quietDirective);
                 }
               }

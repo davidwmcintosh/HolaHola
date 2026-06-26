@@ -162,6 +162,9 @@ export function buildSceneStateText(
   const props = (sceneCanvas.props || []) as Array<{
     name: string;
     label?: string;
+    nativeLabel?: string;
+    state?: string;
+    vocab?: { word: string; translation: string }[];
     position: string;
     cx: number;
     cy: number;
@@ -181,13 +184,19 @@ export function buildSceneStateText(
     lines.push(`Props on canvas (${props.length}):`);
     for (const p of props) {
       let propLine = `  • ${p.name}`;
-      if (p.label && p.label !== p.name) propLine += ` (${p.label})`;
+      if (p.label && p.label !== p.name) propLine += ` (${p.label}`;
+      if (p.nativeLabel) propLine += p.label && p.label !== p.name ? ` / ${p.nativeLabel})` : ` (${p.nativeLabel})`;
+      else if (p.label && p.label !== p.name) propLine += ')';
       propLine += ` @ ${p.position}`;
       const extras: string[] = [];
+      if (p.state) extras.push(`state: ${p.state}`);
       if (p.rotate && p.rotate !== 0) extras.push(`rotated ${p.rotate}°`);
       if (p.flipH) extras.push('flipped');
       if (p.z !== undefined && p.z !== 5) extras.push(`z=${p.z}`);
       if (extras.length) propLine += ` [${extras.join(', ')}]`;
+      if (p.vocab?.length) {
+        propLine += ` — vocab: ${p.vocab.map(v => v.word).join(', ')}`;
+      }
       lines.push(propLine);
     }
   }
