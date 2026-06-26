@@ -16250,9 +16250,12 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     try {
       const userId = getRequestUserId(req);
       const { toEmail } = req.body;
-      const report = await generateParentReport(userId);
+      const [userRecord, report] = await Promise.all([
+        storage.getUser(userId),
+        generateParentReport(userId),
+      ]);
 
-      const recipientEmail: string = toEmail || report.student.email;
+      const recipientEmail: string = toEmail || userRecord?.email || '';
       if (!recipientEmail) {
         return res.status(400).json({ error: "No email address available. Pass { toEmail: '...' } in the request body." });
       }

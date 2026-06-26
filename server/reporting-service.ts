@@ -43,6 +43,7 @@ export interface StudentProgressReport {
   };
   overallProgress: {
     wordsLearned: number;
+    sceneMasteredWords: number;
     practiceMinutes: number;
     totalHours: number;
     conversationsCompleted: number;
