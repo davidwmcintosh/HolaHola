@@ -3,7 +3,9 @@
 AI-powered language learning app — interactive conversation practice, vocabulary, and grammar across 10 languages, personalized per student via Daniela.
 
 ## Run & Operate
-- **Run:** `npm run dev` · **Build:** `npm run build` · **Typecheck:** `npm run check` · **DB Push:** `npm run db:push`
+- **Run:** `npm run dev` · **Build:** `npm run build` · **Typecheck:** `npm run check`
+- **Schema changes (NEW workflow):** `npx drizzle-kit generate` → review `./migrations/<tag>.sql` → `npx drizzle-kit migrate`
+- **Do NOT use `npm run db:push` / `drizzle-kit push` anymore** — it bypasses the migration artifact and applies directly to the shared prod DB with no review step.
 - **Critical env vars:** `NEON_SHARED_DATABASE_URL` (shared dev+prod DB), `GEMINI_API_KEY`, `DEEPGRAM_API_KEY`, `GOOGLE_TTS_API_KEY`, `CARTESIA_API_KEY`, `ELEVENLABS_API_KEY`, `AZURE_SPEECH_KEY`, `STRIPE_SECRET_KEY`, `TWILIO_ACCOUNT_SID/AUTH_TOKEN/PHONE_NUMBER`, `UNSPLASH_ACCESS_KEY`, `DALL_E_API_KEY`, `PERPLEXITY_API_KEY`, `WOLFRAM_ALPHA_API_KEY`, `APP_URL`, `REPLIT_AGENT_TOKEN`
 
 ## Stack
