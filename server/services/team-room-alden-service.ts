@@ -9,7 +9,7 @@ import { getSharedDb } from "../db";
 import { sql } from "drizzle-orm";
 import { embedText, generateAndStoreEmbedding } from "./semantic-memory-service";
 import { conversationMemories, agentNorthStar, agentRecordOfDavid } from "@shared/schema";
-import { desc, like } from "drizzle-orm";
+import { desc, eq, like } from "drizzle-orm";
 
 // ── Gemini client (shared by Daniela + Sofia in Team Room) ──────────────────
 let geminiClient: GoogleGenAI | null = null;
@@ -1607,7 +1607,7 @@ Respond in this JSON format:
 // and the auto-save worker below. Single source of truth for the save logic.
 const ADVISOR_IDS = ['marco', 'reid', 'priya', 'alden', 'daniela', 'sofia', 'lyra', 'wren'];
 
-export async function documentRoomSession(roomId: string, roomTopic: string): Promise<{ memoryId: string; messageCount: number; advisorsIndexed: string[] }> {
+export async function documentRoomSession(roomId: string, roomTopic: string, existingMemoryId?: string): Promise<{ memoryId: string; messageCount: number; advisorsIndexed: string[] }> {
   const messages = await storage.getRoomMessages(roomId, 500);
   if (!messages.length) return { memoryId: '', messageCount: 0, advisorsIndexed: [] };
 
@@ -1629,14 +1629,29 @@ export async function documentRoomSession(roomId: string, roomTopic: string): Pr
   const title = `Team Room — ${roomTopic || 'Session'} — ${date}`;
   const db = getSharedDb();
 
-  const [memory] = await db.insert(conversationMemories).values({
-    title,
-    summary: `Team Room session with ${participants}. Topic: ${roomTopic || 'general'}. ${messages.length} messages exchanged.`,
-    content: transcript,
-    participants,
-    tags: ['team-room', 'session', 'historic-record'],
-    importance: 8,
-  }).returning();
+  let memory: { id: string };
+
+  if (existingMemoryId) {
+    // Subsequent auto-save — update the existing row instead of creating a duplicate.
+    await db.update(conversationMemories)
+      .set({
+        summary: `Team Room session with ${participants}. Topic: ${roomTopic || 'general'}. ${messages.length} messages exchanged.`,
+        content: transcript,
+        participants,
+      })
+      .where(eq(conversationMemories.id, existingMemoryId));
+    memory = { id: existingMemoryId };
+  } else {
+    const [inserted] = await db.insert(conversationMemories).values({
+      title,
+      summary: `Team Room session with ${participants}. Topic: ${roomTopic || 'general'}. ${messages.length} messages exchanged.`,
+      content: transcript,
+      participants,
+      tags: ['team-room', 'session', 'historic-record'],
+      importance: 8,
+    }).returning();
+    memory = inserted;
+  }
 
   const advisorsIndexed: string[] = [];
   await Promise.all(
@@ -1660,7 +1675,7 @@ export async function documentRoomSession(roomId: string, roomTopic: string): Pr
 //      (covers long sessions where user never hits End Session)
 // The Map tracks message count at last save so we only write when there's new content.
 
-const _autoSaveState = new Map<string, { messageCount: number; savedAt: Date }>();
+const _autoSaveState = new Map<string, { messageCount: number; savedAt: Date; memoryId?: string }>();
 
 export function startTeamRoomAutoSaveWorker(): void {
   const INTERVAL_MS = 20 * 60 * 1000; // 20 minutes
@@ -1689,8 +1704,8 @@ export function startTeamRoomAutoSaveWorker(): void {
         if (!shouldSave) continue;
 
         try {
-          const result = await documentRoomSession(room.id, room.topic);
-          _autoSaveState.set(room.id, { messageCount: messages.length, savedAt: now });
+          const result = await documentRoomSession(room.id, room.topic, lastState?.memoryId);
+          _autoSaveState.set(room.id, { messageCount: messages.length, savedAt: now, memoryId: result.memoryId || lastState?.memoryId });
           console.log(`[TeamRoom AutoSave] ${room.id} — ${result.messageCount} msgs, advisors: ${result.advisorsIndexed.join(', ') || 'none'}`);
         } catch (e: any) {
           console.error(`[TeamRoom AutoSave] Failed for session ${room.id}:`, e.message);

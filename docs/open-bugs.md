@@ -11,23 +11,23 @@ Format: `[date found] — location — description — severity`
 ~~**2026-06-25 — `classroom-environment.ts` + session init — Pedagogical "last gear" amnesia — LOW (Day 2 priority)**~~
 **FIXED 2026-06-25** — `buildClassroomEnvironment` now queries `pedagogical_snapshots` for the user's most recent row (DESC createdAt, limit 1) inside the existing `Promise.all`. Injected into GL compact path as `Last session gear: X/5 (fluency) — open calibrated from here, not from zero` and into non-GL Pedagogical Gears line as a short suffix. Zero typecheck errors.
 
-**2026-06-23 — `verify-system-health.ts` warning — `hebrew novice_low` has 2 duplicate curriculum paths — ambiguous routing — LOW**
-Pre-existing duplicate path in Hebrew curriculum. verify-system-health ⚠️ warns on this every run. Does not affect other languages. Fix: find the duplicate row in `curriculum_paths` for `language='hebrew', level='novice_low'` and remove the spurious one. Not urgent — Hebrew routing works, just ambiguous.
+~~**2026-06-23 — `verify-system-health.ts` warning — `hebrew novice_low` has 2 duplicate curriculum paths — ambiguous routing — LOW**~~
+**FIXED 2026-06-26** — The two paths are intentional (adult vs high school target audience). Updated duplicate check to `GROUP BY language, start_level, target_audience` — different-audience paths at the same level no longer trigger the warning.
 
-**2026-06-12 — `server/services/streaming-voice-orchestrator.ts:1732` — setTimeout timer leak in contextCacheReady race — LOW**
-`Promise.race([session.contextCacheReady, new Promise(r => setTimeout(r, 500))])` — the 500ms timer is never cleared after the race resolves. One leaked timer per `processUserAudio` call. Impact is minimal (timers are GC'd after firing) but accumulates under load. Fix: save the timeout ID and `clearTimeout` after the race resolves.
+~~**2026-06-12 — `server/services/streaming-voice-orchestrator.ts:1732` — setTimeout timer leak in contextCacheReady race — LOW**~~
+**FIXED 2026-06-26** — Wrapped the `Promise.race` in an IIFE that captures `timerId` and calls `clearTimeout(timerId)` in `.finally()`. One timer per audio call, always cleaned up.
 
-**2026-06-12 — `server/services/tts-service.ts:797–833` — TTS phoneme PASS 2 may double-process already-substituted phoneme markers — MEDIUM**
-After PASS 1 replaces quoted words with `<<phoneme>>` markers, PASS 2 runs word-by-word substitution over the full text including those markers. If a phoneme string (e.g., `a|b|c`) coincidentally matches a dictionary entry, it gets double-processed. Fable 5 flagged this. Fix: skip `<<...>>` regions during PASS 2 (the negative lookahead `(?![^<]*>>)` partially handles this but may miss edge cases — verify with a comprehensive test).
+~~**2026-06-12 — `server/services/tts-service.ts:797–833` — TTS phoneme PASS 2 may double-process already-substituted phoneme markers — MEDIUM**~~
+**FIXED 2026-06-26** — PASS 2 now splits on `/(<<[^>]*>>)/g` before running substitutions. Even-indexed segments are plain text (processed); odd-indexed segments are existing `<<...>>` tags (skipped entirely). Definitive protection — no dependency on lookahead edge cases.
 
 **2026-06-12 — `server/services/tts-service.ts:205–263` — `estimateWordTimings` counts `<<phoneme|tags>>` markers as words — MEDIUM**
 The word splitter `text.split(/\s+/)` treats `<<a|b|c>>` as a single token. If TTS strips these markers before synthesis, the word count in audio won't match the estimator's count, causing cumulative subtitle sync drift on phoneme-heavy responses. Fix: strip phoneme markup before splitting, or map each `<<...>>` token to its original spoken word for counting.
 
-**2026-06-12 — `server/services/tts-service.ts:1076–1130` — Cartesia voiceId from DB not validated against live voice list — LOW**
-`synthesizeWithCartesia` uses whatever voiceId is stored in the DB without checking if the voice still exists. A stale/deleted Cartesia voice yields an opaque 400 error with no user-facing guidance. Fix: catch the 400 and fall back to the language-default voice with a clear log.
+~~**2026-06-12 — `server/services/tts-service.ts:1076–1130` — Cartesia voiceId from DB not validated against live voice list — LOW**~~
+**FIXED 2026-06-26** — `synthesizeWithCartesia` now catches 400 errors when a `voiceId` was explicitly passed, logs a clear warning, and retries once with the language-default voice. If fallback also fails, throws the fallback error.
 
-**2026-06-12 — `server/services/team-room-alden-service.ts:1601–1643` — `documentRoomSession` creates duplicate `conversation_memories` rows for long sessions — MEDIUM**
-The auto-save worker calls `documentRoomSession()` on every 20-min sweep for rooms with 5+ new messages. Each call always INSERTs a new `conversation_memories` row rather than upserting. A 2-hour session accumulates 5–6 duplicate records. Fix: check if a memory row already exists for this `roomId` and update it, or key on `(roomId, sessionStartDate)`.
+~~**2026-06-12 — `server/services/team-room-alden-service.ts:1601–1643` — `documentRoomSession` creates duplicate `conversation_memories` rows for long sessions — MEDIUM**~~
+**FIXED 2026-06-26** — `_autoSaveState` now tracks `memoryId`. `documentRoomSession` accepts optional `existingMemoryId`; on subsequent sweeps it UPDATEs the existing row (content + summary + participants) instead of INSERTing a new one. First save still inserts; memoryId is carried forward in the state map.
 
 **2026-06-12 — `server/services/lyra-analytics-service.ts:421–435` — `returnRate7d` metric has no 7-day window — MEDIUM**
 The SQL counts users with 2+ conversations at any time (all-time retention), not within 7 days. The metric name and the `OnboardingData` interface field `returnRate7d` are misleading. A SQL comment has been added. Full fix: add `AND c.created_at >= NOW() - INTERVAL '7 days'` to both subqueries, or rename to `repeatConversationRate`.

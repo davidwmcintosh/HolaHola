@@ -182,11 +182,12 @@ async function checkCurriculum() {
     }
   }
 
-  // Duplicate path check (same language + same start_level > 1 path)
+  // Duplicate path check — same language + start_level + target_audience > 1 is ambiguous.
+  // Different target_audiences at the same level (e.g., adult vs high school) are intentional.
   const dupes = await pool.query(`
-    SELECT language, start_level, COUNT(*) n
+    SELECT language, start_level, target_audience, COUNT(*) n
     FROM curriculum_paths
-    GROUP BY language, start_level
+    GROUP BY language, start_level, target_audience
     HAVING COUNT(*) > 1
   `);
   if (dupes.rows.length > 0) {
@@ -194,7 +195,7 @@ async function checkCurriculum() {
     for (const r of dupes.rows) {
       warn(
         `duplicate paths`,
-        `${r.language} ${r.start_level} has ${r.n} paths — routing is ambiguous`
+        `${r.language} ${r.start_level} (${r.target_audience}) has ${r.n} paths — routing is ambiguous`
       );
     }
   }

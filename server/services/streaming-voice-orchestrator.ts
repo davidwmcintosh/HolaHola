@@ -1852,8 +1852,14 @@ Remember: David may reference things discussed in these recent text chats.
             console.warn(`[Streaming Orchestrator] Cartesia warmup failed: ${err.message}`);
             return -1;
           });
-      const contextCacheWait = session.contextCacheReady 
-        ? Promise.race([session.contextCacheReady, new Promise<void>(r => setTimeout(r, 500))]) // Max 500ms wait
+      const contextCacheWait = session.contextCacheReady
+        ? (() => {
+            let timerId: ReturnType<typeof setTimeout>;
+            return Promise.race([
+              session.contextCacheReady,
+              new Promise<void>(r => { timerId = setTimeout(r, 500); }), // Max 500ms wait
+            ]).finally(() => clearTimeout(timerId));
+          })()
         : Promise.resolve();
       const [transcriptionResult, ttsWarmupTime] = await Promise.all([
         this.transcribeAudio(audioData, session.targetLanguage, session.nativeLanguage, session.isFounderMode, session.sttKeyterms),

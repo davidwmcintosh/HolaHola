@@ -779,46 +779,51 @@ export function addCartesiaPhonemesToText(text: string, targetLanguage?: string)
 
   // PASS 2: Process UNQUOTED multi-word phrases FIRST (before single words)
   // This ensures "por favor" is matched as a phrase before "por" is matched alone
+  //
+  // Safety: split on existing <<...>> markers so PASS 2 NEVER touches already-tagged
+  // phoneme regions — avoids double-processing if a phoneme string coincidentally
+  // matches a dictionary entry.
   const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  
+
   // Sort by length (longest first) to match multi-word phrases before single words
   const sortedEntries = Object.entries(pronunciations).sort((a, b) => b[0].length - a[0].length);
-  
+
   console.log(`[Streaming Phonemes] Processing text: "${processedText.substring(0, 80)}..." for ${targetLanguage}`);
-  
+
+  // Split into plain-text segments (even indices) and phoneme tags (odd indices).
+  // We only run substitution on even-index (plain text) segments.
+  const PHONEME_TAG_RE = /(<<[^>]*>>)/g;
+  const segments = processedText.split(PHONEME_TAG_RE);
+
   for (const [word, phonemes] of sortedEntries) {
-    // Match words with flexible boundaries to handle punctuation like (adios) or adios.
-    // Use word boundaries but also handle cases where word is followed by punctuation
     const simpleRegex = new RegExp(
-      `(?<!<)\\b(${escapeRegex(word)})\\b(?![^<]*>>)`,
+      `(?<!<)\\b(${escapeRegex(word)})\\b`,
       'gi'
     );
-    
-    const beforeCount = processedText.length;
-    processedText = processedText.replace(simpleRegex, (match) => {
-      hasReplacements = true;
-      console.log(`[Streaming Phonemes] Matched "${match}" → <<${phonemes}>>`);
-      return `<<${phonemes}>>`;
-    });
-    
-    // If no match with simple regex, try extended matching for edge cases:
-    // 1. After Spanish inverted punctuation (¿, ¡)
-    // 2. Before closing punctuation (., !, ?, ), ], etc.)
-    // IMPORTANT: Use word boundary at start to avoid matching substrings (e.g., "adios" in "estadios")
-    if (processedText.length === beforeCount) {
-      // Match standalone word with optional Spanish inverted punctuation before
-      // and punctuation/space/end after. Must have word boundary at start.
-      const extendedRegex = new RegExp(
-        `(?<!<)(?<=^|[\\s¿¡])(${escapeRegex(word)})(?=[?!.,;:)\\]\\s]|$)(?![^<]*>>)`,
-        'gi'
-      );
-      processedText = processedText.replace(extendedRegex, (match) => {
+    const extendedRegex = new RegExp(
+      `(?<!<)(?<=^|[\\s¿¡])(${escapeRegex(word)})(?=[?!.,;:)\\]\\s]|$)`,
+      'gi'
+    );
+
+    for (let i = 0; i < segments.length; i += 2) {
+      // Odd-indexed segments are <<phoneme>> tags — skip entirely
+      const beforeCount = segments[i].length;
+      segments[i] = segments[i].replace(simpleRegex, (match) => {
         hasReplacements = true;
-        console.log(`[Streaming Phonemes] Extended match "${match}" → <<${phonemes}>>`);
+        console.log(`[Streaming Phonemes] Matched "${match}" → <<${phonemes}>>`);
         return `<<${phonemes}>>`;
       });
+      if (segments[i].length === beforeCount) {
+        segments[i] = segments[i].replace(extendedRegex, (match) => {
+          hasReplacements = true;
+          console.log(`[Streaming Phonemes] Extended match "${match}" → <<${phonemes}>>`);
+          return `<<${phonemes}>>`;
+        });
+      }
     }
   }
+
+  processedText = segments.join('');
 
   if (hasReplacements) {
     console.log(`[Streaming Phonemes] Processed: "${processedText.substring(0, 100)}..."`);
@@ -1176,6 +1181,30 @@ export class TTSService {
         wordTimings, // Estimated timings for karaoke highlighting
       };
     } catch (error: any) {
+      // If the custom voiceId is stale/deleted (400), fall back to language default and retry once.
+      const isVoiceError = voiceId && (error?.status === 400 || error?.statusCode === 400 || String(error?.message).includes('400'));
+      if (isVoiceError) {
+        console.warn(`[Cartesia] Custom voiceId ${voiceId?.substring(0, 8)}... rejected (400) — falling back to language default ${voiceConfig.name}`);
+        try {
+          const stream = await this.cartesiaClient.tts.bytes({
+            modelId: this.cartesiaModel,
+            transcript: cleanedText,
+            voice: { mode: 'id', id: voiceConfig.voiceId },
+            language: cartesiaLanguageConfig.languageCode as 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ja' | 'zh' | 'ko',
+            outputFormat: { container: 'mp3', sampleRate: 44100, bitRate: 128000 },
+            // @ts-ignore
+            generation_config: { speed: cartesiaSpeed, emotion: cartesiaEmotion },
+          });
+          const chunks: Buffer[] = [];
+          for await (const chunk of stream) chunks.push(Buffer.from(chunk));
+          const audioBuffer = Buffer.concat(chunks);
+          console.log(`[Cartesia] ✓ Fallback generated ${audioBuffer.length} bytes with ${voiceConfig.name}`);
+          return { audioBuffer, contentType: 'audio/mpeg', wordTimings: estimateWordTimings(text, estimateAudioDuration(audioBuffer.length, 128)) };
+        } catch (fallbackErr: any) {
+          console.error(`[Cartesia] Fallback also failed: ${fallbackErr.message}`);
+          throw fallbackErr;
+        }
+      }
       console.error(`[Cartesia] Error: ${error.message}`);
       throw error;
     }
