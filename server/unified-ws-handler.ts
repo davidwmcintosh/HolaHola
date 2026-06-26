@@ -76,8 +76,13 @@ import { selectPedagogicalDirective, type CanvasMutation } from './services/peda
 // Fires world mutations returned by the GOAP planner as whiteboard_update WS messages.
 // Runs after the directive is sent so the canvas change feels like a consequence.
 function fireCanvasMutations(session: any, mutations: CanvasMutation[], ws: any): void {
-  if (!mutations.length || !session?.sceneCanvas) return;
-  for (const mutation of mutations) {
+  // Also drain vocab mutations queued by the lexical mastery tracker in tension-evaluator.
+  // These fire when vocab words are *named* (Reactive Manifestation), not on teacher mood.
+  const vocabMutations: CanvasMutation[] = session?.pendingVocabMutations ?? [];
+  if (vocabMutations.length && session) session.pendingVocabMutations = [];
+  const allMutations = [...mutations, ...vocabMutations];
+  if (!allMutations.length || !session?.sceneCanvas) return;
+  for (const mutation of allMutations) {
     if (mutation.type === 'set_prop_state') {
       const prop = (session.sceneCanvas.props as any[]).find(p => p.name === mutation.propName);
       if (!prop) continue;

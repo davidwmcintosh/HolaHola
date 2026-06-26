@@ -121,7 +121,14 @@ function PropLayer({ prop }: { prop: SceneCanvasProp }) {
         src={prop.imageUrl}
         alt={prop.label}
         className="w-full h-auto"
-        style={{ filter: "drop-shadow(0 2px 6px rgba(0,0,0,0.30))" }}
+        style={{
+          filter: prop.state === 'success'
+            ? "drop-shadow(0 0 10px rgba(255,210,60,0.85)) drop-shadow(0 2px 6px rgba(0,0,0,0.30))"
+            : prop.state === 'cold'
+              ? "drop-shadow(0 2px 6px rgba(0,0,0,0.30)) grayscale(0.65) brightness(0.78)"
+              : "drop-shadow(0 2px 6px rgba(0,0,0,0.30))",
+          transition: "filter 0.6s ease",
+        }}
         draggable={false}
       />
       <div className="absolute left-1/2 -translate-x-1/2" style={{ top: "calc(100% + 3px)" }}>

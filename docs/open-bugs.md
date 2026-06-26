@@ -121,3 +121,12 @@ Several Spanish 1 chapters (e.g., "The Infinitive Pattern") show a redundant int
 
 **2026-06-22 — `client/src/data/madrigal-unit-content.ts` — French (and other non-Spanish languages) have zero Madrigal visual textbook entries — MEDIUM (content gap)**
 French has 21 verb chain units in the loop catalog and 48 curriculum units, but zero entries in `madrigal-unit-content.ts`. The lookup functions (`getHayContent`, `getPreteriteContent`, etc.) return `null` gracefully — no crash, just no visual textbook overlay for French Madrigal units. Content law: NEVER auto-generate this file — every item must be manually curated from Madrigal's physical textbook ("See It and Say It in French"). Fix requires a human content-curation pass.
+
+---
+## [June 26, 2026] — Lexical Mastery: in-memory only, not persisted to DB
+**Priority:** Medium (data loss on socket reconnect / server restart)
+**Context:** session.masteredWords[] accumulates vocab words from prop.vocab[] when pragmaticScore >= 4. Currently lives in the Express session object only.
+**Risk:** If the socket reconnects mid-session, mastery data is wiped. Cannot be used for spaced repetition across sessions.
+**Fix:** Background Drizzle insert into mastery_evidence table when new words land in session.masteredWords. Fire-and-forget, non-blocking.
+**Files:** server/services/tension-evaluator.ts (mastery block, ~line 296), shared/schema.ts (mastery_evidence table schema)
+**Flagged by:** Gemini architectural review June 26, 2026

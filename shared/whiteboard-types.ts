@@ -873,6 +873,8 @@ export interface SceneCanvasProp {
   name: string;         // prop identifier (e.g. "glass")
   label: string;        // target-language word shown as label (e.g. "el vaso")
   nativeLabel?: string; // native-language word shown below label (e.g. "glass")
+  state?: string;       // world mutation state: 'success' | 'cold' | undefined
+  vocab?: { word: string; translation: string }[]; // diegetic vocabulary anchored to this prop
   position: string;     // position key (e.g. "on_table")
   cx: number;           // 0..1 horizontal center
   cy: number;           // 0..1 vertical center

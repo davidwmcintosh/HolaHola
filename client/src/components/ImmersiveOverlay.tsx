@@ -426,7 +426,14 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
                       src={prop.imageUrl}
                       alt={prop.label}
                       className="w-full h-auto"
-                      style={{ filter: "drop-shadow(0 4px 12px rgba(0,0,0,0.45))" }}
+                      style={{
+                        filter: prop.state === 'success'
+                          ? "drop-shadow(0 0 14px rgba(255,210,60,0.90)) drop-shadow(0 4px 12px rgba(0,0,0,0.45))"
+                          : prop.state === 'cold'
+                            ? "drop-shadow(0 4px 12px rgba(0,0,0,0.45)) grayscale(0.65) brightness(0.75)"
+                            : "drop-shadow(0 4px 12px rgba(0,0,0,0.45))",
+                        transition: "filter 0.6s ease",
+                      }}
                       draggable={false}
                     />
                     {/* Tap-to-open glow ring for tappable props */}

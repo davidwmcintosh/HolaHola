@@ -302,6 +302,14 @@ export async function evaluateAndUpdateTension(
         .filter(w => !session.masteredWords.includes(w));
       if (newWords.length) {
         session.masteredWords.push(...newWords);
+        // Reactive Manifestation (Gemini review): the prop reacts because it was *named*, not
+        // because the teacher is happy. Push a vocab mutation here, not on CELEBRATE in the planner.
+        // Only fire if propGroundingAge is recent (same guard as Ghost Grounding fix in planner).
+        const groundingAge: number = session.propGroundingAge ?? 99;
+        if (groundingAge <= 1) {
+          if (!session.pendingVocabMutations) session.pendingVocabMutations = [];
+          session.pendingVocabMutations.push({ type: 'set_prop_state', propName: session.lastGroundedProp, state: 'success' });
+        }
         console.log(`[LexicalMastery] prag=${scores.pragmaticScore} prop="${session.lastGroundedProp}" → mastered: ${newWords.join(', ')}`);
       }
     }

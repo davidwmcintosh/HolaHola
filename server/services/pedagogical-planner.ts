@@ -87,6 +87,7 @@ function selectPropGrounding(session: any): string | null {
   if (tapped?.label) {
     session.recentlyTappedProp = null;
     session.lastGroundedProp = tapped.id;
+    session.propGroundingAge = 0; // reset age — grounding is fresh
     // Mark it referenced so the cycle knows it's been used
     const referenced: string[] = session.referencedPropIds ?? [];
     if (!referenced.includes(tapped.id)) {
@@ -114,6 +115,7 @@ function selectPropGrounding(session: any): string | null {
   if (!chosen) return null;
 
   session.lastGroundedProp = chosen.name;
+  session.propGroundingAge = 0; // reset age — grounding is fresh
 
   if (unreferenced.length === 0) session.referencedPropIds = [chosen.name];
   else session.referencedPropIds = [...referenced, chosen.name];
@@ -135,9 +137,15 @@ function buildMutations(action: PedagogicalActionType, session: any): CanvasMuta
   const propName: string | undefined = session.lastGroundedProp;
   if (!propName) return [];
 
-  if (action === 'CELEBRATE') {
-    return [{ type: 'set_prop_state', propName, state: 'success' }];
-  }
+  // Ghost Grounding guard (Gemini Q2): only mutate if the grounding is recent.
+  // propGroundingAge increments each turn; resets to 0 when a prop is chosen in selectPropGrounding.
+  // If > 1 turn has passed since grounding, the causal link is too loose to be credible.
+  const propGroundingAge: number = session.propGroundingAge ?? 99;
+  if (propGroundingAge > 1) return [];
+
+  // BAILOUT only — 'cold' state is genuine Reactive Manifestation (world dims on communication failure).
+  // CELEBRATE is intentionally removed: 'success' state fires from lexical mastery detection
+  // in tension-evaluator.ts (when vocab words are *named*), not from the teacher's mood.
   if (action === 'BAILOUT') {
     return [{ type: 'set_prop_state', propName, state: 'cold' }];
   }
@@ -148,6 +156,9 @@ function buildMutations(action: PedagogicalActionType, session: any): CanvasMuta
 
 export function selectPedagogicalDirective(session: any, isQuietTurn = false): PedagogicalResult {
   if (!session?.sceneCanvas) return { directive: null, mutations: [] };
+
+  // Increment prop grounding age each turn so ghost grounding decays naturally
+  if (session.propGroundingAge !== undefined) session.propGroundingAge += 1;
 
   const tension: number = typeof session.sceneTension === 'number' ? session.sceneTension : 0;
   const sceneAge: number = session.sceneAge ?? 0;
