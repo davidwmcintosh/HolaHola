@@ -3,8 +3,6 @@
 Bugs noticed during other work that need separate attention. Added per the bug triage protocol in `replit.md`.
 Format: `[date found] — location — description — severity`
 
----
-
 ## Active
 
 ~~**2026-06-14 — `server/services/native-fc-handlers.ts` + `daniela-function-registry.ts` — Por vs Para visual_compare text hallucination — MEDIUM**~~
@@ -64,8 +62,6 @@ Root cause: `buildFullSceneCanvasData` serializes the ENTIRE accumulated `sessio
 **2026-06-13 — `server/services/daniela-function-registry.ts` — set_clock pre-tool speech causes audio doubling (pre-existing, PARTIALLY FIXED) — MEDIUM**
 GL generates speech both BEFORE calling the tool (pre-tool sub-turn) and AFTER (post-tool continuation). For set_clock, Daniela might say "Son las tres y media" → call set_clock → say "Son las tres y media" again. Two different PCM renders of identical speech sound doubled to the user. Transcript shows once because `pendingOutputTranscript` accumulates both and flushes in one DB write. Content-hash dedup doesn't catch it (different PCM). Partial fix: Added "ORDERING RULE" to set_clock description and "CRITICAL — tool-before-speech rule" to GL_DISPATCHER_SYSTEM_PROMPT telling GL to call tools first, then speak. This is a prompt-level fix — model compliance is probabilistic, not guaranteed. Full fix requires either: (a) detecting pre-tool audio on the server and buffering/discarding it, or (b) using GL's interrupt mechanism to suppress pre-tool speech.
 
----
-
 ## Resolved
 
 **2026-06-12 — `server/services/streaming-voice-orchestrator.ts:1761` — `cartesiaWarmupTime` referenced but variable is `ttsWarmupTime` — FIXED**
@@ -89,8 +85,6 @@ TypeScript's mutable-let control flow narrowing was collapsing `geminiLiveSessio
 **2026-06-11 — `server/ws-gateway.ts:234,236,243,250` — Missing `await` on `createSession`, wrong userId type — FIXED**
 `orchestrator.createSession(...)` is async but was not awaited, causing `session` to be a `Promise` at runtime. Also `parseInt(userId!)` was passing a `number` when `createSession` expects a `string`. Fixed: added `await`, changed `parseInt(userId!)` → `userId!`, added null guard after the await.
 
----
-
 ## Warm synthesis cache — distributed deployment gap
 **Date:** June 18, 2026  
 **Location:** `server/services/pre-session-synthesis.ts` (warm cache), `server/routes.ts` (warm endpoint), `server/unified-ws-handler.ts` (consumer)  
@@ -101,8 +95,6 @@ TypeScript's mutable-let control flow narrowing was collapsing `geminiLiveSessio
 
 **2026-06-21 — Spanish 1 textbook chapters — Intro/reference section duplication — LOW**
 Several Spanish 1 chapters (e.g., "The Infinitive Pattern") show a redundant introduction paragraph followed immediately by a reference section that repeats the same content. The intro block and the visual reference card are saying the same thing twice. Needs a pass to remove the intro text for chapters that have a visual reference. Flag for the final textbook look-through, not urgent.
-
----
 
 ## Warm synthesis — potential double-generation on fast Start tap
 **Date:** June 18, 2026  
@@ -123,10 +115,3 @@ Several Spanish 1 chapters (e.g., "The Infinitive Pattern") show a redundant int
 French has 21 verb chain units in the loop catalog and 48 curriculum units, but zero entries in `madrigal-unit-content.ts`. The lookup functions (`getHayContent`, `getPreteriteContent`, etc.) return `null` gracefully — no crash, just no visual textbook overlay for French Madrigal units. Content law: NEVER auto-generate this file — every item must be manually curated from Madrigal's physical textbook ("See It and Say It in French"). Fix requires a human content-curation pass.
 
 ---
-## [June 26, 2026] — Lexical Mastery: in-memory only, not persisted to DB
-**Priority:** Medium (data loss on socket reconnect / server restart)
-**Context:** session.masteredWords[] accumulates vocab words from prop.vocab[] when pragmaticScore >= 4. Currently lives in the Express session object only.
-**Risk:** If the socket reconnects mid-session, mastery data is wiped. Cannot be used for spaced repetition across sessions.
-**Fix:** Background Drizzle insert into mastery_evidence table when new words land in session.masteredWords. Fire-and-forget, non-blocking.
-**Files:** server/services/tension-evaluator.ts (mastery block, ~line 296), shared/schema.ts (mastery_evidence table schema)
-**Flagged by:** Gemini architectural review June 26, 2026

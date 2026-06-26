@@ -13,9 +13,10 @@
 // Full doc: docs/worldness-framework.md
 
 import https from 'https';
-import { getUserDb } from '../db';
+import { getUserDb, db } from '../db';
 import { sql } from 'drizzle-orm';
 import { distillSceneMemory } from './scene-memory-distiller';
+import { masteryEvidence } from '@shared/schema';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODEL = 'gemini-3-flash-preview';
@@ -302,15 +303,35 @@ export async function evaluateAndUpdateTension(
         .filter(w => !session.masteredWords.includes(w));
       if (newWords.length) {
         session.masteredWords.push(...newWords);
-        // Reactive Manifestation (Gemini review): the prop reacts because it was *named*, not
-        // because the teacher is happy. Push a vocab mutation here, not on CELEBRATE in the planner.
-        // Only fire if propGroundingAge is recent (same guard as Ghost Grounding fix in planner).
+        // Reactive Manifestation: prop glows because the word was *named*, not because teacher is happy.
+        // Only fire if propGroundingAge is recent (Ghost Grounding guard).
         const groundingAge: number = session.propGroundingAge ?? 99;
         if (groundingAge <= 1) {
           if (!session.pendingVocabMutations) session.pendingVocabMutations = [];
           session.pendingVocabMutations.push({ type: 'set_prop_state', propName: session.lastGroundedProp, state: 'success' });
         }
-        console.log(`[LexicalMastery] prag=${scores.pragmaticScore} prop="${session.lastGroundedProp}" → mastered: ${newWords.join(', ')}`);
+        // Fire-and-forget DB insert — mastery is now durable across sessions.
+        // ON CONFLICT: upsert so re-mastery increments the attempts counter.
+        const sceneName: string | undefined = session.sceneCanvas?.environment;
+        db.insert(masteryEvidence)
+          .values(newWords.map(word => ({
+            userId: session.userId as string,
+            word,
+            language: (session.language || 'spanish') as string,
+            sceneName,
+            propName: session.lastGroundedProp as string,
+            attemptsCount: 1,
+            lastPragmaticScore: scores.pragmaticScore as number,
+          })))
+          .onConflictDoUpdate({
+            target: [masteryEvidence.userId, masteryEvidence.word, masteryEvidence.language],
+            set: {
+              attemptsCount: sql`mastery_evidence.attempts_count + 1`,
+              lastPragmaticScore: scores.pragmaticScore as number,
+            },
+          })
+          .catch(() => {});
+        console.log(`[LexicalMastery] prag=${scores.pragmaticScore} prop="${session.lastGroundedProp}" → mastered (persisted): ${newWords.join(', ')}`);
       }
     }
   }

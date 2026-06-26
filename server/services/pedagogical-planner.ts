@@ -157,8 +157,10 @@ function buildMutations(action: PedagogicalActionType, session: any): CanvasMuta
 export function selectPedagogicalDirective(session: any, isQuietTurn = false): PedagogicalResult {
   if (!session?.sceneCanvas) return { directive: null, mutations: [] };
 
-  // Increment prop grounding age each turn so ghost grounding decays naturally
-  if (session.propGroundingAge !== undefined) session.propGroundingAge += 1;
+  // Increment prop grounding age only on turns with real student speech.
+  // Quiet turns (no transcript — VAD-only) don't consume the grounding window.
+  // (Gemini Q2: prevents "interrupted thought" false negatives)
+  if (session.propGroundingAge !== undefined && !isQuietTurn) session.propGroundingAge += 1;
 
   const tension: number = typeof session.sceneTension === 'number' ? session.sceneTension : 0;
   const sceneAge: number = session.sceneAge ?? 0;

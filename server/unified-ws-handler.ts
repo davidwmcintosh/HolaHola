@@ -75,11 +75,13 @@ import { selectPedagogicalDirective, type CanvasMutation } from './services/peda
 // ── Canvas Mutation Executor ──────────────────────────────────────────────────
 // Fires world mutations returned by the GOAP planner as whiteboard_update WS messages.
 // Runs after the directive is sent so the canvas change feels like a consequence.
-function fireCanvasMutations(session: any, mutations: CanvasMutation[], ws: any): void {
-  // Also drain vocab mutations queued by the lexical mastery tracker in tension-evaluator.
-  // These fire when vocab words are *named* (Reactive Manifestation), not on teacher mood.
-  const vocabMutations: CanvasMutation[] = session?.pendingVocabMutations ?? [];
-  if (vocabMutations.length && session) session.pendingVocabMutations = [];
+// drainVocab: true on primary/aftermath turns; false on quiet turns.
+// Prevents the vocab mutation queue from being drained into a quiet-turn WS message
+// and getting lost if the primary message supersedes it. (Gemini Q4 fix)
+function fireCanvasMutations(session: any, mutations: CanvasMutation[], ws: any, drainVocab = true): void {
+  // Drain vocab mutations from the lexical mastery tracker only when authorized.
+  const vocabMutations: CanvasMutation[] = drainVocab ? (session?.pendingVocabMutations ?? []) : [];
+  if (drainVocab && vocabMutations.length && session) session.pendingVocabMutations = [];
   const allMutations = [...mutations, ...vocabMutations];
   if (!allMutations.length || !session?.sceneCanvas) return;
   for (const mutation of allMutations) {
@@ -4108,7 +4110,7 @@ ${lastNote.tutorNotes}`);
                 // Quiet turn inside active scene: nudge if tension is elevated
                 if (session && (session as any).sceneCanvas) {
                   const { directive: quietDirective, mutations: quietMutations } = selectPedagogicalDirective(session, true);
-                  fireCanvasMutations(session, quietMutations, ws);
+                  fireCanvasMutations(session, quietMutations, ws, false);
                   if (quietDirective) glSessionSnap.sendTextTurn(quietDirective);
                 }
               }

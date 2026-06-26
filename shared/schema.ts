@@ -9616,3 +9616,28 @@ export const sceneWorldLedger = pgTable('scene_world_ledger', {
 export const insertSceneWorldLedgerSchema = createInsertSchema(sceneWorldLedger).omit({ id: true, updatedAt: true });
 export type InsertSceneWorldLedger = z.infer<typeof insertSceneWorldLedgerSchema>;
 export type SceneWorldLedger = typeof sceneWorldLedger.$inferSelect;
+
+// ===== MASTERY EVIDENCE =====
+// Durable record of vocabulary words a student has demonstrably mastered in-scene.
+// Written fire-and-forget from tension-evaluator when pragmaticScore >= 4 and
+// the active grounded prop carries vocab[].  Unique on (userId, word, language)
+// so re-mastering the same word is a no-op (ON CONFLICT DO NOTHING).
+// Powers future spaced-repetition queries and Madrigal unit cross-linking.
+export const masteryEvidence = pgTable('mastery_evidence', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar('user_id').notNull().references(() => users.id),
+  word: text('word').notNull(),
+  language: text('language').notNull(),
+  sceneName: text('scene_name'),             // scene where mastery was demonstrated
+  propName: text('prop_name'),               // which prop carried the vocab
+  attemptsCount: integer('attempts_count').notNull().default(1), // upserted on re-mastery
+  lastPragmaticScore: integer('last_pragmatic_score'), // score at time of mastery (1-5)
+  masteredAt: timestamp('mastered_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('idx_mastery_evidence_user_lang').on(table.userId, table.language),
+  uniqueIndex('idx_mastery_evidence_user_word_lang').on(table.userId, table.word, table.language),
+]);
+
+export const insertMasteryEvidenceSchema = createInsertSchema(masteryEvidence).omit({ id: true, masteredAt: true });
+export type InsertMasteryEvidence = z.infer<typeof insertMasteryEvidenceSchema>;
+export type MasteryEvidence = typeof masteryEvidence.$inferSelect;

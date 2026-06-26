@@ -127,7 +127,9 @@ function PropLayer({ prop }: { prop: SceneCanvasProp }) {
             : prop.state === 'cold'
               ? "drop-shadow(0 2px 6px rgba(0,0,0,0.30)) grayscale(0.65) brightness(0.78)"
               : "drop-shadow(0 2px 6px rgba(0,0,0,0.30))",
-          transition: "filter 0.6s ease",
+          transition: prop.state === 'success'
+            ? "filter 1.2s cubic-bezier(0.4, 0, 0.2, 1)"
+            : "filter 0.6s ease",
         }}
         draggable={false}
       />

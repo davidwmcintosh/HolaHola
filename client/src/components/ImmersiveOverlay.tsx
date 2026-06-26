@@ -432,7 +432,9 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
                           : prop.state === 'cold'
                             ? "drop-shadow(0 4px 12px rgba(0,0,0,0.45)) grayscale(0.65) brightness(0.75)"
                             : "drop-shadow(0 4px 12px rgba(0,0,0,0.45))",
-                        transition: "filter 0.6s ease",
+                        transition: prop.state === 'success'
+                          ? "filter 1.2s cubic-bezier(0.4, 0, 0.2, 1)"
+                          : "filter 0.6s ease",
                       }}
                       draggable={false}
                     />
