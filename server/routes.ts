@@ -108,6 +108,7 @@ import { getTTSService, TTSService } from "./services/tts-service";
 import { usageService } from "./services/usage-service";
 import { sessionCompassService, COMPASS_ENABLED } from "./services/session-compass-service";
 import { generatePreSessionSynthesis, setWarmSynthesis } from "./services/pre-session-synthesis";
+import { buildBroadcastBrief, setBroadcastBrief } from "./services/broadcast-data-service";
 import { architectVoiceService, validateArchitectSecret } from "./services/architect-voice-service";
 import { getStreamingVoiceOrchestrator } from "./services/streaming-voice-orchestrator";
 import { collaborationHubService } from "./services/collaboration-hub-service";
@@ -7134,6 +7135,35 @@ ${memoryContext}
     } catch (err: any) {
       // Non-fatal — WS handler will generate it on demand if the cache is cold
       console.warn(`[WarmSynthesis] Background generation failed (non-fatal):`, err?.message ?? err);
+    }
+  });
+
+  // Broadcast brief — fetch real weather for the student's target language city and build
+  // an ACTFL-scaled brief that Daniela delivers as a weather anchor at session open.
+  // Returns immediately with a preview; brief is cached server-side for the WS handler.
+  app.post("/api/sessions/broadcast-brief", isAuthenticated, async (req: any, res: Response) => {
+    const userId = req.user?.id;
+    const { conversationId, broadcastType = 'weather' } = req.body;
+    if (!userId || !conversationId) {
+      return res.status(400).json({ error: 'conversationId required' });
+    }
+    try {
+      const compassContext = COMPASS_ENABLED
+        ? await sessionCompassService.getCompassContext(conversationId).catch(() => null)
+        : null;
+      const language = req.body.language || (compassContext as any)?.studentLanguage || 'spanish';
+      const actflLevel = (compassContext as any)?.studentActflLevel || req.body.actflLevel || null;
+
+      const result = await buildBroadcastBrief(language, actflLevel, broadcastType);
+      if (!result) {
+        return res.status(503).json({ error: 'Weather data unavailable — try again shortly' });
+      }
+      setBroadcastBrief(String(userId), result.brief);
+      console.log(`[BroadcastBrief] Set for user ${String(userId).substring(0, 8)} — ${result.preview.city} ${result.preview.tempC}°C`);
+      res.json({ ok: true, preview: result.preview });
+    } catch (err: any) {
+      console.warn('[BroadcastBrief] Route error:', err?.message ?? err);
+      res.status(500).json({ error: 'Brief generation failed' });
     }
   });
 

@@ -62,6 +62,9 @@ export default function Chat() {
   const previousModeRef = useRef<"text" | "voice">("voice");
   const [showInsufficientCreditsDialog, setShowInsufficientCreditsDialog] = useState(false);
   const { isExhausted, isLow, isCritical } = useCredits();
+  const [broadcastMode, setBroadcastMode] = useState(false);
+  const [broadcastPreview, setBroadcastPreview] = useState<{ city: string; condition: string; tempC: number; channel: string } | null>(null);
+  const [isFetchingBroadcast, setIsFetchingBroadcast] = useState(false);
   const [className, setClassName] = useState<string | null>(null);
   const isMobile = useIsMobile();
   
@@ -248,6 +251,21 @@ export default function Chat() {
       .catch(() => {}); // non-fatal — warm cache miss is handled gracefully
     return () => controller.abort();
   }, [conversationId, mode]);
+
+  // Broadcast mode — fetch real weather brief when activated.
+  // The brief is stored server-side; the WS handler injects it at GL session start.
+  useEffect(() => {
+    if (!broadcastMode || !conversationId || mode !== "voice") return;
+    setIsFetchingBroadcast(true);
+    setBroadcastPreview(null);
+    apiRequest("POST", "/api/sessions/broadcast-brief", { conversationId, language })
+      .then(res => res.json())
+      .then(data => {
+        if (data.preview) setBroadcastPreview(data.preview);
+      })
+      .catch(() => {})
+      .finally(() => setIsFetchingBroadcast(false));
+  }, [broadcastMode, conversationId, mode, language]);
 
   // NOTE: We intentionally do NOT clear currentChatConversationId on unmount.
   // HMR remounts would wipe it, defeating the purpose of persistence.
@@ -709,6 +727,30 @@ export default function Chat() {
             <MessageSquare className="h-4 w-4 md:mr-2" />
             <span className="hidden md:inline">Type instead</span>
           </Button>
+
+          {/* Broadcast mode — real weather data delivered as a live broadcast */}
+          {mode === "voice" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setBroadcastMode(prev => !prev)}
+              data-testid="button-broadcast-mode"
+              className={broadcastMode ? "text-sky-600 dark:text-sky-400" : "text-muted-foreground"}
+              title="Broadcast Mode — Daniela delivers a real weather report for your target language city"
+            >
+              {isFetchingBroadcast ? (
+                <Loader2 className="h-4 w-4 animate-spin md:mr-2" />
+              ) : (
+                <Radio className="h-4 w-4 md:mr-2" />
+              )}
+              <span className="hidden md:inline">Broadcast</span>
+              {broadcastMode && broadcastPreview && (
+                <Badge variant="secondary" className="ml-1 text-xs hidden sm:inline">
+                  {broadcastPreview.city} {broadcastPreview.tempC}°C
+                </Badge>
+              )}
+            </Button>
+          )}
         </div>
         
         <div className="flex items-center gap-2">
