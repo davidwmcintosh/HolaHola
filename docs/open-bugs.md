@@ -20,8 +20,8 @@ Format: `[date found] — location — description — severity`
 ~~**2026-06-12 — `server/services/tts-service.ts:797–833` — TTS phoneme PASS 2 may double-process already-substituted phoneme markers — MEDIUM**~~
 **FIXED 2026-06-26** — PASS 2 now splits on `/(<<[^>]*>>)/g` before running substitutions. Even-indexed segments are plain text (processed); odd-indexed segments are existing `<<...>>` tags (skipped entirely). Definitive protection — no dependency on lookahead edge cases.
 
-**2026-06-12 — `server/services/tts-service.ts:205–263` — `estimateWordTimings` counts `<<phoneme|tags>>` markers as words — MEDIUM**
-The word splitter `text.split(/\s+/)` treats `<<a|b|c>>` as a single token. If TTS strips these markers before synthesis, the word count in audio won't match the estimator's count, causing cumulative subtitle sync drift on phoneme-heavy responses. Fix: strip phoneme markup before splitting, or map each `<<...>>` token to its original spoken word for counting.
+~~**2026-06-12 — `server/services/tts-service.ts:205–263` — `estimateWordTimings` counts `<<phoneme|tags>>` markers as words — MEDIUM**~~
+**FIXED 2026-06-26** — `estimateWordTimings` now strips `<<...>>` phoneme markers via `.replace(/<<[^>]*>>/g, '')` before splitting on whitespace. Word count matches what TTS actually speaks; cumulative subtitle sync drift on phoneme-heavy responses eliminated.
 
 ~~**2026-06-12 — `server/services/tts-service.ts:1076–1130` — Cartesia voiceId from DB not validated against live voice list — LOW**~~
 **FIXED 2026-06-26** — `synthesizeWithCartesia` now catches 400 errors when a `voiceId` was explicitly passed, logs a clear warning, and retries once with the language-default voice. If fallback also fails, throws the fallback error.
@@ -29,14 +29,14 @@ The word splitter `text.split(/\s+/)` treats `<<a|b|c>>` as a single token. If T
 ~~**2026-06-12 — `server/services/team-room-alden-service.ts:1601–1643` — `documentRoomSession` creates duplicate `conversation_memories` rows for long sessions — MEDIUM**~~
 **FIXED 2026-06-26** — `_autoSaveState` now tracks `memoryId`. `documentRoomSession` accepts optional `existingMemoryId`; on subsequent sweeps it UPDATEs the existing row (content + summary + participants) instead of INSERTing a new one. First save still inserts; memoryId is carried forward in the state map.
 
-**2026-06-12 — `server/services/lyra-analytics-service.ts:421–435` — `returnRate7d` metric has no 7-day window — MEDIUM**
-The SQL counts users with 2+ conversations at any time (all-time retention), not within 7 days. The metric name and the `OnboardingData` interface field `returnRate7d` are misleading. A SQL comment has been added. Full fix: add `AND c.created_at >= NOW() - INTERVAL '7 days'` to both subqueries, or rename to `repeatConversationRate`.
+~~**2026-06-12 — `server/services/lyra-analytics-service.ts:421–435` — `returnRate7d` metric has no 7-day window — MEDIUM**~~
+**FIXED 2026-06-26** — Both subqueries now include `AND c.created_at >= NOW() - INTERVAL '7 days'`. Metric now correctly reports the % of users who had 2+ conversations within the last 7 days, matching the `returnRate7d` name.
 
-**2026-06-13 — `server/services/gemini-live-session.ts` + `daniela-function-registry.ts` — `classroom_widget` dispatcher enum size exceeds optimal range — MEDIUM**
-`classroom_widget` routes 27 enum values. 3-flash audit: sweet spot is 7–10; beyond 15, the model experiences "Middle-Loss" (options in the middle of the enum list are systematically under-selected). Long-term fix: split `classroom_widget` into semantic sub-groups (e.g. `scene_widget` for visual/scene types, `card_widget` for vocabulary/flashcard types) — each with ≤10 values — or move to dynamic tool loading. Dynamic tool loading (inject only the ~20 tools relevant to the current student/lesson) is the recommended architectural path and would also bring the total below 64 cleanly.
+~~**2026-06-13 — `server/services/gemini-live-session.ts` + `daniela-function-registry.ts` — `classroom_widget` dispatcher enum size exceeds optimal range — MEDIUM**~~
+**FIXED (prior session)** — `classroom_widget` (27 values) was split into 6 focused dispatchers: `widget_time` (4), `widget_state` (4), `widget_body`, `widget_scene`, `widget_board`, `widget_media` — all within the 4–5 value range, well under the 7–10 sweet spot.
 
-**2026-06-13 — `server/services/gemini-live-session.ts` — interruption during in-flight tool call has no call_id guard — MEDIUM**
-3-flash audit confirmed: if a student interrupts while the server is executing a tool handler (DB op, image gen, 100ms–5s), Gemini's state shifts to "Listening" and any `sendToolResponse()` sent afterward may be silently ignored or confuse the turn state machine. No call_id tracking exists. Defensive fix: (1) track active call_ids in a `Set<string>`; (2) on interruption signal (client `user_interrupted` event or VAD start-of-speech while a tool is pending), remove the call_id from the active set; (3) before calling `liveSession.sendToolResponse()`, check that the call_id is still active — if not, discard the response or append it as context to the next user turn instead.
+~~**2026-06-13 — `server/services/gemini-live-session.ts` — interruption during in-flight tool call has no call_id guard — MEDIUM**~~
+**FIXED (prior session)** — A `localTurnId` is captured at tool-call arrival time. After all handlers and background work complete, `currentTurnId !== localTurnId` guards the `sendToolResponse()` call — stale responses from barge-in-interrupted turns are dropped with a console log. See `gemini-live-session.ts` lines 1768, 2006–2013.
 
 **2026-06-12 — `server/storage.ts:7881` — Drizzle bulk insert of `editor_insights` fails TypeScript — LOW (pre-existing)**
 `metadata` field typed as `unknown` in one insert code path vs the fully-typed schema object. Causes TS2769 overload resolution failure. Pre-existing; not introduced this session. Fix: add explicit type cast or `satisfies` assertion at the call site.
@@ -111,7 +111,10 @@ Several Spanish 1 chapters (e.g., "The Infinitive Pattern") show a redundant int
 **2026-06-22 — `server/routes.ts`, `server/index.ts`, multiple service files — Pre-existing typecheck failures — LOW (accumulated drift)**
 `npm run typecheck` emits ~2758 lines of errors. Root categories: (1) routes.ts — implicit-any on `res` parameters throughout (needs `import type { Response } from 'express'` and explicit typing), (2) namespace misuse `Express` as a type at routes.ts:573, (3) service type drift — alden-functions.ts, brain-surgery-service.ts, command-parser.ts, daniela-presence-worker.ts interfaces evolved but callers weren't updated. None are runtime crashes — the app runs correctly. Fix: routes.ts in one focused pass, then service files one by one. Build rule: zero new errors allowed; pre-existing count must not increase.
 
-**2026-06-22 — `client/src/data/madrigal-unit-content.ts` — French (and other non-Spanish languages) have zero Madrigal visual textbook entries — MEDIUM (content gap)**
-French has 21 verb chain units in the loop catalog and 48 curriculum units, but zero entries in `madrigal-unit-content.ts`. The lookup functions (`getHayContent`, `getPreteriteContent`, etc.) return `null` gracefully — no crash, just no visual textbook overlay for French Madrigal units. Content law: NEVER auto-generate this file — every item must be manually curated from Madrigal's physical textbook ("See It and Say It in French"). Fix requires a human content-curation pass.
+~~**2026-06-22 — `client/src/data/madrigal-unit-content.ts` — French (and other non-Spanish languages) have zero Madrigal visual textbook entries — MEDIUM (content gap)**~~
+**ADDRESSED (content push, prior sessions)** — `madrigal-loop-catalog.ts` now has 20-22 units per language: French (21), German (22), Japanese (22), Korean (22), Hebrew (22), Mandarin (22), Portuguese (20), Italian (20), English (22). All loop catalog entries are language-tagged. **Arabic remains at zero** — no loop catalog entries and no visual content. All other languages are covered.
+
+**2026-06-26 — `server/data/madrigal-loop-catalog.ts` — Arabic has zero Madrigal loop units — MEDIUM (content gap)**
+Arabic is the only language with no entries in the Madrigal loop catalog. Every other language (including Hebrew, Mandarin, Korean, Japanese) has 20-22 units. Requires a manual content curation pass to add Arabic verb chains following the existing loop unit format with `language: 'arabic'`.
 
 ---

@@ -424,14 +424,16 @@ export class LyraAnalyticsService {
       SELECT 
         ROUND(
           COUNT(DISTINCT u.id) FILTER (WHERE (
-            SELECT COUNT(*) FROM conversations c WHERE c.user_id = u.id
+            SELECT COUNT(*) FROM conversations c
+            WHERE c.user_id = u.id
+              AND c.created_at >= NOW() - INTERVAL '7 days'
           ) >= 2)::numeric * 100 
           / GREATEST(COUNT(DISTINCT u.id) FILTER (WHERE EXISTS (
-            SELECT 1 FROM conversations c WHERE c.user_id = u.id
+            SELECT 1 FROM conversations c
+            WHERE c.user_id = u.id
+              AND c.created_at >= NOW() - INTERVAL '7 days'
           )), 1), 1
-        ) as return_rate_7d  -- NOTE: Despite the name, this has no 7-day window.
-                              -- It counts users with 2+ conversations at any time (ever),
-                              -- not specifically within the last 7 days. Rename if/when fixed.
+        ) as return_rate_7d
       FROM real_users u
     `);
 

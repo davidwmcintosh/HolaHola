@@ -203,9 +203,12 @@ export function getDefaultEmotion(personality: TutorPersonality = 'warm'): Carte
  * @returns Array of word timings with start/end times
  */
 export function estimateWordTimings(text: string, audioDurationSeconds: number): WordTiming[] {
-  // Replace laughter tags with space to preserve word count alignment
-  // Phonemes should only be added when sending to TTS, not passed here
-  const cleanedText = text.replace(/\[laughter\]/gi, ' ');
+  // Strip Cartesia phoneme markers <<...>> so they don't count as words.
+  // Also strip [laughter] tags. Both must go before splitting so word count
+  // matches what TTS actually speaks.
+  const cleanedText = text
+    .replace(/<<[^>]*>>/g, '')
+    .replace(/\[laughter\]/gi, ' ');
   
   const words = cleanedText
     .split(/\s+/)
