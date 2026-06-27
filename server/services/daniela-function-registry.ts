@@ -6058,6 +6058,38 @@ Call this when a scene interaction has an outcome worth remembering next visit.`
     },
   },
 
+  // ── Broadcast Data: real-world weather / sports / news for anchor practice ──
+  {
+    legacyType: 'GET_BROADCAST_DATA',
+    declaration: {
+      name: 'get_broadcast_data',
+      description: `Fetch real-world data to deliver as a live television broadcast in the target language. Use when:
+- Teaching or practicing weather vocabulary, descriptive narration, or meteorology terms
+- The student wants sports commentary or score-reading practice
+- Working on news-style comprehension, headline summarizing, or formal register
+- Any lesson involving reporting language, conditionals, or passive voice in context
+- You want to vary the session with an authentic, real-world listening/speaking task
+
+Returns live weather conditions, sports headlines, or regional news from a rotating city in the student's target-language world. You compose and deliver the broadcast naturally at the student's ACTFL level — channel a real anchor, do not just read numbers aloud.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          broadcast_type: {
+            type: 'string',
+            enum: ['weather', 'sports', 'news'],
+            description: "Type of broadcast: 'weather' for a meteorology segment, 'sports' for scores and standings, 'news' for current regional headlines.",
+          },
+        },
+        required: ['broadcast_type'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const data = (session as any).broadcastDataResult as string | null | undefined;
+      if (!data) return 'Broadcast data could not be retrieved right now. Describe what you imagine the weather might be like in a target-language city and practice the vocabulary with the student.';
+      return data;
+    },
+  },
+
 ];
 
 

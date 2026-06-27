@@ -4492,6 +4492,21 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'GET_BROADCAST_DATA': {
+        const broadcastType = ((fn.args.broadcast_type as string) ?? 'weather') as 'weather' | 'sports' | 'news';
+        const language = session.targetLanguage ?? 'spanish';
+        try {
+          const { fetchBroadcastDataForTool } = await import('./broadcast-data-service');
+          const result = await fetchBroadcastDataForTool(language, broadcastType);
+          (session as any).broadcastDataResult = result;
+          console.log(`[Native Function→BroadcastData] ${broadcastType} data fetched for ${language} (${result.length} chars)`);
+        } catch (err: any) {
+          console.warn('[Native Function→BroadcastData] Fetch error (non-fatal):', err?.message ?? err);
+          (session as any).broadcastDataResult = null;
+        }
+        break;
+      }
+
       case 'START_TEACHING_LOOP': {
         if (session.isIncognito) {
           console.log('[Native Function→StartMadrigalLoop] INCOGNITO — skipping loop state write');
