@@ -1438,6 +1438,7 @@ export class NativeFunctionCallHandler {
         const sceneEnv = fn.args.environment as string | undefined;
         const sceneLabel = fn.args.label as string | undefined;
         const sceneText = fn.args.text as string | undefined;
+        const sceneTarget = (fn.args.target as string | undefined) || 'studio';
         if (sceneText && !session.functionCallText) session.functionCallText = sceneText;
         if (!sceneEnv) {
           console.warn('[Native Function→OpenScene] Missing environment — skipping');
@@ -1457,10 +1458,40 @@ export class NativeFunctionCallHandler {
             break;
           }
           const envDisplayName = (envRow as any)?.display_name as string | undefined;
+          const envLabel = sceneLabel || envDisplayName || sceneEnv.replace(/_/g, ' ');
+
+          // CENTER BACKDROP MODE — background only behind Daniela's avatar,
+          // Studio Pane and Whiteboard remain fully accessible.
+          if (sceneTarget === 'center') {
+            const centerBackdropUpdate = {
+              type: 'whiteboard_update' as const,
+              timestamp: Date.now(),
+              items: [{
+                id: 'center-backdrop-active',
+                type: 'center_backdrop' as const,
+                content: envLabel,
+                data: {
+                  environment: sceneEnv,
+                  imageUrl: envImageUrl,
+                  label: envLabel,
+                },
+              }],
+            };
+            if (session.firstAudioSent) {
+              this.sendMessage(session.ws, centerBackdropUpdate);
+            } else {
+              if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
+              session.pendingWhiteboardUpdates.push(centerBackdropUpdate);
+            }
+            console.log(`[Native Function→OpenScene] Center backdrop: ${sceneEnv}`);
+            break;
+          }
+
+          // STUDIO MODE (default) — scene loads into the Studio Pane (left panel).
           session.sceneCanvas = {
             environment: sceneEnv,
             environmentImageUrl: envImageUrl,
-            environmentLabel: sceneLabel || envDisplayName || sceneEnv.replace(/_/g, ' '),
+            environmentLabel: envLabel,
             props: [],
             clockTime: undefined,
           };
@@ -1470,11 +1501,11 @@ export class NativeFunctionCallHandler {
             items: [{
               id: 'scene-canvas-active',
               type: 'scene_canvas',
-              content: sceneLabel || sceneEnv.replace(/_/g, ' '),
+              content: envLabel,
               data: {
                 environment: sceneEnv,
                 environmentImageUrl: envImageUrl,
-                environmentLabel: session.sceneCanvas.environmentLabel,
+                environmentLabel: envLabel,
                 props: [],
                 canvasAction: 'open_scene' as const,
               },

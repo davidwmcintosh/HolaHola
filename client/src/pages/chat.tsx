@@ -21,8 +21,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { DevToolsFloatingMenu } from "@/components/DevToolsFloatingMenu";
 import { ImmersiveOverlay } from "@/components/ImmersiveOverlay";
 import { getTutorAvatar } from "@/lib/tutor-avatars";
-import type { WhiteboardItem, ScenarioItemData, SceneCanvasItemData, OverlayPanel } from "@shared/whiteboard-types";
-import { isScenarioItem, isSceneCanvasItem, isOverlayPanelItem } from "@shared/whiteboard-types";
+import type { WhiteboardItem, ScenarioItemData, SceneCanvasItemData, OverlayPanel, CenterBackdropItemData } from "@shared/whiteboard-types";
+import { isScenarioItem, isSceneCanvasItem, isOverlayPanelItem, isCenterBackdropItem } from "@shared/whiteboard-types";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useUser } from "@/lib/auth";
 import { useDanielaSession } from "@/contexts/DanielaSessionContext";
@@ -78,6 +78,7 @@ export default function Chat() {
   
   const whiteboardScenario = whiteboardItems.find(isScenarioItem)?.data as ScenarioItemData | undefined ?? null;
   const activeSceneCanvas = whiteboardItems.find(isSceneCanvasItem)?.data as SceneCanvasItemData | undefined ?? null;
+  const activeCenterBackdrop = whiteboardItems.find(isCenterBackdropItem)?.data as CenterBackdropItemData | undefined ?? null;
   const activePanel: OverlayPanel | null = whiteboardItems.find(isOverlayPanelItem)?.data.panel ?? null;
 
   useEffect(() => {
@@ -91,7 +92,7 @@ export default function Chat() {
   }, [activeSceneCanvas]);
 
   const displayWhiteboardItems = whiteboardItems.filter(
-    item => !isSceneCanvasItem(item) && !isOverlayPanelItem(item)
+    item => !isSceneCanvasItem(item) && !isOverlayPanelItem(item) && !isCenterBackdropItem(item)
   );
   const activeScenario: ScenarioItemData | null = loadedScenarioData
     ? {
@@ -851,6 +852,7 @@ export default function Chat() {
                   onWhiteboardItemsChange={setWhiteboardItems}
                   whiteboardCallbacksRef={whiteboardCallbacksRef}
                   useDesktopWhiteboard={useDesktopWhiteboard}
+                  backdropImageUrl={activeCenterBackdrop?.imageUrl ?? undefined}
                   onScenarioLoaded={async (scenarioData: any) => {
                     setLoadedScenarioData(scenarioData);
                     if (scenarioData?.id) {

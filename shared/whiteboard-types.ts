@@ -73,7 +73,7 @@ export type WhiteboardTagType = keyof typeof WHITEBOARD_TAGS;
 /**
  * Whiteboard item display types (lowercase for UI styling)
  */
-export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'comparison' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'sentence_table' | 'textbook_search' | 'overlay_panel' | 'daily_plan' | 'textbook_page' | 'teaching_card' | 'vocab_card' | 'word_echo';
+export type WhiteboardItemType = 'write' | 'phonetic' | 'compare' | 'comparison' | 'image' | 'drill' | 'pronunciation' | 'context' | 'grammar_table' | 'reading' | 'stroke' | 'tone' | 'word_map' | 'culture' | 'play' | 'scenario' | 'summary' | 'error_patterns' | 'vocabulary_timeline' | 'text_input' | 'switch_tutor' | 'call_support' | 'call_assistant' | 'actfl_update' | 'syllabus_progress' | 'phase_shift' | 'hive' | 'self_surgery' | 'pronunciation_coaching' | 'assistant_handoff' | 'dialogue' | 'scene_canvas' | 'center_backdrop' | 'sentence_table' | 'textbook_search' | 'overlay_panel' | 'daily_plan' | 'textbook_page' | 'teaching_card' | 'vocab_card' | 'word_echo';
 
 /**
  * Drill types for inline micro-exercises
@@ -1308,6 +1308,7 @@ export type WhiteboardItem =
   | SelfSurgeryItem
   | DialogueItem
   | SceneCanvasItem
+  | CenterBackdropItem
   | SentenceTableItem
   | TextbookSearchItem
   | OverlayPanelItem
@@ -3131,6 +3132,30 @@ export function isDialogueItem(item: WhiteboardItem): item is DialogueItem {
 
 export function isSceneCanvasItem(item: WhiteboardItem): item is SceneCanvasItem {
   return item.type === 'scene_canvas';
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Center Backdrop — sets a background image ONLY behind Daniela's avatar
+ * in the center panel. Studio Pane (left) and Whiteboard (right) stay fully
+ * accessible. Used for broadcast mode, location calls, and green-screen roleplay.
+ * Triggered by open_scene with target: 'center'.
+ */
+export interface CenterBackdropItemData {
+  environment: string;
+  imageUrl: string;
+  label?: string;
+}
+
+export interface CenterBackdropItem extends WhiteboardItemBase {
+  type: 'center_backdrop';
+  content: string;
+  data: CenterBackdropItemData;
+}
+
+export function isCenterBackdropItem(item: WhiteboardItem): item is CenterBackdropItem {
+  return item.type === 'center_backdrop';
 }
 
 export function isSentenceTableItem(item: WhiteboardItem): item is SentenceTableItem {

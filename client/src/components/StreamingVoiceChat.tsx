@@ -160,6 +160,8 @@ interface StreamingVoiceChatProps {
   targetLanguageOverride?: string;
   /** Route to navigate to when an unrecoverable error occurs. Defaults to '/chat'. */
   homeRoute?: string;
+  /** Background image URL to render behind Daniela's avatar (center backdrop / broadcast mode). */
+  backdropImageUrl?: string;
 }
 
 export function StreamingVoiceChat({ 
@@ -183,6 +185,7 @@ export function StreamingVoiceChat({
   onSceneZoneAdvanced,
   targetLanguageOverride,
   homeRoute = '/chat',
+  backdropImageUrl,
 }: StreamingVoiceChatProps) {
   const [, navigate] = useLocation();
   const { language, difficulty, setLanguage, subtitleMode, setSubtitleMode, tutorGender, voiceSpeed, setTutorGender, setVoiceSpeed } = useLanguage();
@@ -3806,7 +3809,15 @@ export function StreamingVoiceChat({
 
   return (
     <VoiceInputContext.Provider value={voiceInputContextValue}>
-    <div className="h-full flex flex-col overflow-hidden bg-background" data-testid="rest-voice-chat">
+    <div
+      className={`h-full flex flex-col overflow-hidden${backdropImageUrl ? '' : ' bg-background'}`}
+      data-testid="rest-voice-chat"
+      style={backdropImageUrl ? {
+        backgroundImage: `linear-gradient(rgba(0,0,0,0.22), rgba(0,0,0,0.38)), url(${backdropImageUrl})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      } : undefined}
+    >
       {/* Incognito Mode Toggle - Founder/Honesty mode only */}
       {(isDeveloper || isAdmin) && (learningContext === 'founder-mode' || learningContext === 'honesty-mode') && (['connected', 'ready', 'processing', 'streaming', 'reconnecting'] as const).includes(streamingVoice.state.connectionState as any) && (
         <div className="absolute top-3 left-3 z-50">

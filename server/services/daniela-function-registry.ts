@@ -1037,6 +1037,11 @@ Use the live canvas only when the SEQUENCE of changes is pedagogically meaningfu
             ],
           },
           label: { type: "string", description: "Optional short label shown as the scene title (e.g. 'En el restaurante')" },
+          target: {
+            type: "string",
+            enum: ["studio", "center"],
+            description: "Where the scene background appears. 'studio' (default) = loads into the Studio Pane (left panel), Whiteboard stays visible on the right — use for side-by-side teaching. 'center' = sets the background ONLY behind your avatar in the center panel, Studio Pane and Whiteboard both remain fully accessible — use for broadcast mode, location calls, and green-screen roleplay where you need all three panels active simultaneously.",
+          },
         },
         required: ["environment"],
       },
