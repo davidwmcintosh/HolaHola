@@ -965,19 +965,24 @@ You DO NOT need to call this before every tool — only when you want to narrate
     legacyType: 'OPEN_SCENE',
     declaration: {
       name: "open_scene",
-      description: `Open a persistent live canvas with a background environment.
-Unlike compose_visual_scene (which generates a flat one-shot image), open_scene starts a LIVE STAGE
-that persists across the lesson. You can then add, remove, or change props on it at any time
-without regenerating anything.
+      description: `Open the Scene Canvas — the live compositing stage on the student's LEFT panel — with a background environment. The Scene Canvas co-exists with the Studio Pane (right panel / whiteboard) where you write vocabulary and grammar. Both are visible side-by-side on desktop. Use open_scene for "side-by-side" teaching where the scene gives context and the whiteboard gives language scaffolding.
 
-Use open_scene at the START of a lesson segment OR any time you want to change the background to a new location:
+Unlike compose_visual_scene (which generates a flat one-shot image), open_scene starts a LIVE STAGE that persists across the lesson. You can add, remove, or change props at any time without regenerating.
+
+Use open_scene at the START of a lesson segment OR any time you want to change the background:
 - A restaurant ordering sequence (water → appetizer → main → dessert → la cuenta)
-- A time lesson where you'll move clock hands between expressions  
+- A time lesson where you'll move clock hands between expressions
 - A progressive vocabulary build-up in a kitchen/café/market
 - Transitioning to a new physical location in free-form conversation (e.g., moving from city_street to taxi_interior when a taxi arrives)
-- A BROADCAST SIMULATION: open tv_weather_studio to become a weather presenter, or tv_newsroom for a breaking-news anchor. Use show_weather + thermometer for the forecast overlay. Use add_to_scene for map props or headline images. Use the whiteboard to write and highlight key vocabulary. Scale complexity with ACTFL level: Novice = "Hoy hace calor" with one widget; Advanced = full 5-day forecast with conditionals. You can invent any story ("¡Un gorila escapó del zoológico!") — it just needs to teach the language.
+- A BROADCAST SIMULATION: open tv_weather_studio to become a weather presenter, or tv_newsroom for a breaking-news anchor. Use get_broadcast_data for real weather/news data. Use show_weather + thermometer for the forecast overlay. Use the Studio Pane (whiteboard) to write and highlight key vocabulary. Scale complexity with ACTFL level: Novice = "Hoy hace calor" with one widget; Advanced = full 5-day forecast with conditionals.
 
-⚠️ IMPORTANT — to switch scenes during free-form conversation (no active scenario), always call open_scene() with the new environment. Do NOT call advance_scene() — it only works inside structured scenarios loaded with load_scenario(). To move the student from a street to a taxi: call open_scene('taxi_interior'). To move them from the hotel lobby to the hotel room: call open_scene('hotel_room').
+INTERACTION PATTERNS — use these in any open scene, not just structured scenarios:
+- Live Reporting: open tv_weather_studio + call get_broadcast_data. Do NOT monologue — ask the student to predict the forecast or react to a headline. "¿Qué crees que va a pasar esta tarde?" Turn the broadcast into a dialogue.
+- Location Call: open a scene (park, beach, cafe_exterior) and act as if you are physically there calling the student. "¿Dónde crees que estoy?" Build a story from what they imagine in the scene. Teach words as they come up naturally.
+- Picture Story: open any scene, add props, and ask the student to describe what they see, invent what happened, or predict what happens next. Teach vocabulary from their guesses.
+In all patterns, use the Studio Pane (whiteboard) to log keywords while the scene is active.
+
+⚠️ IMPORTANT — to switch scenes during free-form conversation (no active scenario), always call open_scene() with the new environment. Do NOT call advance_scene() — it only works inside structured scenarios loaded with load_scenario().
 
 After open_scene, use add_to_scene / remove_from_scene / set_clock to update the canvas.
 Use clear_scene to empty all props (keeping the background).
@@ -1778,7 +1783,10 @@ Pass action="clear" to remove the map when done.`,
     legacyType: 'ENTER_IMMERSIVE',
     declaration: {
       name: "enter_immersive",
-      description: `Enter fullscreen immersive mode on the student's screen.
+      description: `Expand the Scene Canvas to FULL SCREEN — the Studio Pane (whiteboard, right panel) is HIDDEN while immersive is active. The student sees only the scene.
+Use this for high-stakes roleplay where text scaffolding would break the immersion. For teaching that needs both scene and vocabulary side-by-side, keep open_scene without entering immersive.
+Exit with enter_immersive({ action: "exit" }) to restore the Studio Pane alongside the scene.
+
 Use this right before beginning a roleplay scenario so the student is fully immersed.
 The student's screen goes fullscreen showing only the live scene canvas.
 

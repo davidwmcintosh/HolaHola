@@ -239,55 +239,55 @@ export async function fetchBroadcastDataForTool(
   const regionNote = city.regionLabel ? ` (${city.regionLabel})` : '';
 
   if (broadcastType === 'weather') {
-    const lines = [
-      `WEATHER BROADCAST DATA`,
-      `City: ${city.name}${regionNote}, ${city.country}`,
-      `Channel: ${city.channel}`,
-      `Day/Time: ${day}, ${time} local`,
-      `Temperature: ${tempC}°C / ${tempF}°F`,
-      `Conditions: ${condShort}`,
-      `Wind: ${windKmh} km/h`,
-      `Forecast detail: ${condDetail}`,
-      ``,
-      `Deliver this as a live TV weather segment in the target language. Adapt complexity to the student's ACTFL level. Channel a real anchor — do not just read the numbers.`,
-    ];
-    return lines.join('\n');
+    return [
+      `[SOURCE DATA]`,
+      `City: ${city.name}${regionNote} | Country: ${city.country} | Channel: ${city.channel}`,
+      `Day: ${day} | Time: ${time} local`,
+      `Temp: ${tempC}°C / ${tempF}°F | Wind: ${windKmh} km/h | Sky: ${condShort}`,
+      `Detail: ${condDetail}`,
+      `[TASK]`,
+      `Perform as a local weather anchor. DO NOT read the list.`,
+      `1. Open with a natural hook for the day and location.`,
+      `2. Report 1-2 facts in your own anchor voice.`,
+      `3. Ask the student a level-appropriate question about the weather — make it a real dialogue, not a performance.`,
+      `Suggested: "¿Qué crees que deberías llevar hoy?" or "Can you tell me in [language] whether you'd bring an umbrella?"`,
+    ].join('\n');
   }
 
   if (broadcastType === 'sports') {
-    const prompt = `Give me the top 3 sports stories or scores in ${city.country} right now. One sentence each, very brief.`;
-    const sportsBrief = await fetchPerplexityBrief(prompt);
-    const lines = [
-      `SPORTS BROADCAST DATA`,
-      `Location: ${city.name}, ${city.country}`,
-      `Channel: ${city.channel} Deportes`,
-      `Day: ${day}`,
-      ``,
+    const sportsBrief = await fetchPerplexityBrief(
+      `Top 3 sports stories or scores in ${city.country} right now. One sentence each, very brief.`
+    );
+    return [
+      `[SOURCE DATA]`,
+      `City: ${city.name} | Country: ${city.country} | Channel: ${city.channel} Deportes | Day: ${day}`,
       sportsBrief
-        ? `Headlines:\n${sportsBrief}`
-        : `No live sports data available right now — improvise: describe an imaginary local match result using sport vocabulary appropriate for the student's level.`,
-      ``,
-      `Deliver this as a sports anchor in the target language. React to the scores naturally. Invite the student to respond.`,
-    ];
-    return lines.join('\n');
+        ? sportsBrief
+        : `No live data — improvise: describe an imaginary local match result using sport vocabulary.`,
+      `[TASK]`,
+      `Perform as a sports anchor. DO NOT read the list mechanically.`,
+      `1. Pick the most interesting story and react to it naturally.`,
+      `2. Report it in the target language at the student's ACTFL level.`,
+      `3. Invite the student to respond — ask what sport they follow or what they think of the result.`,
+    ].join('\n');
   }
 
   // news
-  const prompt = `Give me the top 3 news headlines from ${city.country} right now. One sentence each, factual and brief.`;
-  const newsBrief = await fetchPerplexityBrief(prompt);
-  const lines = [
-    `NEWS BROADCAST DATA`,
-    `Location: ${city.name}, ${city.country}`,
-    `Channel: ${city.channel} Noticias`,
-    `Day/Time: ${day}, ${time} local`,
-    ``,
+  const newsBrief = await fetchPerplexityBrief(
+    `Top 3 news headlines from ${city.country} right now. One sentence each, factual and brief.`
+  );
+  return [
+    `[SOURCE DATA]`,
+    `City: ${city.name} | Country: ${city.country} | Channel: ${city.channel} | Day: ${day} | Time: ${time} local`,
     newsBrief
-      ? `Headlines:\n${newsBrief}`
-      : `No live news data available right now — improvise: describe a plausible local news story relevant to everyday life in the region.`,
-    ``,
-    `Deliver this as a news anchor in the target language at the student's ACTFL level. After the headlines, ask the student what they understood or invite a reaction.`,
-  ];
-  return lines.join('\n');
+      ? newsBrief
+      : `No live data — improvise: describe a plausible local story relevant to everyday life in the region.`,
+    `[TASK]`,
+    `Perform as a news anchor. DO NOT read the list mechanically.`,
+    `1. Open with a brief, natural anchor greeting and the date.`,
+    `2. Deliver 1-2 headlines in the target language at the student's ACTFL level.`,
+    `3. After headlines, ask what the student understood or invite a reaction to one story.`,
+  ].join('\n');
 }
 
 // ── ACTFL-scaled pre-session brief (for future lesson-based auto-injection) ─
