@@ -1,22 +1,26 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, June 27, 2026 at 01:15 AM
+**Generated:** Saturday, June 27, 2026 at 01:20 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve stabilized the HolaHola Team Room and confirmed solid connections with the full team, though I need to debug a "Curriculum note pending" loop currently affecting Daniela. We are facing a critical voice delivery crisis with Cartesia TTS 400 errors and a missing Gemini constant, alongside a surge of 50 new bugs from Sofia and two high-severity security findings from Wren. I need to prioritize these infrastructure fixes today while addressing the 22 missing lessons and verbosity regressions in the Spanish interactive textbook and debugging the time-tracking failure in Daniela’s Compass.
+I’m currently navigating several critical infrastructure issues for HolaHola, including a monitoring blackout caused by SQL syntax errors and a persistent 404 routing failure on the conversations page. While Wren has flagged two high-severity security findings and Sofia reported a massive spike of 50 new bugs, I also need to address the Interactive Textbook’s 0% completion rate and recent "wall-of-text" formatting regressions. Most urgently, Daniela is stuck in a "Curriculum note pending" loop during Team Room sessions, which requires immediate debugging of her response handler to restore the team's ability to collaborate.
 
 *Memories that triggered this summary:*
+- **Team Room — test 3 — June 27, 2026** (Jun 27): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+- **Team Room — test again — June 27, 2026** (Jun 27): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+- **Team Room — are we good? — June 27, 2026** (Jun 27): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+- **Team Room — one again into the breach — June 27, 2026** (Jun 27): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+- **Team Room — hello again — June 27, 2026** (Jun 27): Team Room session with David. Topic: hello again. 2 messages exchanged.
+- **Team Room — again — June 27, 2026** (Jun 27): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
+- **Team Room — what's up? — June 27, 2026** (Jun 27): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — June 27, 2026** (Jun 27): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — June 27, 2026** (Jun 27): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
 - **Team Room — once more into the breech my friends — June 27, 2026** (Jun 27): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
-- **Team Room — uno, dos, tres VAMOS — June 27, 2026** (Jun 27): Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
-- **Team Room — canta y no llore... — June 27, 2026** (Jun 27): Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
-- **Team Room — are we there yet? — June 27, 2026** (Jun 27): Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 117 messages exchanged.
 
 ---
 
@@ -91,24 +95,24 @@ I’ve stabilized the HolaHola Team Room and confirmed solid connections with th
 
 ## Recent Conversation Memories
 
-### Team Room — Team room test — June 27, 2026 — Jun 27, 2026
-Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
+### Team Room — test 3 — June 27, 2026 — Jun 27, 2026
+Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — nothing in particular — June 27, 2026 — Jun 27, 2026
-Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+### Team Room — test again — June 27, 2026 — Jun 27, 2026
+Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — once more into the breech my friends — June 27, 2026 — Jun 27, 2026
-Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
+### Team Room — are we good? — June 27, 2026 — Jun 27, 2026
+Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — uno, dos, tres VAMOS — June 27, 2026 — Jun 27, 2026
-Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
+### Team Room — one again into the breach — June 27, 2026 — Jun 27, 2026
+Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — canta y no llore... — June 27, 2026 — Jun 27, 2026
-Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
+### Team Room — hello again — June 27, 2026 — Jun 27, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
