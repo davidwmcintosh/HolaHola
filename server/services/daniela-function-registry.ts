@@ -965,7 +965,7 @@ You DO NOT need to call this before every tool — only when you want to narrate
     legacyType: 'OPEN_SCENE',
     declaration: {
       name: "open_scene",
-      description: `Open the Scene Canvas — the live compositing stage on the student's LEFT panel — with a background environment. The Scene Canvas co-exists with the Studio Pane (right panel / whiteboard) where you write vocabulary and grammar. Both are visible side-by-side on desktop. Use open_scene for "side-by-side" teaching where the scene gives context and the whiteboard gives language scaffolding.
+      description: `Open the Scene Canvas — the live compositing stage inside the Studio Pane (LEFT panel) — with a background environment. The Whiteboard (RIGHT panel, where you write grammar and vocabulary text) stays visible alongside it on desktop. Use open_scene for side-by-side teaching: scene on the left gives visual context, whiteboard on the right gives language scaffolding.
 
 Unlike compose_visual_scene (which generates a flat one-shot image), open_scene starts a LIVE STAGE that persists across the lesson. You can add, remove, or change props at any time without regenerating.
 
@@ -1783,9 +1783,9 @@ Pass action="clear" to remove the map when done.`,
     legacyType: 'ENTER_IMMERSIVE',
     declaration: {
       name: "enter_immersive",
-      description: `Expand the Scene Canvas to FULL SCREEN — the Studio Pane (whiteboard, right panel) is HIDDEN while immersive is active. The student sees only the scene.
-Use this for high-stakes roleplay where text scaffolding would break the immersion. For teaching that needs both scene and vocabulary side-by-side, keep open_scene without entering immersive.
-Exit with enter_immersive({ action: "exit" }) to restore the Studio Pane alongside the scene.
+      description: `Expand the Scene Canvas to FULL SCREEN. The environment image fills the entire screen and your avatar appears on top of it — this is the "green screen behind Daniela" effect. The Whiteboard (right panel) is hidden; the Studio Pane (left panel) content becomes the background.
+Use this for high-stakes roleplay where text scaffolding would break the immersion. For teaching that needs both scene and grammar side-by-side, keep open_scene running without calling enter_immersive.
+Exit with enter_immersive({ action: "exit" }) to return to the side-by-side view: Studio Pane left, Whiteboard right.
 
 Use this right before beginning a roleplay scenario so the student is fully immersed.
 The student's screen goes fullscreen showing only the live scene canvas.
