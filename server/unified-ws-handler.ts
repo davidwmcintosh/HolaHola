@@ -1422,9 +1422,24 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
           }
           
           const config = message as ClientStartSessionMessage;
-          const isReconnectSO = config.isReconnect === true;
+          let isReconnectSO = config.isReconnect === true;
           const tutorGender = config.tutorGender || 'female';
           const rawHonestyMode = config.rawHonestyMode || false;
+
+          // ── Implicit reconnect detection ─────────────────────────────────────
+          // If the client sends start_session WITHOUT isReconnect:true but there is
+          // an active grace period for this exact conversationId, the client dropped
+          // and reconnected but lost its lastSessionConfig (e.g. page navigation,
+          // broadcast-mode UI transition, app backgrounded). Treat it as a reconnect
+          // so context is preserved rather than destroyed.
+          if (!isReconnectSO && conversationId) {
+            const implicitPending = pendingReconnectSessions.get(conversationId);
+            if (implicitPending && implicitPending.userId === String(userId)) {
+              console.log(`[Reconnect Grace] Implicit reconnect detected for ${conversationId.substring(0, 8)} — client lost isReconnect flag, promoting to reconnect`);
+              isReconnectSO = true;
+            }
+          }
+
           console.log(`[Streaming Voice] Processing start_session (Socket.io)${isReconnectSO ? ' (RECONNECT — will skip greeting)' : ''}`);
 
           // ── Concurrent session guard ────────────────────────────────────────
@@ -1444,9 +1459,12 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
                 if (ageSeconds > 90) {
                   console.warn(`[ConcurrentGuard] Found stale active session ${existingActiveSession.id.substring(0, 8)} (age ${Math.round(ageSeconds)}s) for user ${userId} — auto-ending and allowing new session`);
 
-                  // Cancel any in-flight grace-period timer for this user
+                  // Cancel grace-period timers for OTHER conversations by this user.
+                  // If the pending reconnect is for the same conversationId, the implicit
+                  // reconnect check above would have already set isReconnectSO=true, so
+                  // we will never reach this block for same-conversation reconnects.
                   for (const [convId, entry] of pendingReconnectSessions) {
-                    if (entry.userId === String(userId)) {
+                    if (entry.userId === String(userId) && convId !== conversationId) {
                       clearTimeout(entry.timer);
                       pendingReconnectSessions.delete(convId);
                       db.delete(voiceGracePeriods)
