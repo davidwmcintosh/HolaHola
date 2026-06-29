@@ -329,7 +329,12 @@ export type BroadcastType = 'weather' | 'sports' | 'news';
 export async function fetchBroadcastDataForTool(
   language: string,
   broadcastType: BroadcastType,
+  nativeLanguage?: string,
 ): Promise<string> {
+  // US students (native English speakers) expect Fahrenheit in broadcasts.
+  // Everyone else gets Celsius — the international standard and what the
+  // target-language country itself uses.
+  const useF = nativeLanguage?.toLowerCase() === 'english';
   const weather = await fetchWeather(language);
 
   if (!weather) {
@@ -346,7 +351,7 @@ export async function fetchBroadcastDataForTool(
       `City: ${city.name}${regionNote} | Country: ${city.country} | Channel: ${city.channel}`,
       `Day: ${day} | Time: ${time} local`,
       `Sky: ${condShort} | Widget slug: ${condSlug} ← pass this exactly to set_weather condition field`,
-      `Temp: ${tempC}°C / ${tempF}°F — SAY EXACTLY ${tempC}°C (or ${tempF}°F for US). Do not change or approximate this number.`,
+      `Temp: ${useF ? `${tempF}°F` : `${tempC}°C`} — SAY EXACTLY THIS. Do not change or approximate this number.`,
       `Wind: ${windKmh} km/h`,
       `Detail: ${condDetail}`,
       `[REQUIRED VISUAL SETUP — call these tools BEFORE speaking]`,
@@ -356,7 +361,7 @@ export async function fetchBroadcastDataForTool(
       `[TASK]`,
       `Perform as a local weather anchor. DO NOT read the list.`,
       `1. Open with a natural hook for the day and location.`,
-      `2. Report the temperature (${tempC}°C) and sky condition (${condShort}) in your own anchor voice.`,
+      `2. Report the temperature (${useF ? `${tempF}°F` : `${tempC}°C`}) and sky condition (${condShort}) in your own anchor voice.`,
       `3. Ask the student a level-appropriate question about the weather — make it a real dialogue, not a performance.`,
       `Suggested: "¿Qué crees que deberías llevar hoy?" or "Can you tell me in [language] whether you'd bring an umbrella?"`,
     ].join('\n');

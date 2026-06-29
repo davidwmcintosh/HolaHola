@@ -4528,7 +4528,7 @@ export class NativeFunctionCallHandler {
         const language = session.targetLanguage ?? 'spanish';
         try {
           const { fetchBroadcastDataForTool } = await import('./broadcast-data-service');
-          const result = await fetchBroadcastDataForTool(language, broadcastType);
+          const result = await fetchBroadcastDataForTool(language, broadcastType, session.nativeLanguage);
           (session as any).broadcastDataResult = result;
           console.log(`[Native Function→BroadcastData] ${broadcastType} data fetched for ${language} (${result.length} chars)`);
         } catch (err: any) {
