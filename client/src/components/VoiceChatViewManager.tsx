@@ -64,6 +64,8 @@ interface VoiceChatViewManagerProps {
   onHelpClick?: () => void;
   // Micro-ack playing state — drives avatar to 'talking' during ack clip
   microAckPlaying?: boolean;
+  // Broadcast mode backdrop URL — passed through to ImmersiveTutor so its background becomes transparent
+  backdropImageUrl?: string;
 }
 
 export function VoiceChatViewManager({
@@ -110,6 +112,7 @@ export function VoiceChatViewManager({
   onVoiceOverrideChange,
   onHelpClick,
   microAckPlaying = false,
+  backdropImageUrl,
 }: VoiceChatViewManagerProps) {
   const [view, setView] = useState<"live" | "history">("live");
   const touchStartX = useRef<number>(0);
@@ -251,6 +254,7 @@ export function VoiceChatViewManager({
                 onVoiceOverrideChange={onVoiceOverrideChange}
                 onHelpClick={onHelpClick}
                 microAckPlaying={microAckPlaying}
+                backdropImageUrl={backdropImageUrl}
               />
             </div>
           ) : (

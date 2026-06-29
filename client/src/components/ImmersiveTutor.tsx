@@ -129,6 +129,8 @@ interface ImmersiveTutorProps {
   onHelpClick?: () => void;
   // Micro-ack playing — forces avatar to 'talking' state while ack clip plays
   microAckPlaying?: boolean;
+  // Broadcast mode backdrop — when set, the Live view background is transparent so the outer backdrop shows
+  backdropImageUrl?: string;
 }
 
 export function ImmersiveTutor({
@@ -176,6 +178,7 @@ export function ImmersiveTutor({
   onVoiceOverrideChange,
   onHelpClick,
   microAckPlaying = false,
+  backdropImageUrl,
 }: ImmersiveTutorProps) {
   // CRITICAL: Use global playback state store instead of prop
   // This bypasses React prop drilling which becomes stale during HMR
@@ -377,7 +380,7 @@ export function ImmersiveTutor({
   };
 
   return (
-    <div className="flex flex-col h-full bg-background overflow-hidden items-center relative">
+    <div className={`flex flex-col h-full overflow-hidden items-center relative${backdropImageUrl ? '' : ' bg-background'}`}>
       {/* Voice Switcher - Fixed at top-left for easy access */}
       {setTutorGender && (
         <div className="absolute top-4 left-4 z-20 flex items-center gap-1 bg-background/80 backdrop-blur-sm rounded-full p-1 shadow-lg border">

@@ -4239,6 +4239,7 @@ export function StreamingVoiceChat({
           onVoiceOverrideChange={setVoiceOverride}
           onHelpClick={() => setIsSupportModalOpen(true)}
           microAckPlaying={streamingVoice.microAckPlaying}
+          backdropImageUrl={backdropImageUrl}
         />
       </div>
       

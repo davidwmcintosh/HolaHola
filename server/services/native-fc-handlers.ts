@@ -2324,9 +2324,14 @@ export class NativeFunctionCallHandler {
           console.log(`[Native Function→SetThermometer] Converted temperature=${fn.args.temperature}${unitRaw ?? 'F'} → ${thermCelsius}°C`);
         }
         const thermLabel = fn.args.labelText as string | undefined;
-        // showFahrenheit: true when caller passed unit="F" or explicitly requested Fahrenheit display
+        // showFahrenheit: true when caller passed unit="F" or explicitly requested Fahrenheit display.
+        // IMPORTANT: store undefined (not false) when caller omits both params so the frontend's
+        // isUS locale fallback can still activate for US students.
         const thermFahrenheitExplicit = fn.args.showFahrenheit as boolean | undefined;
-        const thermFahrenheit = thermFahrenheitExplicit ?? ((fn.args.unit as string | undefined)?.toUpperCase() === 'F');
+        const unitStr = (fn.args.unit as string | undefined)?.toUpperCase();
+        const thermFahrenheit: boolean | undefined = thermFahrenheitExplicit !== undefined
+          ? thermFahrenheitExplicit
+          : unitStr ? unitStr === 'F' : undefined;
         if (thermCelsius === undefined) { console.warn('[Native Function→SetThermometer] Missing celsius/temperature — skipping'); break; }
         if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
         session.sceneCanvas.thermometerData = { celsius: thermCelsius, labelText: thermLabel, showFahrenheit: thermFahrenheit };
