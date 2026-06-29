@@ -155,13 +155,13 @@ interface WeatherReading {
   city: CityInfo;
 }
 
-async function fetchWeather(language: string): Promise<WeatherReading | null> {
-  const city = getRotatingCity(language);
+async function fetchWeatherOpenMeteo(city: CityInfo): Promise<WeatherReading | null> {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,weather_code,wind_speed_10m&wind_speed_unit=kmh&temperature_unit=celsius&timezone=${encodeURIComponent(city.timezone)}`;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
     if (!res.ok) return null;
     const json = await res.json() as any;
+    if (json.error) return null;
     const c = json.current;
     if (!c) return null;
     const tempC = Math.round(c.temperature_2m ?? 0);
@@ -180,6 +180,50 @@ async function fetchWeather(language: string): Promise<WeatherReading | null> {
   } catch {
     return null;
   }
+}
+
+async function fetchWeatherWttrIn(city: CityInfo): Promise<WeatherReading | null> {
+  const query = encodeURIComponent(`${city.lat},${city.lon}`);
+  const url = `https://wttr.in/${query}?format=j1`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(7000), headers: { 'User-Agent': 'HolaHola/1.0' } });
+    if (!res.ok) return null;
+    const json = await res.json() as any;
+    const c = json.current_condition?.[0];
+    if (!c) return null;
+    const tempC = Math.round(Number(c.temp_C ?? 0));
+    const windKmh = Math.round(Number(c.windspeedKmph ?? 0));
+    const desc = (c.weatherDesc?.[0]?.value ?? '').toLowerCase();
+    let condShort = 'mixed conditions';
+    let condDetail = 'Variable conditions expected throughout the day.';
+    if (desc.includes('thunder')) { condShort = 'thunderstorms'; condDetail = 'Thunderstorms likely. Stay indoors when possible.'; }
+    else if (desc.includes('snow')) { condShort = 'snow'; condDetail = 'Snowfall expected. Roads may be slippery — drive carefully.'; }
+    else if (desc.includes('rain') || desc.includes('drizzle')) { condShort = 'rain'; condDetail = 'Rain showers in the forecast. A waterproof jacket is a good idea.'; }
+    else if (desc.includes('fog') || desc.includes('mist')) { condShort = 'foggy'; condDetail = 'Reduced visibility this morning — fog advisory in effect.'; }
+    else if (desc.includes('overcast') || desc.includes('cloud')) { condShort = 'partly cloudy'; condDetail = 'Some clouds moving through, but mostly pleasant.'; }
+    else if (desc.includes('sunny') || desc.includes('clear')) { condShort = 'clear skies'; condDetail = 'Beautiful clear skies — excellent visibility all day.'; }
+    const now = new Date();
+    return {
+      tempC,
+      tempF: Math.round(tempC * 9 / 5 + 32),
+      condShort,
+      condDetail,
+      windKmh,
+      day: now.toLocaleDateString('en-US', { weekday: 'long', timeZone: city.timezone }),
+      time: now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: city.timezone, hour12: true }),
+      city,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchWeather(language: string): Promise<WeatherReading | null> {
+  const city = getRotatingCity(language);
+  const primary = await fetchWeatherOpenMeteo(city);
+  if (primary) return primary;
+  console.log('[BroadcastData] open-meteo unavailable — falling back to wttr.in');
+  return fetchWeatherWttrIn(city);
 }
 
 // ── Perplexity fetch (sports / news) ───────────────────────────────────────

@@ -252,7 +252,7 @@ interface PendingReconnectData {
   conversationId: string;
   timer: NodeJS.Timeout;
 }
-const RECONNECT_GRACE_PERIOD_MS = 45000;
+const RECONNECT_GRACE_PERIOD_MS = 120000;
 const pendingReconnectSessions = new Map<string, PendingReconnectData>();
 
 function armReconnectTimer(
