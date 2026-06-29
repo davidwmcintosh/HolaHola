@@ -369,8 +369,9 @@ export async function fetchBroadcastDataForTool(
   }
 
   if (broadcastType === 'sports') {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const sportsBrief = await fetchPerplexityBrief(
-      `Top 3 sports stories or scores in ${city.country} right now. One sentence each, very brief.`
+      `Today is ${today}. What are the MOST RECENT final scores and results from the past 48 hours for major sports in ${city.country} or involving ${city.country} national teams? Focus on games played in the last 2 days. Give up to 3 results with exact dates. Do NOT report results from more than a week ago.`
     );
     return [
       `[SOURCE DATA]`,
