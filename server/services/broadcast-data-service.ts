@@ -354,8 +354,9 @@ export async function fetchBroadcastDataForTool(
       `Temp: ${useF ? `${tempF}°F` : `${tempC}°C`} — SAY EXACTLY THIS. Do not change or approximate this number.`,
       `Wind: ${windKmh} km/h`,
       `Detail: ${condDetail}`,
-      `[REQUIRED VISUAL SETUP — call these tools BEFORE speaking]`,
-      `1. open_scene with scene "tv_weather_studio"`,
+      `[REQUIRED VISUAL SETUP — call these tools IN ORDER before speaking]`,
+      `0. clear_whiteboard — clears any previous widgets so nothing stacks`,
+      `1. open_scene with scene "tv_weather_studio" and target "center" — this places the studio BEHIND your avatar (green-screen mode). Do NOT skip this. Do NOT use target "studio".`,
       `2. widget_state with widget "set_weather", params_json: {"condition":"${condSlug}","celsius":${tempC}}`,
       `3. widget_time with widget "set_thermometer", params_json: {"celsius":${tempC},"showFahrenheit":${useF}}`,
       `[TASK]`,
@@ -377,8 +378,10 @@ export async function fetchBroadcastDataForTool(
       sportsBrief
         ? sportsBrief
         : `No live data — improvise: describe an imaginary local match result using sport vocabulary.`,
-      `[REQUIRED VISUAL SETUP — call this tool BEFORE speaking]`,
-      `1. open_scene with scene "tv_newsroom"`,
+      `[REQUIRED VISUAL SETUP — call these tools IN ORDER before speaking]`,
+      `0. clear_whiteboard — clears any previous widgets`,
+      `1. open_scene with scene "tv_newsroom" and target "center" — places the newsroom BEHIND your avatar. Do NOT skip. Do NOT use target "studio".`,
+      `IMPORTANT: Do NOT use any weather widgets (set_weather, set_thermometer) for sports broadcasts. Sports headlines belong on the whiteboard if anywhere.`,
       `[TASK]`,
       `Perform as a sports anchor. DO NOT read the list mechanically.`,
       `1. Pick the most interesting story and react to it naturally.`,
@@ -397,8 +400,10 @@ export async function fetchBroadcastDataForTool(
     newsBrief
       ? newsBrief
       : `No live data — improvise: describe a plausible local story relevant to everyday life in the region.`,
-    `[REQUIRED VISUAL SETUP — call this tool BEFORE speaking]`,
-    `1. open_scene with scene "tv_newsroom"`,
+    `[REQUIRED VISUAL SETUP — call these tools IN ORDER before speaking]`,
+    `0. clear_whiteboard — clears any previous widgets`,
+    `1. open_scene with scene "tv_newsroom" and target "center" — places the newsroom BEHIND your avatar. Do NOT skip. Do NOT use target "studio".`,
+    `IMPORTANT: Do NOT use any weather widgets for news broadcasts.`,
     `[TASK]`,
     `Perform as a news anchor. DO NOT read the list mechanically.`,
     `1. Open with a brief, natural anchor greeting and the date.`,
