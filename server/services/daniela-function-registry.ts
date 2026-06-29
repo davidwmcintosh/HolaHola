@@ -5333,13 +5333,13 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'WIDGET_BOARD',
     declaration: {
       name: 'widget_board',
-      description: 'Controls whiteboard and board-display widgets. Use for: freeze whiteboard (hold_whiteboard), clear whiteboard (clear_whiteboard), text widget (write), grammar reference table (grammar_table), sentence breakdown table (show_sentence_table), element spotlight highlight (spotlight_element).',
+      description: 'Controls whiteboard and board-display widgets. Use for: freeze whiteboard (hold_whiteboard), clear whiteboard (clear_whiteboard), text widget (write), grammar reference table (grammar_table), sentence breakdown table (show_sentence_table), element spotlight highlight (spotlight_element), shared session mission badge (set_mission_objective).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
           widget: {
             type: 'STRING',
-            enum: ['hold_whiteboard', 'clear_whiteboard', 'write', 'grammar_table', 'show_sentence_table', 'spotlight_element'],
+            enum: ['hold_whiteboard', 'clear_whiteboard', 'write', 'grammar_table', 'show_sentence_table', 'spotlight_element', 'set_mission_objective'],
             description: 'Which board widget to control.',
           },
           params_json: {
@@ -6193,6 +6193,7 @@ widget_board — whiteboard and text displays.
   widget: "grammar_table" → grammar reference table.
   widget: "show_sentence_table" → sentence breakdown table.
   widget: "spotlight_element" → highlight a language element.
+  widget: "set_mission_objective" → set shared session mission badge. params_json: {"objective":"Master ser vs estar in past tense"}
 
 widget_media — background and environment.
   widget: "enter_immersive" → immersive background scene.
@@ -6574,6 +6575,12 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   // Narrative scene memory write; runs as a background op via buildContinuationResponse.
   // Not a mid-voice teaching action — the student never hears it happen.
   'update_world_ledger',
+
+  // === DEMOTED TO DISPATCHER (widget_board) — June 29, 2026 ===
+  // set_mission_objective pushed GL to 65 tools (hard limit: 64) after get_broadcast_data
+  // was added. Mission badge is a UI decoration, not a conversational act — demoted to
+  // widget_board(widget:"set_mission_objective") so it remains fully accessible in GL.
+  'set_mission_objective',
 ]);
 
 export const DANIELA_GL_FUNCTION_DECLARATIONS: FunctionDeclaration[] =
