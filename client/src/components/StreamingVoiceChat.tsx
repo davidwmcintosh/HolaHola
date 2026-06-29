@@ -4093,25 +4093,8 @@ export function StreamingVoiceChat({
           </div>
         )}
 
-        {/* Gap D — Shared Mission Badge: persistent objective set by Daniela */}
-        {activeMission && (
-          <div
-            className="absolute top-3 left-1/2 -translate-x-1/2 z-40 flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-medium shadow-sm max-w-[280px]"
-            data-testid="badge-active-mission"
-            title="Session mission"
-          >
-            <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-primary" />
-            <span className="truncate">{activeMission}</span>
-            <button
-              className="shrink-0 ml-0.5 opacity-50 hover:opacity-100 transition-opacity"
-              onClick={() => setActiveMission(null)}
-              data-testid="button-dismiss-mission"
-              aria-label="Dismiss mission"
-            >
-              ×
-            </button>
-          </div>
-        )}
+        {/* Gap D — Shared Mission: Daniela holds activeMission internally for session guidance,
+            but we don't render it in the student UI — it's confusing and not student-initiated. */}
 
         {/* Spotlight — full-screen dimmed overlay with message bubble */}
         {spotlight && (
