@@ -22,6 +22,31 @@
 const BROADCAST_BRIEF_TTL_MS = 5 * 60 * 1000;
 const _briefCache = new Map<string, { brief: string; generatedAt: number }>();
 
+// ── Weather cache — 30-min TTL per city (lat+lon key) ───────────────────────
+// open-meteo and wttr.in are both keyless/IP-limited services shared across
+// all Replit projects on the same server. Caching per city for 30 minutes
+// dramatically reduces daily call count: same city, multiple students → 1 hit.
+const WEATHER_CACHE_TTL_MS = 30 * 60 * 1000;
+const _weatherCache = new Map<string, { reading: WeatherReading; fetchedAt: number }>();
+
+function weatherCacheKey(city: CityInfo): string {
+  return `${city.lat.toFixed(3)},${city.lon.toFixed(3)}`;
+}
+
+function getCachedWeather(city: CityInfo): WeatherReading | null {
+  const entry = _weatherCache.get(weatherCacheKey(city));
+  if (!entry) return null;
+  if (Date.now() - entry.fetchedAt > WEATHER_CACHE_TTL_MS) {
+    _weatherCache.delete(weatherCacheKey(city));
+    return null;
+  }
+  return entry.reading;
+}
+
+function setCachedWeather(city: CityInfo, reading: WeatherReading): void {
+  _weatherCache.set(weatherCacheKey(city), { reading, fetchedAt: Date.now() });
+}
+
 export function setBroadcastBrief(userId: string, brief: string): void {
   _briefCache.set(String(userId), { brief, generatedAt: Date.now() });
 }
@@ -220,10 +245,24 @@ async function fetchWeatherWttrIn(city: CityInfo): Promise<WeatherReading | null
 
 async function fetchWeather(language: string): Promise<WeatherReading | null> {
   const city = getRotatingCity(language);
+
+  // Cache hit — skip the network call entirely
+  const cached = getCachedWeather(city);
+  if (cached) {
+    console.log(`[BroadcastData] Weather cache hit for ${city.name} — ${cached.tempC}°C ${cached.condShort}`);
+    return cached;
+  }
+
   const primary = await fetchWeatherOpenMeteo(city);
-  if (primary) return primary;
+  if (primary) {
+    setCachedWeather(city, primary);
+    return primary;
+  }
+
   console.log('[BroadcastData] open-meteo unavailable — falling back to wttr.in');
-  return fetchWeatherWttrIn(city);
+  const fallback = await fetchWeatherWttrIn(city);
+  if (fallback) setCachedWeather(city, fallback);
+  return fallback;
 }
 
 // ── Perplexity fetch (sports / news) ───────────────────────────────────────
