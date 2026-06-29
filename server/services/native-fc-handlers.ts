@@ -1452,10 +1452,29 @@ export class NativeFunctionCallHandler {
             SELECT image_url, display_name FROM visual_environments WHERE name = ${sceneEnv} LIMIT 1
           `);
           const envRow = envResult.rows[0] as any;
-          const envImageUrl = envRow?.image_url as string | undefined;
+          let envImageUrl = envRow?.image_url as string | undefined;
           if (!envImageUrl) {
-            console.warn(`[Native Function→OpenScene] No image_url for environment "${sceneEnv}"`);
-            break;
+            // Scene not pre-seeded — generate on-the-fly and cache for future calls.
+            console.log(`[Native Function→OpenScene] "${sceneEnv}" not in DB — generating image…`);
+            try {
+              const { generateEnvironmentScene } = await import('../services/google-image-service');
+              const sceneConceptMap: Record<string, string> = {
+                tv_weather_studio: 'professional TV weather broadcast studio interior, large green chroma-key screen, animated weather maps on side monitors, modern TV lighting rigs, polished floor, empty set, no people',
+                tv_newsroom: 'professional TV news anchor studio, curved glass desk, multiple screens showing news ticker graphics, dramatic backlighting, modern minimalist set, empty, no people',
+              };
+              const concept = sceneConceptMap[sceneEnv] ?? sceneEnv.replace(/_/g, ' ');
+              envImageUrl = await generateEnvironmentScene(concept, 'environment');
+              const displayName = sceneEnv.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+              await openDb.execute(sqlTag`
+                INSERT INTO visual_environments (id, name, display_name, description, image_url, width, height, tags, created_at)
+                VALUES (gen_random_uuid(), ${sceneEnv}, ${displayName}, ${concept}, ${envImageUrl}, 1280, 720, ARRAY[]::text[], NOW())
+                ON CONFLICT (name) DO UPDATE SET image_url = ${envImageUrl}
+              `);
+              console.log(`[Native Function→OpenScene] Generated + cached "${sceneEnv}"`);
+            } catch (genErr: any) {
+              console.warn(`[Native Function→OpenScene] Generation failed for "${sceneEnv}":`, genErr?.message ?? genErr);
+              break;
+            }
           }
           const envDisplayName = (envRow as any)?.display_name as string | undefined;
           const envLabel = sceneLabel || envDisplayName || sceneEnv.replace(/_/g, ' ');

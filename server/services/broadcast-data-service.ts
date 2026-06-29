@@ -357,7 +357,7 @@ export async function fetchBroadcastDataForTool(
       `[REQUIRED VISUAL SETUP — call these tools BEFORE speaking]`,
       `1. open_scene with scene "tv_weather_studio"`,
       `2. widget_state with widget "set_weather", params_json: {"condition":"${condSlug}","celsius":${tempC}}`,
-      `3. widget_time with widget "set_thermometer", params_json: {"celsius":${tempC}}`,
+      `3. widget_time with widget "set_thermometer", params_json: {"celsius":${tempC},"showFahrenheit":${useF}}`,
       `[TASK]`,
       `Perform as a local weather anchor. DO NOT read the list.`,
       `1. Open with a natural hook for the day and location.`,
