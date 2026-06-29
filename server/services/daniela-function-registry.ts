@@ -6083,6 +6083,8 @@ Call this when a scene interaction has an outcome worth remembering next visit.`
 - Any lesson involving reporting language, conditionals, or passive voice in context
 - You want to vary the session with an authentic, real-world listening/speaking task
 
+IMPORTANT: The tool result will include a [REQUIRED VISUAL SETUP] section with exact tool calls to make BEFORE speaking. Always follow those steps — open_scene sets the green-screen backdrop, and the widget calls make the weather/score data visible to the student. Without them the student sees only your avatar with no context.
+
 Returns live weather conditions, sports headlines, or regional news from a rotating city in the student's target-language world. You compose and deliver the broadcast naturally at the student's ACTFL level — channel a real anchor, do not just read numbers aloud.`,
       parametersJsonSchema: {
         type: 'object',

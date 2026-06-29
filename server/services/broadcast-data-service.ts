@@ -167,6 +167,24 @@ function describeWeatherCode(code: number): { short: string; detail: string } {
   return { short: 'mixed conditions', detail: 'Variable conditions expected throughout the day.' };
 }
 
+/**
+ * Map a human-readable condShort string to the exact widget condition slug
+ * that WeatherCanvas / set_weather expects (underscore-separated, no spaces).
+ * Daniela copies what she reads — this ensures she always has the right key.
+ */
+function condShortToSlug(condShort: string): string {
+  const s = condShort.toLowerCase();
+  if (s.includes('thunder')) return 'stormy';
+  if (s.includes('snow'))    return 'snowy';
+  if (s.includes('partly'))  return 'partly_cloudy';
+  if (s.includes('rain') || s.includes('drizzle')) return 'rainy';
+  if (s.includes('fog') || s.includes('mist'))     return 'foggy';
+  if (s.includes('cloud') || s.includes('overcast') || s.includes('mixed')) return 'cloudy';
+  if (s.includes('clear') || s.includes('sunny'))  return 'sunny';
+  if (s.includes('wind'))    return 'windy';
+  return 'cloudy'; // safe fallback — always renders
+}
+
 // ── open-meteo fetch ────────────────────────────────────────────────────────
 
 interface WeatherReading {
@@ -320,18 +338,25 @@ export async function fetchBroadcastDataForTool(
 
   const { city, tempC, tempF, condShort, condDetail, windKmh, day, time } = weather;
   const regionNote = city.regionLabel ? ` (${city.regionLabel})` : '';
+  const condSlug = condShortToSlug(condShort);
 
   if (broadcastType === 'weather') {
     return [
       `[SOURCE DATA]`,
       `City: ${city.name}${regionNote} | Country: ${city.country} | Channel: ${city.channel}`,
       `Day: ${day} | Time: ${time} local`,
-      `Temp: ${tempC}°C / ${tempF}°F | Wind: ${windKmh} km/h | Sky: ${condShort}`,
+      `Sky: ${condShort} | Widget slug: ${condSlug} ← pass this exactly to set_weather condition field`,
+      `Temp: ${tempC}°C / ${tempF}°F — SAY EXACTLY ${tempC}°C (or ${tempF}°F for US). Do not change or approximate this number.`,
+      `Wind: ${windKmh} km/h`,
       `Detail: ${condDetail}`,
+      `[REQUIRED VISUAL SETUP — call these tools BEFORE speaking]`,
+      `1. open_scene with scene "tv_weather_studio"`,
+      `2. widget_state with widget "set_weather", params_json: {"condition":"${condSlug}","celsius":${tempC}}`,
+      `3. widget_time with widget "set_thermometer", params_json: {"celsius":${tempC}}`,
       `[TASK]`,
       `Perform as a local weather anchor. DO NOT read the list.`,
       `1. Open with a natural hook for the day and location.`,
-      `2. Report 1-2 facts in your own anchor voice.`,
+      `2. Report the temperature (${tempC}°C) and sky condition (${condShort}) in your own anchor voice.`,
       `3. Ask the student a level-appropriate question about the weather — make it a real dialogue, not a performance.`,
       `Suggested: "¿Qué crees que deberías llevar hoy?" or "Can you tell me in [language] whether you'd bring an umbrella?"`,
     ].join('\n');
@@ -347,6 +372,8 @@ export async function fetchBroadcastDataForTool(
       sportsBrief
         ? sportsBrief
         : `No live data — improvise: describe an imaginary local match result using sport vocabulary.`,
+      `[REQUIRED VISUAL SETUP — call this tool BEFORE speaking]`,
+      `1. open_scene with scene "tv_newsroom"`,
       `[TASK]`,
       `Perform as a sports anchor. DO NOT read the list mechanically.`,
       `1. Pick the most interesting story and react to it naturally.`,
@@ -365,6 +392,8 @@ export async function fetchBroadcastDataForTool(
     newsBrief
       ? newsBrief
       : `No live data — improvise: describe a plausible local story relevant to everyday life in the region.`,
+    `[REQUIRED VISUAL SETUP — call this tool BEFORE speaking]`,
+    `1. open_scene with scene "tv_newsroom"`,
     `[TASK]`,
     `Perform as a news anchor. DO NOT read the list mechanically.`,
     `1. Open with a brief, natural anchor greeting and the date.`,
