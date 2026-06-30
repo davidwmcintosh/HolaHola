@@ -2037,8 +2037,18 @@ ${buildNativeFunctionCallingSection()}`;
               console.log('[Streaming Voice] ✓ Dispatcher system prompt injected (17 focused dispatchers — Phase 2 split)');
 
               if (neuralNetworkContext) {
+                // Identity Bridge: for same-language sessions the neural net is heavy with
+                // Spanish content. A prose header before injection tells the model the content
+                // is source material (knowledge) not output template (language). Gemini consult
+                // June 30 2026 — "Token Saturation" pattern: without a bridge, the model treats
+                // the Spanish memory block as a few-shot prime and bleeds Spanish into output.
+                const isSameLangForBridge = effectiveLanguage === (config.nativeLanguage || 'english').toLowerCase() && !isFounderMode && !rawHonestyMode;
+                if (isSameLangForBridge) {
+                  const displayLangBridge = effectiveLanguage.charAt(0).toUpperCase() + effectiveLanguage.slice(1);
+                  systemPrompt += `\n\nThe teaching knowledge and memories that follow describe your tutoring experience and identity. The source language of those memories is reference material — your output language for this session is exclusively ${displayLangBridge}.\n`;
+                }
                 systemPrompt += neuralNetworkContext;
-                console.log(`[Streaming Voice] ✓ Neural network context appended for ${effectiveLanguage}`);
+                console.log(`[Streaming Voice] ✓ Neural network context appended for ${effectiveLanguage}${isSameLangForBridge ? ' (with identity bridge)' : ''}`);
               } else {
                 console.warn('[Streaming Voice] ⚠ Neural network context was empty — bold-marking relies on fallback in prompt');
               }

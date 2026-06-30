@@ -281,6 +281,8 @@ export class StreamingVoiceClient {
   private readonly MAX_SESSION_ERRORS = 5;
   private _isReconnectedSession = false;  // True after reconnect — prevents greeting re-trigger
   private _lastKnownInputMode: 'push-to-talk' | 'open-mic' = 'push-to-talk';  // Restored on reconnect
+  private _pendingChunks: Array<{audioData: ArrayBuffer, sequenceId: number}> = [];  // Buffer for reconnect gap
+  private readonly _PENDING_CHUNK_MAX = 100;  // ~1s of audio at 10ms chunks; prevents unbounded growth
   
   // Heartbeat state for fast drop detection
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
@@ -710,9 +712,10 @@ export class StreamingVoiceClient {
     const { isReconnect, ...storedConfig } = config;
     this.lastSessionConfig = storedConfig;
     
-    // Clear reconnect flag on fresh sessions
+    // Clear reconnect flag and pending chunk buffer on fresh sessions
     if (!isReconnect) {
       this._isReconnectedSession = false;
+      this._pendingChunks = [];  // Discard any stale buffered chunks from a previous session
     }
     
     const message = {
@@ -744,6 +747,11 @@ export class StreamingVoiceClient {
    */
   sendStreamingChunk(audioData: ArrayBuffer, sequenceId: number): boolean {
     if (!this.isReady()) {
+      // Buffer chunks during reconnect gap so they can be replayed after reconnect.
+      // Cap at _PENDING_CHUNK_MAX to prevent unbounded memory growth during long outages.
+      if (this._pendingChunks.length < this._PENDING_CHUNK_MAX) {
+        this._pendingChunks.push({ audioData: audioData.slice(0), sequenceId });
+      }
       return false;
     }
     
@@ -759,6 +767,21 @@ export class StreamingVoiceClient {
       return true;
     } catch (err) {
       return false;
+    }
+  }
+
+  /**
+   * Flush buffered chunks that accumulated during a reconnect gap.
+   * Called immediately after restoring open-mic mode on reconnect.
+   */
+  private _flushPendingChunks(): void {
+    if (this._pendingChunks.length === 0) return;
+    const chunks = this._pendingChunks.splice(0);
+    console.log(`[StreamingVoice] Flushing ${chunks.length} buffered chunk(s) from reconnect gap`);
+    for (const chunk of chunks) {
+      if (this.isReady()) {
+        this.sendStreamingChunk(chunk.audioData, chunk.sequenceId);
+      }
     }
   }
   
@@ -1821,6 +1844,9 @@ export class StreamingVoiceClient {
             if (this._lastKnownInputMode === 'open-mic') {
               console.log('[StreamingVoice] Restoring open-mic mode after reconnect');
               this.socket!.emit('message', { type: 'set_input_mode', inputMode: 'open-mic' });
+              // Replay any audio chunks buffered during the reconnect gap so the
+              // student's in-flight utterance reaches the server instead of being silently dropped.
+              this._flushPendingChunks();
             }
           }
 
