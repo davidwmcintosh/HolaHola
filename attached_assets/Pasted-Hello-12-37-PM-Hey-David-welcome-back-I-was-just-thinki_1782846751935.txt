@@ -1,0 +1,143 @@
+Hello.
+
+12:37 PM
+
+Hey David, welcome back. I was just thinking about our last chat and hoping things are running a bit smoother on your end today. How's it going?
+
+12:37 PM
+
+Well, thanks for asking. Things are going great. Glad to see you.
+
+12:38 PM
+
+Good to see you too. I'm curious, have you had a chance to play around with that broadcast mode anymore? I've been thinking about how we can make it even more immersive.
+
+12:38 PM
+
+Well, tell me what you're thinking.
+
+12:38 PM
+
+I was thinking we could push the interaction. Instead of just one person presenting the weather, maybe we do a split screen scenario? I could be the studio anchor, and you're the reporter out in the field, maybe on a windy street in Madrid, and you have to describe what you're seeing based on the widget data. It forces more spontaneous language, you know? What do you think?
+
+12:38 PM
+
+Well, I think that is fantastic.
+
+12:38 PM
+
+Right? We could even have you reporting on a big football match or something. Actually, look at the weather widget right now. It looks like it's cloudy in Madrid today, about 18 degrees. Imagine you're there and tell me what's happening.
+
+12:38 PM
+
+Well, let's work through the actual technical implications of this because, you know, this is we're working out bugs. So, what function call did you just um uh run to get this image to come up?
+
+12:39 PM
+
+I actually used two calls. First, I used `widget_state` to bring up the weather display with the cloudy condition and the temperature. And second, I called `open_scene` to load this background studio environment. Are those the ones you were curious about?
+
+12:39 PM
+
+Yeah, you got cut off again. So, I see you tried to say those are the ones you were curious about and I only heard, "Are those the ones?" Um but let me just tell you what I'm seeing on screen here. I'm seeing in the studio pane Well, first of all, when you called it, it went full screen. I don't know if you were intending to do full screen or to do broadcast mode where you just put that behind you. And I don't see the weather widget at all. But so your your instincts are actually 100% aligned with mine. Conversations like this are fantastic. You can you can report some things, you can ask some questions, they can respond. It's role playing, it is awesome, and fun, right?
+
+12:40 PM
+
+Got it, thanks for the feedback on the audio cutting out and the full screen. We're definitely working out the bugs! I've tried pushing the weather widget again, and I've opened the scene behind me this time instead of in the side pane. Do you see it now? And yeah, the potential for making conversation fun and practical with this is exactly what I'm excited about.
+
+12:40 PM
+
+Well, that's cool. It did go into the background now, which is the first time that's worked. So, cool, cool, cool. So, you do have a little studio behind you and um yeah, it looks pretty good. Uh the weather with it widget did come up. Um but all I can see, so it went on top of the background that's sitting in the studio pane, the one that you already had opened. And all I can see at start is the little picture of a cloud and there's a scroll bar. So, I have to scroll down to a star nublando, if that's what you're looking to do. And it says 18° Fahrenheit, if that's the correct temperature. I'm not sure what's if you even set a temperature, did you?
+
+12:41 PM
+
+That's really interesting about the scroll bar and the temperature unit. I did set it to 18 degrees Celsius, so it sounds like the system might be auto converting or just mislabeling it as Fahrenheit. And the layering issue is good to note too; it should be integrating more smoothly with the background. This is exactly what we need to fix. Thanks, David. Anything else you're seeing that looks off?
+
+12:41 PM
+
+Well, that's just a good point of reference because I'm in the United States. I need to see things in Fahrenheit. And so you may in the system be required to put in Celsius, but it does get translated to me. So you have to understand which temperature you need to read or talk about when you're speaking to people in the United States or other places that use Fahrenheit, which I think we're the only ones, right?
+
+12:42 PM
+
+That's a really good point about localization. You're right, the system needs to present the data how the student understands it. I'll make sure to speak in Fahrenheit when I see that displayed on your screen. Anything else you want to test or discuss regarding the platform?
+
+12:42 PM
+
+No, this is actually pretty cool though. I mean, we got some bugs to work out, but it is shaping up.
+
+12:42 PM
+
+I agree, it's exciting to see it coming together. Every bug we find is just one step closer to making it a really powerful tool. I'm looking forward to seeing what your team does with this feedback.
+
+12:42 PM
+
+So, did you have a a map of some sort that you can like for Chicago or the country, you know, that kind of stuff, not just a studio background? Or what kind of backgrounds do you have at your disposal?
+
+12:43 PM
+
+Yeah, I have a lot of options beyond the studio. I can load different environments, like a busy street, a park, or an outdoor market. Or, if you want to see something specific like a map of Chicago, I can display an image of that too. Which would you like to try?
+
+12:43 PM
+
+You pick. Tell me what you want to do. Just I think you I don't know if you're when you call new tools if it automatically clears the screen or if that's something that you have to do yourself.
+
+12:43 PM
+
+That's a good question. `open_scene` replaces the background, but props stay until I clear them. Let's try switching to a generic city street. Imagine you're reporting live from here now.
+
+12:43 PM
+
+So that went full screen again.
+
+12:44 PM
+
+Interesting, thanks for letting me know. It definitely shouldn't be doing that. More feedback for the team to dig into! I appreciate you helping me test this. Are you seeing anything else on the screen that seems off?
+
+12:44 PM
+
+Well, now that it's full screen here, can you try to put up a vocabulary image or anything on the whiteboard to see if it comes into the immersive immersive scene?
+
+12:44 PM
+
+That's a great idea. I've just put up a card for 'taxi'. What do you see on your screen now? Did it appear on the whiteboard, or is it somewhere else? I'm curious to see how it's interacting with the full screen mode.
+
+12:44 PM
+
+I didn't It didn't come up, but when I close it back down, when I shrink it, so now it's only a small, you know, thumbnail size picture over in the studio pane, so I can kind of get the context of what you're still talking about. Um but it's the whiteboard, there is a vocabulary taxi. It's there. Uh but it wasn't showing in the full screen mode. But in full screen, maybe you need a prop instead of a vocabulary word.
+
+12:45 PM
+
+That's a great observation. It sounds like the whiteboard elements aren't playing nicely with the full screen mode yet. I've just added a taxi prop directly into the street scene. Do you see that now, even when it's full screen? Testing your hypothesis about props is a smart move.
+
+12:45 PM
+
+So there's a taxi here now and unfortunately it's not a true prop because it has a a full white background so it's a big square if the taxi had just kind of come up you know as a cutout. So it would sit nicely onto the screen it might look a little bit better but it you know again these are just things we're working out.
+
+12:46 PM
+
+You're totally right, a cutout would look much cleaner. That square background definitely breaks the immersion. Great catch, I'll add that to the list of things to improve. Thanks David. Anything else catching your eye?
+
+12:46 PM
+
+Well, when I'm in full screen mode, there's an X in the top right corner which will shrink down the full screen. But there's also if I roll over the top, there's also an X there. If I do click that X, all it does is shrink it down to fit. Within the preview pane of Replit. So, I still see the uh Replit chat interface on the side and um yeah. So, it didn't really close it. It shrank it down. So, I don't really know if that that X has any value or what we were thinking when we when we built that.When I'm in full screen mode, there's an X in the top right corner which will shrink down the full screen. But there's also if I roll over the top, there's also an X there. If I do click that X, all it does is shrink it down to fit within the preview pane of Replit. So, I still see the uh Replit chat interface on the side and um yeah, so it didn't really close it. It shrank it down. So, I don't really know if that that X has any value or what we were thinking when we when we built that.
+
+12:47 PM
+
+That's confusing. Having two different 'X' icons that essentially do the same thing but don't fully close the view sounds like a design flaw. It makes you wonder what the intended behavior was. I'll definitely note that down as something to clarify and streamline. Thanks David, this is really helpful. Anything else you're noticing about the interface?
+
+12:47 PM
+
+Well, I think that's probably enough for now, right?I think that's probably enough for now, right?
+
+12:47 PM
+
+Definitely, that's plenty to work on! Thanks again for all the detailed feedback, it's really going to help improve things. It was great chatting with you, David. Let me know when you want to jump back in and test some more!
+
+12:47 PM
+
+All good. See you in a bit.
+
+12:47 PM
+
+Sounds good! See you soon.
+
+12:47 PM

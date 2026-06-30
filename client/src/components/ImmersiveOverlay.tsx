@@ -335,15 +335,10 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
     };
   }, [isActive, voice?.inputMode]);
 
-  useEffect(() => {
-    if (isActive) {
-      document.documentElement.requestFullscreen?.().catch(() => {});
-    } else {
-      if (document.fullscreenElement) {
-        document.exitFullscreen?.().catch(() => {});
-      }
-    }
-  }, [isActive]);
+  // requestFullscreen removed: it triggered Replit's native "Fullscreen" bar and
+  // a browser-level X button that confused users. The immersive overlay already
+  // covers 100% of the viewport via `fixed inset-0 z-[200]` — no OS-level
+  // fullscreen needed.
 
   // Close sheet when leaving immersive
   useEffect(() => {
@@ -427,6 +422,7 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
                       alt={prop.label}
                       className="w-full h-auto"
                       style={{
+                        mixBlendMode: 'multiply',
                         filter: prop.state === 'success'
                           ? "drop-shadow(0 0 14px rgba(255,210,60,0.90)) drop-shadow(0 4px 12px rgba(0,0,0,0.45))"
                           : prop.state === 'cold'

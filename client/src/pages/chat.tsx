@@ -81,15 +81,10 @@ export default function Chat() {
   const activeCenterBackdrop = whiteboardItems.find(isCenterBackdropItem)?.data as CenterBackdropItemData | undefined ?? null;
   const activePanel: OverlayPanel | null = whiteboardItems.find(isOverlayPanelItem)?.data.panel ?? null;
 
-  useEffect(() => {
-    if (!activeSceneCanvas) return;
-    if (
-      activeSceneCanvas.canvasAction === 'open_scene' ||
-      activeSceneCanvas.canvasAction === 'add_prop'
-    ) {
-      setIsImmersiveMode(true);
-    }
-  }, [activeSceneCanvas]);
+  // Immersive mode is controlled exclusively by the `enter_immersive` tool via the
+  // `immersive_mode` WS message (handled at chat.tsx line ~913 → setIsImmersiveMode).
+  // The old auto-trigger on open_scene/add_prop caused unintended fullscreen whenever
+  // Daniela opened ANY scene, even for the Studio side-pane. Removed.
 
   const displayWhiteboardItems = whiteboardItems.filter(
     item => !isSceneCanvasItem(item) && !isOverlayPanelItem(item) && !isCenterBackdropItem(item)

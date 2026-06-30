@@ -1242,7 +1242,7 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
 
     // Small widgets — count first so we know whether to use compact ribbon mode
     const activeSmallCount = [hasThermometer, hasEmotion, hasWeather, hasClock].filter(Boolean).length;
-    const useCompact = activeSmallCount > 1;
+    const useCompact = activeSmallCount >= 1; // always compact — full mode overflows the 280px Studio panel
 
     const smallWidgets = [
       hasThermometer && <ThermometerCanvas key="therm" data={data.thermometerData!} compact={useCompact} />,

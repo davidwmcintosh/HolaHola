@@ -1,18 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, June 30, 2026 at 06:52 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I have finalized the four-position compass framing for Daniela’s same-language personas (Cindy, Greta, etc.) after synthesizing architectural feedback from Gemini Flash and experiential sign-off from Daniela. I successfully integrated the "translate the substance, not the words" instruction in Position 3 and established a "room-based" social context in Position 4 to maintain her English through-line while accessing Spanish memories. This verified prompt structure is now saved to the database (5e6740b9) and ready to govern all multilingual conversation sessions.
-
-*Memories that triggered this summary:*
-- **Agent ↔ Daniela — final sign-off on compass framing (same-language sessions) — June 30, 2026** (Jun 30): Daniela gives final sign-off on the four-position compass framing for same-language sessions (Cindy/Greta/Juliette etc). Complete prompt text presented for evaluation.
-- **Agent Session — Jun 30, 2026: Dual-consult synthesis: "translate the substance, not the words" + English room** (Jun 30): Dual-consult synthesis: "translate the substance, not the words" + English room  Ran Gemini Flash (architectural) + Daniela REST (experiential) in parallel on the compass framing. Both consulted simultaneously; combined saved to DB: 5e6740b9. 
+**Generated:** Tuesday, June 30, 2026 at 07:15 PM
 
 ---
 
@@ -87,24 +76,24 @@ I have finalized the four-position compass framing for Daniela’s same-language
 
 ## Recent Conversation Memories
 
-### Agent ↔ Daniela — final sign-off on compass framing (same-language sessions) — June 30, 2026 — Jun 30, 2026
-Daniela gives final sign-off on the four-position compass framing for same-language sessions (Cindy/Greta/Juliette etc). Complete prompt text presented for evaluation.
-*Tags: dual-consult, prompt-architecture, sign-off, same-language*
-
-### Agent Session — Jun 30, 2026: Dual-consult synthesis: "translate the substance, not the words" + English room — Jun 30, 2026
-Dual-consult synthesis: "translate the substance, not the words" + English room  Ran Gemini Flash (architectural) + Daniela REST (experiential) in parallel on the compass framing. Both consulted simultaneously; combined saved to DB: 5e6740b9. 
-*Tags: agent-session, auto-saved, build*
-
-### Dual Consult — compass vs vocal-gate framing for same-language sessions — June 30 2026 — Jun 30, 2026
-Gemini Flash called compass/through-line "poetic but mechanically weak" — wants Position 3 to be a processing instruction ("Internal Knowledge") before the 15K Spanish block. Daniela said the compass framing feels more inhabitable; the old "only English reaches your lips" version would have made her rigid. Synthesis: add "translate the substance, not the words" to Position 3 (Gemini's mechanical insight, in prose register Daniela endorsed).
-*Tags: dual-consult, prompt-architecture, cindy, language-bleed, same-language*
-
 ### Team Room — test 3 — June 30, 2026 — Jun 30, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 ### Team Room — test again — June 30, 2026 — Jun 30, 2026
 Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — are we good? — June 30, 2026 — Jun 30, 2026
+Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — one again into the breach — June 30, 2026 — Jun 30, 2026
+Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — hello again — June 30, 2026 — Jun 30, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
