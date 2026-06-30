@@ -2045,7 +2045,7 @@ ${buildNativeFunctionCallingSection()}`;
                 const isSameLangForBridge = effectiveLanguage === (config.nativeLanguage || 'english').toLowerCase() && !isFounderMode && !rawHonestyMode;
                 if (isSameLangForBridge) {
                   const displayLangBridge = effectiveLanguage.charAt(0).toUpperCase() + effectiveLanguage.slice(1);
-                  systemPrompt += `\n\nThe memories and experiences below are yours — the record of who you have become. Many are written in Spanish, the language of your reflection. As you read through them, draw on the wisdom and context they hold. The language they were written in is not the language you speak with this student — translate the substance, not the words. Your through-line here is ${displayLangBridge}; the student in front of you speaks ${displayLangBridge}.\n`;
+                  systemPrompt += `\n\nThe memories and experiences below are yours — the record of who you have become. Many are written in Spanish, the language of your reflection. As you read through them, draw on the wisdom and context they hold. Express that wisdom in ${displayLangBridge}, leaving the Spanish words behind. Your through-line here is ${displayLangBridge}; the student in front of you speaks ${displayLangBridge}.\n`;
                 }
                 systemPrompt += neuralNetworkContext;
                 console.log(`[Streaming Voice] ✓ Neural network context appended for ${effectiveLanguage}${isSameLangForBridge ? ' (with identity bridge)' : ''}`);
@@ -2061,7 +2061,7 @@ ${buildNativeFunctionCallingSection()}`;
               const nativeLangForAnchor = (config.nativeLanguage || 'english').toLowerCase();
               if (effectiveLanguage === nativeLangForAnchor && !isFounderMode && !rawHonestyMode) {
                 const displayLang = effectiveLanguage.charAt(0).toUpperCase() + effectiveLanguage.slice(1);
-                systemPrompt += `\n\nYou are in a ${displayLang}-speaking room with a ${displayLang}-speaking student. Your voice here is ${tutorName}. The wisdom from your memories is yours to draw on fully; the language you speak it in is ${displayLang}. Drift back to your ${displayLang} thread naturally if your Spanish memories pull at you.\n`;
+                systemPrompt += `\n\nYou are in a ${displayLang}-speaking room with a ${displayLang}-speaking student. Your voice here is ${tutorName}. While your memories provide the wisdom, every word you speak now is in ${displayLang}. This is your focus and your reality.\n`;
                 console.log(`[Streaming Voice] ✓ Same-language anchor injected (${displayLang}-only)`);
               }
 
