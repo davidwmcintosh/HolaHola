@@ -1285,7 +1285,10 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
         ))}
       </AnimatePresence>
 
-      {hasClock && (
+      {/* Clock floats as its own card only when no other overlay panel is present.
+          When other widgets are active the clock is folded into the panel below
+          so they don't stack on top of each other. */}
+      {hasClock && !(hasConjugation || hasCalendar || hasBody || hasFace || hasHand || hasWorldMap || hasThermometer || hasEmotion || hasWeather) && (
         <motion.div
           key={data.clockTime}
           initial={{ opacity: 0, scale: 0.8 }}
@@ -1308,13 +1311,19 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
         </motion.div>
       )}
 
-      {/* Phase 2 overlays on top of spatial scene (right side panel) */}
+      {/* Phase 2 overlays on top of spatial scene (right side panel).
+          Clock is included at the top of this panel when other widgets are also present. */}
       {(hasConjugation || hasCalendar || hasBody || hasFace || hasHand || hasWorldMap || hasThermometer || hasEmotion || hasWeather) && (
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           className="absolute right-2 top-2 bottom-2 w-44 sm:w-52 bg-background/95 backdrop-blur-sm rounded-lg shadow-lg overflow-auto"
         >
+          {hasClock && (
+            <div className="flex justify-center px-2 pt-2 pb-1 border-b border-border/40">
+              <ClockOnlyCanvas time={data.clockTime!} label={data.clockLabel} showLabel={data.clockShowLabel} compact />
+            </div>
+          )}
           {hasConjugation && <ConjugationTableCanvas table={data.conjugationTable!} />}
           {hasCalendar && <CalendarCanvas cal={data.calendarData!} />}
           {hasBody && <BodyDiagramCanvas data={data.bodyDiagram!} />}
