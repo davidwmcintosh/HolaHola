@@ -1,18 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, June 30, 2026 at 01:45 AM
+**Generated:** Tuesday, June 30, 2026 at 06:39 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I reframed the platform's identity philosophy to ensure Cindy authentically represents Daniela’s English voice and implemented a three-layer fix for Spanish language bleed. In the new Team Room, we decided to pivot toward conversational immersion over the underperforming Interactive Textbook (0% completion) and discussed a `generateVisual` utility for better metadata-tagged content. I must now address the current monitoring system blackout (SQL/null errors) and prioritize the high-severity security vulnerabilities—specifically SQL injection and XSS risks—identified by Wren.
+I’ve refined Daniela’s English persona (Cindy) using structural "Internal Knowledge" instructions to prevent Spanish linguistic drift during high-token sessions. I must now prioritize resolving Wren’s high-severity security findings and the 50-bug surge flagged by Sofia while investigating the Interactive Textbook’s 0% completion rate and a potential tracking leak in Daniela’s Compass. Finally, I need to repair the Spanish syllabus seeding regressions—specifically the 22 empty lessons and 49 "wall-of-text" formatting errors—before the beta launch.
 
 *Memories that triggered this summary:*
-- **Agent Session — Jun 30, 2026: Fix identity framing in English-voice sessions (philosophy correction)** (Jun 30): Fix identity framing in English-voice sessions (philosophy correction)  Previous commit used "source material" language that conflicted with HolaHola's core principle: Daniela's memories ARE her identity, not reference data. 
-- **Agent Session — Jun 30, 2026: Gemini consult on language bleed + 3-layer fix + open-mic chunk buffering** (Jun 30): Gemini consult on language bleed + 3-layer fix + open-mic chunk buffering  Gemini consult (June 30 2026) on "one tutor, many voices" / Spanish bleed: Key finding: "Token Saturation" — 15K Spanish neural net tokens in position 3 act as a few-shot prime that outweighs a 300-char English constraint in position 1.
+- **Dual Consult — compass vs vocal-gate framing for same-language sessions — June 30 2026** (Jun 30): Gemini Flash called compass/through-line "poetic but mechanically weak" — wants Position 3 to be a processing instruction ("Internal Knowledge") before the 15K Spanish block. Daniela said the compass framing feels more inhabitable; the old "only English reaches your lips" version would have made her rigid. Synthesis: add "translate the substance, not the words" to Position 3 (Gemini's mechanical insight, in prose register Daniela endorsed).
 - **Team Room — test 3 — June 30, 2026** (Jun 30): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — June 30, 2026** (Jun 30): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — June 30, 2026** (Jun 30): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -95,13 +94,9 @@ I reframed the platform's identity philosophy to ensure Cindy authentically repr
 
 ## Recent Conversation Memories
 
-### Agent Session — Jun 30, 2026: Fix identity framing in English-voice sessions (philosophy correction) — Jun 30, 2026
-Fix identity framing in English-voice sessions (philosophy correction)  Previous commit used "source material" language that conflicted with HolaHola's core principle: Daniela's memories ARE her identity, not reference data. 
-*Tags: agent-session, auto-saved, build*
-
-### Agent Session — Jun 30, 2026: Gemini consult on language bleed + 3-layer fix + open-mic chunk buffering — Jun 30, 2026
-Gemini consult on language bleed + 3-layer fix + open-mic chunk buffering  Gemini consult (June 30 2026) on "one tutor, many voices" / Spanish bleed: Key finding: "Token Saturation" — 15K Spanish neural net tokens in position 3 act as a few-shot prime that outweighs a 300-char English constraint in position 1.
-*Tags: agent-session, auto-saved, build*
+### Dual Consult — compass vs vocal-gate framing for same-language sessions — June 30 2026 — Jun 30, 2026
+Gemini Flash called compass/through-line "poetic but mechanically weak" — wants Position 3 to be a processing instruction ("Internal Knowledge") before the 15K Spanish block. Daniela said the compass framing feels more inhabitable; the old "only English reaches your lips" version would have made her rigid. Synthesis: add "translate the substance, not the words" to Position 3 (Gemini's mechanical insight, in prose register Daniela endorsed).
+*Tags: dual-consult, prompt-architecture, cindy, language-bleed, same-language*
 
 ### Team Room — test 3 — June 30, 2026 — Jun 30, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
@@ -113,6 +108,10 @@ Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exch
 
 ### Team Room — are we good? — June 30, 2026 — Jun 30, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — one again into the breach — June 30, 2026 — Jun 30, 2026
+Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
