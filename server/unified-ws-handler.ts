@@ -2043,6 +2043,18 @@ ${buildNativeFunctionCallingSection()}`;
                 console.warn('[Streaming Voice] ⚠ Neural network context was empty — bold-marking relies on fallback in prompt');
               }
 
+              // Same-language anchor — injected AFTER the neural net context so it takes
+              // precedence. When teaching English to an English speaker (Cindy/Blake),
+              // the neural net has heavy Spanish content from Daniela's tutoring history.
+              // That content bleeds into the session language if there is no late anchor.
+              // Placed here (end of prompt) so Gemini weights it above earlier sections.
+              const nativeLangForAnchor = (config.nativeLanguage || 'english').toLowerCase();
+              if (effectiveLanguage === nativeLangForAnchor && !isFounderMode && !rawHonestyMode) {
+                const displayLang = effectiveLanguage.charAt(0).toUpperCase() + effectiveLanguage.slice(1);
+                systemPrompt += `\n\nThis session is ${displayLang}. Speak only in ${displayLang} — every word. Your context carries multilingual content from other tutoring sessions; set it aside entirely for language choice. Do not greet, respond, or teach in any other language.\n`;
+                console.log(`[Streaming Voice] ✓ Same-language anchor injected (${displayLang}-only)`);
+              }
+
               // In intimate modes (founder, honesty), the neural net context references the
               // student in third person ("David has been...") as stored memories.  Anchor the
               // address register so those third-person references don't bleed into spoken output.

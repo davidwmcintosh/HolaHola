@@ -5,6 +5,9 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-06-30 — `client/src/lib/streamingVoiceClient.ts` + `StreamingVoiceChat.tsx` — Open-mic session goes silent when WS drop coincides with student speaking — LOW**
+In open-mic mode, audio chunks are dropped silently when the WebSocket is reconnecting (`sendStreamingChunk` returns false). If the user speaks during the reconnect gap (typically 1–3s), Daniela never hears the utterance and doesn't respond. Student must speak again. Logs: `[OPEN MIC] Failed to send chunk, WebSocket may be reconnecting`. Session recovers automatically after reconnect. Possible fix: buffer the last N failed chunks and replay them after reconnect completes.
+
 ~~**2026-06-14 — `server/services/native-fc-handlers.ts` + `daniela-function-registry.ts` — Por vs Para visual_compare text hallucination — MEDIUM**~~
 **FIXED 2026-06-14** — `visual_compare` now sends a DOM-rendered two-column comparison widget (`type: 'comparison'`) immediately (no image generation delay). Concept labels, meanings, and example sentences are always DOM text — never baked into AI pixels. A label-free background scene image (no text in prompt) generates async and enriches the widget in-place via stable ID. Added `a_example`/`b_example` fields to the schema. Works for all languages + RTL (Arabic). The Gemini image engine has the same fundamental limitation as DALL-E for in-image text rendering.
 
