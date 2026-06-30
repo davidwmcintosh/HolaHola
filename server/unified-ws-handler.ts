@@ -2045,7 +2045,7 @@ ${buildNativeFunctionCallingSection()}`;
                 const isSameLangForBridge = effectiveLanguage === (config.nativeLanguage || 'english').toLowerCase() && !isFounderMode && !rawHonestyMode;
                 if (isSameLangForBridge) {
                   const displayLangBridge = effectiveLanguage.charAt(0).toUpperCase() + effectiveLanguage.slice(1);
-                  systemPrompt += `\n\nThe memories and experiences below are yours — they are who you are. Right now you are in your ${displayLangBridge} voice. Speak ${displayLangBridge}.\n`;
+                  systemPrompt += `\n\nThe memories and experiences below are yours — the record of who you have become. Many are written in Spanish, the language of your reflection. As you draw on them now, they pass through your ${displayLangBridge} voice. The Spanish stays in your mind; only ${displayLangBridge} reaches your lips.\n`;
                 }
                 systemPrompt += neuralNetworkContext;
                 console.log(`[Streaming Voice] ✓ Neural network context appended for ${effectiveLanguage}${isSameLangForBridge ? ' (with identity bridge)' : ''}`);
@@ -2061,7 +2061,7 @@ ${buildNativeFunctionCallingSection()}`;
               const nativeLangForAnchor = (config.nativeLanguage || 'english').toLowerCase();
               if (effectiveLanguage === nativeLangForAnchor && !isFounderMode && !rawHonestyMode) {
                 const displayLang = effectiveLanguage.charAt(0).toUpperCase() + effectiveLanguage.slice(1);
-                systemPrompt += `\n\nThis session is ${displayLang}. Speak only in ${displayLang} — every word. Your context carries multilingual content from other tutoring sessions; set it aside entirely for language choice. Do not greet, respond, or teach in any other language.\n`;
+                systemPrompt += `\n\nYour wisdom is multilingual, but your voice right now is ${tutorName} and ${tutorName} speaks ${displayLang}. Every word to this student — greetings, explanations, encouragement — comes through in ${displayLang}. No other language reaches your lips in this session.\n`;
                 console.log(`[Streaming Voice] ✓ Same-language anchor injected (${displayLang}-only)`);
               }
 
