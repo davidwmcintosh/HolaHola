@@ -7,11 +7,8 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
-**2026-06-30 — `client/src/lib/streamingVoiceClient.ts` — Broadcast mode: sentences cutting off mid-response — MEDIUM**
-During testing, Daniela's responses are occasionally truncated mid-sentence. Heard "Are those the ones?" instead of the full "Are those the ones you were curious about?" Likely a chunk buffer or sentence-boundary issue at the WebSocket layer. Difficult to reproduce consistently; needs logging to isolate whether the truncation is on the STT side (input), the LLM generation side, or the audio streaming side.
-
-**2026-06-30 — `client/src/components/ImmersiveOverlay.tsx` — Broadcast mode: whiteboard vocab cards not visible during immersive mode — LOW**
-When Daniela pushes a vocab card to the whiteboard while immersive mode is active, the card exists on the whiteboard but is hidden behind the ImmersiveOverlay (`z-[200]`). The student must exit immersive to see it. Daniela's instinct to push vocab cards during broadcast was reasonable — either (a) whiteboard items should float above the immersive overlay, or (b) Daniela should use a prop (`add_prop`) instead of a vocab card for in-scene vocabulary display. Option (b) is the quick behavioral fix; option (a) requires z-index layering work.
+**2026-06-30 — GL model — Broadcast mode: sentences cutting off mid-response — MEDIUM**
+During testing, Daniela's responses are occasionally truncated mid-sentence. Heard "Are those the ones?" instead of the full "Are those the ones you were curious about?" Investigation (2026-06-30): traced through the full server→client audio pipeline. `gl_audio_reset` only fires on reconnects. Client-side `finalizeProgressiveSentence` is benign (only updates debug panel, never stops WebAudio nodes). The `generationComplete` watchdog at 12 s fires if GL pauses >12 s between sub-turns — that's the most likely candidate when tool calls happen between phrases. All audio chunks that ARE sent play to completion. The cutoff is at the source: GL stops generating audio before the sentence ends. This is GL model behavior, not a code-level bug. Next step: check server logs for `gl_barge_in` or `interrupted` events coinciding with the cutoff — if those appear without user input, there's a false-positive VAD trigger worth addressing. If absent, it's a pure GL model limitation with no direct fix.
 
 **2026-06-12 — `server/storage.ts:7881` — Drizzle bulk insert of `editor_insights` fails TypeScript — LOW (pre-existing)**
 `metadata` field typed as `unknown` in one insert code path vs the fully-typed schema object. Causes TS2769 overload resolution failure. Pre-existing; not introduced this session. Fix: add explicit type cast or `satisfies` assertion at the call site.
@@ -41,8 +38,11 @@ Arabic is the only language with no entries in the Madrigal loop catalog. Every 
 **2026-06-30 — `client/src/pages/chat.tsx` — open_scene auto-triggers immersive fullscreen — FIXED**
 Removed `useEffect` that called `setIsImmersiveMode(true)` for any `open_scene` or `add_prop` canvas action. Immersive mode is now controlled exclusively by the `enter_immersive` tool via the `immersive_mode` WS message.
 
-**2026-06-30 — `client/src/components/ImmersiveOverlay.tsx` — Browser native Fullscreen bar + extra X button appeared — FIXED**
-Removed `requestFullscreen/exitFullscreen` useEffect. The overlay already covers 100% of viewport via `fixed inset-0 z-[200]`; OS-level fullscreen is not needed and caused Replit to show a disruptive "Fullscreen" bar.
+**2026-06-30 — `client/src/components/ImmersiveOverlay.tsx` — Browser native Fullscreen bar + extra X button appeared, then re-restored — FIXED**
+Initially removed `requestFullscreen`. David then confirmed the fullscreen bar is useful (users can re-enter if they exit accidentally). Re-added `requestFullscreen` on enter + `exitFullscreen` on leave. Added `fullscreenchange` listener so pressing Esc or the browser's own X calls `onExit()`, keeping app state in sync.
+
+**2026-06-30 — `client/src/components/ImmersiveOverlay.tsx` — Broadcast mode: whiteboard vocab cards not visible during immersive mode — FIXED**
+`ImmersiveWhiteboardStrip` only handled `write`, `phonetic`, and `compare` types. Added `ImmersiveVocabHUD` — a frosted-glass card (top-right, `absolute top-16 right-4`) that reads `vocab_card` whiteboard items and displays word, definition, image, and language label above the scene. Wraps in `AnimatePresence` for smooth entry/exit.
 
 **2026-06-30 — `client/src/components/ImmersiveOverlay.tsx` — Prop images show white background box — FIXED**
 Added `mixBlendMode: 'multiply'` to prop `<img>` style. White/light backgrounds on AI-generated clipart props now blend away against the scene backdrop.

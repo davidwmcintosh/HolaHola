@@ -292,6 +292,49 @@ function ImmersiveWhiteboardStrip({ items }: { items: WhiteboardItem[] }) {
   );
 }
 
+// ─── Vocab card HUD — floating card for vocab_card whiteboard items ────────────
+
+function ImmersiveVocabHUD({ items }: { items: WhiteboardItem[] }) {
+  const vocabItems = (items as any[]).filter((item) => item.type === 'vocab_card');
+  const latest = vocabItems[vocabItems.length - 1] as any;
+  if (!latest) return null;
+
+  const { word, definition, imageUrl, language, showTranslation } = latest.data ?? {};
+  if (!word) return null;
+
+  return (
+    <motion.div
+      key={latest.id}
+      initial={{ opacity: 0, scale: 0.9, y: -10 }}
+      animate={{ opacity: 1, scale: 1, y: 0 }}
+      exit={{ opacity: 0, scale: 0.9, y: -10 }}
+      transition={{ duration: 0.3, ease: 'easeOut' }}
+      className="absolute top-16 right-4 z-10 w-56"
+      data-testid="immersive-vocab-hud"
+    >
+      <div
+        className="rounded-xl overflow-hidden"
+        style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(18px)', border: '1px solid rgba(255,255,255,0.14)' }}
+      >
+        {imageUrl && (
+          <img src={imageUrl} alt={word} className="w-full h-32 object-cover" />
+        )}
+        <div className="px-4 py-3 space-y-1">
+          {language && (
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-white/40">{language}</span>
+          )}
+          <p className="text-white font-bold text-xl leading-tight">{word}</p>
+          {showTranslation !== false && definition ? (
+            <p className="text-white/60 text-sm leading-snug">{definition}</p>
+          ) : showTranslation === false ? (
+            <p className="text-white/30 text-xs italic">What does this mean?</p>
+          ) : null}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Main overlay ─────────────────────────────────────────────────────────────
 
 export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems, contextImages, tutorImageUrl, onExit, activePanel, onDismissPanel }: ImmersiveOverlayProps) {
@@ -335,10 +378,30 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
     };
   }, [isActive, voice?.inputMode]);
 
-  // requestFullscreen removed: it triggered Replit's native "Fullscreen" bar and
-  // a browser-level X button that confused users. The immersive overlay already
-  // covers 100% of the viewport via `fixed inset-0 z-[200]` — no OS-level
-  // fullscreen needed.
+  // Enter native fullscreen when immersive activates. The browser's fullscreen bar
+  // lets users re-enter if they exit accidentally. On exit we call exitFullscreen so
+  // the OS bar disappears cleanly.
+  useEffect(() => {
+    if (isActive) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    } else {
+      if (document.fullscreenElement) {
+        document.exitFullscreen?.().catch(() => {});
+      }
+    }
+  }, [isActive]);
+
+  // Sync app state when the user exits native fullscreen via Esc or the browser X
+  // without going through our overlay's own exit button.
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && isActive) {
+        onExit();
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, [isActive, onExit]);
 
   // Close sheet when leaving immersive
   useEffect(() => {
@@ -479,6 +542,11 @@ export function ImmersiveOverlay({ isActive, sceneCanvas, displayWhiteboardItems
           {/* Whiteboard text strip — written words/phrases from Daniela */}
           <AnimatePresence>
             <ImmersiveWhiteboardStrip items={displayWhiteboardItems ?? []} />
+          </AnimatePresence>
+
+          {/* Vocab card HUD — top-right floating card for vocab_card whiteboard items */}
+          <AnimatePresence>
+            <ImmersiveVocabHUD items={displayWhiteboardItems ?? []} />
           </AnimatePresence>
 
           {/* Floating whiteboard image items */}
