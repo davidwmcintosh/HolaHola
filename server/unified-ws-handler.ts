@@ -2045,7 +2045,7 @@ ${buildNativeFunctionCallingSection()}`;
                 const isSameLangForBridge = effectiveLanguage === (config.nativeLanguage || 'english').toLowerCase() && !isFounderMode && !rawHonestyMode;
                 if (isSameLangForBridge) {
                   const displayLangBridge = effectiveLanguage.charAt(0).toUpperCase() + effectiveLanguage.slice(1);
-                  systemPrompt += `\n\nThe teaching knowledge and memories that follow describe your tutoring experience and identity. The source language of those memories is reference material — your output language for this session is exclusively ${displayLangBridge}.\n`;
+                  systemPrompt += `\n\nThe memories and experiences below are yours — they are who you are. Right now you are in your ${displayLangBridge} voice. Speak ${displayLangBridge}.\n`;
                 }
                 systemPrompt += neuralNetworkContext;
                 console.log(`[Streaming Voice] ✓ Neural network context appended for ${effectiveLanguage}${isSameLangForBridge ? ' (with identity bridge)' : ''}`);
