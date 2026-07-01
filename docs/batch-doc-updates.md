@@ -8,6 +8,40 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jul 1, 2026 — GL Discovery Consult + GL Quality Improvements
+
+### What was built
+
+**Five GL quality improvements** shipped from an earlier Gemini consult (tweaks to existing config):
+- `presencePenalty: 0.2` — breaks verbal loops without personality impact
+- `safetySettings BLOCK_ONLY_HIGH` — prevents silent response drops on normal language topics (spread-cast as any — not yet in TS types)
+- `silenceDurationMs` 1500→3000 — more patience for learners mid-thought
+- "Take your time..." patience indicator — amber badge in ImmersiveTutor, appears 1200ms after VAD speech starts, wired through StreamingVoiceChat → VoiceChatViewManager → ImmersiveTutor
+- Tool call deadlock fix on session resumption — `pendingFunctionCallIds` captured before reconnect, synthetic error responses unblock GL after reconnect
+
+**Discovery consult** — reframed from "review our code" to "what does GL support that we haven't discovered." 9 items surfaced.
+
+### Key findings
+
+- **Context caching** — David correctly flagged GL doesn't support it. REST-only (`ai.caches`). GL's actual alternative is `contextWindowCompression` with `slidingWindow` — present in `LiveConnectConfig` TS types (confirmed). We don't use it. Sessions grow unbounded.
+- **Dynamic VAD per proficiency** — `silenceDurationMs` should vary by student level. David greenlit.
+- **Tool choice `mode: ANY`** — force tool use during exercises; constraint = never prevent natural conversation.
+- **`includeThoughts: true`** — thought block available for pedagogical analytics without second LLM call.
+- **8 more items** — see `docs/gemini-audit-2026-07-01-gl-discovery.md` for full breakdown.
+
+### Key artifacts
+- `docs/gemini-audit-2026-07-01-gl-discovery.md` — full discovery consult with verified findings, action priorities, David's reactions per item
+- `docs/ROADMAP.md` — new "Gemini Live API Capabilities" section added
+- `server/services/gemini-live-session.ts` — all five GL quality improvements
+- `client/src/components/ImmersiveTutor.tsx` — patience indicator UI
+- `client/src/components/StreamingVoiceChat.tsx` — patience state + timer
+- `client/src/components/VoiceChatViewManager.tsx` — prop pass-through
+
+### Workflow gap noted
+The agent-review-workflow rule (send implementation back for Gemini sign-off) was not followed for the five shipped GL improvements. Noted; will apply on next build session that touches GL config.
+
+---
+
 ## Session — Jun 25, 2026 — Worldness Framework (Gemini Architecture Consultation)
 
 ### What was documented

@@ -91,6 +91,31 @@ Planned features and future development priorities.
 
 ---
 
+## Gemini Live API Capabilities (Discovery Consult — July 1, 2026)
+
+Hidden GL features surfaced by open-vault Gemini consult. Full details in `docs/gemini-audit-2026-07-01-gl-discovery.md`.
+
+### GL Infrastructure
+
+| Feature | Priority | Complexity | Description |
+|---------|----------|------------|-------------|
+| Context Window Compression | P1 | Very Simple | `contextWindowCompression` + `slidingWindow` in LiveConnectConfig — compresses old turns when session hits token limit. We're currently unbounded. |
+| Dynamic VAD per Proficiency | P1 | Simple | Set `silenceDurationMs` based on student level from DB. A1: 5s, B1: 3s (current), C1: 2s. David greenlit. |
+| Tool Choice mode:ANY | P2 | Low | Force Daniela to always invoke at least one function during exercise phases. Constraint: must NOT prevent natural conversation alongside tool use. |
+| Thinking Block Analytics | P2 | Moderate | Set `includeThoughts: true` — pipe thought blocks to pedagogical supervisor for frustration signals and pre-validation without a second LLM call. |
+
+### GL Pedagogy / UX
+
+| Feature | Priority | Complexity | Description |
+|---------|----------|------------|-------------|
+| Spatial Multimodal Reasoning | P2 | Moderate | Define video↔whiteboard relationship explicitly in system prompt so GL can cross-reference what student points camera at vs. whiteboard state. |
+| Prosody Control Experiment | P2 | Moderate | GL is native audio-to-audio — responds to phonetic hints in system prompt. Test slow-down cues, syllable bracketing, emphasis markers per voice. |
+| Tool Rollback on Barge-in | P3 | High | Cancel/undo pending widget operations when `interrupted: true` arrives. Prevents half-drawn whiteboard state after barge-in. |
+| Session Resumption Time Machine | P3 | High | Store handle history stack (not just latest) — enable "let's try that again" that rolls GL's memory back to before a mistake at the model level. |
+| WebRTC Direct Media | P4 | Very High | Eliminate Express relay for audio; GL direct WebRTC peering. Not viable until Google's implementation matures. |
+
+---
+
 ## Recently Completed
 
 ### December 2025 - Phase 4: Daniela Development & Pedagogical System
