@@ -4660,8 +4660,8 @@ Return [] if nothing is worth surfacing.`;
           // Distill the answer into a clean, saveable fact string
           let goalFact = rawGoal;
           try {
-            const user = req.user;
-            const model = getModelForTier(user.subscriptionTier, user);
+            const user = req.user ?? await storage.getUser(userId);
+            const model = getModelForTier(user?.subscriptionTier, user);
             const distillPrompt = `The student said this when asked why they're learning ${targetLanguage}: "${rawGoal}"
 
 Rewrite it as a single, concise fact sentence starting with "Wants to" or "Learning for" (max 15 words). Return only the sentence, no punctuation at the end.`;
@@ -4710,8 +4710,8 @@ Write a brief, warm closing message IN ${nativeLanguage} (2-3 sentences max) tha
 Be yourself: warm, confident, a little personality. Keep it short.`;
           
           try {
-            const user = req.user;
-            const model = getModelForTier(user.subscriptionTier, user);
+            const user = req.user ?? await storage.getUser(userId);
+            const model = getModelForTier(user?.subscriptionTier, user);
             aiResponse = await callGemini(model, [{ role: "user", content: closingPrompt }]);
             console.log('[ONBOARDING-COMPLETION SUCCESS] Generated:', aiResponse.substring(0, 100));
           } catch (error) {
@@ -4829,7 +4829,7 @@ Be yourself: warm, confident, a little personality. Keep it short.`;
 
         // VOICE MODE: Always use Gemini 2.5 Flash for speed (same 1M context as Pro)
         // Pro model testing can be enabled later via user preference
-        const user = req.user;
+        const user = req.user ?? await storage.getUser(userId);
         
         // Get user's personality and expressiveness preferences for system prompt
         const tutorPersonality = (user?.tutorPersonality as 'warm' | 'calm' | 'energetic' | 'professional') || 'warm';
@@ -5682,7 +5682,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
       );
 
       // Determine which model to use based on subscription tier
-      const user = req.user;
+      const user = req.user ?? await storage.getUser(userId);
       
       // Get user's personality and expressiveness preferences
       const textTutorPersonality = (user?.tutorPersonality as 'warm' | 'calm' | 'energetic' | 'professional') || 'warm';
@@ -35075,6 +35075,23 @@ Under 250 words. Write as yourself.`;
       req.session.userId = '49847136';
       req.session.authProvider = 'ai-browser';
       res.json({ success: true, message: 'AI browser session established' });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // Agent-session bootstrap — lets the Replit Agent start an authenticated session
+  // using REPLIT_AGENT_TOKEN. Creates a founder-level session for API interaction.
+  app.post("/api/internal/agent-session", async (req: any, res: Response) => {
+    try {
+      const agentToken = req.headers['x-agent-token'];
+      if (!agentToken || agentToken !== process.env.REPLIT_AGENT_TOKEN) {
+        return res.status(401).json({ error: 'Invalid agent token' });
+      }
+      req.session.userId = '49847136';
+      req.session.authProvider = 'ai-browser';
+      await new Promise<void>((resolve, reject) => req.session.save((err: any) => err ? reject(err) : resolve()));
+      res.json({ success: true, message: 'Agent session established' });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
     }
