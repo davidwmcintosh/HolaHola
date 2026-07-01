@@ -609,7 +609,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             disabled: false,
             startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
             endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
-            prefixPaddingMs: 200,
+            prefixPaddingMs: 500,
             silenceDurationMs: actflSilenceDurationMs(this.session.studentActflLevel),
           },
         },
@@ -622,16 +622,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // recent tokens. The system prompt is always preserved — compression only
         // affects conversation history.
         //
-        // triggerTokens "55000" → fire when total context (system prompt + history) hits
-        //                         55K tokens. Our system prompt cap is 34K, so this
-        //                         triggers when ~21K of conversation history has
-        //                         accumulated (~20-30 min of active conversation).
+        // triggerTokens "65000" → fire when total context (system prompt + history) hits
+        //                         65K tokens. Total context = system prompt + history.
+        //                         Our system prompt cap is 34K, so this triggers when
+        //                         ~31K of conversation history has accumulated.
         //                         Must be > 34K system prompt or compression never fires.
         //
-        // targetTokens  "40000" → after compression, keep 40K total. With a 34K system
-        //                         prompt, that retains ~6K of the most recent history.
+        // targetTokens  "50000" → after compression, keep 50K total. With a 34K system
+        //                         prompt, that retains ~16K of the most recent history
+        //                         (~12,000 words / 30-40 min of conversation).
         //                         Sheds ~15K of oldest turns per compression cycle.
-        //                         Must be > system prompt so the model has room to work.
+        //                         Earlier value of 40K left only ~6K of history — too
+        //                         little for pedagogical continuity across long sessions.
         //
         // Note: these values are strings — the @google/genai SDK declares them as
         // `string` (proto3 int64 serializes as JSON string). Passing numbers fails
@@ -640,11 +642,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // Caveat: early-session context (opening assessment, agreed lesson goals) may
         // be compressed away in very long sessions. Front-load critical student facts
         // into the system prompt rather than relying on tool-call history for anything
-        // that must persist across a 30+ minute session.
+        // that must persist across a 45+ minute session.
         contextWindowCompression: {
-          triggerTokens: '55000',
+          triggerTokens: '65000',
           slidingWindow: {
-            targetTokens: '40000',
+            targetTokens: '50000',
           },
         },
 
