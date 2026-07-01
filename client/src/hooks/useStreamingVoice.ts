@@ -2000,6 +2000,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // Stop playback
     playerRef.current?.stop();
     subtitles.reset();
+    // Bug 6 fix: clear any custom overlay text from the previous session so Japanese/foreign
+    // text doesn't persist into a new session (e.g. [SHOW: そうですね] never followed by [HIDE]).
+    sessionConfigRef.current?.onCustomOverlay?.('hide', undefined);
     
     // Reset state
     responseCompleteRef.current = false;

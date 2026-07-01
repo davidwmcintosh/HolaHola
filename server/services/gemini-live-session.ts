@@ -193,6 +193,9 @@ export class GeminiLiveSession {
   // The next first-audio processing_pending is suppressed since the client already
   // reset — sending it again would clear the new audio's dedup state prematurely.
   private suppressNextProcessingPending = false;
+  // Bug 1 fix: gate audio chunks that arrive after generationComplete (GL tail sub-turn).
+  // Set to true on generationComplete; cleared when the NEXT response starts generating audio.
+  private afterGenerationComplete = false;
   private isTutorGeneratingAudio = false;
   // Safety timeout: force-opens the mic gate if onPlaybackEnded() never arrives
   // (e.g., the client disconnects mid-playback or the telemetry event is dropped).
@@ -696,6 +699,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               this.lastSentenceStartSentIndex = -1;
               this.hadAudioInCurrentSubturn = false;
               this.transcriptClosed = false;
+              this.afterGenerationComplete = false;
               this.usingOutputTranscription = false;
               this.firstAudioSentThisTurn = false;
               this.processingPendingSentThisTurn = false;
@@ -838,6 +842,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.firstAudioSentThisTurn = false;
     this.processingPendingSentThisTurn = false;
     this.transcriptClosed = false;
+    this.afterGenerationComplete = false;
     this.usingOutputTranscription = false;
     // DOUBLE-AUDIO FIX: Clear suppress flag on interrupt so a stale reconnect-era flag
     // doesn't carry into the next turn if GL never generated audio after the reconnect.
@@ -1162,6 +1167,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       );
       for (const part of msg.serverContent.modelTurn.parts) {
         if (part.inlineData?.data && part.inlineData.mimeType?.includes('audio')) {
+          // Drop audio that arrives after generationComplete — these are GL tail sub-turns
+          // ("ok", "hey") generated to fill the audio budget after the real response ended.
+          if (this.afterGenerationComplete) {
+            console.log('[GeminiLive] Dropping tail audio chunk after generationComplete (Bug 1 gate)');
+            continue;
+          }
           audioParts++;
           this.hadAudioInCurrentSubturn = true;
           this.lastAudioChunkAt = Date.now();
@@ -1177,6 +1188,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           }
           if (!this.isTutorGeneratingAudio) {
             this.isTutorGeneratingAudio = true;
+            // This is the start of a new response — clear the post-generationComplete gate
+            // so legitimate next-turn audio isn't blocked.
+            this.afterGenerationComplete = false;
             console.log('[GeminiLive] Mic gated — Daniela is generating audio (echo suppression active)');
           }
 
@@ -1603,6 +1617,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // generationComplete is the definitive end-of-turn signal; any transcription after it
       // is residual buffering from GL's transcription layer and should not reach the client.
       this.transcriptClosed = true;
+      // Bug 1 fix: arm the audio gate — any audio arriving after this point is a GL tail
+      // sub-turn ("ok", "hey") and should be dropped before it reaches the client.
+      this.afterGenerationComplete = true;
 
       // Friction Score — flush this student turn's word count + mid-pause count into the
       // rolling windows. Reset per-turn accumulators.
