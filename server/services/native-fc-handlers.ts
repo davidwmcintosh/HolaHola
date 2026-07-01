@@ -3541,6 +3541,9 @@ export class NativeFunctionCallHandler {
           (session as StreamingSession).currentSessionPhase = phaseValue as StreamingSession['currentSessionPhase'];
           // Cache phase start time for PedagogicalSupervisor (overly-long phase detection)
           (session as any)._phaseStartTime = Date.now();
+          // Rolling struggle window — clear timestamps on phase change so struggles
+          // from an earlier phase don't count toward the new phase's death-spiral trigger.
+          (session as any)._struggleTimestamps = [];
           console.log(`[Native Function→SessionPhase] Phase → ${phaseValue}${phaseReason ? ` (${phaseReason})` : ''}`);
         }
         break;

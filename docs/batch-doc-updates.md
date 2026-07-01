@@ -2319,3 +2319,28 @@ Key file when building: client/src/data/madrigal-unit-content.ts (has all vocabu
 ### Parent email route
 **What:** `POST /api/reports/email-parent` — generates the parent report and emails it via `emailService.send()`. Uses the account email by default; accepts `{ toEmail: '...' }` in the body to override.
 **Key file:** `server/routes.ts` — after the GET /api/reports/parent route.
+
+---
+
+## GL Pedagogical Supervisor — Three New Features (July 1, 2026)
+
+**What was built:** Three improvements to the pedagogical supervisor and GL session management, implemented following a Gemini discovery consult. All three were pre-build and post-build reviewed by Gemini Flash and APPROVED.
+
+### A. Rolling 5-minute struggle window
+**How it works:** `trackStruggle()` in `adaptive-speed-control.ts` now tracks timestamps of each struggle event in `(session as any)._struggleTimestamps[]`, pruning inline on every call. The pedagogical supervisor reads the rolling window (last 5 min, post-phase-start) instead of a lifetime count. Both adaptive speed and the death-spiral trigger use the same rolling count — no more consistency gap between systems. Phase changes reset the array.
+
+**Key files:** `server/services/adaptive-speed-control.ts`, `server/services/pedagogical-supervisor.ts`, `server/services/native-fc-handlers.ts`
+
+### B. Silence-triggered directive heartbeat
+**How it works:** When the thought-stream supervisor fires a directive at `generationComplete`, it's stored on `GeminiLiveSession` as `pendingDirectiveText`. A `setInterval` (5s) started at `setupComplete` delivers it via `sendClientContent` if silence ≥15s and Daniela isn't generating. The tool-response path always has priority — it consumes and clears `pendingDirectiveText` first. Failed sends retry on the next tick (null only on success).
+
+**Why:** Before this, a struggling student who stopped speaking in the first 4 minutes had no tool calls to deliver the supervisor's directive — it was silently dropped.
+
+**Key files:** `server/services/gemini-live-session.ts` (fields: `pendingDirectiveText`, `lastGenerationCompleteTime`, `heartbeatInterval`; methods: `startHeartbeat()`)
+
+### C. Instruction drift detection via thought stream
+**How it works:** When `includeThoughts:true` delivers Daniela's pre-response reasoning, the supervisor scans it for advanced grammar markers (subjunctive, conditional perfect, past perfect, pluperfect, etc.). If the student is novice or low-intermediate and the thought mentions these markers (not negated), a 'nudge' directive fires: "Keep grammar at their level."
+
+**Negation guard:** Phrases like "avoid subjunctive" / "not use past perfect" are correctly ignored (self-correction, not drift).
+
+**Key files:** `server/services/pedagogical-supervisor.ts` (inside `evaluatePedagogicalState`, thought block)

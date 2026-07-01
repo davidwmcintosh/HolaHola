@@ -189,6 +189,18 @@ export class GeminiLiveSession {
   private isStopped = false;
   private isStarted = false;
   private isSetupComplete = false;
+  // ── Silence-triggered heartbeat (Feature B) ─────────────────────────────
+  // When the pedagogical supervisor emits a directive at generationComplete
+  // (via thought-based analysis) but the student stops talking — there are no
+  // tool calls to ride the directive to Daniela.  The heartbeat interval polls
+  // every 5 s: if a directive is pending AND ≥15 s of silence has elapsed since
+  // the last generationComplete, it injects the directive via sendClientContent
+  // as a [SYSTEM] tagged user turn (Daniela recognises the bracket prefix and
+  // does not speak it verbatim — same convention as the system whisper channel).
+  private pendingDirectiveText: string | null = null;
+  private pendingDirectiveUrgency: 'emergency' | 'nudge' = 'nudge';
+  private lastGenerationCompleteTime = 0;
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private pendingGreetingTrigger: string | null = null;
   private pendingGreetingSilent = false; // true = prime audio on setupComplete but don't speak
   private identityThreads: Array<{ title: string; content: string }> = [];
@@ -1102,6 +1114,46 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
    * has already produced a transcript — we route it here so Gemini Live
    * generates the audio response instead of the legacy pipeline.
    */
+  /**
+   * Silence-triggered directive heartbeat.
+   * Started once setupComplete fires. Polls every 5 s.
+   * Delivers any pending pedagogical directive via sendClientContent when:
+   *   • A directive is waiting (set from thought-scan at generationComplete)
+   *   • ≥15 s have elapsed since the last generationComplete (student is silent)
+   *   • Daniela is not currently generating audio (no double-speak risk)
+   * Clears the pending directive after delivery so it fires at most once.
+   * A [SYSTEM — not spoken:] bracket prefix signals Daniela not to speak it verbatim —
+   * the same convention used by the system whisper channel.
+   */
+  private startHeartbeat(): void {
+    if (this.heartbeatInterval) return; // idempotent
+    this.heartbeatInterval = setInterval(() => {
+      if (this.isStopped || !this.liveSession) {
+        clearInterval(this.heartbeatInterval!);
+        this.heartbeatInterval = null;
+        return;
+      }
+      if (!this.pendingDirectiveText) return;
+      const silenceMs = Date.now() - this.lastGenerationCompleteTime;
+      if (silenceMs < 15000) return; // wait until ≥15 s of silence
+      if (this.isTutorGeneratingAudio) return; // Daniela is mid-response — skip this tick
+      const urgencyPrefix = this.pendingDirectiveUrgency === 'emergency' ? 'URGENT — ' : '';
+      const msg = `[SYSTEM — not spoken: ${urgencyPrefix}${this.pendingDirectiveText}]`;
+      const directive = this.pendingDirectiveText; // capture for logging
+      try {
+        this.liveSession.sendClientContent({
+          turns: [{ role: 'user', parts: [{ text: msg }] }],
+          turnComplete: true,
+        });
+        // Null ONLY on successful send — if the WebSocket throws, retry on the next 5s tick.
+        this.pendingDirectiveText = null;
+        console.log(`[GeminiLive] Heartbeat: silence-delivered directive (${silenceMs}ms silence): ${directive.slice(0, 80)}...`);
+      } catch (err) {
+        console.warn('[GeminiLive] Heartbeat: failed to deliver directive, will retry next tick:', (err as Error).message);
+      }
+    }, 5000);
+  }
+
   sendTextTurn(text: string): void {
     if (!this.liveSession || this.isStopped) return;
     // System Whisper (Gemini audit 2026-06-17 + review correction):
@@ -1144,6 +1196,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     if (this.generationCompleteWatchdogTimer) {
       clearTimeout(this.generationCompleteWatchdogTimer);
       this.generationCompleteWatchdogTimer = null;
+    }
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
     }
     if (this.liveSession) {
       try {
@@ -1224,6 +1280,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     if ((msg as any).setupComplete != null) {
       if (!this.isSetupComplete) {
         this.isSetupComplete = true;
+        this.startHeartbeat();
         const establishMs = this.sessionStartedAt > 0 ? Date.now() - this.sessionStartedAt : null;
         console.log(`[GeminiLive] setupComplete received — model ready${establishMs !== null ? ` (${establishMs}ms to establish)` : ''}`);
         // Telemetry: GL session establishment latency (start() → setupComplete)
@@ -1784,10 +1841,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // Thoughts arrive before audio; by generationComplete the buffer is complete.
       // The supervisor uses thought content as an additional struggle signal on top
       // of its existing rule-based checks (struggle count, phase duration, ACTFL mismatch).
+      // Record generation completion time for heartbeat silence gate.
+      this.lastGenerationCompleteTime = Date.now();
+
       if (this.currentTurnThoughtBuffer) {
         const thoughtSnippet = this.currentTurnThoughtBuffer.slice(0, 200);
         console.log(`[GeminiLive] Daniela thought (${this.currentTurnThoughtBuffer.length} chars, phase=${this.session.currentSessionPhase ?? 'unknown'}): ${thoughtSnippet}${this.currentTurnThoughtBuffer.length > 200 ? '...' : ''}`);
-        evaluatePedagogicalState(this.session, this.currentTurnThoughtBuffer);
+        const thoughtDirective = evaluatePedagogicalState(this.session, this.currentTurnThoughtBuffer);
+        if (thoughtDirective) {
+          // Store on instance — heartbeat will deliver it if student goes silent
+          // before the next tool call can carry it. The tool-response path will
+          // also consume and clear it if a tool call happens first.
+          this.pendingDirectiveText = thoughtDirective.directive;
+          this.pendingDirectiveUrgency = thoughtDirective.urgency;
+          console.log(`[GeminiLive] PedagogicalSupervisor [${thoughtDirective.urgency}] thought-directive stored for heartbeat/tool delivery`);
+        }
       }
       this.currentTurnThoughtBuffer = '';
 
@@ -2225,11 +2293,19 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // Pedagogical Supervisor — Emergency Brake:
       // Runs LAST so its directive is the final word Daniela reads before responding —
       // overriding all earlier phase/context notes per Gemini review recommendation.
-      // Evaluates real-time session state (struggle count, phase, gear, ACTFL level) and
-      // injects a [Pedagogical Supervisor] directive when the backend detects a dangerous
-      // condition. Rate-limited to once per 3 minutes to avoid directive fatigue.
+      // Priority: consume any pending thought-directive first (set at generationComplete
+      // via thought-stream analysis). If no pending directive, run the rule-based check.
+      // Either way, the heartbeat's pending directive is cleared — tool response delivery
+      // is higher-quality than the sendClientContent heartbeat channel.
       if (responses.length > 0) {
-        const pedagogicalDirective = evaluatePedagogicalState(this.session);
+        let pedagogicalDirective: { directive: string; urgency: 'emergency' | 'nudge' } | null = null;
+        if (this.pendingDirectiveText) {
+          // Thought-directive already evaluated — deliver via tool response (best channel)
+          pedagogicalDirective = { directive: this.pendingDirectiveText, urgency: this.pendingDirectiveUrgency };
+          this.pendingDirectiveText = null; // consumed — heartbeat will not fire
+        } else {
+          pedagogicalDirective = evaluatePedagogicalState(this.session);
+        }
         if (pedagogicalDirective) {
           const last = responses[responses.length - 1];
           const currentResult = (last.response as any)?.result ?? '';

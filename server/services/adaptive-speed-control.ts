@@ -84,11 +84,24 @@ export function trackSttConfidence(session: StreamingSession, confidence: number
 
 /**
  * Increment struggle count. Auto-enables adaptive speed when threshold is crossed.
+ * Also pushes a timestamp to (session as any)._struggleTimestamps so the
+ * PedagogicalSupervisor can compute a rolling 5-minute struggle window instead of
+ * relying on the global lifetime counter (which never resets within a session).
  */
 export function trackStruggle(session: StreamingSession): void {
-  session.sessionStruggleCount++;
-  if (session.sessionStruggleCount >= ADAPTIVE_SPEED_CONFIG.STRUGGLE_SLOWDOWN_THRESHOLD && !session.adaptiveSpeedEnabled) {
+  const now = Date.now();
+  const fiveMinAgo = now - 5 * 60 * 1000;
+  // Prune immediately on every call to prevent unbounded array growth in long sessions.
+  let ts: number[] = (session as any)._struggleTimestamps || [];
+  ts = ts.filter((t: number) => t > fiveMinAgo);
+  ts.push(now);
+  (session as any)._struggleTimestamps = ts;
+  const rollingCount = ts.length;
+  // Use rolling count for adaptive speed so old struggles don't permanently degrade the session.
+  if (rollingCount >= ADAPTIVE_SPEED_CONFIG.STRUGGLE_SLOWDOWN_THRESHOLD && !session.adaptiveSpeedEnabled) {
     session.adaptiveSpeedEnabled = true;
-    console.log(`[Adaptive Speed] Auto-enabled due to struggle count (${session.sessionStruggleCount})`);
+    console.log(`[Adaptive Speed] Auto-enabled due to rolling struggle count (${rollingCount} in last 5 min)`);
   }
+  // Also increment the lifetime counter for telemetry / DB sync purposes (not used for decisions).
+  session.sessionStruggleCount++;
 }

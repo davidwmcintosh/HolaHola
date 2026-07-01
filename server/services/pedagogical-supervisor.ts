@@ -29,11 +29,22 @@ export interface PedagogicalDirective {
  */
 export function evaluatePedagogicalState(session: StreamingSession, thoughtText?: string): PedagogicalDirective | null {
   const phase = session.currentSessionPhase;
-  const struggleCount = session.sessionStruggleCount || 0;
   const lastFluency = (session as any)._lastFluency as string | undefined;
   const lastGear = (session as any)._lastGear as number | undefined;
   const phaseStartTime = (session as any)._phaseStartTime as number | undefined;
   const actflLevel = session.studentActflLevel || '';
+
+  // ── Rolling 5-minute struggle window ──────────────────────────────────────
+  // Filter raw timestamps to the last 5 min and write back (trims old entries).
+  // Also prune entries that pre-date the current phase start so a struggle in
+  // WARM_UP doesn't haunt the student when they reach PRODUCTION.
+  const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+  const phaseFloor = phaseStartTime ?? 0;
+  const rawTs: number[] = (session as any)._struggleTimestamps || [];
+  const recentTs = rawTs.filter((t: number) => t > fiveMinAgo && t > phaseFloor);
+  (session as any)._struggleTimestamps = recentTs;
+  // Rolling count is used for trigger 2; global count still drives adaptive speed.
+  const struggleCount = recentTs.length;
 
   // Rate limit: don't fire more than once every 3 minutes to avoid directive fatigue.
   const lastDirectiveTime = (session as any)._lastDirectiveTime as number | undefined;
@@ -71,6 +82,45 @@ export function evaluatePedagogicalState(session: StreamingSession, thoughtText?
         directive: `Your own reasoning flagged that the student may be struggling or confused. Trust that read — step back, offer a smaller win, or add scaffolding before continuing at this demand level.`,
         urgency: 'nudge',
       };
+    }
+
+    // 1b. Instruction Drift — Daniela's thoughts reveal intent to use grammar/vocabulary
+    // far above the student's ACTFL level. Catches drift before she speaks.
+    // Proxy: advanced grammar markers in thought text + student is novice or low-intermediate.
+    // A second LLM call is not needed — keyword scan on the thought stream is sufficient
+    // because Daniela's reasoning is explicit ("I'll use subjunctive here...").
+    const isLowLevel =
+      actflLevel === 'novice_low' ||
+      actflLevel === 'novice_mid' ||
+      actflLevel === 'novice_high' ||
+      actflLevel === 'intermediate_low';
+
+    if (isLowLevel) {
+      const advancedMarkers = [
+        'subjunctive', 'conditional perfect', 'past perfect', 'pluperfect',
+        'future perfect', 'passive voice constructions', 'indirect discourse',
+        'contrary to fact', 'sequence of tenses',
+      ];
+      // Negation guard: Daniela's thoughts often say "avoid X" or "not use X"
+      // when she is correctly self-correcting. Don't fire on those cases.
+      const driftMarker = advancedMarkers.find(m => {
+        const hasMarker = t.includes(m);
+        const isNegated =
+          t.includes(`avoid ${m}`) ||
+          t.includes(`not use ${m}`) ||
+          t.includes(`no ${m}`) ||
+          t.includes(`don't use ${m}`) ||
+          t.includes(`shouldn't use ${m}`);
+        return hasMarker && !isNegated;
+      });
+      if (driftMarker) {
+        console.log(`[PedagogicalSupervisor] Drift detected — "${driftMarker}" in thought stream for ${actflLevel} student`);
+        (session as any)._lastDirectiveTime = Date.now();
+        return {
+          directive: `Instruction drift: your reasoning mentioned "${driftMarker}" but the student is at ${actflLevel} level. Keep grammar at their level — present tense, simple structures, high-frequency vocabulary only.`,
+          urgency: 'nudge',
+        };
+      }
     }
   }
 
