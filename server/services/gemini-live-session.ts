@@ -111,6 +111,41 @@ function findTaughtWordMention(
   return null;
 }
 
+/**
+ * Maps a student's ACTFL proficiency level to the appropriate VAD silence
+ * cutoff duration. Beginners need more time to search for words; advanced
+ * speakers find long silences unnatural. Paired with the 1200ms patience
+ * indicator on the client so no level ever feels frozen.
+ *
+ * Scale reference (from discovery consult July 2026):
+ *   novice        → 5000ms   (A1 equivalent — every word is a search)
+ *   intermediate  → 3000ms   (B1 equivalent — current baseline)
+ *   advanced      → 2500ms   (C1 equivalent — fluent pacing)
+ *   superior+     → 2000ms   (C2+ — conversation feels natural at this speed)
+ */
+function actflSilenceDurationMs(actflLevel?: string | null): number {
+  switch (actflLevel?.toLowerCase()) {
+    case 'novice_low':
+    case 'novice_mid':
+      return 5000;
+    case 'novice_high':
+    case 'intermediate_low':
+      return 4000;
+    case 'intermediate_mid':
+    case 'intermediate_high':
+      return 3000;
+    case 'advanced_low':
+    case 'advanced_mid':
+    case 'advanced_high':
+      return 2500;
+    case 'superior':
+    case 'distinguished':
+      return 2000;
+    default:
+      return 3000; // safe default for unassessed or unknown levels
+  }
+}
+
 export class GeminiLiveSession {
   private liveSession: Session | null = null;
   private fcHandler: NativeFunctionCallHandler;
@@ -559,22 +594,44 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         //  prefixPaddingMs: 200      — require 200 ms of sustained speech before
         //                             committing a turn start, filtering out coughs,
         //                             filler sounds, and accidental mic noise.
-        //  silenceDurationMs: 3000   — hard cutoff: 3000 ms of silence forces end
-        //                             of turn even if semantic signal is ambiguous.
-        //                             Research shows language learners searching for
-        //                             a word pause for 2.2–2.8s on average. 1500ms
-        //                             caused Daniela to interrupt at the exact moment
-        //                             a student found the word. 3000ms gives breathing
-        //                             room. Client shows "Take your time..." indicator
-        //                             at 1200ms of silence so it doesn't feel frozen.
-        //                             (was 800ms → 1500ms → 2500ms → 1500ms → 3000ms)
+        //  silenceDurationMs         — Dynamic per student ACTFL level (July 2026).
+        //                             novice (A1): 5000ms — every word is a search
+        //                             intermediate (B1): 3000ms — comfortable baseline
+        //                             advanced (C1): 2500ms — fluent pacing
+        //                             superior+ (C2+): 2000ms — natural conversation speed
+        //                             Falls back to 3000ms for unassessed students.
+        //                             Client shows "Take your time..." indicator at
+        //                             1200ms so sessions never feel frozen regardless
+        //                             of cutoff. (was hardcoded 3000ms)
+        //                             (history: 800ms → 1500ms → 2500ms → 1500ms → 3000ms → dynamic)
         realtimeInputConfig: {
           automaticActivityDetection: {
             disabled: false,
             startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
             endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
             prefixPaddingMs: 200,
-            silenceDurationMs: 3000,
+            silenceDurationMs: actflSilenceDurationMs(this.session.studentActflLevel),
+          },
+        },
+
+        // ── Context window compression ────────────────────────────────────
+        // Without this, long sessions accumulate every tool call and response in
+        // GL's context window indefinitely. At ~30K tokens the window starts to
+        // affect model behavior (recency bias, ignoring early context). Compression
+        // triggers a sliding-window drop of the oldest turns, keeping the 15K most
+        // recent tokens. The system prompt is always preserved — compression only
+        // affects conversation history.
+        //
+        // triggerTokens "30000" → fire when window reaches 30K tokens (~45-60 min session)
+        // targetTokens  "15000" → keep the most recent 15K tokens after compression
+        //
+        // Caveat: early-session context (opening assessment, agreed lesson goals) may
+        // be compressed away. Front-load critical student facts into the system prompt
+        // rather than relying on tool-call history for anything that must persist.
+        contextWindowCompression: {
+          triggerTokens: '30000',
+          slidingWindow: {
+            targetTokens: '15000',
           },
         },
 
