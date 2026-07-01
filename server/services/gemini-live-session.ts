@@ -518,7 +518,14 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // audio buffer sync issues. Explicitly set to 1. (Gemini audit June 19 2026)
         generationConfig: {
           temperature: 0.6,
-          maxOutputTokens: 2500,
+          // maxOutputTokens 700: ~550-600 words — enough for a complete, thoughtful response
+          // while forcing the concise turn-taking essential to L2 comprehensible input loops.
+          // 2500 (prev) was ~1,800 words; Flash 3.1 can monologue 8-10 min uninterrupted at
+          // that cap, which destroys the back-and-forth that drives language acquisition.
+          // Gemini audit July 1 2026: drop to 600-800 for voice tutoring. 700 is the midpoint.
+          // (Was 1500 before June → 2500 to fix mid-sentence cutoffs on philosophical responses;
+          // 700 gives enough room for emotional depth without enabling lecture mode.)
+          maxOutputTokens: 700,
           candidateCount: 1,
           // presencePenalty 0.2: Daniela tends to fall into verbal loops (same opening phrase
           // every turn). Presence penalty penalises tokens already seen in the conversation,
@@ -545,6 +552,15 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // ── Transcription ─────────────────────────────────────────────────
         // inputAudioTranscription:  student speech → text (live captions + DB)
         // outputAudioTranscription: assistant speech → text (DB conversation log)
+        //
+        // inputAudioTranscription: no languageCode — intentional.
+        // Setting languageCode here locks the STT to one language, which breaks code-switching:
+        // beginners asking "How do I say 'library'?" get their English phoneme-mapped to
+        // garbled target-language tokens. Gemini audit July 1 2026 recommended languageCode
+        // for WER on non-native speech, but the code-switching cost outweighs the WER gain
+        // for beginner/intermediate learners. Keep multi-language auto-detect (empty config).
+        // Revisit if we add an explicit "Immersion Mode" toggle where the student opts in
+        // to target-language-only input and accepts the code-switching tradeoff.
         inputAudioTranscription: {},
         outputAudioTranscription: {},
 
