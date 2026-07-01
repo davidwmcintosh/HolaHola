@@ -2410,7 +2410,15 @@ export class NativeFunctionCallHandler {
         }
         if (!weatherCondition) { console.warn('[Native Function→SetWeather] Missing condition — skipping'); break; }
         if (!session.sceneCanvas) session.sceneCanvas = { environment: '', environmentImageUrl: '', environmentLabel: '', props: [] };
-        session.sceneCanvas.weatherData = { condition: weatherCondition, label: weatherLabel, celsius: weatherCelsius };
+        // Preserve existing celsius and label when omitted — e.g. a label-only update
+        // (SET_WEATHER with condition + label but no celsius) must not wipe the temperature
+        // that was already set by a previous call.
+        const existingWeather = session.sceneCanvas.weatherData;
+        session.sceneCanvas.weatherData = {
+          condition: weatherCondition,
+          label: weatherLabel ?? existingWeather?.label,
+          celsius: weatherCelsius ?? existingWeather?.celsius,
+        };
         const weatherUpdate = {
           type: 'whiteboard_update' as const, timestamp: Date.now(),
           items: [{ id: 'scene-canvas-active', type: 'scene_canvas', content: weatherLabel ?? weatherCondition,

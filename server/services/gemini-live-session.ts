@@ -254,6 +254,12 @@ export class GeminiLiveSession {
   private pendingInputTranscript = '';   // Accumulates user's speech per utterance
   private pendingInputSaved = false;     // True once user message has been persisted for this turn
   private pendingOutputTranscript = '';  // Accumulates Daniela's reply across all sub-turns
+  // Tracks which source is authoritative for pendingOutputTranscript this turn.
+  // When GL sends BOTH part.text (model text) AND outputTranscription (audio transcript),
+  // both contain the same content — accumulating from both causes 2x/3x repetition in
+  // the saved message. Once outputTranscription arrives, it becomes the sole source and
+  // any part.text accumulation from earlier in the same turn is discarded.
+  private usingOutputTranscription = false;
   private lastUserText = '';             // Last completed user turn — for enrichment context
   private enrichment: PostResponseEnrichmentService;
   private transcriptFlushTimer: NodeJS.Timeout | null = null;
@@ -690,6 +696,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               this.lastSentenceStartSentIndex = -1;
               this.hadAudioInCurrentSubturn = false;
               this.transcriptClosed = false;
+              this.usingOutputTranscription = false;
               this.firstAudioSentThisTurn = false;
               this.processingPendingSentThisTurn = false;
               this.greetingPhaseActive = false;
@@ -705,6 +712,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               this.pendingInputTranscript = '';
               this.pendingInputSaved = false;
               this.pendingOutputTranscript = '';
+              this.usingOutputTranscription = false;
               if (this.transcriptFlushTimer) {
                 clearTimeout(this.transcriptFlushTimer);
                 this.transcriptFlushTimer = null;
@@ -830,6 +838,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.firstAudioSentThisTurn = false;
     this.processingPendingSentThisTurn = false;
     this.transcriptClosed = false;
+    this.usingOutputTranscription = false;
     // DOUBLE-AUDIO FIX: Clear suppress flag on interrupt so a stale reconnect-era flag
     // doesn't carry into the next turn if GL never generated audio after the reconnect.
     this.suppressNextProcessingPending = false;
@@ -1140,6 +1149,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // New model turn arriving — reopen the transcript gate so this sub-turn's
       // outputTranscription is allowed through. turnComplete/generationComplete will
       // close it again at the end of this sub-turn.
+      // NOTE: do NOT reset usingOutputTranscription here — it must persist within
+      // a full response (across sub-turns) so part.text stays suppressed once
+      // outputTranscription has become the authoritative source.
       this.transcriptClosed = false;
       let audioParts = 0;
       let textParts = 0;
@@ -1355,12 +1367,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // Model text output — emitted when TEXT is included in responseModalities.
         // Accumulate into pendingOutputTranscript so the assistant's full reply is
         // persisted to the DB on generationComplete / turnComplete flush.
-        // GUARD: skip text-only messages (messageHasAudio=false) — these are GL's
+        // GUARD 1: skip text-only messages (messageHasAudio=false) — these are GL's
         // internal planning notes / chain-of-thought and must never reach the client.
+        // GUARD 2: skip if outputTranscription has already become the authoritative source
+        // for this turn. When GL sends BOTH part.text AND outputTranscription with the same
+        // content, accumulating both causes 2–3x repetition in the saved DB message.
         if (part.text) {
           textParts++;
           if (messageHasAudio || this.hadAudioInCurrentSubturn) {
-            this.pendingOutputTranscript += part.text;
+            if (!this.usingOutputTranscription) {
+              // outputTranscription hasn't fired yet — accumulate from part.text as a
+              // provisional source. It will be discarded if outputTranscription arrives.
+              this.pendingOutputTranscript += part.text;
+            }
+            // Always forward the real-time text to the client for subtitle display,
+            // regardless of which accumulation source is active.
             this.sendWsMessage(this.session.ws, {
               type: 'response_text',
               text: part.text,
@@ -1484,7 +1505,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // avatar while still speaking and stop talking prematurely.
         // GUARD: skip if audio already started — a late transcription chunk arriving after
         // audio has played would stick the avatar in "thinking" with no audio to follow.
-        const isFirstOutputChunk = this.pendingOutputTranscript.trim() === '';
+        const isFirstOutputChunk = !this.usingOutputTranscription;
+        if (isFirstOutputChunk) {
+          // Switch to outputTranscription as the authoritative accumulation source.
+          // If part.text was already accumulated this turn, discard it — outputTranscription
+          // carries the same content but with proper streaming boundaries. Keeping both
+          // would double (or triple) the text stored in the DB message.
+          if (this.pendingOutputTranscript.trim()) {
+            console.log('[GeminiLive] Switching to outputTranscription source — discarding part.text accumulation to prevent duplicate text');
+          }
+          this.pendingOutputTranscript = '';
+          this.usingOutputTranscription = true;
+        }
         this.pendingOutputTranscript += isFirstOutputChunk ? text.trimStart() : text;
         if (isFirstOutputChunk && !this.firstAudioSentThisTurn && !this.processingPendingSentThisTurn) {
           this.processingPendingSentThisTurn = true;
@@ -2348,6 +2380,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         .trim();
       this.totalOutputCharacters += assistantText.length;
       this.pendingOutputTranscript = '';
+      this.usingOutputTranscription = false;
       try {
         const messageId = await this.persistMessage('assistant', assistantText);
         // Fire background enrichment (student_insights, recurring_struggles, vocab)

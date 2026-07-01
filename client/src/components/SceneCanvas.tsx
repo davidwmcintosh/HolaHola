@@ -662,7 +662,7 @@ export function WeatherIcon({ condition, size = 80 }: { condition: string; size?
   }
 }
 
-function WeatherCanvas({ data, compact }: { data: WeatherData; compact?: boolean }) {
+function WeatherCanvas({ data, compact, hideTemp }: { data: WeatherData; compact?: boolean; hideTemp?: boolean }) {
   const isUS = typeof navigator !== 'undefined' && (navigator.language === 'en-US' || navigator.language?.endsWith('-US'));
   const bgColors: Record<string, string> = {
     sunny: 'from-yellow-100 to-orange-50 dark:from-yellow-950 dark:to-orange-950',
@@ -686,7 +686,7 @@ function WeatherCanvas({ data, compact }: { data: WeatherData; compact?: boolean
     >
       <WeatherIcon condition={data.condition} size={44} />
       {data.label && <span className="text-[10px] font-medium text-center leading-tight">{data.label}</span>}
-      {data.celsius !== undefined && (() => {
+      {!hideTemp && data.celsius !== undefined && (() => {
         const f = Math.round(data.celsius! * 9 / 5 + 32);
         return isUS
           ? <span className="text-[11px] font-mono text-muted-foreground">{f}°F</span>
@@ -707,7 +707,7 @@ function WeatherCanvas({ data, compact }: { data: WeatherData; compact?: boolean
       {data.label && (
         <span className="text-2xl font-semibold tracking-wide text-center">{data.label}</span>
       )}
-      {data.celsius !== undefined && (() => {
+      {!hideTemp && data.celsius !== undefined && (() => {
         const f = Math.round(data.celsius! * 9 / 5 + 32);
         return isUS
           ? <span className="text-lg font-mono text-muted-foreground">{f}°F <span className="text-sm opacity-70">({data.celsius}°C)</span></span>
@@ -1247,7 +1247,7 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
     const smallWidgets = [
       hasThermometer && <ThermometerCanvas key="therm" data={data.thermometerData!} compact={useCompact} />,
       hasEmotion && <EmotionFaceCanvas key="emotion" data={data.emotionData!} compact={useCompact} />,
-      hasWeather && <WeatherCanvas key="weather" data={data.weatherData!} compact={useCompact} />,
+      hasWeather && <WeatherCanvas key="weather" data={data.weatherData!} compact={useCompact} hideTemp={hasThermometer} />,
       hasClock && <ClockOnlyCanvas key="clock" time={data.clockTime!} label={data.clockLabel} showLabel={data.clockShowLabel} compact={useCompact} />,
     ].filter(Boolean) as React.ReactNode[];
 
@@ -1332,7 +1332,7 @@ export function SceneCanvas({ data, "data-testid": testId }: SceneCanvasProps) {
           {hasWorldMap && <WorldMapCanvas data={data.worldMapData!} />}
           {hasThermometer && <ThermometerCanvas data={data.thermometerData!} />}
           {hasEmotion && <EmotionFaceCanvas data={data.emotionData!} />}
-          {hasWeather && <WeatherCanvas data={data.weatherData!} />}
+          {hasWeather && <WeatherCanvas data={data.weatherData!} hideTemp={hasThermometer} />}
         </motion.div>
       )}
     </div>
