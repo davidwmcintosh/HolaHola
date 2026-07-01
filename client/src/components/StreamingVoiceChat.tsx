@@ -303,6 +303,11 @@ export function StreamingVoiceChat({
   // Open mic visual state for feedback
   const [openMicState, setOpenMicState] = useState<OpenMicState>('idle');
   const openMicStateRef = useRef<OpenMicState>('idle');
+  // Listening patience indicator: when student has been quiet for 1200ms mid-turn
+  // (before the 3s silence cutoff fires), show "Take your time..." so the session
+  // doesn't feel frozen. Timer starts on VAD speech start, clears on utterance end.
+  const [showListeningPatience, setShowListeningPatience] = useState(false);
+  const listeningPatienceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Track if we're awaiting/playing a response (to ignore VAD events)
   const isAwaitingResponseRef = useRef(false);
   // Track previous input mode to detect mode changes
@@ -1140,9 +1145,21 @@ export function StreamingVoiceChat({
             } else {
               console.log('[OPEN MIC] Daniela hasnt spoken yet - keeping mic blue (waiting for her to answer)');
             }
+
+            // Patience indicator: after 1200ms of the student speaking, arm a 1200ms
+            // "still listening" timer. When it fires it shows "Take your time..." so the
+            // student gets permission to pause and think (silence cutoff is now 3000ms).
+            if (listeningPatienceTimerRef.current) clearTimeout(listeningPatienceTimerRef.current);
+            setShowListeningPatience(false);
+            listeningPatienceTimerRef.current = setTimeout(() => {
+              setShowListeningPatience(true);
+            }, 1200);
           },
           onVadUtteranceEnd: (transcript, empty) => {
             console.log('[OPEN MIC] VAD utterance end, transcript:', transcript, 'empty:', empty);
+            // Clear the patience indicator — student's turn is complete
+            if (listeningPatienceTimerRef.current) clearTimeout(listeningPatienceTimerRef.current);
+            setShowListeningPatience(false);
             if (empty) {
               console.log('[OPEN MIC] Empty transcript - resetting to listening (no AI call needed)');
               setOpenMicState('ready');
@@ -4229,6 +4246,7 @@ export function StreamingVoiceChat({
           inputMode={inputMode}
           setInputMode={setInputMode}
           openMicState={openMicState}
+          showListeningPatience={showListeningPatience}
           isPttButtonHeld={isPttButtonHeld}
           playbackState={globalPlaybackState as 'idle' | 'buffering' | 'playing' | 'paused'}
           onInterrupt={() => {

@@ -23,6 +23,8 @@ import {
   Modality,
   StartSensitivity,
   EndSensitivity,
+  HarmCategory,
+  HarmBlockThreshold,
   type Session,
   type LiveServerMessage,
 } from '@google/genai';
@@ -197,6 +199,10 @@ export class GeminiLiveSession {
   // Set to true on generationComplete; cleared when the NEXT response starts generating audio.
   private afterGenerationComplete = false;
   private isTutorGeneratingAudio = false;
+  // Tool Call Deadlock fix: track function call IDs that were in-flight when the connection
+  // dropped. On reconnect with a resumption handle, GL resumes in "waiting for tool response"
+  // state — we send synthetic error responses to unblock it before the session hangs silently.
+  private pendingFunctionCallIds: string[] = [];
   // Safety timeout: force-opens the mic gate if onPlaybackEnded() never arrives
   // (e.g., the client disconnects mid-playback or the telemetry event is dropped).
   private playbackGateSafetyTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -476,7 +482,27 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           temperature: 0.6,
           maxOutputTokens: 2500,
           candidateCount: 1,
+          // presencePenalty 0.2: Daniela tends to fall into verbal loops (same opening phrase
+          // every turn). Presence penalty penalises tokens already seen in the conversation,
+          // forcing natural vocabulary variety without altering her personality.
+          // Recommended by Gemini audit (July 2026). 0.2 is mild — just enough to break loops.
+          presencePenalty: 0.2,
         },
+
+        // Safety settings: set all categories to BLOCK_ONLY_HIGH so GL doesn't silently return
+        // an empty audio buffer when students discuss normal language-learning topics (war,
+        // illness, crime, travel accidents). App-layer moderation is handled separately.
+        // Without this, GL's default thresholds can silently drop responses with no error code.
+        // Note: safetySettings is not yet in the @google/genai LiveConnectConfig TS types,
+        // but the Gemini Live API accepts it — cast to any to pass it through.
+        ...({
+          safetySettings: [
+            { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,       threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+            { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,  threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+            { category: HarmCategory.HARM_CATEGORY_HARASSMENT,         threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+            { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,  threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
+          ],
+        } as any),
 
         // ── Transcription ─────────────────────────────────────────────────
         // inputAudioTranscription:  student speech → text (live captions + DB)
@@ -533,19 +559,22 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         //  prefixPaddingMs: 200      — require 200 ms of sustained speech before
         //                             committing a turn start, filtering out coughs,
         //                             filler sounds, and accidental mic noise.
-        //  silenceDurationMs: 1500   — hard cutoff: 1500 ms of silence forces end
+        //  silenceDurationMs: 3000   — hard cutoff: 3000 ms of silence forces end
         //                             of turn even if semantic signal is ambiguous.
-        //                             Language learners frequently pause while
-        //                             searching for a word — 1500ms handles that
-        //                             without making the conversation feel frozen.
-        //                             (was 800ms → 1500ms → 2500ms → back to 1500ms)
+        //                             Research shows language learners searching for
+        //                             a word pause for 2.2–2.8s on average. 1500ms
+        //                             caused Daniela to interrupt at the exact moment
+        //                             a student found the word. 3000ms gives breathing
+        //                             room. Client shows "Take your time..." indicator
+        //                             at 1200ms of silence so it doesn't feel frozen.
+        //                             (was 800ms → 1500ms → 2500ms → 1500ms → 3000ms)
         realtimeInputConfig: {
           automaticActivityDetection: {
             disabled: false,
             startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
             endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
             prefixPaddingMs: 200,
-            silenceDurationMs: 1500,
+            silenceDurationMs: 3000,
           },
         },
 
@@ -657,6 +686,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             setTimeout(async () => {
               if (this.isStopped) return;
               console.log(`[GeminiLive] Reconnect attempt ${this.reconnectAttempts}…`);
+              // Capture whether we have a resumption handle BEFORE resetting state.
+              // If we had one AND there were in-flight tool calls, GL may resume in
+              // "waiting for tool response" state — we'll unblock it after start().
+              const hadHandle = !!this.session.geminiLiveResumptionHandle;
+              const staleFunctionCallIds = [...this.pendingFunctionCallIds];
+              this.pendingFunctionCallIds = [];
 
               // DOUBLE-AUDIO FIX: If GL disconnected while actively generating audio,
               // the client's AudioContext has already scheduled BufferSource nodes for
@@ -727,6 +762,26 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 await this.start(this.lastSystemPrompt, this.lastTools);
                 this.reconnectAttempts = 0; // success — reset counter
                 console.log('[GeminiLive] Reconnected successfully');
+
+                // Tool Call Deadlock fix: if we resumed a session that had in-flight
+                // tool calls, GL is now silently waiting for the responses. Send
+                // synthetic error responses to unblock it so the session can continue.
+                // Capture in local var + cast so TS narrowing works inside the block.
+                // (async setTimeout callbacks lose track of class-property control flow.)
+                const sessionForUnblock = this.liveSession as Session | null;
+                if (hadHandle && staleFunctionCallIds.length > 0 && sessionForUnblock) {
+                  try {
+                    const syntheticResponses = staleFunctionCallIds.map(id => ({
+                      id,
+                      name: 'unknown',
+                      response: { error: 'Session interrupted — tool response lost. Please continue naturally.' },
+                    }));
+                    sessionForUnblock.sendToolResponse({ functionResponses: syntheticResponses });
+                    console.log(`[GeminiLive] Sent ${staleFunctionCallIds.length} synthetic tool response(s) to unblock GL after reconnect`);
+                  } catch (unblockErr) {
+                    console.warn('[GeminiLive] Failed to send synthetic tool responses after reconnect:', unblockErr);
+                  }
+                };
                 this.sendWsMessage(this.session.ws, { type: 'gl_reconnected' });
               } catch (err: any) {
                 console.error(`[GeminiLive] Reconnect attempt ${this.reconnectAttempts} failed:`, err?.message);
@@ -1815,6 +1870,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // while handlers are running, currentTurnId will advance and the guard below drops
       // the now-stale responses before they reach sendToolResponse.
       const localTurnId = this.currentTurnId;
+
+      // Tool Call Deadlock fix: record the in-flight call IDs so that if the connection
+      // drops before sendToolResponse fires, the reconnect path can unblock GL.
+      this.pendingFunctionCallIds = msg.toolCall.functionCalls
+        .map((fc: any) => fc.id as string)
+        .filter(Boolean);
       const responses: Array<{ id: string; name: string; response: Record<string, unknown> }> = [];
 
       // Phase 1: Build extractedFcs upfront (order-safe) then fire all handlers in parallel.
@@ -2064,6 +2125,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // Always send tool responses — Gemini Live stalls if we don't
       if (this.liveSession && responses.length > 0) {
         try {
+          // Clear the deadlock-guard before sending — once the response is in flight
+          // the turn is resolved regardless of what happens to the connection next.
+          this.pendingFunctionCallIds = [];
           this.liveSession.sendToolResponse({ functionResponses: responses });
           console.log(`[GeminiLive] Tool responses sent: ${responses.map(r => r.name).join(', ')}`);
         } catch (err) {

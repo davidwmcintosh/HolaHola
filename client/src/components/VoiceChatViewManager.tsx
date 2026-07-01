@@ -51,6 +51,7 @@ interface VoiceChatViewManagerProps {
   inputMode?: VoiceInputMode;
   setInputMode?: (mode: VoiceInputMode) => void;
   openMicState?: OpenMicState;
+  showListeningPatience?: boolean;
   // Track if PTT button is being held (for stable instruction text during speculative processing)
   isPttButtonHeld?: boolean;
   // Playback state for guards - 'buffering' happens before 'playing'
@@ -105,6 +106,7 @@ export function VoiceChatViewManager({
   inputMode = 'push-to-talk',
   setInputMode,
   openMicState = 'idle',
+  showListeningPatience = false,
   isPttButtonHeld = false,
   playbackState = 'idle',
   onInterrupt,
@@ -247,6 +249,7 @@ export function VoiceChatViewManager({
                 inputMode={inputMode}
                 setInputMode={setInputMode}
                 openMicState={openMicState}
+                showListeningPatience={showListeningPatience}
                 isPttButtonHeld={isPttButtonHeld}
                 playbackState={playbackState}
                 onInterrupt={onInterrupt}

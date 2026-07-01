@@ -116,6 +116,7 @@ interface ImmersiveTutorProps {
   inputMode?: VoiceInputMode;
   setInputMode?: (mode: VoiceInputMode) => void;
   openMicState?: OpenMicState;
+  showListeningPatience?: boolean;
   // Track if PTT button is being held (for stable instruction text during speculative processing)
   isPttButtonHeld?: boolean;
   // Playback state for guards - 'buffering' happens before 'playing'
@@ -171,6 +172,7 @@ export function ImmersiveTutor({
   inputMode = 'push-to-talk',
   setInputMode,
   openMicState = 'idle',
+  showListeningPatience = false,
   isPttButtonHeld = false,
   playbackState: propPlaybackState = 'idle',
   onInterrupt,
@@ -711,6 +713,17 @@ export function ImmersiveTutor({
             className={`absolute top-4 right-4 w-4 h-4 bg-green-500 rounded-full shadow-lg transition-opacity ${isRecording ? 'animate-pulse' : ''}`}
             data-testid={isRecording ? "indicator-mic-recording" : "indicator-mic-hot"}
           />
+        )}
+
+        {/* Listening patience indicator — student paused mid-thought, Daniela is still waiting */}
+        {/* Appears 1200ms after VAD speech start; disappears at utterance end (3s silence cutoff) */}
+        {openMicState === 'listening' && showListeningPatience && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
+            <div className="bg-amber-500/90 text-white rounded-full px-3 py-1 text-xs font-medium flex items-center gap-1 backdrop-blur-sm">
+              <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+              Take your time...
+            </div>
+          </div>
         )}
         
         
