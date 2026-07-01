@@ -13,15 +13,21 @@ export interface PedagogicalDirective {
  * into the next tool response's result string, following the existing System
  * Whisper injection pattern in gemini-live-session.ts.
  *
- * Three trigger conditions (in priority order):
- *   1. Death Spiral — student struggling in PRACTICE/PRODUCTION, struggle count ≥ 3
- *   2. Phase too long — stuck in PRACTICE/PRODUCTION > 12 min without transitioning
- *   3. ACTFL/phase mismatch — novice learner in full PRODUCTION mode
+ * Four trigger conditions (in priority order):
+ *   1. Thought-based struggle — Daniela's own reasoning flags confusion/struggle
+ *      (detected via includeThoughts:true; fires below the normal rate-limit threshold)
+ *   2. Death Spiral — student struggling in PRACTICE/PRODUCTION, struggle count ≥ 3
+ *   3. Phase too long — stuck in PRACTICE/PRODUCTION > 12 min without transitioning
+ *   4. ACTFL/phase mismatch — novice learner in full PRODUCTION mode
  *
  * Returns null when the session is within normal operating range.
  * Fires at most once every 3 minutes per session to avoid directive noise.
+ *
+ * @param thoughtText  Optional — Daniela's pre-response reasoning from includeThoughts:true.
+ *                     Passed in from gemini-live-session.ts at generationComplete.
+ *                     Used as an early-warning signal before struggle count climbs.
  */
-export function evaluatePedagogicalState(session: StreamingSession): PedagogicalDirective | null {
+export function evaluatePedagogicalState(session: StreamingSession, thoughtText?: string): PedagogicalDirective | null {
   const phase = session.currentSessionPhase;
   const struggleCount = session.sessionStruggleCount || 0;
   const lastFluency = (session as any)._lastFluency as string | undefined;
@@ -35,7 +41,40 @@ export function evaluatePedagogicalState(session: StreamingSession): Pedagogical
     return null;
   }
 
-  // 1. Death Spiral — student is struggling in a demanding phase
+  // 1. Thought-based struggle signal — Daniela's own reasoning flags difficulty
+  // before the struggle count has climbed to the rule-based threshold.
+  // Keywords: language Daniela uses when she perceives the student is lost or stuck.
+  // Lower confidence than rule-based triggers — only fires if already in a demanding phase.
+  if (thoughtText && (phase === 'PRACTICE' || phase === 'PRODUCTION')) {
+    const t = thoughtText.toLowerCase();
+    // Phrases are student-centric to reduce false positives.
+    // Avoided: bare "lost" (story context), "scaffold" alone (construction context).
+    const thoughtFlagsStruggle =
+      t.includes('struggling') ||
+      t.includes('student is confused') ||
+      t.includes('learner is confused') ||
+      t.includes('seems confused') ||
+      t.includes('not understanding') ||
+      t.includes("doesn't understand") ||
+      t.includes('student is lost') ||
+      t.includes('learner is lost') ||
+      t.includes('overwhelmed') ||
+      t.includes('too difficult for') ||
+      t.includes('step back') ||
+      t.includes('need to scaffold') ||
+      t.includes('should scaffold');
+
+    if (thoughtFlagsStruggle) {
+      console.log(`[PedagogicalSupervisor] Thought-based struggle signal detected in ${phase}`);
+      (session as any)._lastDirectiveTime = Date.now();
+      return {
+        directive: `Your own reasoning flagged that the student may be struggling or confused. Trust that read — step back, offer a smaller win, or add scaffolding before continuing at this demand level.`,
+        urgency: 'nudge',
+      };
+    }
+  }
+
+  // 2. Death Spiral — student is struggling in a demanding phase
   if (
     struggleCount >= 3 &&
     (phase === 'PRACTICE' || phase === 'PRODUCTION') &&
@@ -48,7 +87,7 @@ export function evaluatePedagogicalState(session: StreamingSession): Pedagogical
     };
   }
 
-  // 2. Phase too long — stuck in PRACTICE/PRODUCTION > 12 minutes
+  // 3. Phase too long — stuck in PRACTICE/PRODUCTION > 12 minutes
   if (
     phaseStartTime &&
     (phase === 'PRACTICE' || phase === 'PRODUCTION') &&
@@ -62,7 +101,7 @@ export function evaluatePedagogicalState(session: StreamingSession): Pedagogical
     };
   }
 
-  // 3. ACTFL/phase mismatch — novice learner in full PRODUCTION
+  // 4. ACTFL/phase mismatch — novice learner in full PRODUCTION
   if (
     (actflLevel === 'novice_low' || actflLevel === 'novice_mid') &&
     phase === 'PRODUCTION'

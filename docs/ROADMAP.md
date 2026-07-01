@@ -99,10 +99,10 @@ Hidden GL features surfaced by open-vault Gemini consult. Full details in `docs/
 
 | Feature | Priority | Complexity | Description |
 |---------|----------|------------|-------------|
-| Context Window Compression | P1 | Very Simple | `contextWindowCompression` + `slidingWindow` in LiveConnectConfig — compresses old turns when session hits token limit. We're currently unbounded. |
-| Dynamic VAD per Proficiency | P1 | Simple | Set `silenceDurationMs` based on student level from DB. A1: 5s, B1: 3s (current), C1: 2s. David greenlit. |
-| Tool Choice mode:ANY | P2 | Low | Force Daniela to always invoke at least one function during exercise phases. Constraint: must NOT prevent natural conversation alongside tool use. |
-| Thinking Block Analytics | P2 | Moderate | Set `includeThoughts: true` — pipe thought blocks to pedagogical supervisor for frustration signals and pre-validation without a second LLM call. |
+| Context Window Compression | ~~P1~~ **SHIPPED** | Very Simple | `contextWindowCompression` + `slidingWindow` in LiveConnectConfig. triggerTokens:65000, targetTokens:50000 (accounts for 34K system prompt). Shipped July 1, 2026. |
+| Dynamic VAD per Proficiency | ~~P1~~ **SHIPPED** | Simple | `silenceDurationMs` per ACTFL level (5000ms novice → 2000ms superior, 4000ms default). `prefixPaddingMs` bumped 200→500ms. Shipped July 1, 2026. |
+| Tool Choice mode:ANY | ~~P2~~ **DECIDED AGAINST** | Low | AUTO mode already handles pure conversation correctly. mode:ANY would force a tool call even when Daniela should reply naturally — wrong behavior. Will not implement. |
+| Thinking Block Analytics | ~~P2~~ **SHIPPED** | Moderate | `includeThoughts:true` in thinkingConfig. Thought parts guarded before text branch (prevents client leakage). Buffer flushed at generationComplete + cleared on barge-in. Pedagogical supervisor updated with 4th trigger: thought-based struggle detection. Shipped July 1, 2026. |
 
 ### GL Pedagogy / UX
 
@@ -218,4 +218,4 @@ These features are exploratory and may be considered in later phases:
 
 ---
 
-*Last updated: December 2025*
+*Last updated: July 1, 2026 — GL Capabilities section updated with July 1 shipments.*

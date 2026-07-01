@@ -192,6 +192,9 @@ export class GeminiLiveSession {
   private pendingGreetingTrigger: string | null = null;
   private pendingGreetingSilent = false; // true = prime audio on setupComplete but don't speak
   private identityThreads: Array<{ title: string; content: string }> = [];
+  /** Accumulates thought Part text during a model turn (includeThoughts:true). Flushed to
+   *  the pedagogical supervisor at generationComplete, then cleared. Never sent to client. */
+  private currentTurnThoughtBuffer = '';
 
   // ── Mic gate: blocks echo during ALL Daniela audio generation ────────────
   // When open-mic mode is active, the client streams audio continuously.
@@ -561,9 +564,15 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // pass completes, adding noticeable TTFT lag. MEDIUM gives meaningful depth
         // without blocking voice streaming. (June 12 2026 audit: dropped from HIGH)
         //
+        // includeThoughts: true — returns thought Parts (thought:true, text:"...")
+        // arriving BEFORE the first audio chunk in each turn. Captured server-side
+        // into currentTurnThoughtBuffer for the pedagogical supervisor. Never
+        // forwarded to the client (thought parts are filtered in handleServerMessage).
+        // thoughtSignature field is ignored — only needed for context-cache scenarios.
+        //
         // SDK: "An error will be returned if this field is set for models that
         // don't support thinking." — native-audio skips it to avoid that error.
-        ...(!is25NativeAudio ? { thinkingConfig: { thinkingLevel: 'MEDIUM' as any } } : {}),
+        ...(!is25NativeAudio ? { thinkingConfig: { thinkingLevel: 'MEDIUM' as any, includeThoughts: true } } : {}),
 
         // ── Turn coverage (2.5 native audio only) ────────────────────────
         // 2.5 native audio defaults to TURN_INCLUDES_ONLY_ACTIVITY, which can
@@ -1505,6 +1514,20 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           });
         }
 
+        // ── Thought parts (includeThoughts: true) ────────────────────────────
+        // Thought parts carry Daniela's pre-response reasoning. They arrive BEFORE
+        // the first audio chunk and have { thought: true, text: "..." }.
+        // Because they also have part.text, they would otherwise fall through to the
+        // text branch below and be forwarded to the client — this guard prevents that.
+        // Accumulated server-side for the pedagogical supervisor; never sent to client.
+        if ((part as any).thought === true) {
+          if (part.text) {
+            this.currentTurnThoughtBuffer += part.text;
+          }
+          // Skip all further processing for this part — thought content is supervisor-only
+          continue;
+        }
+
         // Model text output — emitted when TEXT is included in responseModalities.
         // Accumulate into pendingOutputTranscript so the assistant's full reply is
         // persisted to the DB on generationComplete / turnComplete flush.
@@ -1740,6 +1763,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     //  3. Flush transcripts immediately — generationComplete is a definitive end-of-response
     //     signal, so there is no value in waiting for more sub-turns.
     if ((msg.serverContent as any)?.generationComplete) {
+      // ── Thought buffer flush ──────────────────────────────────────────────
+      // Flush accumulated thought text to the pedagogical supervisor, then clear.
+      // Thoughts arrive before audio; by generationComplete the buffer is complete.
+      // The supervisor uses thought content as an additional struggle signal on top
+      // of its existing rule-based checks (struggle count, phase duration, ACTFL mismatch).
+      if (this.currentTurnThoughtBuffer) {
+        const thoughtSnippet = this.currentTurnThoughtBuffer.slice(0, 200);
+        console.log(`[GeminiLive] Daniela thought (${this.currentTurnThoughtBuffer.length} chars, phase=${this.session.currentSessionPhase ?? 'unknown'}): ${thoughtSnippet}${this.currentTurnThoughtBuffer.length > 200 ? '...' : ''}`);
+        evaluatePedagogicalState(this.session, this.currentTurnThoughtBuffer);
+      }
+      this.currentTurnThoughtBuffer = '';
+
       // Close transcript gate — discard any outputTranscription arriving after this point.
       // generationComplete is the definitive end-of-turn signal; any transcription after it
       // is residual buffering from GL's transcription layer and should not reach the client.
@@ -1859,6 +1894,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     // We close the open audio sub-turn and flush whatever partial transcript we have so
     // the truncated assistant message is saved cleanly before the next user turn begins.
     if ((msg.serverContent as any)?.interrupted) {
+      // Clear thought buffer — interrupted turns won't reach generationComplete, so the
+      // buffer must be wiped here or it would bleed into the next turn's thought accumulation.
+      this.currentTurnThoughtBuffer = '';
+
       // Telemetry: barge-in event so Sofia can track interruption frequency
       const bargePayload = JSON.stringify({
         sessionId: this.session.id,
