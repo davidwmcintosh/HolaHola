@@ -142,7 +142,7 @@ function actflSilenceDurationMs(actflLevel?: string | null): number {
     case 'distinguished':
       return 2000;
     default:
-      return 3000; // safe default for unassessed or unknown levels
+      return 4000; // unassessed students are likely beginners — err on the side of patience
   }
 }
 
@@ -622,16 +622,29 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // recent tokens. The system prompt is always preserved — compression only
         // affects conversation history.
         //
-        // triggerTokens "30000" → fire when window reaches 30K tokens (~45-60 min session)
-        // targetTokens  "15000" → keep the most recent 15K tokens after compression
+        // triggerTokens "55000" → fire when total context (system prompt + history) hits
+        //                         55K tokens. Our system prompt cap is 34K, so this
+        //                         triggers when ~21K of conversation history has
+        //                         accumulated (~20-30 min of active conversation).
+        //                         Must be > 34K system prompt or compression never fires.
+        //
+        // targetTokens  "40000" → after compression, keep 40K total. With a 34K system
+        //                         prompt, that retains ~6K of the most recent history.
+        //                         Sheds ~15K of oldest turns per compression cycle.
+        //                         Must be > system prompt so the model has room to work.
+        //
+        // Note: these values are strings — the @google/genai SDK declares them as
+        // `string` (proto3 int64 serializes as JSON string). Passing numbers fails
+        // TypeScript type-checking against the SDK types.
         //
         // Caveat: early-session context (opening assessment, agreed lesson goals) may
-        // be compressed away. Front-load critical student facts into the system prompt
-        // rather than relying on tool-call history for anything that must persist.
+        // be compressed away in very long sessions. Front-load critical student facts
+        // into the system prompt rather than relying on tool-call history for anything
+        // that must persist across a 30+ minute session.
         contextWindowCompression: {
-          triggerTokens: '30000',
+          triggerTokens: '55000',
           slidingWindow: {
-            targetTokens: '15000',
+            targetTokens: '40000',
           },
         },
 
