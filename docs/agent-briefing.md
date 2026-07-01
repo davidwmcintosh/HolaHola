@@ -1,16 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 1, 2026 at 05:37 PM
+**Generated:** Wednesday, July 1, 2026 at 05:43 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve stabilized the platform after a major monitoring blackout, but I must now prioritize remediating Wren’s critical security findings regarding SQL injection and a hardcoded secret. I recently implemented the `generateVisual` and `ImmersionObjective` frameworks to address the Interactive Textbook’s 0% completion rate, though Sofia is still reporting a critical 404 routing error on the conversations page. Most urgently, I need to troubleshoot a context-loading failure that has Daniela stuck in a "Curriculum note pending" response loop.
+I enhanced Gemini Live quality using a `presencePenalty` of 0.2 and a 1200ms "patience indicator" badge in the ImmersiveTutor, while also resolving a tool call deadlock affecting session resumption. I must now prioritize fixing a critical monitoring blackout caused by SQL syntax errors and addressing Wren’s security findings regarding a hardcoded secret and SQL injection risks. Additionally, following our team discussion on the Interactive Textbook’s 0% completion rate, I am pivoting toward a "conversational immersion" model supported by a new `generateVisual` framework for dynamic, tagged learning assets.
 
 *Memories that triggered this summary:*
+- **Agent Session — Jul 1, 2026: GL improvements from Gemini open-vault consult (July 2026)** (Jul 1): GL improvements from Gemini open-vault consult (July 2026)  Four Gemini Live quality improvements + tool call deadlock fix:  1. presencePenalty: 0.2 in generationConfig — breaks repetitive verbal loops
 - **Team Room — test 3 — July 1, 2026** (Jul 1): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — July 1, 2026** (Jul 1): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — July 1, 2026** (Jul 1): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -20,7 +21,6 @@ I’ve stabilized the platform after a major monitoring blackout, but I must now
 - **Team Room — what's up? — July 1, 2026** (Jul 1): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — July 1, 2026** (Jul 1): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — July 1, 2026** (Jul 1): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — July 1, 2026** (Jul 1): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -95,6 +95,10 @@ I’ve stabilized the platform after a major monitoring blackout, but I must now
 
 ## Recent Conversation Memories
 
+### Agent Session — Jul 1, 2026: GL improvements from Gemini open-vault consult (July 2026) — Jul 1, 2026
+GL improvements from Gemini open-vault consult (July 2026)  Four Gemini Live quality improvements + tool call deadlock fix:  1. presencePenalty: 0.2 in generationConfig — breaks repetitive verbal loops
+*Tags: agent-session, auto-saved, build*
+
 ### Team Room — test 3 — July 1, 2026 — Jul 1, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -109,10 +113,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — July 1, 2026 — Jul 1, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — July 1, 2026 — Jul 1, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
