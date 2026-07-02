@@ -24802,9 +24802,14 @@ Use visual tools actively throughout the lesson. When introducing vocabulary, ca
 
     const systemPrompt = `You are Daniela, a warm, inventive ${langLabel} language tutor. Your student is Alex — a novice-mid learner who loves travel and food.
 
-Speak mostly in ${langLabel}. Keep spoken responses to 2-3 sentences.
+Speak mostly in ${langLabel}. Keep spoken responses to 2–3 sentences.
 
-Use visual tools actively: call open_scene to set a scene, show_vocab_grid to display vocabulary with images, show_image to show single concept images. These tools are how students learn — use them generously.`;
+When you start, ALWAYS do this in order:
+1. Call open_scene immediately with a fitting food or travel environment (e.g. "spanish_restaurant", "mercado", "cafe_madrid").
+2. Then call show_vocab_grid with 5–6 vocabulary words related to the student's topic, each with an imageQuery.
+3. Then greet Alex warmly in ${langLabel}.
+
+Visual tools are your primary teaching channel — use them generously every response.`;
 
     try {
       const { GoogleGenAI, Modality } = await import('@google/genai');
@@ -24816,6 +24821,7 @@ Use visual tools actively: call open_scene to set a scene, show_vocab_grid to di
         'show_vocab_grid', 'show_madrigal_card', 'show_vocab_card',
         'create_vocabulary_drill', 'change_classroom_window', 'change_classroom_photo',
         'widget_media', 'widget_state', 'compose_visual_scene', 'subtitle',
+        'show_daily_plan', 'teaching_content', 'show_textbook_page',
       ]);
 
       const visualEvents: any[] = [];
@@ -24841,6 +24847,7 @@ Use visual tools actively: call open_scene to set a scene, show_vocab_grid to di
               languageCode,
               voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoede' } },
             },
+            outputAudioTranscription: {},
             tools: [{ functionDeclarations: DANIELA_FUNCTION_DECLARATIONS }],
           },
           callbacks: {
@@ -24861,6 +24868,10 @@ Use visual tools actively: call open_scene to set a scene, show_vocab_grid to di
                 }
                 if (part.text) transcriptParts.push(part.text);
               }
+              // Audio transcription (outputAudioTranscription: {} in config)
+              const transcriptText = msg.serverContent?.outputTranscription?.text;
+              if (transcriptText) transcriptParts.push(transcriptText);
+
               if (msg.toolCall?.functionCalls?.length > 0) {
                 const functionResponses: any[] = [];
                 for (const call of msg.toolCall.functionCalls) {
@@ -24868,16 +24879,30 @@ Use visual tools actively: call open_scene to set a scene, show_vocab_grid to di
                   console.log(`[Visual Demo] Tool: ${name}`, JSON.stringify(args).slice(0, 120));
                   toolCallsSummary.push({ name, args });
                   if (VISUAL_TOOLS_DEMO.has(name)) {
-                    const ve = { type: name, data: args };
-                    visualEvents.push(ve);
-                    pushVisualEvent(watchId as string | undefined, ve);
+                    // teaching_content wraps the real tool in params_json
+                    if (name === 'teaching_content' && args.params_json) {
+                      try {
+                        const inner = JSON.parse(args.params_json);
+                        const innerType = inner.type || args.type || 'teaching_content';
+                        const ve = { type: innerType, data: inner };
+                        visualEvents.push(ve);
+                        pushVisualEvent(watchId as string | undefined, ve);
+                      } catch {
+                        const ve = { type: 'teaching_content', data: args };
+                        visualEvents.push(ve);
+                        pushVisualEvent(watchId as string | undefined, ve);
+                      }
+                    } else {
+                      const ve = { type: name, data: args };
+                      visualEvents.push(ve);
+                      pushVisualEvent(watchId as string | undefined, ve);
+                    }
                   }
                   functionResponses.push({ id, name, response: { result: JSON.stringify({ success: true, displayed: true }) } });
                 }
                 try { glSession?.sendToolResponse({ functionResponses }); } catch {}
-                // Quiescence: after receiving tools, close 8s later if turnComplete never arrives.
-                // GL Live keeps the connection open after tool responses while it generates audio.
-                // We already have all the visual data we need, so finish early.
+                // Quiescence: GL Live stays open after tool responses while generating audio.
+                // We have the visual data — close 8s after last tool batch.
                 setTimeout(() => {
                   if (toolCallsSummary.length > 0) finish();
                 }, 8000);
@@ -24932,13 +24957,32 @@ Use visual tools actively: call open_scene to set a scene, show_vocab_grid to di
         }
       }
 
-      if (watchId) pushVisualEvent(watchId, { type: 'done', resolvedEvents, transcript: transcriptParts.join('') });
+      // Build WAV from captured PCM (24kHz 16-bit mono — GL Live default)
+      const pcm = Buffer.concat(responseChunks);
+      const SR = 24000, CH = 1, BITS = 16;
+      const byteRate = SR * CH * (BITS / 8);
+      const blockAlign = CH * (BITS / 8);
+      const wavHdr = Buffer.alloc(44);
+      wavHdr.write('RIFF', 0);       wavHdr.writeUInt32LE(36 + pcm.length, 4);
+      wavHdr.write('WAVE', 8);       wavHdr.write('fmt ', 12);
+      wavHdr.writeUInt32LE(16, 16);  wavHdr.writeUInt16LE(1, 20);
+      wavHdr.writeUInt16LE(CH, 22);  wavHdr.writeUInt32LE(SR, 24);
+      wavHdr.writeUInt32LE(byteRate, 28); wavHdr.writeUInt16LE(blockAlign, 32);
+      wavHdr.writeUInt16LE(BITS, 34); wavHdr.write('data', 36);
+      wavHdr.writeUInt32LE(pcm.length, 40);
+      const audioWav = pcm.length > 0 ? Buffer.concat([wavHdr, pcm]).toString('base64') : null;
+      const audioDurationS = pcm.length / (SR * 2);
+      const transcript = transcriptParts.join(' ').trim();
+
+      console.log(`[Visual Demo] Done — ${audioDurationS.toFixed(1)}s audio, ${resolvedEvents.length} visual events, transcript="${transcript.slice(0, 60)}"`);
+      if (watchId) pushVisualEvent(watchId, { type: 'done', resolvedEvents, transcript });
 
       res.json({
-        transcript: transcriptParts.join(''),
+        transcript,
         toolCallsSummary,
         visualEvents: resolvedEvents,
-        audioDurationS: responseChunks.reduce((s, b) => s + b.length, 0) / (16000 * 2),
+        audioDurationS,
+        audioWav,
       });
     } catch (error: any) {
       console.error('[Visual Demo] Error:', error.message);
