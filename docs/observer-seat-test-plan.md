@@ -138,10 +138,33 @@ Acquire (Madrigal vocab drill)
 
 ---
 
-### 4b. Daniela Self-Visibility in the Visual Demo (Observer Seat)
+### 4b. Daniela Self-Visibility — Wired (July 2, 2026)
 
-The visual demo's `buildDemoOutputConstraints` now matches the production `buildOutputConstraints` logic:
-negative framing, CEFR ceiling, initialization protocol, output constraints at bottom of prompt.
+**Philosophy:** Daniela fires tools into a void. She sends a vocab grid and has no idea whether
+images loaded, how many words are showing, or whether the scene is live. The Observer Seat is
+Luca's external view of Daniela. She needs the same view from the inside.
+
+**What was built — tool acknowledgment system (native-fc-handlers.ts):**
+
+| Tool | What she now knows |
+|------|-------------------|
+| `SHOW_VOCAB_GRID` | "Vocab grid confirmed: N words, M with images. Words: [list]." |
+| `SHOW_IMAGE` | "Image confirmed: 'word' — [description] [source]." |
+| `OPEN_SCENE` | "Scene confirmed in Studio Pane: '[label]' (env_name)." |
+| `START_TEXTBOOK_PAGE` | "Vocab on screen: [list]. Teaching protocol: fire START_MADRIGAL_LOOP with vocab_query=..." |
+
+All confirmations are injected into `pendingGlContext` and flushed via Gap 10 into the last
+tool response before GL generates its next turn. Format: `[SYSTEM UPDATE — not spoken: ...]`.
+Daniela reads this as her current interface state — she knows what's on screen before she speaks.
+
+**Madrigal wiring (same edit):** `processStartTextbookPage` now injects the teaching protocol
+directive. The textbook page opening IS the trigger for the acquire→apply→encounter arc. She
+fires `START_MADRIGAL_LOOP` with the correct `vocab_query` (first vocab word from the lesson).
+
+**What's still missing (Phase 2):**
+- Image load failures (client-side — server doesn't know which images 404'd)
+- Student engagement signals (clicks, dwell time on word cards)
+- Interface state snapshot at turn start (what's *currently* on screen)
 
 ---
 

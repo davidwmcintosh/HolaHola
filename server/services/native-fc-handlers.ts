@@ -954,6 +954,13 @@ export class NativeFunctionCallHandler {
             });
             
             console.log(`[Native Function→ShowImage] Resolved: ${result.source} for "${word}"`);
+
+            // Daniela self-visibility: confirm the image that resolved and is now on screen.
+            if (!session.pendingGlContext) session.pendingGlContext = [];
+            session.pendingGlContext.push(
+              `Image confirmed on screen: "${result.word}"${translation ? ` (${translation})` : ''}` +
+              `${result.description ? ` — ${result.description.slice(0, 80)}` : ''} [${result.source}].`
+            );
             
             const whiteboardUpdate = {
               type: 'whiteboard_update' as const,
@@ -1537,6 +1544,12 @@ export class NativeFunctionCallHandler {
             session.pendingWhiteboardUpdates.push(openSceneUpdate);
           }
           console.log(`[Native Function→OpenScene] Opened: ${sceneEnv}`);
+
+          // Daniela self-visibility: confirm scene is live on the student's screen.
+          if (!session.pendingGlContext) session.pendingGlContext = [];
+          session.pendingGlContext.push(
+            `Scene confirmed in Studio Pane: "${envLabel}" (${sceneEnv}).`
+          );
 
           // World Ledger: fetch narrative scene memory for this student+scene
           const openSceneUserId = String((session as any).userId || '');
@@ -7018,6 +7031,17 @@ export class NativeFunctionCallHandler {
             (session as any).showVocabGridResult = { success: true, wordCount: resolvedWords.length, title };
             console.log(`[Native Function→ShowVocabGrid] Displayed ${resolvedWords.length} words`);
 
+            // Daniela self-visibility: confirm what landed on the student's screen.
+            // She fires this tool into a void without this — she needs to know the
+            // render succeeded and which words/images are actually showing.
+            const loadedCount = resolvedWords.filter((w: any) => w.imageUrl).length;
+            const wordListStr = resolvedWords.map((w: any) => w.text).join(', ');
+            if (!session.pendingGlContext) session.pendingGlContext = [];
+            session.pendingGlContext.push(
+              `Vocab grid confirmed on student screen: ${resolvedWords.length} words, ` +
+              `${loadedCount} with images loaded. Words shown: ${wordListStr}.`
+            );
+
             // Give Daniela vision of every image in the grid — she sees the whole board at once
             try {
               const { getImageVision } = await import('../services/image-vision-service');
@@ -9614,6 +9638,21 @@ export class NativeFunctionCallHandler {
       // Gap 10: queue screen context so GL knows what lesson page is on screen
       if (!session.pendingGlContext) session.pendingGlContext = [];
       session.pendingGlContext.push(`textbook lesson page open: ${lessonId}${row.actflLevel ? ` [${row.actflLevel}]` : ''}, focus: ${focus}`);
+
+      // Madrigal wiring: inject teaching protocol so Daniela uses the structured arc.
+      // Without this she has the lesson content but no signal to fire START_MADRIGAL_LOOP.
+      // The textbook page opening IS the trigger for the acquire→apply→encounter arc.
+      if (parsedVocab.length > 0) {
+        const vocabDisplay = parsedVocab.slice(0, 6)
+          .map(v => v.translation ? `${v.word} (${v.translation})` : v.word).join(', ');
+        const vocabQuery = parsedVocab[0]?.word || lessonId;
+        session.pendingGlContext.push(
+          `Vocabulary on screen: ${vocabDisplay}. ` +
+          `Teaching protocol: use the Madrigal visual method — fire START_MADRIGAL_LOOP with ` +
+          `vocab_query="${vocabQuery}" to activate the structured acquire→apply→encounter arc. ` +
+          `Begin with image presentation for the first word. Do not open with free conversation.`
+        );
+      }
 
       // Log page-started event (fire-and-forget)
       if (!session.isIncognito && session.userId) {

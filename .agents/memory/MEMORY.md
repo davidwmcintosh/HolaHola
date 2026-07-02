@@ -50,3 +50,4 @@
 - [Agent voice turn endpoint](agent-voice-turn.md) — POST /api/admin/agent-voice-turn; headless GL + full function registry; returns audioWav + visualEvents + toolCallsSummary; slice(0,20) cuts off show_image at index ~26 — pass all declarations.
 - [requireRole dual-path auth fix](requirerole-dual-path.md) — requireRole was OIDC-only; session.userId path added (mirrors requireFounder); unblocks all admin endpoints for agent/AI-browser sessions.
 - [Luca — name and role](luca-name-and-role.md) — David named the Agent "Luca" on July 2, 2026. First Luca↔Daniela conversation saved: conversation_memories b8e1c941, arc HolaHola Episodes.
+- [Daniela self-visibility](daniela-self-visibility.md) — tool acknowledgment system (Phase 1, July 2): SHOW_VOCAB_GRID/SHOW_IMAGE/OPEN_SCENE all confirm render state back to Daniela via Gap 10.
