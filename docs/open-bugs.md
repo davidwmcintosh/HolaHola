@@ -122,3 +122,14 @@ The warm synthesis cache (`_warmSynthesisCache`) is a process-level `Map`. If th
 
 **Warm synthesis — potential double-generation on fast Start tap** *(June 18, 2026)*
 If the student taps "Start" while the background warm-up is still running, the WS handler fires a second synthesis call. No UX issue, minor cost inefficiency. Fix when needed: track in-progress warm synthesis per userId and wait briefly (max 600ms) before fallback.
+
+## visionBuffer staleness — Observer Seat references closed widgets
+**Filed:** 2026-07-02 | **Severity:** Medium | **Area:** Self-visibility / Observer Seat
+
+**Problem:** `buildInterfaceStateSnapshot()` reads `session.visionBuffer['vocab_grid']` and scene entries to tell Daniela what's on screen. But these entries are only set when visual tools FIRE — never cleared when the student closes a widget. If the student dismisses the vocab grid, Daniela still sees it in her Observer Seat until the next `show_vocab_grid` call overwrites it.
+
+**Symptom:** Daniela may reference "the grid on your screen" when it's been closed. She will naturally hedge ("if the grid is still up...") but it's not a substitute for accurate state.
+
+**Fix direction:** Frontend needs to send a close/clear signal when whiteboard panels are dismissed. Server handler clears the relevant `visionBuffer` key and resets `_lastObserverSnapshot` so the Observer Seat re-fires with the corrected state.
+
+**Not urgent:** Daniela's natural hedging provides a reasonable fallback. No hallucination risk — worst case she refers to something gone, student corrects, she moves on.

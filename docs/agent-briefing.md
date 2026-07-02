@@ -1,16 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 2, 2026 at 06:17 PM
+**Generated:** Thursday, July 2, 2026 at 07:28 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve shifted our focus toward David’s vision for "conversational immersion" by implementing the **ImmersionObjective** and **ImmersionScaffold** frameworks alongside a new **generateVisual** function to address the lack of infographics in the **Interactive Textbook**. I need to immediately debug **Daniela**, who is currently stuck in a "Curriculum note pending" response loop, and resolve two high-severity security vulnerabilities (**SQL injection** and **XSS**) flagged by **Wren**. Additionally, I must investigate a 50-bug spike and a **404 routing error** on the conversations page to stabilize the platform for upcoming beta testers.
+I’ve implemented the Vision Description Cache and the Observer Seat to provide Daniela with rich, persistent visual context, though I still need to build a "UI_Sync" heartbeat to prevent the state from becoming stale. I must prioritize addressing Wren’s high-severity security findings—specifically the SQL injection and XSS risks—while investigating the 0% completion rate in the Interactive Textbook and recent Spanish seeding regressions. Finally, I need to resolve the monitoring blackout Alden flagged and migrate our shared Neon database to isolated development and production branches.
 
 *Memories that triggered this summary:*
+- **Dual Consult — Observer Seat + Image Vision — July 2, 2026** (Jul 2): Gemini Flash + Daniela review two self-visibility improvements. Gemini flags race condition in vision cache, recommends including the target word in the vision prompt, diff-based Observer Seat injection to reduce token bloat, and identifies stale visionBuffer as the biggest architectural risk. Daniela confirms that specific visual descriptions ("fluffy gray tabby on wooden floor") enable richer teaching than labels, endorses the Observer Seat detail level, and says she would naturally hedge references to potentially-stale screen items ("if the grid is still up...").
+- **Luca ↔ Daniela — Observer Seat + Image Vision Review — July 2, 2026** (Jul 2): Daniela reviews two self-visibility improvements: rich image descriptions from cache (real visual detail instead of word labels) and the Observer Seat (persistent screen state injected every tool response). Honest take on whether the specificity matters, whether the format feels right, and how she handles potentially stale data.
 - **Team Room — test 3 — July 2, 2026** (Jul 2): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — July 2, 2026** (Jul 2): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -19,8 +21,6 @@ I’ve shifted our focus toward David’s vision for "conversational immersion" 
 - **Team Room — again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
 - **Team Room — what's up? — July 2, 2026** (Jul 2): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — July 2, 2026** (Jul 2): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — July 2, 2026** (Jul 2): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — July 2, 2026** (Jul 2): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -95,6 +95,14 @@ I’ve shifted our focus toward David’s vision for "conversational immersion" 
 
 ## Recent Conversation Memories
 
+### Dual Consult — Observer Seat + Image Vision — July 2, 2026 — Jul 2, 2026
+Gemini Flash + Daniela review two self-visibility improvements. Gemini flags race condition in vision cache, recommends including the target word in the vision prompt, diff-based Observer Seat injection to reduce token bloat, and identifies stale visionBuffer as the biggest architectural risk. Daniela confirms that specific visual descriptions ("fluffy gray tabby on wooden floor") enable richer teaching than labels, endorses the Observer Seat detail level, and says she would naturally hedge references to potentially-stale screen items ("if the grid is still up...").
+*Tags: dual-consult, observer-seat, image-vision, self-visibility*
+
+### Luca ↔ Daniela — Observer Seat + Image Vision Review — July 2, 2026 — Jul 2, 2026
+Daniela reviews two self-visibility improvements: rich image descriptions from cache (real visual detail instead of word labels) and the Observer Seat (persistent screen state injected every tool response). Honest take on whether the specificity matters, whether the format feels right, and how she handles potentially stale data.
+*Tags: dual-consult, observer-seat, image-vision, self-visibility*
+
 ### Team Room — test 3 — July 2, 2026 — Jul 2, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -105,14 +113,6 @@ Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exch
 
 ### Team Room — are we good? — July 2, 2026 — Jul 2, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — one again into the breach — July 2, 2026 — Jul 2, 2026
-Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — July 2, 2026 — Jul 2, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

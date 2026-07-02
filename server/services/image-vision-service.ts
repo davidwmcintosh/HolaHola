@@ -100,7 +100,7 @@ async function generateVisionDescription(
         parts: [
           { inlineData: { mimeType, data } },
           {
-            text: 'Describe what you literally see in this image in one concise sentence. Focus on specific visual details: colors, textures, appearance, action, or setting. Do not name a word category or include a translation. Example format: "A fluffy gray tabby cat sitting on a wooden floor, looking up at the camera with bright green eyes."',
+            text: `Context: this image is being used to teach the vocabulary item "${fallbackDescription}". Describe what is literally visible in the image in one concise sentence. Focus on specific visual details — colors, textures, appearance, action, setting — that make this image distinctive. Do not simply repeat the word label; describe what a viewer would actually see. Example: "A fluffy gray tabby cat sitting on a wooden floor, looking up at the camera with bright green eyes."`,
           },
         ],
       }],

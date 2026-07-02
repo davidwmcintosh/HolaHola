@@ -2305,18 +2305,20 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         console.log(`[GeminiLive] Gap 10: flushed ${pendingCtx.length} frontend context item(s) into tool response`);
       }
 
-      // Observer Seat — persistent interface state snapshot, injected on every tool-response
-      // batch. Gives Daniela continuous awareness of what is currently on the student's screen
-      // between tool calls — not just at the moment a visual tool fires. Compact and factual;
-      // safe channel (tool response text is never spoken aloud).
+      // Observer Seat — persistent interface state snapshot. Injected into tool-response batches
+      // so Daniela knows what is currently visible on the student's screen between tool calls.
+      // Diff-based: only fires when the snapshot has changed since the last injection, preventing
+      // repeated token cost over long sessions. Safe channel — tool response text is never spoken.
       if (responses.length > 0) {
         const stateSnapshot = buildInterfaceStateSnapshot(this.session);
-        if (stateSnapshot) {
+        const lastSnapshot = (this.session as any)._lastObserverSnapshot as string | undefined;
+        if (stateSnapshot && stateSnapshot !== lastSnapshot) {
           const last = responses[responses.length - 1];
           const currentResult = (last.response as any)?.result ?? '';
           (last.response as any).result = currentResult
             + (currentResult ? '\n\n' : '')
             + `[Observer Seat — not spoken: ${stateSnapshot}]`;
+          (this.session as any)._lastObserverSnapshot = stateSnapshot;
         }
       }
 
