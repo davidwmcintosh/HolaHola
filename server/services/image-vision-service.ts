@@ -115,17 +115,19 @@ async function generateVisionDescription(
 
 /**
  * Generates a real visual description from the image bytes and stores it in the cache.
- * Called asynchronously (fire-and-forget) after the first byte fetch — does not block
- * the tool response. Future sessions will receive the rich description instead of the label.
+ * Returns the generated description string so callers can race it against a timeout
+ * and use the real description immediately on the first session rather than falling
+ * back to the bare word label.
  */
 async function generateAndStoreCachedDescription(
   imageUrl: string,
   data: string,
   mimeType: string,
   fallbackDescription: string,
-): Promise<void> {
+): Promise<string> {
   const description = await generateVisionDescription(data, mimeType, fallbackDescription);
   await storeCachedDescription(imageUrl, description, mimeType);
+  return description;
 }
 
 async function storeCachedDescription(
@@ -173,16 +175,31 @@ export async function getImageVision(
     return { description: cached, mode: 'cached_description' };
   }
 
-  // 3. First time ever: fetch bytes → send as inlineData → cache description for future
+  // 3. First time ever: fetch bytes → try to get a real description within 3s.
+  // If Gemini responds in time, Daniela gets the rich detail on the very first session.
+  // If it times out, fall back to the word label and store the description in the background
+  // so future sessions benefit from it.
   try {
     const { data, mimeType } = await fetchImageBytes(imageUrl);
     if (!session.seenImageUrls) session.seenImageUrls = new Set();
     session.seenImageUrls.add(imageUrl);
-    // Generate a real visual description from the image bytes and cache it asynchronously.
-    // Future sessions will receive this rich description ("a fluffy gray cat with small stripes")
-    // instead of the bare word label. Does not block the current tool response.
-    generateAndStoreCachedDescription(imageUrl, data, mimeType, fallbackDescription).catch(() => {});
-    return { description: fallbackDescription, inlineData: { mimeType, data }, mode: 'bytes' };
+
+    let descriptionToUse = fallbackDescription;
+    const descriptionPromise = generateAndStoreCachedDescription(imageUrl, data, mimeType, fallbackDescription);
+    try {
+      const raceResult = await Promise.race([
+        descriptionPromise,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+      ]);
+      if (raceResult) descriptionToUse = raceResult;
+    } catch {
+      // Generation failed — background promise already handles its own errors
+      descriptionPromise.catch(() => {});
+    }
+    // If the race timed out, the promise still runs in the background and caches the result
+    descriptionPromise.catch(() => {});
+
+    return { description: descriptionToUse, inlineData: { mimeType, data }, mode: 'bytes' };
   } catch (err: any) {
     console.error(`[ImageVisionCache] Fetch error for ${imageUrl}:`, err.message);
     return { description: fallbackDescription, mode: 'error' };

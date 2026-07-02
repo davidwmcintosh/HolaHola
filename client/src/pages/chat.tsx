@@ -824,7 +824,17 @@ export default function Chat() {
       <div className="flex-1 min-h-0 flex">
         <DesktopChatLayout
           whiteboardItems={displayWhiteboardItems}
-          onClearWhiteboard={whiteboardCallbacksRef.current?.clear}
+          onClearWhiteboard={() => {
+            whiteboardCallbacksRef.current?.clear?.();
+            // If a textbook page was open, clear it from Daniela's visionBuffer too
+            if (whiteboardItems.some(item => item.type === 'textbook_page')) {
+              fetch('/api/voice/widget-closed', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ widget: 'textbook' }),
+              }).catch(() => {});
+            }
+          }}
           onDrillComplete={whiteboardCallbacksRef.current?.drillComplete}
           onTextInputSubmit={whiteboardCallbacksRef.current?.textInputSubmit}
           activeScenario={activeScenario}

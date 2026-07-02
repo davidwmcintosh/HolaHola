@@ -6560,6 +6560,7 @@ ${memoryContext}
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
       const { widget } = req.body as { widget: string };
       if (!widget) return res.status(400).json({ error: "widget required" });
+      const orchestrator = getStreamingVoiceOrchestrator();
       const session = orchestrator.getSessionByUserId(String(userId));
       if (!session) return res.json({ ok: false, reason: "no active session" });
       if (!session.visionBuffer) session.visionBuffer = {};
@@ -6579,6 +6580,62 @@ ${memoryContext}
       return res.json({ ok: true });
     } catch (err) {
       console.error("[WidgetClosed] error:", err);
+      return res.status(500).json({ error: "Internal error" });
+    }
+  });
+
+  // Luca co-pilot view — real-time snapshot of what Daniela is seeing during a live session.
+  // Returns visionBuffer, image vision descriptions for the current vocab words, Observer Seat
+  // state, and session telemetry. Luca polls this while David chats with Daniela to observe
+  // the same visual state simultaneously — the foundation for function flow tests.
+  app.get("/api/admin/luca-session-view", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
+    try {
+      const targetUserId = (req.query.userId as string) || getRequestUserId(req);
+      if (!targetUserId) return res.status(401).json({ error: "Unauthorized" });
+      const orchestrator = getStreamingVoiceOrchestrator();
+      const session = orchestrator.getSessionByUserId(String(targetUserId));
+      if (!session) return res.json({ active: false, userId: targetUserId, message: "No active session for this user" });
+
+      const vocabGrid = (session.visionBuffer?.['vocab_grid'] ?? []) as Array<{
+        word: string; translation: string; description: string; mode?: string;
+      }>;
+      const observerSeatSnapshot = (session as any)._lastObserverSnapshot as string | undefined;
+      const observerSeatCallCount = (session as any)._observerSeatCallCount as number | undefined;
+      const nextHeartbeatIn = observerSeatCallCount !== undefined
+        ? 10 - (observerSeatCallCount % 10)
+        : null;
+
+      return res.json({
+        active: true,
+        userId: targetUserId,
+        sessionId: session.id,
+        conversationId: session.conversationId,
+        targetLanguage: session.targetLanguage,
+        actfl: session.actflLevel,
+        gear: (session as any).currentGear,
+        scaffoldingLevel: (session as any).scaffoldingLevel,
+        toolCallCount: (session as any)._scaffoldingCallCount ?? 0,
+        observerSeat: {
+          currentSnapshot: observerSeatSnapshot ?? null,
+          callCount: observerSeatCallCount ?? 0,
+          nextHeartbeatIn,
+        },
+        visionBuffer: {
+          vocabGrid: vocabGrid.map(v => ({
+            word: v.word,
+            translation: v.translation,
+            description: v.description,
+            visionMode: v.mode,
+          })),
+          scene: session.visionBuffer?.['add_to_scene'] ?? session.visionBuffer?.['open_scene'] ?? null,
+          showImage: session.visionBuffer?.['show_image'] ?? null,
+          vocabCard: session.visionBuffer?.['vocab_card'] ?? null,
+        },
+        textbookPage: (session as any).textbookPageResult ?? null,
+        pendingGlContext: (session.pendingGlContext ?? []).slice(-5),
+      });
+    } catch (err) {
+      console.error("[LucaView] error:", err);
       return res.status(500).json({ error: "Internal error" });
     }
   });
