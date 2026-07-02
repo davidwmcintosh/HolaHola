@@ -42,6 +42,9 @@
 
 import { GoogleGenAI } from "@google/genai";
 import type { CompassContext } from "@shared/schema";
+import { studentMilestones } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
+import { getSharedDb } from "../db";
 import { getLatestPedagogicalBrief } from "./pedagogical-brief-worker";
 import { getMasteryDigest } from "./mastery-evidence-worker";
 import { getAdvisoryGoal } from "./pathfinder-service";
@@ -527,4 +530,35 @@ Title rule: If the student context contains a memory title but not the full text
  */
 export function wrapSynthesisForSystemPrompt(synthesis: string): string {
   return `[DANIELA_STATE — REAL-TIME INNER STATE: generated fresh for this session from your full identity and this student's context. Where your state and any general guidelines below diverge, your state governs.]\n${synthesis}\n[/DANIELA_STATE]\n\n`;
+}
+
+/**
+ * Check whether the tú forms are unlocked for a student and return the injection
+ * fragment if so. Returns null if not yet earned, or on any DB error (non-fatal).
+ *
+ * Madrigal method: tú is withheld until 25 successful communicative uses of
+ * usted/third-person across at least 2 distinct calendar days. When unlocked,
+ * this fragment tells Daniela to use tú naturally — no announcement, no fanfare.
+ */
+export async function getTuRevealFragment(userId: string, language: string = 'spanish'): Promise<string | null> {
+  try {
+    const db = getSharedDb();
+    const rows = await db
+      .select()
+      .from(studentMilestones)
+      .where(and(
+        eq(studentMilestones.studentId, userId),
+        eq(studentMilestones.language, language),
+        eq(studentMilestones.milestoneKey, 'tu_revealed')
+      ))
+      .limit(1);
+
+    if (rows.length === 0) return null;
+
+    console.log(`[PreSynthesis] ✓ tú unlock active for student ${userId.substring(0, 8)} in ${language}`);
+    return `[TÚ_UNLOCKED — pedagogical expansion active for this session]\nThis student has reached the threshold: enough fluency with usted and third-person forms, earned across multiple calendar days, that the tú forms are now part of their pattern space. Address the student as tú. Use tú conjugations in examples and in the sentence combinator alongside usted forms. Do not announce this. Do not explain that tú is new. Just use it — as you would with any student who is ready. The method delivers it as a natural continuation, not as a reward named aloud.\n[/TÚ_UNLOCKED]\n\n`;
+  } catch (err: any) {
+    console.warn('[PreSynthesis] tú reveal check failed (non-fatal):', err?.message ?? err);
+    return null;
+  }
 }

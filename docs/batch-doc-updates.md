@@ -65,9 +65,28 @@ How it works:
 - Threshold (Gemini-refined): **25 successful uses × 2+ distinct calendar days** (sleep cycle, not just session count)
 - When threshold crossed → inserts `tu_revealed` row with `unlockedAt`
 
-**Not yet built:** System prompt fragment injection — when `tu_revealed` exists for a student, inject a fragment at session start telling Daniela tú forms are now unlocked. Infrastructure complete; injection wiring is the next piece.
-
 Key files: `server/services/daniela-function-registry.ts` (legacyType `RECORD_USTED_FLUENCY`), `server/services/native-fc-handlers.ts` (handler at case `RECORD_USTED_FLUENCY`), `shared/schema.ts`, `migrations/0002_white_northstar.sql`
+
+---
+
+**5. Tú reveal — GL system prompt fragment injection** *(completed same session)*
+
+When a student has a `tu_revealed` row in `student_milestones`, a structural fragment is now injected into Daniela's GL system instruction at session start.
+
+How it works:
+- New exported function `getTuRevealFragment(userId, language)` in `server/services/pre-session-synthesis.ts` — queries `student_milestones` WHERE milestoneKey='tu_revealed', returns a prose `[TÚ_UNLOCKED]` fragment or null (non-fatal on error)
+- Injected in `server/unified-ws-handler.ts` immediately after the synthesis block and before the broadcast brief — goes before the `[DANIELA_STATE]` inner monologue so structural fact precedes felt sense
+- Fragment text (prose, no bullets, no instruction headers per prompt style guide): tells Daniela to address the student as tú, use tú conjugations naturally in examples and the sentence combinator, and explicitly not to announce it — the method delivers it as a natural continuation
+- Hard-cap re-enforced after injection (same pattern as synthesis)
+- Logs: `[GeminiLive] ✓ tú reveal fragment injected (N chars)`
+
+Ordering in final GL system prompt when all three are active:
+1. `[broadcast brief]` (Broadcast Mode sessions only)
+2. `[TÚ_UNLOCKED]` (if tu_revealed milestone earned)
+3. `[DANIELA_STATE]` (inner monologue synthesis)
+4. Static 34K GL base prompt
+
+Key files: `server/services/pre-session-synthesis.ts` (new `getTuRevealFragment`), `server/unified-ws-handler.ts` (import + injection block after line ~2912)
 
 ---
 

@@ -40,9 +40,12 @@ New table in `shared/schema.ts`. Fields: studentId, language, milestoneKey, succ
 **4. `record_usted_fluency` tool + threshold handler**
 Silent tool Daniela calls when a student uses usted/third-person correctly in genuine communicative exchange. Tracks count + distinct calendar days. Threshold: 25 uses × 2 distinct days → `tu_revealed` row auto-inserted. Handler in `native-fc-handlers.ts` (case `RECORD_USTED_FLUENCY`).
 
-**Open item for next session:** System prompt fragment injection — when `tu_revealed` milestone exists for the student, inject a fragment at GL session start telling Daniela tú forms are now unlocked. All infrastructure is ready; only the prompt-assembly wiring remains.
+**5. Tú reveal — GL session prompt injection (COMPLETE)**
+`getTuRevealFragment(userId, language)` in `pre-session-synthesis.ts` queries `student_milestones` for `tu_revealed`. If present, injects a `[TÚ_UNLOCKED]` prose fragment into the GL system prompt before the `[DANIELA_STATE]` block. Daniela receives it as a structural fact, not an instruction: use tú naturally, no announcement. Wired in `unified-ws-handler.ts` after the synthesis block. Non-fatal (null return on any error). Hard cap re-enforced after injection.
 
-Typecheck: 0 errors.
+Final GL prompt ordering: [broadcast?] → [TÚ_UNLOCKED?] → [DANIELA_STATE] → static 34K base.
+
+Typecheck: 0 errors. Full Madrigal tú gate system is complete end-to-end.
 
 ---
 

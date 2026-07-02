@@ -65,7 +65,7 @@ import { voiceGracePeriods, compartmentInstallation, messages } from '@shared/sc
 import { db, getUserDb, getSharedDb } from './db';
 import { eq, and, gt, lt, ne, desc, sql } from 'drizzle-orm';
 import { getPendingSuggestions } from './services/daniela-reflection';
-import { generatePreSessionSynthesis, wrapSynthesisForSystemPrompt, consumeWarmSynthesis } from './services/pre-session-synthesis';
+import { generatePreSessionSynthesis, wrapSynthesisForSystemPrompt, consumeWarmSynthesis, getTuRevealFragment } from './services/pre-session-synthesis';
 import { consumeBroadcastBrief } from './services/broadcast-data-service';
 import { schedulePendingReflectionIfMissing, buildTranscriptPreview, processAndClearPendingReflection, MIN_EXCHANGES_FOR_REFLECTION } from './services/session-reflection-worker';
 import { generateAndStorePedagogicalBrief, MIN_EXCHANGES_FOR_BRIEF } from './services/pedagogical-brief-worker';
@@ -2908,6 +2908,25 @@ ${lastNote.tutorNotes}`);
                     }
                   } catch (synthErr: any) {
                     console.warn('[GeminiLive] Pre-session synthesis failed (non-fatal):', synthErr?.message ?? synthErr);
+                  }
+                }
+
+                // Tú reveal gate — inject structural fragment when student has earned tú forms.
+                // Madrigal method: withheld until 25 communicative usted uses × 2 distinct days.
+                // Fragment goes BEFORE the synthesis so the [DANIELA_STATE] inner monologue
+                // follows it — structural fact first, felt sense second.
+                if (userId) {
+                  try {
+                    const tuFragment = await getTuRevealFragment(String(userId), effectiveLanguage || 'spanish');
+                    if (tuFragment) {
+                      geminiLiveSystemPrompt = tuFragment + geminiLiveSystemPrompt;
+                      if (geminiLiveSystemPrompt.length > GL_HARD_CAP) {
+                        geminiLiveSystemPrompt = geminiLiveSystemPrompt.slice(0, GL_HARD_CAP);
+                      }
+                      console.log(`[GeminiLive] ✓ tú reveal fragment injected (${tuFragment.length} chars) — new total: ${geminiLiveSystemPrompt.length}`);
+                    }
+                  } catch (tuErr: any) {
+                    console.warn('[GeminiLive] tú reveal check failed (non-fatal):', tuErr?.message ?? tuErr);
                   }
                 }
 
