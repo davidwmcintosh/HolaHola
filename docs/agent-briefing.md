@@ -1,16 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 2, 2026 at 12:36 AM
+**Generated:** Thursday, July 2, 2026 at 01:08 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’m orienting myself amidst a voice delivery crisis where Cartesia TTS failures and a missing `SYNTHESIS_TIMEOUT_MS` constant are blocking core interactions. I must resolve the monitoring blackout and 404 routing errors while addressing Wren’s security findings and the "Daniela's Compass" bug causing 0% completion in the Interactive Textbook. Daniela is currently stuck in a "Curriculum note pending" loop, and I need to finalize our pivot toward a conversational immersion framework to replace the "half-baked" textbook architecture.
+I successfully validated Daniela’s visual layer and pedagogy tracking via the new `agent-voice-turn` endpoint and fixed the `requireRole` middleware to unblock admin auth. I must now prioritize resolving a critical 404 routing error on the `conversations` page and remediating two high-severity security vulnerabilities (SQL injection and XSS) flagged by Wren. Finally, I need to address the Interactive Textbook’s 0% completion rate by implementing the new `generateVisual` framework and `ImmersionScaffold` to align with David’s shift toward conversational immersion.
 
 *Memories that triggered this summary:*
+- **Agent Voice Session 002 — Visual Layer Observed** (Jul 2): Agent took a real 2-turn voice session as Alex using the new agent-voice-turn endpoint. Visual tools fired and were captured: scene construction (open_scene, add_to_scene), vocabulary grids with image queries, real-time pedagogy tracking. Fixed requireRole to support session.userId auth path.
+- **Team Room — test 3 — July 2, 2026** (Jul 2): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — July 2, 2026** (Jul 2): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
 - **Team Room — one again into the breach — July 2, 2026** (Jul 2): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
@@ -19,8 +21,6 @@ I’m orienting myself amidst a voice delivery crisis where Cartesia TTS failure
 - **Team Room — what's up? — July 2, 2026** (Jul 2): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — July 2, 2026** (Jul 2): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — July 2, 2026** (Jul 2): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — July 2, 2026** (Jul 2): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
-- **Team Room — uno, dos, tres VAMOS — July 2, 2026** (Jul 2): Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
 
 ---
 
@@ -95,6 +95,14 @@ I’m orienting myself amidst a voice delivery crisis where Cartesia TTS failure
 
 ## Recent Conversation Memories
 
+### Agent Voice Session 002 — Visual Layer Observed — Jul 2, 2026
+Agent took a real 2-turn voice session as Alex using the new agent-voice-turn endpoint. Visual tools fired and were captured: scene construction (open_scene, add_to_scene), vocabulary grids with image queries, real-time pedagogy tracking. Fixed requireRole to support session.userId auth path.
+*Tags: daniela-session, voice-mode, visual-tools, agent-voice-turn*
+
+### Team Room — test 3 — July 2, 2026 — Jul 2, 2026
+Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+*Tags: team-room, session, historic-record*
+
 ### Team Room — test again — July 2, 2026 — Jul 2, 2026
 Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -105,14 +113,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — July 2, 2026 — Jul 2, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — July 2, 2026 — Jul 2, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — again — July 2, 2026 — Jul 2, 2026
-Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

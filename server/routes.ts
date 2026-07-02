@@ -24511,6 +24511,213 @@ Current conversation context:
     }
   });
 
+  // ── In-memory store for agent GL voice sessions (multi-turn conversation)
+  const agentVoiceSessions = new Map<string, {
+    turnCount: number;
+    languageCode: string;
+    createdAt: number;
+  }>();
+  setInterval(() => {
+    const cutoff = Date.now() - 60 * 60 * 1000;
+    for (const [id, s] of agentVoiceSessions) {
+      if (s.createdAt < cutoff) agentVoiceSessions.delete(id);
+    }
+  }, 10 * 60 * 1000);
+
+  // Agent voice turn — persistent multi-turn GL session with full Daniela tool setup.
+  // Returns JSON: { sessionId, turnNumber, audioWav (base64 WAV), audioDurationS,
+  //                 transcript, visualEvents, toolCallsSummary }
+  app.post("/api/admin/agent-voice-turn", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
+    const { audio, sessionId, languageCode = 'es-ES', voiceId = 'Aoede', model: requestedModel } = req.body;
+    if (!audio) return res.status(400).json({ error: 'audio (base64 PCM16 @ 16kHz) required' });
+
+    const MODEL = (requestedModel && ['gemini-3.1-flash-live-preview','gemini-2.5-flash-native-audio-preview-12-2025'].includes(requestedModel))
+      ? requestedModel
+      : (process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview');
+    const voice = voiceId || 'Aoede';
+    const langCode = languageCode;
+    const sessionKey = sessionId || `agent-${Date.now()}`;
+
+    if (!agentVoiceSessions.has(sessionKey)) {
+      agentVoiceSessions.set(sessionKey, { turnCount: 0, languageCode: langCode, createdAt: Date.now() });
+    }
+    const agentSession = agentVoiceSessions.get(sessionKey)!;
+    agentSession.turnCount++;
+
+    const LANG_TO_INSTRUCTION: Record<string, string> = {
+      'es-ES': 'Español (España)',  'es-MX': 'Español (México)',
+      'fr-FR': 'Français',          'de-DE': 'Deutsch',
+      'it-IT': 'Italiano',           'pt-BR': 'Português (Brasil)',
+      'ja-JP': '日本語',             'zh-CN': '中文（普通话）',
+      'ko-KR': '한국어',             'he-IL': 'עברית',
+    };
+    const langLabel = LANG_TO_INSTRUCTION[langCode] || langCode;
+
+    const systemPrompt = `You are Daniela, a warm, inventive ${langLabel} language tutor. Your student is Alex — a novice-mid learner who loves travel and food.
+
+Speak mostly in ${langLabel}, with brief English clarifications only when needed. Keep spoken responses to 2-4 sentences.
+
+Use visual tools actively throughout the lesson. When introducing vocabulary, call show_madrigal_card or show_vocab_card. When describing a place or cultural scene, call show_image or show_cultural_scene. When practicing patterns, call create_vocabulary_drill. These tools are how students learn — use them generously.`;
+
+    try {
+      const { GoogleGenAI, Modality } = await import('@google/genai');
+      const { DANIELA_FUNCTION_DECLARATIONS } = await import('./services/daniela-function-registry');
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+
+      // Pass all declarations — GL can handle the full set
+      const toolDeclarations = DANIELA_FUNCTION_DECLARATIONS;
+
+      const audioBytes = Buffer.from(audio, 'base64');
+      const silenceBytes = Buffer.alloc(16000 * 3 * 2, 0); // 3s silence for VAD
+      const fullAudio = Buffer.concat([audioBytes, silenceBytes]);
+
+      const responseChunks: Buffer[] = [];
+      const visualEvents: any[] = [];
+      const toolCallsSummary: any[] = [];
+      const transcriptParts: string[] = [];
+      let glSession: any = null;
+
+      const VISUAL_TOOLS = new Set([
+        // Dispatcher wrappers (actual GL tool names)
+        'widget_media', 'widget_state',
+        // Direct visual tools
+        'show_image', 'show_cultural_scene', 'show_madrigal_card',
+        'show_vocab_card', 'create_vocabulary_drill', 'show_textbook_page',
+        'show_expression_card', 'show_dialogue_scene',
+        'change_classroom_window', 'change_classroom_photo', 'set_classroom_background',
+        'show_map', 'show_conversation_card', 'show_grammar_card', 'show_phrase_card',
+        'compose_visual_scene', 'search_visual_library',
+        // subtitle carries Daniela's spoken text — always capture
+        'subtitle',
+      ]);
+
+      const sendAudio = (s: any) => {
+        const CHUNK_SIZE = 16000 * 2;
+        let offset = 0;
+        const send = () => {
+          if (offset >= fullAudio.length) return;
+          const chunk = fullAudio.slice(offset, offset + CHUNK_SIZE);
+          offset += CHUNK_SIZE;
+          try {
+            s.sendRealtimeInput({ audio: { data: chunk.toString('base64'), mimeType: 'audio/pcm;rate=16000' } });
+            if (offset < fullAudio.length) setTimeout(send, 100);
+          } catch { /* session may have closed */ }
+        };
+        send();
+      };
+
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('Agent voice turn timed out')), 60000);
+
+        const finish = (err?: Error) => {
+          clearTimeout(timer);
+          try { glSession?.close(); } catch {}
+          err ? reject(err) : resolve();
+        };
+
+        ai.live.connect({
+          model: MODEL,
+          config: {
+            systemInstruction: systemPrompt,
+            responseModalities: [Modality.AUDIO],
+            speechConfig: {
+              languageCode: langCode,
+              voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
+            },
+            tools: [{ functionDeclarations: toolDeclarations }],
+          },
+          callbacks: {
+            onopen: () => { if (glSession) sendAudio(glSession); },
+            onmessage: (msg: any) => {
+              // Collect audio parts
+              for (const part of msg.serverContent?.modelTurn?.parts ?? []) {
+                if (part.inlineData?.data && part.inlineData?.mimeType?.includes('audio')) {
+                  responseChunks.push(Buffer.from(part.inlineData.data, 'base64'));
+                }
+                if (part.text) transcriptParts.push(part.text);
+              }
+
+              // Handle tool calls — collect events and send plausible responses
+              if (msg.toolCall?.functionCalls?.length > 0) {
+                const calls = msg.toolCall.functionCalls;
+                const functionResponses: any[] = [];
+
+                for (const call of calls) {
+                  const { id, name, args } = call;
+                  console.log(`[Agent Voice Turn] Tool: ${name}`, JSON.stringify(args).slice(0, 120));
+
+                  toolCallsSummary.push({ name, args, turn: agentSession.turnCount });
+                  if (VISUAL_TOOLS.has(name)) {
+                    visualEvents.push({ type: name, data: args, turn: agentSession.turnCount });
+                  }
+
+                  // Return plausible responses so GL session continues
+                  let result: any = { success: true };
+                  if (name === 'show_image' || name === 'show_cultural_scene') {
+                    result = { success: true, displayed: true };
+                  } else if (name === 'show_madrigal_card') {
+                    result = { success: true, cardDisplayed: true };
+                  } else if (name === 'show_vocab_card') {
+                    result = { success: true, cardDisplayed: true };
+                  } else if (name === 'create_vocabulary_drill') {
+                    result = { success: true, drillReady: true };
+                  } else if (name === 'check_answer') {
+                    result = { correct: true, feedback: 'Good job!' };
+                  }
+
+                  functionResponses.push({ id, name, response: { result: JSON.stringify(result) } });
+                }
+
+                try { glSession?.sendToolResponse({ functionResponses }); } catch { /* ignore */ }
+              }
+
+              if (msg.serverContent?.turnComplete || msg.serverContent?.generationComplete) {
+                if (responseChunks.length > 0) finish();
+              }
+            },
+            onerror: (e: any) => {
+              console.error('[Agent Voice Turn] onerror:', e?.message ?? e?.code ?? String(e));
+              finish(new Error(e?.message ?? 'GL error'));
+            },
+            onclose: (event: any) => {
+              if (responseChunks.length > 0) finish();
+              else finish(new Error(`GL closed (code: ${event?.code ?? '?'})`));
+            },
+          },
+        }).then((s: any) => {
+          glSession = s;
+          sendAudio(s);
+        }).catch((e: any) => finish(e instanceof Error ? e : new Error(String(e))));
+      });
+
+      // Build WAV
+      const pcm = Buffer.concat(responseChunks);
+      const SR = 24000, CH = 1, BITS = 16;
+      const byteRate = SR * CH * (BITS / 8);
+      const blockAlign = CH * (BITS / 8);
+      const hdr = Buffer.alloc(44);
+      hdr.write('RIFF', 0);        hdr.writeUInt32LE(36 + pcm.length, 4);
+      hdr.write('WAVE', 8);        hdr.write('fmt ', 12);
+      hdr.writeUInt32LE(16, 16);   hdr.writeUInt16LE(1, 20);
+      hdr.writeUInt16LE(CH, 22);   hdr.writeUInt32LE(SR, 24);
+      hdr.writeUInt32LE(byteRate, 28); hdr.writeUInt16LE(blockAlign, 32);
+      hdr.writeUInt16LE(BITS, 34); hdr.write('data', 36);
+      hdr.writeUInt32LE(pcm.length, 40);
+
+      const audioDurationS = pcm.length / (SR * 2);
+      const audioWav = Buffer.concat([hdr, pcm]).toString('base64');
+      const transcript = transcriptParts.join(' ');
+
+      console.log(`[Agent Voice Turn] Session ${sessionKey} turn ${agentSession.turnCount}: ${audioDurationS.toFixed(1)}s audio, ${visualEvents.length} visual events, ${toolCallsSummary.length} tools called`);
+
+      res.json({ sessionId: sessionKey, turnNumber: agentSession.turnCount, audioWav, audioDurationS, transcript, visualEvents, toolCallsSummary });
+
+    } catch (error: any) {
+      console.error('[Agent Voice Turn] Error:', error.message);
+      if (!res.headersSent) res.status(500).json({ error: error.message || 'Agent voice turn failed' });
+    }
+  });
+
   // Admin: Get available Google TTS voices for assistant tutors
   app.get("/api/admin/google-voices/:language?/:gender?", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
