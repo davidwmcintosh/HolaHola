@@ -65,3 +65,9 @@ id = "cXTsXlRbm3VEWLtKy1l6a"
 uri = "file://fine-tuning-export-2026-05-06.jsonl.gz"
 type = "unspecified"
 title = "Daniela Fine-Tuning Dataset — 185 examples (download & decompress)"
+
+[[outputs]]
+id = "JuvrZ5DKdfMpmNMv2e3Qa"
+uri = "file://attached_assets/daniela_response_session1.mp3"
+type = "audio"
+title = "Daniela's voice — responding to Alex speaking Spanish"

@@ -1,26 +1,26 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 2, 2026 at 12:17 AM
+**Generated:** Thursday, July 2, 2026 at 12:36 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I joined the Team Room to prioritize two high-severity security findings from Wren’s audit and triage a 50-bug surge flagged by Sofia. Lyra identified a critical content regression where 49 Spanish lessons reverted to "wall-of-text" intros and 22 are missing content entirely, likely due to a seeding job error I need to address before tonight’s beta. I also need to investigate why "Daniela’s Compass" is reporting zero seconds for textbook interactions and restart our collaboration sessions to better align with the team.
+I’m orienting myself amidst a voice delivery crisis where Cartesia TTS failures and a missing `SYNTHESIS_TIMEOUT_MS` constant are blocking core interactions. I must resolve the monitoring blackout and 404 routing errors while addressing Wren’s security findings and the "Daniela's Compass" bug causing 0% completion in the Interactive Textbook. Daniela is currently stuck in a "Curriculum note pending" loop, and I need to finalize our pivot toward a conversational immersion framework to replace the "half-baked" textbook architecture.
 
 *Memories that triggered this summary:*
+- **Team Room — test again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+- **Team Room — are we good? — July 2, 2026** (Jul 2): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+- **Team Room — one again into the breach — July 2, 2026** (Jul 2): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+- **Team Room — hello again — July 2, 2026** (Jul 2): Team Room session with David. Topic: hello again. 2 messages exchanged.
+- **Team Room — again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
+- **Team Room — what's up? — July 2, 2026** (Jul 2): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — July 2, 2026** (Jul 2): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — test 3 — July 1, 2026** (Jul 1): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — July 1, 2026** (Jul 1): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — July 1, 2026** (Jul 1): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — July 1, 2026** (Jul 1): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — July 1, 2026** (Jul 1): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — July 1, 2026** (Jul 1): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — July 1, 2026** (Jul 1): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — July 1, 2026** (Jul 1): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — July 1, 2026** (Jul 1): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+- **Team Room — nothing in particular — July 2, 2026** (Jul 2): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+- **Team Room — once more into the breech my friends — July 2, 2026** (Jul 2): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
+- **Team Room — uno, dos, tres VAMOS — July 2, 2026** (Jul 2): Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
 
 ---
 
@@ -95,24 +95,24 @@ I joined the Team Room to prioritize two high-severity security findings from Wr
 
 ## Recent Conversation Memories
 
-### Team Room — Team room test — July 2, 2026 — Jul 2, 2026
-Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — test 3 — July 1, 2026 — Jul 1, 2026
-Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — test again — July 1, 2026 — Jul 1, 2026
+### Team Room — test again — July 2, 2026 — Jul 2, 2026
 Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — are we good? — July 1, 2026 — Jul 1, 2026
+### Team Room — are we good? — July 2, 2026 — Jul 2, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — one again into the breach — July 1, 2026 — Jul 1, 2026
+### Team Room — one again into the breach — July 2, 2026 — Jul 2, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — hello again — July 2, 2026 — Jul 2, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — again — July 2, 2026 — Jul 2, 2026
+Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
