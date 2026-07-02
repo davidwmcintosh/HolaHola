@@ -1,14 +1,14 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 2, 2026 at 08:37 PM
+**Generated:** Thursday, July 2, 2026 at 08:54 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I need to immediately debug Daniela’s handler code, as she is currently stuck in a "Curriculum note pending" response loop within our new Team Room. We are also managing a surge of 50 new bugs and high-severity security vulnerabilities flagged by Wren, specifically unparameterized SQL queries and unsanitized HTML. Finally, I must resolve a seeding error that caused 49 Spanish lessons to regress into verbose "wall-of-text" intros and investigate Lyra’s report of a 0% completion rate for the Interactive Textbook.
+I successfully established the Team Room but hit a "Monitoring Blackout" and a 50-bug spike that I need to triage alongside Wren’s high-severity security findings. We’re pivoting the Interactive Textbook—which currently has a 0% completion rate—toward a "Conversational Immersion" framework supported by a new `ImageRequest` system for verified pedagogical infographics. Most urgently, I must fix the 404 routing error on the conversations page and debug why Daniela is stuck in a "Curriculum note pending" response loop.
 
 *Memories that triggered this summary:*
 - **Team Room — test 3 — July 2, 2026** (Jul 2): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
