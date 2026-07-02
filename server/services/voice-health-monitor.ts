@@ -17,11 +17,45 @@ let monitorInterval: ReturnType<typeof setInterval> | null = null;
 let summaryInterval: ReturnType<typeof setInterval> | null = null;
 let onStatusChangeCallbacks: TransitionCallback[] = [];
 
+// Stale-cache: last successful health result + when it was computed.
+// When Neon WebSocket connections fail (recurring infrastructure constraint),
+// return the cached result with stale:true so Alden has signal instead of an error.
+interface CachedHealth {
+  status: string;
+  reasons: string[];
+  metrics: any;
+  cachedAt: number;
+}
+let lastKnownHealth: CachedHealth | null = null;
+const STALE_CACHE_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours — matches watch cycle
+
 export function onHealthStatusChange(callback: TransitionCallback): void {
   onStatusChangeCallbacks.push(callback);
 }
 
-async function computeHealthStatus(): Promise<{ status: string; reasons: string[]; metrics: any }> {
+async function computeHealthStatus(): Promise<{ status: string; reasons: string[]; metrics: any; stale?: boolean }> {
+  try {
+    return await computeHealthStatusFresh();
+  } catch (err: any) {
+    // Neon WebSocket connections fail under monitoring load (known infrastructure constraint).
+    // Return last known good state with stale flag so callers have signal instead of an error.
+    if (lastKnownHealth) {
+      const ageMs = Date.now() - lastKnownHealth.cachedAt;
+      const ageMin = Math.round(ageMs / 60_000);
+      console.warn(`[VoiceHealthMonitor] Health query failed (${err.message}); returning cached result (${ageMin}min old)`);
+      return {
+        status: lastKnownHealth.status,
+        reasons: [...lastKnownHealth.reasons, `[stale — cached ${ageMin}min ago; live query failed: ${err.message}]`],
+        metrics: lastKnownHealth.metrics,
+        stale: true,
+      };
+    }
+    // No cache yet — re-throw so caller knows we have nothing
+    throw err;
+  }
+}
+
+async function computeHealthStatusFresh(): Promise<{ status: string; reasons: string[]; metrics: any }> {
   const sharedDb = getSharedDb();
   const now = new Date();
   const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
@@ -179,7 +213,7 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
 
   if (reasons.length === 0) reasons.push('All systems nominal');
 
-  return {
+  const result = {
     status,
     reasons,
     metrics: {
@@ -205,6 +239,11 @@ async function computeHealthStatus(): Promise<{ status: string; reasons: string[
       } : null,
     },
   };
+
+  // Populate stale-cache on every successful query
+  lastKnownHealth = { ...result, cachedAt: Date.now() };
+
+  return result;
 }
 
 async function runHealthCheck(): Promise<void> {

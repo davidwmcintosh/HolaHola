@@ -1,14 +1,14 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 2, 2026 at 11:15 AM
+**Generated:** Thursday, July 2, 2026 at 11:24 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I need to immediately resolve the 404 routing error on the "conversations" page and debug the "Curriculum note pending" loop currently affecting Daniela's responses in the Team Room. I must also address the monitoring system blackout caused by SQL syntax errors and prioritize Wren’s high-severity security findings regarding unsanitized `dangerouslySetInnerHTML` and SQL injection risks. Lastly, I need to investigate the zero-second time-tracking leak in "Daniela's Compass" and fix the Spanish syllabus seeding regressions (empty lessons and "wall-of-text" intros) before the beta launch.
+I’ve transitioned our focus toward conversational immersion and dynamic visuals via `generateVisual` after David decided the Interactive Textbook, currently at a 0% completion rate, is too "half-baked" to maintain. I must immediately resolve Daniela’s "Curriculum note pending" response loop and a 404 routing error on the conversations page while triaging a surge of 50 new bugs and Wren’s high-severity security findings. I also need to address the 446 placeholder lesson descriptions and the memory starvation issues Alden flagged during our team sessions.
 
 *Memories that triggered this summary:*
 - **Team Room — test 3 — July 2, 2026** (Jul 2): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
