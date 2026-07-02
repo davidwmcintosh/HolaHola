@@ -1,26 +1,26 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 2, 2026 at 02:19 AM
+**Generated:** Thursday, July 2, 2026 at 03:18 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I successfully built the "Observer Seat" featuring live transcripts and watercolor Studio environments, though the "conversations" page is currently blocked by a critical 404 router error. We’ve decided to pivot the Interactive Textbook—which has a 0% completion rate—toward a "conversational immersion" model, but I first need to investigate why "Daniela's Compass" is failing to track session telemetry. My immediate priorities for this session are resolving that 404 configuration and patching the high-critical SQL injection and XSS vulnerabilities flagged by Wren.
+I’m picking up after a dense Team Room session where Wren flagged critical SQL injection and XSS vulnerabilities in security audit #1, and Sofia reported a 404 error on the `/conversations` route. I need to investigate the Interactive Textbook’s 0% completion rate and the "memory starvation" issue while helping David decide on a pivot toward conversational immersion to resolve our "half-baked" content gaps. My immediate technical priorities are fixing Cartesia TTS 400 errors and defining the missing `SYNTHESIS_TIMEOUT_MS` constant for the Gemini TTS path.
 
 *Memories that triggered this summary:*
-- **Agent Session — Jul 2, 2026: feat: complete observer seat — transcript, audio, Studio, Whiteboard all live** (Jul 2): feat: complete observer seat — transcript, audio, Studio, Whiteboard all live  All four gaps closed:  1. TRANSCRIPT — added outputAudioTranscription: {} to GL config.
-- **Team Room — test 3 — July 2, 2026** (Jul 2): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — July 2, 2026** (Jul 2): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — July 2, 2026** (Jul 2): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — July 2, 2026** (Jul 2): Team Room session with David. Topic: hello again. 2 messages exchanged.
 - **Team Room — again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
 - **Team Room — what's up? — July 2, 2026** (Jul 2): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — July 2, 2026** (Jul 2): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — July 2, 2026** (Jul 2): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+- **Team Room — once more into the breech my friends — July 2, 2026** (Jul 2): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
+- **Team Room — uno, dos, tres VAMOS — July 2, 2026** (Jul 2): Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
+- **Team Room — canta y no llore... — July 2, 2026** (Jul 2): Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
+- **Team Room — are we there yet? — July 2, 2026** (Jul 2): Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 128 messages exchanged.
+- **Team Room — test 3 — July 2, 2026** (Jul 2): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+- **Team Room — test again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 
 ---
 
@@ -95,24 +95,24 @@ I successfully built the "Observer Seat" featuring live transcripts and watercol
 
 ## Recent Conversation Memories
 
-### Agent Session — Jul 2, 2026: feat: complete observer seat — transcript, audio, Studio, Whiteboard all live — Jul 2, 2026
-feat: complete observer seat — transcript, audio, Studio, Whiteboard all live  All four gaps closed:  1. TRANSCRIPT — added outputAudioTranscription: {} to GL config.
-*Tags: agent-session, auto-saved, build*
-
-### Team Room — test 3 — July 2, 2026 — Jul 2, 2026
-Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+### Team Room — again — July 2, 2026 — Jul 2, 2026
+Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — test again — July 2, 2026 — Jul 2, 2026
-Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+### Team Room — what's up? — July 2, 2026 — Jul 2, 2026
+Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — are we good? — July 2, 2026 — Jul 2, 2026
-Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+### Team Room — Team room test — July 2, 2026 — Jul 2, 2026
+Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — one again into the breach — July 2, 2026 — Jul 2, 2026
-Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+### Team Room — nothing in particular — July 2, 2026 — Jul 2, 2026
+Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — once more into the breech my friends — July 2, 2026 — Jul 2, 2026
+Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
