@@ -219,7 +219,6 @@ function Router() {
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password" component={ResetPassword} />
           <Route path="/vm/:id" component={VoiceMessage} />
-          <Route path="/admin/visual-test" component={AgentVisualTest} />
           <Route component={NotFound} />
         </Switch>
       </PageWrapper>
