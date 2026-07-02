@@ -6239,63 +6239,28 @@ ${memoryContext}
                   attribution
                 });
               } else {
-                // Cache miss - fetch from Unsplash
-                console.log('[CACHE MISS] Fetching new stock image for query:', item.query);
-                const unsplashAccessKey = process.env.UNSPLASH_ACCESS_KEY;
-                if (!unsplashAccessKey) {
-                  console.warn('[MULTIMEDIA] Unsplash API key not configured, skipping stock image');
-                  continue;
-                }
-                
-                const response = await fetch(
-                  `https://api.unsplash.com/photos/random?query=${encodeURIComponent(item.query)}&orientation=landscape&content_filter=high`,
-                  {
-                    headers: {
-                      'Authorization': `Client-ID ${unsplashAccessKey}`,
-                      'Accept-Version': 'v1'
-                    }
-                  }
-                );
-                
-                if (response.ok) {
-                  const data = await response.json();
-                  const attribution = {
-                    photographer: data.user.name,
-                    photographerUrl: data.user.links.html,
-                    unsplashUrl: data.links.html
-                  };
-                  
-                  processedMedia.push({
-                    type: "stock",
-                    query: item.query,
-                    url: data.urls.regular,
-                    thumbnailUrl: data.urls.small,
-                    altText: item.alt || data.alt_description || item.query,
-                    attribution
+                // Cache miss — generate watercolor illustration via vocabulary image resolver (no Unsplash)
+                console.log('[CACHE MISS] Generating watercolor image for query:', item.query);
+                try {
+                  const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
+                  const result = await resolveVocabularyImage({
+                    word: item.query,
+                    language: 'spanish',
+                    description: item.query,
+                    scene: item.query,
                   });
-                  
-                  // Cache the image for future use (using normalized query as cache key)
-                  try {
-                    await storage.cacheImage({
-                      uploadedBy: null, // System-cached image
-                      mediaType: "image",
-                      url: data.urls.regular,
-                      thumbnailUrl: data.urls.small,
-                      filename: `stock-${normalizedQuery.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.jpg`,
-                      mimeType: "image/jpeg",
-                      description: data.alt_description || item.query,
-                      imageSource: "stock",
-                      searchQuery: normalizedQuery, // Use normalized query as cache key
-                      attributionJson: JSON.stringify(attribution),
-                      usageCount: 1
+                  if (result.imageUrl) {
+                    processedMedia.push({
+                      type: "stock",
+                      query: item.query,
+                      url: result.imageUrl,
+                      thumbnailUrl: result.imageUrl,
+                      altText: item.alt || item.query,
                     });
-                    console.log('[CACHE STORE] Cached stock image for normalized query:', normalizedQuery, '(original:', item.query, ')');
-                  } catch (cacheError) {
-                    console.error('[CACHE STORE] Failed to cache stock image:', cacheError);
-                    // Don't fail the request if caching fails
+                    console.log('[CACHE STORE] Watercolor image generated + cached for:', item.query);
                   }
-                } else {
-                  console.warn('[MULTIMEDIA] Failed to fetch stock image for query:', item.query);
+                } catch (err: any) {
+                  console.warn('[MULTIMEDIA] Failed to generate watercolor image:', item.query, err.message);
                 }
               }
             } else if (item.type === "ai_generated" && item.prompt) {
@@ -24524,11 +24489,21 @@ Current conversation context:
     }
   }, 10 * 60 * 1000);
 
+  // ── SSE relay for agent visual feed — keyed by watchId, each value is a list of push callbacks
+  // When agent-voice-turn or agent-visual-demo fires a tool call, it also pushes to any browser
+  // listening on GET /api/admin/agent-visual-feed/:watchId so the Studio/Whiteboard can update live.
+  const agentVisualEmitters = new Map<string, Array<(event: any) => void>>();
+  function pushVisualEvent(watchId: string | undefined, event: any) {
+    if (!watchId) return;
+    const listeners = agentVisualEmitters.get(watchId);
+    if (listeners) listeners.forEach(fn => { try { fn(event); } catch {} });
+  }
+
   // Agent voice turn — persistent multi-turn GL session with full Daniela tool setup.
   // Returns JSON: { sessionId, turnNumber, audioWav (base64 WAV), audioDurationS,
   //                 transcript, visualEvents, toolCallsSummary }
   app.post("/api/admin/agent-voice-turn", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
-    const { audio, sessionId, languageCode = 'es-ES', voiceId = 'Aoede', model: requestedModel } = req.body;
+    const { audio, sessionId, languageCode = 'es-ES', voiceId = 'Aoede', model: requestedModel, watchId } = req.body;
     if (!audio) return res.status(400).json({ error: 'audio (base64 PCM16 @ 16kHz) required' });
 
     const MODEL = (requestedModel && ['gemini-3.1-flash-live-preview','gemini-2.5-flash-native-audio-preview-12-2025'].includes(requestedModel))
@@ -24648,7 +24623,9 @@ Use visual tools actively throughout the lesson. When introducing vocabulary, ca
 
                   toolCallsSummary.push({ name, args, turn: agentSession.turnCount });
                   if (VISUAL_TOOLS.has(name)) {
-                    visualEvents.push({ type: name, data: args, turn: agentSession.turnCount });
+                    const ve = { type: name, data: args, turn: agentSession.turnCount };
+                    visualEvents.push(ve);
+                    pushVisualEvent(watchId as string | undefined, ve);
                   }
 
                   // Return plausible responses so GL session continues
@@ -24777,6 +24754,195 @@ Use visual tools actively throughout the lesson. When introducing vocabulary, ca
     } catch (error: any) {
       console.error('[API] Error previewing assistant voice:', error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── SSE feed: browser subscribes here to see visual tool events from agent voice sessions in real time
+  app.get("/api/admin/agent-visual-feed/:watchId", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), (req: any, res: Response) => {
+    const { watchId } = req.params;
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.flushHeaders();
+
+    const send = (event: any) => {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
+
+    if (!agentVisualEmitters.has(watchId)) agentVisualEmitters.set(watchId, []);
+    agentVisualEmitters.get(watchId)!.push(send);
+
+    res.on('close', () => {
+      const listeners = agentVisualEmitters.get(watchId);
+      if (listeners) {
+        const idx = listeners.indexOf(send);
+        if (idx !== -1) listeners.splice(idx, 1);
+        if (listeners.length === 0) agentVisualEmitters.delete(watchId);
+      }
+    });
+  });
+
+  // ── Visual Demo: runs a GL text-turn, resolves images for every visual tool, returns full visual state.
+  // Uses text input (no TTS needed) so GL fires its visual tools without any audio pipeline.
+  app.post("/api/admin/agent-visual-demo", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
+    const {
+      text = 'Hola Daniela. Quiero practicar español. Me gustan los restaurantes y la comida española. ¿Puedes mostrarme vocabulario con imágenes?',
+      languageCode = 'es-ES',
+      watchId,
+    } = req.body;
+
+    const MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
+    const LANG_LABELS: Record<string, string> = {
+      'es-ES': 'Español (España)', 'es-MX': 'Español (México)',
+      'fr-FR': 'Français', 'de-DE': 'Deutsch',
+      'it-IT': 'Italiano', 'pt-BR': 'Português (Brasil)',
+    };
+    const langLabel = LANG_LABELS[languageCode] || languageCode;
+
+    const systemPrompt = `You are Daniela, a warm, inventive ${langLabel} language tutor. Your student is Alex — a novice-mid learner who loves travel and food.
+
+Speak mostly in ${langLabel}. Keep spoken responses to 2-3 sentences.
+
+Use visual tools actively: call open_scene to set a scene, show_vocab_grid to display vocabulary with images, show_image to show single concept images. These tools are how students learn — use them generously.`;
+
+    try {
+      const { GoogleGenAI, Modality } = await import('@google/genai');
+      const { DANIELA_FUNCTION_DECLARATIONS } = await import('./services/daniela-function-registry');
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+
+      const VISUAL_TOOLS_DEMO = new Set([
+        'open_scene', 'add_to_scene', 'show_image', 'show_cultural_scene',
+        'show_vocab_grid', 'show_madrigal_card', 'show_vocab_card',
+        'create_vocabulary_drill', 'change_classroom_window', 'change_classroom_photo',
+        'widget_media', 'widget_state', 'compose_visual_scene', 'subtitle',
+      ]);
+
+      const visualEvents: any[] = [];
+      const toolCallsSummary: any[] = [];
+      const transcriptParts: string[] = [];
+      const responseChunks: Buffer[] = [];
+      let glSession: any = null;
+
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('visual demo timed out')), 55000);
+        const finish = (err?: Error) => {
+          clearTimeout(timer);
+          try { glSession?.close(); } catch {}
+          err ? reject(err) : resolve();
+        };
+
+        ai.live.connect({
+          model: MODEL,
+          config: {
+            systemInstruction: systemPrompt,
+            responseModalities: [Modality.AUDIO],
+            speechConfig: {
+              languageCode,
+              voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Aoede' } },
+            },
+            tools: [{ functionDeclarations: DANIELA_FUNCTION_DECLARATIONS }],
+          },
+          callbacks: {
+            onopen: () => {
+              setTimeout(() => {
+                if (glSession) {
+                  glSession.sendClientContent({
+                    turns: [{ role: 'user', parts: [{ text }] }],
+                    turnComplete: true,
+                  });
+                }
+              }, 400);
+            },
+            onmessage: (msg: any) => {
+              for (const part of msg.serverContent?.modelTurn?.parts ?? []) {
+                if (part.inlineData?.data && part.inlineData?.mimeType?.includes('audio')) {
+                  responseChunks.push(Buffer.from(part.inlineData.data, 'base64'));
+                }
+                if (part.text) transcriptParts.push(part.text);
+              }
+              if (msg.toolCall?.functionCalls?.length > 0) {
+                const functionResponses: any[] = [];
+                for (const call of msg.toolCall.functionCalls) {
+                  const { id, name, args } = call;
+                  console.log(`[Visual Demo] Tool: ${name}`, JSON.stringify(args).slice(0, 120));
+                  toolCallsSummary.push({ name, args });
+                  if (VISUAL_TOOLS_DEMO.has(name)) {
+                    const ve = { type: name, data: args };
+                    visualEvents.push(ve);
+                    pushVisualEvent(watchId as string | undefined, ve);
+                  }
+                  functionResponses.push({ id, name, response: { result: JSON.stringify({ success: true, displayed: true }) } });
+                }
+                try { glSession?.sendToolResponse({ functionResponses }); } catch {}
+                // Quiescence: after receiving tools, close 8s later if turnComplete never arrives.
+                // GL Live keeps the connection open after tool responses while it generates audio.
+                // We already have all the visual data we need, so finish early.
+                setTimeout(() => {
+                  if (toolCallsSummary.length > 0) finish();
+                }, 8000);
+              }
+              if (msg.serverContent?.turnComplete || msg.serverContent?.generationComplete) {
+                if (transcriptParts.length > 0 || toolCallsSummary.length > 0 || responseChunks.length > 0) finish();
+              }
+            },
+            onerror: (e: any) => finish(new Error(e?.message ?? 'GL error')),
+            onclose: () => { if (transcriptParts.length > 0 || toolCallsSummary.length > 0 || responseChunks.length > 0) finish(); else finish(new Error('closed')); },
+          },
+        }).then(s => { glSession = s; }).catch(reject);
+      });
+
+      // Resolve images for visual events
+      const { resolveVocabularyImage } = await import('./services/vocabulary-image-resolver');
+      const { generateEnvironmentScene } = await import('./services/google-image-service');
+
+      const resolvedEvents: any[] = [];
+      for (const ve of visualEvents) {
+        try {
+          if (ve.type === 'open_scene') {
+            const env = ve.data.environment || ve.data.scene || '';
+            const imageUrl = await generateEnvironmentScene(env, 'daniela').catch(() => null);
+            resolvedEvents.push({ ...ve, imageUrl: imageUrl || null });
+          } else if (ve.type === 'show_vocab_grid') {
+            const words = Array.isArray(ve.data.words) ? ve.data.words.slice(0, 6) : [];
+            const resolved = await Promise.all(words.map(async (w: any) => {
+              const r = await resolveVocabularyImage({
+                word: w.text || w.word || '',
+                language: languageCode.split('-')[0] || 'es',
+                description: w.imageQuery || w.text || '',
+                scene: w.imageQuery || w.text || '',
+              }).catch(() => null);
+              return { ...w, imageUrl: r?.imageUrl || null };
+            }));
+            resolvedEvents.push({ ...ve, resolvedWords: resolved });
+          } else if (ve.type === 'show_image' || ve.type === 'show_cultural_scene') {
+            const word = ve.data.word || ve.data.concept || ve.data.description || '';
+            const r = await resolveVocabularyImage({
+              word,
+              language: languageCode.split('-')[0] || 'es',
+              description: ve.data.description || ve.data.imageQuery || word,
+              scene: ve.data.imageQuery || ve.data.description || word,
+            }).catch(() => null);
+            resolvedEvents.push({ ...ve, imageUrl: r?.imageUrl || null });
+          } else {
+            resolvedEvents.push(ve);
+          }
+        } catch {
+          resolvedEvents.push(ve);
+        }
+      }
+
+      if (watchId) pushVisualEvent(watchId, { type: 'done', resolvedEvents, transcript: transcriptParts.join('') });
+
+      res.json({
+        transcript: transcriptParts.join(''),
+        toolCallsSummary,
+        visualEvents: resolvedEvents,
+        audioDurationS: responseChunks.reduce((s, b) => s + b.length, 0) / (16000 * 2),
+      });
+    } catch (error: any) {
+      console.error('[Visual Demo] Error:', error.message);
+      if (!res.headersSent) res.status(500).json({ error: error.message });
     }
   });
 

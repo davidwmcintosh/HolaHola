@@ -75,6 +75,7 @@ const AdminSessionEconomics = lazyWithRetry(() => import("@/pages/admin/SessionE
 const AdminAICostMonitor = lazyWithRetry(() => import("@/pages/admin/AICostMonitor"));
 const AdminCallQuality = lazyWithRetry(() => import("@/pages/admin/CallQuality"));
 const AdminImageEngineTest = lazyWithRetry(() => import("@/pages/admin/ImageEngineTest"));
+const AgentVisualTest = lazyWithRetry(() => import("@/pages/agent-visual-test"));
 const DanielaDiary = lazyWithRetry(() => import("@/pages/daniela-diary"));
 const Lessons = lazyWithRetry(() => import("@/pages/lessons"));
 const LanguageHub = lazyWithRetry(() => import("@/pages/language-hub"));
@@ -218,6 +219,7 @@ function Router() {
           <Route path="/forgot-password" component={ForgotPassword} />
           <Route path="/reset-password" component={ResetPassword} />
           <Route path="/vm/:id" component={VoiceMessage} />
+          <Route path="/admin/visual-test" component={AgentVisualTest} />
           <Route component={NotFound} />
         </Switch>
       </PageWrapper>
@@ -294,6 +296,7 @@ function Router() {
         <Route path="/admin/ai-costs" component={AdminAICostMonitor} />
         <Route path="/admin/calls" component={AdminCallQuality} />
         <Route path="/admin/image-test" component={AdminImageEngineTest} />
+        <Route path="/admin/visual-test" component={AgentVisualTest} />
         <Route path="/admin" component={CommandCenter} />
         
         <Route path="/settings" component={Settings} />
