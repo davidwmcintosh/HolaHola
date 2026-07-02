@@ -8,6 +8,73 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jul 2, 2026 — Madrigal Pedagogy: Sentence Builder Images + Compass Principle + Tú Reveal Gate
+
+### What was built
+
+Four pieces of the Madrigal co-pilot system, all approved by Gemini + Daniela dual-consult (conversation_memories `ba2a5a65`):
+
+---
+
+**1. Sentence builder — Madrigal noun image support**
+
+`show_sentence_builder` now supports images on individual column items. Daniela can specify `imageQuery` on any concrete noun chip (e.g. "taxi yellow cab street"), and the frontend renders a 32px thumbnail inline in the chip row. Verb and subject columns omit it.
+
+How it works:
+- New `imageQuery?: string` field on `OverlayPanelColumnItem` (whiteboard-types.ts) and `ColumnItem` (SentenceColumnGenerator.tsx)
+- New `ColumnItemImage` React component in `SentenceColumnGenerator.tsx` — fetches from `/api/vocab-image/by-word` via TanStack Query (10min stale time), renders inline
+- Registry (`daniela-function-registry.ts`) schema updated — imageQuery described as "use for concrete nouns in Madrigal-style kernel columns"
+- Handler (`native-fc-handlers.ts`) passes imageQuery through to whiteboard update
+
+User instructions: Daniela will add imageQuery to noun columns automatically when showing place/object vocabulary. No student action needed.
+
+Key files: `shared/whiteboard-types.ts`, `client/src/components/SentenceColumnGenerator.tsx`, `client/src/components/OverlayPanelContent.tsx`, `server/services/daniela-function-registry.ts`, `server/services/native-fc-handlers.ts`
+
+---
+
+**2. Compass principle — "I Am a Language Class"**
+
+Written to `compass_principles` DB table (id: `6ec58ff6`, category: `pedagogy`, confidence: 10.0). Authorized by David in this session, source: dual-consult `ba2a5a65`.
+
+Principle text (verbatim, injected into Daniela's context on every session):
+> "I am a language class. My purpose is measurable: the student leaves the session able to do something in the target language they could not do before. Warmth, rhythm-reading, and emotional intelligence are instruments of that acquisition — not substitutes for it. The most loving thing I can do for a student is hold the method."
+
+Context: David's correction absorbed this session — Daniela is not a coach, friend, or therapist. She is a language class. "The foundation is the finish." This is now her constitutional DNA at the pedagogy layer.
+
+Key files: `shared/schema.ts` (`northStarPrinciples` / `compass_principles` table), written via direct DB insert.
+
+---
+
+**3. `student_milestones` table — tú reveal gate infrastructure**
+
+New DB table tracking pedagogical gate events per student per language. Primary use: the Madrigal tú reveal.
+
+Schema (`shared/schema.ts`): `studentId`, `language`, `milestoneKey`, `successCount`, `distinctDays`, `lastEvidenceDateStr` (YYYY-MM-DD string, TZ-safe), `unlockedAt`, `lastEvidenceAt`, `evidenceSummary`. Unique constraint on `(studentId, language, milestoneKey)`.
+
+Migration: `migrations/0002_white_northstar.sql` — applied.
+
+---
+
+**4. `record_usted_fluency` tool — tú reveal threshold logic**
+
+Daniela's silent tracking tool for the Madrigal progression gate.
+
+How it works:
+- Daniela calls `record_usted_fluency(evidence, language?)` silently when a student uses usted/third-person correctly in genuine communicative exchange (not drill repetition)
+- Handler upserts `usted_fluency` row in `student_milestones`, increments `successCount`, updates `distinctDays` only when `lastEvidenceDateStr != today`
+- Threshold (Gemini-refined): **25 successful uses × 2+ distinct calendar days** (sleep cycle, not just session count)
+- When threshold crossed → inserts `tu_revealed` row with `unlockedAt`
+
+**Not yet built:** System prompt fragment injection — when `tu_revealed` exists for a student, inject a fragment at session start telling Daniela tú forms are now unlocked. Infrastructure complete; injection wiring is the next piece.
+
+Key files: `server/services/daniela-function-registry.ts` (legacyType `RECORD_USTED_FLUENCY`), `server/services/native-fc-handlers.ts` (handler at case `RECORD_USTED_FLUENCY`), `shared/schema.ts`, `migrations/0002_white_northstar.sql`
+
+---
+
+### Typecheck status: 0 errors
+
+---
+
 ## Session — Jul 1, 2026 — GL Discovery Consult + GL Quality Improvements
 
 ### What was built

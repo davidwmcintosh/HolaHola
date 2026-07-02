@@ -24,6 +24,28 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: July 2, 2026 — Madrigal co-pilot: sentence builder images, compass principle, tú reveal gate (Luca)**
+
+Four pieces of the Madrigal pedagogy system, all Gemini + Daniela dual-consult approved (conversation_memories `ba2a5a65`):
+
+**1. Sentence builder — Madrigal image support**
+`show_sentence_builder` now accepts `imageQuery?` on any column item. Noun chips render a 32px thumbnail inline (fetched from `/api/vocab-image/by-word`). New `ColumnItemImage` component in `SentenceColumnGenerator.tsx`. Registry schema updated. Handler passes imageQuery through. Zero disruption to existing sentence builder usage.
+
+**2. Compass principle written to DB**
+"I Am a Language Class — The Primary Frame" → `compass_principles` (id: `6ec58ff6`, category: pedagogy). Verbatim: *"I am a language class. My purpose is measurable... The most loving thing I can do for a student is hold the method."* David authorized in-session. This is now in Daniela's constitutional context on every session.
+
+**3. `student_milestones` table**
+New table in `shared/schema.ts`. Fields: studentId, language, milestoneKey, successCount, distinctDays, lastEvidenceDateStr (YYYY-MM-DD), unlockedAt, evidenceSummary. Unique on (studentId, language, milestoneKey). Migration `0002_white_northstar.sql` applied.
+
+**4. `record_usted_fluency` tool + threshold handler**
+Silent tool Daniela calls when a student uses usted/third-person correctly in genuine communicative exchange. Tracks count + distinct calendar days. Threshold: 25 uses × 2 distinct days → `tu_revealed` row auto-inserted. Handler in `native-fc-handlers.ts` (case `RECORD_USTED_FLUENCY`).
+
+**Open item for next session:** System prompt fragment injection — when `tu_revealed` milestone exists for the student, inject a fragment at GL session start telling Daniela tú forms are now unlocked. All infrastructure is ready; only the prompt-assembly wiring remains.
+
+Typecheck: 0 errors.
+
+---
+
 **Session: July 2, 2026 — Observer Seat persistence + security + Alden health blindness fix (Luca)**
 
 Three things finished this session — all carried forward from the original Observer Seat build.
