@@ -6550,6 +6550,39 @@ ${memoryContext}
 
   // ===== NEW REST-Based Voice API (Whisper + GPT + TTS) =====
 
+  // Widget-closed signal — frontend fires this when the student dismisses a visual
+  // widget (vocab grid, immersive scene) so the backend clears visionBuffer and
+  // forces a fresh Observer Seat injection on the next tool call. Fire-and-forget
+  // from the client; failure is silent (Daniela just hedges naturally).
+  app.post("/api/voice/widget-closed", isAuthenticated, async (req: any, res: Response) => {
+    try {
+      const userId = getRequestUserId(req);
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const { widget } = req.body as { widget: string };
+      if (!widget) return res.status(400).json({ error: "widget required" });
+      const session = orchestrator.getSessionByUserId(String(userId));
+      if (!session) return res.json({ ok: false, reason: "no active session" });
+      if (!session.visionBuffer) session.visionBuffer = {};
+      if (widget === "vocab_grid") {
+        delete session.visionBuffer["vocab_grid"];
+        delete session.visionBuffer["vocab_card"];
+      } else if (widget === "scene") {
+        delete session.visionBuffer["open_scene"];
+        delete session.visionBuffer["add_to_scene"];
+      } else if (widget === "textbook") {
+        delete (session as any).textbookPageResult;
+      }
+      // Reset the Observer Seat snapshot cache so the next tool call injects a
+      // fresh (now-cleared) state instead of re-using the stale cached string.
+      delete (session as any)._lastObserverSnapshot;
+      console.log(`[WidgetClosed] user=${userId} widget=${widget} — visionBuffer cleared`);
+      return res.json({ ok: true });
+    } catch (err) {
+      console.error("[WidgetClosed] error:", err);
+      return res.status(500).json({ error: "Internal error" });
+    }
+  });
+
   // Client-side voice session diagnostics — receives snapshots when the client
   // detects anomalies (lockout, silence, failsafe fires, etc.)
   app.post("/api/voice/client-diagnostic", isAuthenticated, async (req: any, res: Response) => {

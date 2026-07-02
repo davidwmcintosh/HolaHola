@@ -802,6 +802,17 @@ export class StreamingVoiceOrchestrator {
   }
 
   /**
+   * Get the active session for a given userId. A user typically has at most one
+   * active session at a time, so the first match is authoritative.
+   */
+  getSessionByUserId(userId: string): StreamingSession | undefined {
+    for (const session of this.sessions.values()) {
+      if (String(session.userId) === String(userId)) return session;
+    }
+    return undefined;
+  }
+
+  /**
    * Get the number of currently active sessions (used by system health dashboard)
    */
   getActiveSessionCount(): number {

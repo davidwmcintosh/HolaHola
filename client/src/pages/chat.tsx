@@ -1202,11 +1202,25 @@ export default function Chat() {
         displayWhiteboardItems={displayWhiteboardItems}
         contextImages={studioImages.filter(img => img.slot === 'context' && img.imageUrl)}
         tutorImageUrl={getTutorAvatar(language, tutorGender, 'idle')}
-        onExit={() => setIsImmersiveMode(false)}
+        onExit={() => {
+          setIsImmersiveMode(false);
+          // Clear scene from Daniela's visionBuffer so Observer Seat stays accurate
+          fetch('/api/voice/widget-closed', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ widget: 'scene' }),
+          }).catch(() => {});
+        }}
         activePanel={activePanel}
-        onDismissPanel={() =>
-          setWhiteboardItems(prev => prev.filter(item => !isOverlayPanelItem(item)))
-        }
+        onDismissPanel={() => {
+          setWhiteboardItems(prev => prev.filter(item => !isOverlayPanelItem(item)));
+          // Clear vocab grid from Daniela's visionBuffer so Observer Seat stays accurate
+          fetch('/api/voice/widget-closed', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ widget: 'vocab_grid' }),
+          }).catch(() => {});
+        }}
       />
     </div>
   );

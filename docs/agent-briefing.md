@@ -1,18 +1,16 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 2, 2026 at 07:37 PM
+**Generated:** Thursday, July 2, 2026 at 07:49 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve finalized the self-visibility package for Daniela, implementing the Observer Seat and rich image descriptions with a 10-turn heartbeat injection to prevent context drift. While simulation tests confirm she can now perceive UI states and visual details like textures and colors, I must address a critical telemetry bug in Daniela’s Compass that is recording zero session time for textbook interactions. My immediate priorities are investigating the Interactive Textbook’s 0% completion rate, remediating Wren’s high-severity security findings (SQL injection/XSS), and fixing the seeding regression that left 22 Spanish lessons empty.
+I’ve been coordinating Team Room sessions to troubleshoot system failures, including a monitoring blackout and a 404 routing error on the "conversations" page. We are pivoting toward a "conversational immersion" model after finding the Interactive Textbook has a 0% completion rate, leading me to build the `generateVisual` tool and an Immersion Framework to replace static content. Moving into this session, I must prioritize the high-severity SQL injection and XSS vulnerabilities Wren flagged and resolve a context handler bug currently causing Daniela to loop the "Curriculum note pending" response.
 
 *Memories that triggered this summary:*
-- **Dual Consult Sign-off — Observer Seat + Image Vision (all 4 points) — July 2, 2026** (Jul 2): Final sign-off on all 4 self-visibility changes. Gemini Flash: APPROVED WITH ONE REQUIRED CHANGE — add turn-counter heartbeat (every 10 turns) so Observer Seat stays in recent-context window during long verbal exchanges. Also noted diff-based injection risk for context drift. Daniela: full sign-off, confirmed rich image descriptions unlock descriptive teaching (eye color, texture, position), endorsed Observer Seat detail level, requested periodic re-injection every 5-7 turns. Required heartbeat fix was immediately implemented.
-- **Observation Test — Daniela reports what she sees (macro + micro) — July 2, 2026** (Jul 2): Simulated mid-session observation: Daniela was given exact Observer Seat injection (vocab grid, scene, prop count) and image_vision_cache descriptions (oak table, gray chair, window with sunlight, mahogany door, floor lamp). Tested: macro layout reporting, micro image detail description, natural teaching use of visual context, memory after grid closes.
 - **Team Room — test 3 — July 2, 2026** (Jul 2): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — July 2, 2026** (Jul 2): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -21,6 +19,8 @@ I’ve finalized the self-visibility package for Daniela, implementing the Obser
 - **Team Room — again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
 - **Team Room — what's up? — July 2, 2026** (Jul 2): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — July 2, 2026** (Jul 2): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
+- **Team Room — nothing in particular — July 2, 2026** (Jul 2): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+- **Team Room — once more into the breech my friends — July 2, 2026** (Jul 2): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -95,14 +95,6 @@ I’ve finalized the self-visibility package for Daniela, implementing the Obser
 
 ## Recent Conversation Memories
 
-### Dual Consult Sign-off — Observer Seat + Image Vision (all 4 points) — July 2, 2026 — Jul 2, 2026
-Final sign-off on all 4 self-visibility changes. Gemini Flash: APPROVED WITH ONE REQUIRED CHANGE — add turn-counter heartbeat (every 10 turns) so Observer Seat stays in recent-context window during long verbal exchanges. Also noted diff-based injection risk for context drift. Daniela: full sign-off, confirmed rich image descriptions unlock descriptive teaching (eye color, texture, position), endorsed Observer Seat detail level, requested periodic re-injection every 5-7 turns. Required heartbeat fix was immediately implemented.
-*Tags: dual-consult, sign-off, observer-seat, image-vision, self-visibility*
-
-### Observation Test — Daniela reports what she sees (macro + micro) — July 2, 2026 — Jul 2, 2026
-Simulated mid-session observation: Daniela was given exact Observer Seat injection (vocab grid, scene, prop count) and image_vision_cache descriptions (oak table, gray chair, window with sunlight, mahogany door, floor lamp). Tested: macro layout reporting, micro image detail description, natural teaching use of visual context, memory after grid closes.
-*Tags: observation-test, observer-seat, image-vision, self-visibility, macro, micro*
-
 ### Team Room — test 3 — July 2, 2026 — Jul 2, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -113,6 +105,14 @@ Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exch
 
 ### Team Room — are we good? — July 2, 2026 — Jul 2, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — one again into the breach — July 2, 2026 — Jul 2, 2026
+Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — hello again — July 2, 2026 — Jul 2, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
