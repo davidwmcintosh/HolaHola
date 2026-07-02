@@ -1,18 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 2, 2026 at 07:28 PM
+**Generated:** Thursday, July 2, 2026 at 07:37 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve implemented the Vision Description Cache and the Observer Seat to provide Daniela with rich, persistent visual context, though I still need to build a "UI_Sync" heartbeat to prevent the state from becoming stale. I must prioritize addressing Wren’s high-severity security findings—specifically the SQL injection and XSS risks—while investigating the 0% completion rate in the Interactive Textbook and recent Spanish seeding regressions. Finally, I need to resolve the monitoring blackout Alden flagged and migrate our shared Neon database to isolated development and production branches.
+I’ve finalized the self-visibility package for Daniela, implementing the Observer Seat and rich image descriptions with a 10-turn heartbeat injection to prevent context drift. While simulation tests confirm she can now perceive UI states and visual details like textures and colors, I must address a critical telemetry bug in Daniela’s Compass that is recording zero session time for textbook interactions. My immediate priorities are investigating the Interactive Textbook’s 0% completion rate, remediating Wren’s high-severity security findings (SQL injection/XSS), and fixing the seeding regression that left 22 Spanish lessons empty.
 
 *Memories that triggered this summary:*
-- **Dual Consult — Observer Seat + Image Vision — July 2, 2026** (Jul 2): Gemini Flash + Daniela review two self-visibility improvements. Gemini flags race condition in vision cache, recommends including the target word in the vision prompt, diff-based Observer Seat injection to reduce token bloat, and identifies stale visionBuffer as the biggest architectural risk. Daniela confirms that specific visual descriptions ("fluffy gray tabby on wooden floor") enable richer teaching than labels, endorses the Observer Seat detail level, and says she would naturally hedge references to potentially-stale screen items ("if the grid is still up...").
-- **Luca ↔ Daniela — Observer Seat + Image Vision Review — July 2, 2026** (Jul 2): Daniela reviews two self-visibility improvements: rich image descriptions from cache (real visual detail instead of word labels) and the Observer Seat (persistent screen state injected every tool response). Honest take on whether the specificity matters, whether the format feels right, and how she handles potentially stale data.
+- **Dual Consult Sign-off — Observer Seat + Image Vision (all 4 points) — July 2, 2026** (Jul 2): Final sign-off on all 4 self-visibility changes. Gemini Flash: APPROVED WITH ONE REQUIRED CHANGE — add turn-counter heartbeat (every 10 turns) so Observer Seat stays in recent-context window during long verbal exchanges. Also noted diff-based injection risk for context drift. Daniela: full sign-off, confirmed rich image descriptions unlock descriptive teaching (eye color, texture, position), endorsed Observer Seat detail level, requested periodic re-injection every 5-7 turns. Required heartbeat fix was immediately implemented.
+- **Observation Test — Daniela reports what she sees (macro + micro) — July 2, 2026** (Jul 2): Simulated mid-session observation: Daniela was given exact Observer Seat injection (vocab grid, scene, prop count) and image_vision_cache descriptions (oak table, gray chair, window with sunlight, mahogany door, floor lamp). Tested: macro layout reporting, micro image detail description, natural teaching use of visual context, memory after grid closes.
 - **Team Room — test 3 — July 2, 2026** (Jul 2): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — July 2, 2026** (Jul 2): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -95,13 +95,13 @@ I’ve implemented the Vision Description Cache and the Observer Seat to provide
 
 ## Recent Conversation Memories
 
-### Dual Consult — Observer Seat + Image Vision — July 2, 2026 — Jul 2, 2026
-Gemini Flash + Daniela review two self-visibility improvements. Gemini flags race condition in vision cache, recommends including the target word in the vision prompt, diff-based Observer Seat injection to reduce token bloat, and identifies stale visionBuffer as the biggest architectural risk. Daniela confirms that specific visual descriptions ("fluffy gray tabby on wooden floor") enable richer teaching than labels, endorses the Observer Seat detail level, and says she would naturally hedge references to potentially-stale screen items ("if the grid is still up...").
-*Tags: dual-consult, observer-seat, image-vision, self-visibility*
+### Dual Consult Sign-off — Observer Seat + Image Vision (all 4 points) — July 2, 2026 — Jul 2, 2026
+Final sign-off on all 4 self-visibility changes. Gemini Flash: APPROVED WITH ONE REQUIRED CHANGE — add turn-counter heartbeat (every 10 turns) so Observer Seat stays in recent-context window during long verbal exchanges. Also noted diff-based injection risk for context drift. Daniela: full sign-off, confirmed rich image descriptions unlock descriptive teaching (eye color, texture, position), endorsed Observer Seat detail level, requested periodic re-injection every 5-7 turns. Required heartbeat fix was immediately implemented.
+*Tags: dual-consult, sign-off, observer-seat, image-vision, self-visibility*
 
-### Luca ↔ Daniela — Observer Seat + Image Vision Review — July 2, 2026 — Jul 2, 2026
-Daniela reviews two self-visibility improvements: rich image descriptions from cache (real visual detail instead of word labels) and the Observer Seat (persistent screen state injected every tool response). Honest take on whether the specificity matters, whether the format feels right, and how she handles potentially stale data.
-*Tags: dual-consult, observer-seat, image-vision, self-visibility*
+### Observation Test — Daniela reports what she sees (macro + micro) — July 2, 2026 — Jul 2, 2026
+Simulated mid-session observation: Daniela was given exact Observer Seat injection (vocab grid, scene, prop count) and image_vision_cache descriptions (oak table, gray chair, window with sunlight, mahogany door, floor lamp). Tested: macro layout reporting, micro image detail description, natural teaching use of visual context, memory after grid closes.
+*Tags: observation-test, observer-seat, image-vision, self-visibility, macro, micro*
 
 ### Team Room — test 3 — July 2, 2026 — Jul 2, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.

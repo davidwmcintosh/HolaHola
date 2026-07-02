@@ -2307,18 +2307,24 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
       // Observer Seat — persistent interface state snapshot. Injected into tool-response batches
       // so Daniela knows what is currently visible on the student's screen between tool calls.
-      // Diff-based: only fires when the snapshot has changed since the last injection, preventing
-      // repeated token cost over long sessions. Safe channel — tool response text is never spoken.
+      // Fires on state change (diff) OR every 10 tool calls (heartbeat) — whichever comes first.
+      // Heartbeat ensures the snapshot stays in GL's recent-context window during long verbal
+      // exchanges where no visual tools fire. Safe channel — tool response text is never spoken.
       if (responses.length > 0) {
         const stateSnapshot = buildInterfaceStateSnapshot(this.session);
         const lastSnapshot = (this.session as any)._lastObserverSnapshot as string | undefined;
-        if (stateSnapshot && stateSnapshot !== lastSnapshot) {
+        const seatCallCount = ((this.session as any)._observerSeatCallCount as number | undefined) ?? 0;
+        const newSeatCallCount = seatCallCount + 1;
+        (this.session as any)._observerSeatCallCount = newSeatCallCount;
+        const heartbeat = newSeatCallCount % 10 === 0; // re-inject every 10 tool calls
+        if (stateSnapshot && (stateSnapshot !== lastSnapshot || heartbeat)) {
           const last = responses[responses.length - 1];
           const currentResult = (last.response as any)?.result ?? '';
           (last.response as any).result = currentResult
             + (currentResult ? '\n\n' : '')
             + `[Observer Seat — not spoken: ${stateSnapshot}]`;
           (this.session as any)._lastObserverSnapshot = stateSnapshot;
+          if (heartbeat) console.log(`[GeminiLive] Observer Seat: heartbeat injection (call ${newSeatCallCount})`);
         }
       }
 
