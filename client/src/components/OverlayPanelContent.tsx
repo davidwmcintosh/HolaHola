@@ -90,7 +90,7 @@ function SentenceBuilderPanel({
 
   const columns: SentenceColumn[] = panel.columns.map((col) => ({
     label: col.label,
-    items: col.items.map((item) => ({ text: item.text, translation: item.translation })),
+    items: col.items.map((item) => ({ text: item.text, translation: item.translation, imageQuery: item.imageQuery })),
   }));
 
   return (

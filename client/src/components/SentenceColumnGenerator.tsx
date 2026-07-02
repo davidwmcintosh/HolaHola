@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Volume2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -7,6 +8,21 @@ import { apiRequest } from "@/lib/queryClient";
 export interface ColumnItem {
   text: string;
   translation: string;
+  imageQuery?: string;
+}
+
+function ColumnItemImage({ imageQuery, text, language }: { imageQuery: string; text: string; language: string }) {
+  const { data, isLoading } = useQuery<{ url: string | null }>({
+    queryKey: ["/api/vocab-image/by-word", text, language, imageQuery],
+    queryFn: () => {
+      const params = new URLSearchParams({ word: text, language, description: imageQuery });
+      return fetch(`/api/vocab-image/by-word?${params.toString()}`, { credentials: "include" }).then(r => r.json());
+    },
+    staleTime: 10 * 60 * 1000,
+  });
+  if (isLoading) return <div className="w-8 h-8 rounded object-cover shrink-0 bg-muted animate-pulse" />;
+  if (!data?.url) return null;
+  return <img src={data.url} alt={text} className="w-8 h-8 rounded object-cover shrink-0" />;
 }
 
 export interface SentenceColumn {
@@ -161,6 +177,9 @@ export function SentenceColumnGenerator({
                       className="accent-primary shrink-0"
                       data-testid={`radio-col${colIdx}-${itemIdx}`}
                     />
+                    {item.imageQuery && (
+                      <ColumnItemImage imageQuery={item.imageQuery} text={item.text} language={language} />
+                    )}
                     <span className="flex-1 min-w-0">
                       <span
                         className={`block text-sm font-medium leading-snug ${isSelected ? "text-primary" : ""}`}
@@ -175,7 +194,6 @@ export function SentenceColumnGenerator({
                         {item.translation}
                       </span>
                     </span>
-                    {/* No per-word speaker button — sentence plays automatically on selection */}
                   </label>
                 );
               })}

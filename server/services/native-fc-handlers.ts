@@ -1,5 +1,5 @@
 import { sql, eq, and, desc, ilike, or } from "drizzle-orm";
-import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes, users, voiceSessions, voicePipelineEvents, pedagogicalSnapshots } from "@shared/schema";
+import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes, users, voiceSessions, voicePipelineEvents, pedagogicalSnapshots, studentMilestones } from "@shared/schema";
 import { isValidActflLevel } from "../actfl-utils";
 import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
@@ -7243,7 +7243,7 @@ export class NativeFunctionCallHandler {
         const text = fn.args.text as string | undefined;
         const title = fn.args.title as string | undefined;
         const patternLabel = fn.args.pattern_label as string | undefined;
-        const rawColumns = fn.args.columns as Array<{ label?: string; items: Array<{ text: string; translation: string }> }> | undefined;
+        const rawColumns = fn.args.columns as Array<{ label?: string; items: Array<{ text: string; translation: string; imageQuery?: string }> }> | undefined;
 
         if (!Array.isArray(rawColumns) || rawColumns.length === 0) {
           console.warn('[Native Function→ShowSentenceBuilder] Missing columns');
@@ -7263,7 +7263,7 @@ export class NativeFunctionCallHandler {
                 type: 'sentence-builder' as const,
                 columns: rawColumns.map(col => ({
                   label: col.label,
-                  items: (col.items || []).map(item => ({ text: item.text, translation: item.translation })),
+                  items: (col.items || []).map(item => ({ text: item.text, translation: item.translation, imageQuery: item.imageQuery })),
                 })),
                 patternLabel,
                 title,
@@ -7279,6 +7279,100 @@ export class NativeFunctionCallHandler {
           session.pendingWhiteboardUpdates.push(whiteboardUpdate);
         }
         console.log(`[Native Function→ShowSentenceBuilder] Displayed ${rawColumns.length} columns`);
+        break;
+      }
+
+      case 'RECORD_USTED_FLUENCY': {
+        const evidence = fn.args.evidence as string | undefined;
+        const language = (fn.args.language as string | undefined) || 'spanish';
+        const studentId = session.userId;
+
+        if (!studentId || !evidence) {
+          console.warn('[Native Function→RecordUstedFluency] Missing studentId or evidence');
+          break;
+        }
+
+        try {
+          const db = getSharedDb();
+          const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+          // Fetch or create the fluency tracking row
+          const existing = await db
+            .select()
+            .from(studentMilestones)
+            .where(and(
+              eq(studentMilestones.studentId, studentId),
+              eq(studentMilestones.language, language),
+              eq(studentMilestones.milestoneKey, 'usted_fluency')
+            ))
+            .limit(1);
+
+          let newCount = 1;
+          let newDistinctDays = 1;
+
+          if (existing.length > 0) {
+            const row = existing[0];
+            newCount = (row.successCount ?? 0) + 1;
+            const isNewDay = row.lastEvidenceDateStr !== today;
+            newDistinctDays = (row.distinctDays ?? 0) + (isNewDay ? 1 : 0);
+
+            await db
+              .update(studentMilestones)
+              .set({
+                successCount: newCount,
+                distinctDays: newDistinctDays,
+                lastEvidenceDateStr: today,
+                lastEvidenceAt: new Date(),
+                evidenceSummary: evidence,
+              })
+              .where(and(
+                eq(studentMilestones.studentId, studentId),
+                eq(studentMilestones.language, language),
+                eq(studentMilestones.milestoneKey, 'usted_fluency')
+              ));
+          } else {
+            await db.insert(studentMilestones).values({
+              studentId,
+              language,
+              milestoneKey: 'usted_fluency',
+              successCount: 1,
+              distinctDays: 1,
+              lastEvidenceDateStr: today,
+              lastEvidenceAt: new Date(),
+              evidenceSummary: evidence,
+            });
+          }
+
+          // Threshold check: 25 uses + 2+ distinct calendar days → reveal tú
+          if (newCount >= 25 && newDistinctDays >= 2) {
+            const alreadyUnlocked = await db
+              .select()
+              .from(studentMilestones)
+              .where(and(
+                eq(studentMilestones.studentId, studentId),
+                eq(studentMilestones.language, language),
+                eq(studentMilestones.milestoneKey, 'tu_revealed')
+              ))
+              .limit(1);
+
+            if (alreadyUnlocked.length === 0) {
+              await db.insert(studentMilestones).values({
+                studentId,
+                language,
+                milestoneKey: 'tu_revealed',
+                successCount: newCount,
+                distinctDays: newDistinctDays,
+                unlockedAt: new Date(),
+                evidenceSummary: `Unlocked after ${newCount} fluency uses across ${newDistinctDays} calendar days`,
+              });
+              console.log(`[Native Function→RecordUstedFluency] tú REVEALED for student ${studentId} in ${language}`);
+            }
+          }
+
+          console.log(`[Native Function→RecordUstedFluency] count=${newCount} days=${newDistinctDays} student=${studentId}`);
+        } catch (err) {
+          console.error('[Native Function→RecordUstedFluency] DB error:', err);
+        }
         break;
       }
 

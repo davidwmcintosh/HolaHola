@@ -1201,6 +1201,7 @@ export interface OverlayPanelVocabWord {
 export interface OverlayPanelColumnItem {
   text: string;
   translation: string;
+  imageQuery?: string;  // optional: fetch a thumbnail for Madrigal noun columns
 }
 
 /**

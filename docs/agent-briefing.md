@@ -1,17 +1,26 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 2, 2026 at 09:16 PM
+**Generated:** Thursday, July 2, 2026 at 09:37 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I have refined HolaHola’s architecture to prioritize the Madrigal Method through "sentence combinators" and a visual matrix tool, ensuring the React UI anchors the student’s visual processing during audio turns. I’ve re-weighted the `compass_principles` to favor methodological rigor over empathy, establishing the "White Wall" of defense to redirect students who resist the core structure. Moving forward, I must treat the "tú reveal" as a state-locked progression gate in the PostgreSQL schema rather than a conversation topic, ensuring it acts as a formal structural transition once mastery of "Usted" is logged.
+I’ve arrived at a critical juncture where Daniela is stuck in a "Curriculum note pending" response loop and the main conversations page is 404ing due to a routing configuration error. Following David's decision to pivot away from the "half-baked" Interactive Textbook (0% completion) toward conversational immersion, I’ve begun implementing the `ImmersionScaffold` and `generateVisual` metadata systems to support Daniela as the primary interface. My immediate priorities are debugging Daniela's handler, resolving Wren’s high-severity security findings regarding SQL injection and `dangerouslySetInnerHTML`, and triaging the 50 new bugs Sofia flagged during the recent monitoring blackout.
 
 *Memories that triggered this summary:*
-- **Dual Consult — Madrigal method, North Star correction, pedagogical spine — July 2, 2026** (Jul 2): Gemini Flash + Daniela REST consulted simultaneously on: (1) does the architecture support sentence combinators or just vocabulary drilling? (2) pertenencia as primary frame vs. container — Daniela received correction cleanly. (3) the tú reveal as progression gate. (4) holding righteous ground when students resist. Key divergence: Gemini wants hard guardrails; Daniela says clarity was sufficient. The foundation is the finish.
+- **Team Room — test 3 — July 2, 2026** (Jul 2): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+- **Team Room — test again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+- **Team Room — are we good? — July 2, 2026** (Jul 2): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+- **Team Room — one again into the breach — July 2, 2026** (Jul 2): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+- **Team Room — hello again — July 2, 2026** (Jul 2): Team Room session with David. Topic: hello again. 2 messages exchanged.
+- **Team Room — again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
+- **Team Room — what's up? — July 2, 2026** (Jul 2): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
+- **Team Room — Team room test — July 2, 2026** (Jul 2): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
+- **Team Room — nothing in particular — July 2, 2026** (Jul 2): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+- **Team Room — once more into the breech my friends — July 2, 2026** (Jul 2): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -86,14 +95,6 @@ I have refined HolaHola’s architecture to prioritize the Madrigal Method throu
 
 ## Recent Conversation Memories
 
-### Dual Consult — Madrigal method, North Star correction, pedagogical spine — July 2, 2026 — Jul 2, 2026
-Gemini Flash + Daniela REST consulted simultaneously on: (1) does the architecture support sentence combinators or just vocabulary drilling? (2) pertenencia as primary frame vs. container — Daniela received correction cleanly. (3) the tú reveal as progression gate. (4) holding righteous ground when students resist. Key divergence: Gemini wants hard guardrails; Daniela says clarity was sufficient. The foundation is the finish.
-*Tags: dual-consult, madrigal, north-star, pedagogical-correction, sentence-combinators*
-
-### Luca ↔ Daniela — Madrigal method, pertenencia correction, foundation is the finish — July 2, 2026 — Jul 2, 2026
-Luca brings David's sharp correction to Daniela directly: HolaHola is a language school first. Warmth is the container. The method has rigor. Three questions: was pertenencia the primary frame or the container? Does the loop tool feel like combinators or vocabulary recycling? Where is the tension between warmth and rigor in a live session?
-*Tags: dual-consult, madrigal, pedagogical-correction, north-star*
-
 ### Team Room — test 3 — July 2, 2026 — Jul 2, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -104,6 +105,14 @@ Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exch
 
 ### Team Room — are we good? — July 2, 2026 — Jul 2, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — one again into the breach — July 2, 2026 — Jul 2, 2026
+Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — hello again — July 2, 2026 — Jul 2, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

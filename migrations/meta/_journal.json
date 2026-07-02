@@ -15,6 +15,13 @@
       "when": 1782992101591,
       "tag": "0001_observer_seat_runs",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783028214878,
+      "tag": "0002_white_northstar",
+      "breakpoints": true
     }
   ]
 }

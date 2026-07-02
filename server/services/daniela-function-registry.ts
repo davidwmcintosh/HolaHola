@@ -4910,6 +4910,7 @@ Example for "¿Tomó un taxi?" pattern:
                     properties: {
                       text: { type: "string", description: "Target-language form (e.g. 'Voy al')" },
                       translation: { type: "string", description: "Native-language translation (e.g. 'I go to the')" },
+                      imageQuery: { type: "string", description: "Optional: image search query for this noun card — use for concrete nouns in Madrigal-style kernel columns (e.g. 'taxi yellow cab street', 'train station platform'). Omit for verb/subject columns." },
                     },
                     required: ["text", "translation"],
                   },
@@ -6131,6 +6132,41 @@ Call this when a scene interaction has an outcome worth remembering next visit.`
   },
 
   // ── Broadcast Data: real-world weather / sports / news for anchor practice ──
+  {
+    legacyType: 'RECORD_USTED_FLUENCY',
+    declaration: {
+      name: 'record_usted_fluency',
+      description: `Record a successful usted/third-person fluency instance. Call this silently when the student uses a formal or third-person conjugation correctly in genuine communicative exchange — not for drilled repetition. After 25 successful uses across at least 2 different calendar days (sleep cycle), tú forms are automatically revealed. Do not announce the count or threshold to the student.
+
+USE WHEN:
+• Student correctly uses "tomó", "habló", "fue", "tiene", or similar third-person/usted forms in a natural, communicative context
+• The usage demonstrates understanding, not just echo repetition
+
+DO NOT USE WHEN:
+• Student is just drilling a column in the sentence combinator
+• Student repeats your exact phrasing verbatim in the same turn
+
+Call silently — no announcement, no "great, I recorded that."`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          evidence: {
+            type: 'string',
+            description: 'Brief description of what the student said and in what context, e.g. "Said \'ella tomó un taxi\' naturally while building a story"',
+          },
+          language: {
+            type: 'string',
+            description: "Target language identifier, e.g. 'spanish'",
+          },
+        },
+        required: ['evidence'],
+      },
+    },
+    buildContinuationResponse: ({ fc }) => {
+      return `Fluency instance recorded: "${fc.args.evidence}". Continue the session — do not announce the count.`;
+    },
+  },
+
   {
     legacyType: 'GET_BROADCAST_DATA',
     declaration: {

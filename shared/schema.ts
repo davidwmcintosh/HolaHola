@@ -9666,3 +9666,32 @@ export const observerSeatRuns = pgTable('observer_seat_runs', {
 export const insertObserverSeatRunSchema = createInsertSchema(observerSeatRuns).omit({ id: true, runAt: true });
 export type InsertObserverSeatRun = z.infer<typeof insertObserverSeatRunSchema>;
 export type ObserverSeatRun = typeof observerSeatRuns.$inferSelect;
+
+// ===== STUDENT MILESTONES =====
+// Tracks pedagogical gate events per student per language.
+// Primary use: Madrigal tú reveal gate (usted_fluency + tu_revealed).
+// Threshold for tú unlock: 25 successful communicative uses of usted/third-person
+// across at least 2 distinct calendar days (sleep cycle matters).
+export const studentMilestones = pgTable("student_milestones", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  studentId: varchar("student_id").notNull(),
+  language: varchar("language").notNull().default("spanish"),
+  milestoneKey: varchar("milestone_key").notNull(),
+  // Examples: 'usted_fluency' (tracking counter), 'tu_revealed' (gate unlocked)
+  successCount: integer("success_count").default(0),
+  distinctDays: integer("distinct_days").default(0),
+  // Tracks the last calendar date a fluency instance was recorded (YYYY-MM-DD).
+  // Stored as a plain string to avoid timezone ambiguity across sessions.
+  lastEvidenceDateStr: varchar("last_evidence_date_str"),
+  unlockedAt: timestamp("unlocked_at"),
+  lastEvidenceAt: timestamp("last_evidence_at"),
+  evidenceSummary: text("evidence_summary"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_student_milestones_student").on(table.studentId, table.language),
+  uniqueIndex("idx_student_milestones_unique").on(table.studentId, table.language, table.milestoneKey),
+]);
+
+export const insertStudentMilestoneSchema = createInsertSchema(studentMilestones).omit({ id: true, createdAt: true });
+export type InsertStudentMilestone = z.infer<typeof insertStudentMilestoneSchema>;
+export type StudentMilestone = typeof studentMilestones.$inferSelect;
