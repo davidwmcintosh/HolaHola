@@ -319,6 +319,27 @@ export interface StreamingSession {
   telemetryTutorSpeakingMs: number;
   telemetryLlmInputTokens: number;   // Accumulated Gemini input tokens for this session
   telemetryLlmOutputTokens: number;  // Accumulated Gemini output tokens for this session
+  // Co-pilot ring buffers (Luca view) — populated live during the session
+  toolCallTrace?: ToolCallTraceEntry[];
+  transcriptTail?: TranscriptTailEntry[];
+}
+
+/**
+ * Co-pilot telemetry types — populated at runtime, exposed via /api/admin/luca-session-view
+ */
+export interface ToolCallTraceEntry {
+  toolName: string;
+  argsPreview: string;    // first 120 chars of JSON-stringified args
+  resultPreview: string;  // first 200 chars of result payload or error message
+  durationMs: number;
+  timestamp: number;
+  status: 'ok' | 'error';
+}
+
+export interface TranscriptTailEntry {
+  role: 'student' | 'daniela';
+  text: string;
+  timestamp: number;
 }
 
 /**

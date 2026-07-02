@@ -6633,6 +6633,9 @@ ${memoryContext}
         },
         textbookPage: (session as any).textbookPageResult ?? null,
         pendingGlContext: (session.pendingGlContext ?? []).slice(-5),
+        // Live telemetry ring buffers
+        toolCallTrace: (session.toolCallTrace ?? []).slice(-20),
+        transcriptTail: (session.transcriptTail ?? []).slice(-10),
       });
     } catch (err) {
       console.error("[LucaView] error:", err);

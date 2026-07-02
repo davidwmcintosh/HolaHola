@@ -2126,10 +2126,14 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
       const toolErrors = new Map<string, string>();
 
+      // Co-pilot: per-tool start times (parallel execution — measure each separately)
+      const toolStartTimes = new Map<string, number>();
+
       await Promise.allSettled(
         msg.toolCall.functionCalls.map(async (fc, idx) => {
           const fcName = fc.name || '';
           const extractedFc = extractedFcs[idx];
+          toolStartTimes.set(fcName, Date.now());
 
           console.log(`[GeminiLive] Tool call: ${fcName} (${extractedFc.legacyType})`);
 
@@ -2239,6 +2243,24 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               console.log(`[GeminiLive] Tool ${fcName}: returning ${text.length} chars of result data`);
             }
           }
+        }
+
+        // Co-pilot: push to tool call trace ring buffer (last 20)
+        {
+          if (!this.session.toolCallTrace) this.session.toolCallTrace = [];
+          const startMs = toolStartTimes.get(fcName) ?? Date.now();
+          const resultStr = toolErrors.has(fcName)
+            ? `ERROR: ${toolErrors.get(fcName)}`
+            : JSON.stringify(toolResponsePayload).slice(0, 200);
+          this.session.toolCallTrace.push({
+            toolName: fcName,
+            argsPreview: JSON.stringify(extractedFc.args ?? {}).slice(0, 120),
+            resultPreview: resultStr,
+            durationMs: Date.now() - startMs,
+            timestamp: Date.now(),
+            status: toolErrors.has(fcName) ? 'error' : 'ok',
+          });
+          if (this.session.toolCallTrace.length > 20) this.session.toolCallTrace.shift();
         }
 
         responses.push({
@@ -2641,6 +2663,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       const userText = this.pendingInputTranscript.trim();
       this.pendingInputTranscript = '';
       this.lastUserText = userText; // capture for enrichment context
+      // Co-pilot: push to transcript tail ring buffer (last 10)
+      if (!this.session.transcriptTail) this.session.transcriptTail = [];
+      this.session.transcriptTail.push({ role: 'student', text: userText, timestamp: Date.now() });
+      if (this.session.transcriptTail.length > 10) this.session.transcriptTail.shift();
       try {
         await this.persistMessage('user', userText);
       } catch (err: any) {
@@ -2727,6 +2753,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.totalOutputCharacters += assistantText.length;
       this.pendingOutputTranscript = '';
       this.usingOutputTranscription = false;
+      // Co-pilot: push to transcript tail ring buffer (last 10)
+      if (!this.session.transcriptTail) this.session.transcriptTail = [];
+      this.session.transcriptTail.push({ role: 'daniela', text: assistantText, timestamp: Date.now() });
+      if (this.session.transcriptTail.length > 10) this.session.transcriptTail.shift();
       try {
         const messageId = await this.persistMessage('assistant', assistantText);
         // Fire background enrichment (student_insights, recurring_struggles, vocab)

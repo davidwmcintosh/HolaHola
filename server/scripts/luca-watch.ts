@@ -86,6 +86,30 @@ function fmt(view: any): string {
     lines.push(`\n⏳ PENDING GL CTX (${ctx.length} items): ${JSON.stringify(ctx).slice(0, 200)}`);
   }
 
+  // Transcript tail
+  const tail = view.transcriptTail ?? [];
+  if (tail.length > 0) {
+    lines.push(`\n💬 TRANSCRIPT (last ${tail.length}):`);
+    for (const entry of tail) {
+      const speaker = entry.role === 'student' ? '  S' : '  D';
+      const t = new Date(entry.timestamp).toLocaleTimeString();
+      lines.push(`${speaker} [${t}]: ${String(entry.text).slice(0, 140)}`);
+    }
+  }
+
+  // Tool call trace
+  const trace = view.toolCallTrace ?? [];
+  if (trace.length > 0) {
+    lines.push(`\n🔧 TOOL CALLS (last ${trace.length}):`);
+    for (const tc of trace) {
+      const t = new Date(tc.timestamp).toLocaleTimeString();
+      const status = tc.status === 'error' ? ' ❌' : ' ✓';
+      lines.push(`  ${status} [${t}] ${tc.toolName} (${tc.durationMs}ms)`);
+      lines.push(`       args:   ${tc.argsPreview}`);
+      lines.push(`       result: ${tc.resultPreview.slice(0, 120)}`);
+    }
+  }
+
   return lines.join('\n');
 }
 
