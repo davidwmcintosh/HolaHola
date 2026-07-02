@@ -130,6 +130,17 @@ const validateEditorSecret = (secret: string): boolean => {
   }
   return secret === editorSecret;
 };
+
+// Accepts either editor secret OR agent token — used for Alden conversation
+// read routes so Luca can access the full conversation history without browser auth.
+const validateEditorOrAgent = (req: any): boolean => {
+  const editorHeader = req.headers['x-editor-secret'];
+  if (editorHeader && validateEditorSecret(editorHeader as string)) return true;
+  const agentToken = req.headers['x-agent-token'];
+  const configuredToken = process.env.REPLIT_AGENT_TOKEN;
+  if (agentToken && configuredToken && agentToken === configuredToken) return true;
+  return false;
+};
 import { supportPersonaService } from "./services/support-persona-service";
 import { generateAldenResponse } from "./services/alden-persona-service";
 import { founderCollabService } from "./services/founder-collaboration-service";
@@ -30060,8 +30071,7 @@ ${memoryContext}
   // ALDEN CONVERSATIONS: Search conversations (must be before :id route)
   app.get("/api/alden/conversations/search", async (req: any, res: Response) => {
     try {
-      const authHeader = req.headers['x-editor-secret'];
-      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+      if (!validateEditorOrAgent(req)) {
         return res.status(401).json({ error: 'Invalid authentication' });
       }
 
@@ -30082,8 +30092,7 @@ ${memoryContext}
   // ALDEN CONVERSATIONS: Get a conversation with messages
   app.get("/api/alden/conversations/:id", async (req: any, res: Response) => {
     try {
-      const authHeader = req.headers['x-editor-secret'];
-      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+      if (!validateEditorOrAgent(req)) {
         return res.status(401).json({ error: 'Invalid authentication' });
       }
 
@@ -30099,8 +30108,7 @@ ${memoryContext}
   // ALDEN CONVERSATIONS: Get recent conversations
   app.get("/api/alden/conversations", async (req: any, res: Response) => {
     try {
-      const authHeader = req.headers['x-editor-secret'];
-      if (!authHeader || !validateEditorSecret(authHeader as string)) {
+      if (!validateEditorOrAgent(req)) {
         return res.status(401).json({ error: 'Invalid authentication' });
       }
 
