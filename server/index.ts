@@ -468,6 +468,11 @@ app.use((req, res, next) => {
 
   await registerRoutes(app);
 
+  // Luca's autonomous session watchdog — scans active sessions every 30s for
+  // SOS signals, tool error spikes, stalled sessions, and degraded vision pipeline.
+  const { startSessionMonitor } = await import('./services/session-monitor');
+  startSessionMonitor();
+
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";

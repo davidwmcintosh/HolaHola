@@ -13,6 +13,90 @@ The core insight: the same way the Observer Seat gives Luca visibility into Dani
 
 ---
 
+## Full Monitoring & Testing Stack
+
+### Layer 1 — Observer Seat (headless simulation)
+
+Fire synthetic sessions without a real student. Test ACTFL calibration, visual tools, teaching arcs.
+
+- **Endpoint:** `POST /api/admin/agent-visual-demo` — fires a real GL session, captures tool calls + audio + transcript
+- **Audit script:** `npx tsx server/scripts/actfl-audit.ts` — headless multi-level comparison, no auth
+- **Frontend:** `client/src/pages/agent-visual-test.tsx` — three-panel view (Studio / Session / Whiteboard)
+- **History:** `GET /api/admin/observer-seat/runs` — all past runs (DB: `observer_seat_runs`)
+- **Replay:** `GET /api/admin/observer-seat/runs/:id`
+
+**Auth pattern:**
+```bash
+curl -si -X POST http://localhost:5000/api/internal/agent-session \
+  -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
+  -H "Content-Type: application/json" -d '{}' \
+  | grep -i set-cookie | sed 's/set-cookie: //i' | cut -d';' -f1 > /tmp/sc.txt
+```
+
+### Layer 2 — Co-pilot View (live session observation)
+
+Watch a real David↔Daniela session in real time. See exactly what Daniela sees, what she fires, what comes back.
+
+- **Endpoint:** `GET /api/admin/luca-session-view?userId=<id>` — live snapshot, poll every 3s
+- **CLI watch:** `npx tsx server/scripts/luca-watch.ts` — auto-reprints on state change
+
+**What the co-pilot view returns:**
+| Field | Contents |
+|-------|----------|
+| `observerSeat` | Daniela's own snapshot (call count, next heartbeat in N calls) |
+| `visionBuffer.vocabGrid` | Each word + image description + pipeline mode (bytes/cached/error) |
+| `visionBuffer.scene` | Current open_scene state text |
+| `visionBuffer.showImage` | Active show_image |
+| `visionBuffer.vocabCard` | Active vocab card |
+| `toolCallTrace` | Last 20 tool calls — name, args, result, duration, ok/error |
+| `transcriptTail` | Last 10 student/Daniela turns with timestamps |
+| `sosLog` | Unacknowledged SOS signals from Daniela |
+| `dbWriteLog` | Key DB writes this session (commit_to_memory, etc.) |
+| `sessionTelemetry` | TTS chars, exchange count, speaking time, LLM tokens |
+| `pendingGlContext` | Last 5 pending GL context injections |
+| `actfl`, `gear`, `toolCallCount` | Session state header |
+
+### Layer 3 — Session Monitor (autonomous background watchdog)
+
+Runs every 30s. Posts to Team Room when anomalies are found. No human needed.
+
+- **Service:** `server/services/session-monitor.ts` — auto-started at server boot
+- **Watches for:**
+  - 🚨 Unacknowledged SOS signals from Daniela
+  - ⚠️ High tool error rate (≥3/5 recent calls failed)
+  - ⏸️ Stalled sessions (no activity >8 minutes)
+  - 🖼️ Degraded vision pipeline (vocab grid with zero real descriptions)
+- Marks SOS entries as `acknowledged: true` so the same issue doesn't repeat-notify
+
+### Layer 4 — Daniela SOS Tool
+
+Daniela can self-report issues she can't fix.
+
+- **Tool:** `signal_issue(issue_type, description, severity)`
+- **On call:** writes to `session.sosLog` + fires agent note to Team Room (async)
+- **Issue types:** `image_failed`, `tool_error`, `interface_mismatch`, `context_gap`, `audio_problem`, `other`
+- **Severity:** `low` (workaround available) / `medium` (degraded teaching) / `high` (cannot continue)
+- **In luca-watch:** SOS entries appear in red at the top of every poll cycle
+
+### Layer 5 — Function Flow Testing
+
+Using the Observer Seat + Co-pilot view together to verify system state before/after each tool call:
+
+```
+1. Start agent session (Layer 1 or real session via Layer 2)
+2. Fire a tool (via agent-visual-demo or watch David trigger it naturally)
+3. Poll luca-session-view — verify:
+   - toolCallTrace shows the call with status:'ok'
+   - visionBuffer updated with the expected content
+   - observerSeat.snapshot reflects the new state (within 10 calls)
+   - transcriptTail shows what Daniela said about it
+4. Dismiss the widget
+5. Poll again — verify visionBuffer entry cleared
+6. Verify next observerSeat snapshot no longer mentions the dismissed widget
+```
+
+---
+
 ## Architecture
 
 - **Endpoint:** `POST /api/admin/agent-visual-demo` — fires a real GL session, captures tool calls + audio + transcript
@@ -82,6 +166,15 @@ The core insight: the same way the Observer Seat gives Luca visibility into Dani
 - Coverage grade (PASS / PARTIAL / FAIL)
 
 **Status:** Both pre- and post-fix runs showed consistent visual tool firing (2 tools per run: open_scene + show_vocab_grid). The visual layer is reliable. The problem is voice calibration, not visual.
+
+**Testing via co-pilot view:**
+```bash
+npx tsx server/scripts/luca-watch.ts
+# Trigger show_vocab_grid in session
+# Verify: visionBuffer.vocabGrid appears with word+description
+# Verify: toolCallTrace shows show_vocab_grid status:'ok' with durationMs
+# Dismiss panel → verify visionBuffer.vocabGrid clears
+```
 
 ---
 
@@ -168,6 +261,31 @@ fires `START_MADRIGAL_LOOP` with the correct `vocab_query` (first vocab word fro
 
 ---
 
+### 4c. Daniela SOS Feedback Loop (July 2, 2026)
+
+**The problem:** Daniela can regenerate a single image, but she has no way to flag systemic failures she can't fix herself — image pipeline degraded, tool returning unexpected errors, context gaps that block teaching.
+
+**What was built — `signal_issue` tool:**
+
+Daniela calls `signal_issue(issue_type, description, severity)` when she hits a wall.
+
+- **On call:** writes to `session.sosLog` ring buffer + fires agent note to Team Room (async, non-blocking)
+- **Issue types:** `image_failed` / `tool_error` / `interface_mismatch` / `context_gap` / `audio_problem` / `other`
+- **Severity:** `low` (workaround available) / `medium` (degraded teaching) / `high` (cannot continue)
+- **In luca-watch:** SOS entries print in red at top of every poll cycle
+- **In session monitor:** SOS entries trigger a Team Room post within 30s, then `acknowledged: true`
+
+**The feedback loop:**
+```
+Daniela hits issue → calls signal_issue → sosLog populated
+  → session-monitor sees it (within 30s) → Team Room alert
+  → luca-watch shows it in red immediately (3s poll)
+  → Luca investigates via Observer Seat / co-pilot view
+  → Fix deployed → Daniela can resume teaching effectively
+```
+
+---
+
 ### 5. Gemini Suggestions Log
 
 *Architectural recommendations from Gemini consults — captured for future build prioritization.*
@@ -207,6 +325,24 @@ Compares novice_low vs intermediate_mid on the restaurant scenario. Reports:
 
 ---
 
+## Run the Co-pilot Watch
+
+```bash
+# Auth first (one time per server restart)
+curl -si -X POST http://localhost:5000/api/internal/agent-session \
+  -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
+  -H "Content-Type: application/json" -d '{}' \
+  | grep -i set-cookie | sed 's/set-cookie: //i' | cut -d';' -f1 > /tmp/sc.txt
+
+# Watch David's active session in real time
+npx tsx server/scripts/luca-watch.ts
+
+# Watch a specific user's session
+npx tsx server/scripts/luca-watch.ts <userId>
+```
+
+---
+
 ## History Access (for Claude Code / Alden)
 
 ```
@@ -215,3 +351,22 @@ GET /api/admin/observer-seat/runs/:id
 ```
 
 Every Observer Seat run is persisted with transcript, tool calls, coverage score, and audio URL.
+
+---
+
+## Systems to Test (Priority Queue)
+
+Now that the full monitoring stack is in place, here's what to validate first:
+
+| System | Test Method | Key Assertion |
+|--------|-------------|---------------|
+| ACTFL calibration | `actfl-audit.ts` | NL English% > IM English% |
+| show_vocab_grid | co-pilot watch + trigger | visionBuffer.vocabGrid populated, all words have descriptions |
+| Image vision (first-fetch race) | co-pilot watch | visionMode = 'bytes' on first session, 'cached' on second |
+| Observer Seat heartbeat | co-pilot watch | observerSeat.snapshot changes every 10 calls |
+| widget-closed signal | dismiss vocab grid | visionBuffer.vocabGrid clears within 3s poll |
+| open_scene → add_to_scene → scene exit | co-pilot watch | scene buffer reflects canvas state at each step |
+| signal_issue SOS | force an error, have Daniela call it | sosLog populated, Team Room alert within 30s |
+| commit_to_memory | co-pilot watch + trigger | dbWriteLog shows conversation_memories insert |
+| Conductor Arc | Observer Seat run | Madrigal loop auto-starts after textbook page open |
+| Session stall detection | let session idle 8m | session-monitor posts Team Room alert |

@@ -6636,6 +6636,17 @@ ${memoryContext}
         // Live telemetry ring buffers
         toolCallTrace: (session.toolCallTrace ?? []).slice(-20),
         transcriptTail: (session.transcriptTail ?? []).slice(-10),
+        sosLog: (session.sosLog ?? []).filter((e: any) => !e.acknowledged),
+        dbWriteLog: (session.dbWriteLog ?? []).slice(-30),
+        // Session-level telemetry totals
+        sessionTelemetry: {
+          ttsCharacters: session.telemetryTtsCharacters,
+          exchangeCount: session.telemetryExchangeCount,
+          studentSpeakingMs: session.telemetryStudentSpeakingMs,
+          tutorSpeakingMs: session.telemetryTutorSpeakingMs,
+          llmInputTokens: session.telemetryLlmInputTokens,
+          llmOutputTokens: session.telemetryLlmOutputTokens,
+        },
       });
     } catch (err) {
       console.error("[LucaView] error:", err);

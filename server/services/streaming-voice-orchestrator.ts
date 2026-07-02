@@ -818,6 +818,11 @@ export class StreamingVoiceOrchestrator {
   getActiveSessionCount(): number {
     return this.sessions.size;
   }
+
+  /** All active sessions — used by session-monitor for anomaly scanning */
+  getActiveSessions(): StreamingSession[] {
+    return Array.from(this.sessions.values());
+  }
   
   /**
    * Set callback for TTS state changes (used to suppress OpenMic during TTS)

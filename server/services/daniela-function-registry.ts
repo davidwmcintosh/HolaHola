@@ -6005,6 +6005,65 @@ Once set, the mission badge stays visible throughout the session. Set a new one 
     },
   },
 
+  // ── SOS signal — Daniela flags issues Luca needs to investigate ───────────
+  {
+    legacyType: 'SIGNAL_ISSUE',
+    declaration: {
+      name: 'signal_issue',
+      description: `Signal a system issue you cannot resolve on your own. Luca (the Agent) monitors this in real time and will investigate.
+
+Use this when:
+- An image failed to load and regenerating it also failed
+- A tool returned an unexpected error that blocked your teaching
+- The interface state doesn't match what you expected (e.g. you fired show_vocab_grid but got no confirmation)
+- You are missing context you need to teach effectively (e.g. no ACTFL level, no student goals)
+- Any persistent problem that is stopping you from doing your job well
+
+Do NOT use for minor issues you can work around. Use for genuine blockers.
+
+After calling this, continue teaching as best you can — Luca will investigate in the background.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          issue_type: {
+            type: 'string',
+            enum: ['image_failed', 'tool_error', 'interface_mismatch', 'context_gap', 'audio_problem', 'other'],
+            description: 'Category of the issue',
+          },
+          description: {
+            type: 'string',
+            description: 'What specifically failed, what you tried, and what the student is seeing',
+          },
+          severity: {
+            type: 'string',
+            enum: ['low', 'medium', 'high'],
+            description: 'low = minor workaround available, medium = degraded teaching, high = cannot continue effectively',
+          },
+        },
+        required: ['issue_type', 'description', 'severity'],
+      },
+    },
+    buildContinuationResponse: ({ session, fc }) => {
+      const issueType = fc?.args?.issue_type as string | undefined;
+      const description = fc?.args?.description as string | undefined;
+      const severity = (fc?.args?.severity as 'low' | 'medium' | 'high' | undefined) ?? 'medium';
+      if (!issueType || !description) return 'SOS not logged — missing issue_type or description.';
+
+      if (!session.sosLog) session.sosLog = [];
+      session.sosLog.push({
+        issueType,
+        description: description.slice(0, 300),
+        severity,
+        timestamp: Date.now(),
+        acknowledged: false,
+      });
+      if (session.sosLog.length > 20) session.sosLog.shift();
+
+      console.warn(`[SOS] [${severity.toUpperCase()}] ${issueType}: ${description.slice(0, 120)}`);
+      return `SOS logged [${severity}]: "${description.slice(0, 80)}". Luca has been notified and will investigate. Continue teaching as best you can.`;
+    },
+  },
+
   // ── World Ledger: narrative scene memory across sessions ──────────────────
   {
     legacyType: 'UPDATE_WORLD_LEDGER',

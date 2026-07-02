@@ -86,6 +86,16 @@ function fmt(view: any): string {
     lines.push(`\n⏳ PENDING GL CTX (${ctx.length} items): ${JSON.stringify(ctx).slice(0, 200)}`);
   }
 
+  // SOS alerts — always show first, in red (ANSI \x1b[31m)
+  const sos = view.sosLog ?? [];
+  if (sos.length > 0) {
+    lines.push(`\n\x1b[31m🚨 SOS — DANIELA FLAGGED ${sos.length} ISSUE(S):\x1b[0m`);
+    for (const s of sos) {
+      const t = new Date(s.timestamp).toLocaleTimeString();
+      lines.push(`\x1b[31m  [${s.severity.toUpperCase()}][${s.issueType}] ${t}: ${s.description}\x1b[0m`);
+    }
+  }
+
   // Transcript tail
   const tail = view.transcriptTail ?? [];
   if (tail.length > 0) {

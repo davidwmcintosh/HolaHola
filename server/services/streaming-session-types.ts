@@ -322,6 +322,8 @@ export interface StreamingSession {
   // Co-pilot ring buffers (Luca view) — populated live during the session
   toolCallTrace?: ToolCallTraceEntry[];
   transcriptTail?: TranscriptTailEntry[];
+  sosLog?: SosLogEntry[];        // Daniela SOS signals — issues she can't fix herself
+  dbWriteLog?: DbWriteLogEntry[]; // key DB writes this session (last 30)
 }
 
 /**
@@ -339,6 +341,21 @@ export interface ToolCallTraceEntry {
 export interface TranscriptTailEntry {
   role: 'student' | 'daniela';
   text: string;
+  timestamp: number;
+}
+
+export interface SosLogEntry {
+  issueType: string;
+  description: string;
+  severity: 'low' | 'medium' | 'high';
+  timestamp: number;
+  acknowledged: boolean;  // flipped to true once Luca/monitor reads it
+}
+
+export interface DbWriteLogEntry {
+  table: string;
+  operation: 'insert' | 'update' | 'delete';
+  preview: string;   // first 120 chars of what was written
   timestamp: number;
 }
 

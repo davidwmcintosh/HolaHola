@@ -4834,6 +4834,10 @@ export class NativeFunctionCallHandler {
             recordedAt: new Date(),
           }).returning({ id: conversationMemories.id });
           session.lastCommittedMemoryId = row?.id;
+          // Co-pilot dbWriteLog
+          if (!session.dbWriteLog) session.dbWriteLog = [];
+          session.dbWriteLog.push({ table: 'conversation_memories', operation: 'insert', preview: `"${cmTitle.trim().slice(0, 80)}" (importance=${cmImportance})`, timestamp: Date.now() });
+          if (session.dbWriteLog.length > 30) session.dbWriteLog.shift();
           console.log(`[Native Function→CommitToMemory] Saved "${cmTitle.trim().slice(0, 60)}" (importance=${cmImportance}, id=${row?.id?.slice(0, 8)})`);
         } catch (err: any) {
           console.error('[Native Function→CommitToMemory] DB error:', err.message);
@@ -4847,6 +4851,33 @@ export class NativeFunctionCallHandler {
         // by updateStudentPulse() called on each incoming student transcript.
         // buildContinuationResponse reads session.studentPulse directly.
         console.log(`[Native Function→GetStudentPulse] score=${session.studentPulse?.frustrationScore ?? 'n/a'} messages=${session.studentPulse?.messageCount ?? 0}`);
+        break;
+      }
+
+      case 'SIGNAL_ISSUE': {
+        // SOS log population is handled in buildContinuationResponse (registry).
+        // The handler fires the agent note asynchronously so the GL response isn't delayed.
+        const sosDesc = fn.args.description as string | undefined;
+        const sosSeverity = fn.args.severity as string | undefined;
+        const sosType = fn.args.issue_type as string | undefined;
+        if (sosDesc) {
+          // Fire-and-forget agent note so Luca is notified via Team Room
+          setImmediate(async () => {
+            try {
+              const agentToken = process.env.REPLIT_AGENT_TOKEN;
+              if (!agentToken) return;
+              await fetch(`${process.env.APP_URL || 'http://localhost:5000'}/api/agent/note`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-agent-token': agentToken },
+                body: JSON.stringify({
+                  subject: `[SOS][${sosSeverity?.toUpperCase() ?? 'MED'}] ${sosType ?? 'issue'}`,
+                  content: `Daniela signalled an issue during session ${session.id}.\n\nType: ${sosType}\nSeverity: ${sosSeverity}\n\n${sosDesc}`,
+                  priority: sosSeverity === 'high' ? 'critical' : 'normal',
+                }),
+              });
+            } catch { /* non-critical — SOS is already in session.sosLog */ }
+          });
+        }
         break;
       }
 
