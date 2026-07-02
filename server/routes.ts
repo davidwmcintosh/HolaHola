@@ -24792,6 +24792,19 @@ Use visual tools actively throughout the lesson. When introducing vocabulary, ca
       watchId,
     } = req.body;
 
+    // ACTFL level — accept from request body, default novice_mid
+    const actflLevelParam: string = (req.body.actflLevel as string) || 'novice_mid';
+    const ACTFL_DESCRIPTORS: Record<string, string> = {
+      'novice_low':       'Novice-Low learner (brand new — recognises a handful of words, needs maximum English scaffolding)',
+      'novice_mid':       'Novice-Mid learner (beginner — knows a small core vocabulary, benefits from repetition and visuals)',
+      'novice_high':      'Novice-High learner (high-beginner — can handle simple sentences and basic exchanges)',
+      'intermediate_low': 'Intermediate-Low learner (forming sentences — can describe familiar topics simply)',
+      'intermediate_mid': 'Intermediate-Mid learner (solid intermediate — sustains conversation, handles present and past tenses)',
+      'intermediate_high':'Intermediate-High learner (strong intermediate — narrates in multiple tenses, handles complications)',
+      'advanced_low':     'Advanced-Low learner (advanced — handles most real-world and some academic topics)',
+    };
+    const actflDescriptor = ACTFL_DESCRIPTORS[actflLevelParam] || `${actflLevelParam} learner`;
+
     const MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
     const LANG_LABELS: Record<string, string> = {
       'es-ES': 'Español (España)', 'es-MX': 'Español (México)',
@@ -24800,9 +24813,9 @@ Use visual tools actively throughout the lesson. When introducing vocabulary, ca
     };
     const langLabel = LANG_LABELS[languageCode] || languageCode;
 
-    const systemPrompt = `You are Daniela, a warm, inventive ${langLabel} language tutor. Your student is Alex — a novice-mid learner who loves travel and food.
+    const systemPrompt = `You are Daniela, a warm, inventive ${langLabel} language tutor. Your student is Alex — a ${actflDescriptor} who loves travel and food.
 
-Speak mostly in ${langLabel}. Keep spoken responses to 2–3 sentences.
+Speak mostly in ${langLabel}. Keep spoken responses to 2–3 sentences. Calibrate vocabulary complexity, speech pace, and target-language ratio strictly to the student's ACTFL level.
 
 When you start, ALWAYS do this in order:
 1. Call open_scene immediately with a fitting food or travel environment (e.g. "spanish_restaurant", "mercado", "cafe_madrid").

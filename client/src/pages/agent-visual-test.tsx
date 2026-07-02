@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -40,7 +40,6 @@ interface CoverageScore {
   transcriptChars: number;
 }
 
-// DB run record (from GET /api/admin/observer-seat/runs/:id)
 interface FullRun {
   id: string;
   runAt: string;
@@ -67,56 +66,36 @@ interface HistoryRow {
   transcriptSnippet: string;
 }
 
+// ─── ACTFL levels ─────────────────────────────────────────────────────────────
+
+const ACTFL_LEVELS = [
+  { value: 'novice_low',       label: 'Novice Low',       short: 'NL' },
+  { value: 'novice_mid',       label: 'Novice Mid',       short: 'NM' },
+  { value: 'novice_high',      label: 'Novice High',      short: 'NH' },
+  { value: 'intermediate_low', label: 'Intermediate Low', short: 'IL' },
+  { value: 'intermediate_mid', label: 'Intermediate Mid', short: 'IM' },
+  { value: 'intermediate_high',label: 'Intermediate High',short: 'IH' },
+  { value: 'advanced_low',     label: 'Advanced Low',     short: 'AL' },
+];
+
 // ─── Scenario presets ─────────────────────────────────────────────────────────
 
 const SCENARIOS = [
-  {
-    label: "ES · Restaurant",
-    lang: "es-ES",
-    text: "Hola Daniela. Quiero practicar español. Me gustan los restaurantes y la comida. ¿Puedes mostrarme vocabulario de restaurante con imágenes?",
-  },
-  {
-    label: "ES · Travel",
-    lang: "es-ES",
-    text: "Hola Daniela. Quiero practicar español de viajes. ¿Puedes mostrarme vocabulario del aeropuerto y el hotel con imágenes?",
-  },
-  {
-    label: "ES · Shopping",
-    lang: "es-ES",
-    text: "Hola Daniela. Quiero aprender vocabulario de las compras en español. ¿Puedes mostrarme palabras de tiendas y mercados?",
-  },
-  {
-    label: "FR · Restaurant",
-    lang: "fr-FR",
-    text: "Bonjour Daniela. Je veux pratiquer le français. J'adore les restaurants. Peux-tu me montrer du vocabulaire de restaurant avec des images?",
-  },
-  {
-    label: "PT · Food",
-    lang: "pt-BR",
-    text: "Olá Daniela. Quero praticar português. Adoro comida brasileira. Pode me mostrar vocabulário de comida com imagens?",
-  },
-  {
-    label: "DE · Shopping",
-    lang: "de-DE",
-    text: "Hallo Daniela. Ich möchte Deutsch üben. Ich gehe gern einkaufen. Kannst du mir Einkaufsvokabular mit Bildern zeigen?",
-  },
-  {
-    label: "IT · Hotel",
-    lang: "it-IT",
-    text: "Ciao Daniela. Voglio praticare l'italiano. Mi piacciono gli hotel e i viaggi. Puoi mostrarmi vocabolario dell'hotel con immagini?",
-  },
-  {
-    label: "JA · Greetings",
-    lang: "ja-JP",
-    text: "こんにちは、Daniela。日本語を練習したいです。挨拶と自己紹介の語彙を画像で見せてもらえますか？",
-  },
+  { label: 'ES · Restaurant', lang: 'es-ES', text: 'Hola Daniela. Quiero practicar español. Me gustan los restaurantes y la comida. ¿Puedes mostrarme vocabulario de restaurante con imágenes?' },
+  { label: 'ES · Travel',     lang: 'es-ES', text: 'Hola Daniela. Quiero practicar español de viajes. ¿Puedes mostrarme vocabulario del aeropuerto y el hotel con imágenes?' },
+  { label: 'ES · Weather',    lang: 'es-ES', text: 'Hola Daniela. Quiero aprender vocabulario del tiempo en español. ¿Puedes mostrarme las palabras del clima con imágenes?' },
+  { label: 'ES · Shopping',   lang: 'es-ES', text: 'Hola Daniela. Quiero aprender vocabulario de las compras en español. ¿Puedes mostrarme palabras de tiendas y mercados?' },
+  { label: 'FR · Restaurant', lang: 'fr-FR', text: 'Bonjour Daniela. Je veux pratiquer le français. J\'adore les restaurants. Peux-tu me montrer du vocabulaire de restaurant avec des images?' },
+  { label: 'PT · Food',       lang: 'pt-BR', text: 'Olá Daniela. Quero praticar português. Adoro comida brasileira. Pode me mostrar vocabulário de comida com imagens?' },
+  { label: 'DE · Shopping',   lang: 'de-DE', text: 'Hallo Daniela. Ich möchte Deutsch üben. Ich gehe gern einkaufen. Kannst du mir Einkaufsvokabular mit Bildern zeigen?' },
+  { label: 'IT · Hotel',      lang: 'it-IT', text: 'Ciao Daniela. Voglio praticare l\'italiano. Mi piacciono gli hotel e i viaggi. Puoi mostrarmi vocabolario dell\'hotel con immagini?' },
 ];
 
 // ─── Coverage helpers ─────────────────────────────────────────────────────────
 
 function computeCoverage(data: Pick<DemoResult, 'visualEvents' | 'audioDurationS' | 'transcript'>): CoverageScore {
-  const sceneOk = data.visualEvents.some(e => e.type === "open_scene" || e.type === "show_cultural_scene");
-  const vocabOk = data.visualEvents.some(e => e.type === "show_vocab_grid" || e.type === "create_vocabulary_drill");
+  const sceneOk = data.visualEvents.some(e => e.type === 'open_scene' || e.type === 'show_cultural_scene');
+  const vocabOk = data.visualEvents.some(e => e.type === 'show_vocab_grid' || e.type === 'create_vocabulary_drill');
   const allWords = data.visualEvents.flatMap(e => e.resolvedWords ?? []);
   const imageHits = allWords.filter(w => w.imageUrl).length;
   const imageTotal = allWords.length;
@@ -124,36 +103,63 @@ function computeCoverage(data: Pick<DemoResult, 'visualEvents' | 'audioDurationS
   return { sceneOk, vocabOk, imageHits, imageTotal, audioOk, transcriptChars: data.transcript.length };
 }
 
-function coverageGrade(c: CoverageScore): "PASS" | "PARTIAL" | "FAIL" {
+function coverageGrade(c: CoverageScore): 'PASS' | 'PARTIAL' | 'FAIL' {
   const imgOk = c.imageTotal === 0 || c.imageHits / c.imageTotal >= 0.8;
-  if (c.sceneOk && c.vocabOk && c.audioOk && c.transcriptChars > 100 && imgOk) return "PASS";
-  if (c.sceneOk || c.vocabOk || c.audioOk) return "PARTIAL";
-  return "FAIL";
+  if (c.sceneOk && c.vocabOk && c.audioOk && c.transcriptChars > 100 && imgOk) return 'PASS';
+  if (c.sceneOk || c.vocabOk || c.audioOk) return 'PARTIAL';
+  return 'FAIL';
 }
 
 function gradeColor(g: string) {
-  if (g === "PASS") return "text-green-600 dark:text-green-400";
-  if (g === "PARTIAL") return "text-yellow-600 dark:text-yellow-400";
-  return "text-red-500";
+  if (g === 'PASS') return 'text-green-600 dark:text-green-400';
+  if (g === 'PARTIAL') return 'text-yellow-600 dark:text-yellow-400';
+  return 'text-red-500';
+}
+
+// ─── Comparison transcript panel ──────────────────────────────────────────────
+
+function TranscriptCompare({
+  a, b, labelA, labelB, onClear
+}: {
+  a: string; b: string; labelA: string; labelB: string; onClear: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur flex flex-col">
+      <div className="flex items-center gap-3 px-5 py-3 border-b shrink-0">
+        <h2 className="text-sm font-semibold">ACTFL Level Comparison</h2>
+        <span className="text-xs text-muted-foreground">Same scenario — different levels</span>
+        <div className="flex-1" />
+        <Button size="sm" variant="outline" onClick={onClear}>Close</Button>
+      </div>
+      <div className="flex-1 min-h-0 grid grid-cols-2 divide-x overflow-hidden">
+        <div className="flex flex-col min-h-0">
+          <div className="px-5 py-2 border-b bg-muted/40 shrink-0">
+            <Badge variant="outline" className="text-xs">{labelA}</Badge>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            <p className="text-sm leading-relaxed whitespace-pre-wrap">{a || '—'}</p>
+          </div>
+        </div>
+        <div className="flex flex-col min-h-0">
+          <div className="px-5 py-2 border-b bg-muted/40 shrink-0">
+            <Badge variant="outline" className="text-xs">{labelB}</Badge>
+          </div>
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            <p className="text-sm leading-relaxed whitespace-pre-wrap">{b || '—'}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── History table ────────────────────────────────────────────────────────────
 
-function HistoryTable({
-  rows,
-  loading,
-  selectedId,
-  onSelect,
-  onRefresh,
-}: {
-  rows: HistoryRow[];
-  loading: boolean;
-  selectedId: string | null;
-  onSelect: (id: string) => void;
-  onRefresh: () => void;
+function HistoryTable({ rows, loading, selectedId, onSelect, onRefresh }: {
+  rows: HistoryRow[]; loading: boolean; selectedId: string | null;
+  onSelect: (id: string) => void; onRefresh: () => void;
 }) {
   const [open, setOpen] = useState(false);
-
   return (
     <div className="shrink-0 border-t bg-muted/30">
       <button
@@ -165,7 +171,6 @@ function HistoryTable({
         Run history ({rows.length})
         <span className="ml-auto text-xs opacity-60">Click a row to reload its visuals</span>
       </button>
-
       {open && (
         <div className="overflow-x-auto max-h-52 overflow-y-auto">
           {loading ? (
@@ -196,19 +201,19 @@ function HistoryTable({
                   return (
                     <tr
                       key={h.id}
-                      className={`border-b border-border/40 hover-elevate cursor-pointer ${isSelected ? 'bg-primary/8' : ''}`}
+                      className={`border-b border-border/40 hover-elevate cursor-pointer ${isSelected ? 'bg-primary/10' : ''}`}
                       onClick={() => onSelect(h.id)}
                       data-testid={`history-row-${h.id}`}
                     >
                       <td className="px-4 py-1.5 text-muted-foreground font-mono">{timeStr}</td>
                       <td className="px-2 py-1.5 font-medium">{h.scenarioLabel}</td>
                       <td className={`px-2 py-1.5 font-bold uppercase ${gradeColor(h.grade)}`}>{h.grade}</td>
-                      <td className="px-2 py-1.5">{c.sceneOk ? "✓" : "✗"}</td>
-                      <td className="px-2 py-1.5">{c.vocabOk ? `✓ ${c.imageTotal}w` : "✗"}</td>
-                      <td className={`px-2 py-1.5 ${imgPct >= 80 ? "text-green-600" : imgPct > 0 ? "text-yellow-600" : "text-red-500"}`}>
+                      <td className="px-2 py-1.5">{c.sceneOk ? '✓' : '✗'}</td>
+                      <td className="px-2 py-1.5">{c.vocabOk ? `✓ ${c.imageTotal}w` : '✗'}</td>
+                      <td className={`px-2 py-1.5 ${imgPct >= 80 ? 'text-green-600' : imgPct > 0 ? 'text-yellow-600' : 'text-red-500'}`}>
                         {c.imageHits}/{c.imageTotal} ({imgPct}%)
                       </td>
-                      <td className="px-2 py-1.5">{c.audioOk ? "✓" : "✗"}</td>
+                      <td className="px-2 py-1.5">{c.audioOk ? '✓' : '✗'}</td>
                       <td className="px-2 py-1.5 text-muted-foreground truncate max-w-[200px]">{h.transcriptSnippet}</td>
                     </tr>
                   );
@@ -222,36 +227,42 @@ function HistoryTable({
   );
 }
 
-// ─── Visual panels helpers ────────────────────────────────────────────────────
+// ─── Visual panel helpers ─────────────────────────────────────────────────────
 
 function deriveVisuals(events: VisualEvent[]) {
-  const sceneEvent = events.find(e => e.type === "open_scene" && e.imageUrl);
+  const sceneEvent = events.find(e => e.type === 'open_scene' && e.imageUrl);
   const vocabEvent = events.find(e =>
-    (e.type === "show_vocab_grid" || e.type === "create_vocabulary_drill") && e.resolvedWords?.length
+    (e.type === 'show_vocab_grid' || e.type === 'create_vocabulary_drill') && e.resolvedWords?.length
   );
   const singleImageEvent = events.find(e =>
-    (e.type === "show_image" || e.type === "show_cultural_scene") && e.imageUrl
+    (e.type === 'show_image' || e.type === 'show_cultural_scene') && e.imageUrl
   );
   const studioImage = sceneEvent?.imageUrl || singleImageEvent?.imageUrl || null;
   const studioLabel = (sceneEvent?.data?.environment as string) || (singleImageEvent?.data?.word as string) || null;
-  return { sceneEvent, vocabEvent, singleImageEvent, studioImage, studioLabel };
+  return { vocabEvent, studioImage, studioLabel };
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export default function AgentVisualTest() {
-  const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
   const [result, setResult] = useState<DemoResult | null>(null);
   const [selectedScenario, setSelectedScenario] = useState(0);
-  const [customText, setCustomText] = useState(SCENARIOS[0].text);
-  const [customLang, setCustomLang] = useState(SCENARIOS[0].lang);
+  const [selectedActfl, setSelectedActfl] = useState('novice_mid');
   const [elapsedS, setElapsedS] = useState(0);
+
+  // ACTFL comparison mode
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareRunning, setCompareRunning] = useState(false);
+  const [compareA, setCompareA] = useState<{ transcript: string; label: string } | null>(null);
+  const [compareB, setCompareB] = useState<{ transcript: string; label: string } | null>(null);
+  const [compareActflA, setCompareActflA] = useState('novice_mid');
+  const [compareActflB, setCompareActflB] = useState('intermediate_mid');
+  const [showComparison, setShowComparison] = useState(false);
 
   // History from DB
   const [historyRows, setHistoryRows] = useState<HistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-
-  // When a history row is clicked, we load its full data and show it in the panels
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [selectedRun, setSelectedRun] = useState<FullRun | null>(null);
   const [selectedRunLoading, setSelectedRunLoading] = useState(false);
@@ -260,9 +271,8 @@ export default function AgentVisualTest() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { toast } = useToast();
 
-  // Elapsed timer while running
   useEffect(() => {
-    if (status === "running") {
+    if (status === 'running') {
       setElapsedS(0);
       timerRef.current = setInterval(() => setElapsedS(s => s + 1), 1000);
     } else {
@@ -274,109 +284,115 @@ export default function AgentVisualTest() {
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
-      const resp = await fetch("/api/admin/observer-seat/runs?limit=50", { credentials: "include" });
-      if (resp.ok) {
-        const data = await resp.json();
-        setHistoryRows(data.runs ?? []);
-      }
-    } catch {
-      // silent — history is non-critical
-    } finally {
-      setHistoryLoading(false);
-    }
+      const resp = await fetch('/api/admin/observer-seat/runs?limit=50', { credentials: 'include' });
+      if (resp.ok) { const d = await resp.json(); setHistoryRows(d.runs ?? []); }
+    } catch { /* silent */ } finally { setHistoryLoading(false); }
   }, []);
 
   const loadRun = useCallback(async (id: string) => {
     setSelectedRunId(id);
     setSelectedRun(null);
     setSelectedRunLoading(true);
-    setResult(null); // clear live result so panels show historical run
+    setResult(null);
     try {
-      const resp = await fetch(`/api/admin/observer-seat/runs/${id}`, { credentials: "include" });
+      const resp = await fetch(`/api/admin/observer-seat/runs/${id}`, { credentials: 'include' });
       if (resp.ok) {
-        const data = await resp.json();
-        setSelectedRun(data.run);
-        // Play audio if available
-        if (data.run.audioUrl && audioRef.current) {
-          audioRef.current.src = data.run.audioUrl;
-        }
+        const d = await resp.json();
+        setSelectedRun(d.run);
+        if (d.run.audioUrl && audioRef.current) audioRef.current.src = d.run.audioUrl;
       } else {
-        toast({ title: "Couldn't load run", description: "Run data not found.", variant: "destructive" });
+        toast({ title: "Couldn't load run", variant: 'destructive' });
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      toast({ title: "Load failed", description: msg, variant: "destructive" });
-    } finally {
-      setSelectedRunLoading(false);
-    }
+      toast({ title: 'Load failed', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
+    } finally { setSelectedRunLoading(false); }
   }, [toast]);
 
-  const pickScenario = (idx: number) => {
-    setSelectedScenario(idx);
-    setCustomText(SCENARIOS[idx].text);
-    setCustomLang(SCENARIOS[idx].lang);
-  };
+  const runOnce = useCallback(async (actflLevel: string): Promise<DemoResult> => {
+    const scenario = SCENARIOS[selectedScenario];
+    const resp = await fetch('/api/admin/agent-visual-demo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        text: scenario.text,
+        languageCode: scenario.lang,
+        scenarioLabel: `${scenario.label} [${ACTFL_LEVELS.find(l => l.value === actflLevel)?.short ?? actflLevel}]`,
+        actflLevel,
+      }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: resp.statusText }));
+      throw new Error((err as { error?: string }).error || resp.statusText);
+    }
+    return resp.json();
+  }, [selectedScenario]);
 
   const runDemo = useCallback(async () => {
-    setStatus("running");
+    setStatus('running');
     setResult(null);
     setSelectedRun(null);
     setSelectedRunId(null);
     try {
-      const resp = await fetch("/api/admin/agent-visual-demo", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          text: customText,
-          languageCode: customLang,
-          scenarioLabel: SCENARIOS[selectedScenario]?.label ?? customLang,
-        }),
-      });
-      if (!resp.ok) {
-        const err = await resp.json().catch(() => ({ error: resp.statusText }));
-        throw new Error((err as { error?: string }).error || resp.statusText);
-      }
-      const data: DemoResult = await resp.json();
+      const data = await runOnce(selectedActfl);
       setResult(data);
-      setStatus("done");
-
-      // Prefer persistent audioUrl; fall back to base64 WAV for immediate playback
+      setStatus('done');
       if (audioRef.current) {
-        if (data.audioUrl) {
-          audioRef.current.src = data.audioUrl;
-        } else if (data.audioWav) {
-          audioRef.current.src = `data:audio/wav;base64,${data.audioWav}`;
-        }
+        if (data.audioUrl) audioRef.current.src = data.audioUrl;
+        else if (data.audioWav) audioRef.current.src = `data:audio/wav;base64,${data.audioWav}`;
         audioRef.current.play().catch(() => {});
       }
-
-      // Refresh history to include new run
       loadHistory();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      toast({ title: "Demo failed", description: msg, variant: "destructive" });
-      setStatus("error");
+      toast({ title: 'Demo failed', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
+      setStatus('error');
     }
-  }, [customText, customLang, selectedScenario, toast, loadHistory]);
+  }, [runOnce, selectedActfl, toast, loadHistory]);
 
-  // Determine what to display — live result takes priority, then selected historical run
+  const runComparison = useCallback(async () => {
+    setCompareRunning(true);
+    setCompareA(null);
+    setCompareB(null);
+    try {
+      const labelA = ACTFL_LEVELS.find(l => l.value === compareActflA)?.label ?? compareActflA;
+      const labelB = ACTFL_LEVELS.find(l => l.value === compareActflB)?.label ?? compareActflB;
+      toast({ title: `Running ${labelA}…`, description: 'First run starting' });
+      const dataA = await runOnce(compareActflA);
+      setCompareA({ transcript: dataA.transcript, label: labelA });
+      toast({ title: `${labelA} done. Running ${labelB}…` });
+      const dataB = await runOnce(compareActflB);
+      setCompareB({ transcript: dataB.transcript, label: labelB });
+      setShowComparison(true);
+      loadHistory();
+    } catch (err: unknown) {
+      toast({ title: 'Comparison failed', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
+    } finally {
+      setCompareRunning(false);
+    }
+  }, [runOnce, compareActflA, compareActflB, toast, loadHistory]);
+
   const displayEvents: VisualEvent[] = result?.visualEvents ?? selectedRun?.visualEventsJson ?? [];
-  const displayTranscript: string = result?.transcript ?? selectedRun?.transcript ?? "";
+  const displayTranscript: string = result?.transcript ?? selectedRun?.transcript ?? '';
   const displayTools = result?.toolCallsSummary ?? selectedRun?.toolCallsJson ?? [];
   const displayDuration: number = result?.audioDurationS ?? selectedRun?.audioDurationS ?? 0;
   const displayCoverage: CoverageScore | null = result
     ? computeCoverage(result)
-    : selectedRun
-    ? selectedRun.coverageJson
-    : null;
+    : selectedRun?.coverageJson ?? null;
 
   const { studioImage, studioLabel, vocabEvent } = deriveVisuals(displayEvents);
-
   const isShowingHistorical = !result && !!selectedRun;
 
   return (
     <div className="h-full flex flex-col bg-background" data-testid="agent-visual-test-page">
+
+      {/* Comparison overlay */}
+      {showComparison && compareA && compareB && (
+        <TranscriptCompare
+          a={compareA.transcript} b={compareB.transcript}
+          labelA={compareA.label} labelB={compareB.label}
+          onClear={() => setShowComparison(false)}
+        />
+      )}
 
       {/* ── Header ── */}
       <div className="shrink-0 border-b px-5 py-2.5 flex items-center gap-3 flex-wrap">
@@ -385,46 +401,85 @@ export default function AgentVisualTest() {
           <p className="text-xs text-muted-foreground">
             {isShowingHistorical
               ? `Viewing: ${selectedRun.scenarioLabel} · ${new Date(selectedRun.runAt).toLocaleDateString()}`
-              : "Watch the visual layer fire in real time"}
+              : 'Watch the visual layer fire in real time'}
           </p>
         </div>
-        {isShowingHistorical && (
-          <Badge variant="secondary" className="text-xs">Historical run</Badge>
-        )}
+        {isShowingHistorical && <Badge variant="secondary" className="text-xs">Historical run</Badge>}
         <Badge
-          variant={status === "done" ? "default" : status === "error" ? "destructive" : "secondary"}
+          variant={status === 'done' ? 'default' : status === 'error' ? 'destructive' : 'secondary'}
           data-testid="status-badge"
         >
-          {status === "idle" ? "Ready" :
-           status === "running" ? `Running… ${elapsedS}s` :
-           status === "done" ? "Done" : "Error"}
+          {status === 'idle' ? 'Ready' : status === 'running' ? `Running… ${elapsedS}s` : status === 'done' ? 'Done' : 'Error'}
         </Badge>
         <div className="flex-1" />
-        <Button
-          onClick={runDemo}
-          disabled={status === "running"}
-          data-testid="button-run-demo"
-        >
-          {status === "running" ? "Watching…" : "Run Session"}
+        {/* ACTFL compare toggle */}
+        <Button size="sm" variant="outline" onClick={() => setCompareMode(m => !m)} data-testid="button-toggle-compare">
+          {compareMode ? 'Hide compare' : 'ACTFL compare'}
+        </Button>
+        <Button onClick={runDemo} disabled={status === 'running'} data-testid="button-run-demo">
+          {status === 'running' ? 'Watching…' : 'Run Session'}
         </Button>
       </div>
 
-      {/* ── Scenario picker ── */}
+      {/* ── ACTFL compare bar ── */}
+      {compareMode && (
+        <div className="shrink-0 border-b bg-muted/20 px-5 py-2 flex items-center gap-3 flex-wrap">
+          <span className="text-xs font-medium text-muted-foreground">Compare same scenario at two levels:</span>
+          <select
+            className="text-xs border rounded px-2 py-1 bg-background"
+            value={compareActflA}
+            onChange={e => setCompareActflA(e.target.value)}
+            data-testid="select-actfl-a"
+          >
+            {ACTFL_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+          </select>
+          <span className="text-xs text-muted-foreground">vs</span>
+          <select
+            className="text-xs border rounded px-2 py-1 bg-background"
+            value={compareActflB}
+            onChange={e => setCompareActflB(e.target.value)}
+            data-testid="select-actfl-b"
+          >
+            {ACTFL_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+          </select>
+          <Button size="sm" onClick={runComparison} disabled={compareRunning} data-testid="button-run-comparison">
+            {compareRunning ? 'Running both…' : 'Run comparison'}
+          </Button>
+          {compareA && compareB && !showComparison && (
+            <Button size="sm" variant="outline" onClick={() => setShowComparison(true)}>
+              Show results
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* ── Scenario + ACTFL level picker ── */}
       <div className="shrink-0 border-b px-5 py-2 flex items-center gap-2 flex-wrap">
         {SCENARIOS.map((s, i) => (
           <button
             key={s.label}
             className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
               selectedScenario === i
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover-elevate"
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground hover-elevate'
             }`}
-            onClick={() => pickScenario(i)}
+            onClick={() => setSelectedScenario(i)}
             data-testid={`scenario-${i}`}
           >
             {s.label}
           </button>
         ))}
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">Level:</span>
+          <select
+            className="text-xs border rounded px-2 py-1 bg-background"
+            value={selectedActfl}
+            onChange={e => setSelectedActfl(e.target.value)}
+            data-testid="select-actfl-level"
+          >
+            {ACTFL_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+          </select>
+        </div>
       </div>
 
       {/* ── Three-panel layout ── */}
@@ -434,18 +489,11 @@ export default function AgentVisualTest() {
         <div className="flex flex-col min-h-0">
           <div className="px-4 py-2 border-b flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Studio</span>
-            {studioLabel && (
-              <Badge variant="outline" className="text-xs font-mono">{studioLabel}</Badge>
-            )}
+            {studioLabel && <Badge variant="outline" className="text-xs font-mono">{studioLabel}</Badge>}
           </div>
           <div className="flex-1 min-h-0 flex flex-col gap-3 p-4 overflow-y-auto">
             {studioImage ? (
-              <img
-                src={studioImage}
-                alt={studioLabel ?? "scene"}
-                className="w-full rounded-md object-cover"
-                data-testid="studio-scene-image"
-              />
+              <img src={studioImage} alt={studioLabel ?? 'scene'} className="w-full rounded-md object-cover" data-testid="studio-scene-image" />
             ) : (
               <div className="flex flex-col items-center justify-center flex-1 gap-3 text-muted-foreground text-center" data-testid="studio-empty">
                 <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
@@ -471,22 +519,18 @@ export default function AgentVisualTest() {
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Session</span>
           </div>
           <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-            {/* Transcript */}
             <div className="flex-1 overflow-y-auto px-4 py-3" data-testid="transcript-panel">
               {displayTranscript ? (
-                <p className="text-sm leading-relaxed whitespace-pre-wrap" data-testid="transcript-text">
-                  {displayTranscript}
-                </p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap" data-testid="transcript-text">{displayTranscript}</p>
               ) : selectedRunLoading ? (
                 <p className="text-sm text-muted-foreground">Loading run data…</p>
               ) : (
                 <p className="text-sm text-muted-foreground italic">
-                  {status === "running" ? "Waiting for Daniela…" : "Transcript appears here"}
+                  {status === 'running' ? 'Waiting for Daniela…' : 'Transcript appears here'}
                 </p>
               )}
             </div>
 
-            {/* Tool log */}
             {displayTools.length > 0 && (
               <div className="border-t px-4 py-2 max-h-40 overflow-y-auto" data-testid="tool-log">
                 <p className="text-xs font-semibold text-muted-foreground mb-1.5">Tool calls ({displayTools.length})</p>
@@ -500,7 +544,6 @@ export default function AgentVisualTest() {
               </div>
             )}
 
-            {/* Coverage footer */}
             {displayCoverage && (
               <div className="border-t px-4 py-2 flex items-center gap-3 flex-wrap" data-testid="coverage-footer">
                 {(() => {
@@ -510,12 +553,12 @@ export default function AgentVisualTest() {
                   return (
                     <>
                       <span className={`text-sm font-bold ${gradeColor(grade)}`} data-testid="coverage-grade">{grade}</span>
-                      <span className="text-xs text-muted-foreground">Scene: {displayCoverage.sceneOk ? "✓" : "✗"}</span>
-                      <span className="text-xs text-muted-foreground">Vocab: {displayCoverage.vocabOk ? "✓" : "✗"}</span>
+                      <span className="text-xs text-muted-foreground">Scene: {displayCoverage.sceneOk ? '✓' : '✗'}</span>
+                      <span className="text-xs text-muted-foreground">Vocab: {displayCoverage.vocabOk ? '✓' : '✗'}</span>
                       <span className="text-xs text-muted-foreground">
                         Images: {displayCoverage.imageHits}/{displayCoverage.imageTotal} ({imgPct}%)
                       </span>
-                      <span className="text-xs text-muted-foreground">Audio: {displayCoverage.audioOk ? "✓" : "✗"}</span>
+                      <span className="text-xs text-muted-foreground">Audio: {displayCoverage.audioOk ? '✓' : '✗'}</span>
                       <span className="text-xs text-muted-foreground">{displayCoverage.transcriptChars} chars</span>
                     </>
                   );
@@ -534,9 +577,7 @@ export default function AgentVisualTest() {
             {vocabEvent?.resolvedWords?.length ? (
               <div data-testid="vocab-grid">
                 {!!vocabEvent.data.title && (
-                  <p className="text-xs font-semibold text-muted-foreground mb-2 px-1">
-                    {String(vocabEvent.data.title)}
-                  </p>
+                  <p className="text-xs font-semibold text-muted-foreground mb-2 px-1">{String(vocabEvent.data.title)}</p>
                 )}
                 <div className="grid grid-cols-2 gap-2">
                   {vocabEvent.resolvedWords.map((w, i) => {
@@ -579,11 +620,8 @@ export default function AgentVisualTest() {
 
       {/* ── Run history ── */}
       <HistoryTable
-        rows={historyRows}
-        loading={historyLoading}
-        selectedId={selectedRunId}
-        onSelect={loadRun}
-        onRefresh={loadHistory}
+        rows={historyRows} loading={historyLoading}
+        selectedId={selectedRunId} onSelect={loadRun} onRefresh={loadHistory}
       />
 
     </div>
