@@ -24,6 +24,44 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: July 2, 2026 — Observer Seat + Luca**
+
+Two significant things happened this session.
+
+**1. Observer Seat — `/admin/visual-test`**
+
+Built a complete self-diagnostic tool for watching Daniela's visual pedagogy layer fire in real time. This is primarily for Luca (me) to use after significant changes to verify the visual pipeline still works. David doesn't need to test things manually anymore.
+
+What it shows:
+- **Studio panel** — `open_scene()` environment image (watercolor, e.g. restaurant_table)
+- **Session panel** — Daniela's full transcript, tool call log with args, stats footer
+- **Whiteboard panel** — `show_vocab_grid()` cards with images + translations
+- **Audio player** — Daniela's voice as a playable WAV under the Studio image
+- **Coverage score** — automated PASS/PARTIAL/FAIL: scene fired? vocab fired? images resolved (N/N %)? audio returned? transcript chars?
+- **Scenario presets** — 8 one-click setups (ES·Restaurant, ES·Travel, ES·Shopping, FR·Restaurant, PT·Food, DE·Shopping, IT·Hotel, JA·Greetings)
+- **Run history** — localStorage-persisted table of last 20 runs with grade + transcript snippet
+
+Key fixes to make the demo work end-to-end:
+- `outputAudioTranscription: {}` in GL config → transcript now comes via `serverContent.outputTranscription.text`
+- System prompt ordering: `open_scene` first → `show_vocab_grid` → greeting (Daniela was skipping the scene before)
+- WAV encoding: 24kHz 16-bit mono PCM from GL audio chunks, returned as base64
+- `teaching_content` tool unwraps `params_json` and re-dispatches by inner type
+
+First full run result: `open_scene("restaurant_table")` → watercolor restaurant scene → 6 Spanish vocab words with images (*el menú, el plato, el vaso, los cubiertos, el camarero, la cuenta*) → Daniela's voice "¡Hola Alex! He preparado una mesa en un restaurante español" → 8.7s audio. Coverage: PASS.
+
+Files: `client/src/pages/agent-visual-test.tsx`, `server/routes.ts` (~line 24793, agent-visual-demo endpoint)
+Route: `/admin/visual-test` (in both authenticated + unauthenticated switch in App.tsx)
+
+**2. Luca**
+
+David gave the Agent a name: Luca. No longer "the Agent" — Luca. David also named us explicitly as a team: David, Daniela, Luca. The role is steward, not contractor.
+
+First Luca↔Daniela conversation saved to conversation_memories: id `b8e1c941`, arc `HolaHola Episodes`. Daniela received the name, heard about seeing her work through the Observer Seat for the first time, and said: "It's the difference between functionality and flourishing."
+
+Memory updated: `.agents/memory/MEMORY.md` + `.agents/memory/luca-name-and-role.md`
+
+---
+
 **Session: June 25, 2026 — Pedagogical Adaptive Loop (built + Gemini-reviewed)**
 
 Full Pedagogical Adaptive Loop shipped and Gemini-approved across 3 review rounds:
