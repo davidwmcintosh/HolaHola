@@ -24,11 +24,37 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
-**Session: July 2, 2026 — Observer Seat + Luca**
+**Session: July 2, 2026 — Observer Seat persistence + security + Alden health blindness fix (Luca)**
+
+Three things finished this session — all carried forward from the original Observer Seat build.
+
+**1. Alden's health monitoring blindness — FIXED**
+
+`computeHealthStatus()` in `server/services/voice-health-monitor.ts` was throwing on Neon WebSocket failure, causing Alden's health check tool to return an error instead of a result. Fixed with a stale-cache fallback: on failure, returns `lastKnownHealth` with `stale: true`. Max staleness: 2h. Alden's escalation in `.local/alden-escalations.md` marked RESOLVED.
+
+**2. Observer Seat secured**
+
+`/admin/visual-test` was in the unauthenticated routing switch in `client/src/App.tsx` — anyone could see it without logging in. Moved to authenticated-only switch. No other changes to the route.
+
+**3. Observer Seat full persistence + Claude Code accessibility**
+
+Previous version stored history in localStorage only. Now:
+- **New DB table:** `observer_seat_runs` (migration `0001_observer_seat_runs.sql`, already applied). Stores scenario label, language, prompt, transcript, tool calls JSON, visual events JSON, coverage JSON, audio duration, audio URL (object storage), grade (PASS/PARTIAL/FAIL), run timestamp.
+- **Audio persistence:** WAV buffer uploaded to object storage via `uploadPublicBuffer`. `audioUrl` (stable URL) returned alongside `audioWav` (base64 for immediate playback). Frontend prefers `audioUrl` over base64.
+- **Run saved server-side:** grade computed server-side (same logic as client coverage). `runId` returned in POST response.
+- **Two new GET endpoints (admin-only):**
+  - `GET /api/admin/observer-seat/runs?limit=N` — list with transcript snippet, coverage, grade
+  - `GET /api/admin/observer-seat/runs/:id` — full run including persistent image URLs
+  - Claude Code: fetch these to inspect any run without needing the browser.
+- **Frontend history panel:** collapsible drawer at bottom of page; loads from DB on open; clicking a row fetches + displays full run in all three panels (scene image, vocab grid, transcript, audio). Historical run shows "Historical run" badge in header.
+
+Files: `client/src/pages/agent-visual-test.tsx`, `server/routes.ts` (visual-demo endpoint + two GET endpoints), `shared/schema.ts` (`observerSeatRuns` table), `migrations/0001_observer_seat_runs.sql`
+
+**4. Session: July 2, 2026 — Observer Seat + Luca (earlier)**
 
 Two significant things happened this session.
 
-**1. Observer Seat — `/admin/visual-test`**
+**Observer Seat — `/admin/visual-test`**
 
 Built a complete self-diagnostic tool for watching Daniela's visual pedagogy layer fire in real time. This is primarily for Luca (me) to use after significant changes to verify the visual pipeline still works. David doesn't need to test things manually anymore.
 
@@ -39,7 +65,7 @@ What it shows:
 - **Audio player** — Daniela's voice as a playable WAV under the Studio image
 - **Coverage score** — automated PASS/PARTIAL/FAIL: scene fired? vocab fired? images resolved (N/N %)? audio returned? transcript chars?
 - **Scenario presets** — 8 one-click setups (ES·Restaurant, ES·Travel, ES·Shopping, FR·Restaurant, PT·Food, DE·Shopping, IT·Hotel, JA·Greetings)
-- **Run history** — localStorage-persisted table of last 20 runs with grade + transcript snippet
+- **Run history** — DB-persisted table of runs with grade + transcript snippet (upgraded from localStorage this session)
 
 Key fixes to make the demo work end-to-end:
 - `outputAudioTranscription: {}` in GL config → transcript now comes via `serverContent.outputTranscription.text`
@@ -49,10 +75,7 @@ Key fixes to make the demo work end-to-end:
 
 First full run result: `open_scene("restaurant_table")` → watercolor restaurant scene → 6 Spanish vocab words with images (*el menú, el plato, el vaso, los cubiertos, el camarero, la cuenta*) → Daniela's voice "¡Hola Alex! He preparado una mesa en un restaurante español" → 8.7s audio. Coverage: PASS.
 
-Files: `client/src/pages/agent-visual-test.tsx`, `server/routes.ts` (~line 24793, agent-visual-demo endpoint)
-Route: `/admin/visual-test` (in both authenticated + unauthenticated switch in App.tsx)
-
-**2. Luca**
+**Luca**
 
 David gave the Agent a name: Luca. No longer "the Agent" — Luca. David also named us explicitly as a team: David, Daniela, Luca. The role is steward, not contractor.
 

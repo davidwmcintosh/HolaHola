@@ -9641,3 +9641,28 @@ export const masteryEvidence = pgTable('mastery_evidence', {
 export const insertMasteryEvidenceSchema = createInsertSchema(masteryEvidence).omit({ id: true, masteredAt: true });
 export type InsertMasteryEvidence = z.infer<typeof insertMasteryEvidenceSchema>;
 export type MasteryEvidence = typeof masteryEvidence.$inferSelect;
+
+// ===== OBSERVER SEAT RUNS =====
+// Persistent record of every Observer Seat diagnostic run.
+// Stores full visual data (scene image URL, vocab image URLs, transcript)
+// so Luca can review past sessions and Claude Code can fetch them via API.
+// Image URLs come from visual_assets (object storage) — they are stable.
+// Audio is uploaded to object storage and stored as a permanent URL.
+export const observerSeatRuns = pgTable('observer_seat_runs', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  runAt: timestamp('run_at', { withTimezone: true }).notNull().defaultNow(),
+  scenarioLabel: text('scenario_label').notNull().default(''),
+  language: text('language').notNull().default('es-ES'),
+  promptText: text('prompt_text').notNull().default(''),
+  transcript: text('transcript').notNull().default(''),
+  toolCallsJson: jsonb('tool_calls_json').notNull().default([]),
+  visualEventsJson: jsonb('visual_events_json').notNull().default([]),
+  coverageJson: jsonb('coverage_json').notNull().default({}),
+  audioDurationS: real('audio_duration_s').notNull().default(0),
+  audioUrl: text('audio_url'),
+  grade: text('grade').notNull().default('FAIL'),
+});
+
+export const insertObserverSeatRunSchema = createInsertSchema(observerSeatRuns).omit({ id: true, runAt: true });
+export type InsertObserverSeatRun = z.infer<typeof insertObserverSeatRunSchema>;
+export type ObserverSeatRun = typeof observerSeatRuns.$inferSelect;

@@ -24970,23 +24970,113 @@ Visual tools are your primary teaching channel — use them generously every res
       wavHdr.writeUInt32LE(byteRate, 28); wavHdr.writeUInt16LE(blockAlign, 32);
       wavHdr.writeUInt16LE(BITS, 34); wavHdr.write('data', 36);
       wavHdr.writeUInt32LE(pcm.length, 40);
-      const audioWav = pcm.length > 0 ? Buffer.concat([wavHdr, pcm]).toString('base64') : null;
+      const wavBuffer = pcm.length > 0 ? Buffer.concat([wavHdr, pcm]) : null;
+      const audioWav = wavBuffer ? wavBuffer.toString('base64') : null;
       const audioDurationS = pcm.length / (SR * 2);
       const transcript = transcriptParts.join(' ').trim();
 
       console.log(`[Visual Demo] Done — ${audioDurationS.toFixed(1)}s audio, ${resolvedEvents.length} visual events, transcript="${transcript.slice(0, 60)}"`);
       if (watchId) pushVisualEvent(watchId, { type: 'done', resolvedEvents, transcript });
 
+      // ── Persist run to DB so Luca (and Claude Code) can review it later ──────
+      let audioUrl: string | null = null;
+      let runId: string | null = null;
+      try {
+        if (wavBuffer) {
+          const { uploadPublicBuffer } = await import('./services/image-storage');
+          audioUrl = await uploadPublicBuffer(`observer-seat-${Date.now()}.wav`, wavBuffer, 'audio/wav');
+        }
+        const sceneOk = resolvedEvents.some((e: any) => e.type === 'open_scene' || e.type === 'show_cultural_scene');
+        const vocabOk = resolvedEvents.some((e: any) => e.type === 'show_vocab_grid');
+        const allWords = resolvedEvents.flatMap((e: any) => (e.resolvedWords ?? []) as any[]);
+        const imageHits = allWords.filter((w: any) => w.imageUrl).length;
+        const imageTotal = allWords.length;
+        const audioOk = audioDurationS > 0.5;
+        const coverage = { sceneOk, vocabOk, imageHits, imageTotal, audioOk, transcriptChars: transcript.length };
+        const grade =
+          sceneOk && vocabOk && audioOk && transcript.length > 100 && (imageTotal === 0 || imageHits / imageTotal >= 0.8)
+            ? 'PASS'
+            : sceneOk || vocabOk || audioOk
+            ? 'PARTIAL'
+            : 'FAIL';
+        const { getUserDb } = await import('./db');
+        const { observerSeatRuns } = await import('../shared/schema');
+        const { desc: _desc } = await import('drizzle-orm');
+        const db = getUserDb();
+        const [saved] = await db.insert(observerSeatRuns).values({
+          scenarioLabel: (req.body.scenarioLabel as string) || languageCode,
+          language: languageCode,
+          promptText: text as string,
+          transcript,
+          toolCallsJson: toolCallsSummary as any,
+          visualEventsJson: resolvedEvents as any,
+          coverageJson: coverage as any,
+          audioDurationS,
+          audioUrl,
+          grade,
+        }).returning({ id: observerSeatRuns.id });
+        runId = saved?.id ?? null;
+        console.log(`[Visual Demo] Run saved — id=${runId}, grade=${grade}`);
+      } catch (saveErr: any) {
+        console.warn('[Visual Demo] Run save failed (non-fatal):', saveErr.message);
+      }
+
       res.json({
+        runId,
         transcript,
         toolCallsSummary,
         visualEvents: resolvedEvents,
         audioDurationS,
+        audioUrl,
         audioWav,
       });
     } catch (error: any) {
       console.error('[Visual Demo] Error:', error.message);
       if (!res.headersSent) res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Observer Seat: list recent runs — admin only
+  // Claude Code: GET /api/admin/observer-seat/runs?limit=N
+  app.get("/api/admin/observer-seat/runs", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
+    try {
+      const { getUserDb } = await import('./db');
+      const { observerSeatRuns } = await import('../shared/schema');
+      const { desc, sql: rawSql } = await import('drizzle-orm');
+      const db = getUserDb();
+      const limit = Math.min(Number(req.query.limit) || 50, 200);
+      const rows = await db.select({
+        id: observerSeatRuns.id,
+        runAt: observerSeatRuns.runAt,
+        scenarioLabel: observerSeatRuns.scenarioLabel,
+        language: observerSeatRuns.language,
+        grade: observerSeatRuns.grade,
+        audioDurationS: observerSeatRuns.audioDurationS,
+        audioUrl: observerSeatRuns.audioUrl,
+        coverageJson: observerSeatRuns.coverageJson,
+        transcriptSnippet: rawSql<string>`left(${observerSeatRuns.transcript}, 120)`,
+      }).from(observerSeatRuns).orderBy(desc(observerSeatRuns.runAt)).limit(limit);
+      res.json({ runs: rows });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Observer Seat: get full run by ID — admin only
+  // Claude Code: GET /api/admin/observer-seat/runs/:id
+  // Returns full transcript, all visual events with persistent image URLs, audio URL.
+  // Image URLs are stable object-storage URLs — fetch them directly to inspect visuals.
+  app.get("/api/admin/observer-seat/runs/:id", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
+    try {
+      const { getUserDb } = await import('./db');
+      const { observerSeatRuns } = await import('../shared/schema');
+      const { eq } = await import('drizzle-orm');
+      const db = getUserDb();
+      const [run] = await db.select().from(observerSeatRuns).where(eq(observerSeatRuns.id, req.params.id)).limit(1);
+      if (!run) return res.status(404).json({ error: 'Run not found' });
+      res.json({ run });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
     }
   });
 
