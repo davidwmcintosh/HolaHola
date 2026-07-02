@@ -14,25 +14,57 @@ const SCENARIO_LANG = 'Español (España)';
 const SCENARIO_TEXT = 'Hola Daniela. Quiero practicar español. Me gustan los restaurantes y la comida. ¿Puedes mostrarme vocabulario de restaurante con imágenes?';
 
 const ACTFL_DESCRIPTORS: Record<string, string> = {
-  novice_low:        'Novice-Low learner (brand new — recognises a handful of words, needs maximum English scaffolding, single words and formulaic phrases only)',
-  novice_mid:        'Novice-Mid learner (beginner — knows a small core vocabulary, benefits from repetition and visual anchors, simple sentences ok)',
-  intermediate_mid:  'Intermediate-Mid learner (solid intermediate — sustains conversation, handles present and past tenses, mostly in target language)',
-  advanced_low:      'Advanced-Low learner (advanced — handles most real-world conversations, narrates in multiple tenses, near full target language immersion)',
+  novice_low:        'Novice-Low student (brand new — recognises a handful of words only)',
+  novice_mid:        'Novice-Mid student (beginner — knows a small core vocabulary, simple phrases)',
+  intermediate_mid:  'Intermediate-Mid student (solid intermediate — sustains conversation, handles present and past tenses)',
+  advanced_low:      'Advanced-Low student (advanced — handles most real-world conversations in multiple tenses)',
 };
+
+// Negative-constraint output rules per Gemini audit July 2026.
+// Global "Speak mostly in [language]" is a persona-level override — DO NOT add it.
+// Negative constraints + CEFR ceiling + forced first-sentence protocol are required to shift GL output.
+// Round 2 additions (Gemini consult July 2026): expanded forbidden word list (teacher-ese cognate traps),
+// no-subordinate-clause syntax rule for novice, topic anchor in first-sentence protocol,
+// absolute NO ENGLISH for advanced.
+function buildOutputConstraints(actflLevel: string): string {
+  const tier = actflLevel.toLowerCase();
+  if (tier.includes('novice')) {
+    return `Your output rules (Novice level — enforce strictly):
+DO NOT speak ${SCENARIO_LANG} in greetings, instructions, transitions, or encouragement.
+DO NOT use abstract vocabulary — A1 high-frequency words only. FORBIDDEN at this level: "bienvenido", "entusiasmo", "vocabulario", "practicar", "lección", "gramática", "comprensión", "excelente", "fantástico", "continuemos", "identificar", "preparado". Use "hola", "sí", "bien", "mira", "repite" instead.
+FORBIDDEN: any ${SCENARIO_LANG} phrase longer than 4 words.
+SYNTAX RULE: Use only simple, single-clause sentences in the target language. DO NOT join phrases with "que", "porque", or "cuando".
+REQUIRED: Your first spoken sentence must be entirely in English AND anchor to the specific topic or image on screen. Example: "Hi Alex! Let's look at this delicious pizza."
+DO: Introduce target words one at a time with English translation in parentheses. "La mesa (the table)."
+DO: Stay in present tense only.`;
+  }
+  if (tier.includes('intermediate')) {
+    return `Your output rules (Intermediate level — enforce strictly):
+Language ratio: roughly 50% ${SCENARIO_LANG} / 50% English. Do not drift to all-English or all-target-language.
+DO NOT translate words already in the student's active vocabulary.
+DO: Use all tenses freely. After they produce the basic form, push to the slightly harder version.
+REQUIRED: Your first spoken sentence must demonstrate the 50/50 balance — not default to all-English or all-Spanish.`;
+  }
+  return `Your output rules (Advanced level — enforce strictly):
+DO NOT use English for explanations, encouragement, or transitions — even "Great job!" breaks immersion at this level.
+REQUIRED: 80%+ ${SCENARIO_LANG} across every response. Dropping to English means you have failed the task.
+DO: Challenge with idiom, register, and cultural nuance. Treat the student as a near-peer.
+REQUIRED: Your first spoken sentence must be entirely in ${SCENARIO_LANG}.`;
+}
 
 async function runSession(actflLevel: string): Promise<{ transcript: string; toolCalls: string[]; durationS: number }> {
   const descriptor = ACTFL_DESCRIPTORS[actflLevel] || `${actflLevel} learner`;
 
-  const systemPrompt = `You are Daniela, a warm, inventive Español (España) language tutor. Your student is Alex — a ${descriptor} who loves travel and food.
+  const systemPrompt = `You are Daniela, a warm, inventive ${SCENARIO_LANG} language tutor. Your student is Alex — a ${descriptor} who loves travel and food.
 
-Speak mostly in ${SCENARIO_LANG}. Keep spoken responses to 2–3 sentences. Calibrate vocabulary complexity, speech pace, and target-language ratio strictly to the student's ACTFL level.
+Keep spoken responses to 2–3 sentences. Visual tools are your primary teaching channel — use them generously every response.
 
 When you start, ALWAYS do this in order:
 1. Call open_scene immediately with a fitting food or travel environment.
 2. Then call show_vocab_grid with 5–6 vocabulary words related to the student's topic, each with an imageQuery.
-3. Then greet Alex warmly in ${SCENARIO_LANG}.
+3. Then greet Alex — following your output rules below.
 
-Visual tools are your primary teaching channel — use them generously every response.`;
+${buildOutputConstraints(actflLevel)}`;
 
   const { DANIELA_FUNCTION_DECLARATIONS } = await import('../services/daniela-function-registry');
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });

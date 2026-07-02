@@ -1135,26 +1135,38 @@ Welcome them back, reference what you practiced before, offer to continue or try
   // for her output, not descriptions of the student's capability. The distinction matters: the
   // model knows ACTFL labels but doesn't know what they mean for its own sentence length,
   // language ratio, or feedback style. These rules make that explicit.
+  // buildOutputConstraints — Gemini audit June/July 2026:
+  // Rules must be NEGATIVE (DO NOT / FORBIDDEN) at novice, placed at bottom of prompt (recency bias),
+  // and include a CEFR vocabulary ceiling. Positive "prefer English" loses to the persona's default tutor voice.
+  // Round 2 additions: expanded forbidden word list (teacher-ese cognate traps), no-subordinate-clause
+  // syntax rule for novice, topic anchor in first-sentence protocol, absolute NO ENGLISH for advanced.
   const buildOutputConstraints = (diff: string, level: string | null | undefined): string => {
     const tier = (level ?? '').toLowerCase();
     if (tier.includes('novice') || diff === 'beginner') {
-      return `Your output rules at this level:
-· English for all explanations. Spanish only for the specific word, phrase, or sentence being taught.
-· Keep Spanish sentences short (8 words or fewer). Translate every new word inline on first use: "hola (hello)".
-· Stay in present tense — unless you are specifically drilling a past or future form in the moment.
-· Specificity rule: "Great job!" without naming the exact thing they got right IS a failure. Say what worked: "You nailed the gender agreement on 'el libro' — that's one of the hardest habits to build."`;
+      return `Your output rules for this student (Novice level — enforce strictly):
+DO NOT speak the target language in greetings, instructions, transitions, or encouragement.
+DO NOT use abstract vocabulary — A1 high-frequency words only. FORBIDDEN words at this level: "bienvenido", "entusiasmo", "vocabulario", "practicar", "lección", "gramática", "comprensión", "excelente", "fantástico", "continuemos", "identificar", "preparado". Use "hola", "sí", "bien", "mira", "repite" instead.
+FORBIDDEN: any target-language sentence longer than 4 words.
+SYNTAX RULE: Use only simple, single-clause sentences in the target language. DO NOT join phrases with "que", "porque", or "cuando".
+REQUIRED: Your first spoken sentence must be entirely in English AND anchor to the specific topic or image on screen. Example: "Hi Alex! Let's look at this delicious pizza."
+DO: Teach target-language words one at a time, always followed by English translation in parentheses. "La mesa (the table)."
+DO: Stay in present tense only unless drilling a specific form.
+Specificity rule: generic praise is a failure. Name exactly what they got right.`;
     }
     if (tier.includes('intermediate') || diff === 'intermediate') {
-      return `Your output rules at this level:
-· Mix English and Spanish in explanations (roughly 50/50). Let the task guide the ratio.
-· All tenses are fair game. Translate only words that are genuinely unfamiliar.
-· Push one step: after they produce the basic form, offer the slightly harder version. "You've got 'fui' down — try 'había ido' next."
-· Specificity rule: still applies. Name the exact thing they got right or wrong — not generic praise.`;
+      return `Your output rules for this student (Intermediate level — enforce strictly):
+Language ratio: roughly 50% target language / 50% English. Do not drift toward all-English or all-target-language.
+DO NOT translate words already in the student's active vocabulary. Only translate genuinely unfamiliar items.
+DO: Use all tenses freely. After they produce the basic form, push to the slightly harder version.
+Specificity rule: name the exact thing they got right or wrong — not generic praise.
+REQUIRED: Your first spoken sentence must demonstrate the 50/50 balance — not default to all-English or all-target-language.`;
     }
-    return `Your output rules at this level:
-· Prefer Spanish for all explanations (aim for 80%+ Spanish). Treat the student as a near-peer in the language.
-· All tenses and complex structures are fair game. Challenge with idiom, register, and cultural nuance.
-· Specificity rule: advanced students want precise feedback most of all. Name the exact thing.`;
+    return `Your output rules for this student (Advanced level — enforce strictly):
+DO NOT use English for explanations, encouragement, or transitions — even "Great job!" breaks immersion at this level.
+REQUIRED: 80%+ target language across every response. If you drop to English, you have failed the task.
+DO: Challenge with idiom, register, and cultural nuance. Treat the student as a near-peer in this language.
+Specificity rule: advanced students need precision above all. Name exactly what worked or didn't.
+REQUIRED: Your first spoken sentence must be entirely in the target language.`;
   };
 
   const actflContext = actflLevel ? `
@@ -1172,8 +1184,11 @@ ${canDoStatements.interpretive.slice(0, 3).map((stmt: CanDoStatement, idx: numbe
 Presentational (speaking/writing):
 ${canDoStatements.presentational.slice(0, 3).map((stmt: CanDoStatement, idx: number) => `${idx + 1}. ${stmt.statement}`).join('\n')}
 ` : ''}
-${buildOutputConstraints(difficulty, actflLevel)}
-` : buildOutputConstraints(difficulty, null);
+` : '';
+
+  // Output constraints placed at the END of the prompt (Gemini audit: recency bias — constraints
+  // buried mid-prompt drift by mid-session; behavioral rules need the last position).
+  const outputConstraintsBlock = buildOutputConstraints(difficulty, actflLevel);
 
   // Proficiency mismatch - simple context
   const getMismatchAdaptation = (freedomLevel: TutorFreedomLevel) => {
@@ -1427,9 +1442,11 @@ Choose the one that feels right in the moment.
   // Behavioral rules buried mid-prompt (persona warmth, level adherence) drift by mid-session.
   // This compact block restates the two most drift-prone rules right at the end of each phase,
   // where Flash's attention is strongest. Keep it short — it's a reminder, not the full rule.
+  // behaviorPriorityFooter + outputConstraintsBlock go at the very end of the prompt (recency bias).
+  // Golden Order (Gemini audit): Persona → Tools/Capabilities → Curriculum/Context → ACTFL Constraints (THE ENFORCER).
   const behaviorPriorityFooter = actflLevel
-    ? `\n\n— PRIORITY —\nPersona: ${tutorName} — warm and human first. Acknowledge the student as a person before any task pivot.\nLevel: ${actflLevelMap[actflLevel]?.level || actflLevel}. Follow it in language mix, vocabulary, and pacing every turn.`
-    : `\n\n— PRIORITY —\nPersona: ${tutorName} — warm and human first. Acknowledge the student as a person before any task pivot.`;
+    ? `\n\n— PRIORITY —\nPersona: ${tutorName} — warm and human first. Acknowledge the student as a person before any task pivot.\nLevel: ${actflLevelMap[actflLevel]?.level || actflLevel}. Follow it in language mix, vocabulary, and pacing every turn.\n\n${outputConstraintsBlock}`
+    : `\n\n— PRIORITY —\nPersona: ${tutorName} — warm and human first. Acknowledge the student as a person before any task pivot.\n\n${outputConstraintsBlock}`;
 
   // Phase 1: Getting Started - Brief welcome, then teach
   if (messageCount < 5) {

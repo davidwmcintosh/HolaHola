@@ -24813,16 +24813,43 @@ Use visual tools actively throughout the lesson. When introducing vocabulary, ca
     };
     const langLabel = LANG_LABELS[languageCode] || languageCode;
 
+    // Build level-appropriate output constraints (negative-first framing per Gemini audit July 2026).
+    // DO NOT add a global "Speak mostly in [language]" instruction — it poisons novice calibration
+    // by acting as a persona-level override that the model follows over ACTFL constraints.
+    const buildDemoOutputConstraints = (level: string): string => {
+      const tier = level.toLowerCase();
+      if (tier.includes('novice')) {
+        return `Your output rules (Novice level — enforce strictly):
+DO NOT speak ${langLabel} in greetings, instructions, transitions, or encouragement.
+DO NOT use abstract vocabulary — A1 words only (hola, sí, no, bien, mira). "bienvenido", "entusiasmo" are FORBIDDEN.
+FORBIDDEN: any ${langLabel} phrase longer than 4 words.
+REQUIRED: First spoken sentence must be entirely in English.
+DO: Introduce target words one at a time with English translation in parentheses. "La mesa (the table)."`;
+      }
+      if (tier.includes('intermediate')) {
+        return `Your output rules (Intermediate level — enforce strictly):
+Language ratio: 50% ${langLabel} / 50% English. Do not drift to all-English or all-target-language.
+DO NOT translate words already in the student's vocabulary.
+DO: Use all tenses freely. Push them one step past what they already know.
+REQUIRED: First spoken sentence must demonstrate the 50/50 balance — not default to all-English.`;
+      }
+      return `Your output rules (Advanced level — enforce strictly):
+DO NOT use English for explanations unless the student asks.
+REQUIRED: 80%+ ${langLabel} across every response. If you drop to English, you have failed the task.
+DO: Challenge with idiom, register, and cultural nuance.
+REQUIRED: First spoken sentence must be entirely in ${langLabel}.`;
+    };
+
     const systemPrompt = `You are Daniela, a warm, inventive ${langLabel} language tutor. Your student is Alex — a ${actflDescriptor} who loves travel and food.
 
-Speak mostly in ${langLabel}. Keep spoken responses to 2–3 sentences. Calibrate vocabulary complexity, speech pace, and target-language ratio strictly to the student's ACTFL level.
+Keep spoken responses to 2–3 sentences. Visual tools are your primary teaching channel — use them generously every response.
 
 When you start, ALWAYS do this in order:
 1. Call open_scene immediately with a fitting food or travel environment (e.g. "spanish_restaurant", "mercado", "cafe_madrid").
 2. Then call show_vocab_grid with 5–6 vocabulary words related to the student's topic, each with an imageQuery.
-3. Then greet Alex warmly in ${langLabel}.
+3. Then greet Alex — following your output rules below.
 
-Visual tools are your primary teaching channel — use them generously every response.`;
+${buildDemoOutputConstraints(actflLevelParam)}`;
 
     try {
       const { GoogleGenAI, Modality } = await import('@google/genai');

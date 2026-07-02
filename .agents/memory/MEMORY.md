@@ -36,6 +36,7 @@
 - [Pedagogical state machine](pedagogical-state-machine.md) — GL context decay fix; FK gotcha (sessionId = tutorSession.id not GL session ID); State Envelope pattern; Shadow Auditor wired to GL stop().
 - [Typecheck zero-error patterns](typecheck-zero-error-patterns.md) — key field mismatches that caused 2,758→0 cleanup; prevents recurrence.
 - [GL bootstrapProfile null crash](gl-bootstrap-profile-null.md) — session is null when __bootstrapProfile is set (233 lines before createSession); store in local var, apply after session creation.
+- [ACTFL calibration fix](actfl-calibration-fix.md) — global language instruction poisons novice; negative constraints + CEFR ceiling + end-of-prompt placement required; forbidden word list; Gemini-approved July 2.
 - [Implicit reconnect — grace period cancellation bug](implicit-reconnect-grace-period.md) — concurrent session guard was destroying grace period even for same-conversationId reconnects; fixed with implicit promotion in unified-ws-handler.ts.
 - [Worldness Framework — all 3 paths](worldness-framework-impl.md) — Path 1: tension (0.30/0.60/0.85 bands, scaffold@0.80) · Path 2: GOAP planner (heartbeat/3 turns) · Path 3: magic-circle-filter.ts (12 patterns, GL constraints, memory anchor).
 - [Worldness framework](worldness-framework.md) — Gemini's full architecture vocabulary; World State is Boss/LLM is Translator; three paths: Consequence Engine, GOAP, Magic Circle. conversation_memories: 02a3c6ac.
