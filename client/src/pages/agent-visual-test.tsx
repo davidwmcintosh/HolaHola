@@ -10,7 +10,6 @@ interface ResolvedWord {
   text?: string;
   word?: string;
   translation?: string;
-  imageQuery?: string;
   imageUrl: string | null;
 }
 
@@ -69,13 +68,13 @@ interface HistoryRow {
 // ─── ACTFL levels ─────────────────────────────────────────────────────────────
 
 const ACTFL_LEVELS = [
-  { value: 'novice_low',       label: 'Novice Low',       short: 'NL' },
-  { value: 'novice_mid',       label: 'Novice Mid',       short: 'NM' },
-  { value: 'novice_high',      label: 'Novice High',      short: 'NH' },
-  { value: 'intermediate_low', label: 'Intermediate Low', short: 'IL' },
-  { value: 'intermediate_mid', label: 'Intermediate Mid', short: 'IM' },
-  { value: 'intermediate_high',label: 'Intermediate High',short: 'IH' },
-  { value: 'advanced_low',     label: 'Advanced Low',     short: 'AL' },
+  { value: 'novice_low',        label: 'Novice Low' },
+  { value: 'novice_mid',        label: 'Novice Mid' },
+  { value: 'novice_high',       label: 'Novice High' },
+  { value: 'intermediate_low',  label: 'Intermediate Low' },
+  { value: 'intermediate_mid',  label: 'Intermediate Mid' },
+  { value: 'intermediate_high', label: 'Intermediate High' },
+  { value: 'advanced_low',      label: 'Advanced Low' },
 ];
 
 // ─── Scenario presets ─────────────────────────────────────────────────────────
@@ -85,10 +84,10 @@ const SCENARIOS = [
   { label: 'ES · Travel',     lang: 'es-ES', text: 'Hola Daniela. Quiero practicar español de viajes. ¿Puedes mostrarme vocabulario del aeropuerto y el hotel con imágenes?' },
   { label: 'ES · Weather',    lang: 'es-ES', text: 'Hola Daniela. Quiero aprender vocabulario del tiempo en español. ¿Puedes mostrarme las palabras del clima con imágenes?' },
   { label: 'ES · Shopping',   lang: 'es-ES', text: 'Hola Daniela. Quiero aprender vocabulario de las compras en español. ¿Puedes mostrarme palabras de tiendas y mercados?' },
-  { label: 'FR · Restaurant', lang: 'fr-FR', text: 'Bonjour Daniela. Je veux pratiquer le français. J\'adore les restaurants. Peux-tu me montrer du vocabulaire de restaurant avec des images?' },
+  { label: 'FR · Restaurant', lang: 'fr-FR', text: "Bonjour Daniela. Je veux pratiquer le français. J'adore les restaurants. Peux-tu me montrer du vocabulaire de restaurant avec des images?" },
   { label: 'PT · Food',       lang: 'pt-BR', text: 'Olá Daniela. Quero praticar português. Adoro comida brasileira. Pode me mostrar vocabulário de comida com imagens?' },
-  { label: 'DE · Shopping',   lang: 'de-DE', text: 'Hallo Daniela. Ich möchte Deutsch üben. Ich gehe gern einkaufen. Kannst du mir Einkaufsvokabular mit Bildern zeigen?' },
-  { label: 'IT · Hotel',      lang: 'it-IT', text: 'Ciao Daniela. Voglio praticare l\'italiano. Mi piacciono gli hotel e i viaggi. Puoi mostrarmi vocabolario dell\'hotel con immagini?' },
+  { label: 'DE · Shopping',   lang: 'de-DE', text: 'Hallo Daniela. Ich möchte Deutsch üben. Kannst du mir Einkaufsvokabular mit Bildern zeigen?' },
+  { label: 'IT · Hotel',      lang: 'it-IT', text: "Ciao Daniela. Voglio praticare l'italiano. Puoi mostrarmi vocabolario dell'hotel con immagini?" },
 ];
 
 // ─── Coverage helpers ─────────────────────────────────────────────────────────
@@ -116,43 +115,6 @@ function gradeColor(g: string) {
   return 'text-red-500';
 }
 
-// ─── Comparison transcript panel ──────────────────────────────────────────────
-
-function TranscriptCompare({
-  a, b, labelA, labelB, onClear
-}: {
-  a: string; b: string; labelA: string; labelB: string; onClear: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur flex flex-col">
-      <div className="flex items-center gap-3 px-5 py-3 border-b shrink-0">
-        <h2 className="text-sm font-semibold">ACTFL Level Comparison</h2>
-        <span className="text-xs text-muted-foreground">Same scenario — different levels</span>
-        <div className="flex-1" />
-        <Button size="sm" variant="outline" onClick={onClear}>Close</Button>
-      </div>
-      <div className="flex-1 min-h-0 grid grid-cols-2 divide-x overflow-hidden">
-        <div className="flex flex-col min-h-0">
-          <div className="px-5 py-2 border-b bg-muted/40 shrink-0">
-            <Badge variant="outline" className="text-xs">{labelA}</Badge>
-          </div>
-          <div className="flex-1 overflow-y-auto px-5 py-4">
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">{a || '—'}</p>
-          </div>
-        </div>
-        <div className="flex flex-col min-h-0">
-          <div className="px-5 py-2 border-b bg-muted/40 shrink-0">
-            <Badge variant="outline" className="text-xs">{labelB}</Badge>
-          </div>
-          <div className="flex-1 overflow-y-auto px-5 py-4">
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">{b || '—'}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── History table ────────────────────────────────────────────────────────────
 
 function HistoryTable({ rows, loading, selectedId, onSelect, onRefresh }: {
@@ -169,7 +131,7 @@ function HistoryTable({ rows, loading, selectedId, onSelect, onRefresh }: {
       >
         {open ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
         Run history ({rows.length})
-        <span className="ml-auto text-xs opacity-60">Click a row to reload its visuals</span>
+        <span className="ml-auto text-xs opacity-60">Click a row to replay</span>
       </button>
       {open && (
         <div className="overflow-x-auto max-h-52 overflow-y-auto">
@@ -197,11 +159,10 @@ function HistoryTable({ rows, loading, selectedId, onSelect, onRefresh }: {
                   const imgPct = c.imageTotal > 0 ? Math.round((c.imageHits / c.imageTotal) * 100) : 0;
                   const d = new Date(h.runAt);
                   const timeStr = `${d.getMonth() + 1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
-                  const isSelected = h.id === selectedId;
                   return (
                     <tr
                       key={h.id}
-                      className={`border-b border-border/40 hover-elevate cursor-pointer ${isSelected ? 'bg-primary/10' : ''}`}
+                      className={`border-b border-border/40 hover-elevate cursor-pointer ${h.id === selectedId ? 'bg-primary/10' : ''}`}
                       onClick={() => onSelect(h.id)}
                       data-testid={`history-row-${h.id}`}
                     >
@@ -234,12 +195,14 @@ function deriveVisuals(events: VisualEvent[]) {
   const vocabEvent = events.find(e =>
     (e.type === 'show_vocab_grid' || e.type === 'create_vocabulary_drill') && e.resolvedWords?.length
   );
-  const singleImageEvent = events.find(e =>
+  const singleImage = events.find(e =>
     (e.type === 'show_image' || e.type === 'show_cultural_scene') && e.imageUrl
   );
-  const studioImage = sceneEvent?.imageUrl || singleImageEvent?.imageUrl || null;
-  const studioLabel = (sceneEvent?.data?.environment as string) || (singleImageEvent?.data?.word as string) || null;
-  return { vocabEvent, studioImage, studioLabel };
+  return {
+    vocabEvent,
+    studioImage: sceneEvent?.imageUrl || singleImage?.imageUrl || null,
+    studioLabel: (sceneEvent?.data?.environment as string) || (singleImage?.data?.word as string) || null,
+  };
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
@@ -251,16 +214,6 @@ export default function AgentVisualTest() {
   const [selectedActfl, setSelectedActfl] = useState('novice_mid');
   const [elapsedS, setElapsedS] = useState(0);
 
-  // ACTFL comparison mode
-  const [compareMode, setCompareMode] = useState(false);
-  const [compareRunning, setCompareRunning] = useState(false);
-  const [compareA, setCompareA] = useState<{ transcript: string; label: string } | null>(null);
-  const [compareB, setCompareB] = useState<{ transcript: string; label: string } | null>(null);
-  const [compareActflA, setCompareActflA] = useState('novice_mid');
-  const [compareActflB, setCompareActflB] = useState('intermediate_mid');
-  const [showComparison, setShowComparison] = useState(false);
-
-  // History from DB
   const [historyRows, setHistoryRows] = useState<HistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
@@ -308,33 +261,30 @@ export default function AgentVisualTest() {
     } finally { setSelectedRunLoading(false); }
   }, [toast]);
 
-  const runOnce = useCallback(async (actflLevel: string): Promise<DemoResult> => {
-    const scenario = SCENARIOS[selectedScenario];
-    const resp = await fetch('/api/admin/agent-visual-demo', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        text: scenario.text,
-        languageCode: scenario.lang,
-        scenarioLabel: `${scenario.label} [${ACTFL_LEVELS.find(l => l.value === actflLevel)?.short ?? actflLevel}]`,
-        actflLevel,
-      }),
-    });
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({ error: resp.statusText }));
-      throw new Error((err as { error?: string }).error || resp.statusText);
-    }
-    return resp.json();
-  }, [selectedScenario]);
-
   const runDemo = useCallback(async () => {
     setStatus('running');
     setResult(null);
     setSelectedRun(null);
     setSelectedRunId(null);
+    const scenario = SCENARIOS[selectedScenario];
+    const levelLabel = ACTFL_LEVELS.find(l => l.value === selectedActfl)?.label ?? selectedActfl;
     try {
-      const data = await runOnce(selectedActfl);
+      const resp = await fetch('/api/admin/agent-visual-demo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          text: scenario.text,
+          languageCode: scenario.lang,
+          scenarioLabel: `${scenario.label} [${levelLabel}]`,
+          actflLevel: selectedActfl,
+        }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: resp.statusText }));
+        throw new Error((err as { error?: string }).error || resp.statusText);
+      }
+      const data: DemoResult = await resp.json();
       setResult(data);
       setStatus('done');
       if (audioRef.current) {
@@ -347,118 +297,48 @@ export default function AgentVisualTest() {
       toast({ title: 'Demo failed', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
       setStatus('error');
     }
-  }, [runOnce, selectedActfl, toast, loadHistory]);
-
-  const runComparison = useCallback(async () => {
-    setCompareRunning(true);
-    setCompareA(null);
-    setCompareB(null);
-    try {
-      const labelA = ACTFL_LEVELS.find(l => l.value === compareActflA)?.label ?? compareActflA;
-      const labelB = ACTFL_LEVELS.find(l => l.value === compareActflB)?.label ?? compareActflB;
-      toast({ title: `Running ${labelA}…`, description: 'First run starting' });
-      const dataA = await runOnce(compareActflA);
-      setCompareA({ transcript: dataA.transcript, label: labelA });
-      toast({ title: `${labelA} done. Running ${labelB}…` });
-      const dataB = await runOnce(compareActflB);
-      setCompareB({ transcript: dataB.transcript, label: labelB });
-      setShowComparison(true);
-      loadHistory();
-    } catch (err: unknown) {
-      toast({ title: 'Comparison failed', description: err instanceof Error ? err.message : String(err), variant: 'destructive' });
-    } finally {
-      setCompareRunning(false);
-    }
-  }, [runOnce, compareActflA, compareActflB, toast, loadHistory]);
+  }, [selectedScenario, selectedActfl, toast, loadHistory]);
 
   const displayEvents: VisualEvent[] = result?.visualEvents ?? selectedRun?.visualEventsJson ?? [];
-  const displayTranscript: string = result?.transcript ?? selectedRun?.transcript ?? '';
+  const displayTranscript = result?.transcript ?? selectedRun?.transcript ?? '';
   const displayTools = result?.toolCallsSummary ?? selectedRun?.toolCallsJson ?? [];
-  const displayDuration: number = result?.audioDurationS ?? selectedRun?.audioDurationS ?? 0;
+  const displayDuration = result?.audioDurationS ?? selectedRun?.audioDurationS ?? 0;
   const displayCoverage: CoverageScore | null = result
     ? computeCoverage(result)
     : selectedRun?.coverageJson ?? null;
 
   const { studioImage, studioLabel, vocabEvent } = deriveVisuals(displayEvents);
-  const isShowingHistorical = !result && !!selectedRun;
+  const isHistorical = !result && !!selectedRun;
 
   return (
     <div className="h-full flex flex-col bg-background" data-testid="agent-visual-test-page">
-
-      {/* Comparison overlay */}
-      {showComparison && compareA && compareB && (
-        <TranscriptCompare
-          a={compareA.transcript} b={compareB.transcript}
-          labelA={compareA.label} labelB={compareB.label}
-          onClear={() => setShowComparison(false)}
-        />
-      )}
 
       {/* ── Header ── */}
       <div className="shrink-0 border-b px-5 py-2.5 flex items-center gap-3 flex-wrap">
         <div>
           <h1 className="text-sm font-semibold leading-tight">Observer Seat</h1>
           <p className="text-xs text-muted-foreground">
-            {isShowingHistorical
-              ? `Viewing: ${selectedRun.scenarioLabel} · ${new Date(selectedRun.runAt).toLocaleDateString()}`
-              : 'Watch the visual layer fire in real time'}
+            {isHistorical
+              ? `Replaying: ${selectedRun.scenarioLabel}`
+              : "Luca's visual layer diagnostic"}
           </p>
         </div>
-        {isShowingHistorical && <Badge variant="secondary" className="text-xs">Historical run</Badge>}
-        <Badge
-          variant={status === 'done' ? 'default' : status === 'error' ? 'destructive' : 'secondary'}
-          data-testid="status-badge"
-        >
+        {isHistorical && <Badge variant="secondary" className="text-xs">Replay</Badge>}
+        <Badge variant={status === 'done' ? 'default' : status === 'error' ? 'destructive' : 'secondary'} data-testid="status-badge">
           {status === 'idle' ? 'Ready' : status === 'running' ? `Running… ${elapsedS}s` : status === 'done' ? 'Done' : 'Error'}
         </Badge>
         <div className="flex-1" />
-        {/* ACTFL compare toggle */}
-        <Button size="sm" variant="outline" onClick={() => setCompareMode(m => !m)} data-testid="button-toggle-compare">
-          {compareMode ? 'Hide compare' : 'ACTFL compare'}
-        </Button>
         <Button onClick={runDemo} disabled={status === 'running'} data-testid="button-run-demo">
-          {status === 'running' ? 'Watching…' : 'Run Session'}
+          {status === 'running' ? 'Watching…' : 'Run'}
         </Button>
       </div>
 
-      {/* ── ACTFL compare bar ── */}
-      {compareMode && (
-        <div className="shrink-0 border-b bg-muted/20 px-5 py-2 flex items-center gap-3 flex-wrap">
-          <span className="text-xs font-medium text-muted-foreground">Compare same scenario at two levels:</span>
-          <select
-            className="text-xs border rounded px-2 py-1 bg-background"
-            value={compareActflA}
-            onChange={e => setCompareActflA(e.target.value)}
-            data-testid="select-actfl-a"
-          >
-            {ACTFL_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-          </select>
-          <span className="text-xs text-muted-foreground">vs</span>
-          <select
-            className="text-xs border rounded px-2 py-1 bg-background"
-            value={compareActflB}
-            onChange={e => setCompareActflB(e.target.value)}
-            data-testid="select-actfl-b"
-          >
-            {ACTFL_LEVELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-          </select>
-          <Button size="sm" onClick={runComparison} disabled={compareRunning} data-testid="button-run-comparison">
-            {compareRunning ? 'Running both…' : 'Run comparison'}
-          </Button>
-          {compareA && compareB && !showComparison && (
-            <Button size="sm" variant="outline" onClick={() => setShowComparison(true)}>
-              Show results
-            </Button>
-          )}
-        </div>
-      )}
-
-      {/* ── Scenario + ACTFL level picker ── */}
+      {/* ── Scenario + level picker ── */}
       <div className="shrink-0 border-b px-5 py-2 flex items-center gap-2 flex-wrap">
         {SCENARIOS.map((s, i) => (
           <button
             key={s.label}
-            className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+            className={`px-2.5 py-1 rounded text-xs font-medium ${
               selectedScenario === i
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted text-muted-foreground hover-elevate'
@@ -469,8 +349,8 @@ export default function AgentVisualTest() {
             {s.label}
           </button>
         ))}
-        <div className="ml-auto flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">Level:</span>
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          <span className="text-xs text-muted-foreground">ACTFL:</span>
           <select
             className="text-xs border rounded px-2 py-1 bg-background"
             value={selectedActfl}
@@ -485,7 +365,7 @@ export default function AgentVisualTest() {
       {/* ── Three-panel layout ── */}
       <div className="flex-1 min-h-0 grid grid-cols-[1fr_1.6fr_1fr] divide-x">
 
-        {/* Studio panel */}
+        {/* Studio */}
         <div className="flex flex-col min-h-0">
           <div className="px-4 py-2 border-b flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Studio</span>
@@ -503,17 +383,17 @@ export default function AgentVisualTest() {
                     <path d="m21 15-5-5L5 21"/>
                   </svg>
                 </div>
-                <p className="text-xs">Scene appears when Daniela calls open_scene</p>
+                <p className="text-xs">open_scene fires here</p>
               </div>
             )}
             <audio ref={audioRef} controls className="w-full" data-testid="audio-player" />
             {displayDuration > 0 && (
-              <p className="text-xs text-muted-foreground text-center">{displayDuration.toFixed(1)}s audio</p>
+              <p className="text-xs text-muted-foreground text-center">{displayDuration.toFixed(1)}s</p>
             )}
           </div>
         </div>
 
-        {/* Session panel */}
+        {/* Session */}
         <div className="flex flex-col min-h-0">
           <div className="px-4 py-2 border-b">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Session</span>
@@ -523,7 +403,7 @@ export default function AgentVisualTest() {
               {displayTranscript ? (
                 <p className="text-sm leading-relaxed whitespace-pre-wrap" data-testid="transcript-text">{displayTranscript}</p>
               ) : selectedRunLoading ? (
-                <p className="text-sm text-muted-foreground">Loading run data…</p>
+                <p className="text-sm text-muted-foreground">Loading…</p>
               ) : (
                 <p className="text-sm text-muted-foreground italic">
                   {status === 'running' ? 'Waiting for Daniela…' : 'Transcript appears here'}
@@ -533,12 +413,12 @@ export default function AgentVisualTest() {
 
             {displayTools.length > 0 && (
               <div className="border-t px-4 py-2 max-h-40 overflow-y-auto" data-testid="tool-log">
-                <p className="text-xs font-semibold text-muted-foreground mb-1.5">Tool calls ({displayTools.length})</p>
+                <p className="text-xs font-semibold text-muted-foreground mb-1.5">Tools ({displayTools.length})</p>
                 {displayTools.map((t, i) => (
-                  <div key={i} className="text-xs font-mono text-muted-foreground mb-1" data-testid={`tool-call-${i}`}>
+                  <div key={i} className="text-xs font-mono mb-1" data-testid={`tool-call-${i}`}>
                     <span className="text-foreground font-semibold">{t.name}</span>
                     {' '}
-                    <span className="opacity-70">{JSON.stringify(t.args).slice(0, 80)}</span>
+                    <span className="text-muted-foreground opacity-70">{JSON.stringify(t.args).slice(0, 80)}</span>
                   </div>
                 ))}
               </div>
@@ -552,14 +432,12 @@ export default function AgentVisualTest() {
                     ? Math.round((displayCoverage.imageHits / displayCoverage.imageTotal) * 100) : 0;
                   return (
                     <>
-                      <span className={`text-sm font-bold ${gradeColor(grade)}`} data-testid="coverage-grade">{grade}</span>
-                      <span className="text-xs text-muted-foreground">Scene: {displayCoverage.sceneOk ? '✓' : '✗'}</span>
-                      <span className="text-xs text-muted-foreground">Vocab: {displayCoverage.vocabOk ? '✓' : '✗'}</span>
-                      <span className="text-xs text-muted-foreground">
-                        Images: {displayCoverage.imageHits}/{displayCoverage.imageTotal} ({imgPct}%)
-                      </span>
-                      <span className="text-xs text-muted-foreground">Audio: {displayCoverage.audioOk ? '✓' : '✗'}</span>
-                      <span className="text-xs text-muted-foreground">{displayCoverage.transcriptChars} chars</span>
+                      <span className={`text-sm font-bold ${gradeColor(grade)}`}>{grade}</span>
+                      <span className="text-xs text-muted-foreground">Scene:{displayCoverage.sceneOk ? '✓' : '✗'}</span>
+                      <span className="text-xs text-muted-foreground">Vocab:{displayCoverage.vocabOk ? `✓${displayCoverage.imageTotal > 0 ? ` ${displayCoverage.imageTotal}w` : ''}` : '✗'}</span>
+                      <span className="text-xs text-muted-foreground">Img:{imgPct}%</span>
+                      <span className="text-xs text-muted-foreground">Audio:{displayCoverage.audioOk ? '✓' : '✗'}</span>
+                      <span className="text-xs text-muted-foreground">{displayCoverage.transcriptChars}ch</span>
                     </>
                   );
                 })()}
@@ -568,7 +446,7 @@ export default function AgentVisualTest() {
           </div>
         </div>
 
-        {/* Whiteboard panel */}
+        {/* Whiteboard */}
         <div className="flex flex-col min-h-0">
           <div className="px-4 py-2 border-b">
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Whiteboard</span>
@@ -577,7 +455,7 @@ export default function AgentVisualTest() {
             {vocabEvent?.resolvedWords?.length ? (
               <div data-testid="vocab-grid">
                 {!!vocabEvent.data.title && (
-                  <p className="text-xs font-semibold text-muted-foreground mb-2 px-1">{String(vocabEvent.data.title)}</p>
+                  <p className="text-xs font-semibold text-muted-foreground mb-2">{String(vocabEvent.data.title)}</p>
                 )}
                 <div className="grid grid-cols-2 gap-2">
                   {vocabEvent.resolvedWords.map((w, i) => {
@@ -586,15 +464,15 @@ export default function AgentVisualTest() {
                     return (
                       <div key={i} className="border rounded-md overflow-hidden bg-card" data-testid={`vocab-card-${i}`}>
                         {w.imageUrl ? (
-                          <img src={w.imageUrl} alt={word} className="w-full h-[90px] object-cover" data-testid={`vocab-image-${i}`} />
+                          <img src={w.imageUrl} alt={word} className="w-full h-[90px] object-cover" />
                         ) : (
                           <div className="w-full h-[90px] bg-muted flex items-center justify-center">
                             <span className="text-xs text-muted-foreground">No image</span>
                           </div>
                         )}
                         <div className="px-2 py-1.5">
-                          <p className="text-xs font-semibold leading-tight" data-testid={`vocab-word-${i}`}>{word}</p>
-                          {trans && <p className="text-xs text-muted-foreground mt-0.5" data-testid={`vocab-translation-${i}`}>{trans}</p>}
+                          <p className="text-xs font-semibold">{word}</p>
+                          {trans && <p className="text-xs text-muted-foreground mt-0.5">{trans}</p>}
                         </div>
                       </div>
                     );
@@ -602,7 +480,7 @@ export default function AgentVisualTest() {
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground px-6 text-center" data-testid="whiteboard-empty">
+              <div className="flex flex-col items-center justify-center h-full gap-3 text-muted-foreground text-center" data-testid="whiteboard-empty">
                 <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center">
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                     <rect x="3" y="3" width="18" height="13" rx="2"/>
@@ -610,7 +488,7 @@ export default function AgentVisualTest() {
                     <path d="M7 8h10M7 11h6"/>
                   </svg>
                 </div>
-                <p className="text-xs">Vocabulary grid appears when Daniela calls show_vocab_grid</p>
+                <p className="text-xs">show_vocab_grid fires here</p>
               </div>
             )}
           </div>
