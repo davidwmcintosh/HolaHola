@@ -24,6 +24,30 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: July 2, 2026 — Lesson Arc Architecture (Luca)**
+
+Lesson Arc Architecture built, Gemini-reviewed (2 rounds), APPROVED. All in `server/services/native-fc-handlers.ts` + `daniela-function-registry.ts`.
+
+**What it is:** A shared `LessonContext` struct on the session object that ties Daniela's visual tools into coherent teaching arcs — scene → vocab → sentence builder flow coherently without re-specification.
+
+**Arc phases:** madrigal → broadcast → immersion → free_flow → recap (each is a declared teaching mode).
+
+**Key pieces:**
+- `LessonContext` interface: phase, scene, vocab[], phaseObjective, phaseHint, updatedAt
+- `initLessonContext()` + `pushLessonStatusContext()` — helpers; push deduplicates [Lesson context] lines in pendingGlContext to protect the 34K GL cap
+- `UPDATE_LESSON_CONTEXT` case — explicit phase declaration tool (accessible via `teaching_content(type:"update_lesson_context")`)
+- `OPEN_SCENE` enhancement — writes scene to lessonContext, clears vocab on scene change, clears stale vision buffer, calls pushLessonStatusContext
+- `SHOW_VOCAB_GRID` enhancement — writes resolved vocab to lessonContext, calls pushLessonStatusContext
+- `SHOW_SENTENCE_BUILDER` enhancement — inherits vocab from lessonContext only when `items === undefined` (empty [] is intentional — blank columns for student input)
+- `UPDATE_SESSION_PEDAGOGY` bridge — writes phaseHint from gear level; 30-second grace period after manual phase update prevents heartbeat from contradicting Daniela's explicit phase transitions
+- `update_lesson_context` tool registered in registry, excluded from direct GL (64-tool cap), routed via `teaching_content` dispatcher
+
+**Gemini R1 findings applied:** (1) pushLessonStatusContext deduplication, (2) OPEN_SCENE clears stale visionBuffer on scene change + calls push, (3) SHOW_VOCAB_GRID calls push after vocab write, (4) sentence builder uses `=== undefined` not `length === 0`, (5) heartbeat grace period.
+
+LessonContext is in-memory only (no DB column) — reconnect persistence is a follow-up.
+
+---
+
 **Session: July 2, 2026 — Madrigal co-pilot: sentence builder images, compass principle, tú reveal gate (Luca)**
 
 Four pieces of the Madrigal pedagogy system, all Gemini + Daniela dual-consult approved (conversation_memories `ba2a5a65`):

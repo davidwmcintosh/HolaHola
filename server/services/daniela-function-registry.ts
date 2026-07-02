@@ -152,6 +152,53 @@ Call once at each major phase transition. Do not announce the phase name to the 
     },
   },
 
+  {
+    legacyType: 'UPDATE_LESSON_CONTEXT',
+    declaration: {
+      name: 'update_lesson_context',
+      description: `Declare the current lesson phase and teaching intent. Call this when:
+- Transitioning between lesson phases (Madrigal → Broadcast → Immersion → FreeFlow → Recap)
+- Beginning a new topic or scene context
+- The pedagogical heartbeat signals the student is ready for the next phase
+
+After you call this, visual tools inherit the declared context automatically — show_vocab_grid and show_sentence_builder will draw from the active scene and vocab set without requiring re-specification.
+
+Phases:
+- madrigal: Visual-associative introduction. Scene → vocabulary → sentence patterns. You present, student absorbs.
+- broadcast: You perform or present — a story, cultural moment, scenario walkthrough. Student observes.
+- immersion: Scaffolding down. Free conversation in the target language using what was introduced. Student produces.
+- free_flow: Student-led natural conversation. Follow their thread.
+- recap: Close the loop. Name what the student can do now that they couldn't before.
+
+Do not announce the phase name to the student. Call this silently and continue teaching.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          phase: {
+            type: 'string',
+            enum: ['madrigal', 'broadcast', 'immersion', 'free_flow', 'recap'],
+            description: 'The lesson phase you are entering.',
+          },
+          scene: {
+            type: 'string',
+            description: 'The environment context for this phase (e.g. "restaurant_table", "market_stall"). Subsequent visual tools will draw from this scene.',
+          },
+          phase_objective: {
+            type: 'string',
+            description: 'What success looks like in this phase. 1 sentence. e.g. "Student recognizes and uses the six core restaurant vocabulary words."',
+          },
+          note: {
+            type: 'string',
+            description: 'Internal note — why you are making this transition. Not shown to student.',
+          },
+        },
+        required: ['phase'],
+      },
+    },
+    buildContinuationResponse: ({ fc }) =>
+      `Lesson context updated: phase=${fc.args.phase}${fc.args.scene ? `, scene=${fc.args.scene}` : ''}${fc.args.phase_objective ? `. Objective: ${fc.args.phase_objective}` : ''}. Visual tools will now inherit this context.`,
+  },
+
   // === TEACHING & PROGRESSION ===
   {
     legacyType: 'SWITCH_TUTOR',
@@ -5550,13 +5597,13 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'ADMIN_SESSION',
     declaration: {
       name: 'admin_session',
-      description: 'Session lifecycle and consent bookkeeping. Use for: recording student consent (record_student_consent), dismissing an absence nudge (dismiss_absence_nudge), marking first meeting complete (first_meeting_complete), closing the session (close_session), logging a page event (log_page_event), requesting text input from the student (request_text_input), recording a background pattern signal (record_pattern_signal).',
+      description: 'Session lifecycle and consent bookkeeping. Use for: recording student consent (record_student_consent), dismissing an absence nudge (dismiss_absence_nudge), marking first meeting complete (first_meeting_complete), closing the session (close_session), logging a page event (log_page_event), requesting text input from the student (request_text_input), recording a background pattern signal (record_pattern_signal), recording a successful usted/third-person fluency instance silently (record_usted_fluency) — call when student correctly uses third-person/usted forms naturally.',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
           action: {
             type: 'STRING',
-            enum: ['record_student_consent', 'dismiss_absence_nudge', 'first_meeting_complete', 'close_session', 'log_page_event', 'request_text_input', 'record_pattern_signal'],
+            enum: ['record_student_consent', 'dismiss_absence_nudge', 'first_meeting_complete', 'close_session', 'log_page_event', 'request_text_input', 'record_pattern_signal', 'record_usted_fluency'],
             description: 'Which session admin action to perform.',
           },
           params_json: {
@@ -5704,13 +5751,13 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'TEACHING_CONTENT',
     declaration: {
       name: 'teaching_content',
-      description: 'Deliver structured curriculum content and lesson elements. Use for: pulling curriculum content on a topic (pull_lesson_content), grammar structure diagram (grammar_diagram), vocabulary grid display (show_vocab_grid), swapping a vocab card image (swap_vocab_image), regenerating the active vocab card image (regenerate_vocab_card_image), interactive sentence combinator / sentence builder (show_sentence_builder) — ALWAYS call this tool when the student asks for a "sentence combinator" or "sentence builder"; never explain it verbally instead, textbook section display (show_textbook_section), launching a structured teaching skill script (invoke_teaching_skill).',
+      description: 'Deliver structured curriculum content and lesson elements, and declare lesson arc phase transitions. Use for: pulling curriculum content on a topic (pull_lesson_content), grammar structure diagram (grammar_diagram), vocabulary grid display (show_vocab_grid), swapping a vocab card image (swap_vocab_image), regenerating the active vocab card image (regenerate_vocab_card_image), interactive sentence combinator / sentence builder (show_sentence_builder) — ALWAYS call this tool when the student asks for a "sentence combinator" or "sentence builder"; never explain it verbally instead, textbook section display (show_textbook_section), launching a structured teaching skill script (invoke_teaching_skill), declaring a lesson arc phase transition (update_lesson_context) — use to signal madrigal/broadcast/immersion/free_flow/recap phases and set the scene context so subsequent visual tools inherit it.',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
           type: {
             type: 'STRING',
-            enum: ['pull_lesson_content', 'grammar_diagram', 'show_vocab_grid', 'swap_vocab_image', 'regenerate_vocab_card_image', 'show_sentence_builder', 'show_textbook_section', 'invoke_teaching_skill'],
+            enum: ['pull_lesson_content', 'grammar_diagram', 'show_vocab_grid', 'swap_vocab_image', 'regenerate_vocab_card_image', 'show_sentence_builder', 'show_textbook_section', 'invoke_teaching_skill', 'update_lesson_context'],
             description: 'Which curriculum content delivery type to use.',
           },
           params_json: {
@@ -6650,6 +6697,23 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'express_lane_lookup',
   'read_queued_for_student',
   'flag_for_agent',
+
+  // === DEMOTED TO DISPATCHER (teaching_content) — Lesson Arc Phase Tool ===
+  // update_lesson_context is accessible via teaching_content(type:"update_lesson_context").
+  // Phase declaration kept in the teaching flow, not as a bare direct tool, to preserve GL cap.
+  'update_lesson_context',
+
+  // === DEMOTED TO DISPATCHER (admin_session) — Silent Background Signal ===
+  // record_usted_fluency is now accessible via admin_session(action:"record_usted_fluency").
+  // Like record_pattern_signal, it is a silent tracking call — not a conversational act.
+  'record_usted_fluency',
+
+  // === DEMOTED — redundant with update_lesson_context + update_session_phase ===
+  // phase_shift marks "warmup / active_teaching / challenge / reflection / drill / assessment" arcs.
+  // update_lesson_context handles the content arc (madrigal/broadcast/immersion/free_flow/recap).
+  // update_session_phase handles the talk-ratio arc (WARM_UP/PRESENTATION/PRACTICE/PRODUCTION/COOL_DOWN).
+  // With both of those now in GL, phase_shift is redundant overhead — demoted to free cap space.
+  'phase_shift',
 
   // === DEMOTED TO DISPATCHER (teaching_cards / teaching_content) ===
   // Structured teaching content tools — split into 2 focused dispatchers (Phase 2).

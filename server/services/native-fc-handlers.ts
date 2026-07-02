@@ -25,6 +25,47 @@ import { WebSocket as WS } from "ws";
 import type { IStorage } from "../storage";
 import { lookupLegacyType, isKnownTool } from "./daniela-function-registry";
 
+// ─── Lesson Arc Context ────────────────────────────────────────────────────────
+// In-memory per-session state that ties visual tools together into a coherent arc.
+// Tools read from this when parameters are absent; update_lesson_context writes it explicitly.
+// The heartbeat (UPDATE_SESSION_PEDAGOGY) writes phaseHint based on student readiness.
+
+export interface LessonContext {
+  phase: 'madrigal' | 'broadcast' | 'immersion' | 'free_flow' | 'recap' | null;
+  scene: string | null;
+  vocab: Array<{ text: string; translation: string; imageQuery?: string; imageUrl?: string }>;
+  phaseObjective: string | null;
+  phaseHint: string | null;    // suggestion written by pedagogical heartbeat
+  updatedAt: number;
+}
+
+function initLessonContext(session: any): LessonContext {
+  if (!(session as any).lessonContext) {
+    (session as any).lessonContext = {
+      phase: null, scene: null, vocab: [], phaseObjective: null, phaseHint: null, updatedAt: Date.now(),
+    };
+  }
+  return (session as any).lessonContext as LessonContext;
+}
+
+function pushLessonStatusContext(session: any): void {
+  const ctx = (session as any).lessonContext as LessonContext | undefined;
+  if (!ctx) return;
+  const parts: string[] = [];
+  if (ctx.phase) parts.push(`Phase: ${ctx.phase}`);
+  if (ctx.scene) parts.push(`Scene: ${ctx.scene}`);
+  if (ctx.vocab.length > 0) parts.push(`Active vocab (${ctx.vocab.length}): ${ctx.vocab.map(v => v.text).join(', ')}`);
+  if (ctx.phaseObjective) parts.push(`Objective: ${ctx.phaseObjective}`);
+  if (ctx.phaseHint) parts.push(`Readiness signal: ${ctx.phaseHint}`);
+  if (parts.length === 0) return;
+  if (!session.pendingGlContext) session.pendingGlContext = [];
+  // Deduplicate: remove any previous [Lesson context] line before pushing the current state.
+  // Without this, pendingGlContext accumulates stale copies and eats into the 34K GL cap.
+  session.pendingGlContext = (session.pendingGlContext as string[]).filter(s => !s.startsWith('[Lesson context]'));
+  session.pendingGlContext.push(`[Lesson context] ${parts.join(' | ')}`);
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 /**
  * Parses the params_json string from a dispatcher tool call.
  *
@@ -1451,6 +1492,20 @@ export class NativeFunctionCallHandler {
           console.warn('[Native Function→OpenScene] Missing environment — skipping');
           break;
         }
+
+        // Update lesson context — new scene clears active vocab (fresh context for each environment)
+        const openSceneLc = initLessonContext(session);
+        if (sceneEnv !== openSceneLc.scene) {
+          openSceneLc.vocab = [];
+          // Clear stale vision buffer so Daniela doesn't reference the previous scene's visuals
+          // while the new scene's async vision promise is still resolving.
+          if (session.visionBuffer) delete (session.visionBuffer as any)['open_scene'];
+        }
+        openSceneLc.scene = sceneEnv;
+        openSceneLc.updatedAt = Date.now();
+        console.log(`[LessonArc] Scene → ${sceneEnv}`);
+        pushLessonStatusContext(session);
+
         const { getUserDb } = await import('../db');
         const { sql: sqlTag } = await import('drizzle-orm');
         const openDb = getUserDb();
@@ -3544,6 +3599,26 @@ export class NativeFunctionCallHandler {
         // Cache on session for PedagogicalSupervisor (Emergency Brake evaluation)
         (session as any)._lastGear = pgGear;
         (session as any)._lastFluency = pgFluency;
+
+        // Bridge to lesson arc — write readiness hint so Daniela knows when to phase-shift.
+        // 30-second grace period after a manual phase update (via update_lesson_context):
+        // prevents the heartbeat from immediately contradicting a phase transition Daniela
+        // just made (e.g. she declares immersion, but the student's gear hasn't updated yet).
+        const hbLc = initLessonContext(session);
+        const hbSecondsSinceUpdate = (Date.now() - hbLc.updatedAt) / 1000;
+        if (hbSecondsSinceUpdate > 30) {
+          if (pgGear <= 2) {
+            hbLc.phaseHint = 'student consolidating — Madrigal or structured review recommended';
+          } else if (pgGear === 3) {
+            hbLc.phaseHint = 'student building fluency — Broadcast or structured output appropriate';
+          } else {
+            hbLc.phaseHint = 'student showing confidence — Immersion or free flow is appropriate';
+          }
+          hbLc.updatedAt = Date.now();
+          console.log(`[LessonArc] Phase hint: gear ${pgGear} → "${hbLc.phaseHint}"`);
+        } else {
+          console.log(`[LessonArc] Phase hint skipped — manual phase update ${Math.round(hbSecondsSinceUpdate)}s ago (grace period active)`);
+        }
         break;
       }
 
@@ -3559,6 +3634,32 @@ export class NativeFunctionCallHandler {
           (session as any)._struggleTimestamps = [];
           console.log(`[Native Function→SessionPhase] Phase → ${phaseValue}${phaseReason ? ` (${phaseReason})` : ''}`);
         }
+        break;
+      }
+
+      case 'UPDATE_LESSON_CONTEXT': {
+        const ulcPhase = fn.args.phase as string | undefined;
+        const ulcScene = fn.args.scene as string | undefined;
+        const ulcObjective = fn.args.phase_objective as string | undefined;
+
+        if (!ulcPhase) {
+          console.warn('[Native Function→LessonContext] Missing required phase — skipping');
+          break;
+        }
+
+        const ulcCtx = initLessonContext(session);
+        ulcCtx.phase = ulcPhase as LessonContext['phase'];
+        if (ulcScene) {
+          // Declaring a new scene clears the active vocab — fresh context
+          if (ulcScene !== ulcCtx.scene) ulcCtx.vocab = [];
+          ulcCtx.scene = ulcScene;
+        }
+        if (ulcObjective) ulcCtx.phaseObjective = ulcObjective;
+        ulcCtx.phaseHint = null; // cleared on explicit phase declaration
+        ulcCtx.updatedAt = Date.now();
+
+        console.log(`[Native Function→LessonContext] Phase → ${ulcPhase}${ulcScene ? ` | Scene: ${ulcScene}` : ''}${ulcObjective ? ` | Objective: ${ulcObjective}` : ''}`);
+        pushLessonStatusContext(session);
         break;
       }
 
@@ -7041,6 +7142,12 @@ export class NativeFunctionCallHandler {
             (session as any).activeVocabGrid = resolvedWords;
             (session as any).activeVocabGridTitle = title;
 
+            // Update lesson context — sentence builder can now inherit these words without re-specification
+            const vocabLc = initLessonContext(session);
+            vocabLc.vocab = resolvedWords.map((w: any) => ({ text: w.text, translation: w.translation, imageQuery: w.imageQuery, imageUrl: w.imageUrl }));
+            vocabLc.updatedAt = Date.now();
+            pushLessonStatusContext(session);
+
             const whiteboardUpdate = {
               type: 'whiteboard_update' as const,
               timestamp: Date.now(),
@@ -7245,7 +7352,21 @@ export class NativeFunctionCallHandler {
         const patternLabel = fn.args.pattern_label as string | undefined;
         const rawColumns = fn.args.columns as Array<{ label?: string; items: Array<{ text: string; translation: string; imageQuery?: string }> }> | undefined;
 
-        if (!Array.isArray(rawColumns) || rawColumns.length === 0) {
+        // Vocab inheritance — if any column has empty items, fill from lessonContext.vocab.
+        // This lets Daniela call show_sentence_builder with structure but without re-specifying
+        // nouns she already introduced via show_vocab_grid.
+        const sbLc = (session as any).lessonContext as LessonContext | undefined;
+        const effectiveColumns = rawColumns?.map(col => {
+          // Only inherit when items is strictly undefined — an empty [] is intentional
+          // (e.g. Daniela leaving a "verb" column blank for the student to fill in).
+          if (col.items === undefined && sbLc?.vocab && sbLc.vocab.length > 0) {
+            console.log(`[LessonArc] Sentence builder column "${col.label}" inherited ${sbLc.vocab.length} items from lesson context`);
+            return { ...col, items: sbLc.vocab.map(v => ({ text: v.text, translation: v.translation, imageQuery: v.imageQuery })) };
+          }
+          return col;
+        });
+
+        if (!Array.isArray(effectiveColumns) || effectiveColumns.length === 0) {
           console.warn('[Native Function→ShowSentenceBuilder] Missing columns');
           break;
         }
@@ -7261,7 +7382,7 @@ export class NativeFunctionCallHandler {
             data: {
               panel: {
                 type: 'sentence-builder' as const,
-                columns: rawColumns.map(col => ({
+                columns: effectiveColumns.map(col => ({
                   label: col.label,
                   items: (col.items || []).map(item => ({ text: item.text, translation: item.translation, imageQuery: item.imageQuery })),
                 })),
@@ -7278,7 +7399,7 @@ export class NativeFunctionCallHandler {
           if (!session.pendingWhiteboardUpdates) session.pendingWhiteboardUpdates = [];
           session.pendingWhiteboardUpdates.push(whiteboardUpdate);
         }
-        console.log(`[Native Function→ShowSentenceBuilder] Displayed ${rawColumns.length} columns`);
+        console.log(`[Native Function→ShowSentenceBuilder] Displayed ${effectiveColumns.length} columns`);
         break;
       }
 

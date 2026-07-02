@@ -8,6 +8,42 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jul 2, 2026 — Lesson Arc Architecture
+
+### What was built
+
+A shared `LessonContext` session-state system that ties Daniela's visual tools (open_scene → show_vocab_grid → show_sentence_builder) into coherent teaching arcs. Two rounds of Gemini review, APPROVED.
+
+**Files changed:**
+- `server/services/native-fc-handlers.ts` — LessonContext interface + helpers, 5 enhanced handlers, 5 Gemini-review fixes
+- `server/services/daniela-function-registry.ts` — `update_lesson_context` tool, dispatcher routing, GL exclusion
+
+**Arc phases:** madrigal → broadcast → immersion → free_flow → recap
+
+**How it works:**
+- `LessonContext` struct lives on the session object (in-memory, per-connection). Fields: phase, scene, vocab[], phaseObjective, phaseHint, updatedAt.
+- `initLessonContext(session)` — lazy init, returns the struct.
+- `pushLessonStatusContext(session)` — serializes current context into one deduplicated `[Lesson context]` line in `pendingGlContext[]`, so Daniela sees it on the next GL turn. Deduplication prevents cap bloat.
+- `OPEN_SCENE` writes scene to context, clears vocab on scene change, clears stale vision buffer on scene change, calls pushLessonStatusContext.
+- `SHOW_VOCAB_GRID` writes resolved vocab (text, translation, imageQuery, imageUrl) to context, calls pushLessonStatusContext.
+- `SHOW_SENTENCE_BUILDER` inherits vocab into any column where `items === undefined` (empty `[]` is intentional — left blank for student input).
+- `UPDATE_LESSON_CONTEXT` — explicit phase declaration. Clears vocab on scene change, clears phaseHint on transition.
+- `UPDATE_SESSION_PEDAGOGY` (heartbeat) writes phaseHint from gear level (1-2=consolidating, 3=building, 4+=confident). 30-second grace period prevents the heartbeat from overwriting a manual phase transition Daniela just made.
+- `update_lesson_context` tool in registry, excluded from direct GL declarations (64-tool cap), accessed via `teaching_content(type:"update_lesson_context")`.
+
+**Gemini review findings applied:**
+1. `pushLessonStatusContext` deduplicates before pushing (prevents 34K cap bloat)
+2. OPEN_SCENE clears `visionBuffer['open_scene']` on scene change (prevents stale vision race)
+3. SHOW_VOCAB_GRID calls `pushLessonStatusContext` after vocab write (Daniela wasn't seeing vocab updates)
+4. Sentence builder uses `=== undefined` not `length === 0` (respects intentionally blank columns)
+5. Heartbeat has 30-second grace period after manual phase update (prevents immediate contradiction)
+
+**LessonContext is in-memory only.** DB persistence on reconnect is a follow-up item.
+
+**User instructions:** Daniela manages this automatically. She can call `teaching_content(type:"update_lesson_context", phase:"madrigal")` to declare phase intent. Visual tools inherit scene/vocab state without re-specification.
+
+---
+
 ## Session — Jul 2, 2026 — Madrigal Pedagogy: Sentence Builder Images + Compass Principle + Tú Reveal Gate
 
 ### What was built
