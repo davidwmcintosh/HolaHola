@@ -19,6 +19,9 @@
 import type { StreamingSession } from './streaming-session-types';
 import { getUserDb } from '../db';
 import { sql } from 'drizzle-orm';
+import { GoogleGenAI } from '@google/genai';
+
+const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
 export interface VisionResult {
   description: string;
@@ -79,6 +82,52 @@ async function getCachedDescription(imageUrl: string): Promise<string | null> {
   }
 }
 
+/**
+ * Call Gemini REST with the actual image bytes to generate a rich visual description.
+ * This is what gets stored in the cache so Daniela gets real detail on future sessions
+ * ("a fluffy gray cat with small stripes") rather than just the word label.
+ */
+async function generateVisionDescription(
+  data: string,
+  mimeType: string,
+  fallbackDescription: string,
+): Promise<string> {
+  try {
+    const result = await gemini.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: [{
+        role: 'user',
+        parts: [
+          { inlineData: { mimeType, data } },
+          {
+            text: 'Describe what you literally see in this image in one concise sentence. Focus on specific visual details: colors, textures, appearance, action, or setting. Do not name a word category or include a translation. Example format: "A fluffy gray tabby cat sitting on a wooden floor, looking up at the camera with bright green eyes."',
+          },
+        ],
+      }],
+    });
+    const text = result.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    return text || fallbackDescription;
+  } catch (err: any) {
+    console.warn('[ImageVision] generateVisionDescription failed:', err.message);
+    return fallbackDescription;
+  }
+}
+
+/**
+ * Generates a real visual description from the image bytes and stores it in the cache.
+ * Called asynchronously (fire-and-forget) after the first byte fetch — does not block
+ * the tool response. Future sessions will receive the rich description instead of the label.
+ */
+async function generateAndStoreCachedDescription(
+  imageUrl: string,
+  data: string,
+  mimeType: string,
+  fallbackDescription: string,
+): Promise<void> {
+  const description = await generateVisionDescription(data, mimeType, fallbackDescription);
+  await storeCachedDescription(imageUrl, description, mimeType);
+}
+
 async function storeCachedDescription(
   imageUrl: string,
   description: string,
@@ -129,8 +178,10 @@ export async function getImageVision(
     const { data, mimeType } = await fetchImageBytes(imageUrl);
     if (!session.seenImageUrls) session.seenImageUrls = new Set();
     session.seenImageUrls.add(imageUrl);
-    // Store description asynchronously — don't block the response
-    storeCachedDescription(imageUrl, fallbackDescription, mimeType).catch(() => {});
+    // Generate a real visual description from the image bytes and cache it asynchronously.
+    // Future sessions will receive this rich description ("a fluffy gray cat with small stripes")
+    // instead of the bare word label. Does not block the current tool response.
+    generateAndStoreCachedDescription(imageUrl, data, mimeType, fallbackDescription).catch(() => {});
     return { description: fallbackDescription, inlineData: { mimeType, data }, mode: 'bytes' };
   } catch (err: any) {
     console.error(`[ImageVisionCache] Fetch error for ${imageUrl}:`, err.message);

@@ -146,6 +146,45 @@ function actflSilenceDurationMs(actflLevel?: string | null): number {
   }
 }
 
+/**
+ * Observer Seat — builds a compact snapshot of what is currently visible on the student's
+ * screen. Injected into every tool-response batch so Daniela has continuous awareness of
+ * the visual context even between tool calls.
+ */
+function buildInterfaceStateSnapshot(session: StreamingSession): string {
+  const parts: string[] = [];
+
+  // Vocab grid — check visionBuffer for array type (vocab_grid key)
+  const vocabGrid = session.visionBuffer?.['vocab_grid'];
+  if (Array.isArray(vocabGrid) && vocabGrid.length > 0) {
+    const words = (vocabGrid as Array<{ word: string; translation: string }>)
+      .map(v => `${v.word} (${v.translation})`)
+      .join(', ');
+    parts.push(`vocab grid: ${words}`);
+  }
+
+  // Scene — prefer add_to_scene (latest state) then open_scene
+  const sceneEntry = session.visionBuffer?.['add_to_scene'] ?? session.visionBuffer?.['open_scene'];
+  if (sceneEntry && !Array.isArray(sceneEntry)) {
+    const sceneText = (sceneEntry as { sceneStateText?: string; description?: string }).sceneStateText;
+    if (sceneText) {
+      // sceneStateText is multi-line — grab the "Scene: X" line and the prop count
+      const sceneLine = sceneText.split('\n').find(l => l.startsWith('Scene:'));
+      const propLine  = sceneText.split('\n').find(l => /Props on canvas/.test(l));
+      const summary   = [sceneLine, propLine].filter(Boolean).join(', ');
+      if (summary) parts.push(summary);
+    }
+  }
+
+  // Textbook page
+  if (session.textbookPageResult) {
+    parts.push('lesson page open');
+  }
+
+  if (parts.length === 0) return '';
+  return `Student's screen: ${parts.join(' | ')}`;
+}
+
 export class GeminiLiveSession {
   private liveSession: Session | null = null;
   private fcHandler: NativeFunctionCallHandler;
@@ -2264,6 +2303,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         (last.response as any).result = currentResult + (currentResult ? '\n\n' : '') + ctxNote;
         this.session.pendingGlContext = [];
         console.log(`[GeminiLive] Gap 10: flushed ${pendingCtx.length} frontend context item(s) into tool response`);
+      }
+
+      // Observer Seat — persistent interface state snapshot, injected on every tool-response
+      // batch. Gives Daniela continuous awareness of what is currently on the student's screen
+      // between tool calls — not just at the moment a visual tool fires. Compact and factual;
+      // safe channel (tool response text is never spoken aloud).
+      if (responses.length > 0) {
+        const stateSnapshot = buildInterfaceStateSnapshot(this.session);
+        if (stateSnapshot) {
+          const last = responses[responses.length - 1];
+          const currentResult = (last.response as any)?.result ?? '';
+          (last.response as any).result = currentResult
+            + (currentResult ? '\n\n' : '')
+            + `[Observer Seat — not spoken: ${stateSnapshot}]`;
+        }
       }
 
       // Scaffolding Slider — Contextual Echoing:
