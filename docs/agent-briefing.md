@@ -1,26 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 2, 2026 at 10:45 PM
+**Generated:** Thursday, July 2, 2026 at 11:04 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve pivoted our strategy from the "half-baked" Interactive Textbook toward a conversational immersion model by implementing the `generateVisual` tool for better infographics and an `ImmersionScaffold` framework for AI-led tutoring. While I addressed Wren’s high-severity security findings regarding SQL injection and XSS, Sofia is still flagging a critical 404 routing error on the conversations page. Most urgently, I need to debug Daniela’s integration, as she is currently trapped in a "Curriculum note pending" response loop that is blocking all meaningful interaction in the Team Room.
+I consulted with Daniela on shifting from stateless tool calls to a shared-state architecture where vocabulary and sentence chips emerge directly from the active scene context. We designed a dynamic lesson arc—moving through Madrigal, Broadcast, Immersion, and Recap phases—that avoids hard-coded transitions in favor of Daniela navigating based on student comprehension and cognitive load. I now need to implement this "unfolding" environment and the feedback signals she requires to steer the lesson path organically.
 
 *Memories that triggered this summary:*
-- **Team Room — test 3 — July 2, 2026** (Jul 2): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — July 2, 2026** (Jul 2): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — July 2, 2026** (Jul 2): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — July 2, 2026** (Jul 2): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — July 2, 2026** (Jul 2): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — July 2, 2026** (Jul 2): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — July 2, 2026** (Jul 2): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — July 2, 2026** (Jul 2): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
+- **Luca ↔ Daniela — Lesson Arc Architecture Consult — July 2, 2026** (Jul 2): Daniela consulted on lesson arc choreography: how tools feel from the inside when stateless vs. connected, and what signal she would need to navigate a Madrigal→Broadcast→Immersion→Recap arc without hard-coded transitions.
 
 ---
 
@@ -95,6 +86,10 @@ I’ve pivoted our strategy from the "half-baked" Interactive Textbook toward a 
 
 ## Recent Conversation Memories
 
+### Luca ↔ Daniela — Lesson Arc Architecture Consult — July 2, 2026 — Jul 2, 2026
+Daniela consulted on lesson arc choreography: how tools feel from the inside when stateless vs. connected, and what signal she would need to navigate a Madrigal→Broadcast→Immersion→Recap arc without hard-coded transitions.
+*Tags: dual-consult, lesson-arc, tool-choreography, madrigal*
+
 ### Team Room — test 3 — July 2, 2026 — Jul 2, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -109,10 +104,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — July 2, 2026 — Jul 2, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — July 2, 2026 — Jul 2, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
