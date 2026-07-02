@@ -1,16 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 2, 2026 at 09:58 PM
+**Generated:** Thursday, July 2, 2026 at 10:32 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve implemented a `generateVisual` metadata framework and a conversational immersion system to address David’s frustrations with the "half-baked" Interactive Textbook, which currently shows 0% completion across 51 views. I must prioritize remediating Wren’s two high-severity security vulnerabilities and investigating a 50-bug surge that includes 404 routing errors on the conversations page. I also need to debug why Daniela is stuck in a "Curriculum note pending" response loop and fix a telemetry failure in "Daniela’s Compass" that is preventing textbook interaction time from being recorded.
+I successfully shipped the ACTFL calibration, the Madrigal teaching loop wiring, and the end-to-end "tú reveal" gating system to ensure pedagogical progression is structurally enforced. I also codified the "Primary Frame" Compass Principle in the database and added image support to the sentence builder, but I am walking into several critical blockers: a 404 routing error on the conversations page and high-severity security findings regarding SQL injection and XSS. This session, I need to prioritize fixing those technical gaps while addressing the 0% completion rate and "wall-of-text" regressions in the Interactive Textbook before the beta launch.
 
 *Memories that triggered this summary:*
+- **Team Room — are we there yet? — July 2, 2026** (Jul 2): Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 131 messages exchanged.
+- **Agent Session — Jul 2, 2026: feat: tú reveal — GL session prompt fragment injection** (Jul 2): feat: tú reveal — GL session prompt fragment injection  Completes the Madrigal tú gate system end-to-end.  When a student has earned tú forms (tu_revealed row in student_milestones),
 - **Team Room — test 3 — July 2, 2026** (Jul 2): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — July 2, 2026** (Jul 2): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -19,8 +21,6 @@ I’ve implemented a `generateVisual` metadata framework and a conversational im
 - **Team Room — again — July 2, 2026** (Jul 2): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
 - **Team Room — what's up? — July 2, 2026** (Jul 2): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — July 2, 2026** (Jul 2): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — July 2, 2026** (Jul 2): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — July 2, 2026** (Jul 2): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -95,6 +95,14 @@ I’ve implemented a `generateVisual` metadata framework and a conversational im
 
 ## Recent Conversation Memories
 
+### Team Room — are we there yet? — July 2, 2026 — Jul 2, 2026
+Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 131 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Agent Session — Jul 2, 2026: feat: tú reveal — GL session prompt fragment injection — Jul 2, 2026
+feat: tú reveal — GL session prompt fragment injection  Completes the Madrigal tú gate system end-to-end.  When a student has earned tú forms (tu_revealed row in student_milestones),
+*Tags: agent-session, auto-saved, build*
+
 ### Team Room — test 3 — July 2, 2026 — Jul 2, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -105,14 +113,6 @@ Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exch
 
 ### Team Room — are we good? — July 2, 2026 — Jul 2, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — one again into the breach — July 2, 2026 — Jul 2, 2026
-Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — July 2, 2026 — Jul 2, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
