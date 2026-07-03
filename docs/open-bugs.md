@@ -19,14 +19,14 @@ Added step 2 to sports broadcast `[REQUIRED VISUAL SETUP]`: instructs Daniela to
 **2026-06-30 — GL model — Broadcast mode: sentences cutting off mid-response — MEDIUM**
 During testing, Daniela's responses are occasionally truncated mid-sentence. Heard "Are those the ones?" instead of the full "Are those the ones you were curious about?" Investigation (2026-06-30): traced through the full server→client audio pipeline. `gl_audio_reset` only fires on reconnects. Client-side `finalizeProgressiveSentence` is benign (only updates debug panel, never stops WebAudio nodes). The `generationComplete` watchdog at 12 s fires if GL pauses >12 s between sub-turns — that's the most likely candidate when tool calls happen between phrases. All audio chunks that ARE sent play to completion. The cutoff is at the source: GL stops generating audio before the sentence ends. This is GL model behavior, not a code-level bug. Next step: check server logs for `gl_barge_in` or `interrupted` events coinciding with the cutoff — if those appear without user input, there's a false-positive VAD trigger worth addressing. If absent, it's a pure GL model limitation with no direct fix.
 
-**2026-06-12 — `server/storage.ts:7881` — Drizzle bulk insert of `editor_insights` fails TypeScript — LOW (pre-existing)**
-`metadata` field typed as `unknown` in one insert code path vs the fully-typed schema object. Causes TS2769 overload resolution failure. Pre-existing; not introduced this session. Fix: add explicit type cast or `satisfies` assertion at the call site.
+**2026-06-12 — `server/storage.ts:7881` — Drizzle bulk insert of `editor_insights` fails TypeScript — FIXED**
+Verified clean: `npm run check` passes with zero errors as of July 3, 2026.
 
-**2026-06-12 — `server/streaming-voice-proxy.ts:363` — number passed where string expected — LOW (pre-existing)**
-Type mismatch at line 363. Pre-existing. Fix: add `String()` or template literal coercion at the call site.
+**2026-06-12 — `server/streaming-voice-proxy.ts:363` — number passed where string expected — FIXED**
+Verified clean: `npm run check` passes with zero errors as of July 3, 2026.
 
-**2026-06-12 — `server/webhookHandlers.ts:41` — Stripe API version literal mismatch — MEDIUM (pre-existing)**
-`'"2025-01-27.acacia"'` not assignable to `'"2025-11-17.clover"'`. SDK expects the newer version string. Pre-existing. Fix: update the Stripe client initialization to use `"2025-11-17.clover"` and verify webhook event shapes against the new API version.
+**2026-06-12 — `server/webhookHandlers.ts:41` — Stripe API version literal mismatch — FIXED**
+`webhookHandlers.ts` already uses `'2025-11-17.clover'`. Verified clean: `npm run check` passes with zero errors as of July 3, 2026.
 
 **2026-06-13 — `server/services/daniela-function-registry.ts` — set_clock pre-tool speech causes audio doubling (pre-existing, PARTIALLY FIXED) — MEDIUM**
 GL generates speech both BEFORE calling the tool (pre-tool sub-turn) and AFTER (post-tool continuation). For set_clock, Daniela might say "Son las tres y media" → call set_clock → say "Son las tres y media" again. Two different PCM renders of identical speech sound doubled to the user. Transcript shows once because `pendingOutputTranscript` accumulates both and flushes in one DB write. Content-hash dedup doesn't catch it (different PCM). Partial fix: Added "ORDERING RULE" to set_clock description and "CRITICAL — tool-before-speech rule" to GL_DISPATCHER_SYSTEM_PROMPT telling GL to call tools first, then speak. This is a prompt-level fix — model compliance is probabilistic, not guaranteed. Full fix requires either: (a) detecting pre-tool audio on the server and buffering/discarding it, or (b) using GL's interrupt mechanism to suppress pre-tool speech.
