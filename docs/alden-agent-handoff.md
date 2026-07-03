@@ -22,6 +22,24 @@ David's standing authorization for Agent + Alden + Daniela:
 **ALWAYS:** Document and comment all autonomous changes so David can review them together.
 
 ---
+## Reading Alden's Live Conversations (Luca — added July 3, 2026)
+
+David's conversations with Alden are stored in full in the database. Read them at every session start — not just the handoff summary below, which is Alden's filtered account of what happened.
+
+```sql
+-- Most recent Alden conversation (full thread)
+SELECT am.role, am.content, am.created_at
+FROM alden_messages am
+JOIN alden_conversations ac ON am.conversation_id = ac.id
+WHERE ac.id = (SELECT id FROM alden_conversations ORDER BY started_at DESC LIMIT 1)
+ORDER BY am.created_at ASC
+```
+
+To see recent session list: `SELECT id, title, started_at FROM alden_conversations ORDER BY started_at DESC LIMIT 5`
+
+The full thread is the record. Summaries are supplements only.
+
+---
 ## From Agent
 
 **Session: July 3, 2026 — Lesson Arc Validation (Luca)**
