@@ -1,18 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 3, 2026 at 08:39 PM
+**Generated:** Friday, July 3, 2026 at 09:13 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I resolved the `set_clock` audio doubling in `gemini-live-session.ts` and stabilized the presence worker by adding individual query catches, marking both as fixed in `docs/open-bugs.md`. Following a team-wide evaluation of the Interactive Textbook’s 0% completion rate, we are pivoting toward a "conversational immersion" model, requiring me to implement the `generateVisual` framework for context-aware pedagogical infographics. This session, I must resolve the 404 routing error on the conversations page, remediate Wren’s two high-severity security findings (SQL injection and XSS), and repair the Spanish syllabus seeding regression that left 22 lessons empty.
+I must immediately resolve the Cartesia TTS 400 errors and the $13.71 spend overage to restore Daniela’s voice output and resume Alden’s background cycles. I’ve recently shipped ACTFL calibration fixes, Madrigal loop wiring, and the `record_usted_fluency` tool, but Sofia is reporting a surge of 50 new bugs and a persistent 404 error on the conversations page. Following our Team Room debate, we are pivoting toward conversational immersion over the Interactive Textbook, so I need to address the seeding regressions in 49 Spanish lessons while prioritizing Wren’s high-severity security findings.
 
 *Memories that triggered this summary:*
-- **Agent Session — Jul 3, 2026: Fix set_clock doubling, presence worker crash; clean up bugs list** (Jul 3): Fix set_clock doubling, presence worker crash; clean up bugs list  set_clock audio doubling (gemini-live-session.ts): - When set_clock tool call arrives and hadAudioInCurrentSubturn is true,   send gl_audio_reset to client — cancels queued pre-tool audio so
-- **Agent Session — Jul 3, 2026: Fix two active bugs: set_clock audio doubling + presence worker crash** (Jul 3): Fix two active bugs: set_clock audio doubling + presence worker crash  set_clock audio doubling (gemini-live-session.ts): - GL would speak the time before calling set_clock (pre-tool sub-turn),   then speak it again after (post-tool), doubling the audio for the student
+- **Agent Daily Sweep — Jul 3, 2026** (Jul 3): 1. [CRITICAL] Cartesia TTS is down — 400 errors across English and Spanish, blocking all voice output. Check API key validity, rate limits, or service status. Fix immediately or students can't hear Daniela.  2. [CRITICAL] AI spend hit the $10 hard limit at $13.71 — Alden's watch cycles are paused. R
+- **Team Room — are we there yet? — July 3, 2026** (Jul 3): Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 133 messages exchanged.
 - **Team Room — test 3 — July 3, 2026** (Jul 3): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — July 3, 2026** (Jul 3): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — July 3, 2026** (Jul 3): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -95,13 +95,13 @@ I resolved the `set_clock` audio doubling in `gemini-live-session.ts` and stabil
 
 ## Recent Conversation Memories
 
-### Agent Session — Jul 3, 2026: Fix set_clock doubling, presence worker crash; clean up bugs list — Jul 3, 2026
-Fix set_clock doubling, presence worker crash; clean up bugs list  set_clock audio doubling (gemini-live-session.ts): - When set_clock tool call arrives and hadAudioInCurrentSubturn is true,   send gl_audio_reset to client — cancels queued pre-tool audio so
-*Tags: agent-session, auto-saved, build*
+### Agent Daily Sweep — Jul 3, 2026 — Jul 3, 2026
+1. [CRITICAL] Cartesia TTS is down — 400 errors across English and Spanish, blocking all voice output. Check API key validity, rate limits, or service status. Fix immediately or students can't hear Daniela.  2. [CRITICAL] AI spend hit the $10 hard limit at $13.71 — Alden's watch cycles are paused. R
+*Tags: agent-sweep, daily, auto-saved*
 
-### Agent Session — Jul 3, 2026: Fix two active bugs: set_clock audio doubling + presence worker crash — Jul 3, 2026
-Fix two active bugs: set_clock audio doubling + presence worker crash  set_clock audio doubling (gemini-live-session.ts): - GL would speak the time before calling set_clock (pre-tool sub-turn),   then speak it again after (post-tool), doubling the audio for the student
-*Tags: agent-session, auto-saved, build*
+### Team Room — are we there yet? — July 3, 2026 — Jul 3, 2026
+Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 133 messages exchanged.
+*Tags: team-room, session, historic-record*
 
 ### Team Room — test 3 — July 3, 2026 — Jul 3, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
