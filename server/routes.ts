@@ -24596,6 +24596,7 @@ Current conversation context:
     turnCount: number;
     languageCode: string;
     createdAt: number;
+    lessonContext: { phase: string|null; scene: string|null; vocab: string[]; phaseObjective: string|null };
   }>();
   setInterval(() => {
     const cutoff = Date.now() - 60 * 60 * 1000;
@@ -24632,7 +24633,7 @@ Current conversation context:
       agentVoiceSessions.set(sessionKey, {
         turnCount: 0, languageCode: langCode, createdAt: Date.now(),
         // Lesson arc state — persists across turns, injected into each turn's system prompt
-        lessonContext: { phase: null as string|null, scene: null as string|null, vocab: [] as string[], phaseObjective: null as string|null },
+        lessonContext: { phase: null, scene: null, vocab: [], phaseObjective: null },
       });
     }
     const agentSession = agentVoiceSessions.get(sessionKey)!;
