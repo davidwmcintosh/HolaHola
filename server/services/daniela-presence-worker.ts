@@ -87,7 +87,8 @@ async function generatePresenceDoc(userId: string): Promise<void> {
   const lookback = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000);
 
   try {
-    // Fetch all data sources in parallel
+    // Fetch all data sources in parallel.
+    // Each query is individually guarded — one DB failure won't abort the whole generation.
     const [
       userRow,
       recentSessionNotes,
@@ -100,7 +101,11 @@ async function generatePresenceDoc(userId: string): Promise<void> {
       db.select({ firstName: users.firstName })
         .from(users)
         .where(eq(users.id, userId))
-        .limit(1),
+        .limit(1)
+        .catch((err: Error) => {
+          console.warn(`[DanielaPresence] users query failed for ${userId}:`, err.message);
+          return [] as { firstName: string | null }[];
+        }),
 
       // Recent session notes (wins, challenges, next steps)
       db.select({
@@ -115,29 +120,41 @@ async function generatePresenceDoc(userId: string): Promise<void> {
           gte(sessionNotes.createdAt, lookback),
         ))
         .orderBy(desc(sessionNotes.createdAt))
-        .limit(5),
+        .limit(5)
+        .catch((err: Error) => {
+          console.warn(`[DanielaPresence] sessionNotes query failed for ${userId}:`, err.message);
+          return [] as { wins: string | null; challenges: string | null; nextSteps: string | null; createdAt: Date }[];
+        }),
 
       // Recent relationship moments (personal shared experiences)
       db.select({ title: hiveSnapshots.title, content: hiveSnapshots.content, createdAt: hiveSnapshots.createdAt })
         .from(hiveSnapshots)
         .where(and(
           eq(hiveSnapshots.userId, userId),
-          eq(hiveSnapshots.snapshotType, 'relationship_moment'),
+          eq(hiveSnapshots.snapshotType, 'relationship_moment' as any),
           gte(hiveSnapshots.createdAt, lookback),
         ))
         .orderBy(desc(hiveSnapshots.createdAt))
-        .limit(5),
+        .limit(5)
+        .catch((err: Error) => {
+          console.warn(`[DanielaPresence] hiveSnapshots(relationship) query failed for ${userId}:`, err.message);
+          return [] as { title: string; content: string; createdAt: Date }[];
+        }),
 
       // Recent session summaries
       db.select({ title: hiveSnapshots.title, content: hiveSnapshots.content, createdAt: hiveSnapshots.createdAt })
         .from(hiveSnapshots)
         .where(and(
           eq(hiveSnapshots.userId, userId),
-          eq(hiveSnapshots.snapshotType, 'session_summary'),
+          eq(hiveSnapshots.snapshotType, 'session_summary' as any),
           gte(hiveSnapshots.createdAt, lookback),
         ))
         .orderBy(desc(hiveSnapshots.createdAt))
-        .limit(5),
+        .limit(5)
+        .catch((err: Error) => {
+          console.warn(`[DanielaPresence] hiveSnapshots(summary) query failed for ${userId}:`, err.message);
+          return [] as { title: string; content: string; createdAt: Date }[];
+        }),
 
       // Daniela's own recent self-reflections about this student
       db.select({ content: danielaSelfReflections.content, createdAt: danielaSelfReflections.createdAt })
@@ -147,7 +164,11 @@ async function generatePresenceDoc(userId: string): Promise<void> {
           gte(danielaSelfReflections.createdAt, lookback),
         ))
         .orderBy(desc(danielaSelfReflections.createdAt))
-        .limit(5),
+        .limit(5)
+        .catch((err: Error) => {
+          console.warn(`[DanielaPresence] selfReflections query failed for ${userId}:`, err.message);
+          return [] as { content: string; createdAt: Date }[];
+        }),
 
       // Open curiosities Daniela is holding about this student
       // Note: the table uses 'question' as the content field, not 'content'
@@ -158,7 +179,11 @@ async function generatePresenceDoc(userId: string): Promise<void> {
           eq(danielaCuriosities.status, 'open'),
         ))
         .orderBy(desc(danielaCuriosities.createdAt))
-        .limit(5),
+        .limit(5)
+        .catch((err: Error) => {
+          console.warn(`[DanielaPresence] curiosities query failed for ${userId}:`, err.message);
+          return [] as { content: string; createdAt: Date }[];
+        }),
     ]);
 
     const studentName = userRow[0]?.firstName || (userRow[0] as any)?.username || 'the student';

@@ -2105,6 +2105,19 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // the now-stale responses before they reach sendToolResponse.
       const localTurnId = this.currentTurnId;
 
+      // set_clock audio doubling fix: GL sometimes speaks the time BEFORE calling set_clock
+      // (pre-tool sub-turn), then speaks it again AFTER (post-tool continuation), doubling
+      // the audio. When pre-tool audio was already sent this turn AND the tool is set_clock,
+      // send gl_audio_reset to cancel the queued pre-tool audio. Post-tool speech plays clean.
+      const TEMPORAL_DISPLAY_TOOLS = new Set(['set_clock']);
+      const hasTemporalDisplayTool = msg.toolCall.functionCalls.some(
+        (fc: any) => TEMPORAL_DISPLAY_TOOLS.has(fc.name || '')
+      );
+      if (hasTemporalDisplayTool && this.hadAudioInCurrentSubturn) {
+        console.log('[GeminiLive] set_clock called after pre-tool audio — sending gl_audio_reset to cancel duplicate speech');
+        this.sendWsMessage(this.session.ws, { type: 'gl_audio_reset' }, this.session);
+      }
+
       // Tool Call Deadlock fix: record the in-flight call IDs so that if the connection
       // drops before sendToolResponse fires, the reconnect path can unblock GL.
       this.pendingFunctionCallIds = msg.toolCall.functionCalls
