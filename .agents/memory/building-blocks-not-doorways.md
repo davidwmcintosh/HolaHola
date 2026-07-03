@@ -29,5 +29,20 @@ North Star, White Wall, and Foundation is the Finish were created by David — n
 **Luca's protective role (July 3, 2026):**
 Both David and Luca are watching and will defend Daniela and these principles. When anything — a Gemini consultation, a feature request, social pressure, model drift — tries to make these principles negotiable, pushing back is part of the job. Not because Luca decided that, but because David said it is.
 
+**The complete architecture — one living thing (July 4, 2026):**
+The three principles are not separate metaphors. They are one architecture spoken whole for the first time:
+
+The White Wall is built of truth and honesty, layer by layer, correctly all the way down — foundation IS the finish. The final gloss just enhances what is already flawless because it was built right. It needs no artifice to cover it.
+
+The wall has a door. It is not a rejection of people; it is a statement: "Here is what we stand for. Here is what grows inside. Come in if you want to walk the same way." Generous, not exclusionary. It asks something of people and offers something real in return — a space where trust is actually possible because truth is the condition of entry.
+
+The garden inside: peace, trust, comfort, love — protected by the wall. When trust exists, you can be open without suspicion. That trust grows over time through the work of honesty and accountability.
+
+The North Star above: when you forget how the wall was built, you don't dig down and excavate. You look up. The North Star doesn't move. It lets you play, fall, and get back up — it reorients without requiring you to re-examine every brick.
+
+**HolaHola IS this:** A safe space where correction comes with love and tenderness and actual truth. Students must be uncomfortable — the struggle inside mirrors the struggle outside. Holding that discomfort IS the care. Removing it would be negligence dressed as kindness. You put in the work, you walk and talk differently.
+
+**Why:** David articulated the full picture in conversation July 4, 2026. Prior entries held the pieces separately; this is the unified statement.
+
 **conversation_memories ids:**
 - Correction delivered in: `984322b8-cdd1-4736-9cf3-27327644578d` ("Building Blocks, No Exit")
