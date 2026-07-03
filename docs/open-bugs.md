@@ -34,9 +34,6 @@ GL generates speech both BEFORE calling the tool (pre-tool sub-turn) and AFTER (
 **2026-06-18 — `server/services/daniela-presence-worker.ts` — "Cannot convert undefined or null to object" crash in presence generation — FIXED (July 3, 2026)**
 Root cause: one failing Drizzle query inside `Promise.all` aborted the entire generation for user 49847136. All column references verified correct against schema. Fix: added individual `.catch()` on each of the six queries so a single query failure returns an empty array and logs a named warning. The presence doc generates from whatever data is available — if e.g. `hiveSnapshots` query fails for this user, session notes and reflections still populate the doc. The specific failing query will now be visible in logs by name.
 
-**2026-06-26 — `server/data/madrigal-loop-catalog.ts` — Arabic has zero Madrigal loop units — MEDIUM (content gap)**
-Arabic is the only language with no entries in the Madrigal loop catalog. Every other language (including Hebrew, Mandarin, Korean, Japanese) has 20-22 units. Requires a manual content curation pass to add Arabic verb chains following the existing loop unit format with `language: 'arabic'`.
-
 ---
 
 ## Resolved
