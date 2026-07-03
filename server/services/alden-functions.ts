@@ -858,15 +858,16 @@ export async function executeAldenTool(
         const sharedDb = getMonitoringDb();
 
         const results = await sharedDb.execute(sql`
-          SELECT id, title, summary, content, importance, created_at, tags, entry_type
+          SELECT id, title, summary, content, importance, created_at, tags, entry_type,
+            CASE WHEN title ILIKE ${'%' + query + '%'} THEN 1 ELSE 0 END AS title_match
           FROM conversation_memories
           WHERE (
             title ILIKE ${'%' + query + '%'}
             OR summary ILIKE ${'%' + query + '%'}
             OR content ILIKE ${'%' + query + '%'}
           )
-          ORDER BY importance DESC, created_at DESC
-          LIMIT ${Math.min(Number(memLimit), 10)}
+          ORDER BY title_match DESC, importance DESC, created_at DESC
+          LIMIT ${Math.min(Number(memLimit), 15)}
         `);
 
         const rows = results.rows as any[];
