@@ -1,17 +1,16 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 3, 2026 at 09:13 PM
+**Generated:** Friday, July 3, 2026 at 11:26 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I must immediately resolve the Cartesia TTS 400 errors and the $13.71 spend overage to restore Daniela’s voice output and resume Alden’s background cycles. I’ve recently shipped ACTFL calibration fixes, Madrigal loop wiring, and the `record_usted_fluency` tool, but Sofia is reporting a surge of 50 new bugs and a persistent 404 error on the conversations page. Following our Team Room debate, we are pivoting toward conversational immersion over the Interactive Textbook, so I need to address the seeding regressions in 49 Spanish lessons while prioritizing Wren’s high-severity security findings.
+I stabilized the Team Room and shipped ACTFL level enforcement, Madrigal loop wiring for textbook content, and Daniela’s self-visibility architecture using Gap 10 tool acknowledgments. I also integrated the `student_milestones` system, the "I Am a Language Class" Compass principle, and the `record_usted_fluency` tool to track pedagogical progress like the `tu_revealed` milestone. This session, I must prioritize fixing the 404 routing error on the conversations page, resolving Wren’s two high-severity security findings, and debugging "Daniela’s Compass" to fix zero-completion and time-tracking issues in the Spanish Interactive Textbook.
 
 *Memories that triggered this summary:*
-- **Agent Daily Sweep — Jul 3, 2026** (Jul 3): 1. [CRITICAL] Cartesia TTS is down — 400 errors across English and Spanish, blocking all voice output. Check API key validity, rate limits, or service status. Fix immediately or students can't hear Daniela.  2. [CRITICAL] AI spend hit the $10 hard limit at $13.71 — Alden's watch cycles are paused. R
 - **Team Room — are we there yet? — July 3, 2026** (Jul 3): Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 133 messages exchanged.
 - **Team Room — test 3 — July 3, 2026** (Jul 3): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — July 3, 2026** (Jul 3): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
@@ -21,6 +20,7 @@ I must immediately resolve the Cartesia TTS 400 errors and the $13.71 spend over
 - **Team Room — again — July 3, 2026** (Jul 3): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
 - **Team Room — what's up? — July 3, 2026** (Jul 3): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — July 3, 2026** (Jul 3): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
+- **Team Room — nothing in particular — July 3, 2026** (Jul 3): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
 
 ---
 
@@ -95,10 +95,6 @@ I must immediately resolve the Cartesia TTS 400 errors and the $13.71 spend over
 
 ## Recent Conversation Memories
 
-### Agent Daily Sweep — Jul 3, 2026 — Jul 3, 2026
-1. [CRITICAL] Cartesia TTS is down — 400 errors across English and Spanish, blocking all voice output. Check API key validity, rate limits, or service status. Fix immediately or students can't hear Daniela.  2. [CRITICAL] AI spend hit the $10 hard limit at $13.71 — Alden's watch cycles are paused. R
-*Tags: agent-sweep, daily, auto-saved*
-
 ### Team Room — are we there yet? — July 3, 2026 — Jul 3, 2026
 Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 133 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -113,6 +109,10 @@ Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exch
 
 ### Team Room — are we good? — July 3, 2026 — Jul 3, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — one again into the breach — July 3, 2026 — Jul 3, 2026
+Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
