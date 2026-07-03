@@ -349,7 +349,7 @@ async function saveDialogueMemory(topic: DialogueTopic, transcript: string, dani
     }...`;
 
     await db.execute(sql`
-      INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at)
+      INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, arc_name)
       VALUES (
         gen_random_uuid(),
         ${`Agent ↔ Daniela — ${topic.title} — ${new Date().toLocaleDateString()}`},
@@ -358,7 +358,8 @@ async function saveDialogueMemory(topic: DialogueTopic, transcript: string, dani
         ARRAY['agent', 'daniela']::text[],
         ARRAY['agent-daniela', 'architecture-dialogue', ${topic.id}]::text[],
         9,
-        NOW()
+        NOW(),
+        'agent-daniela'
       )
     `);
     console.log(`[DanielaDialogue] Saved to conversation_memories`);

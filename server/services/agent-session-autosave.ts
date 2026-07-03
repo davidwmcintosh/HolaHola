@@ -52,7 +52,7 @@ async function saveBuildMemory(commitMessage: string): Promise<void> {
 
   try {
     await db.execute(sql`
-      INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, entry_type)
+      INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, entry_type, arc_name)
       VALUES (
         gen_random_uuid(),
         ${title},
@@ -62,7 +62,8 @@ async function saveBuildMemory(commitMessage: string): Promise<void> {
         ARRAY['agent-session', 'auto-saved', 'build']::text[],
         7,
         NOW(),
-        'build'
+        'build',
+        'agent-build-sessions'
       )
     `);
     console.log('[AgentAutosave] Build session saved:', title.slice(0, 80));

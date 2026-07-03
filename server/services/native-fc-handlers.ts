@@ -3988,6 +3988,8 @@ export class NativeFunctionCallHandler {
         const memSummary = fn.args.summary as string | undefined;
         const memImportance = fn.args.importance as number | undefined;
         const memTags = fn.args.tags as string[] | undefined;
+        const memArcName = fn.args.arc_name as string | undefined;
+        const memExtendsId = fn.args.extends_memory_id as string | undefined;
         if (memTitle && memContent) {
           const db = getSharedDb();
           db.insert(conversationMemories).values({
@@ -3997,6 +3999,8 @@ export class NativeFunctionCallHandler {
             importance: Math.min(10, Math.max(1, Math.round(memImportance ?? 7))),
             participants: 'David + Daniela',
             tags: memTags || [],
+            arcName: memArcName || null,
+            extendsMemoryId: memExtendsId || null,
             recordedAt: new Date(),
           } as any)
           .then(() => console.log(`[Native Function→SaveConversationMemory] ✓ Saved: "${memTitle}" (importance: ${memImportance})`))

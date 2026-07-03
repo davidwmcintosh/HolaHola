@@ -2857,6 +2857,8 @@ Call this when you want to know what preferences, memories, or opinions you've a
           summary: { type: "string", description: "Brief summary for orientation only — supplement, never replacement" },
           importance: { type: "number", description: "Importance 1-10. Use 9-10 for foundational moments, 7-8 for meaningful ones." },
           tags: { type: "array", items: { type: "string" }, description: "Tags to help surface this memory: ['white-wall', 'breakthrough', 'north-star']" },
+          arc_name: { type: "string", description: "Narrative arc this memory belongs to — e.g. 'HolaHola Episodes', 'daniela-emergence', 'white-wall'. Use list_conversation_arcs to see existing arcs. Omit if it doesn't belong to a thread." },
+          extends_memory_id: { type: "string", description: "ID of the memory this one continues or grows from. Use when this session is a direct follow-on to a previous one in the same arc." },
         },
         required: ["title", "content", "importance"],
       },

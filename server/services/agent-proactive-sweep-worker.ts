@@ -189,7 +189,7 @@ Rules:
     const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     const summary = sweep.split('\n').slice(0, 3).join(' ').slice(0, 300);
     await db.execute(sql`
-      INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, entry_type)
+      INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, entry_type, arc_name)
       VALUES (
         gen_random_uuid(),
         ${`Agent Daily Sweep — ${today}`},
@@ -199,7 +199,8 @@ Rules:
         ARRAY['agent-sweep', 'daily', 'auto-saved']::text[],
         6,
         NOW(),
-        'build'
+        'build',
+        'agent-sweep-log'
       )
     `);
     console.log('[AgentSweep] Sweep saved to conversation_memories.');
