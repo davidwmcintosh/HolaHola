@@ -8234,8 +8234,8 @@ export class NativeFunctionCallHandler {
           if (results.length === 0) return null;
           const lines = results.map(r => {
             const date = r.recordedAt ? new Date(r.recordedAt).toLocaleDateString() : 'unknown date';
-            const excerpt = r.content ? r.content.slice(0, 400) : (r.summary ?? '');
-            const hasMore = r.content && r.content.length > 400;
+            const excerpt = r.content ? r.content.slice(0, 800) : (r.summary ?? '');
+            const hasMore = r.content && r.content.length > 800;
             return `[importance: ${r.importance}/10 | ${date}] "${r.title}"\n${excerpt}${hasMore ? `\n... [EXCERPT — ${r.content!.length} chars total. To read the full text, call: read_full_memory("${r.title}")]` : ''}`;
           });
           console.log(`[UnifiedRecall] Memories arm: ${results.length} match(es) for "${query}"`);

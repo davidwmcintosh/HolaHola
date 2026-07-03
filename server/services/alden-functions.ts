@@ -98,6 +98,18 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "read_conversation_memories",
+    description: "Search the shared conversation_memories archive — curated records of significant conversations between David, Daniela, and the Agent. Returns full content (not just summaries). Use this to understand the deeper context of a topic, read what was actually said in a key session, or find philosophical/pedagogical discussions that shaped the project.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: { type: "string" as const, description: "Search term, topic, or title keyword to find in conversation memories" },
+        limit: { type: "number" as const, description: "Max number of results to return (default 5)" },
+      },
+      required: ["query"],
+    },
+  },
+  {
     name: "post_to_express_lane",
     description: "Post a message to the Express Lane collaboration channel. Use this to share findings, coordinate with Daniela/Wren, or log important observations.",
     input_schema: {
@@ -836,6 +848,45 @@ export async function executeAldenTool(
               content: m.content?.substring(0, 300),
               importance: m.importance,
               when: m.createdAt?.toISOString(),
+            })),
+          },
+        };
+      }
+
+      case "read_conversation_memories": {
+        const { query, limit: memLimit = 5 } = args;
+        const sharedDb = getMonitoringDb();
+
+        const results = await sharedDb.execute(sql`
+          SELECT id, title, summary, content, importance, created_at, tags, entry_type
+          FROM conversation_memories
+          WHERE (
+            title ILIKE ${'%' + query + '%'}
+            OR summary ILIKE ${'%' + query + '%'}
+            OR content ILIKE ${'%' + query + '%'}
+          )
+          ORDER BY importance DESC, created_at DESC
+          LIMIT ${Math.min(Number(memLimit), 10)}
+        `);
+
+        const rows = results.rows as any[];
+        if (!rows.length) {
+          return { data: { query, matchCount: 0, memories: [], note: 'No conversation memories matched this query.' } };
+        }
+
+        return {
+          data: {
+            query,
+            matchCount: rows.length,
+            memories: rows.map(r => ({
+              id: r.id,
+              title: r.title,
+              importance: r.importance,
+              entryType: r.entry_type,
+              tags: r.tags,
+              recordedAt: r.created_at,
+              summary: r.summary,
+              content: r.content, // full content — not truncated
             })),
           },
         };
