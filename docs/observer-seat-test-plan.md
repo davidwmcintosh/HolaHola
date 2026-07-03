@@ -1,7 +1,7 @@
 # Observer Seat — Test Plan & Findings
 
 *Living document — Luca's diagnostic workspace.*
-*Last updated: July 2, 2026*
+*Last updated: July 3, 2026*
 
 ---
 
@@ -32,6 +32,32 @@ curl -si -X POST http://localhost:5000/api/internal/agent-session \
   -H "Content-Type: application/json" -d '{}' \
   | grep -i set-cookie | sed 's/set-cookie: //i' | cut -d';' -f1 > /tmp/sc.txt
 ```
+
+### Layer 1b — Multi-Turn Arc Testing (agent-voice-turn)
+
+Drive a **persistent multi-turn GL conversation** turn by turn, observing every tool call, transcript, and accumulated lesson state. This is the deeper seat — where Layer 1 sees a single exchange, Layer 1b sees the whole arc unfold.
+
+- **Endpoint:** `POST /api/admin/agent-voice-turn`
+- **Body:** `{ audio: base64PCM16@16kHz, sessionId: string, languageCode, voiceId, studentText? }`
+- **Returns:** `{ toolCallsSummary, visualEvents, transcript, audioWav, audioDurationS, turnNumber }`
+- **Session store:** In-memory `agentVoiceSessions` Map — keyed by `sessionId`, persists across calls for up to 1 hour
+- **Context carry-forward:** Each session stores `lessonContext: { phase, scene, vocab[], phaseObjective }`. After each tool call, the handler updates it. At the start of each new turn, the accumulated context is injected into the GL system prompt — mirrors what `pendingGlContext`/`pushLessonStatusContext` does in real student sessions.
+
+**Audio pipeline (each student utterance):**
+```javascript
+// 1. TTS via /api/tts/pronunciation → { audioUrl: "data:audio/mpeg;base64,..." }
+// 2. Write MP3 → ffmpeg → PCM16 @ 16kHz mono
+// 3. base64-encode the raw PCM → send as 'audio' field
+```
+*GOOGLE_TTS_API_KEY is not set; only `/api/tts/pronunciation` via session cookie works.*
+
+**Key technique:** Run each turn as its own shell call — do NOT batch multiple sequential turns in one script. The bash tool timeout kills the process mid-turn and output is lost.
+
+**What it validates that Layer 1 cannot:**
+- Cross-turn context inheritance (does vocab from Turn 2 appear in Turn 3's sentence builder?)
+- Phase progression (does Daniela declare the arc phase without being told?)
+- Scene advancement (does the scene shift autonomously as the lesson deepens?)
+- Full arc integrity (open_scene → show_vocab_grid → show_sentence_builder in sequence)
 
 ### Layer 2 — Co-pilot View (live session observation)
 
@@ -178,29 +204,47 @@ npx tsx server/scripts/luca-watch.ts
 
 ---
 
-### 3. Conductor Arc — Stitching Madrigal + Broadcast + Immersive
-*Daniela's three teaching modes need to hand off to each other gracefully.*
+### 3. Lesson Arc — open_scene → show_vocab_grid → show_sentence_builder
 
-**The arc:**
+*Does Daniela thread her visual tools into coherent teaching arcs across multiple turns?*
+
+**The arc (5 phases):**
 ```
-Acquire (Madrigal vocab drill)
-  → Apply (immersive scene — student uses the words in context)
-    → Encounter (broadcast mode — real-world material at their level)
+madrigal → broadcast → immersion → free_flow → recap
 ```
 
-**Current state:**
-- Madrigal loop: exists in `pedagogical-state-service.ts` (`startMadrigalLoop`) but is NOT wired to textbook chapter opening. `processStartTextbookPage` doesn't call it.
-- Broadcast mode: fully implemented with real weather data (open-meteo + Perplexity)
-- Immersive scene: `open_scene` works; narrative immersion mode needs Conductor coordination
+**The tool sequence (inner arc within a phase):**
+```
+open_scene → show_vocab_grid → show_sentence_builder
+```
 
-**Gap:** No automatic trigger from textbook chapter → Madrigal → immersive → broadcast. Each mode runs independently; Daniela doesn't know to thread them.
+**Architecture (built July 2, validated July 3, 2026):**
+- `LessonContext` struct lives on the GL session object: `{ phase, scene, vocab[], phaseObjective, phaseHint, updatedAt }`
+- `OPEN_SCENE` writes scene → clears vocab on scene change → calls `pushLessonStatusContext`
+- `SHOW_VOCAB_GRID` writes resolved vocab (text, translation, imageQuery) → calls `pushLessonStatusContext`
+- `SHOW_SENTENCE_BUILDER` inherits vocab into any column where `items === undefined` (`[]` = intentionally blank for student input)
+- `pushLessonStatusContext` serializes the struct into a single deduplicated `[Lesson context]` line in `pendingGlContext` — Daniela sees it on the next GL turn
+- `UPDATE_LESSON_CONTEXT` — explicit phase declaration tool, accessible via `teaching_content(type:"update_lesson_context")`
+- Heartbeat (`update_session_pedagogy`) writes `phaseHint` from gear level with 30s grace period (prevents overwriting a manual phase transition Daniela just made)
 
-**Planned fix:** Inject continuation instruction in `processStartTextbookPage` when a Madrigal chapter opens, telling Daniela to call `invoke_teaching_skill("madrigal_chapter_drill")`.
+**Validated — July 3, 2026 (session arc-clean-1783040995):**
 
-**Test plan for Conductor Arc:**
-1. Open a Madrigal chapter from the textbook → verify Madrigal loop auto-starts
-2. After Madrigal completes → verify Daniela transitions to an immersive scene with the same vocabulary
-3. After immersive → verify Daniela can surface broadcast mode with real-world weather/news at student's ACTFL level
+| Turn | Student says | Tools fired | Result |
+|------|-------------|------------|--------|
+| 1 | *"quiero aprender vocabulario de comida en el restaurante"* | `update_lesson_context` + `open_scene` | scene: restaurant_table |
+| 2 | *"Muéstrame las palabras en una cuadrícula con imágenes"* | `show_vocab_grid` | 4 words: el café, el agua, el cruasán, la tostada |
+| 3 | *"practiquemos construyendo frases con esas palabras"* | `show_sentence_builder` + `update_lesson_context` | **"Objeto" column: [el café, el agua, el cruasán, la tostada]** — exact vocab from T2 |
+
+**Key result:** Vocab inheritance confirmed. Scene advanced restaurant_table → cafe_exterior without prompting. Phase declared as `immersion` automatically.
+
+**Conductor Arc (Madrigal → Broadcast) — pending validation:**
+
+The broader Madrigal → Immersive → Broadcast conductor arc is built but not yet arc-tested end-to-end via Layer 1b:
+- Madrigal loop: `pedagogical-state-service.ts`
+- Broadcast mode: real weather data (open-meteo + Perplexity)
+- `processStartTextbookPage` injects the teaching protocol directive telling Daniela to call `invoke_teaching_skill("madrigal_chapter_drill")`
+
+**Remaining test:** Open a Madrigal chapter → verify Madrigal loop auto-starts → verify Daniela transitions to immersive scene with the same vocabulary → verify broadcast surfaces at student's ACTFL level.
 
 ---
 
@@ -356,17 +400,44 @@ Every Observer Seat run is persisted with transcript, tool calls, coverage score
 
 ## Systems to Test (Priority Queue)
 
-Now that the full monitoring stack is in place, here's what to validate first:
+| System | Test Method | Key Assertion | Status |
+|--------|-------------|---------------|--------|
+| ACTFL calibration | `actfl-audit.ts` | NL English% > IM English% | ✅ **Validated Jul 2** |
+| Lesson Arc (inner) | Layer 1b arc test | Sentence builder inherits exact vocab from prior vocab grid | ✅ **Validated Jul 3** |
+| show_vocab_grid | co-pilot watch + trigger | visionBuffer.vocabGrid populated, all words have descriptions | ✅ Confirmed (multiple runs) |
+| Image vision (first-fetch race) | co-pilot watch | visionMode = 'bytes' on first session, 'cached' on second | 🔲 Not yet tested |
+| Observer Seat heartbeat | co-pilot watch | observerSeat.snapshot changes every 10 calls | 🔲 Not yet tested |
+| widget-closed signal | dismiss vocab grid | visionBuffer.vocabGrid clears within 3s poll | 🔲 Not yet tested |
+| open_scene → add_to_scene → scene exit | co-pilot watch | scene buffer reflects canvas state at each step | 🔲 Not yet tested |
+| signal_issue SOS | force an error, have Daniela call it | sosLog populated, Team Room alert within 30s | 🔲 Not yet tested |
+| commit_to_memory | co-pilot watch + trigger | dbWriteLog shows conversation_memories insert | 🔲 Not yet tested |
+| Conductor Arc (Madrigal → Broadcast) | Layer 1b multi-turn | Madrigal loop fires after textbook open; arc transitions cleanly | 🔲 Not yet tested |
+| Session stall detection | let session idle 8m | session-monitor posts Team Room alert | 🔲 Not yet tested |
+| ACTFL at Advanced level | `actfl-audit.ts` + Layer 1b | Zero English — immersion holds across multiple turns | 🔲 Not yet tested |
+| Scene inheritance on phase change | Layer 1b | New scene clears old vocab; sentence builder rebuilds from new words | 🔲 Not yet tested |
+| Friction score timing | Layer 1b + co-pilot | Student pause measured from playback_ended, not generationComplete | 🔲 Not yet tested |
 
-| System | Test Method | Key Assertion |
-|--------|-------------|---------------|
-| ACTFL calibration | `actfl-audit.ts` | NL English% > IM English% |
-| show_vocab_grid | co-pilot watch + trigger | visionBuffer.vocabGrid populated, all words have descriptions |
-| Image vision (first-fetch race) | co-pilot watch | visionMode = 'bytes' on first session, 'cached' on second |
-| Observer Seat heartbeat | co-pilot watch | observerSeat.snapshot changes every 10 calls |
-| widget-closed signal | dismiss vocab grid | visionBuffer.vocabGrid clears within 3s poll |
-| open_scene → add_to_scene → scene exit | co-pilot watch | scene buffer reflects canvas state at each step |
-| signal_issue SOS | force an error, have Daniela call it | sosLog populated, Team Room alert within 30s |
-| commit_to_memory | co-pilot watch + trigger | dbWriteLog shows conversation_memories insert |
-| Conductor Arc | Observer Seat run | Madrigal loop auto-starts after textbook page open |
-| Session stall detection | let session idle 8m | session-monitor posts Team Room alert |
+---
+
+## Brainstorm Queue — Next Session
+
+*Ideas for Layer 1b tests to push the arc harder. Add to this list freely.*
+
+### Stress tests
+- **Long vocab grid → sentence builder column count:** Fire a vocab grid with 8 words — does the sentence builder create appropriate columns without overflowing? Does Daniela split them semantically (nouns vs verbs vs adjectives)?
+- **Scene change mid-arc:** T1 open restaurant scene, T2 show vocab grid, T3 ask to "go to the market instead" — does the scene change clear the old vocab and Daniela rebuild the sentence builder from scratch?
+- **Phase regression:** What happens if the student asks to go back to basics after reaching the immersion phase? Does the phase regress cleanly or does the heartbeat fight the declaration?
+
+### Language-specific tests
+- **Non-Latin script (Korean / Hebrew):** Run the same 3-turn arc in Korean. Do the vocab grid words render in Hangul? Does the sentence builder handle RTL (Hebrew) correctly?
+- **ACTFL arc at Novice Low:** Run the arc with a novice student — Daniela should use English-primary speech even during the sentence builder phase. Does the ACTFL constraint survive the phase transition?
+- **Intermediate vs Advanced sentence complexity:** Same scene, same vocab grid, different ACTFL level. Does the sentence builder's column structure change (simpler verb conjugations for IM vs complex subjunctive for Advanced)?
+
+### Memory and continuity tests
+- **Return student:** Run a 3-turn arc, end the session, start a new session with the same student — does Daniela reference the previous vocab or start fresh? (Tests the memory-to-context pipeline, not just the LessonContext struct)
+- **Commit-to-memory trigger:** In the middle of a session, Daniela discovers a fact about the student ("you love sushi"). Does `commit_to_memory` fire? Does `GET /api/conversation-memories` show the new fact?
+
+### Edge cases
+- **Parallel tool calls:** Does Daniela ever fire `show_vocab_grid` and `open_scene` simultaneously? If so, does the lessonContext write order produce a consistent state?
+- **SOS signal reachability:** Force an image pipeline failure mid-vocab grid — does `signal_issue` fire? Does it appear in luca-watch within 3s? Does the session-monitor post to Team Room within 30s?
+- **Sentence builder with intentionally blank column:** Fire `show_sentence_builder` where one column has `items: []` (empty, intentional) — verify that column stays blank and is NOT filled by vocab inheritance.
