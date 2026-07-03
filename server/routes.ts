@@ -24618,7 +24618,7 @@ Current conversation context:
   // Returns JSON: { sessionId, turnNumber, audioWav (base64 WAV), audioDurationS,
   //                 transcript, visualEvents, toolCallsSummary }
   app.post("/api/admin/agent-voice-turn", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
-    const { audio, sessionId, languageCode = 'es-ES', voiceId = 'Aoede', model: requestedModel, watchId } = req.body;
+    const { audio, sessionId, languageCode = 'es-ES', voiceId = 'Aoede', model: requestedModel, watchId, studentText } = req.body;
     if (!audio) return res.status(400).json({ error: 'audio (base64 PCM16 @ 16kHz) required' });
 
     const MODEL = (requestedModel && ['gemini-3.1-flash-live-preview','gemini-2.5-flash-native-audio-preview-12-2025'].includes(requestedModel))
@@ -24647,7 +24647,13 @@ Current conversation context:
 
 Speak mostly in ${langLabel}, with brief English clarifications only when needed. Keep spoken responses to 2-4 sentences.
 
-Use visual tools actively throughout the lesson. When introducing vocabulary, call show_madrigal_card or show_vocab_card. When describing a place or cultural scene, call show_image or show_cultural_scene. When practicing patterns, call create_vocabulary_drill. These tools are how students learn — use them generously.`;
+Use visual tools actively and in sequence throughout the lesson. This is how the lesson arc works:
+1. Open a scene with the teaching_content dispatcher (type: "open_scene") to ground the vocabulary in a place.
+2. Show a vocabulary grid with teaching_content (type: "show_vocab_grid") so Alex sees the words with images.
+3. Follow up with a sentence builder using teaching_content (type: "show_sentence_builder") so Alex can practice constructing phrases from the vocab just introduced.
+4. Declare the current lesson phase with teaching_content (type: "update_lesson_context") when transitioning between phases.
+
+These tools are how students learn — use them generously and in sequence. The visual layer IS the lesson.`;
 
     try {
       const { GoogleGenAI, Modality } = await import('@google/genai');
@@ -24669,14 +24675,17 @@ Use visual tools actively throughout the lesson. When introducing vocabulary, ca
 
       const VISUAL_TOOLS = new Set([
         // Dispatcher wrappers (actual GL tool names)
-        'widget_media', 'widget_state',
+        'widget_media', 'widget_state', 'teaching_content',
         // Direct visual tools
+        'open_scene', 'add_to_scene', 'show_vocab_grid', 'show_sentence_builder',
         'show_image', 'show_cultural_scene', 'show_madrigal_card',
         'show_vocab_card', 'create_vocabulary_drill', 'show_textbook_page',
         'show_expression_card', 'show_dialogue_scene',
         'change_classroom_window', 'change_classroom_photo', 'set_classroom_background',
         'show_map', 'show_conversation_card', 'show_grammar_card', 'show_phrase_card',
         'compose_visual_scene', 'search_visual_library',
+        // lesson arc meta-tools
+        'update_lesson_context', 'update_session_pedagogy', 'update_session_phase',
         // subtitle carries Daniela's spoken text — always capture
         'subtitle',
       ]);
@@ -24697,7 +24706,7 @@ Use visual tools actively throughout the lesson. When introducing vocabulary, ca
       };
 
       await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error('Agent voice turn timed out')), 60000);
+        const timer = setTimeout(() => reject(new Error('Agent voice turn timed out')), 90000);
 
         const finish = (err?: Error) => {
           clearTimeout(timer);
@@ -24715,6 +24724,7 @@ Use visual tools actively throughout the lesson. When introducing vocabulary, ca
               voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
             },
             tools: [{ functionDeclarations: toolDeclarations }],
+            inputAudioTranscription: {},
           },
           callbacks: {
             onopen: () => { if (glSession) sendAudio(glSession); },
@@ -24726,6 +24736,9 @@ Use visual tools actively throughout the lesson. When introducing vocabulary, ca
                 }
                 if (part.text) transcriptParts.push(part.text);
               }
+              // Capture student input transcription (requires inputAudioTranscription: {} in config)
+              const inputText = msg.serverContent?.inputTranscription?.text;
+              if (inputText) transcriptParts.push(`[Student: ${inputText}]`);
 
               // Handle tool calls — collect events and send plausible responses
               if (msg.toolCall?.functionCalls?.length > 0) {
@@ -24755,6 +24768,19 @@ Use visual tools actively throughout the lesson. When introducing vocabulary, ca
                     result = { success: true, drillReady: true };
                   } else if (name === 'check_answer') {
                     result = { correct: true, feedback: 'Good job!' };
+                  } else if (name === 'teaching_content') {
+                    const tcType = args?.type || '';
+                    result = { success: true, displayed: true, type: tcType, continuation: `${tcType} shown to student.` };
+                  } else if (name === 'open_scene' || name === 'add_to_scene') {
+                    result = { success: true, sceneDisplayed: true };
+                  } else if (name === 'show_vocab_grid') {
+                    result = { success: true, gridDisplayed: true, wordCount: args?.words?.length || 0 };
+                  } else if (name === 'show_sentence_builder') {
+                    result = { success: true, builderDisplayed: true };
+                  } else if (name === 'update_lesson_context') {
+                    result = { success: true, contextUpdated: true, phase: args?.phase };
+                  } else if (name === 'widget_media' || name === 'widget_state') {
+                    result = { success: true, displayed: true };
                   }
 
                   functionResponses.push({ id, name, response: { result: JSON.stringify(result) } });
@@ -24798,7 +24824,9 @@ Use visual tools actively throughout the lesson. When introducing vocabulary, ca
 
       const audioDurationS = pcm.length / (SR * 2);
       const audioWav = Buffer.concat([hdr, pcm]).toString('base64');
-      const transcript = transcriptParts.join(' ');
+      // If the caller provided the student text directly (known audio from TTS), use it.
+      // Otherwise fall back to whatever GL returned via inputTranscription or part.text.
+      const transcript = studentText || transcriptParts.join(' ');
 
       console.log(`[Agent Voice Turn] Session ${sessionKey} turn ${agentSession.turnCount}: ${audioDurationS.toFixed(1)}s audio, ${visualEvents.length} visual events, ${toolCallsSummary.length} tools called`);
 
