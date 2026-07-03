@@ -124,9 +124,10 @@ async function generateAndStoreCachedDescription(
   data: string,
   mimeType: string,
   fallbackDescription: string,
+  sourceConversationId?: string | null,
 ): Promise<string> {
   const description = await generateVisionDescription(data, mimeType, fallbackDescription);
-  await storeCachedDescription(imageUrl, description, mimeType);
+  await storeCachedDescription(imageUrl, description, mimeType, sourceConversationId);
   return description;
 }
 
@@ -134,14 +135,16 @@ async function storeCachedDescription(
   imageUrl: string,
   description: string,
   mimeType: string,
+  sourceConversationId?: string | null,
 ): Promise<void> {
   try {
     const db = getUserDb();
     await db.execute(sql`
-      INSERT INTO image_vision_cache (id, image_url, description, mime_type)
-      VALUES (gen_random_uuid(), ${imageUrl}, ${description}, ${mimeType})
+      INSERT INTO image_vision_cache (id, image_url, description, mime_type, source_conversation_id)
+      VALUES (gen_random_uuid(), ${imageUrl}, ${description}, ${mimeType}, ${sourceConversationId ?? null})
       ON CONFLICT (image_url) DO UPDATE SET
         description = EXCLUDED.description,
+        source_conversation_id = COALESCE(image_vision_cache.source_conversation_id, EXCLUDED.source_conversation_id),
         last_used_at = NOW()
     `);
   } catch (err: any) {
@@ -185,7 +188,8 @@ export async function getImageVision(
     session.seenImageUrls.add(imageUrl);
 
     let descriptionToUse = fallbackDescription;
-    const descriptionPromise = generateAndStoreCachedDescription(imageUrl, data, mimeType, fallbackDescription);
+    const sourceConversationId = session.conversationId ?? null;
+    const descriptionPromise = generateAndStoreCachedDescription(imageUrl, data, mimeType, fallbackDescription, sourceConversationId);
     try {
       const raceResult = await Promise.race([
         descriptionPromise,

@@ -39,6 +39,7 @@ import {
   danielaGrowthMemories,
   toolKnowledge,
   danielaNotes,
+  imageVisionCache,
   type PeopleConnection,
   type StudentInsight,
   type LearningMotivation,
@@ -115,6 +116,7 @@ export interface MemorySearchResult {
   details: string; // Full context
   timestamp: Date | null;
   source: string; // Where this memory came from
+  sourceConversationId?: string; // conversation where this memory originated — used for visual anchor join
 }
 
 /**
@@ -194,6 +196,54 @@ export async function semanticSearchMessages(
   } catch (err: any) {
     console.error('[NeuralMemory] Semantic search error:', err.message);
     return [];
+  }
+}
+
+/**
+ * Enriches memory search results with visual anchors from image_vision_cache.
+ * For each result that has a sourceConversationId, looks up any images shown
+ * during that session and appends them as archival visual context so Daniela
+ * can reference them naturally without thinking the student is currently looking at them.
+ */
+async function enrichMemoriesWithImages(results: MemorySearchResult[]): Promise<MemorySearchResult[]> {
+  try {
+    const conversationIds = results
+      .map(r => r.sourceConversationId)
+      .filter((id): id is string => Boolean(id));
+
+    if (conversationIds.length === 0) return results;
+
+    const db = getUserDb();
+    const images = await db
+      .select({
+        sourceConversationId: imageVisionCache.sourceConversationId,
+        description: imageVisionCache.description,
+      })
+      .from(imageVisionCache)
+      .where(inArray(imageVisionCache.sourceConversationId, conversationIds));
+
+    if (images.length === 0) return results;
+
+    const imagesByConversation = new Map<string, string[]>();
+    for (const img of images) {
+      if (!img.sourceConversationId || !img.description) continue;
+      const existing = imagesByConversation.get(img.sourceConversationId) ?? [];
+      existing.push(img.description);
+      imagesByConversation.set(img.sourceConversationId, existing);
+    }
+
+    return results.map(result => {
+      if (!result.sourceConversationId) return result;
+      const relatedDescriptions = imagesByConversation.get(result.sourceConversationId);
+      if (!relatedDescriptions || relatedDescriptions.length === 0) return result;
+      const anchors = relatedDescriptions
+        .map(d => `[Archival visual from that session: ${d}]`)
+        .join(' ');
+      return { ...result, details: `${result.details}\n${anchors}` };
+    });
+  } catch (err: any) {
+    console.warn('[MemoryEnrich] Visual anchor lookup failed (non-fatal):', err.message);
+    return results;
   }
 }
 
@@ -491,6 +541,7 @@ export async function searchMemory(
             details: `Extracted facts about the student:\n${summaryLines}`,
             timestamp: facts[0].createdAt,
             source: 'learner_personal_facts',
+            sourceConversationId: facts[0].sourceConversationId ?? undefined,
           });
         }
       } catch (err: any) {
@@ -863,13 +914,16 @@ export async function searchMemory(
   
   // Sort by relevance (highest first)
   results.sort((a, b) => b.relevance - a.relevance);
+
+  // Enrich results with visual anchors from image_vision_cache
+  const enrichedResults = await enrichMemoriesWithImages(results);
   
   return {
     query,
     studentId,
-    results,
+    results: enrichedResults,
     searchedDomains,
-    totalMatches: results.length,
+    totalMatches: enrichedResults.length,
   };
 }
 

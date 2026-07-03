@@ -22,6 +22,13 @@
       "when": 1783028214878,
       "tag": "0002_white_northstar",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1783122470726,
+      "tag": "0003_fantastic_invaders",
+      "breakpoints": true
     }
   ]
 }

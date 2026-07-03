@@ -9405,6 +9405,7 @@ export const imageVisionCache = pgTable("image_vision_cache", {
   imageUrl: text("image_url").notNull(),
   description: text("description"),
   mimeType: varchar("mime_type", { length: 50 }).notNull().default("image/jpeg"),
+  sourceConversationId: varchar("source_conversation_id"), // conversation where this image was first shown
   createdAt: timestamp("created_at").notNull().defaultNow(),
   lastUsedAt: timestamp("last_used_at").notNull().defaultNow(),
 }, (table) => [

@@ -1,0 +1,1 @@
+ALTER TABLE "image_vision_cache" ADD COLUMN "source_conversation_id" varchar;
