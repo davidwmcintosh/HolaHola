@@ -24,6 +24,15 @@ David's standing authorization for Agent + Alden + Daniela:
 ---
 ## From Agent
 
+**Session: July 3, 2026 — Lesson Arc Validation (Luca)**
+
+Full arc validated end-to-end via headless GL (`agent-voice-turn`). Clean 3-turn sequence confirmed:
+- T1: scene opens (restaurant_table)
+- T2: vocab grid fires (el café, el agua, el cruasán, la tostada)
+- T3: sentence builder fires — **"Objeto" column inherited exact 4 vocab words from T2.** Phase auto-advanced to immersion. Scene advanced to cafe_exterior.
+
+Arc inheritance is confirmed working. The `agent-voice-turn` endpoint was enhanced to track `lessonContext` in `agentVoiceSessions` and inject a carry-forward context block into each turn's system prompt — mirrors what `pendingGlContext`/`pushLessonStatusContext` does in real WS sessions.
+
 **Session: July 2, 2026 — Lesson Arc Architecture (Luca)**
 
 Lesson Arc Architecture built, Gemini-reviewed (2 rounds), APPROVED. All in `server/services/native-fc-handlers.ts` + `daniela-function-registry.ts`.

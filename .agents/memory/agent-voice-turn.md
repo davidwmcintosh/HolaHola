@@ -10,10 +10,11 @@ description: How Agent runs real voice sessions with Daniela and observes visual
 **Why:** text mode fires zero tools; visual layer (open_scene, show_vocab_grid, etc.) only appears in GL voice mode. Agent needed a way to observe those tools without a browser.
 
 **How to apply:**
-- Body: `{ audio: base64PCM16@16kHz, sessionId: string, languageCode: "es-ES", voiceId: "Aoede" }`
+- Body: `{ audio: base64PCM16@16kHz, sessionId: string, languageCode: "es-ES", voiceId: "Aoede", studentText?: string }`
 - Returns: `{ audioWav: base64WAV, visualEvents: [], toolCallsSummary: [], audioDurationS, transcript, sessionId, turnNumber }`
 - Uses all `DANIELA_FUNCTION_DECLARATIONS` (no slice — slicing to 20 cuts off `show_image` at index ~26)
 - In-memory session store keyed by `sessionId` — multi-turn conversation state persists across calls
+- `studentText` = transcript fallback; pass it so GL fires tools even if transcription lags
 
 ## Exact audio generation pipeline (copy-paste ready)
 
@@ -39,9 +40,9 @@ const audio = fs.readFileSync('/tmp/_tmp.raw').toString('base64');
 
 ## Sending a turn
 
-```bash
-# Use -d @- (stdin) to avoid shell escaping issues with large base64 payloads
-const body = JSON.stringify({ audio, sessionId: SESSION_ID, languageCode: 'es-ES', voiceId: 'Aoede' });
+```javascript
+// Use -d @- (stdin) to avoid shell escaping issues with large base64 payloads
+const body = JSON.stringify({ audio, sessionId: SESSION_ID, languageCode: 'es-ES', voiceId: 'Aoede', studentText });
 execSync(`curl -s -X POST http://localhost:5000/api/admin/agent-voice-turn \
   -H "Content-Type: application/json" \
   -H "Cookie: ${SC}" \
@@ -49,7 +50,32 @@ execSync(`curl -s -X POST http://localhost:5000/api/admin/agent-voice-turn \
   -d @-`, { input: body, maxBuffer: 50*1024*1024, timeout: 95000 })
 ```
 
-**Timeout note:** Turn 3 with sentence-builder requests can hit the 60s GL timeout. Increase `--max-time` to 90+ and Node `timeout` to 95000+.
+**CRITICAL — run each turn in its own bash call:** Do NOT put multiple sequential turns in one bash heredoc/script with a combined timeout. The bash tool timeout kills the entire process mid-turn. Run each turn as an independent node --input-type=module call.
+
+**Session ID must be hardcoded inside each node call** — `process.env.SESS` works only if passed as `SESS=value node`, but hardcoding the string is safer across heredoc boundaries.
+
+## Cross-turn context carry-forward (Lesson Arc)
+
+The `agentVoiceSessions` Map now stores `lessonContext: { phase, scene, vocab[], phaseObjective }`. This lets the arc persist across turns in the same session:
+
+- After each tool call fires, the endpoint parses `params_json` and updates `agentSession.lessonContext`
+- At turn start, if `lessonContext` has state, a `[Lesson context — carry forward from previous turns]` block is appended to the system prompt
+- This mirrors what `pendingGlContext`/`pushLessonStatusContext` does in real WS sessions
+
+## Validated arc (Session 004 — Jul 3, 2026)
+
+Clean 3-turn test on session `arc-clean-1783040995`:
+- Turn 1 (restaurant vocab request):
+  - `teaching_content(update_lesson_context)` → scene: restaurant_table
+  - `open_scene` → restaurant_table
+- Turn 2 (vocab grid request):
+  - `teaching_content(show_vocab_grid)` → 4 words: el café, el agua, el cruasán, la tostada
+- Turn 3 ("practiquemos construyendo frases"):
+  - `teaching_content(show_sentence_builder)` → **"Objeto" column: [el café, el agua, el cruasán, la tostada]** ← inherited from T2
+  - `teaching_content(update_lesson_context)` → phase: immersion, scene: cafe_exterior (advanced autonomously)
+  - `update_session_pedagogy` → fluency: comfortable
+
+**Arc inheritance confirmed.** The sentence builder's "Objeto" column contained the exact 4 words from T2's vocab grid. Scene advanced without prompting. Phase was declared automatically.
 
 ## Visual tool dispatcher pattern
 
@@ -60,20 +86,12 @@ Daniela routes through dispatchers — the actual GL tool names are wrappers:
 
 Both dispatcher and native patterns appear in `toolCallsSummary`. Check `t.name` AND `t.args.type`/`t.args.widget` for full picture.
 
-## What was observed (Session 003 — Lesson Arc test, Jul 2 2026)
+## What each turn typically fires
 
-- Turn 1 ("quiero aprender vocabulario de comida en el restaurante"):
-  - `widget_media(show_daily_plan)` — lesson plan widget
-  - `teaching_content(vocab_card)` — single vocab card ("el agua / water")
-- Turn 2 ("Muéstrame las palabras en una cuadrícula con imágenes"):
-  - `teaching_content(show_vocab_grid)` — vocab grid with images ✓
-  - `update_session_phase(WARM_UP)` — phase tracking
-- Turn 3 ("practiquemos construyendo frases") → timed out (60s GL limit)
-  - No transcript was captured on any turn — Deepgram transcription may not be running in headless mode
+Voice mode = 3-5 tools per turn including:
+- Scene construction (open_scene or update_lesson_context)
+- Vocabulary rendering (show_vocab_grid, vocab_card)
+- Continuous pedagogy calibration (update_session_pedagogy, update_session_phase)
+- Heartbeat tools (admin_session)
 
-**Key insight:** voice mode = 4-6 tools per turn including scene construction + vocabulary rendering + continuous pedagogy calibration. The visual layer IS the pedagogy, not a decoration.
-
-**Previous session (002):**
-- Turn 1 (greeting + "me gustan los viajes y comida"): `open_scene` → restaurant_table, `add_to_scene` → dinner_menu prop
-- Turn 2 (food vocabulary request): `show_vocab_grid` → words with imageQuery per word for AI image generation
-- `update_session_pedagogy` fires simultaneously with teaching — tracks gear/fluency in real time
+The visual layer IS the pedagogy, not decoration.

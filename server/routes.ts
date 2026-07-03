@@ -24629,7 +24629,11 @@ Current conversation context:
     const sessionKey = sessionId || `agent-${Date.now()}`;
 
     if (!agentVoiceSessions.has(sessionKey)) {
-      agentVoiceSessions.set(sessionKey, { turnCount: 0, languageCode: langCode, createdAt: Date.now() });
+      agentVoiceSessions.set(sessionKey, {
+        turnCount: 0, languageCode: langCode, createdAt: Date.now(),
+        // Lesson arc state — persists across turns, injected into each turn's system prompt
+        lessonContext: { phase: null as string|null, scene: null as string|null, vocab: [] as string[], phaseObjective: null as string|null },
+      });
     }
     const agentSession = agentVoiceSessions.get(sessionKey)!;
     agentSession.turnCount++;
@@ -24643,17 +24647,29 @@ Current conversation context:
     };
     const langLabel = LANG_TO_INSTRUCTION[langCode] || langCode;
 
+    // Build carry-forward lesson context block from previous turns in this session.
+    // This mirrors what pendingGlContext/pushLessonStatusContext does in real WS sessions.
+    const lc = agentSession.lessonContext as any;
+    const lcParts: string[] = [];
+    if (lc?.phase) lcParts.push(`Current phase: ${lc.phase}`);
+    if (lc?.scene) lcParts.push(`Current scene: ${lc.scene}`);
+    if (lc?.vocab?.length > 0) lcParts.push(`Active vocab (already shown to student): ${lc.vocab.join(', ')}`);
+    if (lc?.phaseObjective) lcParts.push(`Objective: ${lc.phaseObjective}`);
+    const lcBlock = lcParts.length > 0
+      ? `\n\n[Lesson context — carry forward from previous turns]\n${lcParts.join(' | ')}\n\nContinue from where you left off. Do not re-introduce what is already shown.`
+      : '';
+
     const systemPrompt = `You are Daniela, a warm, inventive ${langLabel} language tutor. Your student is Alex — a novice-mid learner who loves travel and food.
 
 Speak mostly in ${langLabel}, with brief English clarifications only when needed. Keep spoken responses to 2-4 sentences.
 
 Use visual tools actively and in sequence throughout the lesson. This is how the lesson arc works:
-1. Open a scene with the teaching_content dispatcher (type: "open_scene") to ground the vocabulary in a place.
+1. Open a scene with teaching_content (type: "open_scene") to ground the vocabulary in a place.
 2. Show a vocabulary grid with teaching_content (type: "show_vocab_grid") so Alex sees the words with images.
-3. Follow up with a sentence builder using teaching_content (type: "show_sentence_builder") so Alex can practice constructing phrases from the vocab just introduced.
-4. Declare the current lesson phase with teaching_content (type: "update_lesson_context") when transitioning between phases.
+3. Follow up with teaching_content (type: "show_sentence_builder") so Alex can practice constructing phrases from the vocab just introduced.
+4. Declare the lesson phase with teaching_content (type: "update_lesson_context") when transitioning.
 
-These tools are how students learn — use them generously and in sequence. The visual layer IS the lesson.`;
+The visual layer IS the lesson. Move through the arc in sequence — open scene → vocab grid → sentence builder.${lcBlock}`;
 
     try {
       const { GoogleGenAI, Modality } = await import('@google/genai');
@@ -24755,6 +24771,38 @@ These tools are how students learn — use them generously and in sequence. The 
                     visualEvents.push(ve);
                     pushVisualEvent(watchId as string | undefined, ve);
                   }
+
+                  // Update persisted lessonContext so the NEXT turn's system prompt carries it forward.
+                  // Mirrors what native-fc-handlers.ts does on the real WebSocket session.
+                  const arc = agentSession.lessonContext as any;
+                  try {
+                    const p = args?.params_json ? JSON.parse(args.params_json) : args;
+                    if (name === 'teaching_content') {
+                      const tcType = args?.type || '';
+                      if (tcType === 'update_lesson_context' || tcType === 'open_scene') {
+                        if (p.phase) arc.phase = p.phase;
+                        if (p.scene || p.environment) {
+                          const newScene = p.scene || p.environment;
+                          if (newScene !== arc.scene) arc.vocab = []; // clear on scene change
+                          arc.scene = newScene;
+                        }
+                        if (p.phase_objective) arc.phaseObjective = p.phase_objective;
+                      } else if (tcType === 'show_vocab_grid' && Array.isArray(p.words)) {
+                        arc.vocab = p.words.map((w: any) => w.text).filter(Boolean);
+                      } else if (tcType === 'show_sentence_builder') {
+                        arc.phase = arc.phase || 'immersion'; // sentence builder implies immersion phase
+                      }
+                    } else if (name === 'open_scene') {
+                      const newScene = p.environment || p.scene;
+                      if (newScene && newScene !== arc.scene) arc.vocab = [];
+                      if (newScene) arc.scene = newScene;
+                    } else if (name === 'show_vocab_grid' && Array.isArray(p.words)) {
+                      arc.vocab = p.words.map((w: any) => w.text).filter(Boolean);
+                    } else if (name === 'admin_session') {
+                      if (p.phase) arc.phase = p.phase;
+                      if (p.scene) arc.scene = p.scene;
+                    }
+                  } catch { /* ignore parse errors */ }
 
                   // Return plausible responses so GL session continues
                   let result: any = { success: true };

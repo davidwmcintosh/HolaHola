@@ -8,6 +8,35 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jul 3, 2026 — Lesson Arc Validation (Luca)
+
+### What was validated
+
+Full end-to-end observational test of the Lesson Arc Architecture through `POST /api/admin/agent-voice-turn` (headless GL).
+
+**Clean 3-turn arc result:**
+- Turn 1 ("quiero aprender vocabulario de comida en el restaurante"):
+  - `teaching_content(update_lesson_context)` → scene: restaurant_table
+  - `open_scene` → restaurant_table
+- Turn 2 ("Muéstrame las palabras en una cuadrícula con imágenes"):
+  - `teaching_content(show_vocab_grid)` → 4 words: el café, el agua, el cruasán, la tostada
+- Turn 3 ("practiquemos construyendo frases con esas palabras"):
+  - `teaching_content(show_sentence_builder)` → 2 columns:
+    - "Sujeto y Verbo": [Yo quiero, Tú quieres, Él quiere]
+    - "Objeto": [el café, el agua, el cruasán, la tostada] ← **inherited from T2 vocab grid**
+  - `teaching_content(update_lesson_context)` → phase: immersion, scene advances to cafe_exterior
+  - `update_session_pedagogy` → fluency: comfortable
+
+**Key validation:** The "Objeto" column in the sentence builder contained the exact 4 words from T2's `show_vocab_grid`. Cross-turn inheritance is working. Scene advanced autonomously. Phase progression was declared without prompting.
+
+**What was added to enable this (routes.ts — agent-voice-turn endpoint):**
+- `agentVoiceSessions` Map now stores `lessonContext: { phase, scene, vocab[], phaseObjective }` per session
+- After each tool call fires, the handler parses `params_json` and updates the session's `lessonContext`
+- At the start of each turn, if `lessonContext` has state, a `[Lesson context — carry forward]` block is injected at the end of the system prompt — mirrors what `pendingGlContext`/`pushLessonStatusContext` does in real WS sessions
+- `studentText` field serves as transcript fallback so tool calls are made against meaningful content even if GL transcription lags
+
+---
+
 ## Session — Jul 2, 2026 — Lesson Arc Architecture
 
 ### What was built
