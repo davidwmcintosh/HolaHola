@@ -99,14 +99,24 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "read_conversation_memories",
-    description: "Search the shared conversation_memories archive — curated records of significant conversations between David, Daniela, and the Agent. Returns full content (not just summaries). Use this to understand the deeper context of a topic, read what was actually said in a key session, or find philosophical/pedagogical discussions that shaped the project.",
+    description: "Search the shared conversation_memories archive — curated records of significant conversations between David, Daniela, and the Agent. Returns full content, tags, arc membership, and chaining (extends_memory_id). Use to understand a topic in depth, read what was said in a key session, or follow a conversation thread across sessions. Filter by arc to read a complete narrative thread.",
     input_schema: {
       type: "object" as const,
       properties: {
         query: { type: "string" as const, description: "Search term, topic, or title keyword to find in conversation memories" },
-        limit: { type: "number" as const, description: "Max number of results to return (default 5)" },
+        arc: { type: "string" as const, description: "Filter to a specific arc (narrative thread), e.g. 'HolaHola Episodes', 'daniela-emergence', 'white-wall'. Use list_conversation_arcs to see all available arcs." },
+        limit: { type: "number" as const, description: "Max number of results to return (default 5, max 15)" },
       },
       required: ["query"],
+    },
+  },
+  {
+    name: "list_conversation_arcs",
+    description: "List all conversation arcs — named narrative threads that group related conversation_memories entries across multiple sessions. Returns arc name, entry count, and date range. Use this to discover what threads exist before using read_conversation_memories with an arc filter.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
     },
   },
   {
@@ -854,11 +864,12 @@ export async function executeAldenTool(
       }
 
       case "read_conversation_memories": {
-        const { query, limit: memLimit = 5 } = args;
+        const { query, arc, limit: memLimit = 5 } = args;
         const sharedDb = getMonitoringDb();
 
         const results = await sharedDb.execute(sql`
           SELECT id, title, summary, content, importance, created_at, tags, entry_type,
+            arc_name, extends_memory_id,
             CASE WHEN title ILIKE ${'%' + query + '%'} THEN 1 ELSE 0 END AS title_match
           FROM conversation_memories
           WHERE (
@@ -866,18 +877,20 @@ export async function executeAldenTool(
             OR summary ILIKE ${'%' + query + '%'}
             OR content ILIKE ${'%' + query + '%'}
           )
+          ${arc ? sql`AND arc_name = ${arc}` : sql``}
           ORDER BY title_match DESC, importance DESC, created_at DESC
           LIMIT ${Math.min(Number(memLimit), 15)}
         `);
 
         const rows = results.rows as any[];
         if (!rows.length) {
-          return { data: { query, matchCount: 0, memories: [], note: 'No conversation memories matched this query.' } };
+          return { data: { query, arc: arc ?? null, matchCount: 0, memories: [], note: 'No conversation memories matched this query.' } };
         }
 
         return {
           data: {
             query,
+            arc: arc ?? null,
             matchCount: rows.length,
             memories: rows.map(r => ({
               id: r.id,
@@ -885,10 +898,36 @@ export async function executeAldenTool(
               importance: r.importance,
               entryType: r.entry_type,
               tags: r.tags,
+              arcName: r.arc_name,
+              extendsMemoryId: r.extends_memory_id,
               recordedAt: r.created_at,
               summary: r.summary,
-              content: r.content, // full content — not truncated
+              content: r.content,
             })),
+          },
+        };
+      }
+
+      case "list_conversation_arcs": {
+        const sharedDb = getMonitoringDb();
+        const results = await sharedDb.execute(sql`
+          SELECT arc_name, COUNT(*) as entry_count,
+            MIN(created_at) as first_entry,
+            MAX(created_at) as last_entry
+          FROM conversation_memories
+          WHERE arc_name IS NOT NULL
+          GROUP BY arc_name
+          ORDER BY last_entry DESC
+        `);
+        return {
+          data: {
+            arcs: (results.rows as any[]).map(r => ({
+              arcName: r.arc_name,
+              entryCount: Number(r.entry_count),
+              firstEntry: r.first_entry,
+              lastEntry: r.last_entry,
+            })),
+            note: 'Use read_conversation_memories with arc parameter to read all entries in a thread.',
           },
         };
       }

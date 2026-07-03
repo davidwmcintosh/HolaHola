@@ -2890,9 +2890,32 @@ WHEN TO USE:
       const query = fc.args.query as string;
       const result = session.fullMemoryResults?.[query];
       if (result) {
-        return `Full memory retrieved — "${result.title}":\n\n${result.content}\n\n[End of memory — ${result.content.length} characters, importance: ${result.importance}/10]\n\nNow respond naturally using this complete verbatim content.`;
+        const arcLine = result.arcName ? `\narc: ${result.arcName}${result.extendsMemoryId ? ` | continues from: ${result.extendsMemoryId}` : ''}` : '';
+        return `Full memory retrieved — "${result.title}":${arcLine}\n\n${result.content}\n\n[End of memory — ${result.content.length} characters, importance: ${result.importance}/10]\n\nNow respond naturally using this complete verbatim content.`;
       }
       return `No memory found matching "${query}". The memory may be stored under a different title. Try a broader keyword, or let David know you couldn't locate it.`;
+    },
+  },
+  {
+    legacyType: 'LIST_CONVERSATION_ARCS',
+    declaration: {
+      name: 'list_conversation_arcs',
+      description: 'List all conversation arcs — named narrative threads that group related conversation memories across sessions. Returns arc name, entry count, and date range. Use this to see what threads exist, then call memory_lookup or read_full_memory to explore a specific arc.',
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const arcs = (session as any).listArcsResult as Array<{ arcName: string; entryCount: number; firstEntry: string; lastEntry: string }> | null;
+      if (!arcs || arcs.length === 0) return 'No conversation arcs found.';
+      const lines = arcs.map(a => {
+        const first = new Date(a.firstEntry).toLocaleDateString();
+        const last = new Date(a.lastEntry).toLocaleDateString();
+        return `• ${a.arcName} — ${a.entryCount} entries (${first} → ${last})`;
+      });
+      return `Conversation arcs:\n\n${lines.join('\n')}\n\nTo read entries in an arc, call memory_lookup with the arc name, or read_full_memory("arc name keyword").`;
     },
   },
   {

@@ -4059,6 +4059,8 @@ export class NativeFunctionCallHandler {
                     title: results[0].title,
                     content: results[0].content,
                     importance: results[0].importance ?? 7,
+                    arcName: results[0].arcName ?? undefined,
+                    extendsMemoryId: results[0].extendsMemoryId ?? undefined,
                   };
                   console.log(`[Native Function→ReadFullMemory] ✓ Found "${results[0].title}" (${results[0].content.length} chars)`);
                   // Reinforce on ILIKE hit — accessed memories strengthen, keeping them surfaceable
@@ -4090,6 +4092,8 @@ export class NativeFunctionCallHandler {
                             title: row.title,
                             content: row.content,
                             importance: row.importance ?? 7,
+                            arcName: row.arcName ?? undefined,
+                            extendsMemoryId: row.extendsMemoryId ?? undefined,
                           };
                           const hitLabel = bestHit.memoryType === 'conversation_chunk'
                             ? `chunk ${bestHit.memoryId.split(':chunk:')[1]}`
@@ -4116,6 +4120,33 @@ export class NativeFunctionCallHandler {
             })()
           );
         }
+        break;
+      }
+
+      case 'LIST_CONVERSATION_ARCS': {
+        (async () => {
+          try {
+            const db = getSharedDb();
+            const rows = await db.execute(sql`
+              SELECT arc_name, COUNT(*) as entry_count,
+                MIN(created_at) as first_entry,
+                MAX(created_at) as last_entry
+              FROM conversation_memories
+              WHERE arc_name IS NOT NULL
+              GROUP BY arc_name
+              ORDER BY last_entry DESC
+            `);
+            (session as any).listArcsResult = (rows.rows as any[]).map((r: any) => ({
+              arcName: r.arc_name as string,
+              entryCount: Number(r.entry_count),
+              firstEntry: r.first_entry as string,
+              lastEntry: r.last_entry as string,
+            }));
+          } catch (err: any) {
+            console.warn(`[Native Function→ListConversationArcs] Error: ${err.message}`);
+            (session as any).listArcsResult = [];
+          }
+        })();
         break;
       }
 
@@ -8198,6 +8229,8 @@ export class NativeFunctionCallHandler {
               content: convMemTable.content,
               importance: convMemTable.importance,
               recordedAt: convMemTable.recordedAt,
+              arcName: convMemTable.arcName,
+              extendsMemoryId: convMemTable.extendsMemoryId,
             })
             .from(convMemTable)
             .where(cond)
@@ -8234,9 +8267,11 @@ export class NativeFunctionCallHandler {
           if (results.length === 0) return null;
           const lines = results.map(r => {
             const date = r.recordedAt ? new Date(r.recordedAt).toLocaleDateString() : 'unknown date';
+            const arcInfo = r.arcName ? ` | arc: ${r.arcName}` : '';
+            const chainInfo = r.extendsMemoryId ? ` | continues: ${r.extendsMemoryId}` : '';
             const excerpt = r.content ? r.content.slice(0, 800) : (r.summary ?? '');
             const hasMore = r.content && r.content.length > 800;
-            return `[importance: ${r.importance}/10 | ${date}] "${r.title}"\n${excerpt}${hasMore ? `\n... [EXCERPT — ${r.content!.length} chars total. To read the full text, call: read_full_memory("${r.title}")]` : ''}`;
+            return `[importance: ${r.importance}/10 | ${date}${arcInfo}${chainInfo}] "${r.title}"\n${excerpt}${hasMore ? `\n... [EXCERPT — ${r.content!.length} chars total. To read the full text, call: read_full_memory("${r.title}")]` : ''}`;
           });
           console.log(`[UnifiedRecall] Memories arm: ${results.length} match(es) for "${query}"`);
           return lines.join('\n\n---\n\n');
