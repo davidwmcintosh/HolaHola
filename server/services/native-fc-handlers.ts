@@ -1,5 +1,5 @@
 import { sql, eq, and, desc, ilike, or } from "drizzle-orm";
-import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes, users, voiceSessions, voicePipelineEvents, pedagogicalSnapshots, studentMilestones } from "@shared/schema";
+import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes, users, voiceSessions, voicePipelineEvents, pedagogicalSnapshots, studentMilestones, imageVisionCache } from "@shared/schema";
 import { isValidActflLevel } from "../actfl-utils";
 import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
@@ -4060,14 +4060,31 @@ export class NativeFunctionCallHandler {
                 }
                 if (!session.fullMemoryResults) session.fullMemoryResults = {};
                 if (results.length > 0) {
+                  // Look up visual anchor: for message-archive entries the tags array contains
+                  // ['message-archive', '<conv_uuid>'] — use the UUID tag as sourceConversationId
+                  let imageUrl: string | undefined;
+                  let imageDescription: string | undefined;
+                  try {
+                    const memTags = results[0].tags as string[] | null;
+                    const convTagId = memTags?.find(t => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t));
+                    if (convTagId) {
+                      const [img] = await db.select({ imageUrl: imageVisionCache.imageUrl, description: imageVisionCache.description })
+                        .from(imageVisionCache)
+                        .where(eq(imageVisionCache.sourceConversationId, convTagId))
+                        .limit(1);
+                      if (img?.imageUrl) { imageUrl = img.imageUrl; imageDescription = img.description ?? undefined; }
+                    }
+                  } catch {}
                   session.fullMemoryResults[memQuery] = {
                     title: results[0].title,
                     content: results[0].content,
                     importance: results[0].importance ?? 7,
                     arcName: results[0].arcName ?? undefined,
                     extendsMemoryId: results[0].extendsMemoryId ?? undefined,
+                    imageUrl,
+                    imageDescription,
                   };
-                  console.log(`[Native Function→ReadFullMemory] ✓ Found "${results[0].title}" (${results[0].content.length} chars)`);
+                  console.log(`[Native Function→ReadFullMemory] ✓ Found "${results[0].title}" (${results[0].content.length} chars${imageUrl ? ', has visual anchor' : ''})`);
                   // Reinforce on ILIKE hit — accessed memories strengthen, keeping them surfaceable
                   const hitId = results[0].id;
                   import('./memory-decay-service').then(({ reinforceMemory }) => {
@@ -4093,12 +4110,27 @@ export class NativeFunctionCallHandler {
                           .where(eq(conversationMemories.id, convMemId))
                           .limit(1);
                         if (row) {
+                          let semImageUrl: string | undefined;
+                          let semImageDescription: string | undefined;
+                          try {
+                            const semTags = row.tags as string[] | null;
+                            const semConvId = semTags?.find(t => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t));
+                            if (semConvId) {
+                              const [semImg] = await db.select({ imageUrl: imageVisionCache.imageUrl, description: imageVisionCache.description })
+                                .from(imageVisionCache)
+                                .where(eq(imageVisionCache.sourceConversationId, semConvId))
+                                .limit(1);
+                              if (semImg?.imageUrl) { semImageUrl = semImg.imageUrl; semImageDescription = semImg.description ?? undefined; }
+                            }
+                          } catch {}
                           session.fullMemoryResults[memQuery] = {
                             title: row.title,
                             content: row.content,
                             importance: row.importance ?? 7,
                             arcName: row.arcName ?? undefined,
                             extendsMemoryId: row.extendsMemoryId ?? undefined,
+                            imageUrl: semImageUrl,
+                            imageDescription: semImageDescription,
                           };
                           const hitLabel = bestHit.memoryType === 'conversation_chunk'
                             ? `chunk ${bestHit.memoryId.split(':chunk:')[1]}`
@@ -7321,6 +7353,54 @@ export class NativeFunctionCallHandler {
             console.error(`[Native Function→SwapVocabImage] Error:`, err.message);
           }
         })().catch(err => console.error('[SwapVocabImage] Unhandled:', err.message));
+        break;
+      }
+
+      case 'REGENERATE_MEMORY_IMAGE': {
+        const rimImageUrl = fn.args.image_url as string | undefined;
+        const rimNewPrompt = fn.args.new_prompt as string | undefined;
+        const rimReason = fn.args.reason as string | undefined;
+        if (!rimImageUrl || !rimNewPrompt) {
+          console.warn('[RegenMemoryImage] Missing image_url or new_prompt');
+          break;
+        }
+        (async () => {
+          try {
+            const db = getSharedDb();
+            // Preserve sourceConversationId so the anchor stays linked after replacement
+            const [oldRecord] = await db
+              .select({ sourceConversationId: imageVisionCache.sourceConversationId })
+              .from(imageVisionCache)
+              .where(eq(imageVisionCache.imageUrl, rimImageUrl))
+              .limit(1);
+            const sourceConvId = oldRecord?.sourceConversationId ?? null;
+
+            // Generate new image in the semi-realistic cartoon prop style for consistency
+            const { generateFromCustomPrompt, PROP_STYLE } = await import('./google-image-service');
+            const imagePrompt = `${PROP_STYLE}. ${rimNewPrompt}`;
+            const newImageUrl = await generateFromCustomPrompt(imagePrompt);
+
+            // Replace: delete old entry, insert new with same sourceConversationId
+            await db.delete(imageVisionCache).where(eq(imageVisionCache.imageUrl, rimImageUrl));
+            await db.execute(sql`
+              INSERT INTO image_vision_cache (id, image_url, source_conversation_id, created_at, last_used_at)
+              VALUES (gen_random_uuid(), ${newImageUrl}, ${sourceConvId}, NOW(), NOW())
+              ON CONFLICT (image_url) DO NOTHING
+            `);
+
+            // Get vision so Daniela can evaluate the result before deciding to loop or stop
+            const { getImageVision } = await import('../services/image-vision-service');
+            const vision = await getImageVision(newImageUrl, rimNewPrompt, session);
+
+            (session as any).regenerateMemoryImageResult = {
+              description: vision.description,
+              newImageUrl,
+            };
+            console.log(`[RegenMemoryImage] ✓ Replaced${rimReason ? ` (${rimReason})` : ''} → ${newImageUrl} [${vision.mode}]`);
+          } catch (err: any) {
+            console.error('[RegenMemoryImage] Error:', err.message);
+          }
+        })().catch(err => console.error('[RegenMemoryImage] Unhandled:', err.message));
         break;
       }
 

@@ -2890,12 +2890,44 @@ WHEN TO USE:
     },
     buildContinuationResponse: ({ session, fc }) => {
       const query = fc.args.query as string;
-      const result = session.fullMemoryResults?.[query];
+      const result = session.fullMemoryResults?.[query] as any;
       if (result) {
         const arcLine = result.arcName ? `\narc: ${result.arcName}${result.extendsMemoryId ? ` | continues from: ${result.extendsMemoryId}` : ''}` : '';
-        return `Full memory retrieved — "${result.title}":${arcLine}\n\n${result.content}\n\n[End of memory — ${result.content.length} characters, importance: ${result.importance}/10]\n\nNow respond naturally using this complete verbatim content.`;
+        const imageLine = result.imageUrl
+          ? `\n\n[Visual anchor — image associated with this memory]\nimage_url: ${result.imageUrl}${result.imageDescription ? `\nShows: ${result.imageDescription}` : ''}\nIf this image is wrong in content, context, or style, call regenerate_memory_image with this image_url and describe what it should show instead. The loop continues until you stop — no commit step needed.`
+          : '';
+        return `Full memory retrieved — "${result.title}":${arcLine}\n\n${result.content}\n\n[End of memory — ${result.content.length} characters, importance: ${result.importance}/10]${imageLine}\n\nNow respond naturally using this complete verbatim content.`;
       }
       return `No memory found matching "${query}". The memory may be stored under a different title. Try a broader keyword, or let David know you couldn't locate it.`;
+    },
+  },
+  {
+    legacyType: 'REGENERATE_MEMORY_IMAGE',
+    declaration: {
+      name: 'regenerate_memory_image',
+      description: `Regenerates an image associated with a memory when the current image is wrong in content, context, or style. Call with the image_url from a memory's visual anchor and a clear description of what the correct image should show. A new image is generated in the semi-realistic cartoon style and the cache is updated automatically. The tool result contains a description of the new image so you can evaluate it — call again with a different prompt if still not right. No commit step needed: the last generated image is committed automatically.
+
+WHEN TO USE:
+- read_full_memory returns a visual anchor whose description shows the wrong subject
+- The image is stylistically inconsistent with the lesson context (e.g. photorealistic when it should be illustrated)
+- The image is too generic when it should be specific (e.g. shows "a building" when the memory is about a specific Mexican market)
+- You remember the session differently than the image represents`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          image_url: { type: 'string', description: 'The image_url from the memory visual anchor to replace — copy exactly from the read_full_memory result' },
+          new_prompt: { type: 'string', description: 'What the new image should show. Be specific: subject, setting, mood, cultural context. Style is semi-realistic cartoon automatically.' },
+          reason: { type: 'string', description: 'Optional: why the current image is wrong (helps with logging and future QA)' },
+        },
+        required: ['image_url', 'new_prompt'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const result = (session as any).regenerateMemoryImageResult as { description: string; newImageUrl: string } | undefined;
+      if (result) {
+        return `New image generated and saved.\nShows: ${result.description}\n\nIf this is correct, stop — it is committed. If not, call regenerate_memory_image again with a different prompt.`;
+      }
+      return `Image regeneration is in progress. If the result does not appear in a moment, try calling read_full_memory again to see the updated visual anchor.`;
     },
   },
   {
