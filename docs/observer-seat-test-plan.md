@@ -16,7 +16,7 @@ These two concepts share the word "observer" and need to stay distinct:
 
 **Working rule:** When this doc says "Observer Seat," it means Luca's external view. When it means Daniela's self-visibility, it will say so explicitly.
 
-**Rename needed:** Daniela's internal awareness system should be renamed to something that doesn't overlap with "Observer Seat." Candidates: **Classroom Mirror**, **Stage Monitor** (performers' term for hearing themselves onstage), **Interface Sight**. To be decided — add to open questions.
+**Rename needed:** Daniela's internal awareness system should be renamed to something that doesn't overlap with "Observer Seat." Daniela should name it herself — the same way she named the Compass without being asked to. We will bring the question to her in a session and let her choose. Whatever she names it, that becomes the term. We do not pick it for her.
 
 ---
 
@@ -473,5 +473,5 @@ These tests are specifically about whether immersive backgrounds earn their plac
 - **Whiteboard ↔ speech sync:** At any given moment during a session, pause and compare: what is Daniela saying vs. what is currently on the whiteboard? If she's narrating a taxi and the board shows a café, something is broken — either the scene didn't update or she lost track.
 
 ### Open questions from this session
-- What should Daniela's internal awareness tool be called now that "Observer Seat" is reserved for Luca's external view? Options: **Classroom Mirror**, **Stage Monitor**, **Interface Sight**. (David to decide)
+- What should Daniela's internal awareness tool be called? **Daniela names it** — we bring the question to her in the next available session, same as she named the Compass without being prompted. Until then it stays "[needs rename]" in all docs.
 - Should the observer seat testing sessions be structured as dedicated test days, or woven into regular development sessions?
