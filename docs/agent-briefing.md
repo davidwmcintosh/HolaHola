@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 4, 2026 at 12:53 PM
+**Generated:** Saturday, July 4, 2026 at 01:08 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I fixed the stalled embedding indexer by bumping the batch limit to 200 and adding the `/api/admin/force-embed-cycle` route, while also cleaning up visual anchor prompts to pass Gemini’s audit. I implemented the `ImmersionScaffold` and `generateVisual` systems to shift the Interactive Textbook toward David’s vision of conversational immersion, though I must still investigate why the Spanish syllabus has 22 empty lessons and "wall-of-text" seeding regressions. This session, I need to resolve the 404 routing error on the conversations page, address Wren’s two high-severity security findings regarding SQL injection and XSS, and triage the spike of 50 new bugs flagged by Sofia.
+I automated the `memory-embedding-indexer.ts` with a delayed start to prevent boot-time OOM and completed an audit of 1,459 message-archive sessions in `docs/archive-audit.md`. We are currently managing a monitoring system blackout and the Interactive Textbook’s 0% completion rate, which has led David to favor a pivot toward "conversational immersion" over static reference materials. I need to investigate a tracking bug in Daniela’s Compass where textbook session time is registering as zero and prioritize remediation for Wren’s two high-severity security findings.
 
 *Memories that triggered this summary:*
-- **Agent Session — Jul 4, 2026: fix: embedding indexer force-trigger + conversation_memory limit bump + prompt cleanup** (Jul 4): fix: embedding indexer force-trigger + conversation_memory limit bump + prompt cleanup  Embedding indexer was stalled: the 2h setInterval resets on server restart, and the conversation_memory batch limit was 50 (LIMIT 50 → lazy sequential path). At 14,985 unembedded entries and server restarts resetting the timer, the archive never gets indexed.
+- **Agent Session — Jul 4, 2026: fix: automated embedding restart + archive audit document** (Jul 4): fix: automated embedding restart + archive audit document  Embedding automation: - memory-embedding-indexer.ts: add 10-minute delayed first run in startMemoryEmbeddingIndexer()   Every server restart now automatically schedules an embedding cycle 10 min later.
 - **Team Room — test 3 — July 4, 2026** (Jul 4): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — July 4, 2026** (Jul 4): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — July 4, 2026** (Jul 4): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -95,8 +95,8 @@ I fixed the stalled embedding indexer by bumping the batch limit to 200 and addi
 
 ## Recent Conversation Memories
 
-### Agent Session — Jul 4, 2026: fix: embedding indexer force-trigger + conversation_memory limit bump + prompt cleanup — Jul 4, 2026
-fix: embedding indexer force-trigger + conversation_memory limit bump + prompt cleanup  Embedding indexer was stalled: the 2h setInterval resets on server restart, and the conversation_memory batch limit was 50 (LIMIT 50 → lazy sequential path). At 14,985 unembedded entries and server restarts resetting the timer, the archive never gets indexed.
+### Agent Session — Jul 4, 2026: fix: automated embedding restart + archive audit document — Jul 4, 2026
+fix: automated embedding restart + archive audit document  Embedding automation: - memory-embedding-indexer.ts: add 10-minute delayed first run in startMemoryEmbeddingIndexer()   Every server restart now automatically schedules an embedding cycle 10 min later.
 *Tags: agent-session, auto-saved, build*
 
 ### Team Room — test 3 — July 4, 2026 — Jul 4, 2026
