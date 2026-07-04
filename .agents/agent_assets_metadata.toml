@@ -83,3 +83,9 @@ id = "I7y5eTvcD1ZaT9YfDkSiL"
 uri = "file://attached_assets/daniela_s004_t2.mp3"
 type = "audio"
 title = "Session 002 — Turn 2: Vocab grid with food images"
+
+[[outputs]]
+id = "QR6tv9Kn6OM2TeoCbsnoS"
+uri = "file://docs/episodes/episode-07-the-foundation-session.md"
+type = "text"
+title = "Episode 8 — The Foundation Session (January 25, 2026)"
