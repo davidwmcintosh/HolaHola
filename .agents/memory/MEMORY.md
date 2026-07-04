@@ -56,3 +56,4 @@
 - [Daniela self-visibility](daniela-self-visibility.md) — tool acknowledgment system (Phase 1, July 2): SHOW_VOCAB_GRID/SHOW_IMAGE/OPEN_SCENE all confirm render state back to Daniela via Gap 10.
 - [Observer Seat + image vision](observer-seat-image-vision.md) — buildInterfaceStateSnapshot() after Gap 10 every tool batch; generateAndStoreCachedDescription() stores real visual descriptions (not labels) in image_vision_cache.
 - [Image-memory visual anchors](image-memory-anchors.md) — sourceConversationId must be set on conversation results or enricher silently no-ops; bug fixed July 4; 33/165 taxi memories now carry anchors.
+- [Message archive — full conversation index](message-archive-index.md) — 1,459 conversations backfilled into conversation_memories (arc: Message Archive, tags: ['message-archive', conv_id]); idempotent; incremental pickup in memory-embedding-indexer.ts (30/run); 2h indexer embeds them via existing conversation_memory/chunk pipeline.

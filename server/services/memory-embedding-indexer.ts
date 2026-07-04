@@ -446,7 +446,110 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
   return targets;
 }
 
+/**
+ * Incremental message archive step.
+ *
+ * On each 2h indexer run, picks up to 30 conversations from the messages table
+ * that don't yet have a conversation_memories entry tagged 'message-archive'.
+ * Creates those entries so collectUnindexedMemories() can embed them on the
+ * same or next run.
+ *
+ * This keeps the archive current without requiring a separate cron job.
+ * The one-time backfill script (index-message-archive.ts) seeds the bulk;
+ * this function handles all conversations going forward.
+ */
+async function archiveUnindexedConversations(): Promise<number> {
+  const db = getSharedDb();
+  const MIN_MESSAGES = 3;
+  const PER_RUN_LIMIT = 30;
+
+  let archived = 0;
+  try {
+    const result = await db.execute(sql`
+      SELECT
+        c.id,
+        c.title,
+        c.language,
+        c.created_at,
+        COUNT(m.id) AS msg_count
+      FROM conversations c
+      JOIN messages m ON m.conversation_id = c.id
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM conversation_memories cm
+        WHERE 'message-archive' = ANY(cm.tags)
+          AND c.id = ANY(cm.tags)
+      )
+      GROUP BY c.id, c.title, c.language, c.created_at
+      HAVING COUNT(m.id) >= ${MIN_MESSAGES}
+      ORDER BY c.created_at DESC
+      LIMIT ${PER_RUN_LIMIT}
+    `);
+
+    const rows = result.rows as Array<{
+      id: string;
+      title: string | null;
+      language: string | null;
+      created_at: Date | string;
+      msg_count: string;
+    }>;
+
+    for (const conv of rows) {
+      try {
+        const msgsResult = await db.execute(sql`
+          SELECT role, content, created_at
+          FROM messages
+          WHERE conversation_id = ${conv.id}
+          ORDER BY created_at ASC
+        `);
+        const messages = msgsResult.rows as Array<{ role: string; content: string; created_at: Date | string }>;
+        if (messages.length < MIN_MESSAGES) continue;
+
+        const transcript = messages.map(m => {
+          const speaker = m.role === 'assistant' ? 'DANIELA' : m.role.toUpperCase();
+          const d = m.created_at ? new Date(m.created_at) : new Date();
+          const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+          const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+          return `[${dateStr}, ${timeStr} — ${speaker}]\n${m.content}`;
+        }).join('\n\n');
+
+        const lang = conv.language ? conv.language.charAt(0).toUpperCase() + conv.language.slice(1) : 'Language';
+        const d = new Date(conv.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        const title = (conv.title && conv.title.trim().length > 3)
+          ? conv.title.trim()
+          : `${lang} session — ${d} (${messages.length} messages)`;
+        const firstStudent = messages.find(m => m.role === 'user');
+        const summary = firstStudent
+          ? `${lang} session (${messages.length} messages). Student: "${firstStudent.content.slice(0, 120)}"`
+          : `${lang} session with ${messages.length} messages.`;
+
+        await db.execute(sql`
+          INSERT INTO conversation_memories
+            (id, recorded_at, title, summary, content, tags, importance, entry_type, arc_name, created_at)
+          VALUES
+            (gen_random_uuid(), ${new Date(conv.created_at)}, ${title}, ${summary}, ${transcript},
+             ARRAY['message-archive', ${conv.id}]::text[], 5, 'conversation', 'Message Archive', NOW())
+        `);
+        archived++;
+      } catch (err: any) {
+        console.warn(`[EmbedIndexer] archiveUnindexedConversations: failed for ${conv.id}: ${err.message}`);
+      }
+    }
+  } catch (err: any) {
+    console.warn('[EmbedIndexer] archiveUnindexedConversations scan failed:', err.message);
+  }
+
+  if (archived > 0) {
+    console.log(`[EmbedIndexer] Archived ${archived} conversation(s) from messages table → conversation_memories`);
+  }
+  return archived;
+}
+
 async function runIndexer(): Promise<void> {
+  // Step 0: promote any un-archived conversations into conversation_memories
+  // (up to 30 per run — drains the backlog incrementally and picks up new sessions)
+  await archiveUnindexedConversations();
+
   const targets = await collectUnindexedMemories();
 
   if (targets.length === 0) {
