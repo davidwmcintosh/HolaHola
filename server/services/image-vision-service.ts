@@ -153,15 +153,26 @@ async function storeCachedDescription(
 }
 
 /**
- * Get vision data for an image URL.
- * Returns inlineData (bytes) the first time, text description thereafter.
+ * Returns true if the URL is an AI-generated image from our own media pipeline.
+ * Stock photos (Unsplash, Picsum, etc.) are excluded — they are not vision-cached
+ * or linked to conversation memory.
  */
+function isAiGeneratedImage(url: string): boolean {
+  return url.includes('/api/media/');
+}
+
 export async function getImageVision(
   imageUrl: string,
   fallbackDescription: string,
   session: StreamingSession,
 ): Promise<VisionResult> {
   if (!imageUrl) {
+    return { description: fallbackDescription, mode: 'error' };
+  }
+
+  // Only AI-generated images enter the vision cache and memory anchor pipeline.
+  // Stock photos (Unsplash, Picsum, etc.) short-circuit here.
+  if (!isAiGeneratedImage(imageUrl)) {
     return { description: fallbackDescription, mode: 'error' };
   }
 

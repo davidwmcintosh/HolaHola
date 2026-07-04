@@ -55,3 +55,4 @@
 - [Tú reveal gate infrastructure](tu-reveal-gate.md) — student_milestones table; record_usted_fluency tool; threshold 25 uses + 2 distinct calendar days; system prompt fragment injection NOT YET built.
 - [Daniela self-visibility](daniela-self-visibility.md) — tool acknowledgment system (Phase 1, July 2): SHOW_VOCAB_GRID/SHOW_IMAGE/OPEN_SCENE all confirm render state back to Daniela via Gap 10.
 - [Observer Seat + image vision](observer-seat-image-vision.md) — buildInterfaceStateSnapshot() after Gap 10 every tool batch; generateAndStoreCachedDescription() stores real visual descriptions (not labels) in image_vision_cache.
+- [Image-memory visual anchors](image-memory-anchors.md) — source_conversation_id on image_vision_cache links Daniela's generated images to the session they appeared in; enrichMemoriesWithImages() appends [Archival visual from that session: X] to personal fact results; only /api/media/ URLs enter the pipeline.
