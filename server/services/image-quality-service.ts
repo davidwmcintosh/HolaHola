@@ -23,7 +23,7 @@ import { sql } from "drizzle-orm";
 export interface ImageMetadata {
   id: string;
   url: string;
-  sourceType: 'curated' | 'unsplash' | 'uploaded';
+  sourceType: 'curated' | 'ai_generated' | 'uploaded';
   conceptTags: string[];  // Educational concepts this image illustrates
   language?: string;      // Target language if language-specific
   qualityScore: number;   // 0-100, based on feedback

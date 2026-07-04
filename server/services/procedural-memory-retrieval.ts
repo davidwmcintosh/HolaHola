@@ -1826,7 +1826,7 @@ export function buildVoiceToolGuideSync(): string {
     'Tools — voice quick guide:',
     '',
     'Visual tools — choose carefully (similar names, different purposes):',
-    line('SHOW_IMAGE',       'show_image({ description })',                    'Single stock photo from Unsplash. For one vocabulary word or one cultural image.'),
+    line('SHOW_IMAGE',       'show_image({ description })',                    'Single watercolor illustrated image (AI-generated, unified style). For one vocabulary word or one cultural image.'),
     line('MULTI_IMAGE',      'show_vocabulary_grid({ words })',                'Multiple images at once (1-4). For vocab clusters and side-by-side comparisons.'),
     line('CUSTOM_IMAGE',     'generate_image({ prompt })',                     'DALL-E created image. Use when stock photos cannot capture the concept.'),
     line('SHOW_SCAN',        'show_scan({ page })',                            'Scanned Madrigal pages. For -tion→-ción principles, word families, conjugation charts.'),

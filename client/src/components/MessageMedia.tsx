@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ExternalLink } from "lucide-react";
 
 interface StockImageData {
   type: "stock";
@@ -8,11 +7,6 @@ interface StockImageData {
   url?: string;
   thumbnailUrl?: string;
   altText?: string;
-  attribution?: {
-    photographer: string;
-    photographerUrl: string;
-    unsplashUrl: string;
-  };
 }
 
 interface AIImageData {
@@ -59,31 +53,6 @@ export function MessageMedia({ media }: MessageMediaProps) {
               onLoad={() => handleImageLoad(index)}
               data-testid={`image-${item.type}-${index}`}
             />
-            {item.type === "stock" && item.attribution && loadedImages.has(index) && (
-              <div className="bg-muted/50 px-3 py-2 text-xs flex items-center justify-between gap-2">
-                <span className="text-muted-foreground">
-                  Photo by{" "}
-                  <a
-                    href={item.attribution.photographerUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-foreground hover:underline"
-                  >
-                    {item.attribution.photographer}
-                  </a>{" "}
-                  on Unsplash
-                </span>
-                <a
-                  href={item.attribution.unsplashUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted-foreground hover:text-foreground"
-                  aria-label="View on Unsplash"
-                >
-                  <ExternalLink className="h-3 w-3" />
-                </a>
-              </div>
-            )}
           </div>
         );
       })}

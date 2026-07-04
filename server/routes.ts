@@ -9430,53 +9430,7 @@ Return ONLY the ${targetLanguage} phrase:`;
     }
   });
 
-  // Multimedia - Fetch stock image from Unsplash
-  app.post("/api/media/stock-image", isAuthenticated, async (req: any, res: Response) => {
-    try {
-      const { query } = req.body;
-      
-      if (!query) {
-        return res.status(400).json({ error: "Missing required field: query" });
-      }
-
-      const unsplashAccessKey = process.env.UNSPLASH_ACCESS_KEY;
-      if (!unsplashAccessKey) {
-        return res.status(500).json({ error: "Unsplash API key not configured" });
-      }
-
-      // Fetch random image from Unsplash
-      const response = await fetch(
-        `https://api.unsplash.com/photos/random?query=${encodeURIComponent(query)}&orientation=landscape&content_filter=high`,
-        {
-          headers: {
-            'Authorization': `Client-ID ${unsplashAccessKey}`,
-            'Accept-Version': 'v1'
-          }
-        }
-      );
-
-      if (!response.ok) {
-        console.error('Unsplash API error:', await response.text());
-        return res.status(500).json({ error: "Failed to fetch stock image" });
-      }
-
-      const data = await response.json();
-      
-      res.json({
-        url: data.urls.regular,
-        thumbnailUrl: data.urls.small,
-        altText: data.alt_description || query,
-        attribution: {
-          photographer: data.user.name,
-          photographerUrl: data.user.links.html,
-          unsplashUrl: data.links.html
-        }
-      });
-    } catch (error: any) {
-      console.error('Stock image fetch error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
+  // /api/media/stock-image removed — all images use AI-generated watercolor/prop style.
 
   // Multimedia - Generate AI image with DALL-E 3
   app.post("/api/media/generate-image", isAuthenticated, async (req: any, res: Response) => {

@@ -1062,9 +1062,10 @@ export class NativeFunctionCallHandler {
         // The GL orchestrator does NOT await these before sending the tool response —
         // Daniela gets a receipt immediately (<200ms) and GL resumes audio generation.
         // The image is delivered to the student's whiteboard inside the IIFE above via
-        // this.sendMessage(session.ws, whiteboardUpdate) the moment DALL-E/Unsplash resolves.
+        // this.sendMessage(session.ws, whiteboardUpdate) the moment the AI image resolves.
         // Daniela's vision (inline image data) arrives via realtimeInput after generation
         // completes — see pendingAsyncImagePromises processing in gemini-live-session.ts.
+        // Note: all images are AI-generated watercolor/prop style — no Unsplash/stock photos.
         if (!(session as any).pendingAsyncImagePromises) (session as any).pendingAsyncImagePromises = [];
         (session as any).pendingAsyncImagePromises.push(showImagePromise as Promise<void>);
         break;

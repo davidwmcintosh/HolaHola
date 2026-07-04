@@ -2128,7 +2128,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // Phase 1: Build extractedFcs upfront (order-safe) then fire all handlers in parallel.
       // fcHandler.handle() returns quickly — it queues background work into
       // session.pendingMemoryLookupPromises or session.pendingAsyncImagePromises and breaks.
-      // No slow I/O (DALL-E, Unsplash, vector search) happens inside handle() itself.
+      // No slow I/O (DALL-E/Gemini image generation, vector search) happens inside handle() itself.
       // Previously: for...await serialized each tool → latency = Sum(all background work).
       // Now: Promise.allSettled fires all handlers concurrently → latency = Max(slowest tool).
       const extractedFcs: ExtractedFunctionCall[] = msg.toolCall.functionCalls.map(fc => ({

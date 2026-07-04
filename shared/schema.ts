@@ -1727,7 +1727,7 @@ export const textbookVisualAssets = pgTable("textbook_visual_assets", {
   description: text("description"),
   imageUrl: text("image_url").notNull(),
   thumbnailUrl: text("thumbnail_url"),
-  imageSource: text("image_source").notNull(), // stock (Unsplash), ai_generated (DALL-E/Gemini), upload
+  imageSource: text("image_source").notNull(), // ai_generated (DALL-E/Gemini), upload
   searchQuery: text("search_query"), // For stock images - the search term used
   aiPrompt: text("ai_prompt"), // For AI-generated images - the prompt used
   attribution: text("attribution"), // Credit for stock images
@@ -1807,11 +1807,11 @@ export const mediaFiles = pgTable("media_files", {
   tags: text("tags").array(), // Searchable tags
   language: text("language"), // Relevant language (optional)
   // Image caching fields - for reducing API costs and improving speed
-  imageSource: text("image_source"), // "stock" (Unsplash), "ai_generated" (DALL-E), "user_upload", null for non-cached
-  searchQuery: text("search_query"), // For stock images - the Unsplash search query (e.g., "coffee", "sandwich")
+  imageSource: text("image_source"), // "ai_generated" (DALL-E/Gemini watercolor), "user_upload", null for non-cached
+  searchQuery: text("search_query"), // Normalized concept key used for cache lookups (e.g., "coffee", "sandwich")
   promptHash: text("prompt_hash"), // For AI images - hash of the prompt for cache lookups
   usageCount: integer("usage_count").default(0), // Track how often this cached image is reused
-  attributionJson: text("attribution_json"), // JSON with attribution data (photographer, URLs for Unsplash)
+  attributionJson: text("attribution_json"), // JSON with any supplemental metadata for the image
   // Vocabulary and review workflow fields
   targetWord: text("target_word"), // The vocabulary word that triggered this image (e.g., "café", "bonjour")
   isReviewed: boolean("is_reviewed").default(false), // Has admin reviewed this image for appropriateness?
