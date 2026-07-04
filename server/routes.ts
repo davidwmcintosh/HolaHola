@@ -34056,6 +34056,121 @@ You have full access to your neural network knowledge.
   });
 
 
+  // ============================================================================
+  // LUCA LIVE MONITOR — Real-time session watch for Luca/founder
+  // Returns the active conversation transcript + brain events + Daniela Vision
+  // ============================================================================
+
+  app.get("/api/admin/live-monitor", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
+    try {
+      const userDb = getUserDb();
+      const { messages: messagesTable, imageVisionCache, conversations } = await import('../shared/schema');
+      const { desc, eq, gte, and } = await import('drizzle-orm');
+
+      const targetUserId = (req.query.userId as string) || (req.user as any)?.id;
+      if (!targetUserId) return res.status(400).json({ error: 'No userId' });
+
+      // How far back to look — default 5 min, caller can pass ?since=ISO
+      const sinceMs = req.query.since
+        ? Date.now() - new Date(req.query.since as string).getTime()
+        : 5 * 60 * 1000;
+      const since = new Date(Date.now() - Math.max(sinceMs, 0));
+
+      // Find the active conversation (most recent for this user)
+      let conversationId = req.query.conversationId as string | undefined;
+      if (!conversationId) {
+        const recentConv = await userDb
+          .select({ id: conversations.id, lastMessageAt: conversations.lastMessageAt })
+          .from(conversations)
+          .where(eq(conversations.userId, targetUserId))
+          .orderBy(desc(conversations.lastMessageAt))
+          .limit(1);
+        conversationId = recentConv[0]?.id;
+      }
+
+      if (!conversationId) {
+        return res.json({ active: false, conversationId: null, messages: [], events: [], images: [], serverTime: new Date().toISOString() });
+      }
+
+      // Recent messages in this conversation since the cutoff
+      const recentMessages = await userDb
+        .select({
+          id: messagesTable.id,
+          role: messagesTable.role,
+          content: messagesTable.content,
+          targetLanguageText: messagesTable.targetLanguageText,
+          actflLevel: messagesTable.actflLevel,
+          createdAt: messagesTable.createdAt,
+        })
+        .from(messagesTable)
+        .where(and(eq(messagesTable.conversationId, conversationId), gte(messagesTable.createdAt, since)))
+        .orderBy(messagesTable.createdAt)
+        .limit(100);
+
+      // Brain events — last sinceMs seconds
+      const sinceSeconds = Math.ceil(sinceMs / 1000);
+      const brainData = await brainHealthTelemetry.getLiveEvents({ limit: 60, sinceSeconds });
+
+      // Images Daniela has seen in this conversation
+      const images = await userDb
+        .select({
+          id: imageVisionCache.id,
+          imageUrl: imageVisionCache.imageUrl,
+          description: imageVisionCache.description,
+          createdAt: imageVisionCache.createdAt,
+          lastUsedAt: imageVisionCache.lastUsedAt,
+        })
+        .from(imageVisionCache)
+        .where(eq(imageVisionCache.sourceConversationId, conversationId))
+        .orderBy(desc(imageVisionCache.lastUsedAt))
+        .limit(20);
+
+      res.json({
+        active: true,
+        conversationId,
+        targetUserId,
+        messages: recentMessages,
+        events: brainData.events,
+        images,
+        serverTime: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('[LiveMonitor]', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // All messages for a conversation (for initial load)
+  app.get("/api/admin/live-monitor/all-messages", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
+    try {
+      const userDb = getUserDb();
+      const { messages: messagesTable } = await import('../shared/schema');
+      const { eq, asc } = await import('drizzle-orm');
+
+      const { conversationId } = req.query as { conversationId: string };
+      if (!conversationId) return res.status(400).json({ error: 'conversationId required' });
+
+      const allMessages = await userDb
+        .select({
+          id: messagesTable.id,
+          role: messagesTable.role,
+          content: messagesTable.content,
+          targetLanguageText: messagesTable.targetLanguageText,
+          actflLevel: messagesTable.actflLevel,
+          createdAt: messagesTable.createdAt,
+        })
+        .from(messagesTable)
+        .where(eq(messagesTable.conversationId, conversationId))
+        .orderBy(asc(messagesTable.createdAt))
+        .limit(200);
+
+      res.json({ messages: allMessages });
+    } catch (error: any) {
+      console.error('[LiveMonitor/all-messages]', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/admin/brain-health/nervous-system", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin', 'developer'), async (req: any, res: Response) => {
     try {
       const { runBrainHealthCheck } = await import('./services/brain-health-aggregator');

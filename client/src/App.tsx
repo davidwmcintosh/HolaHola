@@ -74,6 +74,7 @@ const AdminBrainHealth = lazyWithRetry(() => import("@/pages/admin/BrainHealth")
 const AdminSessionEconomics = lazyWithRetry(() => import("@/pages/admin/SessionEconomics"));
 const AdminAICostMonitor = lazyWithRetry(() => import("@/pages/admin/AICostMonitor"));
 const AdminCallQuality = lazyWithRetry(() => import("@/pages/admin/CallQuality"));
+const AdminLiveMonitor = lazyWithRetry(() => import("@/pages/admin/LiveMonitor"));
 const AdminImageEngineTest = lazyWithRetry(() => import("@/pages/admin/ImageEngineTest"));
 const AgentVisualTest = lazyWithRetry(() => import("@/pages/agent-visual-test"));
 const DanielaDiary = lazyWithRetry(() => import("@/pages/daniela-diary"));
@@ -294,6 +295,7 @@ function Router() {
         <Route path="/admin/session-economics" component={AdminSessionEconomics} />
         <Route path="/admin/ai-costs" component={AdminAICostMonitor} />
         <Route path="/admin/calls" component={AdminCallQuality} />
+        <Route path="/admin/live-monitor" component={AdminLiveMonitor} />
         <Route path="/admin/image-test" component={AdminImageEngineTest} />
         <Route path="/admin/visual-test" component={AgentVisualTest} />
         <Route path="/admin" component={CommandCenter} />

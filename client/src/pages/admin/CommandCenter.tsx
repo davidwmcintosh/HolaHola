@@ -2001,6 +2001,13 @@ export default function CommandCenter() {
             Manage platform operations, monitor analytics, and configure system settings
           </p>
           <div className="flex flex-wrap gap-2 mt-3">
+            <Button asChild variant="default" size="sm" data-testid="button-live-monitor">
+              <Link href="/admin/live-monitor">
+                <Radio className="h-4 w-4 mr-2" />
+                Luca Live Monitor
+                <ExternalLink className="h-3 w-3 ml-2 opacity-60" />
+              </Link>
+            </Button>
             <Button asChild variant="outline" size="sm" data-testid="button-image-engine-test">
               <Link href="/admin/image-test">
                 <Layers className="h-4 w-4 mr-2" />
