@@ -359,3 +359,29 @@ export function requireAgentToken(req: AgentAuthenticatedRequest, res: Response,
     return res.status(500).json({ error: 'Agent authorization check failed' });
   }
 }
+
+/**
+ * Dual-auth: agent token OR founder session — whichever comes first wins.
+ * Used for monitoring endpoints that Luca (agent) reads directly but founders
+ * can also access via browser.
+ * Usage: app.get('/api/admin/live-monitor', requireFounderOrAgent, handler)
+ */
+export function requireFounderOrAgent(req: Request, res: Response, next: NextFunction) {
+  // Fast path: valid agent token → pass through without needing a session
+  try {
+    const providedToken = req.headers['x-agent-token'] as string;
+    if (providedToken && REPLIT_AGENT_TOKEN && providedToken.length === REPLIT_AGENT_TOKEN.length) {
+      const tokenBuffer = Buffer.from(providedToken);
+      const expectedBuffer = Buffer.from(REPLIT_AGENT_TOKEN);
+      if (crypto.timingSafeEqual(tokenBuffer, expectedBuffer)) {
+        logAgentAction('auth_success', req.path, true);
+        return next();
+      }
+    }
+  } catch {
+    // fall through to founder check
+  }
+
+  // Founder session path
+  return requireFounder(req, res, next);
+}

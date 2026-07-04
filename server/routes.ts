@@ -9,7 +9,7 @@ import { db, getUserDb, getSharedDb, getMonitoringDb } from "./db";
 import { eq, and, gte, desc, sql, isNotNull, isNull, inArray, asc } from "drizzle-orm";
 import { stripeService } from "./stripeService";
 import { aiLimiter, voiceLimiter, authLimiter, mutationLimiter, hiveExternalLimiter, generalLimiter } from "./middleware/rate-limiter";
-import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, logAgentAction, getAgentAuditLog, isAgentTokenConfigured } from "./middleware/rbac";
+import { requireRole, allowRoles, loadAuthenticatedUser, requireFounder, requireAgentToken, requireFounderOrAgent, logAgentAction, getAgentAuditLog, isAgentTokenConfigured } from "./middleware/rbac";
 import { validateTwilioSignature } from "./middleware/twilio-signature";
 import { voiceDiagnostics } from "./services/voice-diagnostics-service";
 import { voiceIntelligenceService } from "./services/voice-intelligence-service";
@@ -34061,13 +34061,15 @@ You have full access to your neural network knowledge.
   // Returns the active conversation transcript + brain events + Daniela Vision
   // ============================================================================
 
-  app.get("/api/admin/live-monitor", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
+  app.get("/api/admin/live-monitor", requireFounderOrAgent, async (req: any, res: Response) => {
     try {
       const userDb = getUserDb();
       const { messages: messagesTable, imageVisionCache, conversations } = await import('../shared/schema');
       const { desc, eq, gte, and } = await import('drizzle-orm');
 
-      const targetUserId = (req.query.userId as string) || (req.user as any)?.id;
+      // Agent token calls have no session — default to watching the founder (David)
+      const FOUNDER_ID = '49847136';
+      const targetUserId = (req.query.userId as string) || (req.user as any)?.id || FOUNDER_ID;
       if (!targetUserId) return res.status(400).json({ error: 'No userId' });
 
       // How far back to look — default 5 min, caller can pass ?since=ISO
@@ -34141,7 +34143,7 @@ You have full access to your neural network knowledge.
   });
 
   // All messages for a conversation (for initial load)
-  app.get("/api/admin/live-monitor/all-messages", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
+  app.get("/api/admin/live-monitor/all-messages", requireFounderOrAgent, async (req: any, res: Response) => {
     try {
       const userDb = getUserDb();
       const { messages: messagesTable } = await import('../shared/schema');
