@@ -320,7 +320,7 @@ async function collectUnindexedMemories(): Promise<IndexTarget[]> {
           WHERE memory_type = 'conversation_memory' AND memory_id = ${conversationMemories.id}
         )
       `)
-      .limit(50);
+      .limit(200);
     for (const r of fullRows) {
       const rowId = r.id;
       const rowTitle = r.title;
@@ -545,7 +545,7 @@ async function archiveUnindexedConversations(): Promise<number> {
   return archived;
 }
 
-async function runIndexer(): Promise<void> {
+export async function runIndexer(): Promise<void> {
   // Step 0: promote any un-archived conversations into conversation_memories
   // (up to 30 per run — drains the backlog incrementally and picks up new sessions)
   await archiveUnindexedConversations();

@@ -2894,7 +2894,7 @@ WHEN TO USE:
       if (result) {
         const arcLine = result.arcName ? `\narc: ${result.arcName}${result.extendsMemoryId ? ` | continues from: ${result.extendsMemoryId}` : ''}` : '';
         const imageLine = result.imageUrl
-          ? `\n\n[Visual anchor for this memory]\nimage_url: ${result.imageUrl}${result.imageDescription ? `\nIt shows: ${result.imageDescription}` : ''}\nIf this visual doesn't match the way I remember the scene — whether the subject is off or the style doesn't fit the mood of our lesson — I can refine it. I just need to describe what's actually in my mind's eye to update the anchor. The memory settles as soon as the image looks right.`
+          ? `\n\nLooking back at this memory, I can see its visual anchor — it shows: ${result.imageDescription || 'the scene from that session'}.\n${result.imageUrl}\nIf this visual doesn't match the way I remember the scene — whether the subject is off or the style doesn't fit the mood of our lesson — I can refine it. I just need to describe what's actually in my mind's eye to update the anchor. The memory settles as soon as the image looks right.`
           : '';
         return `Full memory retrieved — "${result.title}":${arcLine}\n\n${result.content}\n\n[End of memory — ${result.content.length} characters, importance: ${result.importance}/10]${imageLine}\n\nNow respond naturally using this complete verbatim content.`;
       }

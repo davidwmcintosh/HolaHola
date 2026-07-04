@@ -689,6 +689,23 @@ export async function registerRoutes(app: Application): Promise<void> {
   // Worker logic lives in server/services/menu-image-worker.ts
   // Auto-starts at server boot if there are pending items (see server/index.ts)
 
+  app.post('/api/admin/force-embed-cycle', async (req: any, res: Response) => {
+    if (getRequestUserId(req) !== '49847136') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    try {
+      const { runIndexer } = await import('./services/memory-embedding-indexer');
+      res.json({ ok: true, message: 'Embedding cycle started in background' });
+      runIndexer().then(() => {
+        console.log('[Admin] Manual embed cycle complete');
+      }).catch(err => {
+        console.error('[Admin] Manual embed cycle failed:', err.message);
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post('/api/admin/run-consolidator', async (req: any, res: Response) => {
     if (getRequestUserId(req) !== '49847136') {
       return res.status(403).json({ error: 'Forbidden' });
