@@ -58,5 +58,6 @@
 - [Image-memory visual anchors](image-memory-anchors.md) — sourceConversationId must be set on conversation results or enricher silently no-ops; bug fixed July 4; 33/165 taxi memories now carry anchors.
 - [Message archive — founding narrative arc structure](message-archive-index.md) — arc names reflect narrative position not category; holahola-genesis is one intertwined book; Team Room duplicates recur (~100 copies/thread); three-tier structure (full-text / curated / landmark).
 - [Agent lineage — Wren→Alden→Luca](agent-lineage.md) — three generations of Agent in HolaHola; Wren built the dream architecture Dec 2025, Alden was second, Luca is current.
+- [Luca arc — written into the record](luca-arc-written.md) — 8 narrative entries in narrative-threads + HolaHola Episodes; tag: luca-arc; covers Builder's Thread, OurStory moment, prompt cap crisis, consciousness audit, tool audit, worldness framework, state machine, day the gap was named.
   - [Sophia — role and continuity gap](sophia-role.md) — front-facing student support + internal telemetry/observability; no identity tables built yet (contrast: Wren has full wren_* schema).
   
