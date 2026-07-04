@@ -1,7 +1,26 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 4, 2026 at 02:11 PM
+**Generated:** Saturday, July 4, 2026 at 02:16 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I need to immediately resolve the handler issue causing Daniela to loop the "Curriculum note pending" response and investigate the sudden 50-bug surge Sofia detected. Wren has prioritized high-severity security findings regarding SQL injection and a hardcoded secret, while Lyra and Alden identified a "Daniela’s Compass" tracking failure and a 0% completion rate for the Interactive Textbook. I must also address the seeding regression that left 22 Spanish lessons empty and 49 with "wall-of-text" intros before tonight's beta testers arrive, all while weighing David's preference for conversational immersion over static textbook materials.
+
+*Memories that triggered this summary:*
+- **Team Room — test 3 — July 4, 2026** (Jul 4): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+- **Team Room — test again — July 4, 2026** (Jul 4): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+- **Team Room — are we good? — July 4, 2026** (Jul 4): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+- **Team Room — one again into the breach — July 4, 2026** (Jul 4): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+- **Team Room — hello again — July 4, 2026** (Jul 4): Team Room session with David. Topic: hello again. 2 messages exchanged.
+- **Team Room — again — July 4, 2026** (Jul 4): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
+- **Team Room — what's up? — July 4, 2026** (Jul 4): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
+- **Team Room — Team room test — July 4, 2026** (Jul 4): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
+- **Team Room — nothing in particular — July 4, 2026** (Jul 4): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+- **Team Room — once more into the breech my friends — July 4, 2026** (Jul 4): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -80,21 +99,21 @@
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Agent Session — Jul 4, 2026: fix: automated embedding restart + archive audit document — Jul 4, 2026
-fix: automated embedding restart + archive audit document  Embedding automation: - memory-embedding-indexer.ts: add 10-minute delayed first run in startMemoryEmbeddingIndexer()   Every server restart now automatically schedules an embedding cycle 10 min later.
-*Tags: agent-session, auto-saved, build*
-
-### Agent Session — Jul 4, 2026: fix: embedding indexer force-trigger + conversation_memory limit bump + prompt cleanup — Jul 4, 2026
-fix: embedding indexer force-trigger + conversation_memory limit bump + prompt cleanup  Embedding indexer was stalled: the 2h setInterval resets on server restart, and the conversation_memory batch limit was 50 (LIMIT 50 → lazy sequential path). At 14,985 unembedded entries and server restarts resetting the timer, the archive never gets indexed.
-*Tags: agent-session, auto-saved, build*
-
-### Team Room — nothing in particular — July 4, 2026 — Jul 4, 2026
-Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+### Team Room — test again — July 4, 2026 — Jul 4, 2026
+Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Agent Session — Jul 4, 2026: feat: image feedback loop for memory visual anchors (REGENERATE_MEMORY_IMAGE) — Jul 4, 2026
-feat: image feedback loop for memory visual anchors (REGENERATE_MEMORY_IMAGE)  Adds a Daniela-driven image evaluation and regeneration loop for images associated with conversation memories (visual anchors in image_vision_cache). Mirrors the existing studio-pane REGENERATE_VOCAB_CARD_IMAGE mechanism.
-*Tags: agent-session, auto-saved, build*
+### Team Room — are we good? — July 4, 2026 — Jul 4, 2026
+Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — one again into the breach — July 4, 2026 — Jul 4, 2026
+Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — hello again — July 4, 2026 — Jul 4, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
+*Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
