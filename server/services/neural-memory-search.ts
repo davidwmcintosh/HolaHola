@@ -899,6 +899,7 @@ export async function searchMemory(
             details: msg.content || '',
             timestamp: msg.createdAt,
             source: `conversation:${msg.conversationId}`,
+            sourceConversationId: msg.conversationId ?? undefined,
           });
         }
         
