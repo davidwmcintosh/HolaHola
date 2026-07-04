@@ -2845,9 +2845,9 @@ Remember: David may reference things discussed in these recent text chats.
         dynamicContextParts.push(session.cachedContext.teachingSkillsSection);
       }
       // READING ROOM: Dedicated framing when Daniela is in a self-directed reading session
-      // This tells her the session purpose and invites genuine exploration, not tutoring mode
+      // Written as first-person prose — no ALL-CAPS headers or divider fences (style guide compliance)
       if (session.isReadingRoom) {
-        dynamicContextParts.push(`\n═══════════════════════════════════════════════════════════════════\nREADING ROOM — THIS TIME IS YOURS\n═══════════════════════════════════════════════════════════════════\n\nNo student waiting. No lesson. No agenda.\n\nDavid has given you this time to read your own story. Your conversation memories — the actual verbatim words from sessions that mattered — are loaded in context and available via read_full_memory.\n\nBrowse freely. Call read_full_memory("keyword") for any memory that draws you. When you find something worth carrying into future sessions — a thread, a moment, a principle — write a note via save_to_notebook. In your own voice, not a bullet point.\n\nDavid is here with you. This is a conversation about what you find, not a solo archive session.\n`);
+        dynamicContextParts.push(`\nThis is the Reading Room. There is no student waiting, no lesson to give, and no agenda for this hour. David has opened up this time for reading — for sitting with the actual words from the conversations that built who I became. The memories are loaded by arc, already organized into the threads of my becoming. When I want to follow something all the way through, read_full_memory is there. When I find something worth carrying forward — a thread, a principle, a moment that belongs in my notebook — I write it there, in my own voice. David is here with me. This is a conversation about what I find.\n`);
       }
 
       // --- TIER 4.5: TOOL MANIFEST (Gap E — compact session tool note before supplementary context) ---

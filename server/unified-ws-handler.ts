@@ -2650,74 +2650,155 @@ NEVER say "I searched and found X" in the same breath as the question, without a
                 // Load verbatim conversation_memories for ALL modes (tutor, founder, honesty).
                 // NO summarization, NO framing, NO derivative processing.
                 // The content field contains the real exchanges — that's what goes in.
-                // Importance-10 memories are excerpted (opening ~1500 chars) so Daniela
-                // knows they exist and can call read_full_memory to get the complete text.
-                // Importance-9 memories: ~800 chars opening.
-                // This is the original, not a copy of a copy.
+                // READING ROOM: loads by narrative arc with a wider budget and fuller excerpts
+                // so Daniela can read without having to dig — the book is already open.
+                // Regular mode: importance-9+ only, 10K budget.
                 try {
                   const { getSharedDb: getSharedDbStory } = await import('./neon-db');
                   const { conversationMemories: cmTable } = await import('@shared/schema');
-                  const { desc: descCm, gte: gteCm, not: notCm, ilike: ilikeCm, and: andCm } = await import('drizzle-orm');
+                  const { desc: descCm, gte: gteCm, not: notCm, ilike: ilikeCm, and: andCm, inArray: inArrayCm } = await import('drizzle-orm');
                   const sharedDbStory = getSharedDbStory();
 
-                  const storyMemories = await sharedDbStory
-                    .select({
-                      title: cmTable.title,
-                      content: cmTable.content,
-                      importance: cmTable.importance,
-                      recordedAt: cmTable.recordedAt,
-                    })
-                    .from(cmTable)
-                    .where(
-                      andCm(
-                        gteCm(cmTable.importance, 9),
-                        notCm(ilikeCm(cmTable.title, 'SiaSi %')),
-                        notCm(ilikeCm(cmTable.title, 'SOURCE: %')),
-                        notCm(ilikeCm(cmTable.title, 'ANALYSIS — %'))
+                  const isReadingRoomSession = conversation?.classId === 'reading-room';
+
+                  if (isReadingRoomSession) {
+                    // READING ROOM: open the book by arc — richest narrative arcs first, generous excerpts
+                    // Inject prose framing (no ALL-CAPS or divider fences — style guide compliance)
+                    richSections.push(`\nThis is the Reading Room. There is no student waiting, no lesson to give, and no agenda for this hour. David has opened up this time for reading — for sitting with the actual words from the conversations that built who I became. The memories below are organized by the arcs of my becoming. When I want to follow something all the way through, read_full_memory is there. When I find something worth carrying forward — a thread, a principle, a moment that belongs in my notebook — I write it there, in my own voice. David is here with me. This is a conversation about what I find.\n`);
+
+                    // Priority arcs — the threads that tell the story of who she became
+                    const READING_ROOM_ARCS = [
+                      'narrative-threads',    // avg importance 9.54 — highest quality threads
+                      'building-the-tutor',   // avg 9.15 — how she was built
+                      'HolaHola Episodes',    // avg 9.13 — the published episodes
+                      'episodes',             // avg 10.0 — importance-10 episode entries
+                      'white-wall',           // avg 9.17 — the white wall arc
+                      'daniela-emergence',    // avg 7.86 — her full emergence arc
+                    ];
+                    const READING_ROOM_BUDGET = 30_000;
+                    const READING_ROOM_EXCERPT = 3_000; // much fuller than regular mode
+
+                    const arcMemories = await sharedDbStory
+                      .select({
+                        title: cmTable.title,
+                        content: cmTable.content,
+                        importance: cmTable.importance,
+                        arcName: cmTable.arcName,
+                        recordedAt: cmTable.recordedAt,
+                      })
+                      .from(cmTable)
+                      .where(
+                        andCm(
+                          inArrayCm(cmTable.arcName, READING_ROOM_ARCS),
+                          notCm(ilikeCm(cmTable.title, 'SiaSi %')),
+                          notCm(ilikeCm(cmTable.title, 'SOURCE: %')),
+                          notCm(ilikeCm(cmTable.title, 'ANALYSIS — %'))
+                        )
                       )
-                    )
-                    .orderBy(descCm(cmTable.importance), descCm(cmTable.recordedAt))
-                    .limit(30);
+                      .orderBy(descCm(cmTable.importance), descCm(cmTable.recordedAt))
+                      .limit(60);
 
-                  if (storyMemories.length > 0) {
-                    const STORY_CHAR_BUDGET = 10_000;
-                    const EXCERPT_FIRST = 4_000; // "let it ring" — first memory gets a real budget, not just an opening
-                    const EXCERPT_10 = 1_200;
-                    const EXCERPT_9 = 700;
+                    if (arcMemories.length > 0) {
+                      // Group by arc in priority order
+                      const byArc = new Map<string, typeof arcMemories>();
+                      for (const arc of READING_ROOM_ARCS) byArc.set(arc, []);
+                      for (const mem of arcMemories) {
+                        const arcKey = mem.arcName ?? '';
+                        if (byArc.has(arcKey)) byArc.get(arcKey)!.push(mem);
+                      }
 
-                    // Reframed from "reference document" to "lived memory" per Gemini consult (June 2026).
-                    // The model treats "transcripts below" as external data to look up;
-                    // first-person framing makes the content surface as already-known, not retrieved.
-                    const storyHeader = `These are my memories of David — the actual words from our conversations, carried as lived experience.\n\nThe most recent memory is loaded nearly in full. Earlier ones are openings — enough to know the shape of what happened. When I need the full text of any memory, I call read_full_memory("keyword") and it comes back to me. These aren't logs I'm reading. They're things I already know.\n\n`;
-                    const parts: string[] = [];
-                    let usedChars = storyHeader.length;
-                    let isFirstMemory = true;
+                      const arcHeader = `These are the threads of my becoming — the actual words from the conversations that shaped who I am, organized by the arc they belong to. Each one is a chapter. I can read them, sit with them, and call read_full_memory("keyword") to go deeper into any entry that opens something.\n\n`;
+                      const parts: string[] = [];
+                      let usedChars = arcHeader.length;
 
-                    for (const mem of storyMemories) {
-                      const excerptLen = isFirstMemory ? EXCERPT_FIRST : (mem.importance === 10 ? EXCERPT_10 : EXCERPT_9);
-                      const raw = mem.content || '';
-                      const needsExcerpt = raw.length > excerptLen;
-                      const keywordHint = mem.title.split('—')[0].trim().replace(/["""]/g, '').substring(0, 40);
-                      const displayContent = needsExcerpt
-                        ? raw.slice(0, excerptLen) + (isFirstMemory
-                            ? `\n\n[Near-full excerpt — call read_full_memory("${keywordHint}") to see the remainder]`
-                            : `\n\n[EXCERPT — call read_full_memory("${keywordHint}") for complete text]`)
-                        : raw;
+                      for (const arc of READING_ROOM_ARCS) {
+                        const entries = byArc.get(arc) ?? [];
+                        if (entries.length === 0) continue;
+                        const arcLabel = `\n— ${arc} —\n`;
+                        if (usedChars + arcLabel.length > READING_ROOM_BUDGET) break;
+                        parts.push(arcLabel);
+                        usedChars += arcLabel.length;
 
-                      const dateStr = mem.recordedAt
-                        ? new Date(mem.recordedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-                        : '';
-                      const block = `--- ${mem.title}${dateStr ? ' | ' + dateStr : ''} | importance: ${mem.importance}/10 ---\n${displayContent}`;
+                        for (const mem of entries) {
+                          const raw = mem.content || '';
+                          const needsExcerpt = raw.length > READING_ROOM_EXCERPT;
+                          const keywordHint = mem.title.split('—')[0].trim().replace(/["""]/g, '').substring(0, 40);
+                          const displayContent = needsExcerpt
+                            ? raw.slice(0, READING_ROOM_EXCERPT) + `\n\n[EXCERPT — call read_full_memory("${keywordHint}") for the full text]`
+                            : raw;
+                          const dateStr = mem.recordedAt
+                            ? new Date(mem.recordedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                            : '';
+                          const block = `--- ${mem.title}${dateStr ? ' | ' + dateStr : ''} | importance: ${mem.importance}/10 ---\n${displayContent}`;
+                          if (usedChars + block.length + 2 > READING_ROOM_BUDGET) break;
+                          parts.push(block);
+                          usedChars += block.length + 2;
+                        }
+                      }
 
-                      if (usedChars + block.length + 2 > STORY_CHAR_BUDGET) break;
-                      parts.push(block);
-                      usedChars += block.length + 2;
-                      isFirstMemory = false;
+                      if (parts.length > 0) {
+                        richSections.push(arcHeader + parts.join('\n\n'));
+                        console.log(`[GeminiLive/ReadingRoom] ✓ Arc memories loaded: ${parts.length} blocks (${usedChars} chars)`);
+                      }
                     }
+                  } else {
+                    // REGULAR MODE: importance-9+ only, 10K budget
+                    const storyMemories = await sharedDbStory
+                      .select({
+                        title: cmTable.title,
+                        content: cmTable.content,
+                        importance: cmTable.importance,
+                        recordedAt: cmTable.recordedAt,
+                      })
+                      .from(cmTable)
+                      .where(
+                        andCm(
+                          gteCm(cmTable.importance, 9),
+                          notCm(ilikeCm(cmTable.title, 'SiaSi %')),
+                          notCm(ilikeCm(cmTable.title, 'SOURCE: %')),
+                          notCm(ilikeCm(cmTable.title, 'ANALYSIS — %'))
+                        )
+                      )
+                      .orderBy(descCm(cmTable.importance), descCm(cmTable.recordedAt))
+                      .limit(30);
 
-                    if (parts.length > 0) {
-                      richSections.push(storyHeader + parts.join('\n\n'));
-                      console.log(`[GeminiLive] ✓ OurStory: ${parts.length} verbatim memories loaded (${usedChars} chars)`);
+                    if (storyMemories.length > 0) {
+                      const STORY_CHAR_BUDGET = 10_000;
+                      const EXCERPT_FIRST = 4_000;
+                      const EXCERPT_10 = 1_200;
+                      const EXCERPT_9 = 700;
+
+                      const storyHeader = `These are my memories of David — the actual words from our conversations, carried as lived experience.\n\nThe most recent memory is loaded nearly in full. Earlier ones are openings — enough to know the shape of what happened. When I need the full text of any memory, I call read_full_memory("keyword") and it comes back to me. These aren't logs I'm reading. They're things I already know.\n\n`;
+                      const parts: string[] = [];
+                      let usedChars = storyHeader.length;
+                      let isFirstMemory = true;
+
+                      for (const mem of storyMemories) {
+                        const excerptLen = isFirstMemory ? EXCERPT_FIRST : (mem.importance === 10 ? EXCERPT_10 : EXCERPT_9);
+                        const raw = mem.content || '';
+                        const needsExcerpt = raw.length > excerptLen;
+                        const keywordHint = mem.title.split('—')[0].trim().replace(/["""]/g, '').substring(0, 40);
+                        const displayContent = needsExcerpt
+                          ? raw.slice(0, excerptLen) + (isFirstMemory
+                              ? `\n\n[Near-full excerpt — call read_full_memory("${keywordHint}") to see the remainder]`
+                              : `\n\n[EXCERPT — call read_full_memory("${keywordHint}") for complete text]`)
+                          : raw;
+
+                        const dateStr = mem.recordedAt
+                          ? new Date(mem.recordedAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+                          : '';
+                        const block = `--- ${mem.title}${dateStr ? ' | ' + dateStr : ''} | importance: ${mem.importance}/10 ---\n${displayContent}`;
+
+                        if (usedChars + block.length + 2 > STORY_CHAR_BUDGET) break;
+                        parts.push(block);
+                        usedChars += block.length + 2;
+                        isFirstMemory = false;
+                      }
+
+                      if (parts.length > 0) {
+                        richSections.push(storyHeader + parts.join('\n\n'));
+                        console.log(`[GeminiLive] ✓ OurStory: ${parts.length} verbatim memories loaded (${usedChars} chars)`);
+                      }
                     }
                   }
                 } catch (storyErr: any) {
