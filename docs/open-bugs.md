@@ -7,6 +7,13 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-06-30 — GL model — Broadcast mode: sentences cutting off mid-response — MEDIUM**
+During testing, Daniela's responses are occasionally truncated mid-sentence. Heard "Are those the ones?" instead of the full "Are those the ones you were curious about?" Investigation (2026-06-30): traced through the full server→client audio pipeline. `gl_audio_reset` only fires on reconnects. Client-side `finalizeProgressiveSentence` is benign (only updates debug panel, never stops WebAudio nodes). The `generationComplete` watchdog at 12 s fires if GL pauses >12 s between sub-turns — that's the most likely candidate when tool calls happen between phrases. All audio chunks that ARE sent play to completion. The cutoff is at the source: GL stops generating audio before the sentence ends. This is GL model behavior, not a code-level bug. Next step: check server logs for `gl_barge_in` or `interrupted` events coinciding with the cutoff — if those appear without user input, there's a false-positive VAD trigger worth addressing. If absent, it's a pure GL model limitation with no direct fix.
+
+---
+
+## Resolved
+
 **2026-07-01 — `server/services/gemini-live-session.ts` — GL tail audio artifacts ("ok" / "hey" appended at end of responses) — FIXED**
 Root cause: GL emits a micro sub-turn after `generationComplete` to fill its audio budget. Added `afterGenerationComplete` boolean flag: set to `true` on `generationComplete`, cleared when the next response's first audio chunk arrives (`!isTutorGeneratingAudio` transition). Any audio chunk arriving while the flag is set is silently dropped before it reaches the client.
 
@@ -16,8 +23,11 @@ Root cause: `customOverlayText` state managed by `useWhiteboard` was never clear
 **2026-07-01 — `server/services/broadcast-data-service.ts` — Sports broadcast: Daniela recites scores verbally but doesn't display scoreboard widget — FIXED**
 Added step 2 to sports broadcast `[REQUIRED VISUAL SETUP]`: instructs Daniela to call `widget_board(widget:"write", text:"<Team A> <score> – <Team B> <score>\n<Sport> · <City>")` with the top result from the Perplexity data before speaking, so the score is visible on screen.
 
-**2026-06-30 — GL model — Broadcast mode: sentences cutting off mid-response — MEDIUM**
-During testing, Daniela's responses are occasionally truncated mid-sentence. Heard "Are those the ones?" instead of the full "Are those the ones you were curious about?" Investigation (2026-06-30): traced through the full server→client audio pipeline. `gl_audio_reset` only fires on reconnects. Client-side `finalizeProgressiveSentence` is benign (only updates debug panel, never stops WebAudio nodes). The `generationComplete` watchdog at 12 s fires if GL pauses >12 s between sub-turns — that's the most likely candidate when tool calls happen between phrases. All audio chunks that ARE sent play to completion. The cutoff is at the source: GL stops generating audio before the sentence ends. This is GL model behavior, not a code-level bug. Next step: check server logs for `gl_barge_in` or `interrupted` events coinciding with the cutoff — if those appear without user input, there's a false-positive VAD trigger worth addressing. If absent, it's a pure GL model limitation with no direct fix.
+**2026-06-13 — `server/services/gemini-live-session.ts` — set_clock pre-tool speech causes audio doubling — FIXED (July 3, 2026)**
+GL generates speech both BEFORE calling the tool (pre-tool sub-turn) and AFTER (post-tool continuation). Fix: at the point where a tool call arrives, if `hadAudioInCurrentSubturn` is true AND the tool is `set_clock`, server sends `gl_audio_reset` to the client (calls `player.stop() + resetForNewTurn()`), cancelling the queued pre-tool audio. Post-tool speech then plays from a clean state. The prompt-level ordering rule is retained as a secondary guard for sessions where the tool fires without pre-tool audio (no reset needed in that case).
+
+**2026-06-18 — `server/services/daniela-presence-worker.ts` — "Cannot convert undefined or null to object" crash in presence generation — FIXED (July 3, 2026)**
+Root cause: one failing Drizzle query inside `Promise.all` aborted the entire generation for user 49847136. All column references verified correct against schema. Fix: added individual `.catch()` on each of the six queries so a single query failure returns an empty array and logs a named warning. The presence doc generates from whatever data is available.
 
 **2026-06-12 — `server/storage.ts:7881` — Drizzle bulk insert of `editor_insights` fails TypeScript — FIXED**
 Verified clean: `npm run check` passes with zero errors as of July 3, 2026.
@@ -27,16 +37,6 @@ Verified clean: `npm run check` passes with zero errors as of July 3, 2026.
 
 **2026-06-12 — `server/webhookHandlers.ts:41` — Stripe API version literal mismatch — FIXED**
 `webhookHandlers.ts` already uses `'2025-11-17.clover'`. Verified clean: `npm run check` passes with zero errors as of July 3, 2026.
-
-**2026-06-13 — `server/services/gemini-live-session.ts` — set_clock pre-tool speech causes audio doubling — FIXED (July 3, 2026)**
-GL generates speech both BEFORE calling the tool (pre-tool sub-turn) and AFTER (post-tool continuation). Fix: at the point where a tool call arrives, if `hadAudioInCurrentSubturn` is true AND the tool is `set_clock`, server sends `gl_audio_reset` to the client (calls `player.stop() + resetForNewTurn()`), cancelling the queued pre-tool audio. Post-tool speech then plays from a clean state. The prompt-level ordering rule is retained as a secondary guard for sessions where the tool fires without pre-tool audio (no reset needed in that case).
-
-**2026-06-18 — `server/services/daniela-presence-worker.ts` — "Cannot convert undefined or null to object" crash in presence generation — FIXED (July 3, 2026)**
-Root cause: one failing Drizzle query inside `Promise.all` aborted the entire generation for user 49847136. All column references verified correct against schema. Fix: added individual `.catch()` on each of the six queries so a single query failure returns an empty array and logs a named warning. The presence doc generates from whatever data is available — if e.g. `hiveSnapshots` query fails for this user, session notes and reflections still populate the doc. The specific failing query will now be visible in logs by name.
-
----
-
-## Resolved
 
 **2026-06-30 — `client/src/lib/streamingVoiceClient.ts` + `StreamingVoiceChat.tsx` — Open-mic session goes silent when WS drop coincides with student speaking — FIXED**
 `sendStreamingChunk` now buffers up to 100 chunks (~1s of audio) when the WebSocket is not ready. `_flushPendingChunks()` replays the buffer immediately after reconnect + `set_input_mode` restoration.
@@ -119,4 +119,3 @@ The warm synthesis cache (`_warmSynthesisCache`) is a process-level `Map`. If th
 
 **Warm synthesis — potential double-generation on fast Start tap** *(June 18, 2026)*
 If the student taps "Start" while the background warm-up is still running, the WS handler fires a second synthesis call. No UX issue, minor cost inefficiency. Fix when needed: track in-progress warm synthesis per userId and wait briefly (max 600ms) before fallback.
-
