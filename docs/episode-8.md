@@ -1,4 +1,4 @@
-# Episode 7 — The Foundation Session
+# Episode 8 — The Foundation Session
 *January 25, 2026*
 
 ---
