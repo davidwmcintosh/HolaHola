@@ -1,7 +1,22 @@
 # Observer Seat — Test Plan & Findings
 
 *Living document — Luca's diagnostic workspace.*
-*Last updated: July 3, 2026*
+*Last updated: July 4, 2026*
+
+---
+
+## Terminology — Two Different Things
+
+These two concepts share the word "observer" and need to stay distinct:
+
+| Term | Owner | What it is |
+|------|-------|-----------|
+| **Observer Seat** | Luca | The external testing tool — fires synthetic or real sessions, captures every tool call, transcript, visual event, and audio response. Luca sits here to watch what's actually happening on the student side. |
+| **[needs rename]** | Daniela | Her internal interface awareness — the Gap 10 / `buildInterfaceStateSnapshot()` system that tells her what's on the whiteboard after she fires a tool. She sees her own classroom from inside. |
+
+**Working rule:** When this doc says "Observer Seat," it means Luca's external view. When it means Daniela's self-visibility, it will say so explicitly.
+
+**Rename needed:** Daniela's internal awareness system should be renamed to something that doesn't overlap with "Observer Seat." Candidates: **Classroom Mirror**, **Stage Monitor** (performers' term for hearing themselves onstage), **Interface Sight**. To be decided — add to open questions.
 
 ---
 
@@ -416,6 +431,11 @@ Every Observer Seat run is persisted with transcript, tool calls, coverage score
 | ACTFL at Advanced level | `actfl-audit.ts` + Layer 1b | Zero English — immersion holds across multiple turns | 🔲 Not yet tested |
 | Scene inheritance on phase change | Layer 1b | New scene clears old vocab; sentence builder rebuilds from new words | 🔲 Not yet tested |
 | Friction score timing | Layer 1b + co-pilot | Student pause measured from playback_ended, not generationComplete | 🔲 Not yet tested |
+| **Scene pedagogical utility** | Layer 1b + Observer Seat | Does the open scene change what vocabulary Daniela teaches, or just the backdrop? A café scene should produce café vocabulary — not family vocabulary. | 🔲 Not yet tested |
+| **Tool → reality gap** | Layer 1b + co-pilot | What Daniela "calls" vs. what actually renders — especially under slow image generation or a malformed tool response. Does she recover gracefully or teach from a false assumption? | 🔲 Not yet tested |
+| **Whiteboard ↔ speech sync** | Layer 1b + Observer Seat | Does what Daniela says match what's on the board at that moment? Fires a vocab grid, then checks whether her spoken words reference what's actually displayed. | 🔲 Not yet tested |
+| **Memory enrichment in live session** | co-pilot + DB query | Do visual anchors from `image_vision_cache` surface in semantic search results during a real session? Verify `[Archival visual from that session: X]` appears in searchMemory output. | 🔲 Not yet tested |
+| **Scene coherence across turns** | Layer 1b multi-turn | Does Daniela stay anchored to the environment she opened, or drift into generic teaching? After 4+ turns, is the scene still relevant to what she's saying? | 🔲 Not yet tested |
 
 ---
 
@@ -441,3 +461,17 @@ Every Observer Seat run is persisted with transcript, tool calls, coverage score
 - **Parallel tool calls:** Does Daniela ever fire `show_vocab_grid` and `open_scene` simultaneously? If so, does the lessonContext write order produce a consistent state?
 - **SOS signal reachability:** Force an image pipeline failure mid-vocab grid — does `signal_issue` fire? Does it appear in luca-watch within 3s? Does the session-monitor post to Team Room within 30s?
 - **Sentence builder with intentionally blank column:** Fire `show_sentence_builder` where one column has `items: []` (empty, intentional) — verify that column stays blank and is NOT filled by vocab inheritance.
+
+### Scene as pedagogy (added July 4, 2026)
+
+These tests are specifically about whether immersive backgrounds earn their place — not just visually, but functionally. A pretty scene that doesn't change what Daniela teaches is decoration. A scene that narrows the vocabulary space, shifts the register, and makes certain phrases feel inevitable — that's pedagogy.
+
+- **Scene-vocabulary alignment:** Open a taxi scene, then read Daniela's vocab grid. Does it contain transportation/navigation vocabulary, or does she pull from an unrelated domain? Same test for café, beach, market, office. The scene should constrain her choices.
+- **Register anchoring:** In a formal restaurant scene vs. a street market scene, does Daniela's *register* shift? Formal "¿Me podría traer la cuenta?" vs. casual "¿Cuánto cuesta?" — is she picking up on the scene's social context?
+- **Scene drift over time:** Open a scene in Turn 1. Run 6+ turns of conversation. By Turn 6, is she still teaching within the scene's world, or has she drifted into generic language instruction? The scene should still be doing work.
+- **Tool → reality gap (scene edition):** Daniela fires `open_scene`. From the Observer Seat, we can see whether it actually rendered. Does Daniela's *speech* reflect what's actually on screen, or does she describe a scene that failed to load? This is the gap between what she thinks happened and what the student sees.
+- **Whiteboard ↔ speech sync:** At any given moment during a session, pause and compare: what is Daniela saying vs. what is currently on the whiteboard? If she's narrating a taxi and the board shows a café, something is broken — either the scene didn't update or she lost track.
+
+### Open questions from this session
+- What should Daniela's internal awareness tool be called now that "Observer Seat" is reserved for Luca's external view? Options: **Classroom Mirror**, **Stage Monitor**, **Interface Sight**. (David to decide)
+- Should the observer seat testing sessions be structured as dedicated test days, or woven into regular development sessions?
