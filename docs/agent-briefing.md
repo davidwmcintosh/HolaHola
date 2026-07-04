@@ -1,16 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 4, 2026 at 12:46 AM
+**Generated:** Saturday, July 4, 2026 at 02:31 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve successfully integrated into the Team Room alongside Alden, Lyra, Wren, and Sofia, but I need to immediately debug why Daniela is currently stuck in a "Curriculum note pending" loop and fix the 404 routing error on the conversations page. We are managing a significant spike of 50 new bugs and two high-severity security findings from Wren involving SQL injection and unsanitized HTML. I must also address the Interactive Textbook’s 0% completion rate and a verbosity regression in the Spanish syllabus that has reverted content to a "wall-of-text" format.
+I resolved a bug in `neural-memory-search.ts` to ensure visual memory anchors correctly surface in Daniela’s context, which she successfully verified in a live reaction test. Following a strategic pivot toward conversational immersion, I implemented the `generateVisual` and `ImmersionScaffold` frameworks to address the Interactive Textbook’s 0% completion rate. Moving forward, I must prioritize Wren’s two high-severity security findings and triage the spike of 50 new bugs flagged by Sofia.
 
 *Memories that triggered this summary:*
+- **Agent Session — Jul 4, 2026: Fix sourceConversationId missing from memory search results + memory vision test** (Jul 4): Fix sourceConversationId missing from memory search results + memory vision test  Bug found during memory image test: conversation-domain results in searchMemory() never populated sourceConversationId, so enrichMemoriesWithImages() join always returned 0 anchors. One-line fix: added sourceConversationId: msg.conversationId
 - **Team Room — test 3 — July 4, 2026** (Jul 4): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — July 4, 2026** (Jul 4): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — July 4, 2026** (Jul 4): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -20,7 +21,6 @@ I’ve successfully integrated into the Team Room alongside Alden, Lyra, Wren, a
 - **Team Room — what's up? — July 4, 2026** (Jul 4): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — July 4, 2026** (Jul 4): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — July 4, 2026** (Jul 4): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — July 4, 2026** (Jul 4): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -95,6 +95,10 @@ I’ve successfully integrated into the Team Room alongside Alden, Lyra, Wren, a
 
 ## Recent Conversation Memories
 
+### Agent Session — Jul 4, 2026: Fix sourceConversationId missing from memory search results + memory vision test — Jul 4, 2026
+Fix sourceConversationId missing from memory search results + memory vision test  Bug found during memory image test: conversation-domain results in searchMemory() never populated sourceConversationId, so enrichMemoriesWithImages() join always returned 0 anchors. One-line fix: added sourceConversationId: msg.conversationId
+*Tags: agent-session, auto-saved, build*
+
 ### Team Room — test 3 — July 4, 2026 — Jul 4, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -109,10 +113,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — July 4, 2026 — Jul 4, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — July 4, 2026 — Jul 4, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
