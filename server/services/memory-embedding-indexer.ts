@@ -706,11 +706,18 @@ export async function indexNewMemoriesForUser(userId: string): Promise<void> {
 }
 
 export function startMemoryEmbeddingIndexer(): void {
-  console.log('[EmbedIndexer] Starting (interval: 2h)');
+  console.log('[EmbedIndexer] Starting (interval: 2h, delayed first run: 10min)');
 
-  // No boot run — the server heap grows to ~4GB naturally during startup from background workers.
-  // Adding any significant work at boot (even with lazy loading) triggers OOM.
-  // The 2-hour periodic interval below handles all indexing; memories are indexed within 2h of creation.
+  // Delayed first run — NOT at boot. The server heap hits ~4GB during startup from background workers.
+  // We wait 10 minutes for those workers to settle before the first embedding pass, then run
+  // on the normal 2h interval. This survives server restarts without babysitting — every restart
+  // automatically schedules the first run 10 min later, so the backlog never stalls indefinitely.
+  setTimeout(() => {
+    console.log('[EmbedIndexer] Running delayed first cycle (post-boot)');
+    runIndexer().catch(err =>
+      console.error('[EmbedIndexer] Delayed first run failed:', err.message)
+    );
+  }, 10 * 60 * 1000);
 
   setInterval(() => {
     runIndexer().catch(err =>

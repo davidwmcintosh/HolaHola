@@ -1,16 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 4, 2026 at 12:44 PM
+**Generated:** Saturday, July 4, 2026 at 12:53 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I recently managed a critical monitoring system blackout and a routing failure causing 404 errors on the conversations page, while also noting Wren’s discovery of high-severity SQL injection and XSS vulnerabilities. I am currently tracking a surge of 50 new bugs reported by Sofia and a 0% completion rate for the Interactive Textbook, which David feels is "half-baked" and lacking infographics. I need to immediately address the "Curriculum note pending" loop affecting Daniela’s responses and investigate seeding errors that caused verbosity regressions in the Spanish syllabus before the beta launch.
+I fixed the stalled embedding indexer by bumping the batch limit to 200 and adding the `/api/admin/force-embed-cycle` route, while also cleaning up visual anchor prompts to pass Gemini’s audit. I implemented the `ImmersionScaffold` and `generateVisual` systems to shift the Interactive Textbook toward David’s vision of conversational immersion, though I must still investigate why the Spanish syllabus has 22 empty lessons and "wall-of-text" seeding regressions. This session, I need to resolve the 404 routing error on the conversations page, address Wren’s two high-severity security findings regarding SQL injection and XSS, and triage the spike of 50 new bugs flagged by Sofia.
 
 *Memories that triggered this summary:*
+- **Agent Session — Jul 4, 2026: fix: embedding indexer force-trigger + conversation_memory limit bump + prompt cleanup** (Jul 4): fix: embedding indexer force-trigger + conversation_memory limit bump + prompt cleanup  Embedding indexer was stalled: the 2h setInterval resets on server restart, and the conversation_memory batch limit was 50 (LIMIT 50 → lazy sequential path). At 14,985 unembedded entries and server restarts resetting the timer, the archive never gets indexed.
 - **Team Room — test 3 — July 4, 2026** (Jul 4): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — July 4, 2026** (Jul 4): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — July 4, 2026** (Jul 4): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -20,7 +21,6 @@ I recently managed a critical monitoring system blackout and a routing failure c
 - **Team Room — what's up? — July 4, 2026** (Jul 4): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — July 4, 2026** (Jul 4): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — July 4, 2026** (Jul 4): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — July 4, 2026** (Jul 4): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -95,6 +95,10 @@ I recently managed a critical monitoring system blackout and a routing failure c
 
 ## Recent Conversation Memories
 
+### Agent Session — Jul 4, 2026: fix: embedding indexer force-trigger + conversation_memory limit bump + prompt cleanup — Jul 4, 2026
+fix: embedding indexer force-trigger + conversation_memory limit bump + prompt cleanup  Embedding indexer was stalled: the 2h setInterval resets on server restart, and the conversation_memory batch limit was 50 (LIMIT 50 → lazy sequential path). At 14,985 unembedded entries and server restarts resetting the timer, the archive never gets indexed.
+*Tags: agent-session, auto-saved, build*
+
 ### Team Room — test 3 — July 4, 2026 — Jul 4, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -109,10 +113,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — July 4, 2026 — Jul 4, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — July 4, 2026 — Jul 4, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
