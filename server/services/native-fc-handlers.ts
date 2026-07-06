@@ -3636,26 +3636,14 @@ export class NativeFunctionCallHandler {
           (session as any)._struggleTimestamps = [];
           console.log(`[Native Function→SessionPhase] Phase → ${phaseValue}${phaseReason ? ` (${phaseReason})` : ''}`);
 
-          // COOL_DOWN is the "scent of the goodbye" — the student is still present,
-          // the session is winding down, and this is the warmest moment to write a
-          // reflection. Fire generateReflectionNow() here rather than waiting for
-          // ws.on('close'), which fires after the conversation is already over.
-          // The ws.on('close') path checks for an existing row and no-ops if found.
-          if (phaseValue === 'COOL_DOWN') {
-            const coolDownSession = session as StreamingSession;
-            if (coolDownSession.userId && coolDownSession.dbSessionId) {
-              storage.getMessagesByConversation(coolDownSession.conversationId).then((msgs: Array<{ role: string; content: string }>) => {
-                const preview = msgs.map((m: { role: string; content: string }) => `${m.role}: ${m.content}`).join('\n').slice(0, 8000);
-                return generateReflectionNow(
-                  coolDownSession.userId,
-                  coolDownSession.dbSessionId!,
-                  preview,
-                  coolDownSession.targetLanguage || 'spanish',
-                  coolDownSession.tutorName || 'Daniela',
-                );
-              }).catch((err: Error) => console.warn('[SessionPhase] COOL_DOWN reflection generation failed:', err.message));
-            }
-          }
+          // NOTE: COOL_DOWN was briefly the server-side reflection trigger, but
+          // PedagogicalSupervisor can nudge COOL_DOWN mid-session (overly-long
+          // phase detection). The no-op rule would then lock in a premature
+          // reflection and the rest of the session would be invisible forever.
+          // Reflection trigger moved to CLOSE_SESSION where the transcript is
+          // complete and drills/notes are already written. The COOL_DOWN tool
+          // description still instructs Daniela to call write_to_self herself —
+          // that voluntary path is unaffected.
         }
         break;
       }
@@ -3791,6 +3779,25 @@ export class NativeFunctionCallHandler {
             beaconType: 'take_note' as BeaconType,
             beaconReason: `Daniela closed the session`,
           }).catch((err: Error) => console.error(`[Native Function→CloseSession] Beacon error:`, err.message));
+        }
+
+        // 5) Immediate session reflection — fired here (not at COOL_DOWN) so:
+        //    a) the transcript is complete, including the warm wrap-up conversation
+        //    b) drills/notes written above are part of the session context
+        //    c) no Supervisor prematurity risk (COOL_DOWN can be nudged mid-session)
+        //    ws.on('close') remains the fallback for abrupt drops where close_session
+        //    was never called. generateReflectionNow() is a no-op if already written.
+        if (userId && session.dbSessionId) {
+          storage.getMessagesByConversation(session.conversationId).then((msgs: Array<{ role: string; content: string }>) => {
+            const preview = msgs.map((m: { role: string; content: string }) => `${m.role}: ${m.content}`).join('\n').slice(0, 8000);
+            return generateReflectionNow(
+              userId,
+              session.dbSessionId!,
+              preview,
+              language,
+              session.tutorName || 'Daniela',
+            );
+          }).catch((err: Error) => console.warn('[Native Function→CloseSession] Reflection generation failed:', err.message));
         }
 
         break;
