@@ -18,7 +18,7 @@
 
 import { createHash } from 'crypto';
 import { getSharedDb } from '../db';
-import { memoryEmbeddings } from '@shared/schema';
+import { memoryEmbeddings, learnerPersonalFacts } from '@shared/schema';
 import { eq, and, or, isNull, inArray, desc } from 'drizzle-orm';
 import { computeDecayMultiplier } from './memory-decay-service';
 
@@ -259,8 +259,40 @@ export async function semanticSearch(
   // Sort by effective score (recently reinforced memories rank higher at equal relevance).
   // Threshold applied to raw cosine so highly relevant but faded memories still pass.
   scored.sort((a, b) => b.effectiveScore - a.effectiveScore);
-  return scored
-    .filter(r => r.similarity > 0.65)
+  // T001 Ghost Facts fix: post-filter expired personal facts.
+  // memory_embeddings has no expiry field — once embedded, a fact lives in the
+  // vector index forever even if invalidated via valid_to in learner_personal_facts.
+  // This check removes stale entries before they reach the LLM.
+  const aboveThreshold = scored.filter(r => r.similarity > 0.65);
+
+  const personalFactIds = aboveThreshold
+    .filter(r => r.memoryType === 'learner_personal_fact')
+    .map(r => r.memoryId);
+
+  let expiredIds = new Set<string>();
+  if (personalFactIds.length > 0) {
+    try {
+      const db = getSharedDb();
+      const now = new Date();
+      const facts = await db
+        .select({ id: learnerPersonalFacts.id, validTo: learnerPersonalFacts.validTo })
+        .from(learnerPersonalFacts)
+        .where(inArray(learnerPersonalFacts.id, personalFactIds));
+      for (const fact of facts) {
+        if (fact.validTo !== null && fact.validTo < now) {
+          expiredIds.add(fact.id);
+        }
+      }
+      if (expiredIds.size > 0) {
+        console.log(`[SemanticSearch] Filtered ${expiredIds.size} expired personal fact(s) from results`);
+      }
+    } catch (err: any) {
+      console.warn('[SemanticSearch] Ghost facts validity check failed — returning unfiltered:', err.message);
+    }
+  }
+
+  return aboveThreshold
+    .filter(r => !expiredIds.has(r.memoryId))
     .slice(0, limit)
     .map(r => ({ memoryType: r.memoryType, memoryId: r.memoryId, similarity: r.similarity, contentHash: r.contentHash }));
 }

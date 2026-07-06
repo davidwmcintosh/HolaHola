@@ -1275,6 +1275,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           targetLanguage: this.session.targetLanguage,
           isFounderMode: !!(this.session as any).isFounderMode,
           isHonestyMode: !!(this.session as any).isRawHonestyMode,
+          nativeLanguage: (this.session as any).nativeLanguage ?? 'english',
         }).catch(err =>
           console.warn('[GeminiLive] Shadow audit error:', err.message)
         );
@@ -2347,9 +2348,25 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             })()
           : this.buildFrictionSignal();
 
+        // T002: Rotate whisper label, phrasing, and clock/friction order to prevent
+        // semantic satiation — static repeating tokens lose attention weight over long sessions.
+        // T008: Include turn reference so Daniela knows this score is 2-3 turns old.
+        const turn = this.currentTurnId;
+        const clockFirst = (turn % 2 === 0);
+        const coreContent = clockFirst
+          ? `${temporalNote}${frictionSignal ? ` ${frictionSignal}` : ''}`
+          : `${frictionSignal ? `${frictionSignal} ` : ''}${temporalNote}`;
+        const tails = [
+          `Trust what you hear right now over this score — it was captured around turn ${turn}. Reach into growth_memory when you encourage — a student's name is not their friction level.`,
+          `This signal reflects ~turn ${turn}, not the current moment. If they sound different now, trust your ears. Specificity beats generic encouragement every time.`,
+          `Score is a few turns old (turn ~${turn}). Voice the student you hear right now. Check growth_memory before encouraging — something real is always better than something warm.`,
+        ];
+        const labels = ['System note — not spoken', 'Background signal — silent', 'Tutor advisory — not aloud', 'Internal compass — unspoken'];
+        const whisperPayload = `[${labels[turn % labels.length]}: ${coreContent} ${tails[turn % tails.length]}]`;
+
         (last.response as any).result = currentResult
           + (currentResult ? '\n\n' : '')
-          + `[System note — not spoken: ${temporalNote}${frictionSignal ? ` ${frictionSignal}` : ''} Trust the student's voice over the score — if they sound confident despite HIGH friction, don't slow down. Check growth_memory if you haven't recently — generic encouragement is a failure; specificity is your superpower.]`;
+          + whisperPayload;
         this.pendingSystemWhisper = false;
         this.lastWhisperTime = Date.now(); // reset hybrid clock — next whisper triggers from here
         console.log(`[GeminiLive] System Whisper injected into tool response (${last.name}) — ${sessionElapsedMin}min elapsed${frictionSignal ? ` | ${frictionSignal}` : ''}`);

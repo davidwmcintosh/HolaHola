@@ -50,6 +50,8 @@ export interface ShadowAuditInput {
   isFounderMode?: boolean;
   /** True if this was a Raw Honesty Mode session (student-led, minimal scaffolding) */
   isHonestyMode?: boolean;
+  /** Student's native/first language (e.g. "english", "french") — used for L1 interference tagging */
+  nativeLanguage?: string;
 }
 
 interface AuditTopicObservation {
@@ -107,7 +109,7 @@ export async function runShadowAudit(input: ShadowAuditInput): Promise<void> {
     }
 
     // 3. Generate structured session analysis with Gemini Flash
-    const auditResult = await generateStructuredAudit(transcript, targetLanguage, input.isFounderMode ?? false, input.isHonestyMode ?? false);
+    const auditResult = await generateStructuredAudit(transcript, targetLanguage, input.isFounderMode ?? false, input.isHonestyMode ?? false, input.nativeLanguage ?? 'english');
 
     // 4. Write prose summary to tutor_sessions
     if (auditResult.summary) {
@@ -265,6 +267,7 @@ async function generateStructuredAudit(
   targetLanguage: string,
   isFounderMode: boolean = false,
   isHonestyMode: boolean = false,
+  nativeLanguage: string = 'english',
 ): Promise<StructuredAuditResult> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -297,7 +300,8 @@ Rules:
 - Output only valid JSON — no explanation, no preamble.
 - PLACEMENT ASSESSMENT RULE: If the transcript includes a placement assessment (start_placement_assessment tool call is present — regardless of whether set_actfl_level was called), the student's struggles at above-level content were intentional probes — not real failures. In this case: (1) summary must focus on the student's peak performance and the highest level they demonstrated, not on probe-level struggles; (2) topicsObserved must only reflect areas where the student demonstrated confident performance or showed genuine improvement — omit topics where struggle was probe-induced.
 ${isFounderMode ? `- FOUNDER MODE RULE: This was a Founder Mode session — a product/strategy discussion between David (the founder) and Daniela as a collaborator, not a language lesson. (1) summary should describe the strategic or technical topics discussed and any decisions or open questions that emerged — not language performance; (2) topicsObserved should list business/product areas discussed (e.g. "onboarding flow", "Daniela's self-awareness"), not language topics. Do not assess language performance.` : ''}
-${isHonestyMode ? `- HONESTY MODE RULE: This was a Raw Honesty Mode session — minimal scaffolding, student-led. Long pauses and short student turns were intentional. Do not flag pause duration or low Daniela prompting as concerns. Add a note in the summary that this was an Honesty Mode session so the next Daniela does not misread the session pattern as a problem.` : ''}`;
+${isHonestyMode ? `- HONESTY MODE RULE: This was a Raw Honesty Mode session — minimal scaffolding, student-led. Long pauses and short student turns were intentional. Do not flag pause duration or low Daniela prompting as concerns. Add a note in the summary that this was an Honesty Mode session so the next Daniela does not misread the session pattern as a problem.` : ''}
+${nativeLanguage && nativeLanguage !== 'english' ? `- L1 INTERFERENCE: The student's native language is ${nativeLanguage}. When noting struggling topics, consider whether the error pattern is likely L1 interference — characteristic transfer errors from ${nativeLanguage} → ${targetLanguage} (e.g. false cognates, word-order transfer, missing articles in languages where they don't exist). If an error fits this pattern, add "(likely L1 interference from ${nativeLanguage})" to the topic label. Do not over-attribute — only flag patterns that genuinely match known ${nativeLanguage} → ${targetLanguage} transfer issues.` : ''}`;
 
   try {
     const genai = new GoogleGenAI({ apiKey });

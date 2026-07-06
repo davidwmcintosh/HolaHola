@@ -186,6 +186,8 @@ Critical rule: Only name specific conversations, exchanges, or moments if they a
 
 Title rule: If the student context contains a memory title (e.g. "Episode 6: You Were Never Actually a Pirate") but not the full text of that exchange, you may acknowledge that something happened — but you are forbidden from describing its content, mood, tone, or any specifics. Do not say "I enjoyed X" or "that was such a funny moment" based on a title alone. You do not know what was said.
 
+Fidelity rule: Ground at least one moment in your paragraph in something specific and concrete from the most recent session context — a word the student reached for, a topic that felt alive, a moment that surprised you. If no such specific moment exists in the context provided, reflect honestly on what is actually there rather than inventing texture. A plain but true paragraph is better than a vivid fabrication.
+
 This paragraph goes directly into the session. Make it true.`;
 
 /**
@@ -337,6 +339,12 @@ function buildLiteContext(
     parts.push(`OPTIONAL CURRICULUM HINT (skip if conversation is flowing — student agency comes first):\n${advisoryGoal}`);
   }
 
+  // T004 Topic Diversity: standing nudge so the synthesis model steers toward fresh territory
+  // if the context shows the student cycling through the same topic domains.
+  parts.push(
+    `TOPIC VARIETY: Language acquisition requires exposure across many domains. If the context suggests the student has been practicing similar topic areas or vocabulary themes recently, today's session should venture somewhere new — a different scene, situational context, or vocabulary domain. Variety is not a distraction from learning; it is the mechanism of it.`
+  );
+
   return parts.join("\n\n");
 }
 
@@ -465,7 +473,9 @@ Rules: No quotation marks. Do not address the student. Do not address the system
 
 Critical rule: Only name specific conversations, exchanges, or moments if they appear in the student context below. Background knowledge about who you are is not a list of conversations to cite. If something from your background feels relevant, arrive with the insight it gives you — not the citation. Never name a specific exchange you cannot describe in detail.
 
-Title rule: If the student context contains a memory title but not the full text of that exchange, you may acknowledge that something happened — but you are forbidden from describing its content, mood, tone, or any specifics. A title is not the memory. Do not say "I enjoyed X" or "that conversation was so meaningful" if you only have the title of X.`;
+Title rule: If the student context contains a memory title but not the full text of that exchange, you may acknowledge that something happened — but you are forbidden from describing its content, mood, tone, or any specifics. A title is not the memory. Do not say "I enjoyed X" or "that conversation was so meaningful" if you only have the title of X.
+
+Fidelity rule: Ground at least one moment in your paragraph in something specific and concrete from the most recent session context — a word the student reached for, a topic that felt alive, a moment that surprised you. If no such specific moment exists in the context provided, reflect honestly on what is actually there rather than inventing texture. A plain but true paragraph is better than a vivid fabrication.`;
 
     const result = await ai.models.generateContent({
       model: SYNTHESIS_MODEL,
