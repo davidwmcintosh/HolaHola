@@ -12,7 +12,7 @@ Current meta-layer systems:
 | Session clock whisper | same block | Same whisper injection | At 25+ min, tells Daniela to wind down and name language wins |
 | Shadow auditor | `server/services/shadow-auditor.ts` | `stop()` | Generates session summary + topicsObserved for next-session compass context |
 | Session reflection | `server/services/session-reflection-worker.ts` | Session end + next session start | Daniela writes private first-person reflection in the target language |
-| Context health monitor | `server/services/context-health-monitor.ts` | Periodic interval | Monitors context health; nature TBD — audit pending |
+| Context health monitor | `server/services/context-health-monitor.ts` | Every 15 min (global, not per-session) | Tracks success rates and latency of context injection pipelines (classroom, student_intelligence, hive, etc.) across all sessions. On status change fires Sofia health agent → records a health digest. Never injects into Daniela's conversation. |
 
 ---
 
@@ -32,6 +32,12 @@ For each meta-layer system, ask:
 ---
 
 ## Exception State Registry
+
+### Context Health Monitor — special case
+
+The context health monitor operates at the infrastructure layer, not the session layer. It tracks whether context injection pipelines succeed or fail technically (success rate, latency) — not whether the injected content was semantically appropriate. Because exception states (Founder Mode, Honesty Mode, placement) don't change whether pipelines succeed at the infrastructure level, **this system has no composition gaps with any exception state.** Audited 2026-07-06, no action required.
+
+---
 
 ### Placement Assessment (`placementMode.active`)
 
@@ -100,3 +106,4 @@ Alden does not need to implement fixes — just flag the gap in `.local/alden-es
 | 2026-07-06 | Placement assessment | Luca + Gemini | 4 | 4 |
 | 2026-07-06 | Founder Mode | Luca + Gemini | 4 | 4 |
 | 2026-07-06 | Honesty Mode | Luca + Gemini | 4 | 4 |
+| 2026-07-06 | Context health monitor | Luca | 0 | n/a — infrastructure layer, not session layer |
