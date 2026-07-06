@@ -24659,6 +24659,7 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
       const visualEvents: any[] = [];
       const toolCallsSummary: any[] = [];
       const transcriptParts: string[] = [];
+      const danielaTextParts: string[] = [];
       let glSession: any = null;
 
       const VISUAL_TOOLS = new Set([
@@ -24717,6 +24718,21 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
           callbacks: {
             onopen: () => { if (glSession) sendAudio(glSession); },
             onmessage: (msg: any) => {
+              // Debug: log message shape for observation bench diagnostics
+              const sc = msg.serverContent;
+              if (sc) {
+                const hasAudio = (sc.modelTurn?.parts ?? []).some((p: any) => p.inlineData?.mimeType?.includes('audio'));
+                const hasText = (sc.modelTurn?.parts ?? []).some((p: any) => p.text);
+                const hasTurnComplete = !!sc.turnComplete;
+                const hasGenComplete = !!sc.generationComplete;
+                const hasInputTx = !!sc.inputTranscription?.text;
+                const hasOutputTx = !!sc.outputTranscription?.text;
+                if (hasTurnComplete || hasGenComplete || hasOutputTx || hasInputTx) {
+                  console.log(`[Agent Voice Turn] msg: audio=${hasAudio} text=${hasText} turnComplete=${hasTurnComplete} genComplete=${hasGenComplete} inputTx=${hasInputTx} outputTx=${hasOutputTx} outputTxText="${sc.outputTranscription?.text?.slice(0,60) ?? ''}"`);
+                }
+              }
+              if (msg.toolCall) console.log(`[Agent Voice Turn] toolCall: ${msg.toolCall.functionCalls?.map((c: any) => c.name).join(',')}`);
+
               // Collect audio parts
               for (const part of msg.serverContent?.modelTurn?.parts ?? []) {
                 if (part.inlineData?.data && part.inlineData?.mimeType?.includes('audio')) {
@@ -24727,6 +24743,10 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
               // Capture student input transcription (requires inputAudioTranscription: {} in config)
               const inputText = msg.serverContent?.inputTranscription?.text;
               if (inputText) transcriptParts.push(`[Student: ${inputText}]`);
+
+              // Capture Daniela's output transcription (requires outputAudioTranscription: {} in config)
+              const outputText = msg.serverContent?.outputTranscription?.text;
+              if (outputText) danielaTextParts.push(outputText);
 
               // Handle tool calls — collect events and send plausible responses
               if (msg.toolCall?.functionCalls?.length > 0) {
@@ -24850,7 +24870,8 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
 
       console.log(`[Agent Voice Turn] Session ${sessionKey} turn ${agentSession.turnCount}: ${audioDurationS.toFixed(1)}s audio, ${visualEvents.length} visual events, ${toolCallsSummary.length} tools called`);
 
-      res.json({ sessionId: sessionKey, turnNumber: agentSession.turnCount, audioWav, audioDurationS, transcript, visualEvents, toolCallsSummary });
+      const danielaText = danielaTextParts.join(' ').trim();
+      res.json({ sessionId: sessionKey, turnNumber: agentSession.turnCount, audioWav, audioDurationS, transcript, danielaText, visualEvents, toolCallsSummary });
 
     } catch (error: any) {
       console.error('[Agent Voice Turn] Error:', error.message);
