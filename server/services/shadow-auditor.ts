@@ -288,7 +288,8 @@ Respond with a JSON object (no markdown, no code fences) with exactly these fiel
 Rules:
 - topicsObserved should list 1-4 distinct grammar/vocabulary topics that came up. Omit if none are clearly identifiable.
 - performance must be exactly "confident", "struggling", or "improving" — no other values.
-- Output only valid JSON — no explanation, no preamble.`;
+- Output only valid JSON — no explanation, no preamble.
+- PLACEMENT ASSESSMENT RULE: If the transcript includes a placement assessment (start_placement_assessment tool call is present — regardless of whether set_actfl_level was called), the student's struggles at above-level content were intentional probes — not real failures. In this case: (1) summary must focus on the student's peak performance and the highest level they demonstrated, not on probe-level struggles; (2) topicsObserved must only reflect areas where the student demonstrated confident performance or showed genuine improvement — omit topics where struggle was probe-induced.`;
 
   try {
     const genai = new GoogleGenAI({ apiKey });

@@ -2308,13 +2308,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // When > 25 minutes in, shift into landing mode (synthesize wins, set cliffhanger).
         const sessionElapsedMs = Date.now() - (this.session.startTime || Date.now());
         const sessionElapsedMin = Math.floor(sessionElapsedMs / 60000);
+        const isPlacementActive = !!(this.session as any).placementMode?.active;
+        // Gap 4 fix: don't tell Daniela to close the session if placement is still running.
+        // Advanced students may take 20+ min of probing to place accurately.
         const temporalNote = sessionElapsedMin >= 25
-          ? `Session clock: ~${sessionElapsedMin} min in. Begin pivoting toward a natural close — name today's wins, set a cliffhanger that makes them want to come back. Don't start new grammar topics.`
+          ? isPlacementActive
+            ? `Session clock: ~${sessionElapsedMin} min in. Placement assessment in progress — continue probing until set_actfl_level is called. Do not pivot toward a close.`
+            : `Session clock: ~${sessionElapsedMin} min in. Begin pivoting toward a natural close — name today's wins, set a cliffhanger that makes them want to come back. Don't start new grammar topics.`
           : `Session clock: ~${sessionElapsedMin} min in.`;
 
         // Friction Score: append rolling hesitation + word-density signal so Daniela
         // can auto-adjust CEFR level and pacing without being told explicitly.
-        const frictionSignal = this.buildFrictionSignal();
+        // Gap 1 fix: suppressed during placement — intentional probing above the student's level
+        // generates HIGH friction by design (long pauses, short answers). Sending "simplify"
+        // during assessment directly contradicts the probing protocol.
+        const frictionSignal = isPlacementActive ? '' : this.buildFrictionSignal();
 
         (last.response as any).result = currentResult
           + (currentResult ? '\n\n' : '')

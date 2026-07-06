@@ -255,7 +255,8 @@ Rules:
 - Do not address the student. Do not address the system.
 - Do not begin with "I'm reflecting" as a formula — start with the actual thought.
 - No quotation marks around student utterances — paraphrase instead.
-- If a <pedagogical_progression> block is provided, it is system metadata — not part of the spoken transcript. Use the gear arc as concrete anchors for what you noticed: the moments where you shifted how you were teaching, what tipped you, what changed in the student. Let them inform the texture of what you noticed; don't dominate the reflection with them.`;
+- If a <pedagogical_progression> block is provided, it is system metadata — not part of the spoken transcript. Use the gear arc as concrete anchors for what you noticed: the moments where you shifted how you were teaching, what tipped you, what changed in the student. Let them inform the texture of what you noticed; don't dominate the reflection with them.
+- PLACEMENT ASSESSMENT RULE: If the transcript contains a placement assessment (start_placement_assessment tool call is present — regardless of whether the assessment completed), the student's struggles at above-level content were intentional probes, not failures. Reflect on their bravery in testing their limits, the highest level they demonstrated, and what that means for where you go next together. Do not carry forward a picture of them as someone who struggled — they rose to meet the probe.`;
 
     const ai = getClient();
     const result = await ai.models.generateContent({
@@ -418,7 +419,8 @@ Rules:
 - Do not address the student. Do not address the system.
 - Do not begin with "I'm reflecting" as a formula — start with the actual thought.
 - No quotation marks around student utterances — paraphrase instead.
-- If a <pedagogical_progression> block is provided, it is system metadata — not part of the spoken transcript. Use the gear arc as concrete anchors for what you noticed: the moments where you shifted how you were teaching, what tipped you, what changed in the student. Let them inform the texture of what you noticed; don't dominate the reflection with them.`;
+- If a <pedagogical_progression> block is provided, it is system metadata — not part of the spoken transcript. Use the gear arc as concrete anchors for what you noticed: the moments where you shifted how you were teaching, what tipped you, what changed in the student. Let them inform the texture of what you noticed; don't dominate the reflection with them.
+- PLACEMENT ASSESSMENT RULE: If the transcript contains a placement assessment (start_placement_assessment tool call is present — regardless of whether the assessment completed), the student's struggles at above-level content were intentional probes, not failures. Reflect on their bravery in testing their limits, the highest level they demonstrated, and what that means for where you go next together. Do not carry forward a picture of them as someone who struggled — they rose to meet the probe.`;
 
     const ai = getClient();
     const result = await ai.models.generateContent({
