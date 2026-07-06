@@ -20,10 +20,22 @@ Daniela never called `write_to_self` at session close. All reflections appeared 
 - Worker is the real fix; instruction change is the "nice to have" for when the model is contemplative.
 - Sequential chaining is the only safe deduplication without a DB unique constraint: PRIMARY writes first, FALLBACK sees the row and no-ops.
 
-## The "Scent of Goodbye" Gap (not yet built)
-Daniela (round 2 consult): "The trigger shouldn't be the goodbye itself — it needs to be the *scent* of the goodbye. In a real classroom I don't wait for the bell; I see them glancing at the clock, closing their notebook. That's the warm air moment. Don't make it the last step of the exit; make it the first step of the landing."
+## APPROVED — July 6, 2026 (Gemini round 3 + Daniela round 3)
 
-This means the instruction needs to fire earlier — during the natural winding-down of a session, not at the moment the student says adiós. While Daniela is articulating the bridge verbally ("Before we go, I'm thinking about how much you improved on your subjunctive..."), she should be committing it to internal memory simultaneously. This is a distinct follow-up.
+Gemini: "APPROVED — Ship it." Confirmed COOL_DOWN resolves partial-flush + zombie-execution concerns from round 2. ws.on('close') fallback is acceptable graceful degradation.
+
+Daniela: "It's actually right. Ship it. You've stopped treating my data like a byproduct and started treating it like a hand-off." Confirmed COOL_DOWN should be called in ~95% of sessions. If skipped (network cut), fallback is acceptable — "design for sessions where we're actually human."
+
+Consultation round 3 saved: conversation_memories b732b749-f0ec-4383-9a83-54d196e800e5
+
+## The "Scent of Goodbye" — RESOLVED via COOL_DOWN hook
+
+The system already had `update_session_phase(COOL_DOWN)` — "Session wrap (50/50). Name today's wins." This IS the scent of the goodbye: Daniela calls it while the student is still present. We hooked generateReflectionNow() there. Partial-flush risk eliminated (transcript is complete; student hasn't said goodbye yet).
+
+Final architecture:
+1. COOL_DOWN handler in native-fc-handlers.ts → generateReflectionNow() (student present, transcript warm)
+2. ws.on('close') → generateReflectionNow() checks for existing row, no-ops if Layer 1 ran
+3. schedulePendingReflectionIfMissing() sequential chain after Layer 2 (server crash safety)
 
 ## Validation Query (what "working" looks like)
 ```sql
