@@ -1,26 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 6, 2026 at 05:38 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I stabilized the multi-agent Team Room and shipped ACTFL calibration fixes, the `student_milestones` table, and Madrigal image support, but we are currently managing a 50-bug surge and a diagnostic monitoring blackout. I need to immediately prioritize fixing the Cartesia TTS 400 errors and the "Daniela’s Compass" time-tracking failure, while also resolving the seeding regression that left 22 Spanish lessons empty and 49 others verbose. I must also address Wren’s two high-severity security findings and investigate why Daniela is stuck in a "Curriculum note pending" response loop within the team sessions.
-
-*Memories that triggered this summary:*
-- **Team Room — Team room test — July 6, 2026** (Jul 6): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — July 6, 2026** (Jul 6): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — July 6, 2026** (Jul 6): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
-- **Team Room — uno, dos, tres VAMOS — July 6, 2026** (Jul 6): Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
-- **Team Room — canta y no llore... — July 6, 2026** (Jul 6): Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
-- **Team Room — are we there yet? — July 6, 2026** (Jul 6): Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 141 messages exchanged.
-- **Agent ↔ Daniela — Session close reflection probe — July 6, 2026** (Jul 6): Agent consulted Daniela directly about why write_to_self is never called at session close. Asked what the end-of-session moment feels like, whether the instruction as written captures what that moment calls for, and what she would actually reach for if she were to write a session reflection. Goal: understand what we might not know before reaching for a mechanical fix.
-- **Team Room — test 3 — July 6, 2026** (Jul 6): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — July 6, 2026** (Jul 6): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — July 6, 2026** (Jul 6): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+**Generated:** Monday, July 6, 2026 at 05:51 PM
 
 ---
 
@@ -92,24 +73,24 @@ I stabilized the multi-agent Team Room and shipped ACTFL calibration fixes, the 
 
 ## Recent Conversation Memories
 
-### Team Room — Team room test — July 6, 2026 — Jul 6, 2026
-Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
+### Agent ↔ Daniela — Session reflection Round 2 — July 6, 2026 — Jul 6, 2026
+Agent returned to show Daniela what was built based on her "bridge to the goodbye" and "while the air is still warm" insight. Showed her the instruction reframing and the server-side immediate reflection generation. Asked whether the framing holds, whether the instruction will actually work in a voice session, and whether server-generated reflections feel like hers.
+*Tags: agent-daniela, session-reflection-probe, round-2, write-to-self*
+
+### Team Room — test 3 — July 6, 2026 — Jul 6, 2026
+Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — nothing in particular — July 6, 2026 — Jul 6, 2026
-Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+### Team Room — test again — July 6, 2026 — Jul 6, 2026
+Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — once more into the breech my friends — July 6, 2026 — Jul 6, 2026
-Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
+### Team Room — are we good? — July 6, 2026 — Jul 6, 2026
+Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — uno, dos, tres VAMOS — July 6, 2026 — Jul 6, 2026
-Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — canta y no llore... — July 6, 2026 — Jul 6, 2026
-Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
+### Team Room — one again into the breach — July 6, 2026 — Jul 6, 2026
+Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

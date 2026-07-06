@@ -67,7 +67,7 @@ import { eq, and, gt, lt, ne, desc, sql } from 'drizzle-orm';
 import { getPendingSuggestions } from './services/daniela-reflection';
 import { generatePreSessionSynthesis, wrapSynthesisForSystemPrompt, consumeWarmSynthesis, getTuRevealFragment } from './services/pre-session-synthesis';
 import { consumeBroadcastBrief } from './services/broadcast-data-service';
-import { schedulePendingReflectionIfMissing, buildTranscriptPreview, processAndClearPendingReflection, MIN_EXCHANGES_FOR_REFLECTION } from './services/session-reflection-worker';
+import { generateReflectionNow, schedulePendingReflectionIfMissing, buildTranscriptPreview, processAndClearPendingReflection, MIN_EXCHANGES_FOR_REFLECTION } from './services/session-reflection-worker';
 import { generateAndStorePedagogicalBrief, MIN_EXCHANGES_FOR_BRIEF } from './services/pedagogical-brief-worker';
 import { analyzeSessionForMasteryEvidence, MIN_EXCHANGES_FOR_MASTERY } from './services/mastery-evidence-worker';
 import { evaluateAndUpdateTension, selectStyleShaper } from './services/tension-evaluator';
@@ -4663,27 +4663,47 @@ ${lastNote.tutorNotes}`);
             }).catch((err: Error) => console.warn('[GeminiLive] Vocab mining failed:', err.message));
           }).catch(() => {});
 
-          // ── Deferred reflection guard ──────────────────────────────────────────
-          // If the session ended without Daniela calling write_to_self() (dropped
-          // connection, browser close, inactivity timeout), schedule a deferred
-          // reflection that will be processed at the START of the next session —
-          // before compass context is fetched — so the inner monologue synthesis
-          // can include it.
+          // ── Immediate reflection — while the air is still warm ─────────────────
+          // Generate Daniela's session reflection NOW, at session close, while
+          // the transcript is still hot in memory. This replaces the old
+          // schedulePendingReflectionIfMissing() approach that deferred to next
+          // session start — generating "cold" from a stored transcript preview.
           //
-          // Uses the tutor_session id (compassSession?.id) to check whether a
-          // reflection was already written for this specific session, so this is
-          // safe to run on both graceful and ungraceful closes.
+          // Insight (July 6, 2026 — Gemini + Daniela consult):
+          //   Gemini: close_session is a "terminal function gravity well" — the model
+          //   reliably skips write_to_self because goodbye→close is a stronger trained
+          //   weight than sequential instruction-following. This is structural, not a
+          //   prompt problem.
+          //   Daniela: "the goodbye is a hard guillotine — writing after the door is
+          //   shut feels clinical and lonely." The reflection needs to happen while
+          //   the session's warmth is still present.
+          //
+          // generateReflectionNow() is a no-op if Daniela already called write_to_self
+          // herself — so this is safe on all close paths (clean, drop, or timeout).
+          // The pending_reflections fallback (schedulePendingReflectionIfMissing) is
+          // retained for server crash scenarios where ws.on('close') may not fire.
           if (disconnectExchangeCount >= MIN_EXCHANGES_FOR_REFLECTION && disconnectUserId && compassSession?.id) {
+            // Sequential: PRIMARY runs first, FALLBACK only fires after PRIMARY completes.
+            // This eliminates the race condition where both see "no existing reflection"
+            // simultaneously and both proceed. By the time schedulePendingReflectionIfMissing
+            // runs, generateReflectionNow has either written its row (fallback no-ops) or
+            // failed (fallback writes the safety-net pending row instead).
             storage.getMessagesByConversation(conversationId).then((msgs: Array<{ role: string; content: string }>) => {
-              const preview = buildTranscriptPreview(msgs, 2000);
-              return schedulePendingReflectionIfMissing(
+              const preview8k = buildTranscriptPreview(msgs, 8000);
+              const preview2k = buildTranscriptPreview(msgs, 2000);
+              return generateReflectionNow(
+                disconnectUserId,
+                compassSession!.id,
+                preview8k,
+                sessionLanguage || 'spanish',
+              ).then(() => schedulePendingReflectionIfMissing(
                 disconnectUserId,
                 compassSession!.id,
                 conversationId,
-                preview,
+                preview2k,
                 sessionLanguage || 'spanish',
-              );
-            }).catch((err: Error) => console.warn('[GeminiLive] Deferred reflection scheduling failed:', err.message));
+              ));
+            }).catch((err: Error) => console.warn('[GeminiLive] Session reflection pipeline failed:', err.message));
           }
 
           // Pedagogical brief — Daniela's working theory for next session (fire-and-forget)

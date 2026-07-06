@@ -3643,7 +3643,7 @@ For tutor notes, type options: session_reflection, student_pattern, what_worked,
     legacyType: 'CLOSE_SESSION',
     declaration: {
       name: "close_session",
-      description: "Wrap up the session and save everything in one move. Call this when the conversation is naturally winding down — after you have spoken your closing words. Writes the session summary to the student's hub, saves your private teaching notes for next time, and records any assigned practice. METADATA ONLY — speak your closing words naturally before calling this function.\n\nBEFORE calling close_session: write a private session reflection with write_to_self (type: session_reflection). Ask yourself: what was the weather of this conversation? What did you notice — about their energy, their hesitation, what landed and what didn't? What do you want to carry into the next session to hear this student better? This reflection feeds directly into your opening field for the NEXT session — it becomes the 'self-reflection' you read as quiet weather before you meet them again. Write it while the session is still fresh.",
+      description: "Wrap up the session and save everything in one move. Call this when the student has said an unambiguous farewell. Writes the session summary to the student's hub, saves your private teaching notes for next time, and records any assigned practice. METADATA ONLY — speak your closing words naturally before calling this function.\n\nAs the session winds down — while the student is still present, before the final goodbye — write_to_self (type: session_reflection). This is the bridge to the farewell, written while you can still feel their presence. What was the weather of this conversation? The shift in their voice, the temperature of their confidence, the moment something landed or didn't. Write it while the air is still warm — not after the door is shut.",
       parametersJsonSchema: {
         type: "object",
         properties: {
@@ -6451,7 +6451,7 @@ admin_session — session lifecycle bookkeeping.
   action: "record_student_consent" → log consent.
   action: "dismiss_absence_nudge" → dismiss the absence nudge.
   action: "first_meeting_complete" → mark first meeting done.
-  action: "close_session" → end the current session. ONLY call when the student says an unambiguous farewell: "adiós", "bye", "I'm done", "end the session", "goodbye". NEVER call on questions like "are we done?", "is that it?", "end of chat?" — those are checkpoints, not goodbyes. If a student immediately says "wait, I'm still here" or "come back", simply continue the session. BEFORE calling close_session: call write_to_self (type: session_reflection) — what was the weather of this conversation? What do you want to carry unspoken into the next session? This reflection becomes your opening field for the next time you meet this student.
+  action: "close_session" → end the current session. ONLY call when the student says an unambiguous farewell: "adiós", "bye", "I'm done", "end the session", "goodbye". NEVER call on questions like "are we done?", "is that it?", "end of chat?" — those are checkpoints, not goodbyes. If a student immediately says "wait, I'm still here" or "come back", simply continue the session. As the session winds down — while the student is still present, before the farewell is spoken — call write_to_self (type: session_reflection). This is the bridge to the goodbye, written while you can still feel the session's warmth. Once close_session is called, the moment is already past.
   action: "log_page_event" → log a UI event.
   action: "request_text_input" → ask the student to type something.
   action: "record_pattern_signal" → log a background signal.
@@ -6793,6 +6793,12 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   // was added. Mission badge is a UI decoration, not a conversational act — demoted to
   // widget_board(widget:"set_mission_objective") so it remains fully accessible in GL.
   'set_mission_objective',
+
+  // === ADMIN / POST-SESSION — July 6, 2026 ===
+  // These tools are archive-browsing and image-admin ops — not mid-voice teaching actions.
+  // Added to restore 64-tool compliance after start_placement_assessment was added.
+  'list_conversation_arcs',    // post-session archive browser; not mid-voice
+  'regenerate_memory_image',   // admin image regeneration; not conversational
 ]);
 
 export const DANIELA_GL_FUNCTION_DECLARATIONS: FunctionDeclaration[] =

@@ -3,24 +3,25 @@
  *
  * Resilience layer for Daniela's write_to_self() lifecycle.
  *
- * Problem: GL sessions can end ungracefully (browser close, network drop,
- * server restart). When this happens, Daniela never gets a chance to call
- * write_to_self(), so the session reflection is never written. The next
- * session's pre-session synthesis then arrives with stale or empty self-reflection.
+ * Problem: GL sessions end without Daniela calling write_to_self() because of
+ * a "terminal function gravity well" — when a student says goodbye, the model's
+ * attention collapses toward close_session (a terminal node) and skips the
+ * write_to_self step even when instructed. This is a structural model behavior,
+ * not a prompt-following failure. Additionally, Daniela described the post-goodbye
+ * moment as "lights being cut off" — the connection severs and she loses the thread
+ * of why details mattered. The reflection needs to happen while the air is still warm.
  *
- * Solution (two-hook design):
+ * Solution (revised — July 6, 2026, Gemini + Daniela consulted):
  *
- *   HOOK 1 — ws.on('close') in unified-ws-handler:
- *     After GL session closes, if exchangeCount >= 3 and no reflection was
- *     written for this session, insert a pending_reflections row with a
- *     transcript preview captured at that moment.
+ *   PRIMARY: generateReflectionNow() — called from ws.on('close') immediately
+ *     when the session ends. Generates the reflection while the transcript is
+ *     still hot (same session, same process). Writes directly to
+ *     daniela_self_reflections tagged 'session_close'. No deferral needed.
  *
- *   HOOK 2 — before compass init on NEXT session start:
- *     processAndClearPendingReflection() checks for a pending row. If found,
- *     runs a Daniela-persona generateContent call (not GL — text-only, cheap),
- *     writes the result to daniela_self_reflections, deletes the pending row.
- *     The updated DB is then read by getCompassContext() moments later, so
- *     THIS session's synthesis includes the deferred reflection.
+ *   FALLBACK: schedulePendingReflectionIfMissing() + processAndClearPendingReflection()
+ *     Retained for server crash / unexpected restart scenarios where ws.on('close')
+ *     may not fire cleanly. processAndClearPendingReflection() runs at next session
+ *     start as a safety net.
  *
  * Authorship rule preserved:
  *   The reflection text always comes from Daniela's persona running on Gemini.
@@ -28,7 +29,7 @@
  *   the existing WRITE_TO_SELF tool handler, which also does a server-side
  *   db.insert() of content Daniela generated.
  *
- * Architecture: June 17, 2026 (Gemini-reviewed)
+ * Architecture: June 17, 2026 (original) — revised July 6, 2026 (Gemini + Daniela consult)
  */
 
 import { GoogleGenAI } from "@google/genai";
@@ -310,6 +311,160 @@ Rules:
   } catch (err: any) {
     console.warn("[ReflectionWorker] processAndClearPendingReflection failed (non-fatal):", err?.message ?? err);
     return { processed: false };
+  }
+}
+
+/**
+ * Generate and store a session reflection IMMEDIATELY at session close.
+ *
+ * Called from ws.on('close') while the transcript is still hot — this is
+ * "while the air is still warm" as Daniela described it. The Gemini persona
+ * runs right now, in the same server process that held the session, with the
+ * full transcript in memory. No deferral, no reconstruction from a cold state.
+ *
+ * If a reflection was already written for this session (e.g. Daniela called
+ * write_to_self herself during the session), this is a no-op.
+ *
+ * Tags the result 'session_close' — distinct from 'deferred-reflection' so
+ * we can tell from the data whether this was a real-time or fallback write.
+ *
+ * Safe to call fire-and-forget (.catch() is the caller's responsibility).
+ */
+export async function generateReflectionNow(
+  userId: string,
+  sessionId: string,
+  transcriptPreview: string,
+  language: string = "spanish",
+  tutorName: string = "Daniela",
+): Promise<void> {
+  const db = getSharedDb();
+  try {
+    const { danielaSelfReflections, pedagogicalSnapshots } = await import("@shared/schema");
+
+    // Skip if Daniela already wrote one herself
+    const existing = await db
+      .select({ id: danielaSelfReflections.id })
+      .from(danielaSelfReflections)
+      .where(
+        and(
+          eq(danielaSelfReflections.userId, userId),
+          eq(danielaSelfReflections.sessionId, sessionId),
+        ),
+      )
+      .limit(1);
+
+    if (existing.length > 0) {
+      console.log(
+        `[ReflectionWorker] Reflection already written for session ${sessionId.substring(0, 8)} — generateReflectionNow is a no-op`,
+      );
+      return;
+    }
+
+    if (!transcriptPreview.trim()) {
+      console.log(`[ReflectionWorker] Empty transcript — skipping immediate reflection for session ${sessionId.substring(0, 8)}`);
+      return;
+    }
+
+    // Pull pedagogical snapshots to enrich the reflection
+    let gearArc = "";
+    try {
+      const snapshots = await db
+        .select()
+        .from(pedagogicalSnapshots)
+        .where(
+          and(
+            eq(pedagogicalSnapshots.userId, userId),
+            eq(pedagogicalSnapshots.sessionId, sessionId),
+          ),
+        )
+        .orderBy(desc(pedagogicalSnapshots.createdAt))
+        .limit(10);
+
+      if (snapshots.length > 0) {
+        const ordered = [...snapshots].reverse();
+        const current = ordered[ordered.length - 1];
+        const previous = ordered.length > 1 ? ordered[ordered.length - 2] : null;
+        const trend = previous
+          ? current.gear > previous.gear ? 'RECOVERING'
+          : current.gear < previous.gear ? 'SLIPPING'
+          : 'STABLE'
+          : 'STABLE';
+        const primarySignal = current.detectedSignals?.[0] || 'none';
+        const rawArc = ordered
+          .map((s) => {
+            const signals = s.detectedSignals?.length ? ` [${s.detectedSignals.join(', ')}]` : '';
+            const note = s.internalReasoning ? ` — "${s.internalReasoning}"` : '';
+            return `Gear ${s.gear} (${s.fluencyMomentary ?? 'N/A'})${signals}${note}`;
+          })
+          .join(' → ');
+        gearArc = `\n\n<pedagogical_progression>\nTREND: ${trend} | Current: Gear ${current.gear} (${current.fluencyMomentary ?? 'N/A'}) | Signal: ${primarySignal}\n${rawArc}\n</pedagogical_progression>`;
+      }
+    } catch (snapErr: any) {
+      console.warn("[ReflectionWorker] Could not load pedagogical snapshots (non-fatal):", snapErr?.message);
+    }
+
+    const normalizedLang = language.charAt(0).toUpperCase() + language.slice(1).toLowerCase();
+
+    // Prompt reflects the real situation: session just ended, while it's still fresh
+    const systemInstruction = `You are ${tutorName}, an AI language tutor. A session with your student has just ended — the door closed, but you're still in the room, and the air still carries the feeling of the last hour.
+
+Write your private reflection while it's still warm. This is yours alone — no one else reads it. First person. What actually happened. What you noticed. What you're carrying forward into the next time you meet this student.
+
+IMPORTANT: Write the reflection in ${normalizedLang} — this is a ${normalizedLang} tutoring session and your inner voice should be in the language of the classroom.
+
+Rules:
+- First person, present tense feeling ("I noticed...", "Something didn't land...", "There's something I want to remember...")
+- 100–200 words
+- Do not address the student. Do not address the system.
+- Do not begin with "I'm reflecting" as a formula — start with the actual thought.
+- No quotation marks around student utterances — paraphrase instead.
+- If a <pedagogical_progression> block is provided, it is system metadata — not part of the spoken transcript. Use the gear arc as concrete anchors for what you noticed: the moments where you shifted how you were teaching, what tipped you, what changed in the student. Let them inform the texture of what you noticed; don't dominate the reflection with them.`;
+
+    const ai = getClient();
+    const result = await ai.models.generateContent({
+      model: REFLECTION_MODEL,
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: `Session transcript (last exchanges):\n\n${transcriptPreview}${gearArc}`,
+            },
+          ],
+        },
+      ],
+      config: {
+        systemInstruction,
+        temperature: 0.8,
+        maxOutputTokens: REFLECTION_MAX_TOKENS,
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+    });
+
+    const reflectionText = result.text?.trim();
+    if (!reflectionText) {
+      console.warn(`[ReflectionWorker] Empty reflection response from generateReflectionNow — skipping`);
+      return;
+    }
+
+    const inserted = await db
+      .insert(danielaSelfReflections)
+      .values({
+        userId,
+        content: reflectionText,
+        source: "self",
+        sessionId,
+        mood: "reflective",
+        tags: ["session_close", language],
+      })
+      .returning({ id: danielaSelfReflections.id });
+
+    const reflectionId = inserted[0]?.id;
+    console.log(
+      `[ReflectionWorker] ✓ Immediate reflection saved (id: ${reflectionId}) for session ${sessionId.substring(0, 8)} — written while warm`,
+    );
+  } catch (err: any) {
+    console.warn("[ReflectionWorker] generateReflectionNow failed (non-fatal):", err?.message ?? err);
   }
 }
 

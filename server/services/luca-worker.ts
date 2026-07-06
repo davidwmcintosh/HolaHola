@@ -318,7 +318,7 @@ export async function buildLucaBriefing(): Promise<string> {
   try {
     const teamRoom = await db
       .select({
-        role: agentCollabMessages.role,
+        author: agentCollabMessages.author,
         content: agentCollabMessages.content,
         createdAt: agentCollabMessages.createdAt,
       })
@@ -329,7 +329,7 @@ export async function buildLucaBriefing(): Promise<string> {
     if (teamRoom.length > 0) {
       const chronological = [...teamRoom].reverse();
       const lines = chronological.map(m => {
-        const speaker = String(m.role || 'system').toUpperCase();
+        const speaker = String(m.author || 'system').toUpperCase();
         const preview = (m.content || '').substring(0, 180).replace(/\n+/g, ' ');
         return `  [${speaker}] ${preview}`;
       });
