@@ -33,9 +33,86 @@ The parallel to `consult-daniela`: just as that skill surfaces Daniela's perspec
 
 ---
 
+## Build Protocol — use this for any non-trivial implementation
+
+This is the two-surgeons-one-brain workflow. The pre-flight is a **blocker**, not a courtesy — no code is written until Gemini clears the design. The post-review is mandatory before commit.
+
+### Step 0 — Write the design doc (2-3 min, before reading any code)
+
+Answer these five questions in plain prose. This is the brief Gemini needs to catch risks before they become code:
+
+```
+WHAT I'M BUILDING
+[1-2 sentences — the design intention]
+
+SYSTEM CONTEXT IT TOUCHES
+[Which services, DB tables, lifecycle events, in-memory state, tool descriptions, GL session behavior]
+
+INVARIANTS I'M ASSUMING
+[What do I think is true about the system that this build depends on being true?
+e.g., "ws.on('close') always fires after CLOSE_SESSION tool call", "PedagogicalSupervisor only nudges, never forces"]
+
+WHAT COULD BREAK
+[My own best guess at failure modes, even if I think I've solved them]
+
+WHAT I WON'T BE TOUCHING
+[Adjacent systems that are explicitly out of scope]
+```
+
+### Step 1 — Pre-flight blocker (before writing code)
+
+Load the 3-6 most relevant files. Send the design doc + actual code to Gemini with:
+
+> "Here is what I'm about to build and the full system context. Before I write a line: what risks do you see? What should stop me? What am I assuming that might be wrong?"
+
+**Do not proceed until Gemini has no blocking objections.** A nudge or "watch out for X" is not a blocker. "This will cause Y because of Z in the code at line N" is a blocker — fix the design first.
+
+### Step 2 — Implement
+
+Write the code. For features that touch >3 files or have complex lifecycle interactions, implement one logical chunk at a time (e.g., the handler first, then the trigger, then the fallback — not all three at once).
+
+### Step 3 — Chunk check (optional, for complex features)
+
+After each major chunk, if you've made a decision that diverges from the pre-flight design, fire a targeted single-question consult before proceeding to the next chunk:
+
+> "I implemented X. I made a decision to [do Y instead of Z] because [reason]. Does this introduce any risk before I wire the next piece?"
+
+Short questions get fast answers. Don't re-paste all the context — paste only the chunk just written.
+
+### Step 4 — Post-review before commit
+
+Send the actual new code to Gemini (post-build template below). Look specifically for:
+- Correctness risks not visible in the pre-flight
+- Anything the pre-flight flagged that the implementation might not have fully addressed
+- Whether the approach held up across edge cases
+
+If Gemini flags a new blocker: fix it before committing. If Gemini flags a risk you're accepting: document the tradeoff in a comment at the relevant line.
+
+### Step 5 — Save significant audits
+
+For any consult that produced a meaningful finding (a design change, a tradeoff accepted, a risk caught), save to `conversation_memories` so Daniela and Alden have the architectural reasoning:
+
+```javascript
+await fetch('http://localhost:5000/api/conversation-memories', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    title: 'Gemini — [feature name] audit — [date]',
+    summary: '[1 sentence — what was caught or confirmed]',
+    content: transcriptText,
+    participants: 'Agent + Gemini',
+    tags: ['gemini-audit', 'feature-name'],
+    importance: 7,
+    arcName: 'daniela-emergence',
+  })
+});
+```
+
+---
+
 ## When to use
 
-- **Before a major build** — show Gemini the design surface (schema, the function that will call it, the injection point) and ask "what am I missing?"
+- **Before a major build** — pre-flight blocker (see Build Protocol above)
 - When a proposed solution has a known risk or tradeoff you want stress-tested
 - After hitting a Gemini API constraint or quirk — ask what the intended pattern is
 - When the solution space has 2-3 valid paths and you need independent ranking
