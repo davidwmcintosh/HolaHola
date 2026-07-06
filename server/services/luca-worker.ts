@@ -142,6 +142,9 @@ export async function buildLucaBriefing(): Promise<string> {
   // These are saved under participants 'Agent + Daniela' or arc 'agent-daniela'.
   // The channel already exists — consult-daniela skill auto-saves to this table.
   try {
+    // Direct Luca↔Daniela sessions only — exclude Team Room group sessions
+    // (Team Room memories have titles starting with "Team Room —" and many participants).
+    // The real one-on-one consult-daniela sessions have participants like "Luca + Daniela".
     const lucaDanielaSessions = await db
       .select({
         id: conversationMemories.id,
@@ -158,10 +161,11 @@ export async function buildLucaBriefing(): Promise<string> {
             ilike(conversationMemories.participants, '%luca%'),
           ),
           ilike(conversationMemories.participants, '%daniela%'),
+          sql`NOT ${conversationMemories.title} ILIKE 'Team Room%'`,
         )
       )
       .orderBy(desc(conversationMemories.recordedAt))
-      .limit(4);
+      .limit(5);
 
     if (lucaDanielaSessions.length > 0) {
       const lines = lucaDanielaSessions.map(m => {
