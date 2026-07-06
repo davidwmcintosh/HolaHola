@@ -1173,6 +1173,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         return;
       }
       if (!this.pendingDirectiveText) return;
+      // Placement assessment active — flush any stored directive and stay silent.
+      // Supervisor nudges are noise during assessment; heartbeat delivering one
+      // mid-placement would break the "Daniela is just listening" dynamic.
+      if ((this.session as any).placementMode?.active) {
+        this.pendingDirectiveText = null;
+        return;
+      }
       const silenceMs = Date.now() - this.lastGenerationCompleteTime;
       if (silenceMs < 15000) return; // wait until ≥15 s of silence
       if (this.isTutorGeneratingAudio) return; // Daniela is mid-response — skip this tick
@@ -1886,14 +1893,19 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       if (this.currentTurnThoughtBuffer) {
         const thoughtSnippet = this.currentTurnThoughtBuffer.slice(0, 200);
         console.log(`[GeminiLive] Daniela thought (${this.currentTurnThoughtBuffer.length} chars, phase=${this.session.currentSessionPhase ?? 'unknown'}): ${thoughtSnippet}${this.currentTurnThoughtBuffer.length > 200 ? '...' : ''}`);
-        const thoughtDirective = evaluatePedagogicalState(this.session, this.currentTurnThoughtBuffer);
-        if (thoughtDirective) {
-          // Store on instance — heartbeat will deliver it if student goes silent
-          // before the next tool call can carry it. The tool-response path will
-          // also consume and clear it if a tool call happens first.
-          this.pendingDirectiveText = thoughtDirective.directive;
-          this.pendingDirectiveUrgency = thoughtDirective.urgency;
-          console.log(`[GeminiLive] PedagogicalSupervisor [${thoughtDirective.urgency}] thought-directive stored for heartbeat/tool delivery`);
+        if (!(this.session as any).placementMode?.active) {
+          // Suppress Supervisor during placement — phase/phase-mismatch signals are noise
+          // when Daniela is sampling language rather than teaching. She handles difficulty
+          // naturally as part of the assessment without system-level intervention.
+          const thoughtDirective = evaluatePedagogicalState(this.session, this.currentTurnThoughtBuffer);
+          if (thoughtDirective) {
+            // Store on instance — heartbeat will deliver it if student goes silent
+            // before the next tool call can carry it. The tool-response path will
+            // also consume and clear it if a tool call happens first.
+            this.pendingDirectiveText = thoughtDirective.directive;
+            this.pendingDirectiveUrgency = thoughtDirective.urgency;
+            console.log(`[GeminiLive] PedagogicalSupervisor [${thoughtDirective.urgency}] thought-directive stored for heartbeat/tool delivery`);
+          }
         }
       }
       this.currentTurnThoughtBuffer = '';
@@ -2396,7 +2408,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // is higher-quality than the sendClientContent heartbeat channel.
       if (responses.length > 0) {
         let pedagogicalDirective: { directive: string; urgency: 'emergency' | 'nudge' } | null = null;
-        if (this.pendingDirectiveText) {
+        if ((this.session as any).placementMode?.active) {
+          // Placement assessment in progress — suppress all Supervisor directives.
+          // Phase nudges (COOL_DOWN at min 15, death spiral) are false signals here;
+          // clearing pendingDirectiveText ensures nothing stored from thought stream fires either.
+          this.pendingDirectiveText = null;
+        } else if (this.pendingDirectiveText) {
           // Thought-directive already evaluated — deliver via tool response (best channel)
           pedagogicalDirective = { directive: this.pendingDirectiveText, urgency: this.pendingDirectiveUrgency };
           this.pendingDirectiveText = null; // consumed — heartbeat will not fire

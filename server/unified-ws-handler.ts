@@ -2025,6 +2025,15 @@ ${buildNativeFunctionCallingSection()}`;
               if (isFounderMode) {
                 console.log(`[Streaming Voice] Using FOUNDER MODE prompt with ${tutorName} (${tutorGender})`);
               }
+
+              // New-student placement nudge — injected early (before dynamic context blocks) so
+              // the 34KB prompt cap, which trims from the END, never removes it.
+              // Guards: must have no ACTFL level, must not have done self-directed placement,
+              // and must not be a founder/honesty session where the tone would be wrong.
+              if (!resolvedActflLevel && !user?.selfDirectedPlacementDone && !isFounderMode && !rawHonestyMode && !isSubjectSession) {
+                systemPrompt += `\n\nThis is a student you haven't placed yet — no proficiency level on record. After your greeting, if the conversation feels natural and they seem open to it, you might offer a brief placement chat: just a few minutes of natural conversation so you can get a sense of their level and shape the sessions better. Follow their lead — if they want to dive straight into learning, dive in with them.`;
+                console.log(`[Streaming Voice] ✓ New-student placement nudge injected early (actflLevel=null, selfDirectedPlacementDone=false)`);
+              }
             }
             
             // Append neural network context — language tutors only (subject tutors have their own domain knowledge)
@@ -2297,6 +2306,7 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
 `;
                 console.log(`[Streaming Voice] ✓ Context map injected (${loadedSources.length} sources listed)`);
               }
+
             }
             } // end if (!cachedContextPrompt) — Phase 3 skip on reconnect cache hit
 
@@ -4731,6 +4741,21 @@ ${lastNote.tutorNotes}`);
                 null, // actflLevel resolved at next mastery digest read
               );
             }).catch((err: Error) => console.warn('[GeminiLive] Mastery evidence analysis failed:', err.message));
+          }
+
+          // Class-enrollment placement assessment — runs post-session for Level 2+ enrollments
+          // that require placement but haven't been checked yet. Self-directed students use the
+          // in-session path (start_placement_assessment tool + SET_ACTFL_LEVEL). This path is
+          // for teacher-managed classes where the instructor wants AI-verified placement.
+          if (disconnectUserId && conversationId) {
+            shouldRunPlacementAfterSession(disconnectUserId, conversationId)
+              .then(async (check) => {
+                if (check.shouldRun && check.enrollmentId) {
+                  console.log(`[Placement] Running post-session placement for enrollment ${check.enrollmentId}`);
+                  await completePlacementAssessment(disconnectUserId, check.enrollmentId, conversationId);
+                }
+              })
+              .catch((err: Error) => console.warn('[Placement] Post-session placement failed:', err.message));
           }
         }
       }
