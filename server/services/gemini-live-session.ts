@@ -1273,6 +1273,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           userId: this.session.userId,
           conversationId: this.session.conversationId,
           targetLanguage: this.session.targetLanguage,
+          isFounderMode: !!(this.session as any).isFounderMode,
+          isHonestyMode: !!(this.session as any).isRawHonestyMode,
         }).catch(err =>
           console.warn('[GeminiLive] Shadow audit error:', err.message)
         );
@@ -2309,20 +2311,41 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         const sessionElapsedMs = Date.now() - (this.session.startTime || Date.now());
         const sessionElapsedMin = Math.floor(sessionElapsedMs / 60000);
         const isPlacementActive = !!(this.session as any).placementMode?.active;
-        // Gap 4 fix: don't tell Daniela to close the session if placement is still running.
-        // Advanced students may take 20+ min of probing to place accurately.
-        const temporalNote = sessionElapsedMin >= 25
-          ? isPlacementActive
-            ? `Session clock: ~${sessionElapsedMin} min in. Placement assessment in progress — continue probing until set_actfl_level is called. Do not pivot toward a close.`
-            : `Session clock: ~${sessionElapsedMin} min in. Begin pivoting toward a natural close — name today's wins, set a cliffhanger that makes them want to come back. Don't start new grammar topics.`
+        const isFounderMode = !!(this.session as any).isFounderMode;
+        const isRawHonestyMode = !!(this.session as any).isRawHonestyMode;
+        // Clock whisper — mode-aware:
+        // Placement: no close until set_actfl_level called.
+        // Founder: extend to 45 min; wrap up product decisions, not language wins.
+        // Honesty: end as a friend, no tutoring recap.
+        // Default: standard language session wind-down at 25 min.
+        const founderWindDown = isFounderMode && sessionElapsedMin >= 45;
+        const defaultWindDown = !isFounderMode && sessionElapsedMin >= 25;
+        const temporalNote = isPlacementActive
+          ? `Session clock: ~${sessionElapsedMin} min in. Placement assessment in progress — continue probing until set_actfl_level is called. Do not pivot toward a close.`
+          : founderWindDown
+          ? `Session clock: ~${sessionElapsedMin} min in. Begin wrapping up — summarize the key product decisions and next steps from today's conversation, then wind down naturally.`
+          : isRawHonestyMode && defaultWindDown
+          ? `Session clock: ~${sessionElapsedMin} min in. End the conversation naturally, as a friend would. No tutoring recap or language wins summary.`
+          : defaultWindDown
+          ? `Session clock: ~${sessionElapsedMin} min in. Begin pivoting toward a natural close — name today's wins, set a cliffhanger that makes them want to come back. Don't start new grammar topics.`
           : `Session clock: ~${sessionElapsedMin} min in.`;
 
         // Friction Score: append rolling hesitation + word-density signal so Daniela
         // can auto-adjust CEFR level and pacing without being told explicitly.
-        // Gap 1 fix: suppressed during placement — intentional probing above the student's level
-        // generates HIGH friction by design (long pauses, short answers). Sending "simplify"
-        // during assessment directly contradicts the probing protocol.
-        const frictionSignal = isPlacementActive ? '' : this.buildFrictionSignal();
+        // Suppressed / overridden in exception states:
+        // - Placement: probing generates HIGH friction by design; "simplify" contradicts the protocol.
+        // - Founder: long pauses = deep thinking, not language struggle; signal would be patronizing.
+        // - Honesty: high friction IS the goal — student working without scaffolding. "Simplify" breaks the mode.
+        //   Instead inject a positive reminder: silence is part of the experience.
+        const frictionSignal = (isPlacementActive || isFounderMode)
+          ? ''
+          : isRawHonestyMode
+          ? (() => {
+              const raw = this.buildFrictionSignal();
+              // Replace the "Encourage and slow down" instruction with the honesty-mode equivalent
+              return raw ? raw.replace(/Encourage and slow down\.[^.]*\./g, 'Stay silent — the student is working. Do not scaffold or prompt.') : '';
+            })()
+          : this.buildFrictionSignal();
 
         (last.response as any).result = currentResult
           + (currentResult ? '\n\n' : '')
