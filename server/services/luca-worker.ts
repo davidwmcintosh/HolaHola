@@ -138,14 +138,11 @@ export async function buildLucaBriefing(): Promise<string> {
     console.warn('[LucaWorker] Open questions fetch failed:', err.message);
   }
 
-  // ── 4. Luca ↔ Daniela exchanges (consult-daniela sessions) ─────────────
-  // These are saved under participants 'Agent + Daniela' or arc 'agent-daniela'.
-  // The channel already exists — consult-daniela skill auto-saves to this table.
+  // ── 4a. Luca ↔ Daniela — direct consult sessions ────────────────────────
+  // One-on-one: consult-daniela skill sessions, episode shares, architecture consults.
+  // Excludes Team Room group sessions (handled separately in 4b).
   try {
-    // Direct Luca↔Daniela sessions only — exclude Team Room group sessions
-    // (Team Room memories have titles starting with "Team Room —" and many participants).
-    // The real one-on-one consult-daniela sessions have participants like "Luca + Daniela".
-    const lucaDanielaSessions = await db
+    const directSessions = await db
       .select({
         id: conversationMemories.id,
         title: conversationMemories.title,
@@ -167,20 +164,57 @@ export async function buildLucaBriefing(): Promise<string> {
       .orderBy(desc(conversationMemories.recordedAt))
       .limit(5);
 
-    if (lucaDanielaSessions.length > 0) {
-      const lines = lucaDanielaSessions.map(m => {
+    if (directSessions.length > 0) {
+      const lines = directSessions.map(m => {
         const when = m.recordedAt
           ? new Date(m.recordedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
           : '';
         const summary = (m.summary || '').substring(0, 200).replace(/\n+/g, ' ');
         return `  [${when} · ${m.arcName || 'no arc'} · ${m.id}] ${m.title}\n  ${summary}`;
       });
-      sections.push(`Luca ↔ Daniela conversations (${lucaDanielaSessions.length})\n${lines.join('\n\n')}`);
+      sections.push(`Luca ↔ Daniela — direct consults (${directSessions.length})\n${lines.join('\n\n')}`);
     } else {
-      sections.push(`Luca ↔ Daniela conversations — none yet. Use consult-daniela skill to start one. It saves automatically.`);
+      sections.push(`Luca ↔ Daniela — direct consults — none yet. Use consult-daniela skill to start one.`);
     }
   } catch (err: any) {
-    console.warn('[LucaWorker] Luca↔Daniela sessions fetch failed:', err.message);
+    console.warn('[LucaWorker] Direct Daniela sessions fetch failed:', err.message);
+  }
+
+  // ── 4b. Team Room — recent sessions with Luca + Daniela both present ────
+  try {
+    const teamRoomSessions = await db
+      .select({
+        id: conversationMemories.id,
+        title: conversationMemories.title,
+        summary: conversationMemories.summary,
+        recordedAt: conversationMemories.recordedAt,
+      })
+      .from(conversationMemories)
+      .where(
+        and(
+          ilike(conversationMemories.title, 'Team Room%'),
+          or(
+            ilike(conversationMemories.participants, '%agent%'),
+            ilike(conversationMemories.participants, '%luca%'),
+          ),
+          ilike(conversationMemories.participants, '%daniela%'),
+        )
+      )
+      .orderBy(desc(conversationMemories.recordedAt))
+      .limit(3);
+
+    if (teamRoomSessions.length > 0) {
+      const lines = teamRoomSessions.map(m => {
+        const when = m.recordedAt
+          ? new Date(m.recordedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : '';
+        const summary = (m.summary || '').substring(0, 150).replace(/\n+/g, ' ');
+        return `  [${when} · ${m.id}] ${m.title}\n  ${summary}`;
+      });
+      sections.push(`Team Room — recent (${teamRoomSessions.length})\n${lines.join('\n\n')}`);
+    }
+  } catch (err: any) {
+    console.warn('[LucaWorker] Team Room sessions fetch failed:', err.message);
   }
 
   // ── 5. Luca reflections (private, between sessions) ───────────────────
