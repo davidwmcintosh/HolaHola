@@ -36514,5 +36514,39 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // ── Luca Worker ────────────────────────────────────────────────────────────
+  // GET /api/luca/briefing — session-start briefing assembled from HolaHola's DB
+  // Returns everything relevant: recent memories, unread notes, open questions,
+  // Daniela's recent sessions, Team Room, commits. Native context, not imported.
+  app.get("/api/luca/briefing", requireAgentToken, async (_req: Request, res: Response) => {
+    try {
+      const { buildLucaBriefing } = await import('./services/luca-worker');
+      const briefing = await buildLucaBriefing();
+      res.json({ ok: true, briefing });
+    } catch (err: any) {
+      console.error('[LucaWorker] Briefing failed:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // POST /api/luca/task — mid-session task delegation
+  // Luca hands off work (save memory, append episode, write file, flag question,
+  // post note) and stays present in the conversation instead of switching modes.
+  // Body: { type, data } — see LucaTask type in luca-worker.ts
+  app.post("/api/luca/task", requireAgentToken, async (req: Request, res: Response) => {
+    try {
+      const { executeLucaTask } = await import('./services/luca-worker');
+      const task = req.body;
+      if (!task?.type) {
+        return res.status(400).json({ error: 'task.type is required' });
+      }
+      const result = await executeLucaTask(task);
+      res.json(result);
+    } catch (err: any) {
+      console.error('[LucaWorker] Task execution failed:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
     // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }
