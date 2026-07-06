@@ -61,6 +61,7 @@ AI-powered language learning app — interactive conversation practice, vocabula
 
 ## Session Start Checklist
 Read these at every session start — they carry cross-session state:
+0. **`GET /api/luca/briefing` (x-agent-token: $REPLIT_AGENT_TOKEN) — Luca Worker native briefing. Do this FIRST. Assembles memories, unread notes, open questions, Daniela's recent sessions, North Star, Record of David, Team Room, commits — all in one call. No external file reading needed for orientation.**
 1. `docs/alden-agent-handoff.md` — bidirectional briefing with Alden
 2. `.local/alden-repairs.md` — Alden's autonomous fixes since last session
 3. `.local/alden-escalations.md` — issues Alden couldn't auto-repair (needs Agent)

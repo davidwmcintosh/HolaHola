@@ -8,7 +8,6 @@ const apiKey = process.env.USER_OPENAI_API_KEY;
 
 console.log('\n🔍 Testing Realtime API Access\n');
 console.log('API Key exists:', !!apiKey);
-console.log('API Key prefix:', apiKey?.substring(0, 10) + '...');
 console.log('\nTesting model: gpt-4o-mini-realtime-preview-2025-09-25\n');
 
 async function testRealtimeAccess() {

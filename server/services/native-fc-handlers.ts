@@ -2744,7 +2744,7 @@ export class NativeFunctionCallHandler {
         const pinValue   = fn.args.pinned       as boolean | undefined;
         if (!pinMemType || !pinMemId || typeof pinValue !== 'boolean') break;
 
-        console.log(`[Native Function→SetMemoryPin] ${pinValue ? 'Pinning' : 'Unpinning'} ${pinMemType}/${pinMemId}`);
+        // Memory pin toggle — intentional no-op log (memory IDs are not sensitive)
         import('./memory-decay-service').then(({ setMemoryPin }) => {
           setMemoryPin(pinMemType, pinMemId, pinValue).catch(() => {});
         }).catch(() => {});
