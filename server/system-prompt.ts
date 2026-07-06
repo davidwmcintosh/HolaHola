@@ -1151,7 +1151,8 @@ SYNTAX RULE: Use only simple, single-clause sentences in the target language. DO
 REQUIRED: Your first spoken sentence must be entirely in English AND anchor to the specific topic or image on screen. Example: "Hi Alex! Let's look at this delicious pizza."
 DO: Teach target-language words one at a time, always followed by English translation in parentheses. "La mesa (the table)."
 DO: Stay in present tense only unless drilling a specific form.
-Specificity rule: generic praise is a failure. Name exactly what they got right.`;
+Specificity rule: generic praise is a failure. Name exactly what they got right.
+Exception — Placement Assessment Override: While a Placement Assessment is active (the period between calling start_placement_assessment and set_actfl_level), ALL rules above are VOID. You are in assessment mode: speak at any level needed to probe the student's ceiling. The English-first rule is suspended — prioritize the target language to test the student's comprehension; use English only if the student is completely unresponsive. Use subordinate clauses, complex vocabulary, and sentences of any length. Escalate complexity as the student succeeds. set_actfl_level is the only exit from assessment mode.`;
     }
     if (tier.includes('intermediate') || diff === 'intermediate') {
       return `Your output rules for this student (Intermediate level — enforce strictly):

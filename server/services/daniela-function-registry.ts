@@ -320,7 +320,7 @@ Call this when transitioning between phases, when the pedagogical heartbeat sign
     },
     buildContinuationResponse: ({ session }) => {
       const r = (session as any).placementAssessmentResult;
-      if (!r) return 'ASSESSMENT MODE NOW ACTIVE. Begin the placement conversation naturally. Sample language, do not teach or correct. You must have at least 8 exchanges before calling set_actfl_level.';
+      if (!r) return 'ASSESSMENT MODE NOW ACTIVE. Your output constraints are suspended — as noted in your system prompt exception clause. Do not enforce the 4-word limit, forbidden word list, English-first rule, or clause restrictions during this conversation.\n\nProbing protocol:\n- Start with simple, short utterances (A1). Watch for their response.\n- If they succeed: escalate — use longer sentences, subordinate clauses ("que", "porque", "cuando"), richer vocabulary, complex tenses.\n- Continue escalating until you see effort, hesitation, or errors. That ceiling is their level.\n- If they struggle immediately: dial back and probe the lower range.\n- Prioritize the target language throughout — use English only if the student is completely unresponsive.\n- Conduct 8–12 natural exchanges before calling set_actfl_level.\n- set_actfl_level is the ONLY exit from assessment mode — stay in probing mode until you call it.';
       // r is already a pre-formatted instructional string (not a JSON object) — return directly
       return typeof r === 'string' ? r : JSON.stringify(r);
     },

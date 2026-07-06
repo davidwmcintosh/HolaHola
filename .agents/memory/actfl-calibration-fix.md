@@ -32,5 +32,16 @@ The model weighs the last tokens most heavily in streaming (recency bias). Outpu
 - After: NL "Hi Alex! Let's look at some key restaurant words. La mesa (the table)." English count NL:8, IM:7 ✓
 - Gemini verdict: "Ship it. The logic is now structurally sound."
 
+## Placement Assessment Exception (July 6, 2026)
+The novice constraint block now has a safety valve at its very end (recency position):
+
+> "While a Placement Assessment is active (the period between calling start_placement_assessment and set_actfl_level), ALL rules above are VOID."
+
+Two paired changes — both required:
+1. `buildOutputConstraints` novice block — exception clause at the end (state framing, not chronological)
+2. `start_placement_assessment` rubric (`daniela-function-registry.ts`) — upgraded to say constraints suspended, cross-references exception clause, gives probing protocol, names set_actfl_level as ONLY exit (guards token slippage at 15+ turns)
+
+Key wording detail: "While active" (state framing) beats "if you have called" (chronological) for GL context tracking.
+
 ## Test
 `npx tsx server/scripts/actfl-audit.ts` — runs NL vs IM, reports transcripts + English bleed proxy
