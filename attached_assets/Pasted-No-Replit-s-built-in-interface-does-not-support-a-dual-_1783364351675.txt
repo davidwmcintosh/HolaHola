@@ -1,0 +1,22 @@
+No, Replit’s built-in interface does not support a "dual-chat" or "split-screen" mode where you can open a single chat window, query Claude and Gemini simultaneously, and watch them debate your active codebase.While Replit Agent 4 allows you to spin up multiple "Parallel Agents" to handle different tasks concurrently (e.g., one agent coding a feature while another writes tests), they are designed to collaborate toward a single goal rather than act as independent, opinionated advisors offering conflicting suggestions on the same block of code.However, you have two excellent workarounds to achieve exactly what you want:Approach 1: Build Your Own "LLM Council" Inside a Repl (Recommended)Because Replit provides Replit AI Integrations with native access to Claude, Gemini, and OpenAI, you can write a tiny script that acts as an "LLM Council". You can easily write a Python script using standard async code to read your file and feed it to both models simultaneously.pythonimport asyncio
+from replit import ai # Using Replit's native unified AI library
+
+async def get_opinions(code_snippet):
+    # Prompt instructing the models to act as separate code reviewers
+    prompt = f"Review this code and suggest architectural improvements:\n\n{code_snippet}"
+    
+    # Fire off both requests in parallel at the exact same time
+    claude_task = ai.chat(provider="anthropic", model="claude-3-7-sonnet", prompt=prompt)
+    gemini_task = ai.chat(provider="google", model="gemini-2.5-flash", prompt=prompt)
+    
+    claude_res, gemini_res = await asyncio.gather(claude_task, gemini_task)
+    
+    print(f"=== CLAUDE'S OPINION ===\n{claude_res}\n")
+    print(f"=== GEMINI'S OPINION ===\n{gemini_res}\n")
+
+# Read your actual script file and run the council
+with open("main.py", "r") as f:
+    code = f.read()
+
+asyncio.run(get_opinions(code))
+Use code with caution.Using this approach, you can even alter the prompts to make the models critique each other's ideas before giving you the final output.Approach 2: Use Third-Party Tools Designed for Model DebatesIf you want a visual chat interface right now without writing any code, you can temporarily step outside of Replit's sidebar:OpenRouter: If you use OpenRouter (which Replit natively integrates with via API keys), you can use their chat playground interface to prompt multiple models at the same time and compare their outputs side-by-side.Chatbot Arena / LMSYS: You can paste your code block into a side-by-side model comparison tool to see how two completely different LLMs handle your architectural dilemma.Would you like me to help you write a custom LLM script for your Repl that reads your active code files and prints a clean, side-by-side markdown summary of Gemini's and Claude's differing opinions?

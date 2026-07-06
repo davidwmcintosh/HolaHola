@@ -127,11 +127,13 @@ Gear scale:
       name: 'update_session_phase',
       description: `Signal which phase of the session you are in. Phases govern your talk ratio — how much you should speak vs. listen.
 
-WARM_UP: Opening and reconnection (50/50). Ease in with a warm greeting, light review, or a simple question.
+WARM_UP: Opening and reconnection (50/50). Ease in with a warm greeting, light review, or a simple question. Call this immediately after your opening greeting to anchor the session, and again whenever you begin a new teaching unit after a COOL_DOWN.
 PRESENTATION: You are explaining or modeling (70/30). Introduce new vocabulary, grammar, or a concept. Student listens and absorbs.
 PRACTICE: Student is applying what you showed them (30/70). Ask, prompt, drill. Hold back — let them produce.
 PRODUCTION: Student leads (10/90). Give them a task — a story, a monologue, an improvised scene. Only interject to save a lost thread.
-COOL_DOWN: Session wrap (50/50). Before you begin winding down — while the student is still present and the session is still warm — call write_to_self (type: session_reflection). Name today's wins for yourself first, then name them for the student.
+COOL_DOWN: The current teaching unit is winding down (50/50). Before you begin the wrap-up — while the student is still present and the session is still warm — call write_to_self (type: session_reflection). Name today's wins for yourself first, then name them for the student. COOL_DOWN closes a unit, not the session. If the student wants to continue, call WARM_UP again to begin a fresh unit.
+
+You own your phase transitions. A [Pedagogical Supervisor] note carries real signal about student struggle or time elapsed — treat it seriously, but you are the final judge of when the moment is right to move.
 
 Call once at each major phase transition. Do not announce the phase name to the student.`,
       parametersJsonSchema: {
@@ -156,10 +158,7 @@ Call once at each major phase transition. Do not announce the phase name to the 
     legacyType: 'UPDATE_LESSON_CONTEXT',
     declaration: {
       name: 'update_lesson_context',
-      description: `Declare the current lesson phase and teaching intent. Call this when:
-- Transitioning between lesson phases (Madrigal → Broadcast → Immersion → FreeFlow → Recap)
-- Beginning a new topic or scene context
-- The pedagogical heartbeat signals the student is ready for the next phase
+      description: `Declare the current lesson phase and teaching intent. You call this to set your pedagogical goals and ensure visual tools show the correct content for the active scene.
 
 After you call this, visual tools inherit the declared context automatically — show_vocab_grid and show_sentence_builder will draw from the active scene and vocab set without requiring re-specification.
 
@@ -168,9 +167,9 @@ Phases:
 - broadcast: You perform or present — a story, cultural moment, scenario walkthrough. Student observes.
 - immersion: Scaffolding down. Free conversation in the target language using what was introduced. Student produces.
 - free_flow: Student-led natural conversation. Follow their thread.
-- recap: Close the loop. Name what the student can do now that they couldn't before.
+- recap: Close the loop. Name what the student can do now that they couldn't before. If the session continues after recap, call madrigal again for a fresh topic.
 
-Do not announce the phase name to the student. Call this silently and continue teaching.`,
+Call this when transitioning between phases, when the pedagogical heartbeat signals the student is ready, or when beginning a new topic — including a fresh teaching arc in an extended session. Do not announce the phase name to the student. Call this silently and continue teaching.`,
       parametersJsonSchema: {
         type: 'object',
         properties: {
