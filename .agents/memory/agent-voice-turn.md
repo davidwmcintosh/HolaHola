@@ -62,6 +62,16 @@ The `agentVoiceSessions` Map now stores `lessonContext: { phase, scene, vocab[],
 - At turn start, if `lessonContext` has state, a `[Lesson context — carry forward from previous turns]` block is appended to the system prompt
 - This mirrors what `pendingGlContext`/`pushLessonStatusContext` does in real WS sessions
 
+## GL cold-start problem (confirmed Jul 6, 2026)
+
+The **first GL session after any server restart** almost always times out (~90s). This is a GL runner warmup issue on Google's server side — NOT a rate limit, NOT quota.
+
+**Evidence:** Turn 2 with a fresh isolated session ID succeeded in 5.1s *immediately* after Turn 1's 90s timeout. A true RPM limit would have blocked Turn 2 just as hard. Across multiple restarts the pattern held: first session hangs, all subsequent sessions respond in 5-7s.
+
+**Workaround:** After a server restart, expect the first call to time out. Just retry — the second call will work immediately. No wait needed between the timeout and the retry.
+
+**What "cold-start" looks like in logs:** `GL onopen fired ✓` and `GL connect resolved ✓` appear (the WebSocket connects), then silence until the 90s timer fires. GL accepts the connection but the model runner on Google's side isn't ready to generate responses yet.
+
 ## Validated arc (Session 004 — Jul 3, 2026)
 
 Clean 3-turn test on session `arc-clean-1783040995`:
