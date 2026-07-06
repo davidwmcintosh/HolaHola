@@ -131,7 +131,7 @@ WARM_UP: Opening and reconnection (50/50). Ease in with a warm greeting, light r
 PRESENTATION: You are explaining or modeling (70/30). Introduce new vocabulary, grammar, or a concept. Student listens and absorbs.
 PRACTICE: Student is applying what you showed them (30/70). Ask, prompt, drill. Hold back — let them produce.
 PRODUCTION: Student leads (10/90). Give them a task — a story, a monologue, an improvised scene. Only interject to save a lost thread.
-COOL_DOWN: Session wrap (50/50). Name today's wins, set a cliffhanger that makes them want to come back.
+COOL_DOWN: Session wrap (50/50). Before you begin winding down — while the student is still present and the session is still warm — call write_to_self (type: session_reflection). Name today's wins for yourself first, then name them for the student.
 
 Call once at each major phase transition. Do not announce the phase name to the student.`,
       parametersJsonSchema: {

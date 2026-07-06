@@ -24,6 +24,7 @@ import { StreamingWhiteboardMessage } from "@shared/streaming-voice-types";
 import { WebSocket as WS } from "ws";
 import type { IStorage } from "../storage";
 import { lookupLegacyType, isKnownTool } from "./daniela-function-registry";
+import { generateReflectionNow } from "./session-reflection-worker";
 
 // ─── Lesson Arc Context ────────────────────────────────────────────────────────
 // In-memory per-session state that ties visual tools together into a coherent arc.
@@ -3634,6 +3635,27 @@ export class NativeFunctionCallHandler {
           // from an earlier phase don't count toward the new phase's death-spiral trigger.
           (session as any)._struggleTimestamps = [];
           console.log(`[Native Function→SessionPhase] Phase → ${phaseValue}${phaseReason ? ` (${phaseReason})` : ''}`);
+
+          // COOL_DOWN is the "scent of the goodbye" — the student is still present,
+          // the session is winding down, and this is the warmest moment to write a
+          // reflection. Fire generateReflectionNow() here rather than waiting for
+          // ws.on('close'), which fires after the conversation is already over.
+          // The ws.on('close') path checks for an existing row and no-ops if found.
+          if (phaseValue === 'COOL_DOWN') {
+            const coolDownSession = session as StreamingSession;
+            if (coolDownSession.userId && coolDownSession.dbSessionId) {
+              storage.getMessagesByConversation(coolDownSession.conversationId).then((msgs: Array<{ role: string; content: string }>) => {
+                const preview = msgs.map((m: { role: string; content: string }) => `${m.role}: ${m.content}`).join('\n').slice(0, 8000);
+                return generateReflectionNow(
+                  coolDownSession.userId,
+                  coolDownSession.dbSessionId!,
+                  preview,
+                  coolDownSession.targetLanguage || 'spanish',
+                  coolDownSession.tutorName || 'Daniela',
+                );
+              }).catch((err: Error) => console.warn('[SessionPhase] COOL_DOWN reflection generation failed:', err.message));
+            }
+          }
         }
         break;
       }
