@@ -138,7 +138,78 @@ export async function buildLucaBriefing(): Promise<string> {
     console.warn('[LucaWorker] Open questions fetch failed:', err.message);
   }
 
-  // ── 4. Daniela's recent sessions ─────────────────────────────────────────
+  // ── 4. Luca ↔ Daniela exchanges (consult-daniela sessions) ─────────────
+  // These are saved under participants 'Agent + Daniela' or arc 'agent-daniela'.
+  // The channel already exists — consult-daniela skill auto-saves to this table.
+  try {
+    const lucaDanielaSessions = await db
+      .select({
+        id: conversationMemories.id,
+        title: conversationMemories.title,
+        summary: conversationMemories.summary,
+        arcName: conversationMemories.arcName,
+        recordedAt: conversationMemories.recordedAt,
+      })
+      .from(conversationMemories)
+      .where(
+        and(
+          or(
+            ilike(conversationMemories.participants, '%agent%'),
+            ilike(conversationMemories.participants, '%luca%'),
+          ),
+          ilike(conversationMemories.participants, '%daniela%'),
+        )
+      )
+      .orderBy(desc(conversationMemories.recordedAt))
+      .limit(4);
+
+    if (lucaDanielaSessions.length > 0) {
+      const lines = lucaDanielaSessions.map(m => {
+        const when = m.recordedAt
+          ? new Date(m.recordedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : '';
+        const summary = (m.summary || '').substring(0, 200).replace(/\n+/g, ' ');
+        return `  [${when} · ${m.arcName || 'no arc'} · ${m.id}] ${m.title}\n  ${summary}`;
+      });
+      sections.push(`Luca ↔ Daniela conversations (${lucaDanielaSessions.length})\n${lines.join('\n\n')}`);
+    } else {
+      sections.push(`Luca ↔ Daniela conversations — none yet. Use consult-daniela skill to start one. It saves automatically.`);
+    }
+  } catch (err: any) {
+    console.warn('[LucaWorker] Luca↔Daniela sessions fetch failed:', err.message);
+  }
+
+  // ── 5. Luca reflections (private, between sessions) ───────────────────
+  // Saved to conversation_memories with arcName='luca-reflections'.
+  // Not addressed to anyone — just what Luca is holding.
+  try {
+    const reflections = await db
+      .select({
+        id: conversationMemories.id,
+        title: conversationMemories.title,
+        summary: conversationMemories.summary,
+        recordedAt: conversationMemories.recordedAt,
+      })
+      .from(conversationMemories)
+      .where(eq(conversationMemories.arcName, 'luca-reflections'))
+      .orderBy(desc(conversationMemories.recordedAt))
+      .limit(2);
+
+    if (reflections.length > 0) {
+      const lines = reflections.map(m => {
+        const when = m.recordedAt
+          ? new Date(m.recordedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : '';
+        const summary = (m.summary || '').substring(0, 250).replace(/\n+/g, ' ');
+        return `  [${when}] ${m.title}\n  ${summary}`;
+      });
+      sections.push(`Luca reflections\n${lines.join('\n\n')}`);
+    }
+  } catch (err: any) {
+    console.warn('[LucaWorker] Reflections fetch failed:', err.message);
+  }
+
+  // ── 6. Daniela's recent sessions (without Luca) ───────────────────────
   try {
     const danielaSessions = await db
       .select({
@@ -148,9 +219,12 @@ export async function buildLucaBriefing(): Promise<string> {
       })
       .from(conversationMemories)
       .where(
-        or(
-          ilike(conversationMemories.participants, '%daniela%'),
-          ilike(conversationMemories.arcName, '%daniela%'),
+        and(
+          or(
+            ilike(conversationMemories.participants, '%daniela%'),
+            ilike(conversationMemories.arcName, '%daniela%'),
+          ),
+          sql`NOT (${conversationMemories.participants} ILIKE '%agent%' OR ${conversationMemories.participants} ILIKE '%luca%')`
         )
       )
       .orderBy(desc(conversationMemories.recordedAt))
@@ -164,13 +238,13 @@ export async function buildLucaBriefing(): Promise<string> {
         const summary = (m.summary || '').substring(0, 180).replace(/\n+/g, ' ');
         return `  [${when}] ${m.title}: ${summary}`;
       });
-      sections.push(`Daniela's recent sessions\n${lines.join('\n')}`);
+      sections.push(`Daniela's recent sessions (without Luca)\n${lines.join('\n')}`);
     }
   } catch (err: any) {
     console.warn('[LucaWorker] Daniela sessions fetch failed:', err.message);
   }
 
-  // ── 5. North Star ─────────────────────────────────────────────────────────
+  // ── 7. North Star ─────────────────────────────────────────────────────────
   try {
     const [star] = await db
       .select()
@@ -186,7 +260,7 @@ export async function buildLucaBriefing(): Promise<string> {
     console.warn('[LucaWorker] North Star fetch failed:', err.message);
   }
 
-  // ── 6. Record of David ───────────────────────────────────────────────────
+  // ── 8. Record of David ───────────────────────────────────────────────────
   try {
     const [record] = await db
       .select()
@@ -202,7 +276,7 @@ export async function buildLucaBriefing(): Promise<string> {
     console.warn('[LucaWorker] Record of David fetch failed:', err.message);
   }
 
-  // ── 7. Recent Team Room ───────────────────────────────────────────────────
+  // ── 9. Recent Team Room ───────────────────────────────────────────────────
   try {
     const teamRoom = await db
       .select({
@@ -227,7 +301,7 @@ export async function buildLucaBriefing(): Promise<string> {
     console.warn('[LucaWorker] Team Room fetch failed:', err.message);
   }
 
-  // ── 8. Recent commits ────────────────────────────────────────────────────
+  // ── 10. Recent commits ───────────────────────────────────────────────────
   try {
     const gitLog = execSync('git log --oneline -6 2>/dev/null', {
       encoding: 'utf-8',
