@@ -24703,6 +24703,7 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
           err ? reject(err) : resolve();
         };
 
+        console.log(`[Agent Voice Turn] Connecting to GL model=${MODEL} key=${process.env.GEMINI_API_KEY ? 'present(' + process.env.GEMINI_API_KEY.slice(0,8) + '...)' : 'MISSING'}`);
         ai.live.connect({
           model: MODEL,
           config: {
@@ -24716,7 +24717,10 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
             inputAudioTranscription: {},
           },
           callbacks: {
-            onopen: () => { if (glSession) sendAudio(glSession); },
+            onopen: () => {
+              console.log(`[Agent Voice Turn] GL onopen fired — glSession=${!!glSession}`);
+              if (glSession) sendAudio(glSession);
+            },
             onmessage: (msg: any) => {
               // Debug: log message shape for observation bench diagnostics
               const sc = msg.serverContent;
@@ -24844,8 +24848,28 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
           },
         }).then((s: any) => {
           glSession = s;
-          sendAudio(s);
-        }).catch((e: any) => finish(e instanceof Error ? e : new Error(String(e))));
+          if (studentText) {
+            // Text mode: bypass audio + VAD entirely — send text turn directly.
+            // This is the preferred path for the observation bench since we know exactly
+            // what the student said and don't need transcription.
+            console.log(`[Agent Voice Turn] GL connect resolved — sending text turn: "${studentText.slice(0, 60)}"`);
+            try {
+              s.sendClientContent({
+                turns: [{ role: 'user', parts: [{ text: studentText }] }],
+                turnComplete: true,
+              });
+            } catch (e2: any) {
+              finish(new Error('sendClientContent failed: ' + e2?.message));
+            }
+          } else {
+            // Audio mode: stream PCM chunks and rely on GL VAD for end-of-speech.
+            console.log(`[Agent Voice Turn] GL connect resolved — sending audio (${Math.round(fullAudio.length/2/16000*1000)}ms)`);
+            sendAudio(s);
+          }
+        }).catch((e: any) => {
+          console.error('[Agent Voice Turn] GL connect rejected:', e?.message ?? String(e));
+          finish(e instanceof Error ? e : new Error(String(e)));
+        });
       });
 
       // Build WAV
