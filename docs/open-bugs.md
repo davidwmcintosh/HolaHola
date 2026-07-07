@@ -7,6 +7,9 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-07-07 — GL generation config — `presencePenalty` rejected by Gemini Live (code 1007) — GEMINI REVIEW NEEDED**
+Gemini audit (July 2026) recommended adding `presencePenalty: 0.2` to GL's `generationConfig` to prevent Daniela's verbal loops ("¡Muy bien!" every turn). However, the GL API rejects it immediately with close code 1007: "presence_penalty not supported in generation config." Removed the field as a hotfix. Before giving up on this: (1) ask Gemini if `presencePenalty` is supported on a different config path in Live mode, (2) ask if there is a workaround (e.g. `frequencyPenalty` instead, or a prompt-level injection pattern they recommend). Gemini was the one who suggested it — they may know a path we don't.
+
 **2026-06-30 — GL model — Broadcast mode: sentences cutting off mid-response — MEDIUM**
 During testing, Daniela's responses are occasionally truncated mid-sentence. Heard "Are those the ones?" instead of the full "Are those the ones you were curious about?" Investigation (2026-06-30): traced through the full server→client audio pipeline. `gl_audio_reset` only fires on reconnects. Client-side `finalizeProgressiveSentence` is benign (only updates debug panel, never stops WebAudio nodes). The `generationComplete` watchdog at 12 s fires if GL pauses >12 s between sub-turns — that's the most likely candidate when tool calls happen between phrases. All audio chunks that ARE sent play to completion. The cutoff is at the source: GL stops generating audio before the sentence ends. This is GL model behavior, not a code-level bug. Next step: check server logs for `gl_barge_in` or `interrupted` events coinciding with the cutoff — if those appear without user input, there's a false-positive VAD trigger worth addressing. If absent, it's a pure GL model limitation with no direct fix.
 
