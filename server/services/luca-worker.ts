@@ -314,7 +314,9 @@ export async function buildLucaBriefing(): Promise<string> {
     console.warn('[LucaWorker] Record of David fetch failed:', err.message);
   }
 
-  // ── 9. Recent Team Room ───────────────────────────────────────────────────
+  // ── 9. Recent Express Lane (agentCollabMessages — founder + advisor posts) ──
+  // NOTE: this is the Express Lane / founder collab channel, NOT the hive Team
+  // Room conversations. David's Express Lane posts appear here as [FOUNDER].
   try {
     const teamRoom = await db
       .select({
@@ -330,13 +332,16 @@ export async function buildLucaBriefing(): Promise<string> {
       const chronological = [...teamRoom].reverse();
       const lines = chronological.map(m => {
         const speaker = String(m.author || 'system').toUpperCase();
+        const when = m.createdAt
+          ? new Date(m.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : '?';
         const preview = (m.content || '').substring(0, 180).replace(/\n+/g, ' ');
-        return `  [${speaker}] ${preview}`;
+        return `  [${speaker} · ${when}] ${preview}`;
       });
-      sections.push(`Recent Team Room\n${lines.join('\n')}`);
+      sections.push(`Recent Express Lane\n${lines.join('\n')}`);
     }
   } catch (err: any) {
-    console.warn('[LucaWorker] Team Room fetch failed:', err.message);
+    console.warn('[LucaWorker] Express Lane fetch failed:', err.message);
   }
 
   // ── 10. Recent commits ───────────────────────────────────────────────────
