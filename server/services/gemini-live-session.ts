@@ -1422,11 +1422,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       );
       for (const part of msg.serverContent.modelTurn.parts) {
         if (part.inlineData?.data && part.inlineData.mimeType?.includes('audio')) {
-          // Drop audio that arrives after generationComplete — these are GL tail sub-turns
-          // ("ok", "hey") generated to fill the audio budget after the real response ended.
-          if (this.afterGenerationComplete) {
+          // Drop audio that arrives after generationComplete WITHIN the same turn — these are
+          // GL tail sub-turns ("ok", "hey") generated to fill the audio budget after the real
+          // response ended. Only gate when isTutorGeneratingAudio is still true (meaning we
+          // are still in the same turn). Once playback_ended clears isTutorGeneratingAudio,
+          // the next audio chunk is a fresh turn and must NOT be dropped.
+          if (this.afterGenerationComplete && this.isTutorGeneratingAudio) {
             console.log('[GeminiLive] Dropping tail audio chunk after generationComplete (Bug 1 gate)');
             continue;
+          }
+          // New turn starting — clear the post-generationComplete gate so this chunk goes through.
+          if (this.afterGenerationComplete && !this.isTutorGeneratingAudio) {
+            this.afterGenerationComplete = false;
           }
           audioParts++;
           this.hadAudioInCurrentSubturn = true;
