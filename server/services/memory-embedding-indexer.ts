@@ -706,19 +706,12 @@ export async function indexNewMemoriesForUser(userId: string): Promise<void> {
 }
 
 export function startMemoryEmbeddingIndexer(): void {
-  console.log('[EmbedIndexer] Starting (interval: 2h, delayed first run: 10min)');
+  console.log('[EmbedIndexer] Starting (interval: 2h, no boot run)');
 
-  // Delayed first run — NOT at boot. The server heap hits ~4GB during startup from background workers.
-  // We wait 10 minutes for those workers to settle before the first embedding pass, then run
-  // on the normal 2h interval. This survives server restarts without babysitting — every restart
-  // automatically schedules the first run 10 min later, so the backlog never stalls indefinitely.
-  setTimeout(() => {
-    console.log('[EmbedIndexer] Running delayed first cycle (post-boot)');
-    runIndexer().catch(err =>
-      console.error('[EmbedIndexer] Delayed first run failed:', err.message)
-    );
-  }, 10 * 60 * 1000);
-
+  // NO boot run. The server heap hits ~4GB during startup from background workers
+  // (VocabImageSeed at +70s, MadrigalIndexer at +390s, ToolIndexer, etc.). A 10-min
+  // delayed first run was landing directly on top of MadrigalIndexer and causing OOM.
+  // The 2h setInterval is sufficient — embeddings are not latency-critical.
   setInterval(() => {
     runIndexer().catch(err =>
       console.error('[EmbedIndexer] Periodic run failed:', err.message)
