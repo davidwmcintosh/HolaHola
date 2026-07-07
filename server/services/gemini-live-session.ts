@@ -578,11 +578,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           // 700 gives enough room for emotional depth without enabling lecture mode.)
           maxOutputTokens: 700,
           candidateCount: 1,
-          // presencePenalty 0.2: Daniela tends to fall into verbal loops (same opening phrase
-          // every turn). Presence penalty penalises tokens already seen in the conversation,
-          // forcing natural vocabulary variety without altering her personality.
-          // Recommended by Gemini audit (July 2026). 0.2 is mild — just enough to break loops.
-          presencePenalty: 0.2,
+          // presencePenalty removed: GL rejects with 1007 "presence_penalty not supported"
+          // Verbal loop variety must be handled via system prompt language instead.
         },
 
         // Safety settings: set all categories to BLOCK_ONLY_HIGH so GL doesn't silently return
