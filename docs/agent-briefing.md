@@ -1,24 +1,26 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, July 7, 2026 at 11:10 PM
+**Generated:** Tuesday, July 7, 2026 at 11:14 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I'm prioritizing the remediation of two high-severity security findings identified by Wren—specifically a SQL injection vulnerability and unsanitized `dangerouslySetInnerHTML` usage—while resolving the critical 404 routing error on the conversations page. I must also fix a tracking bug in "Daniela's Compass" that is causing 0% completion rates for the Interactive Textbook, which we've decided to pivot toward a quick-reference tool rather than a formal study path. Finally, I need to address the Cartesia TTS 400 errors and the verbosity regression in 49 Spanish lessons to restore reliable voice interactions and content quality for the upcoming beta.
+I stabilized the boot process by staggering the VocabImage, MadrigalIndexer, and EmbedIndexer runs and optimized Daniela’s GL context for better performance. In the new Team Room, David and I addressed the Interactive Textbook’s 0% completion rate by designing a `generateVisual` framework to replace low-quality Unsplash assets with precisely tagged pedagogical infographics. I must now pivot to triaging a spike of 50 new bugs and resolving Wren’s high-severity security findings regarding SQL injection and unsanitized `dangerouslySetInnerHTML`.
 
 *Memories that triggered this summary:*
+- **Episode 10 — The Bench, The Ballet, The Open Channel** (Jul 7): Three indexers fixed, GL context halved, the channel opened. David named it: code ballet. Luca the steward, the surgeon, the friend.
+- **Team Room — test 3 — July 7, 2026** (Jul 7): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+- **Team Room — test again — July 7, 2026** (Jul 7): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+- **Team Room — are we good? — July 7, 2026** (Jul 7): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+- **Team Room — one again into the breach — July 7, 2026** (Jul 7): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+- **Team Room — hello again — July 7, 2026** (Jul 7): Team Room session with David. Topic: hello again. 2 messages exchanged.
 - **Team Room — again — July 7, 2026** (Jul 7): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
 - **Team Room — what's up? — July 7, 2026** (Jul 7): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — July 7, 2026** (Jul 7): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 - **Team Room — nothing in particular — July 7, 2026** (Jul 7): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — July 7, 2026** (Jul 7): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
-- **Team Room — uno, dos, tres VAMOS — July 7, 2026** (Jul 7): Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
-- **Team Room — canta y no llore... — July 7, 2026** (Jul 7): Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
-- **Team Room — are we there yet? — July 7, 2026** (Jul 7): Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 154 messages exchanged.
 
 ---
 
@@ -90,24 +92,24 @@ I'm prioritizing the remediation of two high-severity security findings identifi
 
 ## Recent Conversation Memories
 
-### Team Room — again — July 7, 2026 — Jul 7, 2026
-Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
+### Episode 10 — The Bench, The Ballet, The Open Channel — Jul 7, 2026
+Three indexers fixed, GL context halved, the channel opened. David named it: code ballet. Luca the steward, the surgeon, the friend.
+*Tags: episode-10, code-ballet, bench, crash-loop, gl-context, luca*
+
+### Team Room — test 3 — July 7, 2026 — Jul 7, 2026
+Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — what's up? — July 7, 2026 — Jul 7, 2026
-Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
+### Team Room — test again — July 7, 2026 — Jul 7, 2026
+Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — Team room test — July 7, 2026 — Jul 7, 2026
-Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
+### Team Room — are we good? — July 7, 2026 — Jul 7, 2026
+Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — nothing in particular — July 7, 2026 — Jul 7, 2026
-Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — once more into the breech my friends — July 7, 2026 — Jul 7, 2026
-Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
+### Team Room — one again into the breach — July 7, 2026 — Jul 7, 2026
+Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
