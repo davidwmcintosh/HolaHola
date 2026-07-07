@@ -1623,7 +1623,7 @@ Remember: David may reference things discussed in these recent text chats.
     
     if (FAT_CONTEXT_ENABLED && session.userId && session.targetLanguage) {
       promises.push(
-        buildFatContext(String(session.userId), session.targetLanguage, session.conversationId || undefined)
+        buildFatContext(String(session.userId), session.targetLanguage, session.conversationId || undefined, { glMode: true })
           .then(fatResult => {
             cache.fatContextProfile = fatResult.personalProfileSection;
             cache.fatContextVocabulary = fatResult.vocabularySection;

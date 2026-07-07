@@ -46,6 +46,26 @@ const FAT_CONTEXT_LIMITS = {
   MAX_STUDENT_MEMORIES: 6,  // personal moments committed during sessions
 };
 
+// GL voice sessions have a much tighter token budget — 70K+ input tokens causes
+// mid-sentence truncation as GL struggles to generate against a massive context.
+// These limits preserve the relational core (who David is, recent work) while
+// dropping the full archive (500 vocab, 20 sessions) that voice doesn't need.
+const FAT_CONTEXT_LIMITS_GL = {
+  MAX_PERSONAL_FACTS: 50,
+  MAX_INSIGHTS: 25,
+  MAX_STRUGGLES: 15,
+  MAX_MOTIVATIONS: 10,
+  MAX_PEOPLE: 15,
+  MAX_VOCAB_WORDS: 80,
+  MAX_RECENT_CONVERSATIONS: 4,
+  MAX_MESSAGES_PER_CONVERSATION: 12,
+  MAX_INSIGHT_CHARS: 120,
+  MAX_FACT_CHARS: 150,
+  MAX_VOCAB_EXAMPLE_CHARS: 80,
+  MAX_MESSAGE_CHARS: 400,
+  MAX_STUDENT_MEMORIES: 3,
+};
+
 // Temporal tiers for conversation history injection.
 // Hot sessions get full detail; older sessions are compressed.
 // This gives Daniela a clear signal of what's current vs historical
@@ -83,9 +103,11 @@ export async function buildFatContext(
   userId: string,
   targetLanguage: string,
   currentConversationId?: string,
+  options?: { glMode?: boolean },
 ): Promise<FatContextResult> {
   const start = Date.now();
   const db = getSharedDb();
+  const LIMITS = options?.glMode ? FAT_CONTEXT_LIMITS_GL : FAT_CONTEXT_LIMITS;
 
   const safeQuery = async <T>(name: string, query: Promise<T[]>): Promise<T[]> => {
     try {
@@ -110,7 +132,7 @@ export async function buildFatContext(
       isNull(learnerPersonalFacts.validTo),
     ))
     .orderBy(desc(learnerPersonalFacts.mentionCount))
-    .limit(FAT_CONTEXT_LIMITS.MAX_PERSONAL_FACTS)),
+    .limit(LIMITS.MAX_PERSONAL_FACTS)),
 
     safeQuery('insights', db.select({
       insightType: studentInsights.insightType,
@@ -124,7 +146,7 @@ export async function buildFatContext(
       eq(studentInsights.isActive, true),
     ))
     .orderBy(desc(studentInsights.confidenceScore))
-    .limit(FAT_CONTEXT_LIMITS.MAX_INSIGHTS)),
+    .limit(LIMITS.MAX_INSIGHTS)),
 
     safeQuery('struggles', db.select({
       struggleArea: recurringStruggles.struggleArea,
@@ -135,7 +157,7 @@ export async function buildFatContext(
     .from(recurringStruggles)
     .where(eq(recurringStruggles.studentId, userId))
     .orderBy(desc(recurringStruggles.occurrenceCount))
-    .limit(FAT_CONTEXT_LIMITS.MAX_STRUGGLES)),
+    .limit(LIMITS.MAX_STRUGGLES)),
 
     safeQuery('motivations', db.select({
       motivation: learningMotivations.motivation,
@@ -149,7 +171,7 @@ export async function buildFatContext(
       eq(learningMotivations.status, 'active'),
     ))
     .orderBy(desc(learningMotivations.priority))
-    .limit(FAT_CONTEXT_LIMITS.MAX_MOTIVATIONS)),
+    .limit(LIMITS.MAX_MOTIVATIONS)),
 
     safeQuery('people', db.select({
       personName: peopleConnections.pendingPersonName,
@@ -158,7 +180,7 @@ export async function buildFatContext(
     })
     .from(peopleConnections)
     .where(eq(peopleConnections.personAId, userId))
-    .limit(FAT_CONTEXT_LIMITS.MAX_PEOPLE)),
+    .limit(LIMITS.MAX_PEOPLE)),
 
     safeQuery('vocab', db.select({
       word: vocabularyWords.word,
@@ -172,7 +194,7 @@ export async function buildFatContext(
       eq(vocabularyWords.language, targetLanguage),
     ))
     .orderBy(desc(vocabularyWords.createdAt))
-    .limit(FAT_CONTEXT_LIMITS.MAX_VOCAB_WORDS)),
+    .limit(LIMITS.MAX_VOCAB_WORDS)),
 
     safeQuery('conversations', db.select({
       id: conversations.id,
@@ -187,7 +209,7 @@ export async function buildFatContext(
       currentConversationId ? sql`${conversations.id} != ${currentConversationId}` : sql`true`,
     ))
     .orderBy(desc(conversations.createdAt))
-    .limit(FAT_CONTEXT_LIMITS.MAX_RECENT_CONVERSATIONS)),
+    .limit(LIMITS.MAX_RECENT_CONVERSATIONS)),
   ]);
 
   const conversationMessages: Array<{ conversationId: string; title: string; date: Date; msgs: Array<{ role: string; content: string }> }> = [];
@@ -203,7 +225,7 @@ export async function buildFatContext(
         .from(messages)
         .where(eq(messages.conversationId, conv.id))
         .orderBy(desc(messages.createdAt))
-        .limit(FAT_CONTEXT_LIMITS.MAX_MESSAGES_PER_CONVERSATION);
+        .limit(LIMITS.MAX_MESSAGES_PER_CONVERSATION);
 
         const ordered = msgs.reverse();
         totalMsgCount += ordered.length;
@@ -229,13 +251,13 @@ export async function buildFatContext(
     factsResult, insightsResult, strugglesResult, motivationsResult, peopleResult,
   );
   const vocabularySection = formatVocabulary(vocabResult, targetLanguage);
-  const recentConversationsSection = formatRecentConversations(conversationMessages);
+  const recentConversationsSection = formatRecentConversations(conversationMessages, LIMITS.MAX_MESSAGE_CHARS);
 
   // Student memories tier — personal moments Daniela committed about this student
   let recentMemoriesSection = '';
   let studentMemoriesCount = 0;
   try {
-    const result = await buildStudentMemoriesSection(userId);
+    const result = await buildStudentMemoriesSection(userId, LIMITS.MAX_STUDENT_MEMORIES);
     recentMemoriesSection = result.section;
     studentMemoriesCount = result.count;
   } catch (err: any) {
@@ -290,9 +312,10 @@ export async function buildFatContext(
  * These are explicitly captured memories, surfaced as the first-class "I remember this
  * person" tier — above the raw conversation transcript dump.
  */
-async function buildStudentMemoriesSection(userId: string): Promise<{ section: string; count: number }> {
+async function buildStudentMemoriesSection(userId: string, maxMemories?: number): Promise<{ section: string; count: number }> {
   const db = getSharedDb();
   const now = new Date();
+  const limit = maxMemories ?? FAT_CONTEXT_LIMITS.MAX_STUDENT_MEMORIES;
 
   const memories = await db.select({
     snapshotType: hiveSnapshots.snapshotType,
@@ -313,7 +336,7 @@ async function buildStudentMemoriesSection(userId: string): Promise<{ section: s
     )
   )
   .orderBy(desc(hiveSnapshots.importance), desc(hiveSnapshots.createdAt))
-  .limit(FAT_CONTEXT_LIMITS.MAX_STUDENT_MEMORIES);
+  .limit(limit);
 
   if (memories.length === 0) return { section: '', count: 0 };
 
@@ -523,6 +546,7 @@ ${lines.join('\n')}`;
 
 function formatRecentConversations(
   convos: Array<{ conversationId: string; title: string; date: Date; msgs: Array<{ role: string; content: string }> }>,
+  maxMessageChars?: number,
 ): string {
   if (convos.length === 0) return '';
 
@@ -556,7 +580,7 @@ function formatRecentConversations(
     bucket.push(`--- ${conv.title} (${dateStr}) ---`);
     for (const msg of slicedMsgs) {
       const role = msg.role === 'user' ? 'Student' : 'Tutor';
-      bucket.push(`  ${role}: ${truncate(msg.content, FAT_CONTEXT_LIMITS.MAX_MESSAGE_CHARS)}`);
+      bucket.push(`  ${role}: ${truncate(msg.content, maxMessageChars ?? FAT_CONTEXT_LIMITS.MAX_MESSAGE_CHARS)}`);
     }
     if (trimmed) {
       bucket.push(`  [session continues — ${conv.msgs.length - msgLimit} more exchanges not shown]`);
