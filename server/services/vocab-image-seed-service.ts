@@ -2011,6 +2011,22 @@ export async function seedAllVocabImages(jobId: string, languages?: string[]): P
   };
   bulkVocabSeedJobs.set(jobId, bulk);
 
+  // Write the 24h skip timestamp immediately at seed START (not just at end).
+  // If the server crashes mid-seed and restarts within 24h, the startup check
+  // will see this timestamp and skip, preventing OOM from re-triggering the seeder.
+  try {
+    const { getSharedDb } = await import('../neon-db');
+    const { sql } = await import('drizzle-orm');
+    const db = getSharedDb();
+    await db.execute(sql`
+      INSERT INTO editor_insights (id, category, title, content, importance, tags)
+      VALUES (gen_random_uuid(), 'context', 'vocab_image_seed_last_run', ${new Date().toISOString()}, 3, ARRAY['seeder','startup'])
+    `);
+    console.log('[BulkVocabSeed] Saved start timestamp — next boot within 24h will skip seeding');
+  } catch (stampErr: any) {
+    console.warn('[BulkVocabSeed] Failed to save start timestamp:', (stampErr as Error).message);
+  }
+
   try {
     for (const lang of langs) {
       bulk.current = lang;
