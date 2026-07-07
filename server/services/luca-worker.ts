@@ -314,35 +314,10 @@ export async function buildLucaBriefing(): Promise<string> {
     console.warn('[LucaWorker] Record of David fetch failed:', err.message);
   }
 
-  // ── 9. Recent Express Lane (agentCollabMessages — founder + advisor posts) ──
-  // NOTE: this is the Express Lane / founder collab channel, NOT the hive Team
-  // Room conversations. David's Express Lane posts appear here as [FOUNDER].
-  try {
-    const teamRoom = await db
-      .select({
-        author: agentCollabMessages.author,
-        content: agentCollabMessages.content,
-        createdAt: agentCollabMessages.createdAt,
-      })
-      .from(agentCollabMessages)
-      .orderBy(desc(agentCollabMessages.createdAt))
-      .limit(5);
-
-    if (teamRoom.length > 0) {
-      const chronological = [...teamRoom].reverse();
-      const lines = chronological.map(m => {
-        const speaker = String(m.author || 'system').toUpperCase();
-        const when = m.createdAt
-          ? new Date(m.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-          : '?';
-        const preview = (m.content || '').substring(0, 180).replace(/\n+/g, ' ');
-        return `  [${speaker} · ${when}] ${preview}`;
-      });
-      sections.push(`Recent Express Lane\n${lines.join('\n')}`);
-    }
-  } catch (err: any) {
-    console.warn('[LucaWorker] Express Lane fetch failed:', err.message);
-  }
+  // ── 9. agentCollabMessages removed from briefing ─────────────────────────
+  // This table contains old AI-to-AI messages (Jan 2026) and synthetic
+  // "founder directives" auto-posted by code — not David's actual voice.
+  // Showing it created false impressions of David's recent activity.
 
   // ── 10. Recent commits ───────────────────────────────────────────────────
   try {
