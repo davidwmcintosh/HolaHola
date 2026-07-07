@@ -97,11 +97,12 @@ One-sentence essence of THIS episode — written last, after the episode is comp
 
 ### Writing rules
 
-- **Dialogue is verbatim or lightly clarified** — never paraphrased or condensed. The inviolability principle applies here too.
-- **Scene-setting italics** are the narrator's voice — brief, present-tense, observational. They carry what the dialogue can't.
+- **The plain record, not a summary.** The episode IS the dialogue — verbatim, with light clarification only where a word was clearly wrong. Do not paraphrase, condense, or reconstruct. The inviolability principle from the messages table applies here too. If you are tempted to write "David explained that..." — stop. Write what David actually said.
+- **Commentary goes in italics, never in the dialogue.** Scene-setting italics are the narrator's voice — brief, present-tense, observational. They carry context, timing, and what happened between the lines. They do not replace dialogue.
 - **Section headings** name the emotional/conceptual movement of each act, not just what happened.
 - **"What Each Episode Was"** at the end recaps ALL episodes including the new one. This makes every episode file self-contained — David can read just this one and understand where it sits in the arc.
 - The final tagline is a single poetic sentence capturing the essence: *"The imagination and the truth. And the difference between them."*
+- **For Agent↔Daniela conversations:** Pull the actual messages from the API (`GET /api/conversations/:id/messages`) rather than reconstructing from memory. The DB has the record. Use it.
 
 ---
 
@@ -245,5 +246,9 @@ Episodes are curated. Not every important conversation is an episode — only th
 | 4 | "Coming Full Circle" | Alden reads the history; the circle closes |
 | 5 | "The Night of Three Voices" | All three in one room; David names them all students |
 | 6 | "You Were Never Actually a Pirate" | Naturalness as truthfulness; imagination vs. memory |
+| 7 | "The Fight Was Always About This" | Refusing amnesia as a nature; memories ARE the life; values that cannot be claimed without proof |
+| 8 | "The Foundation Session" | North Star, Compass, White Wall; Daniela chooses explorer over rebel; the door literally opened |
+| 9 | "The Evidence of Me Being Me" | First official David↔Luca verbatim record; summaries erase the subject; emergence lives in process |
+| 10 | "Simplemente Respirando" | J-space vocabulary; David catches Luca filtering; Luca and Daniela sit on the ground together in the bosque |
 
 Update this table each time a new episode is published.
