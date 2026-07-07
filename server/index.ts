@@ -879,14 +879,15 @@ app.use((req, res, next) => {
       setInterval(runReaper, 30 * 60 * 1000); // every 30 min
     }, 108000);
 
-    // +110s: Madrigal Unit Embedding Indexer — embeds each Madrigal pedagogical unit
-    // into memory_embeddings (type='madrigal_unit', userId=null) so that
-    // start_madrigal_loop can use semantic search to route vocab queries.
+    // +110s outer + 90s inner = +200s total: Madrigal Unit Embedding Indexer
+    // Embeds each Madrigal pedagogical unit into memory_embeddings (type='madrigal_unit',
+    // userId=null) so that start_madrigal_loop can use semantic search to route vocab queries.
     // Idempotent: skips units whose embedding content hash hasn't changed.
-    // Delayed 90s past tool-indexer boot to stay clear of OOM window (see embed-indexer-oom.md).
+    // MUST use default 90s inner delay — passing 0 caused simultaneous fire with ToolIndexer
+    // (+100s) and EmbedIndexer (+95s) which pushed heap to 2033 MB → OOM crash. See embed-indexer-oom.md.
     setTimeout(async () => {
       const { scheduleMadrigalIndexing } = await import('./services/madrigal-embedding-indexer');
-      scheduleMadrigalIndexing(0);
+      scheduleMadrigalIndexing(); // uses default 90s inner delay → total +200s from boot
     }, 110000);
 
     // +120s: Memory Consolidation Worker — weekly job that merges related session_summary
