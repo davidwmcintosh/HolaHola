@@ -52,6 +52,7 @@ export interface StreamingVoiceState {
   error: string | null;
   metrics: StreamingMetrics | null;
   activeCharacter: { id: string; displayName: string; role: string; gender: 'male' | 'female' } | null;
+  serverRestarting: boolean;  // True when server sent SIGTERM — deploy rotation in progress
 }
 
 /**
@@ -230,6 +231,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
 
   // Micro-ack: short ack clip played immediately after user stops speaking
   const [microAckPlaying, setMicroAckPlaying] = useState(false);
+  const [serverRestarting, setServerRestarting] = useState(false);
   const microAckPlayingRef = useRef(false);
   const microAckMsgBufferRef = useRef<StreamingAudioChunkMessage[]>([]);
   const microAckFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1872,6 +1874,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('idleTimeout', handleIdleTimeout);
       clientRef.current.on('creditWarning', handleCreditWarning);
       clientRef.current.on('sessionConflict', handleSessionConflict);
+      clientRef.current.on('server_restarting', () => {
+        console.log('[StreamingVoice] server_restarting event — showing update banner');
+        setServerRestarting(true);
+      });
       
       // Keep screen alive on mobile during voice session
       acquireWakeLock();
@@ -2317,6 +2323,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       visibleWordCount: subtitles.state.visibleWordCount,
       error,
       metrics,
+      serverRestarting,
     },
     subtitles,
     connect,

@@ -961,14 +961,26 @@ app.use((req, res, next) => {
       });
 
       // 2. Notify active voice sessions to reconnect
+      let activeVoiceClients = 0;
       try {
         if (io) {
-          io.of('/voice').emit('server_restarting', { reason: 'deployment', reconnectMs: 3000 });
-          console.log('[Shutdown] Notified voice clients to reconnect');
+          const voiceNs = io.of('/voice');
+          const sockets = await voiceNs.fetchSockets();
+          activeVoiceClients = sockets.length;
+          voiceNs.emit('server_restarting', { reason: 'deployment', reconnectMs: 5000 });
+          console.log(`[Shutdown] Notified ${activeVoiceClients} voice client(s) to reconnect`);
         }
       } catch (err: any) {
         console.warn('[Shutdown] Could not notify voice clients:', err.message);
       }
+
+      // 2b. Drain window — let in-flight audio finish playing before the process exits.
+      // Cloud Run gives 30s from SIGTERM before SIGKILL; we use 25s so cleanup still runs.
+      // If no clients are connected we skip the wait to keep deployments fast.
+      const drainSeconds = activeVoiceClients > 0 ? 25 : 2;
+      console.log(`[Shutdown] Drain window: ${drainSeconds}s (${activeVoiceClients} active voice session(s))...`);
+      await new Promise(resolve => setTimeout(resolve, drainSeconds * 1000));
+      console.log('[Shutdown] Drain complete');
 
       // 3. Flush voice telemetry
       try {

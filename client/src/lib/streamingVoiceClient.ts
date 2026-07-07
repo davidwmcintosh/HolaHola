@@ -241,6 +241,7 @@ type StreamingEventType =
   | 'idleTimeout'
   | 'creditWarning'
   | 'sessionConflict'
+  | 'server_restarting'  // Server SIGTERM — deploy rotation, drain window in progress
   | 'glReconnecting'
   | 'glReconnected'
   | 'voiceError'
@@ -547,15 +548,20 @@ export class StreamingVoiceClient {
           this.missedHeartbeats = 0;
         });
 
-        // PRE-EMPTIVE RECONNECT: Server sends this on SIGTERM (autoscale rotation, deployment).
-        // Instead of waiting 3s for heartbeat failure, disconnect immediately so the new
-        // WebSocket connection can establish while buffered audio is still finishing.
-        // This turns a "sentence cutoff + 3s silence" into a seamless background handoff.
+        // GRACEFUL SHUTDOWN: Server sends this on SIGTERM (deploy rotation).
+        // The server now holds a 25s drain window before exiting, so we have time
+        // to let buffered audio finish playing before starting the reconnect.
         socket.on('server_restarting', () => {
-          console.log('[StreamingVoice] Server shutdown imminent — pre-triggering reconnect while audio finishes');
+          console.log('[StreamingVoice] Server shutdown imminent — letting audio drain, then reconnecting');
           this.stopHeartbeat();
-          // Disconnect now to start reconnect. Audio already in the client buffer keeps playing.
-          socket.disconnect();
+          // Notify the UI immediately so a toast can be shown
+          this.emit('server_restarting', { drainSeconds: 25 });
+          // Wait 5s to let any buffered TTS audio finish playing, then disconnect.
+          // The server's 25s drain window gives us ample time.
+          setTimeout(() => {
+            console.log('[StreamingVoice] Drain delay elapsed — disconnecting to reconnect to new server');
+            socket.disconnect();
+          }, 5000);
         });
 
         socket.on('binary', (data: ArrayBuffer) => {

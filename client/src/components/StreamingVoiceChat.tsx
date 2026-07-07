@@ -881,6 +881,15 @@ export function StreamingVoiceChat({
       }, 1500);
     }
   }, [streamingVoice.state.error, streamingVoice.state.connectionState, navigate, toast]);
+
+  // Show a friendly banner when the server is restarting (deploy rotation)
+  useEffect(() => {
+    if (!streamingVoice.state.serverRestarting) return;
+    toast({
+      title: "HolaHola is updating",
+      description: "A system update is in progress. Your session will reconnect automatically in a few seconds.",
+    });
+  }, [streamingVoice.state.serverRestarting, toast]);
   
   // Separate cleanup effect for unmount only
   useEffect(() => {
