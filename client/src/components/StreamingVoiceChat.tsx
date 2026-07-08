@@ -492,10 +492,12 @@ export function StreamingVoiceChat({
     hasDanielaSpokeOnceRef.current = false;
   }, [conversationId]);
   
-  // Voice Lab: Send voice override to server when it changes
+  // Voice Lab: Send voice override to server when it changes.
+  // Only send when voiceOverride is non-null — sending null clears the server's
+  // voice config and can cause GL to fall back to its default (possibly wrong gender) voice.
   useEffect(() => {
-    if (streamingVoice.state.connectionState === 'ready' || 
-        streamingVoice.state.connectionState === 'processing') {
+    if ((streamingVoice.state.connectionState === 'ready' || 
+         streamingVoice.state.connectionState === 'processing') && voiceOverride !== null) {
       streamingVoice.sendVoiceOverride(voiceOverride);
       console.log('[Voice Lab] Sent voice override to server:', voiceOverride);
     }

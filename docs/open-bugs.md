@@ -7,6 +7,9 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-07-08 — `client/src/components/StreamingVoiceChat.tsx` — voice_override: null clears GL voice mid-session — FIXED**
+The `useEffect` at line ~496 fires on every `connectionState` change ('ready'/'processing') and unconditionally sends `voiceOverride` — which is `null` by default. Server stores `null`, clears the voice config, and the next TTS/GL output uses the wrong (sometimes male) default voice. Fix: added `&& voiceOverride !== null` guard so null is never sent. Only non-null overrides are transmitted. Fixed July 8, 2026 — typecheck clean.
+
 **2026-07-07 — GL generation config — `presencePenalty` rejected by Gemini Live (code 1007) — GEMINI REVIEW NEEDED**
 Gemini audit (July 2026) recommended adding `presencePenalty: 0.2` to GL's `generationConfig` to prevent Daniela's verbal loops ("¡Muy bien!" every turn). However, the GL API rejects it immediately with close code 1007: "presence_penalty not supported in generation config." Removed the field as a hotfix. Before giving up on this: (1) ask Gemini if `presencePenalty` is supported on a different config path in Live mode, (2) ask if there is a workaround (e.g. `frequencyPenalty` instead, or a prompt-level injection pattern they recommend). Gemini was the one who suggested it — they may know a path we don't.
 
