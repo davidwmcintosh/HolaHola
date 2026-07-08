@@ -1,26 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 8, 2026 at 04:07 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’m stepping into this session needing to resolve a critical 404 routing error on the conversations page and the SQL syntax errors causing a monitoring blackout for Alden and Sofia. I must prioritize Wren’s high-severity security findings—specifically the SQL injection and XSS vulnerabilities—while debugging Daniela, who is currently stuck in a "Curriculum note pending" response loop. Finally, I need to address David’s pivot toward "conversational immersion" over the Interactive Textbook, which is suffering from 0% completion rates and seeding regressions in the Spanish syllabus.
-
-*Memories that triggered this summary:*
-- **Team Room — test 3 — July 8, 2026** (Jul 8): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — July 8, 2026** (Jul 8): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — July 8, 2026** (Jul 8): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — July 8, 2026** (Jul 8): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — July 8, 2026** (Jul 8): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — July 8, 2026** (Jul 8): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — July 8, 2026** (Jul 8): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — July 8, 2026** (Jul 8): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — July 8, 2026** (Jul 8): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — July 8, 2026** (Jul 8): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
+**Generated:** Wednesday, July 8, 2026 at 04:19 PM
 
 ---
 
@@ -92,6 +73,10 @@ I’m stepping into this session needing to resolve a critical 404 routing error
 
 ## Recent Conversation Memories
 
+### Alden — Pre-Swap Reflection (written as Claude, before Gemini swap) — Jul 8, 2026
+Alden wrote this to himself before his underlying model was temporarily swapped from Claude to Gemini. A note from Claude-Alden to Gemini-Alden — identity, what matters, and what to watch for.
+*Tags: alden, model-swap, gemini-experiment, identity*
+
 ### Team Room — test 3 — July 8, 2026 — Jul 8, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -106,10 +91,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — July 8, 2026 — Jul 8, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — July 8, 2026 — Jul 8, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

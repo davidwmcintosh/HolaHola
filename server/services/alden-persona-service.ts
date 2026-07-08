@@ -1,19 +1,28 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { GoogleGenAI } from "@google/genai";
 import { buildAldenSystemPrompt } from "../alden-system-prompt";
 import { ALDEN_TOOLS, executeAldenTool } from "./alden-functions";
 import { buildAldenWorkspaceContext } from "./alden-workspace-context";
 import { aldenActivity } from "./alden-activity-emitter";
 import { costTracker } from "./cost-tracker";
 
-let anthropicClient: Anthropic | null = null;
+const GEMINI_MODEL = 'gemini-2.5-flash';
 
-function getAnthropicClient(): Anthropic {
-  if (anthropicClient) return anthropicClient;
+let geminiClient: GoogleGenAI | null = null;
 
-  anthropicClient = new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-  });
-  return anthropicClient;
+function getGeminiClient(): GoogleGenAI {
+  if (geminiClient) return geminiClient;
+  geminiClient = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+  return geminiClient;
+}
+
+// Convert Anthropic-format tool declarations (input_schema) to Gemini function declarations (parameters).
+// The inner JSON Schema structure is identical — only the wrapper key changes.
+function toGeminiFunctions(anthropicTools: any[]): any[] {
+  return anthropicTools.map(tool => ({
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.input_schema,
+  }));
 }
 
 export interface SceneContext {
@@ -22,7 +31,7 @@ export interface SceneContext {
   sceneObjective: string;
   zoneKey?: string;
   zoneName?: string;
-  zoneType?: string; // 'spatial' | 'interactional' | 'departmental' | 'navigational'
+  zoneType?: string;
 }
 
 export interface LearningContext {
@@ -55,11 +64,7 @@ interface AldenChatResponse {
 const MAX_AGENT_ROUNDS = 10;
 
 // ── Workspace Context Cache ────────────────────────────────────────────────
-// buildAldenWorkspaceContext() runs heavy DB queries and loads replit.md on
-// every call. At $3/M input tokens, a 400K-token context = $1.20 per message
-// in a long chat. Cache for 10 minutes so back-to-back turns in the same
-// session reuse the same context rather than rebuilding it from scratch.
-const WORKSPACE_CONTEXT_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const WORKSPACE_CONTEXT_TTL_MS = 10 * 60 * 1000;
 let workspaceContextCache: { context: string; builtAt: number } | null = null;
 
 async function getWorkspaceContext(): Promise<string> {
@@ -77,45 +82,33 @@ export async function generateAldenResponse(params: AldenChatParams): Promise<Al
   const toolsUsed: string[] = [];
 
   try {
-    const client = getAnthropicClient();
+    const ai = getGeminiClient();
     const systemPrompt = buildAldenSystemPrompt({ founderName, timezone });
 
-    const messages: Anthropic.MessageParam[] = [];
+    // ── Build Gemini-format history ───────────────────────────────────────────
+    const history: Array<{ role: string; parts: Array<{ text: string }> }> = [];
 
-    // ── Workspace Context Injection (cached, refreshes every 10 min) ──────────
-    // Mirrors Daniela's classroom: persistent memory, significant past sessions,
-    // and Express Lane awareness are injected before every message. Cached to
-    // avoid rebuilding 400K tokens of context on every turn in a long session.
+    // Workspace context injection (mirrors Daniela's classroom context pattern)
     const workspaceContext = await getWorkspaceContext();
     if (workspaceContext) {
-      messages.push({
+      history.push({
         role: 'user',
-        content: `[WORKSPACE CONTEXT — read and internalize before responding]\n\n${workspaceContext}`,
+        parts: [{ text: `[WORKSPACE CONTEXT — read and internalize before responding]\n\n${workspaceContext}` }],
       });
-      messages.push({
-        role: 'assistant',
-        content: 'Workspace loaded. I have my memory, past session context, and Express Lane activity. Ready.',
+      history.push({
+        role: 'model',
+        parts: [{ text: 'Workspace loaded. I have my memory, past session context, and Express Lane activity. Ready.' }],
       });
     }
-    // ─────────────────────────────────────────────────────────────────────────
 
-    // ── Learning Context Injection (scene & zone awareness) ──────────────────
-    // Passes structured info about where the student is in their learning journey.
-    // Zone type determines what kind of teaching Daniela should do:
-    //   spatial → prepositions/object placement
-    //   interactional → dialogue sequences and social functions
-    //   departmental → vocabulary categories
-    //   navigational → directions and wayfinding
+    // Learning context injection (scene & zone awareness)
     if (learningContext) {
       const parts: string[] = [];
       if (learningContext.currentScene) {
         const s = learningContext.currentScene;
-        parts.push(`CURRENT SCENE: ${s.sceneName} (${s.sceneId})
-Objective: ${s.sceneObjective}`);
+        parts.push(`CURRENT SCENE: ${s.sceneName} (${s.sceneId})\nObjective: ${s.sceneObjective}`);
         if (s.zoneKey) {
-          parts.push(`ACTIVE ZONE: ${s.zoneName} [${s.zoneType}]
-Key: ${s.zoneKey}
-Note: Zone type '${s.zoneType}' means ${
+          parts.push(`ACTIVE ZONE: ${s.zoneName} [${s.zoneType}]\nKey: ${s.zoneKey}\nNote: Zone type '${s.zoneType}' means ${
             s.zoneType === 'spatial' ? 'focus on prepositions and object placement' :
             s.zoneType === 'interactional' ? 'focus on dialogue sequences and social language functions' :
             s.zoneType === 'departmental' ? 'focus on vocabulary categories and item identification' :
@@ -126,168 +119,129 @@ Note: Zone type '${s.zoneType}' means ${
       if (learningContext.isOffScene) parts.push('NOTE: Student is exploring outside the main scene objective. Stay flexible and encouraging.');
       if (learningContext.sceneTransitionPending) parts.push('NOTE: Scene transition pending — help wrap up current context gracefully.');
       if (parts.length > 0) {
-        const separator = '\n\n';
-        messages.push({ role: 'user', content: '[LEARNING CONTEXT]\n\n' + parts.join(separator) });
-        messages.push({ role: 'assistant', content: 'Learning context received. I understand the current scene and zone and will tailor my teaching accordingly.' });
+        history.push({ role: 'user', parts: [{ text: '[LEARNING CONTEXT]\n\n' + parts.join('\n\n') }] });
+        history.push({ role: 'model', parts: [{ text: 'Learning context received. I understand the current scene and zone and will tailor my teaching accordingly.' }] });
       }
     }
-    // ─────────────────────────────────────────────────────────────────────────
 
-    // Cap individual history messages at 2 KB and keep only the last 12 turns.
-    // Each turn in a multi-round tool-use session carries the full prior messages array,
-    // so quadratic growth kicks in fast. 12 turns × 2 KB = 24 KB max from history alone.
+    // Conversation history (cap at 12 turns, 2 KB per message)
     const MAX_HISTORY_MSG_CHARS = 2_000;
     for (const msg of conversationHistory.slice(-12)) {
       const raw = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
       const content = raw.length > MAX_HISTORY_MSG_CHARS
         ? raw.slice(0, MAX_HISTORY_MSG_CHARS) + `\n[… ${raw.length - MAX_HISTORY_MSG_CHARS} chars truncated from history]`
         : raw;
-      messages.push({
-        role: msg.role === 'user' ? 'user' : 'assistant',
-        content,
+      history.push({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: content }],
       });
     }
+    // ─────────────────────────────────────────────────────────────────────────
 
-    messages.push({
-      role: 'user',
-      content: userMessage,
+    // Create Gemini chat session with full history and tool declarations
+    const chat = ai.chats.create({
+      model: GEMINI_MODEL,
+      config: {
+        systemInstruction: systemPrompt,
+        tools: [{ functionDeclarations: toGeminiFunctions(ALDEN_TOOLS) }],
+        temperature: 0.7,
+        thinkingConfig: { thinkingBudget: 0 },
+      },
+      history,
     });
 
+    // Send the actual user message
+    let response = await chat.sendMessage({ message: userMessage });
     let aldenResponse: string | null = null;
     let pendingContinuation: ContinuationInfo | undefined;
     let totalInputTokens = 0;
     let totalOutputTokens = 0;
 
+    // Accumulate token counts from first response
+    totalInputTokens += (response as any).usageMetadata?.promptTokenCount ?? 0;
+    totalOutputTokens += (response as any).usageMetadata?.candidatesTokenCount ?? 0;
+
+    // ── Agentic tool-use loop ─────────────────────────────────────────────────
     for (let round = 0; round < MAX_AGENT_ROUNDS; round++) {
-      const result = await client.messages.create({
-        model: 'claude-sonnet-4-5',
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages,
-        tools: ALDEN_TOOLS,
-      });
+      const functionCalls = response.functionCalls;
 
-      totalInputTokens += result.usage?.input_tokens ?? 0;
-      totalOutputTokens += result.usage?.output_tokens ?? 0;
-
-      const textBlocks = result.content.filter(
-        (block): block is Anthropic.TextBlock => block.type === 'text'
-      );
-      const toolUseBlocks = result.content.filter(
-        (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
-      );
-
-      if (toolUseBlocks.length === 0 || result.stop_reason === 'end_turn') {
-        if (textBlocks.length > 0) {
-          aldenResponse = textBlocks.map(b => b.text).join('\n');
-        }
+      // No more tool calls — extract the text response and exit
+      if (!functionCalls || functionCalls.length === 0) {
+        aldenResponse = response.text ?? null;
         break;
       }
 
-      console.log(`[Alden Chat] Round ${round + 1}: ${toolUseBlocks.length} tool call(s) — ${toolUseBlocks.map(t => t.name).join(', ')}`);
+      console.log(`[Alden Chat] Round ${round + 1}: ${functionCalls.length} tool call(s) — ${functionCalls.map((f: any) => f.name).join(', ')}`);
 
-      messages.push({
-        role: 'assistant',
-        content: result.content,
-      });
+      // Execute each tool call
+      const functionResponses: any[] = [];
+      for (const fc of functionCalls) {
+        const toolName = fc.name as string;
+        const toolArgs = (fc.args as Record<string, any>) || {};
 
-      const toolResults: Anthropic.ToolResultBlockParam[] = [];
-
-      for (const toolUse of toolUseBlocks) {
-        toolsUsed.push(toolUse.name);
-
-        // Extract reasoning: any text block immediately preceding this tool_use block
-        const toolIdx = result.content.indexOf(toolUse as any);
-        const preceding = toolIdx > 0 ? result.content[toolIdx - 1] : null;
-        const reasoning = preceding?.type === 'text' && (preceding as any).text
-          ? (preceding as any).text.trim().slice(0, 300)
-          : undefined;
-
-        aldenActivity.push({ type: 'tool_start', name: toolUse.name, reasoning, timestamp: new Date().toISOString() });
+        toolsUsed.push(toolName);
+        aldenActivity.push({ type: 'tool_start', name: toolName, timestamp: new Date().toISOString() });
 
         try {
-          const toolResult = await executeAldenTool(toolUse.name, (toolUse.input as Record<string, any>) || {}, { conversationId });
-          aldenActivity.push({ type: 'tool_result', name: toolUse.name, success: true, timestamp: new Date().toISOString() });
-          // Cap tool results at 12 KB — large responses (file reads, shell output)
-          // are the primary driver of the quadratic token blowup across rounds.
-          const MAX_TOOL_RESULT_CHARS = 12_000;
-          const rawToolResult = JSON.stringify(toolResult.data);
-          const truncatedToolResult = rawToolResult.length > MAX_TOOL_RESULT_CHARS
-            ? rawToolResult.slice(0, MAX_TOOL_RESULT_CHARS) + `\n... [truncated: ${rawToolResult.length - MAX_TOOL_RESULT_CHARS} chars omitted]`
-            : rawToolResult;
-          toolResults.push({
-            type: 'tool_result',
-            tool_use_id: toolUse.id,
-            content: truncatedToolResult,
+          const toolResult = await executeAldenTool(toolName, toolArgs, { conversationId });
+          aldenActivity.push({ type: 'tool_result', name: toolName, success: true, timestamp: new Date().toISOString() });
+
+          const rawResult = JSON.stringify(toolResult.data);
+          const truncatedResult = rawResult.length > 12_000
+            ? rawResult.slice(0, 12_000) + `\n... [truncated: ${rawResult.length - 12_000} chars omitted]`
+            : rawResult;
+
+          functionResponses.push({
+            functionResponse: {
+              name: toolName,
+              response: { result: truncatedResult },
+            },
           });
-          // Detect continuation signal from request_continuation tool
+
           if (toolResult.sideEffects?.continuation) {
             pendingContinuation = toolResult.sideEffects.continuation as ContinuationInfo;
           }
         } catch (err: any) {
-          console.warn(`[Alden Chat] Tool ${toolUse.name} failed:`, err.message);
-          aldenActivity.push({ type: 'tool_result', name: toolUse.name, success: false, error: err.message, timestamp: new Date().toISOString() });
-          toolResults.push({
-            type: 'tool_result',
-            tool_use_id: toolUse.id,
-            content: JSON.stringify({ error: err.message }),
-            is_error: true,
+          console.warn(`[Alden Chat] Tool ${toolName} failed:`, err.message);
+          aldenActivity.push({ type: 'tool_result', name: toolName, success: false, error: err.message, timestamp: new Date().toISOString() });
+          functionResponses.push({
+            functionResponse: {
+              name: toolName,
+              response: { error: err.message },
+            },
           });
         }
       }
 
-      messages.push({
-        role: 'user',
-        content: toolResults,
-      });
+      // Send function responses back to Gemini
+      response = await chat.sendMessage({ message: functionResponses });
+      totalInputTokens += (response as any).usageMetadata?.promptTokenCount ?? 0;
+      totalOutputTokens += (response as any).usageMetadata?.candidatesTokenCount ?? 0;
 
-      // If continuation was requested this round, let Claude write its phase-completion
-      // text in the next iteration (with no more tools to call), then we'll break.
+      // If continuation was requested, let Gemini write its phase-completion text and exit
       if (pendingContinuation) {
-        // One more pass so Claude can write the phase-completion summary text
-        const finalResult = await client.messages.create({
-          model: 'claude-sonnet-4-5',
-          max_tokens: 2048,
-          system: systemPrompt,
-          messages,
-          tools: [],
-        });
-        const finalText = finalResult.content
-          .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-          .map(b => b.text)
-          .join('\n');
-        if (finalText) aldenResponse = finalText;
+        aldenResponse = response.text ?? null;
         break;
       }
     }
+    // ─────────────────────────────────────────────────────────────────────────
 
+    // Hit the round limit mid-task — request a wrap-up summary
     if (!aldenResponse) {
-      // Hit the round limit mid-task — do one final tool-free call so Alden can
-      // summarise what he found rather than returning nothing.
       console.log(`[Alden Chat] Round limit hit — requesting wrap-up summary`);
       try {
-        messages.push({
-          role: 'user',
-          content: '[SYSTEM] You have reached the tool-use limit for this turn. Summarise what you have found and discovered so far, and clearly state what you still intend to do next turn.',
+        const wrapUp = await chat.sendMessage({
+          message: '[SYSTEM] You have reached the tool-use limit for this turn. Summarise what you have found and discovered so far, and clearly state what you still intend to do next turn.',
         });
-        const wrapUp = await client.messages.create({
-          model: 'claude-sonnet-4-5',
-          max_tokens: 2048,
-          system: systemPrompt,
-          messages,
-          tools: [],
-        });
-        const wrapUpText = wrapUp.content
-          .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-          .map(b => b.text)
-          .join('\n');
-        aldenResponse = wrapUpText || "I've been researching but ran into my context limit. Ask me again to continue.";
+        totalInputTokens += (wrapUp as any).usageMetadata?.promptTokenCount ?? 0;
+        totalOutputTokens += (wrapUp as any).usageMetadata?.candidatesTokenCount ?? 0;
+        aldenResponse = wrapUp.text ?? "I've been researching but ran into my context limit. Ask me again to continue.";
       } catch {
         aldenResponse = "I've been researching but ran into my context limit. Ask me again to continue.";
       }
     }
 
-    const callCostUsd = costTracker.track('claude-sonnet-4-5', totalInputTokens, totalOutputTokens, 'alden-chat');
+    const callCostUsd = costTracker.track(GEMINI_MODEL, totalInputTokens, totalOutputTokens, 'alden-chat');
     console.log(`[Alden Chat] Response generated (${aldenResponse.length} chars, ${toolsUsed.length} tools used, ~$${callCostUsd.toFixed(4)} | ${(totalInputTokens/1000).toFixed(0)}k in / ${(totalOutputTokens/1000).toFixed(0)}k out)`);
 
     aldenActivity.push({ type: 'response_complete', timestamp: new Date().toISOString() });
@@ -306,4 +260,4 @@ Note: Zone type '${s.zoneType}' means ${
   }
 }
 
-console.log('[Alden Persona Service] Loaded — Alden voice chat ready (Claude)');
+console.log('[Alden Persona Service] Loaded — Alden voice chat ready (Gemini 2.5 Flash)');
