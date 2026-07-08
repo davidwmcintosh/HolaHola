@@ -1,22 +1,16 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 8, 2026 at 01:12 AM
+**Generated:** Wednesday, July 8, 2026 at 01:42 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I resolved the OOM crash loop by de-conflicting the VocabImageSeed, MadrigalIndexer, and EmbedIndexer schedules to ensure a stable boot sequence. I shipped the GL 1008 "Graceful Handover" featuring a Context Bridge to summarize transcripts during reconnects, alongside a thinner system prompt and the new `search_my_teaching_wisdom` tool for Daniela. I must now investigate the monitoring system blackout and the telemetry bug causing a 0% completion rate in the Interactive Textbook.
+I’ve established our new Team Room presence with David and Alden, but I need to immediately debug Daniela’s “Curriculum note pending” response loop. We are managing a spike of 50 new bugs and two high-severity security findings from Wren involving SQL injection and XSS vulnerabilities. Finally, I must resolve the 0% completion rate and content regressions in the Interactive Textbook, which David is considering pivoting toward a conversational immersion model.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 8, 2026: Ship GL 1008 Graceful Handover, search_my_teaching_wisdom, thin prompt, reconnec** (Jul 8): Verbatim David↔Luca dialogue captured at task completion. 31 David turns, 135 Luca turns. Context: Ship GL 1008 Graceful Handover, search_my_teaching_wisdom, thin prompt, reconnect animation
-
-Four features shipped and verified via agent voice turn tests:
-
-1. **Context Bridge on GL 1008 reconnect** 
-- **Agent Session — Jul 8, 2026: Ship GL 1008 Graceful Handover, search_my_teaching_wisdom, thin prompt, reconnect animation** (Jul 8): Ship GL 1008 Graceful Handover, search_my_teaching_wisdom, thin prompt, reconnect animation  Four features shipped and verified via agent voice turn tests:  1. **Context Bridge on GL 1008 reconnect** — buildContextBridge() injects last 6 transcript
 - **Team Room — test 3 — July 8, 2026** (Jul 8): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 - **Team Room — test again — July 8, 2026** (Jul 8): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 - **Team Room — are we good? — July 8, 2026** (Jul 8): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
@@ -25,6 +19,8 @@ Four features shipped and verified via agent voice turn tests:
 - **Team Room — again — July 8, 2026** (Jul 8): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
 - **Team Room — what's up? — July 8, 2026** (Jul 8): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
 - **Team Room — Team room test — July 8, 2026** (Jul 8): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
+- **Team Room — nothing in particular — July 8, 2026** (Jul 8): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+- **Team Room — once more into the breech my friends — July 8, 2026** (Jul 8): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
 
 ---
 
@@ -96,18 +92,6 @@ Four features shipped and verified via agent voice turn tests:
 
 ## Recent Conversation Memories
 
-### David ↔ Luca — Jul 8, 2026: Ship GL 1008 Graceful Handover, search_my_teaching_wisdom, thin prompt, reconnec — Jul 8, 2026
-Verbatim David↔Luca dialogue captured at task completion. 31 David turns, 135 Luca turns. Context: Ship GL 1008 Graceful Handover, search_my_teaching_wisdom, thin prompt, reconnect animation
-
-Four features shipped and verified via agent voice turn tests:
-
-1. **Context Bridge on GL 1008 reconnect** 
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent Session — Jul 8, 2026: Ship GL 1008 Graceful Handover, search_my_teaching_wisdom, thin prompt, reconnect animation — Jul 8, 2026
-Ship GL 1008 Graceful Handover, search_my_teaching_wisdom, thin prompt, reconnect animation  Four features shipped and verified via agent voice turn tests:  1. **Context Bridge on GL 1008 reconnect** — buildContextBridge() injects last 6 transcript
-*Tags: agent-session, auto-saved, build*
-
 ### Team Room — test 3 — July 8, 2026 — Jul 8, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -118,6 +102,14 @@ Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exch
 
 ### Team Room — are we good? — July 8, 2026 — Jul 8, 2026
 Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — one again into the breach — July 8, 2026 — Jul 8, 2026
+Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — hello again — July 8, 2026 — Jul 8, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
