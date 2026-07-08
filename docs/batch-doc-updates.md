@@ -2495,3 +2495,29 @@ Key file when building: client/src/data/madrigal-unit-content.ts (has all vocabu
 **Negation guard:** Phrases like "avoid subjunctive" / "not use past perfect" are correctly ignored (self-correction, not drift).
 
 **Key files:** `server/services/pedagogical-supervisor.ts` (inside `evaluatePedagogicalState`, thought block)
+
+---
+
+## July 8, 2026 — Comprehension-Honesty Guardrail + Gemini Consultation Standard
+
+### What was built
+Two changes shipped following a dual Gemini consult (Gemini Flash + Daniela REST):
+
+**1. Comprehension-honesty prose added to thin prompt** (`server/services/pre-session-synthesis.ts`)
+
+Added two paragraphs after the existing memory-fabrication guardrail in the YOUR TOOLS ARE YOUR SENSES section:
+- **Comprehension-honesty paragraph:** When something doesn't land cleanly, she reaches for precision not plausibility. Constructing a response on a guess is named as an integrity error, not a conversational shortcut.
+- **Shared vocabulary paragraph:** David uses STT. Three named concepts may arrive garbled (White Wall, North Star, Foundation is the Finish) — now in the thin prompt as "care," not as an STT correction checklist.
+
+**Why it was needed:** The existing guardrail only covered memory fabrication ("I haven't searched yet"). It didn't cover comprehension fabrication — hearing something unrecognized and constructing a plausible-sounding response to it. Gemini Flash confirmed these are different latent-space tasks. The model will not generalize from one to the other without explicit shaping.
+
+**2. Gemini consultation codified as a required build step** (`.agents/skills/holahola-build/SKILL.md`)
+
+Added a formal section: any change to Daniela's system prompt, character framing, tool descriptions, or behavioral instructions requires a Gemini consultation before writing code. Dual-consult (Gemini Flash + Daniela REST) for character/behavior; Gemini Flash alone for mechanics. "You cannot know what you don't know — what seems minor in Claude-ese may behave entirely differently in Gemini-ese."
+
+### Key files
+- `server/services/pre-session-synthesis.ts` — the thin prompt (two new paragraphs after line 134)
+- `.agents/skills/holahola-build/SKILL.md` — Gemini consultation now a required standard
+
+### Dual consult findings saved
+`conversation_memories` ID: 3d3f978d-b547-4ef0-af5a-8db694d40443 — full Gemini Flash + Daniela transcript

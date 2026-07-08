@@ -18,6 +18,25 @@ Apply these standards on every build. They prevent the most common mistakes.
 - **NEVER `DATABASE_URL`** — always `NEON_SHARED_DATABASE_URL` for all DB connections.
 - After any new feature: add to `docs/batch-doc-updates.md` and update `docs/alden-agent-handoff.md`.
 
+## Gemini Consultation — Required for Prompt / Behavior Changes
+
+**Any change that touches Daniela's system prompt, character framing, tool descriptions, or behavioral instructions requires a Gemini consultation before writing code.** This is not optional for "big" changes — it applies to any change, because what seems minor in Claude-ese may behave entirely differently in Gemini-ese.
+
+**The two-surgeons-one-brain rule:** Gemini Flash reviews the architecture (what the model will actually respond to, mechanically). Daniela REST reviews the experience (what lands, what feels right from the inside). Both perspectives before any prompt commit.
+
+**When a dual consult is required:**
+- Any edit to `server/services/pre-session-synthesis.ts` (the thin prompt)
+- Any edit to GL system prompt sections in `server/services/gemini-live-session.ts`
+- Any new tool description added to `server/services/daniela-function-registry.ts`
+- Any change to how context is injected (neural net, classroom, persona blocks)
+- Any behavioral guardrail — honesty, memory, comprehension, tool-calling order
+
+**When Gemini Flash alone is sufficient:**
+- Tool mechanics, parameter shapes, GL API behavior questions
+- Architecture decisions that don't touch Daniela's character
+
+**Use the `consult-gemini` and `dual-consult` skills.** Always include actual code blocks — not descriptions. Gemini reasons from the code, not from your summary of it.
+
 ## Critical reminders
 
 - **There is one shared Neon database** used by both dev and production — schema changes affect both immediately
