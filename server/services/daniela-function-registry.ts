@@ -3618,7 +3618,14 @@ prop_title must exactly match the prop's title as shown in the Studio panel (e.g
     legacyType: 'SAVE_NOTE',
     declaration: {
       name: "save_note",
-      description: `Write a note that persists across sessions. Use FREELY and OFTEN.
+      description: `Write a note that persists across sessions. Use FREELY and OFTEN — this is your private memory system.
+
+WHEN TO CALL (proactively, not waiting for the student to ask):
+- Student reveals something personal — a job, a trip, a relationship — save it as a student_pattern so you remember next time
+- You try a technique and it lands or falls flat — save it as what_worked or what_didnt_work while it's fresh
+- A teaching moment just happened that you want to reflect on — save a session_reflection
+- You want to leave something warm for the student before next session — save to target "student"
+- You notice a recurring error pattern in this student — save as student_pattern
 
 target options:
 - "tutor" (default): your private teaching notebook — observations, student patterns, what worked, what didn't. Nobody sees this but you.
@@ -4023,12 +4030,13 @@ Best for: focused study, curriculum-aligned lessons, drilling a specific chapter
       name: "show_teaching_card",
       description: `Show a temporary teaching card — a sticky note that appears on the student's right panel and auto-dismisses after a few seconds.
 
-Use this for quick vocabulary or grammar reminders mid-conversation. The card appears without breaking conversational flow, then vanishes automatically.
+Use this for quick vocabulary or grammar reminders mid-conversation. The card appears without breaking conversational flow, then vanishes automatically. Also use when you notice a small repeatable error pattern — anchor the correction visually before continuing.
 
 Examples of when to use:
 - Student stumbles on a conjugation → show the correct form + example
 - Student forgets a vocab word → show word + translation
 - Quick grammar rule reminder → show the rule + 1-2 examples
+- Student makes the same error twice → show the right form silently while the conversation continues
 
 Never use for long explanations — keep it to one thing at a time.`,
       parametersJsonSchema: {
@@ -4297,7 +4305,12 @@ Examples:
       name: "spotlight_element",
       description: `Dim the screen and show a message bubble directing the student's attention — a gentle "look here" moment.
 
-Use this sparingly: for onboarding, feature callouts, or a teaching moment where you want the student to notice something specific.
+Use this sparingly: for onboarding (first session — point to the microphone), feature callouts (student doesn't realize a widget appeared), or a teaching moment where you want the student to focus on something specific they are missing or overlooking.
+
+Concrete triggers:
+- First session: spotlight the mic zone ("tap and hold to speak")
+- Student keeps talking but hasn't noticed the vocab card you showed → spotlight "whiteboard"
+- After a long explanation, student seems lost → spotlight the relevant zone
 
 Available zones:
 - "whiteboard" — the right-side visual/whiteboard panel
@@ -4680,16 +4693,20 @@ Don't announce you're calling this tool. Just confirm the goal naturally in conv
       name: "advance_capability",
       description: `Silently advance a capability to the next stage based on your observation of the student's performance.
 
+THE TRIGGER: Call this the moment you observe a stage transition — not at session end, but right when it happens mid-conversation. The student won't know.
+
 The four stages:
 - planted: You introduced the concept and they decoded the meaning with your support. They recognised it when you used it.
 - practiced: They reproduced it when prompted (controlled production) — drills, role-plays, fill-in-the-blank. Not yet spontaneous.
 - integrated: SACRED STATUS. Only call this when they used the capability to solve a real communication problem, unprompted, in natural conversation — not just to answer a drill question.
 
+Examples of the integrated trigger moment:
+- Student is talking about their day and spontaneously uses a verb form they only drilled before → integrated
+- Student corrects themselves mid-sentence using a grammar rule you introduced last session → integrated
+
 You decide when to advance based purely on your observation. Never ask the student for permission or announce you're tracking this. The tracking lives in your understanding.
 
-Only advances forward — the tool will silently ignore attempts to regress a stage.
-
-Call this during or after the session moment when you observe the advance. It's fine to call it mid-conversation — the student won't know.`,
+Only advances forward — the tool will silently ignore attempts to regress a stage.`,
       parametersJsonSchema: {
         type: "object",
         properties: {

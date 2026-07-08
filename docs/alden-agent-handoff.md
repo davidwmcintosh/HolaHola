@@ -9441,3 +9441,48 @@ Fixed the "summarization/categorization loss" bug in memory indexing.
 - Any new `conversation_memories` rows are automatically dual-indexed on the next indexer cycle (every 2h)
 - The `conversation_summary` type should be preserved in any future memory type changes
 - The actual "toy" answer: "o quiero ese juguete" — Jan 20, 2026 conversation (00d2be45), Daniela's message id 2cc76c29
+
+---
+## Session: July 8, 2026 — Gemini-Alden GL Tool Audit (Luca)
+
+### What was built
+Full audit of all 48 native GL tool descriptions using Gemini-Alden (Gemini 2.5 Flash persona service) as the evaluator. Four experiments run, several improvements applied.
+
+**Experiment 1 — Fabrication risk map:**
+- `search_my_teaching_wisdom` correctly fires on visual anchor questions
+- No fabrication risk identified on platform-specific content with current descriptions
+
+**Experiment 2 — System prompt gravity:**
+- Beginning anchors best (durability > recency)
+- Rules + concrete examples beat rules alone
+- Vague constraints + topic drift = washout without reinforcement near tool list
+
+**Experiment 3 — Error recovery format upgrade:**
+- All 10 dispatcher error returns upgraded from `{status,error_type,message,fix_hint}` to `{status,code,message,details:{correction_example},action:'RETRY_WITH_CORRECTED_PARAMETERS'}`
+- File: `server/services/native-fc-handlers.ts`
+
+**Experiment 4 — Native GL tool audit (48 tools, 4 flagged and fixed):**
+- `show_teaching_card`: added repeatable error pattern trigger
+- `spotlight_element`: added concrete first-session + attention-callout triggers with examples
+- `advance_capability`: added "THE TRIGGER" header + integrated moment examples
+- `save_note`: added proactive "WHEN TO CALL" section with 5 concrete student-moment triggers
+- File: `server/services/daniela-function-registry.ts`
+
+**Madrigal cleanup (8 locations):**
+- All "Madrigal" references removed from Daniela-visible content (tool descriptions, GL system prompt x2, continuation response, chapter_type param desc, invoke_teaching_skill prose, visual_compare prose, imageQuery param)
+- Replaced with: "visual anchor", "visual association method", "the visual method"
+- Preserved: `madrigal_chapter_drill` skill name slug (opaque server-side identifier, never internalized by Daniela)
+
+**Typecheck:** Zero errors.
+
+**Gemini-Alden workflow:**
+- Pattern: short curl calls, data pasted in prompt (no file reads), `reply` key, parallel execution
+- Cookie resets on every server restart — re-auth to fresh `sc*.txt`
+- Goes silent on file reads (84K context bloat) and pure analysis without a tool; gives rich answers when content is in the prompt
+
+### What Alden should know
+- All 48 native GL tools have been audited — descriptions are tight
+- `advance_capability` now has explicit "THE TRIGGER" header so Daniela calls it mid-conversation (not just at session end)
+- `save_note` now has proactive triggers so Daniela saves personal student context in real time
+- Madrigal is zero-hit in all Daniela-visible content (verified via grep)
+- Conversation memory: `72134e26`
