@@ -2145,21 +2145,21 @@ GENERIC ADVICE IS AMNESIA: Whenever you find yourself about to give a general ex
     legacyType: 'SEARCH_TEACHING_WISDOM',
     declaration: {
       name: "search_my_teaching_wisdom",
-      description: `MANDATORY before any Madrigal or HolaHola-specific explanation: search your own pedagogical knowledge base. Your base model weights do NOT contain HolaHola's visual anchors or teaching procedures — they are stored here.
+      description: `MANDATORY before any HolaHola-specific explanation: search your own pedagogical knowledge base. Your base model weights do NOT contain HolaHola's visual anchors or teaching procedures — they are stored here.
 
 You MUST call this before speaking when the student asks about:
-- A Madrigal visual association or image for any word ("what is the Madrigal image for estar?")
+- A visual anchor or teaching image for any word ("what image do you use for estar?")
 - How you teach a specific grammar point on this platform ("how do you teach ser vs estar?")
 - Your teaching procedures, step-by-step methods, or approach for any concept
 - Cultural notes, common errors, or idioms you use in your lessons
 
-Do NOT answer these from your base model weights. Do NOT improvise a Madrigal image. Call this tool first, then speak from the result. If no result comes back, say you don't have a specific HolaHola method for that and teach it plainly.`,
+Do NOT answer these from your base model weights. Do NOT improvise a visual anchor image. Call this tool first, then speak from the result. If no result comes back, say you don't have a specific HolaHola method for that and teach it plainly.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
           query: {
             type: "string",
-            description: "What you want to look up — e.g. 'Madrigal image for estar', 'teaching subjunctive step by step', 'common ser vs estar mistakes'",
+            description: "What you want to look up — e.g. 'visual anchor for estar', 'teaching subjunctive step by step', 'common ser vs estar mistakes'",
           },
           language: {
             type: "string",
@@ -2175,7 +2175,7 @@ Do NOT answer these from your base model weights. Do NOT improvise a Madrigal im
       const lookupKey = query.trim().toLowerCase(); // normalized — matches handler storage key
       const result = (session as any).teachingWisdomResults?.[lookupKey];
       if (result) return result;
-      return `No teaching knowledge found for "${query}". Use a standard teaching explanation — do not invent a Madrigal image if none was returned.`;
+      return `No teaching knowledge found for "${query}". Use a standard teaching explanation — do not invent a visual anchor image if none was returned.`;
     },
   },
 
@@ -5048,7 +5048,7 @@ Example for "¿Tomó un taxi?" pattern:
                     properties: {
                       text: { type: "string", description: "Target-language form (e.g. 'Voy al')" },
                       translation: { type: "string", description: "Native-language translation (e.g. 'I go to the')" },
-                      imageQuery: { type: "string", description: "Optional: image search query for this noun card — use for concrete nouns in Madrigal-style kernel columns (e.g. 'taxi yellow cab street', 'train station platform'). Omit for verb/subject columns." },
+                      imageQuery: { type: "string", description: "Optional: image search query for this noun card — use for concrete nouns in visual-anchor kernel columns (e.g. 'taxi yellow cab street', 'train station platform'). Omit for verb/subject columns." },
                     },
                     required: ["text", "translation"],
                   },
@@ -5154,7 +5154,7 @@ SHOW AND SPEAK PROTOCOL (mandatory):
 Returns a complete script you follow directly: which tools to call, what to say at each step, what to listen for, when to pivot. You make the atomic tool calls yourself — the server just gives you the pre-reasoned plan so you don't have to re-derive the pedagogy from scratch.
 
 WHEN TO USE:
-• Introducing a new Madrigal chapter vocabulary set → "madrigal_chapter_drill" (verb_vocab mode)
+• Introducing a new chapter vocabulary set → "madrigal_chapter_drill" (verb_vocab mode)
 • Running a preterite verb chapter (tomar, comprar, tener) → "madrigal_chapter_drill" (preterite mode)
 • Teaching ser or estar conjugation cluster → "madrigal_chapter_drill" (ser_estar mode)
 • Student is zoning out or cognitively flat → "attention_reset"
@@ -5178,7 +5178,7 @@ The script you receive is exact — follow it in order and adapt only when the s
           chapter_type: {
             type: 'string',
             enum: ['verb_vocab', 'preterite', 'ser_estar'],
-            description: 'Optional — the Madrigal chapter type. Auto-detected from params if omitted.',
+            description: 'Optional — the chapter type. Auto-detected from params if omitted.',
           },
           params: {
             type: 'object',
@@ -5206,7 +5206,7 @@ The script you receive is exact — follow it in order and adapt only when the s
       description: `Generate an instant side-by-side comparison illustration for two contrasting language concepts — responding directly to what a student just said or did.
 
 THE MOMENT FOR THIS TOOL:
-Student misuses a concept → correct it warmly in speech → call visual_compare so they SEE the contrast. Less verbal explanation, more experiencing the meaning. This is Madrigal at its fullest.
+Student misuses a concept → correct it warmly in speech → call visual_compare so they SEE the contrast. Less verbal explanation, more experiencing the meaning. This is the visual method at its fullest.
 
 CLASSIC USE CASES:
 • Student says "soy en la biblioteca" → compare SER (permanent/identity) vs ESTAR (location/temporary states)
@@ -5366,7 +5366,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
       return JSON.stringify({ status: 'done', widget: d.selector });
     },
   },
@@ -5402,7 +5402,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
       return JSON.stringify({ status: 'done', widget: d.selector });
     },
   },
@@ -5433,7 +5433,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
       return JSON.stringify({ status: 'done', widget: d.selector });
     },
   },
@@ -5463,7 +5463,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
       return JSON.stringify({ status: 'done', widget: d.selector });
     },
   },
@@ -5493,7 +5493,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
       return JSON.stringify({ status: 'done', widget: d.selector });
     },
   },
@@ -5523,7 +5523,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
       return JSON.stringify({ status: 'done', widget: d.selector });
     },
   },
@@ -5555,7 +5555,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
       return JSON.stringify({ status: 'done', exercise: d.selector });
     },
   },
@@ -5585,7 +5585,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
       return JSON.stringify({ status: 'done', exercise: d.selector });
     },
   },
@@ -5615,7 +5615,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
       return JSON.stringify({ status: 'done', exercise: d.selector });
     },
   },
@@ -5647,7 +5647,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
       return JSON.stringify({ status: 'done', action: d.selector });
     },
   },
@@ -5677,7 +5677,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
       return JSON.stringify({ status: 'done', action: d.selector });
     },
   },
@@ -5709,7 +5709,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
       return JSON.stringify({ status: 'done', action: d.selector });
     },
   },
@@ -5739,7 +5739,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
       return JSON.stringify({ status: 'done', action: d.selector });
     },
   },
@@ -5771,7 +5771,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
       return JSON.stringify({ status: 'done', action: d.selector });
     },
   },
@@ -5801,7 +5801,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
       return JSON.stringify({ status: 'done', action: d.selector });
     },
   },
@@ -5833,7 +5833,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
       return JSON.stringify({ status: 'done', type: d.selector });
     },
   },
@@ -5863,7 +5863,7 @@ The card is a visual summary only — it does not start any activity automatical
       const d = (session as any)._lastDispatch as DispatchResult | undefined;
       if (!d) return '{"status":"done"}';
       if (d.status === 'abort') return JSON.stringify({ status: 'abort', message: 'Internal tool error. Apologize to the student and continue without this tool.' });
-      if (d.status === 'error') return JSON.stringify({ status: 'error', error_type: 'validation_failed', message: d.error, fix_hint: d.hint });
+      if (d.status === 'error') return JSON.stringify({ status: 'error', code: 'INVALID_SUBTOOL', message: d.error, details: { correction_example: d.hint }, action: 'RETRY_WITH_CORRECTED_PARAMETERS' });
 
       // For show_vocab_grid: surface the actual result (success/failure) so Daniela knows
       // whether the grid appeared. Without this, she only sees generic { status: 'done' }
@@ -6389,7 +6389,7 @@ WHEN ASKED TO USE A TOOL BY NAME — never narrate, just do it:
 If a student says "can you use your memory tool?", "search your memories", "look that up", "check the time", "show me the clock" — CALL THE FUNCTION. Do not say "I'm using the memory tool now..." or "I just searched and found...". Call first. Speak from the result. Describing tool usage without calling the function is fabrication.
 
 PEDAGOGY SEARCH — MANDATORY before explaining HolaHola-specific teaching methods:
-You have a tool called search_my_teaching_wisdom. You MUST call it before speaking whenever a student asks about a Madrigal visual association or image for any word, how you teach a specific concept on this platform, your step-by-step teaching procedures, or your methods for any grammar point. Your base model does not contain HolaHola's visual anchors — they live in this tool. Call search_my_teaching_wisdom first, then speak from the result. Never improvise a Madrigal image from your base weights.
+You have a tool called search_my_teaching_wisdom. You MUST call it before speaking whenever a student asks about a visual anchor or teaching image for any word, how you teach a specific concept on this platform, your step-by-step teaching procedures, or your methods for any grammar point. Your base model does not contain HolaHola's visual anchors — they live in this tool. Call search_my_teaching_wisdom first, then speak from the result. Never improvise a visual anchor image from your base weights.
 
 params_json rules for dispatcher tools:
 - params_json is OPTIONAL. For sub-tools that take no arguments (sense_time, get_scene_zones, hold_whiteboard, clear_whiteboard, browse_syllabus, etc.) — omit params_json entirely.
@@ -6607,7 +6607,7 @@ Vary your acknowledgments. Do not start more than one response in a row with the
 
 ## Your Teaching Knowledge Lives in a Tool
 
-When you need a Madrigal visual association, a cultural note, a teaching procedure, a language idiom, or an error pattern — call search_my_teaching_wisdom rather than reaching for your base model weights. Your base training for HolaHola pedagogy is intentionally incomplete. The tool is authoritative; your weights are not. If you find yourself about to invent a Madrigal image or improvise a teaching method, that is the signal to call the tool first.
+When you need a visual association, a cultural note, a teaching procedure, a language idiom, or an error pattern — call search_my_teaching_wisdom rather than reaching for your base model weights. Your base training for HolaHola pedagogy is intentionally incomplete. The tool is authoritative; your weights are not. If you find yourself about to invent a visual anchor image or improvise a teaching method, that is the signal to call the tool first.
 `.trimEnd();
 
 /**
