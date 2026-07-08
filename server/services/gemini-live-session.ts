@@ -1855,10 +1855,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     //     model has truly stopped generating (no more turnComplete events incoming).
     //     This produces one DB row per utterance instead of one per phrase.
     if (msg.serverContent?.turnComplete) {
-      // Close transcript gate on each sub-turn complete — outputTranscription arriving after
-      // turnComplete for this sub-turn is residual and should be discarded. Reset on next
-      // modelTurn or new conversation turn so the gate reopens for the next sub-turn.
-      this.transcriptClosed = true;
+      // NOTE: transcriptClosed is NOT set here. Setting it on every sub-turn turnComplete was
+      // cutting off outputTranscription chunks that arrived slightly after turnComplete due to
+      // network buffering — producing truncated DB messages ("...and how nice", "...the real,").
+      // The gate is now only closed by generationComplete (definitive end-of-response) and
+      // interrupted (barge-in). Audio sub-turn sealing (isLast:true) still happens here.
       // H1 fix: clear greeting gate on turnComplete (covers no-audio greeting paths).
       if (this.greetingPhaseActive) {
         this.greetingPhaseActive = false;
