@@ -58,6 +58,14 @@ function getDb() {
     _db = drizzle({ client: pool, schema });
     console.log("[DB] Database pool initialized (max: 25, idle: 2min, timeout: 20s)");
 
+    // Prevent "Connection terminated unexpectedly" from propagating as an uncaught
+    // exception and crashing the server (which kills all active GL voice sessions).
+    // pg pools emit 'error' on idle client disconnects — without this handler the
+    // error becomes an uncaught exception and node exits.
+    pool.on('error', (err) => {
+      console.warn('[DB] Pool idle client error (non-fatal, pool will reconnect):', err.message);
+    });
+
     // Keepalive heartbeat — prevents Neon serverless compute from auto-suspending.
     // Neon suspends after ~5min idle; a query every 3min keeps it warm and avoids
     // the 5-20s cold-start penalty that was stacking into 38s+ connection timeouts.

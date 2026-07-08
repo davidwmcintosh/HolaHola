@@ -493,14 +493,20 @@ export function StreamingVoiceChat({
   }, [conversationId]);
   
   // Voice Lab: Send voice override to server when it changes.
-  // Only send when voiceOverride is non-null — sending null clears the server's
-  // voice config and can cause GL to fall back to its default (possibly wrong gender) voice.
+  // Tracks the last-sent value to avoid re-sending on every connectionState toggle
+  // (processing ↔ ready fires constantly while Daniela speaks, which would restart
+  // the GL session mid-sentence on each transition and cause both a voice change and
+  // an audio cutoff). Only re-sends when voiceOverride itself changes, or when the
+  // connection becomes ready after a full disconnect (lastSent won't match current).
+  const lastSentVoiceOverrideRef = useRef<typeof voiceOverride | null>(null);
   useEffect(() => {
-    if ((streamingVoice.state.connectionState === 'ready' || 
-         streamingVoice.state.connectionState === 'processing') && voiceOverride !== null) {
-      streamingVoice.sendVoiceOverride(voiceOverride);
-      console.log('[Voice Lab] Sent voice override to server:', voiceOverride);
-    }
+    const connected = streamingVoice.state.connectionState === 'ready' || 
+                      streamingVoice.state.connectionState === 'processing';
+    if (!connected || voiceOverride === null) return;
+    if (JSON.stringify(lastSentVoiceOverrideRef.current) === JSON.stringify(voiceOverride)) return;
+    lastSentVoiceOverrideRef.current = voiceOverride;
+    streamingVoice.sendVoiceOverride(voiceOverride);
+    console.log('[Voice Lab] Sent voice override to server:', voiceOverride);
   }, [voiceOverride, streamingVoice.state.connectionState]);
   
   // Handle input mode changes - cleanup when switching modes
