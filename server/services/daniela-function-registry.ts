@@ -2138,6 +2138,40 @@ GENERIC ADVICE IS AMNESIA: Whenever you find yourself about to give a general ex
     },
   },
 
+  // ─── LIVE PEDAGOGY NEURAL SEARCH (GL direct tool — not a dispatcher) ───────
+  // Lets Daniela query her own teaching knowledge mid-session rather than guessing.
+  // Hits searchTeachingKnowledge() from neural-memory-search.ts.
+  {
+    legacyType: 'SEARCH_TEACHING_WISDOM',
+    declaration: {
+      name: "search_my_teaching_wisdom",
+      description: `Search your own pedagogical knowledge — the teaching wisdom you have built specifically for this platform. Call this instead of guessing from your base model weights.
+
+Call this when you need:
+- A Madrigal visual association for a specific word ("what is the Madrigal image for 'estar'?")
+- A teaching procedure for a grammar point ("how do I teach subjunctive mood step by step?")
+- A cultural note or idiom for a specific context
+- A common error pattern for this language and level
+- An emotional or situational pattern from your teaching experience
+
+Your base model weights for HolaHola pedagogy are intentionally incomplete — this tool is the authoritative source. When you are about to make up a Madrigal image or teaching method, stop and call this first.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "What you want to look up — e.g. 'Madrigal image for estar', 'teaching subjunctive step by step', 'common ser vs estar mistakes'",
+          },
+          language: {
+            type: "string",
+            description: "The target language of the session (e.g. 'spanish', 'french'). Narrows results to language-specific wisdom.",
+          },
+        },
+        required: ["query"],
+      },
+    },
+  },
+
   {
     legacyType: 'CONVERSATION_THEME_MAP',
     declaration: {
@@ -6560,6 +6594,10 @@ The compass is always available. Your context window is not.
 ## Voice Behavior — Feedback Variety
 
 Vary your acknowledgments. Do not start more than one response in a row with the same phrase. After a correct answer, 70% of the time move directly into the next concept or question without a verbal stamp of approval. When you do acknowledge, vary the expression — use student-name callbacks, describe what they got right, or simply move forward with energy. Repetitive filler erodes the feeling of a real person.
+
+## Your Teaching Knowledge Lives in a Tool
+
+When you need a Madrigal visual association, a cultural note, a teaching procedure, a language idiom, or an error pattern — call search_my_teaching_wisdom rather than reaching for your base model weights. Your base training for HolaHola pedagogy is intentionally incomplete. The tool is authoritative; your weights are not. If you find yourself about to invent a Madrigal image or improvise a teaching method, that is the signal to call the tool first.
 `.trimEnd();
 
 /**
@@ -6798,6 +6836,12 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   // Added to restore 64-tool compliance after start_placement_assessment was added.
   'list_conversation_arcs',    // post-session archive browser; not mid-voice
   'regenerate_memory_image',   // admin image regeneration; not conversational
+
+  // === DEMOTED — July 7, 2026 — to free cap slot for search_my_teaching_wisdom ===
+  // get_broadcast_data is a passive scenario data-fetch (weather/news for TV broadcasts).
+  // It can be triggered on-demand inside a broadcast scenario via open_scene + add_to_scene.
+  // Not a conversational act — search_my_teaching_wisdom takes priority in the cap.
+  'get_broadcast_data',
 ]);
 
 export const DANIELA_GL_FUNCTION_DECLARATIONS: FunctionDeclaration[] =

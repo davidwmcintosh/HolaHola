@@ -366,6 +366,32 @@ export class NativeFunctionCallHandler {
         return this.handle(sessionId, session, snTutorFn);
       }
 
+      case 'SEARCH_TEACHING_WISDOM': {
+        const stwQuery = fn.args.query as string | undefined;
+        const stwLanguage = fn.args.language as string | undefined;
+        if (!stwQuery?.trim()) {
+          console.warn('[Dispatcher] search_my_teaching_wisdom called with no query — ignoring');
+          break;
+        }
+        console.log(`[Dispatcher] search_my_teaching_wisdom query="${stwQuery.substring(0, 80)}" lang=${stwLanguage || 'any'}`);
+        try {
+          const { searchTeachingKnowledge: searchTeaching, formatTeachingKnowledge } = await import('./neural-memory-search');
+          const results = await searchTeaching(stwQuery, stwLanguage);
+          const formatted = formatTeachingKnowledge(results);
+          if (!('teachingWisdomResults' in session)) (session as any).teachingWisdomResults = {};
+          if (formatted && formatted.trim()) {
+            (session as any).teachingWisdomResults[stwQuery] = `[Teaching knowledge for "${stwQuery}"]\n\n${formatted}\n\nThese are your own teaching records. Speak from them.`;
+          } else {
+            (session as any).teachingWisdomResults[stwQuery] = `No specific teaching knowledge found for "${stwQuery}". You may proceed with what you know, but note this gap.`;
+          }
+        } catch (err: any) {
+          console.error('[Dispatcher] search_my_teaching_wisdom error:', err?.message);
+          if (!('teachingWisdomResults' in session)) (session as any).teachingWisdomResults = {};
+          (session as any).teachingWisdomResults[stwQuery] = `Search failed: ${err?.message || 'unknown error'}. Continue naturally.`;
+        }
+        break;
+      }
+
       case 'SWITCH_TUTOR': {
         const target = fn.args.target as string | undefined;
         const language = fn.args.language as string | undefined;

@@ -329,6 +329,13 @@ export class GeminiLiveSession {
   private lastSystemPrompt = '';
   private lastTools: FunctionDeclaration[] = [];
 
+  // ── Context Bridge — rolling transcript for graceful 1008 reconnect ────────
+  // Stores the last 8 completed turns (user + model) so we can build a compact
+  // "Context Bridge" injected into the reconnect system prompt. Prevents Daniela
+  // from waking up amnesiac after a GL session duration abort.
+  private transcriptBuffer: Array<{ role: 'student' | 'daniela'; text: string }> = [];
+  private readonly MAX_TRANSCRIPT_BUFFER = 8;
+
   // ── Mid-session context refresh (DISABLED — 2026-06-13) ────────────────
   // sendClientContent({role:'model', turnComplete:false}) was intended as a
   // silent context reminder but is incorrect GL API usage: it signals GL that
@@ -903,8 +910,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               }
 
               try {
-                // Reconnect without a greeting — student was already mid-session
-                await this.start(this.lastSystemPrompt, this.lastTools);
+                // Reconnect without a greeting — inject Context Bridge so Daniela
+                // resumes from where the conversation was rather than waking amnesiac.
+                const contextBridge = this.buildContextBridge();
+                const reconnectPrompt = contextBridge
+                  ? `${contextBridge}\n\n${this.lastSystemPrompt}`
+                  : this.lastSystemPrompt;
+                await this.start(reconnectPrompt, this.lastTools);
                 this.reconnectAttempts = 0; // success — reset counter
                 console.log('[GeminiLive] Reconnected successfully');
 
@@ -2749,6 +2761,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       if (!this.session.transcriptTail) this.session.transcriptTail = [];
       this.session.transcriptTail.push({ role: 'student', text: userText, timestamp: Date.now() });
       if (this.session.transcriptTail.length > 10) this.session.transcriptTail.shift();
+      // Context Bridge: push to rolling buffer for graceful 1008 reconnect
+      this.transcriptBuffer.push({ role: 'student', text: userText.slice(0, 300) });
+      if (this.transcriptBuffer.length > this.MAX_TRANSCRIPT_BUFFER) this.transcriptBuffer.shift();
       try {
         await this.persistMessage('user', userText);
       } catch (err: any) {
@@ -2839,6 +2854,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       if (!this.session.transcriptTail) this.session.transcriptTail = [];
       this.session.transcriptTail.push({ role: 'daniela', text: assistantText, timestamp: Date.now() });
       if (this.session.transcriptTail.length > 10) this.session.transcriptTail.shift();
+      // Context Bridge: push to rolling buffer for graceful 1008 reconnect
+      this.transcriptBuffer.push({ role: 'daniela', text: assistantText.slice(0, 300) });
+      if (this.transcriptBuffer.length > this.MAX_TRANSCRIPT_BUFFER) this.transcriptBuffer.shift();
       try {
         const messageId = await this.persistMessage('assistant', assistantText);
         // Fire background enrichment (student_insights, recurring_struggles, vocab)
@@ -2974,6 +2992,24 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     } catch (err: any) {
       throw new Error(err.message);
     }
+  }
+
+  /**
+   * Build a compact Context Bridge from the rolling transcript buffer.
+   * Injected as a prefix to the system prompt on 1008 reconnect so Daniela
+   * resumes mid-session rather than waking amnesiac.
+   *
+   * Keeps it short (~400 chars max) — the full system prompt follows.
+   * Returns empty string if the buffer has fewer than 2 turns (not worth injecting).
+   */
+  private buildContextBridge(): string {
+    if (this.transcriptBuffer.length < 2) return '';
+    const turns = this.transcriptBuffer.slice(-6).map(t => {
+      const label = t.role === 'student' ? 'Student' : 'You';
+      const text = t.text.length > 120 ? t.text.slice(0, 120) + '…' : t.text;
+      return `${label}: ${text}`;
+    }).join('\n');
+    return `[Your conversation just before this connection resumed — continue naturally from here, do not acknowledge the reconnection]\n${turns}`;
   }
 }
 
