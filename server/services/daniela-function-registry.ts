@@ -5341,7 +5341,7 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'WIDGET_TIME',
     declaration: {
       name: 'widget_time',
-      description: 'Controls time and temperature widgets. Use for: analog/digital clock (set_clock), calendar date display (set_calendar), thermometer (set_thermometer), reading the current real time (sense_time).',
+      description: 'Show or read time, date, or temperature. Use when a student asks: what time is it, show me the clock, what day is today, what is the date, show me the calendar, how cold or hot is it, show the thermometer, what\'s the temperature.',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
@@ -5375,7 +5375,7 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'WIDGET_STATE',
     declaration: {
       name: 'widget_state',
-      description: 'Controls emotion, weather, geography, and pane widgets. Use for: emotion dial (set_emotion), weather display (set_weather), country map highlight (highlight_country), right side-pane content (set_right_pane).',
+      description: 'Show emotions, weather, country maps, or right-pane content. Use when a student asks: how are you feeling, show me your emotion, what is the weather like, is it raining, show me Mexico on the map, highlight that country, or when setting a geography or weather context for a lesson.',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
@@ -5411,7 +5411,7 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'WIDGET_BODY',
     declaration: {
       name: 'widget_body',
-      description: 'Controls human anatomy diagram widgets for body vocabulary. Use for: full body diagram (set_body_part), face diagram (set_face_part), hand diagram (set_hand_part).',
+      description: 'Teach or display human anatomy vocabulary. Use when a student asks about body parts, wants to see where something is on the body, or you are teaching face, hand, or body vocabulary. Sub-tools: set_body_part (full body), set_face_part (face), set_hand_part (hand).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
@@ -5442,7 +5442,7 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'WIDGET_SCENE',
     declaration: {
       name: 'widget_scene',
-      description: 'Controls the visual scene builder for immersive vocabulary practice. Use for: building a scene from visual elements (compose_visual_scene), searching the visual prop library (search_visual_library), getting zone info (get_scene_zones), removing a prop (remove_from_scene), moving a prop (move_in_scene).',
+      description: 'Build an immersive visual scene for contextual practice. Use when a student wants to practice in a real-world setting like a coffee shop, market, or classroom, or when you want to place props and objects in an environment. Sub-tools: compose_visual_scene, search_visual_library, get_scene_zones, remove_from_scene, move_in_scene.',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
@@ -5472,7 +5472,7 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'WIDGET_BOARD',
     declaration: {
       name: 'widget_board',
-      description: 'Controls whiteboard and board-display widgets. Use for: freeze whiteboard (hold_whiteboard), clear whiteboard (clear_whiteboard), text widget (write), grammar reference table (grammar_table), sentence breakdown table (show_sentence_table), element spotlight highlight (spotlight_element), shared session mission badge (set_mission_objective).',
+      description: 'Write or display content on the classroom whiteboard. Use when you want to show a word or phrase (write), grammar table (grammar_table), sentence breakdown (show_sentence_table), or spotlight a language element. Also use hold_whiteboard to freeze the board and set_mission_objective to set a shared session goal.',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
@@ -5502,7 +5502,7 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'WIDGET_MEDIA',
     declaration: {
       name: 'widget_media',
-      description: 'Controls background and media environment widgets. Use for: immersive scene background (enter_immersive), classroom background photo (change_classroom_photo), classroom window scene (change_classroom_window), restaurant menu prop (show_menu), daily schedule card (show_daily_plan).',
+      description: 'Change the classroom background or add environmental media. Use when entering an immersive location (enter_immersive), changing the room or window scene (change_classroom_photo, change_classroom_window), or adding a restaurant menu (show_menu) or daily schedule (show_daily_plan).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
@@ -5534,7 +5534,7 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'EXERCISE_LANGUAGE',
     declaration: {
       name: 'exercise_language',
-      description: 'Language script and phonetics exercises. Use for: phonetic alphabet display (phonetic), Kanji/CJK stroke order animation (stroke), tone mark display (tone), pronunciation tagging (pronunciation_tag), word comparison (compare), word map diagram (word_map), audio clip playback (play_audio).',
+      description: 'Script, phonetics, and pronunciation exercises. Use when a student asks how to write a character (stroke), how to pronounce something (phonetic, pronunciation_tag), tone marks (tone), or wants to compare or map words (compare, word_map). Also use for audio clip playback (play_audio).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
@@ -5564,7 +5564,7 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'EXERCISE_DRILL',
     declaration: {
       name: 'exercise_drill',
-      description: 'Vocabulary drill and review exercises. Use for: full drill session (drill_session), single drill card (drill), loading a vocabulary set (load_vocab_set), end-of-session summary (summary), cultural context note (culture), context vocabulary card (context).',
+      description: 'Vocabulary drill and review. Use when a student wants to practice, be tested on, or review vocabulary. Includes full drill sessions (drill_session), single flashcard drills (drill), loading a vocab set (load_vocab_set), session summary (summary), cultural notes (culture), and context cards (context).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
@@ -5594,7 +5594,7 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'EXERCISE_CONTENT',
     declaration: {
       name: 'exercise_content',
-      description: 'Conjugation and textbook content exercises. Use for: starting a conjugation table (init_conjugation_table), filling conjugation cells (fill_conjugation), clearing a conjugation table (clear_conjugation_table), displaying a textbook page (start_textbook_page), searching textbook content (search_textbook), showing a reading passage (reading).',
+      description: 'Conjugation tables and textbook content. Use when a student asks to conjugate a verb (init_conjugation_table, fill_conjugation), see a textbook page (start_textbook_page), search textbook content (search_textbook), or read a passage (reading). Use clear_conjugation_table to reset.',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
