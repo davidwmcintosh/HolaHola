@@ -163,11 +163,11 @@ Call once at each major phase transition. Do not announce the phase name to the 
 After you call this, visual tools inherit the declared context automatically — show_vocab_grid and show_sentence_builder will draw from the active scene and vocab set without requiring re-specification.
 
 Phases:
-- madrigal: Visual-associative introduction. Scene → vocabulary → sentence patterns. You present, student absorbs.
+- introduction: Visual-associative introduction. Scene → vocabulary → sentence patterns. You present, student absorbs.
 - broadcast: You perform or present — a story, cultural moment, scenario walkthrough. Student observes.
 - immersion: Scaffolding down. Free conversation in the target language using what was introduced. Student produces.
 - free_flow: Student-led natural conversation. Follow their thread.
-- recap: Close the loop. Name what the student can do now that they couldn't before. If the session continues after recap, call madrigal again for a fresh topic.
+- recap: Close the loop. Name what the student can do now that they couldn't before. If the session continues after recap, call introduction again for a fresh topic.
 
 Call this when transitioning between phases, when the pedagogical heartbeat signals the student is ready, or when beginning a new topic — including a fresh teaching arc in an extended session. Do not announce the phase name to the student. Call this silently and continue teaching.`,
       parametersJsonSchema: {
@@ -175,7 +175,7 @@ Call this when transitioning between phases, when the pedagogical heartbeat sign
         properties: {
           phase: {
             type: 'string',
-            enum: ['madrigal', 'broadcast', 'immersion', 'free_flow', 'recap'],
+            enum: ['introduction', 'broadcast', 'immersion', 'free_flow', 'recap'],
             description: 'The lesson phase you are entering.',
           },
           scene: {
@@ -5173,15 +5173,15 @@ SHOW AND SPEAK PROTOCOL (mandatory):
 Returns a complete script you follow directly: which tools to call, what to say at each step, what to listen for, when to pivot. You make the atomic tool calls yourself — the server just gives you the pre-reasoned plan so you don't have to re-derive the pedagogy from scratch.
 
 WHEN TO USE:
-• Introducing a new chapter vocabulary set → "madrigal_chapter_drill" (verb_vocab mode)
-• Running a preterite verb chapter (tomar, comprar, tener) → "madrigal_chapter_drill" (preterite mode)
-• Teaching ser or estar conjugation cluster → "madrigal_chapter_drill" (ser_estar mode)
+• Introducing a new chapter vocabulary set → "chapter_drill" (verb_vocab mode)
+• Running a preterite verb chapter (tomar, comprar, tener) → "chapter_drill" (preterite mode)
+• Teaching ser or estar conjugation cluster → "chapter_drill" (ser_estar mode)
 • Student is zoning out or cognitively flat → "attention_reset"
 • Student made a repeated grammar error → "error_recovery"
 • Student ready for applied scenario practice → "scenario_immersion"
 • Bringing back previously learned vocabulary → "vocab_spiral"
 
-PARAMS: skill-specific. For madrigal_chapter_drill:
+PARAMS: skill-specific.
 • verb_vocab: embedded_phrase (e.g. "va a"), words (array of 4 with text/translation/imageQuery)
 • preterite: verb (e.g. "tomar"), anchor_form (e.g. "tomé"), qa_cards (array), conjugation_rows (optional)
 • ser_estar: verb ("ser"/"estar"), anchor_form (e.g. "soy"), conjugation_rows
@@ -5192,7 +5192,7 @@ The script you receive is exact — follow it in order and adapt only when the s
         properties: {
           skill_name: {
             type: 'string',
-            description: 'The skill to invoke, e.g. "madrigal_chapter_drill", "attention_reset", "error_recovery", "scenario_immersion", "vocab_spiral"',
+            description: 'The skill to invoke, e.g. "chapter_drill", "attention_reset", "error_recovery", "scenario_immersion", "vocab_spiral"',
           },
           chapter_type: {
             type: 'string',
@@ -5201,7 +5201,7 @@ The script you receive is exact — follow it in order and adapt only when the s
           },
           params: {
             type: 'object',
-            description: 'Skill-specific parameters. For madrigal_chapter_drill verb_vocab: { embedded_phrase, words }. For preterite: { verb, anchor_form, qa_cards }. For ser_estar: { verb, anchor_form, conjugation_rows }.',
+            description: 'Skill-specific parameters. For chapter_drill verb_vocab: { embedded_phrase, words }. For preterite: { verb, anchor_form, qa_cards }. For ser_estar: { verb, anchor_form, conjugation_rows }.',
           },
         },
         required: ['skill_name'],
@@ -5861,7 +5861,7 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'TEACHING_CONTENT',
     declaration: {
       name: 'teaching_content',
-      description: 'Deliver structured curriculum content and lesson elements, and declare lesson arc phase transitions. Use for: pulling curriculum content on a topic (pull_lesson_content), grammar structure diagram (grammar_diagram), vocabulary grid display (show_vocab_grid), swapping a vocab card image (swap_vocab_image), regenerating the active vocab card image (regenerate_vocab_card_image), interactive sentence combinator / sentence builder (show_sentence_builder) — ALWAYS call this tool when the student asks for a "sentence combinator" or "sentence builder"; never explain it verbally instead, textbook section display (show_textbook_section), launching a structured teaching skill script (invoke_teaching_skill), declaring a lesson arc phase transition (update_lesson_context) — use to signal madrigal/broadcast/immersion/free_flow/recap phases and set the scene context so subsequent visual tools inherit it.',
+      description: 'Deliver structured curriculum content and lesson elements, and declare lesson arc phase transitions. Use for: pulling curriculum content on a topic (pull_lesson_content), grammar structure diagram (grammar_diagram), vocabulary grid display (show_vocab_grid), swapping a vocab card image (swap_vocab_image), regenerating the active vocab card image (regenerate_vocab_card_image), interactive sentence combinator / sentence builder (show_sentence_builder) — ALWAYS call this tool when the student asks for a "sentence combinator" or "sentence builder"; never explain it verbally instead, textbook section display (show_textbook_section), launching a structured teaching skill script (invoke_teaching_skill), declaring a lesson arc phase transition (update_lesson_context) — use to signal introduction/broadcast/immersion/free_flow/recap phases and set the scene context so subsequent visual tools inherit it.',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {

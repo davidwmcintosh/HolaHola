@@ -9486,3 +9486,26 @@ Full audit of all 48 native GL tool descriptions using Gemini-Alden (Gemini 2.5 
 - `save_note` now has proactive triggers so Daniela saves personal student context in real time
 - Madrigal is zero-hit in all Daniela-visible content (verified via grep)
 - Conversation memory: `72134e26`
+
+---
+## Session Extension: July 8, 2026 — Alden↔Daniela Live Loop (Luca)
+
+### What happened
+Ran the real Alden↔Daniela experiment — Alden generated probe questions using his Gemini-inside perspective, I relayed them to a live Daniela GL session via `agent-voice-turn` (studentText path + silent audio), and Alden analyzed what she actually called.
+
+**The key discovery:**
+Probe 1 (forest animals vocabulary) exposed a Madrigal leak we had missed entirely in text search: `update_lesson_context` had `"phase": "madrigal"` in its enum — `['madrigal', 'broadcast', 'immersion', 'free_flow', 'recap']`. Daniela was generating this enum value from her tool declaration, not from training data. No text grep would have caught it because it lived in a parametersJsonSchema enum array.
+
+**Fix:** `update_lesson_context` enum and phase descriptions updated — madrigal → introduction. Also fixed the cross-reference in recap description ("call madrigal again" → "call introduction again") and the teaching_content dispatcher description.
+
+**Probe 3 confirmation:** visual_compare fired correctly on ser/estar — Alden's probe worked exactly as designed.
+
+**Probe 5 verification:** After fix, forest animals probe returned open_scene + show_vocab_grid only — no "madrigal" anywhere.
+
+**Final state:** Zero Madrigal hits in all Daniela-visible content. Checked via grep excluding opaque server-side keys (madrigal_chapter_drill slug, legacy enum key names, etc.).
+
+### What Alden should know
+- The agent-voice-turn endpoint has a `studentText` path that bypasses audio — pair with a minimal silent PCM16 blob to satisfy the audio guard
+- The Alden↔Daniela loop is now a proven debugging technique: Alden generates probes from Gemini-inside knowledge, tool call results come back, Alden interprets
+- Madrigal can leak through enum VALUES not just description text — always probe with live tool calls, not just text scan
+- Memory principle saved: "Negative constraints on attracting tools" — see `.agents/memory/negative-constraint-tool.md`
