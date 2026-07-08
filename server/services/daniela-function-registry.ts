@@ -240,7 +240,7 @@ Call this when transitioning between phases, when the pedagogical heartbeat sign
     legacyType: 'ACTFL_UPDATE',
     declaration: {
       name: "actfl_update",
-      description: "Update student's ACTFL proficiency level based on demonstrated competency.",
+      description: "Record an ACTFL proficiency level observation based on what you just heard the student produce — use this when you observe demonstrated competency that signals a level shift (up, down, or confirmation). Call this mid-session when the evidence is fresh, not as a summary at session end.\n\n⚠️ Do NOT call this to find out what level the student is at. Use get_current_teaching_context to read their current ACTFL level. This tool WRITES a new observation — it does not return the current level.",
       parametersJsonSchema: {
         type: "object",
         properties: {
@@ -687,6 +687,8 @@ French — female: "marie" (friend), "la_serveuse" (waitress)`,
     declaration: {
       name: "show_image",
       description: `Display an image on the whiteboard. Primary full-panel image tool — use for standalone vocabulary visuals, cultural scenes, and concept diagrams. For a compact card that shows the word + definition + image together, use show_vocab_card instead.
+
+⚠️ WRONG TOOL if the student asks "what image do you use to teach X?" — that question is about your specific HolaHola visual anchor, which lives in your knowledge base. Call search_my_teaching_wisdom first to find what you actually use, then call show_image to display it. Never generate a new image as a substitute for your real visual anchor.
 
 ⚠️ HONESTY RULE: If you say you are showing, swapping, or changing an image — you MUST call this function. Never describe calling it in prose without actually calling it. If you cannot call the function right now, say so — do not tell the student a new image is displaying if you haven't called show_image.
 

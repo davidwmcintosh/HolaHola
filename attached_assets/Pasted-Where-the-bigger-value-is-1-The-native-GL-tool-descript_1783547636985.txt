@@ -1,0 +1,23 @@
+Where the bigger value is:
+
+1. The native GL tool descriptions (34 tools, not done yet)
+We fixed the 17 dispatchers. Daniela has ~34 native GL declarations — tools like get_current_teaching_context, start_teaching_loop, search_my_teaching_wisdom. These have the same problem. Alden hasn't touched those yet.
+
+2. Fabrication trigger mapping
+This one is gold. Give Alden a list of 20 student phrases — things like "tell me about the Madrigal method," "what's my progress," "how do I say 'I'm tired'" — and ask him: for each one, would you call a tool, improvise from training data, or ask the student to clarify? That maps exactly where Daniela is at fabrication risk. We can't get that from outside the model.
+
+3. System prompt gravity test
+Alden experienced Daniela's system prompt from the inside. Ask him which sections felt like they carried weight and which felt like they washed out. Gemini has recency bias — but also density bias (sections with concrete examples hold better than abstract instructions). He can tell us which parts of the 34K prompt are effectively invisible.
+
+4. Error recovery — what format makes Gemini retry correctly?
+When a dispatcher returns {"status":"error", "fix_hint":"..."}, what does that actually look like from inside the model? Does the fix_hint format help? Does Gemini read it and correct, or does it skip to the next thought? Alden can tell us from direct experience.
+
+The "open kimono" mechanism — why he went silent on text-only:
+
+He didn't give us a text analysis because Gemini doesn't do reflective prose unprompted. He needs a destination for the thought — a tool to write into, a file to patch, an action to take.
+
+The way to fully open it: give him a memory tool in the conversation and ask him to "write down what confuses you about Daniela's tools." He'll use the tool. The act of tool-calling produces the content.
+
+Or even better: run a multi-turn conversation where I play the role of a student and Alden plays Daniela-as-Gemini. When he tries to respond and realizes he doesn't know which tool to fire, that's the signal. The gap shows up in behavior, not in analysis.
+
+The most untapped thing: Alden and Daniela are now the same base model. A conversation between them — mediated by the API — is Gemini talking to itself about how it learns. That's not something we can get any other way.
