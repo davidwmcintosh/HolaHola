@@ -287,6 +287,15 @@ export class GeminiLiveSession {
   // Bug 1 fix: gate audio chunks that arrive after generationComplete (GL tail sub-turn).
   // Set to true on generationComplete; cleared when the NEXT response starts generating audio.
   private afterGenerationComplete = false;
+  // True once generationComplete (or the watchdog seal) has fired for the current turn.
+  // onPlaybackEnded() checks this before lifting the mic gate so that inter-sentence
+  // idle gaps (player momentarily going idle between sub-turns) don't prematurely open
+  // the mic and let GL's VAD mistake ambient audio for student speech, interrupting itself.
+  private isGenerationDone = false;
+  // Latch: set when playback_ended fires while isGenerationDone is still false (between
+  // sub-turns). When isGenerationDone becomes true (generationComplete or watchdog), we
+  // call onPlaybackEnded() retroactively so single-sentence responses still lift the gate.
+  private pendingPlaybackEndedLift = false;
   private isTutorGeneratingAudio = false;
   // Tool Call Deadlock fix: track function call IDs that were in-flight when the connection
   // dropped. On reconnect with a resumption handle, GL resumes in "waiting for tool response"
@@ -887,6 +896,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               this.hadAudioInCurrentSubturn = false;
               this.transcriptClosed = false;
               this.afterGenerationComplete = false;
+              this.isGenerationDone = false;
+              this.pendingPlaybackEndedLift = false;
               this.usingOutputTranscription = false;
               this.firstAudioSentThisTurn = false;
               this.processingPendingSentThisTurn = false;
@@ -1033,6 +1044,20 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       clearTimeout(this.playbackGateSafetyTimeout);
       this.playbackGateSafetyTimeout = null;
     }
+    // Inter-sentence idle guard: GL sends multiple sub-turns separated by brief pauses.
+    // The PCM player goes idle between sub-turns (before the next sentence arrives), which
+    // fires playback_ended. If we lift the mic gate here, GL's VAD can mistake ambient
+    // room audio for student speech and interrupt its own generation mid-sentence.
+    // Only lift the gate once we know generation is truly finished.
+    if (!this.isGenerationDone) {
+      // Remember that playback_ended fired while generation was still in progress.
+      // When isGenerationDone becomes true (generationComplete or watchdog), we'll
+      // call onPlaybackEnded() retroactively to lift the gate (single-sentence case).
+      this.pendingPlaybackEndedLift = true;
+      console.log('[GeminiLive] playback_ended between sub-turns — generation still in progress, mic gate held (latch set)');
+      return;
+    }
+    this.pendingPlaybackEndedLift = false;
     if (this.isTutorGeneratingAudio) {
       this.isTutorGeneratingAudio = false;
       console.log('[GeminiLive] Mic gate lifted — client playback_ended (echo suppression off)');
@@ -1059,6 +1084,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.processingPendingSentThisTurn = false;
     this.transcriptClosed = false;
     this.afterGenerationComplete = false;
+    this.isGenerationDone = false;
+    this.pendingPlaybackEndedLift = false;
     this.usingOutputTranscription = false;
     // DOUBLE-AUDIO FIX: Clear suppress flag on interrupt so a stale reconnect-era flag
     // doesn't carry into the next turn if GL never generated audio after the reconnect.
@@ -1499,6 +1526,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               this.currentSentenceIndex++;
               this.currentChunkIndex = 0;
               this.hadAudioInCurrentSubturn = false;
+              // Signal generation done so onPlaybackEnded() will lift the mic gate.
+              this.isGenerationDone = true;
+              // Retroactive lift: same single-sentence logic as generationComplete path.
+              if (this.pendingPlaybackEndedLift) {
+                console.log('[GeminiLive] Watchdog seal — retroactive onPlaybackEnded() (single-sentence path)');
+                this.onPlaybackEnded();
+              }
               // Hold mic gate until playback_ended (same as normal generationComplete path)
               if (this.playbackGateSafetyTimeout) clearTimeout(this.playbackGateSafetyTimeout);
               this.playbackGateSafetyTimeout = setTimeout(() => {
@@ -1941,6 +1975,15 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // Bug 1 fix: arm the audio gate — any audio arriving after this point is a GL tail
       // sub-turn ("ok", "hey") and should be dropped before it reaches the client.
       this.afterGenerationComplete = true;
+      // Signal that generation is fully done so onPlaybackEnded() can safely lift the mic gate.
+      this.isGenerationDone = true;
+      // Retroactive lift: if playback_ended already fired between sub-turns (single-sentence
+      // responses finish playing before generationComplete arrives over the network), call
+      // onPlaybackEnded() now so the mic gate lifts without waiting for the safety timeout.
+      if (this.pendingPlaybackEndedLift) {
+        console.log('[GeminiLive] generationComplete — retroactive onPlaybackEnded() (single-sentence path)');
+        this.onPlaybackEnded();
+      }
 
       // Friction Score — flush this student turn's word count + mid-pause count into the
       // rolling windows. Reset per-turn accumulators.
