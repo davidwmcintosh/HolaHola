@@ -912,9 +912,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               try {
                 // Reconnect without a greeting — inject Context Bridge so Daniela
                 // resumes from where the conversation was rather than waking amnesiac.
+                // Bridge goes AFTER lastSystemPrompt so: (a) identity/persona instructions
+                // keep primacy, (b) if the prompt is near the 34K cap, the bridge (recency)
+                // gets trimmed before core persona does, and (c) LLM recency bias naturally
+                // pulls the model toward the recent context even when it's at the end.
                 const contextBridge = this.buildContextBridge();
                 const reconnectPrompt = contextBridge
-                  ? `${contextBridge}\n\n${this.lastSystemPrompt}`
+                  ? `${this.lastSystemPrompt}\n\n${contextBridge}`
                   : this.lastSystemPrompt;
                 await this.start(reconnectPrompt, this.lastTools);
                 this.reconnectAttempts = 0; // success — reset counter
@@ -3006,7 +3010,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     if (this.transcriptBuffer.length < 2) return '';
     const turns = this.transcriptBuffer.slice(-6).map(t => {
       const label = t.role === 'student' ? 'Student' : 'You';
-      const text = t.text.length > 120 ? t.text.slice(0, 120) + '…' : t.text;
+      const text = t.text.length > 250 ? t.text.slice(0, 250) + '…' : t.text;
       return `${label}: ${text}`;
     }).join('\n');
     return `[Your conversation just before this connection resumed — continue naturally from here, do not acknowledge the reconnection]\n${turns}`;

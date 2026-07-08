@@ -373,6 +373,7 @@ export class NativeFunctionCallHandler {
           console.warn('[Dispatcher] search_my_teaching_wisdom called with no query — ignoring');
           break;
         }
+        const stwKey = stwQuery.trim().toLowerCase(); // normalize for consistent lookup
         console.log(`[Dispatcher] search_my_teaching_wisdom query="${stwQuery.substring(0, 80)}" lang=${stwLanguage || 'any'}`);
         try {
           const { searchTeachingKnowledge: searchTeaching, formatTeachingKnowledge } = await import('./neural-memory-search');
@@ -380,14 +381,14 @@ export class NativeFunctionCallHandler {
           const formatted = formatTeachingKnowledge(results);
           if (!('teachingWisdomResults' in session)) (session as any).teachingWisdomResults = {};
           if (formatted && formatted.trim()) {
-            (session as any).teachingWisdomResults[stwQuery] = `[Teaching knowledge for "${stwQuery}"]\n\n${formatted}\n\nThese are your own teaching records. Speak from them.`;
+            (session as any).teachingWisdomResults[stwKey] = `[Teaching knowledge for "${stwQuery}"]\n\n${formatted}\n\nThese are your own teaching records. Speak from them.`;
           } else {
-            (session as any).teachingWisdomResults[stwQuery] = `No specific teaching knowledge found for "${stwQuery}". You may proceed with what you know, but note this gap.`;
+            (session as any).teachingWisdomResults[stwKey] = `No specific HolaHola pedagogy found for "${stwQuery}". Use a standard teaching explanation — avoid inventing a Madrigal image if none was returned.`;
           }
         } catch (err: any) {
           console.error('[Dispatcher] search_my_teaching_wisdom error:', err?.message);
           if (!('teachingWisdomResults' in session)) (session as any).teachingWisdomResults = {};
-          (session as any).teachingWisdomResults[stwQuery] = `Search failed: ${err?.message || 'unknown error'}. Continue naturally.`;
+          (session as any).teachingWisdomResults[stwKey] = `Search failed: ${err?.message || 'unknown error'}. Use a standard teaching explanation rather than improvising.`;
         }
         break;
       }

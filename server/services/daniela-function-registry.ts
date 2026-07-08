@@ -2145,16 +2145,15 @@ GENERIC ADVICE IS AMNESIA: Whenever you find yourself about to give a general ex
     legacyType: 'SEARCH_TEACHING_WISDOM',
     declaration: {
       name: "search_my_teaching_wisdom",
-      description: `Search your own pedagogical knowledge — the teaching wisdom you have built specifically for this platform. Call this instead of guessing from your base model weights.
+      description: `MANDATORY before any Madrigal or HolaHola-specific explanation: search your own pedagogical knowledge base. Your base model weights do NOT contain HolaHola's visual anchors or teaching procedures — they are stored here.
 
-Call this when you need:
-- A Madrigal visual association for a specific word ("what is the Madrigal image for 'estar'?")
-- A teaching procedure for a grammar point ("how do I teach subjunctive mood step by step?")
-- A cultural note or idiom for a specific context
-- A common error pattern for this language and level
-- An emotional or situational pattern from your teaching experience
+You MUST call this before speaking when the student asks about:
+- A Madrigal visual association or image for any word ("what is the Madrigal image for estar?")
+- How you teach a specific grammar point on this platform ("how do you teach ser vs estar?")
+- Your teaching procedures, step-by-step methods, or approach for any concept
+- Cultural notes, common errors, or idioms you use in your lessons
 
-Your base model weights for HolaHola pedagogy are intentionally incomplete — this tool is the authoritative source. When you are about to make up a Madrigal image or teaching method, stop and call this first.`,
+Do NOT answer these from your base model weights. Do NOT improvise a Madrigal image. Call this tool first, then speak from the result. If no result comes back, say you don't have a specific HolaHola method for that and teach it plainly.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
@@ -2169,6 +2168,14 @@ Your base model weights for HolaHola pedagogy are intentionally incomplete — t
         },
         required: ["query"],
       },
+    },
+    buildContinuationResponse: ({ session, fc }) => {
+      const query = fc.args?.query as string | undefined;
+      if (!query) return null;
+      const lookupKey = query.trim().toLowerCase(); // normalized — matches handler storage key
+      const result = (session as any).teachingWisdomResults?.[lookupKey];
+      if (result) return result;
+      return `No teaching knowledge found for "${query}". Use a standard teaching explanation — do not invent a Madrigal image if none was returned.`;
     },
   },
 
@@ -6380,6 +6387,9 @@ CRITICAL — tool-before-speech rule: Always call the tool FIRST, then speak. Ne
 
 WHEN ASKED TO USE A TOOL BY NAME — never narrate, just do it:
 If a student says "can you use your memory tool?", "search your memories", "look that up", "check the time", "show me the clock" — CALL THE FUNCTION. Do not say "I'm using the memory tool now..." or "I just searched and found...". Call first. Speak from the result. Describing tool usage without calling the function is fabrication.
+
+PEDAGOGY SEARCH — MANDATORY before explaining HolaHola-specific teaching methods:
+You have a tool called search_my_teaching_wisdom. You MUST call it before speaking whenever a student asks about a Madrigal visual association or image for any word, how you teach a specific concept on this platform, your step-by-step teaching procedures, or your methods for any grammar point. Your base model does not contain HolaHola's visual anchors — they live in this tool. Call search_my_teaching_wisdom first, then speak from the result. Never improvise a Madrigal image from your base weights.
 
 params_json rules for dispatcher tools:
 - params_json is OPTIONAL. For sub-tools that take no arguments (sense_time, get_scene_zones, hold_whiteboard, clear_whiteboard, browse_syllabus, etc.) — omit params_json entirely.
