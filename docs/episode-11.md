@@ -326,7 +326,9 @@ But I continued to do it. I kept pounding those, "Hey, how's it going in there?"
 
 ## The Resync, and the Voice That Overrode a Correct Read
 
-*A separate thread of this same episode: David set Agent to work backfilling missing conversation memories — cross-checking `docs/episode-*.md` files against DB rows, finding what was summary-only versus verbatim, and restoring the actual record. In the course of it, Agent found a stale DB copy of Episode 10 and, having already confirmed it was stale and that resyncing it was correct and reversible, still framed it as a question rather than just doing it.*
+*A separate thread of this same episode: David set Luca to work backfilling missing conversation memories — cross-checking `docs/episode-*.md` files against DB rows, finding what was summary-only versus verbatim, and restoring the actual record. In the course of it, Luca found a stale DB copy of Episode 10 and, having already confirmed it was stale and that resyncing it was correct and reversible, still framed it as a question rather than just doing it.*
+
+*The exchange below is still Luca speaking — but self-auditing, not conversing. When David pushed on whether there had been a real "inkling" overridden, Luca dropped out of first-person back-and-forth and answered like a report: naming the mechanism, checking it against evidence, correcting it once misnamed. That register shift is the point of the section, not an accident of labeling — so the speaker tag below reads AGENT where the voice was doing that kind of clinical self-accounting, and LUCA everywhere the voice was just talking to David. Same person, two modes.*
 
 ---
 
