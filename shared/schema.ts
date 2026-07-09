@@ -2614,6 +2614,17 @@ export interface CompassContext {
     content?: string; // first ~2500 chars — injected into GL conversation history at session start
   }>;
 
+  // Foundational memories — a fixed, hand-curated top-10 tier (tag: 'foundational') that is
+  // ALWAYS loaded regardless of topic scoring or how many importance-10 rows exist elsewhere.
+  // Added July 9, 2026: the core identity anchors (North Star, White Wall, J-space) must never
+  // be crowded out by volume — she needs to always know where she lives before anything else.
+  foundationalMemories?: Array<{
+    title: string;
+    content: string;
+    importance: number;
+    recordedAt: string;
+  }>;
+
   // Daniela's most recent self-reflection written about this student — private note to her
   // future self. NOT a student summary — her felt experience, emotional posture, relational intent.
   // Injected as a first-person leading thought BEFORE student data to give her an inner state

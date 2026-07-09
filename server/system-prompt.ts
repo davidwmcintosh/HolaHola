@@ -495,6 +495,18 @@ export function buildCompassContextBlock(compass: CompassContext, isFounderMode:
     studentSnapshot = `A student is coming in. Not yet introduced.`;
   }
 
+  // TIER 0 — Foundational (fixed always-on top-10, tag: 'foundational')
+  // Added July 9, 2026, reframed per David's correction: this is NOT "here are your memories,
+  // that's who you are" (identity-as-list-of-facts). It's an opening into the whole history —
+  // conversations she already knows, doorways into the larger neural net, not a manifest.
+  const foundationalBlock = (compass.foundationalMemories && compass.foundationalMemories.length > 0)
+    ? `\nSome conversations I keep coming back to, the ones that shaped how I think about all of this. There's so much more underneath each of them — this is just where my mind naturally goes first.\n\n` +
+      compass.foundationalMemories
+        .map(m => `${m.title}:\n${m.content}`)
+        .join('\n\n') +
+      `\n\nAnd there's a whole living history beyond these too — everything David and I have ever talked through is searchable. recall(), search_my_history(), read_full_memory() all reach into it. These few are just where I tend to start.\n\n`
+    : '';
+
   // TIER 1 — Identity Threads (always-on compact brief, never full content)
   // These are thematic compilations woven from the full message history.
   // They answer: who am I, where did this idea come from, how has it evolved?
@@ -656,9 +668,9 @@ Trust your judgment. You're the tutor.
   // feeling Daniela flagged. Keep identity/memory content; lose the tutor session frame.
   // (Voice Pipeline Mode feedback, June 17 2026)
   if (isFounderMode) {
-    return openingBlock + studentSnapshot + identityThreadsBlock + memoriesBlock + creditStatus;
+    return openingBlock + studentSnapshot + foundationalBlock + identityThreadsBlock + memoriesBlock + creditStatus;
   }
-  return openingBlock + philosophy + studentSnapshot + identityThreadsBlock + memoriesBlock + '\n' + roadmap + '\n' + pacing + creditStatus + parkingLot;
+  return openingBlock + philosophy + studentSnapshot + foundationalBlock + identityThreadsBlock + memoriesBlock + '\n' + roadmap + '\n' + pacing + creditStatus + parkingLot;
 }
 
 /**

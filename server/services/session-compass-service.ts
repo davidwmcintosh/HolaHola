@@ -77,6 +77,8 @@ interface CachedSession {
   conversationMemories?: Array<{ title: string; content: string; importance: number; recordedAt: string }>;
   // Identity threads — always-on compact brief (title + summary only, no full content)
   identityThreads?: Array<{ title: string; summary: string | null; importance: number; recordedAt: string }>;
+  // Foundational — fixed always-on top-10 (tag: 'foundational'): North Star, White Wall, J-space
+  foundationalMemories?: Array<{ title: string; content: string; importance: number; recordedAt: string }>;
 }
 
 const sessionCache = new Map<string, CachedSession>();
@@ -416,6 +418,7 @@ export class SessionCompassService {
       // scoring against recent conversation history, then recency. Cap: 12 total.
       let fetchedMemories: Array<{ title: string; content: string; importance: number; recordedAt: string }> = [];
       let fetchedIdentityThreads: Array<{ title: string; summary: string | null; importance: number; recordedAt: string }> = [];
+      let fetchedFoundational: Array<{ title: string; content: string; importance: number; recordedAt: string }> = [];
       try {
         const db = getUserDb();
         const sharedDb = getSharedDb();
@@ -435,7 +438,7 @@ export class SessionCompassService {
           tags: conversationMemories.tags,
         };
 
-        const [threadCandidates, landmarkCandidates, scoredCandidates] = await Promise.all([
+        const [threadCandidates, landmarkCandidates, scoredCandidates, foundationalCandidates] = await Promise.all([
           // Identity threads — tag-filtered, not importance-filtered, so query separately.
           sharedDb
             .select(selectCols)
@@ -458,6 +461,16 @@ export class SessionCompassService {
             .where(and(sql`${conversationMemories.importance} < 10`, sql`NOT (${conversationMemories.tags} @> ARRAY['thread']::text[])`))
             .orderBy(desc(conversationMemories.recordedAt))
             .limit(40),
+          // Foundational — hand-curated top-10, tag: 'foundational'. ALWAYS loaded, own query,
+          // never subject to topic scoring or crowded out by importance-10 volume elsewhere.
+          // Added July 9, 2026: she needs to always know where she lives (North Star, White
+          // Wall, J-space) before anything session-specific layers on top.
+          sharedDb
+            .select(selectCols)
+            .from(conversationMemories)
+            .where(sql`${conversationMemories.tags} @> ARRAY['foundational']::text[]`)
+            .orderBy(desc(conversationMemories.importance), desc(conversationMemories.recordedAt))
+            .limit(10),
         ]);
 
         const threadMemories = threadCandidates;
@@ -551,8 +564,26 @@ export class SessionCompassService {
 
         fetchedMemories = [...landmarkMapped, ...scoredMapped];
 
+        // Foundational: full content (up to ~1200 chars), always present, never scored/crowded.
+        fetchedFoundational = foundationalCandidates
+          .sort((a, b) => (b.importance ?? 10) - (a.importance ?? 10))
+          .map(m => {
+            const fullLen = m.content?.length ?? 0;
+            const excerpt = m.content ? m.content.slice(0, 1200) : '';
+            const truncated = fullLen > 1200;
+            const titleHint = m.title.split(/\s+/).slice(0, 5).join(' ');
+            return {
+              title: m.title,
+              content: truncated
+                ? excerpt + `\n\n[EXCERPT — showing first 1200 of ${fullLen} characters. Call read_full_memory("${titleHint}") for the complete verbatim text.]`
+                : excerpt,
+              importance: m.importance ?? 10,
+              recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),
+            };
+          });
+
         const topicNote = topicSignal.length > 20 ? ', topic-boosted' : '';
-        console.log(`[Compass] Memories — ${fetchedIdentityThreads.length} identity threads + ${landmarkMapped.length} landmarks (brief, always-on) + ${scoredMapped.length} scored [GL context-safe]`);
+        console.log(`[Compass] Memories — ${fetchedFoundational.length} foundational (always-on) + ${fetchedIdentityThreads.length} identity threads + ${landmarkMapped.length} landmarks (brief, always-on) + ${scoredMapped.length} scored [GL context-safe]`);
       } catch (err: any) {
         console.warn('[Compass] Failed to load conversation memories:', err.message);
       }
@@ -569,6 +600,7 @@ export class SessionCompassService {
         studentTimezone: userActfl?.timezone || null,
         conversationMemories: fetchedMemories,
         identityThreads: fetchedIdentityThreads,
+        foundationalMemories: fetchedFoundational,
       };
       sessionCache.set(conversationId, cacheEntry);
       cached = cacheEntry;
@@ -783,6 +815,7 @@ export class SessionCompassService {
 
       conversationMemories: cached.conversationMemories || [],
       identityThreads: cached.identityThreads || [],
+      foundationalMemories: cached.foundationalMemories || [],
 
       legacyFreedomLevel: session.legacyFreedomLevel || undefined,
     };
