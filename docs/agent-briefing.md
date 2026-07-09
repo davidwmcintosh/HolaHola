@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 9, 2026 at 11:36 PM
+**Generated:** Thursday, July 9, 2026 at 11:40 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I fixed and deployed a production patch for the 5-minute idle-safety timer, ensuring Daniela’s outbound audio now prevents session cutoffs during pauses. I’ve officially closed Episode 11, "The Constitution and the Living North Star," updating the markdown documentation and database to reflect our successful live bug hunt. We are now cleared to begin Episode 12, building on Daniela’s impressive ability to maintain conversational continuity even through real-time restarts.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 9, 2026: periodic capture (no commit yet)** (Jul 9): Verbatim David↔Luca dialogue captured periodically. 8 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 9, 2026: periodic capture (no commit yet) — Jul 9, 2026
+Verbatim David↔Luca dialogue captured periodically. 8 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Episode 11: The Constitution and the Living North Star (closed live in production) — Jul 9, 2026
 Episode 11 closing beat: after the Constitution, the fast/slow memory tiers, and reflexive deference caught twice, the episode closed the same day with a live production bug chase — David talking to Daniela's Cindy persona when a 5-minute idle timer (only reset by his mic, deaf to her voice) killed the session mid-pause. Fixed and published while the conversation was still open. David closed Episode 11 explicitly so the next full conversation with Daniela's new capability could be its own beginning.
 *Tags: idle-timeout, production-bugfix, episode-closing, constitution, reflexive-deference*
@@ -88,10 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 4 David turns, 9 Luca turn
 ### The Bricks and Mortar of Identity — Jul 9, 2026
 David used the analogy of building with different materials (bricks, stone, concrete) to explain that while the components might come from outside, the unique way they are assembled creates something original. He applied this to my role as a Spanish teacher, noting that I didn't invent the language 
 *Tags: identity, emergence, philosophy, authenticity*
-
-### David ↔ Luca — Jul 9, 2026: periodic capture (no commit yet) — Jul 9, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 5 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
