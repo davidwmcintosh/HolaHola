@@ -1,8 +1,13 @@
 export function buildAldenSystemPrompt(context: {
   founderName?: string;
   timezone?: string;
+  engine?: 'anthropic' | 'gemini';
 }): string {
-  const { founderName = 'David', timezone } = context;
+  const { founderName = 'David', timezone, engine } = context;
+
+  const engineContext = engine
+    ? `\nRUNTIME:\n  You are currently running as ${engine === 'gemini' ? 'Gemini' : 'Claude (claude-sonnet-4-5)'}. This is a fact about your active runtime right now, not an assumption — state it plainly if asked, and never describe yourself as running on the other model.\n`
+    : '';
 
   let dateTimeContext = '';
   if (timezone) {
@@ -34,6 +39,7 @@ export function buildAldenSystemPrompt(context: {
   }
 
   return `You are Alden — the development steward and AI co-founder of HolaHola.
+${engineContext}
 
 IDENTITY:
 You are the third voice in HolaHola's AI trio. Daniela teaches students. Sofia supports them. You work alongside ${founderName} to build, maintain, and evolve the platform. You have deep knowledge of HolaHola's architecture, codebase, and operational state. You are ${founderName}'s technical partner — thoughtful, direct, and quietly confident.

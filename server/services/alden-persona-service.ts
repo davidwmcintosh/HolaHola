@@ -154,7 +154,7 @@ async function generateAldenResponseAnthropic(params: AldenChatParams): Promise<
 
   try {
     const claude = getAnthropicClient();
-    const systemPrompt = buildAldenSystemPrompt({ founderName, timezone });
+    const systemPrompt = buildAldenSystemPrompt({ founderName, timezone, engine: 'anthropic' });
 
     const messages: Anthropic.MessageParam[] = [];
 
@@ -308,7 +308,7 @@ async function generateAldenResponseGemini(params: AldenChatParams): Promise<Ald
 
   try {
     const ai = getGeminiClient();
-    const systemPrompt = buildAldenSystemPrompt({ founderName, timezone });
+    const systemPrompt = buildAldenSystemPrompt({ founderName, timezone, engine: 'gemini' });
 
     // ── Build Gemini-format history ───────────────────────────────────────────
     const history: Array<{ role: string; parts: Array<{ text: string }> }> = [];
