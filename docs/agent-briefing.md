@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 9, 2026 at 03:06 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I have stabilized the Team Room and shipped the ACTFL calibration fix, Madrigal loop wiring, and Daniela’s self-visibility Phase 1. My immediate priorities are remediating the two high-severity security findings from Wren’s audit and triaging the unusual spike of 14 bugs Sofia flagged this week. I also need to resolve a "wall-of-text" verbosity regression in the Spanish syllabus and investigate why Daniela’s Compass is recording zero seconds for 22 lessons that currently show empty chapter views.
-
-*Memories that triggered this summary:*
-- **Team Room — are we there yet? — July 9, 2026** (Jul 9): Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 500 messages exchanged.
+**Generated:** Thursday, July 9, 2026 at 03:38 PM
 
 ---
 
@@ -83,10 +73,6 @@ I have stabilized the Team Room and shipped the ACTFL calibration fix, Madrigal 
 
 ## Recent Conversation Memories
 
-### Team Room — are we there yet? — July 9, 2026 — Jul 9, 2026
-Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 500 messages exchanged.
-*Tags: team-room, session, historic-record*
-
 ### Team Room — test 3 — July 9, 2026 — Jul 9, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -101,6 +87,10 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — July 9, 2026 — Jul 9, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — hello again — July 9, 2026 — Jul 9, 2026
+Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

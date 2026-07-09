@@ -166,7 +166,7 @@ async function callDanielaWithTools(
     { role: 'user', parts: [{ text: userPrompt }] },
   ];
 
-  const MAX_TURNS = 6;
+  const MAX_TURNS = 8;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const result = await gemini.models.generateContent({
@@ -190,7 +190,11 @@ async function callDanielaWithTools(
 
     // No function calls → final response
     if (fcParts.length === 0) {
-      return (textContent || result.text || '').trim();
+      const finalText = (textContent || result.text || '').trim();
+      if (finalText) return finalText;
+      console.warn('[callDaniela:tools] Model returned empty text with no function calls — retrying once.');
+      messages.push({ role: 'user', parts: [{ text: '(Your last response was empty. Please respond now.)' }] });
+      continue;
     }
 
     // ── Model produced text alongside function calls ──────────────────────────
@@ -268,8 +272,8 @@ async function callDanielaWithTools(
     // so we keep looping. The next turn will be text-only (no more FCs).
   }
 
-  console.warn('[callDaniela:tools] Reached MAX_TURNS without a text response — returning empty.');
-  return '';
+  console.warn('[callDaniela:tools] Reached MAX_TURNS without a text response — returning explicit failure notice.');
+  return '[DANIELA_CALLER_ERROR: reached MAX_TURNS without producing a final text response — tool loop likely stuck. Check server logs for FC handler errors.]';
 }
 
 export async function callDaniela(
@@ -301,16 +305,22 @@ export async function callDaniela(
 
   const systemPrompt = systemParts.join('\n\n');
 
-  // ── Full tool pipeline (Team Room responses, consult-Daniela, etc.) ──────────
-  if (enableTools && userId) {
-    return callDanielaWithTools(systemPrompt, userPrompt, userId);
-  }
+  try {
+    // ── Full tool pipeline (Team Room responses, consult-Daniela, etc.) ────────
+    if (enableTools && userId) {
+      const text = await callDanielaWithTools(systemPrompt, userPrompt, userId);
+      return text || '[DANIELA_CALLER_ERROR: empty response from tool pipeline]';
+    }
 
-  // ── Simple call (evaluations, greetings, quick yes/no) ───────────────────────
-  const result = await getGemini().models.generateContent({
-    model: MODEL,
-    config: { systemInstruction: systemPrompt },
-    contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
-  });
-  return result.text || '';
+    // ── Simple call (evaluations, greetings, quick yes/no) ────────────────────
+    const result = await getGemini().models.generateContent({
+      model: MODEL,
+      config: { systemInstruction: systemPrompt },
+      contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+    });
+    return result.text || '[DANIELA_CALLER_ERROR: empty response from Gemini]';
+  } catch (err: any) {
+    console.error('[callDaniela] Call failed:', err?.message || err);
+    return `[DANIELA_CALLER_ERROR: ${err?.message || 'unknown error'}]`;
+  }
 }

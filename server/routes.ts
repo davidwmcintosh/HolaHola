@@ -17643,6 +17643,32 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
+  app.get("/api/alden/engine", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req: any, res: Response) => {
+    try {
+      const { getAldenEngine, getRecentEngineSwitches } = await import('./services/alden-persona-service');
+      const engine = await getAldenEngine();
+      const recentSwitches = await getRecentEngineSwitches(10);
+      res.json({ engine, recentSwitches });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/alden/engine", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
+    try {
+      const { engine, reason } = req.body || {};
+      if (engine !== 'anthropic' && engine !== 'gemini') {
+        return res.status(400).json({ error: "engine must be 'anthropic' or 'gemini'" });
+      }
+      const { setAldenEngine } = await import('./services/alden-persona-service');
+      const initiatedBy = req.user?.email || req.user?.id || 'unknown';
+      await setAldenEngine(engine, initiatedBy, reason);
+      res.json({ success: true, engine });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/alden/synthesize", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { text } = req.body;

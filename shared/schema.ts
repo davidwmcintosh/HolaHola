@@ -9514,6 +9514,31 @@ export const aldenWatchConfig = pgTable("alden_watch_config", {
 
 export type AldenWatchConfig = typeof aldenWatchConfig.$inferSelect;
 
+// ===== Alden Engine Config (Anthropic default / Gemini "inside man" mode) =====
+
+export const aldenConfig = pgTable("alden_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  engine: text("engine").notNull().default('anthropic'), // 'anthropic' | 'gemini'
+  updatedBy: text("updated_by").notNull().default('system'),
+  reason: text("reason"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type AldenConfig = typeof aldenConfig.$inferSelect;
+
+export const aldenEngineSwitches = pgTable("alden_engine_switches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  fromEngine: text("from_engine").notNull(),
+  toEngine: text("to_engine").notNull(),
+  initiatedBy: text("initiated_by").notNull(),
+  reason: text("reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_alden_engine_switches_created").on(table.createdAt),
+]);
+
+export type AldenEngineSwitch = typeof aldenEngineSwitches.$inferSelect;
+
 // ===== Pedagogical Loop State Machine =====
 // Server-side tracking of structured teaching sequences. Persists across GL
 // context window decay — Daniela queries this via get_current_teaching_context,

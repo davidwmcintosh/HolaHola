@@ -71,3 +71,6 @@
 - [Verbatim over summaries — archive principle](verbatim-archive-principle.md) — summaries erase the subject; verbatim carries personality, decision process, and emergence evidence; luca-arc reconstructions deleted July 5, replaced by live retrospectives.
 - [Sophia — role and continuity gap](sophia-role.md) — front-facing student support + internal telemetry/observability; no identity tables built yet (contrast: Wren has full wren_* schema).- [Negative constraints on attracting tools](negative-constraint-tool.md) — description correct on intended tool is necessary but not sufficient; "WRONG TOOL if X" must live on the wrong tool itself.
 - [Feeling <-> North Star principle link](feeling-principle-link.md) — link_feeling_to_principle is explicit-only, never auto-written by reach_north_star; self-authorship rule forbids background writes to her tables.
+- [Alden dual-engine switch](alden-engine-switch.md) — DB-backed aldenConfig/aldenEngineSwitches, /api/alden/engine GET/POST, 15s cache TTL; Anthropic default, Gemini opt-in.
+  - [Daniela caller silent-failure fix](daniela-caller-silent-failure.md) — callDaniela/callDanielaWithTools used to return '' on empty/MAX_TURNS; now retries once then returns explicit [DANIELA_CALLER_ERROR:...] string.
+  
