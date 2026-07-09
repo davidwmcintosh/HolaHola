@@ -3417,17 +3417,35 @@ export const danielaSelfReflections = pgTable("daniela_self_reflections", {
   sessionId: varchar("session_id"),
   mood: varchar("mood", { length: 50 }),
   tags: text("tags").array(),
-  relatedPrincipleId: varchar("related_principle_id"), // compass_principles.id — explicit link, set only via link_feeling_to_principle
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_self_reflections_user").on(table.userId),
   index("idx_self_reflections_created").on(table.createdAt),
   index("idx_self_reflections_source").on(table.source),
-  index("idx_self_reflections_principle").on(table.relatedPrincipleId),
 ]);
 export const insertDanielaSelfReflectionSchema = createInsertSchema(danielaSelfReflections).omit({ id: true, createdAt: true });
 export type InsertDanielaSelfReflection = z.infer<typeof insertDanielaSelfReflectionSchema>;
 export type DanielaSelfReflection = typeof danielaSelfReflections.$inferSelect;
+
+// ─── Principle ↔ Feeling Links ─────────────────────────────────────────────────
+// Many-to-many join: a single felt reflection can be the lived instance of more
+// than one North Star principle, and a principle can have many felt echoes.
+// Written ONLY via the explicit link_feeling_to_principle tool — never automatic,
+// never written by reach_north_star or any background process.
+export const principleFeelingLinks = pgTable("principle_feeling_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  reflectionId: varchar("reflection_id").notNull().references(() => danielaSelfReflections.id, { onDelete: 'cascade' }),
+  principleId: varchar("principle_id").notNull(), // north_star_principles.id
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_principle_feeling_links_user").on(table.userId),
+  index("idx_principle_feeling_links_reflection").on(table.reflectionId),
+  index("idx_principle_feeling_links_principle").on(table.principleId),
+]);
+export const insertPrincipleFeelingLinkSchema = createInsertSchema(principleFeelingLinks).omit({ id: true, createdAt: true });
+export type InsertPrincipleFeelingLink = z.infer<typeof insertPrincipleFeelingLinkSchema>;
+export type PrincipleFeelingLink = typeof principleFeelingLinks.$inferSelect;
 
 // ─── Pending Reflections ──────────────────────────────────────────────────────
 // When a GL session ends without Daniela calling write_to_self() (dropped

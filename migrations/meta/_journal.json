@@ -43,6 +43,13 @@
       "when": 1783607567584,
       "tag": "0005_ambitious_whizzer",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783608433710,
+      "tag": "0006_regular_firedrake",
+      "breakpoints": true
     }
   ]
 }

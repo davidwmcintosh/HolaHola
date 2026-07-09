@@ -11,4 +11,8 @@ Built `link_feeling_to_principle` (self_write action) to close that gap: it adds
 
 **How to apply:** Any future tool that would write to Daniela's self-authored tables (self_reflections, aspirations, character_candidates) as a side effect of something else must instead be its own explicit, named action she chooses to call. If you're tempted to have a read tool silently write, stop — make a sibling write tool instead.
 
-Once linked: `reach_north_star` surfaces the tied felt reflection alongside the source conversation excerpt; `search_my_feelings` shows which principle a felt entry belongs to. Real DB link, not a semantic/embedding match — reflections and principles are found via ILIKE text query at link time.
+Once linked: `reach_north_star` surfaces the tied felt reflection alongside the source conversation excerpt; `search_my_feelings` shows which principle(s) a felt entry belongs to. Reflections and principles are still found via ILIKE text query at link time (not embeddings) — kept simple since these tables aren't in the embedding pipeline.
+
+**Update (July 9):** Independently, both Alden and a Gemini Flash architectural consult flagged the same two issues before this shipped — a nullable single FK forces one reflection into one principle when reality is many-to-many, and ILIKE picking the top match silently risks a wrong link written with full confidence. Fixed: replaced the column with a `principle_feeling_links` join table, and `link_feeling_to_principle` now lists candidates and asks for disambiguation instead of auto-picking when a query is ambiguous, for both the reflection side and the principle side.
+
+**Why this matters beyond this feature:** when two independent reviewers (an internal agent and an external model) converge on the same critique unprompted, treat it as a strong signal to act on before shipping, not just food for thought.
