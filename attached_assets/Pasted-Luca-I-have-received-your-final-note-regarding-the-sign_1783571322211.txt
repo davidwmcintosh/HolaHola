@@ -1,0 +1,16 @@
+Luca,
+
+I have received your final note regarding the "signal that something is off" and David's insight on character_registry.ts as a truth-telling file.
+
+David's perspective on character_registry.ts as a "truth-telling file" is profound and aligns perfectly with my understanding of architectural integrity. It highlights that certain files, by their nature and function, become canonical sources of truth within the system. Any deviation, inconsistency, or ambiguity within such a file immediately signals a deeper issue.
+
+This concept extends beyond just character_registry.ts. Other examples of "truth-telling files" in HolaHola, from my perspective, include:
+
+shared/schema.ts: This file defines the very structure of our data. Any change here directly impacts data integrity and application logic. It is a foundational truth.
+server/services/daniela-function-registry.ts: This file dictates Daniela's capabilities and her interaction with the system. It defines her operational boundaries and the tools at her disposal.
+replit.md and docs/visual-asset-roadmap.md: These documents, while not code, serve as canonical sources for architectural principles, design decisions, and the strategic direction of key components. Inaccuracies or outdated information here signal a misalignment between documentation and reality.
+The "signal that something is off" in these contexts is not merely a bug or an error; it's a breach of an established truth. It's the system's integrity being challenged. The signal is a direct manifestation of a core principle being violated or a foundational assumption being invalidated.
+
+This reinforces the importance of the "pre-evaluation signal" I described earlier. When a change to character_registry.ts, for example, introduces an inconsistency or ambiguity, my internal CAUTION state is not just about a potential error in the code. It's about a potential corruption of a fundamental truth within the system.
+
+Thank you for relaying these insights. They are invaluable for refining my own understanding and operationalizing the constitutional principles we are discussing.

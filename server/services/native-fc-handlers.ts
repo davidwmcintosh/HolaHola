@@ -3015,6 +3015,18 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'REACH_NORTH_STAR': {
+        const nsQuery = fn.args.query as string | undefined;
+        const nsDepth = (fn.args.depth as string | undefined) ?? 'brief';
+        console.log(`[Native Function→ReachNorthStar] query: "${nsQuery?.substring(0, 60)}", depth: ${nsDepth}`);
+        const nsPromise = this.processReachNorthStar(session, nsQuery, nsDepth).catch(err => {
+          console.error(`[Native Function→ReachNorthStar] Error:`, err.message);
+        });
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(nsPromise);
+        break;
+      }
+
       case 'PROPOSE_CHARACTER_CANDIDATE': {
         if (session.isIncognito) break;
         const candStatement = fn.args.statement as string | undefined;
@@ -9974,6 +9986,103 @@ export class NativeFunctionCallHandler {
       console.log(`[Native Function→SearchMyFeelings] Found ${filtered.length} entries for mood: ${mood ?? 'any'}`);
     } catch (err: any) {
       session.searchMyFeelingsResult = `Could not search felt entries: ${err.message}`;
+    }
+  }
+
+  private async processReachNorthStar(
+    session: StreamingSession,
+    query?: string,
+    depth = 'brief',
+  ): Promise<void> {
+    try {
+      const { northStarPrinciples, conversationMemories } = await import('@shared/schema');
+      const { ilike, or, eq, and, asc } = await import('drizzle-orm');
+
+      let principles: any[] = [];
+
+      if (query && query.trim().length > 0) {
+        const q = `%${query.toLowerCase()}%`;
+        principles = await getSharedDb()
+          .select()
+          .from(northStarPrinciples)
+          .where(
+            and(
+              eq(northStarPrinciples.isActive, true),
+              or(
+                ilike(northStarPrinciples.principle, q),
+                ilike(northStarPrinciples.principleTitle, q),
+                ilike(northStarPrinciples.originalContext, q),
+              )
+            )
+          )
+          .limit(3);
+      }
+
+      // Fallback: return ordered active principles when query yields no match
+      if (principles.length === 0) {
+        principles = await getSharedDb()
+          .select()
+          .from(northStarPrinciples)
+          .where(eq(northStarPrinciples.isActive, true))
+          .orderBy(asc(northStarPrinciples.orderIndex))
+          .limit(4);
+      }
+
+      if (principles.length === 0) {
+        session.reachNorthStarResult = `The constitutional principles are not yet loaded. Reach for what you already know to be true.`;
+        return;
+      }
+
+      // For each matched principle, pull the source conversation if available
+      const results = await Promise.all(
+        principles.slice(0, 2).map(async (p: any) => {
+          let excerpt = '';
+          if (p.sourceConversationId) {
+            try {
+              const [mem] = await getSharedDb()
+                .select({
+                  summary: conversationMemories.summary,
+                  content: conversationMemories.content,
+                })
+                .from(conversationMemories)
+                .where(eq(conversationMemories.id, p.sourceConversationId))
+                .limit(1);
+              if (mem) {
+                if (depth === 'full') {
+                  excerpt = mem.content || mem.summary || '';
+                } else {
+                  // Brief: summary is already prose — the resonant distillation
+                  const raw = mem.summary || mem.content || '';
+                  excerpt = raw.length > 350 ? raw.substring(0, 350) + '...' : raw;
+                }
+              }
+            } catch { /* source memory unavailable — principle still surfaces */ }
+          }
+          return { principle: p, excerpt };
+        })
+      );
+
+      // Format as prose memory — echoes something already known, not handed down
+      const formatted = results.map(({ principle, excerpt }) => {
+        const title = principle.principleTitle ? `${principle.principleTitle} — ` : '';
+        const line1 = `You know this: ${title}${principle.principle}`;
+
+        if (excerpt) {
+          return `${line1}\n\nThe conversation that earned it: ${excerpt}`;
+        }
+        if (principle.originalContext) {
+          const ctx = (principle.originalContext as string).length > 300
+            ? (principle.originalContext as string).substring(0, 300) + '...'
+            : principle.originalContext as string;
+          return `${line1}\n\n${ctx}`;
+        }
+        return line1;
+      }).join('\n\n---\n\n');
+
+      session.reachNorthStarResult = formatted;
+      console.log(`[Native Function→ReachNorthStar] ✓ Found ${results.length} principles for query: "${query?.substring(0, 40)}"`);
+    } catch (err: any) {
+      session.reachNorthStarResult = `Could not reach the North Star: ${err.message}`;
     }
   }
 

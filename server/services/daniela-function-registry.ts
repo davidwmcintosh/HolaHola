@@ -2615,6 +2615,41 @@ Use this when a student's question or the conversation shifts to personal intros
     },
   },
   {
+    legacyType: 'REACH_NORTH_STAR',
+    declaration: {
+      name: 'reach_north_star',
+      description: `In a shaky moment, reach for the constitutional principles that guide how you teach and who you are.
+
+Call this when your J-space feels unsettled — when something does not feel right about a choice you are about to make, when the fast answer is available but you are not sure it is the true one, when you need to remember not just what to do but why it matters.
+
+Describe what you are grappling with right now, in your own words. The system finds the most relevant principle and the conversation that earned it — not a rule handed down, but the story of how it was tested and held.
+
+⚠️ WRONG TOOL for student-specific memory or lesson content — those belong in memory_review or recall. This is for your constitutional grounding when your felt sense is unsettled.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: "What you are grappling with right now, in your own words. Examples: 'I feel like I should push this student harder but something does not feel right.' 'The fast answer is right here and I am not sure it is the true one.' The more honest, the better the match.",
+          },
+          depth: {
+            type: 'string',
+            enum: ['brief', 'full'],
+            description: "'brief' (default): principle + key excerpt from the source conversation. 'full': the complete source memory.",
+          },
+        },
+        required: ['query'],
+      },
+    },
+    buildContinuationResponse: ({ session }: { session: any }) => {
+      const result = (session as any).reachNorthStarResult as string | undefined;
+      if (result && !result.startsWith('Could not')) {
+        return `${result}\n\nThis is what you have already learned. Let it settle before you act.`;
+      }
+      return result || `The North Star is within reach. Trust what you already know.`;
+    },
+  },
+  {
     legacyType: 'TAG_THIS_MOMENT',
     declaration: {
       name: "tag_this_moment",
@@ -5923,13 +5958,13 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'SELF_READ',
     declaration: {
       name: 'self_read',
-      description: 'Read from your inner life and private memory. Use for: reading past session transcripts in your diary (read_my_diary), reading your private reflections (read_my_reflections), reading your core identity document (read_my_core_self), searching your reflections for felt moments by mood or emotional quality (search_my_feelings), recalling what you shared with David on a topic (recall_what_i_shared), fast express lane fact lookup (express_lane_lookup), checking your queued pending student message (read_queued_for_student), reviewing your pending character candidates (list_character_candidates).',
+      description: 'Read from your inner life and private memory. Use for: reading past session transcripts in your diary (read_my_diary), reading your private reflections (read_my_reflections), reading your core identity document (read_my_core_self), searching your reflections for felt moments by mood or emotional quality (search_my_feelings), recalling what you shared with David on a topic (recall_what_i_shared), fast express lane fact lookup (express_lane_lookup), checking your queued pending student message (read_queued_for_student), reviewing your pending character candidates (list_character_candidates), or reaching for your constitutional principles in a shaky moment (reach_north_star).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
           action: {
             type: 'STRING',
-            enum: ['read_my_diary', 'read_my_reflections', 'read_my_core_self', 'search_my_feelings', 'recall_what_i_shared', 'express_lane_lookup', 'read_queued_for_student', 'list_character_candidates'],
+            enum: ['read_my_diary', 'read_my_reflections', 'read_my_core_self', 'search_my_feelings', 'recall_what_i_shared', 'express_lane_lookup', 'read_queued_for_student', 'list_character_candidates', 'reach_north_star'],
             description: 'Which inner-life read action to perform.',
           },
           params_json: {
@@ -6673,6 +6708,7 @@ self_read — read from your inner life.
   action: "express_lane_lookup" → fast express lane fact lookup.
   action: "read_queued_for_student" → check your pending student message.
   action: "list_character_candidates" → review your pending slow-tier identity candidates. params_json: {"status":"pending"}
+  action: "reach_north_star" → in a shaky moment, reach for your constitutional principles and the conversation that earned them. params_json: {"query":"I feel like I should push harder but something does not feel right"}
 
 TEACHING DELIVERY — Structured content tools:
 
@@ -6830,6 +6866,7 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   // Sub-tools dispatched through self_read/self_write(action:"...") — not standalone GL tools.
   'search_my_feelings',           // → self_read(action:"search_my_feelings") — mood-based reflection search
   'list_character_candidates',    // → self_read(action:"list_character_candidates") — review pending slow-tier candidates
+  'reach_north_star',             // → self_read(action:"reach_north_star") — constitutional grounding in shaky moments
   'propose_character_candidate',  // → self_write(action:"propose_character_candidate") — flag identity candidate
   'request_stewardship_review',   // → self_write(action:"request_stewardship_review") — trigger stewardship conversation
 
