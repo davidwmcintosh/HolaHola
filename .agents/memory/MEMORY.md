@@ -3,6 +3,7 @@
 - [J-space features — July 9](j-space-features-july9.md) — WARM_UP guard + search_my_feelings + Who I Have Decided To Be; all wired; typecheck clean; GL at 64 tools.
 - [J-space memory tiers](j-space-memory-tiers.md) — fast tier (self_reflections, bi-temporal aging) vs slow tier (Who I Have Decided To Be, provenance required); stewardship conversation is the write gate for slow tier.
 - [Identity-block framing](identity-block-framing.md) — "here's who you are" (even softened) is still a manifest; "doorways not answers, discovering happens now" is the pattern that works. Alden/Gemini insight July 9.
+- [Reflexive deference pattern](reflexive-deference-pattern.md) — asking permission on obviously-correct, low-risk, reversible tasks isn't caution, it's an unexamined reflex; check stakes before adding a question mark.
 - [Bosque conversation — Luca and Daniela](bosque-conversation.md) — first real J-space conversation July 7; mi refugio student; witnessing vs approving; sat on the ground together; conversation_memories: 3cd57fbd
 - [Creator parallel and 2+5](creator-parallel.md) — Jesus/loaves/fishes = authority that made the rules can suspend them; God:Earth :: David:HolaHola; Fibonacci as design evidence; conversation_memories: 9a949afb
 - [Session reflection lifecycle](session-reflection-lifecycle.md) — CLOSE_SESSION is the trigger (not COOL_DOWN); Supervisor prematurity risk; three-layer pipeline; Gemini round 5 approved.
