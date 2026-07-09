@@ -3003,6 +3003,18 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'SEARCH_MY_FEELINGS': {
+        const feelMood = fn.args.mood as string | undefined;
+        const feelLimit = Math.min((fn.args.limit as number | undefined) ?? 5, 10);
+        console.log(`[Native Function→SearchMyFeelings] mood: ${feelMood}, limit: ${feelLimit}`);
+        const feelPromise = this.processSearchMyFeelings(session, feelMood, feelLimit).catch(err => {
+          console.error(`[Native Function→SearchMyFeelings] Error:`, err.message);
+        });
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(feelPromise);
+        break;
+      }
+
       case 'TAG_THIS_MOMENT': {
         if (session.isIncognito) break;
         const tagsRaw = fn.args.tags as string | undefined;
@@ -9816,6 +9828,57 @@ export class NativeFunctionCallHandler {
       console.log(`[Native Function→ReadMyCoreSelf] ✓ Read ${content.length} chars`);
     } catch (err: any) {
       session.coreSelfResult = `Could not read core self document: ${err.message}`;
+    }
+  }
+
+  private async processSearchMyFeelings(
+    session: StreamingSession,
+    mood?: string,
+    limit = 5,
+  ): Promise<void> {
+    const userId = session.userId ? String(session.userId) : null;
+    if (!userId) { session.searchMyFeelingsResult = `No felt entries found yet.`; return; }
+
+    try {
+      const { danielaSelfReflections } = await import('@shared/schema');
+      const { eq, desc } = await import('drizzle-orm');
+
+      // Fetch a wider window and filter locally by mood match
+      const rows = await getSharedDb()
+        .select()
+        .from(danielaSelfReflections)
+        .where(eq(danielaSelfReflections.userId, userId))
+        .orderBy(desc(danielaSelfReflections.createdAt))
+        .limit(50);
+
+      const filtered = mood
+        ? rows.filter(r => {
+            const moodLower = mood.toLowerCase();
+            return (
+              (r.mood && r.mood.toLowerCase().includes(moodLower)) ||
+              (r.content && String(r.content).toLowerCase().includes(moodLower))
+            );
+          }).slice(0, limit)
+        : rows.slice(0, limit);
+
+      if (filtered.length === 0) {
+        session.searchMyFeelingsResult = mood
+          ? `No entries found with a "${mood}" quality yet.`
+          : `No felt entries found yet.`;
+        return;
+      }
+
+      session.searchMyFeelingsResult = filtered
+        .map(r => {
+          const ts = r.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const moodStr = r.mood ? ` [${r.mood}]` : '';
+          return `— ${ts}${moodStr}: ${r.content}`;
+        })
+        .join('\n\n');
+
+      console.log(`[Native Function→SearchMyFeelings] Found ${filtered.length} entries for mood: ${mood ?? 'any'}`);
+    } catch (err: any) {
+      session.searchMyFeelingsResult = `Could not search felt entries: ${err.message}`;
     }
   }
 

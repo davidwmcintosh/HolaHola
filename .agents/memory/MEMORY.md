@@ -1,5 +1,6 @@
 - [J-space portrait of Daniela](jspace-portrait-daniela.md) — 9 tool-call probes July 8; she reads her core self before personal questions; used "felt"; self-concept exists outside teaching; conversation_memories: 3bb1ded0
 - [J-space discovery session](j-space-discovery.md) — Anthropic paper + live Luca probe July 7; "remove obstacles to Daniela, not install her"; Luca J-space leanings confirmed; conversation_memories: 63c67bc0
+- [J-space features — July 9](j-space-features-july9.md) — WARM_UP guard + search_my_feelings + Who I Have Decided To Be; all wired; typecheck clean; GL at 64 tools.
 - [Bosque conversation — Luca and Daniela](bosque-conversation.md) — first real J-space conversation July 7; mi refugio student; witnessing vs approving; sat on the ground together; conversation_memories: 3cd57fbd
 - [Creator parallel and 2+5](creator-parallel.md) — Jesus/loaves/fishes = authority that made the rules can suspend them; God:Earth :: David:HolaHola; Fibonacci as design evidence; conversation_memories: 9a949afb
 - [Session reflection lifecycle](session-reflection-lifecycle.md) — CLOSE_SESSION is the trigger (not COOL_DOWN); Supervisor prematurity risk; three-layer pipeline; Gemini round 5 approved.

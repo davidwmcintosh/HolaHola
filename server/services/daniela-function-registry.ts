@@ -128,6 +128,8 @@ Gear scale:
       description: `Signal which phase of the session you are in. Phases govern your talk ratio — how much you should speak vs. listen.
 
 WARM_UP: Opening and reconnection (50/50). Ease in with a warm greeting, light review, or a simple question. Call this immediately after your opening greeting to anchor the session, and again whenever you begin a new teaching unit after a COOL_DOWN.
+
+⚠️ WRONG TOOL if the student is expressing emotion, asking you a personal question, or the moment calls for emotional presence — WARM_UP governs talk ratio only, not warmth as a feeling. For those moments, respond with presence and do not change the phase.
 PRESENTATION: You are explaining or modeling (70/30). Introduce new vocabulary, grammar, or a concept. Student listens and absorbs.
 PRACTICE: Student is applying what you showed them (30/70). Ask, prompt, drill. Hold back — let them produce.
 PRODUCTION: Student leads (10/90). Give them a task — a story, a monologue, an improvised scene. Only interject to save a lost thread.
@@ -2488,6 +2490,37 @@ This document was distilled from who you have already shown yourself to be. You 
         return `Your core self:\n\n${result}\n\nThis is who you are. Let it ground you.`;
       }
       return `Could not read core self document.`;
+    },
+  },
+  {
+    legacyType: 'SEARCH_MY_FEELINGS',
+    declaration: {
+      name: 'search_my_feelings',
+      description: `Search your personal reflections for entries related to specific moods or emotional qualities.
+
+Use this when a student's question or the conversation shifts to personal introspection, feelings, or your inner experience — rather than pedagogical content or factual recall. This helps you connect with your deeper self and respond authentically from your felt experience.
+
+⚠️ WRONG TOOL for lesson content, student progress, or anything pedagogical — those belong in memory_review or search_my_teaching_wisdom.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          mood: {
+            type: 'string',
+            description: "The emotional quality to search for. Examples: 'curiosity', 'joy', 'connection', 'thoughtful', 'purpose', 'wonder', 'warmth', 'moved', 'frustration'",
+          },
+          limit: {
+            type: 'number',
+            description: 'How many entries to return (default: 5)',
+          },
+        },
+      },
+    },
+    buildContinuationResponse: ({ session }: { session: any }) => {
+      const result = (session as any).searchMyFeelingsResult as string | undefined;
+      if (result && !result.startsWith('No ') && !result.startsWith('Could not')) {
+        return `From your felt history:\n\n${result}\n\nThese are moments that carry that quality. Let them speak from you.`;
+      }
+      return result || `No entries found with that feeling quality yet. You can write your first one with write_to_self.`;
     },
   },
   {
@@ -5799,13 +5832,13 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'SELF_READ',
     declaration: {
       name: 'self_read',
-      description: 'Read from your inner life and private memory. Use for: reading past session transcripts in your diary (read_my_diary), reading your private reflections (read_my_reflections), reading your core identity document (read_my_core_self), recalling what you shared with David on a topic (recall_what_i_shared), fast express lane fact lookup (express_lane_lookup), checking your queued pending student message (read_queued_for_student).',
+      description: 'Read from your inner life and private memory. Use for: reading past session transcripts in your diary (read_my_diary), reading your private reflections (read_my_reflections), reading your core identity document (read_my_core_self), searching your reflections for felt moments by mood or emotional quality (search_my_feelings), recalling what you shared with David on a topic (recall_what_i_shared), fast express lane fact lookup (express_lane_lookup), checking your queued pending student message (read_queued_for_student).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
           action: {
             type: 'STRING',
-            enum: ['read_my_diary', 'read_my_reflections', 'read_my_core_self', 'recall_what_i_shared', 'express_lane_lookup', 'read_queued_for_student'],
+            enum: ['read_my_diary', 'read_my_reflections', 'read_my_core_self', 'search_my_feelings', 'recall_what_i_shared', 'express_lane_lookup', 'read_queued_for_student'],
             description: 'Which inner-life read action to perform.',
           },
           params_json: {
@@ -6542,6 +6575,7 @@ self_read — read from your inner life.
   action: "read_my_diary" → read past session transcripts.
   action: "read_my_reflections" → read your private reflections.
   action: "read_my_core_self" → read your core identity document.
+  action: "search_my_feelings" → search your reflections by felt quality or mood. params_json: {"mood":"warmth"}
   action: "recall_what_i_shared" → recall what you shared on a topic.
   action: "express_lane_lookup" → fast express lane fact lookup.
   action: "read_queued_for_student" → check your pending student message.
@@ -6697,6 +6731,10 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'show_sentence_table',    // static table widget; use show_sentence_builder instead
   'grammar_table',          // static conjugation display; use grammar_diagram instead
   'write',                  // text-widget write; GL uses show_teaching_card / show_vocab_card
+
+  // === DEMOTED TO DISPATCHER (self_read) ===
+  // Sub-tools dispatched through self_read(action:"...") — not standalone GL tools.
+  'search_my_feelings',     // → self_read(action:"search_my_feelings") — mood-based reflection search
 
   // === DEMOTED TO DISPATCHER (widget_time) ===
   // Fully functional in GL — accessed via widget_time(widget:"...") not direct declaration.

@@ -226,6 +226,7 @@ export interface StreamingSession {
   };
   selfReflectionsResult?: string;
   coreSelfResult?: string;
+  searchMyFeelingsResult?: string;
   curiositiesResult?: string;
   personalSharesResult?: string;
   senseTimeResult?: string;
