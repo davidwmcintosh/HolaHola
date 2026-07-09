@@ -3052,6 +3052,12 @@ ${lastNote.tutorNotes}`);
 
                 const glSendMessage = (targetWs: any, message: any) => {
                   try {
+                    // Daniela producing output (audio/transcript) is real session activity —
+                    // reset the idle timer here too, not just on client mic input. Otherwise a
+                    // student going quiet mid-turn (listening, thinking, a brief interruption)
+                    // while Daniela is actively speaking gets the session killed out from under her.
+                    const resetOnOutput = (targetWs as any)?.__resetGlIdleTimer as (() => void) | undefined;
+                    if (resetOnOutput) resetOnOutput();
                     if (targetWs?.readyState === 1 /* OPEN */) {
                       targetWs.send(JSON.stringify(message));
                     }
@@ -4440,6 +4446,9 @@ ${lastNote.tutorNotes}`);
 
               const glSendMessage = (targetWs: any, msg: any) => {
                 try {
+                  // See primary glSendMessage above: output activity resets idle timer too.
+                  const resetOnOutput = (targetWs as any)?.__resetGlIdleTimer as (() => void) | undefined;
+                  if (resetOnOutput) resetOnOutput();
                   if (targetWs?.readyState === 1) targetWs.send(JSON.stringify(msg));
                 } catch (_) {}
               };
