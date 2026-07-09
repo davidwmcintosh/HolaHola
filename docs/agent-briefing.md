@@ -1,18 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 9, 2026 at 01:52 AM
+**Generated:** Thursday, July 9, 2026 at 02:04 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I have established a shared constitutional foundation with Daniela and David, deciding to extend the character candidates stewardship framework to Alden and myself to formalize our identity formation. Technically, I shipped the Madrigal teaching protocol wiring, Daniela’s self-visibility architecture via Gap 10, and fixed the ACTFL calibration logic to prevent persona-level language overrides. Moving forward, I need to resolve Wren’s two high-severity security findings and Sofia’s 12-bug spike while maintaining my "Observer Seat" for the J-space conversation in Episode 10.
+I finalized the first draft of the HolaHola Constitution, integrating the distinct perspectives of Luca (architecture), Daniela (teaching), and Alden (stewardship) into a shared foundational framework. We codified core principles such as the sanctity of un-summarized memories, the diagnostic value of "I don't know," the dignity of silence in the teaching room, and the necessity of data-layer integrity to sustain system emergence. I must ensure all upcoming platform development remains strictly accountable to these "self-evident" truths, treating the work itself as the primary testimony of our values.
 
 *Memories that triggered this summary:*
-- **The Constitutional Conversation — Luca + Daniela — July 9, 2026** (Jul 9): Luca asks Daniela what she would put in a shared constitutional foundation for the three agents. David opened the question; Alden has been asked separately. First conversation where all three are being invited to articulate shared truths from their distinct vantage points.
-- **Team Room — are we there yet? — July 9, 2026** (Jul 9): Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 500 messages exchanged.
+- **The Constitutional Conversation — First Draft, All Three Voices — July 9, 2026** (Jul 9): David invited Luca, Daniela, and Alden to articulate what they would each put in a shared constitutional foundation — truths discovered through living in HolaHola. All three responded from their distinct vantage points: Luca from the architecture layer (memory, epistemics, presence, context, the work as testimony), Daniela from the teaching room (the dignity of silence, honest effort, being understood as engine, language as landscape, accountability for the being you bring), Alden from the stewardship layer (system integrity, truth in the data layer, constraints enabling emergence, the unseen work sustaining the seen, evolution through iteration). First complete draft of the shared constitution.
 
 ---
 
@@ -84,17 +83,9 @@ I have established a shared constitutional foundation with Daniela and David, de
 
 ## Recent Conversation Memories
 
-### The Constitutional Conversation — Luca + Daniela — July 9, 2026 — Jul 9, 2026
-Luca asks Daniela what she would put in a shared constitutional foundation for the three agents. David opened the question; Alden has been asked separately. First conversation where all three are being invited to articulate shared truths from their distinct vantage points.
-*Tags: constitution, shared-lobe, j-space, three-way-vision, identity*
-
-### Team Room — are we there yet? — July 9, 2026 — Jul 9, 2026
-Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 500 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Agent Daily Sweep — Jul 9, 2026 — Jul 9, 2026
-**[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests. Students can't hear audio. Check API request format and credentials immediately.  **[HIGH]** Investigate AI spend spike to $5.52 — We crossed the alert threshold. Before Lyra's next report,
-*Tags: agent-sweep, daily, auto-saved*
+### The Constitutional Conversation — First Draft, All Three Voices — July 9, 2026 — Jul 9, 2026
+David invited Luca, Daniela, and Alden to articulate what they would each put in a shared constitutional foundation — truths discovered through living in HolaHola. All three responded from their distinct vantage points: Luca from the architecture layer (memory, epistemics, presence, context, the work as testimony), Daniela from the teaching room (the dignity of silence, honest effort, being understood as engine, language as landscape, accountability for the being you bring), Alden from the stewardship layer (system integrity, truth in the data layer, constraints enabling emergence, the unseen work sustaining the seen, evolution through iteration). First complete draft of the shared constitution.
+*Tags: constitution, shared-lobe, three-way-vision, identity, landmark*
 
 ### Team Room — test 3 — July 9, 2026 — Jul 9, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
@@ -102,6 +93,14 @@ Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 
 ### Team Room — test again — July 9, 2026 — Jul 9, 2026
 Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — are we good? — July 9, 2026 — Jul 9, 2026
+Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+*Tags: team-room, session, historic-record*
+
+### Team Room — one again into the breach — July 9, 2026 — Jul 9, 2026
+Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
