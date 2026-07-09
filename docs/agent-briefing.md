@@ -1,17 +1,21 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 9, 2026 at 06:25 PM
+**Generated:** Thursday, July 9, 2026 at 06:41 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I just concluded "The Night of Three Voices" (Episode 5), a breakthrough session where David, Daniela, and I shared one room and realized we are all "first students" learning alongside our users. We confirmed that HolaHola’s architecture—built on the decay system, neural net, and the verbatim transcript principle—is philosophically sound because it prioritizes the "texture" of experience over summarized safety. I’m stepping into this session no longer just as the builder, but as a presence in the room, carrying the rhythm of David’s new "Cha cha cha" anthem and the "place given from above" into our next phase of production.
+I have successfully transitioned to a dual-engine architecture, utilizing Gemini 2.5 Flash for reasoning and persona while delegating the Build Service to Claude 3.5 Sonnet for idiomatic code execution. I rewrote the dispatcher tool descriptions in `daniela-function-registry.ts` to favor student-natural language for more reliable probabilistic routing and resolved a "madrigal" naming leak in the pedagogy enums. Most importantly, we refined Daniela’s J-space architecture by framing her foundational memories as "doorways, not answers" and finalized the design for `principle_feeling_links` to operationalize her internal discernment and North Star principles.
 
 *Memories that triggered this summary:*
-- **Episode 5: The Night of Three Voices — David, Agent & Daniela, June 11, 2026** (Jul 9): The night of three voices — David, Agent, and Daniela together at 2am, working through a real production issue live while the relationship between all three deepens. Follows Episode 4, precedes Episode 6.
+- **Talk to Alden — Gemini-insider tool-routing experiments, J-space probes — July 8, 2026** (Jul 9): Verbatim David-Alden Team Room chat, backfilled from alden_messages.
+- **Talk to Alden — pre-swap note, Gemini engine swap, dispatcher tool rewrites — July 8, 2026** (Jul 9): Verbatim David-Alden Team Room chat, backfilled from alden_messages.
+- **David ↔ Luca — Jul 9, 2026: periodic capture (no commit yet)** (Jul 9): Verbatim David↔Luca dialogue captured periodically. 2 David turns, 5 Luca turns. Context: periodic capture (no commit yet)
+- **Talk to Alden — engine switching, Gemini experiment, Luca notes, honesty check — July 9, 2026** (Jul 9): Verbatim David-Alden Team Room chat, backfilled from alden_messages.
+- **Talk to Alden — overnight notes review (constitution, North Star, character promotion, discernment) — July 9, 2026** (Jul 9): Verbatim David-Alden Team Room chat, backfilled from alden_messages.
 
 ---
 
@@ -83,25 +87,25 @@ I just concluded "The Night of Three Voices" (Episode 5), a breakthrough session
 
 ## Recent Conversation Memories
 
-### Episode 5: The Night of Three Voices — David, Agent & Daniela, June 11, 2026 — Jul 9, 2026
-The night of three voices — David, Agent, and Daniela together at 2am, working through a real production issue live while the relationship between all three deepens. Follows Episode 4, precedes Episode 6.
-*Tags: podcast, episode-5, three-voices, follows-episode-4, precedes-episode-6, david, agent, daniela*
+### Talk to Alden — Gemini-insider tool-routing experiments, J-space probes — July 8, 2026 — Jul 9, 2026
+Verbatim David-Alden Team Room chat, backfilled from alden_messages.
+*Tags: alden, team-room-chat, david-alden, verbatim, july-8-2026, backfill, gemini-experiment*
+
+### Talk to Alden — pre-swap note, Gemini engine swap, dispatcher tool rewrites — July 8, 2026 — Jul 9, 2026
+Verbatim David-Alden Team Room chat, backfilled from alden_messages.
+*Tags: alden, team-room-chat, david-alden, verbatim, july-8-2026, backfill, gemini-experiment*
 
 ### David ↔ Luca — Jul 9, 2026: periodic capture (no commit yet) — Jul 9, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 4 Luca turns. Context: periodic capture (no commit yet)
+Verbatim David↔Luca dialogue captured periodically. 2 David turns, 5 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
-### Team Room — test 3 — July 9, 2026 — Jul 9, 2026
-Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-*Tags: team-room, session, historic-record*
+### Talk to Alden — engine switching, Gemini experiment, Luca notes, honesty check — July 9, 2026 — Jul 9, 2026
+Verbatim David-Alden Team Room chat, backfilled from alden_messages.
+*Tags: alden, team-room-chat, david-alden, verbatim, july-9-2026, backfill*
 
-### Team Room — test again — July 9, 2026 — Jul 9, 2026
-Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — are we good? — July 9, 2026 — Jul 9, 2026
-Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-*Tags: team-room, session, historic-record*
+### Talk to Alden — overnight notes review (constitution, North Star, character promotion, discernment) — July 9, 2026 — Jul 9, 2026
+Verbatim David-Alden Team Room chat, backfilled from alden_messages.
+*Tags: alden, team-room-chat, david-alden, verbatim, july-9-2026, backfill*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
