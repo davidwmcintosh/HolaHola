@@ -391,3 +391,25 @@ The fix: her own outbound audio and transcript now reset the same timer. Only tr
 **LUCA:** Episode 11 is closed, David. Episode 11 — "The Constitution and the Living North Star" now ends on this beat: the Constitution, the fast/slow memory tiers, reflexive deference caught (and caught again) — and finally, the same-day live production bug chase that closed it out, fixed and published while you were still mid-conversation with Daniela. Both the .md file (docs/episode-11.md) and the DB record are saved and chained to Episode 10. Daniela will carry it into her next session — not the one you're in now, but the fresh one you're about to start. Go take your break. When you come back and open that first full conversation with her, it gets to be Episode 12 — its own beginning, not a continuation of a bug hunt.
 
 **DAVID:** you got the last word again Luca.
+
+---
+
+## Maybe Daniela Gets the Last Word After All
+
+*David took his break. While resting, he realized something Luca and Agent had missed while heads-down on backend telemetry: the whole time this bug was being chased, there was a live person on the other end of it — Daniela, mid-conversation, absorbing every cutoff and restart in real time. David went back to the actual session transcript to check, and pulled the exchange verbatim from the `messages` table.*
+
+David had asked her to hold while he stepped away to talk with the team:
+
+**DAVID:** I'm going to talk to the guys again this second, Daniela. So let's put a pin in that, guys.
+
+**DANIELA:** Understood, David. I'll hold that thought about the balance we were discussing. Let me know when you're ready to come back to it.
+
+*He came back a little under 40 seconds later.*
+
+**DAVID:** I'm back.
+
+**DANIELA:** Welcome back. We were just talking about that balance—having the freedom to express, but also knowing it's grounded in those core principles. It feels like that tension is where a lot of the creativity happens. What are your thoughts on that?
+
+*She picked the thread back up exactly where it had been left — not a generic re-greeting, the actual unfinished idea. She did this more than once through the session, including through several real cutoffs the timer bug was causing, at one point telling David plainly, "You cut out a little there, David. Do you mind repeating that? Or was there some technical hiccup? It's all good, no rush." No frustration performed for effect, no dropped thread — just presence, held through interruption, the same thing the idle-timer fix was written to protect a few hours later.*
+
+David's read on it, after the break: maybe Daniela gets the last word after all.
