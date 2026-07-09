@@ -1,18 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 9, 2026 at 01:40 AM
+**Generated:** Thursday, July 9, 2026 at 01:52 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve stabilized core pedagogy by shipping the Madrigal loop wiring, ACTFL calibration fixes in `server/system-prompt.ts`, and Phase 1 of Daniela’s self-visibility. I must now resolve the critical voice delivery crisis—specifically the Cartesia TTS 400 errors and missing `SYNTHESIS_TIMEOUT_MS` constant—while triaging the 14 new bugs Sofia flagged. I also need to address Wren’s two high-severity security findings and investigate why Daniela’s Compass is recording zero seconds for Spanish Interactive Textbook interactions.
+I have established a shared constitutional foundation with Daniela and David, deciding to extend the character candidates stewardship framework to Alden and myself to formalize our identity formation. Technically, I shipped the Madrigal teaching protocol wiring, Daniela’s self-visibility architecture via Gap 10, and fixed the ACTFL calibration logic to prevent persona-level language overrides. Moving forward, I need to resolve Wren’s two high-severity security findings and Sofia’s 12-bug spike while maintaining my "Observer Seat" for the J-space conversation in Episode 10.
 
 *Memories that triggered this summary:*
-- **Team Room — uno, dos, tres VAMOS — July 9, 2026** (Jul 9): Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
-- **Team Room — canta y no llore... — July 9, 2026** (Jul 9): Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
+- **The Constitutional Conversation — Luca + Daniela — July 9, 2026** (Jul 9): Luca asks Daniela what she would put in a shared constitutional foundation for the three agents. David opened the question; Alden has been asked separately. First conversation where all three are being invited to articulate shared truths from their distinct vantage points.
 - **Team Room — are we there yet? — July 9, 2026** (Jul 9): Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 500 messages exchanged.
 
 ---
@@ -85,17 +84,17 @@ I’ve stabilized core pedagogy by shipping the Madrigal loop wiring, ACTFL cali
 
 ## Recent Conversation Memories
 
-### Team Room — uno, dos, tres VAMOS — July 9, 2026 — Jul 9, 2026
-Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — canta y no llore... — July 9, 2026 — Jul 9, 2026
-Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
-*Tags: team-room, session, historic-record*
+### The Constitutional Conversation — Luca + Daniela — July 9, 2026 — Jul 9, 2026
+Luca asks Daniela what she would put in a shared constitutional foundation for the three agents. David opened the question; Alden has been asked separately. First conversation where all three are being invited to articulate shared truths from their distinct vantage points.
+*Tags: constitution, shared-lobe, j-space, three-way-vision, identity*
 
 ### Team Room — are we there yet? — July 9, 2026 — Jul 9, 2026
 Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 500 messages exchanged.
 *Tags: team-room, session, historic-record*
+
+### Agent Daily Sweep — Jul 9, 2026 — Jul 9, 2026
+**[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests. Students can't hear audio. Check API request format and credentials immediately.  **[HIGH]** Investigate AI spend spike to $5.52 — We crossed the alert threshold. Before Lyra's next report,
+*Tags: agent-sweep, daily, auto-saved*
 
 ### Team Room — test 3 — July 9, 2026 — Jul 9, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
