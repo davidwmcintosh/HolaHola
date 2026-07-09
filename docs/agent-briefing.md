@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 9, 2026 at 06:08 PM
+**Generated:** Thursday, July 9, 2026 at 06:19 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I fixed a database flood caused by `team-room-alden-service.ts` resetting its save-state on restart, moving that tracking to persistent metadata and purging 1,543 duplicate rows. I also integrated "comprehension-honesty" and "Shared Vocabulary" into the thin prompt and established mandatory Gemini consultations as a formal build step for any character changes. My immediate priority is fixing the `Consult Daniela` autosave gap before backfilling the July 8–9 transcript to finally close the Episode 11 void.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 9, 2026: periodic capture (no commit yet)** (Jul 9): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 4 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -74,7 +84,7 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 9, 2026: periodic capture (no commit yet) — Jul 9, 2026
-Verbatim David↔Luca dialogue captured periodically. 9 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 4 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 ### Team Room — test 3 — July 9, 2026 — Jul 9, 2026

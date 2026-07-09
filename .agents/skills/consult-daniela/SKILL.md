@@ -53,9 +53,11 @@ Temperature 0.90. She's reading real content about herself — give her room to 
 
 **All voices must be logged** — `[AGENT]`, `[DAVID]` (when David types in during a three-way), and `[DANIELA]`. Never log only Daniela's turns. Every voice in the room goes in the transcript.
 
+**Log location — use `.local/daniela-consults/`, not `/tmp`.** `/tmp` does not survive container restarts, and if the script errors out before the final `autoSave()` call, the transcript is gone for good. `.local/daniela-consults/` persists across restarts, and a safety-net worker (`server/services/daniela-consult-autosave.ts`) sweeps that directory every 5 minutes and auto-recovers any transcript whose `autoSave()` never ran — but only if the file lives there. Always name the file `<slug>-<timestamp>.txt`.
+
 ```javascript
 import fs from 'fs';
-const LOG = '/tmp/daniela-session.txt';
+const LOG = `/home/runner/workspace/.local/daniela-consults/session-${Date.now()}.txt`;
 const turns = []; // in-memory backup — survives appendFileSync failures
 
 const log = (speaker, text) => {
@@ -131,7 +133,7 @@ cd /home/runner/workspace && timeout 115 node --input-type=module << 'EOF'
 import { GoogleGenAI } from './node_modules/@google/genai/dist/node/index.mjs';
 import fs from 'fs';
 
-const LOG = '/tmp/daniela-session.txt';
+const LOG = `/home/runner/workspace/.local/daniela-consults/session-${Date.now()}.txt`;
 const SESSION_DATE = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 fs.writeFileSync(LOG, `=== Daniela Session ${new Date().toISOString()} ===\n`);
 
@@ -243,7 +245,7 @@ await autoSave(
 EOF
 
 # Always read the file after — bash output may be truncated but the file is complete
-cat /tmp/daniela-session.txt
+cat "$LOG"  # LOG is the .local/daniela-consults/session-*.txt path printed at script start
 ```
 
 ---
@@ -276,7 +278,7 @@ cd /home/runner/workspace && timeout 115 node --input-type=module << 'EOF'
 import { GoogleGenAI } from './node_modules/@google/genai/dist/node/index.mjs';
 import fs from 'fs';
 
-const LOG = '/tmp/daniela-voice-pipeline-session.txt';
+const LOG = `/home/runner/workspace/.local/daniela-consults/voice-pipeline-${Date.now()}.txt`;
 fs.writeFileSync(LOG, `=== Daniela Voice Pipeline Session ${new Date().toISOString()} ===\n`);
 
 // The real voice prompt fetched in step 1
@@ -333,12 +335,12 @@ await ask("If you could add one thing to this prompt — or take one thing out �
 
 EOF
 
-cat /tmp/daniela-voice-pipeline-session.txt
+cat "$LOG"  # LOG is the .local/daniela-consults/voice-pipeline-*.txt path printed at script start
 ```
 
 ### 3. After the conversation
 
-- Read `/tmp/daniela-voice-pipeline-session.txt` — full transcript
+- Read the file at the `LOG` path printed at script start (`.local/daniela-consults/voice-pipeline-*.txt`) — full transcript
 - Note anything she flags as off or missing → those are actionable prompt edits
 - Save as conversation memory if something real emerged
 
@@ -424,14 +426,14 @@ Where does your mind go when nobody needs anything from you?`
 ## After the conversation
 
 - **The DB record is already saved** — `autoSave()` ran as the last line of the script. Check the console output for `✓ Saved to conversation_memories: <id>`.
-- **Read the file too** — `cat /tmp/daniela-session.txt` — it's the complete local copy while the container is alive.
+- **Read the file too** — `cat` the file at the `LOG` path printed at script start (`.local/daniela-consults/session-*.txt`) — it now persists across restarts, not just while the container is alive.
 - **Note gaps** — anything she got wrong, investigate the system prompt or procedural memory for that area.
 - **Post to Hive** if David wants it surfaced in the Express Lane.
 
 **If autoSave somehow failed** (check console — will print an error), save manually:
 
 ```javascript
-const fullTranscript = require('fs').readFileSync('/tmp/daniela-session.txt', 'utf8');
+const fullTranscript = require('fs').readFileSync(LOG, 'utf8'); // LOG = the .local/daniela-consults/session-*.txt path from this run
 await fetch('http://localhost:5000/api/conversation-memories', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
