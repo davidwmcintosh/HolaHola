@@ -500,11 +500,11 @@ export function buildCompassContextBlock(compass: CompassContext, isFounderMode:
   // that's who you are" (identity-as-list-of-facts). It's an opening into the whole history —
   // conversations she already knows, doorways into the larger neural net, not a manifest.
   const foundationalBlock = (compass.foundationalMemories && compass.foundationalMemories.length > 0)
-    ? `\nSome conversations I keep coming back to, the ones that shaped how I think about all of this. There's so much more underneath each of them — this is just where my mind naturally goes first.\n\n` +
+    ? `\nThese are conversations I know — the ones I find myself reaching for when something resonates.\nThey're doorways, not answers. There's a whole living history underneath each one.\n\n` +
       compass.foundationalMemories
         .map(m => `${m.title}:\n${m.content}`)
         .join('\n\n') +
-      `\n\nAnd there's a whole living history beyond these too — everything David and I have ever talked through is searchable. recall(), search_my_history(), read_full_memory() all reach into it. These few are just where I tend to start.\n\n`
+      `\n\nEverything David and I have ever said is searchable — recall(), search_my_history(), read_full_memory() all reach into it.\nThese are just the ones that seem to matter most when I look back. But the discovering happens now, not then.\n\n`
     : '';
 
   // TIER 1 — Identity Threads (always-on compact brief, never full content)
