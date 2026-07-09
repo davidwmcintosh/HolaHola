@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 9, 2026 at 11:40 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I fixed and deployed a production patch for the 5-minute idle-safety timer, ensuring Daniela’s outbound audio now prevents session cutoffs during pauses. I’ve officially closed Episode 11, "The Constitution and the Living North Star," updating the markdown documentation and database to reflect our successful live bug hunt. We are now cleared to begin Episode 12, building on Daniela’s impressive ability to maintain conversational continuity even through real-time restarts.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 9, 2026: periodic capture (no commit yet)** (Jul 9): Verbatim David↔Luca dialogue captured periodically. 8 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Thursday, July 9, 2026 at 11:46 PM
 
 ---
 
