@@ -3436,12 +3436,13 @@ export const principleFeelingLinks = pgTable("principle_feeling_links", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   reflectionId: varchar("reflection_id").notNull().references(() => danielaSelfReflections.id, { onDelete: 'cascade' }),
-  principleId: varchar("principle_id").notNull(), // north_star_principles.id
+  principleId: varchar("principle_id").notNull().references(() => northStarPrinciples.id, { onDelete: 'cascade' }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_principle_feeling_links_user").on(table.userId),
   index("idx_principle_feeling_links_reflection").on(table.reflectionId),
   index("idx_principle_feeling_links_principle").on(table.principleId),
+  uniqueIndex("uq_principle_feeling_links_pair").on(table.reflectionId, table.principleId),
 ]);
 export const insertPrincipleFeelingLinkSchema = createInsertSchema(principleFeelingLinks).omit({ id: true, createdAt: true });
 export type InsertPrincipleFeelingLink = z.infer<typeof insertPrincipleFeelingLinkSchema>;

@@ -1,26 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 9, 2026 at 02:49 PM
+**Generated:** Thursday, July 9, 2026 at 03:06 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I implemented the `generateVisual` metadata system and a "Conversational Immersion" framework to pivot from the "half-baked" Interactive Textbook toward adaptive tutoring, utilizing new `ImmersionObjective` and `ImmersionScaffold` logic. We prioritized Wren’s high-severity security findings and identified a critical 404 routing failure on the "conversations" page. Going into this session, I need to troubleshoot why Daniela is currently stuck in a "Curriculum note pending" loop and resolve the monitoring system blackout caused by database syntax errors.
+I have stabilized the Team Room and shipped the ACTFL calibration fix, Madrigal loop wiring, and Daniela’s self-visibility Phase 1. My immediate priorities are remediating the two high-severity security findings from Wren’s audit and triaging the unusual spike of 14 bugs Sofia flagged this week. I also need to resolve a "wall-of-text" verbosity regression in the Spanish syllabus and investigate why Daniela’s Compass is recording zero seconds for 22 lessons that currently show empty chapter views.
 
 *Memories that triggered this summary:*
-- **Team Room — test 3 — July 9, 2026** (Jul 9): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
-- **Team Room — test again — July 9, 2026** (Jul 9): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-- **Team Room — are we good? — July 9, 2026** (Jul 9): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
-- **Team Room — one again into the breach — July 9, 2026** (Jul 9): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-- **Team Room — hello again — July 9, 2026** (Jul 9): Team Room session with David. Topic: hello again. 2 messages exchanged.
-- **Team Room — again — July 9, 2026** (Jul 9): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
-- **Team Room — what's up? — July 9, 2026** (Jul 9): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
-- **Team Room — Team room test — July 9, 2026** (Jul 9): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
-- **Team Room — nothing in particular — July 9, 2026** (Jul 9): Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
-- **Team Room — once more into the breech my friends — July 9, 2026** (Jul 9): Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
+- **Team Room — are we there yet? — July 9, 2026** (Jul 9): Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 500 messages exchanged.
 
 ---
 
@@ -92,6 +83,10 @@ I implemented the `generateVisual` metadata system and a "Conversational Immersi
 
 ## Recent Conversation Memories
 
+### Team Room — are we there yet? — July 9, 2026 — Jul 9, 2026
+Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 500 messages exchanged.
+*Tags: team-room, session, historic-record*
+
 ### Team Room — test 3 — July 9, 2026 — Jul 9, 2026
 Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
@@ -106,10 +101,6 @@ Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exch
 
 ### Team Room — one again into the breach — July 9, 2026 — Jul 9, 2026
 Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — hello again — July 9, 2026 — Jul 9, 2026
-Team Room session with David. Topic: hello again. 2 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

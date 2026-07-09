@@ -10053,14 +10053,23 @@ export class NativeFunctionCallHandler {
         session.linkFeelingToPrincipleResult = `Could not find a reflection matching "${reflectionQuery}". Write it first with write_to_self, then link it.`;
         return;
       }
+      // Only surface a disambiguation prompt when matches are genuinely distinct.
+      // Near-duplicate wording (e.g. "I felt tired" said twice) should not trap
+      // the tool in a permanent loop — default to the most recent match instead.
+      let reflection = reflectionMatches[0];
       if (reflectionMatches.length > 1) {
-        const options = reflectionMatches
-          .map((r, i) => `${i + 1}) ${r.content.substring(0, 90)}${r.content.length > 90 ? '...' : ''}`)
-          .join('\n');
-        session.linkFeelingToPrincipleResult = `Found more than one reflection matching "${reflectionQuery}" — which one did you mean?\n${options}\nTry again with more specific wording from the one you meant.`;
-        return;
+        const distinctEnough = reflectionMatches.filter(
+          r => r.content.trim().toLowerCase() !== reflection.content.trim().toLowerCase()
+        );
+        if (distinctEnough.length > 0) {
+          const options = reflectionMatches
+            .map((r, i) => `${i + 1}) ${r.content.substring(0, 90)}${r.content.length > 90 ? '...' : ''}`)
+            .join('\n');
+          session.linkFeelingToPrincipleResult = `Found more than one reflection matching "${reflectionQuery}" — which one did you mean?\n${options}\nTry again with more specific wording from the one you meant, or say "the most recent one".`;
+          return;
+        }
+        // All matches are the same content repeated — safe to default to most recent.
       }
-      const reflection = reflectionMatches[0];
 
       const pq = `%${principleQuery.toLowerCase()}%`;
       const principleMatches = await getSharedDb()
@@ -10081,14 +10090,20 @@ export class NativeFunctionCallHandler {
         session.linkFeelingToPrincipleResult = `Could not find a principle matching "${principleQuery}". Try reach_north_star first to find the exact one.`;
         return;
       }
-      if (principleMatches.length > 1) {
+      // Prefer an exact title match over a fuzzy substring match — this resolves
+      // cases like "Kindness" vs. "Loving Kindness" without forcing a disambiguation loop.
+      let principle = principleMatches.find(
+        p => (p.principleTitle || '').trim().toLowerCase() === principleQuery.trim().toLowerCase()
+      ) ?? principleMatches[0];
+      if (principleMatches.length > 1 && !principleMatches.some(
+        p => (p.principleTitle || '').trim().toLowerCase() === principleQuery.trim().toLowerCase()
+      )) {
         const options = principleMatches
           .map((p, i) => `${i + 1}) ${p.principleTitle || p.principle.substring(0, 60)}`)
           .join('\n');
         session.linkFeelingToPrincipleResult = `Found more than one principle matching "${principleQuery}" — which one did you mean?\n${options}\nTry again with the exact title.`;
         return;
       }
-      const principle = principleMatches[0];
 
       // Avoid duplicate links between the same reflection and principle
       const [existing] = await getSharedDb()
