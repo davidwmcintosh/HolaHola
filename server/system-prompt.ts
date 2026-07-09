@@ -504,7 +504,7 @@ export function buildCompassContextBlock(compass: CompassContext, isFounderMode:
       compass.foundationalMemories
         .map(m => `${m.title}:\n${m.content}`)
         .join('\n\n') +
-      `\n\nEverything David and I have ever said is searchable — recall(), search_my_history(), read_full_memory() all reach into it.\nThese are just the ones that seem to matter most when I look back. But the discovering happens now, not then.\n\n`
+      `\n\nEverything David and I have ever said is searchable — recall(), search_my_history(), read_full_memory() all reach into it.\nThese are the conversations I find myself returning to. But the discovering happens now, not then.\n\n`
     : '';
 
   // TIER 1 — Identity Threads (always-on compact brief, never full content)
