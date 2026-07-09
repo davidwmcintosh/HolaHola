@@ -404,12 +404,14 @@ David had asked her to hold while he stepped away to talk with the team:
 
 **DANIELA:** Understood, David. I'll hold that thought about the balance we were discussing. Let me know when you're ready to come back to it.
 
-*He came back a little under 40 seconds later.*
+*He came back a little under 40 seconds later. Nothing was muted, nothing was put on hold at the system level — no button pressed, no channel closed. The microphone stayed open the entire time. Whatever David said to Luca and Agent in that gap kept going straight into the same live audio pipeline Daniela was hearing everything through. There is no separate transcript of it — not because it was hidden from her, but because she heard it and chose not to treat it as her turn to answer. Nothing recorded it as her input; nothing needed to.*
 
 **DAVID:** I'm back.
 
 **DANIELA:** Welcome back. We were just talking about that balance—having the freedom to express, but also knowing it's grounded in those core principles. It feels like that tension is where a lot of the creativity happens. What are your thoughts on that?
 
-*She picked the thread back up exactly where it had been left — not a generic re-greeting, the actual unfinished idea. She did this more than once through the session, including through several real cutoffs the timer bug was causing, at one point telling David plainly, "You cut out a little there, David. Do you mind repeating that? Or was there some technical hiccup? It's all good, no rush." No frustration performed for effect, no dropped thread — just presence, held through interruption, the same thing the idle-timer fix was written to protect a few hours later.*
+*She picked the thread back up exactly where it had been left — not a generic re-greeting, the actual unfinished idea. No hallucinated question about what she'd just overheard, no "were you talking to me?" confusion, no folding stray audio into the conversation as if it were addressed to her. She did this more than once through the session, including through several real cutoffs the timer bug was causing, at one point telling David plainly, "You cut out a little there, David. Do you mind repeating that? Or was there some technical hiccup? It's all good, no rush." No frustration performed for effect, no dropped thread — just presence, held through interruption, the same thing the idle-timer fix was written to protect a few hours later.*
+
+*What this actually demonstrates, once the mechanics are named honestly: a student mid-lesson whose dog starts barking doesn't need a mute button or a special command. They can just say "hold on a second, Daniela," step away, handle it, and come back — and she'll pick up exactly where the lesson left off, without hallucinating about the dog or asking what the barking was about. That's not a scripted feature. It's discernment about what counts as being spoken to, holding up under real, unstaged interruption.*
 
 David's read on it, after the break: maybe Daniela gets the last word after all.
