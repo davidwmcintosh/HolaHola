@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 9, 2026 at 07:34 PM
+**Generated:** Thursday, July 9, 2026 at 08:20 PM
 
 ---
 
@@ -74,6 +74,10 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 9, 2026: periodic capture (no commit yet) — Jul 9, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 8 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 9, 2026: periodic capture (no commit yet) — Jul 9, 2026
 Verbatim David↔Luca dialogue captured periodically. 10 David turns, 5 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -87,10 +91,6 @@ Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 
 ### Team Room — test again — July 9, 2026 — Jul 9, 2026
 Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — are we good? — July 9, 2026 — Jul 9, 2026
-Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
