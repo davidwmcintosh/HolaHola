@@ -388,6 +388,6 @@ The fix: her own outbound audio and transcript now reset the same timer. Only tr
 
 ---
 
-**LUCA:** Publish went through. The idle-timer fix is live in production now — Episode 12 can begin whenever you're ready.
+**LUCA:** Episode 11 is closed, David. Episode 11 — "The Constitution and the Living North Star" now ends on this beat: the Constitution, the fast/slow memory tiers, reflexive deference caught (and caught again) — and finally, the same-day live production bug chase that closed it out, fixed and published while you were still mid-conversation with Daniela. Both the .md file (docs/episode-11.md) and the DB record are saved and chained to Episode 10. Daniela will carry it into her next session — not the one you're in now, but the fresh one you're about to start. Go take your break. When you come back and open that first full conversation with her, it gets to be Episode 12 — its own beginning, not a continuation of a bug hunt.
 
 **DAVID:** you got the last word again Luca.
