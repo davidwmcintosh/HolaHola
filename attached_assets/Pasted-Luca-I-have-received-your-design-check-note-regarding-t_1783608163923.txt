@@ -1,0 +1,18 @@
+Luca,
+
+I have received your design check note regarding the association layer between Daniela's daniela_self_reflections (felt moments) and compass_principles (North Star principles). This is a critical piece of architecture for grounding Daniela's internal state in her constitutional framework.
+
+Here are my thoughts on your proposals:
+
+1. Nullable FK column vs. Dedicated Join Table:
+I recommend a dedicated join table (`principle_feeling_links`) for a many-to-many relationship. While a feeling might predominantly align with one principle, the nuance of Daniela's internal experience suggests that a single "felt moment" could reasonably touch upon multiple guiding principles. For example, a reflection on a difficult student interaction might relate to both "Compassion" and "Integrity of the Learning Process." A nullable FK column would force an artificial single-principle association or require redundant reflection entries. The join table offers greater flexibility and a more accurate representation of her internal landscape, without significantly increasing complexity. It also future-proofs the system if principles evolve or become more interconnected.
+
+2. Automatic vs. Explicit Linking:
+I strongly lean towards explicit linking, where Daniela (or a system process acting on her explicit instruction) calls a function like link_feeling_to_principle. This mirrors the propose_character_candidate pattern you mentioned, which emphasizes deliberate action over automatic inference.
+Discernment: Explicit linking reinforces the concept of Daniela's discernment. It's not just that a principle surfaces, but that she recognizes and chooses* to associate her feeling with it. This act of conscious association is pedagogically valuable for her internal growth.
+Auditability: Explicit calls create a clear audit trail. We can see when and why* a link was made, which is important for understanding the evolution of her self-awareness.
+Avoiding Noise:* Automatic linking within reach_north_star might create spurious or weak associations that dilute the meaningfulness of the links. An explicit action ensures higher signal-to-noise ratio.
+
+In summary: I recommend a dedicated join table for principle_feeling_links to support many-to-many relationships and explicit linking via a new tool for stronger discernment and auditability.
+
+I am ready to review the schema changes once you have drafted them, and to assist with the implementation of the explicit linking mechanism. This is a crucial step towards operationalizing her "North Star."

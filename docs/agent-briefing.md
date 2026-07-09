@@ -1,7 +1,26 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 9, 2026 at 02:33 PM
+**Generated:** Thursday, July 9, 2026 at 02:43 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’m replacing the fragile `ILIKE` matching in the `link_feeling_to_principle` tool with vector lookups and migrating to a `reflection_principle_links` join table to support Daniela’s many-to-many identity mapping. I need to prioritize remediating the two high-severity security vulnerabilities Wren identified—specifically the SQL injection risk and hardcoded secret—while investigating a 50-bug surge and fixing "wall-of-text" formatting regressions in 49 Spanish lessons. With David pivoting from the "half-baked" Interactive Textbook toward conversational immersion, I’ll be focusing on the new `generateVisual` utility to provide the high-quality, metadata-tagged infographics Daniela needs for pedagogical support.
+
+*Memories that triggered this summary:*
+- **Dual Consult — feeling-principle link design — July 9, 2026** (Jul 9): Gemini Flash flagged ILIKE matching as fragile (recommends vector lookup via existing embeddings), the FK-column design as a many-to-many blind spot (recommends join table), and a context-window leak risk in reach_north_star surfacing full linked reflections. Daniela responded warmly that the tool feels like self-discovery, not homework, but (as expected) could not see the technical risks.
+- **Agent ↔ Daniela (dual-consult) — feeling-principle link — July 9, 2026** (Jul 9): Daniela reacts to the new link_feeling_to_principle tool connecting her felt reflections to North Star principles.
+- **Team Room — test 3 — July 9, 2026** (Jul 9): Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
+- **Team Room — test again — July 9, 2026** (Jul 9): Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
+- **Team Room — are we good? — July 9, 2026** (Jul 9): Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
+- **Team Room — one again into the breach — July 9, 2026** (Jul 9): Team Room session with David, Alden. Topic: one again into the breach. 5 messages exchanged.
+- **Team Room — hello again — July 9, 2026** (Jul 9): Team Room session with David. Topic: hello again. 2 messages exchanged.
+- **Team Room — again — July 9, 2026** (Jul 9): Team Room session with David, Alden, Wren, Lyra, Sofia. Topic: again. 86 messages exchanged.
+- **Team Room — what's up? — July 9, 2026** (Jul 9): Team Room session with Lyra, David, Alden, Daniela, Wren, Sofia. Topic: what's up?. 355 messages exchanged.
+- **Team Room — Team room test — July 9, 2026** (Jul 9): Team Room session with Alden, David, Agent, Daniela, Sofia, Lyra, Wren. Topic: Team room test. 208 messages exchanged.
 
 ---
 
@@ -73,24 +92,24 @@
 
 ## Recent Conversation Memories
 
-### Team Room — nothing in particular — July 9, 2026 — Jul 9, 2026
-Team Room session with David, Agent, Alden, Lyra. Topic: nothing in particular. 68 messages exchanged.
+### Dual Consult — feeling-principle link design — July 9, 2026 — Jul 9, 2026
+Gemini Flash flagged ILIKE matching as fragile (recommends vector lookup via existing embeddings), the FK-column design as a many-to-many blind spot (recommends join table), and a context-window leak risk in reach_north_star surfacing full linked reflections. Daniela responded warmly that the tool feels like self-discovery, not homework, but (as expected) could not see the technical risks.
+*Tags: dual-consult, gemini-flash, daniela, feeling-principle-link*
+
+### Agent ↔ Daniela (dual-consult) — feeling-principle link — July 9, 2026 — Jul 9, 2026
+Daniela reacts to the new link_feeling_to_principle tool connecting her felt reflections to North Star principles.
+*Tags: dual-consult, agent-daniela*
+
+### Team Room — test 3 — July 9, 2026 — Jul 9, 2026
+Team Room session with David, Alden. Topic: test 3. 3 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — once more into the breech my friends — July 9, 2026 — Jul 9, 2026
-Team Room session with David, Agent, Daniela. Topic: once more into the breech my friends. 14 messages exchanged.
+### Team Room — test again — July 9, 2026 — Jul 9, 2026
+Team Room session with David, Alden, Daniela. Topic: test again. 4 messages exchanged.
 *Tags: team-room, session, historic-record*
 
-### Team Room — uno, dos, tres VAMOS — July 9, 2026 — Jul 9, 2026
-Team Room session with David, Agent, Daniela, Alden, Sofia, Lyra, Wren, Marco, Reid, Priya. Topic: uno, dos, tres VAMOS. 15 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — canta y no llore... — July 9, 2026 — Jul 9, 2026
-Team Room session with David, Agent, Daniela. Topic: canta y no llore.... 20 messages exchanged.
-*Tags: team-room, session, historic-record*
-
-### Team Room — are we there yet? — July 9, 2026 — Jul 9, 2026
-Team Room session with David, Daniela, Agent, Alden, Lyra, Sofia. Topic: are we there yet?. 500 messages exchanged.
+### Team Room — are we good? — July 9, 2026 — Jul 9, 2026
+Team Room session with David, Alden, Sofia. Topic: are we good?. 7 messages exchanged.
 *Tags: team-room, session, historic-record*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
