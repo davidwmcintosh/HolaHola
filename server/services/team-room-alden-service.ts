@@ -1675,7 +1675,23 @@ export async function documentRoomSession(roomId: string, roomTopic: string, exi
 //      (covers long sessions where user never hits End Session)
 // The Map tracks message count at last save so we only write when there's new content.
 
-const _autoSaveState = new Map<string, { messageCount: number; savedAt: Date; memoryId?: string }>();
+// Last-saved state is persisted in the room's own `metadata` column (under `_autoSave`)
+// instead of an in-memory Map. An in-memory Map is wiped on every server restart, which
+// caused the startup sweep below to treat already-saved rooms as "never saved" and insert
+// a brand-new duplicate conversation_memories row on every restart.
+type AutoSaveState = { messageCount: number; savedAt: string; memoryId?: string };
+
+function readAutoSaveState(room: { metadata?: unknown }): AutoSaveState | undefined {
+  const meta = (room.metadata ?? {}) as Record<string, unknown>;
+  const state = meta._autoSave as AutoSaveState | undefined;
+  if (!state || typeof state.messageCount !== 'number' || !state.savedAt) return undefined;
+  return state;
+}
+
+async function writeAutoSaveState(room: { id: string; metadata?: unknown }, state: AutoSaveState): Promise<void> {
+  const meta = (room.metadata ?? {}) as Record<string, unknown>;
+  await storage.updateTeamRoomMetadata(room.id, { ...meta, _autoSave: state });
+}
 
 export function startTeamRoomAutoSaveWorker(): void {
   const INTERVAL_MS = 20 * 60 * 1000; // 20 minutes
@@ -1691,10 +1707,10 @@ export function startTeamRoomAutoSaveWorker(): void {
         const messages = await storage.getRoomMessages(room.id, 500);
         if (!messages.length) continue;
 
-        const lastState = _autoSaveState.get(room.id);
+        const lastState = readAutoSaveState(room);
         const now = new Date();
         const newMessagesSinceLast = lastState ? messages.length - lastState.messageCount : messages.length;
-        const minutesSinceLast = lastState ? (now.getTime() - lastState.savedAt.getTime()) / 60000 : Infinity;
+        const minutesSinceLast = lastState ? (now.getTime() - new Date(lastState.savedAt).getTime()) / 60000 : Infinity;
 
         // Save if never saved, or 5+ new messages, or 30+ minutes elapsed with any new messages
         const shouldSave = !lastState
@@ -1705,7 +1721,7 @@ export function startTeamRoomAutoSaveWorker(): void {
 
         try {
           const result = await documentRoomSession(room.id, room.topic, lastState?.memoryId);
-          _autoSaveState.set(room.id, { messageCount: messages.length, savedAt: now, memoryId: result.memoryId || lastState?.memoryId });
+          await writeAutoSaveState(room, { messageCount: messages.length, savedAt: now.toISOString(), memoryId: result.memoryId || lastState?.memoryId });
           console.log(`[TeamRoom AutoSave] ${room.id} — ${result.messageCount} msgs, advisors: ${result.advisorsIndexed.join(', ') || 'none'}`);
         } catch (e: any) {
           console.error(`[TeamRoom AutoSave] Failed for session ${room.id}:`, e.message);
