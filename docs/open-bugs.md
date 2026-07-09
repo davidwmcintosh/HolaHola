@@ -7,6 +7,12 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-07-09 — Server restarting mid-voice-session, 3x in ~15 min during live J-space test — INVESTIGATING**
+Clean stop/fresh-boot pattern each time (no crash trace, no OOM in logs) during live monitoring of a David↔Daniela test conversation. Each restart drops the active `/voice` socket and triggers the client's SESSION_EXPIRED handler → toast → redirect after the 120s reconnect grace expires. Root cause of the restarts themselves not yet found — not caused by concurrent file edits at the time they occurred. Needs a dedicated pass through the workflow/process manager logs around each restart timestamp to find the trigger.
+
+**2026-07-09 — `server/services/gemini-live-session.ts` — Daniela repeats her own sentence verbatim when a tool call fires mid-speech — FIXED**
+Observed live: Daniela spoke a full greeting response, fired `update_session_phase` mid-sentence, then GL restarted generation of the *same turn* from scratch, producing a verbatim duplicate ("here. That's interesting about the ringing..." spoken twice). This is a more general case of the previously-fixed set_clock audio-doubling bug (see 2026-06-xx entries) — that fix only reset audio for `set_clock`. Generalized the `gl_audio_reset` trigger to fire whenever `hadAudioInCurrentSubturn` is true, for any tool call, not just temporal-display tools. Fixed July 9, 2026 — typecheck clean, restarted and monitoring live for recurrence.
+
 **2026-07-08 — `client/src/components/StreamingVoiceChat.tsx` — voice_override: null clears GL voice mid-session — FIXED**
 The `useEffect` at line ~496 fires on every `connectionState` change ('ready'/'processing') and unconditionally sends `voiceOverride` — which is `null` by default. Server stores `null`, clears the voice config, and the next TTS/GL output uses the wrong (sometimes male) default voice. Fix: added `&& voiceOverride !== null` guard so null is never sent. Only non-null overrides are transmitted. Fixed July 8, 2026 — typecheck clean.
 

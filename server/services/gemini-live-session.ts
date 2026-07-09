@@ -2184,16 +2184,16 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // the now-stale responses before they reach sendToolResponse.
       const localTurnId = this.currentTurnId;
 
-      // set_clock audio doubling fix: GL sometimes speaks the time BEFORE calling set_clock
-      // (pre-tool sub-turn), then speaks it again AFTER (post-tool continuation), doubling
-      // the audio. When pre-tool audio was already sent this turn AND the tool is set_clock,
-      // send gl_audio_reset to cancel the queued pre-tool audio. Post-tool speech plays clean.
-      const TEMPORAL_DISPLAY_TOOLS = new Set(['set_clock']);
-      const hasTemporalDisplayTool = msg.toolCall.functionCalls.some(
-        (fc: any) => TEMPORAL_DISPLAY_TOOLS.has(fc.name || '')
-      );
-      if (hasTemporalDisplayTool && this.hadAudioInCurrentSubturn) {
-        console.log('[GeminiLive] set_clock called after pre-tool audio — sending gl_audio_reset to cancel duplicate speech');
+      // Mid-speech tool-call audio doubling fix (generalized from the set_clock-only fix):
+      // GL sometimes speaks part of its response BEFORE calling a tool (pre-tool sub-turn),
+      // then re-speaks the same content again AFTER the tool response (post-tool continuation),
+      // producing a verbatim duplicate. Observed July 9, 2026 with update_session_phase mid-greeting
+      // (originally only guarded for set_clock). Any tool firing mid-speech can trigger this, so
+      // the reset now fires whenever pre-tool audio was already sent this turn, regardless of which
+      // tool(s) are being called. gl_audio_reset cancels the queued pre-tool audio client-side;
+      // post-tool speech then plays clean instead of doubling up.
+      if (this.hadAudioInCurrentSubturn) {
+        console.log(`[GeminiLive] Tool call(s) [${msg.toolCall.functionCalls.map((fc: any) => fc.name).join(', ')}] fired after pre-tool audio — sending gl_audio_reset to cancel duplicate speech`);
         this.sendWsMessage(this.session.ws, { type: 'gl_audio_reset' }, this.session);
       }
 
