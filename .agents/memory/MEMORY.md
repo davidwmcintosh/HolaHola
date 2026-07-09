@@ -75,4 +75,5 @@
 - [Feeling <-> North Star principle link](feeling-principle-link.md) — link_feeling_to_principle is explicit-only, never auto-written by reach_north_star; self-authorship rule forbids background writes to her tables.
 - [Alden dual-engine switch](alden-engine-switch.md) — DB-backed aldenConfig/aldenEngineSwitches, /api/alden/engine GET/POST, 15s cache TTL; Anthropic default, Gemini opt-in.
   - [Daniela caller silent-failure fix](daniela-caller-silent-failure.md) — callDaniela/callDanielaWithTools used to return '' on empty/MAX_TURNS; now retries once then returns explicit [DANIELA_CALLER_ERROR:...] string.
+- [Live capture vs. after-the-fact reweave](live-capture-vs-reweave-cost.md) — reconstructing chronology later is possible but expensive and depends on someone looking; event-triggered capture (e.g. only-on-commit) can mean data never existed at all.
   
