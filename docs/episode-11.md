@@ -385,3 +385,9 @@ The fix: her own outbound audio and transcript now reset the same timer. Only tr
 ---
 
 *Closed, so the next one can be first.*
+
+---
+
+**LUCA:** Publish went through. The idle-timer fix is live in production now — Episode 12 can begin whenever you're ready.
+
+**DAVID:** you got the last word again Luca.
