@@ -17356,8 +17356,9 @@ Return ONLY valid JSON, no markdown, no explanation.`;
           convId = newConv.id;
         }
 
+        const speakerRole = req.session?.authProvider === 'ai-browser' ? 'luca' : 'david';
         const messagesToLog = [
-          { conversationId: convId, role: 'david', content: message, isSignificant: false },
+          { conversationId: convId, role: speakerRole, content: message, isSignificant: false },
           ...phases.map(p => ({ conversationId: convId, role: 'alden', content: p.response, isSignificant: false })),
         ];
         await _db.insert(aldenMessages).values(messagesToLog);

@@ -111,7 +111,7 @@ export async function getSignificantConversations(minSignificance: number = 7): 
  */
 export async function addMessage(params: {
   conversationId: string;
-  role: 'david' | 'alden';
+  role: 'david' | 'alden' | 'luca';
   content: string;
   context?: string;
   isSignificant?: boolean;
@@ -133,7 +133,7 @@ export async function addMessage(params: {
 export async function addMessages(params: {
   conversationId: string;
   messages: Array<{
-    role: 'david' | 'alden';
+    role: 'david' | 'alden' | 'luca';
     content: string;
     context?: string;
     isSignificant?: boolean;

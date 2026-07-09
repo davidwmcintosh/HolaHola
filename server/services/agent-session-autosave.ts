@@ -91,7 +91,6 @@ async function checkBuildSession(): Promise<void> {
       const content = readFileSync(COMMIT_MSG_PATH, 'utf-8').trim();
       if (content.length > 20) {
         await saveBuildMemory(content);
-        await saveTranscriptChunk(content); // also capture dialogue at each commit
       }
     }
   } catch { /* file briefly locked — skip */ }
@@ -287,7 +286,7 @@ function extractTurns(jsonlPath: string, afterMemoryId: number): { turns: Dialog
   return { turns, maxMemoryId };
 }
 
-async function saveTranscriptChunk(commitTitle: string): Promise<void> {
+async function saveTranscriptChunk(commitTitle?: string): Promise<void> {
   const found = findTranscriptPath();
   if (!found) return;
 
@@ -314,8 +313,9 @@ async function saveTranscriptChunk(commitTitle: string): Promise<void> {
   const dialogue = lines.join('\n');
   const davidCount = turns.slice(0, included).filter(t => t.speaker === 'DAVID').length;
   const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const title = `David ↔ Luca — ${today}: ${commitTitle.split('\n')[0].slice(0, 80)}`;
-  const summary = `Verbatim David↔Luca dialogue captured at task completion. ${davidCount} David turns, ${included - davidCount} Luca turns. Context: ${commitTitle.slice(0, 200)}`;
+  const context = commitTitle ? commitTitle.split('\n')[0].slice(0, 80) : 'periodic capture (no commit yet)';
+  const title = `David ↔ Luca — ${today}: ${context}`;
+  const summary = `Verbatim David↔Luca dialogue captured periodically. ${davidCount} David turns, ${included - davidCount} Luca turns. Context: ${(commitTitle ?? context).slice(0, 200)}`;
 
   const db = getUserDb();
   try {
@@ -361,7 +361,8 @@ export function startAgentSessionAutosave(): void {
   setInterval(async () => {
     await checkBuildSession();
     await checkSessionInsights();
+    await saveTranscriptChunk(); // periodic, independent of commits — captures conversation-only sessions too
   }, POLL_INTERVAL_MS);
 
-  console.log('[AgentAutosave] Started — watching .commit_message (build + transcript) + .session_insights (emergence) every 60s');
+  console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + periodic transcript capture every 60s');
 }

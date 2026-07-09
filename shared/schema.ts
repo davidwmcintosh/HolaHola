@@ -7676,7 +7676,7 @@ export const aldenMessages = pgTable("alden_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   conversationId: varchar("conversation_id").notNull().references(() => aldenConversations.id),
   
-  role: varchar("role").notNull(), // "david" | "alden"
+  role: varchar("role").notNull(), // "david" | "alden" | "luca"
   content: text("content").notNull(),
   
   // Optional context
