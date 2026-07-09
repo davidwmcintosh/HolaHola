@@ -3417,11 +3417,13 @@ export const danielaSelfReflections = pgTable("daniela_self_reflections", {
   sessionId: varchar("session_id"),
   mood: varchar("mood", { length: 50 }),
   tags: text("tags").array(),
+  relatedPrincipleId: varchar("related_principle_id"), // compass_principles.id — explicit link, set only via link_feeling_to_principle
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_self_reflections_user").on(table.userId),
   index("idx_self_reflections_created").on(table.createdAt),
   index("idx_self_reflections_source").on(table.source),
+  index("idx_self_reflections_principle").on(table.relatedPrincipleId),
 ]);
 export const insertDanielaSelfReflectionSchema = createInsertSchema(danielaSelfReflections).omit({ id: true, createdAt: true });
 export type InsertDanielaSelfReflection = z.infer<typeof insertDanielaSelfReflectionSchema>;

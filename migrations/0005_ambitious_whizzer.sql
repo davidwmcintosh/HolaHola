@@ -1,0 +1,2 @@
+ALTER TABLE "daniela_self_reflections" ADD COLUMN "related_principle_id" varchar;--> statement-breakpoint
+CREATE INDEX "idx_self_reflections_principle" ON "daniela_self_reflections" USING btree ("related_principle_id");

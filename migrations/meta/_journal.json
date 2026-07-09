@@ -36,6 +36,13 @@
       "when": 1783560727835,
       "tag": "0004_curved_gunslinger",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783607567584,
+      "tag": "0005_ambitious_whizzer",
+      "breakpoints": true
     }
   ]
 }

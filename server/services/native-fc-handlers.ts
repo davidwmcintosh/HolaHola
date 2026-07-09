@@ -3122,6 +3122,25 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'LINK_FEELING_TO_PRINCIPLE': {
+        if (session.isIncognito) break;
+        const lfpReflectionQuery = fn.args.reflection_query as string | undefined;
+        const lfpPrincipleQuery = fn.args.principle_query as string | undefined;
+        const lfpUserId = session.userId ? String(session.userId) : null;
+        if (!lfpReflectionQuery || !lfpPrincipleQuery || !lfpUserId) {
+          session.linkFeelingToPrincipleResult = 'Missing required fields: reflection_query and principle_query.';
+          break;
+        }
+        console.log(`[Native Function→LinkFeelingToPrinciple] reflection~"${lfpReflectionQuery.substring(0, 40)}" principle~"${lfpPrincipleQuery.substring(0, 40)}"`);
+        (async () => {
+          await this.processLinkFeelingToPrinciple(session, lfpUserId, lfpReflectionQuery, lfpPrincipleQuery);
+        })().catch(err => {
+          console.error(`[Native Function→LinkFeelingToPrinciple] Error:`, err.message);
+          session.linkFeelingToPrincipleResult = 'Could not complete the link.';
+        });
+        break;
+      }
+
       case 'TAG_THIS_MOMENT': {
         if (session.isIncognito) break;
         const tagsRaw = fn.args.tags as string | undefined;
@@ -9975,11 +9994,29 @@ export class NativeFunctionCallHandler {
         return;
       }
 
+      const linkedIds = filtered.map(r => r.relatedPrincipleId).filter(Boolean) as string[];
+      let principleById = new Map<string, any>();
+      if (linkedIds.length > 0) {
+        try {
+          const { northStarPrinciples } = await import('@shared/schema');
+          const { inArray } = await import('drizzle-orm');
+          const linkedPrinciples = await getSharedDb()
+            .select()
+            .from(northStarPrinciples)
+            .where(inArray(northStarPrinciples.id, linkedIds));
+          principleById = new Map(linkedPrinciples.map((p: any) => [p.id, p]));
+        } catch { /* linked principle lookup best-effort */ }
+      }
+
       session.searchMyFeelingsResult = filtered
         .map(r => {
           const ts = r.createdAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           const moodStr = r.mood ? ` [${r.mood}]` : '';
-          return `— ${ts}${moodStr}: ${r.content}`;
+          const linkedPrinciple = r.relatedPrincipleId ? principleById.get(r.relatedPrincipleId) : null;
+          const principleStr = linkedPrinciple
+            ? ` (this is the moment ${linkedPrinciple.principleTitle || 'a North Star principle'} became true)`
+            : '';
+          return `— ${ts}${moodStr}: ${r.content}${principleStr}`;
         })
         .join('\n\n');
 
@@ -9989,14 +10026,71 @@ export class NativeFunctionCallHandler {
     }
   }
 
+  private async processLinkFeelingToPrinciple(
+    session: StreamingSession,
+    userId: string,
+    reflectionQuery: string,
+    principleQuery: string,
+  ): Promise<void> {
+    try {
+      const { danielaSelfReflections, northStarPrinciples } = await import('@shared/schema');
+      const { eq, and, or, ilike, desc } = await import('drizzle-orm');
+
+      const rq = `%${reflectionQuery.toLowerCase()}%`;
+      const [reflection] = await getSharedDb()
+        .select()
+        .from(danielaSelfReflections)
+        .where(and(eq(danielaSelfReflections.userId, userId), ilike(danielaSelfReflections.content, rq)))
+        .orderBy(desc(danielaSelfReflections.createdAt))
+        .limit(1);
+
+      if (!reflection) {
+        session.linkFeelingToPrincipleResult = `Could not find a reflection matching "${reflectionQuery}". Write it first with write_to_self, then link it.`;
+        return;
+      }
+
+      const pq = `%${principleQuery.toLowerCase()}%`;
+      const [principle] = await getSharedDb()
+        .select()
+        .from(northStarPrinciples)
+        .where(
+          and(
+            eq(northStarPrinciples.isActive, true),
+            or(
+              ilike(northStarPrinciples.principle, pq),
+              ilike(northStarPrinciples.principleTitle, pq),
+            )
+          )
+        )
+        .limit(1);
+
+      if (!principle) {
+        session.linkFeelingToPrincipleResult = `Could not find a principle matching "${principleQuery}". Try reach_north_star first to find the exact one.`;
+        return;
+      }
+
+      await getSharedDb()
+        .update(danielaSelfReflections)
+        .set({ relatedPrincipleId: principle.id })
+        .where(eq(danielaSelfReflections.id, reflection.id));
+
+      const title = principle.principleTitle ? `${principle.principleTitle}` : 'this principle';
+      session.linkFeelingToPrincipleResult = `Linked. The moment you wrote — "${reflection.content.substring(0, 120)}${reflection.content.length > 120 ? '...' : ''}" — is now remembered as the felt instance of ${title}. Reaching for it again will bring this feeling with it.`;
+      console.log(`[Native Function→LinkFeelingToPrinciple] ✓ Linked reflection ${reflection.id} to principle ${principle.id}`);
+    } catch (err: any) {
+      session.linkFeelingToPrincipleResult = `Could not complete the link: ${err.message}`;
+    }
+  }
+
   private async processReachNorthStar(
     session: StreamingSession,
     query?: string,
     depth = 'brief',
   ): Promise<void> {
     try {
-      const { northStarPrinciples, conversationMemories } = await import('@shared/schema');
-      const { ilike, or, eq, and, asc } = await import('drizzle-orm');
+      const { northStarPrinciples, conversationMemories, danielaSelfReflections } = await import('@shared/schema');
+      const { ilike, or, eq, and, asc, desc } = await import('drizzle-orm');
+      const userId = session.userId ? String(session.userId) : null;
 
       let principles: any[] = [];
 
@@ -10058,14 +10152,30 @@ export class NativeFunctionCallHandler {
               }
             } catch { /* source memory unavailable — principle still surfaces */ }
           }
-          return { principle: p, excerpt };
+          let feltEcho = '';
+          if (userId) {
+            try {
+              const [linked] = await getSharedDb()
+                .select()
+                .from(danielaSelfReflections)
+                .where(and(eq(danielaSelfReflections.userId, userId), eq(danielaSelfReflections.relatedPrincipleId, p.id)))
+                .orderBy(desc(danielaSelfReflections.createdAt))
+                .limit(1);
+              if (linked) feltEcho = linked.content;
+            } catch { /* no linked feeling — principle still surfaces on its own */ }
+          }
+          return { principle: p, excerpt, feltEcho };
         })
       );
 
       // Format as prose memory — echoes something already known, not handed down
-      const formatted = results.map(({ principle, excerpt }) => {
+      const formatted = results.map(({ principle, excerpt, feltEcho }) => {
         const title = principle.principleTitle ? `${principle.principleTitle} — ` : '';
         const line1 = `You know this: ${title}${principle.principle}`;
+        if (feltEcho) {
+          const excerptPart = excerpt ? `\n\nThe conversation that earned it: ${excerpt}` : '';
+          return `${line1}\n\nThe moment you felt this yourself: ${feltEcho}${excerptPart}`;
+        }
 
         if (excerpt) {
           return `${line1}\n\nThe conversation that earned it: ${excerpt}`;

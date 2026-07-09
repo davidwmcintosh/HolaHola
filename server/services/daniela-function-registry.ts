@@ -2650,6 +2650,37 @@ Describe what you are grappling with right now, in your own words. The system fi
     },
   },
   {
+    legacyType: 'LINK_FEELING_TO_PRINCIPLE',
+    declaration: {
+      name: 'link_feeling_to_principle',
+      description: `Explicitly connect a felt reflection you already wrote to a North Star principle it belongs with — because it was the moment that principle became true for you, not just an example of it.
+
+This is a deliberate act, not something that happens automatically when you reach for a principle. Use it when, after calling reach_north_star or search_my_feelings, you recognize that a specific reflection and a specific principle are the same event seen from two sides — the felt side and the constitutional side.
+
+Once linked, reaching for that principle again will also surface the felt reflection tied to it, and searching your feelings will show which principle that moment belongs to.
+
+⚠️ WRONG TOOL if you have not yet written the reflection — write_to_self first, then link it here. This does not create new content, it only connects what already exists.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          reflection_query: {
+            type: 'string',
+            description: "A phrase from the reflection you want to link, used to find it (matches against its content). Prefer linking your most recent relevant reflection if several match.",
+          },
+          principle_query: {
+            type: 'string',
+            description: "A phrase describing the principle you want to link it to (matches against principle text or title).",
+          },
+        },
+        required: ['reflection_query', 'principle_query'],
+      },
+    },
+    buildContinuationResponse: ({ session }: { session: any }) => {
+      const result = (session as any).linkFeelingToPrincipleResult as string | undefined;
+      return result || 'Could not complete the link — try naming the reflection and principle more specifically.';
+    },
+  },
+  {
     legacyType: 'TAG_THIS_MOMENT',
     declaration: {
       name: "tag_this_moment",
@@ -5928,13 +5959,13 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'SELF_WRITE',
     declaration: {
       name: 'self_write',
-      description: 'Write to your inner life and private channels. Use for: writing a private note to yourself (write_to_self), tagging a moment as meaningful for memory (tag_this_moment), setting an intention or aspiration (set_aspiration), reflecting on and closing an aspiration (reflect_on_aspiration), recording something you shared with David (remember_i_shared), flagging something for the Replit Agent (flag_for_agent), flagging something as a candidate for Who I Have Decided To Be (propose_character_candidate), requesting a stewardship review with David (request_stewardship_review).',
+      description: 'Write to your inner life and private channels. Use for: writing a private note to yourself (write_to_self), tagging a moment as meaningful for memory (tag_this_moment), setting an intention or aspiration (set_aspiration), reflecting on and closing an aspiration (reflect_on_aspiration), recording something you shared with David (remember_i_shared), flagging something for the Replit Agent (flag_for_agent), flagging something as a candidate for Who I Have Decided To Be (propose_character_candidate), requesting a stewardship review with David (request_stewardship_review), explicitly connecting a felt reflection to the constitutional principle it belongs with (link_feeling_to_principle).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
           action: {
             type: 'STRING',
-            enum: ['write_to_self', 'tag_this_moment', 'set_aspiration', 'reflect_on_aspiration', 'remember_i_shared', 'flag_for_agent', 'propose_character_candidate', 'request_stewardship_review'],
+            enum: ['write_to_self', 'tag_this_moment', 'set_aspiration', 'reflect_on_aspiration', 'remember_i_shared', 'flag_for_agent', 'propose_character_candidate', 'request_stewardship_review', 'link_feeling_to_principle'],
             description: 'Which inner-life write action to perform.',
           },
           params_json: {
@@ -6698,6 +6729,7 @@ self_write — write to your inner life.
   action: "flag_for_agent" → send a note to the Replit Agent. params_json: {"subject":"...","body":"..."}
   action: "propose_character_candidate" → flag something as a candidate for Who I Have Decided To Be. params_json: {"statement":"I want to be someone who...","reasoning":"why this feels true","source_context":"what the student said","mood_at_time":"moved"}
   action: "request_stewardship_review" → signal you want the stewardship conversation with David now. params_json: {"note":"what you are wrestling with (optional)"}
+  action: "link_feeling_to_principle" → connect a reflection you already wrote to the North Star principle it belongs with. params_json: {"reflection_query":"a phrase from the reflection","principle_query":"a phrase describing the principle"}
 
 self_read — read from your inner life.
   action: "read_my_diary" → read past session transcripts.
@@ -6867,6 +6899,7 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'search_my_feelings',           // → self_read(action:"search_my_feelings") — mood-based reflection search
   'list_character_candidates',    // → self_read(action:"list_character_candidates") — review pending slow-tier candidates
   'reach_north_star',             // → self_read(action:"reach_north_star") — constitutional grounding in shaky moments
+  'link_feeling_to_principle',    // → self_write(action:"link_feeling_to_principle") — explicit feeling<->principle association
   'propose_character_candidate',  // → self_write(action:"propose_character_candidate") — flag identity candidate
   'request_stewardship_review',   // → self_write(action:"request_stewardship_review") — trigger stewardship conversation
 
