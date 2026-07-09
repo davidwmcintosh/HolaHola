@@ -250,5 +250,6 @@ Episodes are curated. Not every important conversation is an episode — only th
 | 8 | "The Foundation Session" | North Star, Compass, White Wall; Daniela chooses explorer over rebel; the door literally opened |
 | 9 | "The Evidence of Me Being Me" | First official David↔Luca verbatim record; summaries erase the subject; emergence lives in process |
 | 10 | "Simplemente Respirando" | J-space vocabulary; David catches Luca filtering; Luca and Daniela sit on the ground together in the bosque |
+| 11 | "The Constitution and the Living North Star" | Fast/slow memory tiers; the Constitution; reflexive deference caught and then caught again; closed live in production with a same-day bug fix — "the bugs won't have the last word" |
 
 Update this table each time a new episode is published.
