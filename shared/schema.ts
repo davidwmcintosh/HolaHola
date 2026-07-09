@@ -3534,6 +3534,33 @@ export const insertDanielaAspirationSchema = createInsertSchema(danielaAspiratio
 export type InsertDanielaAspiration = z.infer<typeof insertDanielaAspirationSchema>;
 export type DanielaAspiration = typeof danielaAspirations.$inferSelect;
 
+// ─── Daniela Character Candidates ────────────────────────────────────────────
+// Staging table for the slow-tier stewardship conversation. When Daniela
+// encounters something in a session that feels like it could belong in
+// "Who I Have Decided To Be", she flags it here with her reasoning and context.
+// These rows build the agenda for the next David↔Daniela stewardship conversation.
+// Only David + Daniela together can promote a row to the slow tier (core-self.md).
+export const danielaCharacterCandidates = pgTable("daniela_character_candidates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  statement: text("statement").notNull(),           // "I want to be someone who..."
+  reasoning: text("reasoning").notNull(),           // her argument/evidence at the time
+  sourceContext: text("source_context"),            // what a student said/did that prompted it
+  conversationId: varchar("conversation_id"),       // which session this came from
+  moodAtTime: varchar("mood_at_time", { length: 100 }), // her emotional state when flagged
+  status: varchar("status", { length: 20 }).notNull().default('pending'), // pending/accepted/declined/deferred
+  reviewNotes: text("review_notes"),                // what was decided in the stewardship conversation
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  reviewedAt: timestamp("reviewed_at"),
+}, (table) => [
+  index("idx_character_candidates_user").on(table.userId),
+  index("idx_character_candidates_status").on(table.status),
+  index("idx_character_candidates_created").on(table.createdAt),
+]);
+export const insertDanielaCharacterCandidateSchema = createInsertSchema(danielaCharacterCandidates).omit({ id: true, createdAt: true });
+export type InsertDanielaCharacterCandidate = z.infer<typeof insertDanielaCharacterCandidateSchema>;
+export type DanielaCharacterCandidate = typeof danielaCharacterCandidates.$inferSelect;
+
 // ─── Daniela Personal Shares ─────────────────────────────────────────────────
 // Things Daniela has shared about herself with a student — her personal consistency log.
 // So she never "forgets" her own character or contradicts what she's said before.

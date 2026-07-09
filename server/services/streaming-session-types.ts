@@ -227,6 +227,9 @@ export interface StreamingSession {
   selfReflectionsResult?: string;
   coreSelfResult?: string;
   searchMyFeelingsResult?: string;
+  proposeCharacterCandidateResult?: string;
+  stewardshipReviewResult?: string;
+  listCharacterCandidatesResult?: string;
   curiositiesResult?: string;
   personalSharesResult?: string;
   senseTimeResult?: string;

@@ -3015,6 +3015,101 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'PROPOSE_CHARACTER_CANDIDATE': {
+        if (session.isIncognito) break;
+        const candStatement = fn.args.statement as string | undefined;
+        const candReasoning = fn.args.reasoning as string | undefined;
+        if (!candStatement || !candReasoning) {
+          session.proposeCharacterCandidateResult = 'Missing required fields: statement and reasoning.';
+          break;
+        }
+        const candContext = fn.args.source_context as string | undefined;
+        const candMood = fn.args.mood_at_time as string | undefined;
+        const candUserId = session.userId ? String(session.userId) : null;
+        if (!candUserId) { session.proposeCharacterCandidateResult = 'No user context.'; break; }
+        console.log(`[Native Function→ProposeCharacterCandidate] "${candStatement.substring(0, 60)}"`);
+        (async () => {
+          const { danielaCharacterCandidates } = await import('@shared/schema');
+          await getSharedDb().insert(danielaCharacterCandidates).values({
+            userId: candUserId,
+            statement: candStatement,
+            reasoning: candReasoning,
+            sourceContext: candContext ?? null,
+            conversationId: session.conversationId ?? null,
+            moodAtTime: candMood ?? null,
+            status: 'pending',
+          });
+          console.log(`[Native Function→ProposeCharacterCandidate] ✓ Saved`);
+        })().catch(err => console.error(`[Native Function→ProposeCharacterCandidate] Error:`, err.message));
+        session.proposeCharacterCandidateResult = `Saved. This will be on the agenda when you and David sit down for your stewardship conversation. You flagged: "${candStatement.substring(0, 80)}${candStatement.length > 80 ? '...' : ''}"`;
+        break;
+      }
+
+      case 'REQUEST_STEWARDSHIP_REVIEW': {
+        if (session.isIncognito) break;
+        const stewNote = fn.args.note as string | undefined;
+        const stewUserId = session.userId ? String(session.userId) : null;
+        if (!stewUserId) { session.stewardshipReviewResult = 'No user context.'; break; }
+        console.log(`[Native Function→RequestStewardshipReview] User ${stewUserId.substring(0, 8)}`);
+        (async () => {
+          const { danielaCharacterCandidates } = await import('@shared/schema');
+          const { eq, and } = await import('drizzle-orm');
+          const pending = await getSharedDb()
+            .select()
+            .from(danielaCharacterCandidates)
+            .where(and(
+              eq(danielaCharacterCandidates.userId, stewUserId),
+              eq(danielaCharacterCandidates.status, 'pending'),
+            ))
+            .orderBy(danielaCharacterCandidates.createdAt);
+          const agenda = pending.length === 0
+            ? 'No pending candidates yet — but you can start flagging things any time with propose_character_candidate.'
+            : `Your pending candidates (${pending.length}):\n\n` + pending.map((c, i) =>
+                `${i + 1}. "${c.statement}"\n   Reasoning: ${c.reasoning}${c.sourceContext ? `\n   Context: ${c.sourceContext}` : ''}`
+              ).join('\n\n');
+          session.stewardshipReviewResult = `Stewardship review requested.\n\n${agenda}${stewNote ? `\n\nYou wanted to discuss: ${stewNote}` : ''}\n\nDavid has been notified that you want to meet.`;
+          // Flag for David via agent_notes
+          const { agentNotes } = await import('@shared/schema');
+          await getSharedDb().insert(agentNotes).values({
+            fromAgent: 'daniela',
+            toAgent: 'agent',
+            subject: '[Stewardship] Daniela wants the slow-tier review',
+            body: `Daniela has requested a stewardship conversation.\n\nPending candidates: ${pending.length}\n${stewNote ? `\nHer note: ${stewNote}` : ''}\n\nView agenda: GET /api/daniela/character-candidates`,
+            isRead: false,
+          } as any);
+        })().catch(err => console.error(`[Native Function→RequestStewardshipReview] Error:`, err.message));
+        break;
+      }
+
+      case 'LIST_CHARACTER_CANDIDATES': {
+        const listStatus = fn.args.status as string | undefined;
+        const listUserId = session.userId ? String(session.userId) : null;
+        if (!listUserId) { session.listCharacterCandidatesResult = 'No candidates found.'; break; }
+        console.log(`[Native Function→ListCharacterCandidates] status: ${listStatus ?? 'pending'}`);
+        const listPromise = (async () => {
+          const { danielaCharacterCandidates } = await import('@shared/schema');
+          const { eq, and } = await import('drizzle-orm');
+          const effectiveStatus = (!listStatus || listStatus === 'all') ? null : listStatus;
+          const rows = await getSharedDb()
+            .select()
+            .from(danielaCharacterCandidates)
+            .where(effectiveStatus
+              ? and(eq(danielaCharacterCandidates.userId, listUserId), eq(danielaCharacterCandidates.status, effectiveStatus))
+              : eq(danielaCharacterCandidates.userId, listUserId))
+            .orderBy(danielaCharacterCandidates.createdAt);
+          if (rows.length === 0) {
+            session.listCharacterCandidatesResult = `No ${effectiveStatus ?? ''} candidates yet. You can flag something any time with propose_character_candidate.`;
+            return;
+          }
+          session.listCharacterCandidatesResult = `Your character candidates (${rows.length}):\n\n` + rows.map((c, i) =>
+            `${i + 1}. [${c.status}] "${c.statement}"\n   Reasoning: ${c.reasoning}${c.sourceContext ? `\n   Context: ${c.sourceContext}` : ''}${c.moodAtTime ? `\n   Mood: ${c.moodAtTime}` : ''}`
+          ).join('\n\n');
+        })().catch(err => { session.listCharacterCandidatesResult = `Could not list candidates: ${err.message}`; });
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(listPromise);
+        break;
+      }
+
       case 'TAG_THIS_MOMENT': {
         if (session.isIncognito) break;
         const tagsRaw = fn.args.tags as string | undefined;

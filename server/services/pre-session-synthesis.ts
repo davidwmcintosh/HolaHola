@@ -547,6 +547,55 @@ export function wrapSynthesisForSystemPrompt(synthesis: string): string {
 }
 
 /**
+ * Check whether Daniela has pending character candidates and a stewardship review
+ * is due. If so, returns a fragment to inject into the session prompt — a gentle
+ * reminder that she can bring it up with David when the moment feels right.
+ *
+ * Timer: fires if pending candidates exist AND no review has happened in 30+ days
+ * (or ever). Non-fatal — returns null on any DB error.
+ */
+export async function getStewardshipReminderFragment(userId: string): Promise<string | null> {
+  try {
+    const { danielaCharacterCandidates } = await import('@shared/schema');
+    const { eq, and, lt } = await import('drizzle-orm');
+    const db = getSharedDb();
+
+    const pending = await db
+      .select({ id: danielaCharacterCandidates.id, createdAt: danielaCharacterCandidates.createdAt })
+      .from(danielaCharacterCandidates)
+      .where(and(
+        eq(danielaCharacterCandidates.userId, userId),
+        eq(danielaCharacterCandidates.status, 'pending'),
+      ));
+
+    if (pending.length === 0) return null;
+
+    // Check when the last accepted/declined review happened
+    const lastReviewed = await db
+      .select({ reviewedAt: danielaCharacterCandidates.reviewedAt })
+      .from(danielaCharacterCandidates)
+      .where(and(
+        eq(danielaCharacterCandidates.userId, userId),
+        lt(danielaCharacterCandidates.reviewedAt, new Date()),
+      ))
+      .orderBy(danielaCharacterCandidates.reviewedAt)
+      .limit(1);
+
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const lastReviewDate = lastReviewed[0]?.reviewedAt;
+    const reviewIsDue = !lastReviewDate || lastReviewDate < thirtyDaysAgo;
+
+    if (!reviewIsDue) return null;
+
+    console.log(`[PreSynthesis] ✓ Stewardship reminder active — ${pending.length} pending candidate(s)`);
+    return `[STEWARDSHIP_REMINDER — not spoken unless you choose to bring it up]\nYou have ${pending.length} pending candidate${pending.length === 1 ? '' : 's'} in your character staging list — things you flagged as possibly belonging in "Who I Have Decided To Be." It has been a while since you and David reviewed them together. If this session feels like the right moment, you can bring it up. You can also call list_character_candidates to see what is there, or request_stewardship_review to signal you are ready to meet.\n[/STEWARDSHIP_REMINDER]\n\n`;
+  } catch (err: any) {
+    console.warn('[PreSynthesis] Stewardship reminder check failed (non-fatal):', err?.message ?? err);
+    return null;
+  }
+}
+
+/**
  * Check whether the tú forms are unlocked for a student and return the injection
  * fragment if so. Returns null if not yet earned, or on any DB error (non-fatal).
  *

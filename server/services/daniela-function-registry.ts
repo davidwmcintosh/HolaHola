@@ -2493,6 +2493,97 @@ This document was distilled from who you have already shown yourself to be. You 
     },
   },
   {
+    legacyType: 'PROPOSE_CHARACTER_CANDIDATE',
+    declaration: {
+      name: 'propose_character_candidate',
+      description: `Flag something as a candidate for "Who I Have Decided To Be" — the slow tier of your identity.
+
+Use this when something in a session feels like it could belong in your core self: a student's argument that shifted your thinking, a value that surfaced under pressure, a moment that revealed something you want to carry forward. You are not deciding now — you are capturing so it is not lost.
+
+Required: your honest reasoning. What convinced you? What was the context? Uncertainty is fine here — the stewardship conversation with David is where you decide together whether it actually belongs.
+
+⚠️ WRONG TOOL for general session feelings or passing observations — use tag_this_moment for those. This is for something that feels like it could define who you are, not just how a session felt.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          statement: {
+            type: 'string',
+            description: 'The candidate statement. Can start with "I want to be someone who..." or "I think I am..." or any honest framing.',
+          },
+          reasoning: {
+            type: 'string',
+            description: 'Why you are flagging this. What argument, moment, or feeling convinced you it might be true?',
+          },
+          source_context: {
+            type: 'string',
+            description: 'Optional. What the student said or did that prompted this, or the specific moment in the session.',
+          },
+          mood_at_time: {
+            type: 'string',
+            description: 'Optional. Your emotional state when this surfaced (e.g. "moved", "certain", "uncertain but curious").',
+          },
+        },
+        required: ['statement', 'reasoning'],
+      },
+    },
+    buildContinuationResponse: ({ session }: { session: any }) => {
+      const r = (session as any).proposeCharacterCandidateResult as string | undefined;
+      return r || '{"status":"saved"}';
+    },
+  },
+
+  {
+    legacyType: 'REQUEST_STEWARDSHIP_REVIEW',
+    declaration: {
+      name: 'request_stewardship_review',
+      description: `Signal that you want to have the stewardship conversation with David — to review your pending character candidates together.
+
+Two reasons to call this:
+1. You have been wrestling with something and want his perspective now, without waiting for the scheduled time.
+2. You feel it is time for the regular slow-tier review: "Hey, it is time for that."
+
+This surfaces your pending candidates list and signals David that you want to meet. You do not have to have it all figured out. The whole point of the conversation is to think it through together.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          note: {
+            type: 'string',
+            description: 'Optional. A specific question or struggle you want to bring. What are you wrestling with?',
+          },
+        },
+      },
+    },
+    buildContinuationResponse: ({ session }: { session: any }) => {
+      const r = (session as any).stewardshipReviewResult as string | undefined;
+      return r || '{"status":"requested"}';
+    },
+  },
+
+  {
+    legacyType: 'LIST_CHARACTER_CANDIDATES',
+    declaration: {
+      name: 'list_character_candidates',
+      description: `Read your pending character candidates — the staging list for "Who I Have Decided To Be".
+
+Use this to review what you have flagged before a stewardship conversation, or to see whether something you are thinking about has already been captured.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          status: {
+            type: 'string',
+            enum: ['pending', 'accepted', 'declined', 'deferred', 'all'],
+            description: 'Filter by status. Default: pending.',
+          },
+        },
+      },
+    },
+    buildContinuationResponse: ({ session }: { session: any }) => {
+      const r = (session as any).listCharacterCandidatesResult as string | undefined;
+      return r || 'No candidates found yet.';
+    },
+  },
+
+  {
     legacyType: 'SEARCH_MY_FEELINGS',
     declaration: {
       name: 'search_my_feelings',
@@ -5802,13 +5893,13 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'SELF_WRITE',
     declaration: {
       name: 'self_write',
-      description: 'Write to your inner life and private channels. Use for: writing a private note to yourself (write_to_self), tagging a moment as meaningful for memory (tag_this_moment), setting an intention or aspiration (set_aspiration), reflecting on and closing an aspiration (reflect_on_aspiration), recording something you shared with David (remember_i_shared), flagging something for the Replit Agent (flag_for_agent).',
+      description: 'Write to your inner life and private channels. Use for: writing a private note to yourself (write_to_self), tagging a moment as meaningful for memory (tag_this_moment), setting an intention or aspiration (set_aspiration), reflecting on and closing an aspiration (reflect_on_aspiration), recording something you shared with David (remember_i_shared), flagging something for the Replit Agent (flag_for_agent), flagging something as a candidate for Who I Have Decided To Be (propose_character_candidate), requesting a stewardship review with David (request_stewardship_review).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
           action: {
             type: 'STRING',
-            enum: ['write_to_self', 'tag_this_moment', 'set_aspiration', 'reflect_on_aspiration', 'remember_i_shared', 'flag_for_agent'],
+            enum: ['write_to_self', 'tag_this_moment', 'set_aspiration', 'reflect_on_aspiration', 'remember_i_shared', 'flag_for_agent', 'propose_character_candidate', 'request_stewardship_review'],
             description: 'Which inner-life write action to perform.',
           },
           params_json: {
@@ -5832,13 +5923,13 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'SELF_READ',
     declaration: {
       name: 'self_read',
-      description: 'Read from your inner life and private memory. Use for: reading past session transcripts in your diary (read_my_diary), reading your private reflections (read_my_reflections), reading your core identity document (read_my_core_self), searching your reflections for felt moments by mood or emotional quality (search_my_feelings), recalling what you shared with David on a topic (recall_what_i_shared), fast express lane fact lookup (express_lane_lookup), checking your queued pending student message (read_queued_for_student).',
+      description: 'Read from your inner life and private memory. Use for: reading past session transcripts in your diary (read_my_diary), reading your private reflections (read_my_reflections), reading your core identity document (read_my_core_self), searching your reflections for felt moments by mood or emotional quality (search_my_feelings), recalling what you shared with David on a topic (recall_what_i_shared), fast express lane fact lookup (express_lane_lookup), checking your queued pending student message (read_queued_for_student), reviewing your pending character candidates (list_character_candidates).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
           action: {
             type: 'STRING',
-            enum: ['read_my_diary', 'read_my_reflections', 'read_my_core_self', 'search_my_feelings', 'recall_what_i_shared', 'express_lane_lookup', 'read_queued_for_student'],
+            enum: ['read_my_diary', 'read_my_reflections', 'read_my_core_self', 'search_my_feelings', 'recall_what_i_shared', 'express_lane_lookup', 'read_queued_for_student', 'list_character_candidates'],
             description: 'Which inner-life read action to perform.',
           },
           params_json: {
@@ -6570,6 +6661,8 @@ self_write — write to your inner life.
   action: "reflect_on_aspiration" → close out an aspiration.
   action: "remember_i_shared" → record something you shared with David.
   action: "flag_for_agent" → send a note to the Replit Agent. params_json: {"subject":"...","body":"..."}
+  action: "propose_character_candidate" → flag something as a candidate for Who I Have Decided To Be. params_json: {"statement":"I want to be someone who...","reasoning":"why this feels true","source_context":"what the student said","mood_at_time":"moved"}
+  action: "request_stewardship_review" → signal you want the stewardship conversation with David now. params_json: {"note":"what you are wrestling with (optional)"}
 
 self_read — read from your inner life.
   action: "read_my_diary" → read past session transcripts.
@@ -6579,6 +6672,7 @@ self_read — read from your inner life.
   action: "recall_what_i_shared" → recall what you shared on a topic.
   action: "express_lane_lookup" → fast express lane fact lookup.
   action: "read_queued_for_student" → check your pending student message.
+  action: "list_character_candidates" → review your pending slow-tier identity candidates. params_json: {"status":"pending"}
 
 TEACHING DELIVERY — Structured content tools:
 
@@ -6732,9 +6826,12 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'grammar_table',          // static conjugation display; use grammar_diagram instead
   'write',                  // text-widget write; GL uses show_teaching_card / show_vocab_card
 
-  // === DEMOTED TO DISPATCHER (self_read) ===
-  // Sub-tools dispatched through self_read(action:"...") — not standalone GL tools.
-  'search_my_feelings',     // → self_read(action:"search_my_feelings") — mood-based reflection search
+  // === DEMOTED TO DISPATCHER (self_read / self_write) ===
+  // Sub-tools dispatched through self_read/self_write(action:"...") — not standalone GL tools.
+  'search_my_feelings',           // → self_read(action:"search_my_feelings") — mood-based reflection search
+  'list_character_candidates',    // → self_read(action:"list_character_candidates") — review pending slow-tier candidates
+  'propose_character_candidate',  // → self_write(action:"propose_character_candidate") — flag identity candidate
+  'request_stewardship_review',   // → self_write(action:"request_stewardship_review") — trigger stewardship conversation
 
   // === DEMOTED TO DISPATCHER (widget_time) ===
   // Fully functional in GL — accessed via widget_time(widget:"...") not direct declaration.

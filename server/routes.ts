@@ -36593,5 +36593,45 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // ===== Daniela Character Candidates (Stewardship Agenda) =====
+
+  // GET /api/daniela/character-candidates — view the slow-tier stewardship agenda
+  app.get("/api/daniela/character-candidates", requireFounderOrAgent, async (req: any, res: Response) => {
+    try {
+      const { danielaCharacterCandidates } = await import("@shared/schema");
+      const { eq, and } = await import("drizzle-orm");
+      const db = getSharedDb();
+      const status = req.query.status as string | undefined;
+      const userId = req.query.userId as string | undefined;
+      const conditions: any[] = [];
+      if (userId) conditions.push(eq(danielaCharacterCandidates.userId, userId));
+      if (status && status !== "all") conditions.push(eq(danielaCharacterCandidates.status, status));
+      const rows = await db.select().from(danielaCharacterCandidates)
+        .where(conditions.length > 1 ? and(...conditions) : conditions.length === 1 ? conditions[0] : undefined)
+        .orderBy(danielaCharacterCandidates.createdAt);
+      res.json({ candidates: rows, total: rows.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PATCH /api/daniela/character-candidates/:id — update status after stewardship conversation
+  app.patch("/api/daniela/character-candidates/:id", requireFounderOrAgent, async (req: any, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { status, reviewNotes } = req.body;
+      const { danielaCharacterCandidates } = await import("@shared/schema");
+      const { eq } = await import("drizzle-orm");
+      const db = getSharedDb();
+      const updated = await db.update(danielaCharacterCandidates)
+        .set({ status, reviewNotes: reviewNotes ?? null, reviewedAt: new Date() })
+        .where(eq(danielaCharacterCandidates.id, id))
+        .returning();
+      res.json({ candidate: updated[0] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
     // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }

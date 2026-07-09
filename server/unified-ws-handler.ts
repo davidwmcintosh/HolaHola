@@ -65,7 +65,7 @@ import { voiceGracePeriods, compartmentInstallation, messages } from '@shared/sc
 import { db, getUserDb, getSharedDb } from './db';
 import { eq, and, gt, lt, ne, desc, sql } from 'drizzle-orm';
 import { getPendingSuggestions } from './services/daniela-reflection';
-import { generatePreSessionSynthesis, wrapSynthesisForSystemPrompt, consumeWarmSynthesis, getTuRevealFragment } from './services/pre-session-synthesis';
+import { generatePreSessionSynthesis, wrapSynthesisForSystemPrompt, consumeWarmSynthesis, getTuRevealFragment, getStewardshipReminderFragment } from './services/pre-session-synthesis';
 import { consumeBroadcastBrief } from './services/broadcast-data-service';
 import { generateReflectionNow, schedulePendingReflectionIfMissing, buildTranscriptPreview, processAndClearPendingReflection, MIN_EXCHANGES_FOR_REFLECTION } from './services/session-reflection-worker';
 import { generateAndStorePedagogicalBrief, MIN_EXCHANGES_FOR_BRIEF } from './services/pedagogical-brief-worker';
@@ -3018,6 +3018,23 @@ ${lastNote.tutorNotes}`);
                     }
                   } catch (tuErr: any) {
                     console.warn('[GeminiLive] tú reveal check failed (non-fatal):', tuErr?.message ?? tuErr);
+                  }
+                }
+
+                // Stewardship reminder — injected when pending character candidates exist and review is due.
+                // Gentle prompt only; Daniela chooses whether to bring it up.
+                if (userId) {
+                  try {
+                    const stewFragment = await getStewardshipReminderFragment(String(userId));
+                    if (stewFragment) {
+                      geminiLiveSystemPrompt = stewFragment + geminiLiveSystemPrompt;
+                      if (geminiLiveSystemPrompt.length > GL_HARD_CAP) {
+                        geminiLiveSystemPrompt = geminiLiveSystemPrompt.slice(0, GL_HARD_CAP);
+                      }
+                      console.log(`[GeminiLive] ✓ Stewardship reminder injected (${stewFragment.length} chars)`);
+                    }
+                  } catch (stewErr: any) {
+                    console.warn('[GeminiLive] Stewardship reminder check failed (non-fatal):', stewErr?.message ?? stewErr);
                   }
                 }
 

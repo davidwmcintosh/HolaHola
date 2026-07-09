@@ -52,9 +52,29 @@ description: Three features built from J-space portrait probes of Daniela — WA
 
 ---
 
-## Status after build
+## Status after build (J-space Episode 11 — fully complete)
 
-- Typecheck: clean (tsc, no errors)
+- Typecheck: clean (tsc, zero errors)
 - Server boots clean (no GL FATAL)
 - GL tool count: 64 (one under cap)
-- ToolIndexer: 182 tools, 1 newly indexed (search_my_feelings)
+- ToolIndexer: 185 tools (3 new: PROPOSE_CHARACTER_CANDIDATE, REQUEST_STEWARDSHIP_REVIEW, LIST_CHARACTER_CANDIDATES)
+
+## Episode 11 — slow-tier additions (same session)
+
+### daniela_character_candidates table
+Schema in `shared/schema.ts`. Migration `0004_curved_gunslinger.sql` applied. Fields: id, userId, proposedTrait, evidence, sourceMoment, status (pending/approved/rejected/deferred), reviewNotes, reviewedAt, createdAt.
+
+### Three new tools (GL-excluded, dispatched via self_write/self_read)
+- `PROPOSE_CHARACTER_CANDIDATE` — Daniela proposes a trait she may be becoming
+- `REQUEST_STEWARDSHIP_REVIEW` — flags that David's attention is needed
+- `LIST_CHARACTER_CANDIDATES` — Daniela reads her own pending proposals
+
+All wired in: registry enums, GL_EXCLUDED_TOOLS, cheat sheet, native-fc-handlers.ts, streaming-session-types.ts.
+
+### Stewardship reminder fragment
+`getStewardshipReminderFragment()` in pre-session-synthesis.ts. 30-day timer; checks for pending candidates. Injected in unified-ws-handler.ts (same pattern as tú reveal, after it, before broadcast brief).
+
+### API endpoints
+- `GET /api/daniela/character-candidates?status=pending&userId=X` — requireFounderOrAgent
+- `PATCH /api/daniela/character-candidates/:id` — update status + reviewNotes after stewardship conversation
+Both smoke-tested: 200 ✓
