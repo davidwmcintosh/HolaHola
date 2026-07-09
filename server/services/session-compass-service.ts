@@ -420,28 +420,48 @@ export class SessionCompassService {
         const db = getUserDb();
         const sharedDb = getSharedDb();
 
-        // Pull all memories — threads and snapshots together
-        const allMemories = await sharedDb
-          .select({
-            title: conversationMemories.title,
-            content: conversationMemories.content,
-            summary: conversationMemories.summary,
-            importance: conversationMemories.importance,
-            recordedAt: conversationMemories.recordedAt,
-            tags: conversationMemories.tags,
-          })
-          .from(conversationMemories)
-          .orderBy(desc(conversationMemories.importance), desc(conversationMemories.recordedAt))
-          .limit(30); // threads carry identity weight; snapshots just need top candidates
+        // Pull threads and landmark/scored candidates as SEPARATE queries.
+        // Bug (found July 9, 2026): a single top-30 query ordered by (importance DESC,
+        // recordedAt DESC) silently starves the topic-scored pool whenever there are
+        // >=30 importance-10 rows in the table (they fill the entire slice before any
+        // importance<10 candidate is ever considered) — real, topic-relevant memories
+        // like a student's own recent conversation never even reach the scoring step.
+        const selectCols = {
+          title: conversationMemories.title,
+          content: conversationMemories.content,
+          summary: conversationMemories.summary,
+          importance: conversationMemories.importance,
+          recordedAt: conversationMemories.recordedAt,
+          tags: conversationMemories.tags,
+        };
 
-        // Split: woven identity threads go to their own always-on brief block;
-        // snapshot memories go through the topic-scored 12-slot pool.
-        const threadMemories = allMemories.filter(m =>
-          Array.isArray(m.tags) && m.tags.includes('thread')
-        );
-        const snapshotMemories = allMemories.filter(m =>
-          !Array.isArray(m.tags) || !m.tags.includes('thread')
-        );
+        const [threadCandidates, landmarkCandidates, scoredCandidates] = await Promise.all([
+          // Identity threads — tag-filtered, not importance-filtered, so query separately.
+          sharedDb
+            .select(selectCols)
+            .from(conversationMemories)
+            .where(sql`${conversationMemories.tags} @> ARRAY['thread']::text[]`)
+            .orderBy(desc(conversationMemories.importance), desc(conversationMemories.recordedAt))
+            .limit(20),
+          // Landmarks — importance=10, always loaded regardless of volume elsewhere.
+          sharedDb
+            .select(selectCols)
+            .from(conversationMemories)
+            .where(and(eq(conversationMemories.importance, 10), sql`NOT (${conversationMemories.tags} @> ARRAY['thread']::text[])`))
+            .orderBy(desc(conversationMemories.recordedAt))
+            .limit(20),
+          // Scoring candidates — importance<10, its own recency-ordered pool that can no
+          // longer be crowded out by a glut of importance-10 rows.
+          sharedDb
+            .select(selectCols)
+            .from(conversationMemories)
+            .where(and(sql`${conversationMemories.importance} < 10`, sql`NOT (${conversationMemories.tags} @> ARRAY['thread']::text[])`))
+            .orderBy(desc(conversationMemories.recordedAt))
+            .limit(40),
+        ]);
+
+        const threadMemories = threadCandidates;
+        const snapshotMemories = [...landmarkCandidates, ...scoredCandidates];
 
         // Identity threads: compact brief — title + summary only, sorted by importance
         fetchedIdentityThreads = threadMemories
