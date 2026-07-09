@@ -7,6 +7,9 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-07-09 — `client/src/hooks/useStreamingVoice.ts` / `server/services/streaming-voice-orchestrator.ts` — Cindy (English persona) sentences cutting off mid-response, possible recurrence of the July 8 transcriptClosed fix — INVESTIGATING**
+David reported sentences getting cut off live, during a David↔Cindy voice session observed via the Luca observation bench. Browser console showed `[StreamingVoice] response_complete with totalSentences=0 — immediately clearing isProcessing (no audio will arrive)`. This client-side early-bailout path (`useStreamingVoice.ts` ~line 1189) is also used intentionally for legitimate guard-resets (dedup, barge-in, greeting-in-progress via `sendGuardResetSignal`), so it isn't proof of a regression on its own — need to correlate server-side `[GUARD RESET]` / `[DEDUP]` logs against the exact turn to tell whether this was a legitimate reset misfiring during a real turn, or a genuine recurrence of the July 8 `transcriptClosed`-timing bug (marked FIXED, see below). Did not touch orchestrator/GL code live while the session was active — follow up with log correlation next session.
+
 **2026-07-09 — Server restarting mid-voice-session, 3x in ~15 min during live J-space test — INVESTIGATING**
 Clean stop/fresh-boot pattern each time (no crash trace, no OOM in logs) during live monitoring of a David↔Daniela test conversation. Each restart drops the active `/voice` socket and triggers the client's SESSION_EXPIRED handler → toast → redirect after the 120s reconnect grace expires. Root cause of the restarts themselves not yet found — not caused by concurrent file edits at the time they occurred. Needs a dedicated pass through the workflow/process manager logs around each restart timestamp to find the trigger.
 
