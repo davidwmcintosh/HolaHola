@@ -76,4 +76,4 @@
 - [Alden dual-engine switch](alden-engine-switch.md) — DB-backed aldenConfig/aldenEngineSwitches, /api/alden/engine GET/POST, 15s cache TTL; Anthropic default, Gemini opt-in.
   - [Daniela caller silent-failure fix](daniela-caller-silent-failure.md) — callDaniela/callDanielaWithTools used to return '' on empty/MAX_TURNS; now retries once then returns explicit [DANIELA_CALLER_ERROR:...] string.
 - [Live capture vs. after-the-fact reweave](live-capture-vs-reweave-cost.md) — reconstructing chronology later is possible but expensive and depends on someone looking; event-triggered capture (e.g. only-on-commit) can mean data never existed at all.
-  
+  - [Manual memory re-embed tool](reembed-memory-tool.md) — indexer has no staleness detection for edited conversation_memories; use `npx tsx server/scripts/reembed-memory.ts <id>` after any direct-SQL content edit.
