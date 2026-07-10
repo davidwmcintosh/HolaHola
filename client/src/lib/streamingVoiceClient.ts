@@ -55,6 +55,7 @@ import {
   ClientTelemetryEventType,
 } from '../../../shared/streaming-voice-types';
 import { isVerboseLoggingEnabled } from './audioUtils';
+import { getGlobalPlaybackState } from './playbackStateStore';
 
 // ============================================================================
 // CLIENT TELEMETRY EMITTER (End-to-End Voice Diagnostics)
@@ -673,12 +674,17 @@ export class StreamingVoiceClient {
       const elapsed = Date.now() - scheduledAt;
       const isPastDeadline = elapsed >= ABSOLUTE_DEADLINE_MS;
 
-      // Defer if mid-turn (state === 'processing') UNLESS we've hit the absolute deadline.
-      // This prevents cutting audio mid-sentence while still guaranteeing we reconnect
-      // before Replit's proxy enforces its 5-minute hard kill.
-      if (this.state === 'processing' && !isPastDeadline) {
+      // Defer if mid-turn (state === 'processing') OR audio is actively playing/buffering,
+      // UNLESS we've hit the absolute deadline. Connection state flips back to 'ready' as
+      // soon as response_complete arrives (all sentence audio has been SENT), but playback
+      // in the browser can still be ongoing for several more seconds — disconnecting then
+      // kills the socket mid-sentence for the listener even though the connection layer
+      // thinks the turn is over. This is the primary suspected cause of the chronic
+      // "cut off mid-sentence" / code-1000 drop pattern.
+      const audioActive = getGlobalPlaybackState() === 'playing' || getGlobalPlaybackState() === 'buffering';
+      if ((this.state === 'processing' || audioActive) && !isPastDeadline) {
         console.log(
-          `[StreamingVoice] Proactive reconnect deferred — turn in-flight (state=${this.state}), will retry in 500ms`
+          `[StreamingVoice] Proactive reconnect deferred — turn in-flight or audio playing (state=${this.state}, audio=${getGlobalPlaybackState()}), will retry in 500ms`
         );
         this.proactiveReconnectTimer = setTimeout(attemptReconnect, 500);
         return;

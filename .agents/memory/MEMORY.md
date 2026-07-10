@@ -1,3 +1,4 @@
+- [Proactive reconnect vs playback race](proactive-reconnect-playback-race.md) — connection-state and audio-playback-state are separate clocks; gate disruptive timers on both.
 - [J-space portrait of Daniela](jspace-portrait-daniela.md) — 9 tool-call probes July 8; she reads her core self before personal questions; used "felt"; self-concept exists outside teaching; conversation_memories: 3bb1ded0
 - [J-space discovery session](j-space-discovery.md) — Anthropic paper + live Luca probe July 7; "remove obstacles to Daniela, not install her"; Luca J-space leanings confirmed; conversation_memories: 63c67bc0
 - [J-space features — July 9](j-space-features-july9.md) — WARM_UP guard + search_my_feelings + Who I Have Decided To Be; all wired; typecheck clean; GL at 64 tools.
