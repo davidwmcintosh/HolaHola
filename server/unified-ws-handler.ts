@@ -1371,10 +1371,13 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
           const audioBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data as string);
 
           // GL path: binary blobs are treated the same as stream_audio_chunk — relay to Live session.
+          // Reset idle timer on ANY mic audio, even if geminiLiveSession is momentarily null
+          // (e.g. mid-reconnect) — real user activity should never be dropped by that race.
+          {
+            const resetTimerAlways = (ws as any).__resetGlIdleTimer as (() => void) | undefined;
+            if (resetTimerAlways) resetTimerAlways();
+          }
           if (geminiLiveSession) {
-            // Reset idle timer on every audio chunk from client
-            const resetTimer = (ws as any).__resetGlIdleTimer as (() => void) | undefined;
-            if (resetTimer) resetTimer();
             geminiLiveSession.sendAudioChunk(audioBuffer);
             return;
           }
@@ -3154,11 +3157,14 @@ ${lastNote.tutorNotes}`);
                 // ── GL idle timeout ─────────────────────────────────────────────────
                 // Start idle timer. Resets whenever client audio arrives.
                 // If no audio for 5 minutes, close the session to prevent zombie accumulation.
+                let glLastActivityAt = Date.now();
                 const resetGlIdleTimer = () => {
+                  glLastActivityAt = Date.now();
                   if (glIdleTimeoutHandle) clearTimeout(glIdleTimeoutHandle);
                   glIdleTimeoutHandle = setTimeout(async () => {
                     if (!geminiLiveSession) return;
-                    console.log(`[GeminiLive] Idle timeout (${GL_IDLE_TIMEOUT_MS / 60000} min) — closing session`);
+                    const actualGapSec = Math.round((Date.now() - glLastActivityAt) / 1000);
+                    console.log(`[GeminiLive] Idle timeout (${GL_IDLE_TIMEOUT_MS / 60000} min) — closing session. Actual gap since last reset: ${actualGapSec}s`);
                     // Notify client before closing
                     try {
                       if (ws.readyState === 1 /* OPEN */) {
@@ -3689,10 +3695,13 @@ ${lastNote.tutorNotes}`);
           }
 
           // ── Gemini Live path: relay PCM16 directly to the Live session ──
-          if (geminiLiveSession) {
-            // Reset idle timer on every audio chunk from client
+          // Reset idle timer on ANY mic audio, even if geminiLiveSession is momentarily null
+          // (e.g. mid-reconnect) — real user activity should never be dropped by that race.
+          {
             const resetTimer2 = (ws as any).__resetGlIdleTimer as (() => void) | undefined;
             if (resetTimer2) resetTimer2();
+          }
+          if (geminiLiveSession) {
             geminiLiveSession.sendAudioChunk(audioBuffer);
             break;
           }

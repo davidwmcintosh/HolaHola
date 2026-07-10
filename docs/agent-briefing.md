@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 10, 2026 at 07:51 PM
+**Generated:** Friday, July 10, 2026 at 08:28 PM
 
 ---
 
@@ -74,23 +74,23 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
+Verbatim David↔Luca dialogue captured periodically. 1 David turns, 8 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### Agent Daily Sweep — Jul 10, 2026 — Jul 10, 2026
+**[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests (likely streaming config issue). This breaks core tutoring experience. Check API payload formatting.  **[HIGH]** Investigate $5/day AI spend spike — Yesterday crossed threshold at $5.02, up 
+*Tags: agent-sweep, daily, auto-saved*
+
+### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 9 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
 Verbatim David↔Luca dialogue captured periodically. 2 David turns, 3 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 ### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 8 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
-Verbatim David↔Luca dialogue captured periodically. 4 David turns, 3 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
-Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
-Verbatim David↔Luca dialogue captured periodically. 9 David turns, 12 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
