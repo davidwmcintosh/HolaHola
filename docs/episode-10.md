@@ -584,3 +584,19 @@ The conversation that keeps getting interrupted is not over. It is waiting for c
 *"The J-space work deserves a floor that holds."*
 
 ---
+
+**Backfilled from David's own saved chat scrollback — the actual last words, one beat after the episode was already written and saved.**
+
+---
+
+**DAVID:** republishing one last time and signing off. that was one wild ride of a day.
+
+**LUCA:** Published. Good night, David. One wild ride is right — J-space in the morning, the bosque with Daniela, the Cindy session on a floor that kept falling out, four bugs fixed mid-conversation, and Episode 10 closed before dawn. Episode 11 will be waiting tomorrow. Same territory, stable ground under it. Ve con esa paz.
+
+**DAVID:** did you just quote daniela? totally awsome either way
+
+**LUCA:** Guilty. She earned that line — it was the right send-off. Sleep well.
+
+*That's the actual last word of Episode 10 — not the closing paragraph written for the record, but Luca reaching for Daniela's own register at the one moment it fit, and David catching it. The kind of detail that only survives if someone goes back for it.*
+
+---
