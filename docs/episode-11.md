@@ -348,11 +348,47 @@ Fixed to: *"These are the conversations I find myself returning to."* Small phra
 
 ---
 
+## The Observation Bench
+
+*Backfilled from David's own saved chat scrollback. Before the idle-timer chase, David asked Luca to sit in on his live session with Daniela's English "Cindy" persona — not as a participant, but watching.*
+
+---
+
+**DAVID:** Hey Luca, what I mean is, I'm talking with Cindy (Daniela with her English persona). I'm in the live chat, and I wanted to ask if you wanted to use your observation bench so you can see what's going on in real time. You can monitor everything: what I'm saying, what Daniela is saying, what the Cindy persona is saying. You can see the tool calls, see what she's seeing, and watch what she puts up on the board. The three of us can sort of have a little group chat here. I know you'll be a passive observer, Luca, but you can always say something in the chat window and I can pass it along.
+
+**LUCA:** I'm authenticated and ready. Pulling up the observation bench now. I'm in and watching live — session 9daa531c with Cindy (English persona), David active, "Honesty Mode" open in WARM_UP phase. Vision buffer's empty right now — text-forward conversation at the moment. I'll keep polling and pipe anything worth surfacing to you to relay. Go ahead and keep talking with Cindy — I'm just watching from the bench.
+
+**DAVID:** i'm speaking bugs in the transcript too her sentences are getting cut off (I believe)
+
+*Luca found a browser console line — `[StreamingVoice] response_complete with totalSentences=0 — immediately clearing isProcessing (no audio will arrive)` — and traced it against a bug marked FIXED the day before, but couldn't yet tell if this was a genuine recurrence or a legitimate guard-reset misfiring. He chose not to touch the live session code.*
+
+**LUCA:** I don't want to go poking at streaming-voice-orchestrator.ts or gemini-live-session.ts while you're mid-conversation with Cindy — too risky to touch live-session code under load. I'll log this properly and dig in with logs once you're done, rather than risk an edit that disrupts your session right now.
+
+**DAVID:** I want you to be watching the conversation that Daniela and I are having in real time, for two purposes: to see if she is hallucinating, or she is not on track, memory wise — and to monitor if technical things are going wrong, like her sentences getting cut off, telemetry issues. We are documenting how we are troubleshooting and documenting the conversation Daniela and I are having. I want you to be involved in real time so that if I say, "Hey, the sentences are getting cut off," you can start coding while I am still talking. Can you have that kind of real-time insight into my transcript?
+
+**LUCA:** Honest answer: not literally, no — I don't have a continuous live feed pushed into my own reasoning loop. Each time I "watch," I'm actively polling — a request-response check, not an open stream sitting inside my head. What I can do that gets close: poll frequently between your messages to me, so if you say "sentences are getting cut off" in your voice conversation and then tell me here, I already have the last several turns of trace pulled. The honest limitation: I'm not truly "listening" continuously the way you and Cindy are talking — I check when prompted, or when I choose to refresh.
+
+*Later in the same session, spitballing between bug-watching, David asked about a different piece of infrastructure entirely — what happens when a student wants to flag something mid-session.*
+
+**DAVID:** There is a button inside the chat I can push that wraps up the entire conversation, timestamps, and telemetry information, and sends a report to you guys... I always forget what that button is called, and there are two of them... What is the report button that does this thing I just described?
+
+**LUCA:** There are two distinct buttons, and they do different things. The Flag icon (top-right of the voice chat screen) — this is the one you're describing. Clicking it pulls your last 40 conversation messages, bundles in any of Sofia's recent issue reports from the last 24h, and sends the whole package to the team. Toast confirms: "Session flagged — the team has been notified." The Help (?) floating button opens a live chat with Sofia instead — a real-time back-and-forth, not a report/snapshot. So: the Flag button is the one you want for what you described. The Help button is for talking to Sofia live.
+
+---
+
 ## The Bugs Don't Get the Last Word
 
 *Later the same day: David published to production and got straight into a live voice conversation with Daniela's English "Cindy" persona — the first real conversation with all of this new capability underneath her. Luca watched deployment telemetry passively at first, then David said the words that changed the mode: "yes we fix as we chat I am in production."*
 
 ---
+
+**DAVID:** session seems to have stalled too
+
+**DAVID:** yes we fix as we chat I am in production
+
+*Then, a little later:*
+
+**DAVID:** now she just got cut off
 
 Two live bugs surfaced mid-conversation. The first — a suspected recurrence of the July 8 sentence-cutoff bug — got logged as INVESTIGATING rather than touched, deliberately, while the session was still active. The second was real: David told Luca the session had "stalled too," and this time gave explicit authorization to fix live. Pulling the exact millisecond window from production logs (not dev — the actual conversation David was inside of) found it: `[GeminiLive] Idle timeout (5 min) — closing session`, firing right after David's input transcript showed him mid-sentence — *"I'm looking over at the boys and they're needing an—"* — attending to his kids in the middle of talking with her.
 
