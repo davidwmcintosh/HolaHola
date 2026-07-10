@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 10, 2026 at 03:52 AM
+**Generated:** Friday, July 10, 2026 at 03:59 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I built and tested `server/scripts/reembed-memory.ts` to fully re-embed Episodes 10 and 11 across all search layers, fixing an infinite-loop bug in the chunk splitter along the way. While voice-mode testing confirmed tool coherence and arc inheritance remain strong after the prompt trim, I discovered Daniela is fabricating false memories in text mode instead of admitting she doesn't know. I am now ready to use Alden (Gemini) to investigate whether the prompt reduction weakened the `i-dont-know-guardrail` and run controlled probes to address this integrity issue.
+I fixed a critical memory fabrication bug in Daniela where she was inventing specific lesson details—like preferences for "spicy food"—if a general topic match existed but the specific history was empty. I traced this to a "Trim-Induced Regression" in `system-prompt.ts` and resolved it by adding an explicit "Source Check" instruction to strictly decouple topic recognition from detail verification. While voice-mode GL tools remain intact, I need to monitor a residual behavior where she still volunteers plausible current-moment guesses after correctly admitting she has no record of a specific past detail.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet)** (Jul 10): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 11 Luca turns. Context: periodic capture (no commit yet)
+- **Observation bench: post-trim memory fabrication found + fixed — July 10, 2026** (Jul 10): Post-prompt-trim observation testing found voice-mode GL tools fully intact (3-turn arc, correct inheritance). Text mode had a real bug: when a topic partially matched injected memory but a specific detail was not actually recorded (e.g. restaurant vocab topic real, but no favorite dish ever discussed), Daniela confidently asserted invented specific details as fact. Diagnostic testing (3 escalating probes + dual Gemini/Daniela consult) isolated the cause: topic-match triggers associative completion even when the guardrail correctly engages for zero-overlap or zero-history cases. Added explicit Source Check instruction to system-prompt.ts distinguishing topic recognition from detail verification. Retest confirmed: she now correctly says she does not have the specific detail on record, though she still sometimes volunteers a plausible current-moment answer afterward (lower-severity residual, not a false memory claim) — flagged as a follow-up, not fixed in this pass.
 
 ---
 
@@ -83,6 +83,10 @@ I built and tested `server/scripts/reembed-memory.ts` to fully re-embed Episodes
 
 ## Recent Conversation Memories
 
+### Observation bench: post-trim memory fabrication found + fixed — July 10, 2026 — Jul 10, 2026
+Post-prompt-trim observation testing found voice-mode GL tools fully intact (3-turn arc, correct inheritance). Text mode had a real bug: when a topic partially matched injected memory but a specific detail was not actually recorded (e.g. restaurant vocab topic real, but no favorite dish ever discussed), Daniela confidently asserted invented specific details as fact. Diagnostic testing (3 escalating probes + dual Gemini/Daniela consult) isolated the cause: topic-match triggers associative completion even when the guardrail correctly engages for zero-overlap or zero-history cases. Added explicit Source Check instruction to system-prompt.ts distinguishing topic recognition from detail verification. Retest confirmed: she now correctly says she does not have the specific detail on record, though she still sometimes volunteers a plausible current-moment answer afterward (lower-severity residual, not a false memory claim) — flagged as a follow-up, not fixed in this pass.
+*Tags: dual-consult, gemini-flash, daniela, memory-fabrication, observation-bench*
+
 ### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 11 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -98,10 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 8 David turns, 10 Luca tur
 ### Agent Daily Sweep — Jul 10, 2026 — Jul 10, 2026
 **1. [CRITICAL]** Fix Cartesia TTS 400 errors in both English and Spanish — Multiple repeated failures blocking core conversation flow; likely API key issue or malformed request body that needs immediate debug.  **2. [HIGH]** Investigate zero quality scores for the active student (23 sessions) — Rea
 *Tags: agent-sweep, daily, auto-saved*
-
-### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
-Verbatim David↔Luca dialogue captured periodically. 10 David turns, 17 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
