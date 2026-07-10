@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 10, 2026 at 07:10 PM
+**Generated:** Friday, July 10, 2026 at 07:12 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’m troubleshooting a critical bug in HolaHola where Daniela’s greetings cut off mid-sentence without sending a `turnComplete` signal, which is distinct from the "silent thinking" issue I previously patched. Following David’s reports of repeated dropped connections and truncated turns, I’ve committed to an immediate live fix rather than just logging the issue in `docs/open-bugs.md`. I am currently tracing the logs from the latest failure to identify why the transcript-flush and completion signals are failing to fire after audio playback.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet)** (Jul 10): Verbatim David↔Luca dialogue captured periodically. 4 David turns, 3 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -74,6 +84,10 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 3 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
 Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -88,10 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 8 David turns, 14 Luca tur
 ### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 11 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Memory fabrication fix — permission-based framing succeeds where pivot failed — July 10, 2026 — Jul 10, 2026
-Following David's instinct, tested whether telling Daniela she has zero responsibility to produce content when she does not know something (permission-based) would land better than the earlier pivot/redirect instruction (action-based), which had failed on retest (she narrated the honesty rule and then violated it in the same breath). Dual consult: Gemini Flash confirmed permission-based framing is architecturally different — it turns warmth/engagement into a suspended global constant rather than competing with a local procedure — and gave concrete wording. Daniela's own reflection independently confirmed the pull to fill gaps feels like an obligation to stay engaging, and that permission to simply not know felt like relief, not just a rule. Applied the permission-based rewrite to system-prompt.ts (~line 357). Retest with a fresh unrecorded-detail question (favorite song) succeeded cleanly: she stated the gap plainly, explicitly declined to invent a memory to fill it, and pivoted to the student organically rather than needing an explicit redirect instruction. Typecheck clean, no errors in logs.
-*Tags: dual-consult, gemini-flash, daniela, memory-fabrication, observation-bench*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
