@@ -80,3 +80,4 @@
 - [Live capture vs. after-the-fact reweave](live-capture-vs-reweave-cost.md) — reconstructing chronology later is possible but expensive and depends on someone looking; event-triggered capture (e.g. only-on-commit) can mean data never existed at all.
 - [Topic-match memory fabrication](topic-match-memory-fabrication.md) — partial topic overlap + missing specific detail → confident false memory; zero overlap → correct hedging. Source Check fix in system-prompt.ts; use forceNew:true to test truly new conversations.
   - [Manual memory re-embed tool](reembed-memory-tool.md) — indexer has no staleness detection for edited conversation_memories; use `npx tsx server/scripts/reembed-memory.ts <id>` after any direct-SQL content edit.
+- [Guard-reset turnId type mismatch](guard-reset-turnid-type-mismatch.md) — synthetic response_complete uses string turnId "guard-reset-*"; numeric `<` comparison against it is always false, letting it cut off real turns.

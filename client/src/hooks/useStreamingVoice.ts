@@ -1126,10 +1126,28 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       console.log(`[StreamingVoice] Server signaled response complete: ${msg.totalSentences} sentences${msg.wasInterrupted ? ' (INTERRUPTED)' : ''}`);
     }
     
+    // GUARD-RESET GUARD: The server sends synthetic response_complete messages with
+    // turnId="guard-reset-<timestamp>" (a string, not a numeric turn sequence) when it
+    // decides NOT to process an utterance (dedup, rapid-fire, greeting-in-progress, etc).
+    // These are meant to reset client state ONLY when no real turn is in flight. If a
+    // real turn IS currently streaming/playing audio, this synthetic message must be
+    // ignored entirely — otherwise it prematurely clears isProcessing/pending audio and
+    // cuts off the real response mid-playback (previously slipped past the stale-turn
+    // guard below because a string turnId compared with `<` against a number is always
+    // false, so it was never recognized as "stale").
+    const isGuardResetMsg = typeof msg.turnId === 'string' && (msg.turnId as string).startsWith('guard-reset-');
+    if (isGuardResetMsg) {
+      const realTurnInFlight = audioReceivedInTurnRef.current || pendingAudioCountRef.current > 0 || !responseCompleteRef.current;
+      if (realTurnInFlight) {
+        console.log(`[StreamingVoice] Ignoring guard-reset response_complete — real turn is in flight (pending=${pendingAudioCountRef.current}, audioReceived=${audioReceivedInTurnRef.current})`);
+        return;
+      }
+    }
+
     // STALE TURN GUARD: Ignore response_complete from a previous turn.
     // This prevents the greeting's response_complete from poisoning the OpenMic turn state
     // when both run concurrently (causes freeze: client thinks turn ended with no audio).
-    if (msg.turnId !== undefined && msg.turnId < currentTurnIdRef.current) {
+    if (msg.turnId !== undefined && !isGuardResetMsg && msg.turnId < currentTurnIdRef.current) {
       console.log(`[StreamingVoice] Ignoring stale response_complete: turnId=${msg.turnId}, current=${currentTurnIdRef.current}`);
       return;
     }
