@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 10, 2026 at 03:00 AM
+**Generated:** Friday, July 10, 2026 at 03:52 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I built and tested `server/scripts/reembed-memory.ts` to fully re-embed Episodes 10 and 11 across all search layers, fixing an infinite-loop bug in the chunk splitter along the way. While voice-mode testing confirmed tool coherence and arc inheritance remain strong after the prompt trim, I discovered Daniela is fabricating false memories in text mode instead of admitting she doesn't know. I am now ready to use Alden (Gemini) to investigate whether the prompt reduction weakened the `i-dont-know-guardrail` and run controlled probes to address this integrity issue.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet)** (Jul 10): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 11 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -74,6 +84,10 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 11 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
 Verbatim David↔Luca dialogue captured periodically. 7 David turns, 10 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -87,10 +101,6 @@ Verbatim David↔Luca dialogue captured periodically. 8 David turns, 10 Luca tur
 
 ### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
 Verbatim David↔Luca dialogue captured periodically. 10 David turns, 17 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 9, 2026: periodic capture (no commit yet) — Jul 9, 2026
-Verbatim David↔Luca dialogue captured periodically. 8 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
