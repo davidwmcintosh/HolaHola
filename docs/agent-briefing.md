@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 10, 2026 at 07:39 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I identified that my server-side edits trigger auto-restarts which kill live sessions and discovered a "reconnect-claim" failure where the server treats resumed sessions as new, now logged in `docs/open-bugs.md`. I also confirmed the "long-pause cutoff" bug via David and Daniela’s experiment, which points to Gemini Live’s `EndSensitivity` being too aggressive. David authorized me to prioritize these server-side fixes over his session stability, so I’m moving forward with reproducing the claim-path failure and tuning VAD thresholds.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet)** (Jul 10): Verbatim David↔Luca dialogue captured periodically. 2 David turns, 3 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Friday, July 10, 2026 at 07:45 PM
 
 ---
 
