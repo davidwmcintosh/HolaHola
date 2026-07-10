@@ -34,7 +34,7 @@ const COMMIT_MSG_PATH = join(WORKSPACE, '.local/.commit_message');
 const INSIGHTS_PATH   = join(WORKSPACE, '.local/.session_insights');
 const CURSOR_PATH     = join(WORKSPACE, '.local/.transcript_cursor.json');
 const TRANSCRIPT_DIR  = join(WORKSPACE, '.local/state/replit/agent/transcript');
-const POLL_INTERVAL_MS = 60 * 1000;
+const POLL_INTERVAL_MS = 20 * 1000;
 
 // --- Build session watcher state ---
 let buildLastMtime = 0;
@@ -215,12 +215,25 @@ function findTranscriptPath(): { sessionId: string; path: string } | null {
   } catch { return null; }
 }
 
+// Extracts any <pre_compression_transcript path="..."> pointers before they get
+// stripped down to a placeholder, so the raw turns they point to can still be
+// recovered from disk before that referenced file itself rotates away.
+function extractPreCompressionPaths(text: string): string[] {
+  const paths: string[] = [];
+  const re = /<pre_compression_transcript\s+path="([^"]+)"[^>]*>/g;
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    paths.push(match[1]);
+  }
+  return paths;
+}
+
 function cleanUserText(text: string): string {
   return text
     .replace(/<user_message>([\s\S]*?)<\/user_message>/g, '$1')
     .replace(/<automatic_updates>[\s\S]*?<\/automatic_updates>/g, '')
     .replace(/<system_reminder[^>]*>[\s\S]*?<\/system_reminder>/g, '')
-    .replace(/<pre_compression_transcript[^>]*>[\s\S]*?<\/pre_compression_transcript>/g, '[earlier session — compressed]')
+    .replace(/<pre_compression_transcript[^>]*>[\s\S]*?<\/pre_compression_transcript>/g, '[earlier session — compressed, recovered below if still on disk]')
     .trim();
 }
 
@@ -230,10 +243,15 @@ interface DialogueTurn {
   memoryId: number;
 }
 
-function extractTurns(jsonlPath: string, afterMemoryId: number): { turns: DialogueTurn[]; maxMemoryId: number } {
+function extractTurns(
+  jsonlPath: string,
+  afterMemoryId: number,
+  visitedPaths: Set<string> = new Set(),
+): { turns: DialogueTurn[]; maxMemoryId: number } {
   const turns: DialogueTurn[] = [];
   const seen = new Set<string>();
   let maxMemoryId = afterMemoryId;
+  visitedPaths.add(jsonlPath);
 
   try {
     const lines = readFileSync(jsonlPath, 'utf-8').split('\n');
@@ -252,16 +270,31 @@ function extractTurns(jsonlPath: string, afterMemoryId: number): { turns: Dialog
         const content = m.content;
 
         if (role === 'user') {
-          let text = '';
-          if (typeof content === 'string') text = content;
+          let rawText = '';
+          if (typeof content === 'string') rawText = content;
           else if (Array.isArray(content)) {
             for (const c of content) {
-              if (c?.type === 'text') text += c.text ?? '';
+              if (c?.type === 'text') rawText += c.text ?? '';
             }
           }
-          text = cleanUserText(text);
+
+          // Before stripping, recover any pre-compression transcripts this
+          // turn points to — pull their turns in BEFORE this turn so nothing
+          // that compressed mid-poll-cycle is lost, only ever placeholdered.
+          for (const p of extractPreCompressionPaths(rawText)) {
+            if (visitedPaths.has(p) || !existsSync(p)) continue;
+            const recovered = extractTurns(p, 0, visitedPaths);
+            for (const t of recovered.turns) {
+              const key = t.speaker + '|' + t.text.slice(0, 80);
+              if (seen.has(key)) continue;
+              seen.add(key);
+              turns.push(t);
+            }
+          }
+
+          const text = cleanUserText(rawText);
           if (text.length < 5) continue;
-          const key = text.slice(0, 80);
+          const key = 'DAVID|' + text.slice(0, 80);
           if (seen.has(key)) continue;
           seen.add(key);
           turns.push({ speaker: 'DAVID', text, memoryId });
@@ -274,7 +307,7 @@ function extractTurns(jsonlPath: string, afterMemoryId: number): { turns: Dialog
             }
           }
           if (text.length < 5) continue;
-          const key = text.slice(0, 80);
+          const key = 'LUCA|' + text.slice(0, 80);
           if (seen.has(key)) continue;
           seen.add(key);
           turns.push({ speaker: 'LUCA', text, memoryId });
