@@ -117,7 +117,10 @@ export function splitIntoChunks(text: string, chunkSize: number = CHUNK_CHARS, o
     const headerPos = nextTurnHeader(rawNext);
     // Use the header snap only if it's within a reasonable distance; otherwise
     // use the raw overlap position to avoid giant un-indexed gaps.
-    start = (headerPos > 0 && headerPos < rawNext + 1200) ? headerPos : rawNext;
+    const nextStart = (headerPos > 0 && headerPos < rawNext + 1200) ? headerPos : rawNext;
+    // Guard against non-advancing/regressing cursor (can happen with pathological
+    // header spacing) which would otherwise loop forever and OOM the process.
+    start = nextStart > start ? nextStart : end;
     if (start >= text.length) break;
   }
   return chunks;

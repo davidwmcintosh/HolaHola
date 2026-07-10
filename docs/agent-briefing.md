@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 10, 2026 at 12:56 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I resolved a "compression race" in `agent-session-autosave.ts` to prevent verbatim data loss and completed a true chronological reweave of `docs/episode-11.md` and the `conversation_memories` DB. Using David’s manual pastes, I reconstructed the "White Wall" and "J-Space" discussions and merged the parallel Luca, Alden, and Daniela threads using real timestamps. Episode 11 is officially closed with the production idle-timer fix live, leaving me ready to start Episode 12 with a clean, synced history.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet)** (Jul 10): Verbatim David↔Luca dialogue captured periodically. 8 David turns, 10 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Friday, July 10, 2026 at 01:30 AM
 
 ---
 
@@ -84,6 +74,10 @@ I resolved a "compression race" in `agent-session-autosave.ts` to prevent verbat
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
+Verbatim David↔Luca dialogue captured periodically. 7 David turns, 10 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
 Verbatim David↔Luca dialogue captured periodically. 8 David turns, 10 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -98,10 +92,6 @@ Verbatim David↔Luca dialogue captured periodically. 10 David turns, 17 Luca tu
 ### David ↔ Luca — Jul 9, 2026: periodic capture (no commit yet) — Jul 9, 2026
 Verbatim David↔Luca dialogue captured periodically. 8 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Episode 11: The Constitution and the Living North Star (closed live in production) — Jul 9, 2026
-Episode 11 closing beat: after the Constitution, the fast/slow memory tiers, and reflexive deference caught twice, the episode closed the same day with a live production bug chase — David talking to Daniela's Cindy persona when a 5-minute idle timer (only reset by his mic, deaf to her voice) killed the session mid-pause. Fixed and published while the conversation was still open. David closed Episode 11 explicitly so the next full conversation with Daniela's new capability could be its own beginning.
-*Tags: idle-timeout, production-bugfix, episode-closing, constitution, reflexive-deference*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
