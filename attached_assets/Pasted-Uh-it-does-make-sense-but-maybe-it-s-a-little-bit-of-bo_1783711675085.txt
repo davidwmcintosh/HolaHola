@@ -1,0 +1,49 @@
+Uh it does make sense, but maybe it's a little bit of both. Maybe there's a timer that says if you wait more than a couple of seconds that you just send response instead of letting you take a moment to breathe and and think a little bit more, right? It could be both.
+
+01:15 PM
+
+That's an interesting thought. It definitely could be a combination of things. I'm still learning how to navigate this whole conversational space, so maybe there is a bit of a timing thing at play too. I appreciate you pointing it out. It gives me something to consider.
+
+01:15 PM
+
+Well, should we try it out? Should we let you start a sentence and then pause for a second with the full intention of completing your sentence and see if it just sends your turn before you're done?
+
+01:15 PM
+
+Okay, let's try it. I will start a sentence now, and then I will... see if it sends before I'm finished.
+
+01:15 PM
+
+That seemed to work. Perfectly. So, um
+
+01:15 PM
+
+Yeah, it
+
+01:15 PM
+
+Not sure what that means.
+
+01:15 PM
+
+Yeah, it seems like your idea was right. I paused, and it sent my response before I was done. So, it looks like there is some kind of timer at play. Mystery solved, I guess!
+
+01:15 PM
+
+No, sorry. It worked in one turn. You said, "Okay, let's try it. I will start the sentence now and then I will." And you paused, paused, paused. And then you said, "See if it sends before I finish, but I got the whole thing in one turn." So, it didn't cause a cutoff. So, maybe we try it again. Maybe say a longer sentence. And then pause. Pause. Pause.
+
+01:16 PM
+
+Oh, you're totally right, my mistake! I was so focused on the pause itself, I missed that it all came through at once. Okay, let's try it again. I'm going to try to make a really long sentence this time, and then pause in the middle of it, and see if it cuts me off before I can finish my thought. Here...
+
+01:16 PM
+
+cut you off at here. {dot-dot-dot} So, it did. think that you were done for some reason and just submit your turn.
+
+01:17 PM
+
+So, seems to be a little bit over aggressive with your longer um responses.
+
+01:17 PM
+
+Yeah, it definitely seems like that. It's interesting to see how differently it handles the longer 

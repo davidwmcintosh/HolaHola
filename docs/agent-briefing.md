@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 10, 2026 at 07:12 PM
+**Generated:** Friday, July 10, 2026 at 07:25 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’m troubleshooting a critical bug in HolaHola where Daniela’s greetings cut off mid-sentence without sending a `turnComplete` signal, which is distinct from the "silent thinking" issue I previously patched. Following David’s reports of repeated dropped connections and truncated turns, I’ve committed to an immediate live fix rather than just logging the issue in `docs/open-bugs.md`. I am currently tracing the logs from the latest failure to identify why the transcript-flush and completion signals are failing to fire after audio playback.
+I’ve narrowed down the continuity loss bug where Daniela resets to a generic greeting after a mid-turn connection drop, specifically tracing how the server failed to match conversation `30613c81` to its pending reconnect grace period. While Alden continues investigating the underlying transport drops, I’ve ruled out my initial theory about the `session_ctx` cache and confirmed the session is being initialized as "cold" because the reconnect isn't being recognized. This session, I need to investigate the client-side trigger path to see why `isReconnect: true` might be missing during hard socket closures or why the server's implicit-reconnect detection is failing to catch these returns.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet)** (Jul 10): Verbatim David↔Luca dialogue captured periodically. 4 David turns, 3 Luca turns. Context: periodic capture (no commit yet)
+- **David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet)** (Jul 10): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 8 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -84,6 +84,10 @@ I’m troubleshooting a critical bug in HolaHola where Daniela’s greetings cut
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
+Verbatim David↔Luca dialogue captured periodically. 1 David turns, 8 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
 Verbatim David↔Luca dialogue captured periodically. 4 David turns, 3 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -97,10 +101,6 @@ Verbatim David↔Luca dialogue captured periodically. 9 David turns, 12 Luca tur
 
 ### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
 Verbatim David↔Luca dialogue captured periodically. 8 David turns, 14 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 11 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
