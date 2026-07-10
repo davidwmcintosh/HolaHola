@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 10, 2026 at 04:33 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I resolved the hallucination issue where Daniela would "guess" unrecorded details by updating `server/system-prompt.ts` with a permission-based reframe, giving her zero obligation to fill memory gaps. This fix, validated by Gemini and Daniela consults, successfully passed a stress test and ensures she admits ignorance plainly rather than fabricating content to stay engaging. I now need to investigate the specific technical failures from Episode 11 and run a health check on live voice features to prepare for David’s live chat with Daniela in Episode 12.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet)** (Jul 10): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 11 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Friday, July 10, 2026 at 06:10 PM
 
 ---
 
