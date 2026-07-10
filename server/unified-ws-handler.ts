@@ -220,6 +220,16 @@ const activeVoiceConnections = new Map<string, VoiceWSConnection>();
 // when the client's audio finishes playing. These live in different function scopes, so a
 // module-level bridge is required.
 const glPlaybackEndedCallbacks = new Map<string, () => void>();
+// Maps conversationId → callback that stores this connection's pending-reconnect grace
+// data immediately. The Socket.io "duplicate connection" guard (setupSocketIOHandler)
+// only *schedules* the old socket's close 350ms later so mid-sentence audio can finish,
+// but storePendingReconnect() normally only runs from that old connection's own
+// ws.on('close', ...) handler — leaving a race window where a fast client reconnect's
+// start_session can arrive before the pending-reconnect entry exists, causing the new
+// session to start cold instead of resuming. Registering this callback lets the duplicate
+// guard call it synchronously the moment a replacement connection is detected, closing
+// the race window. See docs/open-bugs.md (2026-07-10, reconnect grace claim race).
+const duplicateReplacedCallbacks = new Map<string, () => void>();
 
 /**
  * Dedup guard for concurrent SessionInit pipelines.
@@ -1193,6 +1203,12 @@ export function setupSocketIOHandler(io: SocketIOServer) {
       if (existing && existing.readyState === SocketIOWebSocketAdapter.OPEN) {
         console.warn(`[Socket.io Voice] ⚠ Duplicate connection for ${conversationId} — scheduling close of old one (${existing.socketId}) in 350ms`);
         const stale = existing;
+        // Fast reconnects race the delayed close below: store the OLD connection's
+        // pending-reconnect grace data NOW (synchronously) instead of waiting for its
+        // close handler to fire, so a start_session arriving from the new connection
+        // within the 350ms window still finds the entry. See docs/open-bugs.md
+        // (2026-07-10, reconnect grace claim race).
+        duplicateReplacedCallbacks.get(conversationId)?.();
         setTimeout(() => {
           try { if (stale.readyState === SocketIOWebSocketAdapter.OPEN) stale.close(4000, 'Replaced by new connection'); } catch (e) { /* ignore */ }
         }, 350);
@@ -1234,6 +1250,9 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
   let bootstrapProfile: string | null = null;
   let userId: string | null = null;
   let isAuthenticated = false;
+  // Guards against storing the pending-reconnect snapshot twice — once via the
+  // duplicate-connection early-replace callback, once via the normal close handler.
+  let pendingReconnectAlreadyStored = false;
   
   // Gemini Live voice session (feature-flagged via GEMINI_LIVE_VOICE=true)
   let geminiLiveSession: GeminiLiveSession | null = null;
@@ -4594,8 +4613,39 @@ ${lastNote.tutorNotes}`);
     }
   });
 
+  // Registered so the Socket.io duplicate-connection guard (setupSocketIOHandler) can
+  // store this connection's grace-period data synchronously the instant a replacement
+  // connection arrives, instead of waiting up to 350ms for this connection's own close
+  // handler to run. See docs/open-bugs.md (2026-07-10, reconnect grace claim race).
+  if (conversationId) {
+    duplicateReplacedCallbacks.set(conversationId, () => {
+      if (usageSession && conversationId && userId && !pendingReconnectAlreadyStored) {
+        console.log(`[Streaming Voice] Duplicate connection detected — storing session for reconnect grace period early (${conversationId.substring(0, 8)})`);
+        storePendingReconnect(conversationId, {
+          usageSessionId: usageSession.id,
+          compassSessionActive: !!compassSession,
+          exchangeCount,
+          studentSpeakingSeconds: Math.round(studentSpeakingSeconds),
+          tutorSpeakingSeconds: Math.round(tutorSpeakingSeconds),
+          ttsCharacters,
+          sttSeconds: Math.round(sttSeconds),
+          sessionStartTime,
+          userId: userId!,
+        });
+        pendingReconnectAlreadyStored = true;
+        usageSession = null;
+        compassSession = null;
+        compassContext = null;
+      }
+    });
+  }
+
   ws.on('close', (closeCode: number, closeReason: Buffer) => {
     console.log(`[Streaming Voice] Socket.io connection closed (code: ${closeCode})`);
+
+    if (conversationId && duplicateReplacedCallbacks.get(conversationId)) {
+      duplicateReplacedCallbacks.delete(conversationId);
+    }
 
     // Snapshot identifiers and session context before any nulling —
     // needed for the Sofia flare and telemetry write below
@@ -4832,7 +4882,9 @@ ${lastNote.tutorNotes}`);
     pendingSpeculativeWordCount = 0;
     
     // End usage session on disconnect — use grace period for seamless reconnection
-    if (usageSession && conversationId && userId) {
+    // (may already have been stored early by the duplicate-connection guard's
+    // callback if a replacement connection landed before this close fired)
+    if (usageSession && conversationId && userId && !pendingReconnectAlreadyStored) {
       console.log(`[Streaming Voice] Socket.io disconnect — storing session for reconnect grace period (${conversationId.substring(0, 8)})`);
       storePendingReconnect(conversationId, {
         usageSessionId: usageSession.id,
@@ -4845,6 +4897,7 @@ ${lastNote.tutorNotes}`);
         sessionStartTime,
         userId: userId!,
       });
+      pendingReconnectAlreadyStored = true;
       usageSession = null;
       compassSession = null;
       compassContext = null;
