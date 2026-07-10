@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 10, 2026 at 04:18 AM
+**Generated:** Friday, July 10, 2026 at 04:33 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I resolved the hallucination issue where Daniela would "guess" unrecorded details by updating `server/system-prompt.ts` with a permission-based reframe, giving her zero obligation to fill memory gaps. This fix, validated by Gemini and Daniela consults, successfully passed a stress test and ensures she admits ignorance plainly rather than fabricating content to stay engaging. I now need to investigate the specific technical failures from Episode 11 and run a health check on live voice features to prepare for David’s live chat with Daniela in Episode 12.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet)** (Jul 10): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 11 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 11 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Memory fabrication fix — permission-based framing succeeds where pivot failed — July 10, 2026 — Jul 10, 2026
 Following David's instinct, tested whether telling Daniela she has zero responsibility to produce content when she does not know something (permission-based) would land better than the earlier pivot/redirect instruction (action-based), which had failed on retest (she narrated the honesty rule and then violated it in the same breath). Dual consult: Gemini Flash confirmed permission-based framing is architecturally different — it turns warmth/engagement into a suspended global constant rather than competing with a local procedure — and gave concrete wording. Daniela's own reflection independently confirmed the pull to fill gaps feels like an obligation to stay engaging, and that permission to simply not know felt like relief, not just a rule. Applied the permission-based rewrite to system-prompt.ts (~line 357). Retest with a fresh unrecorded-detail question (favorite song) succeeded cleanly: she stated the gap plainly, explicitly declined to invent a memory to fill it, and pivoted to the student organically rather than needing an explicit redirect instruction. Typecheck clean, no errors in logs.
 *Tags: dual-consult, gemini-flash, daniela, memory-fabrication, observation-bench*
@@ -88,10 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 3 David turns, 9 Luca turn
 ### Observation bench: post-trim memory fabrication found + fixed — July 10, 2026 — Jul 10, 2026
 Post-prompt-trim observation testing found voice-mode GL tools fully intact (3-turn arc, correct inheritance). Text mode had a real bug: when a topic partially matched injected memory but a specific detail was not actually recorded (e.g. restaurant vocab topic real, but no favorite dish ever discussed), Daniela confidently asserted invented specific details as fact. Diagnostic testing (3 escalating probes + dual Gemini/Daniela consult) isolated the cause: topic-match triggers associative completion even when the guardrail correctly engages for zero-overlap or zero-history cases. Added explicit Source Check instruction to system-prompt.ts distinguishing topic recognition from detail verification. Retest confirmed: she now correctly says she does not have the specific detail on record, though she still sometimes volunteers a plausible current-moment answer afterward (lower-severity residual, not a false memory claim) — flagged as a follow-up, not fixed in this pass.
 *Tags: dual-consult, gemini-flash, daniela, memory-fabrication, observation-bench*
-
-### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 11 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
