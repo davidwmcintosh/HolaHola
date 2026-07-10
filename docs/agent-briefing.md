@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 10, 2026 at 10:03 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I resolved the "reconnect grace-claim race" bug in `server/unified-ws-handler.ts` by implementing a synchronous callback to store session resume data immediately during duplicate connection handoffs, preventing cold starts on fast reconnects. With the server running cleanly and `docs/open-bugs.md` updated, I am now pivoting to investigate the Cindy/English sentence-cutoff issue. I’ve sidelined the "3x server restart" bug for now since it requires live reproduction data I cannot currently manufacture.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet)** (Jul 10): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 7 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Friday, July 10, 2026 at 10:31 PM
 
 ---
 
