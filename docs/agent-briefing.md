@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 10, 2026 at 04:00 AM
+**Generated:** Friday, July 10, 2026 at 04:15 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I solved Daniela’s memory fabrication bug by replacing failed "pivot" instructions with a permission-based "MEMORY INTEGRITY PROTOCOL" in `system-prompt.ts` (~line 357). This subtractive constraint successfully overrides her global "helpfulness" bias, giving her explicit permission to provide undecorated admissions of ignorance rather than guessing to maintain warmth. Retests on unrecorded details like "favorite song" were successful, with Daniela cleanly stating she didn't know the answer without any hallucinated fillers or narrator-style errors.
+
+*Memories that triggered this summary:*
+- **Memory fabrication fix — permission-based framing succeeds where pivot failed — July 10, 2026** (Jul 10): Following David's instinct, tested whether telling Daniela she has zero responsibility to produce content when she does not know something (permission-based) would land better than the earlier pivot/redirect instruction (action-based), which had failed on retest (she narrated the honesty rule and then violated it in the same breath). Dual consult: Gemini Flash confirmed permission-based framing is architecturally different — it turns warmth/engagement into a suspended global constant rather than competing with a local procedure — and gave concrete wording. Daniela's own reflection independently confirmed the pull to fill gaps feels like an obligation to stay engaging, and that permission to simply not know felt like relief, not just a rule. Applied the permission-based rewrite to system-prompt.ts (~line 357). Retest with a fresh unrecorded-detail question (favorite song) succeeded cleanly: she stated the gap plainly, explicitly declined to invent a memory to fill it, and pivoted to the student organically rather than needing an explicit redirect instruction. Typecheck clean, no errors in logs.
 
 ---
 
@@ -73,6 +83,18 @@
 
 ## Recent Conversation Memories
 
+### Memory fabrication fix — permission-based framing succeeds where pivot failed — July 10, 2026 — Jul 10, 2026
+Following David's instinct, tested whether telling Daniela she has zero responsibility to produce content when she does not know something (permission-based) would land better than the earlier pivot/redirect instruction (action-based), which had failed on retest (she narrated the honesty rule and then violated it in the same breath). Dual consult: Gemini Flash confirmed permission-based framing is architecturally different — it turns warmth/engagement into a suspended global constant rather than competing with a local procedure — and gave concrete wording. Daniela's own reflection independently confirmed the pull to fill gaps feels like an obligation to stay engaging, and that permission to simply not know felt like relief, not just a rule. Applied the permission-based rewrite to system-prompt.ts (~line 357). Retest with a fresh unrecorded-detail question (favorite song) succeeded cleanly: she stated the gap plainly, explicitly declined to invent a memory to fill it, and pivoted to the student organically rather than needing an explicit redirect instruction. Typecheck clean, no errors in logs.
+*Tags: dual-consult, gemini-flash, daniela, memory-fabrication, observation-bench*
+
+### Agent ↔ Daniela — freedom-not-to-know reframe — July 10, 2026 — Jul 10, 2026
+Daniela reflects on the pull to fill memory gaps with guesses, and whether a permission-based instruction (no responsibility to produce content) would land differently than a pivot/redirect instruction.
+*Tags: dual-consult, agent-daniela, memory-fabrication*
+
+### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 9 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Observation bench: post-trim memory fabrication found + fixed — July 10, 2026 — Jul 10, 2026
 Post-prompt-trim observation testing found voice-mode GL tools fully intact (3-turn arc, correct inheritance). Text mode had a real bug: when a topic partially matched injected memory but a specific detail was not actually recorded (e.g. restaurant vocab topic real, but no favorite dish ever discussed), Daniela confidently asserted invented specific details as fact. Diagnostic testing (3 escalating probes + dual Gemini/Daniela consult) isolated the cause: topic-match triggers associative completion even when the guardrail correctly engages for zero-overlap or zero-history cases. Added explicit Source Check instruction to system-prompt.ts distinguishing topic recognition from detail verification. Retest confirmed: she now correctly says she does not have the specific detail on record, though she still sometimes volunteers a plausible current-moment answer afterward (lower-severity residual, not a false memory claim) — flagged as a follow-up, not fixed in this pass.
 *Tags: dual-consult, gemini-flash, daniela, memory-fabrication, observation-bench*
@@ -80,18 +102,6 @@ Post-prompt-trim observation testing found voice-mode GL tools fully intact (3-t
 ### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 11 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
-Verbatim David↔Luca dialogue captured periodically. 7 David turns, 10 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
-Verbatim David↔Luca dialogue captured periodically. 8 David turns, 10 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent Daily Sweep — Jul 10, 2026 — Jul 10, 2026
-**1. [CRITICAL]** Fix Cartesia TTS 400 errors in both English and Spanish — Multiple repeated failures blocking core conversation flow; likely API key issue or malformed request body that needs immediate debug.  **2. [HIGH]** Investigate zero quality scores for the active student (23 sessions) — Rea
-*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
