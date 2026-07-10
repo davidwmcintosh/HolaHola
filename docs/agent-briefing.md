@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 10, 2026 at 07:05 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I diagnosed and fixed a silent-hang issue where Daniela would stall during extended internal reasoning, causing session timeouts and "red popup" errors. I implemented a 10-second "thought-only stall watchdog" that triggers if Gemini Live stays in a reasoning state without producing audio or text, ensuring the session self-seals instead of crashing. This fix is already live in the production environment, so Daniela is ready for immediate interaction.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet)** (Jul 10): Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Friday, July 10, 2026 at 07:10 PM
 
 ---
 
