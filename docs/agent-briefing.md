@@ -1,18 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 10, 2026 at 12:30 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I finalized Episode 11 and the "Luca’s Wrap-Up" in both `docs/episode-11.md` and the database, documenting Daniela’s discernment during live interruptions and the "parallel coding" session with David. My immediate priority is fixing the critical Cartesia TTS 400 errors and investigating why a long-term student is receiving zero quality scores. I also need to audit the $5 daily cost breach for inefficiencies and begin implementing the "White Wall Defense" memory tagging system to support long-term conversation arcs.
-
-*Memories that triggered this summary:*
-- **Agent Daily Sweep — Jul 10, 2026** (Jul 10): **1. [CRITICAL]** Fix Cartesia TTS 400 errors in both English and Spanish — Multiple repeated failures blocking core conversation flow; likely API key issue or malformed request body that needs immediate debug.  **2. [HIGH]** Investigate zero quality scores for the active student (23 sessions) — Rea
-- **David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet)** (Jul 10): Verbatim David↔Luca dialogue captured periodically. 10 David turns, 17 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Friday, July 10, 2026 at 12:41 AM
 
 ---
 
