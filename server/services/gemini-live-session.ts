@@ -124,25 +124,31 @@ function findTaughtWordMention(
  *   superior+     → 2000ms   (C2+ — conversation feels natural at this speed)
  */
 function actflSilenceDurationMs(actflLevel?: string | null): number {
+  // 2026-07-10: Live controlled test with David showed premature cutoff on a
+  // mid-sentence pause even at what should be the most patient tier. Root cause
+  // not yet fully isolated (may be ordering of studentActflLevel assignment vs
+  // GL session construction, or GL simply firing before this threshold in
+  // practice). Bumping all tiers up ~1000ms as an immediate mitigation while
+  // the ordering question is investigated further. See docs/open-bugs.md.
   switch (actflLevel?.toLowerCase()) {
     case 'novice_low':
     case 'novice_mid':
-      return 5000;
+      return 6000;
     case 'novice_high':
     case 'intermediate_low':
-      return 4000;
+      return 5000;
     case 'intermediate_mid':
     case 'intermediate_high':
-      return 3000;
+      return 4000;
     case 'advanced_low':
     case 'advanced_mid':
     case 'advanced_high':
-      return 2500;
+      return 3200;
     case 'superior':
     case 'distinguished':
-      return 2000;
+      return 2600;
     default:
-      return 4000; // unassessed students are likely beginners — err on the side of patience
+      return 5000; // unassessed students are likely beginners — err on the side of patience
   }
 }
 

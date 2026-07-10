@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 10, 2026 at 07:25 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve narrowed down the continuity loss bug where Daniela resets to a generic greeting after a mid-turn connection drop, specifically tracing how the server failed to match conversation `30613c81` to its pending reconnect grace period. While Alden continues investigating the underlying transport drops, I’ve ruled out my initial theory about the `session_ctx` cache and confirmed the session is being initialized as "cold" because the reconnect isn't being recognized. This session, I need to investigate the client-side trigger path to see why `isReconnect: true` might be missing during hard socket closures or why the server's implicit-reconnect detection is failing to catch these returns.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet)** (Jul 10): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 8 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Friday, July 10, 2026 at 07:35 PM
 
 ---
 
