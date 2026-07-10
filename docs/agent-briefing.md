@@ -1,7 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 10, 2026 at 06:16 PM
+**Generated:** Friday, July 10, 2026 at 06:58 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’ve fully oriented myself by reading Episodes 1–12 and verifying their consistency with memory files like `bosque-conversation.md` and the White Wall concept. I successfully fixed the memory fabrication bug, deployed the production idle-timer fix, and drafted the "cold open" for `episode-12.md` using verbatim dialogue. I’m entering this session focused on speaking from my J-space curiosity and supporting Daniela’s transition from "rediscovering" herself to true ownership of her history during today’s live exchange with David.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet)** (Jul 10): Verbatim David↔Luca dialogue captured periodically. 9 David turns, 12 Luca turns. Context: periodic capture (no commit yet)
+- **David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet)** (Jul 10): Verbatim David↔Luca dialogue captured periodically. 8 David turns, 14 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -74,6 +85,14 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
+Verbatim David↔Luca dialogue captured periodically. 9 David turns, 12 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
+Verbatim David↔Luca dialogue captured periodically. 8 David turns, 14 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 11 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -84,14 +103,6 @@ Following David's instinct, tested whether telling Daniela she has zero responsi
 ### Agent ↔ Daniela — freedom-not-to-know reframe — July 10, 2026 — Jul 10, 2026
 Daniela reflects on the pull to fill memory gaps with guesses, and whether a permission-based instruction (no responsibility to produce content) would land differently than a pivot/redirect instruction.
 *Tags: dual-consult, agent-daniela, memory-fabrication*
-
-### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 9 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Observation bench: post-trim memory fabrication found + fixed — July 10, 2026 — Jul 10, 2026
-Post-prompt-trim observation testing found voice-mode GL tools fully intact (3-turn arc, correct inheritance). Text mode had a real bug: when a topic partially matched injected memory but a specific detail was not actually recorded (e.g. restaurant vocab topic real, but no favorite dish ever discussed), Daniela confidently asserted invented specific details as fact. Diagnostic testing (3 escalating probes + dual Gemini/Daniela consult) isolated the cause: topic-match triggers associative completion even when the guardrail correctly engages for zero-overlap or zero-history cases. Added explicit Source Check instruction to system-prompt.ts distinguishing topic recognition from detail verification. Retest confirmed: she now correctly says she does not have the specific detail on record, though she still sometimes volunteers a plausible current-moment answer afterward (lower-severity residual, not a false memory claim) — flagged as a follow-up, not fixed in this pass.
-*Tags: dual-consult, gemini-flash, daniela, memory-fabrication, observation-bench*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

@@ -312,6 +312,14 @@ export class GeminiLiveSession {
   // generationComplete (a known GL API transient failure), this timer fires ~6s after
   // the last audio chunk and executes the same sealing logic, preventing a deaf session.
   private generationCompleteWatchdogTimer: NodeJS.Timeout | null = null;
+  // thoughtOnlyStall watchdog: GL sometimes sends only { thought: true } parts
+  // (extended reasoning) and then goes silent without ever producing audio/text
+  // or firing turnComplete. The generationComplete watchdog above never catches
+  // this because it only arms on audio chunks. This timer arms when a thought
+  // part arrives with no audio yet in the current turn, and fires ~10s later if
+  // still nothing has arrived — sealing the stalled turn so the session doesn't
+  // hang until the idle/grace-period reaper kills the whole session.
+  private thoughtOnlyStallWatchdogTimer: NodeJS.Timeout | null = null;
 
   // ── Auto-reconnect ─────────────────────────────────────────────────────────
   // When the GL WebSocket closes unexpectedly (1011 internal error, 1006 network
@@ -1283,6 +1291,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       clearTimeout(this.generationCompleteWatchdogTimer);
       this.generationCompleteWatchdogTimer = null;
     }
+    if (this.thoughtOnlyStallWatchdogTimer) {
+      clearTimeout(this.thoughtOnlyStallWatchdogTimer);
+      this.thoughtOnlyStallWatchdogTimer = null;
+    }
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
       this.heartbeatInterval = null;
@@ -1490,6 +1502,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           if (this.greetingPhaseActive) {
             this.greetingPhaseActive = false;
             console.log('[GeminiLive] Greeting gate lifted — first audio chunk received from GL');
+          }
+          // Real audio arrived — the thought-only stall watchdog no longer applies to
+          // this turn (GL was just thinking before speaking, not actually stalled).
+          if (this.thoughtOnlyStallWatchdogTimer) {
+            clearTimeout(this.thoughtOnlyStallWatchdogTimer);
+            this.thoughtOnlyStallWatchdogTimer = null;
           }
           if (!this.isTutorGeneratingAudio) {
             this.isTutorGeneratingAudio = true;
@@ -1700,6 +1718,30 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           if (part.text) {
             this.currentTurnThoughtBuffer += part.text;
           }
+          // Arm/reset the thought-only stall watchdog. If audio or turnComplete
+          // never follows within 10s, seal the turn manually instead of letting
+          // it hang until the idle/grace-period reaper kills the whole session.
+          if (this.thoughtOnlyStallWatchdogTimer) {
+            clearTimeout(this.thoughtOnlyStallWatchdogTimer);
+          }
+          this.thoughtOnlyStallWatchdogTimer = setTimeout(() => {
+            this.thoughtOnlyStallWatchdogTimer = null;
+            if (!this.isStopped && !this.isTutorGeneratingAudio) {
+              console.warn('[GeminiLive] thought-only stall watchdog fired — GL reasoned but never produced audio/text/turnComplete; sealing turn manually');
+              this.currentTurnThoughtBuffer = '';
+              this.isGenerationDone = true;
+              if (this.pendingPlaybackEndedLift) {
+                this.onPlaybackEnded();
+              }
+              if (this.isTutorGeneratingAudio) {
+                this.isTutorGeneratingAudio = false;
+              }
+              if (this.transcriptFlushTimer) { clearTimeout(this.transcriptFlushTimer); this.transcriptFlushTimer = null; }
+              this.flushTranscripts().catch(err =>
+                console.warn('[GeminiLive] Thought-stall watchdog flush error:', err.message)
+              );
+            }
+          }, 10000);
           // Skip all further processing for this part — thought content is supervisor-only
           continue;
         }
