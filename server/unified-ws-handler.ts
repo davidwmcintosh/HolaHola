@@ -2413,6 +2413,18 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
             if (bootstrapProfile && session) {
               (session as any).__bootstrapProfile = bootstrapProfile;
             }
+
+            // Pre-load ACTFL level onto session before GL connects.
+            // The greeting flow (streaming-voice-orchestrator.ts) also sets
+            // session.studentActflLevel, but only AFTER GL's realtimeInputConfig
+            // has already been sent — so without this, every fresh session falls
+            // back to the default silenceDurationMs tier (5000ms) regardless of
+            // the student's assessed level. resolvedActflLevel is already fetched
+            // as part of the Phase 1 parallel DB lookups above.
+            if (session && resolvedActflLevel) {
+              session.studentActflLevel = resolvedActflLevel;
+              console.log(`[SessionInit] ✓ ACTFL level pre-loaded onto session: ${resolvedActflLevel} — GL silenceDurationMs will use correct tier`);
+            }
             
             // Note: tutorDirectory is built dynamically by Socket.io path
             // HTTP WebSocket path doesn't support tutor handoffs, so we skip this

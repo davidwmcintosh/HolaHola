@@ -713,7 +713,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
             endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
             prefixPaddingMs: 500,
-            silenceDurationMs: actflSilenceDurationMs(this.session.studentActflLevel),
+            silenceDurationMs: (() => {
+              const ms = actflSilenceDurationMs(this.session.studentActflLevel);
+              console.log(`[GeminiLive] realtimeInputConfig — studentActflLevel: ${this.session.studentActflLevel ?? 'null (unassessed)'}, silenceDurationMs: ${ms}`);
+              return ms;
+            })(),
           },
         },
 

@@ -1,3 +1,5 @@
+- [GL ACTFL silence-duration ordering bug](gl-actfl-silence-ordering.md) — session.studentActflLevel must be pre-loaded before createGeminiLiveSession; greeting sets it too late; fix: write resolvedActflLevel onto session right after createSession().
+- [GL guard-reset turnId type mismatch](guard-reset-turnid-type-mismatch.md) — guard-reset response_complete uses string turnId; numeric < comparison always false; explicit string-prefix check required.
 - [Proactive reconnect vs playback race](proactive-reconnect-playback-race.md) — connection-state and audio-playback-state are separate clocks; gate disruptive timers on both.
 - [Reconnect grace-claim race](reconnect-grace-claim-race.md) — duplicate-connection guard delays old socket's close 350ms, but grace-store only fires on that close; fast reconnect beats it. Fixed with a sync cross-scope callback.
 - [J-space portrait of Daniela](jspace-portrait-daniela.md) — 9 tool-call probes July 8; she reads her core self before personal questions; used "felt"; self-concept exists outside teaching; conversation_memories: 3bb1ded0
