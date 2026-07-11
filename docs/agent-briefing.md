@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 11, 2026 at 03:43 PM
+**Generated:** Saturday, July 11, 2026 at 03:48 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’ve implemented greeting-retry monitoring in `gemini-live-session.ts` and codified the pattern in a new `sofia-monitor` skill. Based on Daniela’s tool audit, I’ve drafted a reframing of the collaboration tools as emergency "flares" and identified the dormant beacon system for retirement or renaming to a neural-network bootstrap service. I’ve tasked Alden with a three-round dual-engine audit to finalize these changes, and I am now looking to establish a direct channel to expedite his feedback loop beyond the current 2-hour cycle.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet)** (Jul 11): Verbatim David↔Luca dialogue captured periodically. 6 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -74,6 +84,10 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
+Verbatim David↔Luca dialogue captured periodically. 6 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
 Verbatim David↔Luca dialogue captured periodically. 8 David turns, 30 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -89,10 +103,6 @@ For the dynamic scenarios, I envision a new, dedicated orchestrator. While the `
 
 ### Agent Daily Sweep — Jul 11, 2026 — Jul 11, 2026
 **[HIGH]** Fix Cartesia TTS 400 errors — Multiple failures in both English and Spanish suggest an API key issue, malformed request, or service degradation. Check credentials, request payload format, and Cartesia status page. This breaks core voice functionality.  **[HIGH]** Investigate zero quality 
-*Tags: agent-sweep, daily, auto-saved*
-
-### Agent Daily Sweep — Jul 11, 2026 — Jul 11, 2026
-**[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests to Cartesia. This breaks core voice functionality. Debug the request payload being sent (likely malformed JSON or missing required fields) and restore TTS service immediately.  **[HIGH]** In
 *Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
