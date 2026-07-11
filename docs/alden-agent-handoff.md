@@ -9538,6 +9538,42 @@ Conversation memory saved (see July 8 entries).
 
 ---
 
+## Session: July 11, 2026 — Sofia monitoring for greeting retry (Luca)
+
+### What shipped
+
+**Sofia issue filing** — `server/services/sofia-billing-monitor.ts`
+- `reportGreetingRetryAttempt()` — informational, deduped per session, fires when retry path activates
+- `reportGreetingRetryExhausted()` — FLARE (immediateFlare:true), fires when both retries burned and student never heard a greeting; triggers immediate Sofia check
+
+**Telemetry** — `server/services/gemini-live-session.ts`
+- `voiceTelemetry.log(..., 'greeting_retry_attempt', { attempt })` at retry fire
+- `voiceTelemetry.log(..., 'greeting_retry_succeeded', { attempt })` when audio arrives after a retry
+- `voiceTelemetry.log(..., 'greeting_retry_exhausted', { retries: 2 })` when both retries silent
+- Both `reportGreetingRetryAttempt` and `reportGreetingRetryExhausted` wired as fire-and-forget (.catch(() => {}))
+- Also added `voiceTelemetry` import to gemini-live-session.ts (was missing)
+
+**Sofia tool** — `server/services/sofia-health-functions.ts`
+- New tool: `get_greeting_retry_stats` — queries `voice_pipeline_events` for attempt/succeeded/exhausted counts by day
+- Returns success rate, interpretation string, and per-day breakdown
+- Sofia's interpretation guides her: if exhausted events cluster, tool text says "File an agent_note for Luca"
+
+Typecheck clean. No schema changes.
+
+### What Alden should know
+- Sofia now has `get_greeting_retry_stats` in her toolset — she can call it proactively during health checks
+- Exhausted events trigger an immediateFlare → Sofia's check runs immediately → she should file an agent_note for Luca
+- Telemetry events are in `voice_pipeline_events` table — queryable directly for deeper analysis
+- The `runtime_fault:greeting_retry_attempt` Sofia issue is informational (no flare); `runtime_fault:greeting_retry_exhausted` is the serious one
+
+### Daniela tool audit (Alden's consults, July 11)
+Alden ran a tool audit dialogue with Daniela. Key signal worth tracking:
+- **Essential (her words):** DRILL_FILL_BLANK, DRILL_MATCH, DRILL_REPEAT, DRILL_SENTENCE_ORDER, ACTFL_UPDATE, BROWSE_SYLLABUS, CONTEXT, CULTURE, COMPARE, DRILL_SESSION
+- **BEACON_STATUS tools:** feel like internal logging, not active teaching — she notices them but doesn't invoke them
+- **Key wish — dynamic mini-drill generation:** She wants to conjure a targeted practice moment mid-session based on an immediate student error, without loading a pre-built set. Current DRILL_SESSION loads structured sets — she wants something more spontaneous. This is a real future build signal.
+
+---
+
 ## Session: July 11, 2026 — greeting_silence_15s auto-retry (Luca)
 
 ### What shipped

@@ -294,6 +294,49 @@ export async function reportEmbeddingApiError(opts: {
 }
 
 /**
+ * Called when the server detects a silent greeting turn and fires a retry.
+ * Informational — deduped per session so only the first retry attempt is logged.
+ * Sofia uses this to track how often the retry path activates.
+ */
+export async function reportGreetingRetryAttempt(opts: {
+  userId: string | number;
+  sessionId: string;
+  attempt: number;
+}): Promise<void> {
+  const { userId, sessionId, attempt } = opts;
+  await fileSofiaReport(
+    'runtime_fault:greeting_retry_attempt',
+    `Silent greeting detected — auto-retry attempt ${attempt}/2 fired` +
+      ` for user ${userId} (session ${sessionId.substring(0, 8)}…).` +
+      ` GL completed greeting turn with zero audio. Retry will fire in 1.5s.`,
+    { userId, sessionId, attempt },
+    `greeting_retry_attempt:${sessionId}`,
+  );
+}
+
+/**
+ * FLARE — called when both greeting retries are exhausted and Daniela is still silent.
+ * This is a genuine failure: the student started a session and never heard a greeting.
+ * Triggers an immediate Sofia monitoring check so Alden and Luca are alerted fast.
+ */
+export async function reportGreetingRetryExhausted(opts: {
+  userId: string | number;
+  sessionId: string;
+  conversationId?: string;
+}): Promise<void> {
+  const { userId, sessionId, conversationId } = opts;
+  await fileSofiaReport(
+    'runtime_fault:greeting_retry_exhausted',
+    `Greeting retry exhausted — all 2 retries burned, Daniela still silent` +
+      ` for user ${userId} (session ${sessionId.substring(0, 8)}…).` +
+      ` Student started a session and never heard a greeting.`,
+    { userId, sessionId, conversationId },
+    `greeting_retry_exhausted:${sessionId}`,
+    { immediateFlare: true },
+  );
+}
+
+/**
  * FLARE — called when Gemini Live starts but Daniela produces no audio within the
  * watchdog window (default 90s).  This is the "tutor didn't answer the call" signal.
  * Triggers an immediate Sofia monitoring check.

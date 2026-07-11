@@ -33,7 +33,8 @@ import { NativeFunctionCallHandler } from './native-fc-handlers';
 import type { StreamingSession } from './streaming-session-types';
 import { lookupLegacyType, buildFunctionContinuationResponse } from './daniela-function-registry';
 import type { ExtractedFunctionCall } from './gemini-function-declarations';
-import { reportGlToolCallFailure, reportGlToolCallSuccess } from './sofia-billing-monitor';
+import { reportGlToolCallFailure, reportGlToolCallSuccess, reportGreetingRetryAttempt, reportGreetingRetryExhausted } from './sofia-billing-monitor';
+import { voiceTelemetry } from './voice-pipeline-telemetry';
 import { getSharedDb } from '../db';
 import { sql, eq } from 'drizzle-orm';
 import { voiceSessions } from '@shared/schema';
@@ -1590,6 +1591,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           // Greeting retry succeeded — reset counter so retries don't carry across sessions.
           if (this.greetingRetryCount > 0) {
             console.log(`[GeminiLive] Greeting retry succeeded (attempt ${this.greetingRetryCount}) — audio arrived, resetting retry count`);
+            const sessionId = String(this.session.dbSessionId || '');
+            const userId = String(this.session.userId || '');
+            voiceTelemetry.log(sessionId, userId, 'greeting_retry_succeeded', { attempt: this.greetingRetryCount });
             this.greetingRetryCount = 0;
           }
 
@@ -2047,7 +2051,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         if (isSilentGreeting && !this.isStopped && this.lastGreetingParams && this.greetingRetryCount < 2) {
           this.greetingRetryCount++;
           const attempt = this.greetingRetryCount;
+          const sessionId = String(this.session.dbSessionId || '');
+          const userId = String(this.session.userId || '');
           console.warn(`[GeminiLive] Silent greeting detected — auto-retry attempt ${attempt}/2 in 1.5s`);
+          // Telemetry + Sofia report — fire-and-forget, never throws.
+          voiceTelemetry.log(sessionId, userId, 'greeting_retry_attempt', { attempt });
+          reportGreetingRetryAttempt({ userId, sessionId, attempt }).catch(() => {});
           // Notify client so it can reset its 15s watchdog (gives the retry a fresh window).
           this.sendWsMessage(this.session.ws, { type: 'greeting_retry', attempt });
           setTimeout(() => {
@@ -2061,6 +2070,14 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             console.warn(`[GeminiLive] Firing greeting retry #${attempt}`);
             this.sendGreetingTrigger(p.userName, p.isResumed, p.scenarioSlug, p.recentContext, p.studentProfile);
           }, 1500);
+        } else if (isSilentGreeting && this.greetingRetryCount >= 2) {
+          // All retries exhausted — student never heard a greeting. File a flare.
+          const sessionId = String(this.session.dbSessionId || '');
+          const userId = String(this.session.userId || '');
+          const conversationId = (this.session as any).conversationId;
+          console.error(`[GeminiLive] Greeting retry exhausted — both retries silent, filing Sofia flare`);
+          voiceTelemetry.log(sessionId, userId, 'greeting_retry_exhausted', { retries: 2 });
+          reportGreetingRetryExhausted({ userId, sessionId, conversationId }).catch(() => {});
         } else {
           console.log('[GeminiLive] turnComplete — greeting gate cleared (no audio path)');
         }

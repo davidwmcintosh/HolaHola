@@ -252,6 +252,16 @@ export const SOFIA_HEALTH_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       required: ["session_id"],
     },
   },
+  {
+    name: "get_greeting_retry_stats",
+    description: "Monitor the greeting auto-retry system. Shows how often GL produces a silent greeting turn (Mode B: response_complete with totalSentences:0), how many retries were attempted, how many succeeded (audio arrived on retry), and how many were exhausted (both retries burned, student never heard a greeting). Use this to assess whether the greeting silence fix is working and to alert Luca and Alden if exhausted events cluster.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        days: { type: "number", description: "How many days of history to include (default 7, max 30)" },
+      },
+    },
+  },
 ];
 
 export type SofiaToolResult = { success: boolean; data: any };
@@ -916,6 +926,62 @@ export async function executeSofiaTool(
               : 'No mid-turn reconnects in this window.',
           },
           silentTurns: silent,
+        },
+      };
+    }
+
+    case "get_greeting_retry_stats": {
+      const days = Math.min(args.days || 7, 30);
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+      const [attempts, successes, exhausted] = await Promise.all([
+        sharedDb.execute(sql`
+          SELECT DATE(created_at) AS day, COUNT(*) AS cnt, user_id
+          FROM voice_pipeline_events
+          WHERE event_type = 'greeting_retry_attempt' AND created_at >= ${since}
+          GROUP BY DATE(created_at), user_id ORDER BY day DESC
+        `),
+        sharedDb.execute(sql`
+          SELECT DATE(created_at) AS day, COUNT(*) AS cnt
+          FROM voice_pipeline_events
+          WHERE event_type = 'greeting_retry_succeeded' AND created_at >= ${since}
+          GROUP BY DATE(created_at) ORDER BY day DESC
+        `),
+        sharedDb.execute(sql`
+          SELECT DATE(created_at) AS day, COUNT(*) AS cnt, user_id
+          FROM voice_pipeline_events
+          WHERE event_type = 'greeting_retry_exhausted' AND created_at >= ${since}
+          GROUP BY DATE(created_at), user_id ORDER BY day DESC
+        `),
+      ]);
+
+      const totalAttempts = (attempts.rows as any[]).reduce((s, r) => s + Number(r.cnt), 0);
+      const totalSucceeded = (successes.rows as any[]).reduce((s, r) => s + Number(r.cnt), 0);
+      const totalExhausted = (exhausted.rows as any[]).reduce((s, r) => s + Number(r.cnt), 0);
+      const successRate = totalAttempts > 0
+        ? `${Math.round((totalSucceeded / totalAttempts) * 100)}%`
+        : 'n/a (no retries yet)';
+
+      return {
+        success: true,
+        data: {
+          windowDays: days,
+          summary: {
+            totalRetryAttempts: totalAttempts,
+            totalRetrySucceeded: totalSucceeded,
+            totalRetryExhausted: totalExhausted,
+            successRate,
+            interpretation: totalExhausted > 0
+              ? `⚠️ ${totalExhausted} session(s) exhausted both retries — student never heard a greeting. File an agent_note for Luca.`
+              : totalAttempts > 0
+                ? `✓ Retries firing and resolving (${successRate} success rate). System working as intended.`
+                : 'No silent greetings detected in this window — no retries needed.',
+          },
+          byDay: {
+            attempts: (attempts.rows as any[]).map(r => ({ day: String(r.day).substring(0, 10), count: Number(r.cnt), userId: r.user_id })),
+            successes: (successes.rows as any[]).map(r => ({ day: String(r.day).substring(0, 10), count: Number(r.cnt) })),
+            exhausted: (exhausted.rows as any[]).map(r => ({ day: String(r.day).substring(0, 10), count: Number(r.cnt), userId: r.user_id })),
+          },
         },
       };
     }
