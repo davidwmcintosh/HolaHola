@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 10, 2026 at 11:36 PM
+**Generated:** Saturday, July 11, 2026 at 12:26 AM
 
 ---
 
@@ -73,6 +73,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
+Verbatim David↔Luca dialogue captured periodically. 2 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
 Verbatim David↔Luca dialogue captured periodically. 2 David turns, 10 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -87,10 +91,6 @@ Verbatim David↔Luca dialogue captured periodically. 1 David turns, 8 Luca turn
 
 ### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 6 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 10, 2026: periodic capture (no commit yet) — Jul 10, 2026
-Verbatim David↔Luca dialogue captured periodically. 1 David turns, 8 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
