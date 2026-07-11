@@ -18,7 +18,7 @@ export const userRoleEnum = pgEnum('user_role', ['student', 'teacher', 'develope
 export const learningContextEnum = pgEnum('learning_context', ['self_directed', 'class_assigned']);
 
 // Conversation type enum - distinguishes learning conversations from editor collaboration
-export const conversationTypeEnum = pgEnum('conversation_type', ['learning', 'editor_collaboration']);
+export const conversationTypeEnum = pgEnum('conversation_type', ['learning', 'editor_collaboration', 'agent_session']);
 
 // Syllabus completion status enum
 export const syllabusStatusEnum = pgEnum('syllabus_status', ['not_started', 'in_progress', 'completed_early', 'completed_assigned', 'skipped']);

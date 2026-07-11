@@ -126,13 +126,20 @@ export function ConversationHistory({
   const { language: selectedLanguage } = useLanguage();
   const { toast } = useToast();
 
+  // "luca" is a developer-only sentinel that shows agent ↔ Daniela sessions instead of regular ones
+  const isLucaMode = selectedLanguage === 'luca';
+
   const { data: conversations = [], isLoading } = useQuery<Conversation[]>({
     queryKey: ["/api/conversations/filtered", { timeFilter, starredOnly, language: selectedLanguage }],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (timeFilter !== 'all') params.append('timeFilter', timeFilter);
-      // Filter by the language selected in the global language dropdown
-      if (selectedLanguage) params.append('language', selectedLanguage);
+      if (isLucaMode) {
+        // Luca mode: fetch agent sessions regardless of language
+        params.append('agentSessions', 'true');
+      } else if (selectedLanguage) {
+        params.append('language', selectedLanguage);
+      }
       if (starredOnly) params.append('starredOnly', 'true');
       const url = `/api/conversations/filtered?${params.toString()}`;
       const response = await fetch(url, { credentials: 'include' });
@@ -484,11 +491,13 @@ export function ConversationHistory({
       {!showSearchResults && (conversations.length === 0 ? (
         <Card className="p-8 text-center">
           <p className="text-muted-foreground">
-            {starredOnly 
-              ? "No starred conversations yet. Star your favorites to find them quickly!" 
-              : timeFilter !== 'all' 
-                ? `No conversations found for ${timeFilterLabels[timeFilter].toLowerCase()}.`
-                : "No conversation history yet. Start practicing to see your sessions here!"}
+            {isLucaMode
+              ? "No Luca sessions yet. Agent ↔ Daniela conversations will appear here."
+              : starredOnly 
+                ? "No starred conversations yet. Star your favorites to find them quickly!" 
+                : timeFilter !== 'all' 
+                  ? `No conversations found for ${timeFilterLabels[timeFilter].toLowerCase()}.`
+                  : "No conversation history yet. Start practicing to see your sessions here!"}
           </p>
         </Card>
       ) : (

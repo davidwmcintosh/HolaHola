@@ -3947,6 +3947,8 @@ export async function registerRoutes(app: Application): Promise<void> {
         const conversationTitle = textbookChapter 
           ? `Textbook: ${textbookChapter}` 
           : null;
+        // Mark conversations created by agent sessions so they stay out of David's history
+        const isAgentRequest = req.session?.authProvider === 'agent';
         conversation = await storage.createConversation({
           ...data,
           userId,
@@ -3957,6 +3959,7 @@ export async function registerRoutes(app: Application): Promise<void> {
           classId: classId,
           title: conversationTitle,
           textbookLessonId: textbookLessonId || null,
+          ...(isAgentRequest ? { conversationType: 'agent_session' as const } : {}),
         } as typeof conversations.$inferInsert);
         
         console.log('[CONVERSATION CREATE] Created new conversation:', conversation.id, classId ? `(class: ${classId})` : '(self-directed)');
@@ -4007,13 +4010,14 @@ export async function registerRoutes(app: Application): Promise<void> {
   app.get("/api/conversations/filtered", isAuthenticated, async (req: any, res: Response) => {
     try {
       const userId = getRequestUserId(req);
-      const { timeFilter, starredOnly, topicId, language } = req.query;
+      const { timeFilter, starredOnly, topicId, language, agentSessions } = req.query;
       
       const conversations = await storage.getFilteredConversations(userId, {
         timeFilter: timeFilter as 'today' | 'week' | 'month' | 'older' | undefined,
         starredOnly: starredOnly === 'true',
         topicId: topicId as string | undefined,
-        language: language as string | undefined
+        language: language as string | undefined,
+        agentSessions: agentSessions === 'true',
       });
       
       res.json(conversations);
@@ -36095,7 +36099,7 @@ Under 250 words. Write as yourself.`;
         return res.status(401).json({ error: 'Invalid agent token' });
       }
       req.session.userId = '49847136';
-      req.session.authProvider = 'ai-browser';
+      req.session.authProvider = 'agent';
       await new Promise<void>((resolve, reject) => req.session.save((err: any) => err ? reject(err) : resolve()));
       res.json({ success: true, message: 'Agent session established' });
     } catch (e: any) {

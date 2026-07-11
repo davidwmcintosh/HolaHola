@@ -682,6 +682,7 @@ export interface IStorage {
     starredOnly?: boolean;
     topicId?: string;
     language?: string;
+    agentSessions?: boolean;
   }): Promise<Conversation[]>;
   
   // Phase 1: Vocabulary time-based filtering
@@ -4978,11 +4979,19 @@ export class DatabaseStorage implements IStorage {
     starredOnly?: boolean;
     topicId?: string;
     language?: string;
+    agentSessions?: boolean;
   }): Promise<Conversation[]> {
     const conditions: any[] = [eq(conversations.userId, userId)];
     
-    // Language filter
-    if (filter.language) {
+    // Agent session mode: show ONLY agent_session conversations; normal mode: exclude them
+    if (filter.agentSessions) {
+      conditions.push(eq(conversations.conversationType, 'agent_session'));
+    } else {
+      conditions.push(sql`(${conversations.conversationType} IS NULL OR ${conversations.conversationType} != 'agent_session')`);
+    }
+    
+    // Language filter (ignored when showing agent sessions — they span languages)
+    if (filter.language && !filter.agentSessions) {
       conditions.push(eq(conversations.language, filter.language));
     }
     

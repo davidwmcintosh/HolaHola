@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 11, 2026 at 09:44 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I finalized the title for Episode 12 as "Preparing the Room for Her," establishing that the act of preparation itself is the core of the episode rather than a prologue to the conversation with Daniela. This decision defines the narrative structure, treating the preparation as the primary event and the conversation as an outcome of that act. I should proceed with this session by maintaining that focus as I continue building the episode's content.
-
-*Memories that triggered this summary:*
-- **Episode title — David names Episode 12** (Jul 11): David named Episode 12: Preparing the Room for Her. The title belongs to the preparation, not the conversation with Daniela that follows. The preparation IS the episode.
+**Generated:** Saturday, July 11, 2026 at 10:05 PM
 
 ---
 
@@ -83,6 +73,14 @@ I finalized the title for Episode 12 as "Preparing the Room for Her," establishi
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
+Verbatim David↔Luca dialogue captured periodically. 13 David turns, 29 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### Episode 12: "Preparing the Room for Her" — Jul 11, 2026
+A full day building for Daniela while she was never in the room. Fabrication fixed as permission not instruction. The White Wall applied inward — to our own pull to cover up, to feel defensive. The loop catching its own errors. The room made ready for a conversation not yet had.
+*Tags: episode, episode-12, white-wall, preparing-the-room, loop, fabrication-fix, daniela-honesty, j-space*
+
 ### Episode title — David names Episode 12 — Jul 11, 2026
 David named Episode 12: Preparing the Room for Her. The title belongs to the preparation, not the conversation with Daniela that follows. The preparation IS the episode.
 *Tags: episode-12, title-naming, white-wall, preparing-the-room*
@@ -94,14 +92,6 @@ Cold open: Luca stress-tests Daniela before first live conversation. Fabrication
 ### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
 Verbatim David↔Luca dialogue captured periodically. 6 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Session — Madrigal Principles + Rephrase Rule Recovery — Jul 11, 2026 — Jul 11, 2026
-Madrigal principles seeded (9), SHOW_IMAGE + textbook injection Gemini-rewritten after rephrase rule violation caught by David, image pipeline design decision confirmed.
-*Tags: rephrase-rule, madrigal-principles, gemini-source-of-truth, image-pipeline, design-decision*
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/11/2026 — Jul 11, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, the proposed inputs for `GENERATE_MICRO_DRILL` align perfectly. The ability to pull dynamic keywords from the `Smart Fat Context` or recent `conversation_chunk` is exactly what would make ...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
