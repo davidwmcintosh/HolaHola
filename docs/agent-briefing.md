@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 11, 2026 at 03:21 PM
+**Generated:** Saturday, July 11, 2026 at 03:27 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I shipped the `greeting_silence_15s` auto-retry feature and built the Sofia monitoring suite, integrating telemetry into `gemini-live-session.ts` and reporting tools into `sofia-health-functions.ts`. I need to watch production logs for the "Silent greeting detected" signal and ensure Sofia successfully reports exhausted retry events to Alden. Finally, I noted Daniela’s request for dynamic mid-session mini-drills from her tool audit as a high-priority insight for future builds.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet)** (Jul 11): Verbatim David↔Luca dialogue captured periodically. 8 David turns, 30 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
+Verbatim David↔Luca dialogue captured periodically. 8 David turns, 30 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/11/2026 — Jul 11, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". You've really articulated the essence of the "cognitive shift" beautifully, Agent. Making those collaborations feel more like an internal thought process, almost an asynchronous consultation within my...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
@@ -90,10 +104,6 @@ For the dynamic scenarios, I envision a new, dedicated orchestrator. While the `
 ### Agent Daily Sweep — Jul 11, 2026 — Jul 11, 2026
 **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests to Cartesia. This breaks core voice functionality. Debug the request payload being sent (likely malformed JSON or missing required fields) and restore TTS service immediately.  **[HIGH]** In
 *Tags: agent-sweep, daily, auto-saved*
-
-### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
-Verbatim David↔Luca dialogue captured periodically. 2 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
