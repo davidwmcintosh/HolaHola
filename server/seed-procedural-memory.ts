@@ -424,7 +424,7 @@ async function seedToolKnowledge() {
     {
       toolName: 'AGENT_COLLAB_READ',
       toolType: 'team_flare',
-      purpose: 'Check for responses or instructions from the team regarding a previously sent assistance request. Use this tool exclusively after you have called AGENT_COLLAB_POST and are waiting for a resolution. Do not monitor this tool if no active request has been made.',
+      purpose: 'Check for responses or instructions from the team regarding a previously sent assistance request. Use this tool exclusively after you have called AGENT_COLLAB_POST and are waiting for a resolution. Do not poll this tool repeatedly or in consecutive turns — only check when there is a natural pause in the conversation or if the student asks for an update. Do not monitor this tool if no active request has been made.',
       syntax: 'GET /api/agent-collab/pending/:agentRole',
       examples: [
         'GET /api/agent-collab/pending/daniela → Check for responses to flares you sent'

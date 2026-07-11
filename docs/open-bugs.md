@@ -162,3 +162,31 @@ If the student taps "Start" while the background warm-up is still running, the W
 
 **2026-07-09 — `server/services/agent-session-autosave.ts` — verbatim Luca↔David interruption dialogue lost to compression race, unrecoverable — WON'T FIX (data already gone)**
 David asked to add the verbatim mid-tool-execution interruption exchange (him pushing past Replit's queueing to talk to Luca while Luca kept coding) to episode-11.md's postscript. Traced through conversation_memories (including the `eebcd543` reweave doc) and the raw session transcript — the exchange was never captured anywhere as verbatim text, only David's later reflective comment about it. Root cause: if that exchange fell inside a stretch of the live agent-chat session that got compressed into a `<pre_compression_transcript path=...>` pointer before the (then-60s, now-20s) autosave poll cycle reached it, the raw text was gone by the time autosave ran — the fix shipped July 9 (recursive `pre_compression_transcript` recovery + 20s polling) protects future sessions but cannot recover text that was already overwritten before the fix landed. Asked David to paste from his own chat scrollback if he still has it; otherwise this specific exchange stays undocumented rather than reconstructed from memory, per the verbatim rule.
+
+---
+
+## AGENT_COLLAB_READ — Push architecture (future build)
+
+**Flagged:** July 11, 2026 — Gemini 3.5 architectural review of flare tool prose
+
+**Issue:** `AGENT_COLLAB_READ` uses a pull pattern — Daniela must guess when to check for a reply from the support team. In a Gemini Live voice session this creates awkward conversational pauses and wasted turns if she polls in consecutive turns while waiting.
+
+**Recommended fix:** Push architecture — when the support team responds to `AGENT_COLLAB_POST`, the backend injects the reply directly into the active GL session as a system instruction or developer message. Daniela receives the response immediately without polling.
+
+**Current mitigation:** Added a polling guard to the tool's `purpose` string ("Do not poll repeatedly or in consecutive turns — only check at natural pauses or if student asks"). This reduces the worst-case UX without requiring the infrastructure change.
+
+**Prerequisite:** Async injection into a live GL session needs to be validated as supported by the GL API. Check `unified-ws-handler.ts` for the injection point.
+
+**Not urgent** — flare tools are rarely triggered. Address when the GL session injection pattern is better understood.
+
+---
+
+## CONSULT_COLLEAGUE — dead-air filler phrase (future build)
+
+**Flagged:** July 11, 2026 — Gemini 3.x round 2 review of flare tool prose
+
+**Issue:** CONSULT_COLLEAGUE triggers a synchronous colleague lookup. If the response takes >1-2 seconds, Daniela goes silent mid-session — dead air in a live voice call.
+
+**Recommended fix:** Add a filler phrase handler in the CONSULT_COLLEAGUE tool execution path. Before awaiting the colleague response, Daniela should speak something like "Let me check my notes on that for a moment" via TTS injection. Pattern already exists for other latency-sensitive tools.
+
+**Not urgent** — CONSULT_COLLEAGUE is rarely triggered. Address when flare tools get their first real usage.
