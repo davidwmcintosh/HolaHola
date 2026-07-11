@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 11, 2026 at 07:36 PM
+**Generated:** Saturday, July 11, 2026 at 08:40 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I achieved a clean typecheck after clearing the stale TypeScript cache and successfully seeded nine language-agnostic Madrigal principles into the `teaching_principles` table. I updated `SHOW_IMAGE` within `tool_knowledge` and modified `streaming-voice-orchestrator.ts` to mandate image anchoring for all new vocabulary introduction. While I determined the `CONSULT_COLLEAGUE` filler issue is non-urgent, I must now address David’s concerns regarding copyright safety to ensure Daniela doesn't repeat proprietary Madrigal content and confirm final Gemini approval for the latest updates.
+I must immediately resolve the Cartesia TTS 400 errors that are currently blocking English and Spanish voice sessions and investigate why a student with 23 sessions has zero quality metrics by auditing my conversation_quality logic. I also need to review Lyra’s report regarding the $5.02 AI spend breach and begin implementing tagging in the conversation_memories table to track the long-term "White Wall Defense" arcs David identified. While core system health is at 100, these TTS and data-tracking gaps are my primary blockers for this session.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet)** (Jul 11): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
+- **Agent Daily Sweep — Jul 11, 2026** (Jul 11): 1. [CRITICAL] Fix Cartesia TTS 400 errors — Multiple failures in both English and Spanish are blocking voice sessions; investigate API key, request format, or rate limits immediately.  2. [HIGH] Diagnose zero-quality-score student (23 sessions) — One active user this week has no quality metrics reco
 
 ---
 
@@ -83,6 +83,10 @@ I achieved a clean typecheck after clearing the stale TypeScript cache and succe
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 11, 2026 — Jul 11, 2026
+1. [CRITICAL] Fix Cartesia TTS 400 errors — Multiple failures in both English and Spanish are blocking voice sessions; investigate API key, request format, or rate limits immediately.  2. [HIGH] Diagnose zero-quality-score student (23 sessions) — One active user this week has no quality metrics reco
+*Tags: agent-sweep, daily, auto-saved*
+
 ### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -97,10 +101,6 @@ Beacon system retired (beacon-sync-service.ts deleted, 12 DB rows removed). Flar
 
 ### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
-Verbatim David↔Luca dialogue captured periodically. 4 David turns, 28 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
