@@ -11,6 +11,18 @@ description: HolaHola session end checklist — update handoff, batch doc, share
 
 Do all of these before closing a session. Nothing should be skipped on a meaningful build session.
 
+## Pre-step — Read the full day before writing anything
+
+Pull today's conversation_memories and read the full `content` field of each entry — not just the summaries:
+
+```
+GET /api/conversation-memories?limit=10
+```
+
+The periodic autosave captures have verbatim turn-by-turn records. They give context the scratchpad misses: exact moments decisions were made, what David actually said, symmetries between early-session events and late-session builds. Write the wrap-up from this picture, not from memory alone.
+
+Established as a standing practice July 11, 2026.
+
 ## Step 0 — Run the system verifier first (non-negotiable)
 
 Before anything else:

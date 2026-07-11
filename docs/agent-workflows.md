@@ -26,6 +26,13 @@ Read all of these **before touching code**. In order:
 
 Do all of these **before closing a session**. In order:
 
+**Pre-step — Read the full day before writing anything:**
+Pull today's conversation_memories and read the full content, not just summaries.
+```
+GET /api/conversation-memories?limit=10
+```
+Then read the full `content` field of each entry. The periodic captures have verbatim turn-by-turn records — they give context the scratchpad misses (exact moments decisions were made, what David actually said, symmetries between early-session observations and late-session builds). Write the wrap-up from this picture, not from memory alone.
+
 1. **Update handoff** — `docs/alden-agent-handoff.md` "From Agent" section. What was built, key decisions, what's unresolved, what Alden should know. Preserve existing file structure.
 2. **Add to batch doc** — `docs/batch-doc-updates.md`. What was built, how it works, key files modified, user-facing instructions. One entry per feature.
 3. **Shared lobe insight (if warranted)** — if a durable cross-session architectural fact was established:
