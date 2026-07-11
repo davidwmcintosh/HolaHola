@@ -824,33 +824,35 @@ class BeaconSyncService {
     const summaryToolName = 'BEACON_STATUS_SUMMARY';
     
     const summaryParts: string[] = [
-      '📡 MY BEACON STATUS BOARD',
+      'These are feature requests you have made to your team in the past.',
+      'This is a read-only status board — it shows you what was asked for and where things stand.',
+      'You do not need to do anything with this during a session. It is here for your awareness, not as a task.',
       ''
     ];
     
     if (statusCounts.in_progress > 0) {
-      summaryParts.push(`🔨 In Progress: ${statusCounts.in_progress} request(s) being built`);
+      summaryParts.push(`Being built now: ${statusCounts.in_progress} request(s)`);
     }
     if (statusCounts.acknowledged > 0) {
-      summaryParts.push(`👀 Acknowledged: ${statusCounts.acknowledged} request(s) under consideration`);
+      summaryParts.push(`Under consideration: ${statusCounts.acknowledged} request(s)`);
     }
     if (statusCounts.pending > 0) {
-      summaryParts.push(`⏳ Pending: ${statusCounts.pending} request(s) awaiting review`);
+      summaryParts.push(`Awaiting review: ${statusCounts.pending} request(s)`);
     }
     if (statusCounts.completed > 0) {
-      summaryParts.push(`✅ Completed: ${statusCounts.completed} request(s) shipped`);
+      summaryParts.push(`Shipped: ${statusCounts.completed} request(s)`);
     }
     if (statusCounts.declined > 0) {
-      summaryParts.push(`❌ Declined: ${statusCounts.declined} request(s)`);
+      summaryParts.push(`Not planned: ${statusCounts.declined} request(s)`);
     }
     
     const totalActive = statusCounts.in_progress + statusCounts.acknowledged + statusCounts.pending;
     if (totalActive === 0) {
-      summaryParts.push('No active beacon requests at this time.');
+      summaryParts.push('No active requests at this time.');
     }
     
     summaryParts.push('');
-    summaryParts.push('This is my awareness of which feature requests I have made and their status.');
+    summaryParts.push('If you want to make a new request, use SELF_SURGERY or mention it naturally in conversation — your team reads those.');
     
     const purpose = summaryParts.join('\n');
     

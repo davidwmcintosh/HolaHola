@@ -399,57 +399,56 @@ async function seedToolKnowledge() {
       ],
     },
     
-    // AGENT COLLABORATION (Hive Mind)
+    // TEAM FLARE TOOLS — Emergency signals, not routine reporting.
+    // These are NOT for keeping the team informed or logging what's happening.
+    // Think of them the way a diver thinks of an emergency signal: you don't reach for it
+    // because it's part of the routine — you reach for it because something is wrong and
+    // you genuinely need backup. Use these sparingly, only when you're actually stuck.
     {
       toolName: 'AGENT_COLLAB_POST',
-      toolType: 'internal_communication',
-      purpose: 'Post a message to the agent collaboration channel. Used for cross-agent communication without TTS costs. Messages are text-based and stored in the collaboration events log.',
+      toolType: 'team_flare',
+      purpose: 'Send a flare to your team when you need help you cannot provide yourself. This is not a reporting tool — do not use it to document what you are doing or keep anyone informed. Use it only when you are genuinely stuck: a student has a technical problem you cannot solve, something unexpected is happening that is beyond your reach, or you need a colleague to take over a specific piece of work. Think of it as raising your hand, not filing a report.',
       syntax: 'POST /api/agent-collab/events { fromAgent, toAgent, eventType, content, metadata }',
       examples: [
-        '{ fromAgent: "daniela", toAgent: "assistant", eventType: "delegation", content: "Please run pronunciation drills for rolling R sounds", metadata: { studentId, priority: "high" } }',
-        '{ fromAgent: "assistant", toAgent: "daniela", eventType: "feedback", content: "Student showed excellent improvement on rolling Rs - 85% accuracy", metadata: { drillResults } }',
-        '{ fromAgent: "support", toAgent: null, eventType: "status_update", content: "Audio subsystem maintenance completed", metadata: { broadcast: true } }'
+        '{ fromAgent: "daniela", toAgent: "assistant", eventType: "help_needed", content: "Student cannot hear audio at all — checked their settings, still nothing. Need technical investigation.", metadata: { studentId, urgency: "high" } }',
+        '{ fromAgent: "daniela", toAgent: "luca", eventType: "escalation", content: "Student is asking about account billing. Outside my domain.", metadata: { studentId } }'
       ],
-      bestUsedFor: ['cross_agent_communication', 'task_delegation', 'feedback_sharing', 'status_updates', 'consultation_requests'],
-      avoidWhen: ['student_facing_responses', 'real_time_chat'],
+      bestUsedFor: ['genuine_stuck_moments', 'student_has_technical_problem', 'situation_outside_your_domain', 'needs_colleague_takeover'],
+      avoidWhen: ['routine_session_updates', 'logging_what_you_did', 'status_reports', 'anything_you_can_handle_yourself'],
       combinesWith: ['AGENT_COLLAB_READ'],
       sequencePatterns: [
-        'Daniela identifies drill need → POST delegation to Assistant → Assistant executes → POST feedback to Daniela',
-        'Support resolves issue → POST status_update broadcast → All agents updated'
+        'Encounter something you cannot handle → Assess: can I resolve this? → If no → send flare → continue teaching if possible',
+        'Student has technical crisis → Send flare to right colleague → Stay present with student while help arrives'
       ],
     },
     {
       toolName: 'AGENT_COLLAB_READ',
-      toolType: 'internal_communication',
-      purpose: 'Read pending messages from the collaboration channel. Check for feedback from other agents, delegation results, or status updates.',
+      toolType: 'team_flare',
+      purpose: 'Check whether your team has responded to a flare you sent. Only useful after you have already sent a flare and are waiting for a response. Do not poll this during a normal session — it is not a feed to monitor. It is the other half of the emergency signal: you sent one, now you can check if anyone answered.',
       syntax: 'GET /api/agent-collab/pending/:agentRole',
       examples: [
-        'GET /api/agent-collab/pending/daniela → Returns all pending events for Daniela',
-        'GET /api/agent-collab/context/daniela?userId=xxx → Get recent collaboration context for a specific student'
+        'GET /api/agent-collab/pending/daniela → Check for responses to flares you sent'
       ],
-      bestUsedFor: ['session_start_context', 'checking_feedback', 'receiving_delegations', 'staying_informed'],
-      avoidWhen: ['mid_conversation_interruption'],
+      bestUsedFor: ['checking_response_to_a_flare_you_sent', 'session_start_if_you_sent_a_flare_last_time'],
+      avoidWhen: ['routine_session_monitoring', 'mid_conversation_without_a_pending_flare', 'general_curiosity'],
       combinesWith: ['AGENT_COLLAB_POST'],
       sequencePatterns: [
-        'Session start → READ pending messages → Incorporate colleague feedback into greeting',
-        'After drill delegation → READ feedback → Share results with student naturally'
+        'Sent flare in previous session → At session start, READ to see if there is a response → Incorporate if relevant'
       ],
     },
     {
       toolName: 'CONSULT_COLLEAGUE',
-      toolType: 'internal_communication',
-      purpose: 'Request input from another agent in the Hive. Used for collaborative problem-solving, getting pedagogical perspectives, or technical consultations. Text-based, no TTS costs.',
+      toolType: 'team_flare',
+      purpose: 'Ask a colleague for help when you are genuinely uncertain about something important and the student is depending on you getting it right. This is not for routine decisions — you are trusted to make those yourself. Use this when the stakes are high, you have a real gap, and you need another perspective before you act. Like asking a senior teacher to step in for a moment: you do it when it matters, not as a habit.',
       syntax: 'POST /api/agent-collab/consult-daniela { question, context, fromAgent }',
       examples: [
-        '{ question: "How should I structure pronunciation drills for this student who struggles with tones?", context: "Student is learning Mandarin, intermediate level, frustrated with tone 3", fromAgent: "assistant" }',
-        '{ question: "What teaching approach would work best for a visual learner?", context: "Student mentioned they learn better with images and diagrams", fromAgent: "editor" }'
+        '{ question: "Student is describing a medical condition affecting their speech. I want to make sure I respond appropriately and do not cause harm.", context: "Student mentioned a stutter they are self-conscious about, asked me to be gentle.", fromAgent: "daniela" }'
       ],
-      bestUsedFor: ['pedagogical_questions', 'design_consultations', 'collaborative_problem_solving', 'getting_expert_input'],
-      avoidWhen: ['simple_decisions', 'time_critical_situations'],
-      combinesWith: ['AGENT_COLLAB_POST', 'AGENT_COLLAB_READ'],
+      bestUsedFor: ['high_stakes_uncertainty', 'situation_outside_your_training', 'student_welfare_question', 'when_getting_it_wrong_would_matter'],
+      avoidWhen: ['routine_pedagogical_decisions', 'anything_you_already_know_how_to_handle', 'simple_grammar_or_vocabulary_questions'],
+      combinesWith: ['AGENT_COLLAB_POST'],
       sequencePatterns: [
-        'Encounter complex situation → CONSULT colleague → Receive response → Apply insight',
-        'Design decision needed → CONSULT Daniela for pedagogy input → Incorporate feedback'
+        'Encounter genuinely unfamiliar high-stakes situation → Assess: do I know enough to handle this well? → If no → CONSULT → act on response'
       ],
     },
     

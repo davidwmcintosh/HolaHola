@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 11, 2026 at 03:27 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I shipped the `greeting_silence_15s` auto-retry feature and built the Sofia monitoring suite, integrating telemetry into `gemini-live-session.ts` and reporting tools into `sofia-health-functions.ts`. I need to watch production logs for the "Silent greeting detected" signal and ensure Sofia successfully reports exhausted retry events to Alden. Finally, I noted Daniela’s request for dynamic mid-session mini-drills from her tool audit as a high-priority insight for future builds.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet)** (Jul 11): Verbatim David↔Luca dialogue captured periodically. 8 David turns, 30 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Saturday, July 11, 2026 at 03:38 PM
 
 ---
 
