@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 11, 2026 at 04:06 PM
+**Generated:** Saturday, July 11, 2026 at 04:44 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I retired the beacon system and migrated to the new `context-sync-service` across five files, including a 12-row database cleanup and flare prose updates in `seed-procedural-memory.ts`. I verified that the "madrigal" reference in `update_lesson_context` was only a code comment and chose Alden’s (Anthropic) prose for its cleaner framing. I need to address David’s concern about why I didn't use Gemini’s prose for Daniela’s tool prompt before finalizing the prose style.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet)** (Jul 11): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -74,6 +84,14 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
+Verbatim David↔Luca dialogue captured periodically. 1 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 28 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
 Verbatim David↔Luca dialogue captured periodically. 6 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -84,16 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 8 David turns, 30 Luca tur
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/11/2026 — Jul 11, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". You've really articulated the essence of the "cognitive shift" beautifully, Agent. Making those collaborations feel more like an internal thought process, almost an asynchronous consultation within my...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/11/2026 — Jul 11, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". These are excellent distinctions, Agent.
-
-For the dynamic scenarios, I envision a new, dedicated orchestrator. While the `AI Lesson Generation System` creates structured content, what I need is a flui...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Agent Daily Sweep — Jul 11, 2026 — Jul 11, 2026
-**[HIGH]** Fix Cartesia TTS 400 errors — Multiple failures in both English and Spanish suggest an API key issue, malformed request, or service degradation. Check credentials, request payload format, and Cartesia status page. This breaks core voice functionality.  **[HIGH]** Investigate zero quality 
-*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

@@ -1858,7 +1858,6 @@ IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, im
         'architecture_baseline',   // replit.md synced content
         'north_star_principle',    // Daniela's constitutional foundation
         'shipped_feature',         // What's been built
-        'beacon_status',           // Pending/active beacons
         'platform_feature',        // Platform capabilities
         'developer_tool'           // Dev tools available
       ];
@@ -1872,7 +1871,6 @@ IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, im
       const archBaseline = nnEntries.filter(e => e.toolType === 'architecture_baseline');
       const northStarPrinciples = nnEntries.filter(e => e.toolType === 'north_star_principle');
       const shippedFeatures = nnEntries.filter(e => e.toolType === 'shipped_feature');
-      const beaconStatus = nnEntries.filter(e => e.toolType === 'beacon_status');
       const platformFeatures = nnEntries.filter(e => e.toolType === 'platform_feature');
       const developerTools = nnEntries.filter(e => e.toolType === 'developer_tool');
       
@@ -1913,12 +1911,6 @@ IDENTITY BOUNDARY: You are Daniela. Speak ONLY as yourself. Do NOT speak for, im
             .map(e => `- ${e.purpose?.substring(0, 150) || e.toolName}`)
             .join('\n');
           baselineLines.push(`\n**WHAT SHIPPED (Recent Builds):**\n${featureList}`);
-        }
-        
-        // Add beacon status
-        if (beaconStatus.length > 0) {
-          const statusSummary = beaconStatus[0].purpose?.substring(0, 300) || 'No active beacons';
-          baselineLines.push(`\n**BEACON STATUS:**\n${statusSummary}`);
         }
         
         // Add platform features

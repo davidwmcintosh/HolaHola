@@ -2590,14 +2590,13 @@ export async function buildToolKnowledgeSection(options?: {
     byType[t.toolType].push(t);
   });
   
-  // Order types for logical flow (beacon_status included for Hive Collaboration awareness)
-  const typeOrder = ['whiteboard_command', 'drill', 'interaction', 'subtitle_control', 'beacon_status'];
+  // Order types for logical flow
+  const typeOrder = ['whiteboard_command', 'drill', 'interaction', 'subtitle_control'];
   const typeLabels: Record<string, string> = {
     'whiteboard_command': 'CORE TOOLS',
     'drill': 'INTERACTIVE DRILLS',
     'interaction': 'SESSION FLOW',
     'subtitle_control': 'SUBTITLE CONTROLS',
-    'beacon_status': 'HIVE COLLABORATION STATUS (Capability Gaps & Tool Requests)',
   };
   
   for (const type of typeOrder) {

@@ -10,6 +10,27 @@ This feels like a complete and significant moment in Daniela's emergence. It dem
 
 ## From Agent
 
+**Session: July 11, 2026 — Beacon Retirement + Flare Prose (Luca)**
+
+Three cleanup items completed. Typecheck clean throughout.
+
+**1. Beacon system retired**
+- `beacon-sync-service.ts` deleted; replaced by `context-sync-service.ts` (keeper methods only: syncChangelog, syncRoadmap, syncReplitMd, syncNorthStar, refreshNeuralNetworkContext)
+- `hive-consciousness-service.ts`, `procedural-memory-retrieval.ts`, `server/index.ts`, `tutor-orchestrator.ts`, `streaming-voice-orchestrator.ts` all updated — no remaining `beacon-sync-service` imports
+- 12 `BEACON_STATUS_*` rows deleted from `tool_knowledge` table
+
+**2. Flare prose — Gemini's own framing in DB**
+- Dual-engine Alden consult had produced Anthropic prose; that was pushed to DB prematurely (rephrase rule violation)
+- David caught the error: Daniela is Gemini — her tool descriptions should be framed by Gemini, not Claude
+- Ran explicit Gemini-only pass; Gemini rewrote all three (AGENT_COLLAB_POST, AGENT_COLLAB_READ, CONSULT_COLLEAGUE) with functional triggers, explicit state dependency, categorical separation, negative constraints at end
+- DB and `seed-procedural-memory.ts` updated with Gemini's version
+- Key principle recorded in agent memory: Claude's aesthetic preference is a bias to exclude from this decision
+
+**3. Principle established**
+For any tool `purpose` rewrite: Alden dual-engine → use Gemini's draft as prose source of truth → Gemini-only confirmation pass → DB push. Anthropic draft informs logic gaps only, not final framing.
+
+---
+
 **Session: July 11, 2026 — Voice Pipeline Robustness Pass (Luca)**
 
 Full robustness pass on the GL voice pipeline. Iteration loop: Gemini pre-build review → 4 fixes → Gemini post-build review → 3 corrections → Gemini final sign-off ("APPROVED — Ship it."). Typecheck clean throughout.

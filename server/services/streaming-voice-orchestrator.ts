@@ -10814,7 +10814,7 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
       
       // Refresh neural network context (replit.md, North Star, tool knowledge)
       try {
-        const { beaconSyncService } = await import('./beacon-sync-service');
+        const { contextSyncService: beaconSyncService } = await import('./context-sync-service');
         const refreshResult = await beaconSyncService.refreshNeuralNetworkContext();
         
         if (refreshResult.success) {

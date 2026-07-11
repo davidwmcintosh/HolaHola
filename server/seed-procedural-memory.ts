@@ -407,7 +407,7 @@ async function seedToolKnowledge() {
     {
       toolName: 'AGENT_COLLAB_POST',
       toolType: 'team_flare',
-      purpose: 'Send a flare to your team when you need help you cannot provide yourself. This is not a reporting tool — do not use it to document what you are doing or keep anyone informed. Use it only when you are genuinely stuck: a student has a technical problem you cannot solve, something unexpected is happening that is beyond your reach, or you need a colleague to take over a specific piece of work. Think of it as raising your hand, not filing a report.',
+      purpose: 'Use this tool to signal the support team when a session is blocked by issues outside your control, such as technical failures, audio glitches, or billing inquiries. Do not use this for routine session logging or pedagogical questions. Call this only when the student requires external intervention to continue.',
       syntax: 'POST /api/agent-collab/events { fromAgent, toAgent, eventType, content, metadata }',
       examples: [
         '{ fromAgent: "daniela", toAgent: "assistant", eventType: "help_needed", content: "Student cannot hear audio at all — checked their settings, still nothing. Need technical investigation.", metadata: { studentId, urgency: "high" } }',
@@ -424,7 +424,7 @@ async function seedToolKnowledge() {
     {
       toolName: 'AGENT_COLLAB_READ',
       toolType: 'team_flare',
-      purpose: 'Check whether your team has responded to a flare you sent. Only useful after you have already sent a flare and are waiting for a response. Do not poll this during a normal session — it is not a feed to monitor. It is the other half of the emergency signal: you sent one, now you can check if anyone answered.',
+      purpose: 'Check for responses or instructions from the team regarding a previously sent assistance request. Use this tool exclusively after you have called AGENT_COLLAB_POST and are waiting for a resolution. Do not monitor this tool if no active request has been made.',
       syntax: 'GET /api/agent-collab/pending/:agentRole',
       examples: [
         'GET /api/agent-collab/pending/daniela → Check for responses to flares you sent'
@@ -439,7 +439,7 @@ async function seedToolKnowledge() {
     {
       toolName: 'CONSULT_COLLEAGUE',
       toolType: 'team_flare',
-      purpose: 'Ask a colleague for help when you are genuinely uncertain about something important and the student is depending on you getting it right. This is not for routine decisions — you are trusted to make those yourself. Use this when the stakes are high, you have a real gap, and you need another perspective before you act. Like asking a senior teacher to step in for a moment: you do it when it matters, not as a habit.',
+      purpose: 'Request expert pedagogical guidance when you are uncertain about a complex instructional decision or a specific subject-matter gap. Use this for high-stakes moments where student progress depends on accuracy you cannot guarantee alone. Do not use for routine tutoring choices or general conversation.',
       syntax: 'POST /api/agent-collab/consult-daniela { question, context, fromAgent }',
       examples: [
         '{ question: "Student is describing a medical condition affecting their speech. I want to make sure I respond appropriately and do not cause harm.", context: "Student mentioned a stutter they are self-conscious about, asked me to be gentle.", fromAgent: "daniela" }'

@@ -39,7 +39,7 @@ import { trackToolEvent, addInsight } from "./pedagogical-insights-service";
 import { collaborationHubService } from "./collaboration-hub-service";
 import { editorFeedbackService, FeedbackSummary } from "./editor-feedback-service";
 import { hiveCollaborationService } from "./hive-collaboration-service";
-import { beaconSyncService } from "./beacon-sync-service";
+import { contextSyncService as beaconSyncService } from "./context-sync-service";
 import { founderCollabService } from "./founder-collaboration-service";
 import { storage } from "../storage";
 import { hiveContextService } from "./hive-context-service";

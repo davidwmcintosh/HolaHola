@@ -320,32 +320,27 @@ const stripeInitPromise = (async function initStripe() {
     // Sync build changelog to neural network (What Shipped for Daniela & Editor)
     try {
       console.log('Syncing build changelog to neural network...');
-      const { beaconSyncService } = await import('./services/beacon-sync-service');
-      const changelogResult = await beaconSyncService.syncChangelogToNeuralNetwork();
+      const { contextSyncService } = await import('./services/context-sync-service');
+      const changelogResult = await contextSyncService.syncChangelogToNeuralNetwork();
       console.log(`Build changelog synced: ${changelogResult.synced} new, ${changelogResult.skipped} existing`);
       
       // Sync active roadmap/sprints to neural network
       console.log('Syncing roadmap to neural network...');
-      const roadmapResult = await beaconSyncService.syncRoadmapToNeuralNetwork();
+      const roadmapResult = await contextSyncService.syncRoadmapToNeuralNetwork();
       console.log(`Roadmap synced: ${roadmapResult.synced} new, ${roadmapResult.skipped} unchanged, ${roadmapResult.cleaned} cleaned`);
-      
-      // Sync beacon status to neural network (replaces prompt injection)
-      console.log('Syncing beacon status to neural network...');
-      const beaconStatusResult = await beaconSyncService.syncBeaconStatusToNeuralNetwork();
-      console.log(`Beacon status synced: ${beaconStatusResult.synced} synced, ${beaconStatusResult.cleaned} cleaned`);
       
       // Sync replit.md architectural baseline to neural network (Wren's knowledge)
       console.log('Syncing architectural baseline to neural network...');
-      const archResult = await beaconSyncService.syncReplitMdToNeuralNetwork();
+      const archResult = await contextSyncService.syncReplitMdToNeuralNetwork();
       console.log(`Architectural baseline synced: ${archResult.synced} synced, ${archResult.skipped} unchanged`);
       
       // Sync North Star principles to neural network (Daniela's constitutional foundation)
       console.log('Syncing North Star principles to neural network...');
-      const northStarResult = await beaconSyncService.syncNorthStarToNeuralNetwork();
+      const northStarResult = await contextSyncService.syncNorthStarToNeuralNetwork();
       console.log(`North Star synced: ${northStarResult.synced} synced, ${northStarResult.skipped} unchanged`);
       
       // Refresh cache if any entries were synced or cleaned so Daniela/Wren can access them
-      if (changelogResult.synced > 0 || roadmapResult.synced > 0 || roadmapResult.cleaned > 0 || beaconStatusResult.synced > 0 || beaconStatusResult.cleaned > 0 || archResult.synced > 0 || northStarResult.synced > 0) {
+      if (changelogResult.synced > 0 || roadmapResult.synced > 0 || roadmapResult.cleaned > 0 || archResult.synced > 0 || northStarResult.synced > 0) {
         const { refreshToolKnowledgeCache } = await import('./services/procedural-memory-retrieval');
         await refreshToolKnowledgeCache();
         console.log('Procedural memory cache refreshed with new entries');
