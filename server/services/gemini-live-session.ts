@@ -351,6 +351,24 @@ export class GeminiLiveSession {
   // Stored so reconnect can re-call start() with the same arguments.
   private lastSystemPrompt = '';
   private lastTools: FunctionDeclaration[] = [];
+  // ── Proactive ACTFL reconnect ──────────────────────────────────────────────
+  // When Daniela's pedagogical heartbeat observes a tier change mid-session
+  // (e.g. student was novice but is now performing at intermediate), we update
+  // session.studentActflLevel and trigger a silent reconnect so the new
+  // silenceDurationMs tier takes effect without waiting for a natural WS drop.
+  private isProactiveReconnecting = false;
+  // ── Affirmation variety tracker (Fix 4) ───────────────────────────────────
+  // Rolling list of the last 5 affirmation phrases Daniela used. Injected into
+  // the system whisper so GL avoids repeating them in the next turn.
+  private recentAffirmationPhrases: string[] = [];
+  private static readonly AFFIRMATION_PHRASES = [
+    'muy bien', '¡muy bien', 'excellent', '¡excelente', 'excelente',
+    'perfect', 'perfecto', 'exactly', 'exacto', 'exactamente',
+    'great job', 'well done', 'fantastic', 'wonderful', 'brilliant',
+    'good job', 'buen trabajo', 'así es', 'así se dice', 'correcto',
+    'right!', '¡correcto', 'that\'s right', 'you\'ve got it',
+    'genial', '¡genial', 'estupendo', '¡estupendo',
+  ];
 
   // ── Context Bridge — rolling transcript for graceful 1008 reconnect ────────
   // Stores the last 8 completed turns (user + model) so we can build a compact
@@ -448,6 +466,12 @@ export class GeminiLiveSession {
     tools: FunctionDeclaration[],
     greetingTrigger?: string,
   ): Promise<void> {
+    if (this.isProactiveReconnecting) {
+      // Proactive ACTFL reconnect in flight — onclose will call start() directly once
+      // the current WS closes. Do not allow a second start() to race in.
+      console.warn('[GeminiLive] start() called while proactive reconnect is in-flight — ignoring');
+      return;
+    }
     if (this.isStarted) {
       console.warn('[GeminiLive] start() called on already-started session — ignoring');
       return;
@@ -786,7 +810,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             });
           }
         },
-        onclose: (event: any) => {
+        onclose: async (event: any) => {
           const code = event?.code as number;
           const reason = event?.reason || '(no reason)';
           console.log(`[GeminiLive] Session closed — code: ${code}, reason: ${reason}`);
@@ -848,6 +872,27 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               message: 'The voice connection encountered an error. Please try again.',
               recoverable: true,
             });
+            return;
+          }
+          // Proactive ACTFL reconnect: triggered by proactiveReconnect() method. Skip the
+          // exponential backoff and retriable-code check — call start() immediately using
+          // stored params. Resumption handle (if available) preserves conversation context.
+          if (this.isProactiveReconnecting && !this.isStopped) {
+            this.isProactiveReconnecting = false;
+            this.reconnectAttempts = 0;
+            console.log('[GeminiLive] Proactive reconnect onclose — calling start() immediately with updated ACTFL tier');
+            try {
+              await this.start(this.lastSystemPrompt, this.lastTools);
+              this.sendWsMessage(this.session.ws, { type: 'gl_reconnected' });
+            } catch (err: any) {
+              console.error('[GeminiLive] Proactive reconnect start() failed:', err?.message);
+              this.sendWsMessage(this.session.ws, {
+                type: 'voice_error',
+                code: 'RECONNECT_FAILED',
+                message: 'Session recalibration failed. Please try again.',
+                recoverable: true,
+              });
+            }
             return;
           }
           if (!this.isStopped && this.RETRIABLE_CLOSE_CODES.has(code) && this.reconnectAttempts < this.MAX_RECONNECT_ATTEMPTS) {
@@ -1087,6 +1132,40 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.studentTurnStartMs = Date.now();
     this.currentTurnFirstInputMs = 0;
     this.lastInputChunkMs = 0;
+
+    // Proactive ACTFL reconnect: Daniela's pedagogical heartbeat flagged a tier change.
+    // This is the safest moment to reconnect — audio just finished, student hasn't started
+    // speaking yet, no in-flight audio or tool calls.
+    if ((this.session as any).pendingActflReconnect && !this.isStopped) {
+      delete (this.session as any).pendingActflReconnect;
+      void this.proactiveReconnect();
+    }
+  }
+
+  /**
+   * Triggered when Daniela's pedagogical heartbeat observes a significant ACTFL tier change
+   * mid-session (e.g. novice student performing at intermediate gear). Closes the current GL
+   * WebSocket and immediately reconnects so the updated silenceDurationMs tier takes effect.
+   * Context is preserved via the resumption handle. Only called from onPlaybackEnded() — the
+   * safest reconnect window (audio done, student not yet speaking).
+   */
+  private async proactiveReconnect(): Promise<void> {
+    if (this.isStopped || !this.liveSession) return;
+    const newLevel = this.session.studentActflLevel;
+    console.log(`[GeminiLive] Proactive ACTFL reconnect — new tier: ${newLevel ?? 'unset'}, silenceDurationMs will recalibrate on next start()`);
+    this.isProactiveReconnecting = true;
+    this.isStarted = false;
+    this.sendWsMessage(this.session.ws, {
+      type: 'gl_reconnecting',
+      attempt: 1,
+      maxAttempts: 1,
+      delayMs: 0,
+    });
+    try {
+      this.liveSession.close();
+    } catch {
+      // Already closed — onclose handler will pick up from here
+    }
   }
 
   /**
@@ -2062,6 +2141,40 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // Context refresh via GL's sendClientContent has no safe "inject without triggering
       // response" mode. System prompt covers this for now.
 
+      // ── Affirmation variety tracker (Fix 4) ────────────────────────────────
+      // Scan the just-completed turn's transcript for known affirmation phrases.
+      // Build a rolling list (max 5) injected into the system whisper so Daniela
+      // avoids repeating the same opener two turns in a row.
+      // Safe to scan here: pendingOutputTranscript is complete at generationComplete.
+      // Normalization: strip ¡¿! before matching so "¡Muy bien!" and "muy bien"
+      // don't both match and double-count the same affirmation.
+      {
+        const turnText = this.pendingOutputTranscript
+          .toLowerCase()
+          .replace(/[¡¿!]/g, ''); // normalize punctuation before matching
+        const matched = GeminiLiveSession.AFFIRMATION_PHRASES
+          .map(p => p.replace(/[¡¿!]/g, '')) // normalize phrase list too
+          .filter((p, i, arr) => arr.indexOf(p) === i) // deduplicate normalized phrases
+          .filter(p => turnText.includes(p));
+        // Map back to display-friendly versions (use the first matched canonical form)
+        if (matched.length > 0) {
+          for (const phrase of matched) {
+            const canonical = GeminiLiveSession.AFFIRMATION_PHRASES.find(
+              p => p.replace(/[¡¿!]/g, '') === phrase
+            ) ?? phrase;
+            if (!this.recentAffirmationPhrases.some(
+              existing => existing.replace(/[¡¿!]/g, '') === phrase
+            )) {
+              this.recentAffirmationPhrases.push(canonical);
+            }
+          }
+          // Keep rolling window of last 5 unique phrases
+          if (this.recentAffirmationPhrases.length > 5) {
+            this.recentAffirmationPhrases = this.recentAffirmationPhrases.slice(-5);
+          }
+        }
+      }
+
       // H1 fix: clear greeting gate on generationComplete — handles the case where the
       // greeting turn produces no audio (content filter, text-only, error), which would
       // otherwise leave greetingPhaseActive=true permanently and block all mic input.
@@ -2478,7 +2591,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           `Score is a few turns old (turn ~${turn}). Voice the student you hear right now. Check growth_memory before encouraging — something real is always better than something warm.`,
         ];
         const labels = ['System note — not spoken', 'Background signal — silent', 'Tutor advisory — not aloud', 'Internal compass — unspoken'];
-        const whisperPayload = `[${labels[turn % labels.length]}: ${coreContent} ${tails[turn % tails.length]}]`;
+        // Affirmation variety note: if Daniela has been using the same openers, remind her
+        // to vary them. Injected as part of the existing whisper — no extra sendClientContent.
+        const affirmationNote = this.recentAffirmationPhrases.length >= 2
+          ? ` Vary affirmations — recently used: ${this.recentAffirmationPhrases.slice(-3).map(p => `"${p}"`).join(', ')}. Skip the opener or pick something different.`
+          : '';
+        const whisperPayload = `[${labels[turn % labels.length]}: ${coreContent}${affirmationNote} ${tails[turn % tails.length]}]`;
 
         (last.response as any).result = currentResult
           + (currentResult ? '\n\n' : '')

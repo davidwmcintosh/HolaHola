@@ -381,7 +381,14 @@ export class NativeFunctionCallHandler {
           const formatted = formatTeachingKnowledge(results);
           if (!('teachingWisdomResults' in session)) (session as any).teachingWisdomResults = {};
           if (formatted && formatted.trim()) {
-            (session as any).teachingWisdomResults[stwKey] = `[Teaching knowledge for "${stwQuery}"]\n\n${formatted}\n\nThese are your own teaching records. Speak from them.`;
+            const MAX_WISDOM_CHARS = 1000;
+            const truncated = formatted.length > MAX_WISDOM_CHARS
+              ? formatted.slice(0, MAX_WISDOM_CHARS) + '… [truncated for context budget]'
+              : formatted;
+            if (formatted.length > 1024) {
+              console.warn(`[Dispatcher] search_my_teaching_wisdom: result ${formatted.length} chars — truncating to ${MAX_WISDOM_CHARS} (context budget protection)`);
+            }
+            (session as any).teachingWisdomResults[stwKey] = `[Teaching knowledge for "${stwQuery}"]\n\n${truncated}\n\nThese are your own teaching records. Speak from them.`;
           } else {
             (session as any).teachingWisdomResults[stwKey] = `No specific HolaHola pedagogy found for "${stwQuery}". Use a standard teaching explanation — avoid inventing a Madrigal image if none was returned.`;
           }
@@ -3785,6 +3792,54 @@ export class NativeFunctionCallHandler {
           console.log(`[LessonArc] Phase hint: gear ${pgGear} → "${hbLc.phaseHint}"`);
         } else {
           console.log(`[LessonArc] Phase hint skipped — manual phase update ${Math.round(hbSecondsSinceUpdate)}s ago (grace period active)`);
+        }
+
+        // ── ACTFL silence-tier tracking (Fix 1) ───────────────────────────────
+        // Map Daniela's observed gear to a silence-duration tier. If the tier changes
+        // (e.g. novice → intermediate), update session.studentActflLevel and queue a
+        // proactive reconnect so silenceDurationMs re-calibrates at the next safe window.
+        // Guards:
+        //   • Only triggers when the SILENCE TIER changes — not on every gear tick.
+        //   • 3-turn stability: tier must hold for 3 consecutive heartbeats before firing.
+        //   • 5-min cooldown: no more than one proactive reconnect per 5 minutes.
+        {
+          const silenceTierFromGear = pgGear >= 4 ? 'advanced' : pgGear >= 3 ? 'intermediate' : 'novice';
+          const currentActfl = (session as any).studentActflLevel || 'novice';
+          const currentTier = /intermediate/i.test(currentActfl) ? 'intermediate'
+            : /advanced|superior/i.test(currentActfl) ? 'advanced'
+            : 'novice';
+          if (silenceTierFromGear !== currentTier) {
+            // Track consecutive turns on the new tier
+            if (!(session as any)._actflTierCandidate) (session as any)._actflTierCandidate = { tier: '', count: 0 };
+            const cand = (session as any)._actflTierCandidate;
+            if (cand.tier === silenceTierFromGear) {
+              cand.count++;
+            } else {
+              cand.tier = silenceTierFromGear;
+              cand.count = 1;
+            }
+            // Only trigger after 3 stable consecutive turns + 5-min cooldown
+            const ACTFL_RECONNECT_COOLDOWN_MS = 5 * 60 * 1000;
+            const lastReconnect = (session as any)._lastActflReconnectAt || 0;
+            const cooldownOk = Date.now() - lastReconnect > ACTFL_RECONNECT_COOLDOWN_MS;
+            if (cand.count >= 3 && cooldownOk) {
+              const newActflLevel = silenceTierFromGear === 'advanced' ? 'advanced-low'
+                : silenceTierFromGear === 'intermediate' ? 'intermediate-low'
+                : 'novice';
+              (session as any).studentActflLevel = newActflLevel;
+              (session as any).pendingActflReconnect = true;
+              (session as any)._lastActflReconnectAt = Date.now();
+              cand.count = 0; // reset so it doesn't re-trigger immediately
+              console.log(`[PedagogicalHeartbeat] ACTFL silence tier: ${currentTier} → ${silenceTierFromGear} (gear ${pgGear}, 3-turn stable) — proactive GL reconnect queued`);
+            } else {
+              console.log(`[PedagogicalHeartbeat] ACTFL tier candidate: ${silenceTierFromGear} (${cand.count}/3 turns${cooldownOk ? '' : ', cooldown active'})`);
+            }
+          } else {
+            // Reset candidate if we're back on the current tier
+            if ((session as any)._actflTierCandidate?.tier !== currentTier) {
+              (session as any)._actflTierCandidate = { tier: currentTier, count: 0 };
+            }
+          }
         }
         break;
       }

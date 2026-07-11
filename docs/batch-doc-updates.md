@@ -8,6 +8,37 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jul 11, 2026 — Voice Pipeline Robustness Pass (Luca)
+
+Full robustness pass on the GL voice pipeline. Gemini-reviewed pre-build, post-build, and final sign-off. 4 original fixes + 3 post-build corrections. All signed off "APPROVED — Ship it."
+
+### Fix 1 — ACTFL Proactive Reconnect
+**What:** When the pedagogical heartbeat (`update_session_pedagogy`) observes a gear-shift that crosses a silence-duration tier boundary (novice/intermediate/advanced), it now queues a proactive GL reconnect at the next safe audio boundary. This keeps `silenceDurationMs` calibrated to the student's actual fluency level during a session — not just at session start.
+**How:**
+- `native-fc-handlers.ts` → `UPDATE_SESSION_PEDAGOGY` case: maps gear to silence tier, tracks a 3-turn candidate count + 5-min cooldown before writing `pendingActflReconnect` to session. Logs: `[PedagogicalHeartbeat] ACTFL tier candidate: X (N/3 turns)` and final `proactive GL reconnect queued`.
+- `gemini-live-session.ts` → `proactiveReconnect()`: sets `isProactiveReconnecting=true`, closes WS. `onclose` (now `async`) catches this flag and calls `start()` directly, bypassing exponential backoff. Context preserved (resumption handle not cleared). Sends `gl_reconnecting` + `gl_reconnected` events to client.
+- Guards: `start()` rejects any concurrent call while `isProactiveReconnecting=true`. 3-turn stability + 5-min cooldown prevent oscillation at the gear 2/3 boundary.
+- `onPlaybackEnded()` is the trigger: fires reconnect only after last audio sentence finishes, never mid-sentence.
+
+### Fix 2 — Stuck-Listening Ceiling
+**What:** If GL's VAD keeps the mic open for >30s (background noise, open environment), Daniela never gets a turn. New ceiling timer forces utterance-end.
+**How:** `StreamingVoiceChat.tsx` — `listeningCeilingTimerRef` (30s) arms on `onVadSpeechStarted`, clears on `onVadUtteranceEnd`. If ceiling fires: forces `openMicState → 'processing'`, clears patience indicator, calls `stopOpenMicRecordingRef.current()`. Unmount cleanup `useEffect` prevents timer-on-null-component crash.
+
+### Fix 3 — `search_my_teaching_wisdom` Truncation
+**What:** Large wisdom results were burning GL's 16K history budget. Tool response now capped at 1000 chars.
+**How:** `native-fc-handlers.ts` — result sliced at 1000 chars with `… [truncated for context budget]` suffix. Results >1024 chars log a `console.warn`.
+
+### Fix 4 — Affirmation Variety Tracker
+**What:** Daniela was defaulting to the same affirmation opener ("¡Muy bien!") multiple turns in a row. A rolling buffer now detects repetition and injects a "vary affirmations" note into the system whisper.
+**How:** `gemini-live-session.ts` — `recentAffirmationPhrases[]` rolling buffer (max 5) on the class. At `generationComplete`, scans `pendingOutputTranscript` against `AFFIRMATION_PHRASES` static list (27 phrases, 10 languages). Normalizes `¡¿!` punctuation before matching (prevents "¡muy bien" and "muy bien" double-counting). When buffer hits ≥2 entries, appends variety note to next system whisper: `Vary affirmations — recently used: "X", "Y". Skip the opener or pick something different.` Rides the existing whisper tool-response injection path — no `sendClientContent` used (audio-doubling risk documented).
+
+### Key files
+- `server/services/gemini-live-session.ts` — Fixes 1, 4 (proactiveReconnect, affirmation tracker, async onclose)
+- `client/src/components/StreamingVoiceChat.tsx` — Fix 2 (ceiling timer + unmount cleanup)
+- `server/services/native-fc-handlers.ts` — Fix 3 (wisdom truncation), Fix 1 (tier detection in UPDATE_SESSION_PEDAGOGY)
+
+---
+
 ## Session — Jul 3, 2026 — Lesson Arc Validation (Luca)
 
 ### What was validated

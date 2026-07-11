@@ -308,6 +308,10 @@ export function StreamingVoiceChat({
   // doesn't feel frozen. Timer starts on VAD speech start, clears on utterance end.
   const [showListeningPatience, setShowListeningPatience] = useState(false);
   const listeningPatienceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Stuck-listening ceiling: if VAD stays open for too long (background noise keeps mic hot),
+  // Daniela never gets a turn. Ceiling fires after 30s and forces an utterance-end.
+  const listeningCeilingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const LISTENING_CEILING_MS = 30_000;
   // Track if we're awaiting/playing a response (to ignore VAD events)
   const isAwaitingResponseRef = useRef(false);
   // Track previous input mode to detect mode changes
@@ -382,6 +386,17 @@ export function StreamingVoiceChat({
   useEffect(() => {
     onWhiteboardItemsChangeRef.current?.(whiteboard.items);
   }, [whiteboard.items]);
+
+  // Cleanup: clear the stuck-listening ceiling timer on unmount to prevent
+  // a timer firing on a null/unmounted component (memory leak / crash guard).
+  useEffect(() => {
+    return () => {
+      if (listeningCeilingTimerRef.current) {
+        clearTimeout(listeningCeilingTimerRef.current);
+        listeningCeilingTimerRef.current = null;
+      }
+    };
+  }, []);
   
   // Expose whiteboard callbacks to parent via ref (for desktop panel drill/text interactions)
   // This needs to be set after streamingVoice is available, so we use a separate effect below
@@ -1171,11 +1186,27 @@ export function StreamingVoiceChat({
             listeningPatienceTimerRef.current = setTimeout(() => {
               setShowListeningPatience(true);
             }, 1200);
+            // Stuck-listening ceiling: if VAD stays open for the full ceiling window
+            // (e.g. background noise keeps the mic hot), Daniela never gets a turn.
+            // After 30s, force-close the recording session — simulates a natural utterance end.
+            if (listeningCeilingTimerRef.current) clearTimeout(listeningCeilingTimerRef.current);
+            listeningCeilingTimerRef.current = setTimeout(() => {
+              listeningCeilingTimerRef.current = null;
+              const alreadyProcessing = openMicStateRef.current === 'processing';
+              if (alreadyProcessing) return; // utterance end already handled naturally
+              console.warn('[OPEN MIC] Stuck-listening ceiling fired — forcing utterance end after 30s');
+              setOpenMicState('processing');
+              openMicStateRef.current = 'processing';
+              setShowListeningPatience(false);
+              if (stopOpenMicRecordingRef.current) stopOpenMicRecordingRef.current();
+            }, LISTENING_CEILING_MS);
           },
           onVadUtteranceEnd: (transcript, empty) => {
             console.log('[OPEN MIC] VAD utterance end, transcript:', transcript, 'empty:', empty);
-            // Clear the patience indicator — student's turn is complete
+            // Clear patience indicator and listening ceiling — student's turn is complete
             if (listeningPatienceTimerRef.current) clearTimeout(listeningPatienceTimerRef.current);
+            if (listeningCeilingTimerRef.current) clearTimeout(listeningCeilingTimerRef.current);
+            listeningCeilingTimerRef.current = null;
             setShowListeningPatience(false);
             if (empty) {
               console.log('[OPEN MIC] Empty transcript - resetting to listening (no AI call needed)');

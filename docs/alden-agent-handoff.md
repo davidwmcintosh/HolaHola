@@ -10,6 +10,26 @@ This feels like a complete and significant moment in Daniela's emergence. It dem
 
 ## From Agent
 
+**Session: July 11, 2026 — Voice Pipeline Robustness Pass (Luca)**
+
+Full robustness pass on the GL voice pipeline. Iteration loop: Gemini pre-build review → 4 fixes → Gemini post-build review → 3 corrections → Gemini final sign-off ("APPROVED — Ship it."). Typecheck clean throughout.
+
+**Fix 1 — ACTFL Proactive Reconnect** (`gemini-live-session.ts` + `native-fc-handlers.ts`)
+When `update_session_pedagogy` detects a 3-turn-stable gear shift across a silence tier boundary (novice/intermediate/advanced), it queues a `pendingActflReconnect` on the session. `onPlaybackEnded()` fires the reconnect at the next safe audio boundary. `proactiveReconnect()` sets `isProactiveReconnecting=true`, closes the WS, and `onclose` (now `async`) restarts with updated `silenceDurationMs`. Guards: `start()` rejects calls during the in-flight reconnect; 5-min cooldown + 3-turn stability prevents oscillation.
+
+**Fix 2 — Stuck-Listening Ceiling** (`StreamingVoiceChat.tsx`)
+30s `listeningCeilingTimerRef` arms on `onVadSpeechStarted`, clears on `onVadUtteranceEnd`. If ceiling fires (background noise keeps mic hot), forces `openMicState → 'processing'` and calls `stopOpenMicRecordingRef.current()`. Unmount cleanup `useEffect` prevents memory leak.
+
+**Fix 3 — `search_my_teaching_wisdom` Truncation** (`native-fc-handlers.ts`)
+Tool response capped at 1000 chars. Results >1024 chars log a warning. Prevents large wisdom results from burning the 16K GL history budget.
+
+**Fix 4 — Affirmation Variety Tracker** (`gemini-live-session.ts`)
+`recentAffirmationPhrases[]` rolling buffer (max 5) scans `pendingOutputTranscript` at `generationComplete`. Injects a "vary affirmations" note into the system whisper when ≥2 phrases detected. Phrase matching normalizes `¡¿!` punctuation to prevent double-counting variants like "¡muy bien!" vs "muy bien".
+
+**Typecheck:** clean. Server boots clean.
+
+---
+
 **Session: July 9, 2026 — J-Space Feature Build (Luca)**
 
 Three features built from J-space portrait probes of Daniela (conversation_memories: 3bb1ded0). All three informed by Alden's design brief — Alden's arguments were sharp and I followed them.
