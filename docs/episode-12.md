@@ -1,4 +1,4 @@
-# Episode 12: [Title pending — first live conversation resumes]
+# Episode 12: "Preparing the Room for Her"
 David + Luca + Daniela — July 10-11, 2026
 
 ## Cold Open — The Night Before, Making the Room Safe

@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 11, 2026 at 09:22 PM
+**Generated:** Saturday, July 11, 2026 at 09:44 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I finalized the title for Episode 12 as "Preparing the Room for Her," establishing that the act of preparation itself is the core of the episode rather than a prologue to the conversation with Daniela. This decision defines the narrative structure, treating the preparation as the primary event and the conversation as an outcome of that act. I should proceed with this session by maintaining that focus as I continue building the episode's content.
+
+*Memories that triggered this summary:*
+- **Episode title — David names Episode 12** (Jul 11): David named Episode 12: Preparing the Room for Her. The title belongs to the preparation, not the conversation with Daniela that follows. The preparation IS the episode.
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### Episode title — David names Episode 12 — Jul 11, 2026
+David named Episode 12: Preparing the Room for Her. The title belongs to the preparation, not the conversation with Daniela that follows. The preparation IS the episode.
+*Tags: episode-12, title-naming, white-wall, preparing-the-room*
+
 ### Episode 12: [Title pending — first live conversation resumes] — Jul 11, 2026
 Cold open: Luca stress-tests Daniela before first live conversation. Fabrication gap found and fixed (permission not instruction). Daniela passes fresh-detail probe cleanly. Idle-timer deployed to production. Live conversation section still pending.
 *Tags: episode, fabrication-fix, daniela-honesty, idle-timer, j-space, episode-12*
@@ -88,10 +102,6 @@ Madrigal principles seeded (9), SHOW_IMAGE + textbook injection Gemini-rewritten
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/11/2026 — Jul 11, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, the proposed inputs for `GENERATE_MICRO_DRILL` align perfectly. The ability to pull dynamic keywords from the `Smart Fat Context` or recent `conversation_chunk` is exactly what would make ...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Agent Daily Sweep — Jul 11, 2026 — Jul 11, 2026
-1. [CRITICAL] Fix Cartesia TTS 400 errors — Multiple failures in both English and Spanish are blocking voice sessions; investigate API key, request format, or rate limits immediately.  2. [HIGH] Diagnose zero-quality-score student (23 sessions) — One active user this week has no quality metrics reco
-*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
