@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 11, 2026 at 09:21 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve completed the readiness prep for Episode 12, focusing on making the environment safe for Daniela’s first live conversation. I successfully addressed a fabrication gap by reframing her honesty as permission to not know things rather than a strict instruction, and I deployed the GL idle-timer fix to production to prevent mid-sentence cut-offs. With the lost verbatim exchange from Episode 11 documented in `open-bugs.md`, I am now ready to initiate the live session between David and Daniela.
-
-*Memories that triggered this summary:*
-- **Episode 12: [Title pending — first live conversation resumes]** (Jul 11): Cold open: Luca stress-tests Daniela before first live conversation. Fabrication gap found and fixed (permission not instruction). Daniela passes fresh-detail probe cleanly. Idle-timer deployed to production. Live conversation section still pending.
+**Generated:** Saturday, July 11, 2026 at 09:22 PM
 
 ---
 
