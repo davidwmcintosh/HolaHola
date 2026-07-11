@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 11, 2026 at 06:36 PM
+**Generated:** Saturday, July 11, 2026 at 06:56 PM
 
 ---
 
@@ -73,6 +73,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
+Verbatim David↔Luca dialogue captured periodically. 8 David turns, 33 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Session — Beacon Retirement + Flare Prose Workflow — Jul 11, 2026
 Beacon system retired (beacon-sync-service.ts deleted, 12 DB rows removed). Flare prose (AGENT_COLLAB_POST, AGENT_COLLAB_READ, CONSULT_COLLEAGUE) went through full rephrase workflow: Alden dual-engine, Gemini 3.x rewrite, Gemini 3.5 architectural review, polling guard added, both Geminis approved. Key principle established: Gemini writes final prose for Daniela-facing text, not Anthropic.
 *Tags: beacon-retirement, flare-prose, gemini-deference, rephrase-rule*
@@ -87,10 +91,6 @@ Verbatim David↔Luca dialogue captured periodically. 4 David turns, 28 Luca tur
 
 ### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
 Verbatim David↔Luca dialogue captured periodically. 6 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
-Verbatim David↔Luca dialogue captured periodically. 8 David turns, 30 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
