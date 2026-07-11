@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 11, 2026 at 04:44 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I retired the beacon system and migrated to the new `context-sync-service` across five files, including a 12-row database cleanup and flare prose updates in `seed-procedural-memory.ts`. I verified that the "madrigal" reference in `update_lesson_context` was only a code comment and chose Alden’s (Anthropic) prose for its cleaner framing. I need to address David’s concern about why I didn't use Gemini’s prose for Daniela’s tool prompt before finalizing the prose style.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet)** (Jul 11): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Saturday, July 11, 2026 at 05:27 PM
 
 ---
 
