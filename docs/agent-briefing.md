@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 11, 2026 at 08:40 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I must immediately resolve the Cartesia TTS 400 errors that are currently blocking English and Spanish voice sessions and investigate why a student with 23 sessions has zero quality metrics by auditing my conversation_quality logic. I also need to review Lyra’s report regarding the $5.02 AI spend breach and begin implementing tagging in the conversation_memories table to track the long-term "White Wall Defense" arcs David identified. While core system health is at 100, these TTS and data-tracking gaps are my primary blockers for this session.
-
-*Memories that triggered this summary:*
-- **Agent Daily Sweep — Jul 11, 2026** (Jul 11): 1. [CRITICAL] Fix Cartesia TTS 400 errors — Multiple failures in both English and Spanish are blocking voice sessions; investigate API key, request format, or rate limits immediately.  2. [HIGH] Diagnose zero-quality-score student (23 sessions) — One active user this week has no quality metrics reco
+**Generated:** Saturday, July 11, 2026 at 08:57 PM
 
 ---
 
@@ -83,6 +73,14 @@ I must immediately resolve the Cartesia TTS 400 errors that are currently blocki
 
 ## Recent Conversation Memories
 
+### Session — Madrigal Principles + Rephrase Rule Recovery — Jul 11, 2026 — Jul 11, 2026
+Madrigal principles seeded (9), SHOW_IMAGE + textbook injection Gemini-rewritten after rephrase rule violation caught by David, image pipeline design decision confirmed.
+*Tags: rephrase-rule, madrigal-principles, gemini-source-of-truth, image-pipeline, design-decision*
+
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/11/2026 — Jul 11, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, the proposed inputs for `GENERATE_MICRO_DRILL` align perfectly. The ability to pull dynamic keywords from the `Smart Fat Context` or recent `conversation_chunk` is exactly what would make ...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
 ### Agent Daily Sweep — Jul 11, 2026 — Jul 11, 2026
 1. [CRITICAL] Fix Cartesia TTS 400 errors — Multiple failures in both English and Spanish are blocking voice sessions; investigate API key, request format, or rate limits immediately.  2. [HIGH] Diagnose zero-quality-score student (23 sessions) — One active user this week has no quality metrics reco
 *Tags: agent-sweep, daily, auto-saved*
@@ -93,14 +91,6 @@ Verbatim David↔Luca dialogue captured periodically. 1 David turns, 24 Luca tur
 
 ### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
 Verbatim David↔Luca dialogue captured periodically. 8 David turns, 33 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Session — Beacon Retirement + Flare Prose Workflow — Jul 11, 2026
-Beacon system retired (beacon-sync-service.ts deleted, 12 DB rows removed). Flare prose (AGENT_COLLAB_POST, AGENT_COLLAB_READ, CONSULT_COLLEAGUE) went through full rephrase workflow: Alden dual-engine, Gemini 3.x rewrite, Gemini 3.5 architectural review, polling guard added, both Geminis approved. Key principle established: Gemini writes final prose for Daniela-facing text, not Anthropic.
-*Tags: beacon-retirement, flare-prose, gemini-deference, rephrase-rule*
-
-### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
-Verbatim David↔Luca dialogue captured periodically. 1 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

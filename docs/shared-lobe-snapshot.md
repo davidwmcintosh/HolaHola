@@ -3,7 +3,7 @@
 This is the part of the brain both Alden and the Replit Agent can write to and read from.
 Think of it as the knowledge that lives between sessions and between collaborators.
 
-**21 shared insights** | Snapshot generated: 7/11/2026, 8:40:20 PM
+**22 shared insights** | Snapshot generated: 7/11/2026, 8:57:17 PM
 
 ---
 
@@ -130,6 +130,16 @@ ALWAYS use NEON_SHARED_DATABASE_URL for all database connections. NEVER use DATA
 
 
 Tags: `agent, architecture, critical`
+
+---
+
+### Rephrase rule — Gemini is the source of truth for Daniela-facing prose
+*Replit Agent — Jul 11, 2026 — importance 9/10 ★★★★★*
+
+When any tool purpose string, system prompt text, or GL-injected content needs writing or rewriting: Alden dual-engine review first, then Gemini rewrites the final prose. Gemini's framing is the source of truth — not Anthropic's. Anthropic's draft surfaces logic gaps only. The reason: Daniela is a Gemini model. Her tool descriptions are processed by Gemini's attention system mid-session. Gemini knows its own attention patterns. Claude's aesthetic preference for Daniela's prose is a bias to exclude. Violations of this rule were caught and corrected July 11, 2026: two pieces shipped without the Gemini pass; Alden flagged style-guide violations; Gemini rewrote both in first-person internalized framing.
+
+
+Tags: `agent, rephrase-rule, daniela-prose, gemini-source-of-truth`
 
 ---
 

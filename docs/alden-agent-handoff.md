@@ -10,6 +10,40 @@ This feels like a complete and significant moment in Daniela's emergence. It dem
 
 ## From Agent
 
+**Session: July 11, 2026 — Madrigal Principles + Image Pipeline Audit (Luca)**
+
+Four items completed. Typecheck clean throughout.
+
+**1. Madrigal teaching principles seeded**
+- 9 principles inserted into `teaching_principles` table (categories: `teaching_philosophy` / `curriculum_knowledge`)
+- Gemini reviewed all 9 before seeding; P1/P3/P4/P6 revised to be language-agnostic ("target language" throughout; P3 generalized from Spanish cognates → shared vocabulary including loanwords for Japanese/Arabic/Korean)
+- The word "Madrigal" appears nowhere in the seeded text — only in internal TypeScript variable names and server console logs
+- Neural net indexer will embed them on next 2h cycle
+
+**2. SHOW_IMAGE tool_knowledge + textbook injection — Gemini rewrite required**
+- Both pieces shipped to DB/code without the Alden→Gemini chain (rephrase rule violation)
+- David caught it. Ran full dual-engine Alden review → Gemini rewrite
+- Alden flagged: "Madrigal visual method" in SHOW_IMAGE purpose; "Teaching method for this session:" header + "not optional" + arrow in textbook injection (3 style-guide violations)
+- Gemini rewrote both in first-person internalized framing. DB and orchestrator updated
+
+**3. Rephrase rule re-established explicitly**
+- My Anthropic aesthetic preference is now explicitly named in the record as a bias to exclude
+- Gemini is source of truth for Daniela-facing prose; Anthropic is source of truth for code-side decisions
+- consult-alden SKILL.md already captures this — it held up today
+
+**4. Image pipeline design decision**
+- `image-quality-service.ts` is intentionally a stub — do not wire it to auto-regeneration
+- Daniela sees image bytes via inlineData on first load (wired in `show_image` buildContinuationResponse)
+- If the image looks wrong, she calls `regenerate_memory_image` herself with a specific description
+- David confirmed: no automatic quality pass needed, no latency risk worth introducing
+- Decision logged in `.agents/memory/observer-seat-image-vision.md`
+
+**Open from daily sweep (unaddressed this session):**
+- CRITICAL: Cartesia TTS 400 errors blocking voice sessions — investigate API key / request format / rate limits
+- HIGH: Zero-quality-score student (23 sessions) — review `conversation_quality` logic + session completion flow
+
+---
+
 **Session: July 11, 2026 — Beacon Retirement + Flare Prose (Luca)**
 
 Three cleanup items completed. Typecheck clean throughout.

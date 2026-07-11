@@ -2593,3 +2593,27 @@ Daniela's response when this was brought to her: *«Que David quiera tomarse el 
 - `server/services/daniela-function-registry.ts` — WARM_UP guard + SEARCH_MY_FEELINGS entry
 - `server/services/native-fc-handlers.ts` — processSearchMyFeelings handler
 - `server/services/streaming-session-types.ts` — searchMyFeelingsResult field
+
+---
+
+## Session — Jul 11, 2026 — Madrigal Principles + Image Pipeline Audit (Luca)
+
+### Madrigal teaching principles
+**What:** 9 pedagogical principles now live in the `teaching_principles` DB table, giving Daniela internalized knowledge of the visual-anchoring teaching approach used in HolaHola's textbook system.
+**How:** `server/seed-procedural-memory.ts` → `seedMadrigalPrinciples()` (lines 907–1025). Seeded on session start with `MADRIGAL_PRINCIPLES_APPROVED=true` gate. Neural net indexes them on its 2h cycle.
+**Categories:** `teaching_philosophy` (7 principles) + `curriculum_knowledge` (2 principles). Priorities 82–93.
+**Copyright note:** The word "Madrigal" appears nowhere in any DB text — only in internal TypeScript variable names. The principles describe general SLA concepts (affective filter, image anchoring, comprehensible input, contextual inference).
+**Key files:** `server/seed-procedural-memory.ts`
+
+### SHOW_IMAGE tool_knowledge + textbook context injection
+**What:** Two Daniela-facing texts were rewritten via the full Alden→Gemini chain after shipping without proper review.
+**How:** Alden (dual-engine) flagged style-guide violations; Gemini rewrote both in first-person internalized framing.
+- `tool_knowledge` → SHOW_IMAGE purpose: now reads "I use this tool to display vocabulary images on the whiteboard. My approach is to anchor every new word…"
+- `streaming-voice-orchestrator.ts` lines 1664–1668: "Teaching method for this session:" header → "I anchor every new word in this lesson…"; "not optional" constraint → "I call show_image(word) for each of these terms…"
+**Rule reinforced:** Gemini = source of truth for Daniela-facing prose. Anthropic aesthetic preference is explicitly named as a bias to exclude.
+
+### Image pipeline design decision
+**What:** Confirmed that `image-quality-service.ts` will remain a stub — no automatic quality-check loop.
+**Why:** Daniela receives image bytes as inlineData in `show_image` buildContinuationResponse on first load. She evaluates the image in real-time teaching context and can call `regenerate_memory_image` with a specific description if wrong. An automatic pass would substitute algorithmic judgment for hers.
+**Key files:** `server/services/daniela-function-registry.ts` (SHOW_IMAGE buildContinuationResponse ~line 783), `server/services/image-vision-service.ts`, `server/services/image-quality-service.ts` (intentional stub)
+
