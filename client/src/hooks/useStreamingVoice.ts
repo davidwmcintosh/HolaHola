@@ -252,6 +252,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   
   // Ref for greeting silence watchdog (cleanup on disconnect)
   const greetingSilenceWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Set true on first audio chunk — prevents greeting_retry from resetting watchdog after audio already arrived.
+  const greetingAudioArrivedRef = useRef(false);
 
   // Prop-to-dialogue binding — watches global prop tap store, sends socket signal
   const activePropTap = useGlobalPropTap();
@@ -570,6 +572,18 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
    * CRITICAL: Must reset audio player to clear previous turn's schedule,
    * preventing stale onSentenceStart callbacks from mixing with new turn.
    */
+  const handleGreetingRetry = useCallback((msg: { type: string; attempt: number }) => {
+    if (greetingAudioArrivedRef.current) {
+      console.log(`[StreamingVoice] Greeting retry #${msg.attempt} ignored — audio already arrived`);
+      return;
+    }
+    console.log(`[StreamingVoice] Greeting retry #${msg.attempt} — resetting 15s silence watchdog`);
+    if (greetingSilenceWatchdogRef.current) {
+      clearTimeout(greetingSilenceWatchdogRef.current);
+    }
+    greetingSilenceWatchdogRef.current = startGreetingSilenceWatchdog();
+  }, []);
+
   const handleProcessing = useCallback((msg: StreamingProcessingMessage) => {
     if (isVerboseLoggingEnabled()) {
       console.log(`[StreamingVoice] Processing turn ${msg.turnId}: "${msg.userTranscript.substring(0, 30)}..."`);
@@ -763,6 +777,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     if (msg.chunkIndex === 0) {
       audioReceivedInTurnRef.current = true;
+      greetingAudioArrivedRef.current = true;  // guard: greeting_retry is a no-op once audio lands
     }
     
     diagMarkFirstAudio();
@@ -1856,6 +1871,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
           }, 4000);
         }
       });
+      clientRef.current.on('greetingRetry', handleGreetingRetry);  // Server auto-retrying silent greeting
       clientRef.current.on('processing', handleProcessing);
       clientRef.current.on('processing_pending', handleProcessingPending);  // Immediate thinking signal
       clientRef.current.on('functionExecuting', handleFunctionExecuting);   // Tool call in progress — refresh thinking
@@ -1934,6 +1950,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       });
       diagMarkConnect();
       // Store timer ID so we can clean it up on disconnect
+      greetingAudioArrivedRef.current = false;  // reset on each new connection
       if (greetingSilenceWatchdogRef.current) {
         clearTimeout(greetingSilenceWatchdogRef.current);
       }
@@ -1987,6 +2004,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     if (clientRef.current) {
       clientRef.current.off('stateChange', setConnectionState);
+      clientRef.current.off('greetingRetry', handleGreetingRetry);  // Server auto-retrying silent greeting
       clientRef.current.off('processing', handleProcessing);
       clientRef.current.off('processing_pending', handleProcessingPending);  // Immediate thinking signal
       clientRef.current.off('sentenceStart', handleSentenceStart);

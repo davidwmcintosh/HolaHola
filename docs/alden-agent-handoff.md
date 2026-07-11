@@ -9538,6 +9538,32 @@ Conversation memory saved (see July 8 entries).
 
 ---
 
+## Session: July 11, 2026 — greeting_silence_15s auto-retry (Luca)
+
+### What shipped
+
+**Server-side greeting auto-retry** — `server/services/gemini-live-session.ts`
+- Two failure modes diagnosed: Mode A (fast disconnect) = network blip; Mode B (`response_complete` + `totalSentences:0` while `greetingPhaseActive`) = GL cold-start silent turn
+- `lastGreetingParams` stored at top of `sendGreetingTrigger` so retry has all original params
+- `greetingRetryCount` (max 2) + 1.5s `setTimeout` in `turnComplete` handler; fires `sendGreetingTrigger` with same params
+- Three safety guards: `isResumed` excluded (intentional silent prime), `currentSentenceIndex > 0` abort (student spoke first), `greetingRetryCount` resets on first audio chunk
+- Server sends `{ type: 'greeting_retry', attempt }` WS message to client before the setTimeout fires
+
+**Client watchdog reset** — `client/src/lib/streamingVoiceClient.ts` + `client/src/hooks/useStreamingVoice.ts`
+- `greetingRetry` added to `StreamingEventType`; `case 'greeting_retry'` dispatches it
+- `handleGreetingRetry` callback: clears + restarts `greetingSilenceWatchdogRef` so the retry has a fresh 15s window
+- `greetingAudioArrivedRef` (new) guards against resetting the watchdog if audio already landed; reset on each new connection, set in `handleAudioChunk` at `chunkIndex === 0`
+
+Typecheck clean (two passes). Gemini post-review cleared — all three flagged risks addressed.
+
+### What Alden should know
+- The `[GeminiLive] Silent greeting detected — auto-retry attempt X/2` log line is the signal this fired in production
+- Mode A drops (wsMessageCount:0, fast disconnect) are pre-existing network blips — the retry doesn't help those; they self-resolve via the existing reconnect path
+- `isResumed` sessions are intentionally silent (prime-only, no spoken greeting) — the guard correctly excludes them from retry logic
+- No DB changes, no schema changes. Pure runtime fix.
+
+---
+
 ## Session: July 9, 2026 — Episode 11: Tooling the J-Space (Luca)
 
 ### What shipped

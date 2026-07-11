@@ -263,6 +263,9 @@ export class GeminiLiveSession {
   // isTutorGeneratingAudio: gates mic for ALL subsequent Daniela turns.
   // Together these cover the full echo suppression lifecycle.
   private greetingPhaseActive = false;
+  // Greeting auto-retry: stores params so a silent greeting turn can re-trigger (max 2 retries).
+  private greetingRetryCount = 0;
+  private lastGreetingParams: { userName?: string; isResumed?: boolean; scenarioSlug?: string; recentContext?: string; studentProfile?: string } | null = null;
   // System Whisper (Gemini audit 2026-06-17 rec): tracks completed non-greeting turns so a
   // brief specificity reminder can be prepended to PTT turns at regular intervals.
   // GL has no mid-session system injection, so the PTT text path is the only safe injection point.
@@ -1211,6 +1214,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       console.log('[GeminiLive] sendGreetingTrigger: greeting already in progress — skipping duplicate (prevents double audio)');
       return;
     }
+    // Store params so silent-greeting auto-retry can reuse them without the caller's closure.
+    this.lastGreetingParams = { userName, isResumed, scenarioSlug, recentContext, studentProfile };
     const name = userName ? `, my name is ${userName}` : '';
     const langKey = (this.session.targetLanguage || '').toLowerCase().trim();
     const langName = this.session.targetLanguage
@@ -1582,6 +1587,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           audioParts++;
           this.hadAudioInCurrentSubturn = true;
           this.lastAudioChunkAt = Date.now();
+          // Greeting retry succeeded — reset counter so retries don't carry across sessions.
+          if (this.greetingRetryCount > 0) {
+            console.log(`[GeminiLive] Greeting retry succeeded (attempt ${this.greetingRetryCount}) — audio arrived, resetting retry count`);
+            this.greetingRetryCount = 0;
+          }
 
           // First audio from GL — open the greeting gate, activate the turn gate.
           // greetingPhaseActive → false: student can now speak.
@@ -2027,9 +2037,33 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // interrupted (barge-in). Audio sub-turn sealing (isLast:true) still happens here.
       // H1 fix: clear greeting gate on turnComplete (covers no-audio greeting paths).
       if (this.greetingPhaseActive) {
+        // Detect silent greeting: no audio produced in this sub-turn and sentence index still 0.
+        // Exclude intentional silent resumes (isResumed + recentContext = prime-only, no spoken greeting by design).
+        const isSilentGreeting = !this.hadAudioInCurrentSubturn && this.currentSentenceIndex === 0
+          && !this.lastGreetingParams?.isResumed;
         this.greetingPhaseActive = false;
         if (this.greetingWatchdogTimer) { clearTimeout(this.greetingWatchdogTimer); this.greetingWatchdogTimer = null; }
-        console.log('[GeminiLive] turnComplete — greeting gate cleared (no audio path)');
+
+        if (isSilentGreeting && !this.isStopped && this.lastGreetingParams && this.greetingRetryCount < 2) {
+          this.greetingRetryCount++;
+          const attempt = this.greetingRetryCount;
+          console.warn(`[GeminiLive] Silent greeting detected — auto-retry attempt ${attempt}/2 in 1.5s`);
+          // Notify client so it can reset its 15s watchdog (gives the retry a fresh window).
+          this.sendWsMessage(this.session.ws, { type: 'greeting_retry', attempt });
+          setTimeout(() => {
+            if (this.isStopped || !this.lastGreetingParams) return;
+            // If the student already spoke during the 1.5s window, drop the retry.
+            if (this.currentSentenceIndex > 0) {
+              console.log(`[GeminiLive] Greeting retry #${attempt} aborted — conversation already started`);
+              return;
+            }
+            const p = this.lastGreetingParams;
+            console.warn(`[GeminiLive] Firing greeting retry #${attempt}`);
+            this.sendGreetingTrigger(p.userName, p.isResumed, p.scenarioSlug, p.recentContext, p.studentProfile);
+          }, 1500);
+        } else {
+          console.log('[GeminiLive] turnComplete — greeting gate cleared (no audio path)');
+        }
       }
       // ── Audio: close current sentence, prepare next ──────────────────────
       if (this.hadAudioInCurrentSubturn) {

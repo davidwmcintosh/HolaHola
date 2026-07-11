@@ -243,6 +243,7 @@ type StreamingEventType =
   | 'creditWarning'
   | 'sessionConflict'
   | 'server_restarting'  // Server SIGTERM — deploy rotation, drain window in progress
+  | 'greetingRetry'      // Server auto-retrying silent greeting — client resets 15s watchdog
   | 'glReconnecting'
   | 'glReconnected'
   | 'voiceError'
@@ -1357,6 +1358,11 @@ export class StreamingVoiceClient {
         case 'whiteboard_update':
           // Whiteboard content from tutor
           this.emit('whiteboardUpdate', message as StreamingWhiteboardMessage);
+          break;
+
+        case 'greeting_retry':
+          // Server detected silent greeting and is auto-retrying — tell client to reset watchdog
+          this.emit('greetingRetry', message as { type: string; attempt: number });
           break;
 
         case 'lesson_note_added':

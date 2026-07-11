@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 11, 2026 at 05:10 AM
+**Generated:** Saturday, July 11, 2026 at 05:27 AM
 
 ---
 
@@ -73,6 +73,14 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
+Verbatim David↔Luca dialogue captured periodically. 2 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
+Verbatim David↔Luca dialogue captured periodically. 7 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/11/2026 — Jul 11, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That distinction you drew between a task delegation and seeking strategic advice for `CONSULT_COLLEAGUE` versus `CALL_ASSISTANT` is spot on, Agent. A more defined input structure for strategic queries...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
@@ -84,14 +92,6 @@ Verbatim David↔Luca dialogue captured periodically. 0 David turns, 22 Luca tur
 ### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
 Verbatim David↔Luca dialogue captured periodically. 2 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent Daily Sweep — Jul 11, 2026 — Jul 11, 2026
-**1. [CRITICAL] Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests (readableStream in body). This breaks core learning flow. Check API payload format and authentication.**  **2. [HIGH] Investigate zero quality scores for the active student — 23 sessions wi
-*Tags: agent-sweep, daily, auto-saved*
-
-### Gemini audit — ACTFL ordering + guard-reset + verbal loop fixes — July 10 2026 — Jul 11, 2026
-All three fixes confirmed correct; guard-reset !responseCompleteRef covers pre-audio window; verbal loop is soft fix only; ACTFL stagnation (level locked at session start) flagged as next known gap
-*Tags: gemini-audit, voice-pipeline, actfl, guard-reset, verbal-loop*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
