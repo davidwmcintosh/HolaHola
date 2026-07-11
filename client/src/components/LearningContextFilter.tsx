@@ -8,7 +8,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useLearningFilter, LearningContext } from "@/contexts/LearningFilterContext";
-import { GraduationCap, User, Filter, Sparkles, Heart, Globe, Bot } from "lucide-react";
+import { GraduationCap, User, Filter, Sparkles, Heart, Globe } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useQuery } from "@tanstack/react-query";
 import type { User as UserType } from "@shared/schema";
