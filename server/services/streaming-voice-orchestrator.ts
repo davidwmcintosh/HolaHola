@@ -1661,11 +1661,11 @@ Remember: David may reference things discussed in these recent text chats.
             const relatedScenarios = (contentRow.rows[0].related_scenario_slugs ?? []) as string[];
 
             let block = `📖 TEXTBOOK CHAPTER CONTEXT (lesson_id: ${textbookLessonId}):`;
-            block += '\n\nTeaching method for this session: anchor every new word to a visual image. Call show_image(word) the moment you introduce or name any vocabulary word — do not wait for the student to ask. Start with the first word immediately. Use show_sentence_table to reveal substitution patterns when the lesson has them.';
+            block += '\n\nI anchor every new word in this lesson to a visual image, calling show_image(word) as soon as I introduce or name a term. I begin this process with the first word of the session. When substitution patterns are present, I use show_sentence_table to reveal those structures to the student.';
             if (vocab.length > 0) {
               block += '\n\nVocabulary from this chapter:\n';
               block += vocab.map(v => `• ${v.word} (${v.translation}) — ${v.partOfSpeech}`).join('\n');
-              block += '\n→ Call show_image(word) for each word above as you teach it. This is the visual anchor — not optional.';
+              block += '\nI call show_image(word) for each of these terms as I introduce them to ensure every word is tied to its visual anchor.';
             }
             if (phrases.length > 0) {
               block += '\n\nKey phrases for this chapter:\n';
