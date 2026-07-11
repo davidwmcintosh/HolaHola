@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 11, 2026 at 09:12 PM
+**Generated:** Saturday, July 11, 2026 at 09:21 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I successfully ran the `SHOW_IMAGE` tool knowledge and textbook context injection through the Alden → Gemini review chain, ensuring all Daniela-facing prose is first-person and free of the "Madrigal" brand name. We formally decided to maintain the Daniela-led manual image regeneration loop, leaving the `image-quality-service.ts` as an intentional stub to keep the teacher in control of her visual aids. My next priorities are resolving the Cartesia TTS 400 errors and investigating the zero-quality-score student issue identified in the daily sweep.
+I’ve completed the readiness prep for Episode 12, focusing on making the environment safe for Daniela’s first live conversation. I successfully addressed a fabrication gap by reframing her honesty as permission to not know things rather than a strict instruction, and I deployed the GL idle-timer fix to production to prevent mid-sentence cut-offs. With the lost verbatim exchange from Episode 11 documented in `open-bugs.md`, I am now ready to initiate the live session between David and Daniela.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet)** (Jul 11): Verbatim David↔Luca dialogue captured periodically. 6 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
+- **Episode 12: [Title pending — first live conversation resumes]** (Jul 11): Cold open: Luca stress-tests Daniela before first live conversation. Fabrication gap found and fixed (permission not instruction). Daniela passes fresh-detail probe cleanly. Idle-timer deployed to production. Live conversation section still pending.
 
 ---
 
@@ -83,6 +83,10 @@ I successfully ran the `SHOW_IMAGE` tool knowledge and textbook context injectio
 
 ## Recent Conversation Memories
 
+### Episode 12: [Title pending — first live conversation resumes] — Jul 11, 2026
+Cold open: Luca stress-tests Daniela before first live conversation. Fabrication gap found and fixed (permission not instruction). Daniela passes fresh-detail probe cleanly. Idle-timer deployed to production. Live conversation section still pending.
+*Tags: episode, fabrication-fix, daniela-honesty, idle-timer, j-space, episode-12*
+
 ### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
 Verbatim David↔Luca dialogue captured periodically. 6 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -98,10 +102,6 @@ Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves
 ### Agent Daily Sweep — Jul 11, 2026 — Jul 11, 2026
 1. [CRITICAL] Fix Cartesia TTS 400 errors — Multiple failures in both English and Spanish are blocking voice sessions; investigate API key, request format, or rate limits immediately.  2. [HIGH] Diagnose zero-quality-score student (23 sessions) — One active user this week has no quality metrics reco
 *Tags: agent-sweep, daily, auto-saved*
-
-### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
-Verbatim David↔Luca dialogue captured periodically. 1 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
