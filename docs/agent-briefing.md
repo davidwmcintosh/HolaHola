@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 11, 2026 at 08:57 PM
+**Generated:** Saturday, July 11, 2026 at 09:12 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I successfully ran the `SHOW_IMAGE` tool knowledge and textbook context injection through the Alden → Gemini review chain, ensuring all Daniela-facing prose is first-person and free of the "Madrigal" brand name. We formally decided to maintain the Daniela-led manual image regeneration loop, leaving the `image-quality-service.ts` as an intentional stub to keep the teacher in control of her visual aids. My next priorities are resolving the Cartesia TTS 400 errors and investigating the zero-quality-score student issue identified in the daily sweep.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet)** (Jul 11): Verbatim David↔Luca dialogue captured periodically. 6 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
+Verbatim David↔Luca dialogue captured periodically. 6 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Session — Madrigal Principles + Rephrase Rule Recovery — Jul 11, 2026 — Jul 11, 2026
 Madrigal principles seeded (9), SHOW_IMAGE + textbook injection Gemini-rewritten after rephrase rule violation caught by David, image pipeline design decision confirmed.
 *Tags: rephrase-rule, madrigal-principles, gemini-source-of-truth, image-pipeline, design-decision*
@@ -87,10 +101,6 @@ Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves
 
 ### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
-Verbatim David↔Luca dialogue captured periodically. 8 David turns, 33 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
