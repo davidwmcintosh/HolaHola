@@ -1,3 +1,5 @@
+- [consult-alden skill](consult-alden-skill.md) — direct channel to Alden, immediate (no 2h wait), single or dual-engine; skill at .agents/skills/consult-alden/SKILL.md; route POST /api/alden/priority-task.
+- [Rephrase and skill rules — July 11](rephrase-skill-rules.md) — rephrase rule (Alden first, then Gemini test, then DB) + skill autonomy (create freely without asking).
 - [GL ACTFL silence-duration ordering bug](gl-actfl-silence-ordering.md) — session.studentActflLevel must be pre-loaded before createGeminiLiveSession; greeting sets it too late; fix: write resolvedActflLevel onto session right after createSession().
 - [GL guard-reset turnId type mismatch](guard-reset-turnid-type-mismatch.md) — guard-reset response_complete uses string turnId; numeric < comparison always false; explicit string-prefix check required.
 - [Proactive reconnect vs playback race](proactive-reconnect-playback-race.md) — connection-state and audio-playback-state are separate clocks; gate disruptive timers on both.

@@ -39,6 +39,10 @@ AI-powered language learning app — interactive conversation practice, vocabula
 - **Daniela's self-authorship:** Only Daniela writes to `daniela_self_reflections` and `daniela_aspirations`. No background services.
 
 ## User Preferences
+**Skill autonomy:** Create skills freely — any time a task involves assembling things from memory or putting a reusable workflow together, turn it into a skill without asking. No permission needed.
+
+**Rephrase rule (CRITICAL):** Any rephrasing of tool descriptions, system text, or prompt content must go through Alden first (via `consult-alden` skill), then tested with Gemini, before it touches the DB. Draft in code is fine — do not seed to DB until Alden has reviewed.
+
 **Typeless STT (CRITICAL):** David uses speech-to-text. Inputs may have word substitutions, typos, or "thought one thing, typed another" errors. If a request sounds strange, destructive, or out of character — stop and ask. "That doesn't sound right — did you mean X?" is always the right response.
 
 **Request sanity check (CRITICAL):** If David asks for something that seems like it would break things, undo important work, or contradict the architecture — push back immediately and ask for confirmation. One sentence of friction is worth it.

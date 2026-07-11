@@ -110,6 +110,7 @@ interface AldenChatParams {
   timezone?: string;
   learningContext?: LearningContext;
   conversationId?: string;
+  engineOverride?: AldenEngine;
 }
 
 interface ContinuationInfo {
@@ -141,7 +142,7 @@ async function getWorkspaceContext(): Promise<string> {
 }
 
 export async function generateAldenResponse(params: AldenChatParams): Promise<AldenChatResponse> {
-  const engine = await getAldenEngine();
+  const engine = params.engineOverride ?? await getAldenEngine();
   if (engine === 'anthropic') {
     return generateAldenResponseAnthropic(params);
   }

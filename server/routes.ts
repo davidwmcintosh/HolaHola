@@ -17378,6 +17378,118 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
+  // Alden priority task — direct channel for Luca/David to fire an immediate task at Alden,
+  // optionally across both engines (Anthropic + Gemini) for a dual-perspective review.
+  // No cooldown, no polling wait. Result auto-posts to Team Room.
+  app.post("/api/alden/priority-task", requireFounderOrAgent, async (req: any, res: Response) => {
+    try {
+      const { task, context, engines = 'current' } = req.body;
+      if (!task || typeof task !== 'string') {
+        return res.status(400).json({ error: 'task is required' });
+      }
+
+      const { generateAldenResponse, getAldenEngine } = await import('./services/alden-persona-service');
+      const { aldenConversations, aldenMessages } = await import('@shared/schema');
+      const { isNull, gt, and: _and } = await import('drizzle-orm');
+      const _db = getSharedDb();
+
+      const callerLabel = req.headers['x-agent-token'] ? 'luca' : 'david';
+      const founderName = callerLabel === 'luca' ? 'Luca' : 'David';
+
+      const userMessage = context
+        ? `[PRIORITY TASK]\n\n${task}\n\n[CONTEXT]\n${context}`
+        : `[PRIORITY TASK]\n\n${task}`;
+
+      // Determine which engines to run
+      const currentEngine = await getAldenEngine();
+      const enginesToRun: Array<'anthropic' | 'gemini'> =
+        engines === 'both' ? ['anthropic', 'gemini'] :
+        engines === 'anthropic' ? ['anthropic'] :
+        engines === 'gemini' ? ['gemini'] :
+        [currentEngine];
+
+      // Run each engine — in parallel if both
+      const engineResults = await Promise.all(
+        enginesToRun.map(async (eng) => {
+          const result = await generateAldenResponse({
+            userMessage,
+            founderName,
+            engineOverride: eng,
+          });
+          return { engine: eng, response: result.response, toolsUsed: result.toolsUsed };
+        })
+      );
+
+      // Persist to alden conversation
+      let convId: string;
+      try {
+        const cutoff = new Date(Date.now() - 4 * 60 * 60 * 1000);
+        const [activeConv] = await _db.select({ id: aldenConversations.id })
+          .from(aldenConversations)
+          .where(_and(isNull(aldenConversations.endedAt), gt(aldenConversations.startedAt, cutoff)))
+          .limit(1);
+        if (activeConv) {
+          convId = activeConv.id;
+        } else {
+          const now = new Date();
+          const title = 'Priority — ' + now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+          const [newConv] = await _db.insert(aldenConversations)
+            .values({ title, startedAt: now })
+            .returning({ id: aldenConversations.id });
+          convId = newConv.id;
+        }
+
+        const rows: any[] = [
+          { conversationId: convId, role: callerLabel, content: userMessage, isSignificant: false },
+          ...engineResults.map(r => ({
+            conversationId: convId,
+            role: enginesToRun.length > 1 ? `alden-${r.engine}` : 'alden',
+            content: r.response,
+            isSignificant: false,
+          })),
+        ];
+        await _db.insert(aldenMessages).values(rows);
+      } catch (logErr: any) {
+        console.warn('[Alden Priority] Failed to persist:', logErr.message);
+      }
+
+      // Auto-post to Team Room
+      try {
+        const teamRoomContent = engineResults.length === 1
+          ? `**Alden [${engineResults[0].engine}] — Priority Task Response**\n\n${engineResults[0].response}`
+          : [
+              `**Alden Dual-Engine Review**`,
+              ``,
+              `**Anthropic:**`,
+              engineResults.find(r => r.engine === 'anthropic')?.response ?? '—',
+              ``,
+              `**Gemini:**`,
+              engineResults.find(r => r.engine === 'gemini')?.response ?? '—',
+            ].join('\n');
+
+        const { teamRoomMessages } = await import('@shared/schema');
+        const defaultRoomId = 'main';
+        await _db.insert(teamRoomMessages).values({
+          content: teamRoomContent,
+          authorType: 'alden',
+          authorId: 'alden',
+          roomId: defaultRoomId,
+        });
+      } catch (trErr: any) {
+        console.warn('[Alden Priority] Team Room post failed:', trErr.message);
+      }
+
+      res.json({
+        results: engineResults,
+        engines: enginesToRun,
+        currentEngine,
+      });
+    } catch (error: any) {
+      console.error('[Alden Priority] Error:', error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Alden session history — load recent messages for the UI
   app.get("/api/alden/session", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {

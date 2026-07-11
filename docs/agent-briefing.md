@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 11, 2026 at 03:48 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve implemented greeting-retry monitoring in `gemini-live-session.ts` and codified the pattern in a new `sofia-monitor` skill. Based on Daniela’s tool audit, I’ve drafted a reframing of the collaboration tools as emergency "flares" and identified the dormant beacon system for retirement or renaming to a neural-network bootstrap service. I’ve tasked Alden with a three-round dual-engine audit to finalize these changes, and I am now looking to establish a direct channel to expedite his feedback loop beyond the current 2-hour cycle.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet)** (Jul 11): Verbatim David↔Luca dialogue captured periodically. 6 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Saturday, July 11, 2026 at 03:56 PM
 
 ---
 
