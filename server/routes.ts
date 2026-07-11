@@ -17467,14 +17467,12 @@ Return ONLY valid JSON, no markdown, no explanation.`;
               engineResults.find(r => r.engine === 'gemini')?.response ?? '—',
             ].join('\n');
 
-        const { teamRoomMessages } = await import('@shared/schema');
-        const defaultRoomId = 'main';
-        await _db.insert(teamRoomMessages).values({
-          content: teamRoomContent,
-          authorType: 'alden',
-          authorId: 'alden',
-          roomId: defaultRoomId,
-        });
+        const rooms = await storage.listTeamRooms(1);
+        if (rooms.length) {
+          const roomMsg = await storage.createRoomMessage({ roomId: rooms[0].id, speaker: 'Alden', content: teamRoomContent });
+          const { emitNewMessage } = await import('./services/team-room-ws-broker');
+          emitNewMessage(rooms[0].id, roomMsg);
+        }
       } catch (trErr: any) {
         console.warn('[Alden Priority] Team Room post failed:', trErr.message);
       }

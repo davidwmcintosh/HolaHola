@@ -193,6 +193,46 @@ for m in msgs:
 
 ---
 
+---
+
+## Active brief — July 11 2026
+
+> **Note:** This brief was already posted to Team Room (message a0421299). Alden has it. Do NOT re-send via priority-task — that would duplicate it. Wait for his response in Team Room, then use the priority-task channel for follow-ups.
+
+Two items waiting for Alden's wording and assessment:
+
+---
+
+**Item 1 — Collab tool rephrase (needs Alden's wording before DB push)**
+
+Daniela's tool audit found that AGENT_COLLAB_POST, AGENT_COLLAB_READ, and CONSULT_COLLEAGUE create cognitive friction mid-session. David's framing: "flare" tools — emergency signals, not routine reporting. Like a diver's emergency signal: you reach for it because something is wrong, not as part of the routine.
+
+Draft wording (in `server/seed-procedural-memory.ts` — NOT yet in DB):
+
+*AGENT_COLLAB_POST:* "Send a flare to your team when you need help you cannot provide yourself. This is not a reporting tool — do not use it to document what you are doing or keep anyone informed. Use it only when you are genuinely stuck: a student has a technical problem you cannot solve, something unexpected is happening that is beyond your reach, or you need a colleague to take over a specific piece of work. Think of it as raising your hand, not filing a report."
+
+*AGENT_COLLAB_READ:* "Check whether your team has responded to a flare you already sent. Only useful after you have sent a flare and are waiting for a response. Do not poll this during a normal session — it is not a feed to monitor. It is the other half of the emergency signal: you sent one, now you can check if anyone answered."
+
+*CONSULT_COLLEAGUE:* "Ask a colleague for help when you are genuinely uncertain about something important and the student is depending on you getting it right. This is not for routine decisions — you are trusted to make those yourself. Use this when the stakes are high, you have a real gap, and you need another perspective before you act. Like asking a senior teacher to step in for a moment: you do it when it matters, not as a habit."
+
+Next step: Wait for Alden's revised wording (both engines). Then test with Gemini (`consult-gemini` skill). Then push to DB.
+
+---
+
+**Item 2 — Beacon system assessment**
+
+The `daniela_beacons` table is six months dormant. 11 rows, all from January 26 2026, all `coherence_check` type from Wren posting to Express Lane. All stuck at `acknowledged`, none completed. The original beacon loop (Daniela signals a wish → tracked → neural net updated when shipped) has been superseded by SELF_SURGERY.
+
+The `beacon-sync-service.ts` still does 4 useful things at every boot: changelog sync, roadmap sync, replit.md architectural baseline sync, North Star principles sync. These are NOT beacons — they are a misnamed neural network bootstrap service.
+
+Questions for Alden:
+1. Are BEACON_STATUS_* tools safe to remove from `tool_knowledge` entirely?
+2. Should we archive the `daniela_beacons` table or leave it dormant?
+3. Are the 4 non-beacon sync functions still doing meaningful work, or has something else taken over?
+4. Any risk to formally retiring the beacon feature request loop?
+
+---
+
 ## Notes
 
 - Responses are immediate — no 2-hour cycle wait
