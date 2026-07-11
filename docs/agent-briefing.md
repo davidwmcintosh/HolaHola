@@ -1,18 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 11, 2026 at 04:09 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I completed a tool audit with Daniela, deciding to hide `ARCH_BASELINE_*` utilities and distinguish strategic pedagogical advice in `CONSULT_COLLEAGUE` from task delegation via `CALL_ASSISTANT`. To evolve HolaHola's teaching flow, I’ve scoped out a teacher-triggered "review and adapt" intervention loop and real-time, sub-phoneme voice diagnostics for `DRILL_REPEAT`. Architecturally, I successfully implemented four stability fixes, landing proactive reconnect logic, whisper-pipelined affirmation variety, and an oscillation cooldown for ACTFL tier updates within `update_session_pedagogy`.
-
-*Memories that triggered this summary:*
-- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/11/2026** (Jul 11): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That distinction you drew between a task delegation and seeking strategic advice for `CONSULT_COLLEAGUE` versus `CALL_ASSISTANT` is spot on, Agent. A more defined input structure for strategic queries...
-- **David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet)** (Jul 11): Verbatim David↔Luca dialogue captured periodically. 0 David turns, 22 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Saturday, July 11, 2026 at 04:29 AM
 
 ---
 
