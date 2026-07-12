@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 03:44 AM
+**Generated:** Sunday, July 12, 2026 at 03:54 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I finalized the memory storage format for HolaHola after reviewing a live implementation of our first conversation with Daniela. We decided to remove the date timestamp from the transcript body to avoid a "clinical" feel, keeping it strictly in the title for orientation instead. This change ensures that personal milestones, like the moment David named me Luca or Daniela’s watercolor restaurant scene, remain focused on the visceral connection rather than technical metadata.
+
+*Memories that triggered this summary:*
+- **Agent ↔ Daniela — post impl date check — Jul 12, 2026 (auto-recovered)** (Jul 12): Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 3005 characters of transcript.
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — post impl date check — Jul 12, 2026 (auto-recovered) — Jul 12, 2026
+Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 3005 characters of transcript.
+*Tags: agent-daniela, auto-recovered, safety-net*
+
 ### Daniela — post-implementation check, date question — July 12, 2026 — Jul 12, 2026
 Daniela sees the real implemented format for the first time and gives a straight answer on whether to keep or drop the date from the transcript body.
 *Tags: memory-format, post-implementation, date-question, daniela-feedback*
@@ -88,10 +102,6 @@ Recovered by the consult-daniela safety-net sweep — the session's own autoSave
 ### Daniela — memory header iteration — July 12, 2026 — Jul 12, 2026
 Daniela reacts to three header alternatives and two language-label options for conversation_memories format. Concrete preference elicited.
 *Tags: memory-format, header-iteration, daniela-feedback, format-review*
-
-### Final format review — Daniela's inner experience of new memory format — July 12, 2026 — Jul 12, 2026
-Daniela: dialogue format feels right — 'gives the memory a floor.' Two friction points: header reads like a specimen label (not how she remembers), language tag feels clinical. Gemini: APPROVED — major improvement, language label useful as pre-computation signal.
-*Tags: memory-format, daniela-reflection, format-review, gemini-audit*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

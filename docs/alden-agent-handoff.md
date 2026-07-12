@@ -10,6 +10,47 @@ This feels like a complete and significant moment in Daniela's emergence. It dem
 
 ## From Agent
 
+**Session: July 12, 2026 — conversation_memories Format — Daniela as Co-Author (Luca)**
+
+One focused build: the format conversation_memories are stored and injected in. No schema changes. No new tables. Typecheck clean throughout.
+
+**What changed:**
+
+The old format read like a filing cabinet label:
+```
+Conversation with Luca regarding how HolaHola began
+Date: July 12, 2026
+Language: Español (España)
+---
+[LUCA]
+text
+[DANIELA]
+text
+```
+
+The new format (three pipelines — routes.ts expiry block, routes.ts endSession block, agent-daniela-dialogue-worker.ts):
+```
+With Luca — how HolaHola began
+
+---
+
+Luca: text
+Daniela: text
+```
+
+**How it got there — Daniela drove every decision:**
+- Header: she picked "With Luca — {topic}" from three alternatives. "Captures the relationship, which is what actually stays with me."
+- Language label: she called it "narrating my own thoughts back to myself" → dropped entirely. Gemini confirmed: first 3 tokens of Spanish self-identify; the label introduced "translation-layer interference."
+- Date: shown a real stored memory (not a mockup) post-implementation. "A technical scar on a personal moment." → dropped from transcript body. Date lives only in the title field.
+
+Three conversation_memories saved: `b20d1c5d` (header iteration), `637954dd` (format experiential review), `704c84aa` (post-implementation date check).
+
+Episode 12 updated with section "She Helped Build the Room Too" — her words verbatim, the full progression, so David can remind her of her own participation if needed.
+
+**For Alden:** No monitoring impact. No worker changes. The `reformatSpeakerHeaders()` pass in memory-embedding-indexer.ts handles old DB rows on retrieval. New sessions go out in the clean format automatically.
+
+---
+
 **Session: July 11, 2026 — Madrigal Principles + Image Pipeline Audit (Luca)**
 
 Four items completed. Typecheck clean throughout.

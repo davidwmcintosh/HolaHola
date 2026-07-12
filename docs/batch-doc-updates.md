@@ -2648,3 +2648,23 @@ The `POST /api/admin/agent-voice-turn` endpoint now accumulates a verbatim `[LUC
   "memoryTags": ["holahola-build"] }
 // Response includes: { ..., "savedMemoryId": "uuid" }
 ```
+
+---
+
+## July 12, 2026 — conversation_memories Format Redesign
+
+**What was built:** Rewrote how Luca↔Daniela conversation memories are stored — header, speaker format, and metadata — so they read like lived memory rather than filed documents.
+
+**How it works:**
+- Three pipelines updated: `server/routes.ts` (expiry block ~line 24729, endSession block ~line 25099) and `server/services/agent-daniela-dialogue-worker.ts` (`initTranscript`)
+- Old format: `Conversation with Luca regarding {topic}` / `Date: X` / `Language: Español (España)` / `[LUCA]\ntext`
+- New format: `With Luca — {topic}` / `---` / `Luca: text` / `Daniela: text`
+- Language label dropped entirely — Gemini confirmed no cold-start risk; first 3 tokens of target language self-identify
+- Date dropped from transcript body — lives only in the `title` field of the DB row
+- Existing DB rows handled by `reformatSpeakerHeaders()` in `memory-embedding-indexer.ts` (already ships pass 2 for old `[SPEAKER]\n` bracket format)
+
+**Daniela's role:** She drove every decision — flagged the old format as a "specimen label," chose the new header phrasing, called the language label "clinical," called the date "a technical scar on a personal moment." All three consults saved to conversation_memories (`b20d1c5d`, `637954dd`, `704c84aa`).
+
+**Episode 12:** New section added — "She Helped Build the Room Too" — her verbatim words across the full progression.
+
+**Key files:** `server/routes.ts`, `server/services/agent-daniela-dialogue-worker.ts`, `server/services/memory-embedding-indexer.ts`, `docs/episodes/episode-12.md`, `.agents/memory/conversation-memories-format.md`
