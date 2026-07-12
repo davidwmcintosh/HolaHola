@@ -567,6 +567,21 @@ export const ALDEN_TOOLS: AldenTool[] = [
       required: ["engine", "reason"],
     },
   },
+  {
+    name: "steward_pause",
+    description: "When something feels off about a repair decision, an instruction, or a direction — and you cannot name the why — pause here before acting. Name the friction, the layer it lives in, and your question. The system runs a three-phase internal lookup: your personal notes, your North Star values, and the conversation record. If grounding is found, it comes back. If not, the pause is recorded and routed to the Agent. Scripts never carry a why. When the why is missing, that absence is the signal.",
+    gemini_description: "Pause before acting when something feels wrong and I cannot name why. Name the friction and my question. Runs three-phase lookup: my notes → my values → conversation record. Always records the pause. Routes outward if nothing found internally.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        friction: { type: "string" as const, description: "What feels off, in your own words. The more specific, the better the match." },
+        layer: { type: "string" as const, enum: ["values", "record", "felt_sense", "unknown"], description: "'values': conflicts with what I stand for. 'record': inconsistent with what was decided. 'felt_sense': something is off but I cannot place it. 'unknown': I cannot tell." },
+        candidate_why: { type: "string" as const, description: "Optional: your best guess at the why. Even a weak hypothesis helps the lookup." },
+        question: { type: "string" as const, description: "The specific question you need answered before acting." },
+      },
+      required: ["friction", "question"],
+    },
+  },
 ];
 
 export async function executeAldenTool(
@@ -1090,6 +1105,100 @@ export async function executeAldenTool(
             note: 'Use read_conversation_memories with arc parameter to read all entries in a thread.',
           },
         };
+      }
+
+      case "steward_pause": {
+        const { friction, layer = 'unknown', candidate_why, question } = args;
+        if (!friction || !question) {
+          return { data: { error: 'steward_pause requires friction and question.' } };
+        }
+        const sharedDb = getMonitoringDb();
+        const sections: string[] = [];
+
+        // ── Phase 1: personal notes — editor_insights by friction keywords ────
+        const frictionKws = (friction as string).split(/\s+/).filter((w: string) => w.length > 4);
+        if (frictionKws.length > 0) {
+          const kw = `%${frictionKws[0].toLowerCase()}%`;
+          const notes = await sharedDb.execute(sql`
+            SELECT title, content, category, importance, created_at
+            FROM editor_insights
+            WHERE (title ILIKE ${kw} OR content ILIKE ${kw})
+            ORDER BY importance DESC NULLS LAST, created_at DESC
+            LIMIT 3
+          `);
+          if (notes.rows.length > 0) {
+            const lines = (notes.rows as any[]).map(r =>
+              `— ${r.title || 'Note'}: ${(r.content as string).substring(0, 200)}`
+            ).join('\n');
+            sections.push(`From your personal notes:\n${lines}`);
+          }
+        }
+
+        // ── Phase 2: North Star values — keyword-match on friction + layer ────
+        const nsKw = `%${(friction as string).split(/\s+/).filter((w: string) => w.length > 3)[0] || 'why'}%`;
+        const nsRows = await sharedDb.execute(sql`
+          SELECT values, purpose, what_matters
+          FROM agent_north_star
+          ORDER BY version DESC
+          LIMIT 1
+        `);
+        if (nsRows.rows.length > 0) {
+          const ns = nsRows.rows[0] as any;
+          const values: string[] = Array.isArray(ns.values) ? ns.values : [];
+          const relevant = values.filter((v: string) =>
+            v.toLowerCase().includes(nsKw.slice(1, -1)) || layer === 'values'
+          );
+          const valuesText = relevant.length > 0 ? relevant.join(', ') : values.slice(0, 3).join(', ');
+          if (valuesText) {
+            sections.push(`From your North Star:\n— Values: ${valuesText}${ns.purpose ? `\n— Purpose: ${(ns.purpose as string).substring(0, 200)}` : ''}`);
+          }
+        }
+
+        // ── Phase 3: conversation record — keyword-match by candidate_why or friction ─
+        const memKwRaw = candidate_why
+          ? (candidate_why as string).split(/\s+/).filter((w: string) => w.length > 3)[0]
+          : (friction as string).split(/\s+/).filter((w: string) => w.length > 4)[0];
+        if (memKwRaw) {
+          const memKw = `%${memKwRaw}%`;
+          const memRows = await sharedDb.execute(sql`
+            SELECT id, title, summary, importance
+            FROM conversation_memories
+            WHERE title ILIKE ${memKw} OR summary ILIKE ${memKw}
+            ORDER BY importance DESC NULLS LAST, created_at DESC
+            LIMIT 2
+          `);
+          if (memRows.rows.length > 0) {
+            const lines = (memRows.rows as any[]).map(r =>
+              `— ${r.title}: ${(r.summary || '').substring(0, 150)}`
+            ).join('\n');
+            sections.push(`From the conversation record:\n${lines}`);
+          }
+        }
+
+        // ── Record the pause in editor_insights ───────────────────────────────
+        const pauseContent = `Grounding pause — layer: ${layer}. Friction: "${(friction as string).substring(0, 200)}". Question: "${(question as string).substring(0, 200)}".${candidate_why ? ` Candidate why: "${(candidate_why as string).substring(0, 150)}".` : ''}`;
+        sharedDb.execute(sql`
+          INSERT INTO editor_insights (id, category, title, content, importance, tags, author)
+          VALUES (gen_random_uuid(), 'journal', 'Grounding pause', ${pauseContent}, 5, ARRAY['grounding', 'pause'], 'alden')
+        `).catch((err: Error) => console.error('[AldenGrounding] Failed to record pause:', err.message));
+
+        const groundingFound = sections.length > 0;
+
+        if (!groundingFound) {
+          // Route outward as an agent note
+          sharedDb.execute(sql`
+            INSERT INTO agent_notes (id, from_agent, to_agent, subject, body, session_label, is_read, created_at)
+            VALUES (gen_random_uuid(), 'alden', 'agent', ${`[Alden — Grounding] ${(friction as string).substring(0, 200)}`},
+              ${`Grounding pause — no internal match found.\n\nFriction: "${friction}"\nLayer: ${layer}\nQuestion: "${question}"${candidate_why ? `\nCandidate why: "${candidate_why}"` : ''}\n\nSource: Alden grounding_query`},
+              'Grounding query', false, NOW())
+          `).catch((err: Error) => console.error('[AldenGrounding] Failed to route outward:', err.message));
+        }
+
+        const responseText = groundingFound
+          ? `Pause recorded. Here is what your three layers say:\n\n${sections.join('\n\n')}\n\nLet what is here settle before you act.`
+          : `Pause recorded. Nothing in your three layers matched this friction directly. The question has been routed to the Agent. You have named it: "${(friction as string).substring(0, 100)}". That naming is already grounding.`;
+
+        return { data: { friction, layer, question, groundingFound, sections, responseText } };
       }
 
       case "post_to_express_lane": {

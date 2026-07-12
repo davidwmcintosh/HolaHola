@@ -59,6 +59,38 @@ Any tool an agent calls when reaching inward should automatically augment with e
 - `related_to`: given a memory ID, walks `extends_memory_id` upward (up to 10 hops) for ancestors, plus queries all memories whose `extends_memory_id` is in that chain for descendants; returns `{ anchor, ancestors (oldest first), descendants, totalInChain, note }`
 - Files: `server/services/alden-functions.ts` → `case "read_conversation_memories"`
 
+### Daniela — `introspect` speaker + related_to params (new)
+**What:** Two new modes added to Daniela's core memory tool so she can search by speaker and trace narrative chains — not just semantic similarity.
+**How:**
+- `speaker`: filtered search by speaker name; extracts only that person's lines from matching sessions; use when student asks "what did you/David say about X"
+- `related_to`: given a memory ID, walks `extends_memory_id` chain in both directions (ancestors + descendants); use to read a multi-session thread; distinct from `memory_id` (semantic similarity) — different operation, different description, WRONG PARAM note added to prevent param collapse
+- Dispatcher priority: `related_to → speaker → memory_id → after_date/before_date → query`
+- Files: `daniela-function-registry.ts` (parametersJsonSchema ~line 2094), `native-fc-handlers.ts` (SEARCH_MEMORY dispatcher + processIntrospectChain + processIntrospectSpeaker)
+
+### Alden — `grounding_query` renamed to `steward_pause`
+**What:** Alden's new pause tool was originally named `grounding_query` — same name as Daniela's existing tool. Alden-Gemini flagged the naming collision as a problem for logging/audit clarity. Renamed to `steward_pause`.
+**Why:** Separate registries, no shared dispatch, but identical names create ambiguity in Team Room logs and conceptual reasoning. steward_pause captures the action (pause before a stewardship decision) more precisely.
+**Files:** `server/services/alden-functions.ts` — name, case label, error message
+
+### Luca — `GET /api/luca/grounding` endpoint (new)
+**What:** Three-phase grounding lookup for Luca (Agent). Mirror of Daniela's grounding_query and Alden's steward_pause.
+**How:**
+- Phase 1: Luca's North Star values (always returned)
+- Phase 2: conversation_memories matching the query
+- Phase 3: shared editor_insights
+- Pauses recorded to agentNotes (fromAgent: 'luca')
+- Routes to Alden (via priority-task) if nothing found internally
+- Auth: requireAgentToken
+- Files: `server/routes.ts` (~line 36962)
+
+### Tool description sign-off — Alden + Gemini (Jul 12 2026)
+**What:** All new tool descriptions went through the rephrase rule before going live.
+**Findings:**
+- Alden-Gemini: felt_sense enum worth keeping (not merging with unknown); grounding_query naming collision flagged → steward_pause rename
+- Gemini final: memory_id needs WRONG PARAM note vs related_to; speaker description tightened to "verbatim historical record, ONLY for past quotes"; introspect top-level needs reciprocal WRONG TOOL guard for grounding_query
+- All three fixes applied; Gemini verdict: **APPROVED — Ship it.**
+- Audit saved: conversation_memories `acddad8f-d0c0-4405-b315-4d0b4889ae2c`
+
 ---
 
 ## Session — Jul 11, 2026 — Voice Pipeline Robustness Pass (Luca)

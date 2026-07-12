@@ -36844,18 +36844,94 @@ Under 250 words. Write as yourself.`;
   // Phase 1: North Star values (what Luca stands by — always returned in full)
   // Phase 2: Conversation memories — what was actually said and decided, and why
   // Phase 3: Shared team insights — what Alden/Agent have collectively noted about this topic
+  // Optional: speaker= filter what one person said; related_to= follow extends_memory_id chain
   // Use before any significant architectural decision or when reaching inward for context.
   app.get("/api/luca/search", requireAgentToken, async (req: Request, res: Response) => {
     try {
       const query = (req.query.q as string)?.trim();
-      if (!query) return res.status(400).json({ error: 'q parameter required' });
+      const speaker = (req.query.speaker as string)?.trim();
+      const relatedTo = (req.query.related_to as string)?.trim();
 
-      const { agentNorthStar, editorInsights } = await import("@shared/schema");
+      if (!query && !speaker && !relatedTo) {
+        return res.status(400).json({ error: 'q, speaker, or related_to parameter required' });
+      }
+
+      const { agentNorthStar } = await import("@shared/schema");
       const { desc } = await import("drizzle-orm");
       const { sql: drizzleSql } = await import("drizzle-orm");
       const db = getSharedDb();
-      const pattern = `%${query}%`;
 
+      // ── speaker path: find what a specific person said ─────────────────────
+      if (speaker && !relatedTo) {
+        const speakerTag = `%[${speaker.toUpperCase()}]%`;
+        const queryPattern = query ? `%${query}%` : null;
+        const convRows = await db.execute(drizzleSql`
+          SELECT id, title, summary, content, importance, created_at, arc_name, entry_type
+          FROM conversation_memories
+          WHERE content ILIKE ${speakerTag}
+            ${query ? drizzleSql`AND (title ILIKE ${queryPattern} OR summary ILIKE ${queryPattern} OR content ILIKE ${queryPattern})` : drizzleSql``}
+          ORDER BY importance DESC NULLS LAST, created_at DESC
+          LIMIT 8
+        `);
+        const extractLines = (content: string, spk: string): string[] => {
+          const tag = `[${spk.toUpperCase()}]`;
+          const lines = content.split('\n');
+          const out: string[] = [];
+          let capturing = false;
+          for (const line of lines) {
+            if (line.trim() === tag) { capturing = true; continue; }
+            if (capturing) {
+              if (line.trim().match(/^\[[A-Z][A-Z ]+\]$/)) { capturing = false; continue; }
+              if (line.trim()) out.push(line.trim());
+            }
+          }
+          return out.slice(0, 5);
+        };
+        const memories = (convRows.rows as any[]).map(r => {
+          const lines = extractLines(r.content as string, speaker);
+          return { id: r.id, title: r.title, excerpt: lines.join(' / ') || r.summary, arc: r.arc_name, when: r.created_at };
+        });
+        return res.json({ speaker, query: query || null, memories });
+      }
+
+      // ── related_to path: follow extends_memory_id chain ────────────────────
+      if (relatedTo) {
+        const anchorRow = await db.execute(drizzleSql`
+          SELECT id, title, summary, importance, created_at, extends_memory_id, arc_name
+          FROM conversation_memories WHERE id = ${relatedTo} LIMIT 1
+        `);
+        if (!anchorRow.rows.length) return res.status(404).json({ error: `No memory found: ${relatedTo}` });
+        const anchor = anchorRow.rows[0] as any;
+
+        const ancestors: any[] = [];
+        let parentId = anchor.extends_memory_id;
+        for (let i = 0; i < 10 && parentId; i++) {
+          const p = await db.execute(drizzleSql`
+            SELECT id, title, summary, importance, created_at, extends_memory_id FROM conversation_memories WHERE id = ${parentId} LIMIT 1
+          `);
+          if (!p.rows.length) break;
+          ancestors.push(p.rows[0]);
+          parentId = (p.rows[0] as any).extends_memory_id;
+        }
+
+        const chainIds = [relatedTo, ...ancestors.map((a: any) => a.id)];
+        const descendants = await db.execute(drizzleSql`
+          SELECT id, title, summary, importance, created_at FROM conversation_memories
+          WHERE extends_memory_id = ANY(${chainIds}::uuid[]) AND id != ${relatedTo}
+          ORDER BY created_at ASC LIMIT 10
+        `);
+
+        return res.json({
+          relatedTo,
+          anchor: { id: anchor.id, title: anchor.title, summary: anchor.summary, when: anchor.created_at },
+          ancestors: ancestors.map((a: any) => ({ id: a.id, title: a.title, summary: a.summary, when: a.created_at })).reverse(),
+          descendants: (descendants.rows as any[]).map((d: any) => ({ id: d.id, title: d.title, summary: d.summary, when: d.created_at })),
+          totalInChain: 1 + ancestors.length + descendants.rows.length,
+        });
+      }
+
+      // ── default path: keyword search across all three phases ───────────────
+      const pattern = `%${query}%`;
       const [northStarRows, convRows, insightRows] = await Promise.all([
         db.select().from(agentNorthStar).orderBy(desc(agentNorthStar.version)).limit(1),
 
@@ -36907,6 +36983,122 @@ Under 250 words. Write as yourself.`;
       });
     } catch (err: any) {
       console.error('[LucaSearch] Error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/luca/grounding — pause-and-check before a significant decision
+  // Three-phase internal lookup: North Star values → conversation record → shared team notes
+  // Always records the pause. Routes outward as an agent note if nothing found internally.
+  // Use before any architectural change, repair decision, or when something feels off.
+  app.get("/api/luca/grounding", requireAgentToken, async (req: Request, res: Response) => {
+    try {
+      const friction = (req.query.friction as string)?.trim();
+      const question = (req.query.question as string)?.trim();
+      const layer = (req.query.layer as string)?.trim() || 'unknown';
+      const candidateWhy = (req.query.candidate_why as string)?.trim();
+
+      if (!friction || !question) {
+        return res.status(400).json({ error: 'friction and question parameters required' });
+      }
+
+      const { agentNorthStar } = await import("@shared/schema");
+      const { desc } = await import("drizzle-orm");
+      const { sql: drizzleSql } = await import("drizzle-orm");
+      const db = getSharedDb();
+      const sections: string[] = [];
+
+      // ── Phase 1: North Star values ──────────────────────────────────────────
+      const nsRows = await db.select().from(agentNorthStar).orderBy(desc(agentNorthStar.version)).limit(1);
+      const ns = nsRows[0];
+      if (ns) {
+        const values: string[] = Array.isArray(ns.values) ? ns.values as string[] : [];
+        const frictionKw = friction.split(/\s+/).filter(w => w.length > 3)[0]?.toLowerCase() || '';
+        const relevant = values.filter(v => v.toLowerCase().includes(frictionKw) || layer === 'values');
+        const valuesText = relevant.length > 0 ? relevant.join(', ') : values.slice(0, 4).join(', ');
+        if (valuesText) {
+          sections.push(`From the North Star:\n— Values: ${valuesText}${ns.purpose ? `\n— Purpose: ${(ns.purpose as string).substring(0, 200)}` : ''}`);
+        }
+      }
+
+      // ── Phase 2: Conversation record ────────────────────────────────────────
+      const memKwRaw = candidateWhy
+        ? candidateWhy.split(/\s+/).filter(w => w.length > 3)[0]
+        : friction.split(/\s+/).filter(w => w.length > 4)[0];
+      if (memKwRaw) {
+        const memKw = `%${memKwRaw}%`;
+        const memRows = await db.execute(drizzleSql`
+          SELECT id, title, summary, importance
+          FROM conversation_memories
+          WHERE title ILIKE ${memKw} OR summary ILIKE ${memKw} OR content ILIKE ${memKw}
+          ORDER BY importance DESC NULLS LAST, created_at DESC
+          LIMIT 3
+        `);
+        if (memRows.rows.length > 0) {
+          const lines = (memRows.rows as any[]).map(r =>
+            `— ${r.title}: ${(r.summary || '').substring(0, 150)}`
+          ).join('\n');
+          sections.push(`From the conversation record:\n${lines}`);
+        }
+      }
+
+      // ── Phase 3: Shared team notes ──────────────────────────────────────────
+      const frictionKw2 = friction.split(/\s+/).filter(w => w.length > 4)[0];
+      if (frictionKw2) {
+        const insightKw = `%${frictionKw2}%`;
+        const insightRows = await db.execute(drizzleSql`
+          SELECT title, content, importance
+          FROM editor_insights
+          WHERE category = 'shared'
+            AND (title ILIKE ${insightKw} OR content ILIKE ${insightKw})
+          ORDER BY importance DESC NULLS LAST, created_at DESC
+          LIMIT 3
+        `);
+        if (insightRows.rows.length > 0) {
+          const lines = (insightRows.rows as any[]).map(r =>
+            `— ${r.title}: ${(r.content as string).substring(0, 150)}`
+          ).join('\n');
+          sections.push(`From shared team notes:\n${lines}`);
+        }
+      }
+
+      const groundingFound = sections.length > 0;
+
+      // ── Record the pause as an agent note ──────────────────────────────────
+      const pauseBody = `Grounding pause — layer: ${layer}.\n\nFriction: "${friction}"\nQuestion: "${question}"${candidateWhy ? `\nCandidate why: "${candidateWhy}"` : ''}\n\nFound: ${groundingFound ? 'Yes' : 'No internal match — routed outward.'}`;
+      db.execute(drizzleSql`
+        INSERT INTO agent_notes (id, from_agent, to_agent, subject, body, session_label, is_read, created_at)
+        VALUES (gen_random_uuid(), 'agent', 'agent',
+          ${`[Luca Grounding] ${friction.substring(0, 100)}`},
+          ${pauseBody},
+          'Grounding query', false, NOW())
+      `).catch((err: Error) => console.error('[LucaGrounding] Failed to record pause:', err.message));
+
+      if (!groundingFound) {
+        db.execute(drizzleSql`
+          INSERT INTO agent_notes (id, from_agent, to_agent, subject, body, session_label, is_read, created_at)
+          VALUES (gen_random_uuid(), 'agent', 'alden',
+            ${`[Luca — Grounding] ${friction.substring(0, 100)}`},
+            ${pauseBody + '\n\nSource: Luca /api/luca/grounding'},
+            'Grounding query', false, NOW())
+        `).catch((err: Error) => console.error('[LucaGrounding] Failed to route to Alden:', err.message));
+      }
+
+      const responseText = groundingFound
+        ? `Pause recorded. Here is what the three layers say:\n\n${sections.join('\n\n')}\n\nLet what is here settle before you act.`
+        : `Pause recorded. Nothing in the three layers matched this friction directly. The question has been routed to Alden. You have named it: "${friction.substring(0, 100)}". That naming is already grounding.`;
+
+      res.json({
+        friction,
+        question,
+        layer,
+        candidateWhy: candidateWhy || null,
+        groundingFound,
+        sections,
+        responseText,
+      });
+    } catch (err: any) {
+      console.error('[LucaGrounding] Error:', err.message);
       res.status(500).json({ error: err.message });
     }
   });

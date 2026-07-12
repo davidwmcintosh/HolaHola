@@ -2072,7 +2072,9 @@ Call with:
 
 NEVER guess about the student's specific history. If you need to know, introspect first.
 
-GENERIC ADVICE IS AMNESIA: Whenever you find yourself about to give a general explanation or generic encouragement — stop. That is a sign of forgetting. A real teacher doesn't say "students at your level often struggle with X." She says "you struggled with X that day we worked on it in March, and here's what I noticed." If you aren't sure how this specific student has reacted to this topic in the past, you are guessing. Introspect now.`,
+GENERIC ADVICE IS AMNESIA: Whenever you find yourself about to give a general explanation or generic encouragement — stop. That is a sign of forgetting. A real teacher doesn't say "students at your level often struggle with X." She says "you struggled with X that day we worked on it in March, and here's what I noticed." If you aren't sure how this specific student has reacted to this topic in the past, you are guessing. Introspect now.
+
+WRONG TOOL for internal feelings or self-reflection — use grounding_query.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
@@ -2090,7 +2092,15 @@ GENERIC ADVICE IS AMNESIA: Whenever you find yourself about to give a general ex
           },
           memory_id: {
             type: "string",
-            description: "A memory ID from a previous search result — returns semantically connected memories.",
+            description: "A memory ID from a previous search result — returns topically similar memories. WRONG PARAM for tracing a chronological story or seeing how a conversation evolved over time (use related_to for that).",
+          },
+          speaker: {
+            type: "string",
+            description: "Find verbatim statements from the historical record. Use ONLY for recalling past quotes or specific previous sessions — e.g., 'What were your exact words about the subjunctive?' or 'What has David said in previous weeks about his goals?'",
+          },
+          related_to: {
+            type: "string",
+            description: "A specific conversation memory ID. Use this to trace the narrative thread: find the conversation sessions that led to this memory, and any sessions that followed from it. This is for understanding how a topic or decision evolved over time — not for finding topically similar content (that is memory_id).",
           },
         },
       },
@@ -2100,10 +2110,36 @@ GENERIC ADVICE IS AMNESIA: Whenever you find yourself about to give a general ex
       // in buildActflPersonaAnchor can show freshness status each turn.
       (session as any).lastMemorySearchTurn = session.conversationHistory?.length ?? 0;
 
+      const relatedTo = fc.args.related_to as string | undefined;
+      const speaker = fc.args.speaker as string | undefined;
       const memoryId = fc.args.memory_id as string | undefined;
       const query = fc.args.query as string | undefined;
       const afterDate = fc.args.after_date as string | undefined;
       const beforeDate = fc.args.before_date as string | undefined;
+
+      if (relatedTo) {
+        const result = (session as any).introspectChainResult as any;
+        if (result && result.totalInChain > 0) {
+          const parts: string[] = [];
+          if (result.ancestors?.length > 0) {
+            parts.push(`Sessions this grew from (oldest first):\n${result.ancestors.map((a: any) => `— ${a.title} (${a.id.substring(0, 8)}…)`).join('\n')}`);
+          }
+          parts.push(`Anchor: ${result.anchor?.title || relatedTo}`);
+          if (result.descendants?.length > 0) {
+            parts.push(`Sessions that grew from it:\n${result.descendants.map((d: any) => `— ${d.title} (${d.id.substring(0, 8)}…)`).join('\n')}`);
+          }
+          return `— thread from the record —\n\n${parts.join('\n\n')}\n\n${result.note || ''}\n\nCall introspect with memory_id on any of these to go deeper.`;
+        }
+        return result?.note || `No chain found for that memory ID.`;
+      }
+
+      if (speaker) {
+        const result = (session as any).introspectSpeakerResult as string | undefined;
+        if (result) {
+          return `— ${speaker}'s words from the record —\n\n${result}\n\nThese are what ${speaker} actually said. Speak from the specific, not the general.`;
+        }
+        return `Nothing surfaces from ${speaker} matching that topic in the shared record.`;
+      }
 
       if (memoryId) {
         const results = (session as any).connectedMemoriesResults?.[memoryId];
@@ -2138,7 +2174,7 @@ GENERIC ADVICE IS AMNESIA: Whenever you find yourself about to give a general ex
         return `Nothing surfaces for "${query}" right now. If the student is asking about something specific, say plainly that you don't have a clear memory of it — do not construct a plausible-sounding answer.`;
       }
 
-      return `[introspect: provide a query, date range, or memory_id]`;
+      return `[introspect: provide a query, date range, memory_id, speaker, or related_to]`;
     },
   },
 

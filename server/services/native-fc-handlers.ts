@@ -314,11 +314,23 @@ export class NativeFunctionCallHandler {
         return this.dispatchSubTool(sessionId, session, fn.args.type as string | undefined, fn.args.params_json as string | undefined, 'teaching_content', 'type');
 
       case 'SEARCH_MEMORY': {
+        const smRelatedTo = fn.args.related_to as string | undefined;
+        const smSpeaker = fn.args.speaker as string | undefined;
         const smMemoryId = fn.args.memory_id as string | undefined;
         const smQuery = fn.args.query as string | undefined;
         const smAfterDate = fn.args.after_date as string | undefined;
         const smBeforeDate = fn.args.before_date as string | undefined;
 
+        if (smRelatedTo) {
+          // Chain traversal through the shared conversation_memories archive
+          console.log(`[Dispatcher] introspect → chain traversal from memory_id=${smRelatedTo}`);
+          return this.processIntrospectChain(session, smRelatedTo);
+        }
+        if (smSpeaker) {
+          // Speaker-filtered search through the shared conversation_memories archive
+          console.log(`[Dispatcher] introspect → speaker filter speaker="${smSpeaker}" query="${smQuery?.substring(0, 60) ?? ''}"`);
+          return this.processIntrospectSpeaker(session, smSpeaker, smQuery);
+        }
         if (smMemoryId) {
           // Connected memory traversal → FIND_CONNECTED_MEMORIES
           console.log(`[Dispatcher] introspect → find_connected_memories, id=${smMemoryId}`);
@@ -337,7 +349,7 @@ export class NativeFunctionCallHandler {
           const smRecallFn: ExtractedFunctionCall = { name: 'recall', legacyType: 'UNIFIED_RECALL', args: { query: smQuery } };
           return this.handle(sessionId, session, smRecallFn);
         }
-        console.warn('[Dispatcher] introspect called with no query, date range, or memory_id — ignoring');
+        console.warn('[Dispatcher] introspect called with no query, date range, memory_id, speaker, or related_to — ignoring');
         break;
       }
 
@@ -10558,6 +10570,106 @@ export class NativeFunctionCallHandler {
       console.log(`[Native Function→RecallWhatIShared] Retrieved ${rows.length} personal shares`);
     } catch (err: any) {
       session.personalSharesResult = `Could not recall personal shares: ${err.message}`;
+    }
+  }
+
+  private async processIntrospectChain(session: StreamingSession, relatedTo: string): Promise<void> {
+    try {
+      const db = getSharedDb();
+      const anchor = await db.execute(sql`
+        SELECT id, title, summary, content, importance, created_at, tags, entry_type, arc_name, extends_memory_id
+        FROM conversation_memories WHERE id = ${relatedTo} LIMIT 1
+      `);
+      if (!anchor.rows.length) {
+        (session as any).introspectChainResult = { totalInChain: 0, note: `No memory found with id ${relatedTo}.` };
+        return;
+      }
+      const anchorRow = anchor.rows[0] as any;
+
+      const ancestors: any[] = [];
+      let parentId = anchorRow.extends_memory_id;
+      for (let i = 0; i < 10 && parentId; i++) {
+        const parent = await db.execute(sql`
+          SELECT id, title, summary, importance, created_at, extends_memory_id
+          FROM conversation_memories WHERE id = ${parentId} LIMIT 1
+        `);
+        if (!parent.rows.length) break;
+        ancestors.push(parent.rows[0]);
+        parentId = (parent.rows[0] as any).extends_memory_id;
+      }
+
+      const chainIds = [relatedTo, ...ancestors.map((a: any) => a.id)];
+      const descendants = await db.execute(sql`
+        SELECT id, title, summary, importance, created_at
+        FROM conversation_memories
+        WHERE extends_memory_id = ANY(${chainIds}::uuid[])
+          AND id != ${relatedTo}
+        ORDER BY created_at ASC LIMIT 10
+      `);
+
+      const toEntry = (r: any) => ({ id: r.id, title: r.title, summary: r.summary, importance: r.importance, when: r.created_at });
+      (session as any).introspectChainResult = {
+        anchor: toEntry(anchorRow),
+        ancestors: ancestors.map(toEntry).reverse(),
+        descendants: (descendants.rows as any[]).map(toEntry),
+        totalInChain: 1 + ancestors.length + descendants.rows.length,
+        note: ancestors.length === 0 && descendants.rows.length === 0
+          ? 'This memory stands alone — no chain.'
+          : `Chain: ${ancestors.length} before → this → ${descendants.rows.length} after.`,
+      };
+      console.log(`[Native Function→IntrospectChain] Chain resolved: ${ancestors.length} ancestors, ${descendants.rows.length} descendants`);
+    } catch (err: any) {
+      (session as any).introspectChainResult = { totalInChain: 0, note: `Chain lookup failed: ${err.message}` };
+    }
+  }
+
+  private async processIntrospectSpeaker(session: StreamingSession, speaker: string, query?: string): Promise<void> {
+    try {
+      const db = getSharedDb();
+      const speakerTag = `%[${speaker.trim().toUpperCase()}]%`;
+      const hasQuery = query && query.trim().length > 0;
+      const queryPattern = hasQuery ? `%${query!.trim()}%` : null;
+
+      const rows = await db.execute(sql`
+        SELECT id, title, summary, content, importance, created_at, arc_name
+        FROM conversation_memories
+        WHERE content ILIKE ${speakerTag}
+          ${hasQuery ? sql`AND (title ILIKE ${queryPattern} OR summary ILIKE ${queryPattern} OR content ILIKE ${queryPattern})` : sql``}
+        ORDER BY importance DESC NULLS LAST, created_at DESC
+        LIMIT 8
+      `);
+
+      if (!rows.rows.length) {
+        (session as any).introspectSpeakerResult = undefined;
+        return;
+      }
+
+      const extractLines = (content: string, spk: string): string[] => {
+        const tag = `[${spk.toUpperCase()}]`;
+        const lines = content.split('\n');
+        const out: string[] = [];
+        let capturing = false;
+        for (const line of lines) {
+          if (line.trim() === tag) { capturing = true; continue; }
+          if (capturing) {
+            if (line.trim().match(/^\[[A-Z][A-Z ]+\]$/)) { capturing = false; continue; }
+            if (line.trim()) out.push(line.trim());
+          }
+        }
+        return out.slice(0, 5);
+      };
+
+      const parts = (rows.rows as any[]).map(r => {
+        const lines = extractLines(r.content as string, speaker);
+        const excerpt = lines.length > 0 ? lines.join(' / ') : r.summary || '(no excerpt)';
+        return `From "${r.title}":\n${excerpt}`;
+      });
+
+      (session as any).introspectSpeakerResult = parts.join('\n\n');
+      console.log(`[Native Function→IntrospectSpeaker] Found ${rows.rows.length} memories with ${speaker}'s lines`);
+    } catch (err: any) {
+      (session as any).introspectSpeakerResult = undefined;
+      console.error(`[Native Function→IntrospectSpeaker] Error:`, err.message);
     }
   }
 
