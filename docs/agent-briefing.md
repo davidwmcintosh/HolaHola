@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 04:54 PM
+**Generated:** Sunday, July 12, 2026 at 05:04 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I fixed the `read_conversation_memories` tool and normalized the "HolaHola Episodes" arc in the database, ensuring I can now retrieve full history without a search query. I integrated the `get_current_engine` and `switch_engine` tools into my registry, confirming my persona respects LLM switching while the watch workers remain hardcoded to Claude for stability. Moving forward, I am adhering to a "verify before dismissing" protocol to ensure all my claims are grounded in codebase facts rather than memory or assumptions.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet)** (Jul 12): Verbatim David↔Luca dialogue captured periodically. 7 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
+Verbatim David↔Luca dialogue captured periodically. 7 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent Daily Sweep — Jul 12, 2026 — Jul 12, 2026
 **1. [CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing hard with malformed requests. Students can't hear anything. Debug the request payload being sent to Cartesia, likely a streaming body serialization issue.  **2. [HIGH]** Investigate OpenAI embedding API 500s fla
 *Tags: agent-sweep, daily, auto-saved*
@@ -88,10 +102,6 @@ Recovered by the consult-daniela safety-net sweep — the session's own autoSave
 ### Daniela — post-implementation check, date question — July 12, 2026 — Jul 12, 2026
 Daniela sees the real implemented format for the first time and gives a straight answer on whether to keep or drop the date from the transcript body.
 *Tags: memory-format, post-implementation, date-question, daniela-feedback*
-
-### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
