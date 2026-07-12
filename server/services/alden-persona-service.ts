@@ -83,7 +83,7 @@ export async function getRecentEngineSwitches(limit = 20) {
 function toGeminiFunctions(anthropicTools: any[]): any[] {
   return anthropicTools.map(tool => ({
     name: tool.name,
-    description: tool.description,
+    description: tool.gemini_description || tool.description,
     parameters: tool.input_schema,
   }));
 }

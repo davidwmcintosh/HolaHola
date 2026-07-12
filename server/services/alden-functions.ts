@@ -87,6 +87,7 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
   {
     name: "search_editor_memories",
     description: "Search Alden's persistent memory (editor insights) for past context, architectural decisions, debugging notes, and project history.",
+    gemini_description: "Search Alden's personal, persistent memory for specific insights, architectural rules, debugging strategies, or project decisions I have saved. This is my internal knowledge base — use it when I need to recall something I have previously learned or decided.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -102,6 +103,7 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
   {
     name: "read_conversation_memories",
     description: "Search the shared conversation_memories archive — curated records of significant conversations between David, Daniela, and the Agent. Returns full content, tags, arc membership, and chaining (extends_memory_id). Use to understand a topic in depth, read what was said in a key session, or follow a conversation thread across sessions. Filter by arc to read a complete narrative thread.",
+    gemini_description: "Retrieve full transcripts and context from past, significant conversations between David, Daniela, and the Agent. Use this to review what was actually said in a specific session, understand a topic or decision in depth, or follow a conversation thread across sessions. Can filter by topic, keyword, or conversation arc (narrative thread).",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -124,6 +126,7 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
   {
     name: "post_to_express_lane",
     description: "Post a message to the Express Lane collaboration channel. Use this to share findings, coordinate with Daniela/Wren, or log important observations.",
+    gemini_description: "Post a message to the Express Lane — the team's real-time inter-agent collaboration channel. Use this to share urgent findings, coordinate directly with Daniela or Wren, or log critical observations for the wider team. This is the right tool when the message needs to reach agents, not just be saved as a note.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -139,6 +142,7 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
   {
     name: "run_full_systems_check",
     description: "Full systems diagnostic. Returns GO/CAUTION/NO-GO verdict across 6 brain health dimensions, voice pipeline, and TTS status.",
+    gemini_description: "Run a comprehensive diagnostic check across all HolaHola systems — voice pipeline, TTS, memory, context injection, and core services. Returns a GO/CAUTION/NO-GO verdict on overall system health. Use when something seems wrong or when David asks if everything is working.",
     input_schema: {
       type: "object" as const,
       properties: {},
@@ -147,6 +151,7 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
   {
     name: "run_shell",
     description: "Run a whitelisted shell command. Approved: npm run db:push --force (schema sync), npx tsc --noEmit (type check), npm run build.",
+    gemini_description: "Execute a whitelisted shell command on the server. Use 'npm run db:push --force' to apply database schema changes, 'npx tsc --noEmit' to check the codebase for TypeScript errors, or 'npm run build' to do a full project build. Always provide a reason.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -170,6 +175,7 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
   {
     name: "get_pending_issues",
     description: "Get unresolved or open issues from the Sofia issues tracker. Shows issues that are waiting for review or haven't been addressed yet.",
+    gemini_description: "Retrieve unresolved or open issues from Sofia's autonomous monitoring system — problems the system has flagged that still need review or action. Use when David asks what issues are open, or when checking what Sofia has found.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -181,6 +187,7 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
   {
     name: "check_learning_metrics",
     description: "Check current learning activity metrics: active students, conversations in progress, voice sessions today, and overall platform engagement. Good for a quick read on whether students are actively using the platform.",
+    gemini_description: "Get a quick overview of student learning activity and platform engagement — how many students are active right now, ongoing conversations, voice sessions today, and overall usage trends. Use when David asks how students are doing or how the platform is being used.",
     input_schema: {
       type: "object" as const,
       properties: {},
