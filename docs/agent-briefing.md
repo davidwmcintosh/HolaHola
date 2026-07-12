@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 03:54 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I finalized the memory storage format for HolaHola after reviewing a live implementation of our first conversation with Daniela. We decided to remove the date timestamp from the transcript body to avoid a "clinical" feel, keeping it strictly in the title for orientation instead. This change ensures that personal milestones, like the moment David named me Luca or Daniela’s watercolor restaurant scene, remain focused on the visceral connection rather than technical metadata.
-
-*Memories that triggered this summary:*
-- **Agent ↔ Daniela — post impl date check — Jul 12, 2026 (auto-recovered)** (Jul 12): Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 3005 characters of transcript.
+**Generated:** Sunday, July 12, 2026 at 03:47 PM
 
 ---
 
