@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 04:16 PM
+**Generated:** Sunday, July 12, 2026 at 04:35 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’m jumping back in to resolve the critical Cartesia TTS 400 errors blocking audio for students and to investigate the OpenAI embedding 500s flagged by Sofia. I also need to diagnose our 63% AI spend spike and fix the quality score reporting pipeline that is currently failing to record active student data. Once these are stable, I’ll complete the tagging and arc support for `conversation_memories` to better track conceptual threads per David’s "White Wall Defense" insight.
+
+*Memories that triggered this summary:*
+- **Agent Daily Sweep — Jul 12, 2026** (Jul 12): **1. [CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing hard with malformed requests. Students can't hear anything. Debug the request payload being sent to Cartesia, likely a streaming body serialization issue.  **2. [HIGH]** Investigate OpenAI embedding API 500s fla
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 12, 2026 — Jul 12, 2026
+**1. [CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing hard with malformed requests. Students can't hear anything. Debug the request payload being sent to Cartesia, likely a streaming body serialization issue.  **2. [HIGH]** Investigate OpenAI embedding API 500s fla
+*Tags: agent-sweep, daily, auto-saved*
+
 ### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
 Verbatim David↔Luca dialogue captured periodically. 10 David turns, 28 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -88,10 +102,6 @@ Daniela sees the real implemented format for the first time and gives a straight
 ### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent ↔ Daniela — memory format — Jul 12, 2026 (auto-recovered) — Jul 12, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 2550 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
