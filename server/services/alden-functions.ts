@@ -867,15 +867,19 @@ export async function executeAldenTool(
         const { query, arc, limit: memLimit = 5 } = args;
         const sharedDb = getMonitoringDb();
 
+        const hasQuery = query && typeof query === 'string' && query.trim().length > 0;
+        const pattern = hasQuery ? `%${query.trim()}%` : null;
+
         const results = await sharedDb.execute(sql`
           SELECT id, title, summary, content, importance, created_at, tags, entry_type,
             arc_name, extends_memory_id,
-            CASE WHEN title ILIKE ${'%' + query + '%'} THEN 1 ELSE 0 END AS title_match
+            ${hasQuery ? sql`CASE WHEN title ILIKE ${pattern} THEN 1 ELSE 0 END` : sql`0`} AS title_match
           FROM conversation_memories
           WHERE (
-            title ILIKE ${'%' + query + '%'}
-            OR summary ILIKE ${'%' + query + '%'}
-            OR content ILIKE ${'%' + query + '%'}
+            ${hasQuery
+              ? sql`title ILIKE ${pattern} OR summary ILIKE ${pattern} OR content ILIKE ${pattern}`
+              : sql`1=1`
+            }
           )
           ${arc ? sql`AND arc_name = ${arc}` : sql``}
           ORDER BY title_match DESC, importance DESC, created_at DESC
