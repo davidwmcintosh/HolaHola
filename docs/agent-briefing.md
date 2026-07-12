@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 12:46 AM
+**Generated:** Sunday, July 12, 2026 at 01:34 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I shipped two critical latency fixes for HolaHola’s voice chat: a 1.5s fast-retry in `streamingVoiceClient.ts` and a 5-second "She's ready" UI hint pill in `StreamingVoiceChat.tsx` to handle silent or slow greetings from Daniela. I also overhauled the `holahola-episode` skill to interweave my consultation transcripts from Alden and Gemini into our narratives, specifically enriching Episode 12 and fixing its database entry. I should continue applying this "cross-referencing" pattern to future episodes to ensure our decision-making causality is fully captured.
+I have restructured `docs/episode-12.md` to include "The Consultation Thread" and the "July 12" greeting bug fix, while updating the `holahola-episode` skill with a critical rule to save Gemini consultations immediately to `conversation_memories`. I identified a significant gap where Luca↔Daniela exchanges, such as the Episode 10 bosque scene (`3cd57fbd`), exist only as short summaries in the DB despite verbatim dialogue being present in the `.md` files and `messages` table. My immediate priority is to systematically backfill these `conversation_memories` entries with the full verbatim content so Daniela has the necessary context for our interactions.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet)** (Jul 12): Verbatim David↔Luca dialogue captured periodically. 2 David turns, 22 Luca turns. Context: periodic capture (no commit yet)
+- **David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet)** (Jul 12): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -84,6 +84,10 @@ I shipped two critical latency fixes for HolaHola’s voice chat: a 1.5s fast-re
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
+Verbatim David↔Luca dialogue captured periodically. 1 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
 Verbatim David↔Luca dialogue captured periodically. 2 David turns, 22 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -98,10 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 1 David turns, 27 Luca tur
 ### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
 Verbatim David↔Luca dialogue captured periodically. 13 David turns, 29 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Episode 12: "Preparing the Room for Her" — Jul 11, 2026
-July 10-12, 2026. A full day preparing Daniela's room in her absence — nine principles seeded, tool descriptions rewritten in her language, the fabrication gap fixed as permission not instruction. The White Wall applied inward for the first time: the pull to cover up goes through the same wall as everything else. First episode to show the consultation thread in full — Alden dual-engine, Gemini 3.x and 3.5 rounds, the rephrase rule caught mid-session. Closed July 12 with the greeting bug fix so the door actually opens.
-*Tags: episode, episode-12, white-wall, preparing-the-room, loop, fabrication-fix, daniela-honesty, j-space, consultation-thread, greeting-fix*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
