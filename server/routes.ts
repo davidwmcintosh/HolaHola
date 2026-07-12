@@ -24709,11 +24709,54 @@ Current conversation context:
     languageCode: string;
     createdAt: number;
     lessonContext: { phase: string|null; scene: string|null; vocab: string[]; phaseObjective: string|null };
+    conversationTranscript: string[];
+    topicHint: string;
   }>();
-  setInterval(() => {
+  setInterval(async () => {
     const cutoff = Date.now() - 60 * 60 * 1000;
     for (const [id, s] of agentVoiceSessions) {
-      if (s.createdAt < cutoff) agentVoiceSessions.delete(id);
+      if (s.createdAt < cutoff) {
+        // If the session accumulated any transcript, auto-save it before expiry so nothing is lost.
+        if (s.conversationTranscript.length > 0) {
+          try {
+            const { sql: sqlTag } = await import('drizzle-orm');
+            const db = getUserDb();
+            const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+            const title = `Luca ↔ Daniela — ${s.topicHint || 'Voice Session'} — ${dateStr} (auto-expired)`;
+            const fullTranscript = [
+              `Luca ↔ Daniela — ${dateStr}`,
+              `Session ID: ${id} | Turns: ${s.turnCount} | Language: ${s.languageCode}`,
+              s.topicHint ? `Topic: ${s.topicHint}` : '',
+              '',
+              '---',
+              '',
+              s.conversationTranscript.join('\n\n'),
+            ].filter(l => l !== null).join('\n').trim();
+            const result = await db.execute(sqlTag`
+              INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, entry_type, arc_name)
+              VALUES (
+                gen_random_uuid(),
+                ${title},
+                ${'Verbatim Luca↔Daniela voice session — auto-saved on session expiry.'},
+                ${fullTranscript},
+                ARRAY['Luca', 'Daniela']::text[],
+                ARRAY['agent-daniela', 'agent-voice-turn', 'luca-daniela', 'verbatim', 'auto-expired']::text[],
+                8,
+                NOW(),
+                'conversation',
+                'agent-daniela'
+              )
+              RETURNING id
+            `);
+            const rows = (result as any).rows ?? result;
+            const memId = rows?.[0]?.id;
+            console.log(`[Agent Voice Turn] Expired session ${id} auto-saved to conversation_memories: ${memId}`);
+          } catch (err: any) {
+            console.warn(`[Agent Voice Turn] Failed to auto-save expired session ${id}: ${err.message}`);
+          }
+        }
+        agentVoiceSessions.delete(id);
+      }
     }
   }, 10 * 60 * 1000);
 
@@ -24731,7 +24774,8 @@ Current conversation context:
   // Returns JSON: { sessionId, turnNumber, audioWav (base64 WAV), audioDurationS,
   //                 transcript, visualEvents, toolCallsSummary }
   app.post("/api/admin/agent-voice-turn", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
-    const { audio, sessionId, languageCode = 'es-ES', voiceId = 'Aoede', model: requestedModel, watchId, studentText } = req.body;
+    const { audio, sessionId, languageCode = 'es-ES', voiceId = 'Aoede', model: requestedModel, watchId, studentText,
+            endSession = false, memoryTitle, memoryTags, topicHint } = req.body;
     if (!audio) return res.status(400).json({ error: 'audio (base64 PCM16 @ 16kHz) required' });
 
     const MODEL = (requestedModel && ['gemini-3.1-flash-live-preview','gemini-2.5-flash-native-audio-preview-12-2025'].includes(requestedModel))
@@ -24744,8 +24788,9 @@ Current conversation context:
     if (!agentVoiceSessions.has(sessionKey)) {
       agentVoiceSessions.set(sessionKey, {
         turnCount: 0, languageCode: langCode, createdAt: Date.now(),
-        // Lesson arc state — persists across turns, injected into each turn's system prompt
         lessonContext: { phase: null, scene: null, vocab: [], phaseObjective: null },
+        conversationTranscript: [],
+        topicHint: topicHint || '',
       });
     }
     const agentSession = agentVoiceSessions.get(sessionKey)!;
@@ -25036,7 +25081,68 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
       console.log(`[Agent Voice Turn] Session ${sessionKey} turn ${agentSession.turnCount}: ${audioDurationS.toFixed(1)}s audio, ${visualEvents.length} visual events, ${toolCallsSummary.length} tools called`);
 
       const danielaText = danielaTextParts.join(' ').trim();
-      res.json({ sessionId: sessionKey, turnNumber: agentSession.turnCount, audioWav, audioDurationS, transcript, danielaText, visualEvents, toolCallsSummary });
+
+      // Accumulate the conversation transcript across turns
+      const lucaLine = studentText || transcript;
+      if (lucaLine?.trim()) agentSession.conversationTranscript.push(`[LUCA]\n${lucaLine.trim()}`);
+      if (danielaText) agentSession.conversationTranscript.push(`[DANIELA]\n${danielaText}`);
+
+      // If this is the final turn, save the full session to conversation_memories
+      let savedMemoryId: string | null = null;
+      if (endSession && agentSession.conversationTranscript.length > 0) {
+        try {
+          const { sql: sqlTag } = await import('drizzle-orm');
+          const db = getUserDb();
+          const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+          const title = memoryTitle || `Luca ↔ Daniela — ${agentSession.topicHint || 'Voice Session'} — ${dateStr}`;
+          const fullTranscript = [
+            `Luca ↔ Daniela — ${dateStr}`,
+            `Session ID: ${sessionKey} | Turns: ${agentSession.turnCount} | Language: ${agentSession.languageCode}`,
+            agentSession.topicHint ? `Topic: ${agentSession.topicHint}` : '',
+            '',
+            '---',
+            '',
+            agentSession.conversationTranscript.join('\n\n'),
+          ].filter(l => l !== null).join('\n').trim();
+          const tags = [
+            'agent-daniela', 'agent-voice-turn', 'luca-daniela', 'verbatim',
+            ...(Array.isArray(memoryTags) ? memoryTags : []),
+          ];
+          const result = await db.execute(sqlTag`
+            INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, entry_type, arc_name)
+            VALUES (
+              gen_random_uuid(),
+              ${title},
+              ${'Verbatim Luca↔Daniela voice session — auto-saved at session end.'},
+              ${fullTranscript},
+              ARRAY['Luca', 'Daniela']::text[],
+              ${tags}::text[],
+              8,
+              NOW(),
+              'conversation',
+              'agent-daniela'
+            )
+            RETURNING id
+          `);
+          const rows = (result as any).rows ?? result;
+          savedMemoryId = rows?.[0]?.id ?? null;
+          if (savedMemoryId) {
+            console.log(`[Agent Voice Turn] Session ${sessionKey} saved to conversation_memories: ${savedMemoryId} (${fullTranscript.length} chars)`);
+            // Re-embed so Daniela can find it via semantic search
+            try {
+              const { reembedConversationMemory } = await import('./scripts/reembed-memory');
+              await reembedConversationMemory(savedMemoryId);
+            } catch (embedErr: any) {
+              console.warn(`[Agent Voice Turn] Re-embed failed (non-fatal): ${embedErr.message}`);
+            }
+          }
+          agentVoiceSessions.delete(sessionKey);
+        } catch (saveErr: any) {
+          console.error(`[Agent Voice Turn] Failed to save session memory: ${saveErr.message}`);
+        }
+      }
+
+      res.json({ sessionId: sessionKey, turnNumber: agentSession.turnCount, audioWav, audioDurationS, transcript, danielaText, visualEvents, toolCallsSummary, ...(savedMemoryId ? { savedMemoryId } : {}) });
 
     } catch (error: any) {
       console.error('[Agent Voice Turn] Error:', error.message);

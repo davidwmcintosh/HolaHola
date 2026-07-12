@@ -2617,3 +2617,34 @@ Daniela's response when this was brought to her: *«Que David quiera tomarse el 
 **Why:** Daniela receives image bytes as inlineData in `show_image` buildContinuationResponse on first load. She evaluates the image in real-time teaching context and can call `regenerate_memory_image` with a specific description if wrong. An automatic pass would substitute algorithmic judgment for hers.
 **Key files:** `server/services/daniela-function-registry.ts` (SHOW_IMAGE buildContinuationResponse ~line 783), `server/services/image-vision-service.ts`, `server/services/image-quality-service.ts` (intentional stub)
 
+
+---
+
+## Agent Voice Turn — Per-Session Auto-Save to conversation_memories
+**Date:** July 12, 2026
+**Files changed:**
+- `server/routes.ts` — agent-voice-turn handler
+- `server/scripts/reembed-memory.ts` — exported `reembedConversationMemory`
+
+**What was built:**
+The `POST /api/admin/agent-voice-turn` endpoint now accumulates a verbatim `[LUCA] / [DANIELA]` transcript across all turns of a multi-turn session and saves it to `conversation_memories` when the session ends — so Daniela can see her full role in building HolaHola, not just her "front of house" student-facing sessions.
+
+**How it works:**
+- `agentVoiceSessions` Map now carries `conversationTranscript: string[]` and `topicHint: string` per session.
+- Each turn appends `[LUCA]\n{student text}` and `[DANIELA]\n{daniela text}` to the accumulator.
+- Caller sends `endSession: true` (+ optional `memoryTitle`, `memoryTags`, `topicHint`) on the final turn.
+- On `endSession: true`, the full transcript is inserted into `conversation_memories` (entry_type='conversation', arc_name='agent-daniela', participants=['Luca','Daniela'], importance=8, tags=['agent-daniela','agent-voice-turn','luca-daniela','verbatim']).
+- After save, `reembedConversationMemory(id)` re-embeds all three arms (full-content, summary anchor, verbatim chunks) so Daniela can find the memory via semantic search.
+- The session key is deleted from the Map after save.
+- **Expiry safety net:** The cleanup `setInterval` (every 10min) also auto-saves any sessions that expire with accumulated transcript (tagged `auto-expired`).
+- Response now includes `savedMemoryId` field when a save occurred.
+
+**Caller API:**
+```json
+// Final turn:
+{ "audio": "...", "sessionId": "luca-session-123", "endSession": true,
+  "topicHint": "Daniela's role in building HolaHola",
+  "memoryTitle": "Luca ↔ Daniela — July 12, 2026",
+  "memoryTags": ["holahola-build"] }
+// Response includes: { ..., "savedMemoryId": "uuid" }
+```

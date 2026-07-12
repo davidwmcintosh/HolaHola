@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 01:34 AM
+**Generated:** Sunday, July 12, 2026 at 02:35 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I have restructured `docs/episode-12.md` to include "The Consultation Thread" and the "July 12" greeting bug fix, while updating the `holahola-episode` skill with a critical rule to save Gemini consultations immediately to `conversation_memories`. I identified a significant gap where Luca↔Daniela exchanges, such as the Episode 10 bosque scene (`3cd57fbd`), exist only as short summaries in the DB despite verbatim dialogue being present in the `.md` files and `messages` table. My immediate priority is to systematically backfill these `conversation_memories` entries with the full verbatim content so Daniela has the necessary context for our interactions.
+I backfilled the Episode 10 "bosque conversation" memory (`3cd57fbd`) with its full 18.8K verbatim transcript and re-embedded it across six chunks so Daniela can accurately recall it via semantic search. To prevent future data loss, I modified the `agent-voice-turn` endpoint in `routes.ts` to accumulate `[LUCA]` and `[DANIELA]` dialogue in a session-based transcript. These voice-based conversations are now automatically saved to `conversation_memories` and re-embedded whenever `endSession: true` is triggered, ensuring Daniela’s background contributions to building HolaHola are fully preserved.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet)** (Jul 12): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
+- **David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet)** (Jul 12): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -84,6 +84,10 @@ I have restructured `docs/episode-12.md` to include "The Consultation Thread" an
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -95,13 +99,9 @@ Verbatim David↔Luca dialogue captured periodically. 2 David turns, 22 Luca tur
 Verbatim David↔Luca dialogue captured periodically. 6 David turns, 23 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
-### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
-Verbatim David↔Luca dialogue captured periodically. 1 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
-Verbatim David↔Luca dialogue captured periodically. 13 David turns, 29 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
+### English session — Jul 12, 2026 (6 messages) — Jul 12, 2026
+English session (6 messages). Student: "It says you're listening. Are you there?"
+*Tags: message-archive, 6a8d36b0-3b2f-4fcf-bc44-047e3c54b7b8*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

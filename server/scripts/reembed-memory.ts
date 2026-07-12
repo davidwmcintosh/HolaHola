@@ -22,6 +22,8 @@ import { generateAndStoreEmbedding } from '../services/semantic-memory-service';
 import { splitIntoChunks, reformatSpeakerHeaders } from '../services/memory-embedding-indexer';
 import { sql, eq, and } from 'drizzle-orm';
 
+export async function reembedConversationMemory(id: string): Promise<void> { return reembedOne(id); }
+
 async function reembedOne(id: string): Promise<void> {
   const db = getSharedDb();
 

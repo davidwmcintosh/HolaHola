@@ -1,3 +1,4 @@
+- [Agent voice turn session auto-save](agent-voice-turn-autosave.md) — endSession:true on final turn saves full [LUCA]/[DANIELA] transcript to conversation_memories + re-embeds; expiry setInterval also saves non-empty sessions; reembedConversationMemory exported from reembed-memory.ts.
 - [Episode consultation interweaving](episode-consultation-interweaving.md) — Step 2.5 in holahola-episode skill; Alden always persisted (alden_messages), Gemini must be saved to conversation_memories immediately or it's gone; scene-transition format with timestamps.
 - [consult-alden skill](consult-alden-skill.md) — direct channel to Alden, immediate (no 2h wait), single or dual-engine; skill at .agents/skills/consult-alden/SKILL.md; route POST /api/alden/priority-task.
 - [Rephrase and skill rules — July 11](rephrase-skill-rules.md) — rephrase rule (Alden first, then Gemini test, then DB) + skill autonomy (create freely without asking).
