@@ -63,19 +63,59 @@ curl -s -X POST "http://localhost:5000/api/alden/engine" \
 
 ---
 
-## Run a single-engine consult
+## CRITICAL: Use Node.js for complex JSON payloads — not curl
+
+**Do not use bash heredoc or inline `-d` strings for Alden calls that include code snippets, backticks, or multi-line content.** Bash heredoc quoting breaks on backticks inside JSON strings, and the curl `-d` flag requires heavy escaping that is fragile and unreadable.
+
+**Always use a Node.js script for non-trivial payloads:**
 
 ```bash
-TASK="Should we build X as a new DB table or as an in-memory map on the session? Context: [describe]"
+cd /home/runner/workspace && timeout 90 node --input-type=module << 'EOF'
+import http from 'http';
 
+const task = `Your full question here — backticks, quotes, and code blocks all work fine`;
+const context = `Paste actual code here`;
+
+const body = JSON.stringify({ task, context, engines: 'both' });
+const token = process.env.REPLIT_AGENT_TOKEN;
+
+const result = await new Promise((resolve, reject) => {
+  const options = {
+    hostname: 'localhost', port: 5000, path: '/api/alden/priority-task',
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'x-agent-token': token }
+  };
+  const req = http.request(options, (res) => {
+    let data = '';
+    res.on('data', c => data += c);
+    res.on('end', () => { try { resolve(JSON.parse(data)); } catch(e) { reject(new Error(data.slice(0,400))); }});
+  });
+  req.on('error', reject);
+  req.write(body);
+  req.end();
+});
+
+for (const r of result.results || []) {
+  console.log(`\n=== Alden [${r.engine.toUpperCase()}] ===\n`);
+  console.log(r.response);
+}
+EOF
+```
+
+**Node.js ESM gotcha:** In `node --input-type=module`, `await` is valid at the top level — but **NOT inside callbacks**. Always put `import` statements at the top of the script as static imports. `await import('https')` inside a Promise constructor callback will throw "Unexpected reserved word" in Node 20. Use `import http from 'http'` at the top instead.
+
+---
+
+## Run a single-engine consult (simple payload only)
+
+Only use bare curl when the task and context are short strings with no backticks, code, or quotes:
+
+```bash
 curl -s -X POST "http://localhost:5000/api/alden/priority-task" \
   -H "Content-Type: application/json" \
   -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
-  -d "{
-    \"task\": \"$TASK\",
-    \"context\": \"[paste relevant code or background here]\",
-    \"engines\": \"current\"
-  }" | python3 -c "
+  -d '{"task": "Short question here", "context": "Brief context", "engines": "current"}' \
+  | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
 for r in d.get('results', []):
@@ -85,30 +125,15 @@ for r in d.get('results', []):
 "
 ```
 
+For anything longer or containing code — use the Node.js pattern above.
+
 ---
 
 ## Run a dual-engine review (both Anthropic + Gemini)
 
 Use this when the decision is significant and you want both perspectives. Disagreements between Anthropic-Alden and Gemini-Alden reveal genuine uncertainty — treat disagreement as a flag to think harder, not a coin flip.
 
-```bash
-curl -s -X POST "http://localhost:5000/api/alden/priority-task" \
-  -H "Content-Type: application/json" \
-  -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
-  -d '{
-    "task": "YOUR QUESTION HERE",
-    "context": "RELEVANT CODE OR BACKGROUND",
-    "engines": "both"
-  }' | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-for r in d.get('results', []):
-    print(f'=== Alden [{r[\"engine\"].upper()}] ===')
-    print(r['response'])
-    print()
-print('--- Check Team Room for the combined post ---')
-"
-```
+Use the Node.js pattern above with `engines: "both"`. The curl version is fragile for anything beyond a one-liner.
 
 ---
 

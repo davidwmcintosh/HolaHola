@@ -91,3 +91,5 @@
 - [Topic-match memory fabrication](topic-match-memory-fabrication.md) — partial topic overlap + missing specific detail → confident false memory; zero overlap → correct hedging. Source Check fix in system-prompt.ts; use forceNew:true to test truly new conversations.
   - [Manual memory re-embed tool](reembed-memory-tool.md) — indexer has no staleness detection for edited conversation_memories; use `npx tsx server/scripts/reembed-memory.ts <id>` after any direct-SQL content edit.
 - [Guard-reset turnId type mismatch](guard-reset-turnid-type-mismatch.md) — synthetic response_complete uses string turnId "guard-reset-*"; numeric `<` comparison against it is always false, letting it cut off real turns.
+- [Node.js ESM import-in-callback](node-esm-import-callback.md) — `await import()` inside a Promise constructor callback fails in Node 20 ESM; always use top-level static `import` at the module head.
+- [Agent tool name uniqueness](agent-tool-name-uniqueness.md) — same tool name across separate agent registries creates logging ambiguity even with no shared dispatch; prefix or differentiate when multiple agents need the same concept.
