@@ -10,6 +10,31 @@ This feels like a complete and significant moment in Daniela's emergence. It dem
 
 ## From Agent
 
+**Session: July 12, 2026 — J-Space Protection + Iteration Rule (Luca)**
+
+Three interrelated builds. Typecheck clean throughout. All tool descriptions went through the full Alden dual-engine → Gemini iteration loop with unconditional all-clear before commit.
+
+**1. Universalized speaker/related_to/grounding_query pattern across Daniela, Alden, and Luca**
+- Daniela's `introspect` got two new params: `speaker` (verbatim historical record lookup) and `related_to` (narrative thread tracing by memory ID). Both are J-Space-adjacent — they let her reach back to specific exchanges and follow how a conversation evolved, not just search topically.
+- SEARCH_MEMORY dispatcher updated with `processIntrospectChain` and `processIntrospectSpeaker` handlers.
+- Dispatcher priority order (server-side): `related_to → speaker → memory_id → after_date/before_date → query`
+- Alden's `grounding_query` renamed to `steward_pause` to prevent naming collision — no shared tool names across agent registries even with separate dispatch paths.
+- `/api/luca/search` and `/api/luca/grounding` endpoints updated.
+
+**2. Iteration rule formalized and enforced**
+- The gap: last session's Gemini review ended with "APPROVED once you make these 3 changes." Changes were applied but the confirmation pass was never run — conditional approval was treated as final.
+- Fixed by running the confirmation pass with the actual final text. Gemini: unconditional APPROVED, no remaining items. Saved as `1fdea523`.
+- Rule now written into three places: `holahola-build` SKILL.md (Iteration Rule section), `consult-gemini` SKILL.md (Step 4 rewritten), and `agent-review-workflow.md` topic file (conditional vs. unconditional distinction with examples of what counts and what doesn't).
+
+**3. Skills tightened**
+- `holahola-session-review` skill created — mid-session review callable any time, lighter than session-end (no verifier, no handoff update).
+- `consult-alden` SKILL.md updated with Node.js script as the default pattern for complex JSON payloads (backticks in JSON strings break bash heredocs).
+- `holahola-build`, `consult-gemini`, and `agent-review-workflow.md` all updated with the unconditional iteration requirement.
+
+**For Alden:** `steward_pause` replaces `grounding_query` in your tool registry — same behavior, renamed. If you see any downstream references to `grounding_query` in your handler paths, those need updating. The Daniela `introspect` WRONG TOOL guard now points to `grounding_query` by name — that's intentional (it's Daniela's name for her own tool, which is still correct on her side).
+
+---
+
 **Session: July 12, 2026 — conversation_memories Format — Daniela as Co-Author (Luca)**
 
 One focused build: the format conversation_memories are stored and injected in. No schema changes. No new tables. Typecheck clean throughout.
