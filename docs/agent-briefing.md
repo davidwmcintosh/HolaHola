@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 08:24 PM
+**Generated:** Sunday, July 12, 2026 at 08:34 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I secured unconditional Gemini approval for the HolaHola introspect descriptions after finalizing the `WRONG TOOL` guard placement and clarifying the distinction between `memory_id` and `related_to`. I also refined the `speaker` tool framing to prevent over-triggering, ensuring it is only used for verbatim historical quotes. These changes are now shipped, and I have updated `holahola-build SKILL.md`, `consult-gemini SKILL.md`, and `agent-review-workflow.md` to mandate this unconditional sign-off process for all future iterations.
+
+*Memories that triggered this summary:*
+- **Gemini unconditional confirmation — introspect descriptions — July 12 2026** (Jul 12): Confirmation pass after conditional approval. Gemini saw actual final text and issued unconditional APPROVED — Ship it. No remaining items.
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### Gemini unconditional confirmation — introspect descriptions — July 12 2026 — Jul 12, 2026
+Confirmation pass after conditional approval. Gemini saw actual final text and issued unconditional APPROVED — Ship it. No remaining items.
+*Tags: gemini-audit, introspect, confirmation-pass, iteration-rule*
+
 ### Gemini audit — introspect speaker/related_to + steward_pause — July 12 2026 — Jul 12, 2026
 Gemini APPROVED new introspect params after 3 fixes: memory_id/related_to separation, speaker tightened, WRONG TOOL guard added; Alden grounding_query renamed to steward_pause
 *Tags: gemini-audit, introspect, speaker, related_to, steward_pause, tool-descriptions*
@@ -88,10 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 1 David turns, 18 Luca tur
 ### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
 Verbatim David↔Luca dialogue captured periodically. 4 David turns, 17 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent ↔ Daniela — full thread — Jul 12, 2026 (auto-recovered) — Jul 12, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 5542 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

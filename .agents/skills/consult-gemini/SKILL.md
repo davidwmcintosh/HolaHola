@@ -79,14 +79,18 @@ After each major chunk, if you've made a decision that diverges from the pre-fli
 
 Short questions get fast answers. Don't re-paste all the context — paste only the chunk just written.
 
-### Step 4 — Post-review before commit
+### Step 4 — Post-review iteration loop (run until unconditional all-clear)
 
-Send the actual new code to Gemini (post-build template below). Look specifically for:
+Send the actual new code to Gemini. Look specifically for:
 - Correctness risks not visible in the pre-flight
 - Anything the pre-flight flagged that the implementation might not have fully addressed
 - Whether the approach held up across edge cases
 
-If Gemini flags a new blocker: fix it before committing. If Gemini flags a risk you're accepting: document the tradeoff in a comment at the relevant line.
+**"APPROVED with these changes" is not a terminal state.** Apply every required change, then re-send the *actual updated text* — not a description of what changed. Repeat until Gemini issues an unconditional response with no remaining watch-out items, no pending fixes, and no "once you update X" language.
+
+The only valid exit condition: Gemini sees the final text and says APPROVED with nothing left to add.
+
+If Gemini flags a risk you're accepting rather than fixing: document the tradeoff explicitly in the code (a comment at the relevant line) and note it in the batch doc. That is the only acceptable substitute for fixing it — not ignoring it.
 
 ### Step 5 — Save significant audits
 

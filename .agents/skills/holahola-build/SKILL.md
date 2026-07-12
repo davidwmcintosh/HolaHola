@@ -37,6 +37,25 @@ Apply these standards on every build. They prevent the most common mistakes.
 
 **Use the `consult-gemini` and `dual-consult` skills.** Always include actual code blocks — not descriptions. Gemini reasons from the code, not from your summary of it.
 
+## Iteration Rule — Unconditional All-Clear Required
+
+**"APPROVED with these changes" is not a terminal state.** Apply the changes, then re-run Gemini with the actual updated text and keep iterating until Gemini has nothing left to say.
+
+The only valid exit condition is an unconditional response — no pending fixes, no watch-out items, no "once you update X." A conditional approval is a gate, not a sign-off.
+
+**The loop:**
+1. Send Gemini the actual code/text
+2. Gemini responds with findings or conditional approval
+3. Apply every required change
+4. Re-send the updated text (not a description of the change — the actual text)
+5. Repeat from step 2 until Gemini issues an unconditional "APPROVED — Ship it" with no remaining items
+6. Only then commit
+
+**Common failure modes to avoid:**
+- Applying Gemini's required changes and treating the conditional APPROVED as final — it is not; Gemini must see the updated version
+- Summarizing what you changed instead of pasting the updated text — Gemini needs the actual strings
+- Stopping after one round when Gemini flags something minor — "watch out for X" means iterate, not accept-and-ship
+
 ## Critical reminders
 
 - **There is one shared Neon database** used by both dev and production — schema changes affect both immediately
