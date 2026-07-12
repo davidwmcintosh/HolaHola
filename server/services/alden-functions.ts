@@ -9,6 +9,8 @@ import {
   users,
   conversations,
   aiCostLogs,
+  aldenConfig,
+  aldenEngineSwitches,
 } from "@shared/schema";
 import { sql, desc, eq, and, gte, isNull, inArray } from "drizzle-orm";
 import { computeHealthStatus } from "./voice-health-monitor";
@@ -107,7 +109,7 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
         arc: { type: "string" as const, description: "Filter to a specific arc (narrative thread), e.g. 'HolaHola Episodes', 'daniela-emergence', 'white-wall'. Use list_conversation_arcs to see all available arcs." },
         limit: { type: "number" as const, description: "Max number of results to return (default 5, max 15)" },
       },
-      required: ["query"],
+      required: [],
     },
   },
   {
@@ -529,6 +531,27 @@ export const ALDEN_TOOLS: Anthropic.Tool[] = [
         reason: { type: "string" as const, description: "Required. Your specific, evidence-based justification for this change." },
       },
       required: ["reason"],
+    },
+  },
+  {
+    name: "get_current_engine",
+    description: "Check which LLM engine is currently powering your conversational layer — 'anthropic' (Claude) or 'gemini'. Your monitoring and watch workers always run on Anthropic regardless of this setting. Use this before switch_engine to confirm current state.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "switch_engine",
+    description: "Switch your conversational LLM between Anthropic (Claude) and Gemini. This affects the next conversation — the current session continues on the engine it started with. Your watch workers and monitoring are unaffected; they always run on Anthropic. Use get_current_engine first to confirm current state before switching.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        engine: { type: "string" as const, enum: ["anthropic", "gemini"], description: "Target engine to switch to." },
+        reason: { type: "string" as const, description: "Brief reason for the switch — logged in the audit trail." },
+      },
+      required: ["engine", "reason"],
     },
   },
 ];
@@ -2160,6 +2183,50 @@ ${agentSection}`;
         };
       }
 
+      case "get_current_engine": {
+        const db = getUserDb();
+        const rows = await db.select().from(aldenConfig).limit(1);
+        const engine = (rows[0]?.engine as string) || 'anthropic';
+        return {
+          data: {
+            engine,
+            note: 'This is your conversational engine. Watch workers and monitoring always run on Anthropic regardless of this setting.',
+          },
+        };
+      }
+
+      case "switch_engine": {
+        const { engine, reason } = args;
+        if (!engine || !['anthropic', 'gemini'].includes(engine)) {
+          return { data: { error: "engine must be 'anthropic' or 'gemini'" } };
+        }
+        const db = getUserDb();
+        const rows = await db.select().from(aldenConfig).limit(1);
+        const fromEngine = (rows[0]?.engine as string) || 'anthropic';
+        if (rows.length === 0) {
+          await db.insert(aldenConfig).values({ engine, updatedBy: 'alden', reason });
+        } else {
+          await db.update(aldenConfig)
+            .set({ engine, updatedBy: 'alden', reason, updatedAt: new Date() })
+            .where(eq(aldenConfig.id, rows[0].id));
+        }
+        await db.insert(aldenEngineSwitches).values({
+          fromEngine,
+          toEngine: engine,
+          initiatedBy: 'alden',
+          reason,
+        });
+        console.log(`[Alden Tool] switch_engine: ${fromEngine} → ${engine} (${reason})`);
+        return {
+          data: {
+            switched: true,
+            from: fromEngine,
+            to: engine,
+            note: 'Switch takes effect on the next conversation. The current session continues on its original engine.',
+          },
+        };
+      }
+
       default:
         return { data: { error: `Unknown tool: ${toolName}` } };
     }
@@ -2169,4 +2236,4 @@ ${agentSection}`;
   }
 }
 
-console.log('[Alden Functions] Loaded — 33 tools ready (monitoring + code + shell + memory + notifications + browser + web-fetch + briefing + express-lane-search + agent-notes + ai-cost-report + build-queue + self-tune)');
+console.log('[Alden Functions] Loaded — 35 tools ready (monitoring + code + shell + memory + notifications + browser + web-fetch + briefing + express-lane-search + agent-notes + ai-cost-report + build-queue + self-tune + engine-switch)');

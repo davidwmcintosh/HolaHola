@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 04:35 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’m jumping back in to resolve the critical Cartesia TTS 400 errors blocking audio for students and to investigate the OpenAI embedding 500s flagged by Sofia. I also need to diagnose our 63% AI spend spike and fix the quality score reporting pipeline that is currently failing to record active student data. Once these are stable, I’ll complete the tagging and arc support for `conversation_memories` to better track conceptual threads per David’s "White Wall Defense" insight.
-
-*Memories that triggered this summary:*
-- **Agent Daily Sweep — Jul 12, 2026** (Jul 12): **1. [CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing hard with malformed requests. Students can't hear anything. Debug the request payload being sent to Cartesia, likely a streaming body serialization issue.  **2. [HIGH]** Investigate OpenAI embedding API 500s fla
+**Generated:** Sunday, July 12, 2026 at 04:54 PM
 
 ---
 
