@@ -46,7 +46,21 @@ The next episode is N+1. The title should capture the **emotional or conceptual 
 
 ## Step 2 — Write the `.md` File
 
-Save to `docs/episode-N.md`. Follow this structure exactly:
+**Canonical location: `docs/episode-N.md` — directly in `docs/`, NOT in any subdirectory.**
+
+There is also a `docs/episodes/` subdirectory in the repo. It is a trap. David reads `docs/episode-N.md`. Any edits made to `docs/episodes/episode-N.md` instead will be invisible to him. Always write to the root `docs/` level.
+
+```
+✓  docs/episode-12.md       ← correct
+✗  docs/episodes/episode-12.md  ← wrong — David won't see it
+```
+
+When in doubt, verify with:
+```bash
+ls docs/episode-*.md | sort -V
+```
+
+Follow this structure exactly:
 
 ```markdown
 # Episode N: "Title"
