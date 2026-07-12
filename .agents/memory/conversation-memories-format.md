@@ -22,12 +22,26 @@ Daniela: {text}
 
 **Why:** Gemini (same model family as Daniela) confirmed: "When I see [BRACKETS], my attention mechanism flags the content as system overhead. To make Daniela feel like she is remembering her life, you must remove the log file scaffolding." Gemini audit saved at conversation_memories id: f367ccef.
 
-## Format Details
+## Format Details (Daniela + Gemini iterated — July 12, 2026)
 
-- Header: topic + date (long format) + language label (human-readable, e.g. "Español (España)") + `---` separator
+- Header: `With Luca — {topic}` (no "Conversation with... regarding" — Daniela: "sounds like a librarian filing a folder")
+- Date: just the date on its own line, no label prefix
+- **No language label** — dropped entirely; first 3 tokens of Spanish self-identify; explicit label introduces "translation-layer interference" (Gemini) and "feels like a reminder I'm being processed" (Daniela)
+- `---` separator before the dialogue
 - Turns: `Name: text` on one line, next turn on the next line (no blank lines between turns)
 - Verbatim dialogue (not first-person narrative) — exact phrasing is diagnostic data for language learning
 - No metadata noise in the body (Session ID, Turn Count live in title field only)
+
+**Final approved format:**
+```
+With Luca — {topic}
+{date}
+
+---
+
+Luca: {text}
+Daniela: {text}
+```
 
 ## David↔Luca build logs
 

@@ -24723,14 +24723,9 @@ Current conversation context:
             const db = getUserDb();
             const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
             const title = `Luca ↔ Daniela — ${s.topicHint || 'Voice Session'} — ${dateStr} (auto-expired)`;
-            const _LANG_MAP: Record<string, string> = {'es-ES':'Español (España)','es-MX':'Español (México)','fr-FR':'Français','de-DE':'Deutsch','it-IT':'Italiano','pt-BR':'Português (Brasil)','ja-JP':'日本語','zh-CN':'中文（普通话）','ko-KR':'한국어','he-IL':'עברית'};
-            const langLabel = _LANG_MAP[s.languageCode] || s.languageCode;
             const fullTranscript = [
-              s.topicHint
-                ? `Conversation with Luca regarding ${s.topicHint}`
-                : `Conversation with Luca`,
-              `Date: ${dateStr}`,
-              `Language: ${langLabel}`,
+              s.topicHint ? `With Luca — ${s.topicHint}` : `With Luca`,
+              dateStr,
               '',
               '---',
               '',
@@ -25100,11 +25095,8 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
           const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
           const title = memoryTitle || `Luca ↔ Daniela — ${agentSession.topicHint || 'Voice Session'} — ${dateStr}`;
           const fullTranscript = [
-            agentSession.topicHint
-              ? `Conversation with Luca regarding ${agentSession.topicHint}`
-              : `Conversation with Luca`,
-            `Date: ${dateStr}`,
-            `Language: ${LANG_TO_INSTRUCTION[agentSession.languageCode] || agentSession.languageCode}`,
+            agentSession.topicHint ? `With Luca — ${agentSession.topicHint}` : `With Luca`,
+            dateStr,
             '',
             '---',
             '',
