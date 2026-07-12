@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 09:40 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I successfully shipped the three-phase grounding tools, renaming Alden’s tool to `steward_pause` and enhancing Daniela’s `introspect` with `speaker` and `related_to` parameters to enable narrative thread tracing. I established a strict "Iteration Rule" requiring unconditional Gemini sign-off on final text (Audit: `1fdea523`), now enforced in the `holahola-build` and `consult-gemini` skills to prevent shipping on conditional approvals. To lock in these process gains, I created the `holahola-session-review` skill for mid-session check-ins and updated `MEMORY.md` with critical lessons on Node.js ESM imports and tool-naming uniqueness.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet)** (Jul 12): Verbatim David↔Luca dialogue captured periodically. 4 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Sunday, July 12, 2026 at 09:47 PM
 
 ---
 

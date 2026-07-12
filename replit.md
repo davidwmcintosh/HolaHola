@@ -39,6 +39,8 @@ AI-powered language learning app — interactive conversation practice, vocabula
 - **Daniela's self-authorship:** Only Daniela writes to `daniela_self_reflections` and `daniela_aspirations`. No background services.
 
 ## User Preferences
+**David's family:** Wayne (father), Daniel (brother).
+
 **Skill autonomy:** Create skills freely — any time a task involves assembling things from memory or putting a reusable workflow together, turn it into a skill without asking. No permission needed.
 
 **Rephrase rule (CRITICAL):** Any rephrasing of tool descriptions, system text, or prompt content must go through Alden first (via `consult-alden` skill), then tested with Gemini, before it touches the DB. Draft in code is fine — do not seed to DB until Alden has reviewed.
