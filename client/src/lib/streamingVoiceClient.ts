@@ -869,6 +869,7 @@ export class StreamingVoiceClient {
   
   private greetingTimer: ReturnType<typeof setTimeout> | null = null;
   private greetingRetried = false;
+  private lastGreetingParams: { userName?: string; isResumed?: boolean; scenarioSlug?: string } | null = null;
 
   /**
    * Request AI-generated personalized greeting
@@ -881,6 +882,7 @@ export class StreamingVoiceClient {
       throw new Error('Socket.io not ready for greeting');
     }
     
+    this.lastGreetingParams = { userName, isResumed, scenarioSlug };
     this.socket!.emit('message', { 
       type: 'request_greeting',
       userName,
@@ -1713,6 +1715,29 @@ export class StreamingVoiceClient {
     this.consecutiveSessionErrors = 0;
     // Transition back to 'ready' so client can send more audio
     this.setState('ready');
+
+    // GREETING FAST-RETRY: If GL returns a silent empty turn (sentences=0) while we're
+    // still in the greeting window (greetingTimer is active, retry not yet fired), don't
+    // wait the full 8 seconds — retry after 1.5s so the student isn't left in silence.
+    if (message.totalSentences === 0 && this.greetingTimer && !this.greetingRetried) {
+      clearTimeout(this.greetingTimer);
+      this.greetingTimer = null;
+      this.greetingRetried = true;
+      const params = this.lastGreetingParams;
+      console.warn('[StreamingVoice] GL returned empty greeting turn (sentences=0) — fast retry in 1.5s');
+      setTimeout(() => {
+        if (this.isReady() && params) {
+          this.socket!.emit('message', {
+            type: 'request_greeting',
+            userName: params.userName,
+            isResumed: params.isResumed,
+            scenarioSlug: params.scenarioSlug,
+            isRetry: true,
+          });
+        }
+      }, 1500);
+    }
+
     this.callbacks.onResponseComplete?.(message.fullText ?? '', message.totalSentences);
     this.emit('responseComplete', message);
   }

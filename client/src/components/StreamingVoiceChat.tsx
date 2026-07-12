@@ -308,6 +308,9 @@ export function StreamingVoiceChat({
   // doesn't feel frozen. Timer starts on VAD speech start, clears on utterance end.
   const [showListeningPatience, setShowListeningPatience] = useState(false);
   const listeningPatienceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // UI fallback hint: if greeting hasn't arrived after 5s, stop ringing + show subtle prompt
+  const [showStartHint, setShowStartHint] = useState(false);
+  const startHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Stuck-listening ceiling: if VAD stays open for too long (background noise keeps mic hot),
   // Daniela never gets a turn. Ceiling fires after 30s and forces an utterance-end.
   const listeningCeilingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -505,6 +508,12 @@ export function StreamingVoiceChat({
   // Reset hasDanielaSpokeOnce when conversation changes (new session)
   useEffect(() => {
     hasDanielaSpokeOnceRef.current = false;
+    // Also clear any pending start-hint timer from the previous session
+    if (startHintTimerRef.current) {
+      clearTimeout(startHintTimerRef.current);
+      startHintTimerRef.current = null;
+    }
+    setShowStartHint(false);
   }, [conversationId]);
   
   // Voice Lab: Send voice override to server when it changes.
@@ -1600,6 +1609,12 @@ export function StreamingVoiceChat({
       hasDanielaSpokeOnceRef.current = true;
       // Stop ringing when audio starts playing (Daniela "picks up")
       stopRinging();
+      // Clear the start-hint if it fired or is still pending — Daniela is here now
+      if (startHintTimerRef.current) {
+        clearTimeout(startHintTimerRef.current);
+        startHintTimerRef.current = null;
+      }
+      setShowStartHint(false);
       // SAFETY: Clear processing timeout since response arrived
       if (openMicProcessingTimeoutRef.current) {
         clearTimeout(openMicProcessingTimeoutRef.current);
@@ -1897,6 +1912,18 @@ export function StreamingVoiceChat({
       greetingSettlingTimeoutRef.current = setTimeout(() => {
         greetingSettlingTimeoutRef.current = null;
         streamingVoice.requestGreeting(userDetails.firstName ?? undefined, isResumedForGreeting, pendingScenarioSlug);
+
+        // UI FALLBACK HINT: If greeting audio hasn't arrived within 5s, stop ringing and
+        // show a subtle "She's ready — say hello" prompt so the student knows what to do.
+        if (startHintTimerRef.current) clearTimeout(startHintTimerRef.current);
+        startHintTimerRef.current = setTimeout(() => {
+          startHintTimerRef.current = null;
+          if (!hasDanielaSpokeOnceRef.current) {
+            console.warn('[GREETING HINT] No audio after 5s — stopping ringing + showing start hint');
+            stopRinging();
+            setShowStartHint(true);
+          }
+        }, 5000);
       }, settlingDelay);
       
       // Mark resume as handled so we don't keep triggering it
@@ -4204,6 +4231,18 @@ export function StreamingVoiceChat({
             >
               <Monitor className="w-4 h-4" />
             </Button>
+          </div>
+        )}
+
+        {/* Start-hint fallback: shown when greeting hasn't arrived after 5s */}
+        {showStartHint && (
+          <div
+            className="absolute inset-x-0 bottom-24 flex justify-center pointer-events-none z-50"
+            data-testid="text-greeting-start-hint"
+          >
+            <div className="bg-background/80 backdrop-blur-sm border border-border rounded-lg px-4 py-2 text-sm text-muted-foreground animate-in fade-in duration-500">
+              She&apos;s ready — say hello to begin
+            </div>
           </div>
         )}
 

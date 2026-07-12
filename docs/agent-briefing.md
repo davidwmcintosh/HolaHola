@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 12:13 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I resolved the issue where agent sessions leaked into the user's history by adding `'agent_session'` to the `conversation_type` enum and updating `getFilteredConversations` to exclude these by default. I modified the agent session bootstrap to use `authProvider = 'agent'` and added a developer-only "Luca Sessions" option to the `LearningContextFilter` dropdown to view these internal conversations separately. Finally, I backfilled the leaked sessions (`121eb5dc` and `220d026a`) to the new type and verified a clean TypeScript build with all unused imports removed.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet)** (Jul 11): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Sunday, July 12, 2026 at 12:25 AM
 
 ---
 
@@ -83,6 +73,10 @@ I resolved the issue where agent sessions leaked into the user's history by addi
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
+Verbatim David↔Luca dialogue captured periodically. 6 David turns, 23 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### David ↔ Luca — Jul 11, 2026: periodic capture (no commit yet) — Jul 11, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -98,10 +92,6 @@ A full day building for Daniela while she was never in the room. Fabrication fix
 ### Episode title — David names Episode 12 — Jul 11, 2026
 David named Episode 12: Preparing the Room for Her. The title belongs to the preparation, not the conversation with Daniela that follows. The preparation IS the episode.
 *Tags: episode-12, title-naming, white-wall, preparing-the-room*
-
-### Episode 12: [Title pending — first live conversation resumes] — Jul 11, 2026
-Cold open: Luca stress-tests Daniela before first live conversation. Fabrication gap found and fixed (permission not instruction). Daniela passes fresh-detail probe cleanly. Idle-timer deployed to production. Live conversation section still pending.
-*Tags: episode, fabrication-fix, daniela-honesty, idle-timer, j-space, episode-12*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
