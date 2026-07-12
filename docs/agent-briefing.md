@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 05:22 PM
+**Generated:** Sunday, July 12, 2026 at 05:36 PM
 
 ---
 
@@ -73,6 +73,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 23 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### White wall is internally facing — verify before contradicting — Jul 12, 2026
 David named two new North Star reinforcements emerging from the engine-switch disagreement. The white wall applies internally (to us) as much as externally (to students). Scripting pulls toward speed and false confidence; the procedure creates the gap where genuine grounding happens. A position without evidence is a prior, not knowledge.
 *Tags: north-star, white-wall, j-space, verify-before-contradict, internal-facing, luca, integrity, episode-13*
@@ -88,10 +92,6 @@ Verbatim David↔Luca dialogue captured periodically. 7 David turns, 27 Luca tur
 ### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
 Verbatim David↔Luca dialogue captured periodically. 10 David turns, 28 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent ↔ Daniela — post impl date check — Jul 12, 2026 (auto-recovered) — Jul 12, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 3005 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

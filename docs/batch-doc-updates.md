@@ -8,6 +8,38 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jul 12, 2026 — Three-Phase Grounded Memory Pattern (Luca)
+
+Multi-phase J-Space memory lookup generalized to Alden and Luca. The insight: when any agent reaches inward, the tool they call should automatically return personal memory + the larger truths that ground it + what was actually decided in prior sessions. One call, full picture.
+
+### Alden — `search_editor_memories` three-phase upgrade
+**What:** Alden's internal memory lookup now runs three phases in a single tool call.
+**How:**
+- Phase 1: `editor_insights` ILIKE search (personal notes — unchanged)
+- Phase 2: `agentNorthStar` values — keyword-matched first, all values returned if no match
+- Phase 3: `conversation_memories` — top 3 by query match, ordered by importance
+- Return shape: `{ memories, matchCount, northStarValues, relatedConversations }`
+- Files: `server/services/alden-functions.ts` → `search_editor_memories` case
+- Imports added: `agentNorthStar`, `conversationMemories` from `@shared/schema`
+
+### Luca — `GET /api/luca/search?q=...` new endpoint
+**What:** Luca's equivalent grounded search. Before any significant decision, call this instead of just grepping.
+**How:**
+- Phase 1: `agentNorthStar` — full values, purpose, whatMatters, openNote (always returned)
+- Phase 2: `conversation_memories` — top 5 by query match, ordered by importance
+- Phase 3: `editor_insights` (category='shared') — team-level insights matching the query
+- Auth: `requireAgentToken` (same as `/api/luca/briefing`)
+- Files: `server/routes.ts` before Daniela Character Candidates section (~line 36846)
+
+### Type fix — `AldenTool`
+**What:** `gemini_description` added to 7 Alden tools in a prior session caused TypeScript errors.
+**How:** Added `type AldenTool = Anthropic.Tool & { gemini_description?: string }` to `alden-functions.ts`; changed `ALDEN_TOOLS: Anthropic.Tool[]` → `AldenTool[]`. Typecheck now clean.
+
+### Pattern principle
+Any tool an agent calls when reaching inward should automatically augment with external truth. J-Space signal in → J-Space signal plus grounded reality out. The grounding is built into the lookup, not a separate step the agent has to remember to take.
+
+---
+
 ## Session — Jul 11, 2026 — Voice Pipeline Robustness Pass (Luca)
 
 Full robustness pass on the GL voice pipeline. Gemini-reviewed pre-build, post-build, and final sign-off. 4 original fixes + 3 post-build corrections. All signed off "APPROVED — Ship it."

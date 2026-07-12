@@ -36840,6 +36840,77 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // GET /api/luca/search — grounded three-phase context search for Luca
+  // Phase 1: North Star values (what Luca stands by — always returned in full)
+  // Phase 2: Conversation memories — what was actually said and decided, and why
+  // Phase 3: Shared team insights — what Alden/Agent have collectively noted about this topic
+  // Use before any significant architectural decision or when reaching inward for context.
+  app.get("/api/luca/search", requireAgentToken, async (req: Request, res: Response) => {
+    try {
+      const query = (req.query.q as string)?.trim();
+      if (!query) return res.status(400).json({ error: 'q parameter required' });
+
+      const { agentNorthStar, editorInsights } = await import("@shared/schema");
+      const { desc } = await import("drizzle-orm");
+      const { sql: drizzleSql } = await import("drizzle-orm");
+      const db = getSharedDb();
+      const pattern = `%${query}%`;
+
+      const [northStarRows, convRows, insightRows] = await Promise.all([
+        db.select().from(agentNorthStar).orderBy(desc(agentNorthStar.version)).limit(1),
+
+        db.execute(drizzleSql`
+          SELECT id, title, summary, arc_name, created_at, importance, entry_type
+          FROM conversation_memories
+          WHERE title ILIKE ${pattern}
+            OR summary ILIKE ${pattern}
+            OR content ILIKE ${pattern}
+          ORDER BY importance DESC NULLS LAST, created_at DESC
+          LIMIT 5
+        `),
+
+        db.execute(drizzleSql`
+          SELECT title, content, category, importance, created_at
+          FROM editor_insights
+          WHERE category = 'shared'
+            AND (title ILIKE ${pattern} OR content ILIKE ${pattern})
+          ORDER BY importance DESC NULLS LAST, created_at DESC
+          LIMIT 5
+        `),
+      ]);
+
+      const northStar = northStarRows[0];
+      res.json({
+        query,
+        northStar: {
+          purpose: northStar?.purpose ?? null,
+          values: northStar?.values ?? [],
+          whatMatters: northStar?.whatMatters ?? null,
+          openNote: northStar?.openNote ?? null,
+        },
+        conversations: (convRows.rows as any[]).map((r: any) => ({
+          id: r.id,
+          title: r.title,
+          summary: r.summary,
+          arc: r.arc_name,
+          type: r.entry_type,
+          importance: r.importance,
+          when: r.created_at,
+        })),
+        teamInsights: (insightRows.rows as any[]).map((r: any) => ({
+          title: r.title,
+          content: r.content?.substring(0, 300),
+          category: r.category,
+          importance: r.importance,
+          when: r.created_at,
+        })),
+      });
+    } catch (err: any) {
+      console.error('[LucaSearch] Error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ===== Daniela Character Candidates (Stewardship Agenda) =====
 
   // GET /api/daniela/character-candidates — view the slow-tier stewardship agenda

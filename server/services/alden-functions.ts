@@ -11,6 +11,8 @@ import {
   aiCostLogs,
   aldenConfig,
   aldenEngineSwitches,
+  agentNorthStar,
+  conversationMemories,
 } from "@shared/schema";
 import { sql, desc, eq, and, gte, isNull, inArray } from "drizzle-orm";
 import { computeHealthStatus } from "./voice-health-monitor";
@@ -861,35 +863,73 @@ export async function executeAldenTool(
         const { query, category } = args;
         const sharedDb = getMonitoringDb();
 
-        let conditions = [
+        let conditions: any[] = [
           sql`(${editorInsights.title} ILIKE ${'%' + query + '%'} OR ${editorInsights.content} ILIKE ${'%' + query + '%'})`,
         ];
         if (category) {
           conditions.push(eq(editorInsights.category, category));
         }
+        const pattern = `%${query}%`;
 
-        const memories = await sharedDb.select({
-          id: editorInsights.id,
-          category: editorInsights.category,
-          title: editorInsights.title,
-          content: editorInsights.content,
-          importance: editorInsights.importance,
-          createdAt: editorInsights.createdAt,
-        }).from(editorInsights)
-          .where(and(...conditions))
-          .orderBy(desc(editorInsights.importance), desc(editorInsights.createdAt))
-          .limit(10);
+        const [memories, northStarRows, convRows] = await Promise.all([
+          // Phase 1: personal editor memories (what I have noted)
+          sharedDb.select({
+            id: editorInsights.id,
+            category: editorInsights.category,
+            title: editorInsights.title,
+            content: editorInsights.content,
+            importance: editorInsights.importance,
+            createdAt: editorInsights.createdAt,
+          }).from(editorInsights)
+            .where(and(...conditions))
+            .orderBy(desc(editorInsights.importance), desc(editorInsights.createdAt))
+            .limit(10),
+
+          // Phase 2: North Star values (what I stand by — ground every decision)
+          sharedDb.select().from(agentNorthStar)
+            .orderBy(desc(agentNorthStar.version))
+            .limit(1),
+
+          // Phase 3: conversation memories (what was actually said and decided)
+          sharedDb.execute(sql`
+            SELECT id, title, summary, arc_name, created_at, importance, entry_type
+            FROM conversation_memories
+            WHERE title ILIKE ${pattern}
+              OR summary ILIKE ${pattern}
+              OR content ILIKE ${pattern}
+            ORDER BY importance DESC NULLS LAST, created_at DESC
+            LIMIT 3
+          `),
+        ]);
+
+        const northStar = northStarRows[0];
+        const allValues = northStar?.values ?? [];
+        const queryLower = query.toLowerCase();
+        const matchingValues = allValues.filter((v: string) => v.toLowerCase().includes(queryLower));
+        const northStarContext = matchingValues.length > 0 ? matchingValues : allValues;
 
         return {
           data: {
             query,
-            matchCount: memories.length,
+            // Phase 1 — personal memory
             memories: memories.map(m => ({
               category: m.category,
               title: m.title,
               content: m.content?.substring(0, 300),
               importance: m.importance,
               when: m.createdAt?.toISOString(),
+            })),
+            matchCount: memories.length,
+            // Phase 2 — North Star: the values that ground this
+            northStarValues: northStarContext,
+            // Phase 3 — what was actually decided in prior sessions
+            relatedConversations: (convRows.rows as any[]).map((r: any) => ({
+              id: r.id,
+              title: r.title,
+              summary: r.summary?.substring(0, 200),
+              arc: r.arc_name,
+              type: r.entry_type,
+              when: r.created_at,
             })),
           },
         };
