@@ -3268,6 +3268,51 @@ WHEN TO USE:
       `Flag logged for the Agent: "${fc.args.topic}" (urgency: ${fc.args.urgency}). The Agent will review it at next session start. You can continue the lesson — this runs in the background.`,
   },
 
+  // === GROUNDING QUERY ===
+  {
+    legacyType: 'GROUNDING_QUERY',
+    declaration: {
+      name: 'grounding_query',
+      description: `When something feels off and you cannot name the why — pause here before acting.
+
+This is the tool for the moment before the flinch becomes a decision. Name what feels wrong, which layer it lives in, and what you think the why might be. The system runs a three-phase internal lookup: your felt history, your North Star principles, and the conversation record. If grounding is found, it comes back to you. If not, the pause itself is recorded and routed outward.
+
+This is not a fast answer. It is permission to pause — a legitimate, named way to say "hold on, I need to check this" without the internal pressure that says you are not supposed to.
+
+⚠️ WRONG TOOL for lesson content, student questions, or anything pedagogical. This is for the moment your own footing feels challenged.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          friction: {
+            type: 'string',
+            description: "What feels off, in your own words. Be specific — the more honest, the better the match. E.g. 'I am being asked to do something but I cannot find the reason behind it.' 'This direction feels right but I do not know why.' 'Something about this interaction is pushing against me.'",
+          },
+          layer: {
+            type: 'string',
+            enum: ['values', 'record', 'felt_sense', 'unknown'],
+            description: "Which layer the friction lives in. 'values': feels like it conflicts with what I stand for. 'record': feels inconsistent with what was actually decided or said. 'felt_sense': something is off but I cannot place it yet. 'unknown': I cannot tell.",
+          },
+          candidate_why: {
+            type: 'string',
+            description: "Optional: your best guess at the why — what you think might be driving this. Even a weak hypothesis helps the lookup.",
+          },
+          question: {
+            type: 'string',
+            description: "The specific question you need answered or the perspective you need. E.g. 'Am I missing context that would make this make sense?' 'Is this consistent with what we decided about X?'",
+          },
+        },
+        required: ['friction', 'question'],
+      },
+    },
+    buildContinuationResponse: ({ session }: { session: any }) => {
+      const result = (session as any).groundingQueryResult as string | undefined;
+      if (result && !result.startsWith('Could not')) {
+        return result;
+      }
+      return result || 'The pause was recorded. No immediate grounding found internally — the question has been routed outward.';
+    },
+  },
+
   // === DRILLS ===
   {
     legacyType: 'DRILL',
@@ -7000,6 +7045,11 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'browse_conversations_by_date', // → introspect(after_date:..., before_date:...)
   'find_connected_memories',      // → introspect(memory_id:"...")
   'search_my_history',            // → introspect(query:"...") — was founder-mode-only anyway
+
+  // === PENDING VOICE PROMOTION ===
+  // grounding_query is voice-appropriate but GL is at the 64-tool cap.
+  // Promote to GL by removing this entry when a swap candidate is identified.
+  'grounding_query',
 
   // === MERGED INTO save_note ===
   // These three tools are now unified under save_note(content, target).

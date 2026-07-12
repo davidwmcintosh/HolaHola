@@ -18,7 +18,9 @@ description: When any agent reaches inward, the lookup automatically returns per
 
 **Implementations (as of July 12, 2026):**
 - Daniela: `search_my_feelings` in `native-fc-handlers.ts` — Phase 1: `danielaSelfReflections` by mood, Phase 2: `principleFeelingLinks` → `northStarPrinciples` join (explicit per-reflection links)
+- Daniela: `grounding_query` in `native-fc-handlers.ts` — dedicated pause tool; Phase 1: `danielaSelfReflections` by friction keywords, Phase 2: `northStarPrinciples` by layer/friction keywords, Phase 3: `conversationMemories` by candidate_why; always records the pause; routes outward via `agentNotes` if internal lookup empty. Text-mode only (GL_EXCLUDED — pending voice promotion when cap allows).
 - Alden: `search_editor_memories` in `alden-functions.ts` — Phase 1: `editor_insights` ILIKE, Phase 2: `agentNorthStar` values, Phase 3: `conversation_memories` top 3
+- Alden: `read_conversation_memories` in `alden-functions.ts` — now supports `speaker` (extracts one person's dialogue lines) and `related_to` (follows `extends_memory_id` chain both directions — ancestors + descendants)
 - Luca: `GET /api/luca/search?q=` in `routes.ts` — Phase 1: `agentNorthStar` full record, Phase 2: `conversation_memories` top 5, Phase 3: shared `editor_insights` top 5
 
 **How to apply:**

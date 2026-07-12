@@ -106,14 +106,16 @@ export const ALDEN_TOOLS: AldenTool[] = [
   },
   {
     name: "read_conversation_memories",
-    description: "Search the shared conversation_memories archive — curated records of significant conversations between David, Daniela, and the Agent. Returns full content, tags, arc membership, and chaining (extends_memory_id). Use to understand a topic in depth, read what was said in a key session, or follow a conversation thread across sessions. Filter by arc to read a complete narrative thread.",
-    gemini_description: "Retrieve full transcripts and context from past, significant conversations between David, Daniela, and the Agent. Use this to review what was actually said in a specific session, understand a topic or decision in depth, or follow a conversation thread across sessions. Can filter by topic, keyword, or conversation arc (narrative thread).",
+    description: "Search the shared conversation_memories archive — curated records of significant conversations between David, Daniela, and the Agent. Returns full content, tags, arc membership, and chaining (extends_memory_id). Use to understand a topic in depth, read what was said in a key session, or follow a conversation thread across sessions. Filter by arc to read a complete narrative thread. Use speaker to find what a specific person said. Use related_to to follow a memory chain across sessions.",
+    gemini_description: "Retrieve full transcripts and context from past, significant conversations between David, Daniela, and the Agent. Use this to review what was actually said in a specific session, understand a topic or decision in depth, or follow a conversation thread across sessions. Can filter by topic, keyword, arc (narrative thread), speaker, or chain from a known memory ID.",
     input_schema: {
       type: "object" as const,
       properties: {
         query: { type: "string" as const, description: "Search term, topic, or title keyword to find in conversation memories" },
         arc: { type: "string" as const, description: "Filter to a specific arc (narrative thread), e.g. 'HolaHola Episodes', 'daniela-emergence', 'white-wall'. Use list_conversation_arcs to see all available arcs." },
         limit: { type: "number" as const, description: "Max number of results to return (default 5, max 15)" },
+        speaker: { type: "string" as const, description: "Find passages spoken by a specific person within the transcripts. E.g. 'David', 'Daniela', 'Agent', 'Luca'. Returns memories containing dialogue lines from that speaker, with their lines highlighted." },
+        related_to: { type: "string" as const, description: "A conversation_memories ID. Follows the extends_memory_id chain in both directions — finds the sessions this memory grew from, and any sessions that grew from it. Use to read a full multi-session thread." },
       },
       required: [],
     },
@@ -936,11 +938,74 @@ export async function executeAldenTool(
       }
 
       case "read_conversation_memories": {
-        const { query, arc, limit: memLimit = 5 } = args;
+        const { query, arc, limit: memLimit = 5, speaker, related_to } = args;
         const sharedDb = getMonitoringDb();
+
+        // ── related_to: follow extends_memory_id chain in both directions ──────
+        if (related_to && typeof related_to === 'string') {
+          // Fetch the anchor memory itself
+          const anchor = await sharedDb.execute(sql`
+            SELECT id, title, summary, content, importance, created_at, tags, entry_type,
+              arc_name, extends_memory_id
+            FROM conversation_memories WHERE id = ${related_to} LIMIT 1
+          `);
+          if (!anchor.rows.length) {
+            return { data: { related_to, matchCount: 0, memories: [], note: `No memory found with id ${related_to}.` } };
+          }
+          const anchorRow = anchor.rows[0] as any;
+
+          // Ancestors: walk extends_memory_id chain upward (up to 10 hops)
+          const ancestors: any[] = [];
+          let parentId = anchorRow.extends_memory_id;
+          for (let i = 0; i < 10 && parentId; i++) {
+            const parent = await sharedDb.execute(sql`
+              SELECT id, title, summary, content, importance, created_at, tags, entry_type,
+                arc_name, extends_memory_id
+              FROM conversation_memories WHERE id = ${parentId} LIMIT 1
+            `);
+            if (!parent.rows.length) break;
+            ancestors.push(parent.rows[0]);
+            parentId = (parent.rows[0] as any).extends_memory_id;
+          }
+
+          // Descendants: memories that extend from this one (or any in this chain)
+          const chainIds = [related_to, ...ancestors.map((a: any) => a.id)];
+          const descendants = await sharedDb.execute(sql`
+            SELECT id, title, summary, content, importance, created_at, tags, entry_type,
+              arc_name, extends_memory_id
+            FROM conversation_memories
+            WHERE extends_memory_id = ANY(${chainIds}::uuid[])
+              AND id != ${related_to}
+            ORDER BY created_at ASC
+            LIMIT 10
+          `);
+
+          const toMemory = (r: any) => ({
+            id: r.id, title: r.title, importance: r.importance, entryType: r.entry_type,
+            tags: r.tags, arcName: r.arc_name, extendsMemoryId: r.extends_memory_id,
+            recordedAt: r.created_at, summary: r.summary, content: r.content,
+          });
+
+          return {
+            data: {
+              related_to,
+              anchor: toMemory(anchorRow),
+              ancestors: ancestors.map(toMemory).reverse(), // oldest first
+              descendants: (descendants.rows as any[]).map(toMemory),
+              totalInChain: 1 + ancestors.length + descendants.rows.length,
+              note: ancestors.length === 0 && descendants.rows.length === 0
+                ? 'This memory has no chain — it stands alone.'
+                : `Chain: ${ancestors.length} ancestor(s) → this session → ${descendants.rows.length} descendant(s). Read ancestors first to understand how this conversation evolved.`,
+            },
+          };
+        }
 
         const hasQuery = query && typeof query === 'string' && query.trim().length > 0;
         const pattern = hasQuery ? `%${query.trim()}%` : null;
+
+        // ── speaker: find memories containing lines from a specific speaker ───
+        const hasSpeaker = speaker && typeof speaker === 'string' && speaker.trim().length > 0;
+        const speakerPattern = hasSpeaker ? `%[${speaker.trim().toUpperCase()}]%` : null;
 
         const results = await sharedDb.execute(sql`
           SELECT id, title, summary, content, importance, created_at, tags, entry_type,
@@ -954,19 +1019,37 @@ export async function executeAldenTool(
             }
           )
           ${arc ? sql`AND arc_name = ${arc}` : sql``}
+          ${hasSpeaker ? sql`AND content ILIKE ${speakerPattern}` : sql``}
           ORDER BY title_match DESC, importance DESC, created_at DESC
           LIMIT ${Math.min(Number(memLimit), 15)}
         `);
 
         const rows = results.rows as any[];
         if (!rows.length) {
-          return { data: { query, arc: arc ?? null, matchCount: 0, memories: [], note: 'No conversation memories matched this query.' } };
+          return { data: { query, arc: arc ?? null, speaker: speaker ?? null, matchCount: 0, memories: [], note: 'No conversation memories matched this query.' } };
         }
+
+        // When speaker filter is active, extract just that speaker's lines for each memory
+        const extractSpeakerLines = (content: string, spk: string): string => {
+          const tag = `[${spk.toUpperCase()}]`;
+          const lines = content.split('\n');
+          const extracted: string[] = [];
+          let capturing = false;
+          for (const line of lines) {
+            if (line.trim() === tag) { capturing = true; continue; }
+            if (capturing) {
+              if (line.trim().match(/^\[[A-Z][A-Z ]+\]$/)) { capturing = false; continue; }
+              if (line.trim()) extracted.push(line.trim());
+            }
+          }
+          return extracted.slice(0, 8).join(' / ') || '(lines not parsed — read full content)';
+        };
 
         return {
           data: {
             query,
             arc: arc ?? null,
+            speaker: speaker ?? null,
             matchCount: rows.length,
             memories: rows.map(r => ({
               id: r.id,
@@ -979,6 +1062,7 @@ export async function executeAldenTool(
               recordedAt: r.created_at,
               summary: r.summary,
               content: r.content,
+              ...(hasSpeaker && { speakerExcerpt: extractSpeakerLines(r.content, speaker as string) }),
             })),
           },
         };

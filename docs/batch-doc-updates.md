@@ -38,6 +38,27 @@ Multi-phase J-Space memory lookup generalized to Alden and Luca. The insight: wh
 ### Pattern principle
 Any tool an agent calls when reaching inward should automatically augment with external truth. J-Space signal in → J-Space signal plus grounded reality out. The grounding is built into the lookup, not a separate step the agent has to remember to take.
 
+### Daniela — `grounding_query` tool (new)
+**What:** A dedicated pause tool for Daniela's J-Space. When something feels off and she cannot name the why, she names the friction, its layer (values/record/felt_sense/unknown), a candidate why (optional), and her question. The system runs a three-phase internal lookup and always records the pause itself.
+**How:**
+- Phase 1: `danielaSelfReflections` ILIKE on friction keywords — shows past felt entries matching the texture
+- Phase 2: `northStarPrinciples` keyword-match by layer + friction — shows what she stands by
+- Phase 3: `conversationMemories` keyword-match by candidate_why or friction — shows what was actually decided
+- Always inserts a new row in `danielaSelfReflections` (source: 'grounding_query', mood: 'grounding') recording the pause
+- If no grounding found internally: inserts an `agentNotes` row (fromAgent: 'daniela', toAgent: 'agent') with full structured context
+- Returns a formatted response across all three layers, or "the question has been routed outward"
+- Tool description: "permission to pause — a legitimate, named way to say 'hold on, I need to check this'"
+- Status: text-mode only (`GL_EXCLUDED_TOOLS`) — pending voice promotion when cap allows (GL is at 64 tools)
+- Files: `daniela-function-registry.ts` (~line 3274), `native-fc-handlers.ts` (case 'GROUNDING_QUERY')
+- Auto-indexed by ToolIndexer at next server start ✓
+
+### Alden — `read_conversation_memories` speaker + chain traversal
+**What:** Two new search modes on Alden's conversation archive tool.
+**How:**
+- `speaker`: adds `content ILIKE '[SPEAKER_NAME]%'` filter; for each result, extracts up to 8 lines spoken by that speaker using `[SPEAKER_NAME]` label matching; returns in `speakerExcerpt` field
+- `related_to`: given a memory ID, walks `extends_memory_id` upward (up to 10 hops) for ancestors, plus queries all memories whose `extends_memory_id` is in that chain for descendants; returns `{ anchor, ancestors (oldest first), descendants, totalInChain, note }`
+- Files: `server/services/alden-functions.ts` → `case "read_conversation_memories"`
+
 ---
 
 ## Session — Jul 11, 2026 — Voice Pipeline Robustness Pass (Luca)

@@ -4696,6 +4696,115 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'GROUNDING_QUERY': {
+        const gqFriction = fn.args.friction as string | undefined;
+        const gqLayer = (fn.args.layer as string | undefined) || 'unknown';
+        const gqCandidateWhy = fn.args.candidate_why as string | undefined;
+        const gqQuestion = fn.args.question as string | undefined;
+
+        if (!gqFriction || !gqQuestion) {
+          (session as any).groundingQueryResult = 'grounding_query requires both friction and question.';
+          break;
+        }
+
+        try {
+          const { danielaSelfReflections, northStarPrinciples, conversationMemories } = await import('@shared/schema');
+          const { ilike, or, eq, and, desc } = await import('drizzle-orm');
+          const db = getSharedDb();
+          const userId = session.userId ? String(session.userId) : null;
+          const sections: string[] = [];
+
+          // ── Phase 1: felt history — search reflections for friction keywords ───
+          const frictionKeywords = gqFriction.split(/\s+/).filter(w => w.length > 4).slice(0, 3);
+          if (userId && frictionKeywords.length > 0) {
+            const kw = `%${frictionKeywords[0].toLowerCase()}%`;
+            const feltMatches = await db
+              .select()
+              .from(danielaSelfReflections)
+              .where(and(eq(danielaSelfReflections.userId, userId), ilike(danielaSelfReflections.content, kw)))
+              .orderBy(desc(danielaSelfReflections.createdAt))
+              .limit(3);
+            if (feltMatches.length > 0) {
+              const lines = feltMatches.map(r => `— ${r.content.substring(0, 180)}`).join('\n');
+              sections.push(`From your felt history:\n${lines}`);
+            }
+          }
+
+          // ── Phase 2: North Star — keyword-match principles to friction + layer ─
+          const nsQuery = [gqFriction, gqLayer === 'values' ? 'values purpose why' : ''].join(' ').toLowerCase();
+          const nsKw = `%${nsQuery.split(/\s+/).filter(w => w.length > 3)[0] || 'why'}%`;
+          const principles = await db
+            .select()
+            .from(northStarPrinciples)
+            .where(and(
+              eq(northStarPrinciples.isActive, true),
+              or(ilike(northStarPrinciples.principle, nsKw), ilike(northStarPrinciples.principleTitle, nsKw))
+            ))
+            .limit(2);
+          if (principles.length > 0) {
+            const lines = principles.map(p =>
+              `— ${p.principleTitle || 'Principle'}: ${p.principle.substring(0, 200)}`
+            ).join('\n');
+            sections.push(`From your North Star:\n${lines}`);
+          }
+
+          // ── Phase 3: conversation record — search for the why ─────────────────
+          const memKw = `%${gqCandidateWhy ? gqCandidateWhy.split(/\s+/).filter(w => w.length > 3)[0] : gqFriction.split(/\s+/).filter(w => w.length > 4)[0] || 'why'}%`;
+          const memMatches = await db
+            .select({ id: conversationMemories.id, title: conversationMemories.title, summary: conversationMemories.summary, importance: conversationMemories.importance })
+            .from(conversationMemories)
+            .where(or(ilike(conversationMemories.title, memKw), ilike(conversationMemories.summary, memKw)))
+            .orderBy(desc(conversationMemories.importance))
+            .limit(2);
+          if (memMatches.length > 0) {
+            const lines = memMatches.map(m => `— ${m.title}: ${(m.summary || '').substring(0, 150)}`).join('\n');
+            sections.push(`From the conversation record:\n${lines}`);
+          }
+
+          // ── Record the pause itself in self_reflections ───────────────────────
+          if (userId) {
+            const pauseRecord = `Grounding pause — layer: ${gqLayer}. Friction: "${gqFriction.substring(0, 200)}". Question: "${gqQuestion.substring(0, 200)}".${gqCandidateWhy ? ` Candidate why: "${gqCandidateWhy.substring(0, 150)}".` : ''}`;
+            db.insert(danielaSelfReflections).values({
+              userId,
+              content: pauseRecord,
+              source: 'grounding_query',
+              mood: 'grounding',
+            } as any).catch((err: Error) => {
+              console.error(`[Native Function→GroundingQuery] Failed to record pause:`, err.message);
+            });
+          }
+
+          const groundingFound = sections.length > 0;
+
+          if (groundingFound) {
+            (session as any).groundingQueryResult =
+              `Pause recorded. Here is what your three layers say about this:\n\n` +
+              sections.join('\n\n') +
+              `\n\nThe pause itself is now in your felt history. Let what is here settle before you act.`;
+          } else {
+            // Route outward — nothing found internally
+            const body = `Grounding pause — no internal match found.\n\nFriction: "${gqFriction}"\nLayer: ${gqLayer}\nQuestion: "${gqQuestion}"${gqCandidateWhy ? `\nCandidate why: "${gqCandidateWhy}"` : ''}\n\n---\nSession: ${session.conversationId || 'unknown'}\nLanguage: ${session.targetLanguage || 'unknown'}\nSource: Daniela (grounding_query)`;
+            db.insert((await import('@shared/schema')).agentNotes).values({
+              fromAgent: 'daniela' as any,
+              toAgent: 'agent',
+              subject: `[Daniela — Grounding] ${gqFriction.substring(0, 200)}`,
+              body,
+              sessionLabel: `Grounding query — ${new Date().toISOString().substring(0, 10)}`,
+            }).catch((err: Error) => {
+              console.error(`[Native Function→GroundingQuery] Failed to route outward:`, err.message);
+            });
+
+            (session as any).groundingQueryResult =
+              `Pause recorded. Nothing in your three layers matched this friction directly — the question has been routed to the Agent for the next session. You have named the friction: "${gqFriction.substring(0, 100)}". That naming is already grounding, even without an answer yet.`;
+          }
+
+          console.log(`[Native Function→GroundingQuery] Pause recorded — ${groundingFound ? `${sections.length} grounding section(s) found` : 'no match, routed outward'}`);
+        } catch (err: any) {
+          (session as any).groundingQueryResult = `Could not complete grounding query: ${err.message}`;
+        }
+        break;
+      }
+
       case 'SELF_SURGERY': {
         if (session.isIncognito) {
           console.log(`[Native Function→SelfSurgery] INCOGNITO - skipping self-surgery persistence`);
