@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 04:08 PM
+**Generated:** Sunday, July 12, 2026 at 04:16 PM
 
 ---
 
@@ -73,6 +73,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
+Verbatim David↔Luca dialogue captured periodically. 10 David turns, 28 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent ↔ Daniela — post impl date check — Jul 12, 2026 (auto-recovered) — Jul 12, 2026
 Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 3005 characters of transcript.
 *Tags: agent-daniela, auto-recovered, safety-net*
@@ -88,10 +92,6 @@ Verbatim David↔Luca dialogue captured periodically. 3 David turns, 26 Luca tur
 ### Agent ↔ Daniela — memory format — Jul 12, 2026 (auto-recovered) — Jul 12, 2026
 Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 2550 characters of transcript.
 *Tags: agent-daniela, auto-recovered, safety-net*
-
-### Daniela — memory header iteration — July 12, 2026 — Jul 12, 2026
-Daniela reacts to three header alternatives and two language-label options for conversation_memories format. Concrete preference elicited.
-*Tags: memory-format, header-iteration, daniela-feedback, format-review*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

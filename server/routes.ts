@@ -31500,6 +31500,7 @@ ${memoryContext}
       const limit = parseInt(req.query.limit as string) || 20;
       const entryType = req.query.entry_type as string | undefined;
       const tag = req.query.tag as string | undefined;
+      const arcName = (req.query.arc_name as string | undefined) || (req.query.arcName as string | undefined);
 
       let query = getUserDb()
         .select()
@@ -31513,6 +31514,9 @@ ${memoryContext}
       }
       if (tag) {
         conditions.push(sql`${tag} = ANY(${conversationMemories.tags})`);
+      }
+      if (arcName) {
+        conditions.push(eq(conversationMemories.arcName, arcName));
       }
 
       const memories = conditions.length > 0
