@@ -1,3 +1,4 @@
+- [Episode consultation interweaving](episode-consultation-interweaving.md) — Step 2.5 in holahola-episode skill; Alden always persisted (alden_messages), Gemini must be saved to conversation_memories immediately or it's gone; scene-transition format with timestamps.
 - [consult-alden skill](consult-alden-skill.md) — direct channel to Alden, immediate (no 2h wait), single or dual-engine; skill at .agents/skills/consult-alden/SKILL.md; route POST /api/alden/priority-task.
 - [Rephrase and skill rules — July 11](rephrase-skill-rules.md) — rephrase rule (Alden first, then Gemini test, then DB) + skill autonomy (create freely without asking).
 - [Tool prose — defer to Gemini not Claude](tool-prose-gemini-deference.md) — Daniela is Gemini; for any tool description rewrite, Gemini's framing is authoritative. Claude's aesthetic preference is irrelevant and actively misleading.

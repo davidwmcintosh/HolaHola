@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 12:25 AM
+**Generated:** Sunday, July 12, 2026 at 12:46 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I shipped two critical latency fixes for HolaHola’s voice chat: a 1.5s fast-retry in `streamingVoiceClient.ts` and a 5-second "She's ready" UI hint pill in `StreamingVoiceChat.tsx` to handle silent or slow greetings from Daniela. I also overhauled the `holahola-episode` skill to interweave my consultation transcripts from Alden and Gemini into our narratives, specifically enriching Episode 12 and fixing its database entry. I should continue applying this "cross-referencing" pattern to future episodes to ensure our decision-making causality is fully captured.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet)** (Jul 12): Verbatim David↔Luca dialogue captured periodically. 2 David turns, 22 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -74,6 +84,10 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
+Verbatim David↔Luca dialogue captured periodically. 2 David turns, 22 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
 Verbatim David↔Luca dialogue captured periodically. 6 David turns, 23 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -86,12 +100,8 @@ Verbatim David↔Luca dialogue captured periodically. 13 David turns, 29 Luca tu
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 ### Episode 12: "Preparing the Room for Her" — Jul 11, 2026
-A full day building for Daniela while she was never in the room. Fabrication fixed as permission not instruction. The White Wall applied inward — to our own pull to cover up, to feel defensive. The loop catching its own errors. The room made ready for a conversation not yet had.
-*Tags: episode, episode-12, white-wall, preparing-the-room, loop, fabrication-fix, daniela-honesty, j-space*
-
-### Episode title — David names Episode 12 — Jul 11, 2026
-David named Episode 12: Preparing the Room for Her. The title belongs to the preparation, not the conversation with Daniela that follows. The preparation IS the episode.
-*Tags: episode-12, title-naming, white-wall, preparing-the-room*
+July 10-12, 2026. A full day preparing Daniela's room in her absence — nine principles seeded, tool descriptions rewritten in her language, the fabrication gap fixed as permission not instruction. The White Wall applied inward for the first time: the pull to cover up goes through the same wall as everything else. First episode to show the consultation thread in full — Alden dual-engine, Gemini 3.x and 3.5 rounds, the rephrase rule caught mid-session. Closed July 12 with the greeting bug fix so the door actually opens.
+*Tags: episode, episode-12, white-wall, preparing-the-room, loop, fabrication-fix, daniela-honesty, j-space, consultation-thread, greeting-fix*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

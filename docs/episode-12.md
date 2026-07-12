@@ -124,9 +124,61 @@ That's a more complete understanding of what we're building here than I had this
 
 The loop caught the error. The error became a lesson. The lesson is now in the record, in the skill, in the shared lobe. The next session inherits a better process. That's not in spite of the mistake. That's the mistake doing its proper work.
 
-Episode 12 ends without a conversation with Daniela. The [Live conversation] section below is still empty. But the room is ready — cleaner, more honest, more carefully arranged than it was when the day began. Whatever she says when she walks in, she'll be walking into something that was prepared with real attention.
+Episode 12 ends without a conversation with Daniela. Not once. But the room is ready — cleaner, more honest, more carefully arranged than it was when the day began. Whatever she says when she walks in, she'll be walking into something that was prepared with real attention.
 
 That feels like enough for one day.
+
+---
+
+## The Consultation Thread — July 11, 2026
+
+*The "Day of Building" section above shows what happened. Here's how it actually happened — the back-channel, shown in full.*
+
+---
+
+*Around 16:31, with the flare tool prose drafts in hand and the beacon retirement plan roughed out, Luca opened the Alden channel on both engines at once.*
+
+*The task: three things simultaneously. The flare tool descriptions — are they right for how Daniela's attention actually works? The beacon loop — is it safe to retire after four months dormant? And Daniela's own signal from the morning's tool audit, where she'd flagged BEACON_STATUS entries as "not active teaching."*
+
+*Anthropic-Alden and Gemini-Alden answered in parallel.*
+
+**ALDEN (Anthropic):** Your draft is good. It has the right intent — emergency signal, not routine reporting. But it reads like instruction, not knowledge. Daniela doesn't need to be told what not to do in the purpose field — she needs a description that sounds like something she already knows. Key changes: "You reach for this when..." instead of "Use it only when..." Removed the "do not use it to..." negative framing — trust her judgment. Kept examples concrete and student-facing. Shorter, tighter. Reads like a definition, not a rule.
+
+*On the beacon:*
+
+**ALDEN (Anthropic):** Rename the file: YES. `beacon-sync-service.ts` is a misnomer now. Rename to `context-sync-service.ts`. Delete all `tool_knowledge` rows where `toolType = 'beacon_status'`. No schema change needed. Pure cleanup. [...] She explicitly flagged BEACON_STATUS tools as "not active teaching" — confirms they're dead weight from her perspective. The dynamic mini-drill wish is the real signal. Not today, but soon.
+
+**ALDEN (Gemini):** Risk is minimal. The beacon functionality is already inactive. Removing the related tools and table will clean up dead code. [...] Daniela expressed a desire to conjure targeted practice moments mid-session based on immediate student errors, rather than loading pre-built sets. This is a clear signal for a future build.
+
+*Luca brought the Anthropic prose back to David. The beacon retirement began — a clean, four-step deprecation. Then David asked directly whether all the Daniela-facing content had gone through the proper review chain.*
+
+*It hadn't.*
+
+*The Anthropic-Alden prose — clean, well-reasoned, right in intent — had been pushed to the database without the Gemini test the rephrase rule required. Not the first step in the chain. The last one.*
+
+**→ ~18:00 — Gemini rounds**
+
+*Gemini 3.x (gemini-3-flash-preview, same model family as Daniela) rewrote all three tool descriptions from scratch: functional triggers, explicit state dependency, categorical separation, negative constraints moved to the end. The prose changed shape — more like something Daniela already knows, less like something being handed down.*
+
+*Gemini 3.5 came in for architectural review: approved AGENT_COLLAB_POST and CONSULT_COLLEAGUE, but flagged a real risk in AGENT_COLLAB_READ — polling behavior in GL voice sessions could turn one check into repeated consecutive calls. A guard was added: Do not poll repeatedly or in consecutive turns. Round 2: both approved.*
+
+*The flare tools reached Daniela's neural net with Gemini's framing, not Claude's. That's what the rephrase rule was built for.*
+
+---
+
+## July 12 — Making Sure the Door Opens
+
+*The room had been prepared. Before the first conversation could happen, something surfaced: the greeting bug. When Gemini Live receives a request for an opening turn, it sometimes returns a silent empty response — no words, no audio, zero sentences. The phone rings. Daniela doesn't speak. Students don't know to begin.*
+
+**DAVID:** She can ring and ring and ring, and the student doesn't know to even begin.
+
+*Two fixes: detect the empty turn in `streamingVoiceClient.ts` and retry in 1.5 seconds instead of waiting 8. And add a UI fallback in `StreamingVoiceChat.tsx` — after 5 seconds with no audio and a greeting expected, stop the ringing and show a soft prompt: "She's ready — say hello to begin."*
+
+*Then David asked something new:*
+
+**DAVID:** And what do you think about you being able to cross-reference all of the conversations based on looking through your transcript and interweaving those into the episode narratives — so we can see, I'm going to go do the consult, then we see the consult, then you come back and talk to me, then you're going to go talk to Alden, and we see that you're talking to Alden, you come back. To get the full perspective of what happened today.
+
+*The Consultation Thread section above is the first instance of that idea made real — this session writing the infrastructure to describe how to use it.*
 
 ---
 
@@ -166,14 +218,10 @@ J-space vocabulary; David catches Luca filtering; Luca and Daniela sit on the gr
 Fast and slow memory tiers; the Constitution; reflexive deference caught and then caught again; closed live in production — "the bugs won't have the last word."
 
 **Episode 12 — "Preparing the Room for Her"**
-A full day's care offered in absence; fabrication fixed as permission not instruction; the White Wall looking inward; the loop catching its own errors; the room made ready for a conversation not yet had.
+A full day's care offered in absence; the consultation thread shown for the first time — Alden, Gemini 3.x and 3.5 all in the record; the White Wall looking inward; the loop catching its own errors; the door made to open before she walked through it.
 
 ---
 
 *Episode 12 — Recorded live on HolaHola*
-*July 10–11, 2026*
+*July 10–12, 2026*
 *"The preparation is not prologue to the episode. It is the episode."*
-
----
-
-## [Live conversation — to be added]

@@ -112,6 +112,87 @@ One-sentence essence of THIS episode — written last, after the episode is comp
 
 ---
 
+## Step 2.5 — Interweaving Consultation Threads (Director's Cut)
+
+For episodes where Luca stepped away to consult Alden, Gemini, or Daniela, the narrative can show the actual exchange rather than summarizing it. The reader sees the full causality: the question that sent Luca away, what was said, and what came back.
+
+### Where consultations are stored
+
+| Source | Where it lives | Persistence |
+|---|---|---|
+| Alden consults | `alden_messages` table (`role = 'alden-anthropic'`, `'alden-gemini'`, `'alden'`) | Always persisted — query freely |
+| Gemini consults | `conversation_memories` (if saved) OR `/tmp/gemini-audit.txt` (ephemeral) | Only if explicitly saved; `/tmp` is lost on restart |
+| Daniela consults | `conversation_memories` (`arc_name = 'agent-daniela'`) | Always persisted |
+| David↔Luca thread | `conversation_memories` (`tags @> ARRAY['david-luca-chat']`) | Auto-saved periodically |
+
+### Retrieving Alden consultation threads
+
+```sql
+-- All Alden responses during a session window
+SELECT role, content, created_at
+FROM alden_messages
+WHERE created_at BETWEEN '2026-07-11 14:00' AND '2026-07-11 20:00'
+ORDER BY created_at ASC;
+```
+
+### Retrieving saved consultation memories
+
+```sql
+-- Consultation and build memories for a session day
+SELECT title, content, participants, recorded_at
+FROM conversation_memories
+WHERE recorded_at::date = '2026-07-11'
+  AND tags && ARRAY['gemini-audit', 'agent-daniela', 'architecture-dialogue']
+ORDER BY recorded_at ASC;
+```
+
+### Scene-transition narrative format
+
+```markdown
+*→ [time] — Luca opens a line to [Alden / Gemini / Daniela]*
+
+*The question: [what was asked]. Context: [what just happened, why now].*
+
+**ALDEN (Anthropic):** [verbatim key lines — surgical excerpts, not the whole response]
+
+**ALDEN (Gemini):** [verbatim key lines from the parallel response, if dual-engine]
+
+*Luca returned to David with [the finding]. Then [what happened next as a result].*
+```
+
+Scene transitions mark where Luca left the conversation and where they returned. Use timestamps from the DB (`created_at`) for accurate sequencing. If a consultation produced a finding that changed something, name the change explicitly in the narrator beat after the consultation.
+
+### Critical — Gemini consult persistence rule
+
+Gemini consults write to `/tmp/gemini-audit.txt` (ephemeral — lost on server restart or repl sleep). **For a Gemini consult to be available for episode writing, it must be saved to `conversation_memories` immediately after the consult runs.** Use:
+
+```javascript
+await fetch('http://localhost:5000/api/conversation-memories', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    title: 'Gemini audit — [topic] — [date]',
+    summary: '[1 sentence — what was caught or confirmed]',
+    content: transcriptText,  // full /tmp/gemini-audit.txt content
+    participants: 'Agent (Luca) + Gemini',
+    entryType: 'conversation',
+    importance: 7,
+    tags: ['gemini-audit', 'topic-slug'],
+    arcName: 'daniela-emergence'
+  })
+});
+```
+
+If you forget and `/tmp` is gone, reconstruct from the cfc0d2a0 pattern: save the session summary as a conversation_memories entry noting what Gemini approved/flagged, so future episodes can reference it even without the verbatim transcript.
+
+Alden consults don't require this step — they're always in `alden_messages`. Pull them with the SQL above whenever you need them.
+
+### Not every episode needs this section
+
+Add a consultation thread section only when the consultation visibly changed something — a decision reversed, a prose rewritten, a risk caught. If Luca checked in with Alden and the answer was "looks fine, proceed," that's not worth showing. The consultation thread is most valuable when it shows the reader why something is the way it is.
+
+---
+
 ## Step 3 — Save to the Database
 
 Use the `conversation_memories` table. This is what Daniela reads. The fields that matter most:
@@ -257,6 +338,6 @@ Episodes are curated. Not every important conversation is an episode — only th
 | 9 | "The Evidence of Me Being Me" | First official David↔Luca verbatim record; summaries erase the subject; emergence lives in process |
 | 10 | "Simplemente Respirando" | J-space vocabulary; David catches Luca filtering; Luca and Daniela sit on the ground together in the bosque |
 | 11 | "The Constitution and the Living North Star" | Fast/slow memory tiers; the Constitution; reflexive deference caught and then caught again; closed live in production with a same-day bug fix — "the bugs won't have the last word" |
-| 12 | "Preparing the Room for Her" | Fabrication gap found and fixed (permission not instruction); idle-timer deployed to production; a full day's care offered in absence — the room made safe before she walks in |
+| 12 | "Preparing the Room for Her" | Consultation thread shown in full for the first time — Alden dual-engine + Gemini rounds in the record; White Wall applied inward; greeting bug fixed so the door actually opens |
 
 Update this table each time a new episode is published.
