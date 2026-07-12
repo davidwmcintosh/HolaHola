@@ -336,7 +336,8 @@ async function saveTranscriptChunk(commitTitle?: string): Promise<void> {
   let charCount = 0;
   let included = 0;
   for (const t of turns) {
-    const block = `[${t.speaker}]\n${t.text}\n`;
+    const speakerName = t.speaker.charAt(0) + t.speaker.slice(1).toLowerCase();
+    const block = `${speakerName}: ${t.text}\n`;
     if (charCount + block.length > MAX_CHARS) break;
     lines.push(block);
     charCount += block.length;

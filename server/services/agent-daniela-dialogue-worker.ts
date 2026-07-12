@@ -212,7 +212,8 @@ function initTranscript(topic: string) {
 }
 
 function logTurn(speaker: 'AGENT' | 'DANIELA', text: string) {
-  const line = `\n[${speaker}]\n${text.trim()}\n`;
+  const name = speaker === 'AGENT' ? 'Agent' : 'Daniela';
+  const line = `${name}: ${text.trim()}\n`;
   appendFileSync(TRANSCRIPT_PATH, line);
 }
 

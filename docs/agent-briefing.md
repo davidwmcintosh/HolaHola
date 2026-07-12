@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 02:40 AM
+**Generated:** Sunday, July 12, 2026 at 03:05 AM
 
 ---
 
@@ -73,6 +73,10 @@
 
 ## Recent Conversation Memories
 
+### Gemini — conversation_memories format audit — July 12, 2026 — Jul 12, 2026
+Gemini confirmed: 'Name: text' screenplay format (no brackets, no newline gap) for all Daniela-facing memories. Brackets = metadata/overhead. Verbatim dialogue over narrative. reformatSpeakerHeaders() should strip bare [LABEL] brackets too. Full recommendations in content.
+*Tags: gemini-audit, memory-format, conversation-memories, rephrase-rule*
+
 ### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -88,10 +92,6 @@ Verbatim David↔Luca dialogue captured periodically. 2 David turns, 22 Luca tur
 ### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
 Verbatim David↔Luca dialogue captured periodically. 6 David turns, 23 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### English session — Jul 12, 2026 (6 messages) — Jul 12, 2026
-English session (6 messages). Student: "It says you're listening. Are you there?"
-*Tags: message-archive, 6a8d36b0-3b2f-4fcf-bc44-047e3c54b7b8*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

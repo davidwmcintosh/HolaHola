@@ -24723,15 +24723,19 @@ Current conversation context:
             const db = getUserDb();
             const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
             const title = `Luca ↔ Daniela — ${s.topicHint || 'Voice Session'} — ${dateStr} (auto-expired)`;
+            const _LANG_MAP: Record<string, string> = {'es-ES':'Español (España)','es-MX':'Español (México)','fr-FR':'Français','de-DE':'Deutsch','it-IT':'Italiano','pt-BR':'Português (Brasil)','ja-JP':'日本語','zh-CN':'中文（普通话）','ko-KR':'한국어','he-IL':'עברית'};
+            const langLabel = _LANG_MAP[s.languageCode] || s.languageCode;
             const fullTranscript = [
-              `Luca ↔ Daniela — ${dateStr}`,
-              `Session ID: ${id} | Turns: ${s.turnCount} | Language: ${s.languageCode}`,
-              s.topicHint ? `Topic: ${s.topicHint}` : '',
+              s.topicHint
+                ? `Conversation with Luca regarding ${s.topicHint}`
+                : `Conversation with Luca`,
+              `Date: ${dateStr}`,
+              `Language: ${langLabel}`,
               '',
               '---',
               '',
-              s.conversationTranscript.join('\n\n'),
-            ].filter(l => l !== null).join('\n').trim();
+              s.conversationTranscript.join('\n'),
+            ].join('\n').trim();
             const result = await db.execute(sqlTag`
               INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, entry_type, arc_name)
               VALUES (
@@ -25082,10 +25086,10 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
 
       const danielaText = danielaTextParts.join(' ').trim();
 
-      // Accumulate the conversation transcript across turns
+      // Accumulate the conversation transcript across turns (Gemini-approved format: "Name: text")
       const lucaLine = studentText || transcript;
-      if (lucaLine?.trim()) agentSession.conversationTranscript.push(`[LUCA]\n${lucaLine.trim()}`);
-      if (danielaText) agentSession.conversationTranscript.push(`[DANIELA]\n${danielaText}`);
+      if (lucaLine?.trim()) agentSession.conversationTranscript.push(`Luca: ${lucaLine.trim()}`);
+      if (danielaText) agentSession.conversationTranscript.push(`Daniela: ${danielaText}`);
 
       // If this is the final turn, save the full session to conversation_memories
       let savedMemoryId: string | null = null;
@@ -25096,14 +25100,16 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
           const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
           const title = memoryTitle || `Luca ↔ Daniela — ${agentSession.topicHint || 'Voice Session'} — ${dateStr}`;
           const fullTranscript = [
-            `Luca ↔ Daniela — ${dateStr}`,
-            `Session ID: ${sessionKey} | Turns: ${agentSession.turnCount} | Language: ${agentSession.languageCode}`,
-            agentSession.topicHint ? `Topic: ${agentSession.topicHint}` : '',
+            agentSession.topicHint
+              ? `Conversation with Luca regarding ${agentSession.topicHint}`
+              : `Conversation with Luca`,
+            `Date: ${dateStr}`,
+            `Language: ${LANG_TO_INSTRUCTION[agentSession.languageCode] || agentSession.languageCode}`,
             '',
             '---',
             '',
-            agentSession.conversationTranscript.join('\n\n'),
-          ].filter(l => l !== null).join('\n').trim();
+            agentSession.conversationTranscript.join('\n'),
+          ].join('\n').trim();
           const tags = [
             'agent-daniela', 'agent-voice-turn', 'luca-daniela', 'verbatim',
             ...(Array.isArray(memoryTags) ? memoryTags : []),

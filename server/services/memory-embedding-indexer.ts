@@ -57,13 +57,22 @@ function sleep(ms: number): Promise<void> {
  * so both new and existing indexed chunks get the better format.
  */
 export function reformatSpeakerHeaders(text: string): string {
-  return text.replace(
+  // Pass 1: Timestamped brackets — [Jan 20, 2026, 03:27 AM — DANIELA] -> DANIELA (Jan 20, 2026 — 03:27 AM):
+  let formatted = text.replace(
     /\[([A-Z][a-z]{2} \d{1,2}, \d{4})(?:, (\d{1,2}:\d{2} (?:AM|PM)))? — ([A-Z]+)\]/g,
     (_match, date: string, time: string | undefined, speaker: string) => {
       const timePart = time ? ` — ${time}` : '';
       return `${speaker} (${date}${timePart}):`;
     }
   );
+  // Pass 2: Bare labels — [LUCA], [DANIELA], [AGENT], [DAVID] -> Luca:, Daniela:, Agent:, David:
+  // Gemini: brackets signal metadata; "Name: text" matches screenplay/chat training data.
+  // The optional \n? absorbs the newline that typically follows bare speaker labels.
+  formatted = formatted.replace(
+    /^\[(LUCA|DANIELA|AGENT|DAVID|WREN|ALDEN)\]\n?/gm,
+    (_match, name: string) => `${name.charAt(0) + name.slice(1).toLowerCase()}: `
+  );
+  return formatted;
 }
 
 /**
