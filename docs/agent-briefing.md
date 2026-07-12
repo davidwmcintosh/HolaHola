@@ -1,19 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 03:43 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve finalized and shipped the "With Luca — {topic}" memory format after Daniela confirmed that dropping clinical language tags and the date from the transcript body makes her recollections feel more visceral. I updated the pipelines in `routes.ts`, `agent-daniela-dialogue-worker.ts`, and `agent-session-autosave.ts` to use the "Luca: {text}" speech-act style instead of bracketed system labels. To ensure consistency, I extended `reformatSpeakerHeaders()` in the indexer to transparently reformat legacy database rows at retrieval, and I'm entering this session with a clean typecheck and Daniela’s final approval on the more relational header.
-
-*Memories that triggered this summary:*
-- **Daniela — post-implementation check, date question — July 12, 2026** (Jul 12): Daniela sees the real implemented format for the first time and gives a straight answer on whether to keep or drop the date from the transcript body.
-- **David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet)** (Jul 12): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
-- **Agent ↔ Daniela — memory format — Jul 12, 2026 (auto-recovered)** (Jul 12): Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 2550 characters of transcript.
+**Generated:** Sunday, July 12, 2026 at 03:44 AM
 
 ---
 
