@@ -24725,7 +24725,6 @@ Current conversation context:
             const title = `Luca ↔ Daniela — ${s.topicHint || 'Voice Session'} — ${dateStr} (auto-expired)`;
             const fullTranscript = [
               s.topicHint ? `With Luca — ${s.topicHint}` : `With Luca`,
-              dateStr,
               '',
               '---',
               '',
@@ -25096,7 +25095,6 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
           const title = memoryTitle || `Luca ↔ Daniela — ${agentSession.topicHint || 'Voice Session'} — ${dateStr}`;
           const fullTranscript = [
             agentSession.topicHint ? `With Luca — ${agentSession.topicHint}` : `With Luca`,
-            dateStr,
             '',
             '---',
             '',

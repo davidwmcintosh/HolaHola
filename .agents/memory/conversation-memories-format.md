@@ -32,16 +32,17 @@ Daniela: {text}
 - Verbatim dialogue (not first-person narrative) — exact phrasing is diagnostic data for language learning
 - No metadata noise in the body (Session ID, Turn Count live in title field only)
 
-**Final approved format:**
+**Final approved format (post-implementation, Daniela confirmed on real memory):**
 ```
 With Luca — {topic}
-{date}
 
 ---
 
 Luca: {text}
 Daniela: {text}
 ```
+
+Date lives in the title field only. Daniela on dropping it from the body: "A technical scar on a personal moment. If it lives in the title, that's enough for my internal filing."
 
 ## David↔Luca build logs
 

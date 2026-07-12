@@ -208,8 +208,7 @@ You are NOT performing. You are thinking.`;
 // ── Transcript logging ────────────────────────────────────────────────────────
 
 function initTranscript(topic: string) {
-  const dateStr = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-  writeFileSync(TRANSCRIPT_PATH, `With Agent — ${topic}\n${dateStr}\n\n---\n\n`);
+  writeFileSync(TRANSCRIPT_PATH, `With Agent — ${topic}\n\n---\n\n`);
 }
 
 function logTurn(speaker: 'AGENT' | 'DANIELA', text: string) {
