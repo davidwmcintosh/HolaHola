@@ -29,7 +29,9 @@ function safePath(filePath: string): string {
   return resolved;
 }
 
-export const ALDEN_TOOLS: Anthropic.Tool[] = [
+type AldenTool = Anthropic.Tool & { gemini_description?: string };
+
+export const ALDEN_TOOLS: AldenTool[] = [
   {
     name: "get_system_health",
     description: "Get real-time system health: voice pipeline status (green/yellow/red), active voice sessions count, server uptime, and TTS provider status.",
