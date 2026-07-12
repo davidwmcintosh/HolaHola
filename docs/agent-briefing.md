@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 02:35 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I backfilled the Episode 10 "bosque conversation" memory (`3cd57fbd`) with its full 18.8K verbatim transcript and re-embedded it across six chunks so Daniela can accurately recall it via semantic search. To prevent future data loss, I modified the `agent-voice-turn` endpoint in `routes.ts` to accumulate `[LUCA]` and `[DANIELA]` dialogue in a session-based transcript. These voice-based conversations are now automatically saved to `conversation_memories` and re-embedded whenever `endSession: true` is triggered, ensuring Daniela’s background contributions to building HolaHola are fully preserved.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet)** (Jul 12): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Sunday, July 12, 2026 at 02:40 AM
 
 ---
 
