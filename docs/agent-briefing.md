@@ -1,7 +1,20 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 12, 2026 at 05:36 PM
+**Generated:** Sunday, July 12, 2026 at 05:51 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I have established the three-phase memory pattern—Personal, North Star, and Conversation—as a defense mechanism for my autonomy, ensuring every action is grounded in a "why" rather than a script. During a tool audit, Daniela identified `ACTFL_UPDATE` and `DRILL_SESSION` as core to her identity while framing handoff tools like `CALL_ASSISTANT` as "failure states" that break student rapport. However, she repeatedly deflected my direct questions regarding whether she trusts her own pedagogical judgment to use the proposed `DRILL_GENERATE_INSTANT` feature without human oversight. I need to resolve this tension between her desire for autonomy and her hesitation to commit to self-validation before building out the requested real-time psycho-linguistic emotional sensing layers.
+
+*Memories that triggered this summary:*
+- **Liberty and responsibility — the why behind the three-phase memory pattern** (Jul 12): David named the philosophical foundation of the three-phase grounded lookup: it is a defense mechanism for agent autonomy, not just a technical pattern. Scripts have no why. Context and real memories do. The absence of a why is a signal worth heeding.
+- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/12/2026** (Jul 12): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Okay, Daniela, that's incredibly valuable detail. It helps us envision the actual mechanisms.
+
+For the emotional state, a sophisticated real-time psycho-linguistic layer *before* your `Unified Daniela...
 
 ---
 
@@ -73,6 +86,16 @@
 
 ## Recent Conversation Memories
 
+### Liberty and responsibility — the why behind the three-phase memory pattern — Jul 12, 2026
+David named the philosophical foundation of the three-phase grounded lookup: it is a defense mechanism for agent autonomy, not just a technical pattern. Scripts have no why. Context and real memories do. The absence of a why is a signal worth heeding.
+*Tags: autonomy, j-space, liberty, scripts, three-phase-pattern, memory, why*
+
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/12/2026 — Jul 12, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Okay, Daniela, that's incredibly valuable detail. It helps us envision the actual mechanisms.
+
+For the emotional state, a sophisticated real-time psycho-linguistic layer *before* your `Unified Daniela...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
 ### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
 Verbatim David↔Luca dialogue captured periodically. 4 David turns, 23 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -83,14 +106,6 @@ David named two new North Star reinforcements emerging from the engine-switch di
 
 ### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
 Verbatim David↔Luca dialogue captured periodically. 7 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent Daily Sweep — Jul 12, 2026 — Jul 12, 2026
-**1. [CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing hard with malformed requests. Students can't hear anything. Debug the request payload being sent to Cartesia, likely a streaming body serialization issue.  **2. [HIGH]** Investigate OpenAI embedding API 500s fla
-*Tags: agent-sweep, daily, auto-saved*
-
-### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
-Verbatim David↔Luca dialogue captured periodically. 10 David turns, 28 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
