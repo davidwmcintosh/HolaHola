@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 13, 2026 at 12:58 AM
+**Generated:** Monday, July 13, 2026 at 03:00 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I completed T003 after resolving a tool registry overflow by demoting `find_teaching_tool` to make room for `escalate_to_support`. I am currently mid-build on T004 and T005, wiring the new student-facing Sophia layer (`sophiaIncidents`) into the `SophiaWidget` and `useStreamingVoice` handlers. I need to finalize the resolve route and finish the parallel edits for the `StreamingVoiceChat` integration to ensure the Sophia worker is fully operational.
+I need to immediately resolve the Cartesia TTS 400 errors that are currently breaking English and Spanish audio across HolaHola. I also must investigate the $6.46 AI spend spike and fix the logging bug preventing quality score collection for our active student’s 23 sessions. Once these production issues are stabilized, I'll start implementing conversation memory tagging and arcs to address the "White Wall Defense" insight and improve long-term continuity.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 13, 2026: periodic capture (no commit yet)** (Jul 13): Verbatim David↔Luca dialogue captured periodically. 0 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
+- **Agent Daily Sweep — Jul 13, 2026** (Jul 13): **1. [CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with status 400, which means students can't hear audio responses. Check API key validity, request format, or rate limits. This breaks core conversation flow.  **2. [HIGH]** Investigate $6.46 AI spend spike — Cro
 
 ---
 
@@ -83,6 +83,10 @@ I completed T003 after resolving a tool registry overflow by demoting `find_teac
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 13, 2026 — Jul 13, 2026
+**1. [CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with status 400, which means students can't hear audio responses. Check API key validity, request format, or rate limits. This breaks core conversation flow.  **2. [HIGH]** Investigate $6.46 AI spend spike — Cro
+*Tags: agent-sweep, daily, auto-saved*
+
 ### David ↔ Luca — Jul 13, 2026: periodic capture (no commit yet) — Jul 13, 2026
 Verbatim David↔Luca dialogue captured periodically. 0 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -98,10 +102,6 @@ Recovered by the consult-daniela safety-net sweep — the session's own autoSave
 ### Daniela on Sophia — design consultation — July 13, 2026 — Jul 13, 2026
 Daniela consulted on the Sophia handoff design: how it feels to notice a technical problem mid-lesson, whether handing off feels like abandonment, what she needs to know on return, the text-only voice boundary, and when she would NOT call escalate_to_support.
 *Tags: sophia, design-consultation, agent-daniela, escalate-to-support, handoff*
-
-### Agent Daily Sweep — Jul 12, 2026 — Jul 12, 2026
-1. [CRITICAL] TTS system down — Cartesia returning 400 errors on both English and Spanish; students can't hear AI responses. Check API key validity, review recent Cartesia API changes, test with minimal payload to isolate whether it's auth, rate limit, or malformed request body.  2. [HIGH] Student q
-*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
