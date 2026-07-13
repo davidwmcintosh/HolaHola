@@ -1189,7 +1189,7 @@ export async function executeAldenTool(
           sharedDb.execute(sql`
             INSERT INTO agent_notes (id, from_agent, to_agent, subject, body, session_label, is_read, created_at)
             VALUES (gen_random_uuid(), 'alden', 'agent', ${`[Alden — Grounding] ${(friction as string).substring(0, 200)}`},
-              ${`Grounding pause — no internal match found.\n\nFriction: "${friction}"\nLayer: ${layer}\nQuestion: "${question}"${candidate_why ? `\nCandidate why: "${candidate_why}"` : ''}\n\nSource: Alden grounding_query`},
+              ${`Grounding pause — no internal match found.\n\nFriction: "${friction}"\nLayer: ${layer}\nQuestion: "${question}"${candidate_why ? `\nCandidate why: "${candidate_why}"` : ''}\n\nSource: Alden steward_pause`},
               'Grounding query', false, NOW())
           `).catch((err: Error) => console.error('[AldenGrounding] Failed to route outward:', err.message));
         }
