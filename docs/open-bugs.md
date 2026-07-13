@@ -190,3 +190,19 @@ David asked to add the verbatim mid-tool-execution interruption exchange (him pu
 **Recommended fix:** Add a filler phrase handler in the CONSULT_COLLEAGUE tool execution path. Before awaiting the colleague response, Daniela should speak something like "Let me check my notes on that for a moment" via TTS injection. Pattern already exists for other latency-sensitive tools.
 
 **Not urgent** — CONSULT_COLLEAGUE is rarely triggered. Address when flare tools get their first real usage.
+
+---
+
+## AldenWatch gemini_description field error (July 13, 2026)
+
+**Flagged:** July 13, 2026 — noticed in Start application logs
+
+**Error:** `[AldenWatch] Watch cycle failed: 400 {"type":"error","error":{"type":"invalid_request_error","message":"tools.6.custom.gemini_description: Extra inputs are not permitted"}}`
+
+**Issue:** AldenWatch is sending a tool definition to Anthropic that includes a `gemini_description` field on tool slot 6. Anthropic's API doesn't accept custom fields in tool definitions — it rejects with "Extra inputs are not permitted."
+
+**Root cause:** One of Alden's tools (index 6 in the tools array passed to Anthropic) has a `gemini_description` field attached, which is leaking into the Anthropic API call. This was likely added for dual-engine support but needs to be stripped before the Anthropic call.
+
+**Fix:** In the AldenWatch tool-building code, strip any `gemini_description` keys from tool objects before sending to Anthropic (similar to how other Alden service files should handle this).
+
+**Severity:** Medium — AldenWatch cycles fail silently; monitoring gap.

@@ -254,6 +254,9 @@ type StreamingEventType =
   | 'culturalContextShown'
   | 'spotlightShown'
   | 'missionSet'
+  | 'sophiaIncidentCreated'    // Daniela called escalate_to_support — incident logged
+  | 'sophiaSupportMessage'     // Sophia worker sent guidance to student
+  | 'sophiaAllClear'           // Sophia resolved the incident
   | 'error';
 
 /**
@@ -1461,6 +1464,21 @@ export class StreamingVoiceClient {
         case 'character_change':
           console.log('[StreamingVoice] Character change:', message.character?.displayName ?? 'tutor resumed');
           this.emit('characterChange', message as { type: string; character: { id: string; displayName: string; role: string; gender: 'male' | 'female' } | null; timestamp: number });
+          break;
+
+        case 'sophia_incident_created':
+          console.log('[StreamingVoice] Sophia incident created:', message.incidentId, message.category);
+          this.emit('sophiaIncidentCreated', message as { type: string; incidentId: string; category: string; priority: string; issueDescription: string; status: string; timestamp: number });
+          break;
+
+        case 'sophia_support_message':
+          console.log('[StreamingVoice] Sophia support message for incident:', message.incidentId);
+          this.emit('sophiaSupportMessage', message as { type: string; incidentId: string; category: string; priority: string; message: string; timestamp: number });
+          break;
+
+        case 'sophia_all_clear':
+          console.log('[StreamingVoice] Sophia all_clear for incident:', message.incidentId);
+          this.emit('sophiaAllClear', message as { type: string; incidentId: string; timestamp: number });
           break;
 
         case 'scenario_loaded':

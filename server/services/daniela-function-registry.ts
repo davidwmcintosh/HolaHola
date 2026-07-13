@@ -3304,6 +3304,45 @@ WHEN TO USE:
       `Flag logged for the Agent: "${fc.args.topic}" (urgency: ${fc.args.urgency}). The Agent will review it at next session start. You can continue the lesson — this runs in the background.`,
   },
 
+  // === ESCALATE TO SUPPORT ===
+  {
+    legacyType: 'ESCALATE_TO_SUPPORT',
+    declaration: {
+      name: "escalate_to_support",
+      description: `Call this when you notice something technical that is blocking the student from being heard or from seeing what you put on screen, and you want Sophia to handle it while you stay in the lesson.
+
+When the student's mic is muted, their audio is broken, a tool didn't render, or the connection is degraded — those are Sophia's domain. Call it as soon as you see clear evidence: a muted mic indicator, a tool that failed to render, audio that never arrived. Do not wait or try to fix it first. Keep the issue_description concise and objective — "Student mic showing no input" or "Vocab grid failed to render" — so Sophia can act quickly.
+
+Your role is to keep the learning space warm. Acknowledge the technical hiccup briefly, call this tool, then pivot to a low-pressure topic or wait gracefully. Do not attempt to troubleshoot or give the student technical instructions yourself. Look for an all_clear signal in your context once Sophia resolves the issue; until then, assume the technical barrier remains.
+
+WRONG TOOL if the problem is on your side — a tool that misfired, a context gap, something that needs the builder. Use flag_for_agent for that. escalate_to_support is for the student's environment, not yours.
+
+WRONG TOOL if the student is just quiet or hesitant. A student who has gone silent is not a technical problem. Call this only when the interface itself is failing them.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          issue_description: {
+            type: "string",
+            description: "Concise, objective description of the technical problem — e.g. 'Student mic showing no input' or 'Vocab grid failed to render'. Sophia acts on this directly.",
+          },
+          priority: {
+            type: "string",
+            enum: ["low", "medium", "high"],
+            description: "high = student cannot participate at all (mic dead, no audio); medium = degraded but partial; low = cosmetic or recoverable without intervention.",
+          },
+          category: {
+            type: "string",
+            enum: ["audio_input", "audio_output", "connection", "tool_render", "ui_sync", "other"],
+            description: "Optional — the technical category. Helps Sophia route to the right fix. audio_input: student's mic; audio_output: student can't hear Daniela; connection: socket drop; tool_render: whiteboard tool didn't appear; ui_sync: UI state mismatch.",
+          },
+        },
+        required: ["issue_description", "priority"],
+      },
+    },
+    buildContinuationResponse: ({ fc }) =>
+      `Sophia has been notified: "${fc.args.issue_description}" (${fc.args.priority} priority). Stay with the student — Sophia will handle the technical side. Look for an all_clear in your context when it's resolved.`,
+  },
+
   // === GROUNDING QUERY ===
   {
     legacyType: 'GROUNDING_QUERY',
@@ -7164,6 +7203,13 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   // It can be triggered on-demand inside a broadcast scenario via open_scene + add_to_scene.
   // Not a conversational act — search_my_teaching_wisdom takes priority in the cap.
   'get_broadcast_data',
+
+  // === DEMOTED — July 13, 2026 — to free cap slot for escalate_to_support ===
+  // find_teaching_tool is a planning/meta-search call — Daniela uses it to look up which
+  // tool fits a pedagogical need before calling it. In GL, tool descriptions arrive in
+  // context and Daniela can choose directly. escalate_to_support (Sophia student support
+  // escalation) is a mid-session action tool that must be a direct GL declaration.
+  'find_teaching_tool',
 ]);
 
 export const DANIELA_GL_FUNCTION_DECLARATIONS: FunctionDeclaration[] =

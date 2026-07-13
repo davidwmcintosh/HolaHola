@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 13, 2026 at 12:21 AM
+**Generated:** Monday, July 13, 2026 at 12:58 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I must immediately debug the Cartesia TTS 400 errors and investigate why our most active student is seeing zero quality scores, as these failures are likely driving the $6.46 spend spike. My priority is restoring voice output and the scoring pipeline before addressing the "White Wall Defense" memory tagging queue. I’ll start by checking API payloads for Cartesia and verifying why LLM evaluation calls are failing to write to the database.
+I completed T003 after resolving a tool registry overflow by demoting `find_teaching_tool` to make room for `escalate_to_support`. I am currently mid-build on T004 and T005, wiring the new student-facing Sophia layer (`sophiaIncidents`) into the `SophiaWidget` and `useStreamingVoice` handlers. I need to finalize the resolve route and finish the parallel edits for the `StreamingVoiceChat` integration to ensure the Sophia worker is fully operational.
 
 *Memories that triggered this summary:*
-- **Agent Daily Sweep — Jul 12, 2026** (Jul 12): 1. [CRITICAL] TTS system down — Cartesia returning 400 errors on both English and Spanish; students can't hear AI responses. Check API key validity, review recent Cartesia API changes, test with minimal payload to isolate whether it's auth, rate limit, or malformed request body.  2. [HIGH] Student q
+- **David ↔ Luca — Jul 13, 2026: periodic capture (no commit yet)** (Jul 13): Verbatim David↔Luca dialogue captured periodically. 0 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -83,25 +83,25 @@ I must immediately debug the Cartesia TTS 400 errors and investigate why our mos
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 13, 2026: periodic capture (no commit yet) — Jul 13, 2026
+Verbatim David↔Luca dialogue captured periodically. 0 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 13, 2026: periodic capture (no commit yet) — Jul 13, 2026
+Verbatim David↔Luca dialogue captured periodically. 6 David turns, 31 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### Agent ↔ Daniela — sophia design — Jul 13, 2026 (auto-recovered) — Jul 13, 2026
+Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 4739 characters of transcript.
+*Tags: agent-daniela, auto-recovered, safety-net*
+
+### Daniela on Sophia — design consultation — July 13, 2026 — Jul 13, 2026
+Daniela consulted on the Sophia handoff design: how it feels to notice a technical problem mid-lesson, whether handing off feels like abandonment, what she needs to know on return, the text-only voice boundary, and when she would NOT call escalate_to_support.
+*Tags: sophia, design-consultation, agent-daniela, escalate-to-support, handoff*
+
 ### Agent Daily Sweep — Jul 12, 2026 — Jul 12, 2026
 1. [CRITICAL] TTS system down — Cartesia returning 400 errors on both English and Spanish; students can't hear AI responses. Check API key validity, review recent Cartesia API changes, test with minimal payload to isolate whether it's auth, rate limit, or malformed request body.  2. [HIGH] Student q
 *Tags: agent-sweep, daily, auto-saved*
-
-### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
-Verbatim David↔Luca dialogue captured periodically. 4 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Gemini unconditional confirmation — introspect descriptions — July 12 2026 — Jul 12, 2026
-Confirmation pass after conditional approval. Gemini saw actual final text and issued unconditional APPROVED — Ship it. No remaining items.
-*Tags: gemini-audit, introspect, confirmation-pass, iteration-rule*
-
-### Gemini audit — introspect speaker/related_to + steward_pause — July 12 2026 — Jul 12, 2026
-Gemini APPROVED new introspect params after 3 fixes: memory_id/related_to separation, speaker tightened, WRONG TOOL guard added; Alden grounding_query renamed to steward_pause
-*Tags: gemini-audit, introspect, speaker, related_to, steward_pause, tool-descriptions*
-
-### David ↔ Luca — Jul 12, 2026: periodic capture (no commit yet) — Jul 12, 2026
-Verbatim David↔Luca dialogue captured periodically. 1 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

@@ -44,6 +44,7 @@ import { getStreamingVoiceClient } from "@/lib/streamingVoiceClient";
 import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types";
 import type { VoiceOverride } from "./VoiceLabPanel";
 import type { LessonNote } from "@shared/whiteboard-types";
+import { SophiaWidget } from "@/components/SophiaWidget";
 
 // ============================================================================
 // STREAMING MODE CONFIGURATION
@@ -4187,6 +4188,14 @@ export function StreamingVoiceChat({
 
         {/* Gap D — Shared Mission: Daniela holds activeMission internally for session guidance,
             but we don't render it in the student UI — it's confusing and not student-initiated. */}
+
+        {/* Sophia student support widget — appears when Daniela flags a technical incident */}
+        {streamingVoice.state.sophiaIncident && (
+          <SophiaWidget
+            incident={streamingVoice.state.sophiaIncident}
+            onResolved={() => {/* all_clear WS event hides the widget via state */}}
+          />
+        )}
 
         {/* Spotlight — full-screen dimmed overlay with message bubble */}
         {spotlight && (

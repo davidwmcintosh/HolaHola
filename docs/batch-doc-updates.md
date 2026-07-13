@@ -2776,3 +2776,37 @@ The white wall as internal-facing is the control mechanism for J-Space. Without 
 
 ### Conversation memory
 Saved to conversation_memories, arc: HolaHola Episodes, tags: north-star / white-wall / j-space / verify-before-contradict / episode-13
+
+---
+
+## Sophia Student Support Layer — July 13, 2026
+
+### What was built
+Full Sophia (ph) student-facing technical support layer, end-to-end from schema through frontend widget.
+
+### How it works
+1. **Daniela calls `escalate_to_support`** during a session when she detects a student technical issue (audio, connection, rendering, etc.)
+2. **native-fc-handlers.ts** handles the call: creates a `sophia_incidents` row (status=`detected`), saves to `sophia_messages`, sends `sophia_incident_created` WS event to the student's frontend
+3. **SophiaWorker** (`server/services/sophia-worker.ts`) polls every 30s for `detected` incidents, composes category-specific support text, inserts into `sophia_messages`, updates status to `instructing`, and sends `sophia_support_message` WS event
+4. **SophiaWidget** (`client/src/components/SophiaWidget.tsx`) renders in the voice session UI when a `sophia_support_message` arrives — shows the Sophia message and an "I'm good now" button
+5. **Student resolves**: clicking "I'm good now" POSTs to `POST /api/sophia/incidents/:id/resolve` → updates status to `resolved`, sends `sophia_all_clear` WS event → widget hides
+6. **Auto-resolve**: if student doesn't click within 2 minutes, worker auto-resolves with a timeout note
+7. **Learner fact**: when resolved, a `learner_personal_facts` row is upserted (factType=`technical_support`) so Daniela can proactively check in on recurring issues in future sessions
+
+### Key files
+- `shared/schema.ts` — `sophia_incidents`, `sophia_messages` tables (migration 0010)
+- `server/services/sophia-worker.ts` — poll + support message + resolve + learner fact
+- `server/services/daniela-function-registry.ts` — `escalate_to_support` tool declaration (~line 3310)
+- `server/services/native-fc-handlers.ts` — `ESCALATE_TO_SUPPORT` handler (~line 4714)
+- `client/src/components/SophiaWidget.tsx` — student-facing support widget
+- `client/src/lib/streamingVoiceClient.ts` — `sophiaIncidentCreated`, `sophiaSupportMessage`, `sophiaAllClear` event types + switch cases
+- `client/src/hooks/useStreamingVoice.ts` — `sophiaIncident` state in `StreamingVoiceState`, event handlers
+- `client/src/components/StreamingVoiceChat.tsx` — renders `<SophiaWidget>` when incident is active
+- `server/index.ts` — SophiaWorker started at +55s; `POST /api/sophia/incidents/:id/resolve` route
+
+### GL tool cap note
+`escalate_to_support` brought GL to 65 tools (hard cap = 64). `find_teaching_tool` was moved to `GL_EXCLUDED_TOOLS` to restore the cap.
+
+### Sophia (ph) vs Sofia (f)
+- **Sofia** (`sofia_issue_reports`, `sofia-issue-cleanup-worker.ts`) — internal telemetry monitor, staff-facing
+- **Sophia** (`sophia_incidents`, `sophia_messages`, `sophia-worker.ts`) — student-facing support, visible in the voice session UI

@@ -1,5 +1,5 @@
 import { sql, eq, and, desc, ilike, or } from "drizzle-orm";
-import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes, users, voiceSessions, voicePipelineEvents, pedagogicalSnapshots, studentMilestones, imageVisionCache } from "@shared/schema";
+import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes, users, voiceSessions, voicePipelineEvents, pedagogicalSnapshots, studentMilestones, imageVisionCache, sophiaIncidents } from "@shared/schema";
 import { isValidActflLevel } from "../actfl-utils";
 import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
@@ -4704,6 +4704,63 @@ export class NativeFunctionCallHandler {
           }).catch((err: Error) => {
             console.error(`[Native Function→FlagForAgent] Failed to insert agent note:`, err.message);
           });
+        }
+        break;
+      }
+
+      case 'ESCALATE_TO_SUPPORT': {
+        const issueDescription = fn.args.issue_description as string | undefined;
+        const priority = (fn.args.priority as string | undefined) || 'medium';
+        const category = (fn.args.category as string | undefined) || 'other';
+
+        if (!issueDescription) {
+          console.warn(`[Native Function→EscalateToSupport] Called without issue_description — skipping`);
+          break;
+        }
+
+        if (session.isIncognito) {
+          console.log(`[Native Function→EscalateToSupport] INCOGNITO — skipping incident persistence`);
+          break;
+        }
+
+        const studentIdStr = session.userId ? String(session.userId) : null;
+        if (!studentIdStr) {
+          console.warn(`[Native Function→EscalateToSupport] No studentId on session — skipping`);
+          break;
+        }
+
+        try {
+          const db = getSharedDb();
+          const [incident] = await db.insert(sophiaIncidents).values({
+            sessionId: String(sessionId),
+            studentId: studentIdStr,
+            conversationId: session.conversationId ?? null,
+            triggerSource: 'daniela_referral',
+            category: category as any,
+            status: 'detected',
+            issueDescription: issueDescription.substring(0, 500),
+            priority,
+          }).returning();
+
+          console.log(`[Native Function→EscalateToSupport] Incident logged: ${incident.id} — "${issueDescription}" (${priority})`);
+
+          // Store on session for later all_clear delivery
+          (session as any).activeSophiaIncidentId = incident.id;
+
+          // Notify the frontend so it can show the Sophia support widget
+          if (session.ws) {
+            this.sendMessage(session.ws, {
+              type: 'sophia_incident_created',
+              incidentId: incident.id,
+              category,
+              priority,
+              issueDescription: issueDescription.substring(0, 200),
+              status: 'detected',
+              timestamp: Date.now(),
+            });
+          }
+        } catch (err: any) {
+          console.error(`[Native Function→EscalateToSupport] Failed to log incident:`, err.message);
         }
         break;
       }

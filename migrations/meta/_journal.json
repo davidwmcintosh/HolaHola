@@ -71,6 +71,13 @@
       "when": 1783807221171,
       "tag": "0009_typical_titanium_man",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1783902944971,
+      "tag": "0010_daily_living_lightning",
+      "breakpoints": true
     }
   ]
 }

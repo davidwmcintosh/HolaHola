@@ -9780,3 +9780,73 @@ export const studentMilestones = pgTable("student_milestones", {
 export const insertStudentMilestoneSchema = createInsertSchema(studentMilestones).omit({ id: true, createdAt: true });
 export type InsertStudentMilestone = z.infer<typeof insertStudentMilestoneSchema>;
 export type StudentMilestone = typeof studentMilestones.$inferSelect;
+
+// ===== SOPHIA — STUDENT SUPPORT LAYER =====
+// Sophia handles the operational/technical layer of a session.
+// Daniela notices a technical problem, hands it off via escalate_to_support,
+// and Sophia works it while Daniela stays in the lesson.
+// Sophia is text-only — the voice channel stays exclusively Daniela's.
+// Alden summarizes incident patterns into long-term learner_personal_facts post-session.
+
+export const sophiaIncidentTriggerEnum = pgEnum('sophia_incident_trigger', [
+  'daniela_referral',    // Daniela called escalate_to_support
+  'telemetry_auto',      // Sophia detected autonomously (e.g. GL socket dropped while Daniela unreachable)
+]);
+
+export const sophiaIncidentCategoryEnum = pgEnum('sophia_incident_category', [
+  'audio_input',    // mic muted, no audio from student
+  'audio_output',   // student can't hear Daniela
+  'connection',     // WebSocket drop, reconnect failure
+  'tool_render',    // a whiteboard tool didn't render on student's screen
+  'ui_sync',        // UI state mismatch
+  'other',          // catch-all
+]);
+
+export const sophiaIncidentStatusEnum = pgEnum('sophia_incident_status', [
+  'detected',        // incident logged, Sophia not yet engaged
+  'investigating',   // Sophia actively working
+  'instructing',     // Sophia has given the student steps to follow
+  'resolved',        // issue resolved, all_clear sent to Daniela
+  'unresolved',      // session ended without resolution
+  'escalated',       // escalated to human support (future)
+]);
+
+export const sophiaIncidents = pgTable("sophia_incidents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  sessionId: varchar("session_id").notNull(),   // tutor_sessions.id
+  studentId: varchar("student_id").notNull(),
+  conversationId: varchar("conversation_id"),   // links to conversation context
+  triggerSource: sophiaIncidentTriggerEnum("trigger_source").notNull(),
+  category: sophiaIncidentCategoryEnum("category").notNull(),
+  status: sophiaIncidentStatusEnum("status").notNull().default('detected'),
+  issueDescription: text("issue_description").notNull(),  // Daniela's description or auto-detected text
+  priority: varchar("priority").notNull().default('medium'),  // low | medium | high
+  resolutionStepsSummary: text("resolution_steps_summary"),   // what Sophia told the student
+  allClearSentAt: timestamp("all_clear_sent_at"),             // when all_clear was fired back to Daniela
+  resolvedAt: timestamp("resolved_at"),
+  sessionEndedUnresolved: boolean("session_ended_unresolved").default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_sophia_incidents_session").on(table.sessionId),
+  index("idx_sophia_incidents_student").on(table.studentId),
+  index("idx_sophia_incidents_status").on(table.status),
+]);
+
+export const insertSophiaIncidentSchema = createInsertSchema(sophiaIncidents).omit({ id: true, createdAt: true });
+export type InsertSophiaIncident = z.infer<typeof insertSophiaIncidentSchema>;
+export type SophiaIncident = typeof sophiaIncidents.$inferSelect;
+
+// Sophia's per-incident message log — what she said to the student during this incident
+export const sophiaMessages = pgTable("sophia_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  incidentId: varchar("incident_id").notNull().references(() => sophiaIncidents.id),
+  role: varchar("role").notNull(),   // 'sophia' | 'student'
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_sophia_messages_incident").on(table.incidentId),
+]);
+
+export const insertSophiaMessageSchema = createInsertSchema(sophiaMessages).omit({ id: true, createdAt: true });
+export type InsertSophiaMessage = z.infer<typeof insertSophiaMessageSchema>;
+export type SophiaMessage = typeof sophiaMessages.$inferSelect;

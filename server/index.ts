@@ -463,6 +463,22 @@ app.use((req, res, next) => {
 
   await registerRoutes(app);
 
+  // Sophia student-support resolve endpoint
+  app.post('/api/sophia/incidents/:id/resolve', async (req: Request, res: Response) => {
+    try {
+      const { resolveIncident } = await import('./services/sophia-worker');
+      const ok = await resolveIncident(req.params.id);
+      if (ok) {
+        res.json({ ok: true });
+      } else {
+        res.status(404).json({ ok: false, error: 'incident not found or already resolved' });
+      }
+    } catch (err: any) {
+      console.error('[SophiaRoute] resolve error:', err.message);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   // Luca's autonomous session watchdog — scans active sessions every 30s for
   // SOS signals, tool error spikes, stalled sessions, and degraded vision pipeline.
   const { startSessionMonitor } = await import('./services/session-monitor');
@@ -713,6 +729,12 @@ app.use((req, res, next) => {
       const { startSofiaCleanupWorker } = await import('./services/sofia-issue-cleanup-worker');
       startSofiaCleanupWorker();
     }, 50000);
+
+    // +55s: Sophia Student Support Worker (ph-spelling — student-facing incident layer)
+    setTimeout(async () => {
+      const { startSophiaWorker } = await import('./services/sophia-worker');
+      startSophiaWorker();
+    }, 55000);
 
     // +70s: Vocab Image Library — fill any gaps since cache hits are free/instant.
     // Processes all textbook vocab words for all languages; skips words that already

@@ -19,7 +19,7 @@ description: Madrigal pedagogical gate — student earns tú forms after demonst
 
 **Day tracking:** Uses `lastEvidenceDateStr` (YYYY-MM-DD string) to avoid TZ complexity. `distinctDays` increments only when today != lastEvidenceDateStr.
 
-**What is NOT yet built:**
-- System prompt fragment injection at session start: check if `tu_revealed` milestone exists for student → inject fragment that tells Daniela tú forms are unlocked. This should go in the pre-session synthesis or system prompt assembly, loading from `student_milestones` before building the GL session prompt.
+**Fully wired (confirmed July 12, 2026):**
+- `getTuRevealFragment` is exported from `pre-session-synthesis.ts` and imported + called in `server/unified-ws-handler.ts` at the GL system prompt assembly point (~line 3045). The fragment is prepended to `geminiLiveSystemPrompt` when the milestone row exists. Log line: `[GeminiLive] ✓ tú reveal fragment injected (N chars)`. Nothing left to build on this feature.
 
 **Why:** Madrigal method deliberately withholds tú until the student has internalized third-person/usted. The surprise of tú reveal is a designed expansion moment — not a time delay but a knowledge threshold.

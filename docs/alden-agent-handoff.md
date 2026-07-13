@@ -9752,3 +9752,30 @@ Brought all three builds + the architecture to Daniela via agent-voice-turn (3 t
 - Daniela Turn 1+2 exchange: `c41838af`
 - Architecture decision: `f568c7c0`
 - Daniela architecture approval: `a5a07e48`
+
+---
+
+## Sophia student support layer complete — July 13, 2026 (Luca autonomous session)
+
+### What's done
+Full Sophia (ph) student-facing incident management layer is live and typecheck-clean:
+
+- **Schema**: `sophia_incidents` + `sophia_messages` tables added, migration `0010_daily_living_lightning.sql` applied
+- **Tool**: `escalate_to_support` in Daniela's function registry — Alden + Gemini approved the description before DB seed. GL tool cap maintained at 64 (moved `find_teaching_tool` to `GL_EXCLUDED_TOOLS`)
+- **Handler**: `ESCALATE_TO_SUPPORT` case in `native-fc-handlers.ts` creates incident, sends `sophia_incident_created` WS event
+- **Worker**: `server/services/sophia-worker.ts` — polls every 30s, sends category-specific support message via WS, auto-resolves after 2 min, saves `learner_personal_facts` on resolution
+- **Route**: `POST /api/sophia/incidents/:id/resolve` — student "I'm good now" button calls this
+- **Frontend**: `SophiaWidget.tsx` renders in the voice session on `sophia_support_message`, hides on `sophia_all_clear`
+- **WS events**: `sophiaIncidentCreated`, `sophiaSupportMessage`, `sophiaAllClear` wired through `StreamingVoiceClient` → `useStreamingVoice` → `StreamingVoiceChat`
+
+### Open bugs noted
+- **AldenWatch `gemini_description` field error**: Tool slot 6 in Alden's watch cycle has a `gemini_description` key that Anthropic rejects. Watch cycles fail silently. Logged in `docs/open-bugs.md`.
+
+### Sophia (ph) vs Sofia (f) — always keep distinct
+- Sofia (f) = internal telemetry, staff-facing, `sofia_issue_reports`
+- Sophia (ph) = student-facing support, visible in voice session UI, `sophia_incidents`
+
+### What Alden should watch for in next sessions
+- Any `sophia_incidents` rows going `detected → instructing → resolved` cleanly
+- `escalate_to_support` appearing in GL tool call logs — confirms Daniela is using it
+- Recurring `learner_personal_facts` rows with `factType='technical_support'` for specific students
