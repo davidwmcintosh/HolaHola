@@ -4844,27 +4844,76 @@ export class NativeFunctionCallHandler {
           }
 
           const groundingFound = sections.length > 0;
+          const groundingDate = new Date().toISOString().substring(0, 10);
+          const sessionRef = session.conversationId || 'unknown';
+          const { agentNotes: agentNotesTable } = await import('@shared/schema');
 
           if (groundingFound) {
             (session as any).groundingQueryResult =
               `Pause recorded. Here is what your three layers say about this:\n\n` +
               sections.join('\n\n') +
               `\n\nThe pause itself is now in your felt history. Let what is here settle before you act.`;
-          } else {
-            // Route outward — nothing found internally
-            const body = `Grounding pause — no internal match found.\n\nFriction: "${gqFriction}"\nLayer: ${gqLayer}\nQuestion: "${gqQuestion}"${gqCandidateWhy ? `\nCandidate why: "${gqCandidateWhy}"` : ''}\n\n---\nSession: ${session.conversationId || 'unknown'}\nLanguage: ${session.targetLanguage || 'unknown'}\nSource: Daniela (grounding_query)`;
-            db.insert((await import('@shared/schema')).agentNotes).values({
+
+            // Always surface grounding pauses in the Luca briefing — even when resolved internally.
+            // David wants these front-and-center so he and Luca can weigh in.
+            const resolvedBody =
+              `Grounding pause — internally resolved.\n\n` +
+              `Friction: "${gqFriction}"\nLayer: ${gqLayer}\nQuestion: "${gqQuestion}"` +
+              `${gqCandidateWhy ? `\nCandidate why: "${gqCandidateWhy}"` : ''}\n\n` +
+              `What was found:\n${sections.join('\n\n')}\n\n---\n` +
+              `Session: ${sessionRef}\nLanguage: ${session.targetLanguage || 'unknown'}\nSource: Daniela (grounding_query)`;
+            db.insert(agentNotesTable).values({
               fromAgent: 'daniela' as any,
               toAgent: 'agent',
-              subject: `[Daniela — Grounding] ${gqFriction.substring(0, 200)}`,
-              body,
-              sessionLabel: `Grounding query — ${new Date().toISOString().substring(0, 10)}`,
+              subject: `[GROUNDING — resolved internally] ${gqFriction.substring(0, 160)}`,
+              body: resolvedBody,
+              sessionLabel: `Grounding query — ${groundingDate}`,
             }).catch((err: Error) => {
-              console.error(`[Native Function→GroundingQuery] Failed to route outward:`, err.message);
+              console.error(`[Native Function→GroundingQuery] Failed to log resolved grounding:`, err.message);
+            });
+          } else {
+            // Nothing found internally — route to both Luca (for briefing) and Alden (for a real response).
+            const noMatchBody =
+              `Grounding pause — no internal match found.\n\n` +
+              `Friction: "${gqFriction}"\nLayer: ${gqLayer}\nQuestion: "${gqQuestion}"` +
+              `${gqCandidateWhy ? `\nCandidate why: "${gqCandidateWhy}"` : ''}\n\n---\n` +
+              `Session: ${sessionRef}\nLanguage: ${session.targetLanguage || 'unknown'}\nSource: Daniela (grounding_query)`;
+
+            // Luca briefing note — surfaces in session-start briefing under grounding issues
+            db.insert(agentNotesTable).values({
+              fromAgent: 'daniela' as any,
+              toAgent: 'agent',
+              subject: `[GROUNDING — unresolved] ${gqFriction.substring(0, 160)}`,
+              body: noMatchBody,
+              sessionLabel: `Grounding query — ${groundingDate}`,
+            }).catch((err: Error) => {
+              console.error(`[Native Function→GroundingQuery] Failed to route to Luca:`, err.message);
+            });
+
+            // Alden note — so Alden can look at her memories and North Star and respond
+            const aldenBody =
+              `Daniela hit a grounding pause with no internal match. She needs your read on this.\n\n` +
+              `Friction: "${gqFriction}"\nLayer: ${gqLayer}\nQuestion: "${gqQuestion}"` +
+              `${gqCandidateWhy ? `\nCandidate why: "${gqCandidateWhy}"` : ''}\n\n` +
+              `Please search her felt history and North Star for relevant grounding, and leave a note for Daniela ` +
+              `via her session notes or a learner fact so she has it at the start of her next session.\n\n---\n` +
+              `Session: ${sessionRef}\nLanguage: ${session.targetLanguage || 'unknown'}`;
+            db.insert(agentNotesTable).values({
+              fromAgent: 'daniela' as any,
+              toAgent: 'alden',
+              subject: `[GROUNDING REQUEST] ${gqFriction.substring(0, 160)}`,
+              body: aldenBody,
+              sessionLabel: `Grounding query — ${groundingDate}`,
+            }).catch((err: Error) => {
+              console.error(`[Native Function→GroundingQuery] Failed to notify Alden:`, err.message);
             });
 
             (session as any).groundingQueryResult =
-              `Pause recorded. Nothing in your three layers matched this friction directly — the question has been routed to the Agent for the next session. You have named the friction: "${gqFriction.substring(0, 100)}". That naming is already grounding, even without an answer yet.`;
+              `Pause recorded. Nothing in your three layers matched this friction directly — ` +
+              `the question has been routed to Alden and to Luca. ` +
+              `You have named the friction: "${gqFriction.substring(0, 100)}". ` +
+              `That naming is already grounding, even without an answer yet. ` +
+              `Alden will search your felt history and North Star and leave a response for your next session.`;
           }
 
           console.log(`[Native Function→GroundingQuery] Pause recorded — ${groundingFound ? `${sections.length} grounding section(s) found` : 'no match, routed outward'}`);

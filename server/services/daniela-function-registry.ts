@@ -3340,7 +3340,11 @@ WRONG TOOL if the student is just quiet or hesitant. A student who has gone sile
       },
     },
     buildContinuationResponse: ({ fc }) =>
-      `Sophia has been notified: "${fc.args.issue_description}" (${fc.args.priority} priority). Stay with the student — Sophia will handle the technical side. Look for an all_clear in your context when it's resolved.`,
+      `Sophia is on it: "${fc.args.issue_description}" (${fc.args.priority} priority). ` +
+      `She is sending the student direct instructions now — you do not need to troubleshoot. ` +
+      `Stay warm with the student: acknowledge the hiccup briefly and keep the lesson space open. ` +
+      `When Sophia resolves it, an all_clear will arrive in your context with the issue description — ` +
+      `that is your signal to re-engage fully.`,
   },
 
   // === GROUNDING QUERY ===
@@ -7121,10 +7125,12 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'find_connected_memories',      // → introspect(memory_id:"...")
   'search_my_history',            // → introspect(query:"...") — was founder-mode-only anyway
 
-  // === PENDING VOICE PROMOTION ===
-  // grounding_query is voice-appropriate but GL is at the 64-tool cap.
-  // Promote to GL by removing this entry when a swap candidate is identified.
-  'grounding_query',
+  // === DEMOTED — July 14, 2026 — to free cap slot for grounding_query ===
+  // visual_compare generates a watercolor side-by-side illustration for concept corrections.
+  // In GL (voice), the correction can happen verbally and the image is a supplement.
+  // grounding_query (white wall / J-Space grounding) takes this slot — it must be available
+  // in voice because that is where the flinch happens.
+  'visual_compare',
 
   // === MERGED INTO save_note ===
   // These three tools are now unified under save_note(content, target).

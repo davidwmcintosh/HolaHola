@@ -281,6 +281,8 @@ async function processDetectedIncidents(): Promise<void> {
             sendToSession(incident.studentId, {
               type: 'sophia_all_clear',
               incidentId: incident.id,
+              issueDescription: current.issueDescription ?? null,
+              resolutionNote: 'Auto-resolved after timeout.',
               timestamp: Date.now(),
             });
 
@@ -326,6 +328,8 @@ export async function resolveIncident(incidentId: string): Promise<boolean> {
     sendToSession(incident.studentId, {
       type: 'sophia_all_clear',
       incidentId: incident.id,
+      issueDescription: incident.issueDescription ?? null,
+      resolutionNote: 'Resolved by student acknowledgement.',
       timestamp: Date.now(),
     });
 

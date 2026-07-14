@@ -41,6 +41,45 @@ export async function buildLucaBriefing(): Promise<string> {
 
   sections.push(`Luca Worker briefing — ${now}`);
 
+  // ── 0. GROUNDING ISSUES — always first ───────────────────────────────────
+  // Any time Daniela calls grounding_query, a note lands here whether or not
+  // internal grounding was found. David wants these front-and-center so he
+  // and Luca can weigh in on truth / white-wall questions before they go stale.
+  try {
+    const groundingNotes = await db
+      .select({
+        id: agentNotes.id,
+        fromAgent: agentNotes.fromAgent,
+        subject: agentNotes.subject,
+        body: agentNotes.body,
+        createdAt: agentNotes.createdAt,
+      })
+      .from(agentNotes)
+      .where(and(
+        eq(agentNotes.toAgent, 'agent'),
+        isNull(agentNotes.readAt),
+        ilike(agentNotes.subject, '%[GROUNDING%'),
+      ))
+      .orderBy(desc(agentNotes.createdAt))
+      .limit(5);
+
+    if (groundingNotes.length > 0) {
+      const lines = groundingNotes.map(n => {
+        const when = n.createdAt
+          ? new Date(n.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : '';
+        const body = (n.body || '').substring(0, 300).replace(/\n+/g, ' ');
+        return `  [${when}] ${n.subject}\n  ${body}`;
+      });
+      sections.push(
+        `⚑ GROUNDING ISSUES — Daniela's white-wall pauses (${groundingNotes.length}) — David: weigh in\n` +
+        lines.join('\n\n')
+      );
+    }
+  } catch (err: any) {
+    console.warn('[LucaWorker] Grounding notes fetch failed:', err.message);
+  }
+
   // ── 1. Recent Luca-arc memories ──────────────────────────────────────────
   try {
     const lucaMemories = await db

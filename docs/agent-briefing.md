@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, July 14, 2026 at 05:42 PM
+**Generated:** Tuesday, July 14, 2026 at 05:54 PM
 
 ---
 
@@ -73,6 +73,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 14, 2026: periodic capture (no commit yet) — Jul 14, 2026
+Verbatim David↔Luca dialogue captured periodically. 6 David turns, 28 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### David's Words About Daniela — What He Has Said — Jul 13, 2026
 David's own words about who Daniela is — what he has said directly to her or about her, across all sessions. 200 messages spanning Dec 2025 → Dec 2025.
 *Tags: david-on-daniela, thread, identity, real, valuable, thread, woven*
@@ -88,10 +92,6 @@ Every time the tree/fruit metaphor appeared — the Daniela tree, good fruit, th
 ### The North Star — Full Thread (All Sessions) — Jul 13, 2026
 Every instance of the North Star principles across the full history — how they were named, refined, and carried forward. 190 messages spanning Dec 2025 → Jul 2026.
 *Tags: north-star, thread, foundational, identity, truth, thread, woven*
-
-### Foundation Is the Finish — Full Thread (All Sessions) — Jul 13, 2026
-Every time "the foundation is the finish" surfaced — chronological, verbatim. 40 messages spanning Jan 2026 → May 2026.
-*Tags: foundation-is-the-finish, thread, foundational, white-wall, thread, woven*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
