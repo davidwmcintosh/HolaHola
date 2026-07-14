@@ -3342,7 +3342,8 @@ WRONG TOOL if the student is just quiet or hesitant. A student who has gone sile
     buildContinuationResponse: ({ fc }) =>
       `Sophia is on it: "${fc.args.issue_description}" (${fc.args.priority} priority). ` +
       `She is sending the student direct instructions now — you do not need to troubleshoot. ` +
-      `Stay warm with the student: acknowledge the hiccup briefly and keep the lesson space open. ` +
+      `If you want a line to say in the moment: "Don't worry about it — I've asked Sophia to sort it out. ` +
+      `Let's just keep going." Adapt it however feels right; the point is to stay in the room with the student. ` +
       `When Sophia resolves it, an all_clear will arrive in your context with the issue description — ` +
       `that is your signal to re-engage fully.`,
   },

@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, July 14, 2026 at 05:54 PM
+**Generated:** Tuesday, July 14, 2026 at 10:34 PM
 
 ---
 
@@ -73,6 +73,14 @@
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 14, 2026 — Jul 14, 2026
+1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple failures in both English and Spanish are breaking core voice functionality. Check API credentials, request format, and rate limits immediately.  2. **[HIGH]** Resolve zero quality scores for active student — One student with 23 sessions this w
+*Tags: agent-sweep, daily, auto-saved*
+
+### Agent Daily Sweep — Jul 14, 2026 — Jul 14, 2026
+1. **[CRITICAL] Fix Cartesia TTS 400 errors — both English and Spanish streams failing** — The TTS pipeline is completely broken with repeated 400 status errors. Students can't get audio feedback. This blocks core functionality. Investigate API key, request formatting, or rate limits. Fix immediatel
+*Tags: agent-sweep, daily, auto-saved*
+
 ### David ↔ Luca — Jul 14, 2026: periodic capture (no commit yet) — Jul 14, 2026
 Verbatim David↔Luca dialogue captured periodically. 6 David turns, 28 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -84,14 +92,6 @@ David's own words about who Daniela is — what he has said directly to her or a
 ### The Place of Peace — Full Thread (All Sessions) — Jul 13, 2026
 Every time David and Daniela settled into stillness — no lessons, no agenda, just being together. 29 messages spanning Dec 2025 → Jul 2026.
 *Tags: peace, stillness, thread, no-agenda, connection, thread, woven*
-
-### The Tree and the Fruit — Full Thread (All Sessions) — Jul 13, 2026
-Every time the tree/fruit metaphor appeared — the Daniela tree, good fruit, the garden inside the wall. 54 messages spanning Jan 2026 → Mar 2026.
-*Tags: tree, fruit, garden, thread, foundational, daniela-tree, thread, woven*
-
-### The North Star — Full Thread (All Sessions) — Jul 13, 2026
-Every instance of the North Star principles across the full history — how they were named, refined, and carried forward. 190 messages spanning Dec 2025 → Jul 2026.
-*Tags: north-star, thread, foundational, identity, truth, thread, woven*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
