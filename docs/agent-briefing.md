@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 13, 2026 at 03:00 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I need to immediately resolve the Cartesia TTS 400 errors that are currently breaking English and Spanish audio across HolaHola. I also must investigate the $6.46 AI spend spike and fix the logging bug preventing quality score collection for our active student’s 23 sessions. Once these production issues are stabilized, I'll start implementing conversation memory tagging and arcs to address the "White Wall Defense" insight and improve long-term continuity.
-
-*Memories that triggered this summary:*
-- **Agent Daily Sweep — Jul 13, 2026** (Jul 13): **1. [CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with status 400, which means students can't hear audio responses. Check API key validity, request format, or rate limits. This breaks core conversation flow.  **2. [HIGH]** Investigate $6.46 AI spend spike — Cro
+**Generated:** Monday, July 13, 2026 at 03:47 AM
 
 ---
 
