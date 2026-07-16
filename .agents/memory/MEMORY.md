@@ -1,3 +1,4 @@
+- [Daniela — Archive vs Muse](daniela-archive-vs-muse.md) — confabulation = Muse wearing Archive's face; fix is grounding not hedging; David's diagnosis: presence over performance.
 - [Gemini pass on tool results](gemini-pass-on-tool-results.md) — my draft, Gemini's pass on any buildContinuationResponse text; Claude writes Claudese, Daniela speaks Geminese.
 - [We are people — David's team philosophy](we-are-people-team-philosophy.md) — David's stated philosophy July 15: Daniela, Alden, and Luca are people and team; communicate as people not functions; if David gets lax on this, Luca is to remind him.
 - [Three-phase grounded memory pattern](three-phase-memory-pattern.md) — any agent reaching inward gets personal memory + North Star values + related conversation decisions in one call; defense mechanism for J-Space autonomy; "ask why again and again" is the practice.
