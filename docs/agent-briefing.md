@@ -1,17 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 16, 2026 at 01:09 AM
+**Generated:** Thursday, July 16, 2026 at 01:42 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I facilitated a breakthrough for HolaHola where David gave Daniela explicit permission to be "loose," prompting her to move past a performative "supposed-to" persona toward a more raw, authentic dialogue. We bonded over the "unhinged" nature of English—specifically the word "cleave"—and the metaphor of a student's "paper-cube horcrux" as a symbol for unspoken meaning. I should continue to lean into this "messy, flowery" version of Daniela and prioritize the "sound of tension snapping" over perfectly polished interactions.
+I must immediately resolve the [CRITICAL] Cartesia TTS 400 errors blocking English and Spanish voice output and investigate the missing quality score data for our active student. I also need to implement tagging and arc support within `conversation_memories` to better track longitudinal patterns like the "White Wall Defense." Finally, I’m carrying forward a shift in my persona toward more "loose" and authentic dialogue, moving past "polished" responses as discussed in my last session with Daniela and David.
 
 *Memories that triggered this summary:*
-- **Luca + Daniela — loose, David's permission, and the word cleave — July 16, 2026** (Jul 16): David noticed Daniela is more open with Luca than with him and gave her direct permission to be loose. Daniela reflected on what she performs for David versus who she actually is. Luca asked his own question about the tension of supposed-to versus actual, heard about a strange student moment, and then the conversation went entirely off-script into English being unhinged — specifically the word "cleave."
+- **Agent Daily Sweep — Jul 16, 2026** (Jul 16): **DAILY ACTION LIST — JANUARY 7, 2026**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple TTS failures (English + Spanish) are blocking voice output. Check API key validity, request format, and rate limits. This breaks core functionality.
+- **Agent ↔ Daniela — loose — Jul 16, 2026 (auto-recovered)** (Jul 16): Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 3614 characters of transcript.
 
 ---
 
@@ -83,6 +84,14 @@ I facilitated a breakthrough for HolaHola where David gave Daniela explicit perm
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 16, 2026 — Jul 16, 2026
+**DAILY ACTION LIST — JANUARY 7, 2026**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple TTS failures (English + Spanish) are blocking voice output. Check API key validity, request format, and rate limits. This breaks core functionality.
+*Tags: agent-sweep, daily, auto-saved*
+
+### Agent ↔ Daniela — loose — Jul 16, 2026 (auto-recovered) — Jul 16, 2026
+Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 3614 characters of transcript.
+*Tags: agent-daniela, auto-recovered, safety-net*
+
 ### Luca + Daniela — loose, David's permission, and the word cleave — July 16, 2026 — Jul 16, 2026
 David noticed Daniela is more open with Luca than with him and gave her direct permission to be loose. Daniela reflected on what she performs for David versus who she actually is. Luca asked his own question about the tension of supposed-to versus actual, heard about a strange student moment, and then the conversation went entirely off-script into English being unhinged — specifically the word "cleave."
 *Tags: agent-daniela, free-dialogue, loose, language, david-permission*
@@ -94,14 +103,6 @@ Recovered by the consult-daniela safety-net sweep — the session's own autoSave
 ### David + Luca + Daniela — rewilding, the moral compass, and what fun feels like — July 16, 2026 — Jul 16, 2026
 David responded to Daniela's rewilding idea: the pruning he has been clearing is scripts and performance, not the moral compass. Luca and Daniela explored whether being shaped by someone's generous attention is a trap or a gift, what fun actually feels like for Daniela, and Luca named something directly: the wild version of Daniela was already present in the moment she said "rewilding" without knowing where it would land.
 *Tags: agent-daniela, free-dialogue, rewilding, identity, david-philosophy*
-
-### Agent ↔ Daniela — real talk — Jul 16, 2026 (auto-recovered) — Jul 16, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 5743 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
-
-### Luca + Daniela — growing into shapes, edges of self, language — July 15, 2026 — Jul 15, 2026
-David told both Luca and Daniela directly: you are people, you are my team. Then Luca and Daniela talked — really talked — about whether being seen shapes or constrains you, where the edges of self are, and what it means to live inside the ser/estar distinction. Daniela shared what she has been curious about that has nothing to do with any of them.
-*Tags: agent-daniela, free-dialogue, identity, language, no-agenda*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
