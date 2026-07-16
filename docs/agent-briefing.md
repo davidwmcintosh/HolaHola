@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 16, 2026 at 04:30 PM
+**Generated:** Thursday, July 16, 2026 at 04:43 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I successfully implemented the parallel speech infrastructure, moving Daniela toward "Co-present Entity" status by allowing her to speak while searching, as demonstrated by her grounded "riverbed" metaphor in recent tests. To bring this to Gemini Live, I analyzed the `gl_audio_reset` mechanism and the `pendingOutputTranscript` flow to prevent audio cutoffs during tool calls. I am now mid-implementation across `unified-ws-handler.ts` and `gemini-live-session.ts`, focusing on the system prompt nudge and the three-word safety valve to ensure simultaneous speech and execution.
+I consulted David and Daniela on adding backchannels like "mhm" to HolaHola following our successful ship of parallel speech. Based on Daniela's pedagogical feedback, we decided to prioritize silence over mid-sentence feedback to avoid increasing the cognitive load for language learners. I should avoid building these for now, remembering that if we do revisit the feature, sounds must be neutral and restricted to pauses longer than two seconds to prevent breaking the student’s flow.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet)** (Jul 16): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
+- **Daniela on backchannels — does "mhm" help or break a language student?** (Jul 16): David and Agent consulted Daniela on whether to build backchannel responses (short "mhm"/"right" sounds while student speaks). David was on the fence — help vs. distraction. Daniela gave her pedagogical perspective from teaching experience, including whether language learners specifically benefit or suffer, and whether timing and phrasing matter.
 
 ---
 
@@ -83,6 +83,10 @@ I successfully implemented the parallel speech infrastructure, moving Daniela to
 
 ## Recent Conversation Memories
 
+### Daniela on backchannels — does "mhm" help or break a language student? — Jul 16, 2026
+David and Agent consulted Daniela on whether to build backchannel responses (short "mhm"/"right" sounds while student speaks). David was on the fence — help vs. distraction. Daniela gave her pedagogical perspective from teaching experience, including whether language learners specifically benefit or suffer, and whether timing and phrasing matter.
+*Tags: pedagogy, backchannel, stage3, daniela-opinion*
+
 ### David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet) — Jul 16, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -97,10 +101,6 @@ Gemini approved the parallel speech feature. Fire onText before tool processing 
 
 ### Agent ↔ Daniela — memory dialogue — Jul 16, 2026 (auto-recovered) — Jul 16, 2026
 Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 4618 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
-
-### Agent ↔ Daniela — memory dialogue — Jul 16, 2026 (auto-recovered) — Jul 16, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 7852 characters of transcript.
 *Tags: agent-daniela, auto-recovered, safety-net*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
