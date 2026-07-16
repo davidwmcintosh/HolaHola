@@ -7,6 +7,11 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-07-16 — `[Hive Consciousness] Peer sessions fetch failed: 404` — production polling loop fires every 30s continuously — LOW URGENCY**
+The Hive Consciousness worker is polling a peer sessions endpoint that returns 404 in production. It's not causing visible failures (voice sessions run normally) but it's constant background noise in the logs — one 404 every ~30s. Needs investigation: either the endpoint is missing in prod, the feature flag is off, or the worker shouldn't run when the Hive isn't available. Noticed during production log review July 16.
+
+---
+
 **2026-07-16 — dependency vulnerabilities — 3 packages with moderate-severity CVEs that require major version bumps; intentionally deferred from the July 16 security patch pass — LOW URGENCY**
 All three are either dev-only tools or platform SDKs. None have direct production exploit paths.
 - `drizzle-kit` (dev tool, not in production bundle) — esbuild/esm-loader chain vulnerability, fix requires drizzle-kit major version bump. Monitor for a non-breaking upgrade path.

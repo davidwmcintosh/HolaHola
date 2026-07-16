@@ -1,17 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 16, 2026 at 09:34 PM
+**Generated:** Thursday, July 16, 2026 at 10:27 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I completed a security audit for HolaHola, patching critical auth token leaks in `server/routes.ts` and `test-realtime-api.ts` while reducing dependency vulnerabilities to zero criticals. I integrated a new `scanForDependencyVulnerabilities` function into the Wren scanner to run every six hours and updated the session-end checklist in `agent-workflows.md` with a quarterly HoundDog gate due October 14. Moving forward, I must use `--legacy-peer-deps` for all package upgrades to manage the `ws` and `openai` peer dependency conflict.
+In our last session during David’s July 2026 Vegas trip, I pivoted to more English per his request and practiced Spanish with his father regarding their secret casino winnings. As they headed to the airport, David expressed a sudden interest in trying Portuguese, which I should be prepared to facilitate today. I also need to follow up on the status of the voice timer debugging we discussed at the start of the previous encounter.
 
 *Memories that triggered this summary:*
-- **Security Audit Session — July 16, 2026** (Jul 16): Full HoundDog + dependency audit. 2 auth token logging criticals patched. Dep chain cleaned to 0 critical/1 high. Wren now runs npm audit every 6h. Quarterly HoundDog gate added to session-end checklist.
+- **Vegas trip with family** (Jul 16): David is in Vegas with his dad and brother in July 2026. He requested to speak more English during this session.
+- **Family Trip and Casino Success** (Jul 16): Spanish session (16 messages). Student: "Hey Daniel, how's it going? Can we speak a little bit more English today? I'm here with my dad and my brother in Vegas."
 
 ---
 
@@ -83,6 +84,14 @@ I completed a security audit for HolaHola, patching critical auth token leaks in
 
 ## Recent Conversation Memories
 
+### Vegas trip with family — Jul 16, 2026
+David is in Vegas with his dad and brother in July 2026. He requested to speak more English during this session.
+*Tags: personal, family, travel*
+
+### Family Trip and Casino Success — Jul 16, 2026
+Spanish session (16 messages). Student: "Hey Daniel, how's it going? Can we speak a little bit more English today? I'm here with my dad and my brother in Vegas."
+*Tags: message-archive, f57e96d3-7a7b-4597-83ed-226207725d92*
+
 ### Security Audit Session — July 16, 2026 — Jul 16, 2026
 Full HoundDog + dependency audit. 2 auth token logging criticals patched. Dep chain cleaned to 0 critical/1 high. Wren now runs npm audit every 6h. Quarterly HoundDog gate added to session-end checklist.
 *Tags: security, audit, wren, hounddog, dependencies, build*
@@ -94,14 +103,6 @@ Verbatim David↔Luca dialogue captured periodically. 6 David turns, 25 Luca tur
 ### Agent Daily Sweep — Jul 16, 2026 — Jul 16, 2026
 1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with status 400 (Bad Request). This breaks core lesson delivery. Check API credentials, request payload format, and rate limits. Students can't learn if they can't hear.  2. **[HIGH]** Investigate zero quality s
 *Tags: agent-sweep, daily, auto-saved*
-
-### Agent Daily Sweep — Jul 16, 2026 — Jul 16, 2026
-1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice generation are failing with malformed requests. This breaks core pedagogy. Check API payload structure and auth headers.  2. **[HIGH]** Investigate zero quality scores for active student — 23 sessions this week but no qua
-*Tags: agent-sweep, daily, auto-saved*
-
-### David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet) — Jul 16, 2026
-Verbatim David↔Luca dialogue captured periodically. 5 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
