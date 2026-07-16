@@ -146,9 +146,10 @@ export async function runDanielaFCLoop({
   const fcHandler = buildFcHandler();
 
   // ── Drift guard — warn if any context tool name is not in the registry ──────
+  // flatMap over all tool objects — future-safe against multi-object tool arrays
   if (allowedTools) {
     const declaredNames = new Set(
-      (tools[0]?.functionDeclarations || []).map((d: any) => d.name as string),
+      tools.flatMap((t: any) => t.functionDeclarations || []).map((d: any) => d.name as string),
     );
     const missing = allowedTools.filter(name => !declaredNames.has(name));
     if (missing.length > 0) {
