@@ -593,9 +593,15 @@ Respond with ONLY valid JSON (no markdown, no backticks):
       });
       
       if (!sessionsResponse.ok) {
-        if (sessionsResponse.status !== 503) { // Don't log if peer sync not configured
+        // 503 = peer sync not configured on that side; 404 = endpoint missing in that env.
+        // Both are expected when SYNC_PEER_URL points to an env where the feature is inactive.
+        // Increment consecutiveFailures so the existing exponential backoff kicks in — without
+        // this, a persistent 404 polls every 30s forever regardless of the backoff counter.
+        const expected = sessionsResponse.status === 503 || sessionsResponse.status === 404;
+        if (!expected) {
           console.error(`[Hive Consciousness] Peer sessions fetch failed: ${sessionsResponse.status}`);
         }
+        this.consecutiveFailures++;
         return;
       }
       

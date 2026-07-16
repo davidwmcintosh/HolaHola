@@ -920,7 +920,8 @@ export function StreamingVoiceChat({
     if (!streamingVoice.state.serverRestarting) return;
     toast({
       title: "HolaHola is updating",
-      description: "A system update is in progress. Your session will reconnect automatically in a few seconds.",
+      description: "A quick system update is in progress. Stay on this page — you'll reconnect automatically in about a minute.",
+      duration: 60000,
     });
   }, [streamingVoice.state.serverRestarting, toast]);
   

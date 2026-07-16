@@ -7,8 +7,13 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
-**2026-07-16 — `[Hive Consciousness] Peer sessions fetch failed: 404` — production polling loop fires every 30s continuously — LOW URGENCY**
-The Hive Consciousness worker is polling a peer sessions endpoint that returns 404 in production. It's not causing visible failures (voice sessions run normally) but it's constant background noise in the logs — one 404 every ~30s. Needs investigation: either the endpoint is missing in prod, the feature flag is off, or the worker shouldn't run when the Hive isn't available. Noticed during production log review July 16.
+**2026-07-16 — Production healthcheck death spiral — FIXED July 16**
+Replit's deployment platform health-probes `GET /` (root). Our server registered `/health` returning 200 immediately, but `/` wasn't handled until Vite middleware loaded — returning 500 during the startup window. Platform interpreted 500s as unhealthy, sent SIGTERM, restarted, same thing. Visible as SIGTERMs every 1–2 minutes in production logs.
+Fix: Added early `app.use` middleware in `server/index.ts` that intercepts `GoogleHC` / `Go-http-client` user-agents and returns 200 immediately, before any Vite setup.
+
+**2026-07-16 — `[Hive Consciousness] Peer sessions fetch failed: 404` — FIXED July 16**
+`SYNC_PEER_URL` was set in production but pointing to an endpoint that returns 404. The backoff counter (`consecutiveFailures`) was never incremented on 404 — only on caught exceptions. Result: polling every 30s forever, no backoff, constant log noise.
+Fix: 404 now treated like 503 (suppressed from error log) and increments `consecutiveFailures`, engaging the existing exponential backoff (30s → 60s → 120s → max 5 min).
 
 ---
 

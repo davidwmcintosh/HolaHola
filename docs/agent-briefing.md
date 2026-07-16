@@ -1,18 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 16, 2026 at 10:27 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-In our last session during David’s July 2026 Vegas trip, I pivoted to more English per his request and practiced Spanish with his father regarding their secret casino winnings. As they headed to the airport, David expressed a sudden interest in trying Portuguese, which I should be prepared to facilitate today. I also need to follow up on the status of the voice timer debugging we discussed at the start of the previous encounter.
-
-*Memories that triggered this summary:*
-- **Vegas trip with family** (Jul 16): David is in Vegas with his dad and brother in July 2026. He requested to speak more English during this session.
-- **Family Trip and Casino Success** (Jul 16): Spanish session (16 messages). Student: "Hey Daniel, how's it going? Can we speak a little bit more English today? I'm here with my dad and my brother in Vegas."
+**Generated:** Thursday, July 16, 2026 at 11:19 PM
 
 ---
 

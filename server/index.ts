@@ -56,6 +56,20 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', timestamp: Date.now() });
 });
 
+// CRITICAL: Cloud Run / Replit deployment platform health-probes hit '/' (not '/health').
+// Intercept probe requests BEFORE Vite middleware is registered so that '/' returns 200
+// immediately at startup — preventing the healthcheck death spiral where consecutive 500s
+// trigger a SIGTERM → restart → 500 → SIGTERM loop seen in production logs.
+// Browser requests pass through to Vite via next() since they don't use the probe UA.
+app.use((req, res, next) => {
+  if (req.method !== 'GET') return next();
+  const ua = req.get('user-agent') || '';
+  if (ua.startsWith('GoogleHC') || ua.startsWith('Go-http-client')) {
+    return res.status(200).send('OK');
+  }
+  next();
+});
+
 // NOTE: Heavy background workers (Hive, MemoryRecovery, Sofia) are started AFTER
 // server.listen() to ensure fast health check response for Cloud Run deployments
 
