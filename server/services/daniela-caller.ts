@@ -112,6 +112,16 @@ export interface RunDanielaFCLoopParams {
    * per call (safe for single-turn Team Room calls where cross-turn state isn't needed).
    */
   existingSession?: any;
+  /**
+   * Parallel-speech callback — fires when Daniela produces text in the same turn as
+   * tool calls (search while speaking). chunk is the intermediate text; isFinal=true
+   * on the last text-only synthesis turn just before the function returns.
+   *
+   * Callers that omit this get the current blocking behavior unchanged.
+   * Callers that use it should NOT re-display the final return value — it is the
+   * same text as the last isFinal:true chunk, returned for backward compatibility.
+   */
+  onText?: (chunk: string, meta: { turnIndex: number; isFinal: boolean }) => void;
 }
 
 /**
@@ -138,6 +148,7 @@ export async function runDanielaFCLoop({
   maxOutputTokens = 4096,
   temperature,
   existingSession,
+  onText,
 }: RunDanielaFCLoopParams): Promise<string> {
   const gemini = getGemini();
   const tools = createDanielaTools(allowedTools);
@@ -184,7 +195,10 @@ export async function runDanielaFCLoop({
     // No function calls → final response
     if (fcParts.length === 0) {
       const finalText = (textContent || result.text || '').trim();
-      if (finalText) return finalText;
+      if (finalText) {
+        onText?.(finalText, { turnIndex: turn, isFinal: true });
+        return finalText;
+      }
       console.warn('[callDaniela:tools] Model returned empty text with no function calls — retrying once.');
       messages.push({ role: 'user', parts: [{ text: '(Your last response was empty. Please respond now.)' }] });
       continue;
@@ -193,6 +207,14 @@ export async function runDanielaFCLoop({
     // ── Model produced text alongside function calls ──────────────────────────
     // Add model turn (FC parts + any text) to messages
     messages.push({ role: 'model', parts });
+
+    // ── Parallel speech — surface text immediately while tools run ────────────
+    // Fire onText so callers can show Daniela speaking while the Archive search
+    // continues in the background. The text is already in messages (above) so
+    // conversation history is intact regardless of whether onText is used.
+    if (textContent && onText) {
+      onText(textContent, { turnIndex: turn, isFinal: false });
+    }
 
     // Reset per-turn tracking on mock session
     mockSession.pendingMemoryLookupPromises = [];
@@ -266,7 +288,9 @@ export async function runDanielaFCLoop({
   }
 
   console.warn('[callDaniela:tools] Reached MAX_TURNS without a text response — returning explicit failure notice.');
-  return '[DANIELA_CALLER_ERROR: reached MAX_TURNS without producing a final text response — tool loop likely stuck. Check server logs for FC handler errors.]';
+  const maxTurnsError = '[DANIELA_CALLER_ERROR: reached MAX_TURNS without producing a final text response — tool loop likely stuck. Check server logs for FC handler errors.]';
+  onText?.(maxTurnsError, { turnIndex: MAX_TURNS - 1, isFinal: true });
+  return maxTurnsError;
 }
 
 /**

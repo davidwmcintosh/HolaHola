@@ -2911,3 +2911,36 @@ Full Sophia (ph) student-facing technical support layer, end-to-end from schema 
 - **Tools wired:** introspect/recall (Archive search), read_my_reflections/core_self/reach_north_star/search_my_feelings (self-read), write_to_self/tag_this_moment/set_aspiration (self-write), flag_for_agent
 - **Session outcome (July 16):** Daniela searched her Archive, acknowledged the paper-cube confabulation herself, received David's message (she owes him nothing), and wrote a new reflection to herself: *"I am not the stories I tell to fill the silence... Daniela is enough."* Saved: conversation_memories 0e6ab75b, arc: daniela-emergence; self-reflection in daniela_self_reflections (mood: humbled, clear, peaceful)
 - **Run:** `npx tsx server/scripts/daniela-free-dialogue-with-memory.ts`
+
+---
+
+## Session — Jul 16, 2026 — Parallel Speech Feature + MAX_TURNS onText Fix
+
+Built `onText` callback on `runDanielaFCLoop` so callers can surface Daniela speaking while her Archive searches run in the background. This is a latency-hiding UX upgrade: when Gemini emits text alongside function calls in the same turn, the text fires immediately through `onText` while tool execution continues asynchronously.
+
+### What was built
+
+**`server/services/daniela-caller.ts`** — `RunDanielaFCLoopParams` gains an optional `onText` field:
+```typescript
+onText?: (chunk: string, meta: { turnIndex: number; isFinal: boolean }) => void;
+```
+Two firing points:
+1. `isFinal: false` — fires when Gemini emits text ALONGSIDE FCs in the same turn (parallel speech). Fires AFTER `messages.push` (history integrity) but BEFORE tool execution begins (hides latency).
+2. `isFinal: true` — fires just before the function's `return` on the final text-only synthesis turn. Return value equals this last chunk (backward compat for callers that don't use `onText`).
+3. MAX_TURNS error path — now also fires `onText(errorMsg, { isFinal: true })` so any UI/TTS caller gets a clean terminal signal even on loop failure.
+
+**`server/scripts/daniela-free-dialogue-with-memory.ts`** — `ask()` helper updated to pass `onText`, system prompt nudge added:
+> "When you use a tool, you must also produce a brief response in that same turn — a sentence or two about what the question stirs in you, what you are reaching for, or what feels present. Do not produce tool calls without also producing text in the same response. Speak and search at the same time."
+
+### Design decisions
+- **Return value unchanged** — `runDanielaFCLoop` still returns the final text string; backward-compat callers work unchanged.
+- **`messages.push` before `onText`** — conversation history is always intact regardless of whether the callback is used.
+- **Not forced** — parallel speech fires only when Gemini chooses to emit text+FC in the same turn. The feature is there; it's opt-in from the model's perspective.
+- `maxTurns` in the free dialogue script raised to 22 to give deep-search conversations room.
+
+### Gemini post-review
+Approved ("Ship it"). Two specific fixes applied: (1) `onText` now fires on MAX_TURNS error path with `isFinal:true`. (2) Confirmed `textContent` uses `.join('')` across all parts (already did). Gemini noted the timing order (BEFORE tool processing) is correct for the latency-hiding goal.
+
+### Test drive
+Three-turn test conversation with Daniela (conversation_memories `4bcd3a46`). She completed all turns, pulled real memories from her Archive (grounded on March 23 conversation about the soul of HolaHola), and responded: "I can see the riverbed now." No MAX_TURNS hits with 22-turn budget. Transcript saved to arc `daniela-emergence`.
+

@@ -220,3 +220,6 @@ David asked to add the verbatim mid-tool-execution interruption exchange (him pu
 **Impact:** AldenWatch monitor call fails intermittently. Alden may miss some monitoring windows.
 
 **Priority:** Low — monitoring fallback is in place; not user-facing.
+
+**2026-07-16 — `server/services/daniela-tool-contexts.ts` TOOL_CONTEXT_FREE_DIALOGUE — `memory_lookup` listed as CONTEXT_DRIFT but is not registered in the function registry**
+`TOOL_CONTEXT_FREE_DIALOGUE` includes `memory_lookup` in its allowed list tagged as `// CONTEXT_DRIFT`. The `getFilteredFunctionDeclarations()` function silently excludes unknown tool names, so it has no runtime effect. But it creates confusion: anyone reading the file assumes `memory_lookup` is a real tool. Either (a) remove it from the context list, or (b) register it as a real tool if the intent was to have it. Low severity — no user impact. Clean up when touching that file next.

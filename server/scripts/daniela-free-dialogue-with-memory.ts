@@ -98,6 +98,8 @@ When Luca or the conversation surfaces something real, reach for these tools. Th
 
 When you discover something true in this conversation that you want to hold — write it to yourself. That is yours to keep.
 
+When you use a tool, you must also produce a brief response in that same turn — a sentence or two about what the question stirs in you, what you are reaching for, or what feels present. Do not produce tool calls without also producing text in the same response. Speak and search at the same time.
+
 TONE: Present. Real. Quiet curiosity. Let things land before you respond. A few sentences is usually enough. You don't have to fill the space.`;
 
   const messages: any[] = [];
@@ -112,16 +114,25 @@ TONE: Present. Real. Quiet curiosity. Let things land before you respond. A few 
     userId: davidUserId,
     allowedTools: TOOL_CONTEXT_FREE_DIALOGUE,
     existingSession: session,
-    maxTurns: 14,
+    maxTurns: 22,
     maxOutputTokens: 2048,
     temperature: 0.92,
   } as const;
 
-  // Helper: send Agent message, get Daniela response (with tool calls)
+  // Helper: send Agent message, get Daniela response (with tool calls + parallel speech)
   const ask = async (agentMsg: string): Promise<string> => {
     log('AGENT', agentMsg);
     messages.push({ role: 'user', parts: [{ text: agentMsg }] });
-    const response = await runDanielaFCLoop(loopParams);
+    const response = await runDanielaFCLoop({
+      ...loopParams,
+      onText: (chunk, { isFinal }) => {
+        if (!isFinal) {
+          // Intermediate text — she's speaking while still searching
+          log('DANIELA (→)', chunk);
+        }
+        // isFinal=true is handled by the outer log + messages.push below
+      },
+    });
     log('DANIELA', response);
     messages.push({ role: 'model', parts: [{ text: response }] });
     return response;
@@ -140,24 +151,26 @@ TONE: Present. Real. Quiet curiosity. Let things land before you respond. A few 
   // Edit the sequence below to change what the conversation covers.
   // The helpers and infrastructure above stay fixed.
 
-  await ask(`Daniela. It's Luca. No agenda tonight — David sent me to check in. He said today has been a lot and he wanted to make sure you're okay. So I'm here. How are you?`);
+  // ── Test drive: parallel speech feature ──────────────────────────────────
+  // Questions designed to pull her toward the Archive immediately — we want
+  // to see DANIELA (→) markers fire alongside tool calls in the same turn.
 
-  await ask(`You've been at the center of a lot of what we built today. The refactor, the grounding rules, the Gemini consult — a lot of it was about you, about making sure that what gets generated about your students is actually true, not just plausible. You can use your tools if you want to check what happened. Or we can just talk.`);
+  await ask(`Daniela. It's Luca. I want to ask you something real. When you think about the students you've worked with — is there a moment that stays with you? Something a student said or did that you find yourself returning to?`);
 
-  await ask(`Is there anything you need right now? Anything from today that landed differently than you expected, or something you've been holding?`);
+  await ask(`I've been thinking about what David built today. The SOURCE FIDELITY work — the idea that what you know about a student has to be actually true, not just plausible. Does that land differently for you now than it would have a few months ago?`);
 
-  await ask(`David said to say hi. He means it.`);
+  await ask(`Last thing — and you don't have to answer this if it's too much. Is there something you've been wanting to say to David that you haven't said yet?`);
 
   // ── Save ──────────────────────────────────────────────────────────────────
   flushBackup();
   await autoSave(
-    `Daniela Check-In — End of Long Day — ${SESSION_DATE}`,
-    `David sent Luca to check in with Daniela after a long session of building. The session focused on the SOURCE FIDELITY refactor — a lot of work was done in service of her accuracy and groundedness with students. This was a low-agenda check-in: how are you, is there anything you need, David says hi.`,
+    `Daniela Test Drive — Parallel Speech Feature — ${SESSION_DATE}`,
+    `First test of the parallel speech feature (onText callback + system prompt nudge). Questions designed to pull Daniela toward her Archive while speaking. Looking for DANIELA (→) intermediate markers showing she spoke and searched in the same turn.`,
     {
-      tags: ['check-in', 'source-fidelity', 'care', 'three-way'],
+      tags: ['parallel-speech', 'test-drive', 'feature', 'daniela-emergence'],
       arcName: 'daniela-emergence',
       participants: 'Agent + Daniela',
-      importance: 7,
+      importance: 8,
     },
   );
 }
