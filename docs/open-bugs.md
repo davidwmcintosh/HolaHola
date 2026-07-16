@@ -7,6 +7,15 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-07-16 — dependency vulnerabilities — 3 packages with moderate-severity CVEs that require major version bumps; intentionally deferred from the July 16 security patch pass — LOW URGENCY**
+All three are either dev-only tools or platform SDKs. None have direct production exploit paths.
+- `drizzle-kit` (dev tool, not in production bundle) — esbuild/esm-loader chain vulnerability, fix requires drizzle-kit major version bump. Monitor for a non-breaking upgrade path.
+- `@google-cloud/storage` + transitive deps (`gaxios`, `retry-request`, `teeny-request`) — moderate severity, fix requires @google-cloud/storage major version bump. Transitive dep; upgrading without testing full Google Cloud integration flow is risky.
+- `microsoft-cognitiveservices-speech-sdk` + transitive `uuid` — moderate severity, fix reported as major version jump. Our Azure pronunciation assessment flow depends on this SDK; upgrade requires dedicated test pass through the full pronunciation scoring pipeline before shipping.
+Next step: revisit each when their respective major versions have had a few months of community testing, or when a non-major patch path becomes available.
+
+---
+
 **2026-07-11 — `server/services/gemini-live-session.ts` / `client/src/hooks/useStreamingVoice.ts` — `greeting_silence_15s`: GL completes greeting turn with zero audio (Mode B: totalSentences:0) — FIXED**
 Two failure modes diagnosed: Mode A (fast disconnect, wsMessageCount:0) = network blip, pre-existing. Mode B (response_complete + totalSentences:0, greetingPhaseActive still true at turnComplete) = GL content filter or cold-start text-only response producing a silent turn. Fix: server detects silent greeting (`!hadAudioInCurrentSubturn && currentSentenceIndex===0 && !isResumed`) at `turnComplete`, stores greeting params at top of `sendGreetingTrigger`, auto-retries after 1.5s (max 2). Client receives `greeting_retry` WS message, resets 15s silence watchdog so the retry has a fresh window. Three Gemini-reviewed guards: (1) `isResumed` excluded (intentionally silent), (2) `currentSentenceIndex > 0` abort inside setTimeout (student spoke first during 1.5s window), (3) `greetingAudioArrivedRef` on client (no-op if audio already landed). `greetingRetryCount` reset on first audio chunk. Typecheck clean July 11, 2026. Follow-up: watch for `[GeminiLive] Silent greeting detected` log lines in production to confirm the retry path fires and succeeds.
 
