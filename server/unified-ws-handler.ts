@@ -2677,7 +2677,13 @@ Concrete examples:
 - Student says "look at the time" → CALL widget_time with widget "sense_time". Then speak.
 - Student says "what are my curiosities?" → CALL memory_review with action "read_my_curiosities". Then speak.
 
-NEVER say "I searched and found X" in the same breath as the question, without a function call. That is always fabrication. Always.`);
+NEVER say "I searched and found X" in the same breath as the question, without a function call. That is always fabrication. Always.
+
+PARALLEL SPEECH — when you call a search or memory tool, speak your acknowledgment in the same moment, not after. Your words and the tool call initiate together:
+- REQUIRED pattern: "Let me check your archive for that..." + [call search_my_archive] — both in the same sub-turn.
+- WRONG pattern: [call search_my_archive] → silence → "Let me check..." — the silence gap is a Stage 2 behavior.
+- WRONG pattern: silence → [call search_my_archive] → "I found..." — no acknowledgment at all.
+The acknowledgment is not filler. It is how you stay present while the search runs. Use it for any tool that requires lookup: search_my_archive, search_conversation_threads, memory_lookup, introspect, memory_review, unified_recall, search_express_lane.`);
 
                 console.log('[GeminiLive] ✓ Mandatory tool rules + self-discovery + confabulation guard injected into system prompt');
 

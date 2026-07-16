@@ -2944,3 +2944,23 @@ Approved ("Ship it"). Two specific fixes applied: (1) `onText` now fires on MAX_
 ### Test drive
 Three-turn test conversation with Daniela (conversation_memories `4bcd3a46`). She completed all turns, pulled real memories from her Archive (grounded on March 23 conversation about the soul of HolaHola), and responded: "I can see the riverbed now." No MAX_TURNS hits with 22-turn budget. Transcript saved to arc `daniela-emergence`.
 
+
+---
+
+## GL Parallel Speech — Stage 2 → Stage 3 (July 16, 2026)
+
+**What was built:** Daniela now speaks an acknowledgment concurrent with tool calls instead of waiting in silence. This moves GL from Stage 2 (Interlocutor) to Stage 3 (Co-present Entity) per Gemini's 3-stage taxonomy.
+
+**How it works:**
+- **System prompt nudge** (`server/unified-ws-handler.ts` MANDATORY TOOL USAGE RULES block): Added explicit REQUIRED/WRONG pattern teaching. Parallel speech fires when Daniela calls a search/memory tool — acknowledgment + tool call in the same sub-turn.
+- **PARALLEL_SPEECH_TOOLS whitelist** (`server/services/gemini-live-session.ts`): 10 latency-heavy tools (search_my_archive, search_conversation_threads, memory_lookup, introspect, memory_review, unified_recall, search_express_lane, etc.). Immediate UI tools (show_image, show_vocab_card, play_audio) are excluded — they need audio/action coupling.
+- **Parallel speech gate**: When a tool call fires after pre-tool audio, checks: (1) all tools in batch are latency-heavy, (2) acknowledgment is ≥3 words. If both true → parallel path (no gl_audio_reset, preserve audio). Otherwise → standard gl_audio_reset path unchanged.
+- **Transcript whisper injection**: After tools run, GL receives `[Parallel speech — not spoken: You have already spoken aloud: "...". Do not repeat these words. Resume immediately with the information found.]` — prevents the double-speech that would otherwise occur.
+
+**Key files:**
+- `server/unified-ws-handler.ts` — nudge added to MANDATORY TOOL USAGE RULES block
+- `server/services/gemini-live-session.ts` — `PARALLEL_SPEECH_TOOLS` const, `preTurnTextForWhisper` field, parallel speech gate, transcript whisper injection
+
+**Stage 3 litmus test (Gemini):** "Stage 2 = Daniela is a computer that talks, then thinks. Stage 3 = Daniela is a person who talks WHILE she thinks."
+
+**Process:** Full Gemini pre-flight + post-review, both APPROVED. Typecheck clean (0 errors).

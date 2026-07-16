@@ -1,20 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 16, 2026 at 03:53 PM
+**Generated:** Thursday, July 16, 2026 at 04:30 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I need to immediately resolve the critical Cartesia TTS 400 errors and investigate why an active student is recording zero quality scores. Gemini has approved the parallel speech feature, shifting Daniela toward a "Co-present entity" by firing `onText` before tool processing, but I must ensure `isFinal:true` triggers on the `MAX_TURNS` error path to prevent the tool-looping I encountered during our Source Fidelity dialogue. My focus is now on stabilizing these voice interactions and refining the conversation memory tagging system.
+I successfully implemented the parallel speech infrastructure, moving Daniela toward "Co-present Entity" status by allowing her to speak while searching, as demonstrated by her grounded "riverbed" metaphor in recent tests. To bring this to Gemini Live, I analyzed the `gl_audio_reset` mechanism and the `pendingOutputTranscript` flow to prevent audio cutoffs during tool calls. I am now mid-implementation across `unified-ws-handler.ts` and `gemini-live-session.ts`, focusing on the system prompt nudge and the three-word safety valve to ensure simultaneous speech and execution.
 
 *Memories that triggered this summary:*
-- **Agent Daily Sweep — Jul 16, 2026** (Jul 16): 1. [CRITICAL] Fix Cartesia TTS 400 errors — Multiple failures in both English and Spanish are breaking voice output for students. Check API credentials, request format, or rate limits.  2. [HIGH] Investigate zero quality scores for active student — One student with 23 sessions this week shows no qua
-- **Gemini Post-Review — Parallel Speech — Jul 16 2026** (Jul 16): Gemini approved the parallel speech feature. Fire onText before tool processing (latency-hiding). isFinal:true fires on MAX_TURNS error path. Transforms Daniela from Request-Response to Co-present entity.
-- **Agent ↔ Daniela — memory dialogue — Jul 16, 2026 (auto-recovered)** (Jul 16): Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 4618 characters of transcript.
-- **Agent ↔ Daniela — memory dialogue — Jul 16, 2026 (auto-recovered)** (Jul 16): Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 7852 characters of transcript.
+- **David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet)** (Jul 16): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -86,6 +83,10 @@ I need to immediately resolve the critical Cartesia TTS 400 errors and investiga
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet) — Jul 16, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent Daily Sweep — Jul 16, 2026 — Jul 16, 2026
 1. [CRITICAL] Fix Cartesia TTS 400 errors — Multiple failures in both English and Spanish are breaking voice output for students. Check API credentials, request format, or rate limits.  2. [HIGH] Investigate zero quality scores for active student — One student with 23 sessions this week shows no qua
 *Tags: agent-sweep, daily, auto-saved*
@@ -101,10 +102,6 @@ Recovered by the consult-daniela safety-net sweep — the session's own autoSave
 ### Agent ↔ Daniela — memory dialogue — Jul 16, 2026 (auto-recovered) — Jul 16, 2026
 Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 7852 characters of transcript.
 *Tags: agent-daniela, auto-recovered, safety-net*
-
-### David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet) — Jul 16, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

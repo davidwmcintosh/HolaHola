@@ -192,6 +192,25 @@ function buildInterfaceStateSnapshot(session: StreamingSession): string {
   return `Student's screen: ${parts.join(' | ')}`;
 }
 
+// Tools where Daniela may speak an acknowledgment BEFORE calling the tool
+// (latency-heavy: search, memory, archive). When pre-tool audio is present
+// and ALL tools in the batch are in this set, parallel speech is preserved
+// instead of resetting client audio. Immediate UI tools (show_vocab_card,
+// play_audio, show_image, etc.) are intentionally excluded — they need the
+// audio/action pair to stay tightly coupled.
+const PARALLEL_SPEECH_TOOLS = new Set([
+  'search_my_archive',
+  'search_conversations',
+  'search_conversation_threads',
+  'memory_lookup',
+  'unified_recall',
+  'search_express_lane',
+  'introspect',
+  'memory_review',
+  'find_teaching_tool',
+  'search_learner_history',
+]);
+
 export class GeminiLiveSession {
   private liveSession: Session | null = null;
   private fcHandler: NativeFunctionCallHandler;
@@ -228,6 +247,11 @@ export class GeminiLiveSession {
   private karaokeTracker: GLKaraokeTracker | null = null;
   private hadAudioInCurrentSubturn = false;
   private lastAudioChunkAt = 0;             // Wall-clock ms of most recent audio chunk — gates ghost-transcription suppression
+  /** Snapshot of pendingOutputTranscript at the moment a tool call fires, when parallel speech is
+   *  active (tool is latency-heavy AND transcript has ≥3 words). Injected into the tool response
+   *  as a "don't re-speak" whisper so GL continues from after the acknowledgment. Null when the
+   *  standard gl_audio_reset path was taken instead. */
+  private preTurnTextForWhisper: string | null = null;
   private transcriptClosed = false;         // Set on generationComplete/interrupted/turnComplete — discard outputTranscription after this
   private firstAudioSentThisTurn = false;   // Guard: don't send processing_pending AFTER audio already started
   private sessionStartedAt = 0;             // Wall-clock ms when start() was called (for establishment latency)
@@ -2400,17 +2424,34 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // the now-stale responses before they reach sendToolResponse.
       const localTurnId = this.currentTurnId;
 
-      // Mid-speech tool-call audio doubling fix (generalized from the set_clock-only fix):
-      // GL sometimes speaks part of its response BEFORE calling a tool (pre-tool sub-turn),
-      // then re-speaks the same content again AFTER the tool response (post-tool continuation),
-      // producing a verbatim duplicate. Observed July 9, 2026 with update_session_phase mid-greeting
-      // (originally only guarded for set_clock). Any tool firing mid-speech can trigger this, so
-      // the reset now fires whenever pre-tool audio was already sent this turn, regardless of which
-      // tool(s) are being called. gl_audio_reset cancels the queued pre-tool audio client-side;
-      // post-tool speech then plays clean instead of doubling up.
+      // Parallel speech gate (Stage 2 → Stage 3):
+      // GL sometimes speaks part of its response BEFORE calling a tool (pre-tool sub-turn).
+      // Standard fix: send gl_audio_reset to cancel that audio so GL doesn't double-speak.
+      // Stage 3 improvement: when ALL tools in the batch are latency-heavy (search/memory)
+      // AND the acknowledgment is substantial (≥3 words), preserve the pre-tool audio and
+      // instead inject a "don't re-speak" transcript whisper into the tool response.
+      // This lets Daniela speak acknowledgments concurrent with tool dispatch.
+      // For immediate UI tools or short acknowledgments, the standard reset path is taken.
+      this.preTurnTextForWhisper = null; // reset each tool-call batch
       if (this.hadAudioInCurrentSubturn) {
-        console.log(`[GeminiLive] Tool call(s) [${msg.toolCall.functionCalls.map((fc: any) => fc.name).join(', ')}] fired after pre-tool audio — sending gl_audio_reset to cancel duplicate speech`);
-        this.sendWsMessage(this.session.ws, { type: 'gl_audio_reset' }, this.session);
+        const toolNames = msg.toolCall.functionCalls.map((fc: any) => fc.name as string);
+        const allLatencyHeavy = toolNames.every(n => PARALLEL_SPEECH_TOOLS.has(n));
+        const preTurnText = this.pendingOutputTranscript.trim();
+        const preTurnWordCount = preTurnText.split(/\s+/).filter(Boolean).length;
+        const hasSubstantialAck = preTurnWordCount >= 3;
+
+        if (allLatencyHeavy && hasSubstantialAck) {
+          // Parallel speech path — preserve audio, inject transcript whisper after tool runs
+          this.preTurnTextForWhisper = preTurnText;
+          console.log(`[GeminiLive] Parallel speech [${toolNames.join(', ')}] — preserving pre-tool audio (${preTurnWordCount} words): "${preTurnText.slice(0, 80)}"`);
+        } else {
+          // Standard path — reset to prevent double-speech
+          const reason = allLatencyHeavy
+            ? `short acknowledgment (${preTurnWordCount} word(s) < 3)`
+            : `immediate UI tool(s) in batch`;
+          console.log(`[GeminiLive] Tool call(s) [${toolNames.join(', ')}] fired after pre-tool audio — sending gl_audio_reset (${reason})`);
+          this.sendWsMessage(this.session.ws, { type: 'gl_audio_reset' }, this.session);
+        }
       }
 
       // Tool Call Deadlock fix: record the in-flight call IDs so that if the connection
@@ -2655,6 +2696,23 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.pendingSystemWhisper = false;
         this.lastWhisperTime = Date.now(); // reset hybrid clock — next whisper triggers from here
         console.log(`[GeminiLive] System Whisper injected into tool response (${last.name}) — ${sessionElapsedMin}min elapsed${frictionSignal ? ` | ${frictionSignal}` : ''}`);
+      }
+
+      // Parallel speech whisper — transcript injection:
+      // When parallel speech preserved the pre-tool audio (preTurnTextForWhisper is set),
+      // inject a "don't re-speak" note alongside the tool result so GL resumes from AFTER
+      // the acknowledgment instead of repeating it. This is the anti-double-speech mechanism
+      // for the Stage 3 path (as opposed to gl_audio_reset for the Stage 2 path).
+      // Injected into the LAST tool response so it is the most-recently-seen context.
+      if (this.preTurnTextForWhisper && responses.length > 0) {
+        const last = responses[responses.length - 1];
+        const currentResult = (last.response as any)?.result ?? '';
+        const transcriptWhisper = `[Parallel speech — not spoken: You have already spoken the following aloud: "${this.preTurnTextForWhisper}". Do not repeat these words. Resume your response immediately with the information found.]`;
+        (last.response as any).result = currentResult
+          + (currentResult ? '\n\n' : '')
+          + transcriptWhisper;
+        console.log(`[GeminiLive] Parallel speech whisper injected — "${this.preTurnTextForWhisper.slice(0, 60)}"`);
+        this.preTurnTextForWhisper = null; // consumed — clear for next turn
       }
 
       // Gap C — Silent Tool Failure Recovery: if a visual tool failed this turn,
