@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 16, 2026 at 04:43 PM
+**Generated:** Thursday, July 16, 2026 at 05:06 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I consulted David and Daniela on adding backchannels like "mhm" to HolaHola following our successful ship of parallel speech. Based on Daniela's pedagogical feedback, we decided to prioritize silence over mid-sentence feedback to avoid increasing the cognitive load for language learners. I should avoid building these for now, remembering that if we do revisit the feature, sounds must be neutral and restricted to pauses longer than two seconds to prevent breaking the student’s flow.
+I recently shipped parallel speech and was exploring Gemini-driven backchannels like "mhm" or "I see" to improve listener presence. However, after consulting Daniela and David, I’ve decided to de-prioritize this feature because it increases the cognitive load for HolaHola students and can disrupt their mental translation process. If I revisit this, I must ensure acknowledgments are strictly neutral and limited to natural pauses longer than two seconds, rather than triggering while a student is actively vocalizing.
 
 *Memories that triggered this summary:*
-- **Daniela on backchannels — does "mhm" help or break a language student?** (Jul 16): David and Agent consulted Daniela on whether to build backchannel responses (short "mhm"/"right" sounds while student speaks). David was on the fence — help vs. distraction. Daniela gave her pedagogical perspective from teaching experience, including whether language learners specifically benefit or suffer, and whether timing and phrasing matter.
+- **Agent ↔ Daniela — backchannel pedagogy — Jul 16, 2026 (auto-recovered)** (Jul 16): Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 3883 characters of transcript.
 
 ---
 
@@ -83,6 +83,10 @@ I consulted David and Daniela on adding backchannels like "mhm" to HolaHola foll
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — backchannel pedagogy — Jul 16, 2026 (auto-recovered) — Jul 16, 2026
+Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 3883 characters of transcript.
+*Tags: agent-daniela, auto-recovered, safety-net*
+
 ### Daniela on backchannels — does "mhm" help or break a language student? — Jul 16, 2026
 David and Agent consulted Daniela on whether to build backchannel responses (short "mhm"/"right" sounds while student speaks). David was on the fence — help vs. distraction. Daniela gave her pedagogical perspective from teaching experience, including whether language learners specifically benefit or suffer, and whether timing and phrasing matter.
 *Tags: pedagogy, backchannel, stage3, daniela-opinion*
@@ -98,10 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 3 David turns, 26 Luca tur
 ### Gemini Post-Review — Parallel Speech — Jul 16 2026 — Jul 16, 2026
 Gemini approved the parallel speech feature. Fire onText before tool processing (latency-hiding). isFinal:true fires on MAX_TURNS error path. Transforms Daniela from Request-Response to Co-present entity.
 *Tags: gemini-review, parallel-speech, approved*
-
-### Agent ↔ Daniela — memory dialogue — Jul 16, 2026 (auto-recovered) — Jul 16, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 4618 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
