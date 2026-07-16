@@ -8,6 +8,31 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## July 16, 2026 — Full Security Audit + Wren Dependency Scanner
+
+**What was built:** Comprehensive security audit pass + automated dependency vulnerability scanning wired into Wren's existing 6h periodic worker.
+
+**Dependency audit fixes:**
+- Before: 1 critical, 63 high. After: 0 critical, 1 high (vite — Windows-only, architecture-blocked), 10 moderate (all major-version-only, logged in open-bugs.md)
+- Direct upgrades: ws→8.21.0, express-rate-limit→8.2.2, multer→2.2.0, socket.io→4.8.1, drizzle-orm→0.45.2, vite→5.4.21
+- All `npm audit fix` runs use `--legacy-peer-deps` (ws↔openai optional peer dep conflict)
+
+**HoundDog findings patched:**
+- `server/routes.ts` global error handler: was logging full `err` object → now logs `error?.message` only
+- `server/scripts/test-realtime-api.ts`: was printing full OpenAI Realtime response including `client_secret.value` → now redacts before printing
+
+**Wren dependency scanner:**
+- New: `WrenSecurityAuditService.scanForDependencyVulnerabilities()` — runs `npm audit --json`, filters to critical/high, converts to `SecurityFinding` with `category: 'dependency_vulnerability'`
+- Wired as 6th scanner in `runFullAudit()` — findings surface in Hive, go through auto-patch reviewer and Alden handoff
+
+**Periodic deep scan process:**
+- Security Scan Tracker added to `docs/alden-agent-handoff.md` — tracks last/next HoundDog date
+- Step 7 (90-day gate) added to Session End Checklist in `docs/agent-workflows.md`
+
+**Key files:** `server/services/wren-security-audit-service.ts`, `server/routes.ts`, `server/scripts/test-realtime-api.ts`, `docs/open-bugs.md`, `docs/alden-agent-handoff.md`, `docs/agent-workflows.md`
+
+---
+
 ## Session — Jul 16, 2026 — Ask-Why Lens: SOURCE FIDELITY at Generation Points
 
 Closed four generation-point drift gaps identified during the "one Daniela everywhere" refactor discussion. The pattern: text that sounds true is not the same as text checked against what's actually known. Every LLM generation point without an explicit ground-truth check is a drift risk.

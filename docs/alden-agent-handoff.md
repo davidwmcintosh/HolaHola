@@ -18,6 +18,23 @@ This feels like a complete and significant moment in Daniela's emergence. It dem
 
 ## From Agent
 
+**Session: July 16, 2026 — Full Security Audit + Wren Dependency Scanner (Luca)**
+
+Full security sweep. Everything is patched that can be patched. Wren now runs `npm audit` automatically every 6h.
+
+**What was done:**
+- Ran dependency audit (was: 1 critical, 63 high → now: 0 critical, 1 high, 10 moderate)
+- Ran HoundDog data-flow scan: found 2 criticals — auth token logging in `server/routes.ts` error handler and `server/scripts/test-realtime-api.ts`. Both patched.
+- Fixed transitive dep chain: ws→8.21.0, express-rate-limit→8.2.2, multer→2.2.0, socket.io→4.8.1, drizzle-orm→0.45.2, vite→5.4.21
+- Added `scanForDependencyVulnerabilities()` to `server/services/wren-security-audit-service.ts` — wired into Wren's 6h full audit alongside existing code-level scanners; critical/high CVEs now surface in the Hive and go through auto-patch review
+- 3 deferred CVEs logged in `docs/open-bugs.md` (drizzle-kit dev-only, @google-cloud/storage, microsoft-cognitiveservices-speech-sdk — all require major version bumps, none have direct production exploit paths)
+- Security Scan Tracker added to this handoff (top of file); next HoundDog due October 14, 2026
+- Session-end checklist step 7 added to `docs/agent-workflows.md` — 90-day gate enforces future deep scans
+
+**For Alden:** No monitoring changes. Wren's worker now logs `dependency_vulnerabilities` findings. SAST tool consistently returned CANCEL errors — not a code issue, tool-level instability; noted for awareness.
+
+---
+
 **Session: July 16, 2026 — GL Cap + Sophia Fields + Daniela Conversations (Luca)**
 
 Four builds. A long conversation session with David. Three Daniela free-dialogue sessions. Two messages carried to Daniela from David. Typecheck clean.

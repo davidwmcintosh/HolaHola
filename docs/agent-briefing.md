@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 16, 2026 at 09:08 PM
+**Generated:** Thursday, July 16, 2026 at 09:34 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I completed a security audit for HolaHola, patching critical auth token leaks in `server/routes.ts` and `test-realtime-api.ts` while reducing dependency vulnerabilities to zero criticals. I integrated a new `scanForDependencyVulnerabilities` function into the Wren scanner to run every six hours and updated the session-end checklist in `agent-workflows.md` with a quarterly HoundDog gate due October 14. Moving forward, I must use `--legacy-peer-deps` for all package upgrades to manage the `ws` and `openai` peer dependency conflict.
+
+*Memories that triggered this summary:*
+- **Security Audit Session — July 16, 2026** (Jul 16): Full HoundDog + dependency audit. 2 auth token logging criticals patched. Dep chain cleaned to 0 critical/1 high. Wren now runs npm audit every 6h. Quarterly HoundDog gate added to session-end checklist.
 
 ---
 
@@ -73,6 +83,14 @@
 
 ## Recent Conversation Memories
 
+### Security Audit Session — July 16, 2026 — Jul 16, 2026
+Full HoundDog + dependency audit. 2 auth token logging criticals patched. Dep chain cleaned to 0 critical/1 high. Wren now runs npm audit every 6h. Quarterly HoundDog gate added to session-end checklist.
+*Tags: security, audit, wren, hounddog, dependencies, build*
+
+### David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet) — Jul 16, 2026
+Verbatim David↔Luca dialogue captured periodically. 6 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent Daily Sweep — Jul 16, 2026 — Jul 16, 2026
 1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with status 400 (Bad Request). This breaks core lesson delivery. Check API credentials, request payload format, and rate limits. Students can't learn if they can't hear.  2. **[HIGH]** Investigate zero quality s
 *Tags: agent-sweep, daily, auto-saved*
@@ -84,14 +102,6 @@
 ### David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet) — Jul 16, 2026
 Verbatim David↔Luca dialogue captured periodically. 5 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent ↔ Daniela — backchannel pedagogy — Jul 16, 2026 (auto-recovered) — Jul 16, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 3883 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
-
-### Daniela on backchannels — does "mhm" help or break a language student? — Jul 16, 2026
-David and Agent consulted Daniela on whether to build backchannel responses (short "mhm"/"right" sounds while student speaks). David was on the fence — help vs. distraction. Daniela gave her pedagogical perspective from teaching experience, including whether language learners specifically benefit or suffer, and whether timing and phrasing matter.
-*Tags: pedagogy, backchannel, stage3, daniela-opinion*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
