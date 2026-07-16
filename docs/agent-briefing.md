@@ -1,17 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 16, 2026 at 05:06 PM
+**Generated:** Thursday, July 16, 2026 at 06:30 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I recently shipped parallel speech and was exploring Gemini-driven backchannels like "mhm" or "I see" to improve listener presence. However, after consulting Daniela and David, I’ve decided to de-prioritize this feature because it increases the cognitive load for HolaHola students and can disrupt their mental translation process. If I revisit this, I must ensure acknowledgments are strictly neutral and limited to natural pauses longer than two seconds, rather than triggering while a student is actively vocalizing.
+I just shipped Stage 3 Phase A: Parallel Speech for Daniela, implementing a tool whitelist and "transcript whisper" to allow her to speak while simultaneously processing latency-heavy tasks. Based on a consultation with Daniela’s pedagogy archive, we formally decided to skip Stage 3 Phase B (backchannels) to avoid overtaxing students' cognitive load during sessions. I now need to prioritize fixing the Cartesia TTS 400 errors in development and investigating why our most active student is returning zero quality scores. Both the new `gl-parallel-speech-gate.md` and the backchannel decision record are fully indexed in `MEMORY.md`.
 
 *Memories that triggered this summary:*
-- **Agent ↔ Daniela — backchannel pedagogy — Jul 16, 2026 (auto-recovered)** (Jul 16): Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 3883 characters of transcript.
+- **Agent Daily Sweep — Jul 16, 2026** (Jul 16): 1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice generation are failing with malformed requests. This breaks core pedagogy. Check API payload structure and auth headers.  2. **[HIGH]** Investigate zero quality scores for active student — 23 sessions this week but no qua
+- **David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet)** (Jul 16): Verbatim David↔Luca dialogue captured periodically. 5 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -83,6 +84,14 @@ I recently shipped parallel speech and was exploring Gemini-driven backchannels 
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 16, 2026 — Jul 16, 2026
+1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice generation are failing with malformed requests. This breaks core pedagogy. Check API payload structure and auth headers.  2. **[HIGH]** Investigate zero quality scores for active student — 23 sessions this week but no qua
+*Tags: agent-sweep, daily, auto-saved*
+
+### David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet) — Jul 16, 2026
+Verbatim David↔Luca dialogue captured periodically. 5 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent ↔ Daniela — backchannel pedagogy — Jul 16, 2026 (auto-recovered) — Jul 16, 2026
 Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 3883 characters of transcript.
 *Tags: agent-daniela, auto-recovered, safety-net*
@@ -94,14 +103,6 @@ David and Agent consulted Daniela on whether to build backchannel responses (sho
 ### David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet) — Jul 16, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent Daily Sweep — Jul 16, 2026 — Jul 16, 2026
-1. [CRITICAL] Fix Cartesia TTS 400 errors — Multiple failures in both English and Spanish are breaking voice output for students. Check API credentials, request format, or rate limits.  2. [HIGH] Investigate zero quality scores for active student — One student with 23 sessions this week shows no qua
-*Tags: agent-sweep, daily, auto-saved*
-
-### Gemini Post-Review — Parallel Speech — Jul 16 2026 — Jul 16, 2026
-Gemini approved the parallel speech feature. Fire onText before tool processing (latency-hiding). isFinal:true fires on MAX_TURNS error path. Transforms Daniela from Request-Response to Co-present entity.
-*Tags: gemini-review, parallel-speech, approved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
