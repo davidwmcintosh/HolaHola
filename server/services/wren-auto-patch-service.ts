@@ -80,6 +80,7 @@ Review this finding in full context. Be rigorous:
    - The content is developer-controlled (not user input)
    - The pattern is safe in this specific context (e.g., <style> tags, migration scripts with hardcoded values)
    - The surrounding code already handles the risk adequately
+   - The code comments or file structure suggest this was an intentional architectural choice — if the author left evidence of deliberate reasoning (e.g., a comment explaining why, a surrounding guard that handles it, a filename suggesting an internal/admin context), treat that as a signal to investigate rather than auto-patch
 
 2. AUTO-PATCH criteria — mark isPatchable=true ONLY if ALL of these are met:
    - The issue is provably a real security risk
@@ -87,6 +88,7 @@ Review this finding in full context. Be rigorous:
    - No new npm packages/imports needed
    - The fix does not change the function's behavior, only hardens it
    - The fix is clearly safe and reversible
+   - You understand WHY the original code was written this way — if the intent is unclear, set isPatchable=false and explain what you'd need to know before patching safely
    
 3. If isPatchable=true, provide:
    - patchedCode: the exact replacement lines (just the code, no line numbers)

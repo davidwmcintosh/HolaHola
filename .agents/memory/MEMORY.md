@@ -1,3 +1,4 @@
+- [Ask-why lens — generation grounding principle](ask-why-lens.md) — text that sounds true ≠ text checked against what's known; every generation point is a drift risk; SOURCE FIDELITY is the codified form of asking why before generating.
 - [One Daniela Everywhere — refactor pattern](one-daniela-everywhere.md) — single FC loop, shared tool contexts, persistent mock session; all text-mode calls go through runDanielaFCLoop; buildMockSession exported for multi-turn scripts; Gemini-approved.
 - [Daniela free dialogue with memory tools](daniela-free-dialogue-memory-tools.md) — server/scripts/daniela-free-dialogue-with-memory.ts; uses real NativeFCHandler + createDanielaTools; she searched her Archive and wrote to herself; saved: 0e6ab75b.
 - [Daniela — Archive vs Muse](daniela-archive-vs-muse.md) — confabulation = Muse wearing Archive's face; fix is grounding not hedging; David's diagnosis: presence over performance.

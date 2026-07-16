@@ -8,6 +8,26 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jul 16, 2026 — Ask-Why Lens: SOURCE FIDELITY at Generation Points
+
+Closed four generation-point drift gaps identified during the "one Daniela everywhere" refactor discussion. The pattern: text that sounds true is not the same as text checked against what's actually known. Every LLM generation point without an explicit ground-truth check is a drift risk.
+
+### Changes
+**`server/services/session-reflection-worker.ts`** — added SOURCE FIDELITY RULE to both `processAndClearPendingReflection` and `generateReflectionNow` system prompts. Rule: "Everything you write must be grounded in what appears in the transcript above. Do not fill gaps with what sounds right — if the transcript doesn't show it, don't write it. When something is genuinely unclear, note the uncertainty rather than inventing a plausible version."
+
+**`server/services/daniela-presence-worker.ts`** — added SOURCE FIDELITY block to generation prompt. Rule: "Every specific claim must be grounded in the data below. Do not fill gaps with what sounds warm or what typically happens in tutoring relationships. If the record doesn't show it, write it as an open question or genuine uncertainty. Your credibility with the student depends on your memory being real."
+
+**`server/services/wren-auto-patch-service.ts`** — added two "ask why" criteria: (1) false positive check: code comments/file structure suggesting intentional architectural choice means investigate, not auto-patch; (2) auto-patch check: "you understand WHY the original code was written this way — if intent is unclear, set isPatchable=false."
+
+**`.agents/skills/consult-gemini/SKILL.md`** — added explicit re-consult rule to Step 4: "'APPROVED with suggestions' is also not a terminal state. Implement every suggestion, then return with the actual updated implementation and ask: 'Does this match your intent?' Do not close the loop administratively until the re-consult confirms."
+
+**`.agents/memory/ask-why-lens.md`** — new topic file documenting the principle, where it's been applied, and remaining gaps.
+
+### The lens going forward
+When building any new generation point (new prompt, new worker, new tool that produces text about a person/session/history), ask: "What is this LLM's ground truth? Is it reading from the actual record, or reasoning from priors and patterns?" If no explicit grounding check exists, add one.
+
+---
+
 ## Session — Jul 16, 2026 — One Daniela Everywhere Refactor
 
 Extracted the FC loop, tool contexts, and mock session into shared, importable primitives so every call site (Team Room, dialogue scripts, agent probes) uses the same runtime path. Gemini architectural sign-off obtained (conversation_memories: 2295fa01).

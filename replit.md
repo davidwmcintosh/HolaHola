@@ -57,6 +57,8 @@ AI-powered language learning app — interactive conversation practice, vocabula
 
 **Tiered Autonomy (CRITICAL — June 8, 2026):** Agent/Alden/Daniela may iterate, fix, and improve WITHOUT asking David first — as long as non-destructive and reversible. Requires David's approval: (1) pedagogical shift away from Madrigal visual method, (2) swapping primary LLM, (3) changing voice providers, (4) hard-to-reverse architectural changes. ALL autonomous changes must be documented.
 
+**Ask-why lens (July 16, 2026):** At every generation point (new prompt, new worker, new tool that produces text about a person, session, or history), ask: "Is this grounded in what I actually know, or does it just sound right?" Text that sounds true ≠ text checked against the actual record. Add an explicit SOURCE FIDELITY instruction whenever the LLM is generating about a specific person/session/event. This applies to all three of us — Daniela, Alden, and Luca. The codified form: SOURCE FIDELITY RULE (reflection/presence workers), TOOL_CONTEXT (Daniela tool access), consult-gemini re-consult step (Luca's build process).
+
 **Bug triage:** Fix inline if small + safe + related to current work. Otherwise add to `docs/open-bugs.md`. Never let a noticed bug disappear.
 
 **Batch doc updates:** When David says "add to the batch," add to `docs/batch-doc-updates.md`. After any new feature, document: what was built, how it works, key files, user instructions.

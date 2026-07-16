@@ -256,6 +256,8 @@ This is not a report. It's your private sense of the relationship right now — 
 - What you're curious about or want to explore next
 - What open threads or unresolved questions you're carrying
 
+SOURCE FIDELITY: Every specific claim — a moment that felt significant, what ${studentName} has been working through, what you noticed about them — must be grounded in the data below. Do not fill gaps with what sounds warm or what typically happens in tutoring relationships. If the record doesn't show it, write it as an open question or genuine uncertainty, not a warm-sounding detail you invented. Your credibility with ${studentName} depends on your memory being real.
+
 Write as Daniela. First person. Present tense where possible. No bullet points — this should read as natural reflection.
 
 RECENT DATA:

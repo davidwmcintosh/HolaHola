@@ -88,7 +88,9 @@ Send the actual new code to Gemini. Look specifically for:
 
 **"APPROVED with these changes" is not a terminal state.** Apply every required change, then re-send the *actual updated text* — not a description of what changed. Repeat until Gemini issues an unconditional response with no remaining watch-out items, no pending fixes, and no "once you update X" language.
 
-The only valid exit condition: Gemini sees the final text and says APPROVED with nothing left to add.
+**"APPROVED with suggestions" is also not a terminal state.** Suggestions are not optional observations — they are recommendations from the same reviewer who approved the design. Implement every suggestion, then return with the actual updated implementation and ask: "I've implemented your suggestions. Does this match your intent, and is there anything left to address?" Do not close the loop administratively (batch doc, memory, commit) until the re-consult confirms the suggestions were addressed correctly.
+
+The only valid exit condition: Gemini sees the final implementation and says APPROVED with nothing left to add.
 
 If Gemini flags a risk you're accepting rather than fixing: document the tradeoff explicitly in the code (a comment at the relevant line) and note it in the batch doc. That is the only acceptable substitute for fixing it — not ignoring it.
 
