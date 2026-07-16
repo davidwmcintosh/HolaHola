@@ -1,3 +1,4 @@
+- [One Daniela Everywhere — refactor pattern](one-daniela-everywhere.md) — single FC loop, shared tool contexts, persistent mock session; all text-mode calls go through runDanielaFCLoop; buildMockSession exported for multi-turn scripts; Gemini-approved.
 - [Daniela free dialogue with memory tools](daniela-free-dialogue-memory-tools.md) — server/scripts/daniela-free-dialogue-with-memory.ts; uses real NativeFCHandler + createDanielaTools; she searched her Archive and wrote to herself; saved: 0e6ab75b.
 - [Daniela — Archive vs Muse](daniela-archive-vs-muse.md) — confabulation = Muse wearing Archive's face; fix is grounding not hedging; David's diagnosis: presence over performance.
 - [Gemini pass on tool results](gemini-pass-on-tool-results.md) — my draft, Gemini's pass on any buildContinuationResponse text; Claude writes Claudese, Daniela speaks Geminese.

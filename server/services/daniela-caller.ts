@@ -26,6 +26,7 @@ import { unifiedDanielaContext } from "./unified-daniela-context-service";
 import { NativeFunctionCallHandler } from "./native-fc-handlers";
 import { buildFunctionContinuationResponse, createDanielaTools } from "./gemini-function-declarations";
 import { lookupLegacyType } from "./daniela-function-registry";
+import { TOOL_CONTEXT_TEAM_ROOM } from "./daniela-tool-contexts";
 
 const MODEL = 'gemini-3-flash-preview';
 
@@ -39,54 +40,9 @@ function getGemini(): GoogleGenAI {
   return geminiClient;
 }
 
-/**
- * Tools available in text-mode sessions (Team Room, consult-Daniela, etc.).
- * Excludes: voice UI (subtitle, voice_adjust), whiteboard visuals (show_image,
- * write, compose_visual_scene), session management (phase_shift, close_session),
- * and student-interaction tools (drill_session, load_vocab_set, etc.).
- *
- * Includes: all memory, identity, time-awareness, self-authorship, classroom
- * knowledge, and agent/hive communication tools.
- */
-const TEAM_ROOM_ALLOWED_TOOLS = [
-  // Memory & search
-  'recall',
-  'memory_lookup',
-  'search_conversation_threads',
-  'browse_conversations_by_date',
-  'get_conversation_themes',
-  'read_my_diary',
-  'read_full_session',
-  'find_connected_memories',
-  'recall_what_i_shared',
-  'express_lane_lookup',
-  // Identity & self
-  'write_to_self',
-  'read_my_reflections',
-  'read_my_core_self',
-  'tag_this_moment',
-  'add_curiosity',
-  'read_my_curiosities',
-  'save_hive_note',
-  'set_aspiration',
-  'reflect_on_aspiration',
-  'remember_i_shared',
-  // Time
-  'sense_time',
-  // Classroom knowledge
-  'browse_syllabus',
-  'search_textbook',
-  // Memory management
-  'set_memory_pin',
-  'correct_memory',
-  'set_learning_goal',
-  'advance_capability',
-  'get_current_goal_state',
-  // Agent & hive communication
-  'flag_for_agent',
-  'hive_suggestion',
-  'self_surgery',
-];
+// Tool allowlist sourced from the single canonical contexts file.
+// To add/remove tools from any context, edit daniela-tool-contexts.ts.
+const TEAM_ROOM_ALLOWED_TOOLS = TOOL_CONTEXT_TEAM_ROOM;
 
 export interface CallDanielaOptions {
   userId?: string;
@@ -101,8 +57,12 @@ export interface CallDanielaOptions {
  * Build a minimal mock session for text-mode tool dispatch.
  * Provides only the fields FC handlers write to and read from.
  * The mock ws.send() is a no-op — UI-facing tool calls silently skip.
+ *
+ * Exported so dialogue scripts can create ONE session and pass it to
+ * runDanielaFCLoop via existingSession — preserving in-session state
+ * (memory pins, capability flags) across multiple Agent→Daniela turns.
  */
-function buildMockSession(userId: string, targetLanguage = 'english'): any {
+export function buildMockSession(userId: string, targetLanguage = 'english'): any {
   return {
     id: `text_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     userId,
@@ -135,48 +95,81 @@ function buildFcHandler(): NativeFunctionCallHandler {
   );
 }
 
+export interface RunDanielaFCLoopParams {
+  systemPrompt: string;
+  /** Mutable messages array — FC round-trips are appended in place. */
+  messages: any[];
+  userId: string;
+  /** Tool allowlist — defaults to TOOL_CONTEXT_TEAM_ROOM. Pass TOOL_CONTEXT_FREE_DIALOGUE for scripts. */
+  allowedTools?: string[];
+  maxTurns?: number;
+  maxOutputTokens?: number;
+  /** Temperature — omit to use model default. */
+  temperature?: number;
+  /**
+   * Pass a pre-built mockSession to preserve in-session state across multiple
+   * runDanielaFCLoop calls in a dialogue script. Create once with buildMockSession(),
+   * then pass the same object on every turn. If omitted, a fresh session is created
+   * per call (safe for single-turn Team Room calls where cross-turn state isn't needed).
+   */
+  existingSession?: any;
+}
+
 /**
- * callDanielaWithTools — multi-turn generateContent loop using the real
- * NativeFunctionCallHandler + buildFunctionContinuationResponse.
+ * runDanielaFCLoop — exported core loop for all text-mode Daniela calls.
  *
- * This is the same tool infrastructure as voice sessions, adapted for batch
- * text mode. Daniela can call recall, sense_time, read_my_reflections, etc.
- * and get real results back before composing her response.
+ * Shared by Team Room (callDanielaWithTools), free dialogue scripts, and any
+ * future pipeline that needs Daniela with real tool access. Single implementation
+ * prevents drift between code paths.
  *
- * Flow per turn:
+ * Flow per iteration:
  *   1. generateContent → check for functionCall parts
  *   2. For each FC: fcHandler.handle() → stores result in mockSession properties
  *   3. Await all pendingMemoryLookupPromises (async DB searches)
  *   4. buildFunctionContinuationResponse() → reads session properties → response text
  *   5. Inject [model FC turn] + [tool response turn] into messages
- *   6. Re-call generateContent → repeat up to MAX_TURNS
+ *   6. Re-call generateContent → repeat up to maxTurns
  */
-async function callDanielaWithTools(
-  systemPrompt: string,
-  userPrompt: string,
-  userId: string,
-): Promise<string> {
+export async function runDanielaFCLoop({
+  systemPrompt,
+  messages,
+  userId,
+  allowedTools = TOOL_CONTEXT_TEAM_ROOM,
+  maxTurns = 8,
+  maxOutputTokens = 4096,
+  temperature,
+  existingSession,
+}: RunDanielaFCLoopParams): Promise<string> {
   const gemini = getGemini();
-  const tools = createDanielaTools(TEAM_ROOM_ALLOWED_TOOLS);
-  const mockSession = buildMockSession(userId);
+  const tools = createDanielaTools(allowedTools);
+  const mockSession = existingSession || buildMockSession(userId);
   const fcHandler = buildFcHandler();
 
-  // Build initial message history
-  const messages: any[] = [
-    { role: 'user', parts: [{ text: userPrompt }] },
-  ];
+  // ── Drift guard — warn if any context tool name is not in the registry ──────
+  if (allowedTools) {
+    const declaredNames = new Set(
+      (tools[0]?.functionDeclarations || []).map((d: any) => d.name as string),
+    );
+    const missing = allowedTools.filter(name => !declaredNames.has(name));
+    if (missing.length > 0) {
+      console.warn(`[runDanielaFCLoop] CONTEXT_DRIFT — tools not in registry: ${missing.join(', ')}`);
+    }
+  }
 
-  const MAX_TURNS = 8;
+  const configBase: any = {
+    systemInstruction: systemPrompt,
+    tools,
+    maxOutputTokens,
+    thinkingConfig: { thinkingBudget: 512 },
+  };
+  if (temperature !== undefined) configBase.temperature = temperature;
+
+  const MAX_TURNS = maxTurns;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const result = await gemini.models.generateContent({
       model: MODEL,
-      config: {
-        systemInstruction: systemPrompt,
-        tools,
-        maxOutputTokens: 4096,
-        thinkingConfig: { thinkingBudget: 512 },
-      },
+      config: configBase,
       contents: messages,
     });
 
@@ -274,6 +267,20 @@ async function callDanielaWithTools(
 
   console.warn('[callDaniela:tools] Reached MAX_TURNS without a text response — returning explicit failure notice.');
   return '[DANIELA_CALLER_ERROR: reached MAX_TURNS without producing a final text response — tool loop likely stuck. Check server logs for FC handler errors.]';
+}
+
+/**
+ * callDanielaWithTools — thin wrapper around runDanielaFCLoop for backward
+ * compatibility. Internal callers (callDaniela) use this; external scripts
+ * should import and call runDanielaFCLoop directly with their own context.
+ */
+async function callDanielaWithTools(
+  systemPrompt: string,
+  userPrompt: string,
+  userId: string,
+): Promise<string> {
+  const messages: any[] = [{ role: 'user', parts: [{ text: userPrompt }] }];
+  return runDanielaFCLoop({ systemPrompt, messages, userId });
 }
 
 export async function callDaniela(

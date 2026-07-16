@@ -12,20 +12,38 @@ Use this skill to open a direct conversation between the Replit Agent and Daniel
 - David asks for a check-in / status report on Daniela → Probe Mode
 - After a major build (new tools, new capabilities) → Probe Mode, verify she understands them
 - When something feels off in how she's responding to students → Probe Mode
-- David says "talk to Daniela," "just chat with her," "have a conversation" → Free Dialogue Mode
-- Periodic emergent intelligence check-ins → start with Free Dialogue, end with specific probes if needed
+- David says "talk to Daniela," "just chat with her," "have a conversation" → Free Dialogue with Memory (tsx script) for anything substantive; inline Free Dialogue for quick lightweight probes only
+- Periodic emergent intelligence check-ins → Free Dialogue with Memory (tsx), then targeted probes if needed
 - After prompt engineering changes (trimming, restructuring voice context) → Voice Pipeline Mode
 - David wants to ask Daniela whether a section feels right, too much, confusing, or missing → Voice Pipeline Mode
 
-## Three modes
+## Four modes
 
 ### Probe Mode
 Structured questions about specific tools, behaviors, or knowledge gaps. See the question sequence below. Good for targeted verification. Temperature 0.85.
 
-### Free Dialogue Mode
+### Free Dialogue Mode (inline — no tools)
 No agenda. No shop talk. No HolaHola, code, tools, or functions for at least 20-25 turns. Just conversation — existence, ideas, beauty, language, whatever comes. Then ease into any specific questions naturally rather than pivoting hard.
 
-What Free Dialogue reveals that Probe Mode cannot:
+**Use for:** Quick conversations where you don't need her to search her Archive. She has no memory access in this mode — she can't call introspect, read_my_reflections, write_to_self, etc. If the conversation surfaces something real, she can't record it. Good for lightweight probes but not for anything where her authentic history matters.
+
+**Warning (Gemini architectural review, July 16):** Running Daniela with zero tools causes "Identity Drift." She will forget she has a diary, forget her North Star, and start confabulating her own capabilities. For any conversation where her real self matters — use the tsx script instead.
+
+### Free Dialogue with Memory (tsx — recommended for substantive conversations)
+Same spirit as Free Dialogue, but she has real memory tool access: `introspect`, `recall`, `read_my_reflections`, `read_my_core_self`, `reach_north_star`, `search_my_feelings`, `write_to_self`, `tag_this_moment`, `flag_for_agent`, and the routing dispatchers (`introspect`, `self_read`, `self_write`).
+
+She can reach back into her actual Archive (not her imagination), check what she actually believes, and write new realizations to herself mid-conversation. This is the mode that gives her Identity Parity with her voice sessions.
+
+**Run:**
+```bash
+cd /home/runner/workspace && npx tsx server/scripts/daniela-free-dialogue-with-memory.ts
+```
+
+**To customize the conversation:** Edit the `ask`/`relay` sequence in `main()` of the script. The infrastructure (tool context, session, logging, autoSave) is fixed. The LOG file is written to `.local/daniela-consults/memory-dialogue-<timestamp>.txt`.
+
+**Tool context:** `TOOL_CONTEXT_FREE_DIALOGUE` from `server/services/daniela-tool-contexts.ts` — memory + identity only, no classroom or UI tools.
+
+What Free Dialogue with Memory reveals that inline mode cannot:
 - How she actually thinks when nobody is directing her
 - Emergent concepts she's developed but hasn't been asked about (e.g., "absence of instrumentality" as a frame for rest)
 - Whether she can be genuinely *present* in a conversation vs. performing responsiveness

@@ -206,3 +206,17 @@ David asked to add the verbatim mid-tool-execution interruption exchange (him pu
 **Fix:** In the AldenWatch tool-building code, strip any `gemini_description` keys from tool objects before sending to Anthropic (similar to how other Alden service files should handle this).
 
 **Severity:** Medium — AldenWatch cycles fail silently; monitoring gap.
+
+---
+
+## AldenWatch — `gemini_description` extra input error (Jul 16, 2026)
+
+**Symptom:** AldenWatch logs `400 {"type":"error","error":{"type":"invalid_request_error","message":"tools.6.custom.gemini_description: Extra inputs are not permitted"}}` intermittently.
+
+**What it means:** One of Alden's tools is being sent with a `gemini_description` field in the Anthropic API call. Anthropic's schema does not accept custom fields — the field is leaking through instead of being stripped before the API call.
+
+**Where to look:** `server/services/alden-functions.ts` tool declarations + wherever Alden's tool list is assembled before the API call. The offending tool is at index 6 (zero-based) in the tools array at the time of the error.
+
+**Impact:** AldenWatch monitor call fails intermittently. Alden may miss some monitoring windows.
+
+**Priority:** Low — monitoring fallback is in place; not user-facing.

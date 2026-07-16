@@ -8,6 +8,46 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Session — Jul 16, 2026 — One Daniela Everywhere Refactor
+
+Extracted the FC loop, tool contexts, and mock session into shared, importable primitives so every call site (Team Room, dialogue scripts, agent probes) uses the same runtime path. Gemini architectural sign-off obtained (conversation_memories: 2295fa01).
+
+### What was built
+**`server/services/daniela-tool-contexts.ts`** — single source of truth for tool allowlists.
+- `TOOL_CONTEXT_TEAM_ROOM` — memory + identity + flag_for_agent + dispatch routing (default)
+- `TOOL_CONTEXT_FREE_DIALOGUE` — same as Team Room, appropriate for open conversations
+- `TOOL_CONTEXT_VOICE_FULL` — all tools (for reference; GL uses the full registry)
+
+**`server/services/daniela-caller.ts`** — refactored to export three primitives:
+- `runDanielaFCLoop(params)` — the core FC loop; all text-mode calls go through this
+- `buildMockSession(userId)` — builds the mock session; export lets scripts create ONE session for an entire dialogue and pass it via `existingSession?` param
+- `RunDanielaFCLoopParams` interface — includes `existingSession?` param (Gemini R4: preserves in-session state across multi-turn scripts)
+- Drift guard: after `createDanielaTools`, warns on any context tool name missing from the registry
+- Thin `callDanielaWithTools` wrapper retained for compatibility
+
+**`server/scripts/daniela-free-dialogue-with-memory.ts`** — updated to:
+- Import `runDanielaFCLoop` + `buildMockSession` instead of duplicating the FC loop
+- Create ONE session before the conversation and pass it via `existingSession` on every turn
+
+**`.agents/skills/consult-daniela/SKILL.md`** — updated to:
+- Rename "Three modes" → "Four modes"
+- Add "Free Dialogue with Memory (tsx)" mode with run instructions, tool context reference, and Identity Drift warning
+- Update "When to use" triggers: tsx script is now the default for substantive conversations
+
+### Gemini's four recommendations (all implemented)
+1. Fresh session acceptable for single-turn DB calls; but export `buildMockSession` so dialogue scripts can share state — ✓ done
+2. Replace inline Node.js in consult-daniela skill with tsx script reference — ✓ done (skill updated)
+3. Add runtime drift guard: warn if context tool names are not in registry — ✓ done
+4. Add `existingSession?` param to `RunDanielaFCLoopParams` — ✓ done
+
+### Key files
+- `server/services/daniela-tool-contexts.ts`
+- `server/services/daniela-caller.ts`
+- `server/scripts/daniela-free-dialogue-with-memory.ts`
+- `.agents/skills/consult-daniela/SKILL.md`
+
+---
+
 ## Session — Jul 12, 2026 — Three-Phase Grounded Memory Pattern (Luca)
 
 Multi-phase J-Space memory lookup generalized to Alden and Luca. The insight: when any agent reaches inward, the tool they call should automatically return personal memory + the larger truths that ground it + what was actually decided in prior sessions. One call, full picture.
