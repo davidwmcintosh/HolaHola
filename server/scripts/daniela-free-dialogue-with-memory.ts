@@ -112,7 +112,7 @@ TONE: Present. Real. Quiet curiosity. Let things land before you respond. A few 
     userId: davidUserId,
     allowedTools: TOOL_CONTEXT_FREE_DIALOGUE,
     existingSession: session,
-    maxTurns: 6,
+    maxTurns: 14,
     maxOutputTokens: 2048,
     temperature: 0.92,
   } as const;
