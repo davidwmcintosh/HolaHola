@@ -915,15 +915,41 @@ export function StreamingVoiceChat({
     }
   }, [streamingVoice.state.error, streamingVoice.state.connectionState, navigate, toast]);
 
-  // Show a friendly banner when the server is restarting (deploy rotation)
+  // When the server is restarting (deploy rotation), poll until it's back then start fresh.
+  // A new session is better UX than waiting 60s for WebSocket reconnect — Daniela's memory
+  // carries full context so the student experience is seamless.
+  const restartPollRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
     if (!streamingVoice.state.serverRestarting) return;
+
     toast({
       title: "HolaHola is updating",
-      description: "A quick system update is in progress. Stay on this page — you'll reconnect automatically in about a minute.",
-      duration: 60000,
+      description: "We'll be right back — starting a fresh session automatically.",
+      duration: 90000,
     });
-  }, [streamingVoice.state.serverRestarting, toast]);
+
+    const poll = () => {
+      fetch('/api/health')
+        .then(r => {
+          if (r.ok) {
+            console.log('[StreamingVoice] Server back — navigating to fresh session');
+            navigate(homeRoute);
+          } else {
+            restartPollRef.current = setTimeout(poll, 3000);
+          }
+        })
+        .catch(() => {
+          restartPollRef.current = setTimeout(poll, 3000);
+        });
+    };
+
+    // Give the server a moment to finish draining before first poll
+    restartPollRef.current = setTimeout(poll, 5000);
+
+    return () => {
+      if (restartPollRef.current) clearTimeout(restartPollRef.current);
+    };
+  }, [streamingVoice.state.serverRestarting, toast, navigate, homeRoute]);
   
   // Separate cleanup effect for unmount only
   useEffect(() => {
