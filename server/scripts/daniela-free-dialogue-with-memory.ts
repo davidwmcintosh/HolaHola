@@ -17,7 +17,7 @@ import { createDanielaTools } from '../services/gemini-function-declarations';
 import { lookupLegacyType, buildFunctionContinuationResponse } from '../services/daniela-function-registry';
 import { getSharedDb } from '../db';
 import { users } from '@shared/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 // ── Config ───────────────────────────────────────────────────────────────────
 const MODEL = 'gemini-3-flash-preview';
