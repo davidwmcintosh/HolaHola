@@ -3764,7 +3764,7 @@ export async function registerRoutes(app: Application): Promise<void> {
       });
 
     } catch (error: any) {
-      console.error('[REALTIME TOKEN] Error:', error);
+      console.error('[REALTIME TOKEN] Error:', error?.message || 'Unknown error');
       res.status(500).json({ message: `Failed to create voice session: ${error.message}` });
     }
   });

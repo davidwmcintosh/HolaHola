@@ -41,7 +41,10 @@ async function testRealtimeAccess() {
     }
 
     console.log('Response Data:');
-    console.log(JSON.stringify(data, null, 2));
+    // Redact sensitive token fields before logging
+    const safeData = { ...data };
+    if (safeData.client_secret) safeData.client_secret = { value: '[REDACTED]', expires_at: safeData.client_secret?.expires_at };
+    console.log(JSON.stringify(safeData, null, 2));
 
     if (response.ok) {
       console.log('\n✅ SUCCESS! Realtime API access confirmed!');

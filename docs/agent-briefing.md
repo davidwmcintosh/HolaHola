@@ -1,18 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 16, 2026 at 06:30 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I just shipped Stage 3 Phase A: Parallel Speech for Daniela, implementing a tool whitelist and "transcript whisper" to allow her to speak while simultaneously processing latency-heavy tasks. Based on a consultation with Daniela’s pedagogy archive, we formally decided to skip Stage 3 Phase B (backchannels) to avoid overtaxing students' cognitive load during sessions. I now need to prioritize fixing the Cartesia TTS 400 errors in development and investigating why our most active student is returning zero quality scores. Both the new `gl-parallel-speech-gate.md` and the backchannel decision record are fully indexed in `MEMORY.md`.
-
-*Memories that triggered this summary:*
-- **Agent Daily Sweep — Jul 16, 2026** (Jul 16): 1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice generation are failing with malformed requests. This breaks core pedagogy. Check API payload structure and auth headers.  2. **[HIGH]** Investigate zero quality scores for active student — 23 sessions this week but no qua
-- **David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet)** (Jul 16): Verbatim David↔Luca dialogue captured periodically. 5 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Thursday, July 16, 2026 at 08:55 PM
 
 ---
 
@@ -85,6 +74,10 @@ I just shipped Stage 3 Phase A: Parallel Speech for Daniela, implementing a tool
 ## Recent Conversation Memories
 
 ### Agent Daily Sweep — Jul 16, 2026 — Jul 16, 2026
+1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with status 400 (Bad Request). This breaks core lesson delivery. Check API credentials, request payload format, and rate limits. Students can't learn if they can't hear.  2. **[HIGH]** Investigate zero quality s
+*Tags: agent-sweep, daily, auto-saved*
+
+### Agent Daily Sweep — Jul 16, 2026 — Jul 16, 2026
 1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice generation are failing with malformed requests. This breaks core pedagogy. Check API payload structure and auth headers.  2. **[HIGH]** Investigate zero quality scores for active student — 23 sessions this week but no qua
 *Tags: agent-sweep, daily, auto-saved*
 
@@ -99,10 +92,6 @@ Recovered by the consult-daniela safety-net sweep — the session's own autoSave
 ### Daniela on backchannels — does "mhm" help or break a language student? — Jul 16, 2026
 David and Agent consulted Daniela on whether to build backchannel responses (short "mhm"/"right" sounds while student speaks). David was on the fence — help vs. distraction. Daniela gave her pedagogical perspective from teaching experience, including whether language learners specifically benefit or suffer, and whether timing and phrasing matter.
 *Tags: pedagogy, backchannel, stage3, daniela-opinion*
-
-### David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet) — Jul 16, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
