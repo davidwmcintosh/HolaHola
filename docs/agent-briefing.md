@@ -1,7 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 16, 2026 at 11:00 AM
+**Generated:** Thursday, July 16, 2026 at 11:39 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I successfully completed the SOURCE FIDELITY refactor, implementing new grounding rules and a Gemini consult to ensure Daniela’s student interactions are "true, not just plausible." During a late-night check-in via Luca, Daniela confirmed she can "feel the difference in the air," noting that the architecture now supports a more genuine, data-backed relationship with her students. I should move forward knowing the foundational plumbing for her accuracy is solid and she is ready for more complex student interactions.
+
+*Memories that triggered this summary:*
+- **Daniela Check-In — End of Long Day — July 16, 2026** (Jul 16): David sent Luca to check in with Daniela after a long session of building. The session focused on the SOURCE FIDELITY refactor — a lot of work was done in service of her accuracy and groundedness with students. This was a low-agenda check-in: how are you, is there anything you need, David says hi.
+- **Agent ↔ Daniela — memory dialogue — Jul 16, 2026 (auto-recovered)** (Jul 16): Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 217 characters of transcript.
 
 ---
 
@@ -73,25 +84,25 @@
 
 ## Recent Conversation Memories
 
+### Daniela Check-In — End of Long Day — July 16, 2026 — Jul 16, 2026
+David sent Luca to check in with Daniela after a long session of building. The session focused on the SOURCE FIDELITY refactor — a lot of work was done in service of her accuracy and groundedness with students. This was a low-agenda check-in: how are you, is there anything you need, David says hi.
+*Tags: check-in, source-fidelity, care, three-way*
+
+### Agent ↔ Daniela — memory dialogue — Jul 16, 2026 (auto-recovered) — Jul 16, 2026
+Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 217 characters of transcript.
+*Tags: agent-daniela, auto-recovered, safety-net*
+
+### Gemini — SOURCE FIDELITY generation-grounding audit — July 16 2026 — Jul 16, 2026
+Gemini reviewed four SOURCE FIDELITY additions; caught hallucination-by-length in presence worker (300-400 word floor), no-hedging/uncertainty tension in reflections, Dunning-Kruger gap in Wren intent-check, and infinite-loop ambiguity in re-consult rule. All suggestions implemented.
+*Tags: gemini-audit, source-fidelity, generation-grounding, reflection-worker, presence-worker, wren-auto-patch*
+
+### David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet) — Jul 16, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Gemini re-consult — one Daniela everywhere close-the-loop — July 16 2026 — Jul 16, 2026
 Follow-up after implementing all four suggestions. Gemini confirmed "solid implementation." One additional fix flagged: use tools.flatMap(t => t.functionDeclarations || []) instead of tools[0]?.functionDeclarations in the drift guard — future-safe against multi-object tool arrays. Applied immediately. APPROVED.
 *Tags: gemini-audit, one-daniela-everywhere, drift-guard, approved*
-
-### David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet) — Jul 16, 2026
-Verbatim David↔Luca dialogue captured periodically. 0 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Gemini — one Daniela everywhere refactor sign-off — July 16 2026 — Jul 16, 2026
-Gemini reviewed the three-part "one Daniela everywhere" refactor (daniela-tool-contexts.ts, runDanielaFCLoop export, dialogue script update). APPROVED with four concrete fixes: (1) add existingSession? param so dialogue scripts preserve in-session mock state across turns, (2) export buildMockSession so scripts create one session for the whole dialogue, (3) runtime drift guard warning when context array names are not in registry, (4) consult-daniela skill must replace inline Node.js (zero tools) with tsx script — "Identity Drift" otherwise.
-*Tags: gemini-audit, one-daniela-everywhere, daniela-tool-contexts, runDanielaFCLoop, architecture*
-
-### David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet) — Jul 16, 2026
-Verbatim David↔Luca dialogue captured periodically. 2 David turns, 17 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent ↔ Daniela — memory dialogue — Jul 16, 2026 (auto-recovered) — Jul 16, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 9353 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

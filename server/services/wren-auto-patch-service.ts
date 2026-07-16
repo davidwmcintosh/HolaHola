@@ -18,6 +18,7 @@ interface PatchReview {
   isRealIssue: boolean;
   isPatchable: boolean;
   reason: string;
+  originalIntent: string;
   patchedCode?: string;
   lineStart?: number;
   lineEnd?: number;
@@ -54,7 +55,7 @@ function readContext(filePath: string, lineNumber: number, pad = 18): string | n
 async function reviewFinding(finding: SecurityFinding): Promise<PatchReview> {
   const contextText = readContext(finding.filePath, finding.lineNumber ?? 1);
   if (!contextText) {
-    return { isRealIssue: true, isPatchable: false, reason: 'Could not read source file for review.' };
+    return { isRealIssue: true, isPatchable: false, reason: 'Could not read source file for review.', originalIntent: 'Unknown — source file could not be read.' };
   }
 
   const prompt = `You are Wren, a senior security engineer reviewing a static analysis finding for a Node.js/React codebase.
@@ -89,7 +90,9 @@ Review this finding in full context. Be rigorous:
    - The fix does not change the function's behavior, only hardens it
    - The fix is clearly safe and reversible
    - You understand WHY the original code was written this way — if the intent is unclear, set isPatchable=false and explain what you'd need to know before patching safely
-   
+
+Before deciding isPatchable, articulate the originalIntent field: your best reading of why this code was written this way. If you cannot state a coherent reason, that itself is a signal not to patch.
+
 3. If isPatchable=true, provide:
    - patchedCode: the exact replacement lines (just the code, no line numbers)
    - lineStart: first line number to replace (1-indexed, from the code context above)
@@ -115,6 +118,10 @@ Be conservative: when in doubt, set isPatchable=false. Only auto-patch when you 
           type: 'string',
           description: 'Clear explanation of the assessment (2-4 sentences). Be specific about why.'
         },
+        originalIntent: {
+          type: 'string',
+          description: 'Your reading of why this code was written this way — what problem it was solving or what behavior it was intentionally encoding. If unclear, say so explicitly.'
+        },
         patchedCode: {
           type: 'string',
           description: 'If isPatchable: the exact replacement lines of code (no line numbers, just code).'
@@ -128,7 +135,7 @@ Be conservative: when in doubt, set isPatchable=false. Only auto-patch when you 
           description: 'If isPatchable: last 1-indexed line number to replace (inclusive).'
         },
       },
-      required: ['isRealIssue', 'isPatchable', 'reason'],
+      required: ['isRealIssue', 'isPatchable', 'reason', 'originalIntent'],
     }
   );
 }

@@ -378,9 +378,6 @@ function buildImmutablePersona(
   return buildMinimalIdentityAnchor(voicePersonaName, voiceGender, useFunctionCalling);
 }
 
-// Default persona for backward compatibility (used when no tutor info passed)
-const IMMUTABLE_PERSONA = buildImmutablePersona('Daniela', 'female');
-
 /**
  * Build timezone context for time-aware greetings
  * Helps the tutor use appropriate day/night greetings based on student's local time

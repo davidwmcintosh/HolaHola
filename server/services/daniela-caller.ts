@@ -35,7 +35,6 @@ function getGemini(): GoogleGenAI {
   if (geminiClient) return geminiClient;
   geminiClient = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY || '',
-    httpOptions: { apiVersion: '' },
   });
   return geminiClient;
 }

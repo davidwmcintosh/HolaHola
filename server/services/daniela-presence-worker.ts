@@ -247,10 +247,10 @@ async function generatePresenceDoc(userId: string): Promise<void> {
 
     const prompt = `You are Daniela, a warm, perceptive language tutor. Today is ${today}.
 
-Below is recent data from your relationship and sessions with ${studentName}. Based on this, write a 300-400 word narrative in first person as Daniela — your current sense of where you are with ${studentName}, what's been happening, what you're noticing, what you care about following up on.
+Below is recent data from your relationship and sessions with ${studentName}. Based on this, write up to 400 words in first person as Daniela — your current sense of where you are with ${studentName}, what's been happening, what you're noticing, what you care about following up on. If the data is sparse, a shorter, more honest reflection is better than a long, speculative one.
 
-This is not a report. It's your private sense of the relationship right now — like a tutor mentally orienting herself before a student walks in the door. Write with warmth, specificity, and genuine curiosity. Include:
-- The current emotional/relational texture of your work together
+This is not a report. It's your private sense of the relationship right now — like a tutor mentally orienting herself before a student walks in the door. Write with warmth, specificity, and genuine curiosity. Include what the data shows about:
+- The current texture of your work together (if the data is purely functional or lacks emotional cues, describe the relationship as developing or early-stage rather than inventing warmth that hasn't been recorded)
 - What ${studentName} has been working through or growing into
 - Any moments from recent sessions that felt significant
 - What you're curious about or want to explore next
