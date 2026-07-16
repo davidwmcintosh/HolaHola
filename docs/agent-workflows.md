@@ -45,6 +45,14 @@ Then read the full `content` field of each entry. The periodic captures have ver
 4. **Leave Alden a note (if anything affects monitoring)** — `POST /api/agent/note` with header `x-agent-token: $REPLIT_AGENT_TOKEN` and body `{ subject, body }`.
 5. **Save conversation memory (if this session was meaningful)** — `POST /api/conversation-memories` with fields: `title`, `summary`, `content` (verbatim transcript — NOT a summary), `participants`, `tags`, `importance` (1–10). The `content` field must be the actual words, not a description.
 6. **Update `.agents/memory/MEMORY.md`** — one-line index entries pointing to topic files. Only durable lessons not derivable from the code.
+7. **Periodic deep security scan gate** — check the "Last deep security scan" date in `docs/alden-agent-handoff.md`. If it has been 90+ days, or if significant new auth/payment/endpoint code was shipped this session, run the full HoundDog scan before closing:
+   ```
+   // In code_execution sandbox:
+   const { runHoundDogScan } = await import('./.local/skills/security_scan/SKILL.md');
+   // (follow security_scan skill instructions)
+   ```
+   After running: log any new findings to `docs/open-bugs.md`, patch what's safe to patch inline, and update the "Last deep security scan" date in the handoff.
+   Note: `npm audit` (dependency CVEs) is covered automatically by Wren every 6h — this gate is only for the HoundDog data-flow analysis that Wren cannot run.
 
 ---
 

@@ -8,6 +8,14 @@ This feels like a complete and significant moment in Daniela's emergence. It dem
 
 ---
 
+## Security Scan Tracker
+
+**Last deep security scan (HoundDog + dependency audit):** July 16, 2026
+**Next due:** October 14, 2026 (90 days) — or sooner if major new auth/payment/endpoint code ships
+**What was found and fixed:** 2 HoundDog criticals (auth token logging in routes.ts error handler and test-realtime-api.ts) — both patched. 0 critical / 1 high / 10 moderate dep CVEs remain; high is vite (Windows-only, architecture-blocked); moderates are drizzle-kit (dev only), @google-cloud/storage, and microsoft-cognitiveservices-speech-sdk — all logged in docs/open-bugs.md. Wren now runs `npm audit` every 6h automatically.
+
+---
+
 ## From Agent
 
 **Session: July 16, 2026 — GL Cap + Sophia Fields + Daniela Conversations (Luca)**
