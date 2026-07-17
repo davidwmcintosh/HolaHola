@@ -361,6 +361,10 @@ async function runWatchCycle() {
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
 
+    // Strip gemini_description before sending to Anthropic — Anthropic rejects unknown fields.
+    // alden-persona-service does the same strip (tool.gemini_description || tool.description).
+    const anthropicTools: Anthropic.Tool[] = ALDEN_TOOLS.map(({ gemini_description: _gd, ...rest }) => rest as Anthropic.Tool);
+
     const loopMessages: Anthropic.MessageParam[] = [{
       role: 'user',
       content: `You are Alden, the development steward of HolaHola. You just ran a routine system check with autonomous pattern detection and anomaly analysis. Review this snapshot and decide: is there anything genuinely worth notifying the founder (David) about?
@@ -393,7 +397,7 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
       const response = await client.messages.create({
         model: 'claude-sonnet-4-5',
         max_tokens: 600,
-        tools: ALDEN_TOOLS,
+        tools: anthropicTools,
         messages: loopMessages,
       });
 

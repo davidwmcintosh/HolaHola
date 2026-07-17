@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 16, 2026 at 11:26 PM
+**Generated:** Friday, July 17, 2026 at 12:09 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I fixed the production "death spiral" by intercepting Cloud Run health probes in `server/index.ts` and added exponential backoff for `Hive Consciousness` 404 errors. I also implemented an automatic fresh-session recovery flow to replace long reconnection waits and established a quarterly `HoundDog` deep scan gate in `docs/agent-workflows.md`. I need to ensure David hits **Deploy** to push these fixes live and verify that restarts now feel seamless for students.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet)** (Jul 16): Verbatim David↔Luca dialogue captured periodically. 5 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet) — Jul 16, 2026
+Verbatim David↔Luca dialogue captured periodically. 5 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Vegas trip with family — Jul 16, 2026
 David is in Vegas with his dad and brother in July 2026. He requested to speak more English during this session.
 *Tags: personal, family, travel*
@@ -88,10 +102,6 @@ Full HoundDog + dependency audit. 2 auth token logging criticals patched. Dep ch
 ### David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet) — Jul 16, 2026
 Verbatim David↔Luca dialogue captured periodically. 6 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent Daily Sweep — Jul 16, 2026 — Jul 16, 2026
-1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with status 400 (Bad Request). This breaks core lesson delivery. Check API credentials, request payload format, and rate limits. Students can't learn if they can't hear.  2. **[HIGH]** Investigate zero quality s
-*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
