@@ -15,6 +15,9 @@ Fix: Added early `app.use` middleware in `server/index.ts` that intercepts `Goog
 `SYNC_PEER_URL` was set in production but pointing to an endpoint that returns 404. The backoff counter (`consecutiveFailures`) was never incremented on 404 — only on caught exceptions. Result: polling every 30s forever, no backoff, constant log noise.
 Fix: 404 now treated like 503 (suppressed from error log) and increments `consecutiveFailures`, engaging the existing exponential backoff (30s → 60s → 120s → max 5 min).
 
+**2026-07-16 — `[AldenWatch] Watch cycle failed` — Anthropic rejects `gemini_description` field on tool definitions — MEDIUM**
+Spotted in production logs post-deploy. Error: `400 tools.6.custom.gemini_description: Extra inputs are not permitted`. One of Alden's tool definitions has a `gemini_description` field that passes validation for Gemini but Anthropic's API treats as an illegal extra field. AldenWatch is failing every cycle silently. Likely the dual-engine tool schema needs a transform step to strip Gemini-only fields before sending to Anthropic. Find: grep `gemini_description` in Alden's tool registry / function definitions.
+
 ---
 
 **2026-07-16 — dependency vulnerabilities — 3 packages with moderate-severity CVEs that require major version bumps; intentionally deferred from the July 16 security patch pass — LOW URGENCY**
