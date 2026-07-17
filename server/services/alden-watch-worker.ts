@@ -10,6 +10,8 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import fs from "fs";
+import path from "path";
 import { getUserDb } from "../db";
 import { aldenNotifications, aiCostLogs, aldenWatchConfig } from "@shared/schema";
 import { sql as drizzleSql, eq, desc, and } from "drizzle-orm";
@@ -24,6 +26,44 @@ import { attemptAutoRepair } from "./alden-auto-repair";
 import { costTracker } from "./cost-tracker";
 import { writeEscalation } from "./alden-escalation-log";
 import { founderCollabService } from "./founder-collaboration-service";
+
+// ── Heartbeat & boot-log file paths ─────────────────────────────────────────
+// These lightweight files let AldenWatch detect its own failure and let the
+// watch cycle detect a server restart spiral — without any schema migration.
+const LOCAL_DIR = path.join(process.cwd(), '.local');
+const HEARTBEAT_FILE = path.join(LOCAL_DIR, 'alden-watch-heartbeat.json');
+const BOOT_LOG_FILE  = path.join(LOCAL_DIR, 'server-boot-log.json');
+
+// How many restarts in a 2h window constitute a spiral worth alerting on
+const RESTART_ALERT_THRESHOLD = 3;
+const RESTART_ALERT_WINDOW_MS = 2 * 60 * 60 * 1000;
+
+function writeHeartbeat(status: 'running' | 'ok' | 'failed', error?: string): void {
+  try {
+    fs.mkdirSync(LOCAL_DIR, { recursive: true });
+    fs.writeFileSync(HEARTBEAT_FILE, JSON.stringify({
+      status,
+      updatedAt: Date.now(),
+      ...(error ? { error } : {}),
+    }), 'utf8');
+  } catch { /* non-fatal */ }
+}
+
+function readBootTimestamps(): number[] {
+  try {
+    return JSON.parse(fs.readFileSync(BOOT_LOG_FILE, 'utf8')) as number[];
+  } catch {
+    return [];
+  }
+}
+
+function recentBootCount(): number {
+  const cutoff = Date.now() - RESTART_ALERT_WINDOW_MS;
+  return readBootTimestamps().filter(t => t > cutoff).length;
+}
+
+// Counter so the emergency catch-block notification doesn't spam on every failed cycle
+let consecutiveWatchFailures = 0;
 
 const DEFAULT_CHECK_INTERVAL_H   = 2;
 const CHECK_INTERVAL_MS           = DEFAULT_CHECK_INTERVAL_H * 60 * 60 * 1000;
@@ -215,6 +255,8 @@ async function runWatchCycle() {
     liveConsecutiveTrigger = params.consecutiveLowScoreTrigger;
   } catch { /* keep existing live values if DB read fails */ }
 
+  writeHeartbeat('running');
+
   try {
     // ── Pre-flight: hard-pause check (Tier 3 — $10 threshold) ───────────────
     // DB-backed so a restart cannot reset enforcement when real 24h spend is already >$10
@@ -261,6 +303,42 @@ async function runWatchCycle() {
         return { data: { error: `${toolName} unavailable: ${e.message}` } };
       }
     };
+    // Probe SYNC_PEER_URL directly so Alden can surface peer connectivity issues
+    // in his snapshot without relying on the Hive service's internal state.
+    let peerUrlStatus = 'not configured';
+    const peerUrl = process.env.SYNC_PEER_URL;
+    if (peerUrl) {
+      const ctrl = new AbortController();
+      const probeTimer = setTimeout(() => ctrl.abort(), 5000);
+      try {
+        const res = await fetch(`${peerUrl}/api/health`, { signal: ctrl.signal });
+        peerUrlStatus = `HTTP ${res.status}`;
+      } catch (e: any) {
+        peerUrlStatus = `unreachable: ${e.message?.substring(0, 60)}`;
+      } finally {
+        clearTimeout(probeTimer);
+      }
+    }
+
+    // Count server restarts in the last 2h — auto-alert on spiral before Alden's LLM pass
+    const bootCount2h = recentBootCount();
+    if (bootCount2h > RESTART_ALERT_THRESHOLD) {
+      const fp = 'restart_spiral';
+      const isDupRestart = await hasDuplicateActiveIssue(fp);
+      if (!isDupRestart) {
+        const dbRestart = getUserDb();
+        await dbRestart.insert(aldenNotifications).values({
+          content: `Server has restarted ${bootCount2h} times in the last 2 hours. This may indicate a crash loop or healthcheck death spiral. Check production logs immediately.`,
+          triggeredBy: 'alden-watch',
+          severity: 'alert',
+          read: false,
+          fingerprint: fp,
+        });
+        await postHiveMessage(`RESTART SPIRAL: ${bootCount2h} server restarts detected in the last 2 hours.`, { bootCount: bootCount2h });
+        console.warn(`[AldenWatch] Restart spiral alert fired — ${bootCount2h} boots in 2h`);
+      }
+    }
+
     const [health, dbStats, issues, learning] = await Promise.all([
       safeCall('get_system_health', {}),
       safeCall('get_database_stats', {}),
@@ -338,6 +416,10 @@ async function runWatchCycle() {
       issues: issuesSummary,
       learning: learning.data,
       trends: trendBlock,
+      infrastructure: {
+        peerSyncUrl: peerUrl ? `${peerUrl} → ${peerUrlStatus}` : 'not configured',
+        serverRestartsLast2h: bootCount2h,
+      },
       anomalies: anomalies.map(a => ({
         metric: a.metric,
         severity: a.severity,
@@ -558,6 +640,8 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
       lastMeaningfulLine.startsWith('NOTHING')
     ) {
       console.log('[AldenWatch] Check complete — no notification needed');
+      consecutiveWatchFailures = 0;
+      writeHeartbeat('ok');
       return;
     }
 
@@ -599,6 +683,8 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
     });
 
     console.log(`[AldenWatch] Queued ${severity} notification [${fingerprint ?? 'no-fingerprint'}]: "${message.substring(0, 80)}..."`);
+    consecutiveWatchFailures = 0;
+    writeHeartbeat('ok');
 
     // Track recent fingerprints for status endpoint
     if (fingerprint) {
@@ -646,6 +732,23 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
 
   } catch (err: any) {
     console.warn('[AldenWatch] Watch cycle failed:', err.message);
+    // Write a failed heartbeat so the watchdog can detect a silent broken watcher
+    writeHeartbeat('failed', err.message);
+    consecutiveWatchFailures++;
+    // Emergency: bypass Anthropic (which may be the failure) and insert a DB notification directly.
+    // Only fires on the first 3 consecutive failures to avoid notification spam.
+    if (consecutiveWatchFailures <= 3) {
+      try {
+        const dbEmergency = getUserDb();
+        await dbEmergency.insert(aldenNotifications).values({
+          content: `Alden's autonomous watch cycle failed (${consecutiveWatchFailures} consecutive): ${err.message}. The monitoring system could not complete its check — manual review recommended.`,
+          triggeredBy: 'alden-watch-emergency',
+          severity: 'alert',
+          read: false,
+          fingerprint: `alden_watch_failure_${consecutiveWatchFailures}`,
+        });
+      } catch { /* absolutely non-fatal */ }
+    }
   }
 }
 
@@ -751,6 +854,24 @@ async function scheduleNextCycle(): Promise<void> {
 
 export function startAldenWatchWorker() {
   console.log(`[AldenWatch] Starting (interval: 2h, recovery poll: ${RECOVERY_POLL_MIN}min [ALDEN_RECOVERY_POLL_MIN], per-issue-type dedup via fingerprint)`);
+
+  // ── Startup watchdog: check the previous cycle's heartbeat ──────────────
+  // If the last cycle was 'failed' or the heartbeat is stale (>4h old),
+  // log a warning so it surfaces in session-start logs. This catches the case
+  // where AldenWatch was silently broken across a server restart.
+  try {
+    const raw = fs.readFileSync(HEARTBEAT_FILE, 'utf8');
+    const hb = JSON.parse(raw) as { status: string; updatedAt: number; error?: string };
+    const staleMins = Math.round((Date.now() - hb.updatedAt) / 60000);
+    if (hb.status === 'failed') {
+      console.warn(`[AldenWatch] Previous cycle ended in failure (${staleMins}m ago): ${hb.error ?? 'unknown'}`);
+    } else if (Date.now() - hb.updatedAt > 4 * 60 * 60 * 1000) {
+      console.warn(`[AldenWatch] Heartbeat is stale — last successful cycle was ${staleMins}m ago`);
+    } else {
+      console.log(`[AldenWatch] Last cycle: ${hb.status} (${staleMins}m ago)`);
+    }
+  } catch { /* no heartbeat file = first run, that's fine */ }
+
   // Initial check after 5 minutes (let the server settle), then self-scheduling
   setTimeout(() => {
     runWatchCycle()

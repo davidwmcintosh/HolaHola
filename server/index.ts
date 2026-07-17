@@ -1,5 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
+import fs from "fs";
 import { Server as SocketIOServer } from "socket.io";
 import { runMigrations, StripeSync } from 'stripe-replit-sync';
 import { getStripeSecretKey, getStripeWebhookSecret } from "./stripeClient";
@@ -582,6 +583,18 @@ app.use((req, res, next) => {
     reusePort: true,
   }, async () => {
     log(`serving on port ${port}`);
+
+    // Record this boot for restart-spiral detection in AldenWatch.
+    // Kept deliberately simple — any write error is silently swallowed.
+    try {
+      const bootFile = `${process.cwd()}/.local/server-boot-log.json`;
+      const existing: number[] = fs.existsSync(bootFile)
+        ? (JSON.parse(fs.readFileSync(bootFile, 'utf8')) as number[])
+        : [];
+      existing.push(Date.now());
+      fs.mkdirSync(`${process.cwd()}/.local`, { recursive: true });
+      fs.writeFileSync(bootFile, JSON.stringify(existing.slice(-20)), 'utf8');
+    } catch { /* non-fatal */ }
     
     // DEFERRED STARTUP: Start heavy background workers AFTER server is listening
     // This ensures Cloud Run health checks pass quickly before workers initialize

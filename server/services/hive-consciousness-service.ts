@@ -14,6 +14,8 @@
 
 import { founderCollabWSBroker } from './founder-collab-ws-broker';
 import { founderCollabService, type FounderMessageInput } from './founder-collaboration-service';
+import { getUserDb } from '../db';
+import { aldenNotifications } from '@shared/schema';
 import { collaborationHubService } from './collaboration-hub-service';
 import { callGemini, GEMINI_MODELS } from '../gemini-utils';
 import { isVoiceActive } from './gemini-priority-gate';
@@ -212,7 +214,43 @@ class HiveConsciousnessService {
   private isPolling: boolean = false; // Mutex to prevent concurrent polls
   private consecutiveFailures: number = 0; // Backoff counter for failed polls
   private readonly MAX_BACKOFF_MS = 5 * 60 * 1000; // Max 5 minute backoff
-  
+  // Sync degradation alerting — fire a notification when too many consecutive failures occur
+  private readonly SYNC_DEGRADED_THRESHOLD = 5;
+  private syncDegradedAlertFiredAt: number | null = null;
+
+  /**
+   * Fire a one-time notification (with 12h cooldown) when cross-env sync has failed
+   * too many times in a row. Writes to alden_notifications so it surfaces in the UI
+   * without requiring AldenWatch to be working.
+   */
+  private async fireSyncDegradedAlert(): Promise<void> {
+    const COOLDOWN_MS = 12 * 60 * 60 * 1000;
+    if (this.syncDegradedAlertFiredAt && Date.now() - this.syncDegradedAlertFiredAt < COOLDOWN_MS) return;
+    this.syncDegradedAlertFiredAt = Date.now();
+    const msg = `Hive cross-environment sync has failed ${this.consecutiveFailures} consecutive times and entered backoff. SYNC_PEER_URL may be misconfigured or the peer environment is unreachable. AldenWatch will include peer HTTP status in its next cycle snapshot.`;
+    console.warn(`[Hive Consciousness] Sync degraded alert firing (${this.consecutiveFailures} consecutive failures)`);
+    try {
+      const db = getUserDb();
+      // Check for existing unread notification before inserting
+      const { eq, and } = await import('drizzle-orm');
+      const existing = await db.select({ id: aldenNotifications.id })
+        .from(aldenNotifications)
+        .where(and(eq(aldenNotifications.fingerprint, 'hive_sync_degraded'), eq(aldenNotifications.read, false)))
+        .limit(1);
+      if (existing.length === 0) {
+        await db.insert(aldenNotifications).values({
+          content: msg,
+          triggeredBy: 'hive-consciousness',
+          severity: 'warning',
+          read: false,
+          fingerprint: 'hive_sync_degraded',
+        });
+      }
+    } catch (e: any) {
+      console.warn('[Hive Consciousness] Failed to write sync degraded notification:', e.message);
+    }
+  }
+
   // Local polling: catch messages inserted via SQL/external means that bypass WebSocket
   private localPollingTimeout: NodeJS.Timeout | null = null;
   private lastLocalPollTimestamp: Date = new Date();
@@ -602,6 +640,9 @@ Respond with ONLY valid JSON (no markdown, no backticks):
           console.error(`[Hive Consciousness] Peer sessions fetch failed: ${sessionsResponse.status}`);
         }
         this.consecutiveFailures++;
+        if (this.consecutiveFailures >= this.SYNC_DEGRADED_THRESHOLD) {
+          this.fireSyncDegradedAlert().catch(() => {});
+        }
         return;
       }
       
@@ -679,7 +720,10 @@ Respond with ONLY valid JSON (no markdown, no backticks):
     } catch (error: any) {
       // Increment failure counter for backoff
       this.consecutiveFailures++;
-      
+      if (this.consecutiveFailures >= this.SYNC_DEGRADED_THRESHOLD) {
+        this.fireSyncDegradedAlert().catch(() => {});
+      }
+
       // Only log non-network errors (network errors are expected when peer is down)
       if (!error.message?.includes('fetch failed') && !error.message?.includes('ECONNREFUSED')) {
         console.error(`[Hive Consciousness] Cross-env poll error (failure ${this.consecutiveFailures}):`, error.message);
