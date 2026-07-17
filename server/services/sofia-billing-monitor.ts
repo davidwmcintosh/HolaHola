@@ -210,16 +210,23 @@ export async function reportGlToolCallSuccess(opts: {
   sessionId?: string;
   userId?: string | number;
   durationMs?: number;
+  args?: Record<string, unknown>;
+  conversationId?: string;
 }): Promise<void> {
-  const { toolName, sessionId, userId, durationMs } = opts;
+  const { toolName, sessionId, userId, durationMs, args, conversationId } = opts;
   const { getSharedDb } = await import('../db');
   const { sql } = await import('drizzle-orm');
   const sharedDb = getSharedDb();
+  // Truncate args to 1 KB so image URLs and search queries are fully captured
+  // without risk of bloating the table on large payloads.
+  const argsStr = args ? JSON.stringify(args).substring(0, 1000) : undefined;
   const payload = JSON.stringify({
     toolName,
     sessionId: sessionId ? sessionId.substring(0, 36) : undefined,
     userId: userId ? String(userId) : undefined,
     durationMs: durationMs ?? null,
+    ...(argsStr ? { args: JSON.parse(argsStr) } : {}),
+    ...(conversationId ? { conversationId } : {}),
   });
   await sharedDb.execute(sql`
     INSERT INTO voice_pipeline_events

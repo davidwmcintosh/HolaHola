@@ -2502,6 +2502,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               toolName: fcName,
               sessionId: this.session.id,
               userId: this.session.userId,
+              args: extractedFc.args,
+              conversationId: this.session.conversationId,
             }).catch(() => {});
           } catch (err) {
             const errMsg = (err as Error).message || String(err);

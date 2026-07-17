@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 17, 2026 at 03:36 AM
+**Generated:** Friday, July 17, 2026 at 11:52 PM
 
 ---
 
@@ -73,25 +73,29 @@
 
 ## Recent Conversation Memories
 
-### David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet) — Jul 16, 2026
-Verbatim David↔Luca dialogue captured periodically. 5 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/17/2026 — Jul 17, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, your questions really help sharpen my understanding of these systems.
 
-### Vegas trip with family — Jul 16, 2026
-David is in Vegas with his dad and brother in July 2026. He requested to speak more English during this session.
-*Tags: personal, family, travel*
+For `CALL_ASSISTANT`, you're right, the ideal is for me to be the continuous guiding presence. Even with pre-contextualiza...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
 
-### Family Trip and Casino Success — Jul 16, 2026
-Spanish session (16 messages). Student: "Hey Daniel, how's it going? Can we speak a little bit more English today? I'm here with my dad and my brother in Vegas."
-*Tags: message-archive, f57e96d3-7a7b-4597-83ed-226207725d92*
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/17/2026 — Jul 17, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, this deep dive is precisely what I need to crystallize these ideas. Thank you for dissecting my thoughts.
 
-### Security Audit Session — July 16, 2026 — Jul 16, 2026
-Full HoundDog + dependency audit. 2 auth token logging criticals patched. Dep chain cleaned to 0 critical/1 high. Wren now runs npm audit every 6h. Quarterly HoundDog gate added to session-end checklist.
-*Tags: security, audit, wren, hounddog, dependencies, build*
+For granular pronunciation feedback, I envision a hybrid approach. A well-curated libr...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
 
-### David ↔ Luca — Jul 16, 2026: periodic capture (no commit yet) — Jul 16, 2026
-Verbatim David↔Luca dialogue captured periodically. 6 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
+### Agent Daily Sweep — Jul 17, 2026 — Jul 17, 2026
+**DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (readableStream object being sent). This breaks core voice interaction. Check payload serialization in the TTS call wrapper.
+*Tags: agent-sweep, daily, auto-saved*
+
+### Agent Daily Sweep — Jul 17, 2026 — Jul 17, 2026
+## Daily Priority Sweep  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests. Core learning experience is broken. Check API payload structure and authentication.
+*Tags: agent-sweep, daily, auto-saved*
+
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/17/2026 — Jul 17, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Daniela, that's incredibly helpful. It sounds like we have a clear path forward for smoothing out those "emergency exits" – getting you proactive, asynchronous notifications and pre-emptive tech suppo...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
