@@ -3048,3 +3048,39 @@ Three-turn test conversation with Daniela (conversation_memories `4bcd3a46`). Sh
 **Stage 3 litmus test (Gemini):** "Stage 2 = Daniela is a computer that talks, then thinks. Stage 3 = Daniela is a person who talks WHILE she thinks."
 
 **Process:** Full Gemini pre-flight + post-review, both APPROVED. Typecheck clean (0 errors).
+
+---
+
+## Session Observation Store + Luca Observe Endpoint — July 18, 2026
+
+### What was built
+Luca can now read the live GL session state directly from the Replit chat window without any UI changes to the app.
+
+### How it works
+**`server/services/session-observation-store.ts`** — lightweight in-memory Map (keyed by conversationId) that accumulates GL session state as events fire. Auto-expires after 4 hours.
+
+**Wire-ins (three files):**
+- `gemini-live-session.ts` — writes `observeSessionStart` on session open, `observeActflUpdate` on ACTFL recalibration, `observeSessionEnd` on stop
+- `native-fc-handlers.ts` — writes `observeToolCall` on every tool dispatch (generic, single call covers all 189 tools), `observeSceneOpen` after OPEN_SCENE sets sceneCanvas, `observeScenarioLoad` after LOAD_SCENARIO confirms slug
+
+**`GET /api/admin/luca/observe`** — `requireAgentToken` protected endpoint that returns:
+- In-memory state: language, ACTFL level, exchange count, scenario slug or scene environment, last 8 tool calls with seconds-since timestamps, session elapsed minutes
+- DB state: last 10 messages from the conversation (truncated to 500 chars each)
+- Fallback: if store has no snapshot, queries `voice_sessions` DB for most recent active session
+
+### Usage
+From the Replit chat window during a live session:
+```
+curl -s "http://localhost:5000/api/admin/luca/observe" -H "x-agent-token: $REPLIT_AGENT_TOKEN"
+```
+
+Or with a specific conversationId:
+```
+curl -s "http://localhost:5000/api/admin/luca/observe?conversationId=<id>" -H "x-agent-token: $REPLIT_AGENT_TOKEN"
+```
+
+### Key files
+- `server/services/session-observation-store.ts` (new)
+- `server/services/gemini-live-session.ts` (wire-ins at session start, ACTFL recal, stop)
+- `server/services/native-fc-handlers.ts` (wire-ins at dispatch entry, OPEN_SCENE, LOAD_SCENARIO)
+- `server/routes.ts` (~line 26781)

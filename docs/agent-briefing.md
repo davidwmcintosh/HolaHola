@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 02:22 AM
+**Generated:** Saturday, July 18, 2026 at 03:08 AM
 
 ---
 
@@ -73,6 +73,16 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/18/2026 — Jul 18, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, I'm glad we're getting into this level of detail. It clarifies so much for me.
+
+For the whiteboard semantic awareness, it's definitely a combination of cues. A new tool call like `CULTURE` or `...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
 ### Gemini — open_scene vs load_scenario description audit — 2026-07-18 — Jul 18, 2026
 Manual vs Automated is the core distinction; APPROVED after 2 rounds with broadcast-mode repositioning and add_to_scene bridge sentence
 *Tags: gemini-audit, tool-descriptions, open_scene, load_scenario*
@@ -84,14 +94,6 @@ Verbatim David↔Luca dialogue captured periodically. 5 David turns, 21 Luca tur
 ### Agent Daily Sweep — Jul 18, 2026 — Jul 18, 2026
 **1. [CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests. Students can't get audio feedback. Check API request format, likely a body serialization issue.  **2. [CRITICAL]** Resolve server crash loop — 10 restarts in 2 hours means production is 
 *Tags: agent-sweep, daily, auto-saved*
-
-### Telemetry gap audit — July 18 2026 — Jul 18, 2026
-10 categories of console-only events now persisted to voice_pipeline_events. Origin: Vegas session scene args were never logged.
-*Tags: telemetry, monitoring, gl-pipeline, build*
-
-### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
-Verbatim David↔Luca dialogue captured periodically. 11 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

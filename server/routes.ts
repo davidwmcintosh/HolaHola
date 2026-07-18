@@ -26774,6 +26774,91 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
         : 'REPLIT_AGENT_TOKEN not set or too short (min 32 chars)'
     });
   });
+
+  // Observation bench — Luca reads the live session state from the Replit chat window.
+  // Returns in-memory GL state + last N DB messages for the active conversation.
+  // Auth: x-agent-token header.
+  app.get("/api/admin/luca/observe", requireAgentToken, async (req: any, res: Response) => {
+    try {
+      const { getAllActiveObservations, getObservation } = await import('./services/session-observation-store');
+      const conversationId = req.query.conversationId as string | undefined;
+
+      // If no conversationId provided, find the most recently active session
+      let observation = conversationId
+        ? getObservation(conversationId)
+        : getAllActiveObservations().sort((a, b) => b.lastUpdatedMs - a.lastUpdatedMs)[0] ?? null;
+
+      const { sql: rawSql } = await import('drizzle-orm');
+      const obsDb = getSharedDb();
+
+      if (!observation) {
+        // Fall back to DB — find the most recent active voice session
+        const activeRow = await obsDb.execute(
+          rawSql`SELECT id, conversation_id, language, exchange_count, started_at, user_id
+                 FROM voice_sessions
+                 WHERE status = 'active'
+                 ORDER BY started_at DESC
+                 LIMIT 1`
+        );
+        const row = (activeRow as any).rows?.[0] ?? activeRow?.[0] as any;
+        if (!row) {
+          return res.json({ status: 'no_active_session', message: 'No active GL session found.' });
+        }
+        return res.json({
+          status: 'db_only',
+          message: 'Session active in DB but not yet in observation store (started before server restart, or store expired).',
+          session: {
+            conversationId: row.conversation_id,
+            language: row.language,
+            exchangeCount: row.exchange_count,
+            startedAt: row.started_at,
+            userId: row.user_id,
+          },
+        });
+      }
+
+      // Pull the last 10 messages from this conversation
+      const convId = observation.conversationId;
+      const recentMessages = await obsDb.execute(
+        rawSql`SELECT role, content, created_at
+               FROM messages
+               WHERE conversation_id = ${convId}
+               ORDER BY created_at DESC
+               LIMIT 10`
+      );
+      const msgs = ((recentMessages.rows ?? []) as any[]).reverse().map((m: any) => ({
+        role: m.role,
+        content: typeof m.content === 'string' ? m.content.slice(0, 500) : '[non-text]',
+        at: m.created_at,
+      }));
+
+      // Elapsed time
+      const elapsedMs = Date.now() - observation.sessionStartedMs;
+      const elapsedMin = Math.round(elapsedMs / 60000);
+
+      res.json({
+        status: 'active',
+        elapsedMin,
+        conversationId: observation.conversationId,
+        language: observation.language,
+        actflLevel: observation.actflLevel,
+        exchangeCount: observation.exchangeCount,
+        scenarioSlug: observation.scenarioSlug,
+        sceneEnvironment: observation.sceneEnvironment,
+        sceneProps: observation.sceneProps,
+        recentToolCalls: observation.recentToolCalls.slice(0, 8).map(t => ({
+          name: t.name,
+          secsAgo: Math.round((Date.now() - t.ts) / 1000),
+          note: t.note,
+        })),
+        lastUpdatedSecsAgo: Math.round((Date.now() - observation.lastUpdatedMs) / 1000),
+        recentMessages: msgs,
+      });
+    } catch (err: any) {
+      console.error('[Luca Observe] Error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
   
   // Get feature sprints (read-only for agent)
   app.get("/api/agent/sprints", requireAgentToken, async (req: any, res: Response) => {

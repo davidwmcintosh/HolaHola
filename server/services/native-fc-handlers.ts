@@ -19,6 +19,7 @@ import { journeyMemoryService } from "./journey-memory-service";
 import { growthMemoryOutcomeService } from "./growth-memory-outcome-service";
 import { storage } from "../storage";
 import { getSharedDb } from "../db";
+import { observeToolCall, observeSceneOpen, observeScenarioLoad } from './session-observation-store';
 import { WhiteboardItem, WordMapItem, isWordMapItem, SelfSurgeryItemData } from "@shared/whiteboard-types";
 import { StreamingWhiteboardMessage } from "@shared/streaming-voice-types";
 import { WebSocket as WS } from "ws";
@@ -205,6 +206,8 @@ export class NativeFunctionCallHandler {
 
   async handle(sessionId: string, session: StreamingSession, fn: ExtractedFunctionCall): Promise<void> {
     console.log(`[Native Function Call] Processing: ${fn.name} -> ${fn.legacyType}`);
+    const _convId = (session as any).conversationId as string | undefined;
+    if (_convId) observeToolCall(_convId, fn.name);
     
     const fnText = (fn.args.text || fn.args.spoken_text) as string | undefined;
     if (fnText && fnText.includes('**')) {
@@ -1624,6 +1627,8 @@ export class NativeFunctionCallHandler {
             props: [],
             clockTime: undefined,
           };
+          const _sceneConvId = (session as any).conversationId as string | undefined;
+          if (_sceneConvId) observeSceneOpen(_sceneConvId, envLabel || sceneEnv);
           const openSceneUpdate = {
             type: 'whiteboard_update' as const,
             timestamp: Date.now(),
@@ -5805,6 +5810,8 @@ export class NativeFunctionCallHandler {
             }
 
             if (scenario) {
+              const _scenConvId = (session as any).conversationId as string | undefined;
+              if (_scenConvId) observeScenarioLoad(_scenConvId, scenario.slug);
               const props = await sharedDb.select().from(scenarioProps)
                 .where(eq(scenarioProps.scenarioId, scenario.id))
                 .orderBy(scenarioProps.displayOrder);

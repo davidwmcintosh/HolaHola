@@ -36,6 +36,7 @@ import type { ExtractedFunctionCall } from './gemini-function-declarations';
 import { reportGlToolCallFailure, reportGlToolCallSuccess, reportGreetingRetryAttempt, reportGreetingRetryExhausted } from './sofia-billing-monitor';
 import { voiceTelemetry } from './voice-pipeline-telemetry';
 import { glLiveAlert } from './gl-live-monitor';
+import { observeSessionStart, observeActflUpdate, observeSessionEnd } from './session-observation-store';
 import { getSharedDb } from '../db';
 import { sql, eq } from 'drizzle-orm';
 import { voiceSessions } from '@shared/schema';
@@ -1073,6 +1074,14 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     });
 
     console.log(`[GeminiLive] Session open — sessionId: ${this.session.id}`);
+    if (this.session.conversationId) {
+      observeSessionStart({
+        conversationId: this.session.conversationId,
+        userId: this.session.userId ?? '',
+        language: this.session.targetLanguage ?? null,
+        actflLevel: this.session.studentActflLevel ?? null,
+      });
+    }
 
     // If a greeting trigger is provided at start() time, buffer it — setupComplete
     // has not arrived yet at this point (it arrives asynchronously via onmessage).
@@ -1200,6 +1209,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       eventType: 'actfl_recalibration',
       detail: { newLevel },
     });
+    if (this.session.conversationId) {
+      observeActflUpdate(this.session.conversationId, newLevel ?? null);
+    }
     this.isProactiveReconnecting = true;
     this.isStarted = false;
     this.sendWsMessage(this.session.ws, {
@@ -1456,6 +1468,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     // Shadow Auditor — fire-and-forget post-session transcript analysis.
     // Generates a session summary for compass continuity + suspends active loops.
     // Never blocks the stop() path. Skipped for incognito sessions (no persistence).
+    if (this.session.conversationId) {
+      observeSessionEnd(this.session.conversationId);
+    }
     if (!this.session.isIncognito && this.session.conversationId) {
       import('./shadow-auditor').then(({ runShadowAudit }) => {
         runShadowAudit({
