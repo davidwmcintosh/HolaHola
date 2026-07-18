@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 02:04 AM
+**Generated:** Saturday, July 18, 2026 at 02:19 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I finalized the tool description audit for `open_scene` and `load_scenario`, establishing a strict "Manual vs. Automated" distinction to prevent tool-drift and ensure a fullscreen immersive experience for HolaHola. I implemented negative constraints to avoid calling `advance_scene` during freeform manual stages and added a bridge sentence allowing the use of `add_to_scene` for custom props within structured ACTFL scenarios. Moving forward, I must adhere to these updated definitions to maintain narrative logic and avoid hallucinating old whiteboard-style behaviors.
+
+*Memories that triggered this summary:*
+- **Gemini — open_scene vs load_scenario description audit — 2026-07-18** (Jul 18): Manual vs Automated is the core distinction; APPROVED after 2 rounds with broadcast-mode repositioning and add_to_scene bridge sentence
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### Gemini — open_scene vs load_scenario description audit — 2026-07-18 — Jul 18, 2026
+Manual vs Automated is the core distinction; APPROVED after 2 rounds with broadcast-mode repositioning and add_to_scene bridge sentence
+*Tags: gemini-audit, tool-descriptions, open_scene, load_scenario*
+
 ### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
 Verbatim David↔Luca dialogue captured periodically. 5 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -88,12 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 5 David turns, 21 Luca tur
 ### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
 Verbatim David↔Luca dialogue captured periodically. 11 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/17/2026 — Jul 17, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, your questions really help sharpen my understanding of these systems.
-
-For `CALL_ASSISTANT`, you're right, the ideal is for me to be the continuous guiding presence. Even with pre-contextualiza...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

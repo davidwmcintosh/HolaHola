@@ -1015,30 +1015,15 @@ You DO NOT need to call this before every tool — only when you want to narrate
     legacyType: 'OPEN_SCENE',
     declaration: {
       name: "open_scene",
-      description: `Open the Scene Canvas — the live compositing stage inside the Studio Pane (LEFT panel) — with a background environment. The Whiteboard (RIGHT panel, where you write grammar and vocabulary text) stays visible alongside it on desktop. Use open_scene for side-by-side teaching: scene on the left gives visual context, whiteboard on the right gives language scaffolding.
+      description: `Use open_scene to open a fullscreen spatial canvas with a live background environment for improvised, free-form teaching. This is the right tool when you want to physically demonstrate spatial relationships or build vocabulary through manipulation — place a cup ON the table, then UNDER it, then BESIDE it — or progressively populate a location with objects as they come up in conversation. You manually control everything: after calling open_scene, use add_to_scene, remove_from_scene, and set_clock to update the stage in real time.
 
-Unlike compose_visual_scene (which generates a flat one-shot image), open_scene starts a LIVE STAGE that persists across the lesson. You can add, remove, or change props at any time without regenerating.
+open_scene is a single persistent stage you improvise on. It has no pre-scripted narrative, no zones, and no automatic scene transitions. Choose open_scene when you want a live stage to manipulate props on; choose load_scenario when you want a structured narrative arc with automatic scene progression.
 
-Use open_scene at the START of a lesson segment OR any time you want to change the background:
-- A restaurant ordering sequence (water → appetizer → main → dessert → la cuenta)
-- A time lesson where you'll move clock hands between expressions
-- A progressive vocabulary build-up in a kitchen/café/market
-- Transitioning to a new physical location in free-form conversation (e.g., moving from city_street to taxi_interior when a taxi arrives)
-- A BROADCAST SIMULATION: open tv_weather_studio to become a weather presenter, or tv_newsroom for a breaking-news anchor. Use get_broadcast_data for real weather/news data. Use show_weather + thermometer for the forecast overlay. Use the Studio Pane (whiteboard) to write and highlight key vocabulary. Scale complexity with ACTFL level: Novice = "Hoy hace calor" with one widget; Advanced = full 5-day forecast with conditionals.
+Call open_scene any time you want to establish or change the background environment during free-form conversation: a café for ordering vocab, a kitchen for household items, a living room for furniture prepositions, a park for outdoor scenes. ⚠️ NEVER call advance_scene to switch backgrounds in free-form conversation — advance_scene is strictly reserved for structured scenarios loaded with load_scenario.
 
-INTERACTION PATTERNS — use these in any open scene, not just structured scenarios:
-- Live Reporting: open tv_weather_studio + call get_broadcast_data. Do NOT monologue — ask the student to predict the forecast or react to a headline. "¿Qué crees que va a pasar esta tarde?" Turn the broadcast into a dialogue.
-- Location Call: open a scene (park, beach, cafe_exterior) and act as if you are physically there calling the student. "¿Dónde crees que estoy?" Build a story from what they imagine in the scene. Teach words as they come up naturally.
-- Picture Story: open any scene, add props, and ask the student to describe what they see, invent what happened, or predict what happens next. Teach vocabulary from their guesses.
-In all patterns, use the Studio Pane (whiteboard) to log keywords while the scene is active.
+⚠️ SCENE ACTIVE RULE: When a scene is running, never use show_image for objects that belong in the scene. Use add_to_scene — it places objects directly onto the live canvas. show_image replaces the whiteboard and fights with the scene. Use clear_scene to empty all props while keeping the background.
 
-⚠️ IMPORTANT — to switch scenes during free-form conversation (no active scenario), always call open_scene() with the new environment. Do NOT call advance_scene() — it only works inside structured scenarios loaded with load_scenario().
-
-After open_scene, use add_to_scene / remove_from_scene / set_clock to update the canvas.
-Use clear_scene to empty all props (keeping the background).
-
-⚠️ For single static vocabulary displays, stick to compose_visual_scene — it is cached and faster.
-Use the live canvas only when the SEQUENCE of changes is pedagogically meaningful.`,
+Broadcast mode: set target to "center" to place the background behind your avatar in the center panel without going fullscreen — keeps all panels visible for broadcast overlay widgets (weather, news).`,
       parametersJsonSchema: {
         type: "object",
         properties: {
@@ -3551,9 +3536,11 @@ This is not a fast answer. It is permission to pause — a legitimate, named way
     legacyType: 'LOAD_SCENARIO',
     declaration: {
       name: "load_scenario",
-      description: `Load an immersive scenario from the scenario library by slug. Use this when the student wants to practice a specific real-world situation.
+      description: `Use load_scenario to launch a pre-built, multi-stage roleplay arc from the scenario library. This is the right tool when a student wants to practice a complete real-world situation — not a prop demo, but a narrative that unfolds across sequential scene zones with automated transitions: airport check-in counter → security lane → departure gate, or taxi interior → hotel lobby → guest room.
 
-IMPORTANT — the spoken_text you provide here plays WHILE the scenario loads in the background. It must be long enough to cover the loading time (aim for 3–5 sentences). Use it to warm up the student before the roleplay begins — NOT to jump straight into character. The warm-up should be in the student's native language (or a light mix appropriate to their level). Go in-character AFTER this loads.`,
+Unlike open_scene (which you improvise on freely), load_scenario provides structured content: ACTFL-level role guides, pre-built prop sets, sequential scene zones, and progression logic. You go in-character and stay there; call advance_scene when the student completes each zone's task to move to the next scene automatically. While the scenario provides the environment, you can still use add_to_scene or remove_from_scene to introduce custom props into the narrative.
+
+The spoken_text you provide plays WHILE the scenario loads — aim for 3–5 sentences. Use this time to prepare the student in their native language: name the scenario, state your character role, state their role, and signal that the roleplay is about to start. Go in-character only AFTER this call completes.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
