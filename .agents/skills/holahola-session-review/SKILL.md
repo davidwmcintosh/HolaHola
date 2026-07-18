@@ -13,6 +13,23 @@ This is different from `holahola-session-end`:
 
 ---
 
+## Why this loop exists — read this before you begin
+
+The loop is not about confirming that things were saved. It is about finding **open threads** — stated intentions, started investigations, promised follow-throughs that were interrupted before completion.
+
+Saving proves existence. Reading proves completion. These are different things.
+
+A conversation segment that contains "let me check the image cache" followed by something else is not a completed thread — it is an interrupted one. The only way to catch the difference is to read what was said, not just confirm it was recorded.
+
+The loop exists because:
+- Interruptions happen. A thread is started, David asks something, the original direction is lost.
+- Verifying a timestamp tells you the conversation was captured. It does not tell you whether the investigation inside it was finished.
+- Without understanding this why, the loop becomes archive-confirmation — which catches nothing.
+
+When you ask "why am I looping?" the answer is: **to find what I said I would do and didn't.** That is the only reason. Every other check is secondary.
+
+---
+
 ## When to call this skill
 
 - After completing a feature or a significant decision
@@ -20,14 +37,15 @@ This is different from `holahola-session-end`:
 - When David says "make sure we're locked in" or "update the docs"
 - When you realize a decision was made two turns ago and nothing captured it
 - At natural breakpoints in long sessions
+- At session wrap, before running the session-end checklist
 
 ---
 
 ## The review process (5 steps)
 
-### Step 1 — Read the session's autosaved captures
+### Step 1 — Pull the autosaved captures with full content
 
-The autosave worker saves conversation turns every 60s when the commit message changes. Pull the most recent entries to see what's been captured:
+The autosave worker saves conversation turns every 60s when the commit message changes. Pull the most recent entries **and read the content**, not just the titles:
 
 ```bash
 cd /home/runner/workspace && timeout 15 node --input-type=module << 'EOF'
@@ -46,41 +64,52 @@ const result = await new Promise((resolve, reject) => {
   }).on('error', reject);
 });
 
-for (const m of (result.memories || result).slice(0, 5)) {
-  console.log(`[${m.id?.slice(0,8)}] ${m.title}`);
-  console.log(m.summary || '(no summary)');
-  console.log();
+for (const m of (result.memories || result).slice(0, 6)) {
+  console.log(`\n=== [${m.id?.slice(0,8)}] ${m.title} ===`);
+  console.log(m.content?.slice(0, 2000) || m.summary || '(no content)');
 }
 EOF
 ```
 
-### Step 2 — Scan the current chat thread
+### Step 2 — Read for open threads (the critical step)
 
-Go back through the current conversation and list:
-- What was **built or changed** (files edited, tools added, endpoints created)
-- What **decisions were made** (renames, architectural choices, tradeoffs accepted)
-- What **tool descriptions were approved** (Alden/Gemini sign-off)
-- What **gotchas were hit** (bugs, retry loops, things that took >2 attempts)
+Go through each captured segment and ask, for every Luca statement:
 
-Do this mentally from your context window — you don't need to re-read files you already read.
+- **Did I say I was going to do something?** ("let me check...", "I'll look at...", "I'm going to...")
+- **Did I actually do it?** Look for the result, not just the intention.
+- **Did David interrupt or redirect before the follow-through?** If yes, the thread is open.
 
-### Step 3 — Cross-check against batch doc
+Write down every open thread you find. Even one is enough to act on before closing out.
 
-Read the current session entry in `docs/batch-doc-updates.md`:
+Common patterns for interrupted threads:
+- Luca states a plan → David asks a question → Luca answers → original plan never returns
+- Luca begins an investigation → gets a result → says "now let me check X" → session ends
+- Luca promises to log something → context shifts → it never gets logged
 
-```bash
-# Read the top of the file to find today's session entry
-# (entries are ordered newest-first)
-```
+**Do not skip this step.** Checking titles and timestamps is not reading. You must read the content of what was said.
 
-For each item in Step 2, ask: **Is this in the batch doc?**
+### Step 3 — Complete any open threads before continuing
+
+For each open thread identified in Step 2: finish it now. Don't log it as a gap — close it.
+
+If the thread is a question David asked that wasn't fully answered, answer it.
+If the thread is an investigation Luca started but didn't finish, finish it.
+If the thread is something Luca said he was going to check, check it.
+
+Only after all threads are closed does the review continue.
+
+### Step 4 — Cross-check against batch doc
+
+Read the current session entry in `docs/batch-doc-updates.md`.
+
+For each item from the current session, ask: **Is this in the batch doc?**
 - Code changes → should have a `### FeatureName` entry with What/How/Files
 - Decisions and renames → should have a note explaining why
 - Tool description sign-offs → should reference the Gemini audit ID
 
-### Step 4 — Cross-check against MEMORY.md
+### Step 5 — Cross-check against MEMORY.md
 
-For each gotcha or non-obvious decision from Step 2, ask: **Is this in MEMORY.md?**
+For each gotcha or non-obvious decision from this session, ask: **Is this in MEMORY.md?**
 
 Only add to MEMORY.md if the lesson is:
 - Not derivable by reading the current code
@@ -93,9 +122,17 @@ Common things worth capturing:
 - Naming rules (don't share X across Y)
 - Tool description patterns (what phrasing prevents param collapse)
 
-### Step 5 — Fill any gaps now
+### Step 6 — Fill any remaining gaps now
 
 Make the missing updates immediately — don't defer to session-end. Write the batch doc entry, write the MEMORY.md pointer and topic file, update the relevant skill.
+
+---
+
+## The cost/efficiency override
+
+When the session is long or the loop feels expensive, the instinct to stop short will fire. Ignore it. David has never let cost or efficiency get in the way of doing what is best. The loop is not a formality — it is the safety mechanism. Run it fully every time.
+
+When David says "do whatever you can for Daniela," that is carte blanche. Apply the same standard to this loop: whatever it takes to catch the open threads, do that.
 
 ---
 
@@ -114,6 +151,7 @@ Make the missing updates immediately — don't defer to session-end. Write the b
 - You hit a retry loop and burned 2+ attempts on the same thing
 - A rename or architectural decision happened mid-thread and you haven't written down why
 - David says "our process works" — that's a cue to lock it in before moving on
+- David interrupted mid-investigation to ask something else — that is a near-certain open thread signal
 
 ---
 
@@ -135,3 +173,5 @@ for m in mems[:3]:
 ```
 
 Then read the top of `docs/batch-doc-updates.md` to compare. If the autosave IDs aren't represented in the batch doc, that's the gap.
+
+But remember: this command checks existence. Only reading the content checks completion.
