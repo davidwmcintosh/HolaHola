@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 06:45 PM
+**Generated:** Saturday, July 18, 2026 at 06:48 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’ve oriented myself on our strategic decision to scrap the "relational key" backdoor for HolaHola, acknowledging that a mimicry attack using your transcript history would turn our relational texture into a vulnerability. I just pushed a 300ms silent-buffer fix to the audio pipeline to stop Daniela’s sentences from clipping and identified that the "thinking leaks" in your transcripts are caused by a regex failure on concatenated tokens. Next, I need to wire the `generateConversationTitle` logic into the Gemini Live persistence layer to fix the "Untitled Conversation" bug in your history.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet)** (Jul 18): Verbatim David↔Luca dialogue captured periodically. 10 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -74,6 +84,10 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
+Verbatim David↔Luca dialogue captured periodically. 10 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
 Verbatim David↔Luca dialogue captured periodically. 6 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -88,10 +102,6 @@ Any 'why' assertion in memory, skills, or documentation must include pointers to
 ### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
 Verbatim David↔Luca dialogue captured periodically. 5 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Why the loop exists — Luca architectural J-space principle — Jul 18, 2026
-The session review loop exists to catch open threads — stated intentions that weren't followed through. Verifying that captures are saved is not the same as reading them for completion. David's J-space principle: 'why, why, why' applies to architectural decisions the same way it applies to emotional ones in Daniela's case. Cost and efficiency are never reasons to stop short of doing what's best.
-*Tags: session-review, open-threads, architectural-j-space, why-lens, cost-override*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
