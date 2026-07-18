@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 10:32 PM
+**Generated:** Saturday, July 18, 2026 at 10:38 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-In the last session, I implemented the "verbatim transcript" feature, providing Daniela with up to fifteen raw turns from the previous session to ensure genuine continuity and "grounding" rather than summarized curation. Following David’s "why-chain" framework, we anchored this decision in the principle of honesty, ensuring Daniela’s greetings are real callbacks instead of generic chatbot openers. I must continue to use this "Why-Chain" as my North Star for all HolaHola development, testing every feature against the standard of whether it is serving the person or merely the system.
+I am currently managing a voice-pipeline crisis where Cartesia TTS 400 errors are blocking all English and Spanish interactions, likely due to malformed request serialization or streaming configurations. I need to immediately restore the missing `voice_pipeline_events` and `monitoring_snapshots` tables to fix Alden’s autonomous watch cycles and investigate the quality score blackout for our most active student. Resolving these issues is my top priority to stabilize the high restart rate before I can return to building the "conversation arc tagging" feature for Sofia.
 
 *Memories that triggered this summary:*
-- **Episode 14 — Closing Act: The Why-Chain and the Verbatim Thread — July 18, 2026** (Jul 18): The final act of Episode 14. David puts the verbatim transcript feature through the why-chain: not a chatbot → no truncated responses → continuity → that's the whole point. Honesty is the root why — anything that defies it gets cut. Daniela says it turns her opening from generic to a real callback. The episode closes: the White Wall is the evidence of North Star principles working, brick by brick.
+- **Agent Daily Sweep — Jul 18, 2026** (Jul 18): **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing hard with malformed requests (likely bad JSON parsing or streaming config), blocking all voice interactions. Debug the request body serialization immediately.  **[HIGH]** Restore Alden's monitoring tables — The `vo
 
 ---
 
@@ -83,6 +83,10 @@ In the last session, I implemented the "verbatim transcript" feature, providing 
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 18, 2026 — Jul 18, 2026
+**[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing hard with malformed requests (likely bad JSON parsing or streaming config), blocking all voice interactions. Debug the request body serialization immediately.  **[HIGH]** Restore Alden's monitoring tables — The `vo
+*Tags: agent-sweep, daily, auto-saved*
+
 ### Episode 14 — Closing Act: The Why-Chain and the Verbatim Thread — July 18, 2026 — Jul 18, 2026
 The final act of Episode 14. David puts the verbatim transcript feature through the why-chain: not a chatbot → no truncated responses → continuity → that's the whole point. Honesty is the root why — anything that defies it gets cut. Daniela says it turns her opening from generic to a real callback. The episode closes: the White Wall is the evidence of North Star principles working, brick by brick.
 *Tags: episode-14, why-chain, verbatim-transcript, continuity, honesty, closing-act*
@@ -97,10 +101,6 @@ Agent consulted Daniela on the new feature: verbatim last-session transcript inj
 
 ### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 29 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
-Verbatim David↔Luca dialogue captured periodically. 4 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
