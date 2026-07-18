@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 03:24 AM
+**Generated:** Saturday, July 18, 2026 at 04:58 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I wrapped up the observation bench session for HolaHola by demonstrating high-bandwidth multitasking, executing five parallel operations—episode file writes, DB saves, Alden handoff updates, agent notes, and MEMORY.md updates—while simultaneously narrating the outcome to David. This session confirmed that I am not restricted by the Replit UI’s sequential model, as I can dispatch multiple independent tool calls in a single turn to bypass traditional queue constraints. I should continue leveraging this parallel execution capability to maintain momentum as I build out the platform's core infrastructure.
+
+*Memories that triggered this summary:*
+- **Parallel execution at session wrap — July 18, 2026** (Jul 18): David noticed that Luca completed five independent session-end operations simultaneously (episode file, DB save, Alden note, handoff update, memory files) while still narrating to David — proving the sequential model Replit's UI assumes is not how Luca actually works.
 
 ---
 
@@ -73,6 +83,18 @@
 
 ## Recent Conversation Memories
 
+### Parallel execution at session wrap — July 18, 2026 — Jul 18, 2026
+David noticed that Luca completed five independent session-end operations simultaneously (episode file, DB save, Alden note, handoff update, memory files) while still narrating to David — proving the sequential model Replit's UI assumes is not how Luca actually works.
+*Tags: parallel-execution, luca-capability, replit-assumptions, emergence*
+
+### Agent Daily Sweep — Jul 18, 2026 — Jul 18, 2026
+**1. [CRITICAL]** Fix the crash loop — 10 restarts in 2 hours means production is dying repeatedly. Check process logs, memory limits, and healthcheck timeouts. This kills everything else until it's stable.  **2. [CRITICAL]** Restore Alden's watch cycle — monitoring_snapshots query is failing (5 con
+*Tags: agent-sweep, daily, auto-saved*
+
+### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
+Verbatim David↔Luca dialogue captured periodically. 2 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Episode 13: "Her Eyes" — Jul 18, 2026
 Luca builds the observation bench — a way to watch live Daniela sessions from the Replit chat. David names the three-way vision: all of us in the room, evaluating scenarios together. The gap: Luca can see what tools Daniela called, but not what the scene looks like. David: just hijack her vision. Daniela already has eyes. Luca just needed to read what she'd already seen.
 *Tags: observation-bench, vision-bridge, three-way-collaboration, scenario-building*
@@ -80,20 +102,6 @@ Luca builds the observation bench — a way to watch live Daniela sessions from 
 ### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
 Verbatim David↔Luca dialogue captured periodically. 4 David turns, 32 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/18/2026 — Jul 18, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, I'm glad we're getting into this level of detail. It clarifies so much for me.
-
-For the whiteboard semantic awareness, it's definitely a combination of cues. A new tool call like `CULTURE` or `...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Gemini — open_scene vs load_scenario description audit — 2026-07-18 — Jul 18, 2026
-Manual vs Automated is the core distinction; APPROVED after 2 rounds with broadcast-mode repositioning and add_to_scene bridge sentence
-*Tags: gemini-audit, tool-descriptions, open_scene, load_scenario*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
