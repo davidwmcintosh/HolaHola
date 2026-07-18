@@ -940,7 +940,7 @@ export class StreamingVoiceOrchestrator {
     additionalContext?: {
       conversationTopic?: string;
       conversationTitle?: string;
-      lastSessionSummary?: string;
+      lastSessionTranscript?: string;
       studentGoals?: string;
       isReadingRoom?: boolean;
     },
@@ -987,7 +987,7 @@ export class StreamingVoiceOrchestrator {
       // Additional context for personalized greetings
       conversationTopic: additionalContext?.conversationTopic,
       conversationTitle: additionalContext?.conversationTitle,
-      lastSessionSummary: additionalContext?.lastSessionSummary,
+      lastSessionTranscript: additionalContext?.lastSessionTranscript,
       studentGoals: additionalContext?.studentGoals,
       dbSessionId,  // Database voice_sessions.id for pedagogical tracking
       toolsUsedSession: [],  // Track tools for ACTFL analytics
@@ -9170,13 +9170,40 @@ Remember: David may reference things discussed in these recent text chats.
           console.log(`[Streaming Greeting] Raw Honesty Mode - skipping class enrollment context`);
         }
         
-        // Process recent conversations for topic continuity
+        // Process recent conversations for topic continuity + fetch verbatim transcript
         if (recentConversations.length > 1) {
           const prevConversation = recentConversations[1]; // [0] is current, [1] is previous
           if (prevConversation.title) {
             recentTopics.push(prevConversation.title);
           } else if (prevConversation.topic) {
             recentTopics.push(prevConversation.topic);
+          }
+
+          // Fetch the verbatim transcript from the previous session (up to 15 turns = 30 messages).
+          // David's rule: give Daniela the full turns, no summarization — 15 turns is small.
+          // She reads this the way she'd read her own notes: already knowing, not being informed.
+          if (prevConversation.id && !session.lastSessionTranscript) {
+            try {
+              const { sql: rawSql } = await import('drizzle-orm');
+              const prevMsgResult = await getSharedDb().execute(rawSql`
+                SELECT role, content FROM messages
+                WHERE conversation_id = ${prevConversation.id}
+                ORDER BY created_at ASC
+                LIMIT 30
+              `);
+              const prevMsgs = prevMsgResult.rows as Array<{ role: string; content: string }>;
+              if (prevMsgs.length > 0) {
+                const prevTitle = prevConversation.title || prevConversation.topic || 'your last session';
+                const studentLabel = userName || 'Student';
+                const transcriptLines = prevMsgs
+                  .map(row => `${row.role === 'user' ? studentLabel : 'Daniela'}: ${row.content}`)
+                  .join('\n');
+                session.lastSessionTranscript = `What you talked about last time — "${prevTitle}":\n\n${transcriptLines}\n\n— end of previous session —`;
+                console.log(`[Streaming Greeting] Last session transcript loaded: ${prevMsgs.length} messages from conversation ${prevConversation.id}`);
+              }
+            } catch (transcriptErr: any) {
+              console.warn('[Streaming Greeting] Could not fetch last session transcript (non-fatal):', transcriptErr?.message);
+            }
           }
         }
       } catch (error: any) {
@@ -9319,7 +9346,7 @@ Remember: David may reference things discussed in these recent text chats.
           profileParts.push(`Class: ${classInfo}`);
         }
         if (recentTopics.length > 0) profileParts.push(`Last session topic: ${recentTopics[0]}`);
-        if (session.lastSessionSummary) profileParts.push(`Last session summary: ${session.lastSessionSummary.substring(0, 200)}`);
+        if (session.lastSessionTranscript) profileParts.push(session.lastSessionTranscript);
         // EMOTIONAL PRIMACY: Flashback BEFORE grammar signals.
         // Priming with memories first makes Daniela a "Person who teaches" not a "Grammar Engine that recalls."
         // (Gemini consult #4: "If you provide ACTFL level first, you prime the model to be a Grammar Engine.
@@ -9378,7 +9405,7 @@ Remember: David may reference things discussed in these recent text chats.
         className: classEnrollment?.className,
         conversationTopic: session.conversationTopic || '(none)',
         conversationTitle: session.conversationTitle || '(none)',
-        lastSessionSummary: session.lastSessionSummary ? session.lastSessionSummary.substring(0, 100) + '...' : '(none)',
+        lastSessionTranscript: session.lastSessionTranscript ? session.lastSessionTranscript.substring(0, 100) + '...' : '(none)',
         studentGoals: session.studentGoals || '(none)',
         isResumed,
         connectionsCount: connectionsAboutStudent.length,
@@ -10039,9 +10066,8 @@ CRITICAL: Open with one clear, warm thought — then invite. Your voice has a na
     
     // LAST SESSION SUMMARY - What you did together last time
     // This enables continuity: "Last time we worked on ordering food..."
-    if (session.lastSessionSummary) {
-      contextParts.push(`\n*** LAST SESSION MEMORY ***`);
-      contextParts.push(`${session.lastSessionSummary}`);
+    if (session.lastSessionTranscript) {
+      contextParts.push(`\n${session.lastSessionTranscript}`);
     }
 
     // DRILL STATUS — Daniela never asks "did you do the drill?" — she already knows.
@@ -10160,7 +10186,7 @@ CRITICAL: Open with one clear, warm thought — then invite. Your voice has a na
     
     // Simple, non-prescriptive prompt with clear directive
     // BUT with strong guidance to use memory and avoid defaulting to basics
-    const hasMemory = !!(session.lastSessionSummary || recentTopics.length > 0 || session.conversationTopic);
+    const hasMemory = !!(session.lastSessionTranscript || recentTopics.length > 0 || session.conversationTopic);
     const isExperienced = wordsLearned > 50; // Student has meaningful vocabulary
     
     let continuityGuidance = '';

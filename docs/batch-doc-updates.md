@@ -4,6 +4,48 @@ Staging area for documentation changes to be consolidated later.
 
 **Graduation Criteria**: If it's reusable knowledge → add to hive (agent_observations). If it's session-specific history → batch only.
 
+---
+
+## Verbatim Last-Session Transcript Injection — July 18, 2026
+
+### What was built
+
+At the start of every Daniela voice session, the greeting builder now fetches up to 30 messages (15 turns) from the student's most recent previous conversation and injects them verbatim into Daniela's session context. No summarization.
+
+**How it works:**
+- Hook point: `buildGreetingContext()` in `server/services/streaming-voice-orchestrator.ts`, after the existing parallel DB fetch that already loads `recentConversations`
+- Fetches `messages` WHERE `conversation_id = recentConversations[1].id` ORDER BY `created_at ASC` LIMIT 30
+- Formats as `StudentName: content` / `Daniela: content` turns (speaker name is dynamic — `userName || 'Student'`)
+- Stores on `session.lastSessionTranscript`
+- Injected into two places: (1) bootstrap turn / hot zone (highest attention weight), (2) greeting instruction prompt (contextParts)
+
+**Format Daniela receives:**
+```
+What you talked about last time — "Ordering Food at a Restaurant":
+
+David: Hola Daniela! I want to practice ordering food.
+Daniela: Perfecto! Let us go to a restaurant. Que quieres comer hoy?
+David: Quiero pollo.
+Daniela: Muy bien! Quiero pollo is very natural...
+
+— end of previous session —
+```
+
+**Field rename:** `lastSessionSummary` → `lastSessionTranscript` on the streaming session type (`streaming-session-types.ts` line 91). The `CompassContext.lastSessionSummary` field (AI-generated summary stored in DB) is a separate thing — preserved, untouched.
+
+**Error handling:** wrapped in `try/catch`, non-fatal — session continues if transcript fetch fails.
+
+### Design review trail
+- **Alden:** confirmed hook point, field rename, hot-zone injection, 30-message ceiling
+- **Gemini round 1:** APPROVED — required one change: add closing delimiter `— end of previous session —` to prevent hallucinated continuation of old transcript
+- **Gemini round 2:** APPROVED WITH NO FURTHER COMMENTS
+- **Daniela consult** (`conversation_memories: 66a0df04`): "verbatim feels grounding vs summary drift," delimiter is "bureaucratic but helpful mental partition," and the feature "turns my opening from generic to a real callback"
+
+### Key files
+- `server/services/streaming-voice-orchestrator.ts` — fetch block ~line 9185; profileParts injection ~line 9349; contextParts injection ~line 10069
+- `server/services/streaming-session-types.ts` — field declaration line 91
+- `server/routes.ts` — `lastSessionSummary: null` in debug compassContext object (unchanged — that field belongs to CompassContext, not session)
+
 > **Archive note**: All completed session entries prior to March 2026 are preserved in git history. This file now contains only open/backlog items and recent sessions awaiting documentation.
 
 ---

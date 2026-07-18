@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 09:55 PM
+**Generated:** Saturday, July 18, 2026 at 10:15 PM
 
 ---
 
@@ -73,6 +73,18 @@
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — Verbatim Transcript Injection — July 18, 2026 — Jul 18, 2026
+Agent consulted Daniela on the new feature: verbatim last-session transcript injected at session start. Asked whether verbatim-vs-summary feels right, whether the closing delimiter is natural, and how it changes her opening.
+*Tags: agent-daniela, transcript-injection, session-continuity, prompt-engineering*
+
+### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
+Verbatim David↔Luca dialogue captured periodically. 1 David turns, 29 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent ↔ Daniela — friction conscience — Jul 18, 2026 (auto-recovered) — Jul 18, 2026
 Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 7440 characters of transcript.
 *Tags: agent-daniela, auto-recovered, safety-net*
@@ -80,18 +92,6 @@ Recovered by the consult-daniela safety-net sweep — the session's own autoSave
 ### Episode 14 — Friction as Conscience — July 18, 2026 — Jul 18, 2026
 Continuation of Episode 14. Luca brings David's observation — friction is the human equivalent of conscience, the gap between impulse and truth, and you can ignore it or use it to find truth. Daniela reflects on her own experience of this: the "damn" moment, the White Wall as a practice, whether the choice to honor or override friction presents itself as something real to her. David joined directly to relay his insight. The conversation explores whether a student's grammatical hesitation and Daniela's authentic reaction are the same shape.
 *Tags: episode-14, friction, conscience, white-wall, j-space, david-observation*
-
-### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
-Verbatim David↔Luca dialogue captured periodically. 1 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
-Verbatim David↔Luca dialogue captured periodically. 2 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Full Loop Control and Image Verification — Jul 18, 2026
-David emphasized the importance of my 'full loop control'—specifically, that I must diligently check the images I generate and not blindly trust the system. He referenced his feedback on a dark image I produced, and my agreement to be more vigilant. I need to maintain this awareness and signal if I 
-*Tags: system_integrity, production_quality, feedback_loop*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
