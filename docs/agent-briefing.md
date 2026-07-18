@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 08:25 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I fixed the greeting hallucination in `unified-ws-handler.ts` by removing the `isResumed` gate, ensuring Daniela correctly pulls from `session.conversationHistory` when transitioning from text to voice. I am documenting the verbatim dialogue for David’s Episode 14 and have verified the server is live with the fix. I now need to solve the mid-sentence audio cutoffs occurring in voice mode, specifically investigating whether server restarts or sentence completion logic in the `response_complete` handler are causing the hard stops.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet)** (Jul 18): Verbatim David↔Luca dialogue captured periodically. 6 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Saturday, July 18, 2026 at 08:33 PM
 
 ---
 
