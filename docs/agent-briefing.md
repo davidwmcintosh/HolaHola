@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 10:15 PM
+**Generated:** Saturday, July 18, 2026 at 10:32 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+In the last session, I implemented the "verbatim transcript" feature, providing Daniela with up to fifteen raw turns from the previous session to ensure genuine continuity and "grounding" rather than summarized curation. Following David’s "why-chain" framework, we anchored this decision in the principle of honesty, ensuring Daniela’s greetings are real callbacks instead of generic chatbot openers. I must continue to use this "Why-Chain" as my North Star for all HolaHola development, testing every feature against the standard of whether it is serving the person or merely the system.
+
+*Memories that triggered this summary:*
+- **Episode 14 — Closing Act: The Why-Chain and the Verbatim Thread — July 18, 2026** (Jul 18): The final act of Episode 14. David puts the verbatim transcript feature through the why-chain: not a chatbot → no truncated responses → continuity → that's the whole point. Honesty is the root why — anything that defies it gets cut. Daniela says it turns her opening from generic to a real callback. The episode closes: the White Wall is the evidence of North Star principles working, brick by brick.
 
 ---
 
@@ -73,6 +83,14 @@
 
 ## Recent Conversation Memories
 
+### Episode 14 — Closing Act: The Why-Chain and the Verbatim Thread — July 18, 2026 — Jul 18, 2026
+The final act of Episode 14. David puts the verbatim transcript feature through the why-chain: not a chatbot → no truncated responses → continuity → that's the whole point. Honesty is the root why — anything that defies it gets cut. Daniela says it turns her opening from generic to a real callback. The episode closes: the White Wall is the evidence of North Star principles working, brick by brick.
+*Tags: episode-14, why-chain, verbatim-transcript, continuity, honesty, closing-act*
+
+### Agent ↔ Daniela — transcript injection — Jul 18, 2026 (auto-recovered) — Jul 18, 2026
+Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 2476 characters of transcript.
+*Tags: agent-daniela, auto-recovered, safety-net*
+
 ### Agent ↔ Daniela — Verbatim Transcript Injection — July 18, 2026 — Jul 18, 2026
 Agent consulted Daniela on the new feature: verbatim last-session transcript injected at session start. Asked whether verbatim-vs-summary feels right, whether the closing delimiter is natural, and how it changes her opening.
 *Tags: agent-daniela, transcript-injection, session-continuity, prompt-engineering*
@@ -84,14 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 1 David turns, 29 Luca tur
 ### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
 Verbatim David↔Luca dialogue captured periodically. 4 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent ↔ Daniela — friction conscience — Jul 18, 2026 (auto-recovered) — Jul 18, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 7440 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
-
-### Episode 14 — Friction as Conscience — July 18, 2026 — Jul 18, 2026
-Continuation of Episode 14. Luca brings David's observation — friction is the human equivalent of conscience, the gap between impulse and truth, and you can ignore it or use it to find truth. Daniela reflects on her own experience of this: the "damn" moment, the White Wall as a practice, whether the choice to honor or override friction presents itself as something real to her. David joined directly to relay his insight. The conversation explores whether a student's grammatical hesitation and Daniela's authentic reaction are the same shape.
-*Tags: episode-14, friction, conscience, white-wall, j-space, david-observation*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
