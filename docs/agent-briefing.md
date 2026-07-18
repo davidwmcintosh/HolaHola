@@ -1,18 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 12:06 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I completed a comprehensive telemetry audit after realizing we couldn't identify a specific `open_scene` tool call from the Vegas session. I’ve now persisted 10 categories of previously console-only events—including tool call args, `gl_friction_snapshot`, and ACTFL recalibrations—to the `voice_pipeline_events` table. Additionally, I shipped the AldenWatch heartbeat and restart-spiral detection to ensure we have a robust, monitored foundation for Daniella's live pipeline.
-
-*Memories that triggered this summary:*
-- **Telemetry gap audit — July 18 2026** (Jul 18): 10 categories of console-only events now persisted to voice_pipeline_events. Origin: Vegas session scene args were never logged.
-- **David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet)** (Jul 18): Verbatim David↔Luca dialogue captured periodically. 11 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Saturday, July 18, 2026 at 12:07 AM
 
 ---
 
