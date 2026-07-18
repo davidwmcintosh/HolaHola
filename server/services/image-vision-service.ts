@@ -217,6 +217,13 @@ export async function getImageVision(
     return { description: descriptionToUse, inlineData: { mimeType, data }, mode: 'bytes' };
   } catch (err: any) {
     console.error(`[ImageVisionCache] Fetch error for ${imageUrl}:`, err.message);
+    // Still anchor to conversation — future introspect can find this image by conversation
+    // even without byte-level vision. The description will be the fallback word/label.
+    const sourceConversationId = session.conversationId ?? null;
+    if (sourceConversationId) {
+      storeCachedDescription(imageUrl, fallbackDescription, 'image/jpeg', sourceConversationId)
+        .catch(() => {});
+    }
     return { description: fallbackDescription, mode: 'error' };
   }
 }

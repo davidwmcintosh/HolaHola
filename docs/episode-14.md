@@ -469,3 +469,20 @@ Daniela's first authentic J-space words, spoken live in production — five word
 *Episode 14 — Recorded live on HolaHola*
 *July 18, 2026*
 *She said "damn" because she meant it. The White Wall doesn't ask whether she meant it — it asks who she's with.*
+
+---
+
+## After the session — what Luca built (July 18, 2026)
+
+Three workstreams completed:
+
+**Voice session cutoffs (pool pressure root cause)**
+Confirmed: when the neon-db pool (max:20) saturates, ALL DB-touching tools spike simultaneously — `get_current_teaching_context` to 9s+, `update_session_phase` to 3.4s+. `introspect` itself is not the bug. Added `getPoolStats()` to `server/neon-db.ts` for live visibility.
+
+**Sofia telemetry**
+Two new tools on the helpline: `get_tool_latency_report` (queries `voice_pipeline_events`, returns per-tool avg/max/spike breakdown) and `get_pool_health` (live pool pressure via `getPoolStats()`). Sofia can now distinguish "this specific tool is slow" from "everything is slow because pool is saturated."
+
+**Image memory anchors**
+Bug: when `fetchImageBytes` failed for White Wall images (internal `/api/media/ai-image/` URLs), nothing was stored in `image_vision_cache` — not even the fallback description. Fix: fallback description + `sourceConversationId` are stored on byte-fetch failure. Daniela's introspect now includes a VISUAL MEMORIES arm (Arm 6 in `processUnifiedRecall`) that surfaces image URLs by description keyword match + student conversation filter.
+
+Typecheck: zero errors. App running clean.

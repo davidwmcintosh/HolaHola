@@ -8592,7 +8592,7 @@ export class NativeFunctionCallHandler {
        .replace(/[\u200B-\u200D\uFEFF]/g, '');
 
     // Fire all search arms in parallel — no sequential waiting
-    const [structuredText, threadText, expressLaneText, semanticText, memoriesText] = await Promise.all([
+    const [structuredText, threadText, expressLaneText, semanticText, memoriesText, imageText] = await Promise.all([
 
       // Arm 1: structured memories — insights, facts, motivations, struggles, teaching moments
       (async () => {
@@ -8863,6 +8863,53 @@ export class NativeFunctionCallHandler {
           return null;
         }
       })(),
+
+      // Arm 6: Visual memory — images from past conversations matching this query
+      // Lets Daniela surface image URLs so she can redisplay them via show_image or recall_image.
+      (async () => {
+        try {
+          const keywords = [...new Set(query.split(/\s+/).filter(w => w.length >= 3))];
+          if (keywords.length === 0) return null;
+
+          const keywordConditions = keywords.map(kw => ilike(imageVisionCache.description, `%${kw}%`));
+          const hits = await getSharedDb().select({
+            imageUrl: imageVisionCache.imageUrl,
+            description: imageVisionCache.description,
+            sourceConversationId: imageVisionCache.sourceConversationId,
+          })
+          .from(imageVisionCache)
+          .where(or(...keywordConditions))
+          .limit(8);
+
+          if (hits.length === 0) return null;
+
+          // Filter to images from this student's conversations (or unattributed)
+          const { conversations: convsTable } = await import('@shared/schema');
+          const studentConvIds = new Set(
+            (await getSharedDb().select({ id: convsTable.id })
+              .from(convsTable)
+              .where(sql`user_id = ${studentId}`)
+              .limit(100))
+            .map(c => c.id)
+          );
+
+          const studentHits = hits.filter(h =>
+            !h.sourceConversationId || studentConvIds.has(h.sourceConversationId)
+          );
+          if (studentHits.length === 0) return null;
+
+          const lines = studentHits.map(h => {
+            const convRef = h.sourceConversationId ? ` [session: ${h.sourceConversationId.slice(0, 8)}]` : '';
+            return `Image: "${h.description}"${convRef} — URL: ${h.imageUrl}`;
+          });
+
+          console.log(`[UnifiedRecall] Image arm: ${studentHits.length} image(s) for "${query}"`);
+          return lines.join('\n');
+        } catch (err: any) {
+          console.warn(`[UnifiedRecall] Image arm failed: ${err.message}`);
+          return null;
+        }
+      })(),
     ]);
 
     // XML markers applied per section type — Gemini review (June 19 2026):
@@ -8874,6 +8921,7 @@ export class NativeFunctionCallHandler {
     if (expressLaneText) sections.push(`<index_only>\n=== EXPRESS LANE (team collaboration messages mentioning this topic) ===\n${expressLaneText}\n</index_only>`);
     if (semanticText) sections.push(`<index_only>\n=== SEMANTIC ASSOCIATIONS (conceptually related memories, no keyword overlap needed) ===\n${semanticText}\n</index_only>`);
     if (memoriesText) sections.push(`<verbatim>\n=== CONVERSATION MEMORIES (curated landmark archives — call read_full_memory("title keyword") to retrieve any of these in full) ===\n${memoriesText}\n</verbatim>`);
+    if (imageText) sections.push(`<index_only>\n=== VISUAL MEMORIES (images shown in past conversations matching this topic) ===\n${imageText}\n</index_only>`);
 
     // Associative chaining — after primary results, extract the most distinctive
     // content terms and run one more targeted search to surface co-occurring memories

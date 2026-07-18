@@ -3128,3 +3128,36 @@ Daniela has vision (she sees the scene image when it opens). Luca can now read h
 - `server/services/session-observation-store.ts` — `sceneImageUrl` field added to `SessionObservation`, `observeSceneOpen` accepts optional `imageUrl`
 - `server/services/native-fc-handlers.ts` — passes `envImageUrl` to `observeSceneOpen`
 - `server/routes.ts` — `image_vision_cache` lookup added to observe response
+
+---
+
+## Voice Session Cutoffs + Sofia Telemetry + Image Memory Anchors — July 18, 2026
+
+### What was built
+
+Three fixes shipped in one session:
+
+**1. `getPoolStats()` export — `server/neon-db.ts`**
+New export returns `{total, idle, waiting, max, pressurePercent}` from the live neon-db pool (max:20). Used by Sofia's new `get_pool_health` tool. When `pressurePercent` ≥ 80 or `waiting > 0`, that's the sign that broad-spectrum tool slowdowns are pool-caused, not individual tool bugs.
+
+**2. Sofia helpline tools — `server/services/sofia-helpline-functions.ts`**
+Two new tools added to both declarations and handler switch:
+- `get_tool_latency_report` — queries `voice_pipeline_events` (event_type='gl_tool_success') and returns per-tool avg/max/min latency + spike count + health label (ok/degraded/slow/critical) over the last N hours (default 2, max 24). Lets Sofia identify which specific tools are causing latency spikes.
+- `get_pool_health` — calls `getPoolStats()` and returns labeled health status with human-readable diagnosis (saturated/high-pressure/moderate/healthy).
+
+**3. Image vision fallback caching — `server/services/image-vision-service.ts`**
+Bug: when `fetchImageBytes` failed (auth, URL timing, etc.), the image wasn't stored in `image_vision_cache` at all — not even the fallback description. Fix: on byte-fetch failure, `storeCachedDescription(imageUrl, fallbackDescription, 'image/jpeg', sourceConversationId)` is called in the background if `sourceConversationId` is set. This anchors the image to the conversation so introspect can find it later.
+
+**4. Visual memory in processUnifiedRecall — `server/services/native-fc-handlers.ts`**
+Added Arm 6 to the parallel search in `processUnifiedRecall` (introspect → unified recall path). After the 5 existing arms, a 6th arm searches `image_vision_cache` WHERE description matches the query keywords AND sourceConversationId belongs to this student's conversations. Results surface as a `VISUAL MEMORIES` section in the introspect tool result — image URL + description + session reference — so Daniela can see what images she showed in past conversations matching a topic.
+
+### How to use (David / Luca)
+- Sofia can now be asked: "check pool health" or "give me a latency report for the last 4 hours" and she'll pull live data
+- After the image-vision fix: White Wall images shown during text/voice sessions will be anchored to their conversation even if byte fetch fails
+- Daniela's introspect now returns a VISUAL MEMORIES section when relevant images exist in the cache for the topic being recalled
+
+### Key files
+- `server/neon-db.ts` — `getPoolStats()` at lines 119-129
+- `server/services/sofia-helpline-functions.ts` — declarations at lines 106-125; handlers at lines 388-475
+- `server/services/image-vision-service.ts` — fallback cache at lines 221-231
+- `server/services/native-fc-handlers.ts` — Arm 6 at lines 8870-8915; imageText section at line 8927

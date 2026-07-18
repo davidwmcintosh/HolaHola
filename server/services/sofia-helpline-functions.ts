@@ -100,6 +100,26 @@ export const SOFIA_HELPLINE_FUNCTION_DECLARATIONS: FunctionDeclaration[] = [
       required: ["reason"],
     },
   },
+  {
+    name: "get_tool_latency_report",
+    description: "Get a breakdown of tool call latency from the pipeline event log. Shows average, max, and spike counts per tool over the last N hours. Use this to identify which specific tools are slow and contributing to session cutoffs.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {
+        hours_back: { type: "number", description: "How many hours back to analyze (default 2, max 24)" },
+        tool_name: { type: "string", description: "Optional: filter to a specific tool name (e.g. 'introspect')" },
+        spike_threshold_ms: { type: "number", description: "Milliseconds above which a call counts as a spike (default 5000)" },
+      },
+    },
+  },
+  {
+    name: "get_pool_health",
+    description: "Check the current database connection pool status. Use when tools are suddenly slow across the board — that pattern usually means pool saturation, not individual tool bugs.",
+    parametersJsonSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
 ];
 
 export type HelplineToolContext = {
@@ -360,6 +380,91 @@ export async function executeSofiaHelplineTool(
         data: { handoff: true, reason: args.reason },
         sideEffects: { shouldReturnToDaniela: true },
       };
+    }
+
+    case "get_tool_latency_report": {
+      const hoursBack = Math.min(args.hours_back || 2, 24);
+      const spikeThresholdMs = args.spike_threshold_ms || 5000;
+      const since = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
+      const toolFilter = args.tool_name ? String(args.tool_name) : null;
+
+      try {
+        const { sql: rawSql } = await import('drizzle-orm');
+        const db = getSharedDb();
+        const rows = await db.execute(rawSql`
+          SELECT
+            event_data->>'toolName' AS tool,
+            COUNT(*)::int AS calls,
+            ROUND(AVG((event_data->>'durationMs')::float))::int AS avg_ms,
+            MAX((event_data->>'durationMs')::int) AS max_ms,
+            MIN((event_data->>'durationMs')::int) AS min_ms,
+            SUM(CASE WHEN (event_data->>'durationMs')::int >= ${spikeThresholdMs} THEN 1 ELSE 0 END)::int AS spikes
+          FROM voice_pipeline_events
+          WHERE event_type = 'gl_tool_success'
+            AND created_at >= ${since}
+            AND event_data->>'durationMs' IS NOT NULL
+            ${toolFilter ? rawSql`AND event_data->>'toolName' = ${toolFilter}` : rawSql``}
+          GROUP BY event_data->>'toolName'
+          ORDER BY avg_ms DESC
+          LIMIT 20
+        `);
+
+        const tools = (rows.rows as any[]).map(r => ({
+          tool: r.tool,
+          calls: r.calls,
+          avg_ms: r.avg_ms,
+          max_ms: r.max_ms,
+          min_ms: r.min_ms,
+          spikes: r.spikes,
+          spike_rate: r.calls > 0 ? `${Math.round((r.spikes / r.calls) * 100)}%` : '0%',
+          health: r.avg_ms > 10000 ? 'critical' : r.avg_ms > 3000 ? 'slow' : r.avg_ms > 1000 ? 'degraded' : 'ok',
+        }));
+
+        const slowTools = tools.filter(t => t.health !== 'ok');
+        const summary = slowTools.length > 0
+          ? `${slowTools.length} slow tool(s): ${slowTools.map(t => `${t.tool} (avg ${t.avg_ms}ms, ${t.spikes} spike(s))`).join(', ')}`
+          : `All tools within normal latency over last ${hoursBack}h`;
+
+        return {
+          success: true,
+          data: {
+            hoursBack,
+            spikeThresholdMs,
+            summary,
+            tools,
+            note: 'Spikes are calls exceeding spike_threshold_ms. "critical" = avg >10s, "slow" = avg >3s, "degraded" = avg >1s.',
+          },
+        };
+      } catch (err: any) {
+        return { success: false, data: { error: `Latency query failed: ${err.message}` } };
+      }
+    }
+
+    case "get_pool_health": {
+      try {
+        const { getPoolStats } = await import('../neon-db');
+        const stats = getPoolStats();
+
+        const healthLabel =
+          stats.waiting > 0 ? 'saturated' :
+          stats.pressurePercent >= 80 ? 'high-pressure' :
+          stats.pressurePercent >= 50 ? 'moderate' : 'healthy';
+
+        return {
+          success: true,
+          data: {
+            ...stats,
+            healthLabel,
+            note: healthLabel === 'saturated'
+              ? `${stats.waiting} queries waiting for a connection — this is the root cause of across-the-board tool slowdowns.`
+              : healthLabel === 'high-pressure'
+              ? `Pool is ${stats.pressurePercent}% utilized (${stats.total - stats.idle}/${stats.max} active). Burst traffic could cause queuing.`
+              : `Pool is healthy. ${stats.idle} idle connections available.`,
+          },
+        };
+      } catch (err: any) {
+        return { success: false, data: { error: `Pool stats unavailable: ${err.message}` } };
+      }
     }
 
     default:
