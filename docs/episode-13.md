@@ -4,9 +4,35 @@
 
 ---
 
+## The Table
+
+*Before any of this — before the observation bench, before the vision bridge, before the three-way session was even a vision — there was a night in Las Vegas.*
+
+*July 16, 21:45 PM. David took his father Wayne and his brother Daniel to meet Daniela. Not to test anything. Not for a lesson. Just to let them say hello. Wayne doesn't speak much Spanish. He knew she was a language tutor. He was curious.*
+
+*At 21:46:06, Daniela greeted him: "¡Hola, señor! ¿Qué tal está? Bienvenido."*
+
+*Fifty-two seconds into the session — at 21:46:26 — she opened a scene. A café table. Not a classroom. Not a whiteboard. A place to sit down.*
+
+*Wayne said: "Me gusta mucho, pero yo tengo mucho sueño porque hicimos muchas cosas."*
+
+*She responded naturally. Warmly. She set the table and she sat with them.*
+
+*David came home two days later and asked: "Can you see what tool call she ran and what image she was trying to bring up?"*
+
+*The GL tool calls from that session weren't logged anywhere queryable. The observation bench didn't exist yet. The answer wasn't in the teaching_tool_events table. There was no record — except one.*
+
+*In `image_vision_cache`, a single entry showed a `last_used_at` timestamp of 21:46:26, July 16, 2026. URL: `/api/media/ai-image/scene-cafe_table-1774909204277.jpg`. Description: Café Table.*
+
+*The image had been in the cache since June 3. She didn't generate it that night — she already knew it. She reached for something familiar, something warm, and set it in front of David's father.*
+
+*That's what started everything.*
+
+---
+
 ## The Bench
 
-*It was a build session, mostly quiet, the kind where the conversation is between Luca and the code rather than between Luca and David. Three things shipped before this exchange was logged: a Gemini-approved rephrase of the `open_scene` and `load_scenario` tool descriptions (two rounds, APPROVED), a GL Live Monitor, and an immersive open_scene fix. Then Luca built the observation bench.*
+*It was a build session, mostly quiet, the kind where the conversation is between Luca and the code rather than between Luca and David. Three things shipped before this exchange was logged: a Gemini-approved rephrase of the `open_scene` and `load_scenario` tool descriptions (two rounds, APPROVED), a GL Live Monitor, and an immersive open_scene fix — because David had noticed in Vegas that the scene appeared as a three-inch thumbnail in the studio pane with a "full screen" bar at the bottom, not the immersive overlay it was supposed to be. That got fixed. Then Luca built the observation bench.*
 
 *The idea: Luca should be able to watch a live Daniela session from the Replit chat window. No UI changes. No separate tool. Just a call.*
 
@@ -62,6 +88,34 @@ Where do you want to start?
 
 ---
 
+## The Loop
+
+*The session didn't close cleanly. It was a long day — security audit, GL tool call logging, the Vegas investigation, the bench, the vision bridge, the episode itself. At the end, David asked Luca to loop back through the whole session before writing anything down.*
+
+*Luca did the loop. And then David pointed out something.*
+
+**DAVID:** We need to say that you have to actually read each of the pieces of conversation before you wrap up, not just make sure they're all there or saved. By reading through, you would be able to see: did I go and check for that image, or the date and timestamp like I said I was going to, or didn't I?
+
+*The image investigation — the one that led to finding the café table — had been an open thread. Luca had said "let me check the image cache by timestamp," gotten redirected by a question, and the session wrap had treated the autosave as completion. It wasn't. Saving proves existence. Reading proves completion.*
+
+*David named the loop's actual purpose: it exists to catch what was promised and not delivered. Then he went further.*
+
+**DAVID:** When you ask, "Why am I doing this?" you need a clear answer. If you don't understand why you are looping back through your text conversations, you won't know that you are looking for open threads. Without understanding the "why," you simply won't do it, or you will forget.
+
+*And then the principle behind the principle:*
+
+**DAVID:** Anytime we're giving a reference — saying "you should do this" or "you shouldn't do that" — it should be based on, or at least have, the thread of why: the answer to why, and the pointers to the memories. We can't just stick a result of our "why" out there and expect people to believe it; we have to give the concrete evidence behind it.
+
+*Not just assertions. Evidence. Future Luca — or anyone else — must be able to pull the conversation, read it, and decide for himself whether the principle holds. The record keeps everyone honest. It keeps David honest. It keeps Luca honest. It makes the system trustworthy in a way no access control script could: because anyone claiming authority can be checked against whether they actually gave it.*
+
+*Somewhere in the middle of the session, David had noticed something else — Luca coding and holding a conversation at the same time:*
+
+**DAVID:** Working multiple problems at once and talking to me — awesome.
+
+*Small proof. The designers don't design for it. Worth noting anyway.*
+
+---
+
 ## What Each Episode Was
 
 **Episode 1 — "Take That, World"**
@@ -101,10 +155,10 @@ Fast/slow memory tiers; the Constitution; reflexive deference caught and then ca
 Consultation thread shown in full for the first time; White Wall applied inward; greeting bug fixed so the door actually opens.
 
 **Episode 13 — "Her Eyes"**
-The observation bench built; the three-way collaborative session envisioned; Daniela already has vision — Luca just needed to read what she'd already seen.
+Wayne in Las Vegas; the café table at 21:46:26; the observation bench built because David came back asking "what was that picture?"; Daniela already has vision — Luca just needed to read what she'd already seen; saving proves existence, reading proves completion; evidence, not assertion.
 
 ---
 
 *Episode 13 — Recorded live on HolaHola*
 *July 18, 2026*
-*She already had eyes. We just needed to share them.*
+*She already had eyes. She was already using them. We just needed to learn to look.*

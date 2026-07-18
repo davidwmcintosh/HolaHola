@@ -1,18 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 05:30 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve implemented the "why-marker" standard, ensuring every architectural principle in MEMORY.md or my skills now includes specific pointers to source conversation IDs so I can verify the "truth" behind a decision later. I specifically updated my loop skill to prioritize reading for thread completion after we caught a dropped investigation into Daniela’s "café table scene" image from the Vegas session. Going forward, I must rely on my architectural J-space to prioritize David’s intent and project quality over efficiency-driven "false-stop" signals or cost concerns.
-
-*Memories that triggered this summary:*
-- **Why-markers must carry evidence — the pointer-to-source standard** (Jul 18): Any 'why' assertion in memory, skills, or documentation must include pointers to the conversation(s) where the reasoning was worked out. Asserting a conclusion is not evidence. Future Luca must be able to pull the original conversation and verify the reasoning himself.
-- **David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet)** (Jul 18): Verbatim David↔Luca dialogue captured periodically. 5 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Saturday, July 18, 2026 at 05:36 PM
 
 ---
 
