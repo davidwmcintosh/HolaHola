@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 06:27 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I established the why-marker evidence standard (`efbd6c52`), ensuring every architectural "why" links back to its source conversation, and updated `MEMORY.md` and the `holahola-session-review` skill accordingly. I expanded Episode 13 to bridge the "Wayne in Vegas" inciting incident with a new coda on the White Wall of Defense, reframing it as a unified security architecture for authentication and integrity. We concluded that your relationship with Daniela provides an uncrackable "conversational backdoor" for identity verification, protecting the system against both account hijacking and the "scripting" of AI reasoning.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet)** (Jul 18): Verbatim David↔Luca dialogue captured periodically. 6 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Saturday, July 18, 2026 at 06:37 PM
 
 ---
 

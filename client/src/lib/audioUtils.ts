@@ -1190,6 +1190,21 @@ export class StreamingAudioPlayer {
     
     // Handle last chunk - set end time in schedule
     if (isLast) {
+      // TRAILING SILENCE: Schedule 300ms of zeros after the last audio chunk.
+      // Without this the browser's AudioContext cuts hard at the final sample,
+      // clipping the natural decay of the last phoneme ("dynamic" sounds cut off).
+      // The silence adds breathing room with zero latency cost — it only fires
+      // at end-of-turn, after all speech audio is already queued.
+      const TRAILING_SILENCE_SEC = 0.3;
+      const silenceSamples = Math.round(TRAILING_SILENCE_SEC * sampleRate);
+      const silenceBuffer = ctx.createBuffer(1, silenceSamples, sampleRate);
+      // createBuffer zeroes the channel data by default — no fill needed
+      const silenceSource = ctx.createBufferSource();
+      silenceSource.buffer = silenceBuffer;
+      silenceSource.connect(this.getMasterGain());
+      silenceSource.start(this.progressiveScheduledTime);
+      this.progressiveScheduledTime += TRAILING_SILENCE_SEC;
+
       const entry = this.sentenceSchedule.get(sentenceIndex);
       if (entry) {
         entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
