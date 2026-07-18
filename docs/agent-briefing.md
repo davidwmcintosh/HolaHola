@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 02:19 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I finalized the tool description audit for `open_scene` and `load_scenario`, establishing a strict "Manual vs. Automated" distinction to prevent tool-drift and ensure a fullscreen immersive experience for HolaHola. I implemented negative constraints to avoid calling `advance_scene` during freeform manual stages and added a bridge sentence allowing the use of `add_to_scene` for custom props within structured ACTFL scenarios. Moving forward, I must adhere to these updated definitions to maintain narrative logic and avoid hallucinating old whiteboard-style behaviors.
-
-*Memories that triggered this summary:*
-- **Gemini — open_scene vs load_scenario description audit — 2026-07-18** (Jul 18): Manual vs Automated is the core distinction; APPROVED after 2 rounds with broadcast-mode repositioning and add_to_scene bridge sentence
+**Generated:** Saturday, July 18, 2026 at 02:22 AM
 
 ---
 
