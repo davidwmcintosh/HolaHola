@@ -25,6 +25,7 @@ export interface SessionObservation {
   exchangeCount: number;
   scenarioSlug: string | null;
   sceneEnvironment: string | null;
+  sceneImageUrl: string | null;
   sceneProps: string[];
   recentToolCalls: ToolCallRecord[];
   lastUpdatedMs: number;
@@ -56,6 +57,7 @@ export function observeSessionStart(opts: {
     exchangeCount: existing?.exchangeCount ?? 0,
     scenarioSlug: existing?.scenarioSlug ?? null,
     sceneEnvironment: existing?.sceneEnvironment ?? null,
+    sceneImageUrl: existing?.sceneImageUrl ?? null,
     sceneProps: existing?.sceneProps ?? [],
     recentToolCalls: existing?.recentToolCalls ?? [],
     lastUpdatedMs: now(),
@@ -87,10 +89,11 @@ export function observeToolCall(conversationId: string, toolName: string, note?:
   entry.lastUpdatedMs = now();
 }
 
-export function observeSceneOpen(conversationId: string, environment: string): void {
+export function observeSceneOpen(conversationId: string, environment: string, imageUrl?: string): void {
   const entry = touch(conversationId);
   if (!entry) return;
   entry.sceneEnvironment = environment;
+  entry.sceneImageUrl = imageUrl ?? null;
   entry.sceneProps = [];
   entry.scenarioSlug = null;
   entry.lastUpdatedMs = now();

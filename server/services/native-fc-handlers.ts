@@ -1628,7 +1628,7 @@ export class NativeFunctionCallHandler {
             clockTime: undefined,
           };
           const _sceneConvId = (session as any).conversationId as string | undefined;
-          if (_sceneConvId) observeSceneOpen(_sceneConvId, envLabel || sceneEnv);
+          if (_sceneConvId) observeSceneOpen(_sceneConvId, envLabel || sceneEnv, envImageUrl || undefined);
           const openSceneUpdate = {
             type: 'whiteboard_update' as const,
             timestamp: Date.now(),

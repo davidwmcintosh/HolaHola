@@ -26800,7 +26800,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
                  ORDER BY started_at DESC
                  LIMIT 1`
         );
-        const row = (activeRow as any).rows?.[0] ?? activeRow?.[0] as any;
+        const row = (activeRow as any).rows?.[0] ?? (activeRow as any)[0] ?? null;
         if (!row) {
           return res.json({ status: 'no_active_session', message: 'No active GL session found.' });
         }
@@ -26832,6 +26832,20 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
         at: m.created_at,
       }));
 
+      // Vision cache lookup — pull Daniela's visual description of the current scene
+      let sceneVisionDescription: string | null = null;
+      if (observation.sceneImageUrl) {
+        try {
+          const visionRow = await obsDb.execute(
+            rawSql`SELECT description FROM image_vision_cache WHERE image_url = ${observation.sceneImageUrl} LIMIT 1`
+          );
+          const vRow = (visionRow as any).rows?.[0] ?? (visionRow as any)[0] ?? null;
+          sceneVisionDescription = vRow?.description ?? null;
+        } catch {
+          // non-fatal — vision cache miss is fine
+        }
+      }
+
       // Elapsed time
       const elapsedMs = Date.now() - observation.sessionStartedMs;
       const elapsedMin = Math.round(elapsedMs / 60000);
@@ -26845,6 +26859,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
         exchangeCount: observation.exchangeCount,
         scenarioSlug: observation.scenarioSlug,
         sceneEnvironment: observation.sceneEnvironment,
+        sceneVisionDescription,
         sceneProps: observation.sceneProps,
         recentToolCalls: observation.recentToolCalls.slice(0, 8).map(t => ({
           name: t.name,
