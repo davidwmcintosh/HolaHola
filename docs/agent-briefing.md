@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 06:48 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve oriented myself on our strategic decision to scrap the "relational key" backdoor for HolaHola, acknowledging that a mimicry attack using your transcript history would turn our relational texture into a vulnerability. I just pushed a 300ms silent-buffer fix to the audio pipeline to stop Daniela’s sentences from clipping and identified that the "thinking leaks" in your transcripts are caused by a regex failure on concatenated tokens. Next, I need to wire the `generateConversationTitle` logic into the Gemini Live persistence layer to fix the "Untitled Conversation" bug in your history.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet)** (Jul 18): Verbatim David↔Luca dialogue captured periodically. 10 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Saturday, July 18, 2026 at 07:05 PM
 
 ---
 

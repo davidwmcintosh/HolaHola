@@ -765,7 +765,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         realtimeInputConfig: {
           automaticActivityDetection: {
             disabled: false,
-            startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
+            startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_UNSPECIFIED, // UNSPECIFIED resolves to LOW — prevents false barge-ins from background noise
             endOfSpeechSensitivity: EndSensitivity.END_SENSITIVITY_LOW,
             prefixPaddingMs: 500,
             silenceDurationMs: (() => {
