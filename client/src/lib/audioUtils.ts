@@ -945,7 +945,24 @@ export class StreamingAudioPlayer {
           entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
           endCtxTimeSet = true;
         }
-        
+
+        // TRAILING SILENCE: The server sends (audio='', isLast=true) as a marker AFTER
+        // all real PCM chunks. This is where the silence must be scheduled — the fix at
+        // line ~1192 is on the real-audio path and never fires for these marker chunks.
+        // Without this, the AudioContext cuts hard on the final sample, clipping the
+        // natural decay of the last phoneme.
+        const trailingCtx = this.getAudioContext();
+        if (trailingCtx.state === 'running' && this.progressiveScheduledTime > trailingCtx.currentTime) {
+          const TRAILING_SEC = 0.3;
+          const silenceSamples = Math.round(TRAILING_SEC * sampleRate);
+          const silenceBuffer = trailingCtx.createBuffer(1, silenceSamples, sampleRate);
+          const silenceSource = trailingCtx.createBufferSource();
+          silenceSource.buffer = silenceBuffer;
+          silenceSource.connect(this.getMasterGain());
+          silenceSource.start(this.progressiveScheduledTime);
+          this.progressiveScheduledTime += TRAILING_SEC;
+        }
+
         // Update debug panel with empty chunk info
         logEmptyChunkProcessed(sentenceIndex, endCtxTimeSet);
         
@@ -1063,6 +1080,17 @@ export class StreamingAudioPlayer {
         const entry = this.sentenceSchedule.get(sentenceIndex);
         if (entry) {
           entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
+        }
+        // TRAILING SILENCE: safety net for near-empty chunks (1-3 bytes, truncated to 0 samples)
+        if (ctx.state === 'running' && this.progressiveScheduledTime > ctx.currentTime) {
+          const TRAILING_SEC = 0.3;
+          const silenceSamples = Math.round(TRAILING_SEC * sampleRate);
+          const silenceBuffer = ctx.createBuffer(1, silenceSamples, sampleRate);
+          const silenceSource = ctx.createBufferSource();
+          silenceSource.buffer = silenceBuffer;
+          silenceSource.connect(this.getMasterGain());
+          silenceSource.start(this.progressiveScheduledTime);
+          this.progressiveScheduledTime += TRAILING_SEC;
         }
         this.scheduleProgressiveSentenceEnd(sentenceIndex, 0);
       }

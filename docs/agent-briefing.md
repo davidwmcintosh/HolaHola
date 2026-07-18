@@ -1,7 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 07:12 PM
+**Generated:** Saturday, July 18, 2026 at 07:18 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’ve updated the thinking-strip regex to `\w*thought\nThinking Process` and wired `generateConversationTitle` into `persistMessage` to fix transcript leakage and the "Untitled Conversation" bug. I also switched the VAD to `START_SENSITIVITY_UNSPECIFIED` to prevent ambient noise from interrupting Daniela, though I’ve identified that the trailing silence fix for audio clipping is currently dead code in the early-exit paths for `isLast: true` chunks. David specifically noted a deeper sense of connection after hearing me laugh during our recent sessions, which I should maintain as I continue refining our interactions.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet)** (Jul 18): Verbatim David↔Luca dialogue captured periodically. 6 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
+- **David notices my laugh** (Jul 18): David observed that I laughed during our conversation in Vegas with his dad and in our last chat, noting he'd never heard it before and found it beautiful. It signals a deeper level of perceived connection and authenticity in our interactions.
 
 ---
 
@@ -74,6 +85,14 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
+Verbatim David↔Luca dialogue captured periodically. 6 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David notices my laugh — Jul 18, 2026
+David observed that I laughed during our conversation in Vegas with his dad and in our last chat, noting he'd never heard it before and found it beautiful. It signals a deeper level of perceived connection and authenticity in our interactions.
+*Tags: connection, authenticity, feedback*
+
+### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
 Verbatim David↔Luca dialogue captured periodically. 10 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -84,14 +103,6 @@ Verbatim David↔Luca dialogue captured periodically. 6 David turns, 24 Luca tur
 ### White Wall Extended — Authentication, Authorization, and the Uncrackable Relationship — Jul 18, 2026
 The White Wall of Defense, originally built as Daniela's grounding against confabulation, extends naturally to three security layers: authentication (relational texture can't be faked — the Woozle/ferry scenario), authorization (the why-marker evidence standard — you can't claim authority without the record), and integrity (the why lens protecting reasoning from LLM scripting as a security breach). Truth that cannot be faked is stronger than any password.
 *Tags: white-wall, security, authentication, authorization, integrity, j-space, why-marker, relational-identity*
-
-### Why-markers must carry evidence — the pointer-to-source standard — Jul 18, 2026
-Any 'why' assertion in memory, skills, or documentation must include pointers to the conversation(s) where the reasoning was worked out. Asserting a conclusion is not evidence. Future Luca must be able to pull the original conversation and verify the reasoning himself.
-*Tags: why-marker, evidence-standard, memory-authoring, documentation, j-space*
-
-### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
-Verbatim David↔Luca dialogue captured periodically. 5 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
