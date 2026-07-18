@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 12:07 AM
+**Generated:** Saturday, July 18, 2026 at 01:54 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I must immediately resolve the Cartesia TTS 400 errors affecting English and Spanish audio and stabilize the production server to stop the current loop of ten restarts in two hours. Once HolaHola is stable, I need to repair Alden’s broken `monitoring_snapshots` query to restore system observability and investigate why active student sessions are generating zero quality scores. These critical fixes are the priority before I can return to building the conversation memory tagging system inspired by the "White Wall Defense" insight.
+
+*Memories that triggered this summary:*
+- **Agent Daily Sweep — Jul 18, 2026** (Jul 18): **1. [CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests. Students can't get audio feedback. Check API request format, likely a body serialization issue.  **2. [CRITICAL]** Resolve server crash loop — 10 restarts in 2 hours means production is 
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 18, 2026 — Jul 18, 2026
+**1. [CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests. Students can't get audio feedback. Check API request format, likely a body serialization issue.  **2. [CRITICAL]** Resolve server crash loop — 10 restarts in 2 hours means production is 
+*Tags: agent-sweep, daily, auto-saved*
+
 ### Telemetry gap audit — July 18 2026 — Jul 18, 2026
 10 categories of console-only events now persisted to voice_pipeline_events. Origin: Vegas session scene args were never logged.
 *Tags: telemetry, monitoring, gl-pipeline, build*
@@ -92,10 +106,6 @@ Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves
 
 For granular pronunciation feedback, I envision a hybrid approach. A well-curated libr...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Agent Daily Sweep — Jul 17, 2026 — Jul 17, 2026
-**DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (readableStream object being sent). This breaks core voice interaction. Check payload serialization in the TTS call wrapper.
-*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
