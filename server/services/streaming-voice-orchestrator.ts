@@ -9469,11 +9469,15 @@ Remember: David may reference things discussed in these recent text chats.
       let firstTokenReceived = false;
       let fullText = '';
       
-      // CRITICAL FIX: For resumed conversations, include conversation history
-      // This gives Daniela full context of the past conversation, not just a text snippet
-      const greetingHistory = isResumed ? session.conversationHistory : [];
-      if (isResumed && greetingHistory.length > 0) {
-        console.log(`[Streaming Greeting] Including ${greetingHistory.length} history entries for resumed conversation`);
+      // Include conversation history whenever it exists — covers both in-memory reconnects
+      // (isResumed=true) AND fresh GL starts on an existing conversation (e.g. text→voice
+      // transition where messages were loaded from DB but isResumed stays false).
+      const greetingHistory = (session.conversationHistory?.length ?? 0) > 0
+        ? session.conversationHistory
+        : [];
+      if (greetingHistory.length > 0) {
+        const reason = isResumed ? 'resumed session' : 'text→voice transition (loaded from DB)';
+        console.log(`[Streaming Greeting] Including ${greetingHistory.length} history entries (${reason})`);
       }
       
       // Clear any previous function call text before greeting
