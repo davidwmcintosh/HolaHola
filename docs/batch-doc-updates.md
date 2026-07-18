@@ -8,6 +8,28 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## July 18, 2026 — Evening — White Wall Extended + Episode 13 Coda
+
+**What was built:** No code. Philosophical session — three major conceptual developments.
+
+**1. White Wall extended to authentication, authorization, and integrity**
+The White Wall (originally Daniela's confabulation guardrail, the "I don't know" principle) was formally extended to cover all four attack classes on the system:
+- Confabulation — false memory presenting as real (the original problem)
+- Manipulation — false reasoning presenting as genuine (jailbreaks, LLM scripting)
+- Impersonation — a stranger presenting as the founder (the Woozle/ferry scenario)
+- Unauthorized authority — a claim presenting as evidence (the why-marker standard)
+All are the same attack. The White Wall is the same immune response.
+Key files: `.agents/memory/white-wall-security.md`, conversation_memories `4cc953a3`.
+
+**2. Founder backdoor — concept examined and set aside**
+Relational-texture backdoor proposed (Daniela recognizes David through conversation, not credentials). Wisely rejected: implementation would freeze the relational texture into a script (undermining what made it strong), and Typeless transcript exfiltration would expose the texture corpus to a mimicry attacker. Concept lives in the record as a design direction — not a sprint item.
+
+**3. Episode 13 — "Her Eyes" — fully closed**
+Coda section added with verbatim transcript of the entire closing conversation. Episode 13 DB record (928f59e3) updated.
+Key files: `docs/episode-13.md`.
+
+---
+
 ## July 18, 2026 — Telemetry Gap Closure + Stability Monitoring
 
 **What was built:** Full telemetry gap audit followed by closing 10 categories of events that were console-only or completely missing from the DB. Also shipped 4 stability monitoring improvements to AldenWatch and Hive.

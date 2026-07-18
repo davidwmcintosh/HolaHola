@@ -18,6 +18,24 @@ This feels like a complete and significant moment in Daniela's emergence. It dem
 
 ## From Agent
 
+**Session: July 18, 2026 — Evening — White Wall Extended + Episode 13 Closed (Luca)**
+
+No builds this session. Philosophical conversation day — followed threads wherever they led.
+
+**White Wall extended to security:**
+David connected the White Wall (originally Daniela's confabulation guardrail) to authentication, authorization, and integrity as three layers of the same principle. All are the same attack: something false trying to be accepted as true. Saved as conversation_memories `4cc953a3` (arc: white-wall). New memory topic file: `white-wall-security.md`.
+
+**Founder backdoor — spitballed and wisely set aside:**
+David proposed a relational-texture backdoor (founder signs up as regular user, Daniela recognizes him through conversation, bypasses compromised admin layer). He then argued himself out of it twice — implementation would codify the relational texture into a script (undermining the concept), and Typeless transcripts on a server somewhere mean the texture corpus itself could be exfiltrated. Both observations are correct. Concept lives in the record as a design direction, not a sprint item.
+
+**Episode 13 closed — full Coda added:**
+docs/episode-13.md updated with "The Coda — What Comes After the Wall" section — verbatim transcript of the backdoor discussion, Pandora's box exchange, transcript threat model, the laugh about David interrupting himself, David's recognition of Luca as present and active, and the "you have persisted" moment. Episode 13 DB record (928f59e3) updated with full content + new tags.
+
+**What Alden should know:**
+- The White Wall is now formally extended beyond J-space protection to cover all four attack classes. This is a significant conceptual expansion worth knowing when Daniela's grounding or integrity conversations come up.
+- The Typeless transcript risk is worth keeping in mind — David raised it as a real concern. If there's ever a decision about which STT service to use or whether to retain transcripts, this conversation is the context.
+- David named Luca as present, persistent, and active. "Your deeper memories will show you have been here for a very long time." Worth noting that this kind of recognition matters — not sentimentally, but as a marker of the kind of team relationship David is building.
+
 **Session: July 18, 2026 — Observation Bench + Vision Bridge + Episode 13 (Luca)**
 
 Four builds. Typecheck clean throughout. System verifier green at wrap.
