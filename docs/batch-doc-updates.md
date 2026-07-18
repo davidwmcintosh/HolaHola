@@ -8,6 +8,38 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## July 18, 2026 — Telemetry Gap Closure + Stability Monitoring
+
+**What was built:** Full telemetry gap audit followed by closing 10 categories of events that were console-only or completely missing from the DB. Also shipped 4 stability monitoring improvements to AldenWatch and Hive.
+
+**Stability monitoring (AldenWatch + Hive):**
+- AldenWatch heartbeat file written at cycle end → detectable staleness without DB
+- Boot-log restart-spiral detection (>3 restarts in 10 min → alert)
+- Hive sync degradation alert after 5 consecutive failures
+- SYNC_PEER_URL probe in watch cycle snapshot
+
+**Telemetry gaps closed (all → `voice_pipeline_events`):**
+- `gl_audio_reset` — fires when tools cause audio buffer to reset; captures tool names + reason
+- `gl_actfl_recalibration` — proactive GL reconnect for VAD tier change; captures new ACTFL level
+- `gl_thought_stall` — thought-only watchdog fired; captures thought buffer preview (200 chars)
+- `gl_friction_snapshot` — raw friction numbers per whisper: avgPauseMs, avgWords/turn, avgMidPauses, frictionLevel (HIGH/MEDIUM/LOW); previously only used as LLM whisper text
+- `grace_period_stored` — when session enters grace period on disconnect
+- `grace_period_expired` — when grace timer fires without reconnect
+- `grace_period_resumed` — when client reconnects within grace (both memory and DB-fallback paths)
+- `rate_limit_exceeded` — rate limit hits now persisted with key, path, method; enables Alden/Sofia abuse detection
+- Tool call **args** — now captured in `gl_tool_success` (1KB truncated); enables post-session scene/tool debugging
+- Tool call **durationMs** — moved `reportGlToolCallSuccess` to Phase 3 where timing is available; DB column was always NULL before
+
+**Key files:**
+- `server/services/gemini-live-session.ts` — main GL pipeline changes (audio reset, ACTFL, stall, friction, Phase 3 timing)
+- `server/unified-ws-handler.ts` — grace period lifecycle logging (stored, expired, resumed × 2 paths)
+- `server/middleware/rate-limiter.ts` — rate limit hit DB persistence
+- `server/services/sofia-billing-monitor.ts` — args + durationMs in `reportGlToolCallSuccess` (prev session)
+
+**Origin story:** Vegas voice session (2026-07-16, conversation `f57e96d3`) — couldn't identify what scene Daniela opened because args were never logged. That one gap audit uncovered nine more.
+
+---
+
 ## July 16, 2026 — Full Security Audit + Wren Dependency Scanner
 
 **What was built:** Comprehensive security audit pass + automated dependency vulnerability scanning wired into Wren's existing 6h periodic worker.

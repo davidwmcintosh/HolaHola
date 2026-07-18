@@ -276,6 +276,10 @@ function armReconnectTimer(
     pendingReconnectSessions.delete(conversationId);
     db.delete(voiceGracePeriods).where(eq(voiceGracePeriods.conversationId, conversationId)).catch(() => {});
     console.log(`[Reconnect Grace] Grace period expired for ${conversationId.substring(0, 8)} — ending session`);
+    voiceTelemetry.log(current.usageSessionId ?? conversationId, String(current.userId ?? ''), 'grace_period_expired', {
+      conversationId,
+      exchangeCount: current.exchangeCount,
+    });
     try {
       await usageService.updateSessionMetrics(current.usageSessionId, {
         exchangeCount: current.exchangeCount,
@@ -314,6 +318,10 @@ function storePendingReconnect(
   entry.timer = armReconnectTimer(conversationId, entry, RECONNECT_GRACE_PERIOD_MS);
   pendingReconnectSessions.set(conversationId, entry);
   console.log(`[Reconnect Grace] Stored pending session for ${conversationId.substring(0, 8)} (${RECONNECT_GRACE_PERIOD_MS / 1000}s grace)`);
+  voiceTelemetry.log(entry.usageSessionId ?? conversationId, String(entry.userId ?? ''), 'grace_period_stored', {
+    conversationId,
+    graceMs: RECONNECT_GRACE_PERIOD_MS,
+  });
 
   // Persist to DB for server-restart resilience (fire-and-forget)
   db.insert(voiceGracePeriods).values({
@@ -359,6 +367,11 @@ async function claimPendingReconnect(conversationId: string, userId: string): Pr
     pendingReconnectSessions.delete(conversationId);
     db.delete(voiceGracePeriods).where(eq(voiceGracePeriods.conversationId, conversationId)).catch(() => {});
     console.log(`[Reconnect Grace] RESUMED session for ${conversationId.substring(0, 8)} — carrying ${pending.exchangeCount} exchanges`);
+    voiceTelemetry.log(pending.usageSessionId ?? conversationId, userId, 'grace_period_resumed', {
+      conversationId,
+      exchangeCount: pending.exchangeCount,
+      path: 'memory',
+    });
     return pending;
   }
 
@@ -375,6 +388,11 @@ async function claimPendingReconnect(conversationId: string, userId: string): Pr
     const row = rows[0];
     await db.delete(voiceGracePeriods).where(eq(voiceGracePeriods.conversationId, conversationId));
     console.log(`[Reconnect Grace] RESUMED session from DB for ${conversationId.substring(0, 8)} after server restart — carrying ${row.exchangeCount} exchanges`);
+    voiceTelemetry.log(row.usageSessionId ?? conversationId, userId, 'grace_period_resumed', {
+      conversationId,
+      exchangeCount: row.exchangeCount,
+      path: 'db_fallback',
+    });
     return {
       conversationId: row.conversationId,
       usageSessionId: row.usageSessionId,

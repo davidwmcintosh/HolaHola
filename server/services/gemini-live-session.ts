@@ -1181,6 +1181,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     if (this.isStopped || !this.liveSession) return;
     const newLevel = this.session.studentActflLevel;
     console.log(`[GeminiLive] Proactive ACTFL reconnect — new tier: ${newLevel ?? 'unset'}, silenceDurationMs will recalibrate on next start()`);
+    voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_actfl_recalibration', {
+      newLevel,
+      sessionId: this.session.id,
+    });
     this.isProactiveReconnecting = true;
     this.isStarted = false;
     this.sendWsMessage(this.session.ws, {
@@ -1855,6 +1859,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             this.thoughtOnlyStallWatchdogTimer = null;
             if (!this.isStopped && !this.isTutorGeneratingAudio) {
               console.warn('[GeminiLive] thought-only stall watchdog fired — GL reasoned but never produced audio/text/turnComplete; sealing turn manually');
+              voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_thought_stall', {
+                thoughtBuffer: this.currentTurnThoughtBuffer.slice(0, 200),
+              });
               this.currentTurnThoughtBuffer = '';
               this.isGenerationDone = true;
               if (this.pendingPlaybackEndedLift) {
@@ -2451,6 +2458,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             : `immediate UI tool(s) in batch`;
           console.log(`[GeminiLive] Tool call(s) [${toolNames.join(', ')}] fired after pre-tool audio — sending gl_audio_reset (${reason})`);
           this.sendWsMessage(this.session.ws, { type: 'gl_audio_reset' }, this.session);
+          voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_audio_reset', {
+            tools: toolNames,
+            reason,
+          });
         }
       }
 
@@ -2498,13 +2509,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
           try {
             await this.fcHandler.handle(this.session.id, this.session, extractedFc);
-            reportGlToolCallSuccess({
-              toolName: fcName,
-              sessionId: this.session.id,
-              userId: this.session.userId,
-              args: extractedFc.args,
-              conversationId: this.session.conversationId,
-            }).catch(() => {});
+            // Success reporting moved to Phase 3 so durationMs is available.
           } catch (err) {
             const errMsg = (err as Error).message || String(err);
             console.error(`[GeminiLive] Tool call failed (${fcName}):`, err);
@@ -2597,9 +2602,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         }
 
         // Co-pilot: push to tool call trace ring buffer (last 20)
+        // Phase 3 is also where we fire reportGlToolCallSuccess — it's the earliest point
+        // where durationMs is available (toolStartTimes was set in Phase 1).
         {
           if (!this.session.toolCallTrace) this.session.toolCallTrace = [];
           const startMs = toolStartTimes.get(fcName) ?? Date.now();
+          const callDurationMs = Date.now() - startMs;
           const resultStr = toolErrors.has(fcName)
             ? `ERROR: ${toolErrors.get(fcName)}`
             : JSON.stringify(toolResponsePayload).slice(0, 200);
@@ -2607,11 +2615,23 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             toolName: fcName,
             argsPreview: JSON.stringify(extractedFc.args ?? {}).slice(0, 120),
             resultPreview: resultStr,
-            durationMs: Date.now() - startMs,
+            durationMs: callDurationMs,
             timestamp: Date.now(),
             status: toolErrors.has(fcName) ? 'error' : 'ok',
           });
           if (this.session.toolCallTrace.length > 20) this.session.toolCallTrace.shift();
+
+          // Persist success with timing — failures were already reported in Phase 1.
+          if (!toolErrors.has(fcName)) {
+            reportGlToolCallSuccess({
+              toolName: fcName,
+              sessionId: this.session.id,
+              userId: this.session.userId,
+              args: extractedFc.args,
+              conversationId: this.session.conversationId,
+              durationMs: callDurationMs,
+            }).catch(() => {});
+          }
         }
 
         responses.push({
@@ -3034,7 +3054,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       ? ' Some hesitation — check in gently, adjust complexity if it continues.'
       : '';
 
-    return `Student friction: ${frictionLevel} (${parts.join(', ')}).${hint}`;
+    const signal = `Student friction: ${frictionLevel} (${parts.join(', ')}).${hint}`;
+
+    // Persist friction snapshot for post-session analysis and Daniela improvement loops.
+    voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_friction_snapshot', {
+      frictionLevel,
+      avgPauseMs: avgPauseMs !== null ? Math.round(avgPauseMs) : null,
+      avgWords: avgWords !== null ? Math.round(avgWords * 10) / 10 : null,
+      avgMidPauses: avgMidPauses !== null ? Math.round(avgMidPauses * 10) / 10 : null,
+      windowSize: GeminiLiveSession.FRICTION_WINDOW,
+    });
+
+    return signal;
   }
 
   /**

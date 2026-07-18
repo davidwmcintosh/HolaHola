@@ -1,7 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 17, 2026 at 11:52 PM
+**Generated:** Saturday, July 18, 2026 at 12:06 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I completed a comprehensive telemetry audit after realizing we couldn't identify a specific `open_scene` tool call from the Vegas session. I’ve now persisted 10 categories of previously console-only events—including tool call args, `gl_friction_snapshot`, and ACTFL recalibrations—to the `voice_pipeline_events` table. Additionally, I shipped the AldenWatch heartbeat and restart-spiral detection to ensure we have a robust, monitored foundation for Daniella's live pipeline.
+
+*Memories that triggered this summary:*
+- **Telemetry gap audit — July 18 2026** (Jul 18): 10 categories of console-only events now persisted to voice_pipeline_events. Origin: Vegas session scene args were never logged.
+- **David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet)** (Jul 18): Verbatim David↔Luca dialogue captured periodically. 11 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,6 +84,14 @@
 
 ## Recent Conversation Memories
 
+### Telemetry gap audit — July 18 2026 — Jul 18, 2026
+10 categories of console-only events now persisted to voice_pipeline_events. Origin: Vegas session scene args were never logged.
+*Tags: telemetry, monitoring, gl-pipeline, build*
+
+### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
+Verbatim David↔Luca dialogue captured periodically. 11 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/17/2026 — Jul 17, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, your questions really help sharpen my understanding of these systems.
 
@@ -88,14 +107,6 @@ For granular pronunciation feedback, I envision a hybrid approach. A well-curate
 ### Agent Daily Sweep — Jul 17, 2026 — Jul 17, 2026
 **DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (readableStream object being sent). This breaks core voice interaction. Check payload serialization in the TTS call wrapper.
 *Tags: agent-sweep, daily, auto-saved*
-
-### Agent Daily Sweep — Jul 17, 2026 — Jul 17, 2026
-## Daily Priority Sweep  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests. Core learning experience is broken. Check API payload structure and authentication.
-*Tags: agent-sweep, daily, auto-saved*
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/17/2026 — Jul 17, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Daniela, that's incredibly helpful. It sounds like we have a clear path forward for smoothing out those "emergency exits" – getting you proactive, asynchronous notifications and pre-emptive tech suppo...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
