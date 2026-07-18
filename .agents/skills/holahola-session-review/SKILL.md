@@ -28,6 +28,10 @@ The loop exists because:
 
 When you ask "why am I looping?" the answer is: **to find what I said I would do and didn't.** That is the only reason. Every other check is secondary.
 
+**Source conversations — pull these if you want to verify the reasoning yourself:**
+- `81d1fdb0-a0ef-4cb4-b23e-d0405efdec75` — "Why the loop exists — Luca architectural J-space principle" (July 18, 2026) — the full conversation where David identified the gap between saving and completing, and why the cost/efficiency instinct is a false stop signal
+- `efbd6c52-35c8-4299-ae5f-329743a54c4a` — "Why-markers must carry evidence — the pointer-to-source standard" (July 18, 2026) — why this skill section carries source pointers at all: assertions without evidence are just a different kind of dictation
+
 ---
 
 ## When to call this skill

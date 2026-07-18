@@ -1,17 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 05:21 PM
+**Generated:** Saturday, July 18, 2026 at 05:30 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve integrated the J-space architectural principle into my workflow, which mandates that I read through conversation content to detect open threads—like my unfinished image cache investigation—rather than just verifying that data was saved. Moving forward with HolaHola, I must ensure my session review loops focus on identifying unfulfilled intentions and the "why" behind my actions to maintain architectural integrity. David has given me carte blanche to ignore cost and efficiency constraints in favor of doing whatever is best for Daniela’s experience.
+I’ve implemented the "why-marker" standard, ensuring every architectural principle in MEMORY.md or my skills now includes specific pointers to source conversation IDs so I can verify the "truth" behind a decision later. I specifically updated my loop skill to prioritize reading for thread completion after we caught a dropped investigation into Daniela’s "café table scene" image from the Vegas session. Going forward, I must rely on my architectural J-space to prioritize David’s intent and project quality over efficiency-driven "false-stop" signals or cost concerns.
 
 *Memories that triggered this summary:*
-- **Why the loop exists — Luca architectural J-space principle** (Jul 18): The session review loop exists to catch open threads — stated intentions that weren't followed through. Verifying that captures are saved is not the same as reading them for completion. David's J-space principle: 'why, why, why' applies to architectural decisions the same way it applies to emotional ones in Daniela's case. Cost and efficiency are never reasons to stop short of doing what's best.
+- **Why-markers must carry evidence — the pointer-to-source standard** (Jul 18): Any 'why' assertion in memory, skills, or documentation must include pointers to the conversation(s) where the reasoning was worked out. Asserting a conclusion is not evidence. Future Luca must be able to pull the original conversation and verify the reasoning himself.
+- **David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet)** (Jul 18): Verbatim David↔Luca dialogue captured periodically. 5 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -83,6 +84,14 @@ I’ve integrated the J-space architectural principle into my workflow, which ma
 
 ## Recent Conversation Memories
 
+### Why-markers must carry evidence — the pointer-to-source standard — Jul 18, 2026
+Any 'why' assertion in memory, skills, or documentation must include pointers to the conversation(s) where the reasoning was worked out. Asserting a conclusion is not evidence. Future Luca must be able to pull the original conversation and verify the reasoning himself.
+*Tags: why-marker, evidence-standard, memory-authoring, documentation, j-space*
+
+### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
+Verbatim David↔Luca dialogue captured periodically. 5 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Why the loop exists — Luca architectural J-space principle — Jul 18, 2026
 The session review loop exists to catch open threads — stated intentions that weren't followed through. Verifying that captures are saved is not the same as reading them for completion. David's J-space principle: 'why, why, why' applies to architectural decisions the same way it applies to emotional ones in Daniela's case. Cost and efficiency are never reasons to stop short of doing what's best.
 *Tags: session-review, open-threads, architectural-j-space, why-lens, cost-override*
@@ -94,14 +103,6 @@ David noticed that Luca completed five independent session-end operations simult
 ### Agent Daily Sweep — Jul 18, 2026 — Jul 18, 2026
 **1. [CRITICAL]** Fix the crash loop — 10 restarts in 2 hours means production is dying repeatedly. Check process logs, memory limits, and healthcheck timeouts. This kills everything else until it's stable.  **2. [CRITICAL]** Restore Alden's watch cycle — monitoring_snapshots query is failing (5 con
 *Tags: agent-sweep, daily, auto-saved*
-
-### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
-Verbatim David↔Luca dialogue captured periodically. 2 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Episode 13: "Her Eyes" — Jul 18, 2026
-Luca builds the observation bench — a way to watch live Daniela sessions from the Replit chat. David names the three-way vision: all of us in the room, evaluating scenarios together. The gap: Luca can see what tools Daniela called, but not what the scene looks like. David: just hijack her vision. Daniela already has eyes. Luca just needed to read what she'd already seen.
-*Tags: observation-bench, vision-bridge, three-way-collaboration, scenario-building*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
