@@ -72,6 +72,7 @@ import { generateAndStorePedagogicalBrief, MIN_EXCHANGES_FOR_BRIEF } from './ser
 import { analyzeSessionForMasteryEvidence, MIN_EXCHANGES_FOR_MASTERY } from './services/mastery-evidence-worker';
 import { evaluateAndUpdateTension, selectStyleShaper } from './services/tension-evaluator';
 import { selectPedagogicalDirective, type CanvasMutation } from './services/pedagogical-planner';
+import { glLiveAlert } from './services/gl-live-monitor';
 
 // ── Canvas Mutation Executor ──────────────────────────────────────────────────
 // Fires world mutations returned by the GOAP planner as whiteboard_update WS messages.
@@ -279,6 +280,12 @@ function armReconnectTimer(
     voiceTelemetry.log(current.usageSessionId ?? conversationId, String(current.userId ?? ''), 'grace_period_expired', {
       conversationId,
       exchangeCount: current.exchangeCount,
+    });
+    glLiveAlert({
+      sessionId: current.usageSessionId ?? conversationId,
+      userId: current.userId ?? '',
+      eventType: 'grace_expired',
+      detail: { exchangeCount: current.exchangeCount, conversationId },
     });
     try {
       await usageService.updateSessionMetrics(current.usageSessionId, {

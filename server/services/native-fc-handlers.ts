@@ -1648,6 +1648,21 @@ export class NativeFunctionCallHandler {
           }
           console.log(`[Native Function→OpenScene] Opened: ${sceneEnv}`);
 
+          // Auto-enter immersive fullscreen for all non-broadcast scene targets.
+          // Broadcast mode (target: 'center') manages its own immersive protocol — skip it.
+          // Without this, open_scene renders only as a ~3×3 Studio Pane thumbnail, too
+          // small for spatial canvas teaching (props, prepositions, visual vocab).
+          if (sceneTarget !== 'center') {
+            const immersiveOnMsg = { type: 'immersive_mode' as const, active: true, timestamp: Date.now() };
+            if (session.firstAudioSent) {
+              this.sendMessage(session.ws, immersiveOnMsg);
+            } else {
+              session.pendingWhiteboardUpdates = session.pendingWhiteboardUpdates || [];
+              session.pendingWhiteboardUpdates.push(immersiveOnMsg as any);
+            }
+            console.log('[Native Function→OpenScene] Auto-entering immersive fullscreen (spatial canvas)');
+          }
+
           // Daniela self-visibility: confirm scene is live on the student's screen.
           if (!session.pendingGlContext) session.pendingGlContext = [];
           session.pendingGlContext.push(

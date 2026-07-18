@@ -246,10 +246,9 @@ David asked to add the verbatim mid-tool-execution interruption exchange (him pu
 **2026-07-16 — `server/services/daniela-tool-contexts.ts` TOOL_CONTEXT_FREE_DIALOGUE — `memory_lookup` listed as CONTEXT_DRIFT but is not registered in the function registry**
 `TOOL_CONTEXT_FREE_DIALOGUE` includes `memory_lookup` in its allowed list tagged as `// CONTEXT_DRIFT`. The `getFilteredFunctionDeclarations()` function silently excludes unknown tool names, so it has no runtime effect. But it creates confusion: anyone reading the file assumes `memory_lookup` is a real tool. Either (a) remove it from the context list, or (b) register it as a real tool if the intent was to have it. Low severity — no user impact. Clean up when touching that file next.
 
-## 2026-07-18 — open_scene renders in Studio Pane (3x3 thumbnail) instead of fullscreen
+## 2026-07-18 — open_scene renders in Studio Pane (3x3 thumbnail) instead of fullscreen — FIXED
 **Severity:** Medium — usability gap; spatial canvas teaching is impractical at Studio Pane size  
 **Observed:** Vegas voice session 2026-07-16 (conversation f57e96d3). Daniela called open_scene; scene appeared as small thumbnail in Studio Pane upper-left rather than immersive fullscreen overlay.  
 **Root cause:** open_scene sends whiteboard_update (type: scene_canvas) → Studio Pane render. Full immersive overlay requires immersive_mode WS message, only sent by load_scenario. Two separate code paths, different tools.  
-**Fix options:** (A) Route open_scene through immersive path automatically — scene goes fullscreen, Studio Pane keeps collapsed indicator. (B) Make Studio Pane expand to fullscreen when scene_canvas item is active.  
-**Recommendation:** Option A. open_scene should be immersive by default. Thumbnail-in-pane is too small for spatial teaching.  
-**Files:** server/services/native-fc-handlers.ts ~line 1627 (open_scene handler), client/src/components/ImmersiveOverlay.tsx (immersive path)
+**Fix (2026-07-18):** Option A implemented. After sending whiteboard_update, OPEN_SCENE now also sends `immersive_mode: true` for all non-broadcast targets (target !== 'center'). Respects the same firstAudioSent/pendingWhiteboardUpdates gating as ENTER_IMMERSIVE. Broadcast mode (target: 'center') keeps its own protocol untouched.  
+**File:** server/services/native-fc-handlers.ts — OPEN_SCENE case (~line 1654)

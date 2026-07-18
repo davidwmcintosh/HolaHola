@@ -40,6 +40,33 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## July 18, 2026 — open_scene Immersive Fix + GL Live Monitor
+
+**What was built:**
+
+### (A) open_scene → fullscreen immersive fix
+`OPEN_SCENE` in `native-fc-handlers.ts` now auto-sends `immersive_mode: true` after the `whiteboard_update`. Previously scenes appeared as 3×3 Studio Pane thumbnails — too small for spatial canvas teaching (props, prepositions, visual vocab). Broadcast mode (`target: 'center'`) is excluded; it manages its own immersive protocol. The same `firstAudioSent / pendingWhiteboardUpdates` gating used by `ENTER_IMMERSIVE` is applied.
+
+### (B) GL Live Monitor — real-time Team Room alerts during sessions
+New service `server/services/gl-live-monitor.ts` posts threshold events to the Team Room immediately as they happen, so Alden can watch live sessions rather than only seeing post-session logs.
+
+**Events wired:**
+- `friction_high` — when `buildFrictionSignal` scores HIGH; posts avgPauseMs, avgWords/turn, avgMidPauses
+- `thought_stall` — when the 10s thought-only watchdog fires; posts thought buffer preview
+- `reconnect_mid_turn` — when the client reconnects while Daniela's audio was playing
+- `actfl_recalibration` — when proactive reconnect fires for a VAD tier change; posts new ACTFL level
+- `grace_expired` — when a grace period timer fires without the student returning
+
+**Design:** 30s per-event-type cooldown prevents spam. Fully fire-and-forget — never blocks the GL pipeline. Silently no-ops when `REPLIT_AGENT_TOKEN` is absent.
+
+**Key files:**
+- `server/services/gl-live-monitor.ts` — new service (cooldown map + postToTeamRoom + glLiveAlert)
+- `server/services/gemini-live-session.ts` — import + 4 call sites (friction, stall, reconnect, ACTFL)
+- `server/unified-ws-handler.ts` — import + 1 call site (grace expired)
+- `server/services/native-fc-handlers.ts` — OPEN_SCENE immersive auto-trigger
+
+---
+
 ## July 16, 2026 — Full Security Audit + Wren Dependency Scanner
 
 **What was built:** Comprehensive security audit pass + automated dependency vulnerability scanning wired into Wren's existing 6h periodic worker.

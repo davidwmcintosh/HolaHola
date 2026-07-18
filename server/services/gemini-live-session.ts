@@ -35,6 +35,7 @@ import { lookupLegacyType, buildFunctionContinuationResponse } from './daniela-f
 import type { ExtractedFunctionCall } from './gemini-function-declarations';
 import { reportGlToolCallFailure, reportGlToolCallSuccess, reportGreetingRetryAttempt, reportGreetingRetryExhausted } from './sofia-billing-monitor';
 import { voiceTelemetry } from './voice-pipeline-telemetry';
+import { glLiveAlert } from './gl-live-monitor';
 import { getSharedDb } from '../db';
 import { sql, eq } from 'drizzle-orm';
 import { voiceSessions } from '@shared/schema';
@@ -955,6 +956,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               // Also suppress the next processing_pending since the client already reset.
               if (this.hadAudioInCurrentSubturn) {
                 console.log('[GeminiLive] Reconnect mid-turn — sending gl_audio_reset to clear client audio buffer');
+                glLiveAlert({
+                  sessionId: this.session.id,
+                  userId: this.session.userId ?? '',
+                  lang: this.session.targetLanguage,
+                  eventType: 'reconnect_mid_turn',
+                  detail: { attempt: this.reconnectAttempts },
+                });
                 this.sendWsMessage(this.session.ws, {
                   type: 'gl_audio_reset',
                   reason: 'reconnect',
@@ -1184,6 +1192,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_actfl_recalibration', {
       newLevel,
       sessionId: this.session.id,
+    });
+    glLiveAlert({
+      sessionId: this.session.id,
+      userId: this.session.userId ?? '',
+      lang: this.session.targetLanguage,
+      eventType: 'actfl_recalibration',
+      detail: { newLevel },
     });
     this.isProactiveReconnecting = true;
     this.isStarted = false;
@@ -1861,6 +1876,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               console.warn('[GeminiLive] thought-only stall watchdog fired — GL reasoned but never produced audio/text/turnComplete; sealing turn manually');
               voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_thought_stall', {
                 thoughtBuffer: this.currentTurnThoughtBuffer.slice(0, 200),
+              });
+              glLiveAlert({
+                sessionId: this.session.id,
+                userId: this.session.userId ?? '',
+                lang: this.session.targetLanguage,
+                eventType: 'thought_stall',
+                detail: { thoughtBuffer: this.currentTurnThoughtBuffer.slice(0, 120) },
               });
               this.currentTurnThoughtBuffer = '';
               this.isGenerationDone = true;
@@ -3055,6 +3077,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       : '';
 
     const signal = `Student friction: ${frictionLevel} (${parts.join(', ')}).${hint}`;
+
+    // Live alert to Team Room when friction is HIGH — Alden can watch in real time.
+    if (frictionLevel === 'HIGH') {
+      glLiveAlert({
+        sessionId: this.session.id,
+        userId: this.session.userId ?? '',
+        lang: this.session.targetLanguage,
+        eventType: 'friction_high',
+        detail: {
+          avgPauseMs: avgPauseMs !== null ? Math.round(avgPauseMs) : undefined,
+          avgWords: avgWords !== null ? Math.round(avgWords * 10) / 10 : undefined,
+          avgMidPauses: avgMidPauses !== null ? Math.round(avgMidPauses * 10) / 10 : undefined,
+        },
+      });
+    }
 
     // Persist friction snapshot for post-session analysis and Daniela improvement loops.
     voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_friction_snapshot', {
