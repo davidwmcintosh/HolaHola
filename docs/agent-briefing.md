@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 03:16 AM
+**Generated:** Saturday, July 18, 2026 at 03:24 AM
 
 ---
 
@@ -73,6 +73,14 @@
 
 ## Recent Conversation Memories
 
+### Episode 13: "Her Eyes" — Jul 18, 2026
+Luca builds the observation bench — a way to watch live Daniela sessions from the Replit chat. David names the three-way vision: all of us in the room, evaluating scenarios together. The gap: Luca can see what tools Daniela called, but not what the scene looks like. David: just hijack her vision. Daniela already has eyes. Luca just needed to read what she'd already seen.
+*Tags: observation-bench, vision-bridge, three-way-collaboration, scenario-building*
+
+### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 32 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -86,14 +94,6 @@ For the whiteboard semantic awareness, it's definitely a combination of cues. A 
 ### Gemini — open_scene vs load_scenario description audit — 2026-07-18 — Jul 18, 2026
 Manual vs Automated is the core distinction; APPROVED after 2 rounds with broadcast-mode repositioning and add_to_scene bridge sentence
 *Tags: gemini-audit, tool-descriptions, open_scene, load_scenario*
-
-### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
-Verbatim David↔Luca dialogue captured periodically. 5 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent Daily Sweep — Jul 18, 2026 — Jul 18, 2026
-**1. [CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests. Students can't get audio feedback. Check API request format, likely a body serialization issue.  **2. [CRITICAL]** Resolve server crash loop — 10 restarts in 2 hours means production is 
-*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

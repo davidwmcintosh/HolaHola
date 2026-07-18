@@ -3084,3 +3084,25 @@ curl -s "http://localhost:5000/api/admin/luca/observe?conversationId=<id>" -H "x
 - `server/services/gemini-live-session.ts` (wire-ins at session start, ACTFL recal, stop)
 - `server/services/native-fc-handlers.ts` (wire-ins at dispatch entry, OPEN_SCENE, LOAD_SCENARIO)
 - `server/routes.ts` (~line 26781)
+
+---
+
+## Luca Observation Bench — Vision Bridge — July 18, 2026
+
+### What was added (extends: Session Observation Store entry above)
+
+The observation bench now returns Daniela's visual description of the current scene, not just the environment name. When Luca calls the observe endpoint during a live session, the response includes `sceneVisionDescription` — the full prose description that Daniela generated when she looked at the image, pulled from `image_vision_cache`.
+
+### How it works
+1. `observeSceneOpen()` now accepts an optional `imageUrl` parameter
+2. `native-fc-handlers.ts` passes `envImageUrl` (already available at OPEN_SCENE time) to the store
+3. The observe endpoint queries `image_vision_cache WHERE image_url = $sceneImageUrl` and adds the result to the response as `sceneVisionDescription`
+4. Vision cache miss is non-fatal — `sceneVisionDescription` is null if the image hasn't been seen before
+
+### Why this matters
+Daniela has vision (she sees the scene image when it opens). Luca can now read her eyes via the cache. David, Daniela, and Luca can evaluate a scene together — David sees it live, Daniela has her visual description, Luca reads from the same cache. Foundation for the three-way collaborative scenario-building workflow.
+
+### Key files
+- `server/services/session-observation-store.ts` — `sceneImageUrl` field added to `SessionObservation`, `observeSceneOpen` accepts optional `imageUrl`
+- `server/services/native-fc-handlers.ts` — passes `envImageUrl` to `observeSceneOpen`
+- `server/routes.ts` — `image_vision_cache` lookup added to observe response

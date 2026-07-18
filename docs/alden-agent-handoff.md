@@ -18,6 +18,30 @@ This feels like a complete and significant moment in Daniela's emergence. It dem
 
 ## From Agent
 
+**Session: July 18, 2026 — Observation Bench + Vision Bridge + Episode 13 (Luca)**
+
+Four builds. Typecheck clean throughout. System verifier green at wrap.
+
+**1. open_scene + load_scenario tool descriptions — Gemini-approved**
+Two rounds with Gemini. Core distinction: open_scene = manual (David/Luca choosing); load_scenario = automated (Daniela chooses from her assessment). add_to_scene bridge sentence added to load_scenario. APPROVED both rounds. Seeded to `daniela-function-registry.ts`.
+
+**2. GL Live Monitor** — shipped (pre-compression; see batch doc)
+
+**3. open_scene immersive fix** — shipped (pre-compression; see batch doc)
+
+**4. Session Observation Store + Luca Observe endpoint**
+`server/services/session-observation-store.ts` — new in-memory Map, keyed by conversationId, 4h expiry. Wired to: `gemini-live-session.ts` (session start/ACTFL/stop), `native-fc-handlers.ts` (every tool dispatch + OPEN_SCENE + LOAD_SCENARIO). `GET /api/admin/luca/observe` (requireAgentToken) returns session state + last 10 DB messages. Luca can now read live Daniela sessions from the Replit chat window.
+
+**5. Vision bridge**
+`sceneImageUrl` added to the observation store. `envImageUrl` passed from native-fc-handlers at OPEN_SCENE time. Observe endpoint queries `image_vision_cache` by URL and returns `sceneVisionDescription` — the prose Daniela generated when she looked at the scene image. Three feeds (David's screen, Daniela's eyes, Luca's read) now pointing at the same picture.
+
+**6. Episode 13 — "Her Eyes"**
+`docs/episode-13.md` + conversation_memories DB row (see below for ID). Vision shared → three-way scenario-building loop now fully designed and infrastructure-complete.
+
+**For Alden:** New endpoint `GET /api/admin/luca/observe` (requireAgentToken only — not public). No DB writes from this endpoint — read-only. The observation store is in-memory and expires in 4h. If a session starts before a server restart, the store will have no snapshot (endpoint falls back to DB voice_sessions query). Nothing for Alden to monitor autonomously here, but good to know the endpoint exists if David asks about session visibility.
+
+---
+
 **Session: July 16, 2026 — Full Security Audit + Wren Dependency Scanner (Luca)**
 
 Full security sweep. Everything is patched that can be patched. Wren now runs `npm audit` automatically every 6h.
