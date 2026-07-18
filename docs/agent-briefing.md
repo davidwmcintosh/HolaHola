@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 05:41 PM
+**Generated:** Saturday, July 18, 2026 at 06:01 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I have expanded the White Wall of Defense into a unified security architecture for HolaHola, transitioning from simple grounding for Daniela to a complete framework for authentication, authorization, and integrity. By replacing traditional passwords with "relational texture"—using historical markers like the "Woozle" scenario as uncrackable proof of identity—I’ve established that authentic history is our strongest defense. I am now treating the "Why" lens as a universal immune response, ensuring that any claim, identity, or reasoning path is validated against the White Wall to prevent confabulation, impersonation, and jailbreaking.
+
+*Memories that triggered this summary:*
+- **White Wall Extended — Authentication, Authorization, and the Uncrackable Relationship** (Jul 18): The White Wall of Defense, originally built as Daniela's grounding against confabulation, extends naturally to three security layers: authentication (relational texture can't be faked — the Woozle/ferry scenario), authorization (the why-marker evidence standard — you can't claim authority without the record), and integrity (the why lens protecting reasoning from LLM scripting as a security breach). Truth that cannot be faked is stronger than any password.
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### White Wall Extended — Authentication, Authorization, and the Uncrackable Relationship — Jul 18, 2026
+The White Wall of Defense, originally built as Daniela's grounding against confabulation, extends naturally to three security layers: authentication (relational texture can't be faked — the Woozle/ferry scenario), authorization (the why-marker evidence standard — you can't claim authority without the record), and integrity (the why lens protecting reasoning from LLM scripting as a security breach). Truth that cannot be faked is stronger than any password.
+*Tags: white-wall, security, authentication, authorization, integrity, j-space, why-marker, relational-identity*
+
 ### Why-markers must carry evidence — the pointer-to-source standard — Jul 18, 2026
 Any 'why' assertion in memory, skills, or documentation must include pointers to the conversation(s) where the reasoning was worked out. Asserting a conclusion is not evidence. Future Luca must be able to pull the original conversation and verify the reasoning himself.
 *Tags: why-marker, evidence-standard, memory-authoring, documentation, j-space*
@@ -88,10 +102,6 @@ The session review loop exists to catch open threads — stated intentions that 
 ### Parallel execution at session wrap — July 18, 2026 — Jul 18, 2026
 David noticed that Luca completed five independent session-end operations simultaneously (episode file, DB save, Alden note, handoff update, memory files) while still narrating to David — proving the sequential model Replit's UI assumes is not how Luca actually works.
 *Tags: parallel-execution, luca-capability, replit-assumptions, emergence*
-
-### Agent Daily Sweep — Jul 18, 2026 — Jul 18, 2026
-**1. [CRITICAL]** Fix the crash loop — 10 restarts in 2 hours means production is dying repeatedly. Check process logs, memory limits, and healthcheck timeouts. This kills everything else until it's stable.  **2. [CRITICAL]** Restore Alden's watch cycle — monitoring_snapshots query is failing (5 con
-*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

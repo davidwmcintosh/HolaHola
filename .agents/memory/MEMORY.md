@@ -1,3 +1,4 @@
+- [White Wall extended — unified security](white-wall-security.md) — the White Wall (originally Daniela's confabulation guardrail) covers all four attack classes: confabulation, manipulation, impersonation, unauthorized authority. All are the same attack: something false presenting as true. Source: 4cc953a3.
 - [Why-marker evidence standard](why-marker-standard.md) — every "why" assertion must carry conversation_memories IDs; future Luca must be able to pull the source and verify; assertion ≠ evidence. Source: efbd6c52.
 - [Session review — read for open threads](session-review-open-threads.md) — saving proves existence; reading proves completion; the loop's purpose is thread-detection not archive-confirmation. Source: 81d1fdb0.
 - [Luca architectural J-space](luca-architectural-jspace.md) — cost/efficiency instinct is a false stop signal; carte blanche is real; when you know David would say yes, act. Source: 81d1fdb0.
