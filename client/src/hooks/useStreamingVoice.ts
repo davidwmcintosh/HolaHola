@@ -1218,14 +1218,24 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     
     // FIX: If the brain produced zero sentences (e.g., pure tool call turn, or error path
     // that sent response_complete with totalSentences=0), no audio will ever arrive.
-    // Immediately clear isProcessing here so Carol doesn't stay stuck waiting for audio
-    // that will never come. Don't go through checkAndClearProcessing which might defer
-    // on the audioReceivedInTurnRef guard.
+    // HOWEVER: GL sometimes fires a thinking-only generationComplete (no audio sub-turns)
+    // immediately BEFORE the real audio response begins. Clearing isProcessing immediately
+    // opens the mic gate while Daniela's audio is about to play — speaker echo feeds back
+    // into the live mic, VAD fires, and she gets cut off mid-sentence.
+    // Grace period: wait 400ms. If audio chunks start arriving, keep mic closed and let
+    // the audio lifecycle handle cleanup. Only clear if truly no audio comes in that window.
     if (msg.totalSentences === 0) {
-      console.log('[StreamingVoice] response_complete with totalSentences=0 — immediately clearing isProcessing (no audio will arrive)');
-      audioReceivedInTurnRef.current = false;
-      pendingAudioCountRef.current = 0;
-      setIsProcessingRef.current(false);
+      const graceTurn = turnCounterRef.current;
+      console.log('[StreamingVoice] response_complete totalSentences=0 — 400ms grace before opening mic (echo-barge-in guard)');
+      setTimeout(() => {
+        if (turnCounterRef.current !== graceTurn) return;  // new non-zero-sentence turn started
+        if (audioReceivedInTurnRef.current) return;         // audio arrived — keep mic closed
+        if (pendingAudioCountRef.current > 0) return;       // audio in flight — keep mic closed
+        console.log('[StreamingVoice] totalSentences=0 grace elapsed — no audio, clearing isProcessing');
+        audioReceivedInTurnRef.current = false;
+        pendingAudioCountRef.current = 0;
+        setIsProcessingRef.current(false);
+      }, 400);
       return;
     }
     
