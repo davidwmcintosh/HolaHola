@@ -3424,7 +3424,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               .map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
             if (messageList.length < 3) return;
 
-            const generatedTitle = await generateConversationTitle(messageList);
+            const generatedTitle = await generateConversationTitle(messageList, this.session.targetLanguage ?? 'english');
             if (generatedTitle) {
               await db.execute(rawSql`UPDATE conversations SET title = ${generatedTitle} WHERE id = ${conversationId} AND title IS NULL`);
               console.log(`[GeminiLive] Auto-generated title for conversation ${conversationId}: "${generatedTitle}"`);
