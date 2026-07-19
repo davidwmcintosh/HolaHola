@@ -937,15 +937,18 @@ export function formatMemoryForConversation(response: MemorySearchResponse, stud
     return `Nothing surfaces right now — respond from what you know.`;
   }
 
-  // Natural relative phrasing — no citations, no timestamps
+  // Leading-prose temporal prefix — no parentheticals (prompt style guide: parentheticals = metadata syntax).
+  // Gemini pre-flight (July 19 2026): parenthetical suffix breaks the "Daniela carries this memory"
+  // frame — model reads it as a database record annotation, not a personal recollection.
+  // Return a leading prefix string (may be empty for very recent memories).
   function naturalTime(ts?: string | Date | null): string {
     if (!ts) return '';
     const days = Math.floor((Date.now() - new Date(ts).getTime()) / (1000 * 60 * 60 * 24));
-    if (days < 3) return ' (recent)';
-    if (days < 14) return ' (about a week ago)';
-    if (days < 60) return ' (about a month ago)';
-    if (days < 180) return ' (a few months ago)';
-    return ' (a while back)';
+    if (days < 3) return '';                      // very recent — no time marker needed
+    if (days < 14) return 'About a week ago, ';
+    if (days < 60) return 'About a month ago, ';
+    if (days < 180) return 'A few months ago, ';
+    return 'A while back, ';
   }
 
   // Up to 6 results, ordered by relevance.
@@ -965,7 +968,8 @@ export function formatMemoryForConversation(response: MemorySearchResponse, stud
     // into Script-Naturalist format SPEAKER (Date): so attribution reads as narrative,
     // not as log metadata. Applies at retrieval time so existing indexed chunks also benefit.
     const memory = reformatSpeakerHeaders(rawMemory);
-    lines.push(`${memory}${when}`);
+    // Leading prose prefix — when is '' for recent entries, "About a week ago, " etc. for older ones.
+    lines.push(`${when}${memory}`);
   }
 
   // Wrap in <recalled_memories> tags with a meta-cognitive nudge so Daniela reads

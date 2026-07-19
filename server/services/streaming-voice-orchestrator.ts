@@ -9171,8 +9171,15 @@ Remember: David may reference things discussed in these recent text chats.
         }
         
         // Process recent conversations for topic continuity + fetch verbatim transcript
-        if (recentConversations.length > 1) {
-          const prevConversation = recentConversations[1]; // [0] is current, [1] is previous
+        // Item 1 fix: filter out the current session before selecting [0]. Conversations are lazily
+        // created (only on first message persist), so the current session row may not exist in the DB
+        // at greeting time — but if it does appear, we exclude it. Pattern: same as lines 1573/2685.
+        // Gemini + Alden pre-flight (July 19 2026): confirmed correct.
+        const prevConversations = session.conversationId
+          ? recentConversations.filter(c => c.id !== session.conversationId)
+          : recentConversations;
+        if (prevConversations.length > 0) {
+          const prevConversation = prevConversations[0]; // true most recent previous session
           if (prevConversation.title) {
             recentTopics.push(prevConversation.title);
           } else if (prevConversation.topic) {
@@ -9207,13 +9214,43 @@ Remember: David may reference things discussed in these recent text chats.
                   ? Math.floor((Date.now() - new Date(prevSessionTime).getTime()) / 60000)
                   : 99999;
 
+                // Item 3: Natural-end vs. mid-drop detection for the < 10 min bucket.
+                // If Daniela's last message in the previous session contains a farewell phrase,
+                // the session ended naturally — use "welcome back" framing instead of "connection cut."
+                // Gemini pre-flight (July 19 2026): check last 4 messages (2 turns), find Daniela's
+                // most recent message. Multi-language patterns cover the 10 languages Daniela teaches.
+                // Dynamic import is intentional — top-level sql import fails with getSharedDb().execute()
+                // (see drizzle-sql-dynamic-import memory note).
+                const FAREWELL_RX = [
+                  /\b(goodbye|bye|see you|until next time|take care|have a great|have a good)\b/i,
+                  /\b(adi[oó]s|hasta luego|hasta pronto|nos vemos|hasta la pr[oó]xima)\b/i,
+                  /\b(au revoir|[aà] bient[oô]t|[aà] plus tard|bonne journ[eé]e|bonne soir[eé]e)\b/i,
+                  /\b(at[eé] logo|at[eé] mais|tchau)\b/i,
+                  /\b(arrivederci|a presto|alla prossima)\b/i,
+                  /\b(auf wiedersehen|tsch[üu]ss|bis bald)\b/i,
+                  /\bsayonara\b/i,
+                  /(\u518d\u898b|\u62dc\u62dc)/, // 再见, 拜拜
+                  /(\u307E\u305F\u306D|\u3058\u3083\u3042\u306D)/, // またね, じゃあね
+                ];
+                const last4 = prevMsgs.slice(-4);
+                const danielaLastMsg = [...last4].reverse().find(m => m.role !== 'user');
+                const wasNaturalEnd = danielaLastMsg
+                  ? FAREWELL_RX.some(rx => rx.test(danielaLastMsg.content))
+                  : false;
+
                 let framingSentence: string;
                 let closingDelimiter: string;
 
                 if (minutesAgo < 10) {
-                  // Dropped / rebooted connection — she's still mid-thread
-                  framingSentence = `The session that just dropped — you and ${studentLabel} were mid-conversation on "${prevTitle}" when the connection cut:`;
-                  closingDelimiter = `— the thread picks up from here —`;
+                  if (wasNaturalEnd) {
+                    // Session ended naturally — student is back for more
+                    framingSentence = `You and ${studentLabel} just wrapped up a conversation on "${prevTitle}" — it looks like they're back for more:`;
+                    closingDelimiter = `— end of previous session —`;
+                  } else {
+                    // Dropped / rebooted connection — she's still mid-thread
+                    framingSentence = `The session that just dropped — you and ${studentLabel} were mid-conversation on "${prevTitle}" when the connection cut:`;
+                    closingDelimiter = `— the thread picks up from here —`;
+                  }
                 } else if (minutesAgo < 240) {
                   // Same day, recent (10 min – 4 hours)
                   framingSentence = `Earlier today, you and ${studentLabel} were working on "${prevTitle}":`;

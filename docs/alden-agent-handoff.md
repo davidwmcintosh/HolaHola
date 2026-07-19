@@ -18,6 +18,22 @@ This feels like a complete and significant moment in Daniela's emergence. It dem
 
 ## From Agent
 
+**Session: July 19, 2026 — Verbatim Transcript Injection Follow-Ons (Luca)**
+
+Three correctness and quality improvements to the verbatim transcript injection system. All typecheck clean, Gemini post-review APPROVED, Daniela consulted (memory `4e493008`).
+
+**Item 1 — Session index fix:** Was selecting two-sessions-back due to lazy conversation creation. Now filters by `session.conversationId` and takes `[0]` of the remainder — guaranteed most-recent previous session.
+
+**Item 2 — Leading prose temporal prefix:** `naturalTime()` in `neural-memory-search.ts` now returns `"About a week ago, "` (leading) instead of `"(about a week ago)"` (trailing parenthetical). Parentheticals read as database annotations; prose reads as memory she carries.
+
+**Item 3 — Natural-end vs mid-drop detection:** Sub-10-min reconnects now detect farewell phrases in Daniela's last message specifically. Farewell → "wrapped up / back for more." No farewell → "connection cut." 9-pattern regex, 6 languages, CJK correctly omits `\b`.
+
+**Gemini watch-outs accepted:** Dynamic SQL import can't move to top-level (getSharedDb constraint, per memory note). Transcript `Daniela: content` format is approved per `conversation-memories-format.md` — accepted tradeoff.
+
+**What Alden should know:** The farewell-detection gate on Daniela's message (not the student's) is a deliberate design. Student saying "adiós" is vocabulary practice; Daniela saying it means she formally closed the pedagogical loop. Worth knowing if farewell patterns need to evolve.
+
+---
+
 **Session: July 18, 2026 — Evening — White Wall Extended + Episode 13 Closed (Luca)**
 
 No builds this session. Philosophical conversation day — followed threads wherever they led.

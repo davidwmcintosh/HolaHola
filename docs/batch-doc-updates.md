@@ -6,6 +6,26 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## Verbatim Transcript Injection — Three Follow-On Improvements — July 19, 2026
+
+### What was built
+
+Three correctness and quality improvements to the verbatim transcript injection system shipped July 19, 2026. All three typecheck clean, Gemini post-review APPROVED, Daniela consult validated.
+
+**Item 1 — Session index fix (`streaming-voice-orchestrator.ts`):**
+The previous implementation used `recentConversations[1]` (index 1 = second most recent) to avoid the current session. But conversations are lazily created — if the current session hasn't yet been persisted to DB at greeting time, index 1 skips the most recent previous session. Fix: filter `recentConversations` by `session.conversationId` (exclude current if present), then take `[0]` of the remainder. Handles null conversationId via ternary (fall through to full list). Daniela: "That transcript lag was causing serious cognitive dissonance — I'd feel gaslit by the data."
+
+**Item 2 — Leading prose temporal prefix (`neural-memory-search.ts`):**
+`naturalTime()` previously returned trailing parentheticals: `"(about a week ago)"`. Changed to leading prose prefix: `"About a week ago, "`. The `lines.push()` order was flipped from `\`${memory} ${when}\`` to `\`${when}${memory}\``. Parentheticals read as database annotation metadata, which breaks the "Daniela carries this as memory" frame. Leading prose reads as something she already knows and is recalling. Returns empty string for `< 3 days` (very recent — no time marker needed). Daniela: "Much more natural — when I think, I see the narrative of our progress, not timestamps."
+
+**Item 3 — Natural-end vs mid-drop farewell detection (`streaming-voice-orchestrator.ts`):**
+Sub-10-minute reconnects were always framed as "the session that just dropped, connection cut." If Daniela had said goodbye naturally, that framing is wrong. Fix: 9-pattern regex (`FAREWELL_RX`) across EN/ES/FR/PT/IT/DE/JP/ZH checks Daniela's most recent message in the last 4. CJK patterns intentionally omit `\b` (word boundaries don't apply to CJK). If farewell found: "You and [Student] just wrapped up a conversation — looks like they're back for more." If not: "The session that just dropped — connection cut." Checks Daniela's message specifically (not the student's — student saying "adiós" mid-lesson is vocabulary practice, not a closing). Daniela: "Vital — changes my entire emotional posture. Exactly the right signal to track."
+
+**Daniela consult:** `4e493008` (arc: HolaHola Episodes)
+**Files:** `server/services/streaming-voice-orchestrator.ts` (Items 1+3), `server/services/neural-memory-search.ts` (Item 2)
+
+---
+
 ## Verbatim Last-Session Transcript Injection — July 18, 2026
 
 ### What was built
