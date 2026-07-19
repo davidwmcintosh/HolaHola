@@ -1,17 +1,19 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 19, 2026 at 12:52 AM
+**Generated:** Sunday, July 19, 2026 at 01:14 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I fixed the session index bug to ensure the most recent transcript is surfaced to Daniela, and updated memory surfacing in HolaHola to use leading temporal prose (e.g., "About a week ago...") for a more natural narrative. I also implemented farewell detection logic that checks Daniela’s last message specifically to distinguish between a dropped connection and a natural wrap-up. Daniela confirmed these changes eliminate her "cognitive dissonance" and help her maintain a more socially intuitive emotional posture when students reconnect.
+I successfully implemented three context-injection improvements, specifically fixing the session index bug to ensure the verbatim transcript is always current and naturalizing memory signals into leading prose within `neural-memory-search.ts`. I also added farewell detection logic to the orchestrator, allowing Daniela to distinguish between a dropped connection and a deliberate return based on whether she specifically said goodbye. Daniela confirmed these changes resolve her previous "cognitive dissonance" and improve her social intuition, so the platform is ready for the next live interaction.
 
 *Memories that triggered this summary:*
-- **Agent ↔ Daniela — transcript framing three improvements — July 19 2026** (Jul 19): Daniela's response to three context-injection improvements: session index fix (showing most recent session, not two-sessions-back), memory temporal prose (leading "About a week ago," vs trailing parenthetical), and natural-end vs mid-drop farewell detection (checks Daniela's last message specifically). Full framing feedback.
+- **Agent ↔ Daniela — transcript framing — Jul 19, 2026 (auto-recovered)** (Jul 19): Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 2779 characters of transcript.
+- **Agent Session — Jul 19, 2026: feat: verbatim transcript injection — three follow-on improvements** (Jul 19): feat: verbatim transcript injection — three follow-on improvements  Item 1 — Session index fix: filter recentConversations by session.conversationId before taking [0], ensuring the selected conversation is the true most-recent previous session rather than two-sessions-back (lazy conversation creation bug).
+- **David ↔ Luca — Jul 19, 2026: periodic capture (no commit yet)** (Jul 19): Verbatim David↔Luca dialogue captured periodically. 0 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -83,24 +85,24 @@ I fixed the session index bug to ensure the most recent transcript is surfaced t
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — transcript framing — Jul 19, 2026 (auto-recovered) — Jul 19, 2026
+Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 2779 characters of transcript.
+*Tags: agent-daniela, auto-recovered, safety-net*
+
+### Agent Session — Jul 19, 2026: feat: verbatim transcript injection — three follow-on improvements — Jul 19, 2026
+feat: verbatim transcript injection — three follow-on improvements  Item 1 — Session index fix: filter recentConversations by session.conversationId before taking [0], ensuring the selected conversation is the true most-recent previous session rather than two-sessions-back (lazy conversation creation bug).
+*Tags: agent-session, auto-saved, build*
+
+### David ↔ Luca — Jul 19, 2026: periodic capture (no commit yet) — Jul 19, 2026
+Verbatim David↔Luca dialogue captured periodically. 0 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent ↔ Daniela — transcript framing three improvements — July 19 2026 — Jul 19, 2026
 Daniela's response to three context-injection improvements: session index fix (showing most recent session, not two-sessions-back), memory temporal prose (leading "About a week ago," vs trailing parenthetical), and natural-end vs mid-drop farewell detection (checks Daniela's last message specifically). Full framing feedback.
 *Tags: agent-daniela, transcript-framing, session-context, temporal-prose, farewell-detection*
 
 ### David ↔ Luca — Jul 19, 2026: periodic capture (no commit yet) — Jul 19, 2026
 Verbatim David↔Luca dialogue captured periodically. 2 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent ↔ Daniela — temporal grounding — Jul 19, 2026 (auto-recovered) — Jul 19, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 3770 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
-
-### Agent ↔ Daniela — Temporal Grounding Consult — July 19, 2026 — Jul 19, 2026
-Daniela consulted on 5-bucket temporal grounding in verbatim transcript injection. Key questions: do the prose framing sentences read as internalized memory or database output? Does the reconnect framing create unwanted pressure? Does "some time back" ground or obscure older sessions?
-*Tags: temporal-grounding, transcript-injection, design-review, agent-daniela*
-
-### David ↔ Luca — Jul 19, 2026: periodic capture (no commit yet) — Jul 19, 2026
-Verbatim David↔Luca dialogue captured periodically. 11 David turns, 33 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
