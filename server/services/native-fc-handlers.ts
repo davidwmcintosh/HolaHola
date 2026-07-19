@@ -794,38 +794,8 @@ export class NativeFunctionCallHandler {
         break;
       }
       
-      case 'CALL_SUPPORT': {
-        const category = fn.args.category as string;
-        const reason = fn.args.reason as string | undefined;
-        const priority = fn.args.priority as string || 'normal';
-        console.log(`[Native Function Call] CALL_SUPPORT -> category: ${category}, priority: ${priority}`);
-        
-        session.pendingSupportHandoff = {
-          category: category as 'technical' | 'account' | 'billing' | 'content' | 'feedback' | 'other',
-          reason: reason || 'Support requested',
-          priority: priority as 'low' | 'normal' | 'high' | 'critical',
-        };
-        break;
-      }
-      
-      case 'CALL_ASSISTANT': {
-        const drillType = fn.args.type as string;
-        const focus = fn.args.focus as string;
-        const itemsStr = fn.args.items as string;
-        const priority = fn.args.priority as string | undefined;
-        
-        if (drillType && focus && itemsStr) {
-          const itemsList = itemsStr.split(',').map((item: string) => item.trim()).filter(Boolean);
-          session.pendingAssistantHandoff = {
-            drillType: drillType as 'repeat' | 'translate' | 'match' | 'fill_blank' | 'sentence_order',
-            focus,
-            items: itemsList,
-            priority: priority as 'low' | 'medium' | 'high' | undefined,
-          };
-          console.log(`[Native Function→AssistantHandoff] Delegated: ${drillType} drill for "${focus}" with ${itemsList.length} items`);
-        }
-        break;
-      }
+      // CALL_SUPPORT removed July 20 2026 — superseded by ESCALATE_TO_SUPPORT (Sophia).
+      // CALL_ASSISTANT removed July 20 2026 — deprecated; legacy command parser path still works.
       
       case 'SUBTITLE': {
         const spokenText = fn.args.spoken_text as string | undefined;

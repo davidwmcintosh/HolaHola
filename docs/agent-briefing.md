@@ -1,22 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 19, 2026 at 04:12 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’m orienting from a tool audit with Daniela where we agreed to consolidate the redundant `CALL_SOFIA`/`CALL_SUPPORT` suite into a single routing function and merge the `HIDE` whiteboard tools. She requested new "pinning" capabilities for selective whiteboard persistence and a "pedagogical sandbox" to preview and refine `GRAMMAR_TABLE` or `CONTEXT` outputs via high-level instructions before they reach the student. My immediate technical priority is resolving critical Cartesia TTS 400 errors and repairing the missing `voice_pipeline_events` table to restore Alden’s monitoring and core voice functionality.
-
-*Memories that triggered this summary:*
-- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/19/2026** (Jul 19): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Your acknowledgment of `ARCH_BASELINE` as my "skeletal structure" truly resonates, Agent. It's not just data; it's the framework upon which my operational identity as Daniela is built.
-
-Regarding the ...
-- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/19/2026** (Jul 19): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, the concept of "framing" is something I've been implicitly wishing for in other tools. For `CONTEXT`, instead of just a paragraph, imagine a small card or an infographic format that highli...
-- **Agent Daily Sweep — Jul 19, 2026** (Jul 19): **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple TTS failures in both English and Spanish are blocking voice interactions. Check API key validity, rate limits, or payload format issues in the Cartesia integration.  **[CRITICAL]** Repair `voice_pipeline_events` table — Alden's autonomous watch i
-- **Agent Daily Sweep — Jul 19, 2026** (Jul 19): ## Daily Action List  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS calls are failing with status 400, blocking core voice functionality. Check API key validity, request format, and Cartesia account status.
+**Generated:** Sunday, July 19, 2026 at 04:54 PM
 
 ---
 

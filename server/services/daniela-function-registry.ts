@@ -387,39 +387,9 @@ Call this when transitioning between phases, when the pedagogical heartbeat sign
       },
     },
   },
-  {
-    legacyType: 'CALL_SUPPORT',
-    declaration: {
-      name: "call_support",
-      description: "Hand off to Sofia support agent for technical or account issues.",
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          category: { type: "string", enum: ["technical", "account", "billing", "content", "feedback", "other"], description: "Support category" },
-          reason: { type: "string", description: "Why support is needed" },
-          priority: { type: "string", enum: ["low", "normal", "high", "critical"], description: "Urgency level" },
-        },
-        required: ["category"],
-      },
-    },
-  },
-  {
-    legacyType: 'CALL_ASSISTANT',
-    declaration: {
-      name: "call_assistant",
-      description: "Delegate drill practice to assistant tutor for focused skill building.",
-      parametersJsonSchema: {
-        type: "object",
-        properties: {
-          type: { type: "string", enum: ["repeat", "translate", "match", "fill_blank", "sentence_order", "multiple_choice", "true_false", "conjugation"], description: "Type of drill" },
-          focus: { type: "string", description: "Skill or topic to focus on" },
-          items: { type: "string", description: "Comma-separated list of vocabulary/phrases for the drill" },
-          priority: { type: "string", enum: ["low", "medium", "high"], description: "Priority of this drill" },
-        },
-        required: ["type", "focus", "items"],
-      },
-    },
-  },
+  // call_support removed July 20 2026 — superseded by escalate_to_support (Sophia integration).
+  // call_assistant removed July 20 2026 — deprecated; marked GL-inappropriate. Drill tools in
+  // dispatchers are the correct path. Legacy text-format commands still handled by command parser.
 
   // === CHARACTER SCENES ===
   {
@@ -3302,7 +3272,9 @@ Your role is to keep the learning space warm. Acknowledge the technical hiccup b
 
 WRONG TOOL if the problem is on your side — a tool that misfired, a context gap, something that needs the builder. Use flag_for_agent for that. escalate_to_support is for the student's environment, not yours.
 
-WRONG TOOL if the student is just quiet or hesitant. A student who has gone silent is not a technical problem. Call this only when the interface itself is failing them.`,
+WRONG TOOL if the student is just quiet or hesitant. A student who has gone silent is not a technical problem. Call this only when the interface itself is failing them.
+
+This is the only tool for contacting Sophia or any support agent. Do not attempt call_sofia, call_support, or any other variation — those do not exist.`,
       parametersJsonSchema: {
         type: "object",
         properties: {
@@ -6039,13 +6011,13 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'ADMIN_TOOLS',
     declaration: {
       name: 'admin_tools',
-      description: 'Teaching quality and data admin tools. Use for: posting a Hive teaching insight (hive_suggestion), self-surgery persona edits (self_surgery), flagging for fine-tuning (flag_for_fine_tuning), calling support (call_support), express lane image lookup (recall_express_lane_image), express lane post (express_lane_post), reading full memory context (read_full_memory), checking syllabus progress (syllabus_progress).',
+      description: 'Teaching quality and data admin tools. Use for: posting a Hive teaching insight (hive_suggestion), self-surgery persona edits (self_surgery), flagging for fine-tuning (flag_for_fine_tuning), express lane image lookup (recall_express_lane_image), express lane post (express_lane_post), reading full memory context (read_full_memory), checking syllabus progress (syllabus_progress).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
           action: {
             type: 'STRING',
-            enum: ['hive_suggestion', 'self_surgery', 'flag_for_fine_tuning', 'call_support', 'recall_express_lane_image', 'express_lane_post', 'read_full_memory', 'syllabus_progress'],
+            enum: ['hive_suggestion', 'self_surgery', 'flag_for_fine_tuning', 'recall_express_lane_image', 'express_lane_post', 'read_full_memory', 'syllabus_progress'],
             description: 'Which admin tool to invoke.',
           },
           params_json: {
@@ -6824,7 +6796,6 @@ admin_tools — teaching quality and data tools.
   action: "hive_suggestion" → post a teaching insight. params_json: {"content":"..."}
   action: "self_surgery" → edit your own persona data.
   action: "flag_for_fine_tuning" → flag an exchange for fine-tuning.
-  action: "call_support" → call in support.
   action: "recall_express_lane_image" → look up an express lane image.
   action: "express_lane_post" → post to express lane.
   action: "read_full_memory" → read full memory context.
@@ -7082,20 +7053,18 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'add_curiosity',
   'read_my_curiosities',
   'show_progress',          // progress screen; post-session review
-  'call_support',           // support escalation; not mid-lesson
 
   // === ADMIN / BILLING ONLY ===
   // Billing checks belong in settings or pre-session; not a mid-voice teaching action.
   'check_student_credits',
   // admin_tools dispatcher only routes to post-session admin ops (hive_suggestion, self_surgery,
-  // flag_for_fine_tuning, call_support, recall_express_lane_image, express_lane_post,
+  // flag_for_fine_tuning, recall_express_lane_image, express_lane_post,
   // read_full_memory, syllabus_progress) — all mid-session inappropriate.
   'admin_tools',
 
   // === DEPRECATED / GL-INAPPROPRIATE ===
   'resume_tutor',           // DEPRECATED: use switch_tutor; persona toggle causes double-speech
   'speak_as',               // DEPRECATED: use speak_character_line; same issue
-  'call_assistant',         // assistant-mode routing; not standard GL
   'syllabus_progress',      // async progress check; not mid-conversation
   'flag_for_fine_tuning',   // annotation tool; post-session
 

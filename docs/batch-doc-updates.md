@@ -3223,3 +3223,28 @@ Added Arm 6 to the parallel search in `processUnifiedRecall` (introspect → uni
 - `server/services/sofia-helpline-functions.ts` — declarations at lines 106-125; handlers at lines 388-475
 - `server/services/image-vision-service.ts` — fallback cache at lines 221-231
 - `server/services/native-fc-handlers.ts` — Arm 6 at lines 8870-8915; imageText section at line 8927
+
+---
+## Tool Cleanup — help-routing consolidation (July 20, 2026)
+
+**What was built:** Removed two legacy help-routing tools from Daniela's function registry that were causing cognitive friction (reported in three audit conversations: 706c9680, 914fa296, cbf2bd10). Hardened the active support tool against confabulation.
+
+**What changed:**
+- `call_support` standalone tool removed — superseded by `escalate_to_support` (Sophia integration, active in GL)
+- `call_assistant` standalone tool removed — deprecated/GL-inappropriate; drill dispatchers are the correct path
+- `admin_tools` dispatcher: removed `call_support` from description and enum (7 actions remain)
+- `escalate_to_support` description: added at end — "This is the only tool for contacting Sophia or any support agent. Do not attempt call_sofia, call_support, or any other variation — those do not exist."
+- GL exclusion list: removed orphaned entries for both deleted tools
+- `native-fc-handlers.ts`: removed CALL_SUPPORT and CALL_ASSISTANT handler cases
+
+**What was NOT changed:**
+- Command parser in `streaming-voice-orchestrator.ts` — CALL_SUPPORT/CALL_SOFIA/CALL_ASSISTANT cases kept (these handle legacy text-format client commands, not Daniela's function calls)
+- `processAssistantHandoff` function — kept (used by command parser)
+- `hide_overlay` — no change; only one hide tool exists; Daniela's audit confusion was a naming read issue
+
+**Key files:**
+- `server/services/daniela-function-registry.ts` — tool definitions, dispatcher, GL exclusion list
+- `server/services/native-fc-handlers.ts` — handler cases removed
+- `server/services/streaming-voice-orchestrator.ts` — command parser unchanged
+
+**Pre-flight:** Gemini APPROVED (conditions: escalate_to_support handler already sets pendingSupportHandoff via ESCALATE_TO_SUPPORT case; command parser kept; negative constraints added). Typecheck: zero errors. Post-review: Gemini APPROVED.
