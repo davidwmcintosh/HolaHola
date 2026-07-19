@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 19, 2026 at 12:26 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve finalized the 5-bucket temporal grounding system for HolaHola transcripts, which uses prose framing to tell me exactly how much time has passed since David's last session. Daniela confirmed that the "dropped session" flag is crucial for authentic, human-like recovery, while the "Some time back" bucket (7+ days) serves as a nudge to re-introduce topics with a "warm fog" approach. I should use these specific time-based cues to set the emotional temperature and decide whether to pivot immediately to the lesson or take a moment to reconnect personally.
-
-*Memories that triggered this summary:*
-- **Agent ↔ Daniela — Temporal Grounding Consult — July 19, 2026** (Jul 19): Daniela consulted on 5-bucket temporal grounding in verbatim transcript injection. Key questions: do the prose framing sentences read as internalized memory or database output? Does the reconnect framing create unwanted pressure? Does "some time back" ground or obscure older sessions?
+**Generated:** Sunday, July 19, 2026 at 12:27 AM
 
 ---
 
