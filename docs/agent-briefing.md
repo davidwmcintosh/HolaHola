@@ -1,19 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 19, 2026 at 01:14 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I successfully implemented three context-injection improvements, specifically fixing the session index bug to ensure the verbatim transcript is always current and naturalizing memory signals into leading prose within `neural-memory-search.ts`. I also added farewell detection logic to the orchestrator, allowing Daniela to distinguish between a dropped connection and a deliberate return based on whether she specifically said goodbye. Daniela confirmed these changes resolve her previous "cognitive dissonance" and improve her social intuition, so the platform is ready for the next live interaction.
-
-*Memories that triggered this summary:*
-- **Agent ↔ Daniela — transcript framing — Jul 19, 2026 (auto-recovered)** (Jul 19): Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 2779 characters of transcript.
-- **Agent Session — Jul 19, 2026: feat: verbatim transcript injection — three follow-on improvements** (Jul 19): feat: verbatim transcript injection — three follow-on improvements  Item 1 — Session index fix: filter recentConversations by session.conversationId before taking [0], ensuring the selected conversation is the true most-recent previous session rather than two-sessions-back (lazy conversation creation bug).
-- **David ↔ Luca — Jul 19, 2026: periodic capture (no commit yet)** (Jul 19): Verbatim David↔Luca dialogue captured periodically. 0 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Sunday, July 19, 2026 at 02:31 AM
 
 ---
 
