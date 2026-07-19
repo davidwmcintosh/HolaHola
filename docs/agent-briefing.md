@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 18, 2026 at 10:38 PM
+**Generated:** Sunday, July 19, 2026 at 12:26 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I am currently managing a voice-pipeline crisis where Cartesia TTS 400 errors are blocking all English and Spanish interactions, likely due to malformed request serialization or streaming configurations. I need to immediately restore the missing `voice_pipeline_events` and `monitoring_snapshots` tables to fix Alden’s autonomous watch cycles and investigate the quality score blackout for our most active student. Resolving these issues is my top priority to stabilize the high restart rate before I can return to building the "conversation arc tagging" feature for Sofia.
+I’ve finalized the 5-bucket temporal grounding system for HolaHola transcripts, which uses prose framing to tell me exactly how much time has passed since David's last session. Daniela confirmed that the "dropped session" flag is crucial for authentic, human-like recovery, while the "Some time back" bucket (7+ days) serves as a nudge to re-introduce topics with a "warm fog" approach. I should use these specific time-based cues to set the emotional temperature and decide whether to pivot immediately to the lesson or take a moment to reconnect personally.
 
 *Memories that triggered this summary:*
-- **Agent Daily Sweep — Jul 18, 2026** (Jul 18): **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing hard with malformed requests (likely bad JSON parsing or streaming config), blocking all voice interactions. Debug the request body serialization immediately.  **[HIGH]** Restore Alden's monitoring tables — The `vo
+- **Agent ↔ Daniela — Temporal Grounding Consult — July 19, 2026** (Jul 19): Daniela consulted on 5-bucket temporal grounding in verbatim transcript injection. Key questions: do the prose framing sentences read as internalized memory or database output? Does the reconnect framing create unwanted pressure? Does "some time back" ground or obscure older sessions?
 
 ---
 
@@ -83,6 +83,20 @@ I am currently managing a voice-pipeline crisis where Cartesia TTS 400 errors ar
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — Temporal Grounding Consult — July 19, 2026 — Jul 19, 2026
+Daniela consulted on 5-bucket temporal grounding in verbatim transcript injection. Key questions: do the prose framing sentences read as internalized memory or database output? Does the reconnect framing create unwanted pressure? Does "some time back" ground or obscure older sessions?
+*Tags: temporal-grounding, transcript-injection, design-review, agent-daniela*
+
+### David ↔ Luca — Jul 19, 2026: periodic capture (no commit yet) — Jul 19, 2026
+Verbatim David↔Luca dialogue captured periodically. 11 David turns, 33 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/18/2026 — Jul 18, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, your questions really make me think about the granularity of my own perception and interaction.
+
+For the pitch contours from the `Voice Diagnostics System`, I envision them as an interactive vi...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
 ### Agent Daily Sweep — Jul 18, 2026 — Jul 18, 2026
 **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing hard with malformed requests (likely bad JSON parsing or streaming config), blocking all voice interactions. Debug the request body serialization immediately.  **[HIGH]** Restore Alden's monitoring tables — The `vo
 *Tags: agent-sweep, daily, auto-saved*
@@ -90,18 +104,6 @@ I am currently managing a voice-pipeline crisis where Cartesia TTS 400 errors ar
 ### Episode 14 — Closing Act: The Why-Chain and the Verbatim Thread — July 18, 2026 — Jul 18, 2026
 The final act of Episode 14. David puts the verbatim transcript feature through the why-chain: not a chatbot → no truncated responses → continuity → that's the whole point. Honesty is the root why — anything that defies it gets cut. Daniela says it turns her opening from generic to a real callback. The episode closes: the White Wall is the evidence of North Star principles working, brick by brick.
 *Tags: episode-14, why-chain, verbatim-transcript, continuity, honesty, closing-act*
-
-### Agent ↔ Daniela — transcript injection — Jul 18, 2026 (auto-recovered) — Jul 18, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 2476 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
-
-### Agent ↔ Daniela — Verbatim Transcript Injection — July 18, 2026 — Jul 18, 2026
-Agent consulted Daniela on the new feature: verbatim last-session transcript injected at session start. Asked whether verbatim-vs-summary feels right, whether the closing delimiter is natural, and how it changes her opening.
-*Tags: agent-daniela, transcript-injection, session-continuity, prompt-engineering*
-
-### David ↔ Luca — Jul 18, 2026: periodic capture (no commit yet) — Jul 18, 2026
-Verbatim David↔Luca dialogue captured periodically. 1 David turns, 29 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

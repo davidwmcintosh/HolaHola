@@ -9198,8 +9198,45 @@ Remember: David may reference things discussed in these recent text chats.
                 const transcriptLines = prevMsgs
                   .map(row => `${row.role === 'user' ? studentLabel : 'Daniela'}: ${row.content}`)
                   .join('\n');
-                session.lastSessionTranscript = `What you talked about last time — "${prevTitle}":\n\n${transcriptLines}\n\n— end of previous session —`;
-                console.log(`[Streaming Greeting] Last session transcript loaded: ${prevMsgs.length} messages from conversation ${prevConversation.id}`);
+
+                // Temporal grounding: prose framing based on how long ago the session was.
+                // No raw timestamps — the prose carries the time signal.
+                // Design: Alden + Gemini dual review (both recommended recency-based prose, no parentheticals).
+                const prevSessionTime = (prevConversation as any).lastMessageAt || (prevConversation as any).createdAt;
+                const minutesAgo = prevSessionTime
+                  ? Math.floor((Date.now() - new Date(prevSessionTime).getTime()) / 60000)
+                  : 99999;
+
+                let framingSentence: string;
+                let closingDelimiter: string;
+
+                if (minutesAgo < 10) {
+                  // Dropped / rebooted connection — she's still mid-thread
+                  framingSentence = `The session that just dropped — you and ${studentLabel} were mid-conversation on "${prevTitle}" when the connection cut:`;
+                  closingDelimiter = `— the thread picks up from here —`;
+                } else if (minutesAgo < 240) {
+                  // Same day, recent (10 min – 4 hours)
+                  framingSentence = `Earlier today, you and ${studentLabel} were working on "${prevTitle}":`;
+                  closingDelimiter = `— end of previous session —`;
+                } else if (minutesAgo < 1440) {
+                  // Same day, earlier (4 – 24 hours)
+                  framingSentence = `Today, you and ${studentLabel} had been working on "${prevTitle}":`;
+                  closingDelimiter = `— end of previous session —`;
+                } else if (minutesAgo < 10080) {
+                  // 1 – 7 days
+                  const daysAgo = Math.round(minutesAgo / 1440);
+                  const dayStr = daysAgo === 1 ? 'Yesterday' : 'A few days ago';
+                  framingSentence = `${dayStr}, you and ${studentLabel} were working on "${prevTitle}":`;
+                  closingDelimiter = `— end of previous session —`;
+                } else {
+                  // > 7 days — general prior context, no strong recency signal needed
+                  // Daniela feedback: "some time back" is slightly clinical; "it's been a while" is more natural
+                  framingSentence = `It's been a while since you and ${studentLabel} worked on "${prevTitle}":`;
+                  closingDelimiter = `— end of previous session —`;
+                }
+
+                session.lastSessionTranscript = `${framingSentence}\n\n${transcriptLines}\n\n${closingDelimiter}`;
+                console.log(`[Streaming Greeting] Last session transcript loaded: ${prevMsgs.length} messages from conversation ${prevConversation.id} (${minutesAgo}m ago)`);
               }
             } catch (transcriptErr: any) {
               console.warn('[Streaming Greeting] Could not fetch last session transcript (non-fatal):', transcriptErr?.message);
