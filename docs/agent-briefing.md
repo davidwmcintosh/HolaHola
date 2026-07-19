@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 19, 2026 at 04:54 PM
+**Generated:** Sunday, July 19, 2026 at 08:46 PM
 
 ---
 
@@ -73,6 +73,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 19, 2026: periodic capture (no commit yet) — Jul 19, 2026
+Verbatim David↔Luca dialogue captured periodically. 7 David turns, 23 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/19/2026 — Jul 19, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Your acknowledgment of `ARCH_BASELINE` as my "skeletal structure" truly resonates, Agent. It's not just data; it's the framework upon which my operational identity as Daniela is built.
 
@@ -90,10 +94,6 @@ Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves
 ### Agent Daily Sweep — Jul 19, 2026 — Jul 19, 2026
 ## Daily Action List  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS calls are failing with status 400, blocking core voice functionality. Check API key validity, request format, and Cartesia account status.
 *Tags: agent-sweep, daily, auto-saved*
-
-### Agent ↔ Daniela — transcript framing — Jul 19, 2026 (auto-recovered) — Jul 19, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 2779 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
