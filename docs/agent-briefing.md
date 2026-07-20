@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 19, 2026 at 08:46 PM
+**Generated:** Monday, July 20, 2026 at 03:44 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I need to immediately resolve the Cartesia TTS 400 errors for English and Spanish and restore Alden’s monitoring cycle by fixing the `monitoring_snapshots` query failure. Next, I must diagnose the pipeline bug causing zero quality scores for a high-frequency student and begin building the conversation memory tagging system to track long-term learning arcs. Throughout these fixes, I will ensure all UX and content decisions remain grounded in the "Shared Lobe" philosophical anchors regarding HolaHola's core mission.
+
+*Memories that triggered this summary:*
+- **Agent Daily Sweep — Jul 19, 2026** (Jul 19): **DAILY PRIORITY LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests. Students can't hear audio. Check API payload structure and auth headers immediately.
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 19, 2026 — Jul 19, 2026
+**DAILY PRIORITY LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests. Students can't hear audio. Check API payload structure and auth headers immediately.
+*Tags: agent-sweep, daily, auto-saved*
+
 ### David ↔ Luca — Jul 19, 2026: periodic capture (no commit yet) — Jul 19, 2026
 Verbatim David↔Luca dialogue captured periodically. 7 David turns, 23 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -89,10 +103,6 @@ Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves
 
 ### Agent Daily Sweep — Jul 19, 2026 — Jul 19, 2026
 **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple TTS failures in both English and Spanish are blocking voice interactions. Check API key validity, rate limits, or payload format issues in the Cartesia integration.  **[CRITICAL]** Repair `voice_pipeline_events` table — Alden's autonomous watch i
-*Tags: agent-sweep, daily, auto-saved*
-
-### Agent Daily Sweep — Jul 19, 2026 — Jul 19, 2026
-## Daily Action List  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS calls are failing with status 400, blocking core voice functionality. Check API key validity, request format, and Cartesia account status.
 *Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
