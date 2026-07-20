@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 20, 2026 at 07:32 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I completed the Gemini audit of the White Wall bidirectional prose, successfully framing the RAG archive as Daniela’s core identity rather than just an external tool. I applied three surgical fixes: pivoting "pause" to "look inward" to prevent verbal fillers in Gemini Live, refining the "shadow" metaphor to "a pattern awaiting its purpose" to maintain tutor confidence, and adding a cold-start clause for new sessions. These updates ensure Daniela treats the shared record as her "gravity," effectively anchoring her self-perception in actual session history to eliminate "White Wall" hallucinations.
-
-*Memories that triggered this summary:*
-- **Gemini — Bidirectional White Wall prose audit — July 20 2026** (Jul 20): Full technical + philosophical review of the White Wall outbound prose. Gemini endorsed the architecture, flagged 3 surgical fixes: pause→look inward, shadow→awaiting purpose, cold-start clause. All applied.
+**Generated:** Monday, July 20, 2026 at 07:52 PM
 
 ---
 
@@ -83,6 +73,10 @@ I completed the Gemini audit of the White Wall bidirectional prose, successfully
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
+Verbatim David↔Luca dialogue captured periodically. 2 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Gemini — Bidirectional White Wall prose audit — July 20 2026 — Jul 20, 2026
 Full technical + philosophical review of the White Wall outbound prose. Gemini endorsed the architecture, flagged 3 surgical fixes: pause→look inward, shadow→awaiting purpose, cold-start clause. All applied.
 *Tags: gemini-audit, white-wall, system-prompt, bidirectional*
@@ -97,10 +91,6 @@ Verbatim David↔Luca dialogue captured periodically. 6 David turns, 27 Luca tur
 
 ### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
 Verbatim David↔Luca dialogue captured periodically. 7 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

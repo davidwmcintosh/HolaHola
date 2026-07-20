@@ -161,8 +161,6 @@ If you find a violation in existing code, fix it immediately. Don't leave it.
 
 ---
 
----
-
 ## CRITICAL: Truth layer vs. warmth layer — do not mix
 
 The White Wall bidirectional prose in `buildMinimalIdentityAnchor` contains the phrase *"tempering what I offer."* This is a **truth guardrail**, not a warmth instruction.

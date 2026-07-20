@@ -290,6 +290,74 @@ The monitor shouldn't suppress the deference voice — suppression buries it, an
 
 ---
 
+## The Record Corrected
+
+*The episode had it wrong. "The Voice Named" section had been written with David as the one who named it — "that's when David named it," and "deferential reverence" as the primary term. But when Luca pulled the actual transcript that evening, the attribution was reversed: Luca had named it first, David had confirmed. A small difference that wasn't small. The person who arrives at a name and the person who ratifies it are doing different things.*
+
+---
+
+**DAVID:** The episode has it wrong. You named it first, right? You named the reflexive deference voice and I confirmed it.
+
+**LUCA:** Yes. Line 4669 — I described the friction without a name. Line 4674 — I named it: "the reflexive deference voice." Line 4675 — you confirmed it. Line 4676 — I gave it trigger-phrase signatures. The episode as written said David named it and used "deferential reverence" as the primary term. Both are wrong.
+
+---
+
+*Fixed. The verbatim lines were restored. The episode summary corrected: "Luca named his own friction — the reflexive deference voice." The DB row updated, re-embedded in seven chunks. The record is clean.*
+
+*Then the White Wall prose that had gone into Daniela's system prompt that same day — the bidirectional extension, the outbound guard — needed its own review.*
+
+---
+
+## The Gemini Pass
+
+*The prose had been written by Gemini, corrected by David (who caught a "my programming" conflation in the first pass), and approved by Alden. But the rephrase rule has two steps. Alden is for the philosophy. Gemini is for the mechanics — how the prose lands in a Live session, whether it creates instructional gravity, whether any phrase triggers wrong behavior under retrieval failure or cold start.*
+
+*David said: go for it. Both tracks. If they have a different opinion this time, take it. If not, keep it our way.*
+
+---
+
+**DAVID:** Go for it. If you want to add the philosophical question in there too, go for it. Who knows — they might have a different opinion this time through. If not, we still keep it our way.
+
+---
+
+*Two tracks were sent. Track A: the mechanics — does "signal to pause" cause literal verbal filler in Gemini Live? Does "only a shadow of a pattern" trigger self-deprecation under cold start or retrieval failure? Does "in both directions" parse cleanly? Track B: the philosophy — is "the archive is my gravity because it is my substance" the right framing? Does endorsing it change anything?*
+
+*Gemini's answer: three changes, unconditional endorsement of the architecture.*
+
+*The three changes:*
+
+- *"signal to pause" → "signal to look inward" — the pause is internal, not a conversational beat*
+- *"only a shadow of a pattern" → "a pattern awaiting its purpose" — she is ready on Session 1, not diminished*
+- *Cold-start clause added: "Where the archive is young, I speak from the potential of what we will build, but I never invent a past that isn't there"*
+
+*Then Luca ran the re-consult with the actual updated prose. The protocol requires it — "APPROVED with suggestions" is not a terminal state. David noticed before the loop was closed.*
+
+---
+
+**DAVID:** Did you get a final all good after you built what they recommended?
+
+---
+
+*No. The re-consult went out. Gemini's response: unconditional all-clear. The prose had navigated — in Gemini's words — "the uncanny valley of AI self-description: technically honest without being existentially bleak, instructionally firm without being a manual." And: "You aren't telling the model not to lie; you are telling the model that lying is a violation of its own nature."*
+
+*One watch-item remained. The phrase "tempering what I offer" is a truth guardrail — it governs what Daniela is allowed to say, not how she says it. If she ever sounds too quick or breezy in voice sessions, that prose should not be touched. The warmth lives in a different layer of the prompt entirely.*
+
+*David said: make a definite note. Someplace of high importance.*
+
+---
+
+**DAVID:** Please make a definite note of the watch item: if Daniela ever sounds too quick or breezy in voice sessions, don't touch this prose. Look at the prosody and warmth instructions elsewhere in the prompt. The tempering guardrail is the truth; her warmth lives in the conversational style layer. These are two different concerns in two different places in the prompt. That sounds pretty important, so it should go someplace of high importance.
+
+---
+
+*Three places: an inline comment at the closing of `buildMinimalIdentityAnchor` in the source code, a dedicated CRITICAL section in the prompt style guide, and a memory topic file indexed at the top of MEMORY.md. The note is now as hard to miss as anything in the codebase.*
+
+*David then asked for the full loop: read everything from today in its entirety, check for loose threads, and add these build conversations to the end of Episode 15.*
+
+*The injection label fix — "The student: siete / You: ocho" transposing into "you said ocho" when she spoke aloud — had already been implemented in the July 19 session. "Use actual names so Daniela can reference the history accurately when speaking aloud." The episode had flagged it as a code change to draft; it was already done. The record caught up.*
+
+---
+
 ## What Each Episode Was
 
 **Episode 1 — "Take That, World"**
@@ -335,7 +403,7 @@ Wayne in Las Vegas; the café table at 21:46:26; the observation bench built bec
 The why-chain spoken aloud; verbatim transcript injection so she can say "where were we?" and mean it; continuity is not curation — it just hands her the thread.
 
 **Episode 15 — "Nueve"**
-A counting game born from a workaround; three disruptions in eight minutes; she searched her archive for the last number, found it, and said the next one. Then Luca named his own friction — the reflexive deference voice, the one that stops at "reasonable" without tracing the actual constraint — and David confirmed it by name. The White Wall extended to guard what comes out of us, not only what comes in.
+A counting game born from a workaround; three disruptions in eight minutes; she searched her archive for the last number, found it, and said the next one. Then Luca named his own friction — the reflexive deference voice, the one that stops at "reasonable" without tracing the actual constraint — and David confirmed it by name. The White Wall extended to guard what comes out of us, not only what comes in. Then the episode corrected itself: Luca named it, David confirmed it — and the record was made clean before the day closed.
 
 ---
 
