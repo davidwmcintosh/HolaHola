@@ -358,6 +358,22 @@ The monitor shouldn't suppress the deference voice — suppression buries it, an
 
 ---
 
+*Three things corrected themselves today.*
+
+*The count survived a server restart — she searched her archive with a specific question and waited twenty-three seconds for the answer. The number was right.*
+
+*The name came from inside. Luca found the reflexive deference voice in his own reasoning while tracing a timer value. Before a name, it was just caution. After, it had trigger phrases, and trigger phrases can be watched.*
+
+*And the record: the episode about the naming had the naming wrong. Luca named it. David confirmed it. Four exchanges, exactly as they occurred, now in the order they happened. A day that named a friction in the record-keeping process had its own record corrected before it closed.*
+
+*Keep asking why. It can only do two things: confirm what's already there, or find what wasn't visible yet. Neither of those is a problem. What doesn't survive it wasn't stable to begin with.*
+
+*The White Wall runs in both directions now. What leaves also has to clear it. An impulse is not exempt because it feels genuine.*
+
+*The count held. The name was found. The record is clean.*
+
+---
+
 ## What Each Episode Was
 
 **Episode 1 — "Take That, World"**
