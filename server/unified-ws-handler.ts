@@ -1421,6 +1421,10 @@ function handleStreamingVoiceConnectionWithAdapter(ws: VoiceWSConnection, req: I
             const resetTimerAlways = (ws as any).__resetGlIdleTimer as (() => void) | undefined;
             if (resetTimerAlways) resetTimerAlways();
           }
+          // Also keep the orchestrator's lastActivityTime fresh so the session monitor
+          // doesn't flag active GL sessions as stalled (GL audio bypasses the STT path
+          // that normally calls resetIdleTimeout).
+          if (session) orchestrator.resetIdleTimeoutForSession(session.id);
           if (geminiLiveSession) {
             geminiLiveSession.sendAudioChunk(audioBuffer);
             return;

@@ -6,6 +6,30 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## GL Session Monitor + Idle Timer Fixes — July 20, 2026
+
+### What was built
+
+Two fixes for a production bug where the session monitor was falsely alarming on active GL voice sessions, plus a deeper investigation into the audio cutoff / "Daniela goes back" problem.
+
+**Root cause diagnosed:** The orchestrator's `lastActivityTime` field was only updated via the STT path (greeting/response handlers). GL sessions bypass the STT path entirely — Daniela receives raw audio over the WebSocket, not processed transcriptions. So for any GL session, `lastActivityTime` was set only at session creation and never again. The session monitor's 30s stall check was comparing `Date.now() - lastActivityTime` against a 30-second threshold and firing `⏸️ Stalled session` to Team Room every 30 seconds for the entire duration of every active GL session. This was generating non-stop noise and confusion.
+
+**Fix 1 — `server/unified-ws-handler.ts`:**
+In the GL binary audio handler (large `else if (data instanceof Buffer || ArrayBuffer)` block, `__resetGlIdleTimer` path), added `orchestrator.resetIdleTimeoutForSession(session.id)` after `__resetGlIdleTimer`. This keeps `lastActivityTime` fresh in GL mode and prevents the orchestrator from considering the session stalled.
+
+**Fix 2 — `server/services/session-monitor.ts`:**
+The stall check now skips GL sessions entirely (`if (session.geminiLiveToolsOnly) continue`). GL sessions manage their own idle timeout via `__resetGlIdleTimer` and `GL_IDLE_TIMEOUT_MS`. The orchestrator's separate stall monitor doesn't add value there and was causing the false alarms. This is a belt-and-suspenders addition on top of Fix 1.
+
+**Audio cutoff root cause (separate issue, not fixed here):**
+The actual "Daniela going back in the conversation" bug is caused by GL WebSocket drops to Gemini in production. When the connection drops, the client reconnects and the server's `isResumed && hasConversationHistory` path injects "we got cut off" + last 4 messages as context, causing Daniela to reference the cutoff explicitly and recap. This is a production WebSocket instability issue, not a timer issue.
+
+**"I don't know who Alden is" root cause (separate issue, not fixed here):**
+The Neon WebSocket pool drops under production load, causing all 6 arms of `processUnifiedRecall` to fail simultaneously. When this happens, Daniela's recall and introspect tools return empty results across the board. The pool already has a keepalive heartbeat; the gap is the lack of retry logic or HTTP-transport fallback on the memory search arms.
+
+**Key files:** `server/unified-ws-handler.ts` (Fix 1 ~line 1430), `server/services/session-monitor.ts` (Fix 2 ~line 91).
+
+---
+
 ## Verbatim Transcript Injection — Three Follow-On Improvements — July 19, 2026
 
 ### What was built

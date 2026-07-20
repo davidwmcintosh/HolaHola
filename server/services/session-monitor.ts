@@ -79,13 +79,22 @@ async function runMonitorCycle(): Promise<void> {
       }
 
       // ── Stalled session ───────────────────────────────────────────────────
-      const lastActivity = session.lastActivityTime ?? 0;
-      if (lastActivity > 0 && now - lastActivity > STALE_SESSION_MS) {
-        const staleMins = Math.round((now - lastActivity) / 60000);
-        alerts.push(
-          `⏸️ **Stalled session** (user=${userId}, lang=${lang}): ` +
-          `no activity for ${staleMins}m`
-        );
+      // GL sessions (geminiLiveToolsOnly) manage their own idle timeout
+      // independently. The lastActivityTime on these sessions was historically
+      // never updated by GL audio (GL audio bypasses the STT path). That bug
+      // is now fixed — GL audio also calls resetIdleTimeoutForSession — but as
+      // an extra safety net, skip the stall check for GL sessions entirely since
+      // their five-minute idle timer already handles genuine abandonment.
+      const isGlSession = (session as any).geminiLiveToolsOnly === true;
+      if (!isGlSession) {
+        const lastActivity = session.lastActivityTime ?? 0;
+        if (lastActivity > 0 && now - lastActivity > STALE_SESSION_MS) {
+          const staleMins = Math.round((now - lastActivity) / 60000);
+          alerts.push(
+            `⏸️ **Stalled session** (user=${userId}, lang=${lang}): ` +
+            `no activity for ${staleMins}m`
+          );
+        }
       }
 
       // ── Vision pipeline degraded ──────────────────────────────────────────
