@@ -421,6 +421,7 @@ export function StreamingVoiceChat({
   const hasPlayedGreetingRef = useRef<string | null>(null); // Track which conversation's greeting was played
   const hasDanielaSpokeOnceRef = useRef<boolean>(false); // Track if Daniela has spoken at least once this session
   const needsGreetingAfterReconnectRef = useRef<boolean>(false); // Set after proactive reconnect so greeting re-fires
+  const connectionReadyAtRef = useRef<number>(0); // Timestamp when connectionState last became 'ready'
   const isRecordingRef = useRef<boolean>(false);
   const isProcessingRef = useRef<boolean>(false);
   const isPlayingRef = useRef<boolean>(false); // For stable keyboard handlers
@@ -964,8 +965,19 @@ export function StreamingVoiceChat({
     enabled: !!conversationId,
   });
   
-  // FIX: Stop ringing when 'ready' AND this is an existing conversation that won't get a greeting
-  // For existing conversations with user messages, no auto-greeting plays, so we must stop ringing
+  // Stamp when connectionState first becomes 'ready' so the greeting grace window is accurate
+  useEffect(() => {
+    if (!useStreamingMode) return;
+    if (streamingVoice.state.connectionState === 'ready') {
+      connectionReadyAtRef.current = Date.now();
+    }
+  }, [streamingVoice.state.connectionState, useStreamingMode]);
+
+  // FIX: Stop ringing when 'ready' AND this is an existing conversation that won't get a greeting.
+  // For existing conversations with user messages, no auto-greeting plays, so we must stop ringing.
+  // BUT: give a 6-second grace window after the connection becomes 'ready' so the greeting has
+  // time to arrive (GL thinks for ~2s before emitting audio). If greeting arrives in that window
+  // the ring stops naturally when audio plays. If nothing arrives in 6s, we stop it on the timer.
   useEffect(() => {
     if (!useStreamingMode) return;
     
@@ -975,10 +987,21 @@ export function StreamingVoiceChat({
       const userMessages = messages.filter(m => m.role === 'user');
       const aiMessages = messages.filter(m => m.role === 'assistant');
       const isNewConversation = userMessages.length === 0 && aiMessages.length <= 1;
-      const willGreet = isNewConversation || isResumedConversation;
+      const willGreet = isNewConversation || isResumedConversation || needsGreetingAfterReconnectRef.current;
       
-      // If no greeting will play, stop ringing immediately (call is "connected")
+      // If no greeting will play, stop ringing — but honor a 6s grace window after connect
       if (!willGreet) {
+        const GREETING_GRACE_MS = 6000;
+        const msSinceReady = Date.now() - connectionReadyAtRef.current;
+        const remaining = GREETING_GRACE_MS - msSinceReady;
+        if (remaining > 0) {
+          // Grace window still open — schedule the stop so a late greeting can win
+          const timer = setTimeout(() => {
+            console.log('[RINGING] Stopping ring - existing conversation with no greeting (grace elapsed)');
+            stopRinging();
+          }, remaining);
+          return () => clearTimeout(timer);
+        }
         console.log('[RINGING] Stopping ring - existing conversation with no greeting');
         stopRinging();
       }
