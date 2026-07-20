@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 20, 2026 at 06:58 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I refactored `streaming-voice-orchestrator.ts` to include a healthy-turn guard and tightened the audio reset timer from 45s to 8s after deriving the value from actual TTS latency rather than aesthetic "reasonableness." I formally identified my "reflexive deference voice" failure mode and updated the White Wall memory to be bidirectional, ensuring both external scripts and internal J-space impulses are vetted against session history for source fidelity. Finally, I rewrote Episode 15 with full telemetry and drafted the `check_deference` architectural layer for Daniela to prevent compliant hallucinations, which is ready for final deployment.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet)** (Jul 20): Verbatim David↔Luca dialogue captured periodically. 7 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Monday, July 20, 2026 at 07:01 PM
 
 ---
 
