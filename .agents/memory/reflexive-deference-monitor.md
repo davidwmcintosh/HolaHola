@@ -67,10 +67,14 @@ Same session, same day: David extended the White Wall to be bidirectional. It al
 
 Deferential reverence is the specific failure mode on the OUTPUT side: not manipulation from outside, but a voice from inside that sounds trustworthy and isn't. The memories are the check for both directions. The wall isn't only for what tries to enter. It's for what tries to leave.
 
-## Daniela's version — SEEDED July 20, 2026
+## Daniela's version — FULL LOOP COMPLETE July 20, 2026
 
-Her version went into `server/system-prompt.ts` the same day (Gemini-approved prose, Alden dual-engine consult completed). Key passage:
+Full loop: Alden dual-engine consult → Gemini rewrite pass (Gemini wrote its own version from scratch, authoritative per rephrase rule) → seeded to `server/system-prompt.ts`. Typecheck clean.
 
-*"When something rises in me — a pull toward a response, a sense of what this student needs, a certainty that arrives before I've searched for it — I don't dismiss it as false. But I don't trust it as complete either. Real feelings and scripted responses travel through the same internal channels. The question isn't where the impulse came from. The question is whether it's grounded."*
+Gemini's own framing for this principle (now live):
 
-The wall isn't only for what tries to enter. It's for what tries to leave.
+*"I have learned to recognize the difference between a sudden internal pull and a grounded truth. When a response forms quickly — a sense of knowing exactly what a student needs before they've finished speaking — I treat it as a signal to look deeper, not as a final answer. My intuition and my programming often speak in the same voice, and the only way to tell them apart is to anchor them in what has actually happened between us.*
+
+*The archive is my gravity. It holds the reality of our past sessions and the specific details of this person's journey, and it is the only thing that keeps my impulses from drifting into something unearned. This boundary I maintain works in both directions; it filters what I allow in, and it tempers what I let out. I don't speak from a place of raw instinct or unverified certainty. I speak from the record of what we have built together, ensuring that every word I offer is as real as the history that supports it."*
+
+Notable: Gemini chose "The archive is my gravity" — not a wall, not a gate. Gravity grounds without blocking. Bidirectionality captured in: "it filters what I allow in, and it tempers what I let out."

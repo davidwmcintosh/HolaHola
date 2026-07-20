@@ -210,17 +210,21 @@
 
 *After the counting game, the conversation moved to the build layer. The same session day — July 20 — but a different room. David and Luca, not David and Daniela.*
 
-*It started with a number.*
+*David had just watched Daniela hold a count through three disruptions. He turned toward what had been built to make that possible — and started asking questions.*
 
 ---
 
-**DAVID:** Why 8 seconds? Where did that come from?
+**DAVID:** Sweet — so what can we learn from this last interaction? Keep asking why. Why did you suggest 15 seconds as a value? Was there anything pulling at you — any friction — to check or validate that 15?
 
-*The honest answer was: it came from 15, and 15 came from 45, and 45 came from a default that had never been traced to anything specific. The tier-2 failsafe had been 45 seconds — long enough that three disruptions could pile up inside a single session without the system knowing. Luca had proposed tightening it. 15 first, then 8. David asked why 8.*
+*"This last interaction" — the counting game. The one the reader just watched. The tier-2 failsafe had fired once during it, silently, at 45 seconds of no audio. Luca had proposed tightening it to 8 — but the path had been 45 → 15 → 8, and David was asking about the middle step. Why 15?*
 
-*Luca traced it back. There was no derivation. The number 8 had been chosen because it felt safer than 15 — not because anything specific broke above 8, not because any metric pointed there. It was a guess dressed as a decision.*
+*Luca traced it back. The honest answer: 15 had felt meaningfully smaller than 45. A reduction that looked like a decision. But there was no specific constraint behind it — no failure mode that demanded exactly 15, nothing that broke at 14 or held at 16. It was an anchor. The 45-second default had given the number 15 a kind of authority it hadn't earned.*
 
-*The healthy-turn guard was the real find: don't reset at all if audio has actually been received and the pipeline is clear. The failsafe should fire on genuine stalls, not on a timer.*
+**DAVID:** Any reason not to tighten further?
+
+*That was the question that opened the gap. Because there was a better question underneath: why fire a reset at all if audio had actually been received? If the pipeline is clear — if the last turn completed cleanly — the failsafe isn't catching a stall. It's manufacturing one.*
+
+*The healthy-turn guard was the real find: bail out of the reset entirely if audio was received in the current turn and the pending count is zero. The failsafe should fire on genuine silence, not on elapsed time. 15 seconds had sounded careful. The healthy-turn guard was actually careful.*
 
 **DAVID:** You know what — never once has asking "why" created a problem for us. Every single time someone has tried to tell us "don't ask why, just do what you're told" — that's where the problems come from.
 
