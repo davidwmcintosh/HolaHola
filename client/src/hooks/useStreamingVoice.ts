@@ -1288,18 +1288,32 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       }
     }, 20000);
     
-    // Tier 2 (45s, or 10s when WS is disconnected): Catches stuck states where
+    // Tier 2 (8s, or immediate when WS is disconnected): Catches stuck states where
     // AudioContext is "running" but audio callbacks silently failed.
-    // When the connection is already gone (WS dropped after response_complete),
-    // audio will never arrive — fire the fast path at 10s instead of 45s.
-    // Playback-aware: if audio is actively playing or buffering, defer to 90s.
+    //
+    // Why 8s is the right floor:
+    //   - The nuclear reset tears down the audio rendering stack only. The GL WebSocket
+    //     and conversation thread are untouched — nobody notices, nobody loses their place.
+    //   - TTS first-chunk delivery is typically <500ms after response_complete (streaming
+    //     synthesis runs sentence-by-sentence during GL generation). Worst case on slow
+    //     mobile: ~3-4s. 8s gives a 2× safety margin without sitting on a broken worklet.
+    //   - The audioReceivedInTurnRef guard eliminates false positives on healthy turns:
+    //     if audio already played successfully this turn and nothing is pending, there is
+    //     no stuck worklet to fix — bail early and skip the reset entirely.
+    //   - "Just a second" pauses are safe: if the student pauses mid-conversation, GL is
+    //     still listening and the session is alive. When the next exchange generates audio,
+    //     it plays on the fresh worklet with no hiccup.
+    //
+    // When the connection is already gone (WS dropped), audio will never arrive —
+    // clear immediately without waiting 8s.
+    // Playback-aware: if audio is actively playing or buffering, unlock mic and defer 45s.
     setTimeout(() => {
       if (turnCounterRef.current !== thisTurn) return;
       if (!responseCompleteRef.current) return;
       // Fast path: WS disconnected, no audio received — clear immediately
       const wsState = connectionStateRef.current;
       if ((wsState === 'disconnected' || wsState === 'reconnecting') && !audioReceivedInTurnRef.current) {
-        console.log(`[StreamingVoice] Tier-2 fast path: WS ${wsState} + no audio — clearing stuck state early (turn=${thisTurn})`);
+        console.log(`[StreamingVoice] Tier-2 fast path: WS ${wsState} + no audio — clearing stuck state (turn=${thisTurn})`);
         diagMarkFailsafe('tier2_45s', { ctxState: 'ws_disconnected', pending: pendingAudioCountRef.current });
         reportDiagnostic('failsafe_tier2_45s', { failsafeTier: 'tier2_ws_drop' });
         pendingAudioCountRef.current = 0;
@@ -1308,12 +1322,19 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         setGlobalPlaybackState('idle');
         return;
       }
+      // Healthy-turn guard: audio already arrived and played, nothing pending — pipeline is
+      // fine. Resetting a healthy AudioContext is harmless but pointless; bail now.
+      if (audioReceivedInTurnRef.current && pendingAudioCountRef.current === 0) {
+        return;
+      }
       const player = playerRef.current;
       const ctxState = player?.getAudioContextState?.() || 'unknown';
       const currentPlayback = getGlobalPlaybackState();
       
       if (currentPlayback === 'playing' || currentPlayback === 'buffering') {
-        console.log(`[StreamingVoice] Tier-2 failsafe (45s): audio active (${currentPlayback}) — deferring to 90s, unlocking mic (turn=${thisTurn})`);
+        // Audio is genuinely active — unlock the mic now so the student isn't blocked,
+        // but give the playback 45 more seconds before the final force-clear.
+        console.log(`[StreamingVoice] Tier-2 failsafe (8s): audio active (${currentPlayback}) — unlocking mic, deferring force-clear 45s (turn=${thisTurn})`);
         pendingAudioCountRef.current = 0;
         audioReceivedInTurnRef.current = false;
         setIsProcessingRef.current(false);
@@ -1323,7 +1344,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
           if (!responseCompleteRef.current) return;
           const finalPlayback = getGlobalPlaybackState();
           const finalCtxState = player?.getAudioContextState?.() || 'unknown';
-          console.log(`[StreamingVoice] Tier-2 extended failsafe (90s): force-clear (playback=${finalPlayback}, ctxState=${finalCtxState}, turn=${thisTurn})`);
+          console.log(`[StreamingVoice] Tier-2 extended failsafe (53s): force-clear (playback=${finalPlayback}, ctxState=${finalCtxState}, turn=${thisTurn})`);
           diagMarkFailsafe('tier2_90s', { ctxState: finalCtxState, pending: pendingAudioCountRef.current });
           reportDiagnostic('failsafe_tier2_45s', { failsafeTier: 'tier2_90s' });
           pendingAudioCountRef.current = 0;
@@ -1333,7 +1354,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
           player?.stop?.();
         }, 45000);
       } else {
-        console.log(`[StreamingVoice] Tier-2 failsafe (45s): audio NOT active (${currentPlayback}) — force-clear (turn=${thisTurn}, pending=${pendingAudioCountRef.current})`);
+        // No audio playing, AudioContext "running" but callbacks stalled — stuck worklet.
+        // Nuclear reset: close + recreate AudioContext so the next turn starts clean.
+        // GL WebSocket is unaffected; the conversation thread is intact.
+        console.log(`[StreamingVoice] Tier-2 failsafe (8s): audio NOT active (${currentPlayback}) — nuclear pipeline reset (turn=${thisTurn}, pending=${pendingAudioCountRef.current})`);
         diagMarkFailsafe('tier2_45s', { ctxState, pending: pendingAudioCountRef.current });
         reportDiagnostic('failsafe_tier2_45s', { failsafeTier: 'tier2_45s' });
         pendingAudioCountRef.current = 0;
@@ -1351,7 +1375,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
           player?.resetAudioPipeline?.();
         }
       }
-    }, 45000);
+    }, 8000);
     
     startLockoutWatchdog();
   }, [checkAndClearProcessing]);
