@@ -938,22 +938,18 @@ export class StreamingAudioPlayer {
     // NOTE: Empty chunks are NOT added to dedup set - they don't block real audio
     if (audio.byteLength === 0) {
       if (isLast) {
-        // Set the endCtxTime in the sentence schedule
-        const entry = this.sentenceSchedule.get(sentenceIndex);
-        let endCtxTimeSet = false;
-        if (entry) {
-          entry.endCtxTime = entry.startCtxTime + entry.totalDuration;
-          endCtxTimeSet = true;
-        }
-
         // TRAILING SILENCE: The server sends (audio='', isLast=true) as a marker AFTER
         // all real PCM chunks. This is where the silence must be scheduled — the fix at
         // line ~1192 is on the real-audio path and never fires for these marker chunks.
         // Without this, the AudioContext cuts hard on the final sample, clipping the
         // natural decay of the last phoneme.
+        //
+        // ORDERING FIX: Schedule trailing silence BEFORE setting endCtxTime so the
+        // timing loop sees the correct sentence-end boundary (including the silence
+        // padding) and does not fire playback_ended while silence is still in the queue.
         const trailingCtx = this.getAudioContext();
+        const TRAILING_SEC = 0.3;
         if (trailingCtx.state === 'running' && this.progressiveScheduledTime > trailingCtx.currentTime) {
-          const TRAILING_SEC = 0.3;
           const silenceSamples = Math.round(TRAILING_SEC * sampleRate);
           const silenceBuffer = trailingCtx.createBuffer(1, silenceSamples, sampleRate);
           const silenceSource = trailingCtx.createBufferSource();
@@ -961,6 +957,14 @@ export class StreamingAudioPlayer {
           silenceSource.connect(this.getMasterGain());
           silenceSource.start(this.progressiveScheduledTime);
           this.progressiveScheduledTime += TRAILING_SEC;
+        }
+
+        // Set endCtxTime AFTER trailing silence so timing loop measures to true end
+        const entry = this.sentenceSchedule.get(sentenceIndex);
+        let endCtxTimeSet = false;
+        if (entry) {
+          entry.endCtxTime = this.progressiveScheduledTime; // includes trailing silence
+          endCtxTimeSet = true;
         }
 
         // Update debug panel with empty chunk info

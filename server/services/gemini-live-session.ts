@@ -1692,7 +1692,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             this.generationCompleteWatchdogTimer = null;
             if (!this.isStopped && this.isTutorGeneratingAudio && this.hadAudioInCurrentSubturn) {
               console.warn('[GeminiLive] generationComplete watchdog fired — GL dropped the completion signal; sealing turn manually');
-              // Seal the open audio sub-turn so the PCM player can render it
+              // Seal the open audio sub-turn so the PCM player can render it.
+              // Same GL-tail padding as the normal generationComplete seal path:
+              // prepend 300ms of silence so the truncated last word has runway.
+              const _watchdogPadSamples = Math.round(0.3 * AUDIO_OUTPUT_SAMPLE_RATE);
+              const _watchdogPadBuf = Buffer.alloc(_watchdogPadSamples * 4, 0);
+              this.sendWsMessage(this.session.ws, {
+                type: 'audio_chunk',
+                audio: _watchdogPadBuf.toString('base64'),
+                audioFormat: 'pcm_f32le',
+                sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
+                turnId: this.currentTurnId,
+                sentenceIndex: this.currentSentenceIndex,
+                chunkIndex: this.currentChunkIndex++,
+                isLast: false,
+              });
               this.sendWsMessage(this.session.ws, {
                 type: 'audio_chunk',
                 audio: '',
@@ -2349,6 +2363,27 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
       // Seal current audio sub-turn
       if (this.hadAudioInCurrentSubturn) {
+        // GL-tail padding: send 300ms of silence BEFORE the isLast=true marker.
+        // GL often generates <100ms of PCM for the final word at turn-end (the audio
+        // budget closes before the last phoneme completes). This padding gives that
+        // truncated fragment enough runway in the client's AudioContext to be audible
+        // before any state transitions occur. It is a real audio chunk (not empty) so
+        // it advances progressiveScheduledTime on the client and pushes the timing
+        // loop's sentence-end detection forward by 300ms.
+        const TAIL_PAD_SEC = 0.3;
+        const tailSilenceSamples = Math.round(TAIL_PAD_SEC * AUDIO_OUTPUT_SAMPLE_RATE);
+        const tailSilenceBuffer = Buffer.alloc(tailSilenceSamples * 4, 0); // f32le zeros
+        this.sendWsMessage(this.session.ws, {
+          type: 'audio_chunk',
+          audio: tailSilenceBuffer.toString('base64'),
+          audioFormat: 'pcm_f32le',
+          sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
+          turnId: this.currentTurnId,
+          sentenceIndex: this.currentSentenceIndex,
+          chunkIndex: this.currentChunkIndex++,
+          isLast: false,
+        });
+        // Empty isLast=true marker — triggers client-side trailing silence (another 300ms)
         this.sendWsMessage(this.session.ws, {
           type: 'audio_chunk',
           audio: '',

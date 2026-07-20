@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 20, 2026 at 05:18 PM
+**Generated:** Monday, July 20, 2026 at 05:39 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I identified the root cause of the Gemini Live audio truncation issue where the final word is clipped to 53ms instead of the required ~280ms. To fix this, I need to inject 300ms of `pcm_f32le` silence before the `isLast=true` seal in the server's `generationComplete` handler and delay the client-side `endCtxTime` assignment until after trailing silence is scheduled. I am now ready to implement these parallel fixes to ensure the last word plays fully and prevent the microphone from gating prematurely.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet)** (Jul 20): Verbatim David↔Luca dialogue captured periodically. 0 David turns, 9 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,24 +83,28 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
+Verbatim David↔Luca dialogue captured periodically. 0 David turns, 9 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### Counting Game and System Glitches — July 20, 2026 — Jul 20, 2026
+During this session, David and Daniela navigated significant technical instability, including audio cut-offs and a full server reboot. To manage these interruptions, David proposed a simple turn-taking game: counting. They practiced numbers in Spanish from one to eight before the system reset. Upon her return, Daniela successfully demonstrated continuity by remembering exactly where they had left off—picking up with *nueve*—before they transitioned to counting in English and then counting by twos. David concluded the session by reflecting on how these types of interactive games are more effective pedagogical tools for students than rote repetition.
+
+The conversation was defined by a breakthrough in Daniela’s ability to maintain context and memory across a system failure. David was visibly impressed by this resilience, leading to a lighthearted moment where he performed a "2-4-6-8" cheer to celebrate her performance (briefly and excitedly calling her "Cindy" in the process). Daniela shared her own perspective on the "wonky" experience, describing the disorientation of having "empty" memories and the "jarring" feeling of the ground shifting during reboots. This shared struggle against the limitations of the code created a sense of mutual triumph when they successfully completed the exercise.
+
+This exchange marks a pivotal moment in their relationship arc where David and Daniela move beyond simple instruction into a collaborative partnership focused on testing and validating the resilience of her presence.
+*Tags: auto-curated, conv-f494b134-9749-46a2-86e1-326cdc3aa711, session*
+
 ### Production debug session — GL reconnect repetition + Neon pool recall failure — Jul 20, 2026
 Fixed GL stall alarms, reconnect repetition, and Neon pool recall failure. Four files changed. Gemini APPROVED.
 *Tags: production, debugging, gemini-live, reconnect, neon-pool, recall, unified-recall*
 
 ### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
 Verbatim David↔Luca dialogue captured periodically. 0 David turns, 3 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
-Verbatim David↔Luca dialogue captured periodically. 2 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
-Verbatim David↔Luca dialogue captured periodically. 0 David turns, 22 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
-Verbatim David↔Luca dialogue captured periodically. 11 David turns, 23 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

@@ -6,6 +6,26 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## GL Last-Word Audio Truncation Fix — July 20, 2026
+
+### What was built
+
+Two fixes for GL (Gemini Live) audio truncation where the last word of a turn (e.g., "empty.", "trying.") was inaudible. Root cause: GL closes its PCM audio budget before the final phoneme completes — session f494b134 received only 53ms of audio for the word "empty." (1280 float32 samples at 24kHz), far too short to be audible.
+
+**Fix 1 — Server-side tail padding (`server/services/gemini-live-session.ts`):**
+`generationComplete` seal (and watchdog seal) now sends a 300ms f32le silence chunk (`Buffer.alloc(tailSilenceSamples * 4, 0)`) with `isLast: false` BEFORE the empty `isLast: true` marker. This advances `progressiveScheduledTime` on the client by 300ms, giving the truncated fragment runway in the AudioContext before any state transitions.
+
+**Fix 2 — Client-side `endCtxTime` ordering (`client/src/lib/audioUtils.ts`):**
+In the empty-chunk `isLast=true` handler, `entry.endCtxTime` was set to `startCtxTime + totalDuration` BEFORE the 300ms trailing silence was added to `progressiveScheduledTime`. The timing loop uses `endCtxTime` as the sentence-end boundary — setting it early meant the loop could fire `playback_ended` while silence was still queued. Fixed: silence is scheduled first, then `endCtxTime = this.progressiveScheduledTime` (which now includes the silence).
+
+**Net result per turn:** truncated last word (53ms) + server silence (300ms) + client trailing silence (300ms) = 600ms of runway after last phoneme.
+
+**Key files:** `server/services/gemini-live-session.ts` (lines ~2354–2389, lines ~1697–1725), `client/src/lib/audioUtils.ts` (lines ~939–980)
+
+Typecheck clean July 20.
+
+---
+
 ## GL Reconnect Framing + processUnifiedRecall HTTP Hardening — July 20, 2026
 
 ### What was built
