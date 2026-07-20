@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 20, 2026 at 03:44 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I need to immediately resolve the Cartesia TTS 400 errors for English and Spanish and restore Alden’s monitoring cycle by fixing the `monitoring_snapshots` query failure. Next, I must diagnose the pipeline bug causing zero quality scores for a high-frequency student and begin building the conversation memory tagging system to track long-term learning arcs. Throughout these fixes, I will ensure all UX and content decisions remain grounded in the "Shared Lobe" philosophical anchors regarding HolaHola's core mission.
-
-*Memories that triggered this summary:*
-- **Agent Daily Sweep — Jul 19, 2026** (Jul 19): **DAILY PRIORITY LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests. Students can't hear audio. Check API payload structure and auth headers immediately.
+**Generated:** Monday, July 20, 2026 at 04:21 PM
 
 ---
 
