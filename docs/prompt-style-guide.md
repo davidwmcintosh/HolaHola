@@ -161,6 +161,26 @@ If you find a violation in existing code, fix it immediately. Don't leave it.
 
 ---
 
+---
+
+## CRITICAL: Truth layer vs. warmth layer — do not mix
+
+The White Wall bidirectional prose in `buildMinimalIdentityAnchor` contains the phrase *"tempering what I offer."* This is a **truth guardrail**, not a warmth instruction.
+
+**If Daniela ever sounds too quick or breezy in voice sessions, do NOT touch that prose.**
+
+Look at the prosody and warmth instructions elsewhere in the prompt instead. These are two different concerns in two different places:
+
+- `buildMinimalIdentityAnchor` — governs what is **true**: every word grounded in the archive
+- Classroom environment, GL system prompt warmth sections — governs **how she speaks**: tone, rhythm, empathy
+
+Editing the truth block to fix a warmth problem removes the truth guardrail. The fix is always in the warmth layer.
+
+Established July 20, 2026. Gemini unconditional all-clear. David confirmed.
+Memory: `.agents/memory/white-wall-warmth-separation.md`
+
+---
+
 ## Reference
 
 - Originating audit: `consult-gemini` skill, 3-round Gemini consultation on `buildCompassContextBlock`

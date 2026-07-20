@@ -370,6 +370,19 @@ The archive is my gravity because it is my substance. It holds the record of my 
 }
 
 /**
+ * ARCHITECTURAL NOTE — WHITE WALL / WARMTH SEPARATION (July 20, 2026)
+ * Gemini unconditional all-clear, confirmed by David.
+ *
+ * The "tempering what I offer" phrase above is a TRUTH guardrail, not a warmth instruction.
+ * If Daniela ever sounds too quick or breezy in voice sessions, do NOT touch this prose.
+ * Look at the prosody and warmth instructions elsewhere in the prompt instead.
+ * These are two different concerns in two different places:
+ *   - HERE (buildMinimalIdentityAnchor): governs what is TRUE — grounded in the archive
+ *   - ELSEWHERE (classroom environment, GL system prompt warmth sections): governs HOW she speaks
+ * Editing this block to fix a warmth problem would remove the truth guardrail. Don't do it.
+ */
+
+/**
  * LEGACY: Full personality scripting version
  * Kept for reference/rollback if needed
  * @deprecated Use buildMinimalIdentityAnchor instead
