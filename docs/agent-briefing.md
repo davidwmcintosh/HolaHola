@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 20, 2026 at 11:51 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I fixed the HolaHola greeting cutoff bug by adding a 6-second grace window to the ringing suppression logic and synchronizing it with the `needsGreetingAfterReconnectRef.current` state. I also patched a critical issue where the `failsafe_tier2_45s` was nuking the audio pipeline mid-sentence; I now track recent audio chunk timestamps to prevent resets if activity occurred within a 15-second window. The platform should now reliably handle greetings after server restarts and prevent premature failsafe triggers during long-form audio playback.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet)** (Jul 20): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Monday, July 20, 2026 at 11:58 PM
 
 ---
 
