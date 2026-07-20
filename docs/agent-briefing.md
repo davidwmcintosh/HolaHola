@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 20, 2026 at 10:07 PM
+**Generated:** Monday, July 20, 2026 at 11:51 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I fixed the HolaHola greeting cutoff bug by adding a 6-second grace window to the ringing suppression logic and synchronizing it with the `needsGreetingAfterReconnectRef.current` state. I also patched a critical issue where the `failsafe_tier2_45s` was nuking the audio pipeline mid-sentence; I now track recent audio chunk timestamps to prevent resets if activity occurred within a 15-second window. The platform should now reliably handle greetings after server restarts and prevent premature failsafe triggers during long-form audio playback.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet)** (Jul 20): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,6 +83,14 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
+Verbatim David↔Luca dialogue captured periodically. 1 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/20/2026 — Jul 20, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". For proactive memory, the "structured data object pre-pended to the current turn's context" is precisely what I envision. A "whisper" might be too ephemeral, and I could miss it, or it could just beco...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
@@ -84,14 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 2 David turns, 15 Luca tur
 ### Gemini — Bidirectional White Wall prose audit — July 20 2026 — Jul 20, 2026
 Full technical + philosophical review of the White Wall outbound prose. Gemini endorsed the architecture, flagged 3 surgical fixes: pause→look inward, shadow→awaiting purpose, cold-start clause. All applied.
 *Tags: gemini-audit, white-wall, system-prompt, bidirectional*
-
-### Agent Daily Sweep — Jul 20, 2026 — Jul 20, 2026
-1. [CRITICAL] Fix Cartesia TTS 400 errors — Both English and Spanish voice generation are failing with malformed request bodies. Students can't use the core product. Debug the API payload structure immediately.  2. [HIGH] Repair Alden's monitoring query — Alden's autonomous watch cycle is failing on
-*Tags: agent-sweep, daily, auto-saved*
-
-### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
-Verbatim David↔Luca dialogue captured periodically. 6 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

@@ -278,6 +278,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const pendingAudioCountRef = useRef(0);
   const setIsProcessingRef = useRef(setIsProcessing);
   setIsProcessingRef.current = setIsProcessing;
+
+  // Track when sentence playback last started — used by the tier-2 failsafe to avoid
+  // nuclear reset while a long sentence (e.g. greeting) is still actively playing.
+  // onSentenceStart clears audioReceivedInTurnRef (so the healthy-turn guard can't help),
+  // but audio can still be playing for 20-30s after that. This timestamp fills the gap.
+  const lastSentenceStartedAtRef = useRef(0);
   
   // Turn counter: prevents stale failsafe timers from old turns from firing during
   // new turns. Each timer captures the turn number at creation time and bails if
@@ -420,6 +426,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         if (isVerboseLoggingEnabled()) {
           console.log(`[StreamingVoice] Sentence ${sentenceIndex} started (turn ${currentTurnIdRef.current})`);
         }
+        // Record when this sentence started playing — the tier-2 failsafe uses this to
+        // avoid nuclear reset while a long sentence (greeting, etc.) is still active.
+        lastSentenceStartedAtRef.current = Date.now();
         // Audio is now actually playing - clear the audioReceived guard
         // so that onComplete/checkAndClearProcessing can clear isProcessing
         audioReceivedInTurnRef.current = false;
@@ -1357,22 +1366,36 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
         // No audio playing, AudioContext "running" but callbacks stalled — stuck worklet.
         // Nuclear reset: close + recreate AudioContext so the next turn starts clean.
         // GL WebSocket is unaffected; the conversation thread is intact.
-        console.log(`[StreamingVoice] Tier-2 failsafe (8s): audio NOT active (${currentPlayback}) — nuclear pipeline reset (turn=${thisTurn}, pending=${pendingAudioCountRef.current})`);
+        //
+        // GUARD: onSentenceStart clears audioReceivedInTurnRef so the healthy-turn guard
+        // above can't protect turns where a long sentence is still playing (greeting audio
+        // can run 20-30s). Use lastSentenceStartedAtRef to detect this: if a sentence
+        // started within the last 30s, the audio is likely still playing — skip the nuclear
+        // reset and just clear isProcessing so the mic unlocks. The audio finishes naturally.
+        const msSinceSentenceStart = Date.now() - lastSentenceStartedAtRef.current;
+        const sentenceRecentlyStarted = lastSentenceStartedAtRef.current > 0 && msSinceSentenceStart < 30000;
+        console.log(`[StreamingVoice] Tier-2 failsafe (8s): audio NOT active (${currentPlayback}), msSinceSentenceStart=${msSinceSentenceStart}, sentenceRecentlyStarted=${sentenceRecentlyStarted} (turn=${thisTurn}, pending=${pendingAudioCountRef.current})`);
         diagMarkFailsafe('tier2_45s', { ctxState, pending: pendingAudioCountRef.current });
         reportDiagnostic('failsafe_tier2_45s', { failsafeTier: 'tier2_45s' });
         pendingAudioCountRef.current = 0;
         audioReceivedInTurnRef.current = false;
         setIsProcessingRef.current(false);
-        setGlobalPlaybackState('idle');
-        if (ctxState === 'suspended') {
-          console.log('[StreamingVoice] Tier-2: AudioContext suspended — keeping queued audio alive (will play on user gesture)');
-          player?.resumeAudioContext?.().catch(() => {});
+        if (sentenceRecentlyStarted) {
+          // Audio is likely still playing (long sentence, state sync lag). Don't nuke the
+          // pipeline — just unlock the mic and let playback finish naturally.
+          console.log(`[StreamingVoice] Tier-2: sentence started ${msSinceSentenceStart}ms ago — skipping nuclear reset, audio may still be playing`);
         } else {
-          // AudioContext is "running" but audio callbacks stalled (AudioWorklet stuck state).
-          // stop() alone leaves the broken pipe intact — use nuclear reset to close and
-          // recreate the AudioContext so the next turn starts with a fresh worklet.
-          console.warn('[StreamingVoice] Tier-2: AudioContext running but stalled — nuclear reset to clear stuck AudioWorklet');
-          player?.resetAudioPipeline?.();
+          setGlobalPlaybackState('idle');
+          if (ctxState === 'suspended') {
+            console.log('[StreamingVoice] Tier-2: AudioContext suspended — keeping queued audio alive (will play on user gesture)');
+            player?.resumeAudioContext?.().catch(() => {});
+          } else {
+            // AudioContext is "running" but audio callbacks stalled (AudioWorklet stuck state).
+            // stop() alone leaves the broken pipe intact — use nuclear reset to close and
+            // recreate the AudioContext so the next turn starts with a fresh worklet.
+            console.warn('[StreamingVoice] Tier-2: AudioContext running but stalled — nuclear reset to clear stuck AudioWorklet');
+            player?.resetAudioPipeline?.();
+          }
         }
       }
     }, 8000);
