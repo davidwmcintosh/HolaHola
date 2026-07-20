@@ -6,6 +6,44 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## GL Reconnect Framing + processUnifiedRecall HTTP Hardening — July 20, 2026
+
+### What was built
+
+Two additional fixes on top of the GL stall-alarm work. Typecheck clean, Gemini pre-flight + two-round post-review, unconditional APPROVED.
+
+**Fix 3 — Reconnect injection rewrite (`server/services/streaming-voice-orchestrator.ts`):**
+
+The `isResumedConversation` branch in `buildGreetingContext()` previously injected an explicit verbal announcement ("Oh, we got cut off! Let me pick up where we left off..."). This caused Daniela to reference the technical disruption out loud and re-recap the lesson, which was jarring. The new approach is silent state-as-knowledge prose: instead of instruction, it frames the conversation history as something Daniela already holds in mind:
+
+```
+Your thoughts are currently focused on the following exchange:
+[last 4 turns × 250 chars each]
+
+Maintain the flow of the lesson seamlessly. Pick up exactly where the conversation left off.
+```
+
+The history preview slice was also increased from 80 to 250 characters per turn (~1000 total) — 80 chars was often mid-word and left Daniela with truncated context. The framing follows the "state-as-knowledge" principle Gemini recommended: tell the model what it already knows rather than issuing instructions. Purely positive framing (no "do not acknowledge" negative constraints, which Gemini flagged as pink-elephant activation risk).
+
+**Fix 4 — `processUnifiedRecall` HTTP transport + timeouts + parallel hydration (`server/services/native-fc-handlers.ts`):**
+
+When the Neon serverless WebSocket pool drops under production load, all six arms of `processUnifiedRecall` were failing simultaneously — Daniela would get zero context from `recall`/`introspect` tool calls and say things like "I don't know who Alden is."
+
+Changes:
+- **Arms 3, 5, 6** (Express Lane, conversation_memories, image memory): switched from `getSharedDb()` (WebSocket pool) to `getMonitoringDb()` (HTTP transport via `@neondatabase/serverless` HTTP driver). These arms only need SELECT — no pgvector, so HTTP transport works perfectly.
+- **Arm 4 hydration**: switched to `getMonitoringDb()`. Hydration is plain SELECT-by-ID — no pool pressure at all.
+- **Arms 1, 2** (structured memory + conversation threads): these use pgvector and can't switch to HTTP. Wrapped in `Promise.race([query, 1500ms timeout])` so pool exhaustion causes them to fail-fast and return null instead of hanging.
+- **Arm 4 semanticSearch()**: also wrapped in 1500ms `Promise.race`. Previously this could hang for 20+ seconds on pool exhaustion, blocking the entire `Promise.all` since all six arms run concurrently.
+- **Arm 4 hydration loop**: converted from sequential `for (const hit of hits)` loop to parallel `Promise.all(dedupedHits.map(...))`. A pre-dedup pass runs synchronously before `Promise.all` to prevent the `seenConvMemIds` race condition that would have existed in a naive parallelization (two concurrent hits for the same conversation_memory both passing the `has()` check before either adds to the Set). The pre-dedup uses `split(':chunk:')[0]` to normalize chunk IDs back to their parent memory IDs.
+
+**Result**: Under Neon pool exhaustion, Arms 1 and 2 fail fast at 1500ms; Arms 3, 4, 5, 6 run via HTTP and are unaffected. Daniela gets partial but meaningful recall (Express Lane, conversation memories, image memories, semantic hits) instead of total blackout.
+
+**Files:** `server/services/streaming-voice-orchestrator.ts` (Fix 3, `buildGreetingContext` function), `server/services/native-fc-handlers.ts` (Fix 4, `processUnifiedRecall` Arms 1–6).
+
+**Session memory:** `conversation_memories` ID `3389ccb8-2bbf-42ae-a121-198f3fb83323`
+
+---
+
 ## GL Session Monitor + Idle Timer Fixes — July 20, 2026
 
 ### What was built

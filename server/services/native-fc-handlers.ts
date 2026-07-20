@@ -18,7 +18,7 @@ import { founderCollabService } from "./founder-collaboration-service";
 import { journeyMemoryService } from "./journey-memory-service";
 import { growthMemoryOutcomeService } from "./growth-memory-outcome-service";
 import { storage } from "../storage";
-import { getSharedDb } from "../db";
+import { getSharedDb, getMonitoringDb } from "../db";
 import { observeToolCall, observeSceneOpen, observeScenarioLoad } from './session-observation-store';
 import { WhiteboardItem, WordMapItem, isWordMapItem, SelfSurgeryItemData } from "@shared/whiteboard-types";
 import { StreamingWhiteboardMessage } from "@shared/streaming-voice-types";
@@ -8565,10 +8565,15 @@ export class NativeFunctionCallHandler {
     const [structuredText, threadText, expressLaneText, semanticText, memoriesText, imageText] = await Promise.all([
 
       // Arm 1: structured memories — insights, facts, motivations, struggles, teaching moments
+      // Uses pgvector (WebSocket pool) — wrapped with 1500ms timeout so a pool drop can't
+      // block the HTTP arms from returning results.
       (async () => {
         try {
           const { searchMemory, formatMemoryForConversation } = await import('./neural-memory-search');
-          const result = await searchMemory(studentId, query, undefined, session.targetLanguage || undefined);
+          const result = await Promise.race([
+            searchMemory(studentId, query, undefined, session.targetLanguage || undefined),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500)),
+          ]);
           return result.results.length > 0 ? formatMemoryForConversation(result) : null;
         } catch (err: any) {
           console.warn(`[UnifiedRecall] Structured arm failed: ${err.message}`);
@@ -8577,14 +8582,18 @@ export class NativeFunctionCallHandler {
       })(),
 
       // Arm 2: raw conversation threads — word-for-word exchanges with context window
+      // Uses pgvector (WebSocket pool) — same 1500ms timeout guard as Arm 1.
       (async () => {
         try {
           const { searchConversationThreads, formatConversationThreads } = await import('./neural-memory-search');
-          const result = await searchConversationThreads(studentId, query, {
-            contextBefore: 10,
-            contextAfter: 10,
-            maxThreads: 4,
-          });
+          const result = await Promise.race([
+            searchConversationThreads(studentId, query, {
+              contextBefore: 10,
+              contextAfter: 10,
+              maxThreads: 4,
+            }),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500)),
+          ]);
           if (result.threads.length === 0) return null;
           // Background Lyra re-extraction so found conversations crystallize into structured memory
           if (result.threads.length > 0) {
@@ -8599,10 +8608,11 @@ export class NativeFunctionCallHandler {
 
       // Arm 3: Express Lane — founder/team collaboration messages matching the query
       // Same phrase-first strategy as Arm 5: exact phrase → unique-keyword AND → unique-keyword OR
+      // Uses HTTP transport (no WebSocket pool) — resilient to Neon pool drops.
       (async () => {
         try {
           const { collaborationMessages } = await import('@shared/schema');
-          const sharedDb = getSharedDb();
+          const sharedDb = getMonitoringDb();
 
           const runCollabQuery = async (cond: ReturnType<typeof sql>) => sharedDb
             .select()
@@ -8650,103 +8660,111 @@ export class NativeFunctionCallHandler {
 
       // Arm 4: Semantic similarity search — finds conceptually related memories without keyword match
       // e.g. "music" surfaces memories about "jazz", "rhythm", "improvisation"
+      // semanticSearch uses pgvector (WebSocket pool) — gated by 1500ms timeout so a pool drop
+      // can't stall Promise.all. Hydration uses HTTP transport, runs in parallel across hits.
       (async () => {
         try {
           const { semanticSearch } = await import('./semantic-memory-service');
-          const hits = await semanticSearch(studentId, query, 5);
+          const hits = await Promise.race([
+            semanticSearch(studentId, query, 5),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 1500)),
+          ]);
           if (hits.length === 0) return null;
 
-          // Hydrate hit records from their source tables
-          const sharedDb = getSharedDb();
-          const lines: string[] = [];
-          // Track conversation_memory ids already shown — prevents showing the same
-          // conversation multiple times when both a chunk and a summary for it hit.
+          // Pre-deduplicate conversation hits before parallel hydration — two hits for the same
+          // conversation_memory would otherwise both pass the seenConvMemIds check in parallel.
           const seenConvMemIds = new Set<string>();
-          for (const hit of hits) {
+          const dedupedHits = hits.filter(hit => {
+            if (hit.memoryType === 'conversation_memory' || hit.memoryType === 'conversation_summary') {
+              if (seenConvMemIds.has(hit.memoryId)) return false;
+              seenConvMemIds.add(hit.memoryId);
+              return true;
+            } else if (hit.memoryType === 'conversation_chunk') {
+              const convMemId = hit.memoryId.split(':chunk:')[0];
+              if (seenConvMemIds.has(convMemId)) return false;
+              seenConvMemIds.add(convMemId);
+              return true;
+            }
+            return true;
+          });
+
+          // Parallel hydration via HTTP transport — each hit is a plain SELECT-by-ID.
+          // Different tables per memoryType prevent batching with inArray, so we parallelize
+          // across hits instead; HTTP avoids WebSocket pool pressure entirely.
+          const httpDb = getMonitoringDb();
+          const hydratedLines = await Promise.all(dedupedHits.map(async (hit) => {
             try {
               if (hit.memoryType === 'student_insight') {
                 const { studentInsights } = await import('@shared/schema');
-                const [row] = await sharedDb.select({ insight: studentInsights.insight, category: studentInsights.insightType })
+                const [row] = await httpDb.select({ insight: studentInsights.insight, category: studentInsights.insightType })
                   .from(studentInsights).where(eq(studentInsights.id, hit.memoryId)).limit(1);
-                if (row) lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | ${row.category}] ${row.insight}`);
+                if (row) return `[${(hit.similarity * 100).toFixed(0)}% match | ${row.category}] ${row.insight}`;
               } else if (hit.memoryType === 'hive_snapshot') {
                 const { hiveSnapshots: hs } = await import('@shared/schema');
-                const [row] = await sharedDb.select({ title: hs.title, content: hs.content, snapshotType: hs.snapshotType })
+                const [row] = await httpDb.select({ title: hs.title, content: hs.content, snapshotType: hs.snapshotType })
                   .from(hs).where(eq(hs.id, hit.memoryId)).limit(1);
-                if (row) lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | ${row.snapshotType}] ${row.title}: ${row.content ?? ''}`);
+                if (row) return `[${(hit.similarity * 100).toFixed(0)}% match | ${row.snapshotType}] ${row.title}: ${row.content ?? ''}`;
               } else if (hit.memoryType === 'personal_fact') {
                 const { learnerPersonalFacts: lpf } = await import('@shared/schema');
-                const [row] = await sharedDb.select({ fact: lpf.fact, factType: lpf.factType })
+                const [row] = await httpDb.select({ fact: lpf.fact, factType: lpf.factType })
                   .from(lpf).where(eq(lpf.id, hit.memoryId)).limit(1);
-                if (row) lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | ${row.factType}] ${row.fact}`);
+                if (row) return `[${(hit.similarity * 100).toFixed(0)}% match | ${row.factType}] ${row.fact}`;
               } else if (hit.memoryType === 'growth_memory') {
                 const { danielaGrowthMemories } = await import('@shared/schema');
-                const [row] = await sharedDb.select({ content: danielaGrowthMemories.lesson })
+                const [row] = await httpDb.select({ content: danielaGrowthMemories.lesson })
                   .from(danielaGrowthMemories).where(eq(danielaGrowthMemories.id, hit.memoryId)).limit(1);
-                if (row) lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | growth] ${row.content ?? ''}`);
+                if (row) return `[${(hit.similarity * 100).toFixed(0)}% match | growth] ${row.content ?? ''}`;
               } else if (hit.memoryType === 'collaboration_message') {
                 const { collaborationMessages: cm } = await import('@shared/schema');
-                const [row] = await sharedDb.select({ content: cm.content, role: cm.role, createdAt: cm.createdAt })
+                const [row] = await httpDb.select({ content: cm.content, role: cm.role, createdAt: cm.createdAt })
                   .from(cm).where(eq(cm.id, hit.memoryId)).limit(1);
                 if (row) {
                   const date = new Date(row.createdAt).toLocaleDateString();
-                  lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | express_lane | ${row.role} | ${date}] ${row.content}`);
+                  return `[${(hit.similarity * 100).toFixed(0)}% match | express_lane | ${row.role} | ${date}] ${row.content}`;
                 }
               } else if (hit.memoryType === 'conversation_memory' || hit.memoryType === 'conversation_summary') {
-                if (seenConvMemIds.has(hit.memoryId)) continue;
-                seenConvMemIds.add(hit.memoryId);
                 const { conversationMemories: convMem } = await import('@shared/schema');
-                const [row] = await sharedDb.select({
-                  title: convMem.title,
-                  content: convMem.content,
-                  summary: convMem.summary,
-                  createdAt: convMem.createdAt,
+                const [row] = await httpDb.select({
+                  title: convMem.title, content: convMem.content,
+                  summary: convMem.summary, createdAt: convMem.createdAt,
                 }).from(convMem).where(eq(convMem.id, hit.memoryId)).limit(1);
                 if (row) {
                   const date = new Date(row.createdAt).toLocaleDateString();
-                  // For summary hits: show the summary as the body (it's the distilled anchor that matched)
-                  // For full-content hits: show full content
                   const body = hit.memoryType === 'conversation_summary'
                     ? (row.summary ?? row.content ?? '')
                     : (row.content ?? row.summary ?? '');
-                  lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | ${hit.memoryType} | ${date}] ${row.title}\n${body}`);
+                  return `[${(hit.similarity * 100).toFixed(0)}% match | ${hit.memoryType} | ${date}] ${row.title}\n${body}`;
                 }
               } else if (hit.memoryType === 'conversation_chunk') {
-                // memoryId format: "{conversationMemoryId}:chunk:{n}"
                 const convMemId = hit.memoryId.split(':chunk:')[0];
-                if (seenConvMemIds.has(convMemId)) continue; // dedup — same conversation already shown
-                seenConvMemIds.add(convMemId);
                 const { conversationMemories: convMem } = await import('@shared/schema');
-                const [row] = await sharedDb.select({
-                  title: convMem.title,
-                  summary: convMem.summary,
-                  content: convMem.content,
-                  createdAt: convMem.createdAt,
+                const [row] = await httpDb.select({
+                  title: convMem.title, summary: convMem.summary,
+                  content: convMem.content, createdAt: convMem.createdAt,
                 }).from(convMem).where(eq(convMem.id, convMemId)).limit(1);
                 if (row) {
                   const date = new Date(row.createdAt).toLocaleDateString();
                   const chunkNum = hit.memoryId.split(':chunk:')[1];
-                  // Show summary for orientation; caller can use read_full_memory to get verbatim content
                   const body = row.summary ?? row.content ?? '';
-                  lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | verbatim chunk ${chunkNum} | ${date}] ${row.title}\n${body}`);
+                  return `[${(hit.similarity * 100).toFixed(0)}% match | verbatim chunk ${chunkNum} | ${date}] ${row.title}\n${body}`;
                 }
               } else if (hit.memoryType === 'teaching_skill') {
                 const { teachingSkills: ts } = await import('@shared/schema');
-                const [row] = await sharedDb.select({
-                  name: ts.name,
-                  title: ts.title,
-                  triggerConditions: ts.triggerConditions,
-                  chapterTypes: ts.chapterTypes,
-                  madrigalAligned: ts.madrigalAligned,
+                const [row] = await httpDb.select({
+                  name: ts.name, title: ts.title, triggerConditions: ts.triggerConditions,
+                  chapterTypes: ts.chapterTypes, madrigalAligned: ts.madrigalAligned,
                 }).from(ts).where(eq(ts.id, hit.memoryId)).limit(1);
                 if (row) {
                   const types = row.chapterTypes?.join(', ') || 'universal';
                   const madrigal = row.madrigalAligned ? ' [Madrigal]' : '';
-                  lines.push(`[${(hit.similarity * 100).toFixed(0)}% match | teaching_skill${madrigal}] invoke_teaching_skill("${row.name}") — ${row.triggerConditions || row.title} (${types})`);
+                  return `[${(hit.similarity * 100).toFixed(0)}% match | teaching_skill${madrigal}] invoke_teaching_skill("${row.name}") — ${row.triggerConditions || row.title} (${types})`;
                 }
               }
-            } catch { /* skip failed hydration */ }
-          }
+              return null;
+            } catch { return null; }
+          }));
+
+          const lines = hydratedLines.filter((l): l is string => l !== null);
           if (lines.length > 0) {
             // REINFORCEMENT: memories that surface via explicit recall get a strength bump.
             import('./memory-decay-service').then(({ reinforceMemory }) => {
@@ -8768,10 +8786,11 @@ export class NativeFunctionCallHandler {
       // then unique-keyword OR (any word matches) as a last-resort fallback.
       // This prevents repeated-word queries like "ting ting ting" from collapsing into a single broad
       // ILIKE '%ting%' OR condition that drowns out the actual target in importance-ranked noise.
+      // Uses HTTP transport — plain ILIKE text search, no pgvector needed.
       (async () => {
         try {
           const { conversationMemories: convMemTable } = await import('@shared/schema');
-          const sharedDb = getSharedDb();
+          const sharedDb = getMonitoringDb();
 
           // Helper: run a conversation_memories query with given WHERE condition
           const runMemQuery = async (cond: ReturnType<typeof sql>) => sharedDb
@@ -8836,13 +8855,14 @@ export class NativeFunctionCallHandler {
 
       // Arm 6: Visual memory — images from past conversations matching this query
       // Lets Daniela surface image URLs so she can redisplay them via show_image or recall_image.
+      // Uses HTTP transport (both queries) — plain ilike/SELECT, no pgvector needed.
       (async () => {
         try {
           const keywords = [...new Set(query.split(/\s+/).filter(w => w.length >= 3))];
           if (keywords.length === 0) return null;
 
           const keywordConditions = keywords.map(kw => ilike(imageVisionCache.description, `%${kw}%`));
-          const hits = await getSharedDb().select({
+          const hits = await getMonitoringDb().select({
             imageUrl: imageVisionCache.imageUrl,
             description: imageVisionCache.description,
             sourceConversationId: imageVisionCache.sourceConversationId,
@@ -8856,7 +8876,7 @@ export class NativeFunctionCallHandler {
           // Filter to images from this student's conversations (or unattributed)
           const { conversations: convsTable } = await import('@shared/schema');
           const studentConvIds = new Set(
-            (await getSharedDb().select({ id: convsTable.id })
+            (await getMonitoringDb().select({ id: convsTable.id })
               .from(convsTable)
               .where(sql`user_id = ${studentId}`)
               .limit(100))

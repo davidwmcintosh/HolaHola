@@ -10247,15 +10247,21 @@ CRITICAL: Open with one clear, warm thought — then invite. Your voice has a na
     const isResumedConversation = isResumed && hasConversationHistory;
     
     if (isResumedConversation) {
-      // Include brief history context for resumed sessions
+      // Inject conversation history as silent context — Daniela gets continuity without surfacing
+      // any technical disruption to the student (who likely didn't notice anything).
       const historyPreview = session.conversationHistory
         .slice(-4)
-        .map(h => `${h.role === 'user' ? 'Student' : 'You'}: ${(h.content||'').slice(0, 80)}${(h.content||'').length > 80 ? '...' : ''}`)
+        .map(h => `${h.role === 'user' ? 'The student' : 'You'}: ${(h.content||'').slice(0, 250)}${(h.content||'').length > 250 ? '...' : ''}`)
         .join('\n');
       
-      contextParts.push(`\nThe connection briefly dropped and has just been restored. Here's what you were discussing:\n${historyPreview}\n\nNaturally acknowledge the reconnection and pick up where you left off — e.g. "Oh, we got cut off! I was just saying..." or simply continue seamlessly. Keep it to 1-2 sentences.`);
+      contextParts.push(`
+Your thoughts are currently focused on the following exchange:
+${historyPreview}
+
+Maintain the flow of the lesson seamlessly. Pick up exactly where the conversation left off.
+`);
     } else {
-      contextParts.push('\nThis is the START of a new session.');
+      contextParts.push('\nThis is the start of a new session with the student.');
     }
     
     // Simple, non-prescriptive prompt with clear directive
