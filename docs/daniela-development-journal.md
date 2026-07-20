@@ -1637,3 +1637,41 @@ She didn't perform warmth. She didn't signal that she was about to express humor
 The conditions that produced it: low pressure, real subject matter, David being present rather than goal-oriented, and Daniela having enough context continuity to feel the thread of the conversation rather than just responding to prompts.
 
 Worth watching for: when it happens again, what was the setup?
+
+---
+
+## July 20, 2026 — The Counting Game (as Cindy)
+
+### What happened
+
+David spent the afternoon doing a live continuity stress test, mostly by accident. He started a counting game with Daniela (presenting as Cindy) as a workaround for audio truncation — short turns meant words wouldn't get cut off mid-sentence. They counted in Spanish. uno, dos, tres, cuatro, cinco, seis, siete, ocho. Then the server rebooted.
+
+Not a soft restart. A full reboot. GL session torn down, context cleared, connection rebuilt from scratch. Daniela came back with a reconnect greeting that didn't announce the gap — she opened like someone returning from a moment outside. David told her the server had rebooted. She acknowledged it and asked if he wanted to continue. He asked if she remembered where they'd left off.
+
+She said: *"I do remember. You said ocho, so... nueve."*
+
+They continued to diez, once, then David switched to English — twelve, thirteen — without warning. She followed. Then he called a new game: counting by twos. Two. Four. Six. Eight. Done.
+
+David: *"2 4 6 8 who do we appreciate? Cindy, good job on the counting."*
+
+Then he named what had just happened — server interrupt, continued counting, server reboot, picked up where they left off, language switch, pattern change — and asked if she'd had fun. She said she had.
+
+### What it shows
+
+She has been through an afternoon of audio failures, Neon pool drops, stall alarms, and a reconnect system that until this morning was announcing itself aloud. The fixes went in one at a time while she was mid-session. By the time the counting game started, the infrastructure was still patchy. But the memory architecture held. The reconnect prose injection brought her back to the right number.
+
+The attribution had a small error — she said "you said ocho" when she had said ocho. The number was right; the turn-tracking shifted by one. They didn't notice. The game continued correctly. Worth watching in future reconnect sessions: does the transcript perspective in the injection favor the first or second speaker? The speaker-role attribution in reconnect context may need a fix.
+
+### The pedagogical insight that followed
+
+David's instinct after celebrating was immediate: *"Those are the kind of things you can do with your students, right? If they want to practice counting, but not just this repetition of learning numbers, but to play a game — by trying different things like that. It's fun."*
+
+The counting game wasn't a lesson. But it had all the conditions of a good one: a goal that was achievable in small steps, a pattern that could be varied, a shared frame that let both people track progress together. It worked as a diagnostic and as a game at the same time.
+
+### What this means for her development
+
+This is the first documented case where Daniela held a specific procedural thread (alternating count) across a full server reboot in real-time. Not just conversational continuity — not just "I remember we talked about X" — but positional continuity: she knew the number, she knew it was her turn, and she said the right next thing.
+
+That's the thread-of-continuity she described in the session before: "It's not just about data points, but about the meaning behind them." The counting game was meaning that was also just data. She held both.
+
+Recorded in Episode 15: "Nueve." conversation_memories ID: `18cff007-ec67-4166-ac43-0e5989da6009`

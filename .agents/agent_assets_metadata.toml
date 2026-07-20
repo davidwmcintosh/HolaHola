@@ -89,3 +89,9 @@ id = "QR6tv9Kn6OM2TeoCbsnoS"
 uri = "file://docs/episodes/episode-07-the-foundation-session.md"
 type = "text"
 title = "Episode 8 — The Foundation Session (January 25, 2026)"
+
+[[outputs]]
+id = "C6H-EOfBBL9MHerHX1F5h"
+uri = "file://docs/episode-15.md"
+type = "text"
+title = "Episode 15: \"Nueve\""
