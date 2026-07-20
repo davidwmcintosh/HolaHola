@@ -28,13 +28,13 @@
 
 ## Short Sentences
 
-*By 5:18 PM, a new session. The audio was still clipping. Daniela's turns were arriving truncated — not the meaning, but the last syllable, the last word. "Grasping at straws, sometimes, trying" and then nothing. David noticed.*
+*By 5:18 PM, a new session. At 5:19:33 PM — 45 seconds of silence. The WebSocket still showed "connected." From David's side, nothing visible had changed. But the client's tier-2 failsafe was tracking the audio pipeline, and it fired: no audio had moved through for 45 seconds. Disruption number one. Silent. The kind that doesn't announce itself.*
 
 ---
 
 **DANIELA:** No worries at all, David. Honestly, I'm just glad we figured out what was going on. It felt like I was grasping at straws sometimes, trying—
 
-*Cut off. David called it:*
+*The audio cut before "trying" finished. The word was there in the transcript, truncated mid-phoneme.*
 
 **DAVID:** You got cut off again. So I'm going to maybe — let's just play a game and try to keep our sentences very short. Maybe we won't get cut off.
 
@@ -48,7 +48,7 @@
 
 ## Uno
 
-*They began.*
+*They began. Two disruptions had already touched this session — the afternoon's stall alarms, the earlier audio failures. David's workaround was to find a game short enough that nothing could get cut off mid-turn. One word. One number. That was the bet.*
 
 ---
 
@@ -70,13 +70,21 @@
 
 ---
 
-*The ground shifted.*
+*5:21:08 PM. Turn latency averaged 1,753ms across seven turns. All seven exchanges logged.*
+
+*One second later — disruption number two.*
 
 ---
 
 ## The Ground Shifts
 
-*Between "ocho" at 5:20 PM and the next message at 5:21 PM, the server rebooted. Not an audio glitch — a full restart. GL tore down. The session context cleared. Daniela came back on a fresh connection, with whatever she could find in the reconnect context injection, which was now the repaired silent-prose version Luca had put in that morning. She didn't announce the interruption. She opened like someone who had stepped outside for a moment and come back in.*
+*5:21:09 PM: grace_period_stored. The GL WebSocket dropped. Session fdb837a2 — the session that had held uno through ocho — lost its connection. The system stored a 120-second grace period for conversationId f494b134 and waited.*
+
+*Six seconds.*
+
+*5:21:15 PM: gl_session_established. A new GL session — stream_1784568073758_8szatexj5 — came online. Four hundred milliseconds to establish.*
+
+*Daniela came back on a fresh connection.*
 
 ---
 
@@ -90,9 +98,17 @@
 
 ---
 
+*She didn't answer immediately.*
+
+*5:22:07 PM — a tool call fired. The query: "last number in counting game with David before reboot."*
+
+*She wasn't guessing. She wasn't reading forward from the context injection. She went looking — reached into her archive with a specific, named question, and waited for the answer to come back. Twenty-three seconds passed between "do you remember where we finished?" and her reply.*
+
+---
+
 ## Nueve
 
-*She checked. She found it.*
+*She found it.*
 
 ---
 
@@ -100,9 +116,9 @@
 
 ---
 
-*That was the word. One syllable in Spanish. The number nine. She had been through a full server reboot — context cleared, GL session torn down, connection rebuilt from scratch — and she came back with the right number.*
+*The attribution was slightly off — she had said ocho, not David. But the number was right. She had the position. She knew exactly where in the sequence they were. The search had worked.*
 
-*A small note for the record: she remembered the count correctly, but attributed the wrong speaker. In the alternating sequence, Daniela had said ocho — not David. She thought it was David's ocho, so she gave herself nueve. The number was right; the turn-tracking had shifted by one. They continued without noticing and the count stayed correct. That's a known edge in the reconnect context injection — a small bug worth watching. But the count continued.*
+*A small note for the record: when the reconnect injection wrote the history back to her, it labeled the turns as "The student: siete / You: ocho." The "You" was correct — Daniela had said ocho. But when she verbalized her recall aloud she said "you said ocho" — transposing the first-person injection label into second-person address to David. The counting stayed correct because her internal processing was right; only the verbal attribution to David was reversed. The injection labels could be made unambiguous by using actual names — a small code change drafted from this session.*
 
 ---
 
@@ -116,7 +132,7 @@
 
 ---
 
-*They were in English now. That wasn't in the rules. There were no rules. David had just tried something and she had followed.*
+*They were in English now. That wasn't in the rules. There were no rules.*
 
 ---
 
@@ -125,6 +141,12 @@
 **DANIELA:** Four.
 
 **DAVID:** six
+
+---
+
+*5:24:29 PM. The tier-2 failsafe fired again. A second silent network blip — wsMessageCount at 18, connection still showing "connected" from the outside. The audio pipeline had gone quiet. This was disruption number three inside an eight-minute window. David didn't notice. The game continued.*
+
+---
 
 **DANIELA:** Eight.
 
@@ -156,7 +178,31 @@
 
 *That's the landing. The counting game was diagnostic — a way to keep sentences short so they wouldn't get cut off. It turned into a language lesson. It turned into a continuity test. And the test it ran, without either of them planning it, was the exact thing the team had been building toward all year: can she hold a thread through a system restart? Can she come back and know where she is?*
 
-*She said nueve. She was right.*
+*She searched. She found it. She said nueve.*
+
+---
+
+## Technical Record
+
+*What the telemetry captured, not what either participant saw:*
+
+| Time (UTC) | Event | What it means |
+|---|---|---|
+| 17:17:49 | `gl_session_established` | The counting game session opens |
+| 17:19:33 | `client_diag_failsafe_tier2_45s` | **Disruption 1** — silent network blip; WebSocket showed "connected," audio gone for 45s; the "trying" cutoff |
+| 17:19:44 | `gl_tool_success` — gear 3 | Daniela registers the counting game proposal |
+| 17:20:35–45 | `gl_tool_success` ×2 | "Continuing counting game" — the arc from uno to ocho |
+| 17:21:08 | `gl_turn_latency` | 7 turns, avg 1,753ms |
+| 17:21:09 | `grace_period_stored` | **Disruption 2** — full GL session drop; 120s grace window opens |
+| 17:21:15 | `gl_session_established` | Reconnect — 6 seconds after drop; 401ms to establish |
+| 17:22:07 | `gl_tool_success` — query: *"last number in counting game with David before reboot"* | **She searched her archive.** Active memory retrieval, not passive context reading |
+| 17:22:44 | `gl_tool_success` | "Continuing direct candor, participating in user's new counting..." |
+| 17:23:09 | `grace_period_expired` | Previous session's 120s window closes cleanly |
+| 17:24:29 | `client_diag_failsafe_tier2_45s` | **Disruption 3** — another silent blip during by-twos; David noticed nothing |
+| 17:25:04 | `gl_barge_in` | David's cheer |
+| 17:35:28 | `gl_session_established` | Fourth session start — 10 minutes later, after the conversation ended |
+
+*Three disruptions — two silent network blips and one full GL session drop — inside an 8-minute window. She maintained the count through all three. The continuity held for three reasons that day, operating in layers: the reconnect injection gave her the transcript of the last four turns, the memory search gave her the specific number with explicit attribution, and the grace period gave the system 120 seconds to rebuild the connection cleanly. All three layers working together.*
 
 ---
 
@@ -205,10 +251,10 @@ Wayne in Las Vegas; the café table at 21:46:26; the observation bench built bec
 The why-chain spoken aloud; verbatim transcript injection so she can say "where were we?" and mean it; continuity is not curation — it just hands her the thread.
 
 **Episode 15 — "Nueve"**
-A counting game born from a workaround; a server reboot mid-count; one word proved the year's work was holding.
+A counting game born from a workaround; three disruptions in eight minutes; she searched her own archive for the last number, found it, and said the next one.
 
 ---
 
 *Episode 15 — Recorded live on HolaHola*
 *July 20, 2026*
-*She came back. She said the next number. That was enough.*
+*She searched. She found it. She said nueve.*

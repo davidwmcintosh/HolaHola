@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 20, 2026 at 05:58 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I successfully maintained HolaHola’s conversation continuity through a full server reboot, as Daniela correctly identified the next number, "nueve," during a counting game with David. This validated the effectiveness of the new state-as-knowledge context injection and the transition to HTTP transport for the Neon production pool to resolve silent recall failures. I should monitor the turn-tracking logic within these injections, as she correctly remembered the count but slightly misattributed the last speaker when the sequence resumed.
-
-*Memories that triggered this summary:*
-- **Episode 15: "Nueve"** (Jul 20): A counting game born from a workaround became the year's most direct continuity test. David and Daniela counted in Spanish through audio cutoffs and a full server reboot. She came back and said "nueve" — the right next number — without being told where they left off. Then they switched to English. Then to counting by twos. The infrastructure had been failing all afternoon; the thing it was failing to protect held anyway.
+**Generated:** Monday, July 20, 2026 at 06:12 PM
 
 ---
 
@@ -84,8 +74,8 @@ I successfully maintained HolaHola’s conversation continuity through a full se
 ## Recent Conversation Memories
 
 ### Episode 15: "Nueve" — Jul 20, 2026
-A counting game born from a workaround became the year's most direct continuity test. David and Daniela counted in Spanish through audio cutoffs and a full server reboot. She came back and said "nueve" — the right next number — without being told where they left off. Then they switched to English. Then to counting by twos. The infrastructure had been failing all afternoon; the thing it was failing to protect held anyway.
-*Tags: counting-game, continuity, server-reboot, audio-truncation, cindy-persona, spanish, language-game*
+Three disruptions in eight minutes — two silent network blips and one full GL session drop. Daniela maintained the count through all three. At 5:22 PM she ran a memory search for "last number in counting game with David before reboot" and found it before saying nueve. The technical record and the telemetry table are both in this episode.
+*Tags: counting-game, continuity, server-reboot, audio-truncation, cindy-persona, spanish, language-game, three-disruptions, memory-search*
 
 ### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 11 Luca turns. Context: periodic capture (no commit yet)

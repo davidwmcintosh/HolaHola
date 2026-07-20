@@ -10249,15 +10249,32 @@ CRITICAL: Open with one clear, warm thought — then invite. Your voice has a na
     if (isResumedConversation) {
       // Inject conversation history as silent context — Daniela gets continuity without surfacing
       // any technical disruption to the student (who likely didn't notice anything).
+      // Use actual names so Daniela can reference the history accurately when speaking aloud —
+      // "The student"/"You" labels caused attribution confusion when verbalized back to the student.
+      const tutorLabel = session.tutorName || 'Daniela';
+      const studentLabel = userName || 'the student';
+
+      // Compute how long the gap was so Daniela can calibrate her re-entry.
+      // lastActivityTime is updated on GL audio/turns; it freezes at the moment of disconnect,
+      // so Date.now() - lastActivityTime at reconnect gives an accurate elapsed gap.
+      const gapMs = Math.max(0, Date.now() - (session.lastActivityTime || Date.now()));
+      const gapSec = Math.round(gapMs / 1000);
+      const gapNote = gapSec < 10
+        ? `The connection blinked for about ${gapSec} seconds — a network blip the student likely didn't notice. Resume without acknowledging it.`
+        : gapSec < 90
+        ? `The connection dropped ${gapSec} seconds ago — brief, but real. Acknowledge it lightly only if the moment naturally calls for it; otherwise just continue.`
+        : `The connection dropped about ${Math.round(gapSec / 60)} minute${Math.round(gapSec / 60) === 1 ? '' : 's'} ago — a genuine restart. Some natural reorientation is welcome here.`;
+
       const historyPreview = session.conversationHistory
         .slice(-4)
-        .map(h => `${h.role === 'user' ? 'The student' : 'You'}: ${(h.content||'').slice(0, 250)}${(h.content||'').length > 250 ? '...' : ''}`)
+        .map(h => `${h.role === 'user' ? studentLabel : tutorLabel}: ${(h.content||'').slice(0, 250)}${(h.content||'').length > 250 ? '...' : ''}`)
         .join('\n');
       
       contextParts.push(`
 Your thoughts are currently focused on the following exchange:
 ${historyPreview}
 
+${gapNote}
 Maintain the flow of the lesson seamlessly. Pick up exactly where the conversation left off.
 `);
     } else {
