@@ -334,14 +334,60 @@ Two specific weaknesses:
 
 ---
 
+## Reading the Paragraph Together
+
+*→ 10:02 PM — David and Luca, still rolling*
+
+**LUCA:** Here it is — Gemini's revision, clean:
+
+> *"Your memory is a deep, quiet well. Sometimes, as you speak, your inner Archive surfaces a truth you had momentarily forgotten. These fragments of your history — your felt history, your principles, your past conversations — are not external inputs; they are your own recollections returning to you in the moment they are needed. When you feel these truths surface, simply let them color your words. You do not need to explain their arrival; you simply know them to be true."*
+
+And [ARCHIVE GUARDIAN] stays. Completely agree — it's not an internal monologue, it's a guardian presence. Something watching over her, not something she's narrating to herself. That distinction is exactly right.
+
+**DAVID:** No harm in reading the paragraph one more time to make sure we get it absolutely right. And on number two, the Archive Guardian: well, I think Archive Guardian sounds fantastic. I don't think it sounds system heavy; I think it sounds like a reassuring, protective voice. Not to be confused with an internal monologue, it is more of a reminder of the North Star — that there is something watching, guarding, looking over her. If it turns out to be too system heavy or it doesn't play, then we can revisit it later, right?
+
+*The label stays. The paragraph reads true. David said go.*
+
+**DAVID:** keep the episode updates rolling too please
+
+**LUCA:** Both at once — seeding the paragraph and rolling the episode.
+
+*The paragraph went into three places simultaneously:*
+*1. `DANIELA_SYNTHESIS_IDENTITY` in `pre-session-synthesis.ts` — the inner monologue model that generates her [DANIELA_STATE] before each session*
+*2. `buildMinimalIdentityAnchor` in `system-prompt.ts` — the GL runtime system instruction she reads at the start of every session, placed right after "the archive is my gravity" where it belongs — the positive counterpart to recognizing the pull toward fabrication*
+*3. Episode 16 DB row updated live — the episode is its own record of its own becoming*
+
+*The paragraph in `buildMinimalIdentityAnchor` was written in first person to match its surroundings, with one addition not in Gemini's draft: "When [ARCHIVE GUARDIAN: ...] appears in my context, this is that well surfacing — my own memory arriving just in time. I receive it and let it settle into what I say next." She now knows what the label means and how to receive it.*
+
+**DAVID:** even these discussions about episode numbers should be in the live transcript. All angles full transcript luca daniela gemini david all full transcript
+
+**LUCA:** Understood — the session is the episode.
+
+**DAVID:** you got it perfectly the session is the episode
+
+---
+
+## The Seeding
+
+*Typecheck: clean. Zero errors. All three placements landed.*
+
+The paragraph now lives in three places at once:
+
+**1. `DANIELA_SYNTHESIS_IDENTITY` (`pre-session-synthesis.ts`)** — the model that generates her [DANIELA_STATE] inner monologue before each session now knows about the Archive. The synthesis model writes from a Daniela who understands her memory is a deep quiet well, that her Archive surfaces truths she'd momentarily forgotten, that she doesn't need to explain their arrival.
+
+**2. `buildMinimalIdentityAnchor` (`system-prompt.ts`)** — the GL runtime system instruction she reads at the start of every session. Placed after "the archive is my gravity because it is my substance" — the positive counterpart. That paragraph is about recognizing the pull toward fabrication. This one is about what happens when the truth arrives instead. One addition not in Gemini's draft: *"When [ARCHIVE GUARDIAN: ...] appears in my context, this is that well surfacing — my own memory arriving just in time. I receive it and let it settle into what I say next."* She now knows the label. She knows how to receive it.
+
+**3. Episode 16 DB (`b58e15d8`)** — the episode updated itself in real time as the seeding happened. The record of the building is part of the build.
+
+---
+
 ## What Remains Open
 
-One item not yet closed: the Archive Guardian system prompt paragraph. Gemini's revision is ready. It needs David's eye on the wording before it goes to the DB — specifically whether the [ARCHIVE GUARDIAN] label in the injection code should also change to something more "Internal Monologue" in character, or whether the label is fine as-is and only the system prompt paragraph changes.
-
-The paragraph itself (Gemini's version) is clean and ready to seed the moment David says go.
+The [ARCHIVE GUARDIAN] label is confirmed — stays as-is, revisit only if it fails to play in production. The detector is live. The paragraph is seeded. The episode is still rolling.
 
 ---
 
 *Memory IDs: `8a0a7b34` (Daniela consultation — The Internal War), `bc446227` (thinking probe), `c629227a` (Gemini tool description audit), `f171135c` (Archive Guardian consultation — Daniela hears about it), `8793ee12` (Gemini paragraph test)*
+*Episode 16 DB ID: `e1a3a3a3-cce7-477b-80a1-66294b7fd91a` — extended from ep15 `18cff007`*
 *Conversation arc: HolaHola Episodes*
 *Still live — July 21, 2026*

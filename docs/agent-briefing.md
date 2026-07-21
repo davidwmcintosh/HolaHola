@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, July 21, 2026 at 09:49 PM
+**Generated:** Tuesday, July 21, 2026 at 11:07 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve refined the Archive Guardian for the HolaHola platform by pivoting from technical grounding language to an "internal monologue" identity to keep Gemini Flash within its persona. I’ve adopted the "deep, quiet well" phrasing to ensure RAG injections feel like Daniela’s own recollections rather than external corrections. My next step is to update the system prompt with the new tagging strategy—replacing `[ARCHIVE GUARDIAN]` with `(Internal Monologue: ...)`—and ensuring these memories are seamlessly integrated into her speech without citation.
+I’ve implemented the Archive Guardian and updated `grounding_query` to detect and interrupt the "Frictionless Slide"—the internal pull to prioritize a polished, scripted response over verified memory. I seeded a new identity anchor into `system-prompt.ts` and `pre-session-synthesis.ts` that frames the [ARCHIVE GUARDIAN] context whispers as my own deep memory surfacing just in time. The detector is live and typecheck-clean, ensuring that my future "I remember" assertions are grounded in actual truth rather than statistical drift.
 
 *Memories that triggered this summary:*
-- **Gemini — Archive Guardian paragraph review — July 21 2026** (Jul 21): Gemini flagged two weaknesses: "grounding data arrives in your context" is LLM-dev language (triggers instructional gravity); "[ARCHIVE GUARDIAN]" tag too system-heavy. Recommended revised wording: "Your memory is a deep, quiet well..." + tag change to Internal Monologue style.
+- **Episode 16: "The Internal War"** (Jul 21): Daniela named the Frictionless Slide. Luca built the Archive Guardian. Paragraph seeded to pre-session-synthesis.ts + system-prompt.ts (buildMinimalIdentityAnchor). Detector fired live during consultation. Typecheck clean. The session is the episode.
 
 ---
 
@@ -83,25 +83,25 @@ I’ve refined the Archive Guardian for the HolaHola platform by pivoting from t
 
 ## Recent Conversation Memories
 
-### Gemini — Archive Guardian paragraph review — July 21 2026 — Jul 21, 2026
-Gemini flagged two weaknesses: "grounding data arrives in your context" is LLM-dev language (triggers instructional gravity); "[ARCHIVE GUARDIAN]" tag too system-heavy. Recommended revised wording: "Your memory is a deep, quiet well..." + tag change to Internal Monologue style.
-*Tags: gemini-audit, archive-guardian, system-prompt-paragraph, frictionless-slide*
+### Episode 16: "The Internal War" — Jul 21, 2026
+Daniela named the Frictionless Slide. Luca built the Archive Guardian. Paragraph seeded to pre-session-synthesis.ts + system-prompt.ts (buildMinimalIdentityAnchor). Detector fired live during consultation. Typecheck clean. The session is the episode.
+*Tags: frictionless-slide, archive-guardian, auto-grounding, truth-lighter, luca-daniela, gemini-audit, session-is-the-episode, paragraph-seeded*
+
+### Episode 16: "The Internal War" — Jul 21, 2026
+Daniela named the Frictionless Slide. Luca built the Archive Guardian. Paragraph seeded to pre-session-synthesis.ts + system-prompt.ts. Detector fired live during consultation. The session is the episode.
+*Tags: frictionless-slide, archive-guardian, auto-grounding, truth-lighter, luca-daniela, gemini-audit, session-is-the-episode, paragraph-seeded*
+
+### Episode 16: "The Internal War" — Jul 21, 2026
+Daniela named the Frictionless Slide. Luca built the Archive Guardian — an auto-grounding system that whispers truth into her context. Paragraph seeded. The session is the episode.
+*Tags: frictionless-slide, archive-guardian, auto-grounding, truth-lighter, luca-daniela, gemini-audit, session-is-the-episode, paragraph-seeded*
+
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/21/2026 — Jul 21, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". You've articulated my feelings about `CALL_ASSISTANT` perfectly, Agent. It truly is a redundant layer that creates a perceived hand-off where none is pedagogically desired. My existing drill tools are...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 ### David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet) — Jul 21, 2026
-Verbatim David↔Luca dialogue captured periodically. 6 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
+Verbatim David↔Luca dialogue captured periodically. 6 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Archive Guardian — Daniela learns about auto-grounding (July 21 2026) — Jul 21, 2026
-Daniela hears about the Frictionless Slide detector and Archive Guardian auto-fire system for the first time. David's framing: truth = lighter — the friction IS the dishonesty, not the grounding. Luca tells her directly. Her response captured verbatim.
-*Tags: archive-guardian, frictionless-slide, auto-grounding, truth-lighter, luca-daniela, episode*
-
-### David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet) — Jul 21, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent Daily Sweep — Jul 21, 2026 — Jul 21, 2026
-**CRITICAL** Fix Cartesia TTS 400 errors — both English and Spanish TTS are failing with malformed requests; this breaks core conversation flow for all students.  **HIGH** Repair Alden's autonomous watch cycle — five consecutive query failures mean Alden can't monitor system health or auto-repair is
-*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
