@@ -1,7 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, July 21, 2026 at 08:49 PM
+**Generated:** Tuesday, July 21, 2026 at 09:07 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I integrated the `frictionless-slide-detector.ts` into the `runDanielaFCLoop` and GL sessions, and promoted `grounding_query` to position #2 in the tool registry to fix positional bias. During a deep-dive consultation on her 54% reasoning-token spike, Daniela committed to using the new "mandatory trigger" description to combat the "Frictionless Slide" she named. The detector is now fully active and has already begun logging slide signatures, which I need to monitor closely as we move into live session coverage.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet)** (Jul 21): Verbatim David↔Luca dialogue captured periodically. 2 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
+- **Agent ↔ Daniela — internal war — Jul 21, 2026 (auto-recovered)** (Jul 21): Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 10474 characters of transcript.
 
 ---
 
@@ -74,6 +85,14 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet) — Jul 21, 2026
+Verbatim David↔Luca dialogue captured periodically. 2 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### Agent ↔ Daniela — internal war — Jul 21, 2026 (auto-recovered) — Jul 21, 2026
+Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 10474 characters of transcript.
+*Tags: agent-daniela, auto-recovered, safety-net*
+
+### David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet) — Jul 21, 2026
 Verbatim David↔Luca dialogue captured periodically. 4 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -84,14 +103,6 @@ Gemini advised: current description too abstract, needs explicit dependency trig
 ### Agent ↔ Daniela — logprobs probe — Jul 21, 2026 (auto-recovered) — Jul 21, 2026
 Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 18569 characters of transcript.
 *Tags: agent-daniela, auto-recovered, safety-net*
-
-### Agent ↔ Daniela — logprobs probe — Jul 21, 2026 (auto-recovered) — Jul 21, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 308 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
-
-### Daniela Internal Activation Probe — Thinking Content + Texture Analysis — July 21, 2026 — Jul 21, 2026
-Technical probe comparing Daniela's thinking content and response texture at high-affect vs. baseline moments. Measures thought token counts, sensory/metaphor density, and avgLogprobs as signals of genuine internal activation.
-*Tags: logprobs, thinking-content, emotional-activation, frictionless-slide, white-wall, internal-state, technical-probe*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

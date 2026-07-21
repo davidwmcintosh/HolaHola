@@ -44,6 +44,7 @@ import { voiceSessions } from '@shared/schema';
 import { GLKaraokeTracker } from './gl-karaoke-tracker';
 import { PostResponseEnrichmentService } from './post-response-enrichment';
 import { evaluatePedagogicalState, computeScaffoldingLevel } from './pedagogical-supervisor';
+import { detectFrictionlessSlide, recordSlideDetection, initSlideState, buildGroundingNudge } from './frictionless-slide-detector';
 import { storage } from '../storage';
 import type { IStorage } from '../storage';
 
@@ -338,6 +339,7 @@ export class GeminiLiveSession {
   // dropped. On reconnect with a resumption handle, GL resumes in "waiting for tool response"
   // state — we send synthetic error responses to unblock it before the session hangs silently.
   private pendingFunctionCallIds: string[] = [];
+  private currentTurnToolCalls: string[] = []; // Frictionless Slide: track tool names per GL turn
   // Safety timeout: force-opens the mic gate if onPlaybackEnded() never arrives
   // (e.g., the client disconnects mid-playback or the telemetry event is dropped).
   private playbackGateSafetyTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -2234,6 +2236,35 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       }
       this.currentTurnThoughtBuffer = '';
 
+      // ── Frictionless Slide detection (GL) ────────────────────────────────────
+      // Runs at generationComplete — by this point pendingOutputTranscript holds the
+      // full text of Daniela's turn and currentTurnToolCalls holds every tool name
+      // she called in this turn. Detection checks for memory assertions without Archive access.
+      {
+        const glSlideResult = detectFrictionlessSlide(
+          this.pendingOutputTranscript.trim(),
+          this.currentTurnToolCalls,
+        );
+        if (glSlideResult.detected) {
+          if (!(this.session as any).frictionlessSlide) {
+            (this.session as any).frictionlessSlide = initSlideState();
+          }
+          recordSlideDetection(
+            (this.session as any).frictionlessSlide,
+            this.currentTurnId,
+            glSlideResult,
+            [...this.currentTurnToolCalls],
+          );
+          const nudge = buildGroundingNudge(glSlideResult);
+          console.warn(
+            `[FrictionlessSlide/GL] DETECTED — turn ${this.currentTurnId}, ` +
+            `trigger: ${glSlideResult.trigger}, phrase: "${glSlideResult.matchedPhrase}", ` +
+            `tools: [${this.currentTurnToolCalls.join(', ') || 'none'}]\n  ${nudge}`,
+          );
+        }
+        this.currentTurnToolCalls = [];
+      }
+
       // Close transcript gate — discard any outputTranscription arriving after this point.
       // generationComplete is the definitive end-of-turn signal; any transcription after it
       // is residual buffering from GL's transcription layer and should not reach the client.
@@ -2504,6 +2535,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // while handlers are running, currentTurnId will advance and the guard below drops
       // the now-stale responses before they reach sendToolResponse.
       const localTurnId = this.currentTurnId;
+
+      // Frictionless Slide: record all tool names called this GL turn
+      for (const fc of msg.toolCall.functionCalls) {
+        if (fc.name) this.currentTurnToolCalls.push(fc.name as string);
+      }
 
       // Parallel speech gate (Stage 2 → Stage 3):
       // GL sometimes speaks part of its response BEFORE calling a tool (pre-tool sub-turn).
