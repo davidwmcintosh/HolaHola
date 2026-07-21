@@ -6,6 +6,31 @@ Staging area for documentation changes to be consolidated later.
 
 ---
 
+## UNIFIED_RECALL Arm 7 (current session) + GL session heartbeat — July 21, 2026
+
+### What was built
+
+Two fixes from the forensic audit of the broken session `bab3e1de` (July 20, 5:05–6:05 PM).
+
+**Fix 1 — UNIFIED_RECALL Arm 7: current-session transcript (`server/services/native-fc-handlers.ts`)**
+
+Root cause: when Daniela calls `introspect` about something that happened earlier in the SAME session, the six existing arms all fail — vector embeddings are indexed asynchronously (not available for messages written minutes ago), and `conversation_memories` is only populated when a session ends. Result: all arms return null → Daniela confabulates (the ocho counting-game case).
+
+Fix: added Arm 7 to `processUnifiedRecall`. On every `introspect` call it fetches the last 40 messages from `session.conversationId` directly from the `messages` table via SQL (no embeddings, no indexing lag). Uses `getMonitoringDb()` (HTTP transport, no WebSocket pool pressure). Formats with `David:` / `Daniela:` speaker labels. Injected as `<verbatim>THIS SESSION</verbatim>` block — highest attention marker in Daniela's context. Console log updated to include `current-session: found/none`.
+
+**Fix 2 — GL session liveness heartbeat (`server/unified-ws-handler.ts`)**
+
+Root cause: when a GL session enters a degraded state (API keeps streaming audio but stops firing tool/completion callbacks), there is no server-side signal. The broken session ran for 30 minutes with zero events after 5:35 PM — invisible in post-hoc analysis.
+
+Fix: added a `gl_session_heartbeat` write to `voice_pipeline_events` inside the existing `glMetricsSyncHandle` setInterval (fires every 2 minutes). Each heartbeat includes `exchangeCount` and `sessionAgeSeconds`. A broken session is now detectable by: session_start event exists, but no heartbeats follow. Sofia's tool `get_pipeline_events` already queries `voice_pipeline_events` by event_type — no schema changes needed.
+
+**Key files:** `server/services/native-fc-handlers.ts` (`processUnifiedRecall`), `server/unified-ws-handler.ts` (metrics sync interval)
+**Bugs logged:** `docs/open-bugs.md` (broken GL session pattern OPEN, introspect same-session gap FIXED)
+
+Typecheck clean July 21.
+
+---
+
 ## GL Last-Word Audio Truncation Fix — July 20, 2026
 
 ### What was built

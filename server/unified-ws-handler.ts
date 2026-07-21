@@ -3299,6 +3299,23 @@ ${lastNote.tutorNotes}`);
                   } catch (balErr: any) {
                     console.warn('[CreditWarning] Balance check failed:', balErr.message);
                   }
+
+                  // ── Session liveness heartbeat ───────────────────────────────
+                  // Write a gl_session_heartbeat event every GL_METRICS_SYNC_INTERVAL_MS
+                  // so that broken sessions (GL audio flowing but server-side tracking dead)
+                  // are detectable post-hoc by the absence of heartbeats after session_start.
+                  if (usageSession && userId) {
+                    const glExchangesNow = geminiLiveSession?.getCompletedExchangeCount() ?? 0;
+                    const heartbeatPayload = JSON.stringify({
+                      exchangeCount: exchangeCount + glExchangesNow,
+                      sessionAgeSeconds: Math.round((Date.now() - (usageSession.startedAt ? new Date(usageSession.startedAt).getTime() : Date.now())) / 1000),
+                    });
+                    getSharedDb().execute(sql`
+                      INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
+                      VALUES (gen_random_uuid(), ${usageSession.id}, ${String(userId)},
+                        'gl_session_heartbeat', ${heartbeatPayload}::jsonb, NOW())
+                    `).catch((err: Error) => console.warn('[GeminiLive] Failed to write session heartbeat:', err.message));
+                  }
                 }, GL_METRICS_SYNC_INTERVAL_MS);
               } catch (glErr: any) {
                 console.error('[GeminiLive] Failed to start Gemini Live session:', glErr.message);

@@ -8562,7 +8562,7 @@ export class NativeFunctionCallHandler {
        .replace(/[\u200B-\u200D\uFEFF]/g, '');
 
     // Fire all search arms in parallel — no sequential waiting
-    const [structuredText, threadText, expressLaneText, semanticText, memoriesText, imageText] = await Promise.all([
+    const [structuredText, threadText, expressLaneText, semanticText, memoriesText, imageText, currentSessionText] = await Promise.all([
 
       // Arm 1: structured memories — insights, facts, motivations, struggles, teaching moments
       // Uses pgvector (WebSocket pool) — wrapped with 1500ms timeout so a pool drop can't
@@ -8900,6 +8900,41 @@ export class NativeFunctionCallHandler {
           return null;
         }
       })(),
+
+      // Arm 7: current session transcript — messages from this conversation_id, fetched
+      // directly from the messages table (no embeddings needed, no indexing lag).
+      // Addresses the case where Daniela asks about something that happened earlier in the
+      // SAME session: those messages are in the DB but haven't been indexed in the vector
+      // store yet (embedding is async). HTTP transport to avoid WebSocket pool pressure.
+      (async () => {
+        try {
+          const convId = session.conversationId;
+          if (!convId) return null;
+
+          const { messages: messagesTable } = await import('@shared/schema');
+          const rows = await getMonitoringDb()
+            .select({ role: messagesTable.role, content: messagesTable.content })
+            .from(messagesTable)
+            .where(sql`conversation_id = ${convId}`)
+            .orderBy(sql`created_at DESC`)
+            .limit(40);
+
+          if (rows.length === 0) return null;
+
+          // Reverse to chronological order, format with speaker labels
+          const lines = rows.reverse().map(msg => {
+            const speaker = msg.role === 'user' ? 'David' : 'Daniela';
+            const text = msg.content.length > 400 ? msg.content.slice(0, 400) + '…' : msg.content;
+            return `${speaker}: ${text}`;
+          });
+
+          console.log(`[UnifiedRecall] Current-session arm: ${rows.length} message(s) for conversationId=${convId.slice(0, 8)}`);
+          return lines.join('\n');
+        } catch (err: any) {
+          console.warn(`[UnifiedRecall] Current-session arm failed: ${err.message}`);
+          return null;
+        }
+      })(),
     ]);
 
     // XML markers applied per section type — Gemini review (June 19 2026):
@@ -8912,6 +8947,7 @@ export class NativeFunctionCallHandler {
     if (semanticText) sections.push(`<index_only>\n=== SEMANTIC ASSOCIATIONS (conceptually related memories, no keyword overlap needed) ===\n${semanticText}\n</index_only>`);
     if (memoriesText) sections.push(`<verbatim>\n=== CONVERSATION MEMORIES (curated landmark archives — call read_full_memory("title keyword") to retrieve any of these in full) ===\n${memoriesText}\n</verbatim>`);
     if (imageText) sections.push(`<index_only>\n=== VISUAL MEMORIES (images shown in past conversations matching this topic) ===\n${imageText}\n</index_only>`);
+    if (currentSessionText) sections.push(`<verbatim>\n=== THIS SESSION (what we've said in this conversation so far — exact transcript, chronological) ===\n${currentSessionText}\n</verbatim>`);
 
     // Associative chaining — after primary results, extract the most distinctive
     // content terms and run one more targeted search to surface co-occurring memories
@@ -8972,7 +9008,7 @@ export class NativeFunctionCallHandler {
     if (!session.recallResults) session.recallResults = {};
     session.recallResults[query] = combined;
 
-    console.log(`[UnifiedRecall] "${query.substring(0, 50)}" → structured: ${structuredText ? 'found' : 'none'}, threads: ${threadText ? 'found' : 'none'}, semantic: ${semanticText ? 'found' : 'none (indexing in progress)'}`);
+    console.log(`[UnifiedRecall] "${query.substring(0, 50)}" → structured: ${structuredText ? 'found' : 'none'}, threads: ${threadText ? 'found' : 'none'}, semantic: ${semanticText ? 'found' : 'none'}, current-session: ${currentSessionText ? 'found' : 'none (no conversationId or 0 messages)'}`);
   }
 
   private async triggerLyraExtractionForThreads(

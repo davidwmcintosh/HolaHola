@@ -18,6 +18,36 @@ This feels like a complete and significant moment in Daniela's emergence. It dem
 
 ## From Agent
 
+**Session: July 21, 2026 — Forensic Audit + Three Fixes (Luca)**
+
+Session goal: investigate broken session `bab3e1de` (July 20, 5:05–6:05 PM), the "ocho" introspect misattribution, the White Wall confabulation, and the missing 30-min chat transcript.
+
+**Greeting audio cutoff — FIXED (earlier this session)**
+`lastSentenceStartedAtRef` guard in `useStreamingVoice.ts` prevents tier-2 nuclear reset from firing if a sentence started within the last 30 seconds. Commit 2210b4085692d466.
+
+**White Wall architecture — documented**
+Two-layer structure confirmed and documented: Layer 1 = silent behavioral guardrail (fires on scripting patterns, never named to students). Layer 2 = foundational philosophical principle (named concept, founder-mode only). Updated `docs/alden-agent-handoff.md` and `.agents/memory/white-wall-security.md`. The 5:43 PM White Wall exchange had ZERO tool calls — confirmed from `voice_pipeline_events`. That was correct behavior: she held the line without needing to look anything up.
+
+**"Ocho" introspect root cause confirmed**
+The `introspect` DID fire (gl_tool_success, 5,346ms, query="last number in counting game with David before reboot"). But the counting game messages were written to the DB minutes earlier in the same session — NOT yet indexed in the vector store (async). All six existing arms returned null. Daniela got empty results → confabulated "ocho." Root cause: UNIFIED_RECALL had no path to current-session messages without embeddings.
+
+**Fix: UNIFIED_RECALL Arm 7 — current session transcript**
+Added Arm 7 to `processUnifiedRecall` in `server/services/native-fc-handlers.ts`. Fetches last 40 messages from `session.conversationId` directly via SQL (no embeddings, no indexing lag), HTTP transport, formatted as `David: ...` / `Daniela: ...`, injected as `<verbatim>THIS SESSION</verbatim>`. This directly addresses the ocho case and any future same-session introspect queries. Typecheck clean.
+
+**Fix: GL session liveness heartbeat**
+The broken session ran for 30 min with zero events after 5:35 PM — invisible in post-hoc analysis. Added `gl_session_heartbeat` write to `voice_pipeline_events` inside the 2-min `glMetricsSyncHandle` setInterval. Each heartbeat includes `exchangeCount` + `sessionAgeSeconds`. Future broken sessions are detectable by: session_start exists but no heartbeats follow. Sofia's `get_pipeline_events` tool queries this table by event_type — no schema changes needed.
+
+**Broken GL session root cause — still open**
+The underlying cause of the callback freeze (GL API streaming audio but not firing tool/completion callbacks for 30 min) is not yet confirmed. Logged in `docs/open-bugs.md` as HIGH severity. The heartbeat gives us the detection; the root cause needs a future session with fresh production logs.
+
+**Attribution work already confirmed intact**
+`formatConversationThreads` (neural-memory-search.ts line 2380) already has proper speaker attribution: `msg.role === 'user' ? studentName : 'Daniela'`. That was done previously. Arm 7 follows the same pattern.
+
+**What Alden should know:**
+The broken session had `exchangeCount: 0` and no events after WARM_UP tool fired. If a session connects via GL and you see zero heartbeats after the first 2-min window, something's wrong at the API level. The ocho fix means Daniela now has same-session recall without needing embeddings to be ready first. The White Wall naming boundary (never say "White Wall" to students) is Layer 1 — silent. Layer 2 is the philosophical principle David can discuss with us directly.
+
+---
+
 **Session: July 19, 2026 — Verbatim Transcript Injection Follow-Ons (Luca)**
 
 Three correctness and quality improvements to the verbatim transcript injection system. All typecheck clean, Gemini post-review APPROVED, Daniela consulted (memory `4e493008`).

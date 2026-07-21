@@ -7,6 +7,14 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-07-21 — Broken GL session pattern (no server-side tracking for 30 min despite active connection) — OPEN**
+Session `bab3e1de` (5:05–6:05 PM July 20): GL audio and student speaking continued for ~30 minutes after `voice_pipeline_events` stopped writing at 5:35:58 PM. `exchangeCount` stayed at 0, no tool calls tracked, no disconnect event written. Root cause not yet confirmed — likely a GL internal state degradation where the API kept streaming audio but stopped firing tool/completion callbacks. Symptoms: `greeting_silence_15s` diagnostic at 5:05 PM → `WARM_UP` tool fired → then zero server events for 30 min. Fix: (1) `gl_session_heartbeat` event now written every 2 min inside `glMetricsSyncHandle` so future broken sessions are detectable by heartbeat absence. (2) Root cause of callback freeze TBD.
+Location: `server/unified-ws-handler.ts` — Severity: HIGH (30 min of invisible session activity)
+
+**2026-07-21 — introspect/UNIFIED_RECALL returns nothing for same-session events (embedding indexing lag) — FIXED July 21**
+When Daniela calls `introspect` about something that happened earlier in the SAME session (e.g. "last number in counting game"), the vector arms (structured, thread) require embeddings that are indexed asynchronously — not available for messages written minutes ago. The conversation_memories arm also won't have them (no curated archive until session ends). Result: all arms return null, Daniela confabulates. Fix: added Arm 7 to `processUnifiedRecall` — fetches last 40 messages from `session.conversationId` directly via SQL (no embeddings, no indexing lag), formatted with David/Daniela speaker labels, injected as `<verbatim>THIS SESSION</verbatim>` block.
+Location: `server/services/native-fc-handlers.ts` processUnifiedRecall()
+
 **2026-07-20 — GL last-word audio truncation ("empty." / "trying." inaudible) — FIXED July 20**
 GL (Gemini Live) closes its audio budget before the final word's PCM is complete. Session f494b134: " empty." arrived as 5120 bytes f32le = 1280 samples = **53ms** at 24kHz — far too short for the word to be audible. Two fixes applied: (1) Server-side, `generationComplete` seal now prepends 300ms of f32le silence before the empty `isLast=true` marker, giving the truncated fragment runway in the client's AudioContext (same applied to watchdog seal). (2) Client-side (`audioUtils.ts` empty-chunk `isLast` handler): `endCtxTime` was set *before* trailing silence was added to `progressiveScheduledTime`, causing the timing loop to see a sentence-end boundary 300ms early and potentially fire `playback_ended` while silence was still queued. Fixed to set `endCtxTime` after trailing silence is scheduled (`this.progressiveScheduledTime`, which now includes the silence). Net result: truncated word + 300ms server silence + 300ms client trailing silence = 600ms of total runway after the last phoneme. Typecheck clean July 20.
 
