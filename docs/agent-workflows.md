@@ -33,6 +33,8 @@ GET /api/conversation-memories?limit=10
 ```
 Then read the full `content` field of each entry. The periodic captures have verbatim turn-by-turn records — they give context the scratchpad misses (exact moments decisions were made, what David actually said, symmetries between early-session observations and late-session builds). Write the wrap-up from this picture, not from memory alone.
 
+While reading, also scan for **forward plans and agreements** — anything David and Luca agreed to do in a coming session (test protocols, question lists, tomorrow's agenda, commitments). These are distinct from open threads (nothing was left undone today) and distinct from code changes. If found and not yet saved as a discrete `conversation_memories` entry, save them now before closing. The bulk autosave captures the full session but won't surface a specific plan as a standalone searchable item unless it was explicitly saved.
+
 1. **Update handoff** — `docs/alden-agent-handoff.md` "From Agent" section. What was built, key decisions, what's unresolved, what Alden should know. Preserve existing file structure.
 2. **Add to batch doc** — `docs/batch-doc-updates.md`. What was built, how it works, key files modified, user-facing instructions. One entry per feature.
 3. **Shared lobe insight (if warranted)** — if a durable cross-session architectural fact was established:
@@ -61,6 +63,7 @@ Then read the full `content` field of each entry. The periodic captures have ver
 - **Always run `npm run typecheck` before marking a task done.** Fix any errors before shipping.
 - Use parallel tool calls for independent work streams — don't serialize what can run simultaneously.
 - **NEVER use `DATABASE_URL` or `process.env.DATABASE_URL`** anywhere in the codebase. Always `NEON_SHARED_DATABASE_URL`.
+- **Mid-session plan saves (do this immediately, not at session end):** When David and Luca agree on a plan, test protocol, question list, or forward commitment for a future session, save it as a discrete `conversation_memories` entry right then — high importance, tagged, capturing the actual exchange verbatim. The bulk autosave will bury it in a session transcript; a discrete save makes it searchable and surfaceable at tomorrow's session start. Also write it to a `.local/` file if it needs to be found by path. Do not wait for the session-end checklist.
 - After any new feature: add to batch doc, update handoff.
 - New Daniela tool pipeline — only 3 steps needed, everything else is automatic (see Adding a Daniela Tool below).
 

@@ -90,6 +90,8 @@ Common patterns for interrupted threads:
 - Luca begins an investigation → gets a result → says "now let me check X" → session ends
 - Luca promises to log something → context shifts → it never gets logged
 
+Also look for **forward plans and agreements** — a distinct category from open threads. These are things David and Luca agreed to do in a *future* session (test protocols, question lists, tomorrow's agenda). Nothing was left undone today, so they don't appear as incomplete threads — but they still need an explicit discrete save. Check: was this planning exchange saved as a standalone `conversation_memories` entry (high importance, tagged)? If not, save it now. The bulk autosave captures it in a session transcript, but won't surface it as a searchable item at tomorrow's session start.
+
 **Do not skip this step.** Checking titles and timestamps is not reading. You must read the content of what was said.
 
 ### Step 3 — Complete any open threads before continuing

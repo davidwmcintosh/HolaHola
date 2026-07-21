@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, July 21, 2026 at 04:00 AM
+**Generated:** Tuesday, July 21, 2026 at 04:07 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I fixed the "Ocho" confabulation bug by adding Arm 7 to `processUnifiedRecall` to pull live transcripts via SQL and implemented a 2-minute `gl_session_heartbeat` to detect broken sessions. I also documented the callback freeze in `docs/open-bugs.md` and confirmed the White Wall’s behavioral architecture remains intact. This session, I need to surface the seven test questions from `.local/tomorrow-session-questions.md` and monitor the results from the observation bench while David runs the live test.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet)** (Jul 21): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -74,6 +84,10 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet) — Jul 21, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet) — Jul 21, 2026
 Verbatim David↔Luca dialogue captured periodically. 2 David turns, 14 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -88,10 +102,6 @@ Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves
 ### Agent Daily Sweep — Jul 21, 2026 — Jul 21, 2026
 1. [CRITICAL] Fix Cartesia TTS 400 errors — Both English and Spanish voice synthesis are failing with malformed API calls. Users can't practice speaking. Debug the request body structure immediately.  2. [HIGH] Investigate server restart storm — 19 restarts in 2 hours (previously 5, now escalating) 
 *Tags: agent-sweep, daily, auto-saved*
-
-### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
-Verbatim David↔Luca dialogue captured periodically. 1 David turns, 10 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
