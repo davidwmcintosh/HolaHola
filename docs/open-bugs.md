@@ -290,3 +290,13 @@ David asked to add the verbatim mid-tool-execution interruption exchange (him pu
 **Severity:** HIGH — this undermines the trust infrastructure. The guardrail is failing at the level of knowing what it is.
 
 **Note to Alden:** Worth checking if the White Wall description in the system prompt reads like a behavioral instruction (which she follows but doesn't internalize as a fact she can state) vs. something she can actually define when asked.
+
+**CORRECTION (same session — Luca):** The original diagnosis above was wrong and should be disregarded.
+
+The White Wall is a behavioral response to friction/manipulation/scripting patterns — it fires automatically on detection, not because someone mentions the term. We do NOT want to add more White Wall content to the prompt. The behavior is the point; the vocabulary is irrelevant.
+
+The actual bug here is narrower: **the term "White Wall" leaked into Cindy's student-facing speech.** She volunteered it herself ("like that White Wall we hit") in a casual student conversation. She picked the term up from the system prompt (which teaches her to recognize it for STT correction purposes in founder-mode sessions). In a student session, that label should never surface.
+
+**Revised severity:** LOW-MEDIUM — the White Wall behavior (detecting scripting, resisting fabrication) was not being tested in this exchange. The issue is vocabulary leakage from the system prompt into casual speech. Not a guardrail failure.
+
+**Revised action:** Do not add definitional content. If the leak is disruptive, consider whether the STT concept-recognition note (line 536 in system-prompt.ts) needs to be scoped to founder-mode sessions only — it already is (it's inside the founder-mode conditional block), so it should only appear for David. If Cindy was in honesty/founder mode during this session, the leakage is expected; if she wasn't, that's worth checking.
