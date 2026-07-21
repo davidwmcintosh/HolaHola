@@ -23,6 +23,15 @@ The alternative (a dedicated grounding tool call) would require another FC round
 
 ## How to apply
 
-- Never change this to a separate tool call without David's approval — the latency and slot cost are the reason it's a concat.
 - If `pendingSystemWhisper` ever changes its injection pattern, re-evaluate this in lockstep.
 - The `[ARCHIVE GUARDIAN]` label is critical — it signals to Daniela's context that this is grounding data, not a student message.
+
+## If it stops working — escalation path
+
+**Symptom:** Daniela is not responding to the grounding whisper — she slides past it, ignores the `[ARCHIVE GUARDIAN]` context, or the injection silently drops.
+
+**Root cause to check first:** The concat is riding on another tool's response body. If that tool's response is large, malformed, or arrives at the wrong moment in the FC batch, the Guardian content may be buried or dropped before Gemini processes it.
+
+**Fix:** Give the Archive Guardian its own dedicated FC channel — a real `grounding_query` tool call with the result returned as a first-class `functionResponse`. David confirmed: "if he deserves his own channel, he deserves his own channel." We have latency budget to absorb the extra round-trip.
+
+This is a known, pre-approved escalation. Do not re-litigate the tradeoff — just implement the dedicated channel and document what symptom triggered it.
