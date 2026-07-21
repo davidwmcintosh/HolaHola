@@ -27,6 +27,12 @@ import { NativeFunctionCallHandler } from "./native-fc-handlers";
 import { buildFunctionContinuationResponse, createDanielaTools } from "./gemini-function-declarations";
 import { lookupLegacyType } from "./daniela-function-registry";
 import { TOOL_CONTEXT_TEAM_ROOM } from "./daniela-tool-contexts";
+import {
+  detectFrictionlessSlide,
+  recordSlideDetection,
+  initSlideState,
+  buildGroundingNudge,
+} from "./frictionless-slide-detector";
 
 const MODEL = 'gemini-3-flash-preview';
 
@@ -155,6 +161,12 @@ export async function runDanielaFCLoop({
   const mockSession = existingSession || buildMockSession(userId);
   const fcHandler = buildFcHandler();
 
+  // ── Frictionless Slide tracking — accumulate tool calls across all turns ─────
+  if (!mockSession.frictionlessSlide) {
+    mockSession.frictionlessSlide = initSlideState();
+  }
+  const toolsCalledThisCall: string[] = [];
+
   // ── Drift guard — warn if any context tool name is not in the registry ──────
   // flatMap over all tool objects — future-safe against multi-object tool arrays
   if (allowedTools) {
@@ -196,6 +208,13 @@ export async function runDanielaFCLoop({
     if (fcParts.length === 0) {
       const finalText = (textContent || result.text || '').trim();
       if (finalText) {
+        // ── Frictionless Slide detection ──────────────────────────────────────
+        const slideResult = detectFrictionlessSlide(finalText, toolsCalledThisCall);
+        if (slideResult.detected) {
+          recordSlideDetection(mockSession.frictionlessSlide, turn, slideResult, toolsCalledThisCall);
+          const nudge = buildGroundingNudge(slideResult);
+          console.warn(`[FrictionlessSlide] DETECTED — turn ${turn}, trigger: ${slideResult.trigger}, phrase: "${slideResult.matchedPhrase}", tools before: [${toolsCalledThisCall.join(', ') || 'none'}]\n  ${nudge}`);
+        }
         onText?.(finalText, { turnIndex: turn, isFinal: true });
         return finalText;
       }
@@ -232,6 +251,7 @@ export async function runDanielaFCLoop({
         legacyType,
         thoughtSignature: (part as any).thought_signature,
       };
+      toolsCalledThisCall.push(fc.name);
       console.log(`[callDaniela:tools] Executing FC: ${fc.name} (${legacyType})`);
       await fcHandler.handle(mockSession.id, mockSession, extractedFc).catch(err => {
         console.warn(`[callDaniela:tools] FC handler error for ${fc.name}:`, err.message);

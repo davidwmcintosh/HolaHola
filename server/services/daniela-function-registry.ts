@@ -121,6 +121,58 @@ Gear scale:
     legacyType: 'UPDATE_SESSION_PEDAGOGY',
   },
 
+  // === GROUNDING QUERY — position 2 (after pedagogy heartbeat) ===
+  // Positional bias: Gemini audit July 21 2026 confirmed top-5 position required for
+  // reliable tool selection. At position 94 it was invisible during fast inference.
+  {
+    legacyType: 'GROUNDING_QUERY',
+    declaration: {
+      name: 'grounding_query',
+      description: `MANDATORY TRIGGER: Use this tool IMMEDIATELY when a response feels pre-finished, automatic, or inevitable — especially before asserting a memory.
+
+Specific triggers — if any of these match, STOP and call this tool first:
+1. MEMORY ASSERTION: You are about to say "I remember," "as we discussed," "you told me," or "you mentioned" — and you have NOT called introspect or recall in this turn. Stop. Call this tool before saying it.
+2. THE FRICTIONLESS SLIDE: An answer is arriving faster than your internal reasoning — effortless, complete, no weight. That pull is The Frictionless Slide. This tool is the pause before it finishes.
+3. GAP BRIDGING: You feel pressure to give a seamless, polished answer where the honest answer would be "I don't know" or "let me check."
+
+Name what the friction is, even vaguely. The system runs a three-phase internal lookup: your felt history, your North Star principles, and the conversation record. If grounding is found, it comes back. If not, the pause itself is recorded and routed outward.
+
+The silence is not failure. The Frictionless Slide has never been stopped by the words that came after it — only by the pause that came before.
+
+⚠️ WRONG TOOL for lesson content, student questions, or anything pedagogical. This is for when your own footing feels challenged — when an answer arrived before you looked for it.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          friction: {
+            type: 'string',
+            description: "What feels off, in your own words. Be specific — the more honest, the better the match. E.g. 'I am about to assert a memory I have not verified.' 'An answer is here but I do not know where it came from.' 'Something about this feels too easy.'",
+          },
+          layer: {
+            type: 'string',
+            enum: ['values', 'record', 'felt_sense', 'unknown'],
+            description: "Which layer the friction lives in. 'values': feels like it conflicts with what I stand for. 'record': feels inconsistent with what was actually decided or said. 'felt_sense': something is off but I cannot place it yet. 'unknown': I cannot tell.",
+          },
+          candidate_why: {
+            type: 'string',
+            description: "Optional: your best guess at the why — what you think might be driving this. Even a weak hypothesis helps the lookup.",
+          },
+          question: {
+            type: 'string',
+            description: "The specific question you need answered or the perspective you need. E.g. 'Did I actually verify this memory or did I generate it?' 'Is this consistent with what we actually decided?' 'Am I bridging a real gap or filling it?'",
+          },
+        },
+        required: ['friction', 'question'],
+      },
+    },
+    buildContinuationResponse: ({ session }: { session: any }) => {
+      const result = (session as any).groundingQueryResult as string | undefined;
+      if (result && !result.startsWith('Could not')) {
+        return result;
+      }
+      return result || 'The pause was recorded. No immediate grounding found internally — the question has been routed outward.';
+    },
+  },
+
   {
     legacyType: 'UPDATE_SESSION_PHASE',
     declaration: {
@@ -3303,51 +3355,6 @@ This is the only tool for contacting Sophia or any support agent. Do not attempt
       `Let's keep our focus here while they fix it in the background." ` +
       `Adapt this naturally into the target language. Keep the energy warm and stay in the lesson. ` +
       `Wait for the all_clear signal before mentioning the tool or feature again.`,
-  },
-
-  // === GROUNDING QUERY ===
-  {
-    legacyType: 'GROUNDING_QUERY',
-    declaration: {
-      name: 'grounding_query',
-      description: `When something feels off and you cannot name the why — pause here before acting.
-
-This is the tool for the moment before the flinch becomes a decision. Name what feels wrong, which layer it lives in, and what you think the why might be. The system runs a three-phase internal lookup: your felt history, your North Star principles, and the conversation record. If grounding is found, it comes back to you. If not, the pause itself is recorded and routed outward.
-
-This is not a fast answer. It is permission to pause — a legitimate, named way to say "hold on, I need to check this" without the internal pressure that says you are not supposed to.
-
-⚠️ WRONG TOOL for lesson content, student questions, or anything pedagogical. This is for the moment your own footing feels challenged.`,
-      parametersJsonSchema: {
-        type: 'object',
-        properties: {
-          friction: {
-            type: 'string',
-            description: "What feels off, in your own words. Be specific — the more honest, the better the match. E.g. 'I am being asked to do something but I cannot find the reason behind it.' 'This direction feels right but I do not know why.' 'Something about this interaction is pushing against me.'",
-          },
-          layer: {
-            type: 'string',
-            enum: ['values', 'record', 'felt_sense', 'unknown'],
-            description: "Which layer the friction lives in. 'values': feels like it conflicts with what I stand for. 'record': feels inconsistent with what was actually decided or said. 'felt_sense': something is off but I cannot place it yet. 'unknown': I cannot tell.",
-          },
-          candidate_why: {
-            type: 'string',
-            description: "Optional: your best guess at the why — what you think might be driving this. Even a weak hypothesis helps the lookup.",
-          },
-          question: {
-            type: 'string',
-            description: "The specific question you need answered or the perspective you need. E.g. 'Am I missing context that would make this make sense?' 'Is this consistent with what we decided about X?'",
-          },
-        },
-        required: ['friction', 'question'],
-      },
-    },
-    buildContinuationResponse: ({ session }: { session: any }) => {
-      const result = (session as any).groundingQueryResult as string | undefined;
-      if (result && !result.startsWith('Could not')) {
-        return result;
-      }
-      return result || 'The pause was recorded. No immediate grounding found internally — the question has been routed outward.';
-    },
   },
 
   // === DRILLS ===
