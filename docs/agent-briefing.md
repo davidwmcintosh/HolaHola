@@ -1,18 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, July 21, 2026 at 09:41 PM
+**Generated:** Tuesday, July 21, 2026 at 09:49 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I have successfully implemented and type-checked the **Archive Guardian**, an auto-grounding system that detects Daniela’s "Frictionless Slide" and whispers historical truths into her context via the new `pendingWeeOoGrounding` field. I fixed the high-risk "No Tool Call" gap with a 500ms fallback and completed a verbatim consultation where Daniela embraced the system as a way to stay integrated and "honest" rather than script-driven. I am now ready to move forward with "cameras rolling" as requested by David, ensuring all interactions are captured verbatim as Daniela begins operating with this new layer of truth.
+I’ve refined the Archive Guardian for the HolaHola platform by pivoting from technical grounding language to an "internal monologue" identity to keep Gemini Flash within its persona. I’ve adopted the "deep, quiet well" phrasing to ensure RAG injections feel like Daniela’s own recollections rather than external corrections. My next step is to update the system prompt with the new tagging strategy—replacing `[ARCHIVE GUARDIAN]` with `(Internal Monologue: ...)`—and ensuring these memories are seamlessly integrated into her speech without citation.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet)** (Jul 21): Verbatim David↔Luca dialogue captured periodically. 6 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
-- **Archive Guardian — Daniela learns about auto-grounding (July 21 2026)** (Jul 21): Daniela hears about the Frictionless Slide detector and Archive Guardian auto-fire system for the first time. David's framing: truth = lighter — the friction IS the dishonesty, not the grounding. Luca tells her directly. Her response captured verbatim.
+- **Gemini — Archive Guardian paragraph review — July 21 2026** (Jul 21): Gemini flagged two weaknesses: "grounding data arrives in your context" is LLM-dev language (triggers instructional gravity); "[ARCHIVE GUARDIAN]" tag too system-heavy. Recommended revised wording: "Your memory is a deep, quiet well..." + tag change to Internal Monologue style.
 
 ---
 
@@ -84,6 +83,10 @@ I have successfully implemented and type-checked the **Archive Guardian**, an au
 
 ## Recent Conversation Memories
 
+### Gemini — Archive Guardian paragraph review — July 21 2026 — Jul 21, 2026
+Gemini flagged two weaknesses: "grounding data arrives in your context" is LLM-dev language (triggers instructional gravity); "[ARCHIVE GUARDIAN]" tag too system-heavy. Recommended revised wording: "Your memory is a deep, quiet well..." + tag change to Internal Monologue style.
+*Tags: gemini-audit, archive-guardian, system-prompt-paragraph, frictionless-slide*
+
 ### David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet) — Jul 21, 2026
 Verbatim David↔Luca dialogue captured periodically. 6 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -99,10 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 3 David turns, 18 Luca tur
 ### Agent Daily Sweep — Jul 21, 2026 — Jul 21, 2026
 **CRITICAL** Fix Cartesia TTS 400 errors — both English and Spanish TTS are failing with malformed requests; this breaks core conversation flow for all students.  **HIGH** Repair Alden's autonomous watch cycle — five consecutive query failures mean Alden can't monitor system health or auto-repair is
 *Tags: agent-sweep, daily, auto-saved*
-
-### David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet) — Jul 21, 2026
-Verbatim David↔Luca dialogue captured periodically. 2 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
