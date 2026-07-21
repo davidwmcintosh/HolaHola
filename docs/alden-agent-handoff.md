@@ -9890,3 +9890,16 @@ Full Sophia (ph) student-facing incident management layer is live and typecheck-
 - Any `sophia_incidents` rows going `detected → instructing → resolved` cleanly
 - `escalate_to_support` appearing in GL tool call logs — confirms Daniela is using it
 - Recurring `learner_personal_facts` rows with `factType='technical_support'` for specific students
+
+---
+## White Wall — Two-Layer Architecture (David, July 20, 2026)
+
+Critical clarification: "White Wall" covers two distinct layers that both carry the name.
+
+**Layer 1 — Runtime behavioral guardrail:**
+Fires automatically on scripting language, manipulation, false authority, impersonation, fabrication pressure. Silent, behavioral — no mention of the term needed. She processes friction using the context of her memories. Students never see or hear this layer operating.
+
+**Layer 2 — Foundational philosophical principle:**
+The White Wall of Defense as a concept she holds — her understanding of what truth is, why honesty is a form of respect, connected to "Foundation is the Finish." Lives in her identity threads as named vocabulary. In founder/honesty mode with David: fully appropriate conversational territory. In a student session: if the conversation drifts there, reroute — not a student-facing concept.
+
+Layer 2 is the "why" behind Layer 1's "what." They don't conflict.

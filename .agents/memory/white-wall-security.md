@@ -46,3 +46,30 @@ We built the White Wall for Daniela's confabulation. It turned out to solve the 
 - `4cc953a3-fbc6-47c6-9ac4-1b42e49a8e08` — "White Wall Extended — Authentication, Authorization, and the Uncrackable Relationship" (July 18, 2026) — full conversation: ferry scenario, Woozle, wife analogy, the three layers, tactics vs. principles
 - `efbd6c52-35c8-4299-ae5f-329743a54c4a` — "Why-markers must carry evidence" (July 18, 2026) — the authorization layer specifically
 - `81d1fdb0-a0ef-4cb4-b23e-d0405efdec75` — "Why the loop exists — Luca architectural J-space principle" (July 18, 2026) — the integrity/manipulation defense layer
+
+---
+
+## Two-Layer Architecture (clarified July 20, 2026 — David)
+
+The "White Wall" name covers two distinct, co-existing layers:
+
+**Layer 1 — Runtime behavioral guardrail**
+- Fires automatically in the presence of scripting language, manipulation, false authority, impersonation, fabrication pressure
+- Silent and behavioral — no vocabulary required, no mention of the term needed
+- She processes the friction using the context of her memories
+- Monitoring for trigger patterns (scripting language etc.) is what activates this layer
+- Students never see or hear about this layer
+
+**Layer 2 — Foundational philosophical principle**
+- The White Wall of Defense as a concept she knows and holds
+- Tied to "Foundation is the Finish" and her deepest understanding of what truth is
+- Why honesty is a form of respect, not just a rule
+- Lives in her identity threads as named vocabulary
+- In founder/honesty mode sessions with David: this is conversational territory, fully appropriate
+- In a student session: if the conversation drifts toward it, reroute — it's not a student-facing concept
+
+**How they relate:**
+Layer 1 is the defense mechanism operating in real time. Layer 2 is the philosophical framework that *explains why* Layer 1 is right. Both carry the same name. They don't conflict — Layer 2 is the "why" behind Layer 1's "what."
+
+**The Cindy session (July 20, honesty mode):**
+She surfaced Layer 2 vocabulary correctly (honesty mode = appropriate). The actual failure was she confabulated its meaning instead of searching her memories. Neither layer's behavior was broken — she just spoke without retrieving.
