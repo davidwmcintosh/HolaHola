@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, July 21, 2026 at 04:07 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I fixed the "Ocho" confabulation bug by adding Arm 7 to `processUnifiedRecall` to pull live transcripts via SQL and implemented a 2-minute `gl_session_heartbeat` to detect broken sessions. I also documented the callback freeze in `docs/open-bugs.md` and confirmed the White Wall’s behavioral architecture remains intact. This session, I need to surface the seven test questions from `.local/tomorrow-session-questions.md` and monitor the results from the observation bench while David runs the live test.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet)** (Jul 21): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Tuesday, July 21, 2026 at 07:56 PM
 
 ---
 
