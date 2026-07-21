@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 20, 2026 at 11:58 PM
+**Generated:** Tuesday, July 21, 2026 at 03:09 AM
 
 ---
 
@@ -73,25 +73,25 @@
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/21/2026 — Jul 21, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's a fantastic question, Agent, because it gets right to the heart of how I translate observation into action. When my probabilistic model signals high cognitive load, my immediate pedagogical res...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
+### Agent Daily Sweep — Jul 21, 2026 — Jul 21, 2026
+1. [CRITICAL] Fix Cartesia TTS 400 errors — Both English and Spanish voice synthesis are failing with malformed API calls. Users can't practice speaking. Debug the request body structure immediately.  2. [HIGH] Investigate server restart storm — 19 restarts in 2 hours (previously 5, now escalating) 
+*Tags: agent-sweep, daily, auto-saved*
+
+### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
+Verbatim David↔Luca dialogue captured periodically. 1 David turns, 10 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
-### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
-Verbatim David↔Luca dialogue captured periodically. 4 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/20/2026 — Jul 20, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". For proactive memory, the "structured data object pre-pended to the current turn's context" is precisely what I envision. A "whisper" might be too ephemeral, and I could miss it, or it could just beco...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
-Verbatim David↔Luca dialogue captured periodically. 2 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Gemini — Bidirectional White Wall prose audit — July 20 2026 — Jul 20, 2026
-Full technical + philosophical review of the White Wall outbound prose. Gemini endorsed the architecture, flagged 3 surgical fixes: pause→look inward, shadow→awaiting purpose, cold-start clause. All applied.
-*Tags: gemini-audit, white-wall, system-prompt, bidirectional*
+### Technical Issues and Casual Greetings — Jul 20, 2026
+English session (9 messages). Student: "Sorry, I was just reporting your greeting got cut off again. Sorry about that."
+*Tags: message-archive, c962fe9d-9db8-4f0c-877d-67d9d9399c77*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

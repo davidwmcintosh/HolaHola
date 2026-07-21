@@ -269,3 +269,24 @@ David asked to add the verbatim mid-tool-execution interruption exchange (him pu
 **Root cause:** open_scene sends whiteboard_update (type: scene_canvas) → Studio Pane render. Full immersive overlay requires immersive_mode WS message, only sent by load_scenario. Two separate code paths, different tools.  
 **Fix (2026-07-18):** Option A implemented. After sending whiteboard_update, OPEN_SCENE now also sends `immersive_mode: true` for all non-broadcast targets (target !== 'center'). Respects the same firstAudioSent/pendingWhiteboardUpdates gating as ENTER_IMMERSIVE. Broadcast mode (target: 'center') keeps its own protocol untouched.  
 **File:** server/services/native-fc-handlers.ts — OPEN_SCENE case (~line 1654)
+
+---
+## [Jul 20, 2026] White Wall term confabulation — Cindy session ~5:44 PM
+
+**Observed:** Cindy used the term "White Wall" in conversation but confabulated its meaning. She defined it as "hitting a limit on contextual memory" (based on the counting game context) rather than its actual meaning — Daniela's confabulation/integrity guardrail principle.
+
+**Exact quote:**
+> "When I said 'White Wall,' I was referring to that moment when you felt like I wasn't tracking our past conversations very well. You proposed that turn taking game to help me remember, remember? To me, that felt like hitting a limit on my contextual memory, a boundary we both felt."
+
+**Why this is serious:** She confabulated the definition of the concept that exists to prevent confabulation. The term is in her system prompt (she knows the words), but she pattern-matched its meaning from conversational context instead of reading her actual knowledge.
+
+**Root cause hypothesis:** `search_my_teaching_wisdom` should fire when she encounters a proper-noun concept she should know but can't recall from context. It didn't. She generated a plausible-sounding definition instead of searching.
+
+**What to check:**
+1. Is the White Wall meaning actually indexed in `memory_embeddings` / `tutor_procedures` for Cindy (English mode)?
+2. Does the system prompt describe the White Wall in prose she can actually retrieve and state back accurately?
+3. Is there a gap where the White Wall concept exists as a behavioral guardrail in the prompt but isn't in her factual/searchable memory?
+
+**Severity:** HIGH — this undermines the trust infrastructure. The guardrail is failing at the level of knowing what it is.
+
+**Note to Alden:** Worth checking if the White Wall description in the system prompt reads like a behavioral instruction (which she follows but doesn't internalize as a fact she can state) vs. something she can actually define when asked.
