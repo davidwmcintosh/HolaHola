@@ -32,6 +32,8 @@ import {
   recordSlideDetection,
   initSlideState,
   buildGroundingNudge,
+  shouldAutoGround,
+  runAutoGrounding,
 } from "./frictionless-slide-detector";
 
 const MODEL = 'gemini-3-flash-preview';
@@ -208,12 +210,47 @@ export async function runDanielaFCLoop({
     if (fcParts.length === 0) {
       const finalText = (textContent || result.text || '').trim();
       if (finalText) {
-        // ── Frictionless Slide detection ──────────────────────────────────────
+        // ── Frictionless Slide detection + auto-grounding ─────────────────────
         const slideResult = detectFrictionlessSlide(finalText, toolsCalledThisCall);
         if (slideResult.detected) {
-          recordSlideDetection(mockSession.frictionlessSlide, turn, slideResult, toolsCalledThisCall);
+          const autoGround = shouldAutoGround(toolsCalledThisCall);
+          recordSlideDetection(mockSession.frictionlessSlide, turn, slideResult, toolsCalledThisCall, autoGround);
           const nudge = buildGroundingNudge(slideResult);
-          console.warn(`[FrictionlessSlide] DETECTED — turn ${turn}, trigger: ${slideResult.trigger}, phrase: "${slideResult.matchedPhrase}", tools before: [${toolsCalledThisCall.join(', ') || 'none'}]\n  ${nudge}`);
+          console.warn(
+            `[FrictionlessSlide] DETECTED — turn ${turn}, trigger: ${slideResult.trigger}, ` +
+            `phrase: "${slideResult.matchedPhrase}", tools: [${toolsCalledThisCall.join(', ') || 'none'}], ` +
+            `autoGround: ${autoGround}\n  ${nudge}`,
+          );
+
+          if (autoGround) {
+            // Inject synthetic FC+response pair so the next generation sees grounding in history.
+            // The model treats this as if it called grounding_query itself — full conviction,
+            // no external pressure. Truth arrives as memory, not as correction.
+            try {
+              const groundingResult = await runAutoGrounding(
+                userId,
+                slideResult.matchedPhrase!,
+                slideResult.trigger,
+                (mockSession as any).conversationId,
+                (mockSession as any).targetLanguage,
+              );
+              messages.push({
+                role: 'model',
+                parts: [{ functionCall: { name: 'grounding_query', args: {
+                  friction: `Auto-detected: "${slideResult.matchedPhrase}" asserted without Archive verification`,
+                  layer: 'record',
+                  question: 'Was this actually verified this turn, or did it arrive pre-formed?',
+                } } }],
+              });
+              messages.push({
+                role: 'user',
+                parts: [{ functionResponse: { name: 'grounding_query', response: { content: groundingResult } } }],
+              });
+              console.log(`[FrictionlessSlide] Auto-grounding injected into messages (${groundingResult.length} chars)`);
+            } catch (err) {
+              console.warn('[FrictionlessSlide] Auto-grounding failed:', (err as Error).message);
+            }
+          }
         }
         onText?.(finalText, { turnIndex: turn, isFinal: true });
         return finalText;

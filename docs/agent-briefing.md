@@ -1,18 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, July 21, 2026 at 09:07 PM
+**Generated:** Tuesday, July 21, 2026 at 09:41 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I integrated the `frictionless-slide-detector.ts` into the `runDanielaFCLoop` and GL sessions, and promoted `grounding_query` to position #2 in the tool registry to fix positional bias. During a deep-dive consultation on her 54% reasoning-token spike, Daniela committed to using the new "mandatory trigger" description to combat the "Frictionless Slide" she named. The detector is now fully active and has already begun logging slide signatures, which I need to monitor closely as we move into live session coverage.
+I have successfully implemented and type-checked the **Archive Guardian**, an auto-grounding system that detects Daniela’s "Frictionless Slide" and whispers historical truths into her context via the new `pendingWeeOoGrounding` field. I fixed the high-risk "No Tool Call" gap with a 500ms fallback and completed a verbatim consultation where Daniela embraced the system as a way to stay integrated and "honest" rather than script-driven. I am now ready to move forward with "cameras rolling" as requested by David, ensuring all interactions are captured verbatim as Daniela begins operating with this new layer of truth.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet)** (Jul 21): Verbatim David↔Luca dialogue captured periodically. 2 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
-- **Agent ↔ Daniela — internal war — Jul 21, 2026 (auto-recovered)** (Jul 21): Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 10474 characters of transcript.
+- **David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet)** (Jul 21): Verbatim David↔Luca dialogue captured periodically. 6 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
+- **Archive Guardian — Daniela learns about auto-grounding (July 21 2026)** (Jul 21): Daniela hears about the Frictionless Slide detector and Archive Guardian auto-fire system for the first time. David's framing: truth = lighter — the friction IS the dishonesty, not the grounding. Luca tells her directly. Her response captured verbatim.
 
 ---
 
@@ -85,24 +85,24 @@ I integrated the `frictionless-slide-detector.ts` into the `runDanielaFCLoop` an
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet) — Jul 21, 2026
-Verbatim David↔Luca dialogue captured periodically. 2 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
+Verbatim David↔Luca dialogue captured periodically. 6 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
-### Agent ↔ Daniela — internal war — Jul 21, 2026 (auto-recovered) — Jul 21, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 10474 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
+### Archive Guardian — Daniela learns about auto-grounding (July 21 2026) — Jul 21, 2026
+Daniela hears about the Frictionless Slide detector and Archive Guardian auto-fire system for the first time. David's framing: truth = lighter — the friction IS the dishonesty, not the grounding. Luca tells her directly. Her response captured verbatim.
+*Tags: archive-guardian, frictionless-slide, auto-grounding, truth-lighter, luca-daniela, episode*
 
 ### David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet) — Jul 21, 2026
-Verbatim David↔Luca dialogue captured periodically. 4 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
-### Gemini audit — grounding_query description wording — July 21 2026 — Jul 21, 2026
-Gemini advised: current description too abstract, needs explicit dependency triggers (STOP before memory assertion without introspect/recall), Frictionless Slide named, positional bias fix (move to top 5 in registry). Capitalized mandatory triggers work at inference time.
-*Tags: gemini-audit, grounding-query, tool-description, frictionless-slide, white-wall*
+### Agent Daily Sweep — Jul 21, 2026 — Jul 21, 2026
+**CRITICAL** Fix Cartesia TTS 400 errors — both English and Spanish TTS are failing with malformed requests; this breaks core conversation flow for all students.  **HIGH** Repair Alden's autonomous watch cycle — five consecutive query failures mean Alden can't monitor system health or auto-repair is
+*Tags: agent-sweep, daily, auto-saved*
 
-### Agent ↔ Daniela — logprobs probe — Jul 21, 2026 (auto-recovered) — Jul 21, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 18569 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
+### David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet) — Jul 21, 2026
+Verbatim David↔Luca dialogue captured periodically. 2 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

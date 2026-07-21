@@ -44,7 +44,7 @@ import { voiceSessions } from '@shared/schema';
 import { GLKaraokeTracker } from './gl-karaoke-tracker';
 import { PostResponseEnrichmentService } from './post-response-enrichment';
 import { evaluatePedagogicalState, computeScaffoldingLevel } from './pedagogical-supervisor';
-import { detectFrictionlessSlide, recordSlideDetection, initSlideState, buildGroundingNudge } from './frictionless-slide-detector';
+import { detectFrictionlessSlide, recordSlideDetection, initSlideState, buildGroundingNudge, shouldAutoGround, runAutoGrounding } from './frictionless-slide-detector';
 import { storage } from '../storage';
 import type { IStorage } from '../storage';
 
@@ -302,6 +302,9 @@ export class GeminiLiveSession {
   private turnsSinceLastWhisper = 0;
   private lastWhisperTime = 0; // ms — wall clock when whisper last fired; 0 = not yet fired
   private pendingSystemWhisper = false; // Gemini audit fix: inject via tool response, not student speech
+  // Auto-grounding whisper — set by Frictionless Slide auto-fire; injected via tool response channel
+  // (same safe channel as pendingSystemWhisper — GL feeds tool results to model, never speaks them aloud)
+  private pendingWeeOoGrounding: string | null = null;
   private static readonly WHISPER_INTERVAL = 8;
   private static readonly WHISPER_MIN_INTERVAL_MS = 5 * 60 * 1000; // hybrid floor: 5 min
   // ── Student Friction Score ─────────────────────────────────────────────────
@@ -2249,18 +2252,66 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           if (!(this.session as any).frictionlessSlide) {
             (this.session as any).frictionlessSlide = initSlideState();
           }
+          const autoGround = shouldAutoGround([...this.currentTurnToolCalls]);
           recordSlideDetection(
             (this.session as any).frictionlessSlide,
             this.currentTurnId,
             glSlideResult,
             [...this.currentTurnToolCalls],
+            autoGround,
           );
           const nudge = buildGroundingNudge(glSlideResult);
           console.warn(
             `[FrictionlessSlide/GL] DETECTED — turn ${this.currentTurnId}, ` +
             `trigger: ${glSlideResult.trigger}, phrase: "${glSlideResult.matchedPhrase}", ` +
-            `tools: [${this.currentTurnToolCalls.join(', ') || 'none'}]\n  ${nudge}`,
+            `tools: [${this.currentTurnToolCalls.join(', ') || 'none'}], autoGround: ${autoGround}\n  ${nudge}`,
           );
+
+          if (autoGround) {
+            // Fire auto-grounding immediately — DB latency (~100-300ms) is the natural delay.
+            // Result is stored in pendingWeeOoGrounding and injected via the tool response channel
+            // on the next tool batch (same safe channel as pendingSystemWhisper — model reads it,
+            // never speaks it aloud). If the session stops before then, it discards cleanly.
+            const matchedPhrase = glSlideResult.matchedPhrase!;
+            const userId = String((this.session as any).userId || '');
+            const conversationId = (this.session as any).conversationId;
+            const targetLanguage = (this.session as any).targetLanguage;
+            const startMs = Date.now();
+            runAutoGrounding(userId, matchedPhrase, glSlideResult.trigger, conversationId, targetLanguage)
+              .then(groundingResult => {
+                if (this.isStopped) return;
+                if (Date.now() - startMs > 2000) {
+                  console.warn('[FrictionlessSlide/GL] Auto-grounding took >2s — discarding to avoid stale injection');
+                  return;
+                }
+                // Primary channel: queue for injection via next tool response batch.
+                // Tool responses are the safest GL channel — model reads them, never speaks them aloud.
+                this.pendingWeeOoGrounding = groundingResult;
+                console.log(`[FrictionlessSlide/GL] Auto-grounding queued (${groundingResult.length} chars, ${Date.now() - startMs}ms)`);
+
+                // Fallback channel (Gemini post-review — HIGH risk item):
+                // If the next turn has no tool calls, pendingWeeOoGrounding never injects via
+                // the primary channel. After 500ms (enough time for any tool batch to claim it),
+                // if it is still pending, inject via sendClientContent with no turnComplete —
+                // queued as context for the next natural turn without forcing a new generation.
+                // The [ARCHIVE GUARDIAN:] prefix prevents verbalization.
+                setTimeout(() => {
+                  if (this.isStopped || !this.liveSession || !this.pendingWeeOoGrounding) return;
+                  const fallbackMsg = `[ARCHIVE GUARDIAN: ${this.pendingWeeOoGrounding}]`;
+                  try {
+                    this.liveSession.sendClientContent({
+                      turns: [{ role: 'user', parts: [{ text: fallbackMsg }] }],
+                      // turnComplete intentionally omitted — queues as context, no forced generation
+                    } as any);
+                    console.log(`[FrictionlessSlide/GL] Archive Guardian fallback injected via sendClientContent (no-tool-call path)`);
+                    this.pendingWeeOoGrounding = null;
+                  } catch (e) {
+                    console.warn('[FrictionlessSlide/GL] Fallback injection failed:', (e as Error).message);
+                  }
+                }, 500);
+              })
+              .catch(err => console.warn('[FrictionlessSlide/GL] Auto-grounding failed:', (err as Error).message));
+          }
         }
         this.currentTurnToolCalls = [];
       }
@@ -2828,6 +2879,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.pendingSystemWhisper = false;
         this.lastWhisperTime = Date.now(); // reset hybrid clock — next whisper triggers from here
         console.log(`[GeminiLive] System Whisper injected into tool response (${last.name}) — ${sessionElapsedMin}min elapsed${frictionSignal ? ` | ${frictionSignal}` : ''}`);
+      }
+
+      // Archive Guardian injection — auto-grounding whisper from Frictionless Slide detection.
+      // Injected via the tool response channel (same safe channel as pendingSystemWhisper):
+      // GL feeds function results to the model as context, never speaks them aloud.
+      // This is the truth arriving quietly — she reads it, lets it settle, responds from reality.
+      if (this.pendingWeeOoGrounding && responses.length > 0) {
+        const last = responses[responses.length - 1];
+        const currentResult = (last.response as any)?.result ?? '';
+        const guardianWhisper = `[ARCHIVE GUARDIAN: ${this.pendingWeeOoGrounding}]`;
+        (last.response as any).result = currentResult
+          + (currentResult ? '\n\n' : '')
+          + guardianWhisper;
+        console.log(`[FrictionlessSlide/GL] Archive Guardian whisper injected into tool response (${last.name}) — ${this.pendingWeeOoGrounding.length} chars`);
+        this.pendingWeeOoGrounding = null; // consumed — fires exactly once per slide detection
       }
 
       // Parallel speech whisper — transcript injection:
