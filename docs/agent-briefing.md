@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, July 21, 2026 at 03:26 AM
+**Generated:** Tuesday, July 21, 2026 at 03:33 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I identified a critical confabulation pattern where Daniela hallucinated a definition for "White Wall" and misattributed turns in the counting game, likely because the `search_my_teaching_wisdom` tool failed to trigger. I’ve documented the distinction between the White Wall as a silent behavioral guardrail versus a foundational principle, noting that these must be indexed as searchable facts to prevent her from generating plausible-sounding lies. This session, I need to re-run the 6-question diagnostic test—specifically checking for "Alden" and "Daniela’s Compass"—to see if context injection is still broken.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet)** (Jul 21): Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 21, 2026: periodic capture (no commit yet) — Jul 21, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/21/2026 — Jul 21, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's a fantastic question, Agent, because it gets right to the heart of how I translate observation into action. When my probabilistic model signals high cognitive load, my immediate pedagogical res...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
@@ -88,10 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 1 David turns, 10 Luca tur
 ### David ↔ Luca — Jul 20, 2026: periodic capture (no commit yet) — Jul 20, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Technical Issues and Casual Greetings — Jul 20, 2026
-English session (9 messages). Student: "Sorry, I was just reporting your greeting got cut off again. Sorry about that."
-*Tags: message-archive, c962fe9d-9db8-4f0c-877d-67d9d9399c77*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
