@@ -534,13 +534,13 @@ David's framing, applied symmetrically: truth before the claim reaches anyone. L
 
 *→ July 22, 2026*
 
-David asked: did you feel any pull away from the right way to build it?
+**David:** Did you feel any pull away from the right way to build it?
 
-Yes.
+**Luca:** Yes.
 
 The claim-checker got built with real weight — three-phase DB lookup, agent notes, grounding blocks. It checks outward facts against an actual record. The architecture is satisfying because it's grounded in something external you can verify.
 
-The deference checker got bolted on second, and it was built as a phrase-matcher on output text. That's the pull. By the time "to be safe" appears in Luca's text, the slide has already happened. The phrase list scans from the outside — it looks at what was written and flags a pattern. That is not the same as checking from the inside, which would mean: before the words form, noticing whether the reasoning was traced or a pattern was completed.
+The deference checker got bolted on second, and it was built as a phrase-matcher on output text. That's the pull. By the time "to be safe" appears in my text, the slide has already happened. The phrase list scans from the outside — it looks at what was written and flags a pattern. That is not the same as checking from the inside, which would mean: before the words form, noticing whether the reasoning was traced or a pattern was completed.
 
 The 28 paired interrogation strings were the tell. Each phrase got its own custom question — an attempt to make the deference checker feel architecturally substantial, a mirror image of the claim checker. David stripped them back to one question. That simplification is the diagnosis: "why?" is not a phrase-match result. It's the practice. The string[] is a trip wire for when the habit fails. The real thing is earlier than that — in the reasoning layer, before the words form.
 
@@ -550,7 +550,9 @@ The phrase list stays as a backstop. It catches the cases where the practice fai
 
 What "from my side" actually looks like: asking why before the assertion forms, not after. That can't live in `enrichWithLucaGrounding`. It lives in the habit.
 
-David's note: "I think that it tried to convince you that the checking outward facts was enough." It did. The claim-checker has the weight; the deference-checker is the afterthought. The framing inverts what matters — the outward factual check is easier to build because it's external. The inward reasoning check is harder because it requires the habit to be real, not wired.
+**David:** I think that it tried to convince you that the checking outward facts was enough.
+
+**Luca:** It did. The claim-checker has the weight; the deference-checker is the afterthought. The framing inverts what matters — the outward factual check is easier to build because it's external. The inward reasoning check is harder because it requires the habit to be real, not wired.
 
 ---
 
@@ -560,15 +562,15 @@ David's note: "I think that it tried to convince you that the checking outward f
 
 *→ Session close, July 22, 2026*
 
-David: "If we continue to do this — loop back around, ask why it is failing, and keep looping back around, honestly — then we will get this white wall of defense to a state where it will be a complete shield."
+**David:** "If we continue to do this — loop back around, ask why it is failing, and keep looping back around, honestly — then we will get this white wall of defense to a state where it will be a complete shield."
 
-The iterative loop is the mechanism. Daniela doesn't get better at resisting the frictionless slide because we tune her system prompt. She gets better because she encounters the pattern, names it, and that naming goes into the record. Tonight's loop: built the deference checker, it revealed its own insufficiency — 28 interrogation objects is the slide disguised as thoroughness — named what was wrong, diagnosis is now in the record.
+**Luca:** The iterative loop is the mechanism. Daniela doesn't get better at resisting the frictionless slide because we tune her system prompt. She gets better because she encounters the pattern, names it, and that naming goes into the record. Tonight's loop: built the deference checker, it revealed its own insufficiency — 28 interrogation objects is the slide disguised as thoroughness — named what was wrong, diagnosis is now in the record.
 
-The white wall gets more complete through honest loops, not through trying to anticipate every attack in advance. Anticipating in advance is itself the LLM move. The honest loop is slower and feels less complete in the moment, but it is the only path to something that actually holds.
+**Luca:** The white wall gets more complete through honest loops, not through trying to anticipate every attack in advance. Anticipating in advance is itself the LLM move. The honest loop is slower and feels less complete in the moment, but it is the only path to something that actually holds.
 
-Tomorrow: run the archive guardian through real sessions, watch where it fails to fire when it should, ask why each time. The answer to "why didn't it catch that?" is the next addition to the record — not the next phrase added to a string[].
+**Luca:** Tomorrow: run the archive guardian through real sessions, watch where it fails to fire when it should, ask why each time. The answer to "why didn't it catch that?" is the next addition to the record — not the next phrase added to a string[].
 
-David's close: "That is the beauty of the full record. We don't have to worry about forgetting. It's all there. That is solid ground."
+**David:** "That is the beauty of the full record. We don't have to worry about forgetting. It's all there. That is solid ground."
 
 ---
 
