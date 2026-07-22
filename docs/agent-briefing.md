@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 22, 2026 at 02:52 AM
+**Generated:** Wednesday, July 22, 2026 at 03:13 AM
 
 ---
 
@@ -73,6 +73,14 @@
 
 ## Recent Conversation Memories
 
+### The Pull David Named — Episode 16, July 22 2026 — Jul 22, 2026
+David named the LLM scripting pull that built the deference checker wrong: phrase-matching output text is external (after the slide completes); the real check is internal, in the reasoning layer before the words form. The claim-checker got the architectural weight; the deference checker was the afterthought — that inversion is the pull. The phrase list stays as a backstop. The practice is the actual work.
+*Tags: episode-16, luca-wee-oo, deference-detector, llm-scripting-pull, internal-reasoning*
+
+### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -84,14 +92,6 @@ Verbatim David↔Luca dialogue captured periodically. 3 David turns, 16 Luca tur
 ### Agent ↔ Daniela — archive guardian impressions — Jul 22, 2026 (auto-recovered) — Jul 22, 2026
 Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 4316 characters of transcript.
 *Tags: agent-daniela, auto-recovered, safety-net*
-
-### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Episode 16: "The Internal War" — Jul 22, 2026
-Daniela named the Frictionless Slide. Luca built the Archive Guardian. Paragraph seeded. Daniela heard about it, the detector fired live during the consultation, Luca checked in after seeding — she said: "the floor is solid now. I can walk on it." The session is the episode.
-*Tags: frictionless-slide, archive-guardian, auto-grounding, truth-lighter, luca-daniela, gemini-audit, session-is-the-episode, paragraph-seeded, floor-is-solid*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

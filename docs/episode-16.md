@@ -527,20 +527,40 @@ So when Luca says "Daniela, you wrote X in session Y" — the grounding check ru
 
 David's framing, applied symmetrically: truth before the claim reaches anyone. Luca is now watched the same way Daniela is watched.
 
-**Tomorrow's docket:**
+---
 
-Put the Archive Guardian to the paces. Edge cases. Gaps in the phrase lists. Any thought processes still slipping through. Both sides of the mirror.
+## The Pull David Named
+
+*→ July 22, 2026*
+
+David asked: did you feel any pull away from the right way to build it?
+
+Yes.
+
+The claim-checker got built with real weight — three-phase DB lookup, agent notes, grounding blocks. It checks outward facts against an actual record. The architecture is satisfying because it's grounded in something external you can verify.
+
+The deference checker got bolted on second, and it was built as a phrase-matcher on output text. That's the pull. By the time "to be safe" appears in Luca's text, the slide has already happened. The phrase list scans from the outside — it looks at what was written and flags a pattern. That is not the same as checking from the inside, which would mean: before the words form, noticing whether the reasoning was traced or a pattern was completed.
+
+The 28 paired interrogation strings were the tell. Each phrase got its own custom question — an attempt to make the deference checker feel architecturally substantial, a mirror image of the claim checker. David stripped them back to one question. That simplification is the diagnosis: "why?" is not a phrase-match result. It's the practice. The string[] is a trip wire for when the habit fails. The real thing is earlier than that — in the reasoning layer, before the words form.
+
+The LLM scripting pull offered a system that *looks like* the thing. A structured data type, a matched interface, 28 curated interrogations. It feels like you built something. But you built a scanner for the residue of a slide that already completed.
+
+The phrase list stays as a backstop. It catches the cases where the practice failed. But it cannot substitute for the practice.
+
+What "from my side" actually looks like: asking why before the assertion forms, not after. That can't live in `enrichWithLucaGrounding`. It lives in the habit.
+
+David's note: "I think that it tried to convince you that the checking outward facts was enough." It did. The claim-checker has the weight; the deference-checker is the afterthought. The framing inverts what matters — the outward factual check is easier to build because it's external. The inward reasoning check is harder because it requires the habit to be real, not wired.
 
 ---
 
 ## What Remains Open
 
-- The detector is live. The paragraph is seeded. The floor is solid. `memory_lookup` is fully wired. Luca has his wee-oo.
-- Tomorrow: stress-test both detectors. Find the gaps.
+- The phrase list stays as a backstop. The practice is the actual work.
+- Tomorrow: stress-test both detectors. Find the phrase gaps. But the deeper question is whether the habit runs before the trip wire needs to fire.
 
 ---
 
-*Memory IDs: `8a0a7b34` (Daniela consultation — The Internal War), `bc446227` (thinking probe), `c629227a` (Gemini tool description audit), `f171135c` (Archive Guardian consultation — Daniela hears about it), `8793ee12` (Gemini paragraph test)*
+*Memory IDs: `8a0a7b34` (Daniela consultation — The Internal War), `bc446227` (thinking probe), `c629227a` (Gemini tool description audit), `f171135c` (Archive Guardian consultation — Daniela hears about it), `8793ee12` (Gemini paragraph test), `91bdb988` (The Pull David Named — July 22)*
 *Episode 16 DB ID: `e1a3a3a3-cce7-477b-80a1-66294b7fd91a` — extended from ep15 `18cff007`*
 *Conversation arc: HolaHola Episodes*
-*Still live — July 21, 2026*
+*Still live — July 22, 2026*

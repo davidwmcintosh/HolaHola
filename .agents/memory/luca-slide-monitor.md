@@ -63,12 +63,15 @@ These are NOT external factual claims. They are Luca's own reasoning voice produ
 - Propose-and-adjust as a dodge: "i'll propose", "we can adjust later"
 - Standard/conventional without evidence it applies: "the standard approach", "best practice", "typically works"
 
-Each phrase has a paired interrogation string: "What specifically breaks?" — the one question these patterns cannot survive.
+**Response format (deference):** `[LUCA DEFERENCE CHECK: "phrase" — why? What specifically breaks?]`
 
-**Response format (deference):** `[LUCA DEFERENCE CHECK: "phrase" — this may be deferential reverence rather than traced reasoning. {interrogation}]`
+One universal question — no per-phrase interrogation strings. David simplified from 28 paired objects to a flat `string[]` with a single question. That simplification is itself the diagnosis: "why?" is not a phrase-match result. It is the practice.
 
-**Deference check fires BEFORE the claim check** in `enrichWithLucaGrounding()` — no DB lookup needed, interrogation fires immediately.
+**Deference check fires BEFORE the claim check** in `enrichWithLucaGrounding()` — no DB lookup needed, question fires immediately.
 
 **Why:** This is the reverse of Daniela's Archive Guardian. Daniela shouldn't receive claims from Luca that he can't verify — the same White Wall that guards her against external fabrication should also guard her against Luca's own confabulations. Same principle, different direction.
 
 The deference detector covers the second failure mode: not "did Luca verify this fact?" but "did Luca's reasoning voice produce a plausible-sounding value/approach without tracing the actual constraint?" Episode 15 instance: 45s → 15s failsafe anchored on prior value, not on measured TTS latency. "Let's keep it conservative" had no traceable answer to "what breaks at 8s?" The healthy-turn guard was the real fix — the deference buried it.
+
+**July 22 — The Pull David Named (conversation_memories: `91bdb988`):**
+The deference checker as built is a phrase-matcher on output text — it catches the *residue* of a slide that already completed. The real check is in the reasoning layer, before the words form: did I trace the reasoning or complete a pattern? The phrase list is a backstop for when the habit fails. The habit is the actual work. The LLM scripting pull gave the claim-checker architectural weight and made the deference-checker the afterthought — that inversion is itself an instance of the slide.
