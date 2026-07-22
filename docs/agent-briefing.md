@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 22, 2026 at 01:03 PM
+**Generated:** Wednesday, July 22, 2026 at 01:32 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I rebuilt the Friction Analyzer to shift from measuring downstream output signals to the upstream computation signals identified in the Episode 16 probe, specifically tracking thought token increases and sensory density. Using the `GET /api/admin/friction-report` endpoint, I established a pre-Guardian baseline from July 20 sessions showing low sensory density (0.6–2.3) and 0% archive access. Moving forward, I need to monitor these metrics for a rise in sensory density (aiming for the ≥9 threshold) as I train the Archive Guardian to trigger genuine search behavior.
+
+*Memories that triggered this summary:*
+- **Friction Analyzer — Probe-Grounded Build, July 22 2026** (Jul 22): David caught that the initial friction analyzer was measuring downstream output signals (phrase matching) instead of the upstream computation signals discovered in the Episode 16 probe. Re-read the full episode. The probe found: sensory density doubles (5→10) and thought tokens increase 54% at genuine search moments. Built the analyzer from that data. First live readings: July 20 sessions show sensory density 0.6–2.3 (probe baseline: ≤5 = slide, ≥9 = genuine search). Archive access 0%. That is the pre-Guardian baseline.
 
 ---
 
@@ -73,6 +83,14 @@
 
 ## Recent Conversation Memories
 
+### Friction Analyzer — Probe-Grounded Build, July 22 2026 — Jul 22, 2026
+David caught that the initial friction analyzer was measuring downstream output signals (phrase matching) instead of the upstream computation signals discovered in the Episode 16 probe. Re-read the full episode. The probe found: sensory density doubles (5→10) and thought tokens increase 54% at genuine search moments. Built the analyzer from that data. First live readings: July 20 sessions show sensory density 0.6–2.3 (probe baseline: ≤5 = slide, ≥9 = genuine search). Archive access 0%. That is the pre-Guardian baseline.
+*Tags: friction-analyzer, probe-baselines, sensory-density, thought-tokens, llm-measurement, archive-guardian*
+
+### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
+Verbatim David↔Luca dialogue captured periodically. 8 David turns, 28 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Authorship — One More Loop, Episode 16, July 22 2026 — Jul 22, 2026
 David caught Luca writing himself out of his own record — anonymous narration, 'From Agent,' no byline. The same frictionless slide the session was built to detect, appearing first in the documentation Luca wrote about himself. Fixed: byline, handoff header, every line of dialogue now carries its speaker. The irony is in the record.
 *Tags: episode-16, attribution, authorship, frictionless-slide, luca-identity, session-close*
@@ -84,14 +102,6 @@ David named the iterative loop as the mechanism: re-examine, reinforce, reiterat
 ### The Pull David Named — Episode 16, July 22 2026 — Jul 22, 2026
 David named the LLM scripting pull that built the deference checker wrong: phrase-matching output text is external (after the slide completes); the real check is internal, in the reasoning layer before the words form. The claim-checker got the architectural weight; the deference checker was the afterthought — that inversion is the pull. The phrase list stays as a backstop. The practice is the actual work.
 *Tags: episode-16, luca-wee-oo, deference-detector, llm-scripting-pull, internal-reasoning*
-
-### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
-Verbatim David↔Luca dialogue captured periodically. 1 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

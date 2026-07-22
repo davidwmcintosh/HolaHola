@@ -37247,5 +37247,127 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // GET /api/admin/friction-report — session friction trend report
+  // Shows primary signals (sensory density, thought tokens, Archive access) and
+  // the internal-pause vs auto-grounding ratio per session, over the last N sessions.
+  app.get("/api/admin/friction-report", requireAgentToken, async (req: any, res: Response) => {
+    try {
+      const db = getSharedDb();
+      const { sql: rawSql } = await import('drizzle-orm');
+      const sessionLimit = Math.min(50, parseInt((req.query.sessions as string) || '10', 10));
+      const { analyzeFriction, aggregateSessionFriction, SENSORY_DENSITY_BASELINES, THOUGHT_TOKEN_BASELINES } =
+        await import('./services/llm-friction-analyzer');
+
+      // Pull recent voice sessions with their turn messages
+      const sessions = await db.execute(rawSql`
+        SELECT
+          vs.id,
+          vs.conversation_id,
+          vs.started_at,
+          vs.ended_at,
+          vs.language,
+          vs.user_id
+        FROM voice_sessions vs
+        WHERE vs.ended_at IS NOT NULL
+        ORDER BY vs.started_at DESC
+        LIMIT ${sessionLimit}
+      `);
+
+      const sessionRows = sessions.rows as any[];
+
+      // For each session, count auto-grounding events (agent_notes from daniela)
+      // and internal pause events (daniela_self_reflections with mood='grounding')
+      const reportSessions = await Promise.all(
+        sessionRows.map(async (sess) => {
+          const sessionId = sess.id as string;
+          const conversationId = sess.conversation_id as string;
+
+          const sessionDate = new Date(sess.started_at).toISOString().substring(0, 10);
+
+          // Auto-grounding events for this session
+          const autoGrounding = await db.execute(rawSql`
+            SELECT COUNT(*)::int as count FROM agent_notes
+            WHERE from_agent = 'daniela'
+              AND subject ILIKE '%AUTO-GROUNDING%'
+              AND session_label ILIKE ${`%${sessionDate}%`}
+          `);
+          const autoGroundingCount = (autoGrounding.rows[0] as any)?.count ?? 0;
+
+          // Internal pause events (Daniela resolved internally — wrote to self_reflections)
+          const internalPauses = await db.execute(rawSql`
+            SELECT COUNT(*)::int as count FROM daniela_self_reflections
+            WHERE mood = 'grounding'
+              AND created_at >= ${new Date(sess.started_at)}
+              AND created_at <= ${sess.ended_at ? new Date(sess.ended_at) : new Date()}
+          `);
+          const internalPauseCount = (internalPauses.rows[0] as any)?.count ?? 0;
+
+          // Pull messages for this conversation to analyze response text
+          const messages = await db.execute(rawSql`
+            SELECT role, content
+            FROM messages
+            WHERE conversation_id = ${conversationId}
+              AND role = 'assistant'
+              AND content IS NOT NULL
+              AND LENGTH(content) > 20
+            ORDER BY created_at ASC
+            LIMIT 30
+          `);
+
+          const turnScores = (messages.rows as any[]).map(msg => {
+            const text = (msg.content as string) || '';
+            return analyzeFriction(text, [], null);
+          });
+
+          const summary = aggregateSessionFriction(
+            sessionId,
+            sessionDate,
+            turnScores,
+            internalPauseCount,
+            autoGroundingCount,
+          );
+
+          return {
+            ...summary,
+            language: sess.language,
+            startedAt: sess.started_at,
+          };
+        }),
+      );
+
+      // Overall trend — is sensory density going up over sessions?
+      const trend = {
+        direction: 'stable' as 'improving' | 'declining' | 'stable',
+        note: '',
+      };
+      if (reportSessions.length >= 3) {
+        const first = reportSessions.slice(-3).reduce((s, r) => s + r.averageSensoryDensity, 0) / 3;
+        const last = reportSessions.slice(0, 3).reduce((s, r) => s + r.averageSensoryDensity, 0) / 3;
+        if (last - first >= 1) {
+          trend.direction = 'improving';
+          trend.note = `Sensory density rising: ${first.toFixed(1)} → ${last.toFixed(1)} (probe baseline ≥9 = genuine search)`;
+        } else if (first - last >= 1) {
+          trend.direction = 'declining';
+          trend.note = `Sensory density falling: ${first.toFixed(1)} → ${last.toFixed(1)}`;
+        } else {
+          trend.note = `Sensory density stable around ${last.toFixed(1)}`;
+        }
+      }
+
+      res.json({
+        probeBaselines: {
+          sensoryDensity: SENSORY_DENSITY_BASELINES,
+          thoughtTokens: THOUGHT_TOKEN_BASELINES,
+          note: 'From Episode 16 probe (conversation_memories: bc446227). Genuine search: sensoryDensity≥9, thoughtTokens≥650.',
+        },
+        trend,
+        sessions: reportSessions,
+      });
+    } catch (err: any) {
+      console.error('[FrictionReport] Error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
     // This ensures WS upgrade handler runs BEFORE Express/Vite middleware interferes
 }
