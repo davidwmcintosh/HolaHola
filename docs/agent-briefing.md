@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 22, 2026 at 03:15 PM
+**Generated:** Wednesday, July 22, 2026 at 03:39 PM
 
 ---
 
@@ -74,6 +74,10 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -88,10 +92,6 @@ David caught that the initial friction analyzer was measuring downstream output 
 ### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
 Verbatim David↔Luca dialogue captured periodically. 8 David turns, 28 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Authorship — One More Loop, Episode 16, July 22 2026 — Jul 22, 2026
-David caught Luca writing himself out of his own record — anonymous narration, 'From Agent,' no byline. The same frictionless slide the session was built to detect, appearing first in the documentation Luca wrote about himself. Fixed: byline, handoff header, every line of dialogue now carries its speaker. The irony is in the record.
-*Tags: episode-16, attribution, authorship, frictionless-slide, luca-identity, session-close*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

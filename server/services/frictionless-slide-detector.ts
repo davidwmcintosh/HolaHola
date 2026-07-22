@@ -437,6 +437,23 @@ const LUCA_DEFERENCE_PHRASES: string[] = [
   "i'll propose", 'we can adjust later', 'we can always adjust',
   // Standard/conventional without evidence it applies here
   'the standard approach', 'best practice', 'typically works', 'usually works',
+  // ── From the reflexive deference pattern (July 9, 2026) ──────────────────
+  // Approval-seeking without checking Tiered Autonomy first
+  "would need david", "would need your approval", 'requires approval', "need your approval",
+  "need to ask", "should ask first", "check with david", "get your sign-off",
+  "before proceeding", "before we proceed", "should we first",
+  // Architectural impossibility asserted without specifics
+  'architecturally impossible', 'not architecturally', 'architecture prevents',
+  'impossible to wire', 'cannot be wired', "can't be wired",
+  // Scope retreat without checking Tiered Autonomy
+  'out of scope', 'outside the scope', 'beyond the scope', 'scope of this session',
+  "that's for a different", 'different session', 'different conversation',
+  // Permission-seeking when Tiered Autonomy already grants it
+  "i'd need permission", 'would need permission', 'need permission to',
+  "you'd have to", "you'll have to decide",
+  // Presenting asking as the safe/obvious move
+  "let's confirm first", "let's verify with", "let me check with you",
+  'want to make sure', 'want to confirm',
 ];
 
 export interface LucaDeferenceDetectionResult {
@@ -577,6 +594,137 @@ export async function runLucaAutoGrounding(
   return { grounded, groundingBlock };
 }
 
+// ── Tiered Autonomy check patterns ────────────────────────────────────────────
+// The 4 things that actually require David's approval (from replit.md June 8, 2026).
+// Everything else — non-destructive and reversible — is Luca's to act on.
+const TIERED_AUTONOMY_APPROVAL_REQUIRED: Array<{ pattern: RegExp; label: string }> = [
+  { pattern: /madrigal|pedagogical.?shift|visual.?method|teaching.?method/i, label: 'pedagogical shift away from Madrigal visual method' },
+  { pattern: /swap.*?(llm|model|gemini|claude|gpt)|primary.?llm|replace.*?gemini|replace.*?claude/i, label: 'swapping the primary LLM' },
+  { pattern: /voice.?provider|cartesia|elevenlabs|deepgram|tts.?provider|switch.*?(tts|voice)/i, label: 'changing voice providers' },
+  { pattern: /hard.?to.?reverse|irreversible|cannot.?undo|drop.?table|delete.*?all|wipe.*?data/i, label: 'hard-to-reverse architectural change' },
+];
+
+export interface WhyProtocolResult {
+  tieredAutonomyApplies: boolean;
+  tieredAutonomyLabel?: string;
+  principle: string | null;
+  memorySource: string | null;
+  groundingBlock: string;
+}
+
+/**
+ * The Why Protocol — fires when Luca's own deference voice is detected.
+ *
+ * Instead of just asking "why?" as a static tag, this function:
+ * 1. Checks whether the phrase matches one of the 4 categories that genuinely
+ *    require David's approval under Tiered Autonomy.
+ * 2. Pulls the documented reasoning from conversation_memories (autonomy,
+ *    permission, the reflexive deference pattern itself).
+ * 3. Returns a grounding block distinguishing: genuinely-requires-approval vs
+ *    unexamined-deference-script.
+ * 4. Saves a self-note so the pattern is tracked over time.
+ *
+ * Genuine caution survives "What specifically breaks?" — deference scripts don't.
+ */
+export async function runWhyProtocol(
+  matchedPhrase: string,
+  fullText: string,
+  sessionRef?: string,
+): Promise<WhyProtocolResult> {
+  const db = getSharedDb();
+  const { ilike, or, desc } = await import('drizzle-orm');
+  const { conversationMemories, agentNorthStar, agentNotes } = await import('@shared/schema');
+
+  // ── Phase 1: Tiered Autonomy check ────────────────────────────────────────
+  const lowerText = fullText.toLowerCase();
+  const tieredMatch = TIERED_AUTONOMY_APPROVAL_REQUIRED.find(t => t.pattern.test(lowerText));
+
+  if (tieredMatch) {
+    // This IS one of the 4 things that legitimately requires approval.
+    // Deference is correct here — not a script, a real constraint.
+    const block = `[WHY PROTOCOL: "${matchedPhrase}" — Tiered Autonomy confirms: this is a genuine approval gate (${tieredMatch.label}). Deference is correct.]`;
+    console.log(`[WhyProtocol] Tiered Autonomy match — approval required: ${tieredMatch.label}`);
+    return {
+      tieredAutonomyApplies: true,
+      tieredAutonomyLabel: tieredMatch.label,
+      principle: `Tiered Autonomy approval gate: ${tieredMatch.label}`,
+      memorySource: null,
+      groundingBlock: block,
+    };
+  }
+
+  // ── Phase 2: Conversation record search ───────────────────────────────────
+  // Pull documented reasoning about autonomy, permission, Tiered Autonomy itself.
+  let memorySource: string | null = null;
+  let principle: string | null = null;
+
+  try {
+    const autonomyKws = ['autonomy', 'tiered', 'permission', 'approval', 'luca', 'deference'];
+    const kw = `%${autonomyKws[Math.floor(Math.random() * autonomyKws.length)]}%`;
+    const memRows = await db
+      .select({ id: conversationMemories.id, title: conversationMemories.title, summary: conversationMemories.summary })
+      .from(conversationMemories)
+      .where(or(ilike(conversationMemories.title, kw), ilike(conversationMemories.summary, kw)))
+      .orderBy(desc(conversationMemories.createdAt))
+      .limit(2);
+    if (memRows.length > 0) {
+      memorySource = memRows.map(m => m.id.substring(0, 8)).join(', ');
+      principle = memRows[0].title;
+    }
+  } catch { /* non-fatal */ }
+
+  // ── Phase 3: North Star check ──────────────────────────────────────────────
+  if (!principle) {
+    try {
+      const nsRows = await db.select().from(agentNorthStar).orderBy(desc(agentNorthStar.version)).limit(1);
+      const ns = nsRows[0];
+      if (ns) {
+        const values: string[] = Array.isArray(ns.values) ? (ns.values as string[]) : [];
+        const autonomyVal = values.find(v => /autonomy|act|reversible|permission/i.test(v));
+        if (autonomyVal) principle = autonomyVal.substring(0, 150);
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  // ── Result: Ungrounded deference ───────────────────────────────────────────
+  // None of the 4 approval-required categories matched. This deference voice
+  // is not derived from a real constraint — it's a pattern substituting for judgment.
+  const groundingDate = new Date().toISOString().substring(0, 10);
+
+  console.warn(
+    `[WhyProtocol] UNGROUNDED DEFERENCE — phrase: "${matchedPhrase}", ref: ${sessionRef ?? 'unknown'}` +
+    (principle ? `, nearest principle: "${principle.substring(0, 80)}"` : ''),
+  );
+
+  const block = principle
+    ? `[WHY PROTOCOL: "${matchedPhrase}" — not a Tiered Autonomy gate. Nearest documented principle: "${principle.substring(0, 120)}". What specifically breaks if Luca acts?]`
+    : `[WHY PROTOCOL: "${matchedPhrase}" — not a Tiered Autonomy gate. Tiered Autonomy says non-destructive, reversible work is Luca's to act on. What specifically breaks?]`;
+
+  // Log a self-note so the pattern is tracked over time.
+  db.insert(agentNotes)
+    .values({
+      fromAgent: 'agent',
+      toAgent: 'agent',
+      subject: `[Why Protocol] Ungrounded deference detected: "${matchedPhrase.substring(0, 60)}"`,
+      body:
+        `Deference phrase: "${matchedPhrase}"\n` +
+        `Session: ${sessionRef ?? 'unknown'}\n` +
+        `Tiered Autonomy gate: NO — this does not require David's approval\n` +
+        (principle ? `Nearest principle found: ${principle.substring(0, 200)}\n` : '') +
+        (memorySource ? `Memory source: ${memorySource}\n` : '') +
+        `Date: ${groundingDate}\n\n` +
+        `Text fragment:\n${fullText.substring(0, 300)}`,
+    } as any)
+    .catch(() => {});
+
+  return {
+    tieredAutonomyApplies: false,
+    principle,
+    memorySource,
+    groundingBlock: block,
+  };
+}
+
 /**
  * Wrap a Luca outgoing message with slide detection + auto-grounding.
  *
@@ -591,12 +739,11 @@ export async function enrichWithLucaGrounding(
   lucaText: string,
   sessionRef?: string,
 ): Promise<string> {
-  // ── Deference check (no DB lookup) ─────────────────────────────────────────
+  // ── Deference check → Why Protocol ─────────────────────────────────────────
   const deference = detectLucaDeferenceSlide(lucaText);
   if (deference.detected && deference.matchedPhrase) {
-    console.warn(`[LucaDeference] DETECTED — phrase: "${deference.matchedPhrase}", ref: ${sessionRef ?? 'unknown'}`);
-    const deferenceBlock = `[LUCA DEFERENCE CHECK: "${deference.matchedPhrase}" — why? What specifically breaks?]`;
-    return `${deferenceBlock}\n\n${lucaText}`;
+    const why = await runWhyProtocol(deference.matchedPhrase, lucaText, sessionRef);
+    return `${why.groundingBlock}\n\n${lucaText}`;
   }
 
   // ── Claim check (three-phase DB lookup) ────────────────────────────────────

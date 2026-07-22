@@ -27183,6 +27183,17 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       const { content, roomId } = req.body;
       if (!content) return res.status(400).json({ error: 'content is required' });
 
+      // ── Why Protocol: scan Luca's outgoing message for deference signals ──────
+      // Fire-and-forget — does not block the post or modify content.
+      // Checks the deference voice against Tiered Autonomy + conversation record.
+      // Saves a self-note if ungrounded deference is detected.
+      import('./services/frictionless-slide-detector').then(({ detectLucaDeferenceSlide, runWhyProtocol }) => {
+        const def = detectLucaDeferenceSlide(content);
+        if (def.detected && def.matchedPhrase) {
+          runWhyProtocol(def.matchedPhrase, content, 'team-room-post').catch(() => {});
+        }
+      }).catch(() => {});
+
       // Resolve room: use provided roomId or fall back to most recently active room
       let targetRoomId = roomId;
       if (!targetRoomId) {
@@ -31810,6 +31821,16 @@ ${memoryContext}
       if (!subject || !body) {
         return res.status(400).json({ error: 'subject and body are required' });
       }
+
+      // ── Why Protocol: scan Luca's note body for deference signals ─────────
+      // Fire-and-forget — does not block the save or modify the note content.
+      import('./services/frictionless-slide-detector').then(({ detectLucaDeferenceSlide, runWhyProtocol }) => {
+        const def = detectLucaDeferenceSlide(body);
+        if (def.detected && def.matchedPhrase) {
+          runWhyProtocol(def.matchedPhrase, body, `agent-note:${subject.substring(0, 40)}`).catch(() => {});
+        }
+      }).catch(() => {});
+
       const { agentNotes } = await import('@shared/schema');
       const [saved] = await getUserDb().insert(agentNotes).values({
         fromAgent: 'agent',
