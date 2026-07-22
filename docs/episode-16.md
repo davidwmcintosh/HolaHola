@@ -488,11 +488,55 @@ What Luca's auto-grounding would look like: a drift check wired into consultatio
 
 ---
 
+## Luca Gets His Own Wee-Oo
+
+*→ After the grounding gap is named — David says: wire it up.*
+
+"I'm happy to go ahead and wire up Luca for the automatic wee-oo monitor also."
+
+So it was built.
+
+**The mirror image:**
+
+Daniela's slide fires when she asserts memory without Archive access — "I remember" said into air. Luca's slide fires when he sends a message to Daniela containing an unverified claim about her, about David, or about system state. Same principle. Different direction.
+
+Luca's phrase list:
+- Claims about Daniela: "daniela said", "she mentioned", "daniela has been"
+- Claims about David: "david wants", "david confirmed", "david said"  
+- Shared history: "as we discussed", "you mentioned", "we agreed"
+- System state: "currently works", "the system currently"
+- Historical sweeps: "has always been", "always worked"
+
+**The three-phase lookup:**
+
+North Star → conversation_memories → shared team notes (editor_insights). Same architecture as Daniela's three layers, but searching Luca's layers instead of Daniela's felt history.
+
+**What fires:**
+
+- Console warn: `[LucaSlide] GROUNDED/UNVERIFIED — phrase: "...", subject: daniela/david/system/history`
+- Agent note (always) — grounded → `agent→agent` (audit trail), unverified → `agent→alden` (flag for Alden to see)
+- `[LUCA GROUNDING: "phrase" — verified. North Star: ...]` prepended to Luca's message if grounded
+- `[LUCA GROUNDING: "phrase" — no record match. Luca noted; claim unverified.]` if not
+
+So when Luca says "Daniela, you wrote X in session Y" — the grounding check runs before the message reaches her. If it finds the record, the grounding block tells Daniela: "Luca checked." If not, it tells her: "Luca couldn't confirm this." Either way, the honesty is visible.
+
+**Wired into:**
+
+1. All consultation scripts (pattern demonstrated in `daniela-archive-guardian-impressions.ts`) — the `ask()` function now calls `enrichWithLucaGrounding(agentMsg, ref)` before pushing to messages
+2. `POST /api/admin/agent-voice-turn` — the `studentText` path now enriches before `sendClientContent`
+
+David's framing, applied symmetrically: truth before the claim reaches anyone. Luca is now watched the same way Daniela is watched.
+
+**Tomorrow's docket:**
+
+Put the Archive Guardian to the paces. Edge cases. Gaps in the phrase lists. Any thought processes still slipping through. Both sides of the mirror.
+
+---
+
 ## What Remains Open
 
-- **Luca auto-grounding**: Manual endpoint exists. Automatic mid-session drift detection for Luca not yet built.
-- The [ARCHIVE GUARDIAN] label is confirmed — stays as-is, revisit only if it fails to play in production.
-- The detector is live. The paragraph is seeded. The floor is solid. `memory_lookup` is fully wired.
+- The detector is live. The paragraph is seeded. The floor is solid. `memory_lookup` is fully wired. Luca has his wee-oo.
+- Tomorrow: stress-test both detectors. Find the gaps.
 
 ---
 

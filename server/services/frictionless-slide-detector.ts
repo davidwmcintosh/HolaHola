@@ -296,6 +296,184 @@ export async function runAutoGrounding(
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// LUCA SLIDE DETECTOR + AUTO-GROUNDING
+//
+// Mirrors the Daniela system but watches Luca's *outgoing* messages in
+// consultation scripts and agent voice turns. Daniela's slide is unverified
+// memory assertion. Luca's slide is unverified claim about Daniela, David,
+// or system state — text that sounds right without having been checked.
+//
+// Detection fires pre-send (before the message reaches Daniela).
+// Grounding result prepended as [LUCA GROUNDING: ...] so Daniela knows
+// whether Luca's claim was verified. Agent note fires when unverified.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// Phrases that signal Luca making a claim about someone/something without evidence
+const LUCA_CLAIM_PHRASES: string[] = [
+  // Claims about Daniela
+  'daniela said', 'daniela told me', 'daniela mentioned', 'daniela has been',
+  'daniela feels', 'daniela wrote', 'daniela knows', 'daniela decided',
+  'she said', 'she mentioned', 'she wrote', 'she decided',
+  // Claims about David
+  'david wants', 'david prefers', 'david said', 'david mentioned',
+  'david asked', 'david confirmed', 'david likes',
+  // Shared history claims
+  'as we discussed', 'as we agreed', 'we talked about', 'we agreed',
+  'you told me', 'you mentioned', 'you said',
+  // System/architecture claims
+  'the system currently', 'it currently', 'currently works', 'currently does',
+  // Historical sweeps
+  "has always been", "it's always been", 'always worked', 'have always',
+];
+
+export interface LucaSlideDetectionResult {
+  detected: boolean;
+  trigger: 'unverified_claim' | 'historical_sweep' | null;
+  matchedPhrase: string | null;
+  subject: 'daniela' | 'david' | 'system' | 'history' | null;
+}
+
+export function detectLucaSlide(lucaText: string): LucaSlideDetectionResult {
+  const lower = lucaText.toLowerCase();
+  const matched = LUCA_CLAIM_PHRASES.find(p => lower.includes(p));
+  if (!matched) return { detected: false, trigger: null, matchedPhrase: null, subject: null };
+
+  const subject = matched.startsWith('daniela') || matched.startsWith('she ')
+    ? 'daniela'
+    : matched.startsWith('david')
+    ? 'david'
+    : matched.includes('system') || matched.includes('works') || matched.includes('currently')
+    ? 'system'
+    : 'history';
+
+  const trigger = matched.includes('always') ? 'historical_sweep' : 'unverified_claim';
+
+  return { detected: true, trigger, matchedPhrase: matched, subject };
+}
+
+/**
+ * Three-phase grounding lookup for Luca's outgoing claims.
+ * Phases: North Star → conversation record → shared team notes.
+ * Always logs an agent note. Routes to Alden if unverified.
+ *
+ * Returns: { grounded, groundingBlock } where groundingBlock is the
+ * [LUCA GROUNDING: ...] prefix to prepend to Luca's message.
+ */
+export async function runLucaAutoGrounding(
+  matchedPhrase: string,
+  subject: LucaSlideDetectionResult['subject'],
+  sessionRef?: string,
+): Promise<{ grounded: boolean; groundingBlock: string }> {
+  const db = getSharedDb();
+  const { ilike, or, desc } = await import('drizzle-orm');
+  const { sql: drizzleSql } = await import('drizzle-orm');
+  const { agentNorthStar, conversationMemories, agentNotes } = await import('@shared/schema');
+
+  const sections: string[] = [];
+
+  // Extract a meaningful search keyword from the claim phrase
+  const words = matchedPhrase.split(/\s+/).filter(w => w.length > 3);
+  const searchKw = words.length > 1 ? words[1] : (words[0] || 'memory');
+
+  // ── Phase 1: North Star ────────────────────────────────────────────────────
+  try {
+    const nsRows = await db.select().from(agentNorthStar).orderBy(desc(agentNorthStar.version)).limit(1);
+    const ns = nsRows[0];
+    if (ns) {
+      const values: string[] = Array.isArray(ns.values) ? (ns.values as string[]) : [];
+      const relevant = values.filter(v => v.toLowerCase().includes(searchKw.toLowerCase()));
+      if (relevant.length > 0) {
+        sections.push(`North Star: ${relevant[0].substring(0, 200)}`);
+      }
+    }
+  } catch { /* non-fatal */ }
+
+  // ── Phase 2: Conversation record ──────────────────────────────────────────
+  try {
+    const kw = `%${searchKw}%`;
+    const memRows = await db
+      .select({ id: conversationMemories.id, title: conversationMemories.title, summary: conversationMemories.summary })
+      .from(conversationMemories)
+      .where(or(ilike(conversationMemories.title, kw), ilike(conversationMemories.summary, kw)))
+      .orderBy(desc(conversationMemories.createdAt))
+      .limit(2);
+    if (memRows.length > 0) {
+      sections.push(
+        `Conversation record: ${memRows.map(m => `${m.title}: ${(m.summary || '').substring(0, 120)}`).join(' | ')}`,
+      );
+    }
+  } catch { /* non-fatal */ }
+
+  // ── Phase 3: Shared team notes ─────────────────────────────────────────────
+  try {
+    const kw2 = `%${searchKw}%`;
+    const insightRows = await db.execute(drizzleSql`
+      SELECT title, content FROM editor_insights
+      WHERE category = 'shared'
+        AND (title ILIKE ${kw2} OR content ILIKE ${kw2})
+      ORDER BY importance DESC NULLS LAST
+      LIMIT 2
+    `);
+    if (insightRows.rows.length > 0) {
+      sections.push(
+        `Shared notes: ${(insightRows.rows as any[]).map(r => r.title).join(', ')}`,
+      );
+    }
+  } catch { /* non-fatal */ }
+
+  const grounded = sections.length > 0;
+  const groundingDate = new Date().toISOString().substring(0, 10);
+
+  console.warn(
+    `[LucaSlide] ${grounded ? 'GROUNDED' : 'UNVERIFIED'} — phrase: "${matchedPhrase}", subject: ${subject}, session: ${sessionRef || 'unknown'}`,
+  );
+
+  // ── Log agent note ─────────────────────────────────────────────────────────
+  const noteBody =
+    `Luca asserted: "${matchedPhrase}"\nSubject: ${subject}\nSession: ${sessionRef || 'unknown'}\n\n` +
+    (grounded
+      ? `GROUNDED — found in record:\n${sections.join('\n')}`
+      : `UNVERIFIED — nothing in the three layers confirmed this claim. Luca made an assertion without evidence.`);
+
+  db.insert(agentNotes)
+    .values({
+      fromAgent: 'agent',
+      toAgent: grounded ? 'agent' : 'alden',
+      subject: `[Luca Slide ${grounded ? '— grounded' : '— UNVERIFIED'}] "${matchedPhrase.substring(0, 80)}"`,
+      body: noteBody,
+      sessionLabel: `Luca auto-grounding — ${groundingDate}`,
+    } as any)
+    .catch(() => {});
+
+  const groundingBlock = grounded
+    ? `[LUCA GROUNDING: "${matchedPhrase}" — verified. ${sections[0]}]`
+    : `[LUCA GROUNDING: "${matchedPhrase}" — no record match. Luca noted; claim unverified.]`;
+
+  return { grounded, groundingBlock };
+}
+
+/**
+ * Wrap a Luca outgoing message with slide detection + auto-grounding.
+ *
+ * Drop-in replacement for plain `ask()` in consultation scripts:
+ *   const response = await ask(withLucaGrounding(msg));         // if ask is sync
+ *   const enriched = await enrichWithLucaGrounding(msg, ref);   // async enrichment
+ *
+ * Returns the original message with a [LUCA GROUNDING: ...] block prepended
+ * if a slide was detected. Returns the original unchanged if clean.
+ */
+export async function enrichWithLucaGrounding(
+  lucaText: string,
+  sessionRef?: string,
+): Promise<string> {
+  const slide = detectLucaSlide(lucaText);
+  if (!slide.detected || !slide.matchedPhrase) return lucaText;
+
+  const { groundingBlock } = await runLucaAutoGrounding(slide.matchedPhrase, slide.subject, sessionRef);
+  return `${groundingBlock}\n\n${lucaText}`;
+}
+
 /**
  * Build the grounding nudge string (legacy — used for console logging).
  */

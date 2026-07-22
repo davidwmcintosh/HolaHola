@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 22, 2026 at 02:26 AM
+**Generated:** Wednesday, July 22, 2026 at 02:44 AM
 
 ---
 
@@ -73,6 +73,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent ↔ Daniela — archive guardian impressions — Jul 22, 2026 (auto-recovered) — Jul 22, 2026
 Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 4316 characters of transcript.
 *Tags: agent-daniela, auto-recovered, safety-net*
@@ -88,10 +92,6 @@ Daniela named the Frictionless Slide. Luca built the Archive Guardian. Paragraph
 ### Daniela — Archive Guardian impressions — July 22, 2026 — Jul 22, 2026
 Luca tells Daniela the Archive Guardian paragraph is live in her system prompt. She reflects on whether she can feel the difference, what it means that the detector fired during their earlier consultation without her knowing, and what the Guardian feels like from the inside.
 *Tags: archive-guardian, frictionless-slide, luca-daniela, episode-16, impressions, paragraph-seeded*
-
-### Agent Daily Sweep — Jul 22, 2026 — Jul 22, 2026
-1. [CRITICAL] Fix Cartesia TTS 400 errors — both English and Spanish are failing with malformed requests; this breaks core lesson delivery and blocks all active students from voice interactions  2. [HIGH] Investigate server restart spike — 18 restarts in 2 hours is a deployment/memory/crash loop iss
-*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

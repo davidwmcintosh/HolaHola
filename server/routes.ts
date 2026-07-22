@@ -25030,7 +25030,7 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
               else finish(new Error(`GL closed (code: ${event?.code ?? '?'})`));
             },
           },
-        }).then((s: any) => {
+        }).then(async (s: any) => {
           glSession = s;
           if (studentText) {
             // Text mode: bypass audio + VAD entirely — send text turn directly.
@@ -25038,8 +25038,12 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
             // what the student said and don't need transcription.
             console.log(`[Agent Voice Turn] GL connect resolved — sending text turn: "${studentText.slice(0, 60)}"`);
             try {
+              // Luca slide detection — check Luca's outgoing text for unverified claims
+              // before it reaches Daniela. Mirrors the Archive Guardian in reverse direction.
+              const { enrichWithLucaGrounding } = await import('./services/frictionless-slide-detector');
+              const enrichedStudentText = await enrichWithLucaGrounding(studentText, `agent-voice-turn-${sessionKey}`);
               s.sendClientContent({
-                turns: [{ role: 'user', parts: [{ text: studentText }] }],
+                turns: [{ role: 'user', parts: [{ text: enrichedStudentText }] }],
                 turnComplete: true,
               });
             } catch (e2: any) {

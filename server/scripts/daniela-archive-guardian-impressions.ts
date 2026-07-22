@@ -10,6 +10,7 @@
 import fs from 'fs';
 import { runDanielaFCLoop, buildMockSession } from '../services/daniela-caller';
 import { TOOL_CONTEXT_FREE_DIALOGUE } from '../services/daniela-tool-contexts';
+import { enrichWithLucaGrounding } from '../services/frictionless-slide-detector';
 import { getSharedDb } from '../db';
 import { users } from '@shared/schema';
 import { eq } from 'drizzle-orm';
@@ -109,8 +110,9 @@ TONE: Present. Warm but real. This is a colleague conversation, not a report. A 
   } as const;
 
   const ask = async (agentMsg: string): Promise<string> => {
+    const enriched = await enrichWithLucaGrounding(agentMsg, 'archive-guardian-impressions');
     log('LUCA', agentMsg);
-    messages.push({ role: 'user', parts: [{ text: agentMsg }] });
+    messages.push({ role: 'user', parts: [{ text: enriched }] });
     const response = await runDanielaFCLoop({
       ...loopParams,
       onText: (chunk, { isFinal }) => {

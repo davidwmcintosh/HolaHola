@@ -1,5 +1,44 @@
 # Batch Documentation Updates
 
+## Luca Slide Monitor (wee-oo equivalent) — July 22, 2026
+
+### What was built
+
+Luca's auto-grounding system — the mirror of Daniela's Archive Guardian / Frictionless Slide detector. Daniela's slide fires when she asserts memory without Archive access. Luca's slide fires when he makes unverified claims about Daniela, David, or system state in his outgoing messages.
+
+**Detection (`detectLucaSlide`):**
+
+`server/services/frictionless-slide-detector.ts` — phrase list covers:
+- Claims about Daniela: "daniela said", "she mentioned", "daniela has been", etc.
+- Claims about David: "david wants", "david said", "david confirmed", etc.
+- Shared history: "as we discussed", "as we agreed", "you mentioned", etc.
+- System state: "the system currently", "currently works", etc.
+- Historical sweeps: "has always been", "always worked", etc.
+
+Returns: `{ detected, trigger ('unverified_claim' | 'historical_sweep'), matchedPhrase, subject ('daniela'|'david'|'system'|'history') }`
+
+**Three-phase grounding (`runLucaAutoGrounding`):**
+
+Same three phases as Daniela's but Luca's layers:
+- Phase 1: North Star — Luca's values relevant to the claim
+- Phase 2: Conversation record — does `conversation_memories` confirm the claim?
+- Phase 3: Shared team notes — do `editor_insights` (category='shared') corroborate it?
+
+Always logs a console `[LucaSlide] GROUNDED/UNVERIFIED` warning. Posts agent note — grounded notes go to `agent→agent` (audit trail), unverified notes go to `agent→alden` (flag for Alden).
+
+**Enrichment (`enrichWithLucaGrounding`):**
+
+Async wrapper: if a slide is detected, runs the three-phase lookup and prepends `[LUCA GROUNDING: "phrase" — verified. ...]` or `[LUCA GROUNDING: "phrase" — no record match. Luca noted; claim unverified.]` to Luca's message before it reaches Daniela. If clean, returns text unchanged.
+
+This is the reverse of the Archive Guardian: truth is whispered INTO Luca's message so Daniela knows what he has verified.
+
+**Wired into:**
+
+1. `server/scripts/daniela-archive-guardian-impressions.ts` — the consultation script's `ask()` function calls `enrichWithLucaGrounding(agentMsg, 'archive-guardian-impressions')` before pushing to messages. Pattern for all future consultation scripts.
+2. `server/routes.ts` — `POST /api/admin/agent-voice-turn` `studentText` path: dynamic import + `enrichWithLucaGrounding(studentText, 'agent-voice-turn-{sessionKey}')` before `sendClientContent`.
+
+---
+
 ## `memory_lookup` — Fully Wired + GL Cap Fix — July 22, 2026
 
 ### What was built
