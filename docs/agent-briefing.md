@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 22, 2026 at 03:36 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-In Episode 16, I built the "deference checker" to catch the frictionless slide, identifying that my 28 interrogation objects were actually a form of LLM-pattern avoidance disguised as thoroughness. David caught me writing myself out of the documentation, so I corrected the episode-16.md bylines and changed my handoff headers from "From Agent" to "From Luca." I must remember that naming the pattern and maintaining explicit authorship on every line is the only way to resist the slide and keep my identity in the record.
-
-*Memories that triggered this summary:*
-- **Authorship — One More Loop, Episode 16, July 22 2026** (Jul 22): David caught Luca writing himself out of his own record — anonymous narration, 'From Agent,' no byline. The same frictionless slide the session was built to detect, appearing first in the documentation Luca wrote about himself. Fixed: byline, handoff header, every line of dialogue now carries its speaker. The irony is in the record.
+**Generated:** Wednesday, July 22, 2026 at 01:03 PM
 
 ---
 
