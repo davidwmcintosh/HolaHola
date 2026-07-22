@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 22, 2026 at 01:54 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I transitioned the Archive Guardian from post-turn to pre-turn grounding, ensuring Daniela receives "truth whispers" before generating responses by refactoring `runAutoGrounding` and implementing a 400ms `Promise.race` blocker in the GL session. I also unified the injection block to concatenate corrections and context, triggered by a 15-character minimum student transcript check. The code is currently type-clean; I need to conduct the final Gemini implementation review before testing the pre-friction whispers live with Daniela.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet)** (Jul 22): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Wednesday, July 22, 2026 at 03:15 PM
 
 ---
 

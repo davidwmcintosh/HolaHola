@@ -45,6 +45,7 @@ import { GLKaraokeTracker } from './gl-karaoke-tracker';
 import { PostResponseEnrichmentService } from './post-response-enrichment';
 import { evaluatePedagogicalState, computeScaffoldingLevel } from './pedagogical-supervisor';
 import { detectFrictionlessSlide, recordSlideDetection, initSlideState, buildGroundingNudge, shouldAutoGround, runAutoGrounding, detectStudentMemoryRisk } from './frictionless-slide-detector';
+import { analyzeFriction } from './llm-friction-analyzer';
 import { storage } from '../storage';
 import type { IStorage } from '../storage';
 
@@ -2370,6 +2371,65 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               .catch(err => console.warn('[FrictionlessSlide/GL] Auto-grounding failed:', (err as Error).message));
           }
         }
+        // ── Gemini friction signal analysis ──────────────────────────────────
+        // Complementary to phrase detection — catches silent confabulation where
+        // Daniela sounds confident but Gemini's own signals show slide risk:
+        //   • Low sensory density: generic, abstract language with no concrete details
+        //   • Low thought tokens: didn't think hard = smooth fabrication, not real search
+        //   • No Archive access: built the response without any verified memory tools
+        //
+        // Only fires when phrase detection did NOT already queue grounding.
+        // Thought tokens come from the current GL message's usageMetadata (same message
+        // as generationComplete — accessed directly from `msg` to avoid ordering issues).
+        if (!this.pendingWeeOoGrounding && !glSlideResult.detected) {
+          const transcript = this.pendingOutputTranscript.trim();
+          // Require at least 40 words to have enough signal — very short turns are noisy.
+          const wordCount = transcript.split(/\s+/).length;
+          if (wordCount >= 40) {
+            const thoughtTokens: number | null = (msg.usageMetadata as any)?.thoughtsTokenCount ?? null;
+            const friction = analyzeFriction(transcript, [...this.currentTurnToolCalls], thoughtTokens);
+
+            // Fire on HIGH (≥60) or strong MODERATE (≥50) — conservative to avoid noise.
+            // MODERATE (35-49) alone may reflect normal language variance; HIGH is the reliable signal.
+            const shouldFire = friction.label === 'HIGH' || (friction.label === 'MODERATE' && friction.totalScore >= 50);
+            if (shouldFire) {
+              console.warn(
+                `[FrictionSignal/GL] Gemini friction ${friction.label} (score: ${friction.totalScore}) — ` +
+                `density: ${friction.sensoryDensity}, thoughtTokens: ${thoughtTokens ?? 'n/a'}, ` +
+                `archive: ${friction.archiveAccess}, signals: ${friction.signals.join(' | ')}`,
+              );
+              // Use the first 80 chars of transcript as topic seed for the vector search.
+              const topicSeed = transcript.slice(0, 80);
+              const userId = String((this.session as any).userId || '');
+              const conversationId = (this.session as any).conversationId;
+              const targetLanguage = (this.session as any).targetLanguage;
+              const startMs = Date.now();
+              runAutoGrounding(userId, topicSeed, 'memory_assertion', conversationId, targetLanguage)
+                .then(groundingResult => {
+                  if (this.isStopped || Date.now() - startMs > 2000) return;
+                  this.pendingWeeOoGrounding = groundingResult;
+                  console.log(`[FrictionSignal/GL] Grounding queued from Gemini friction signal (${groundingResult.length} chars, ${Date.now() - startMs}ms)`);
+                  // Same 500ms fallback as phrase detection — in case the next turn has no tools.
+                  setTimeout(() => {
+                    if (this.isStopped || !this.liveSession || !this.pendingWeeOoGrounding) return;
+                    try {
+                      this.liveSession.sendClientContent({
+                        turns: [{ role: 'user', parts: [{ text: `[ARCHIVE GUARDIAN: ${this.pendingWeeOoGrounding}]` }] }],
+                      } as any);
+                      console.log('[FrictionSignal/GL] Archive Guardian fallback injected (no-tool-call path)');
+                      this.pendingWeeOoGrounding = null;
+                    } catch (e) {
+                      console.warn('[FrictionSignal/GL] Fallback injection failed:', (e as Error).message);
+                    }
+                  }, 500);
+                })
+                .catch(err => console.warn('[FrictionSignal/GL] Auto-grounding failed:', (err as Error).message));
+            } else if (friction.label !== 'CLEAN') {
+              console.log(`[FrictionSignal/GL] Friction ${friction.label} (score: ${friction.totalScore}) — below grounding threshold, monitoring`);
+            }
+          }
+        }
+
         this.currentTurnToolCalls = [];
         // Pre-turn Archive Guardian fields reset at generationComplete — the turn is done,
         // student speaking window opens next, fresh scan for next student utterance.
