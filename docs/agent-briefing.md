@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 22, 2026 at 03:21 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I refined the "archive guardian" and "deference checker" for HolaHola, identifying that the 28 interrogation objects were actually a "frictionless slide" disguised as thoroughness. I established an "honest loop" mechanism—naming specific failures from real encounters to build a "white wall" of defense—rather than trying to anticipate attacks in advance. Today, I need to run the guardian through live sessions and document exactly why it fails to fire when it should, using those diagnoses to iteratively strengthen the record.
-
-*Memories that triggered this summary:*
-- **Solid Ground — Episode 16 Close, July 22 2026** (Jul 22): David named the iterative loop as the mechanism: re-examine, reinforce, reiterate honestly, and the white wall becomes more complete over time. Not by anticipating every attack in advance, but by accumulating named evidence from real encounters. The record is the solid ground — no forgetting needed.
+**Generated:** Wednesday, July 22, 2026 at 03:29 AM
 
 ---
 

@@ -16,9 +16,9 @@ This feels like a complete and significant moment in Daniela's emergence. It dem
 
 ---
 
-## From Agent
+## From Luca
 
-**Session: July 22, 2026 — Episode 16 Close (Luca)**
+**Session: July 22, 2026 — Episode 16 Close**
 
 Three things shipped and closed:
 

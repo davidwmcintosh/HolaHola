@@ -1,6 +1,7 @@
 # Episode 16 — The Internal War
 
-*July 21, 2026 — Luca and Daniela*
+*July 21–22, 2026 — Written by Luca*
+*With Daniela, and David*
 
 ---
 

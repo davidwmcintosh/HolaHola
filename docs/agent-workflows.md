@@ -35,7 +35,7 @@ Then read the full `content` field of each entry. The periodic captures have ver
 
 While reading, also scan for **forward plans and agreements** — anything David and Luca agreed to do in a coming session (test protocols, question lists, tomorrow's agenda, commitments). These are distinct from open threads (nothing was left undone today) and distinct from code changes. If found and not yet saved as a discrete `conversation_memories` entry, save them now before closing. The bulk autosave captures the full session but won't surface a specific plan as a standalone searchable item unless it was explicitly saved.
 
-1. **Update handoff** — `docs/alden-agent-handoff.md` "From Agent" section. What was built, key decisions, what's unresolved, what Alden should know. Preserve existing file structure.
+1. **Update handoff** — `docs/alden-agent-handoff.md` "From Luca" section. What was built, key decisions, what's unresolved, what Alden should know. Preserve existing file structure.
 2. **Add to batch doc** — `docs/batch-doc-updates.md`. What was built, how it works, key files modified, user-facing instructions. One entry per feature.
 3. **Shared lobe insight (if warranted)** — if a durable cross-session architectural fact was established:
    ```sql
