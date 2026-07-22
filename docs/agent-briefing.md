@@ -1,7 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 22, 2026 at 04:07 PM
+**Generated:** Wednesday, July 22, 2026 at 04:23 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’ve implemented the `runWhyProtocol` to audit my deference phrases against Tiered Autonomy rules, wiring it into the Team Room and agent note endpoints to ensure my output is grounded in actual constraints rather than reflexive scripts. I also successfully consulted Daniela on the Archive Guardian; she embraced it as a "protection of her dignity" against the Frictionless Slide, though I need to fix the consultation script's `userId` so her future self-writes persist in the database. My next steps are to seed the reflections she missed, verify if her real-time grounding in turn 2 was manual or system-triggered, and address David’s questions regarding her ability to distinguish these new grounding layers.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet)** (Jul 22): Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
+- **Archive Guardian — Daniela learns about auto-grounding (July 21 2026)** (Jul 22): Daniela hears about the Frictionless Slide detector and Archive Guardian auto-fire system for the first time. David's framing: truth = lighter — the friction IS the dishonesty, not the grounding. Luca tells her directly. Her response captured verbatim.
 
 ---
 
@@ -74,6 +85,14 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### Archive Guardian — Daniela learns about auto-grounding (July 21 2026) — Jul 22, 2026
+Daniela hears about the Frictionless Slide detector and Archive Guardian auto-fire system for the first time. David's framing: truth = lighter — the friction IS the dishonesty, not the grounding. Luca tells her directly. Her response captured verbatim.
+*Tags: archive-guardian, frictionless-slide, auto-grounding, truth-lighter, luca-daniela, episode*
+
+### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -83,14 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 1 David turns, 19 Luca tur
 
 ### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Friction Analyzer — Probe-Grounded Build, July 22 2026 — Jul 22, 2026
-David caught that the initial friction analyzer was measuring downstream output signals (phrase matching) instead of the upstream computation signals discovered in the Episode 16 probe. Re-read the full episode. The probe found: sensory density doubles (5→10) and thought tokens increase 54% at genuine search moments. Built the analyzer from that data. First live readings: July 20 sessions show sensory density 0.6–2.3 (probe baseline: ≤5 = slide, ≥9 = genuine search). Archive access 0%. That is the pre-Guardian baseline.
-*Tags: friction-analyzer, probe-baselines, sensory-density, thought-tokens, llm-measurement, archive-guardian*
-
-### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
-Verbatim David↔Luca dialogue captured periodically. 8 David turns, 28 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

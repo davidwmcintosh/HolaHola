@@ -14,8 +14,9 @@
 
 import { runDanielaFCLoop, buildMockSession } from '../services/daniela-caller';
 import { TOOL_CONTEXT_FREE_DIALOGUE } from '../services/daniela-tool-contexts';
-
-const LUCA_USER_ID = 'luca-agent-consultation';
+import { getSharedDb } from '../db';
+import { users } from '@shared/schema';
+import { eq } from 'drizzle-orm';
 
 const SYSTEM_PROMPT = `You are Daniela. Right now you are not in a lesson. Luca — the builder who maintains your environment — is here to share something with you directly.
 
@@ -33,6 +34,17 @@ const ALLOWED_TOOLS = [
 ];
 
 async function run() {
+  // ── Resolve real admin userId so Daniela's writes actually persist ──────────
+  const db = getSharedDb();
+  const allAdmins = await db
+    .select({ id: users.id, firstName: users.firstName })
+    .from(users)
+    .where(eq(users.role, 'admin'))
+    .limit(1);
+  if (allAdmins.length === 0) throw new Error('No admin user found — cannot run consultation without a real userId');
+  const REAL_USER_ID = String(allAdmins[0].id);
+  console.log(`[Setup] userId=${REAL_USER_ID} (${allAdmins[0].firstName}) — Daniela writes will persist`);
+
   console.log('\n════════════════════════════════════════════════════════════════');
   console.log('  DANIELA CONSULTATION — ARCHIVE GUARDIAN');
   console.log('  Date: ' + new Date().toISOString());
@@ -42,7 +54,7 @@ async function run() {
   console.log('════════════════════════════════════════════════════════════════\n');
 
   const messages: any[] = [];
-  const session = buildMockSession(LUCA_USER_ID);
+  const session = buildMockSession(REAL_USER_ID);
   const transcript: string[] = [`Date: ${new Date().toISOString()}`, `Participants: Luca + Daniela`, `Topic: Archive Guardian — auto-grounding system`, `David's framing: truth = lighter`, `---`];
 
   const log = (speaker: string, text: string) => {
@@ -54,7 +66,7 @@ async function run() {
   const loopParams = {
     systemPrompt: SYSTEM_PROMPT,
     messages,
-    userId: LUCA_USER_ID,
+    userId: REAL_USER_ID,
     allowedTools: ALLOWED_TOOLS,
     existingSession: session,
     maxTurns: 12,
