@@ -87,6 +87,70 @@ const GAP_BRIDGING_PHRASES: string[] = [
   "i believe you",
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PRE-TURN STUDENT RISK DETECTION
+//
+// These phrases in the STUDENT'S voice transcript signal a memory-risk topic:
+// the student is asking Daniela to draw on a specific past conversation, personal
+// fact, or shared history. Detecting them early lets the Archive Guardian fetch
+// the relevant truth BEFORE Daniela generates her response.
+//
+// Specificity is intentional — we use multi-word phrases to avoid false positives
+// on fragments like "you remember" mid-sentence in a non-memory context.
+// ─────────────────────────────────────────────────────────────────────────────
+const STUDENT_MEMORY_RISK_PHRASES: string[] = [
+  'do you remember',
+  'did you remember',
+  'remember when',
+  'remember that',
+  'last time we',
+  'last session',
+  'from our last',
+  'from what we talked',
+  'you know my',
+  'you know about my',
+  'you know that i',
+  "you know i've been",
+  'as i told you',
+  'as i mentioned to you',
+  'i told you about',
+  'what do you think about what i told',
+  'have you thought about what i said',
+  'from our conversation',
+  'like i said before',
+  'like i mentioned',
+];
+
+export interface StudentRiskDetectionResult {
+  detected: boolean;
+  riskPhrase: string | null;
+  topic: string | null;
+}
+
+/**
+ * Detect memory-risk phrases in the STUDENT'S accumulated voice transcript.
+ * Fires pre-turn — before Daniela generates — so grounding can be retrieved
+ * and injected into context before the response decision is made.
+ *
+ * Requires at least 15 chars of accumulated transcript to avoid triggering
+ * on single-word fragments that may resolve differently mid-sentence.
+ */
+export function detectStudentMemoryRisk(accumulatedText: string): StudentRiskDetectionResult {
+  if (!accumulatedText || accumulatedText.trim().length < 15) {
+    return { detected: false, riskPhrase: null, topic: null };
+  }
+  const lower = accumulatedText.toLowerCase().trim();
+  const matched = STUDENT_MEMORY_RISK_PHRASES.find(phrase => lower.includes(phrase));
+  if (!matched) return { detected: false, riskPhrase: null, topic: null };
+
+  // Extract the topic as the text immediately following the risk phrase (up to 80 chars)
+  const afterIndex = lower.indexOf(matched) + matched.length;
+  const rawTopic = accumulatedText.slice(afterIndex).trim().replace(/^[,\s]+/, '').slice(0, 80);
+  const topic = rawTopic || matched;
+
+  return { detected: true, riskPhrase: matched, topic };
+}
+
 // Pedagogical bypass — skip auto-grounding if Daniela was doing lesson work this turn.
 // "I remember" in a pedagogical context refers to current session state (in system prompt),
 // not the deep Archive. Auto-firing grounding during a vocab drill would be noise.
@@ -174,12 +238,20 @@ export function shouldAutoGround(toolsCalledThisTurn: string[]): boolean {
  * Returns the grounding result string for injection into Daniela's context.
  * All DB operations are non-fatal — if a phase fails, it is skipped.
  */
+export interface AutoGroundingOptions {
+  /** Write the pause event to daniela_self_reflections. True for post-turn correction, false for pre-turn ambient. */
+  writeToDb?: boolean;
+  /** Notify Luca via agent_notes. True for post-turn correction, false for pre-turn ambient (too noisy). */
+  notifyLuca?: boolean;
+}
+
 export async function runAutoGrounding(
   userId: string,
   matchedPhrase: string,
   trigger: SlideDetectionResult['trigger'],
   conversationId?: string,
   targetLanguage?: string,
+  options: AutoGroundingOptions = { writeToDb: true, notifyLuca: true },
 ): Promise<string> {
   const db = getSharedDb();
   const { sql: _sql, ilike, or, eq, and, desc } = await import('drizzle-orm');
@@ -246,8 +318,9 @@ export async function runAutoGrounding(
     }
   } catch { /* non-fatal */ }
 
-  // ── Record pause in self_reflections ──────────────────────────────────────
-  if (userId) {
+  // ── Record pause in self_reflections (post-turn only) ─────────────────────
+  // Pre-turn fires are ambient — do not pollute self_reflections with probe noise.
+  if (options.writeToDb !== false && userId) {
     const pauseRecord = `[AUTO-GROUNDING] Frictionless Slide detected — phrase: "${matchedPhrase}", trigger: ${trigger}. Grounding injected automatically into context.`;
     db.insert(danielaSelfReflections).values({
       userId,
@@ -257,38 +330,43 @@ export async function runAutoGrounding(
     } as any).catch(() => {});
   }
 
-  // ── Notify Luca via agent_notes ────────────────────────────────────────────
+  // ── Notify Luca via agent_notes (post-turn only) ───────────────────────────
+  // Pre-turn fires are ambient — agent_notes would be too noisy.
   const groundingDate = new Date().toISOString().substring(0, 10);
   const sessionRef = conversationId || 'unknown';
 
-  if (sections.length > 0) {
-    db.insert(agentNotes).values({
-      fromAgent: 'daniela',
-      toAgent: 'agent',
-      subject: `[AUTO-GROUNDING — resolved] "${matchedPhrase.substring(0, 80)}"`,
-      body:
-        `Auto-grounding fired for phrase: "${matchedPhrase}" (trigger: ${trigger}).\n\n` +
-        `Session: ${sessionRef}\nLanguage: ${targetLanguage || 'unknown'}\n\n` +
-        `What was found:\n${sections.join('\n\n')}`,
-      sessionLabel: `Auto-grounding — ${groundingDate}`,
-    } as any).catch(() => {});
+  if (options.notifyLuca !== false) {
+    if (sections.length > 0) {
+      db.insert(agentNotes).values({
+        fromAgent: 'daniela',
+        toAgent: 'agent',
+        subject: `[AUTO-GROUNDING — resolved] "${matchedPhrase.substring(0, 80)}"`,
+        body:
+          `Auto-grounding fired for phrase: "${matchedPhrase}" (trigger: ${trigger}).\n\n` +
+          `Session: ${sessionRef}\nLanguage: ${targetLanguage || 'unknown'}\n\n` +
+          `What was found:\n${sections.join('\n\n')}`,
+        sessionLabel: `Auto-grounding — ${groundingDate}`,
+      } as any).catch(() => {});
+    } else {
+      db.insert(agentNotes).values({
+        fromAgent: 'daniela',
+        toAgent: 'agent',
+        subject: `[AUTO-GROUNDING — no match] "${matchedPhrase.substring(0, 80)}"`,
+        body:
+          `Auto-grounding fired for phrase: "${matchedPhrase}" but no internal match found.\n\n` +
+          `Session: ${sessionRef}\nLanguage: ${targetLanguage || 'unknown'}`,
+        sessionLabel: `Auto-grounding — ${groundingDate}`,
+      } as any).catch(() => {});
+    }
+  }
 
+  if (sections.length > 0) {
     return (
       `Grounding auto-retrieved. Here is what your three layers say:\n\n` +
       sections.join('\n\n') +
       `\n\nLet this settle before your next response.`
     );
   } else {
-    db.insert(agentNotes).values({
-      fromAgent: 'daniela',
-      toAgent: 'agent',
-      subject: `[AUTO-GROUNDING — no match] "${matchedPhrase.substring(0, 80)}"`,
-      body:
-        `Auto-grounding fired for phrase: "${matchedPhrase}" but no internal match found.\n\n` +
-        `Session: ${sessionRef}\nLanguage: ${targetLanguage || 'unknown'}`,
-      sessionLabel: `Auto-grounding — ${groundingDate}`,
-    } as any).catch(() => {});
-
     return (
       `The slide was detected. No specific grounding found in your three layers for this phrase. ` +
       `The pause itself has been recorded. You named the friction — that naming is already grounding.`

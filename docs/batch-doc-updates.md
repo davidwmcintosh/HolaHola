@@ -1,5 +1,50 @@
 # Batch Documentation Updates
 
+## Pre-turn Archive Guardian — July 22, 2026
+
+### What was built
+
+The Archive Guardian now fires **before** Daniela generates her response, not after. When the student's accumulating voice transcript contains a memory-risk phrase ("do you remember", "last time we", "I told you about", etc.), the grounding DB lookup fires immediately and asynchronously — injected into Daniela's context on the same turn, not queued for the next one.
+
+**Detection (`detectStudentMemoryRisk`):**
+
+`server/services/frictionless-slide-detector.ts` — 20 student-side memory-risk phrases:
+- Direct asks: "do you remember", "did you remember", "remember when", "remember that"
+- History references: "last time we", "last session", "from our last", "from our conversation"
+- Shared facts: "you know my", "you know about my", "you know that i", "you know i've been"
+- Attribution: "as i told you", "as i mentioned to you", "i told you about", "like i said before"
+- Reflective: "what do you think about what i told", "have you thought about what i said"
+
+Minimum 15-char threshold to avoid firing on fragments. Topic extracted as the text immediately following the risk phrase (up to 80 chars) — feeds the vector search.
+
+Returns `{ detected, riskPhrase, topic }`.
+
+**`runAutoGrounding` refactored with `options`:**
+
+Added `AutoGroundingOptions { writeToDb?: boolean; notifyLuca?: boolean }` — pre-turn calls pass `{ writeToDb: false, notifyLuca: false }` to avoid polluting `daniela_self_reflections` with every student question. Post-turn correction calls (existing path) still use defaults (both true).
+
+**GL session hooks (`gemini-live-session.ts`):**
+
+1. **Import**: `detectStudentMemoryRisk` added to frictionless-slide-detector import.
+2. **Private fields**: `preTurnGroundingFired`, `preTurnGroundingResult`, `preTurnGroundingPromise` — per-turn lifecycle tracking.
+3. **inputTranscription handler**: On first risk detection, `runAutoGrounding` fires immediately with `{ writeToDb: false, notifyLuca: false }`. Promise stored in `preTurnGroundingPromise`. `.then()` sets `preTurnGroundingResult`. A 150ms `setTimeout` fallback fires `sendClientContent` (without `turnComplete`) for no-tool-call turns — injects context without forcing a generation.
+4. **Unified injection block**: Before building the tool response payload, `await Promise.race([preTurnGroundingPromise, timeout(400)])` ensures we capture a nearly-resolved DB lookup. Both `pendingWeeOoGrounding` (post-turn correction, `[LAST TURN CORRECTION:]`) and `preTurnGroundingResult` (pre-turn, `[CURRENT CONTEXT:]`) are combined under one `[ARCHIVE GUARDIAN:]` header and injected into the last tool response's result field.
+5. **generationComplete reset**: `preTurnGroundingFired`, `preTurnGroundingResult`, `preTurnGroundingPromise` all reset at generationComplete — fresh state for the next student utterance.
+
+**Gemini audit (post-build, APPROVED unconditionally):**
+- 400ms `await Promise.race` adds ≤0ms real latency (DB resolves ~150ms, tools take 300-500ms after LLM inference latency, so by allSettled the promise is already resolved).
+- 150ms fallback window is the Goldilocks zone: long enough to let the tool channel get priority (toolCall arrives at 60-80ms over WebSocket jitter), short enough to beat Daniela's TTFB on conversational turns.
+- `sendClientContent` without `turnComplete` is safe — GL treats it as async context injection, not a new turn. No double-generation risk.
+
+**Key files:**
+- `server/services/frictionless-slide-detector.ts` — `detectStudentMemoryRisk`, `AutoGroundingOptions`, updated `runAutoGrounding`
+- `server/services/gemini-live-session.ts` — all 5 GL hooks (import, fields, inputTranscription, unified injection, generationComplete reset)
+
+**Testing note:**
+Text-mode agent-voice-turn tests (`studentText` parameter) bypass the `inputTranscription` event entirely (GL receives text directly, no audio transcription). The pre-turn Guardian fires on real WebSocket voice sessions when a student speaks. Confirmed via code review + Gemini audit — no runtime errors, typecheck clean.
+
+---
+
 ## Luca Slide Monitor (wee-oo equivalent) — July 22, 2026
 
 ### What was built

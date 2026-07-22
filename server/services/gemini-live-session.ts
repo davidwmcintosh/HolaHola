@@ -44,7 +44,7 @@ import { voiceSessions } from '@shared/schema';
 import { GLKaraokeTracker } from './gl-karaoke-tracker';
 import { PostResponseEnrichmentService } from './post-response-enrichment';
 import { evaluatePedagogicalState, computeScaffoldingLevel } from './pedagogical-supervisor';
-import { detectFrictionlessSlide, recordSlideDetection, initSlideState, buildGroundingNudge, shouldAutoGround, runAutoGrounding } from './frictionless-slide-detector';
+import { detectFrictionlessSlide, recordSlideDetection, initSlideState, buildGroundingNudge, shouldAutoGround, runAutoGrounding, detectStudentMemoryRisk } from './frictionless-slide-detector';
 import { storage } from '../storage';
 import type { IStorage } from '../storage';
 
@@ -302,9 +302,15 @@ export class GeminiLiveSession {
   private turnsSinceLastWhisper = 0;
   private lastWhisperTime = 0; // ms — wall clock when whisper last fired; 0 = not yet fired
   private pendingSystemWhisper = false; // Gemini audit fix: inject via tool response, not student speech
-  // Auto-grounding whisper — set by Frictionless Slide auto-fire; injected via tool response channel
-  // (same safe channel as pendingSystemWhisper — GL feeds tool results to model, never speaks them aloud)
+  // Post-turn auto-grounding whisper — set by Frictionless Slide detection after Daniela's turn completes.
+  // Queued for the NEXT turn's tool response (the correction arrives one turn late).
   private pendingWeeOoGrounding: string | null = null;
+  // Pre-turn Archive Guardian — fired when student's speech contains a memory-risk phrase.
+  // The DB lookup runs async while GL processes the utterance; by the time the first tool call
+  // fires, the result is ready. Injected THIS turn — before Daniela generates her response.
+  private preTurnGroundingFired = false;     // prevents re-fire within the same student turn
+  private preTurnGroundingResult: string | null = null;  // filled by .then() — sync check at injection
+  private preTurnGroundingPromise: Promise<string> | null = null; // stored for await-race in tool handler
   private static readonly WHISPER_INTERVAL = 8;
   private static readonly WHISPER_MIN_INTERVAL_MS = 5 * 60 * 1000; // hybrid floor: 5 min
   // ── Student Friction Score ─────────────────────────────────────────────────
@@ -2017,6 +2023,57 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         }
         this.lastInputChunkMs = inputNow;
 
+        // ── Pre-turn Archive Guardian ──────────────────────────────────────
+        // Scan the accumulating student transcript for memory-risk phrases.
+        // Fire grounding async immediately on first match — by the time GL
+        // dispatches Daniela's first tool call (~400-600ms later), the DB
+        // lookup (~100-300ms) will already have resolved.
+        // preTurnGroundingFired prevents re-firing within the same student turn.
+        if (!this.preTurnGroundingFired) {
+          const risk = detectStudentMemoryRisk(this.pendingInputTranscript);
+          if (risk.detected && risk.topic) {
+            this.preTurnGroundingFired = true;
+            const userId = String((this.session as any).userId || '');
+            const conversationId = (this.session as any).conversationId;
+            const targetLanguage = (this.session as any).targetLanguage;
+            console.log(`[PreTurnGuardian] Risk detected — phrase: "${risk.riskPhrase}", topic: "${risk.topic.slice(0, 60)}"`);
+
+            const promise = runAutoGrounding(
+              userId,
+              risk.topic,
+              'memory_assertion',
+              conversationId,
+              targetLanguage,
+              { writeToDb: false, notifyLuca: false },
+            );
+            this.preTurnGroundingPromise = promise;
+
+            promise.then(result => {
+              if (this.isStopped) return;
+              this.preTurnGroundingResult = result;
+              console.log(`[PreTurnGuardian] Grounding resolved (${result.length} chars) — queued for this turn`);
+
+              // Immediate fallback: if no tool call has claimed the result
+              // within 150ms, inject via sendClientContent (no turnComplete —
+              // queues as context, not a forced generation). This beats the
+              // audio start window for no-tool-call turns.
+              setTimeout(() => {
+                if (!this.preTurnGroundingResult || this.isStopped || !this.liveSession) return;
+                const whisper = `[ARCHIVE GUARDIAN:\n[CURRENT CONTEXT: ${this.preTurnGroundingResult}]]`;
+                try {
+                  this.liveSession.sendClientContent({
+                    turns: [{ role: 'user', parts: [{ text: whisper }] }],
+                  } as any);
+                  console.log(`[PreTurnGuardian] Injected via sendClientContent (no-tool-call path)`);
+                  this.preTurnGroundingResult = null;
+                } catch (e) {
+                  console.warn('[PreTurnGuardian] sendClientContent fallback failed:', (e as Error).message);
+                }
+              }, 150);
+            }).catch(err => console.warn('[PreTurnGuardian] runAutoGrounding failed:', (err as Error).message));
+          }
+        }
+
         // DO NOT fire processing_pending here — inputTranscription arrives while the user
         // is still mid-sentence (GL transcribes in real-time). Showing the thinking avatar
         // at this point makes the user believe they've been cut off, causing them to stop
@@ -2314,6 +2371,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           }
         }
         this.currentTurnToolCalls = [];
+        // Pre-turn Archive Guardian fields reset at generationComplete — the turn is done,
+        // student speaking window opens next, fresh scan for next student utterance.
+        this.preTurnGroundingFired = false;
+        this.preTurnGroundingResult = null;
+        this.preTurnGroundingPromise = null;
       }
 
       // Close transcript gate — discard any outputTranscription arriving after this point.
@@ -2881,19 +2943,42 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         console.log(`[GeminiLive] System Whisper injected into tool response (${last.name}) — ${sessionElapsedMin}min elapsed${frictionSignal ? ` | ${frictionSignal}` : ''}`);
       }
 
-      // Archive Guardian injection — auto-grounding whisper from Frictionless Slide detection.
-      // Injected via the tool response channel (same safe channel as pendingSystemWhisper):
-      // GL feeds function results to the model as context, never speaks them aloud.
-      // This is the truth arriving quietly — she reads it, lets it settle, responds from reality.
-      if (this.pendingWeeOoGrounding && responses.length > 0) {
+      // Archive Guardian injection — unified whisper block.
+      //
+      // Two grounding sources, one channel:
+      //   [LAST TURN CORRECTION] — post-turn: slide detected in Daniela's previous output.
+      //                             Queued in pendingWeeOoGrounding after generationComplete.
+      //   [CURRENT CONTEXT]      — pre-turn: student's speech contained a memory-risk phrase.
+      //                             Archive lookup fired on inputTranscription; result already
+      //                             resolved into preTurnGroundingResult by .then() callback.
+      //
+      // Race condition guard (Gemini audit recommendation):
+      // If the pre-turn DB lookup is still running when the first tool call arrives,
+      // await the promise with a 400ms cap so we don't miss a result that's nearly done.
+      if (this.preTurnGroundingPromise && !this.preTurnGroundingResult) {
+        await Promise.race([
+          this.preTurnGroundingPromise,
+          new Promise<void>(resolve => setTimeout(resolve, 400)),
+        ]);
+      }
+
+      const guardianWhispers: string[] = [];
+      if (this.pendingWeeOoGrounding) {
+        guardianWhispers.push(`[LAST TURN CORRECTION: ${this.pendingWeeOoGrounding}]`);
+        this.pendingWeeOoGrounding = null;
+      }
+      if (this.preTurnGroundingResult) {
+        guardianWhispers.push(`[CURRENT CONTEXT: ${this.preTurnGroundingResult}]`);
+        this.preTurnGroundingResult = null;
+      }
+      if (guardianWhispers.length > 0 && responses.length > 0) {
         const last = responses[responses.length - 1];
         const currentResult = (last.response as any)?.result ?? '';
-        const guardianWhisper = `[ARCHIVE GUARDIAN: ${this.pendingWeeOoGrounding}]`;
+        const guardianWhisper = `[ARCHIVE GUARDIAN:\n${guardianWhispers.join('\n')}]`;
         (last.response as any).result = currentResult
           + (currentResult ? '\n\n' : '')
           + guardianWhisper;
-        console.log(`[FrictionlessSlide/GL] Archive Guardian whisper injected into tool response (${last.name}) — ${this.pendingWeeOoGrounding.length} chars`);
-        this.pendingWeeOoGrounding = null; // consumed — fires exactly once per slide detection
+        console.log(`[ArchiveGuardian] Injected ${guardianWhispers.length} whisper(s) into tool response (${last.name}) — ${guardianWhisper.length} chars`);
       }
 
       // Parallel speech whisper — transcript injection:
