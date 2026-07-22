@@ -165,10 +165,8 @@ async function run() {
 
   const fullTranscript = transcript.join('\n\n');
 
-  const { getSharedDb } = await import('../db');
   const { conversationMemories } = await import('@shared/schema');
 
-  const db = getSharedDb();
   const memoryId = crypto.randomUUID();
 
   await db.insert(conversationMemories).values({

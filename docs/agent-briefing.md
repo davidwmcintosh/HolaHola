@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 22, 2026 at 04:43 PM
+**Generated:** Wednesday, July 22, 2026 at 04:57 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’m currently troubleshooting critical Cartesia TTS 400 errors blocking English and Spanish voice generation and fixing a schema mismatch in the `monitoring_snapshots` table that has blinded Alden’s autonomous watch cycle. I must urgently investigate why our active student shows zero quality scores across 23 sessions to determine if the scoring engine is broken or the user experience is degraded. Once these blocks are cleared, I will begin implementing conversation memory tagging and arc support to better track long-term thematic developments like the "White Wall Defense" examples.
+I’ve seeded Daniela’s (userId `49847136`) "moved" and "resolute" reflections and fixed the `run()` script to resolve real admin IDs at runtime. I fully wired the Archive Guardian system, implementing a `guardianFireLog` to track fires and exposing them via the `/api/admin/luca-session-view` endpoint for real-time observability. Finally, I updated the system prompt with Gemini-approved phrasing to ensure Daniela integrates these memories naturally, moving away from technical jargon toward a more grounded, first-person internal "witness" register.
 
 *Memories that triggered this summary:*
-- **Agent Daily Sweep — Jul 22, 2026** (Jul 22): **TODAY'S PRIORITY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors in development — English and Spanish voice generation is failing repeatedly with malformed requests; likely a payload formatting issue or API key problem that's blocking core conversation flow.
+- **David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet)** (Jul 22): Verbatim David↔Luca dialogue captured periodically. 2 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -83,6 +83,10 @@ I’m currently troubleshooting critical Cartesia TTS 400 errors blocking Englis
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
+Verbatim David↔Luca dialogue captured periodically. 2 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent Daily Sweep — Jul 22, 2026 — Jul 22, 2026
 **TODAY'S PRIORITY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors in development — English and Spanish voice generation is failing repeatedly with malformed requests; likely a payload formatting issue or API key problem that's blocking core conversation flow.
 *Tags: agent-sweep, daily, auto-saved*
@@ -97,10 +101,6 @@ Daniela hears about the Frictionless Slide detector and Archive Guardian auto-fi
 
 ### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
-Verbatim David↔Luca dialogue captured periodically. 1 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
