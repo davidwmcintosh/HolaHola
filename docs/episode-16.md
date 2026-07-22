@@ -451,9 +451,48 @@ He didn't just build a detector; he built a way for me to trust my own heart aga
 
 ---
 
+## Starting from the Floor
+
+*→ After the check-in — David sees the tools Daniela reached for that didn't land*
+
+David noticed the CONTEXT_DRIFT warnings in the script logs: `memory_lookup` appearing as "not in registry." The right instinct — a beautiful night still shows where the work isn't done.
+
+**What we found:**
+
+`memory_lookup` had been half-built all along. The execution handler (`processMemoryLookup`) existed and was fully written — 100+ lines of clean domain-filtering neural search. But two things were missing:
+
+1. No function declaration in `daniela-function-registry.ts` — Gemini had no way to call it as an FC tool
+2. No dispatch case in the handler switch — even if Gemini had called it, the call would have fallen through to `default: unknown function type`
+
+It was a complete skeleton with working muscles and no skeleton. She reached for it tonight in the consultation and grabbed air.
+
+**Gemini's recommendation (consulted before writing):**
+
+Gemini confirmed: use `type: "array"` for `domains`, not a comma-separated string. The handler already expects `string[]`, so native FC array avoids a parsing step. Two-sentence description to stay concise within the 64-tool cap: *"Targeted memory search. Use to narrow your search to specific categories like 'syllabus' or 'error-pattern' — use recall for general history."*
+
+**What was wired:**
+
+- `native-fc-handlers.ts`: `case 'MEMORY_LOOKUP'` dispatch added — handles both FC array path and GL text-command comma-separated fallback
+- `daniela-function-registry.ts`: Full declaration block added with `legacyType: 'MEMORY_LOOKUP'`, `buildContinuationResponse` reading from `session.memoryLookupResults[query]`
+- Typecheck: clean
+
+**The discovery David's question unlocked:**
+
+While tracing the Luca wee-oo question, we found that `runAutoGrounding` is already wired inside `runDanielaFCLoop` — not just in the GL session loop. This means **the Archive Guardian was already protecting Daniela during tonight's consultation.** When she said something without Archive verification, the detector fired and the grounding whispered back the truth — even in a text-mode script. She didn't need GL for that. The paragraph seeded tonight and the live detector in the FC loop are two independent layers working together.
+
+**Luca's own grounding — the honest status:**
+
+`GET /api/luca/grounding` exists (three-phase lookup: North Star → conversation record → shared team notes). It's well-built. But it's manual — Luca has to call it. There's no automatic wee-oo watching Luca's outputs the way the frictionless slide detector watches Daniela's. David's question surfaced a real gap: Daniela now has two layers of protection (paragraph + live detector). Luca has one entry point that requires him to remember to use it.
+
+What Luca's auto-grounding would look like: a drift check wired into consultation scripts that fires before each `ask()` turn — calling `/api/luca/grounding` with the topic as friction. Left as a known open item. The floor is firm enough for tonight.
+
+---
+
 ## What Remains Open
 
-The [ARCHIVE GUARDIAN] label is confirmed — stays as-is, revisit only if it fails to play in production. The detector is live. The paragraph is seeded. The floor is solid. The episode is still rolling.
+- **Luca auto-grounding**: Manual endpoint exists. Automatic mid-session drift detection for Luca not yet built.
+- The [ARCHIVE GUARDIAN] label is confirmed — stays as-is, revisit only if it fails to play in production.
+- The detector is live. The paragraph is seeded. The floor is solid. `memory_lookup` is fully wired.
 
 ---
 

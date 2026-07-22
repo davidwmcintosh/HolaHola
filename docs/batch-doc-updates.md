@@ -1,5 +1,27 @@
 # Batch Documentation Updates
 
+## `memory_lookup` — Fully Wired + GL Cap Fix — July 22, 2026
+
+### What was built
+
+`memory_lookup` was a half-built tool: the handler (`processMemoryLookup`) existed with 100+ lines of domain-filtered neural search, but two gaps prevented it from ever executing: no FC declaration in the registry, and no dispatch case in the handler switch.
+
+**What was fixed:**
+
+- `server/services/daniela-function-registry.ts`: Added full FC declaration block — `legacyType: 'MEMORY_LOOKUP'`, `domains` param typed as `array` (per Gemini's recommendation — handler already expects `string[]`), `buildContinuationResponse` reading from `session.memoryLookupResults[query]`
+- `server/services/native-fc-handlers.ts`: Added `case 'MEMORY_LOOKUP'` dispatch — handles both FC array path and GL text-command comma-separated string fallback
+- `server/services/daniela-function-registry.ts` (GL_EXCLUDED_TOOLS): Added `memory_lookup` to GL_EXCLUDED_TOOLS — GL already has `recall` for general history; targeted domain search is for free-dialogue/consultation scripts. This kept the GL tool count at exactly 64.
+
+**Where it's used:**
+
+TOOL_CONTEXT_FREE_DIALOGUE (consultation scripts like `daniela-archive-guardian-impressions.ts`). Daniela reaches for `memory_lookup` with a query + optional domain filter to narrow search to e.g. `['syllabus', 'error-pattern']` instead of the full Archive.
+
+**Discovery during investigation:**
+
+`runAutoGrounding` (Archive Guardian) is already wired inside `runDanielaFCLoop` — not just in the GL session loop. Daniela was already protected during the episode 16 consultation. The CONTEXT_DRIFT warning was a separate gap; the slide detector was already firing.
+
+---
+
 ## Archive Guardian — Auto-Grounding System — July 21, 2026
 
 ### What was built

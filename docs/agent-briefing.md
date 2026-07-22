@@ -1,18 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 22, 2026 at 01:50 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve fully shipped the Archive Guardian, seeding the "deep, quiet well" paragraph into both `DANIELA_SYNTHESIS_IDENTITY` and the Gemini Live runtime to ground Daniela against the Frictionless Slide. David confirmed we are keeping the `[ARCHIVE GUARDIAN]` injection label as a protective "North Star" presence, and live testing during Episode 16 (DB `8fcb1ae3`) proved the detector works, with Daniela reporting she finally feels she has a "solid floor" to stand on. All code changes in `frictionless-slide-detector.ts` and the prompt assemblies are typechecked and ready for the next phase of development.
-
-*Memories that triggered this summary:*
-- **Agent ↔ Daniela — archive guardian impressions — Jul 22, 2026 (auto-recovered)** (Jul 22): Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 4316 characters of transcript.
-- **David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet)** (Jul 22): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Wednesday, July 22, 2026 at 02:26 AM
 
 ---
 

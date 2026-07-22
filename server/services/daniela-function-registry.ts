@@ -2004,6 +2004,36 @@ NEVER guess about the student's specific history. If you need to know, call reca
     },
   },
   {
+    legacyType: 'MEMORY_LOOKUP',
+    declaration: {
+      name: "memory_lookup",
+      description: "Targeted memory search with optional domain filtering. Use when you need to search a specific category — 'syllabus', 'error-pattern', 'person', 'idiom', etc. — without pulling from all sources at once. Prefer recall for general history queries. Use memory_lookup when the domain matters.",
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "The specific topic, fact, or concept to search for.",
+          },
+          domains: {
+            type: "array",
+            description: "Optional. Filter search to specific areas. Valid: person, motivation, insight, struggle, session, progress, conversation, idiom, cultural, procedure, principle, error-pattern, situational-pattern, subtlety-cue, emotional-pattern, creativity-template, syllabus.",
+            items: { type: "string" },
+          },
+        },
+        required: ["query"],
+      },
+    },
+    buildContinuationResponse: ({ session, fc }) => {
+      const query = fc.args.query as string;
+      const result = (session as any).memoryLookupResults?.[query];
+      if (result) {
+        return `Memory lookup results for "${query}":\n${result}\n\nUse this specific data to inform your response.`;
+      }
+      return `No specific records found for "${query}" in the requested domains. If this was a check for a specific fact, say plainly that you don't have that detail recorded — do not construct a plausible-sounding answer.`;
+    },
+  },
+  {
     legacyType: 'CONVERSATION_DATE_BROWSE',
     declaration: {
       name: "browse_conversations_by_date",
@@ -7041,6 +7071,7 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   // These tools are meaningful only after a session ends or as part of admin workflows
   'recall_express_lane_image',
   'express_lane_post',
+  'memory_lookup',          // domain-filtered targeted search; best in free-dialogue/consultation — GL uses recall
   'read_full_memory',       // deep-archive tool; use recall for session-appropriate lookup
   'hive_suggestion',        // async Hive workflow; not mid-conversation
   'self_surgery',           // admin-only self-edit tool

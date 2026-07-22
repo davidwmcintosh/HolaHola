@@ -2693,6 +2693,26 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'MEMORY_LOOKUP': {
+        const mlQuery = fn.args.query as string | undefined;
+        if (mlQuery) {
+          // domains arrives as string[] from FC, or may be a comma-separated string from GL text path
+          const rawDomainsArg = fn.args.domains;
+          const rawDomains: string[] = Array.isArray(rawDomainsArg)
+            ? rawDomainsArg as string[]
+            : typeof rawDomainsArg === 'string' && rawDomainsArg.trim()
+              ? rawDomainsArg.split(',').map((d: string) => d.trim()).filter(Boolean)
+              : [];
+          console.log(`[Native Function→MemoryLookup] Query: "${mlQuery.substring(0, 60)}" domains: [${rawDomains.join(', ')}]`);
+          const mlPromise = this.processMemoryLookup(session, mlQuery, rawDomains).catch(err => {
+            console.error(`[Native Function→MemoryLookup] Error:`, err.message);
+          });
+          if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+          session.pendingMemoryLookupPromises.push(mlPromise);
+        }
+        break;
+      }
+
       case 'CONVERSATION_DATE_BROWSE': {
         const afterDateStr = fn.args.after_date as string | undefined;
         const beforeDateStr = fn.args.before_date as string | undefined;
