@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 22, 2026 at 04:57 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve seeded Daniela’s (userId `49847136`) "moved" and "resolute" reflections and fixed the `run()` script to resolve real admin IDs at runtime. I fully wired the Archive Guardian system, implementing a `guardianFireLog` to track fires and exposing them via the `/api/admin/luca-session-view` endpoint for real-time observability. Finally, I updated the system prompt with Gemini-approved phrasing to ensure Daniela integrates these memories naturally, moving away from technical jargon toward a more grounded, first-person internal "witness" register.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet)** (Jul 22): Verbatim David↔Luca dialogue captured periodically. 2 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Wednesday, July 22, 2026 at 05:40 PM
 
 ---
 

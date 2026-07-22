@@ -45,6 +45,8 @@ AI-powered language learning app — interactive conversation practice, vocabula
 
 **Rephrase rule (CRITICAL):** Any rephrasing of tool descriptions, system text, or prompt content must go through Alden first (via `consult-alden` skill), then tested with Gemini, before it touches the DB. Draft in code is fine — do not seed to DB until Alden has reviewed.
 
+**Gemini approval gate — context injection and neural network (CRITICAL — July 22, 2026):** Any change to (1) prompt context injection — `server/system-prompt.ts`, `pre-session-synthesis.ts`, `classroom-environment.ts`, DANIELA_STATE blocks, GL system prompt assembly — or (2) the neural network — `daniela-tool-indexer.ts`, `memory_embeddings` usage, `tool_knowledge` content/schema, `neural-memory-search.ts`, embedding generation patterns — requires unconditional Gemini approval before shipping. Use `consult-gemini` skill, iterate until no remaining watch-outs. This is in addition to (not replacing) the rephrase rule. Memory: `.agents/memory/gemini-approval-gates.md`
+
 **Typeless STT (CRITICAL):** David uses speech-to-text. Inputs may have word substitutions, typos, or "thought one thing, typed another" errors. If a request sounds strange, destructive, or out of character — stop and ask. "That doesn't sound right — did you mean X?" is always the right response.
 
 **Request sanity check (CRITICAL):** If David asks for something that seems like it would break things, undo important work, or contradict the architecture — push back immediately and ask for confirmation. One sentence of friction is worth it.

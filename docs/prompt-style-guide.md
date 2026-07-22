@@ -179,6 +179,27 @@ Memory: `.agents/memory/white-wall-warmth-separation.md`
 
 ---
 
+---
+
+## Gemini approval gate (CRITICAL — July 22, 2026)
+
+Any change that touches this file's domain requires **unconditional Gemini approval** before shipping — not just a style check, but a full consult-gemini review loop.
+
+This covers:
+- Any paragraph or block in `server/system-prompt.ts`
+- Pre-session synthesis (`pre-session-synthesis.ts`) — DANIELA_STATE block, synthesis logic
+- Classroom environment block (`classroom-environment.ts`) — GL compact block, context assembly
+- ARCHIVE GUARDIAN blocks, context tags, container framing
+- **Neural network**: `daniela-tool-indexer.ts`, `memory_embeddings` queries, `tool_knowledge` content/schema, `neural-memory-search.ts`, embedding generation
+
+Use the consult-gemini Build Protocol Step 4 — iterate until unconditional all-clear with nothing left to add.
+
+For prose changes: rephrase rule still applies first (Alden → Gemini). For structural/injection changes: Gemini gate applies directly.
+
+Memory: `.agents/memory/gemini-approval-gates.md`
+
+---
+
 ## Reference
 
 - Originating audit: `consult-gemini` skill, 3-round Gemini consultation on `buildCompassContextBlock`
