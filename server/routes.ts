@@ -6659,6 +6659,8 @@ ${memoryContext}
         transcriptTail: (session.transcriptTail ?? []).slice(-10),
         sosLog: (session.sosLog ?? []).filter((e: any) => !e.acknowledged),
         dbWriteLog: (session.dbWriteLog ?? []).slice(-30),
+        // Archive Guardian fire log — all three paths: pre-turn, post-turn-phrase, friction-signal
+        guardianFires: (session as any).guardianFireLog ?? [],
         // Session-level telemetry totals
         sessionTelemetry: {
           ttsCharacters: session.telemetryTtsCharacters,

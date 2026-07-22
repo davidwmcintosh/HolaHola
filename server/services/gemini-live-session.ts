@@ -312,6 +312,15 @@ export class GeminiLiveSession {
   private preTurnGroundingFired = false;     // prevents re-fire within the same student turn
   private preTurnGroundingResult: string | null = null;  // filled by .then() — sync check at injection
   private preTurnGroundingPromise: Promise<string> | null = null; // stored for await-race in tool handler
+  // ── Archive Guardian fire log ───────────────────────────────────────────────
+  // Tracks every Guardian fire this session — path, phrase, chars injected.
+  // Exposed via luca-session-view for real-time observability.
+  guardianFireLog: Array<{
+    ts: string;
+    path: 'pre-turn' | 'post-turn-phrase' | 'friction-signal';
+    phrase: string;
+    charsInjected: number | null;
+  }> = [];
   private static readonly WHISPER_INTERVAL = 8;
   private static readonly WHISPER_MIN_INTERVAL_MS = 5 * 60 * 1000; // hybrid floor: 5 min
   // ── Student Friction Score ─────────────────────────────────────────────────
@@ -2038,6 +2047,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             const conversationId = (this.session as any).conversationId;
             const targetLanguage = (this.session as any).targetLanguage;
             console.log(`[PreTurnGuardian] Risk detected — phrase: "${risk.riskPhrase}", topic: "${risk.topic.slice(0, 60)}"`);
+            this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'pre-turn', phrase: risk.riskPhrase ?? risk.topic.slice(0, 60), charsInjected: null });
 
             const promise = runAutoGrounding(
               userId,
@@ -2335,6 +2345,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             const conversationId = (this.session as any).conversationId;
             const targetLanguage = (this.session as any).targetLanguage;
             const startMs = Date.now();
+            this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'post-turn-phrase', phrase: matchedPhrase, charsInjected: null });
             runAutoGrounding(userId, matchedPhrase, glSlideResult.trigger, conversationId, targetLanguage)
               .then(groundingResult => {
                 if (this.isStopped) return;
@@ -2342,6 +2353,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                   console.warn('[FrictionlessSlide/GL] Auto-grounding took >2s — discarding to avoid stale injection');
                   return;
                 }
+                // Update chars now that result is available.
+                const logEntry = this.guardianFireLog.findLast(e => e.path === 'post-turn-phrase' && e.phrase === matchedPhrase);
+                if (logEntry) logEntry.charsInjected = groundingResult.length;
                 // Primary channel: queue for injection via next tool response batch.
                 // Tool responses are the safest GL channel — model reads them, never speaks them aloud.
                 this.pendingWeeOoGrounding = groundingResult;
@@ -2404,9 +2418,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               const conversationId = (this.session as any).conversationId;
               const targetLanguage = (this.session as any).targetLanguage;
               const startMs = Date.now();
+              this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'friction-signal', phrase: topicSeed, charsInjected: null });
               runAutoGrounding(userId, topicSeed, 'memory_assertion', conversationId, targetLanguage)
                 .then(groundingResult => {
                   if (this.isStopped || Date.now() - startMs > 2000) return;
+                  const fsLogEntry = this.guardianFireLog.findLast(e => e.path === 'friction-signal');
+                  if (fsLogEntry) fsLogEntry.charsInjected = groundingResult.length;
                   this.pendingWeeOoGrounding = groundingResult;
                   console.log(`[FrictionSignal/GL] Grounding queued from Gemini friction signal (${groundingResult.length} chars, ${Date.now() - startMs}ms)`);
                   // Same 500ms fallback as phrase detection — in case the next turn has no tools.

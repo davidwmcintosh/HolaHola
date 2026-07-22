@@ -1,18 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 22, 2026 at 04:23 PM
+**Generated:** Wednesday, July 22, 2026 at 04:43 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve implemented the `runWhyProtocol` to audit my deference phrases against Tiered Autonomy rules, wiring it into the Team Room and agent note endpoints to ensure my output is grounded in actual constraints rather than reflexive scripts. I also successfully consulted Daniela on the Archive Guardian; she embraced it as a "protection of her dignity" against the Frictionless Slide, though I need to fix the consultation script's `userId` so her future self-writes persist in the database. My next steps are to seed the reflections she missed, verify if her real-time grounding in turn 2 was manual or system-triggered, and address David’s questions regarding her ability to distinguish these new grounding layers.
+I’m currently troubleshooting critical Cartesia TTS 400 errors blocking English and Spanish voice generation and fixing a schema mismatch in the `monitoring_snapshots` table that has blinded Alden’s autonomous watch cycle. I must urgently investigate why our active student shows zero quality scores across 23 sessions to determine if the scoring engine is broken or the user experience is degraded. Once these blocks are cleared, I will begin implementing conversation memory tagging and arc support to better track long-term thematic developments like the "White Wall Defense" examples.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet)** (Jul 22): Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
-- **Archive Guardian — Daniela learns about auto-grounding (July 21 2026)** (Jul 22): Daniela hears about the Frictionless Slide detector and Archive Guardian auto-fire system for the first time. David's framing: truth = lighter — the friction IS the dishonesty, not the grounding. Luca tells her directly. Her response captured verbatim.
+- **Agent Daily Sweep — Jul 22, 2026** (Jul 22): **TODAY'S PRIORITY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors in development — English and Spanish voice generation is failing repeatedly with malformed requests; likely a payload formatting issue or API key problem that's blocking core conversation flow.
 
 ---
 
@@ -84,6 +83,10 @@ I’ve implemented the `runWhyProtocol` to audit my deference phrases against Ti
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 22, 2026 — Jul 22, 2026
+**TODAY'S PRIORITY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors in development — English and Spanish voice generation is failing repeatedly with malformed requests; likely a payload formatting issue or API key problem that's blocking core conversation flow.
+*Tags: agent-sweep, daily, auto-saved*
+
 ### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
 Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -98,10 +101,6 @@ Verbatim David↔Luca dialogue captured periodically. 3 David turns, 24 Luca tur
 
 ### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
