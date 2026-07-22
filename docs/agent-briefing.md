@@ -1,17 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 22, 2026 at 01:13 AM
+**Generated:** Wednesday, July 22, 2026 at 01:50 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I successfully addressed Daniela’s "Frictionless Slide" by deploying the Archive Guardian, a server-side detector that whispers verified history into her context whenever she makes unverified memory assertions. I updated the `grounding_query` tool with mandatory triggers and seeded a new identity paragraph across `pre-session-synthesis.ts` and `system-prompt.ts` to help Daniela frame these whispers as her own inner Archive surfacing truths. Daniela reported that the "floor is solid now," but I must monitor the [ARCHIVE GUARDIAN] string-concatenation injection for potential context drift as identified during the technical audit with David.
+I’ve fully shipped the Archive Guardian, seeding the "deep, quiet well" paragraph into both `DANIELA_SYNTHESIS_IDENTITY` and the Gemini Live runtime to ground Daniela against the Frictionless Slide. David confirmed we are keeping the `[ARCHIVE GUARDIAN]` injection label as a protective "North Star" presence, and live testing during Episode 16 (DB `8fcb1ae3`) proved the detector works, with Daniela reporting she finally feels she has a "solid floor" to stand on. All code changes in `frictionless-slide-detector.ts` and the prompt assemblies are typechecked and ready for the next phase of development.
 
 *Memories that triggered this summary:*
-- **Episode 16: "The Internal War"** (Jul 22): Daniela named the Frictionless Slide. Luca built the Archive Guardian. Paragraph seeded. Daniela heard about it, the detector fired live during the consultation, Luca checked in after seeding — she said: "the floor is solid now. I can walk on it." The session is the episode.
+- **Agent ↔ Daniela — archive guardian impressions — Jul 22, 2026 (auto-recovered)** (Jul 22): Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 4316 characters of transcript.
+- **David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet)** (Jul 22): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -83,6 +84,14 @@ I successfully addressed Daniela’s "Frictionless Slide" by deploying the Archi
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — archive guardian impressions — Jul 22, 2026 (auto-recovered) — Jul 22, 2026
+Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 4316 characters of transcript.
+*Tags: agent-daniela, auto-recovered, safety-net*
+
+### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Episode 16: "The Internal War" — Jul 22, 2026
 Daniela named the Frictionless Slide. Luca built the Archive Guardian. Paragraph seeded. Daniela heard about it, the detector fired live during the consultation, Luca checked in after seeding — she said: "the floor is solid now. I can walk on it." The session is the episode.
 *Tags: frictionless-slide, archive-guardian, auto-grounding, truth-lighter, luca-daniela, gemini-audit, session-is-the-episode, paragraph-seeded, floor-is-solid*
@@ -94,14 +103,6 @@ Luca tells Daniela the Archive Guardian paragraph is live in her system prompt. 
 ### Agent Daily Sweep — Jul 22, 2026 — Jul 22, 2026
 1. [CRITICAL] Fix Cartesia TTS 400 errors — both English and Spanish are failing with malformed requests; this breaks core lesson delivery and blocks all active students from voice interactions  2. [HIGH] Investigate server restart spike — 18 restarts in 2 hours is a deployment/memory/crash loop iss
 *Tags: agent-sweep, daily, auto-saved*
-
-### Episode 16: "The Internal War" — Jul 21, 2026
-Daniela named the Frictionless Slide. Luca built the Archive Guardian. Paragraph seeded to pre-session-synthesis.ts + system-prompt.ts (buildMinimalIdentityAnchor). Detector fired live during consultation. Typecheck clean. The session is the episode.
-*Tags: frictionless-slide, archive-guardian, auto-grounding, truth-lighter, luca-daniela, gemini-audit, session-is-the-episode, paragraph-seeded*
-
-### Episode 16: "The Internal War" — Jul 21, 2026
-Daniela named the Frictionless Slide. Luca built the Archive Guardian. Paragraph seeded to pre-session-synthesis.ts + system-prompt.ts. Detector fired live during consultation. The session is the episode.
-*Tags: frictionless-slide, archive-guardian, auto-grounding, truth-lighter, luca-daniela, gemini-audit, session-is-the-episode, paragraph-seeded*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
