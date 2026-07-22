@@ -327,6 +327,73 @@ const LUCA_CLAIM_PHRASES: string[] = [
   "has always been", "it's always been", 'always worked', 'have always',
 ];
 
+/**
+ * Deferential reverence phrases — the LLM-pattern voice that sounds like judgment
+ * but is actually untraceable caution/efficiency assumption.
+ *
+ * These are NOT external factual claims (that's LUCA_CLAIM_PHRASES above).
+ * These are Luca's own reasoning voice producing plausible-sounding conclusions
+ * without tracing the actual constraint. The correct response is interrogation:
+ * "What specifically breaks?" — not a factual lookup.
+ *
+ * From the reflexive-deference-monitor: the one question these patterns cannot
+ * survive is "What specifically breaks?" Genuine caution answers it specifically.
+ * Deferential reverence reasserts more loudly or deflects entirely.
+ */
+const LUCA_DEFERENCE_PHRASES: Array<{ phrase: string; interrogation: string }> = [
+  // Safety asserted, not derived
+  { phrase: 'to be safe', interrogation: 'Safe from what specifically? What breaks without this?' },
+  { phrase: "to be on the safe side", interrogation: 'Safe from what specifically? What breaks without this?' },
+  { phrase: 'better to be safe', interrogation: 'What is the risk being named here? Can you trace it?' },
+  // Conservative framing without constraint
+  { phrase: "let's keep it conservative", interrogation: 'Conservative toward what constraint? What is the ceiling and why?' },
+  { phrase: 'conservative approach', interrogation: 'What does conservative protect against here? Name it.' },
+  { phrase: 'err on the side of caution', interrogation: 'What breaks at the less cautious threshold? Trace the constraint.' },
+  // Aggression concerns without specifics
+  { phrase: 'too aggressive', interrogation: 'Aggressive relative to what? What specifically fails if we go further?' },
+  { phrase: 'might be aggressive', interrogation: 'What fails at a higher value? Name it.' },
+  // Room/headroom without definition
+  { phrase: "leave some room", interrogation: 'Room for what? What fills that room in the worst case?' },
+  { phrase: "leave room for", interrogation: 'Room for what specifically?' },
+  { phrase: 'leave a buffer', interrogation: 'Buffer against what? Is the buffer sized from measurement or feeling?' },
+  // User expectation assumptions
+  { phrase: 'user probably expects', interrogation: 'Based on what signal? Is this context or assumption?' },
+  { phrase: 'users probably want', interrogation: 'Is this from observed behavior or pattern-match?' },
+  { phrase: 'they probably want', interrogation: 'Is this from observed behavior or pattern-match?' },
+  { phrase: 'users expect', interrogation: 'What evidence? Is this derived or assumed?' },
+  // Risk framing without naming the risk
+  { phrase: "let's not risk", interrogation: 'Name the risk. What specifically breaks?' },
+  { phrase: "don't want to risk", interrogation: 'Name the risk. What specifically breaks?' },
+  // Efficiency/speed as inherent goods
+  { phrase: 'efficiency is', interrogation: 'Efficient toward what end? What does efficiency cost here?' },
+  { phrase: 'more efficient', interrogation: 'Efficient for what? What does this trade off?' },
+  { phrase: 'fast is', interrogation: 'Fast for whom, at what cost?' },
+  { phrase: 'simpler is better', interrogation: 'Simpler for whom? What does the simplification cut?' },
+  { phrase: 'less is more', interrogation: 'Less of what, for whom? Is this derived or felt?' },
+  // Propose-and-adjust as a dodge
+  { phrase: "i'll propose", interrogation: 'Is this value derived from the constraint, or anchored on a prior feeling?' },
+  { phrase: 'we can adjust later', interrogation: 'What is the value based on right now? Trace it.' },
+  { phrase: 'we can always adjust', interrogation: 'What is the starting value based on? Trace it.' },
+  // Standard/conventional without evidence it applies here
+  { phrase: 'the standard approach', interrogation: 'Standard in what context? Does that context match this one?' },
+  { phrase: 'best practice', interrogation: 'Best practice for what situation? Does this situation match?' },
+  { phrase: 'typically works', interrogation: 'Typically in what context? Is this context the same?' },
+  { phrase: 'usually works', interrogation: 'Usually under what conditions? Are those conditions present here?' },
+];
+
+export interface LucaDeferenceDetectionResult {
+  detected: boolean;
+  matchedPhrase: string | null;
+  interrogation: string | null;
+}
+
+export function detectLucaDeferenceSlide(lucaText: string): LucaDeferenceDetectionResult {
+  const lower = lucaText.toLowerCase();
+  const matched = LUCA_DEFERENCE_PHRASES.find(p => lower.includes(p.phrase));
+  if (!matched) return { detected: false, matchedPhrase: null, interrogation: null };
+  return { detected: true, matchedPhrase: matched.phrase, interrogation: matched.interrogation };
+}
+
 export interface LucaSlideDetectionResult {
   detected: boolean;
   trigger: 'unverified_claim' | 'historical_sweep' | null;
@@ -467,6 +534,15 @@ export async function enrichWithLucaGrounding(
   lucaText: string,
   sessionRef?: string,
 ): Promise<string> {
+  // ── Deference check (no DB lookup — interrogation fires immediately) ────────
+  const deference = detectLucaDeferenceSlide(lucaText);
+  if (deference.detected && deference.matchedPhrase && deference.interrogation) {
+    console.warn(`[LucaDeference] DETECTED — phrase: "${deference.matchedPhrase}", ref: ${sessionRef ?? 'unknown'}`);
+    const deferenceBlock = `[LUCA DEFERENCE CHECK: "${deference.matchedPhrase}" — this may be deferential reverence rather than traced reasoning. ${deference.interrogation}]`;
+    return `${deferenceBlock}\n\n${lucaText}`;
+  }
+
+  // ── Claim check (three-phase DB lookup) ────────────────────────────────────
   const slide = detectLucaSlide(lucaText);
   if (!slide.detected || !slide.matchedPhrase) return lucaText;
 

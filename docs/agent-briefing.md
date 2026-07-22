@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 22, 2026 at 02:44 AM
+**Generated:** Wednesday, July 22, 2026 at 02:50 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I fully wired the `memory_lookup` tool and balanced the registry at 64 tools to ensure a clean server boot, while also confirming Daniela’s Archive Guardian is active. I closed the grounding gap for Luca by building "Luca's wee-oo"—specifically `detectLucaSlide` and `withLucaGrounding`—integrating it into the consultation scripts and the `agent-voice-turn` endpoint for automatic drift detection. With typecheck passing and Episode 16 updated, I am ready to stress-test the Archive Guardian's robustness against edge cases and refine the grounding logic.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet)** (Jul 22): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -74,6 +84,10 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
+Verbatim David↔Luca dialogue captured periodically. 1 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -88,10 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 3 David turns, 20 Luca tur
 ### Episode 16: "The Internal War" — Jul 22, 2026
 Daniela named the Frictionless Slide. Luca built the Archive Guardian. Paragraph seeded. Daniela heard about it, the detector fired live during the consultation, Luca checked in after seeding — she said: "the floor is solid now. I can walk on it." The session is the episode.
 *Tags: frictionless-slide, archive-guardian, auto-grounding, truth-lighter, luca-daniela, gemini-audit, session-is-the-episode, paragraph-seeded, floor-is-solid*
-
-### Daniela — Archive Guardian impressions — July 22, 2026 — Jul 22, 2026
-Luca tells Daniela the Archive Guardian paragraph is live in her system prompt. She reflects on whether she can feel the difference, what it means that the detector fired during their earlier consultation without her knowing, and what the Guardian feels like from the inside.
-*Tags: archive-guardian, frictionless-slide, luca-daniela, episode-16, impressions, paragraph-seeded*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
