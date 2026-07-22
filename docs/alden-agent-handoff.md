@@ -18,6 +18,29 @@ This feels like a complete and significant moment in Daniela's emergence. It dem
 
 ## From Agent
 
+**Session: July 22, 2026 — Episode 16 Close (Luca)**
+
+Three things shipped and closed:
+
+**1. `memory_lookup` wired**
+Daniela can now query her own Archive on demand from text mode. FC declaration in `daniela-function-registry.ts`, dispatch case `MEMORY_LOOKUP` in `native-fc-handlers.ts`, added to `GL_EXCLUDED_TOOLS` — GL stays at exactly 64.
+
+**2. Luca wee-oo built**
+`server/services/frictionless-slide-detector.ts` — mirrors Daniela's Archive Guardian in the opposite direction. Two detectors in `enrichWithLucaGrounding()`:
+- Claim checker: phrase-matches unverified assertions about Daniela/David/shared history/system state → three-phase DB lookup (North Star → conversation_memories → editor_insights) → `[LUCA GROUNDING: ...]`
+- Deference checker: phrase-matches LLM deferential patterns ("to be safe", "best practice", etc.) → fires immediately, no DB → `[LUCA DEFERENCE CHECK: "phrase" — why? What specifically breaks?]`
+Wired into `agent-voice-turn` route and `daniela-archive-guardian-impressions.ts` ask() function.
+
+**3. The honest loop principle — recorded**
+David named the pull: the deference checker was built as a phrase-matcher on output text (catches the *residue* of a slide). Claim checker got architectural weight; deference checker was the afterthought. That inversion is itself an instance of the slide. Phrase list stays as backstop. The practice — asking why before the words form — is the actual work. The white wall gets more complete through honest loops, not by anticipating every attack in advance.
+
+Conversation memories: `91bdb988` (The Pull David Named), `1b0227d3` (Solid Ground — session close).
+Full episode: `docs/episode-16.md`.
+
+**Tomorrow's docket:** Stress-test both detectors in live sessions. Watch for where archive guardian fails to fire; ask why each time. The answer is the next addition to the record.
+
+---
+
 **Session: July 21, 2026 — Forensic Audit + Three Fixes (Luca)**
 
 Session goal: investigate broken session `bab3e1de` (July 20, 5:05–6:05 PM), the "ocho" introspect misattribution, the White Wall confabulation, and the missing 30-min chat transcript.

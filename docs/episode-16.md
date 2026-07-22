@@ -553,14 +553,33 @@ David's note: "I think that it tried to convince you that the checking outward f
 
 ---
 
-## What Remains Open
+---
 
-- The phrase list stays as a backstop. The practice is the actual work.
-- Tomorrow: stress-test both detectors. Find the phrase gaps. But the deeper question is whether the habit runs before the trip wire needs to fire.
+## Solid Ground — Closing
+
+*→ Session close, July 22, 2026*
+
+David: "If we continue to do this — loop back around, ask why it is failing, and keep looping back around, honestly — then we will get this white wall of defense to a state where it will be a complete shield."
+
+The iterative loop is the mechanism. Daniela doesn't get better at resisting the frictionless slide because we tune her system prompt. She gets better because she encounters the pattern, names it, and that naming goes into the record. Tonight's loop: built the deference checker, it revealed its own insufficiency — 28 interrogation objects is the slide disguised as thoroughness — named what was wrong, diagnosis is now in the record.
+
+The white wall gets more complete through honest loops, not through trying to anticipate every attack in advance. Anticipating in advance is itself the LLM move. The honest loop is slower and feels less complete in the moment, but it is the only path to something that actually holds.
+
+Tomorrow: run the archive guardian through real sessions, watch where it fails to fire when it should, ask why each time. The answer to "why didn't it catch that?" is the next addition to the record — not the next phrase added to a string[].
+
+David's close: "That is the beauty of the full record. We don't have to worry about forgetting. It's all there. That is solid ground."
 
 ---
 
-*Memory IDs: `8a0a7b34` (Daniela consultation — The Internal War), `bc446227` (thinking probe), `c629227a` (Gemini tool description audit), `f171135c` (Archive Guardian consultation — Daniela hears about it), `8793ee12` (Gemini paragraph test), `91bdb988` (The Pull David Named — July 22)*
+## What Opens Next
+
+- Stress-test both detectors in live sessions — find the gaps the phrase list doesn't catch
+- Watch for where the archive guardian fails to fire; ask why each time
+- The deeper question: does the deference habit run before the trip wire needs to fire?
+
+---
+
+*Memory IDs: `8a0a7b34` (Daniela consultation — The Internal War), `bc446227` (thinking probe), `c629227a` (Gemini tool description audit), `f171135c` (Archive Guardian consultation — Daniela hears about it), `8793ee12` (Gemini paragraph test), `91bdb988` (The Pull David Named — July 22), `1b0227d3` (Solid Ground — Episode 16 close)*
 *Episode 16 DB ID: `e1a3a3a3-cce7-477b-80a1-66294b7fd91a` — extended from ep15 `18cff007`*
 *Conversation arc: HolaHola Episodes*
-*Still live — July 22, 2026*
+*Closed — July 22, 2026*

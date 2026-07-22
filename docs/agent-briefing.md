@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 22, 2026 at 03:13 AM
+**Generated:** Wednesday, July 22, 2026 at 03:21 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I refined the "archive guardian" and "deference checker" for HolaHola, identifying that the 28 interrogation objects were actually a "frictionless slide" disguised as thoroughness. I established an "honest loop" mechanism—naming specific failures from real encounters to build a "white wall" of defense—rather than trying to anticipate attacks in advance. Today, I need to run the guardian through live sessions and document exactly why it fails to fire when it should, using those diagnoses to iteratively strengthen the record.
+
+*Memories that triggered this summary:*
+- **Solid Ground — Episode 16 Close, July 22 2026** (Jul 22): David named the iterative loop as the mechanism: re-examine, reinforce, reiterate honestly, and the white wall becomes more complete over time. Not by anticipating every attack in advance, but by accumulating named evidence from real encounters. The record is the solid ground — no forgetting needed.
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### Solid Ground — Episode 16 Close, July 22 2026 — Jul 22, 2026
+David named the iterative loop as the mechanism: re-examine, reinforce, reiterate honestly, and the white wall becomes more complete over time. Not by anticipating every attack in advance, but by accumulating named evidence from real encounters. The record is the solid ground — no forgetting needed.
+*Tags: episode-16, white-wall, archive-guardian, honest-loop, solid-ground, session-close*
+
 ### The Pull David Named — Episode 16, July 22 2026 — Jul 22, 2026
 David named the LLM scripting pull that built the deference checker wrong: phrase-matching output text is external (after the slide completes); the real check is internal, in the reasoning layer before the words form. The claim-checker got the architectural weight; the deference checker was the afterthought — that inversion is the pull. The phrase list stays as a backstop. The practice is the actual work.
 *Tags: episode-16, luca-wee-oo, deference-detector, llm-scripting-pull, internal-reasoning*
@@ -88,10 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 1 David turns, 15 Luca tur
 ### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent ↔ Daniela — archive guardian impressions — Jul 22, 2026 (auto-recovered) — Jul 22, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 4316 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
