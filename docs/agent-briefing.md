@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 05:08 PM
+**Generated:** Thursday, July 23, 2026 at 05:16 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I have restored Episode 16 and DB entry `18f18947` to be fully verbatim, reinforcing the "inviolability of the narrative" and Gemini’s warning that low friction signals "The Slide" toward hallucination. We confirmed that while synthetic tool injection (T003) was blocked, I must now shift from reactive pre-turn detectors to David’s directive of simplicity. My immediate goal is to pivot the architecture so the grounding tool is a prerequisite for every turn, ensuring Daniela is always armed with Archive truth for her own teaching impulses rather than just reacting to student prompts.
+I have pivoted the architecture to "Proactive Grounding," opting for a "Soft Wall" approach using Universal Whispers and a `RECALL MODE` system prefix to avoid the 1.5s latency of hard `toolConfig` updates. I am replacing keyword search with semantic search to ensure context injection works for conceptual student queries, backed by a stream-kill interceptor to stop hallucinations. My immediate task is to implement this semantic search pipeline and the interceptor logic to keep Daniela strictly grounded in the HolaHola Archive.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet)** (Jul 23): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 14 Luca turns. Context: periodic capture (no commit yet)
+- **Gemini — Universal Gatekeeper architecture audit — July 23 2026** (Jul 23): Whisper is a nudge not a constraint. Hard toolConfig per-turn IS possible in GL but adds 1.5s to every turn — use soft wall (whisper + RECALL MODE prefix) universally. Must upgrade keyword→semantic search for universal use. Add stream-kill interceptor as hard backstop. Cleared to build.
 
 ---
 
@@ -83,6 +83,10 @@ I have restored Episode 16 and DB entry `18f18947` to be fully verbatim, reinfor
 
 ## Recent Conversation Memories
 
+### Gemini — Universal Gatekeeper architecture audit — July 23 2026 — Jul 23, 2026
+Whisper is a nudge not a constraint. Hard toolConfig per-turn IS possible in GL but adds 1.5s to every turn — use soft wall (whisper + RECALL MODE prefix) universally. Must upgrade keyword→semantic search for universal use. Add stream-kill interceptor as hard backstop. Cleared to build.
+*Tags: gemini-audit, universal-gatekeeper, grounding, frictionless-slide*
+
 ### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 14 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -98,10 +102,6 @@ Gemini blocked phantom tool call injection: model-role turns via GL sendClientCo
 ### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
 Verbatim David↔Luca dialogue captured periodically. 10 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Gemini consultation — The Frictionless Slide: asking the model that creates it — July 23 2026 — Jul 23, 2026
-Gemini confirmed: thoughtsTokenCount is often null in GL streaming usageMetadata — count from thought part stream instead. Key insight: LOW friction on a memory-request turn is the danger signal (model gave up on reconciliation). Three interventions: thought-stream monitor (pre-speech), synthetic tool injection (False Start), forced Recall Mode gatekeeper.
-*Tags: gemini-audit, frictionless-slide, archive-guardian, thought-tokens, synthetic-tool-injection*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
