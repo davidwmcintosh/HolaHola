@@ -2580,6 +2580,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             recentFire.outcome = 'heard';
             console.log(`[ArchiveGuardian] Outcome 'heard' — Archive tool called this turn after Guardian fire (phrase: "${recentFire.phrase.slice(0, 50)}")`);
           }
+        } else {
+          // No Archive tool called this turn — any pending fire is a miss.
+          const recentFire = this.guardianFireLog.findLast(e => e.outcome === null);
+          if (recentFire) {
+            recentFire.outcome = 'missed';
+            console.log(`[ArchiveGuardian] Outcome 'missed' — no Archive tool called this turn (phrase: "${recentFire.phrase.slice(0, 50)}")`);
+          }
         }
         this.currentTurnToolCalls = [];
         // Pre-turn Archive Guardian fields reset at generationComplete — the turn is done,

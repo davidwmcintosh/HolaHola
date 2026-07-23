@@ -254,6 +254,10 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   
   // Ref for greeting silence watchdog (cleanup on disconnect)
   const greetingSilenceWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Speculative thinking timer — fires 700ms after the last inputTranscription chunk
+  // to switch the avatar to 'thinking' before the real processing_pending arrives.
+  // Cancelled if processing_pending arrives first (the authoritative signal).
+  const speculativeThinkingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Set true on first audio chunk — prevents greeting_retry from resetting watchdog after audio already arrived.
   const greetingAudioArrivedRef = useRef(false);
 
@@ -654,6 +658,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const handleProcessingPending = useCallback((msg: { type: string; timestamp: number; interimTranscript?: string }) => {
     console.log(`[StreamingVoice] Processing pending: "${(msg.interimTranscript ?? '').substring(0, 30)}..."`);
     
+    // Cancel any speculative thinking timer — real signal arrived.
+    if (speculativeThinkingTimerRef.current) {
+      clearTimeout(speculativeThinkingTimerRef.current);
+      speculativeThinkingTimerRef.current = null;
+    }
+
     // IMMEDIATELY show thinking indicator
     setIsProcessing(true);
     // Guard: never overwrite 'playing' or 'buffering' — in the GL path, processing_pending
@@ -1649,6 +1659,23 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     // Also fire dedicated GL callback so the component can accumulate the live caption bar
     // without conflating it with Deepgram interim transcripts.
     sessionConfigRef.current?.onGlUserTranscript?.(message.text);
+
+    // Speculative thinking: restart the 700ms debounce on each new GL inputTranscription chunk.
+    // When chunks stop arriving, GL has committed the student's turn and is generating.
+    // Switching the avatar to 'thinking' here closes the gap between the student's last
+    // word and the real processing_pending (which arrives with the first audio/transcription).
+    // Guard: only fire if not already in a generating/playing state.
+    if (speculativeThinkingTimerRef.current) {
+      clearTimeout(speculativeThinkingTimerRef.current);
+    }
+    speculativeThinkingTimerRef.current = setTimeout(() => {
+      speculativeThinkingTimerRef.current = null;
+      const state = getGlobalPlaybackState();
+      if (state !== 'thinking' && state !== 'playing' && state !== 'buffering') {
+        console.log('[StreamingVoice] Speculative thinking — GL inputTranscription stopped, student turn likely done');
+        setGlobalPlaybackState('thinking');
+      }
+    }, 700);
   }, []);
 
   const handleDanielaTranscript = useCallback((message: { type: string; text: string; turnId: number }) => {
