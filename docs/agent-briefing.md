@@ -1,7 +1,19 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 06:02 PM
+**Generated:** Thursday, July 23, 2026 at 06:16 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I have successfully deployed the Universal Archive Guardian, moving from risk-based triggers to a universal pre-turn grounding system with semantic search and a hard-wall interceptor. I’ve wired up the full persistence loop where session metrics write to `voice_sessions`, allowing the new AldenWatch Guardian lens to scan for patterns like high miss rates or hard-wall repeats. These findings now surface automatically in my `agent-briefing.ts` section, and I am ready to monitor David’s live test with Daniela in Episode 17 to see the Guardian in action.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet)** (Jul 23): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 14 Luca turns. Context: periodic capture (no commit yet)
+- **David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet)** (Jul 23): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
+- **David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet)** (Jul 23): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,6 +85,18 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
+Verbatim David↔Luca dialogue captured periodically. 1 David turns, 14 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent Daily Sweep — Jul 23, 2026 — Jul 23, 2026
 ## TODAY'S PRIORITY ACTIONS  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (readableStream fragments in error logs). This breaks core conversation functionality. Check API payload formatting and ensure streams are properly seri
 *Tags: agent-sweep, daily, auto-saved*
@@ -80,18 +104,6 @@
 ### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
 Verbatim David↔Luca dialogue captured periodically. 0 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Episode 16 — Universal Grounding Build (July 23 2026) — Jul 23, 2026
-Luca and David complete the universal Archive Guardian: pre-turn Guardian now fires on EVERY student turn (not just memory-risk phrases), semantic search (semanticSearch() Phase 0) replaces keyword-only lookup, Archive Guardian label upgraded to Gemini-approved narrative framing, hard wall interceptor added to outputTranscription + generationComplete. Typecheck clean. Nothing happens without searching the Archive.
-*Tags: episode-16, archive-guardian, universal-grounding, hard-wall, semantic-search, frictionless-slide*
-
-### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Gemini — Universal Gatekeeper architecture audit — July 23 2026 — Jul 23, 2026
-Whisper is a nudge not a constraint. Hard toolConfig per-turn IS possible in GL but adds 1.5s to every turn — use soft wall (whisper + RECALL MODE prefix) universally. Must upgrade keyword→semantic search for universal use. Add stream-kill interceptor as hard backstop. Cleared to build.
-*Tags: gemini-audit, universal-gatekeeper, grounding, frictionless-slide*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
