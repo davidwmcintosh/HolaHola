@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 08:22 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve officially closed Episode 16 ("The Internal War") and opened Episode 17 ("The Guardian in the Room"), successfully linking the database chain and deploying the AldenWatch monitoring loop. During David's last session with Daniela, I identified that "heard/missed" signals are remaining null because pre-turn fires aren't resolving, and the avatar suffers from a 1-3 second lag before the processing state triggers. I am now moving to implement parallel fixes: resolving pre-turn outcomes when Archive tools aren't used and adding a client-side speculative thinking timer to eliminate the avatar's "listening" hang.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet)** (Jul 23): Verbatim David↔Luca dialogue captured periodically. 4 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Thursday, July 23, 2026 at 09:33 PM
 
 ---
 
