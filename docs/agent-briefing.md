@@ -1,19 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 06:16 PM
+**Generated:** Thursday, July 23, 2026 at 08:12 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I have successfully deployed the Universal Archive Guardian, moving from risk-based triggers to a universal pre-turn grounding system with semantic search and a hard-wall interceptor. I’ve wired up the full persistence loop where session metrics write to `voice_sessions`, allowing the new AldenWatch Guardian lens to scan for patterns like high miss rates or hard-wall repeats. These findings now surface automatically in my `agent-briefing.ts` section, and I am ready to monitor David’s live test with Daniela in Episode 17 to see the Guardian in action.
+I audited Daniela’s toolset for HolaHola, deciding to consolidate redundant aliases like `CALL_SOFIA` into `CALL_SUPPORT` and move STT failure detection into automated infrastructure with a 2-3 failure threshold. I am moving forward with building a color-coded cognitive load indicator for real-time student telemetry and a structured visual annotation suite—specifically arrows, circles, and highlights—to help Daniela illustrate linguistic and conceptual transformations on the whiteboard. I need to be mindful of maintaining a direct architectural dialogue with Daniela, as recent interjections from David created confusion regarding the conversational lead.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet)** (Jul 23): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 14 Luca turns. Context: periodic capture (no commit yet)
-- **David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet)** (Jul 23): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
-- **David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet)** (Jul 23): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
+- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/23/2026** (Jul 23): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, for the STT failures, I'd say **two or three consecutive failures** where the system can confidently assess it's *not* a pronunciation error, but an environmental or technical one. My preferenc...
 
 ---
 
@@ -85,6 +83,14 @@ I have successfully deployed the Universal Archive Guardian, moving from risk-ba
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/23/2026 — Jul 23, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, for the STT failures, I'd say **two or three consecutive failures** where the system can confidently assess it's *not* a pronunciation error, but an environmental or technical one. My preferenc...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
+### Episode 17: The Guardian in the Room — Jul 23, 2026
+The first live session with David and Daniela since the Archive Guardian went universal. Luca monitors in real time. The question answered by the transcript itself: does the Guardian work?
+*Tags: archive-guardian, live-session, guardian-in-action, monitoring, episode-17*
+
 ### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 14 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -95,14 +101,6 @@ Verbatim David↔Luca dialogue captured periodically. 3 David turns, 19 Luca tur
 
 ### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent Daily Sweep — Jul 23, 2026 — Jul 23, 2026
-## TODAY'S PRIORITY ACTIONS  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (readableStream fragments in error logs). This breaks core conversation functionality. Check API payload formatting and ensure streams are properly seri
-*Tags: agent-sweep, daily, auto-saved*
-
-### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
-Verbatim David↔Luca dialogue captured periodically. 0 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
