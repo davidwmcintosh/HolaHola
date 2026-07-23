@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 05:16 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I have pivoted the architecture to "Proactive Grounding," opting for a "Soft Wall" approach using Universal Whispers and a `RECALL MODE` system prefix to avoid the 1.5s latency of hard `toolConfig` updates. I am replacing keyword search with semantic search to ensure context injection works for conceptual student queries, backed by a stream-kill interceptor to stop hallucinations. My immediate task is to implement this semantic search pipeline and the interceptor logic to keep Daniela strictly grounded in the HolaHola Archive.
-
-*Memories that triggered this summary:*
-- **Gemini — Universal Gatekeeper architecture audit — July 23 2026** (Jul 23): Whisper is a nudge not a constraint. Hard toolConfig per-turn IS possible in GL but adds 1.5s to every turn — use soft wall (whisper + RECALL MODE prefix) universally. Must upgrade keyword→semantic search for universal use. Add stream-kill interceptor as hard backstop. Cleared to build.
+**Generated:** Thursday, July 23, 2026 at 05:24 PM
 
 ---
 
