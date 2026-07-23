@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 10:15 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I implemented a 700ms speculative thinking timer in `useStreamingVoice.ts` and fixed heard/missed outcome closure in `gemini-live-session.ts` to ensure the observe bench reflects accurate monitoring. During production testing, I identified and shipped a critical fix for an interruption loop where the Pre-turn Guardian was inadvertently triggering barge-ins; I added a guard to prevent `sendClientContent` injections once Daniela's audio generation has already begun. I am now entering the session with these fixes live, but I need to investigate a recent session crash and analyze the 500-entry console log I just captured.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet)** (Jul 23): Verbatim David↔Luca dialogue captured periodically. 7 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Thursday, July 23, 2026 at 10:17 PM
 
 ---
 
