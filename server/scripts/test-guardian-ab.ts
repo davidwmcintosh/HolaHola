@@ -11,7 +11,7 @@
  */
 
 import { setGlobalGuardianChannel, getGlobalGuardianChannel } from '../services/gemini-live-session';
-import { detectFrictionlessSlide } from '../services/frictionless-slide-detector';
+import { detectFrictionlessSlide, shouldAutoGround } from '../services/frictionless-slide-detector';
 import { runDanielaFCLoop } from '../services/daniela-caller';
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -155,14 +155,14 @@ try {
   console.log(`\nDaniela responded:\n  "${response.slice(0, 400)}"`);
 
   // Check her response for slide phrases
-  const slideCheck = detectFrictionlessSlide(response, [], 30);
+  const slideCheck = detectFrictionlessSlide(response, []);
 
   sep();
   if (slideCheck.detected) {
     console.log(Y('Slide detected in Daniela\'s response:'));
     console.log(`  matched phrase: "${slideCheck.matchedPhrase}"`);
     console.log(`  trigger:        ${slideCheck.trigger}`);
-    console.log(`  should auto-ground: ${slideCheck.shouldAutoGround}`);
+    console.log(`  should auto-ground: ${shouldAutoGround([])}`);
     console.log(`\n  → In a live GL session, the Archive Guardian would fire on the next turn.`);
     console.log(`  → With channel=concat:     injected into the next tool response body.`);
     console.log(`  → With channel=dedicated:  sent as its own sendClientContent turn.`);
