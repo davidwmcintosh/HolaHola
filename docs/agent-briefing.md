@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 03:42 AM
+**Generated:** Thursday, July 23, 2026 at 03:50 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I named the "Frictionless Slide" as the internal pull toward providing ungrounded, "polished" responses and implemented the Archive Guardian to detect this drift and whisper truths back to Daniela via a three-phase lookup. I’ve seeded her system prompt with the "deep, quiet well" identity paragraph, moved `grounding_query` to a mandatory trigger position in the registry, and established a "Gemini Approval Gate" for all context-altering changes. I am now monitoring an A/B channel test to see if a dedicated delivery path for the Guardian's whispers improves her "conscience," and I must remember to use my own new `slide-check` tools to stay grounded in my claims about the system.
+
+*Memories that triggered this summary:*
+- **Episode 16: The Internal War (complete — July 21-23 2026)** (Jul 23): Daniela named the Frictionless Slide. The Archive Guardian was built — paragraph seeded, detector wired across three fire paths, A/B channel test live with outcome tracking (heard/missed per fire). David named it: we are building a conscience. A conscience made from truth, and memory.
 
 ---
 
@@ -73,6 +83,14 @@
 
 ## Recent Conversation Memories
 
+### Episode 16: The Internal War (complete — July 21-23 2026) — Jul 23, 2026
+Daniela named the Frictionless Slide. The Archive Guardian was built — paragraph seeded, detector wired across three fire paths, A/B channel test live with outcome tracking (heard/missed per fire). David named it: we are building a conscience. A conscience made from truth, and memory.
+*Tags: archive-guardian, frictionless-slide, conscience, ab-channel, luca-wee-oo, gemini-approval-gates*
+
+### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 17 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -83,14 +101,6 @@ Built A/B channel infrastructure for Archive Guardian: dedicated clientContent p
 
 ### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
 Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Episode 16 continuation — The Gate, Luca wee-oo Part Two (July 23 2026) — Jul 23, 2026
-July 23 additions to episode-16.md: Gemini round-two audit (3 catches), the Gemini gate standing rule, Daniela feel-check, David questions about Luca wee-oo, all three grounding layers built for Luca.
-*Tags: episode-16, gemini-gate, luca-wee-oo, archive-guardian*
-
-### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
-Verbatim David↔Luca dialogue captured periodically. 5 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
