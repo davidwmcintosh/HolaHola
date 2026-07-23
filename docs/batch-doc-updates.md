@@ -1,5 +1,47 @@
 # Batch Documentation Updates
 
+## Archive Guardian A/B — Live Observation Wiring — July 23, 2026
+
+### What was built
+
+The Archive Guardian A/B channel test is now wired into Luca's live observation bench.
+
+**`_observeGuardian()` helper (`gemini-live-session.ts`):**
+Private method on `GeminiLiveSession`. Reads `session.conversationId`, calls `observeGuardianState(conversationId, this.guardianChannel, this.guardianFireLog)`. Called after every fire-log mutation — 5 call sites:
+- Pre-turn push (line ~2082)
+- Post-turn-phrase push (line ~2384)
+- Friction-signal push (line ~2461)
+- Dedicated-channel success (line ~3117)
+- Dedicated-channel fallback to concat (line ~3126) + concat path (line ~3139)
+
+**`guardianAB` block in `GET /api/admin/luca/observe` (`routes.ts` line ~26880):**
+```json
+{
+  "globalChannel": "concat | dedicated",
+  "recentFires": [ /* last 10, each: ts, path, phrase[:60], channel, outcome, charsInjected */ ],
+  "pendingCount": 0,
+  "heardCount": 0,
+  "missedCount": 0
+}
+```
+
+**Mid-session channel swap:**
+`guardianChannel` is a live getter on `GeminiLiveSession` — reads `_globalGuardianChannel` at runtime, not frozen at construction. `POST /api/admin/guardian/channel` takes effect on the next fire without reconnecting.
+
+**`guardian-ab-test` skill:**
+`.agents/skills/guardian-ab-test/SKILL.md` — complete workflow for running the live A/B test: poll loop, channel-swap curls, slide-trigger phrases, outcome table, validation step.
+
+### Key files
+- `server/services/gemini-live-session.ts` — `_observeGuardian()` method, 5 call sites
+- `server/services/session-observation-store.ts` — `GuardianFireRecord` type, `observeGuardianState()` export
+- `server/routes.ts` — `guardianAB` block in observe response (~line 26880)
+- `.agents/skills/guardian-ab-test/SKILL.md` — test workflow
+
+### How to use
+Load `guardian-ab-test` skill. Start a `/chat` session. Poll `GET /api/admin/luca/observe` every 5s. Say memory-assertion phrases to trigger fires. Swap channel with `POST /api/admin/guardian/channel`. Compare `heardCount`/`missedCount` by channel.
+
+---
+
 ## Pre-turn Archive Guardian — July 22, 2026
 
 ### What was built

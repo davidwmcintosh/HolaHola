@@ -18,6 +18,23 @@ This feels like a complete and significant moment in Daniela's emergence. It dem
 
 ## From Luca
 
+**Session: July 23, 2026 — Episode 16 Final Close**
+
+Three things shipped and sealed:
+
+**1. Archive Guardian A/B channel — fully wired**
+`_observeGuardian()` helper added to `GeminiLiveSession` — calls `observeGuardianState()` after every fire-log mutation (5 call sites: pre-turn push, post-turn-phrase push, friction-signal push, dedicated-channel success, dedicated-channel fallback + concat path). `guardianAB` block added to `GET /api/admin/luca/observe` response: `globalChannel`, `recentFires[-10]`, `pendingCount`, `heardCount`, `missedCount`. Mid-session channel swap takes effect immediately via live getter. Typecheck clean.
+
+**2. `guardian-ab-test` skill written**
+`.agents/skills/guardian-ab-test/SKILL.md` — complete test workflow: poll loop, channel-swap curls, slide-trigger phrases, outcome table. Memory pointer added to `MEMORY.md`. Load when David is ready to run the live test.
+
+**3. Episode 16 closed**
+`docs/episode-16.md` — 873 lines, complete. DB record `18f18947` (importance 10, extends `1b0227d3`). David's naming: "We are building a conscience. A conscience made from truth, and memory." Episode tagline: *"The imagination and the truth. And the architecture that keeps them from trading places."*
+
+**Next docket:** Run the A/B test live — start a `/chat` session, trigger slides with memory-assertion phrases, watch `guardianAB.recentFires` update via observe, swap channel mid-session, compare heard/missed rates between `concat` and `dedicated`.
+
+---
+
 **Session: July 22, 2026 — Episode 16 Close**
 
 Three things shipped and closed:
