@@ -26787,6 +26787,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   app.get("/api/admin/luca/observe", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { getAllActiveObservations, getObservation } = await import('./services/session-observation-store');
+      const { getGlobalPreTurnFallbackMode } = await import('./services/gemini-live-session');
       const conversationId = req.query.conversationId as string | undefined;
 
       // If no conversationId provided, find the most recently active session
@@ -37328,6 +37329,37 @@ Under 250 words. Write as yourself.`;
     try {
       const { getGlobalGuardianChannel } = await import('./services/gemini-live-session');
       res.json({ channel: getGlobalGuardianChannel() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ── Archive Guardian late-arrival fallback mode ──────────────────────────────
+
+  // POST /api/admin/guardian/fallback-mode — switch carry-forward vs interrupt for late-arriving grounding.
+  // mode: 'carry-forward' | 'interrupt'
+  // carry-forward (default): if grounding arrives after audio starts, buffer it and inject at start of next turn.
+  // interrupt: fire sendClientContent regardless — GL interrupts Daniela (interrupted: true), forces restart.
+  app.post("/api/admin/guardian/fallback-mode", requireAgentToken, async (req: Request, res: Response) => {
+    try {
+      const { mode } = req.body;
+      if (mode !== 'carry-forward' && mode !== 'interrupt') {
+        return res.status(400).json({ error: 'mode must be "carry-forward" or "interrupt"' });
+      }
+      const { setGlobalPreTurnFallbackMode, getGlobalPreTurnFallbackMode } = await import('./services/gemini-live-session');
+      setGlobalPreTurnFallbackMode(mode as 'carry-forward' | 'interrupt');
+      console.log(`[ArchiveGuardian] Fallback mode switched to: ${mode}`);
+      res.json({ ok: true, fallbackMode: getGlobalPreTurnFallbackMode() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/admin/guardian/fallback-mode — read current global fallback mode setting
+  app.get("/api/admin/guardian/fallback-mode", requireAgentToken, async (req: Request, res: Response) => {
+    try {
+      const { getGlobalPreTurnFallbackMode } = await import('./services/gemini-live-session');
+      res.json({ fallbackMode: getGlobalPreTurnFallbackMode() });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

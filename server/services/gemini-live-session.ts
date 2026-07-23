@@ -6,6 +6,23 @@ let _globalGuardianChannel: 'concat' | 'dedicated' = 'concat';
 export function setGlobalGuardianChannel(ch: 'concat' | 'dedicated'): void { _globalGuardianChannel = ch; }
 export function getGlobalGuardianChannel(): 'concat' | 'dedicated' { return _globalGuardianChannel; }
 
+// ── Archive Guardian late-arrival fallback mode ──────────────────────────────
+// Controls what happens when the pre-turn grounding DB lookup resolves AFTER
+// Daniela has already started generating audio (late arrival on the no-tool-call path).
+//
+//   'interrupt'     — fire sendClientContent regardless; GL treats it as a barge-in
+//                     (interrupted: true), cuts Daniela off and forces a restart.
+//                     Grounding is guaranteed this turn. Side effect: audible restarts.
+//
+//   'carry-forward' — (default) buffer the late result in pendingCarryForwardGrounding
+//                     and inject it at the START of the next student turn, before GL
+//                     begins generating the next response. No interruption; one turn late.
+//
+// Toggle via POST /api/admin/guardian/fallback-mode.
+let _globalPreTurnFallbackMode: 'interrupt' | 'carry-forward' = 'carry-forward';
+export function setGlobalPreTurnFallbackMode(mode: 'interrupt' | 'carry-forward'): void { _globalPreTurnFallbackMode = mode; }
+export function getGlobalPreTurnFallbackMode(): 'interrupt' | 'carry-forward' { return _globalPreTurnFallbackMode; }
+
 /**
  * GeminiLiveSession — Gemini Live API voice session manager.
  *
@@ -324,6 +341,10 @@ export class GeminiLiveSession {
   private preTurnGroundingFired = false;     // prevents re-fire within the same student turn
   private preTurnGroundingResult: string | null = null;  // filled by .then() — sync check at injection
   private preTurnGroundingPromise: Promise<string> | null = null; // stored for await-race in tool handler
+  // Late-arrival carry-forward: if the 150ms fallback fires while Daniela is already generating,
+  // the grounding is stored here instead of interrupting her. Injected at the START of the next
+  // student turn (student is still speaking — GL not generating yet — safe injection window).
+  private pendingCarryForwardGrounding: string | null = null;
   private hardWallTriggered = false;   // set mid-output if slide detected; cleared at generationComplete
   // ── Archive Guardian A/B channel ────────────────────────────────────────────
   // Reads from global config live so mid-session swaps (POST /api/admin/guardian/channel)
@@ -2080,6 +2101,24 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         }
         this.lastInputChunkMs = inputNow;
 
+        // ── Carry-forward injection ────────────────────────────────────────
+        // If the PREVIOUS turn's pre-turn grounding arrived late (after audio had
+        // started), it was buffered in pendingCarryForwardGrounding rather than
+        // interrupting Daniela. Inject it NOW — student is speaking, GL is receiving
+        // audio (not generating), so sendClientContent is safe at this point.
+        if (this.pendingCarryForwardGrounding && this.liveSession && !this.isStopped) {
+          const cfWhisper = `[ARCHIVE GUARDIAN — CARRIED FROM LAST TURN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${this.pendingCarryForwardGrounding}]`;
+          try {
+            this.liveSession.sendClientContent({
+              turns: [{ role: 'user', parts: [{ text: cfWhisper }] }],
+            } as any);
+            console.log(`[PreTurnGuardian] Carry-forward injected at turn start (${this.pendingCarryForwardGrounding.length} chars)`);
+          } catch (e) {
+            console.warn('[PreTurnGuardian] Carry-forward injection failed:', (e as Error).message);
+          }
+          this.pendingCarryForwardGrounding = null;
+        }
+
         // ── Pre-turn Archive Guardian ──────────────────────────────────────
         // Scan the accumulating student transcript for memory-risk phrases.
         // Fire grounding async immediately on first match — by the time GL
@@ -2126,9 +2165,26 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             // Immediate fallback: if no tool call has claimed the result
             // within 150ms, inject via sendClientContent (no turnComplete —
             // queues as context, not a forced generation). This beats the
-            // audio start window for no-tool-call turns.
+            // audio start window for fast no-tool-call turns.
+            //
+            // Late-arrival handling (A/B switch — _globalPreTurnFallbackMode):
+            //   'carry-forward' (default): if Daniela has already started generating
+            //     (processingPendingSentThisTurn || firstAudioSentThisTurn), buffer the
+            //     result for injection at the START of the next student turn instead.
+            //     GL is receiving student audio then — not generating — so no interrupted: true.
+            //   'interrupt': fire sendClientContent regardless; GL sees it as a barge-in
+            //     (interrupted: true) and restarts Daniela's response. Grounding is
+            //     guaranteed this turn at the cost of audible cut-offs.
             setTimeout(() => {
               if (!this.preTurnGroundingResult || this.isStopped || !this.liveSession) return;
+              const lateArrival = !!(this.processingPendingSentThisTurn || this.firstAudioSentThisTurn);
+              if (lateArrival && _globalPreTurnFallbackMode === 'carry-forward') {
+                this.pendingCarryForwardGrounding = this.preTurnGroundingResult;
+                this.preTurnGroundingResult = null;
+                console.log(`[PreTurnGuardian] Late arrival — carrying forward to next turn (${this.pendingCarryForwardGrounding!.length} chars, mode=carry-forward)`);
+                return;
+              }
+              // Either mode='interrupt' or audio hasn't started yet — inject immediately
               const whisper = result
                 ? `[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${this.preTurnGroundingResult}]`
                 : `[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`;
@@ -2136,7 +2192,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 this.liveSession.sendClientContent({
                   turns: [{ role: 'user', parts: [{ text: whisper }] }],
                 } as any);
-                console.log(`[PreTurnGuardian] Injected via sendClientContent (no-tool-call path)`);
+                console.log(`[PreTurnGuardian] Injected via sendClientContent (${lateArrival ? 'interrupt mode — late arrival' : 'no-tool-call path'})`);
                 this.preTurnGroundingResult = null;
               } catch (e) {
                 console.warn('[PreTurnGuardian] sendClientContent fallback failed:', (e as Error).message);
