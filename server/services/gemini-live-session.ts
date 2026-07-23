@@ -44,7 +44,7 @@ import type { ExtractedFunctionCall } from './gemini-function-declarations';
 import { reportGlToolCallFailure, reportGlToolCallSuccess, reportGreetingRetryAttempt, reportGreetingRetryExhausted } from './sofia-billing-monitor';
 import { voiceTelemetry } from './voice-pipeline-telemetry';
 import { glLiveAlert } from './gl-live-monitor';
-import { observeSessionStart, observeActflUpdate, observeSessionEnd } from './session-observation-store';
+import { observeSessionStart, observeActflUpdate, observeSessionEnd, observeGuardianState } from './session-observation-store';
 import { getSharedDb } from '../db';
 import { generateConversationTitle } from '../conversation-utils';
 import { sql, eq } from 'drizzle-orm';
@@ -321,10 +321,14 @@ export class GeminiLiveSession {
   private preTurnGroundingResult: string | null = null;  // filled by .then() — sync check at injection
   private preTurnGroundingPromise: Promise<string> | null = null; // stored for await-race in tool handler
   // ── Archive Guardian A/B channel ────────────────────────────────────────────
-  // Set from global config at session start. Can be overridden per-session.
+  // Reads from global config live so mid-session swaps (POST /api/admin/guardian/channel)
+  // take effect immediately without requiring a reconnect.
+  // Per-session override: set _guardianChannelOverride to lock a specific channel.
   //   'concat'    — (default) inject via string-concat onto last tool response body
   //   'dedicated' — send as own sendClientContent turn (no turnComplete)
-  guardianChannel: 'concat' | 'dedicated' = _globalGuardianChannel;
+  private _guardianChannelOverride: 'concat' | 'dedicated' | null = null;
+  get guardianChannel(): 'concat' | 'dedicated' { return this._guardianChannelOverride ?? _globalGuardianChannel; }
+  set guardianChannel(ch: 'concat' | 'dedicated') { this._guardianChannelOverride = ch; }
   // ── Archive Guardian fire log ───────────────────────────────────────────────
   // Tracks every Guardian fire this session — path, phrase, chars injected,
   // channel used, and outcome (heard = Archive tool called next turn;
@@ -337,6 +341,14 @@ export class GeminiLiveSession {
     channel: 'concat' | 'dedicated' | null;
     outcome: 'heard' | 'missed' | null;
   }> = [];
+
+  /** Push current guardian state to the observation store so Luca's observe endpoint reflects it live. */
+  private _observeGuardian(): void {
+    const conversationId = (this.session as any).conversationId as string | undefined;
+    if (!conversationId) return;
+    observeGuardianState(conversationId, this.guardianChannel, this.guardianFireLog);
+  }
+
   private static readonly WHISPER_INTERVAL = 8;
   private static readonly WHISPER_MIN_INTERVAL_MS = 5 * 60 * 1000; // hybrid floor: 5 min
   // ── Student Friction Score ─────────────────────────────────────────────────
@@ -2064,6 +2076,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             const targetLanguage = (this.session as any).targetLanguage;
             console.log(`[PreTurnGuardian] Risk detected — phrase: "${risk.riskPhrase}", topic: "${risk.topic.slice(0, 60)}"`);
             this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'pre-turn', phrase: risk.riskPhrase ?? risk.topic.slice(0, 60), charsInjected: null, channel: null, outcome: null });
+            this._observeGuardian();
 
             const promise = runAutoGrounding(
               userId,
@@ -2365,6 +2378,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             const prevUnresolvedPTP = this.guardianFireLog.findLast(e => e.outcome === null);
             if (prevUnresolvedPTP) prevUnresolvedPTP.outcome = 'missed';
             this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'post-turn-phrase', phrase: matchedPhrase, charsInjected: null, channel: null, outcome: null });
+            this._observeGuardian();
             runAutoGrounding(userId, matchedPhrase, glSlideResult.trigger, conversationId, targetLanguage)
               .then(groundingResult => {
                 if (this.isStopped) return;
@@ -2441,6 +2455,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               const prevUnresolvedFS = this.guardianFireLog.findLast(e => e.outcome === null);
               if (prevUnresolvedFS) prevUnresolvedFS.outcome = 'missed';
               this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'friction-signal', phrase: topicSeed, charsInjected: null, channel: null, outcome: null });
+              this._observeGuardian();
               runAutoGrounding(userId, topicSeed, 'memory_assertion', conversationId, targetLanguage)
                 .then(groundingResult => {
                   if (this.isStopped || Date.now() - startMs > 2000) return;
@@ -3096,6 +3111,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             } as any);
             console.log(`[ArchiveGuardian/dedicated] ${guardianWhispers.length} whisper(s) sent — ${guardianWhisper.length} chars`);
             if (recentFireForChannel) { recentFireForChannel.channel = 'dedicated'; recentFireForChannel.charsInjected = guardianWhisper.length; }
+            this._observeGuardian();
           } catch (e) {
             // Fallback to concat if dedicated channel throws
             console.warn('[ArchiveGuardian/dedicated] sendClientContent failed, falling back to concat:', (e as Error).message);
@@ -3104,6 +3120,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               const cur = (last.response as any)?.result ?? '';
               (last.response as any).result = cur + (cur ? '\n\n' : '') + guardianWhisper;
               if (recentFireForChannel) { recentFireForChannel.channel = 'concat'; recentFireForChannel.charsInjected = guardianWhisper.length; }
+              this._observeGuardian();
             }
           }
         } else if (responses.length > 0) {
@@ -3116,6 +3133,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             + guardianWhisper;
           console.log(`[ArchiveGuardian/concat] ${guardianWhispers.length} whisper(s) injected into tool response (${last.name}) — ${guardianWhisper.length} chars`);
           if (recentFireForChannel) { recentFireForChannel.channel = 'concat'; recentFireForChannel.charsInjected = guardianWhisper.length; }
+          this._observeGuardian();
         }
       }
 

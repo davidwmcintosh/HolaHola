@@ -26874,6 +26874,21 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
         })),
         lastUpdatedSecsAgo: Math.round((Date.now() - observation.lastUpdatedMs) / 1000),
         recentMessages: msgs,
+        // Archive Guardian A/B — live channel state + fire log for this session
+        guardianAB: {
+          globalChannel: observation.guardianChannel,
+          recentFires: observation.guardianFireLog.slice(-10).map(f => ({
+            ts: f.ts,
+            path: f.path,
+            phrase: f.phrase.slice(0, 60),
+            channel: f.channel,
+            outcome: f.outcome,
+            charsInjected: f.charsInjected,
+          })),
+          pendingCount: observation.guardianFireLog.filter(f => f.outcome === null).length,
+          heardCount:   observation.guardianFireLog.filter(f => f.outcome === 'heard').length,
+          missedCount:  observation.guardianFireLog.filter(f => f.outcome === 'missed').length,
+        },
       });
     } catch (err: any) {
       console.error('[Luca Observe] Error:', err.message);

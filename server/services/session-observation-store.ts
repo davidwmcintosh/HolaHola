@@ -17,6 +17,15 @@ export interface ToolCallRecord {
   note?: string;
 }
 
+export interface GuardianFireRecord {
+  ts: string;
+  path: 'pre-turn' | 'post-turn-phrase' | 'friction-signal';
+  phrase: string;
+  charsInjected: number | null;
+  channel: 'concat' | 'dedicated' | null;
+  outcome: 'heard' | 'missed' | null;
+}
+
 export interface SessionObservation {
   conversationId: string;
   userId: string;
@@ -30,6 +39,9 @@ export interface SessionObservation {
   recentToolCalls: ToolCallRecord[];
   lastUpdatedMs: number;
   sessionStartedMs: number;
+  // Archive Guardian A/B state
+  guardianChannel: 'concat' | 'dedicated';
+  guardianFireLog: GuardianFireRecord[];
 }
 
 const store = new Map<string, SessionObservation>();
@@ -62,6 +74,8 @@ export function observeSessionStart(opts: {
     recentToolCalls: existing?.recentToolCalls ?? [],
     lastUpdatedMs: now(),
     sessionStartedMs: existing?.sessionStartedMs ?? now(),
+    guardianChannel: existing?.guardianChannel ?? 'concat',
+    guardianFireLog: existing?.guardianFireLog ?? [],
   });
 }
 
@@ -112,6 +126,23 @@ export function observeScenarioLoad(conversationId: string, slug: string): void 
   entry.scenarioSlug = slug;
   entry.sceneEnvironment = null;
   entry.sceneProps = [];
+  entry.lastUpdatedMs = now();
+}
+
+/**
+ * Push the latest Archive Guardian state into the observation store.
+ * Called after every guardianFireLog mutation in GeminiLiveSession.
+ * The observe endpoint will surface this so Luca can watch fires in real-time.
+ */
+export function observeGuardianState(
+  conversationId: string,
+  channel: 'concat' | 'dedicated',
+  fireLog: GuardianFireRecord[],
+): void {
+  const entry = touch(conversationId);
+  if (!entry) return;
+  entry.guardianChannel = channel;
+  entry.guardianFireLog = [...fireLog];
   entry.lastUpdatedMs = now();
 }
 

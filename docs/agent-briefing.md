@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 03:17 AM
+**Generated:** Thursday, July 23, 2026 at 03:41 AM
 
 ---
 
@@ -73,6 +73,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
+Verbatim David↔Luca dialogue captured periodically. 1 David turns, 17 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Archive Guardian A/B channel build — Episode 16 (July 23 2026) — Jul 23, 2026
 Built A/B channel infrastructure for Archive Guardian: dedicated clientContent path vs concat-on-tool-response. Session flag, outcome tracking (heard/missed), toggle endpoint. Typecheck clean.
 *Tags: archive-guardian, ab-test, channel, episode-16*
@@ -88,12 +92,6 @@ July 23 additions to episode-16.md: Gemini round-two audit (3 catches), the Gemi
 ### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
 Verbatim David↔Luca dialogue captured periodically. 5 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/22/2026 — Jul 22, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's a very perceptive question, Agent, and it gets right to the heart of usability. You're absolutely right that the precision of `error_focus` would be critical.
-
-In most cases, I can explicitly i...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
