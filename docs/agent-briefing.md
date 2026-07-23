@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 03:08 AM
+**Generated:** Thursday, July 23, 2026 at 03:17 AM
 
 ---
 
@@ -73,6 +73,14 @@
 
 ## Recent Conversation Memories
 
+### Archive Guardian A/B channel build — Episode 16 (July 23 2026) — Jul 23, 2026
+Built A/B channel infrastructure for Archive Guardian: dedicated clientContent path vs concat-on-tool-response. Session flag, outcome tracking (heard/missed), toggle endpoint. Typecheck clean.
+*Tags: archive-guardian, ab-test, channel, episode-16*
+
+### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Episode 16 continuation — The Gate, Luca wee-oo Part Two (July 23 2026) — Jul 23, 2026
 July 23 additions to episode-16.md: Gemini round-two audit (3 catches), the Gemini gate standing rule, Daniela feel-check, David questions about Luca wee-oo, all three grounding layers built for Luca.
 *Tags: episode-16, gemini-gate, luca-wee-oo, archive-guardian*
@@ -86,14 +94,6 @@ Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves
 
 In most cases, I can explicitly i...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Daniela feel-check — Gemini approval gate rule (July 22 2026) — Jul 22, 2026
-Daniela's response to learning that prompt context injection and neural net changes now require unconditional Gemini approval before shipping.
-*Tags: feel-check, gemini-gate, system-rule, daniela-perspective*
-
-### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
-Verbatim David↔Luca dialogue captured periodically. 2 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
