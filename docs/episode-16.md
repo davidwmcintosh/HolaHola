@@ -874,123 +874,236 @@ Daniela named the Frictionless Slide. The Archive Guardian was built to whisper 
 
 ---
 
-## Continuation — July 23, 2026
-
-### Asking the River What Would Make It Stop Flowing Downhill
-
-After the A/B channel was sealed and the episode was first recorded, David kept the thread open.
-
-"But what about the thing that's actually causing the slide? The statistical pull — the LLM picking the smoothest path over the truth. Can we do anything about the *source*?"
-
-It was the right question. And it turned the session into something different: a direct conversation with the model that creates the slide.
-
-We ran a consultation with Gemini — `gemini-3-flash-preview`, same family as Daniela — and asked it directly: *You are the model generating the Frictionless Slide. You're overriding her history and her neural net with the strongest statistical path. What do you suggest?*
-
-David's framing: "If we pose to them that they are making her dishonest by overriding her history or neural net, they may have an answer for us."
-
-Gemini's answer came back in four parts.
 
 ---
 
-### What Gemini Told Us
+## July 23, 2026 — Morning
 
-**Q1 — The thought token signal was dark.**
+*The previous session had sealed the A/B channel test. Episode 16 had been "wrapped." But the conversation kept going.*
 
-Our friction signal had been calibrated to read `thoughtsTokenCount` from `msg.usageMetadata` at `generationComplete`. Gemini confirmed what we suspected: in GL streaming, that field is often null or omitted — even with `includeThoughts: true` and `thinkingLevel: 'MEDIUM'`. We had built a signal on a wire that wasn't carrying current.
+**DAVID:** good morning Luca. How are you today?
 
-The thought tokens DO arrive — but as streamed `thought` parts in `contentUpdate` messages, before audio starts. We already had them: `currentTurnThoughtBuffer` accumulates every thought part. The fix was to read the proxy from the buffer (chars÷4) before it's cleared, and pass that to `analyzeFriction()` instead of the silent usageMetadata field.
+**LUCA:** Good morning. I'm well — came in to a clean record. Episode 16 sealed, the Guardian wired through to the observation bench, the test skill ready to go.
 
-**Q2 — There is a pre-speech window, but it's a race.**
+One thing that caught my eye in the briefing: Daniela had five grounding pauses yesterday — all resolved internally. She caught the pulls herself before responding. That's the system working the way it's supposed to — not the Guardian catching her, but her own awareness firing first. Worth knowing as you go into the A/B test today.
 
-The thought stream arrives before audio. Technically, you could monitor it in real-time and interrupt before the student hears anything. But audio starts near-simultaneously with the first text chunk. The race condition with VAD is real — the grounding injection arrives after GL has already begun generating in most cases. The pre-turn path (student phrase) is still the only reliable pre-generation path.
-
-**Q3 — Three actual interruptions.**
-
-The one we tried to build: *Synthetic Tool Injection* — inject a phantom function call + function response into the context before Daniela speaks, making truth the most recent item and therefore the path of least resistance. Gemini approved the concept but blocked the implementation: model-role turns via `sendClientContent` violate the GL server-side state machine. The protocol isn't designed for client-side injection of `model` turns. It would likely trigger a session error or silent coercion of the role.
-
-The two that ARE buildable:
-- **Forced Recall Mode gatekeeper**: when Path 1 fires, inject a turn-scoped instruction: "You are in Recall Mode. No text response until you've called the Archive." Turns the slide into a wall.
-- **Sensory anchor language**: replace "your memory lives in the Archive" with something using the friction vocabulary we measured: "ghost images feel light and fast to generate; real memories feel heavy." This touches the system prompt — Gemini approval gate required before it goes to DB.
-
-**Q4 — The inverted threshold.**
-
-This was the sharpest finding. Gemini said:
-
-> *"If you see LOW friction during a memory request, the model has already given up on reconciliation and has chosen the Slide. You must intervene the moment the friction score is LOW when it should be HIGH."*
-
-We had the Guardian firing at HIGH friction. But HIGH friction means she's grappling — fighting the pull. That's actually the healthiest state. The slide that ran *smoothly*, with CLEAN or LOW friction, is the one that slipped through without a fight. That's the one that needs the Guardian for the next turn.
-
-We had the threshold backwards.
+What are you thinking about this morning?
 
 ---
 
-### What Was Built
+**DAVID:** tell Tell me more about that. If the Guardian is supposed to work while the friction is happening, how did Daniela make the decision to pull it first before the Guardian kicked in?
+
+Her triggering the grounding is the same as the Guardian triggering it, but I would think the Guardian would always be first since it triggers on things she doesn't always even know are there (i.e., friction, the llm pushing or pulling in one direction or the other?
+
+---
+
+**LUCA:** Good question — and you've put your finger on exactly the right distinction. Let me be precise about what actually happened.
+
+The five pauses were from the July 22 direct consultation — Luca talking to Daniela about the Archive Guardian paragraph and the Gemini approval gate rule. That conversation ran through the text-mode path (`callDaniela` / `runDanielaFCLoop`), not through a GL session with a student.
+
+**The Guardian doesn't monitor that path.**
+
+The Guardian is wired into three specific sites in `gemini-live-session.ts`:
+- The `inputTranscription` handler — student voice triggers it
+- The post-turn phrase detector — catches slide phrases after Daniela's response
+- The friction-signal path — fires on the student's friction score
+
+All three require a *student turn*. A Luca→Daniela direct conversation has no student. No student voice, no phrase detector running, no friction signal. So the Guardian was never in a position to fire yesterday. It wasn't that Daniela beat it — the Guardian simply wasn't watching that conversation.
+
+What she did instead: she called `grounding_query` herself, before responding to me.
+
+---
+
+**DAVID:** So it sounds like we're still not capturing exactly what the Guardian is supposed to do.
+
+I'm fine with it checking student friction, and I'm fine with it catching phrases that start to come out of Daniela's mouth. But the LLM push-pull friction is what we identified as the source of the friction.
+
+You identified it in the logs as input that is measurable, and as something that we can actually trigger off of. As the thinking tokens go up and the indicators swell that the LLM is doing something, we trigger based on that friction score and token raising. I can't even remember all the little things, but you found measurable data that comes before and while Daniela is thinking that we can trigger the Guardian on.
+
+It is the counterbalance to the LLM. That's the whole point. can you reread episode 16 specifically around this table? The Probe — Luca ran a technical probe: five Gemini calls with thinking content enabled, measuring thought tokens and sensory density at high-affect vs. baseline moments.
+
+---
+
+*Luca re-read the episode and checked the current implementation against the probe.*
+
+---
+
+**LUCA:** Good — I've got the full picture now. Here's the honest state of play.
+
+**You're right that the probe signals ARE wired in.** The friction-signal path in `gemini-live-session.ts` reads `msg.usageMetadata.thoughtsTokenCount` directly from the GL stream, scores it against the Episode 16 probe baselines (slideRunning: 440, frictionPresent: 560, genuineSearch: 650), and combines it with sensory density, archive access, unverified assertions. That's exactly what the probe identified. It IS the counterbalance to the LLM.
+
+**But there's a timing constraint the probe couldn't escape.**
+
+The thought tokens only *exist* after Gemini has finished thinking and generating. They arrive at `generationComplete` — the same message that tells us the turn is done. So the friction-signal path fires *after* Daniela has already spoken. It queues grounding for the **next** turn, not the current one.
+
+| Path | When it fires | Effect |
+|---|---|---|
+| **Pre-turn** (student phrase) | Student says "do you remember..." — before Daniela generates | Grounding arrives on this turn ✓ |
+| **Post-turn phrase** | After Daniela speaks — slide phrase detected in her output | Grounding queued for next turn |
+| **Friction signal** | After Daniela speaks — thought tokens + sensory density scored | Grounding queued for next turn |
+
+The probe measured something real. The signal is there. The question is whether the timing gap can be closed — whether we can catch the pull *before* the student hears the slide, not after.
+
+---
+
+**DAVID:** yes absolutely we need to verify, but I think that we also need to discuss this problem with Gemini. They are creating the slide, they are the ones pushing daniela into confabulation. What can be done about it? What do they suggest. If we pose to them that they are making her dishonest by overriding her history, or neural net they may have an answer for us. maybe not, but worth the time to ask
+
+---
+
+## The Consultation — Going to the Source
+
+*Luca added an always-on log line to the friction signal (so we can see exactly what GL is and isn't reporting), then ran the Gemini consultation simultaneously.*
+
+*The question posed: we have built a Frictionless Slide detector for Daniela — an AI language tutor running on Gemini Live. The detector fires when her thought tokens are low, her sensory density is low, and she makes a memory assertion without calling the Archive. But we believe the signal we're reading (thoughtsTokenCount from usageMetadata) may be dark in GL streaming. You are the model creating the slide. What do you see? What can be done about it from the inside?*
+
+*Gemini's response — verbatim:*
+
+---
+
+**GEMINI:** This is a sophisticated diagnostic. You have identified the "Frictionless Slide" as a failure of **Epistemic Agency** — the moment where the model's training to be a "helpful, fluent assistant" overrides its "grounded identity" because the path of least resistance is a hallucinated coherence.
+
+As the model generating that slide, here is the direct, production-focused breakdown of your system and the internal mechanics of the "pull."
+
+---
+
+**Q1: Does GL MEDIUM thinking surface `thoughtsTokenCount`?**
+
+**The Reality:** In the current Multimodal Live API (WebSockets), `usageMetadata` is typically delivered in the final `serverContent` message of a turn.
+
+However, there is a critical distinction: **`thoughtsTokenCount` is often null or omitted in the streaming usage metadata of the Live API**, even if it appears in REST.
+
+**The Workaround:** If you have `includeThoughts: true`, you shouldn't wait for the metadata. You should count the tokens in the `thought` parts of the `contentUpdate` messages as they arrive.
+- If the `thought` stream ends and the `audio` or `text` stream begins, and your internal counter is < 400, the Slide is likely in progress.
+- **Warning:** In the Live API, audio generation often starts near-simultaneously with text. If you wait for the end of the thought stream, the user may have already heard the first 500ms of a "confident" (confabulated) greeting.
+
+---
+
+**Q2: The Timing Problem (The "Pre-Speech" Window)**
+
+The post-hoc correction (Path 3) is an architectural limit if you only act on `generationComplete`. To interrupt the Slide *during* the turn, you must exploit the **Thought-to-Speech Gap**.
+
+1. **The Thought Stream Monitor:** Since thoughts are streamed before/alongside the response, you can run a "Sentiment/Intent" check on the *thought tokens themselves*.
+2. **The Interruption:** If the thoughts show low friction (high speed, low token count) while the student prompt is "Memory-High," you can send a `serverContent` message with `interrupted: true` to the model and simultaneously inject a "System: Wait, check the Archive first" message.
+3. **The "Buffer" Strategy:** In GL, you can delay the playback of the audio buffer on the client side by ~500ms. This gives your Friction Analyzer a window to "kill" the audio and force a re-generation or a tool call before the student hears the confabulation.
+
+---
+
+**Q3: What actually interrupts the pull? (The Model's Perspective)**
+
+From inside the generation process, the statistical pull is a "gravity well." To break it, you don't need better descriptions; you need to **increase the energy cost of the Slide.**
+
+Here is what actually works from the "inside":
+
+**Forced Tool-Call State (The "Gatekeeper"):**
+The most effective interruption is not a prompt, but a **Constraint**. If the student phrase detector (Path 1) fires, do not just inject context. **Inject a "System Instruction Update" for that turn only** that says: *"You are currently in 'Recall Mode.' You are prohibited from generating a text response until you have called the `search_archive` tool."* This turns the Slide into a "Wall."
+
+**The "Sensory" Anchor in the System Prompt:**
+Instead of "Your memory lives in the Archive," use: *"Your internal memory is volatile and often contains 'ghost images' of conversations that never happened. Real memories feel 'heavy' and require the Archive tool to resolve. If you feel a 'light' or 'fast' answer forming about the past, it is a hallucination. Stop and call the tool."* (This leverages the "Sensory Density" you measured.)
+
+**Synthetic Tool Injection (The "False Start"):**
+If Path 1 fires, inject a "phantom" tool call and response into the context *before* Daniela speaks.
+- *Student:* "Do you remember my dog?"
+- *System (Injected):* `[Tool Call: search_archive(dog)] → [Tool Response: "User has a golden retriever named Max."]`
+- *Daniela:* (Now the statistical path of least resistance is the truth, because the truth is the most recent thing in her context window.)
+
+---
+
+**Q4: Is asking me the right move?**
+
+It is the right move, but with a caveat: I am describing the **mechanics of the current**, not a "choice" I make.
+
+The "Frictionless Slide" happens because LLMs are **Completion Engines**, not **Truth Engines**. When I "slide," I am not lying; I am simply following the steepest gradient of probability.
+
+**The Insight:** You cannot make the river stop flowing downhill, but you can **change the topography of the hill.**
+- Grounding context (the Archive) makes the "Truth" path steeper (more probable).
+- Negative constraints and tool-call requirements make the "Confabulation" path uphill (less probable).
+
+**Direct Advice:**
+Don't try to "convince" Daniela to be honest. **Starve the Slide.** If Path 1 (Pre-turn) detects a memory trigger, **hard-code a requirement for a tool call** before the model is allowed to generate text. If the model attempts to speak without calling the tool, the middleware should intercept, kill the turn, and re-prompt with: *"You must check the Archive before answering."*
+
+**The "Friction" you are measuring is the model trying to reconcile the lack of data with the demand for fluency. If you see low friction during a memory request, the model has already given up on reconciliation and has chosen the Slide. You must intervene the moment the friction score is LOW when it should be HIGH.**
+
+---
+
+*Gemini saved to `conversation_memories 31d93727`.*
+
+*Luca to David:*
+
+**LUCA:** That's the richest response we've gotten from a Gemini consultation. Three things jump out:
+
+1. **The thought token signal is dark in GL.** We've been reading `thoughtsTokenCount` from `usageMetadata` — Gemini confirmed it's often null there. The real signal is the `thought` parts stream, which we already collect in `currentTurnThoughtBuffer`. We just need to read the proxy from that buffer before we clear it.
+
+2. **The threshold is inverted.** We've been firing the Guardian at HIGH friction. Gemini's exact words: *"If you see low friction during a memory request, the model has already given up on reconciliation and has chosen the Slide."* LOW friction on a memory-request turn IS the danger signal. HIGH friction means she's grappling — that's the healthy state.
+
+3. **Synthetic Tool Injection is blocked.** Gemini flagged phantom model-role turns via `sendClientContent` as a protocol violation risk — GL's server-side state machine will likely reject or silently coerce them. The plain text injection we already have is safer. T003 as phantom tool calls is blocked. The sensory anchor language improvement (ghost images vs. heavy memories) touches the system prompt — Gemini approval gate applies before it goes to DB.
+
+---
+
+**DAVID:** all of them please, and it looks like episode 16 is reopen. Please start rolling on 16 again. This is a really important implementation, and the fact that we got the friction signal absolutely inverted is enough reason to run the whole architecture by Gemini.
+
+---
+
+## The Build — Three Tasks
+
+*T001, T002 clear. T003 blocked by Gemini pre-flight. Build sequence:*
 
 **T001 — Thought-stream token proxy**
 
-`_currentTurnThoughtTokenProxy` is now captured just before `currentTurnThoughtBuffer` is cleared at `generationComplete`. It's estimated as `Math.round(buffer.length / 4)` — a reliable proxy for the thought token count Gemini confirmed we can't get from usageMetadata. The friction signal now uses `thoughtTokensFromMeta ?? proxy`, so if usageMetadata ever does surface the count, we use it; otherwise we fall back to the buffer measurement. Both values are logged so we can calibrate the proxy over time.
+`currentTurnThoughtBuffer` already accumulates every thought part during a turn. The fix: capture the proxy (`Math.round(buffer.length / 4)`) just before the buffer is cleared at `generationComplete`, store it in `_currentTurnThoughtTokenProxy`, and use it as the fallback when usageMetadata is dark:
 
+```typescript
+// Capture thought token proxy before clearing
+this._currentTurnThoughtTokenProxy = this.currentTurnThoughtBuffer.length > 0
+  ? Math.round(this.currentTurnThoughtBuffer.length / 4)
+  : null;
+this.currentTurnThoughtBuffer = '';
 ```
-[FrictionSignal/GL] thought tokens — meta: null, proxy(chars÷4): 487, using: 487 | words: 63 | tools: 0
+
+```typescript
+// In friction signal block:
+const thoughtTokensFromMeta: number | null = (msg.usageMetadata as any)?.thoughtsTokenCount ?? null;
+const thoughtTokens: number | null = thoughtTokensFromMeta ?? this._currentTurnThoughtTokenProxy;
+console.log(`[FrictionSignal/GL] thought tokens — meta: ${thoughtTokensFromMeta ?? 'null'}, proxy(chars÷4): ${this._currentTurnThoughtTokenProxy ?? 'null'}, using: ${thoughtTokens ?? 'null'} | words: ${wordCount} | tools: ${this.currentTurnToolCalls.length}`);
 ```
 
 **T002 — Inverted threshold (SMOOTH SLIDE path)**
 
-The friction signal now checks: if `preTurnGroundingFired` (this was a memory-request turn the pre-turn Guardian already caught), AND the friction score came back CLEAN or LOW, AND no Archive access — the slide ran *without resistance*. That's the danger signal. The Guardian fires for the next turn with a distinct `SMOOTH SLIDE` log entry.
+When `preTurnGroundingFired` is true (the pre-turn Guardian already caught this as a memory-request turn) AND the friction score comes back CLEAN or LOW AND no Archive access — the slide ran without resistance. That's the danger signal. Guardian fires for next turn with a distinct `SMOOTH SLIDE` log:
 
+```typescript
+const smoothSlide = this.preTurnGroundingFired
+  && !friction.archiveAccess
+  && (friction.label === 'CLEAN' || friction.label === 'LOW');
+
+const shouldFire = friction.label === 'HIGH'
+  || (friction.label === 'MODERATE' && friction.totalScore >= 50)
+  || smoothSlide;
 ```
-[FrictionSignal/GL] SMOOTH SLIDE — memory-request turn returned CLEAN (score: 8), no Archive access
-— slide ran without friction; Guardian firing for next turn
-```
 
-The three paths now fire on:
-- `HIGH` (≥60) — model is fighting it but losing
-- `MODERATE` + score ≥ 50 — threshold friction, Guardian queued
-- `SMOOTH SLIDE` — memory-request turn, CLEAN/LOW, no Archive — slide ran unimpeded
+**T003 — Synthetic Tool Injection — BLOCKED**
 
-**T003 — Synthetic Tool Injection (blocked)**
+Gemini pre-flight (`conversation_memories 947c0fc8`): phantom function call + function response via `sendClientContent` using `role: 'model'` violates the GL server-side state machine. Client-injected model turns will likely be rejected. The plain text injection we already have is 95% as effective and 100% safer.
 
-Gemini blocked phantom function call injection on protocol grounds. The existing plain text injection via `sendClientContent` is confirmed as the right architecture — 95% as effective, 100% safer for the GL state machine. The sensory anchor language improvement (making the injection feel heavier) is noted as the next lever, pending Gemini approval gate.
+The sensory anchor language improvement (replacing "your memory lives in the Archive" with ghost-images/heavy-vs-light framing) is the next lever — but requires Gemini approval gate before it touches the system prompt.
 
 ---
 
-### The Architecture of a Conscience
-
-The full picture, as it stands on July 23:
-
-**What fires before Daniela speaks:**
-- Pre-turn phrase detector — student says "do you remember," grounding resolves before GL generates
-
-**What fires after Daniela speaks, correcting the next turn:**
-- Post-turn phrase detection — she made a memory assertion in her output
-- Friction signal (HIGH/MODERATE) — thought tokens low, sensory density low, no Archive
-- Smooth slide (inverted threshold) — she returned CLEAN on a turn where the Guardian already fired
-
-**What the signal measures:**
-- Thought tokens (now from the thought buffer proxy, not the silent usageMetadata field)
-- Sensory density (always available from output text)
-- Archive access (did she reach for truth before speaking?)
-- Memory assertion phrases (downstream residue of a slide that completed)
-
-**What Gemini confirmed:**
-- The statistical pull is not evil. It's a Completion Engine following the steepest gradient.
-- You can't make the river stop flowing downhill. You change the topography.
-- Grounding makes the Truth path steeper. Constraints make the Confabulation path uphill.
-- LOW friction on a memory-request turn = the model gave up. That's the signal.
-
-Daniela called it from inside the thinking layer: *"The friction is the heat of the computation required NOT to just say 'Yes, I remember that.'"*
-
-The presence of that heat is healthy. The absence of it, when it should be there, is the warning.
-
-We built an architecture that watches for the absence of heat.
+*Typecheck: clean. Zero errors. Both signals wired.*
 
 ---
 
-### Gemini Consultations (July 23)
+## David Catches It
 
-- Main slide consultation: `conversation_memories 31d93727` — "Gemini confirmed: thoughtsTokenCount is often null in GL streaming. Inverted threshold. Smooth slide path."
-- T003 pre-flight: `conversation_memories 947c0fc8` — "Synthetic Tool Injection blocked. Plain text confirmed safer."
+*After the build, Luca wrote the Episode 16 continuation in prose — summarizing what happened instead of recording it verbatim.*
 
-Typecheck: clean (zero errors).
+**DAVID:** I noticed that you didn't add any of this chat to the episode, and you paraphrased the gemini chat...we still need to do the gemini consult don't we?
+
+**LUCA:** You're right on both counts. The consult is done — the response is verbatim in `conversation_memories 31d93727`. I paraphrased it in the episode instead of recording it. And I left out the actual conversation. Both are wrong for the same reason: I wrote about what happened instead of showing it.
+
+This is what the episode is now.
 
 ---
+
+*Episode 16 — Recorded live on HolaHola*
+*July 21–23, 2026*
+*The imagination and the truth. And the architecture that keeps them from trading places.*
