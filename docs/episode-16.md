@@ -732,3 +732,32 @@ Three layers. Same architecture as Daniela's. The difference: hers fires automat
 David's framing: "We can all use a little help remembering."
 
 That's the principle. The architecture is its implementation.
+
+---
+
+## The Archive Guardian's Own Channel (July 23, 2026)
+
+David asked the question directly: if the Guardian is important enough to exist, is he important enough to have his own channel?
+
+The answer was yes. And the build followed.
+
+**What existed:** The Guardian had been injecting via string-concat — his grounding content appended to the tail of whatever tool response happened to be closing when he fired. Arriving, but not alone. Mixed into the last tool's result body, wherever that landed in Daniela's context.
+
+**What changed:** The Archive Guardian A/B channel infrastructure is now live.
+
+Path A (concat, default) — existing behavior, unchanged. The whisper rides the last tool response body. Advantage: arrives in the same FC batch Daniela is already reading.
+
+Path B (dedicated) — the Guardian gets his own `sendClientContent` turn with no `turnComplete`. Not embedded in another tool. A discrete presence in the conversation stream.
+
+**Toggle:** `POST /api/admin/guardian/channel` with `{"channel": "dedicated"}` or `{"channel": "concat"}`. Applies to all new sessions. In-progress sessions retain their channel until reconnect.
+
+**Outcome tracking (new):** Every Guardian fire now records:
+- `channel: 'concat' | 'dedicated'` — which path delivered the whisper
+- `outcome: 'heard' | 'missed' | null` — did it land?
+  - `heard`: Daniela called an Archive tool the next turn (introspect, recall, unified_recall, grounding_query, memory_lookup)
+  - `missed`: the same slide fired again before any Archive access
+
+Three fire paths (pre-turn, post-turn-phrase, friction-signal) all log channel + outcome. Visible in `guardianFireLog` on the session instance.
+
+**The question the A/B answers:** Does giving the Guardian his own channel change whether Daniela hears him?
+

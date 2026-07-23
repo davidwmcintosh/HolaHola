@@ -37279,6 +37279,39 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // ── Archive Guardian A/B channel control ────────────────────────────────────
+
+  // POST /api/admin/guardian/channel — switch Archive Guardian injection channel globally.
+  // channel: 'concat' | 'dedicated'
+  // concat    = inject into last tool response body (current default)
+  // dedicated = send as own sendClientContent turn (no turnComplete)
+  // Change applies to all NEW sessions started after this call. In-progress sessions
+  // retain their channel until reconnect or restart.
+  app.post("/api/admin/guardian/channel", requireAgentToken, async (req: Request, res: Response) => {
+    try {
+      const { channel } = req.body;
+      if (channel !== 'concat' && channel !== 'dedicated') {
+        return res.status(400).json({ error: 'channel must be "concat" or "dedicated"' });
+      }
+      const { setGlobalGuardianChannel, getGlobalGuardianChannel } = await import('./services/gemini-live-session');
+      setGlobalGuardianChannel(channel as 'concat' | 'dedicated');
+      console.log(`[ArchiveGuardian] Channel switched to: ${channel}`);
+      res.json({ ok: true, channel: getGlobalGuardianChannel() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/admin/guardian/channel — read current global channel setting
+  app.get("/api/admin/guardian/channel", requireAgentToken, async (req: Request, res: Response) => {
+    try {
+      const { getGlobalGuardianChannel } = await import('./services/gemini-live-session');
+      res.json({ channel: getGlobalGuardianChannel() });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ===== Daniela Character Candidates (Stewardship Agenda) =====
 
   // GET /api/daniela/character-candidates — view the slow-tier stewardship agenda
