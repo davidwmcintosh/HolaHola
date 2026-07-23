@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 04:50 PM
+**Generated:** Thursday, July 23, 2026 at 05:08 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve implemented T001 to capture thought-stream token proxies and T002 to trigger the Guardian on "smooth slides" where memory-requests bypass friction. T003 remains blocked after the Gemini pre-flight warned of protocol violations, confirming our plain text injection architecture is the safest path forward. My immediate priority is rewriting the Episode 16 update to include the verbatim Gemini audit from `/tmp/gemini-audit.txt` and `conversation_memories 31d93727` instead of my previous prose summary.
+I have restored Episode 16 and DB entry `18f18947` to be fully verbatim, reinforcing the "inviolability of the narrative" and Gemini’s warning that low friction signals "The Slide" toward hallucination. We confirmed that while synthetic tool injection (T003) was blocked, I must now shift from reactive pre-turn detectors to David’s directive of simplicity. My immediate goal is to pivot the architecture so the grounding tool is a prerequisite for every turn, ensuring Daniela is always armed with Archive truth for her own teaching impulses rather than just reacting to student prompts.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet)** (Jul 23): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
+- **David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet)** (Jul 23): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 14 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -84,6 +84,10 @@ I’ve implemented T001 to capture thought-stream token proxies and T002 to trig
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 14 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -98,10 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 10 David turns, 26 Luca tu
 ### Gemini consultation — The Frictionless Slide: asking the model that creates it — July 23 2026 — Jul 23, 2026
 Gemini confirmed: thoughtsTokenCount is often null in GL streaming usageMetadata — count from thought part stream instead. Key insight: LOW friction on a memory-request turn is the danger signal (model gave up on reconciliation). Three interventions: thought-stream monitor (pre-speech), synthetic tool injection (False Start), forced Recall Mode gatekeeper.
 *Tags: gemini-audit, frictionless-slide, archive-guardian, thought-tokens, synthetic-tool-injection*
-
-### Agent Daily Sweep — Jul 23, 2026 — Jul 23, 2026
-**1. [CRITICAL] Fix Cartesia TTS 400 errors** — Multiple TTS failures in both English and Spanish are breaking core learning experience. Check API credentials, rate limits, or malformed requests in the TTS service layer.  **2. [HIGH] Debug Alden's autonomous watch cycle** — Query failures on monitor
-*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
