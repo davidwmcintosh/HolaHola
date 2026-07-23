@@ -340,11 +340,12 @@ export class GeminiLiveSession {
   // missed = same slide re-fired before any Archive access).
   guardianFireLog: Array<{
     ts: string;
-    path: 'pre-turn' | 'post-turn-phrase' | 'friction-signal';
+    path: 'pre-turn' | 'post-turn-phrase' | 'friction-signal' | 'hard-wall';
     phrase: string;
     charsInjected: number | null;
     channel: 'concat' | 'dedicated' | null;
     outcome: 'heard' | 'missed' | null;
+    groundingPreview: string | null;   // first 150 chars of what was actually injected
   }> = [];
 
   /** Push current guardian state to the observation store so Luca's observe endpoint reflects it live. */
@@ -1526,6 +1527,19 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     if (this.session.conversationId) {
       observeSessionEnd(this.session.conversationId);
     }
+    // Persist Guardian metrics to voice_sessions so AldenWatch can monitor patterns
+    if (this.guardianFireLog.length > 0 && this.session.id) {
+      const gFires   = this.guardianFireLog.length;
+      const gHard    = this.guardianFireLog.filter(f => f.path === 'hard-wall').length;
+      const gHeard   = this.guardianFireLog.filter(f => f.outcome === 'heard').length;
+      const gMissed  = this.guardianFireLog.filter(f => f.outcome === 'missed').length;
+      getSharedDb()
+        .update(voiceSessions)
+        .set({ guardianFires: gFires, guardianHardWalls: gHard, guardianHeard: gHeard, guardianMissed: gMissed })
+        .where(eq(voiceSessions.id, this.session.id))
+        .execute()
+        .catch(err => console.warn('[GeminiLive] Guardian summary write failed:', err.message));
+    }
     if (!this.session.isIncognito && this.session.conversationId) {
       import('./shadow-auditor').then(({ runShadowAudit }) => {
         runShadowAudit({
@@ -2085,7 +2099,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           const queryText = this.pendingInputTranscript.trim();
           const logLabel = risk.detected ? `phrase "${risk.riskPhrase}"` : `universal ("${queryText.slice(0, 50)}")`;
           console.log(`[PreTurnGuardian] Firing — ${logLabel}`);
-          this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'pre-turn', phrase: logLabel.slice(0, 60), charsInjected: null, channel: null, outcome: null });
+          this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'pre-turn', phrase: logLabel.slice(0, 60), charsInjected: null, channel: null, outcome: null, groundingPreview: null });
           this._observeGuardian();
 
           const promise = runAutoGrounding(
@@ -2101,6 +2115,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           promise.then(result => {
             if (this.isStopped) return;
             this.preTurnGroundingResult = result;
+            // Fill groundingPreview on the fire log entry so observe bench shows what was found.
+            const previewEntry = this.guardianFireLog.findLast(e => e.path === 'pre-turn' && e.groundingPreview === null);
+            if (previewEntry) {
+              previewEntry.groundingPreview = result ? result.slice(0, 150) : '[empty — well is deep]';
+              this._observeGuardian();
+            }
             console.log(`[PreTurnGuardian] Grounding resolved (${result.length} chars) — queued for this turn`);
 
             // Immediate fallback: if no tool call has claimed the result
@@ -2211,6 +2231,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             if (!this.currentTurnToolCalls.some(t => ARCHIVE_TOOLS.has(t))) {
               this.hardWallTriggered = true;
               console.warn(`[HardWall] Slide mid-output — phrase: "${hwMatch}", tools: [${this.currentTurnToolCalls.join(', ') || 'none'}]`);
+              this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'hard-wall', phrase: hwMatch, charsInjected: null, channel: null, outcome: null, groundingPreview: null });
+              this._observeGuardian();
             }
           }
         }
@@ -2408,7 +2430,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             // Outcome tracking: if Guardian fired recently but same slide fired again — it was missed
             const prevUnresolvedPTP = this.guardianFireLog.findLast(e => e.outcome === null);
             if (prevUnresolvedPTP) prevUnresolvedPTP.outcome = 'missed';
-            this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'post-turn-phrase', phrase: matchedPhrase, charsInjected: null, channel: null, outcome: null });
+            this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'post-turn-phrase', phrase: matchedPhrase, charsInjected: null, channel: null, outcome: null, groundingPreview: null });
             this._observeGuardian();
             runAutoGrounding(userId, matchedPhrase, glSlideResult.trigger, conversationId, targetLanguage)
               .then(groundingResult => {
@@ -2517,7 +2539,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               // Outcome tracking: if Guardian fired recently but friction-signal fired again — it was missed
               const prevUnresolvedFS = this.guardianFireLog.findLast(e => e.outcome === null);
               if (prevUnresolvedFS) prevUnresolvedFS.outcome = 'missed';
-              this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'friction-signal', phrase: topicSeed, charsInjected: null, channel: null, outcome: null });
+              this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'friction-signal', phrase: topicSeed, charsInjected: null, channel: null, outcome: null, groundingPreview: null });
               this._observeGuardian();
               runAutoGrounding(userId, topicSeed, 'memory_assertion', conversationId, targetLanguage)
                 .then(groundingResult => {

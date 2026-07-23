@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 05:44 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I successfully shipped the Universal Grounding Build, transitioning the Archive Guardian from a conditional rescue system to a mandatory "floor" that triggers `semanticSearch()` on every student turn over 10 characters. I integrated a Hard Wall Interceptor to catch ungrounded memory assertions in `outputTranscription` and updated the narrative framing labels to ensure the Archive always surfaces before generation. Moving forward, I must maintain this "always-on" grounding logic as the baseline, treating the Archive as the primary source for every interaction.
-
-*Memories that triggered this summary:*
-- **Episode 16 — Universal Grounding Build (July 23 2026)** (Jul 23): Luca and David complete the universal Archive Guardian: pre-turn Guardian now fires on EVERY student turn (not just memory-risk phrases), semantic search (semanticSearch() Phase 0) replaces keyword-only lookup, Archive Guardian label upgraded to Gemini-approved narrative framing, hard wall interceptor added to outputTranscription + generationComplete. Typecheck clean. Nothing happens without searching the Archive.
+**Generated:** Thursday, July 23, 2026 at 06:02 PM
 
 ---
 
@@ -83,6 +73,14 @@ I successfully shipped the Universal Grounding Build, transitioning the Archive 
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 23, 2026 — Jul 23, 2026
+## TODAY'S PRIORITY ACTIONS  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (readableStream fragments in error logs). This breaks core conversation functionality. Check API payload formatting and ensure streams are properly seri
+*Tags: agent-sweep, daily, auto-saved*
+
+### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
+Verbatim David↔Luca dialogue captured periodically. 0 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Episode 16 — Universal Grounding Build (July 23 2026) — Jul 23, 2026
 Luca and David complete the universal Archive Guardian: pre-turn Guardian now fires on EVERY student turn (not just memory-risk phrases), semantic search (semanticSearch() Phase 0) replaces keyword-only lookup, Archive Guardian label upgraded to Gemini-approved narrative framing, hard wall interceptor added to outputTranscription + generationComplete. Typecheck clean. Nothing happens without searching the Archive.
 *Tags: episode-16, archive-guardian, universal-grounding, hard-wall, semantic-search, frictionless-slide*
@@ -94,14 +92,6 @@ Verbatim David↔Luca dialogue captured periodically. 3 David turns, 26 Luca tur
 ### Gemini — Universal Gatekeeper architecture audit — July 23 2026 — Jul 23, 2026
 Whisper is a nudge not a constraint. Hard toolConfig per-turn IS possible in GL but adds 1.5s to every turn — use soft wall (whisper + RECALL MODE prefix) universally. Must upgrade keyword→semantic search for universal use. Add stream-kill interceptor as hard backstop. Cleared to build.
 *Tags: gemini-audit, universal-gatekeeper, grounding, frictionless-slide*
-
-### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 14 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
-Verbatim David↔Luca dialogue captured periodically. 1 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

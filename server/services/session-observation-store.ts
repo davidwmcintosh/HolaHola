@@ -19,11 +19,12 @@ export interface ToolCallRecord {
 
 export interface GuardianFireRecord {
   ts: string;
-  path: 'pre-turn' | 'post-turn-phrase' | 'friction-signal';
+  path: 'pre-turn' | 'post-turn-phrase' | 'friction-signal' | 'hard-wall';
   phrase: string;
   charsInjected: number | null;
   channel: 'concat' | 'dedicated' | null;
   outcome: 'heard' | 'missed' | null;
+  groundingPreview: string | null;
 }
 
 export interface SessionObservation {

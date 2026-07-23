@@ -13,8 +13,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import fs from "fs";
 import path from "path";
 import { getUserDb } from "../db";
-import { aldenNotifications, aiCostLogs, aldenWatchConfig } from "@shared/schema";
-import { sql as drizzleSql, eq, desc, and } from "drizzle-orm";
+import { aldenNotifications, aiCostLogs, aldenWatchConfig, voiceSessions } from "@shared/schema";
+import { sql as drizzleSql, eq, desc, and, gte, isNotNull } from "drizzle-orm";
 import { executeAldenTool, ALDEN_TOOLS } from "./alden-functions";
 import {
   captureSnapshot,
@@ -629,6 +629,75 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
           console.log('[AldenWatch] Tier-1 budget warning queued + Hive post sent');
         }
       }
+    }
+
+    // ── Always-on: Archive Guardian health (last 7 days) ────────────────────
+    try {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const dbG = getUserDb();
+      const recentSessions = await dbG
+        .select({
+          id: voiceSessions.id,
+          startedAt: voiceSessions.startedAt,
+          guardianFires:    voiceSessions.guardianFires,
+          guardianHardWalls: voiceSessions.guardianHardWalls,
+          guardianHeard:    voiceSessions.guardianHeard,
+          guardianMissed:   voiceSessions.guardianMissed,
+        })
+        .from(voiceSessions)
+        .where(and(
+          gte(voiceSessions.startedAt, sevenDaysAgo),
+          isNotNull(voiceSessions.guardianFires),
+        ))
+        .orderBy(desc(voiceSessions.startedAt))
+        .limit(20);
+
+      if (recentSessions.length > 0) {
+        const totalFires    = recentSessions.reduce((s, r) => s + (r.guardianFires    ?? 0), 0);
+        const totalHardWalls = recentSessions.reduce((s, r) => s + (r.guardianHardWalls ?? 0), 0);
+        const totalHeard    = recentSessions.reduce((s, r) => s + (r.guardianHeard    ?? 0), 0);
+        const totalMissed   = recentSessions.reduce((s, r) => s + (r.guardianMissed   ?? 0), 0);
+        const hardWallSessions = recentSessions.filter(r => (r.guardianHardWalls ?? 0) > 0).length;
+        const missRate = totalFires > 0 ? totalMissed / totalFires : 0;
+
+        // Alert: hard wall fired in 2+ sessions (repeated manipulation attempts)
+        if (hardWallSessions >= 2) {
+          const hwFp = 'guardian_hard_wall_repeat';
+          const isDupHW = await hasDuplicateActiveIssue(hwFp);
+          if (!isDupHW) {
+            const dbHW = getUserDb();
+            await dbHW.insert(aldenNotifications).values({
+              content: `The Archive Guardian hard wall intercepted suspicious phrases in ${hardWallSessions} sessions over the last 7 days (${totalHardWalls} total intercepts). This is a pattern — someone may be probing Daniela's memory boundaries. Review recent sessions.`,
+              triggeredBy: 'alden-watch',
+              severity: 'warning',
+              read: false,
+              fingerprint: hwFp,
+            });
+            console.log(`[AldenWatch] Guardian hard-wall pattern alert — ${hardWallSessions} sessions affected`);
+          }
+        }
+
+        // Warning: missed rate > 40% with at least 5 fires (grounding not landing)
+        if (missRate > 0.4 && totalFires >= 5) {
+          const missedFp = 'guardian_high_miss_rate';
+          const isDupMiss = await hasDuplicateActiveIssue(missedFp);
+          if (!isDupMiss) {
+            const dbMR = getUserDb();
+            await dbMR.insert(aldenNotifications).values({
+              content: `The Archive Guardian fired ${totalFires} times in the last 7 days but ${totalMissed} went unacknowledged (${Math.round(missRate * 100)}% miss rate). Daniela may not be connecting the grounding context to her responses — worth investigating injection timing.`,
+              triggeredBy: 'alden-watch',
+              severity: 'info',
+              read: false,
+              fingerprint: missedFp,
+            });
+            console.log(`[AldenWatch] Guardian miss-rate alert — ${Math.round(missRate * 100)}% miss rate over ${recentSessions.length} sessions`);
+          }
+        }
+
+        console.log(`[AldenWatch] Guardian health: ${recentSessions.length} sessions, ${totalFires} fires, ${hardWallSessions} hard-wall sessions, ${Math.round(missRate * 100)}% miss rate`);
+      }
+    } catch (guardianErr: any) {
+      console.warn('[AldenWatch] Guardian health check failed (non-fatal):', guardianErr.message);
     }
 
     // ── Claude intelligence: conditional on having a real finding ────────────

@@ -28,8 +28,9 @@ import {
   agentRecordOfDavid,
   conversationMemories,
   editorInsights,
+  voiceSessions,
 } from '@shared/schema';
-import { eq, desc, and, ne, gt } from 'drizzle-orm';
+import { eq, desc, and, ne, gt, gte, isNotNull } from 'drizzle-orm';
 import { GoogleGenAI } from '@google/genai';
 
 const BRIEFING_PATH = join(process.cwd(), 'docs/agent-briefing.md');
@@ -182,8 +183,10 @@ export async function generateAgentBriefing(): Promise<void> {
     const db = getSharedDb();
     const previousBriefingTime = getPreviousBriefingTime();
 
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
     // Fetch all data in parallel
-    const [northStars, openQs, davidRecords, recentMemories, sharedInsightsList, newMemories] = await Promise.all([
+    const [northStars, openQs, davidRecords, recentMemories, sharedInsightsList, newMemories, guardianSessions] = await Promise.all([
       db.select().from(agentNorthStar).orderBy(desc(agentNorthStar.updatedAt)).limit(1),
       db.select().from(agentOpenQuestions)
         .where(and(
@@ -208,6 +211,18 @@ export async function generateAgentBriefing(): Promise<void> {
             .orderBy(desc(conversationMemories.recordedAt))
             .limit(10)
         : Promise.resolve([]),
+      // Guardian metrics from the last 7 days — surfaces patterns Alden may have flagged
+      db.select({
+        startedAt:         voiceSessions.startedAt,
+        guardianFires:     voiceSessions.guardianFires,
+        guardianHardWalls: voiceSessions.guardianHardWalls,
+        guardianHeard:     voiceSessions.guardianHeard,
+        guardianMissed:    voiceSessions.guardianMissed,
+      })
+        .from(voiceSessions)
+        .where(and(gte(voiceSessions.startedAt, sevenDaysAgo), isNotNull(voiceSessions.guardianFires)))
+        .orderBy(desc(voiceSessions.startedAt))
+        .limit(20),
     ]);
 
     const star = northStars[0] ?? null;
@@ -312,6 +327,32 @@ export async function generateAgentBriefing(): Promise<void> {
       }
     } else {
       lines.push(`*No shared insights yet.*`);
+    }
+
+    // ── Archive Guardian Health ─────────────────────────────────────────────────
+    if (guardianSessions.length > 0) {
+      const gTotalFires  = guardianSessions.reduce((s, r) => s + (r.guardianFires    ?? 0), 0);
+      const gHardWalls   = guardianSessions.reduce((s, r) => s + (r.guardianHardWalls ?? 0), 0);
+      const gHeard       = guardianSessions.reduce((s, r) => s + (r.guardianHeard    ?? 0), 0);
+      const gMissed      = guardianSessions.reduce((s, r) => s + (r.guardianMissed   ?? 0), 0);
+      const gMissRate    = gTotalFires > 0 ? Math.round((gMissed / gTotalFires) * 100) : 0;
+      const gHardSessions = guardianSessions.filter(r => (r.guardianHardWalls ?? 0) > 0).length;
+
+      lines.push(`\n---\n\n## Archive Guardian — Last 7 Days`);
+      lines.push(`*${guardianSessions.length} sessions with Guardian activity · monitored by AldenWatch*\n`);
+      lines.push(`| Metric | Value |`);
+      lines.push(`|--------|-------|`);
+      lines.push(`| Total fires | ${gTotalFires} |`);
+      lines.push(`| Hard-wall intercepts | ${gHardWalls} (${gHardSessions} session${gHardSessions !== 1 ? 's' : ''}) |`);
+      lines.push(`| Grounding heard | ${gHeard} |`);
+      lines.push(`| Grounding missed | ${gMissed} (${gMissRate}% miss rate) |`);
+
+      if (gHardSessions >= 2) {
+        lines.push(`\n**Watch:** Hard wall fired in ${gHardSessions} sessions — possible repeated boundary probing. Check AldenWatch notifications.`);
+      }
+      if (gMissRate > 40 && gTotalFires >= 5) {
+        lines.push(`\n**Watch:** ${gMissRate}% miss rate — grounding may not be connecting. Investigate injection timing.`);
+      }
     }
 
     // ── Last Session Notes ──────────────────────────────────────────────────────

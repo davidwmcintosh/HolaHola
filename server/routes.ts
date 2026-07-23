@@ -26874,7 +26874,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
         })),
         lastUpdatedSecsAgo: Math.round((Date.now() - observation.lastUpdatedMs) / 1000),
         recentMessages: msgs,
-        // Archive Guardian A/B — live channel state + fire log for this session
+        // Archive Guardian — live state + fire log for this session (all four protocols)
         guardianAB: {
           globalChannel: observation.guardianChannel,
           recentFires: observation.guardianFireLog.slice(-10).map(f => ({
@@ -26884,10 +26884,16 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
             channel: f.channel,
             outcome: f.outcome,
             charsInjected: f.charsInjected,
+            groundingPreview: f.groundingPreview,
           })),
-          pendingCount: observation.guardianFireLog.filter(f => f.outcome === null).length,
-          heardCount:   observation.guardianFireLog.filter(f => f.outcome === 'heard').length,
-          missedCount:  observation.guardianFireLog.filter(f => f.outcome === 'missed').length,
+          // Summary counts
+          pendingCount:          observation.guardianFireLog.filter(f => f.outcome === null).length,
+          heardCount:            observation.guardianFireLog.filter(f => f.outcome === 'heard').length,
+          missedCount:           observation.guardianFireLog.filter(f => f.outcome === 'missed').length,
+          universalPreTurnCount: observation.guardianFireLog.filter(f => f.path === 'pre-turn' && f.phrase.startsWith('universal')).length,
+          riskPhraseCount:       observation.guardianFireLog.filter(f => f.path === 'pre-turn' && f.phrase.startsWith('phrase')).length,
+          hardWallCount:         observation.guardianFireLog.filter(f => f.path === 'hard-wall').length,
+          totalPreTurnCount:     observation.guardianFireLog.filter(f => f.path === 'pre-turn').length,
         },
       });
     } catch (err: any) {

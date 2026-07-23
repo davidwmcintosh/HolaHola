@@ -1520,6 +1520,11 @@ export const voiceSessions = pgTable("voice_sessions", {
   assessmentTurnCount: integer("assessment_turn_count").default(0),
   // Rubric string stored so GL system prompt can be re-injected on reconnect (fixes "Amnesia" problem)
   assessmentRubric: text("assessment_rubric"),
+  // Archive Guardian metrics — written at session end, queried by AldenWatch
+  guardianFires: integer("guardian_fires"),
+  guardianHardWalls: integer("guardian_hard_walls"),
+  guardianHeard: integer("guardian_heard"),
+  guardianMissed: integer("guardian_missed"),
 }, (table) => [
   index("idx_voice_sessions_user").on(table.userId),
   index("idx_voice_sessions_started").on(table.startedAt),
