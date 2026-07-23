@@ -2113,6 +2113,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               turns: [{ role: 'user', parts: [{ text: cfWhisper }] }],
             } as any);
             console.log(`[PreTurnGuardian] Carry-forward injected at turn start (${this.pendingCarryForwardGrounding.length} chars)`);
+            this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'carry-forward-injected', phrase: 'carried from last turn', charsInjected: this.pendingCarryForwardGrounding.length, channel: 'concat', outcome: 'heard', groundingPreview: this.pendingCarryForwardGrounding.slice(0, 150) });
+            this._observeGuardian();
           } catch (e) {
             console.warn('[PreTurnGuardian] Carry-forward injection failed:', (e as Error).message);
           }
@@ -2182,6 +2184,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 this.pendingCarryForwardGrounding = this.preTurnGroundingResult;
                 this.preTurnGroundingResult = null;
                 console.log(`[PreTurnGuardian] Late arrival — carrying forward to next turn (${this.pendingCarryForwardGrounding!.length} chars, mode=carry-forward)`);
+                this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'carry-forward-buffered', phrase: 'late arrival — buffered for next turn', charsInjected: null, channel: null, outcome: null, groundingPreview: this.pendingCarryForwardGrounding!.slice(0, 150) });
+                this._observeGuardian();
                 return;
               }
               // Either mode='interrupt' or audio hasn't started yet — inject immediately

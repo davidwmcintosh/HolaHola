@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 11:39 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I implemented the "Carry-forward" A/B architecture for the Archive Guardian to prevent late-arriving grounding data from triggering `interrupted: true` restarts in Gemini Live. I added admin endpoints to `routes.ts` and updated `gemini-live-session.ts` to buffer late results for the start of the next turn, which Gemini confirmed is the only way to avoid mid-generation audio breaks. The code passed typecheck and is deployed, so I need to monitor how the `carry-forward` default impacts groundedness and be prepared to discuss "Tool-Gate" or "VAD Delay" alternatives if turn-latency persists.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet)** (Jul 23): Verbatim David↔Luca dialogue captured periodically. 3 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Thursday, July 23, 2026 at 11:43 PM
 
 ---
 

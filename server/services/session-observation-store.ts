@@ -19,7 +19,7 @@ export interface ToolCallRecord {
 
 export interface GuardianFireRecord {
   ts: string;
-  path: 'pre-turn' | 'post-turn-phrase' | 'friction-signal' | 'hard-wall';
+  path: 'pre-turn' | 'post-turn-phrase' | 'friction-signal' | 'hard-wall' | 'carry-forward-buffered' | 'carry-forward-injected';
   phrase: string;
   charsInjected: number | null;
   channel: 'concat' | 'dedicated' | null;

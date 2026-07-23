@@ -26895,6 +26895,8 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
           riskPhraseCount:       observation.guardianFireLog.filter(f => f.path === 'pre-turn' && f.phrase.startsWith('phrase')).length,
           hardWallCount:         observation.guardianFireLog.filter(f => f.path === 'hard-wall').length,
           totalPreTurnCount:     observation.guardianFireLog.filter(f => f.path === 'pre-turn').length,
+          carryForwardBufferedCount: observation.guardianFireLog.filter(f => f.path === 'carry-forward-buffered').length,
+          carryForwardInjectedCount: observation.guardianFireLog.filter(f => f.path === 'carry-forward-injected').length,
         },
       });
     } catch (err: any) {
