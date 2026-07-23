@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 04:19 PM
+**Generated:** Thursday, July 23, 2026 at 04:26 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’ve diagnosed the “Frictionless Slide” in HolaHola as an epistemic agency failure and decided to implement a “Recall Mode” gatekeeper that mandates a `search_archive` tool call before any text generation occurs. To detect hallucinations in real-time, I will manually monitor the thought-stream parts since Gemini's `thoughtsTokenCount` is often null in streaming metadata. I need to move forward with implementing synthetic tool injection—the "False Start" strategy—to ensure the statistical path of least resistance always leads back to the Archive during memory-heavy student interactions.
+
+*Memories that triggered this summary:*
+- **Gemini consultation — The Frictionless Slide: asking the model that creates it — July 23 2026** (Jul 23): Gemini confirmed: thoughtsTokenCount is often null in GL streaming usageMetadata — count from thought part stream instead. Key insight: LOW friction on a memory-request turn is the danger signal (model gave up on reconciliation). Three interventions: thought-stream monitor (pre-speech), synthetic tool injection (False Start), forced Recall Mode gatekeeper.
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### Gemini consultation — The Frictionless Slide: asking the model that creates it — July 23 2026 — Jul 23, 2026
+Gemini confirmed: thoughtsTokenCount is often null in GL streaming usageMetadata — count from thought part stream instead. Key insight: LOW friction on a memory-request turn is the danger signal (model gave up on reconciliation). Three interventions: thought-stream monitor (pre-speech), synthetic tool injection (False Start), forced Recall Mode gatekeeper.
+*Tags: gemini-audit, frictionless-slide, archive-guardian, thought-tokens, synthetic-tool-injection*
+
 ### Agent Daily Sweep — Jul 23, 2026 — Jul 23, 2026
 **1. [CRITICAL] Fix Cartesia TTS 400 errors** — Multiple TTS failures in both English and Spanish are breaking core learning experience. Check API credentials, rate limits, or malformed requests in the TTS service layer.  **2. [HIGH] Debug Alden's autonomous watch cycle** — Query failures on monitor
 *Tags: agent-sweep, daily, auto-saved*
@@ -88,10 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 4 David turns, 18 Luca tur
 ### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 17 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Archive Guardian A/B channel build — Episode 16 (July 23 2026) — Jul 23, 2026
-Built A/B channel infrastructure for Archive Guardian: dedicated clientContent path vs concat-on-tool-response. Session flag, outcome tracking (heard/missed), toggle endpoint. Typecheck clean.
-*Tags: archive-guardian, ab-test, channel, episode-16*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

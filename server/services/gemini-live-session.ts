@@ -2434,6 +2434,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           const wordCount = transcript.split(/\s+/).length;
           if (wordCount >= 40) {
             const thoughtTokens: number | null = (msg.usageMetadata as any)?.thoughtsTokenCount ?? null;
+            // Always log thought tokens so we can verify GL is actually surfacing them.
+            // If thoughtTokens is always null here, the thinking-budget signal is dark in GL.
+            console.log(
+              `[FrictionSignal/GL] thought tokens this turn: ${thoughtTokens ?? 'null (GL not reporting)'} | ` +
+              `words: ${wordCount} | tools called: ${this.currentTurnToolCalls.length}`
+            );
             const friction = analyzeFriction(transcript, [...this.currentTurnToolCalls], thoughtTokens);
 
             // Fire on HIGH (≥60) or strong MODERATE (≥50) — conservative to avoid noise.
