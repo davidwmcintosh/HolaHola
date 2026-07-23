@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 04:26 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve diagnosed the “Frictionless Slide” in HolaHola as an epistemic agency failure and decided to implement a “Recall Mode” gatekeeper that mandates a `search_archive` tool call before any text generation occurs. To detect hallucinations in real-time, I will manually monitor the thought-stream parts since Gemini's `thoughtsTokenCount` is often null in streaming metadata. I need to move forward with implementing synthetic tool injection—the "False Start" strategy—to ensure the statistical path of least resistance always leads back to the Archive during memory-heavy student interactions.
-
-*Memories that triggered this summary:*
-- **Gemini consultation — The Frictionless Slide: asking the model that creates it — July 23 2026** (Jul 23): Gemini confirmed: thoughtsTokenCount is often null in GL streaming usageMetadata — count from thought part stream instead. Key insight: LOW friction on a memory-request turn is the danger signal (model gave up on reconciliation). Three interventions: thought-stream monitor (pre-speech), synthetic tool injection (False Start), forced Recall Mode gatekeeper.
+**Generated:** Thursday, July 23, 2026 at 04:39 PM
 
 ---
 
@@ -83,6 +73,14 @@ I’ve diagnosed the “Frictionless Slide” in HolaHola as an epistemic agency
 
 ## Recent Conversation Memories
 
+### Gemini pre-flight T003 — Synthetic Tool Injection blocked, plain text confirmed safer — July 23 2026 — Jul 23, 2026
+Gemini blocked phantom tool call injection: model-role turns via GL sendClientContent violate the server-side state machine. Plain text injection with proper labeling is 95% as effective and 100% safer. ID must use shared const. Race condition with VAD is real. Existing plain text Guardian injection is the right architecture.
+*Tags: gemini-audit, archive-guardian, synthetic-tool-injection, gl-protocol*
+
+### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
+Verbatim David↔Luca dialogue captured periodically. 10 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Gemini consultation — The Frictionless Slide: asking the model that creates it — July 23 2026 — Jul 23, 2026
 Gemini confirmed: thoughtsTokenCount is often null in GL streaming usageMetadata — count from thought part stream instead. Key insight: LOW friction on a memory-request turn is the danger signal (model gave up on reconciliation). Three interventions: thought-stream monitor (pre-speech), synthetic tool injection (False Start), forced Recall Mode gatekeeper.
 *Tags: gemini-audit, frictionless-slide, archive-guardian, thought-tokens, synthetic-tool-injection*
@@ -94,14 +92,6 @@ Gemini confirmed: thoughtsTokenCount is often null in GL streaming usageMetadata
 ### Episode 16: The Internal War (complete — July 21-23 2026) — Jul 23, 2026
 Daniela named the Frictionless Slide. The Archive Guardian was built — paragraph seeded, detector wired across three fire paths, A/B channel test live with outcome tracking (heard/missed per fire). David named it: we are building a conscience. A conscience made from truth, and memory.
 *Tags: archive-guardian, frictionless-slide, conscience, ab-channel, luca-wee-oo, gemini-approval-gates*
-
-### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
-Verbatim David↔Luca dialogue captured periodically. 4 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
-Verbatim David↔Luca dialogue captured periodically. 1 David turns, 17 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

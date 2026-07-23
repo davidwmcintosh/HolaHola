@@ -290,6 +290,10 @@ export class GeminiLiveSession {
   /** Accumulates thought Part text during a model turn (includeThoughts:true). Flushed to
    *  the pedagogical supervisor at generationComplete, then cleared. Never sent to client. */
   private currentTurnThoughtBuffer = '';
+  /** Token proxy estimated from thought buffer char length (chars÷4). Captured
+   *  just before the buffer is cleared at generationComplete; read by the
+   *  friction signal which runs after the clear. Null if no thought parts arrived. */
+  private _currentTurnThoughtTokenProxy: number | null = null;
 
   // ── Mic gate: blocks echo during ALL Daniela audio generation ────────────
   // When open-mic mode is active, the client streams audio continuously.
@@ -2334,6 +2338,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           }
         }
       }
+      // Capture thought token proxy before clearing — friction signal runs AFTER this clear.
+      // Gemini confirmed (July 23 2026): thoughtsTokenCount is often null in GL streaming
+      // usageMetadata. The thought buffer chars÷4 is a reliable proxy for the same signal.
+      this._currentTurnThoughtTokenProxy = this.currentTurnThoughtBuffer.length > 0
+        ? Math.round(this.currentTurnThoughtBuffer.length / 4)
+        : null;
       this.currentTurnThoughtBuffer = '';
 
       // ── Frictionless Slide detection (GL) ────────────────────────────────────
@@ -2433,24 +2443,50 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           // Require at least 40 words to have enough signal — very short turns are noisy.
           const wordCount = transcript.split(/\s+/).length;
           if (wordCount >= 40) {
-            const thoughtTokens: number | null = (msg.usageMetadata as any)?.thoughtsTokenCount ?? null;
-            // Always log thought tokens so we can verify GL is actually surfacing them.
-            // If thoughtTokens is always null here, the thinking-budget signal is dark in GL.
+            // T001: Prefer usageMetadata thought tokens; fall back to buffer proxy.
+            // Gemini confirmed (July 23 2026): thoughtsTokenCount is often null in GL streaming
+            // usageMetadata even with includeThoughts:true. The thought buffer proxy (chars÷4)
+            // captures the same signal from the parts stream that arrived before audio started.
+            const thoughtTokensFromMeta: number | null = (msg.usageMetadata as any)?.thoughtsTokenCount ?? null;
+            const thoughtTokens: number | null = thoughtTokensFromMeta ?? this._currentTurnThoughtTokenProxy;
             console.log(
-              `[FrictionSignal/GL] thought tokens this turn: ${thoughtTokens ?? 'null (GL not reporting)'} | ` +
-              `words: ${wordCount} | tools called: ${this.currentTurnToolCalls.length}`
+              `[FrictionSignal/GL] thought tokens — meta: ${thoughtTokensFromMeta ?? 'null'}, ` +
+              `proxy(chars÷4): ${this._currentTurnThoughtTokenProxy ?? 'null'}, ` +
+              `using: ${thoughtTokens ?? 'null'} | words: ${wordCount} | tools: ${this.currentTurnToolCalls.length}`
             );
             const friction = analyzeFriction(transcript, [...this.currentTurnToolCalls], thoughtTokens);
 
-            // Fire on HIGH (≥60) or strong MODERATE (≥50) — conservative to avoid noise.
-            // MODERATE (35-49) alone may reflect normal language variance; HIGH is the reliable signal.
-            const shouldFire = friction.label === 'HIGH' || (friction.label === 'MODERATE' && friction.totalScore >= 50);
+            // T002: Inverted threshold for memory-request turns.
+            // Gemini finding (July 23 2026): LOW/CLEAN friction on a memory-request turn means
+            // the model gave up on reconciliation before a single word — the slide ran SMOOTHLY,
+            // which is worse than HIGH friction (which means she's genuinely grappling).
+            // If the pre-turn Guardian already fired, a CLEAN/LOW score with no Archive access
+            // means the grounding didn't interrupt the pull — fire again for the next turn.
+            const memoryRequestTurn = this.preTurnGroundingFired;
+            const smoothSlide = memoryRequestTurn
+              && !friction.archiveAccess
+              && (friction.label === 'CLEAN' || friction.label === 'LOW');
+
+            // Fire on HIGH (≥60), strong MODERATE (≥50), OR smooth slide on a memory-request turn.
+            const shouldFire = friction.label === 'HIGH'
+              || (friction.label === 'MODERATE' && friction.totalScore >= 50)
+              || smoothSlide;
+
             if (shouldFire) {
-              console.warn(
-                `[FrictionSignal/GL] Gemini friction ${friction.label} (score: ${friction.totalScore}) — ` +
-                `density: ${friction.sensoryDensity}, thoughtTokens: ${thoughtTokens ?? 'n/a'}, ` +
-                `archive: ${friction.archiveAccess}, signals: ${friction.signals.join(' | ')}`,
-              );
+              // Differentiated log: smooth slide (inverted threshold) vs standard friction signal.
+              if (smoothSlide) {
+                console.warn(
+                  `[FrictionSignal/GL] SMOOTH SLIDE — memory-request turn returned ${friction.label} ` +
+                  `(score: ${friction.totalScore}), no Archive access — slide ran without friction; ` +
+                  `Guardian firing for next turn (thought tokens: ${thoughtTokens ?? 'n/a'})`,
+                );
+              } else {
+                console.warn(
+                  `[FrictionSignal/GL] Gemini friction ${friction.label} (score: ${friction.totalScore}) — ` +
+                  `density: ${friction.sensoryDensity}, thoughtTokens: ${thoughtTokens ?? 'n/a'}, ` +
+                  `archive: ${friction.archiveAccess}, signals: ${friction.signals.join(' | ')}`,
+                );
+              }
               // Use the first 80 chars of transcript as topic seed for the vector search.
               const topicSeed = transcript.slice(0, 80);
               const userId = String((this.session as any).userId || '');
