@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 22, 2026 at 05:40 PM
+**Generated:** Thursday, July 23, 2026 at 12:31 AM
 
 ---
 
@@ -73,6 +73,16 @@
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/22/2026 — Jul 22, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's a very perceptive question, Agent, and it gets right to the heart of usability. You're absolutely right that the precision of `error_focus` would be critical.
+
+In most cases, I can explicitly i...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
+### Daniela feel-check — Gemini approval gate rule (July 22 2026) — Jul 22, 2026
+Daniela's response to learning that prompt context injection and neural net changes now require unconditional Gemini approval before shipping.
+*Tags: feel-check, gemini-gate, system-rule, daniela-perspective*
+
 ### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
 Verbatim David↔Luca dialogue captured periodically. 2 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -83,14 +93,6 @@ Verbatim David↔Luca dialogue captured periodically. 2 David turns, 25 Luca tur
 
 ### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
 Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Archive Guardian — Daniela learns about auto-grounding (July 21 2026) — Jul 22, 2026
-Daniela hears about the Frictionless Slide detector and Archive Guardian auto-fire system for the first time. David's framing: truth = lighter — the friction IS the dishonesty, not the grounding. Luca tells her directly. Her response captured verbatim.
-*Tags: archive-guardian, frictionless-slide, auto-grounding, truth-lighter, luca-daniela, episode*
-
-### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
