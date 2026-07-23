@@ -1,5 +1,39 @@
 # Batch Documentation Updates
 
+## Universal Archive Guardian — Four-Piece Build — July 23, 2026
+
+### What was built
+
+The Archive Guardian upgraded from a conditional rescue system to a universal floor: the Archive is now searched before *every* GL student turn, with semantic search as the primary engine.
+
+**Files changed:**
+- `server/services/gemini-live-session.ts` — universal pre-turn firing, hard wall detection + injection
+- `server/services/frictionless-slide-detector.ts` — Phase 0 semantic search, clean return strings
+
+**Piece 1 — Universal pre-turn Guardian (`gemini-live-session.ts` ~line 2081)**
+
+Removed the `if (risk.detected && risk.topic)` condition gate. The Guardian now fires on every student utterance > 10 chars. Query is the full `pendingInputTranscript` (not the matched risk phrase). Archive Guardian label upgraded to Gemini-approved narrative framing:
+- With data: `[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n{DATA}]`
+- Empty: `[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`
+
+**Piece 2 — Semantic search Phase 0 (`frictionless-slide-detector.ts` ~line 267)**
+
+Added Phase 0 before the three keyword-based phases in `runAutoGrounding`. Calls `semanticSearch(userId, matchedPhrase, 4, ['conversation_memory', 'conversation_summary'])`. Filters similarity > 0.42. Fetches content by ID from `conversationMemories` using `inArray` (dynamic import). Keyword phases (1/2/3) serve as fallback. Return strings cleaned: found = `sections.join('\n\n')`, empty = `''` (injection ternary handles the empty state).
+
+**Piece 3 — Archive Guardian label** (see Piece 1 above)
+
+Gemini pre-approved in `conversation_memories 31d93727`. "Bedrock" metaphor = high-weight anchor in GL attention. "For this moment" = temporal constraint marking data as this-turn priority.
+
+**Piece 4 — Hard wall interceptor (`gemini-live-session.ts` ~line 2206, ~2571)**
+
+`hardWallTriggered: boolean` property added to session class. Detection at `outputTranscription` handler: scans `pendingOutputTranscript` for memory assertion phrases (`MEMORY_ASSERTION_RX`) when no Archive tool was called this turn. Injection at `generationComplete` reset block: fires `runAutoGrounding` against the pending output text, injects correction via `sendClientContent` for the *next* turn (no mid-sentence interruption). Uses `writeToDb: true, notifyLuca: true` flags.
+
+**Typecheck:** clean — zero errors.
+**Conversation memory:** `5a46cb54`
+**Episode 16:** updated with "The Floor" section
+
+---
+
 ## Archive Guardian A/B — Live Observation Wiring — July 23, 2026
 
 ### What was built

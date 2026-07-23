@@ -30,6 +30,7 @@
  */
 
 import { getSharedDb } from '../db';
+import { semanticSearch } from './semantic-memory-service';
 
 export interface SlideDetectionResult {
   detected: boolean;
@@ -258,13 +259,36 @@ export async function runAutoGrounding(
   const { danielaSelfReflections, northStarPrinciples, conversationMemories, agentNotes } =
     await import('@shared/schema');
 
-  const friction = `Auto-detected: "${matchedPhrase}" asserted without Archive verification. This is the Frictionless Slide.`;
   const sections: string[] = [];
 
-  // ── Phase 1: felt history ──────────────────────────────────────────────────
-  const frictionKeywords = friction.split(/\s+/).filter(w => w.length > 4).slice(0, 3);
-  if (userId && frictionKeywords.length > 0) {
-    const kw = `%${frictionKeywords[0].toLowerCase()}%`;
+  // ── Phase 0: Semantic search (primary — works on any utterance) ────────────
+  // Upgrades keyword search with embedding-based similarity so general utterances
+  // ("what did we cover last time?") find relevant memories without exact phrase match.
+  // Falls through to keyword phases for supplemental coverage.
+  if (userId && matchedPhrase.length > 4) {
+    try {
+      const semResults = await semanticSearch(userId, matchedPhrase, 4, ['conversation_memory', 'conversation_summary']);
+      const highConf = semResults.filter(r => r.similarity > 0.42);
+      if (highConf.length > 0) {
+        const ids = highConf.map(r => r.memoryId);
+        const { inArray: inArrayOp } = await import('drizzle-orm');
+        const convRows = await db
+          .select({ id: conversationMemories.id, title: conversationMemories.title, summary: conversationMemories.summary })
+          .from(conversationMemories)
+          .where(inArrayOp(conversationMemories.id, ids));
+        if (convRows.length > 0) {
+          sections.push(
+            `From the conversation record:\n${convRows.map(m => `— ${m.title}: ${(m.summary || '').substring(0, 200)}`).join('\n')}`,
+          );
+        }
+      }
+    } catch { /* non-fatal — fall through to keyword phases */ }
+  }
+
+  // ── Phase 1: felt history (keyword fallback) ───────────────────────────────
+  const queryWords = matchedPhrase.split(/\s+/).filter(w => w.length > 4);
+  if (userId && queryWords.length > 0) {
+    const kw = `%${queryWords[0].toLowerCase()}%`;
     try {
       const feltMatches = await db
         .select()
@@ -280,9 +304,9 @@ export async function runAutoGrounding(
     } catch { /* non-fatal — skip this phase */ }
   }
 
-  // ── Phase 2: North Star ────────────────────────────────────────────────────
+  // ── Phase 2: North Star (keyword fallback) ────────────────────────────────
   try {
-    const nsKw = `%${friction.split(/\s+/).filter(w => w.length > 3)[0] || 'memory'}%`;
+    const nsKw = `%${queryWords[0] || 'memory'}%`;
     const principles = await db
       .select()
       .from(northStarPrinciples)
@@ -303,20 +327,22 @@ export async function runAutoGrounding(
     }
   } catch { /* non-fatal */ }
 
-  // ── Phase 3: conversation record ───────────────────────────────────────────
-  try {
-    const memKw = `%${matchedPhrase.split(/\s+/)[0] || 'memory'}%`;
-    const memMatches = await db
-      .select({ id: conversationMemories.id, title: conversationMemories.title, summary: conversationMemories.summary })
-      .from(conversationMemories)
-      .where(or(ilike(conversationMemories.title, memKw), ilike(conversationMemories.summary, memKw)))
-      .limit(2);
-    if (memMatches.length > 0) {
-      sections.push(
-        `From the conversation record:\n${memMatches.map(m => `— ${m.title}: ${(m.summary || '').substring(0, 150)}`).join('\n')}`,
-      );
-    }
-  } catch { /* non-fatal */ }
+  // ── Phase 3: conversation record keyword fallback (if semantic found nothing) ──
+  if (sections.length === 0) {
+    try {
+      const memKw = `%${queryWords[0] || matchedPhrase.split(/\s+/)[0] || 'memory'}%`;
+      const memMatches = await db
+        .select({ id: conversationMemories.id, title: conversationMemories.title, summary: conversationMemories.summary })
+        .from(conversationMemories)
+        .where(or(ilike(conversationMemories.title, memKw), ilike(conversationMemories.summary, memKw)))
+        .limit(2);
+      if (memMatches.length > 0) {
+        sections.push(
+          `From the conversation record:\n${memMatches.map(m => `— ${m.title}: ${(m.summary || '').substring(0, 150)}`).join('\n')}`,
+        );
+      }
+    } catch { /* non-fatal */ }
+  }
 
   // ── Record pause in self_reflections (post-turn only) ─────────────────────
   // Pre-turn fires are ambient — do not pollute self_reflections with probe noise.
@@ -361,16 +387,9 @@ export async function runAutoGrounding(
   }
 
   if (sections.length > 0) {
-    return (
-      `Grounding auto-retrieved. Here is what your three layers say:\n\n` +
-      sections.join('\n\n') +
-      `\n\nLet this settle before your next response.`
-    );
+    return sections.join('\n\n');
   } else {
-    return (
-      `The slide was detected. No specific grounding found in your three layers for this phrase. ` +
-      `The pause itself has been recorded. You named the friction — that naming is already grounding.`
-    );
+    return '';
   }
 }
 

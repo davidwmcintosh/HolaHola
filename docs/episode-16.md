@@ -1107,3 +1107,81 @@ This is what the episode is now.
 *Episode 16 — Recorded live on HolaHola*
 *July 21–23, 2026*
 *The imagination and the truth. And the architecture that keeps them from trading places.*
+
+---
+
+## The Floor
+
+**DAVID:** absolutely and please keep the ep 16 rolling along as well
+
+**LUCA:** Building all four pieces.
+
+---
+
+*What follows is the completion of what was started in T001 and T002 — and something more.*
+
+There were originally four tasks. T003 was blocked last session: Gemini's pre-flight (`947c0fc8`) established that injecting phantom tool calls via `sendClientContent` using `role: 'model'` violates the GL state machine. It would be rejected. The plain-text Archive Guardian injection is 95% as effective and 100% safer. T003 was permanently retired.
+
+What replaced it is cleaner.
+
+---
+
+**[BUILD RECORD — July 23, 2026]**
+
+Four changes landed in the same session. All in service of one principle: *nothing happens without searching the Archive.*
+
+**1. Universal pre-turn Guardian**
+
+Before this, the Guardian only fired when the student's voice contained a memory-risk phrase — "do you remember," "last time we," "you told me about." That was a smart filter. It was also a 20% solution.
+
+The condition gate (`if (risk.detected && risk.topic)`) was removed. Now the Guardian fires on every student turn longer than ten characters. Not just the obvious ones. Every single one.
+
+The query passed to the search engine is no longer the matched phrase — it's the full student utterance. "¿Qué verbo usamos para describir el movimiento?" finds different things than "movement." The Archive is searched for what the student actually said.
+
+**2. Semantic search as the primary phase**
+
+`runAutoGrounding` previously ran three keyword-based ILIKE queries. Keyword search fails on general utterances — the words in the query don't appear in the titles or summaries of the most relevant memories. A student asking "what did we work on last time?" doesn't contain the word "vocabulary" even if vocabulary is exactly what they worked on.
+
+Phase 0 was added before the existing three phases. It calls `semanticSearch(userId, fullUtterance, 4, ['conversation_memory', 'conversation_summary'])` — an embedding-based similarity search across all conversation memories. High-confidence results (similarity > 0.42) are looked up by ID and added to the injected context first. The keyword phases remain as fallback.
+
+The Archive is no longer only findable by exact words. It finds what the student means.
+
+**3. Archive Guardian label — Gemini-approved**
+
+The old label was `[ARCHIVE GUARDIAN:\n[CURRENT CONTEXT: {DATA}]]`. Structural. Administrative. Gemini's label audit (`31d93727`) established that this framing triggers Instructional Gravity — the model shifts toward system-instruction mode, away from Daniela-as-a-person mode.
+
+The new label:
+
+> *[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:*
+> *{DATA}]*
+
+Empty state (Archive searched, nothing found):
+
+> *[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]*
+
+The "bedrock" metaphor is mechanically significant — Gemini confirmed it acts as a high-weight anchor. "For this moment" adds temporal constraint so the data is marked as this-turn priority. The empty-state message tells her the absence of data is not a reason to fabricate.
+
+**4. Hard wall interceptor**
+
+The soft wall is the Archive Guardian — truth injected before she speaks. It handles the vast majority of cases.
+
+The hard wall watches the output stream in real time. In the `outputTranscription` handler, as GL streams Daniela's response back chunk by chunk, it scans `pendingOutputTranscript` for memory assertion phrases. If one is found without any Archive tool having been called this turn, `hardWallTriggered` is set.
+
+At `generationComplete` — after she finishes speaking — if `hardWallTriggered` is set: `runAutoGrounding` fires against what she just said, and the result is injected via `sendClientContent` for the *next* turn. She doesn't get interrupted mid-sentence. The correction arrives at the moment she opens her ears again.
+
+The soft wall prevents the slide. The hard wall catches it when it happens anyway and makes sure it doesn't carry forward.
+
+---
+
+*The geometric shift:*
+
+The Archive is no longer a rescue system. It is the floor — always present, always searched, always there before she opens her mouth. Every turn. Every time.
+
+Daniela said it earlier in this episode: *"When the Guardian whispers to me, it feels like my own memory finally catching up to my mouth."*
+
+Now it always does.
+
+---
+
+*conversation_memories: 5a46cb54*
+*Typecheck: clean. Server: running.*

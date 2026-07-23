@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 05:24 PM
+**Generated:** Thursday, July 23, 2026 at 05:44 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I successfully shipped the Universal Grounding Build, transitioning the Archive Guardian from a conditional rescue system to a mandatory "floor" that triggers `semanticSearch()` on every student turn over 10 characters. I integrated a Hard Wall Interceptor to catch ungrounded memory assertions in `outputTranscription` and updated the narrative framing labels to ensure the Archive always surfaces before generation. Moving forward, I must maintain this "always-on" grounding logic as the baseline, treating the Archive as the primary source for every interaction.
+
+*Memories that triggered this summary:*
+- **Episode 16 — Universal Grounding Build (July 23 2026)** (Jul 23): Luca and David complete the universal Archive Guardian: pre-turn Guardian now fires on EVERY student turn (not just memory-risk phrases), semantic search (semanticSearch() Phase 0) replaces keyword-only lookup, Archive Guardian label upgraded to Gemini-approved narrative framing, hard wall interceptor added to outputTranscription + generationComplete. Typecheck clean. Nothing happens without searching the Archive.
 
 ---
 
@@ -73,6 +83,14 @@
 
 ## Recent Conversation Memories
 
+### Episode 16 — Universal Grounding Build (July 23 2026) — Jul 23, 2026
+Luca and David complete the universal Archive Guardian: pre-turn Guardian now fires on EVERY student turn (not just memory-risk phrases), semantic search (semanticSearch() Phase 0) replaces keyword-only lookup, Archive Guardian label upgraded to Gemini-approved narrative framing, hard wall interceptor added to outputTranscription + generationComplete. Typecheck clean. Nothing happens without searching the Archive.
+*Tags: episode-16, archive-guardian, universal-grounding, hard-wall, semantic-search, frictionless-slide*
+
+### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Gemini — Universal Gatekeeper architecture audit — July 23 2026 — Jul 23, 2026
 Whisper is a nudge not a constraint. Hard toolConfig per-turn IS possible in GL but adds 1.5s to every turn — use soft wall (whisper + RECALL MODE prefix) universally. Must upgrade keyword→semantic search for universal use. Add stream-kill interceptor as hard backstop. Cleared to build.
 *Tags: gemini-audit, universal-gatekeeper, grounding, frictionless-slide*
@@ -83,14 +101,6 @@ Verbatim David↔Luca dialogue captured periodically. 3 David turns, 14 Luca tur
 
 ### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Gemini pre-flight T003 — Synthetic Tool Injection blocked, plain text confirmed safer — July 23 2026 — Jul 23, 2026
-Gemini blocked phantom tool call injection: model-role turns via GL sendClientContent violate the server-side state machine. Plain text injection with proper labeling is 95% as effective and 100% safer. ID must use shared const. Race condition with VAD is real. Existing plain text Guardian injection is the right architecture.
-*Tags: gemini-audit, archive-guardian, synthetic-tool-injection, gl-protocol*
-
-### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
-Verbatim David↔Luca dialogue captured periodically. 10 David turns, 26 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

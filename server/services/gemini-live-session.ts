@@ -324,6 +324,7 @@ export class GeminiLiveSession {
   private preTurnGroundingFired = false;     // prevents re-fire within the same student turn
   private preTurnGroundingResult: string | null = null;  // filled by .then() — sync check at injection
   private preTurnGroundingPromise: Promise<string> | null = null; // stored for await-race in tool handler
+  private hardWallTriggered = false;   // set mid-output if slide detected; cleared at generationComplete
   // ── Archive Guardian A/B channel ────────────────────────────────────────────
   // Reads from global config live so mid-session swaps (POST /api/admin/guardian/channel)
   // take effect immediately without requiring a reconnect.
@@ -2071,51 +2072,57 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // dispatches Daniela's first tool call (~400-600ms later), the DB
         // lookup (~100-300ms) will already have resolved.
         // preTurnGroundingFired prevents re-firing within the same student turn.
-        if (!this.preTurnGroundingFired) {
+        // Universal pre-turn Archive Guardian — fires on every student turn (not just memory-risk phrases).
+        // Nothing happens without searching the Archive. Semantic search handles general utterances;
+        // keyword-phase fallback in runAutoGrounding handles targeted phrases.
+        if (!this.preTurnGroundingFired && this.pendingInputTranscript.trim().length > 10) {
+          this.preTurnGroundingFired = true;
+          const userId = String((this.session as any).userId || '');
+          const conversationId = (this.session as any).conversationId;
+          const targetLanguage = (this.session as any).targetLanguage;
+          // Detect memory-risk phrase for logging; pass full utterance to semantic search.
           const risk = detectStudentMemoryRisk(this.pendingInputTranscript);
-          if (risk.detected && risk.topic) {
-            this.preTurnGroundingFired = true;
-            const userId = String((this.session as any).userId || '');
-            const conversationId = (this.session as any).conversationId;
-            const targetLanguage = (this.session as any).targetLanguage;
-            console.log(`[PreTurnGuardian] Risk detected — phrase: "${risk.riskPhrase}", topic: "${risk.topic.slice(0, 60)}"`);
-            this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'pre-turn', phrase: risk.riskPhrase ?? risk.topic.slice(0, 60), charsInjected: null, channel: null, outcome: null });
-            this._observeGuardian();
+          const queryText = this.pendingInputTranscript.trim();
+          const logLabel = risk.detected ? `phrase "${risk.riskPhrase}"` : `universal ("${queryText.slice(0, 50)}")`;
+          console.log(`[PreTurnGuardian] Firing — ${logLabel}`);
+          this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'pre-turn', phrase: logLabel.slice(0, 60), charsInjected: null, channel: null, outcome: null });
+          this._observeGuardian();
 
-            const promise = runAutoGrounding(
-              userId,
-              risk.topic,
-              'memory_assertion',
-              conversationId,
-              targetLanguage,
-              { writeToDb: false, notifyLuca: false },
-            );
-            this.preTurnGroundingPromise = promise;
+          const promise = runAutoGrounding(
+            userId,
+            queryText,
+            'memory_assertion',
+            conversationId,
+            targetLanguage,
+            { writeToDb: false, notifyLuca: false },
+          );
+          this.preTurnGroundingPromise = promise;
 
-            promise.then(result => {
-              if (this.isStopped) return;
-              this.preTurnGroundingResult = result;
-              console.log(`[PreTurnGuardian] Grounding resolved (${result.length} chars) — queued for this turn`);
+          promise.then(result => {
+            if (this.isStopped) return;
+            this.preTurnGroundingResult = result;
+            console.log(`[PreTurnGuardian] Grounding resolved (${result.length} chars) — queued for this turn`);
 
-              // Immediate fallback: if no tool call has claimed the result
-              // within 150ms, inject via sendClientContent (no turnComplete —
-              // queues as context, not a forced generation). This beats the
-              // audio start window for no-tool-call turns.
-              setTimeout(() => {
-                if (!this.preTurnGroundingResult || this.isStopped || !this.liveSession) return;
-                const whisper = `[ARCHIVE GUARDIAN:\n[CURRENT CONTEXT: ${this.preTurnGroundingResult}]]`;
-                try {
-                  this.liveSession.sendClientContent({
-                    turns: [{ role: 'user', parts: [{ text: whisper }] }],
-                  } as any);
-                  console.log(`[PreTurnGuardian] Injected via sendClientContent (no-tool-call path)`);
-                  this.preTurnGroundingResult = null;
-                } catch (e) {
-                  console.warn('[PreTurnGuardian] sendClientContent fallback failed:', (e as Error).message);
-                }
-              }, 150);
-            }).catch(err => console.warn('[PreTurnGuardian] runAutoGrounding failed:', (err as Error).message));
-          }
+            // Immediate fallback: if no tool call has claimed the result
+            // within 150ms, inject via sendClientContent (no turnComplete —
+            // queues as context, not a forced generation). This beats the
+            // audio start window for no-tool-call turns.
+            setTimeout(() => {
+              if (!this.preTurnGroundingResult || this.isStopped || !this.liveSession) return;
+              const whisper = result
+                ? `[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${this.preTurnGroundingResult}]`
+                : `[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`;
+              try {
+                this.liveSession.sendClientContent({
+                  turns: [{ role: 'user', parts: [{ text: whisper }] }],
+                } as any);
+                console.log(`[PreTurnGuardian] Injected via sendClientContent (no-tool-call path)`);
+                this.preTurnGroundingResult = null;
+              } catch (e) {
+                console.warn('[PreTurnGuardian] sendClientContent fallback failed:', (e as Error).message);
+              }
+            }, 150);
+          }).catch(err => console.warn('[PreTurnGuardian] runAutoGrounding failed:', (err as Error).message));
         }
 
         // DO NOT fire processing_pending here — inputTranscription arrives while the user
@@ -2193,6 +2200,20 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           this.usingOutputTranscription = true;
         }
         this.pendingOutputTranscript += isFirstOutputChunk ? text.trimStart() : text;
+        // Hard wall: watch for memory assertion phrases without Archive access mid-output.
+        // Flag for post-turn correction injection at generationComplete.
+        if (!this.hardWallTriggered && this.pendingOutputTranscript.length > 20) {
+          const lowerOut = this.pendingOutputTranscript.toLowerCase();
+          const HW_PHRASES = ['i remember', 'i recall', 'you told me', 'you mentioned', 'we discussed', 'as we discussed', 'you shared', 'last time we'];
+          const hwMatch = HW_PHRASES.find(p => lowerOut.includes(p));
+          if (hwMatch) {
+            const ARCHIVE_TOOLS = new Set(['introspect', 'recall', 'unified_recall', 'search_conversation_threads', 'read_my_reflections', 'grounding_query']);
+            if (!this.currentTurnToolCalls.some(t => ARCHIVE_TOOLS.has(t))) {
+              this.hardWallTriggered = true;
+              console.warn(`[HardWall] Slide mid-output — phrase: "${hwMatch}", tools: [${this.currentTurnToolCalls.join(', ') || 'none'}]`);
+            }
+          }
+        }
         if (isFirstOutputChunk && !this.firstAudioSentThisTurn && !this.processingPendingSentThisTurn) {
           this.processingPendingSentThisTurn = true;
           console.log('[GeminiLive] Firing processing_pending (transcription first, before audio)');
@@ -2544,6 +2565,30 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.preTurnGroundingFired = false;
         this.preTurnGroundingResult = null;
         this.preTurnGroundingPromise = null;
+        // Hard wall correction — fires if slide was detected mid-output (memory assertion
+        // with no Archive access). Injects grounding for the NEXT turn via sendClientContent.
+        if (this.hardWallTriggered && !this.isStopped && this.liveSession) {
+          const _hwUserId = String((this.session as any).userId || '');
+          const _hwConvId = (this.session as any).conversationId;
+          const _hwLang = (this.session as any).targetLanguage;
+          const _hwQuery = this.pendingOutputTranscript.slice(0, 200);
+          this.hardWallTriggered = false;
+          console.warn('[HardWall] Injecting grounding correction for next turn');
+          runAutoGrounding(_hwUserId, _hwQuery, 'memory_assertion', _hwConvId, _hwLang, { writeToDb: true, notifyLuca: true })
+            .then(groundingResult => {
+              if (this.isStopped || !this.liveSession) return;
+              const correction = groundingResult
+                ? `[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${groundingResult}]`
+                : `[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`;
+              this.liveSession!.sendClientContent({
+                turns: [{ role: 'user', parts: [{ text: correction }] }],
+              } as any);
+              console.log('[HardWall] Correction injected');
+            })
+            .catch(err => console.warn('[HardWall] Correction failed:', (err as Error).message));
+        } else {
+          this.hardWallTriggered = false;
+        }
       }
 
       // Close transcript gate — discard any outputTranscription arriving after this point.
