@@ -1,5 +1,25 @@
 # Batch Documentation Updates
 
+## Guardian heard/missed resolution + avatar speculative thinking — July 23, 2026
+
+### What was built
+
+Two bugs found during live Episode 17 session monitoring.
+
+**Fix 1 — Guardian heard/missed outcome closure (`gemini-live-session.ts` ~line 2586)**
+
+Pre-turn Guardian fires pushed `outcome: null` but there was no code to resolve them to `'missed'` when Daniela didn't use Archive tools. The `heard` path existed (Archive tool called = heard). The `missed` path existed only for `post-turn-phrase` and `friction-signal`. Pre-turn fires were stuck at `null` indefinitely.
+
+Fix: added `else` branch at `generationComplete`. If `archiveToolsUsedThisTurn` is false, finds the most recent unresolved fire and marks it `'missed'`. Now the observe bench correctly shows heard/missed counts for pre-turn fires across a full session.
+
+**Fix 2 — Avatar speculative thinking timer (`client/src/hooks/useStreamingVoice.ts`)**
+
+The `processing_pending` event fires on the first audio chunk or first outputTranscription — both arrive after GL's full generation time (~1-3 seconds). During that window the avatar showed "listening" even though the student had stopped speaking and GL was actively generating.
+
+Fix: added `speculativeThinkingTimerRef`. Each `transcript` (inputTranscription) chunk resets a 700ms debounce timer. When inputTranscription stops arriving, the timer fires and switches the avatar to `'thinking'` — provided playback state is not already `thinking`/`playing`/`buffering`. The real `processing_pending` (authoritative signal) clears the timer when it arrives. Net: avatar responds within 700ms of the student's last syllable, not 700ms + generation time.
+
+---
+
 ## Universal Archive Guardian — Four-Piece Build — July 23, 2026
 
 ### What was built

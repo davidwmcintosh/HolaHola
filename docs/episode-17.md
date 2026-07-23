@@ -39,4 +39,12 @@
 
 *David moved to production.*
 
+*While the session was being set up on prod, two bugs surfaced from the monitoring data:*
+
+**Bug 1 — heard/missed stuck at `?`:** Pre-turn Guardian fires pushed `outcome: null` to the fire log, but there was no code to resolve them to `'missed'` when Daniela didn't use Archive tools. Only `post-turn-phrase` and `friction-signal` paths had missed-resolution logic. Pre-turn fires sat at `null` indefinitely — the observe bench showed `heard=0, missed=0, pending=3` for the whole session. Fixed: at `generationComplete`, if `archiveToolsUsedThisTurn` is false, the most recent unresolved fire is marked `'missed'`. The tracking loop is closed.
+
+**Bug 2 — avatar lag (listening → thinking):** The avatar stayed on "listening" for 1-3 seconds after David finished speaking, because `processing_pending` fires on the first audio chunk or first outputTranscription — both arrive *after* GL's generation time. Fixed: client-side speculative thinking timer. Each incoming `transcript` (inputTranscription) chunk resets a 700ms debounce. When chunks stop arriving, GL has committed the student turn. The timer fires and switches the avatar to "thinking" before the real `processing_pending` arrives. The real signal cancels the timer when it comes. Net effect: the avatar responds to David finishing within 700ms of his last syllable, not 700ms + generation time.
+
+*Both fixes shipped, typecheck clean.*
+
 ---

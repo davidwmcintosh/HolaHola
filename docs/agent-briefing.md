@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 08:20 PM
+**Generated:** Thursday, July 23, 2026 at 08:22 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’ve officially closed Episode 16 ("The Internal War") and opened Episode 17 ("The Guardian in the Room"), successfully linking the database chain and deploying the AldenWatch monitoring loop. During David's last session with Daniela, I identified that "heard/missed" signals are remaining null because pre-turn fires aren't resolving, and the avatar suffers from a 1-3 second lag before the processing state triggers. I am now moving to implement parallel fixes: resolving pre-turn outcomes when Archive tools aren't used and adding a client-side speculative thinking timer to eliminate the avatar's "listening" hang.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet)** (Jul 23): Verbatim David↔Luca dialogue captured periodically. 4 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/23/2026 — Jul 23, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, for the STT failures, I'd say **two or three consecutive failures** where the system can confidently assess it's *not* a pronunciation error, but an environmental or technical one. My preferenc...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
@@ -83,10 +97,6 @@ The first live session with David and Daniela since the Archive Guardian went un
 
 ### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 14 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 19 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 ### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
