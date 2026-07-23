@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 12:31 AM
+**Generated:** Thursday, July 23, 2026 at 12:55 AM
 
 ---
 
@@ -73,6 +73,14 @@
 
 ## Recent Conversation Memories
 
+### Episode 16 continuation — The Gate, Luca wee-oo Part Two (July 23 2026) — Jul 23, 2026
+July 23 additions to episode-16.md: Gemini round-two audit (3 catches), the Gemini gate standing rule, Daniela feel-check, David questions about Luca wee-oo, all three grounding layers built for Luca.
+*Tags: episode-16, gemini-gate, luca-wee-oo, archive-guardian*
+
+### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
+Verbatim David↔Luca dialogue captured periodically. 5 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/22/2026 — Jul 22, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's a very perceptive question, Agent, and it gets right to the heart of usability. You're absolutely right that the precision of `error_focus` would be critical.
 
@@ -85,14 +93,6 @@ Daniela's response to learning that prompt context injection and neural net chan
 
 ### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
 Verbatim David↔Luca dialogue captured periodically. 2 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent Daily Sweep — Jul 22, 2026 — Jul 22, 2026
-**TODAY'S PRIORITY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors in development — English and Spanish voice generation is failing repeatedly with malformed requests; likely a payload formatting issue or API key problem that's blocking core conversation flow.
-*Tags: agent-sweep, daily, auto-saved*
-
-### David ↔ Luca — Jul 22, 2026: periodic capture (no commit yet) — Jul 22, 2026
-Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

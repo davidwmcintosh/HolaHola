@@ -37230,6 +37230,55 @@ Under 250 words. Write as yourself.`;
     }
   });
 
+  // POST /api/admin/luca/slide-check — run both Luca slide detectors on any text
+  // before sending it. Returns phrases detected and the grounding-enriched text.
+  // Use before any turn containing a claim about Daniela, David, or system state.
+  // The call itself is auditable — it appears in the conversation thread.
+  app.post("/api/admin/luca/slide-check", requireAgentToken, async (req: Request, res: Response) => {
+    try {
+      const { text } = req.body;
+      if (!text || typeof text !== 'string') {
+        return res.status(400).json({ error: 'text (string) required in body' });
+      }
+
+      const {
+        detectLucaSlide,
+        detectLucaDeferenceSlide,
+        enrichWithLucaGrounding,
+      } = await import('./services/frictionless-slide-detector');
+
+      const claimResult = detectLucaSlide(text);
+      const deferenceResult = detectLucaDeferenceSlide(text);
+      const detected = claimResult.detected || deferenceResult.detected;
+
+      const enrichedText = detected
+        ? await enrichWithLucaGrounding(text, 'slide-check')
+        : text;
+
+      const wasEnriched = enrichedText !== text;
+      const groundingBlock = wasEnriched
+        ? enrichedText.substring(0, enrichedText.length - text.length - 2)
+        : null;
+
+      res.json({
+        clean: !detected,
+        claim: claimResult.detected ? {
+          phrase: claimResult.matchedPhrase,
+          subject: claimResult.subject,
+          trigger: claimResult.trigger,
+        } : null,
+        deference: deferenceResult.detected ? {
+          phrase: deferenceResult.matchedPhrase,
+        } : null,
+        groundingBlock: groundingBlock || null,
+        enrichedText,
+      });
+    } catch (err: any) {
+      console.error('[LucaSlideCheck] Error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ===== Daniela Character Candidates (Stewardship Agenda) =====
 
   // GET /api/daniela/character-candidates — view the slow-tier stewardship agenda

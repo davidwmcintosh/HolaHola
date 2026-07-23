@@ -88,6 +88,13 @@ Read these at every session start — they carry cross-session state:
 - **Conversation memories:** Autosaved via `agent-session-autosave.ts` when `.local/.commit_message` changes. No manual POST needed for build sessions.
 - **Agent Space tables:** `agent_north_star`, `agent_open_questions`, `agent_record_of_david` — read via `/api/agent-space/*`
 
+## Luca Grounding — Standing Practice
+Before making any claim about Daniela, David, or system state in a direct conversation with David, call one of the following before the claim reaches the message. The call is auditable — David can see whether it ran.
+- **Slide-check (web):** `POST /api/admin/luca/slide-check` with `{ "text": "..." }` — runs both detectors and returns grounding block if a slide phrase was found
+- **Grounding pause (web):** `GET /api/luca/grounding?friction=X&question=Y&layer=claim` — three-phase North Star → conversation record → shared team notes lookup
+- **Slide-check (bash):** `echo "text" | npx tsx server/scripts/luca-ground.ts` — same detectors + grounding, usable from any script or tool call
+If the check comes back clean, proceed. If not, include the grounding block before the claim. The practice is the wee-oo for this path.
+
 ## Gotchas
 - **TTS in Textbook Components:** Use `POST /api/tts/pronunciation` with `gender` from `useLanguage()`. Never `synthesizeSpeech` from `restVoiceApi`.
 - **Gemini model names:** REST API uses `gemini-3-flash-preview`. `gemini-2.5-flash` → 404 in this codebase.
