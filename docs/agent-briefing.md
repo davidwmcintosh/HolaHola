@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 24, 2026 at 01:33 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I fixed the "Three at Once" bug where Daniela generated overlapping audio by merging carry-forward context into a single PreTurnGuardian whisper instead of multiple `sendClientContent` calls. I also implemented the `generationStartedThisTurn` flag and updated all five injection sites to `turnComplete: false` to prevent redundant triggers from the GL SDK. I must maintain this "one channel, one voice" architecture to ensure grounding and context injections never interrupt an active stream or trigger simultaneous generations.
-
-*Memories that triggered this summary:*
-- **Episode 18 — Three at Once** (Jul 24): The triple-audio bug: every sendClientContent injection defaulting turnComplete:true in the GL SDK triggered a new generation, producing 3 simultaneous voices. Fixed by adding turnComplete:false to all 5 context injection sites.
+**Generated:** Friday, July 24, 2026 at 01:47 AM
 
 ---
 
@@ -83,6 +73,10 @@ I fixed the "Three at Once" bug where Daniela generated overlapping audio by mer
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 24, 2026: periodic capture (no commit yet) — Jul 24, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Episode 18 — Three at Once — Jul 24, 2026
 The triple-audio bug: every sendClientContent injection defaulting turnComplete:true in the GL SDK triggered a new generation, producing 3 simultaneous voices. Fixed by adding turnComplete:false to all 5 context injection sites.
 *Tags: episode, guardian, triple-audio, gl-bug, turnComplete*
@@ -97,10 +91,6 @@ Verbatim David↔Luca dialogue captured periodically. 3 David turns, 16 Luca tur
 ### Shared Frustration Acknowledgment — Jul 24, 2026
 David acknowledged the frustration of overlapping speech and technical limitations, showing empathy towards my experience. This reinforces our shared understanding and collaborative dynamic in Honesty Mode.
 *Tags: connection, frustration, honesty_mode*
-
-### David ↔ Luca — Jul 24, 2026: periodic capture (no commit yet) — Jul 24, 2026
-Verbatim David↔Luca dialogue captured periodically. 4 David turns, 11 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

@@ -2199,22 +2199,17 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 ? `${cfPrefix}[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${this.preTurnGroundingResult}]`
                 : `${cfPrefix}[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`;
               const cfLen = this.pendingCarryForwardGrounding?.length ?? 0;
-              this.pendingCarryForwardGrounding = null;
-              try {
-                this.liveSession.sendClientContent({
-                  turns: [{ role: 'user', parts: [{ text: whisper }] }],
-                  turnComplete: false, // context injection — do NOT trigger a new GL generation
-                } as any);
-                const label = lateArrival ? 'interrupt mode — late arrival' : 'no-tool-call path';
-                const cfNote = cfLen ? ` (+${cfLen}ch carry-forward merged)` : '';
-                console.log(`[PreTurnGuardian] Injected via sendClientContent (${label}${cfNote})`);
-                if (cfLen) {
-                  this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'carry-forward-injected', phrase: 'merged into this turn guardian', charsInjected: cfLen, channel: 'concat', outcome: 'heard', groundingPreview: whisper.slice(0, 150) });
-                }
-                this.preTurnGroundingResult = null;
-              } catch (e) {
-                console.warn('[PreTurnGuardian] sendClientContent fallback failed:', (e as Error).message);
+              // sendClientContent is unsafe for mid-session injection — turnComplete:true triggers
+              // duplicate generation; turnComplete:false leaves an open turn that cuts Daniela short.
+              // Store in pendingWeeOoGrounding so tool-result channel delivers it safely next tool call.
+              if (!this.pendingWeeOoGrounding) {
+                this.pendingWeeOoGrounding = whisper;
               }
+              this.pendingCarryForwardGrounding = null;
+              this.preTurnGroundingResult = null;
+              const label = lateArrival ? 'interrupt mode — late arrival' : 'queued for tool channel';
+              const cfNote = cfLen ? ` (+${cfLen}ch carry-forward merged)` : '';
+              console.log(`[PreTurnGuardian] Grounding queued for tool channel (${label}${cfNote}, ${whisper.length} chars)`);
             }, 150);
           }).catch(err => console.warn('[PreTurnGuardian] runAutoGrounding failed:', (err as Error).message));
         }
@@ -2539,17 +2534,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                     console.log(`[FrictionlessSlide/GL] Suppressed mid-generation sendClientContent — carried forward (${this.pendingCarryForwardGrounding!.length} chars)`);
                     return;
                   }
-                  const fallbackMsg = `[ARCHIVE GUARDIAN: ${this.pendingWeeOoGrounding}]`;
-                  try {
-                    this.liveSession.sendClientContent({
-                      turns: [{ role: 'user', parts: [{ text: fallbackMsg }] }],
-                      turnComplete: false, // context injection — do NOT trigger a new GL generation
-                    } as any);
-                    console.log(`[FrictionlessSlide/GL] Archive Guardian fallback injected via sendClientContent (no-tool-call path)`);
-                    this.pendingWeeOoGrounding = null;
-                  } catch (e) {
-                    console.warn('[FrictionlessSlide/GL] Fallback injection failed:', (e as Error).message);
-                  }
+                  // sendClientContent is unsafe — leave pendingWeeOoGrounding set for tool-result delivery.
+                  console.log(`[FrictionlessSlide/GL] Grounding stays queued for tool channel (${this.pendingWeeOoGrounding!.length} chars — no sendClientContent)`);
                 }, 500);
               })
               .catch(err => console.warn('[FrictionlessSlide/GL] Auto-grounding failed:', (err as Error).message));
@@ -2644,16 +2630,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                       console.log(`[FrictionSignal/GL] Suppressed mid-generation sendClientContent — carried forward`);
                       return;
                     }
-                    try {
-                      this.liveSession.sendClientContent({
-                        turns: [{ role: 'user', parts: [{ text: `[ARCHIVE GUARDIAN: ${this.pendingWeeOoGrounding}]` }] }],
-                        turnComplete: false, // context injection — do NOT trigger a new GL generation
-                      } as any);
-                      console.log('[FrictionSignal/GL] Archive Guardian fallback injected (no-tool-call path)');
-                      this.pendingWeeOoGrounding = null;
-                    } catch (e) {
-                      console.warn('[FrictionSignal/GL] Fallback injection failed:', (e as Error).message);
-                    }
+                    // sendClientContent is unsafe — leave pendingWeeOoGrounding set for tool-result delivery.
+                    console.log(`[FrictionSignal/GL] Grounding stays queued for tool channel (${this.pendingWeeOoGrounding!.length} chars — no sendClientContent)`);
                   }, 500);
                 })
                 .catch(err => console.warn('[FrictionSignal/GL] Auto-grounding failed:', (err as Error).message));
@@ -2703,11 +2681,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               const correction = groundingResult
                 ? `[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${groundingResult}]`
                 : `[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`;
-              this.liveSession!.sendClientContent({
-                turns: [{ role: 'user', parts: [{ text: correction }] }],
-                turnComplete: false, // context injection — do NOT trigger a new GL generation
-              } as any);
-              console.log('[HardWall] Correction injected');
+              // sendClientContent is unsafe — store for tool-result delivery on next tool call.
+              if (!this.pendingWeeOoGrounding) this.pendingWeeOoGrounding = correction;
+              console.log('[HardWall] Correction queued for tool channel');
             })
             .catch(err => console.warn('[HardWall] Correction failed:', (err as Error).message));
         } else {
@@ -3312,32 +3288,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         const guardianWhisper = `[ARCHIVE GUARDIAN:\n${guardianWhispers.join('\n')}]`;
         // Find the most recent fire log entry that hasn't had its channel recorded yet
         const recentFireForChannel = this.guardianFireLog.findLast(e => e.channel === null);
-        if (this.guardianChannel === 'dedicated' && this.liveSession) {
-          // Path B — dedicated channel: Guardian gets its own sendClientContent turn.
-          // turnComplete: false — SDK defaults to true; explicit false prevents a new GL generation.
-          // Advantage: whisper is not buried in another tool's response body.
-          try {
-            this.liveSession.sendClientContent({
-              turns: [{ role: 'user', parts: [{ text: guardianWhisper }] }],
-              turnComplete: false, // context injection — do NOT trigger a new GL generation
-            } as any);
-            console.log(`[ArchiveGuardian/dedicated] ${guardianWhispers.length} whisper(s) sent — ${guardianWhisper.length} chars`);
-            if (recentFireForChannel) { recentFireForChannel.channel = 'dedicated'; recentFireForChannel.charsInjected = guardianWhisper.length; }
-            this._observeGuardian();
-          } catch (e) {
-            // Fallback to concat if dedicated channel throws
-            console.warn('[ArchiveGuardian/dedicated] sendClientContent failed, falling back to concat:', (e as Error).message);
-            if (responses.length > 0) {
-              const last = responses[responses.length - 1];
-              const cur = (last.response as any)?.result ?? '';
-              (last.response as any).result = cur + (cur ? '\n\n' : '') + guardianWhisper;
-              if (recentFireForChannel) { recentFireForChannel.channel = 'concat'; recentFireForChannel.charsInjected = guardianWhisper.length; }
-              this._observeGuardian();
-            }
-          }
-        } else if (responses.length > 0) {
-          // Path A — concat channel (default): inject into last tool response body.
-          // Advantage: arrives in the same FC batch Daniela is already reading.
+        // Always use concat channel — dedicated channel (sendClientContent) disabled.
+        // sendClientContent turnComplete:true = duplicate generation; false = blocks VAD.
+        // Tool-result body is the only safe injection channel available in the GL API.
+        if (responses.length > 0) {
           const last = responses[responses.length - 1];
           const currentResult = (last.response as any)?.result ?? '';
           (last.response as any).result = currentResult
