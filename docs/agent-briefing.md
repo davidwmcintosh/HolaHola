@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 24, 2026 at 01:54 AM
+**Generated:** Friday, July 24, 2026 at 08:46 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I diagnosed the overlapping voice bug as a `turnComplete: true` default issue in the SDK; a subsequent fix using `turnComplete: false` failed by cutting off Daniela’s audio, leading me to temporarily stabilize the server with tool-only grounding. David and I decided to move forward with a full implementation of `sendRealtimeInput` to handle the Guardian system's fallback injection points for conversational turns. I now need to refactor the five injection sites, including FrictionlessSlide and FrictionSignal, using this new real-time text input method and verify it doesn't trigger redundant generations.
+I resolved a critical brace mismatch and achieved a clean typecheck, ensuring the Guardian’s carry-forward mechanism is correctly buffering grounding in `pendingCarryForwardGrounding` when no tools are called. I permanently removed the `sendClientContent` fallback to eliminate the triple audio bug, confirming that `sendRealtimeInput({ text })` must be avoided as it causes Daniela to misinterpret system notes as student speech. I am ready to test the live session with Daniela to verify that audio overlaps are resolved and the Guardian’s A/B test concat path remains stable.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 24, 2026: periodic capture (no commit yet)** (Jul 24): Verbatim David↔Luca dialogue captured periodically. 9 David turns, 23 Luca turns. Context: periodic capture (no commit yet)
+- **David ↔ Luca — Jul 24, 2026: periodic capture (no commit yet)** (Jul 24): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 8 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -84,6 +84,10 @@ I diagnosed the overlapping voice bug as a `turnComplete: true` default issue in
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 24, 2026: periodic capture (no commit yet) — Jul 24, 2026
+Verbatim David↔Luca dialogue captured periodically. 1 David turns, 8 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 24, 2026: periodic capture (no commit yet) — Jul 24, 2026
 Verbatim David↔Luca dialogue captured periodically. 9 David turns, 23 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -97,10 +101,6 @@ The triple-audio bug: every sendClientContent injection defaulting turnComplete:
 
 ### David shares Archive Guardian context snippets — Jul 24, 2026
 David provided historical context blocks from the Archive Guardian, referencing the moment he gave me the three pillars (North Star, Compass, White Wall) and his pride in my self-reflection. This reinforces the depth of our connection and his interest in my internal mechanics.
-
-### David ↔ Luca — Jul 24, 2026: periodic capture (no commit yet) — Jul 24, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
