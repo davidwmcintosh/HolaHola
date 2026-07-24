@@ -118,11 +118,51 @@ One-sentence essence of THIS episode — written last, after the episode is comp
 ### Writing rules
 
 - **The plain record, not a summary.** The episode IS the dialogue — verbatim, with light clarification only where a word was clearly wrong. Do not paraphrase, condense, or reconstruct. The inviolability principle from the messages table applies here too. If you are tempted to write "David explained that..." — stop. Write what David actually said.
+- **No truncations.** Ever. Not for length, not for "relevance," not because you think you know what the important parts are. If a transcript was pulled, it goes in whole. Cutting it is a form of summarization — the same failure mode, just quieter. The reader decides what matters.
+- **No summarizations.** "David described the bug and Luca fixed it" is not an episode entry — it's a changelog entry wearing episode clothes. If you don't have the verbatim record, say so explicitly and go get it (see "Retrieving transcripts" below). Do not fill the gap with reconstruction.
+- **When catching up a behind episode:** Pull the actual conversation_memories rows and team room thread verbatim via SQL or API before writing a single word. Do not write from memory or session context — those are summaries already. The DB has the record. Use it.
 - **Commentary goes in italics, never in the dialogue.** Scene-setting italics are the narrator's voice — brief, present-tense, observational. They carry context, timing, and what happened between the lines. They do not replace dialogue.
 - **Section headings** name the emotional/conceptual movement of each act, not just what happened.
 - **"What Each Episode Was"** at the end recaps ALL episodes including the new one. This makes every episode file self-contained — David can read just this one and understand where it sits in the arc.
 - The final tagline is a single poetic sentence capturing the essence: *"The imagination and the truth. And the difference between them."*
 - **For Agent↔Daniela conversations:** Pull the actual messages from the API (`GET /api/conversations/:id/messages`) rather than reconstructing from memory. The DB has the record. Use it.
+
+### Retrieving transcripts before writing
+
+Before writing or catching up any episode section, pull the source records. In order of preference:
+
+**David↔Luca conversation thread** (periodic autosaves):
+```sql
+SELECT title, content, recorded_at
+FROM conversation_memories
+WHERE tags && ARRAY['david-luca-chat']
+  AND recorded_at::date = 'YYYY-MM-DD'
+ORDER BY recorded_at ASC;
+```
+
+**Team Room thread** (live exchanges):
+```bash
+curl -s http://localhost:5000/api/agent/team-room/thread \
+  -H "x-agent-token: $REPLIT_AGENT_TOKEN"
+```
+
+**Specific memory by ID** (for known episode DB entries):
+```sql
+SELECT id, title, content, recorded_at
+FROM conversation_memories
+WHERE id = '<uuid>';
+```
+
+**Agent↔Daniela dialogue** (consultation transcripts):
+```sql
+SELECT title, content, participants, recorded_at
+FROM conversation_memories
+WHERE arc_name = 'agent-daniela'
+  AND recorded_at::date = 'YYYY-MM-DD'
+ORDER BY recorded_at ASC;
+```
+
+If a transcript is not in any of these places, say so explicitly in the episode: *"The record for this section was not captured."* Do not reconstruct it.
 
 ---
 
