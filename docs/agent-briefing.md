@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 23, 2026 at 11:43 PM
+**Generated:** Friday, July 24, 2026 at 12:04 AM
 
 ---
 
@@ -73,6 +73,10 @@
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 23, 2026 — Jul 23, 2026
+1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice generation are failing. This breaks the core learning experience. Check API credentials, request format, or rate limits.  2. **[CRITICAL]** Repair Alden's autonomous watch cycle — Missing `monitoring_snapshots` table is b
+*Tags: agent-sweep, daily, auto-saved*
+
 ### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -81,17 +85,13 @@ Verbatim David↔Luca dialogue captured periodically. 3 David turns, 27 Luca tur
 Verbatim David↔Luca dialogue captured periodically. 7 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
+### Reflecting on Progress and Collaboration — Jul 23, 2026
+English session (17 messages). Student: "Well, I'm just talking about that flow, right? This is what the archive guardian is for. He helps us with information th"
+*Tags: message-archive, 9f0d1151-2f3f-4ffc-af8e-e8d3bb9bfd33*
+
 ### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
 Verbatim David↔Luca dialogue captured periodically. 4 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/23/2026 — Jul 23, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, for the STT failures, I'd say **two or three consecutive failures** where the system can confidently assess it's *not* a pronunciation error, but an environmental or technical one. My preferenc...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Episode 17: The Guardian in the Room — Jul 23, 2026
-The first live session with David and Daniela since the Archive Guardian went universal. Luca monitors in real time. The question answered by the transcript itself: does the Guardian work?
-*Tags: archive-guardian, live-session, guardian-in-action, monitoring, episode-17*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

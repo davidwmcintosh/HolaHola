@@ -1525,6 +1525,7 @@ export const voiceSessions = pgTable("voice_sessions", {
   guardianHardWalls: integer("guardian_hard_walls"),
   guardianHeard: integer("guardian_heard"),
   guardianMissed: integer("guardian_missed"),
+  guardianCarryForward: integer("guardian_carry_forward"),
 }, (table) => [
   index("idx_voice_sessions_user").on(table.userId),
   index("idx_voice_sessions_started").on(table.startedAt),

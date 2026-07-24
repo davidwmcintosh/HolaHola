@@ -361,7 +361,7 @@ export class GeminiLiveSession {
   // missed = same slide re-fired before any Archive access).
   guardianFireLog: Array<{
     ts: string;
-    path: 'pre-turn' | 'post-turn-phrase' | 'friction-signal' | 'hard-wall';
+    path: 'pre-turn' | 'post-turn-phrase' | 'friction-signal' | 'hard-wall' | 'carry-forward-buffered' | 'carry-forward-injected';
     phrase: string;
     charsInjected: number | null;
     channel: 'concat' | 'dedicated' | null;
@@ -1554,9 +1554,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       const gHard    = this.guardianFireLog.filter(f => f.path === 'hard-wall').length;
       const gHeard   = this.guardianFireLog.filter(f => f.outcome === 'heard').length;
       const gMissed  = this.guardianFireLog.filter(f => f.outcome === 'missed').length;
+      const gCarry   = this.guardianFireLog.filter(f => f.path === 'carry-forward-buffered').length;
       getSharedDb()
         .update(voiceSessions)
-        .set({ guardianFires: gFires, guardianHardWalls: gHard, guardianHeard: gHeard, guardianMissed: gMissed })
+        .set({ guardianFires: gFires, guardianHardWalls: gHard, guardianHeard: gHeard, guardianMissed: gMissed, guardianCarryForward: gCarry })
         .where(eq(voiceSessions.id, this.session.id))
         .execute()
         .catch(err => console.warn('[GeminiLive] Guardian summary write failed:', err.message));

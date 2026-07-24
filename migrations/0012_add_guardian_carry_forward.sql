@@ -1,0 +1,1 @@
+ALTER TABLE "voice_sessions" ADD COLUMN "guardian_carry_forward" integer;

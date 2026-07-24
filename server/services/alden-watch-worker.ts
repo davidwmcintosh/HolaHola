@@ -639,10 +639,11 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
         .select({
           id: voiceSessions.id,
           startedAt: voiceSessions.startedAt,
-          guardianFires:    voiceSessions.guardianFires,
-          guardianHardWalls: voiceSessions.guardianHardWalls,
-          guardianHeard:    voiceSessions.guardianHeard,
-          guardianMissed:   voiceSessions.guardianMissed,
+          guardianFires:        voiceSessions.guardianFires,
+          guardianHardWalls:    voiceSessions.guardianHardWalls,
+          guardianHeard:        voiceSessions.guardianHeard,
+          guardianMissed:       voiceSessions.guardianMissed,
+          guardianCarryForward: voiceSessions.guardianCarryForward,
         })
         .from(voiceSessions)
         .where(and(
@@ -694,7 +695,27 @@ Respond with NOTHING or a single line in SEVERITY:FINGERPRINT:Message format:`,
           }
         }
 
-        console.log(`[AldenWatch] Guardian health: ${recentSessions.length} sessions, ${totalFires} fires, ${hardWallSessions} hard-wall sessions, ${Math.round(missRate * 100)}% miss rate`);
+        const totalCarry = recentSessions.reduce((s, r) => s + (r.guardianCarryForward ?? 0), 0);
+        const carryRate = totalFires > 0 ? totalCarry / totalFires : 0;
+
+        // Info: carry-forward rate > 20% with at least 5 fires (grounding regularly arriving late)
+        if (carryRate > 0.2 && totalFires >= 5) {
+          const carryFp = 'guardian_high_carry_forward';
+          const isDupCarry = await hasDuplicateActiveIssue(carryFp);
+          if (!isDupCarry) {
+            const dbCF = getUserDb();
+            await dbCF.insert(aldenNotifications).values({
+              content: `The Archive Guardian carry-forward rate is ${Math.round(carryRate * 100)}% over the last 7 days (${totalCarry} of ${totalFires} fires arrived too late to inject this turn). Grounding is still delivered — just one turn late. If this persists, consider Path A (Tool-Gate) or Path B (VAD Delay) for guaranteed same-turn injection.`,
+              triggeredBy: 'alden-watch',
+              severity: 'info',
+              read: false,
+              fingerprint: carryFp,
+            });
+            console.log(`[AldenWatch] Guardian carry-forward alert — ${Math.round(carryRate * 100)}% carry rate over ${recentSessions.length} sessions`);
+          }
+        }
+
+        console.log(`[AldenWatch] Guardian health: ${recentSessions.length} sessions, ${totalFires} fires, ${hardWallSessions} hard-wall sessions, ${Math.round(missRate * 100)}% miss rate, ${Math.round(carryRate * 100)}% carry-forward rate`);
       }
     } catch (guardianErr: any) {
       console.warn('[AldenWatch] Guardian health check failed (non-fatal):', guardianErr.message);

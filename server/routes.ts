@@ -6659,8 +6659,13 @@ ${memoryContext}
         transcriptTail: (session.transcriptTail ?? []).slice(-10),
         sosLog: (session.sosLog ?? []).filter((e: any) => !e.acknowledged),
         dbWriteLog: (session.dbWriteLog ?? []).slice(-30),
-        // Archive Guardian fire log — all three paths: pre-turn, post-turn-phrase, friction-signal
+        // Archive Guardian fire log — all paths including carry-forward events
         guardianFires: (session as any).guardianFireLog ?? [],
+        guardianCarryForwardStats: {
+          bufferedThisSession: ((session as any).guardianFireLog ?? []).filter((f: any) => f.path === 'carry-forward-buffered').length,
+          injectedThisSession: ((session as any).guardianFireLog ?? []).filter((f: any) => f.path === 'carry-forward-injected').length,
+          pendingNow: !!(session as any).pendingCarryForwardGrounding,
+        },
         // Session-level telemetry totals
         sessionTelemetry: {
           ttsCharacters: session.telemetryTtsCharacters,
