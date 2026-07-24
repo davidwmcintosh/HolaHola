@@ -95,3 +95,9 @@ id = "C6H-EOfBBL9MHerHX1F5h"
 uri = "file://docs/episode-15.md"
 type = "text"
 title = "Episode 15: \"Nueve\""
+
+[[outputs]]
+id = "_9rW9UMQdgZljbEvyWZDJ"
+uri = "file://docs/episode-17.md"
+type = "text"
+title = "Episode 17 — The Guardian in the Room"
