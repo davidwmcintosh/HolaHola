@@ -2110,24 +2110,16 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         }
         this.lastInputChunkMs = inputNow;
 
-        // ── Carry-forward injection ────────────────────────────────────────
-        // If the PREVIOUS turn's pre-turn grounding arrived late (after audio had
-        // started), it was buffered in pendingCarryForwardGrounding rather than
-        // interrupting Daniela. Inject it NOW — student is speaking, GL is receiving
-        // audio (not generating), so sendClientContent is safe at this point.
-        if (this.pendingCarryForwardGrounding && this.liveSession && !this.isStopped) {
-          const cfWhisper = `[ARCHIVE GUARDIAN — CARRIED FROM LAST TURN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${this.pendingCarryForwardGrounding}]`;
-          try {
-            this.liveSession.sendClientContent({
-              turns: [{ role: 'user', parts: [{ text: cfWhisper }] }],
-            } as any);
-            console.log(`[PreTurnGuardian] Carry-forward injected at turn start (${this.pendingCarryForwardGrounding.length} chars)`);
-            this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'carry-forward-injected', phrase: 'carried from last turn', charsInjected: this.pendingCarryForwardGrounding.length, channel: 'concat', outcome: 'heard', groundingPreview: this.pendingCarryForwardGrounding.slice(0, 150) });
-            this._observeGuardian();
-          } catch (e) {
-            console.warn('[PreTurnGuardian] Carry-forward injection failed:', (e as Error).message);
-          }
-          this.pendingCarryForwardGrounding = null;
+        // ── Carry-forward staging ──────────────────────────────────────────
+        // If the PREVIOUS turn's pre-turn grounding arrived late it was buffered
+        // in pendingCarryForwardGrounding. Do NOT inject it here as a separate
+        // sendClientContent — that would cause two injections on this turn (carry-
+        // forward + the pre-turn guardian below), which triggers two GL generations
+        // and overlapping audio. Instead, leave it set so the pre-turn guardian's
+        // 150ms injection below can merge it into a single whisper. The only
+        // sendClientContent allowed per student turn is the one at the 150ms point.
+        if (this.pendingCarryForwardGrounding) {
+          console.log(`[PreTurnGuardian] Carry-forward staged for merge with this turn's guardian (${this.pendingCarryForwardGrounding.length} chars)`);
         }
 
         // ── Pre-turn Archive Guardian ──────────────────────────────────────
@@ -2197,15 +2189,27 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 this._observeGuardian();
                 return;
               }
-              // Either mode='interrupt' or audio hasn't started yet — inject immediately
+              // Either mode='interrupt' or audio hasn't started yet — inject immediately.
+              // Also merge any carry-forward from the previous turn so there is only
+              // ONE sendClientContent call per student turn (prevents double/triple audio).
+              const cfPrefix = this.pendingCarryForwardGrounding
+                ? `[ARCHIVE GUARDIAN — CARRIED FROM LAST TURN: ${this.pendingCarryForwardGrounding}]\n`
+                : '';
               const whisper = result
-                ? `[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${this.preTurnGroundingResult}]`
-                : `[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`;
+                ? `${cfPrefix}[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${this.preTurnGroundingResult}]`
+                : `${cfPrefix}[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`;
+              const cfLen = this.pendingCarryForwardGrounding?.length ?? 0;
+              this.pendingCarryForwardGrounding = null;
               try {
                 this.liveSession.sendClientContent({
                   turns: [{ role: 'user', parts: [{ text: whisper }] }],
                 } as any);
-                console.log(`[PreTurnGuardian] Injected via sendClientContent (${lateArrival ? 'interrupt mode — late arrival' : 'no-tool-call path'})`);
+                const label = lateArrival ? 'interrupt mode — late arrival' : 'no-tool-call path';
+                const cfNote = cfLen ? ` (+${cfLen}ch carry-forward merged)` : '';
+                console.log(`[PreTurnGuardian] Injected via sendClientContent (${label}${cfNote})`);
+                if (cfLen) {
+                  this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'carry-forward-injected', phrase: 'merged into this turn guardian', charsInjected: cfLen, channel: 'concat', outcome: 'heard', groundingPreview: whisper.slice(0, 150) });
+                }
                 this.preTurnGroundingResult = null;
               } catch (e) {
                 console.warn('[PreTurnGuardian] sendClientContent fallback failed:', (e as Error).message);
