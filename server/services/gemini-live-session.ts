@@ -2203,6 +2203,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               try {
                 this.liveSession.sendClientContent({
                   turns: [{ role: 'user', parts: [{ text: whisper }] }],
+                  turnComplete: false, // context injection — do NOT trigger a new GL generation
                 } as any);
                 const label = lateArrival ? 'interrupt mode — late arrival' : 'no-tool-call path';
                 const cfNote = cfLen ? ` (+${cfLen}ch carry-forward merged)` : '';
@@ -2520,19 +2521,29 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 this.pendingWeeOoGrounding = groundingResult;
                 console.log(`[FrictionlessSlide/GL] Auto-grounding queued (${groundingResult.length} chars, ${Date.now() - startMs}ms)`);
 
-                // Fallback channel (Gemini post-review — HIGH risk item):
-                // If the next turn has no tool calls, pendingWeeOoGrounding never injects via
-                // the primary channel. After 500ms (enough time for any tool batch to claim it),
-                // if it is still pending, inject via sendClientContent with no turnComplete —
-                // queued as context for the next natural turn without forcing a new generation.
-                // The [ARCHIVE GUARDIAN:] prefix prevents verbalization.
+                // Fallback channel: if the next turn has no tool calls, pendingWeeOoGrounding
+                // never injects via the primary channel. After 500ms (enough time for any tool
+                // batch to claim it), inject via sendClientContent — BUT ONLY if GL is NOT
+                // currently generating. Any sendClientContent while GL generates causes a
+                // mid-sentence restart and overlapping audio. If generating, buffer to
+                // pendingCarryForwardGrounding so it merges into the next student turn's
+                // single guardian whisper instead.
                 setTimeout(() => {
                   if (this.isStopped || !this.liveSession || !this.pendingWeeOoGrounding) return;
+                  if (this.generationStartedThisTurn) {
+                    // GL is generating — do not interrupt. Carry it forward.
+                    if (!this.pendingCarryForwardGrounding) {
+                      this.pendingCarryForwardGrounding = this.pendingWeeOoGrounding;
+                    }
+                    this.pendingWeeOoGrounding = null;
+                    console.log(`[FrictionlessSlide/GL] Suppressed mid-generation sendClientContent — carried forward (${this.pendingCarryForwardGrounding!.length} chars)`);
+                    return;
+                  }
                   const fallbackMsg = `[ARCHIVE GUARDIAN: ${this.pendingWeeOoGrounding}]`;
                   try {
                     this.liveSession.sendClientContent({
                       turns: [{ role: 'user', parts: [{ text: fallbackMsg }] }],
-                      // turnComplete intentionally omitted — queues as context, no forced generation
+                      turnComplete: false, // context injection — do NOT trigger a new GL generation
                     } as any);
                     console.log(`[FrictionlessSlide/GL] Archive Guardian fallback injected via sendClientContent (no-tool-call path)`);
                     this.pendingWeeOoGrounding = null;
@@ -2621,12 +2632,22 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                   if (fsLogEntry) fsLogEntry.charsInjected = groundingResult.length;
                   this.pendingWeeOoGrounding = groundingResult;
                   console.log(`[FrictionSignal/GL] Grounding queued from Gemini friction signal (${groundingResult.length} chars, ${Date.now() - startMs}ms)`);
-                  // Same 500ms fallback as phrase detection — in case the next turn has no tools.
+                  // Same 500ms fallback as phrase detection — gated on !generationStartedThisTurn
+                  // to prevent mid-sentence restarts from sendClientContent while GL generates.
                   setTimeout(() => {
                     if (this.isStopped || !this.liveSession || !this.pendingWeeOoGrounding) return;
+                    if (this.generationStartedThisTurn) {
+                      if (!this.pendingCarryForwardGrounding) {
+                        this.pendingCarryForwardGrounding = this.pendingWeeOoGrounding;
+                      }
+                      this.pendingWeeOoGrounding = null;
+                      console.log(`[FrictionSignal/GL] Suppressed mid-generation sendClientContent — carried forward`);
+                      return;
+                    }
                     try {
                       this.liveSession.sendClientContent({
                         turns: [{ role: 'user', parts: [{ text: `[ARCHIVE GUARDIAN: ${this.pendingWeeOoGrounding}]` }] }],
+                        turnComplete: false, // context injection — do NOT trigger a new GL generation
                       } as any);
                       console.log('[FrictionSignal/GL] Archive Guardian fallback injected (no-tool-call path)');
                       this.pendingWeeOoGrounding = null;
@@ -2684,6 +2705,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 : `[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`;
               this.liveSession!.sendClientContent({
                 turns: [{ role: 'user', parts: [{ text: correction }] }],
+                turnComplete: false, // context injection — do NOT trigger a new GL generation
               } as any);
               console.log('[HardWall] Correction injected');
             })
@@ -3292,11 +3314,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         const recentFireForChannel = this.guardianFireLog.findLast(e => e.channel === null);
         if (this.guardianChannel === 'dedicated' && this.liveSession) {
           // Path B — dedicated channel: Guardian gets its own sendClientContent turn.
-          // No turnComplete — queues as context without forcing a new generation.
+          // turnComplete: false — SDK defaults to true; explicit false prevents a new GL generation.
           // Advantage: whisper is not buried in another tool's response body.
           try {
             this.liveSession.sendClientContent({
               turns: [{ role: 'user', parts: [{ text: guardianWhisper }] }],
+              turnComplete: false, // context injection — do NOT trigger a new GL generation
             } as any);
             console.log(`[ArchiveGuardian/dedicated] ${guardianWhispers.length} whisper(s) sent — ${guardianWhisper.length} chars`);
             if (recentFireForChannel) { recentFireForChannel.channel = 'dedicated'; recentFireForChannel.charsInjected = guardianWhisper.length; }

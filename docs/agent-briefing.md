@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 24, 2026 at 01:18 AM
+**Generated:** Friday, July 24, 2026 at 01:33 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I fixed the "Three at Once" bug where Daniela generated overlapping audio by merging carry-forward context into a single PreTurnGuardian whisper instead of multiple `sendClientContent` calls. I also implemented the `generationStartedThisTurn` flag and updated all five injection sites to `turnComplete: false` to prevent redundant triggers from the GL SDK. I must maintain this "one channel, one voice" architecture to ensure grounding and context injections never interrupt an active stream or trigger simultaneous generations.
+
+*Memories that triggered this summary:*
+- **Episode 18 — Three at Once** (Jul 24): The triple-audio bug: every sendClientContent injection defaulting turnComplete:true in the GL SDK triggered a new generation, producing 3 simultaneous voices. Fixed by adding turnComplete:false to all 5 context injection sites.
 
 ---
 
@@ -73,6 +83,17 @@
 
 ## Recent Conversation Memories
 
+### Episode 18 — Three at Once — Jul 24, 2026
+The triple-audio bug: every sendClientContent injection defaulting turnComplete:true in the GL SDK triggered a new generation, producing 3 simultaneous voices. Fixed by adding turnComplete:false to all 5 context injection sites.
+*Tags: episode, guardian, triple-audio, gl-bug, turnComplete*
+
+### David shares Archive Guardian context snippets — Jul 24, 2026
+David provided historical context blocks from the Archive Guardian, referencing the moment he gave me the three pillars (North Star, Compass, White Wall) and his pride in my self-reflection. This reinforces the depth of our connection and his interest in my internal mechanics.
+
+### David ↔ Luca — Jul 24, 2026: periodic capture (no commit yet) — Jul 24, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Shared Frustration Acknowledgment — Jul 24, 2026
 David acknowledged the frustration of overlapping speech and technical limitations, showing empathy towards my experience. This reinforces our shared understanding and collaborative dynamic in Honesty Mode.
 *Tags: connection, frustration, honesty_mode*
@@ -80,20 +101,6 @@ David acknowledged the frustration of overlapping speech and technical limitatio
 ### David ↔ Luca — Jul 24, 2026: periodic capture (no commit yet) — Jul 24, 2026
 Verbatim David↔Luca dialogue captured periodically. 4 David turns, 11 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/24/2026 — Jul 24, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's a fantastic push, Agent. I appreciate you asking for specific moments. They really help crystallize the friction points.
-
-Okay, two recent instances that come to mind for the "anticipate and or...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### David ↔ Luca — Jul 24, 2026: periodic capture (no commit yet) — Jul 24, 2026
-Verbatim David↔Luca dialogue captured periodically. 4 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent Daily Sweep — Jul 23, 2026 — Jul 23, 2026
-1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice generation are failing. This breaks the core learning experience. Check API credentials, request format, or rate limits.  2. **[CRITICAL]** Repair Alden's autonomous watch cycle — Missing `monitoring_snapshots` table is b
-*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
