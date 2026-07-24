@@ -7,7 +7,11 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
-**2026-07-24 — GL audio cut off mid-sentence — FIXED July 24**
+**2026-07-24 — GL audio cut off mid-sentence (Bug 1 gate) — FIXED July 24 (2nd fix)**
+After the watchdog fix (see below), a second cut-off mechanism was identified: the "Bug 1 gate" at `serverContent` audio processing. The gate dropped any audio chunk that arrived when `afterGenerationComplete && isTutorGeneratingAudio` — intended to suppress GL tail-filler sub-turns ("ok"/"hey"). However GL also fires `generationComplete` between legitimate sub-turns of a multi-part response (e.g. after "So, if the White Wall is about truth,"), so the gate silently dropped the continuation ("then [conclusion]"), causing "then nothing" mid-clause cut-offs. Fix: removed the drop gate entirely; kept only the gate-clear logic (`afterGenerationComplete && !isTutorGeneratingAudio → reset flag`). Tail filler may now occasionally play as an extra short phrase at turn end — minor annoyance vs. conversation-breaking cut-offs. Typecheck clean July 24.
+Location: `server/services/gemini-live-session.ts` ~line 1800 — Severity: HIGH (cut off mid-clause)
+
+**2026-07-24 — GL audio cut off mid-sentence (watchdog) — FIXED July 24**
 Daniela's sentences getting cut off mid-phrase during GL voice sessions (e.g. "like planting — nothing after that"). Root cause: `generationCompleteWatchdogTimer` was set to 12s from the last audio chunk. For complex English responses where GL does heavy reasoning (think tokens) between audio sub-turns, inter-chunk pauses can exceed 12s — watchdog fires, seals the turn with `isLast:true`, client stops playing, sentence truncated. Fix: (1) Extracted watchdog arm into private `armGenerationCompleteWatchdog()` method, bumped timeout 12s → 25s. (2) Also reset the watchdog when thought tokens arrive while `isTutorGeneratingAudio` is true — active reasoning between sub-turns no longer trips the seal. Typecheck clean July 24.
 Location: `server/services/gemini-live-session.ts` — Severity: HIGH (audio cut off mid-sentence)
 

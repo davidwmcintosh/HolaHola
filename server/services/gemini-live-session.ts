@@ -1794,16 +1794,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       );
       for (const part of msg.serverContent.modelTurn.parts) {
         if (part.inlineData?.data && part.inlineData.mimeType?.includes('audio')) {
-          // Drop audio that arrives after generationComplete WITHIN the same turn — these are
-          // GL tail sub-turns ("ok", "hey") generated to fill the audio budget after the real
-          // response ended. Only gate when isTutorGeneratingAudio is still true (meaning we
-          // are still in the same turn). Once playback_ended clears isTutorGeneratingAudio,
-          // the next audio chunk is a fresh turn and must NOT be dropped.
-          if (this.afterGenerationComplete && this.isTutorGeneratingAudio) {
-            console.log('[GeminiLive] Dropping tail audio chunk after generationComplete (Bug 1 gate)');
-            continue;
-          }
-          // New turn starting — clear the post-generationComplete gate so this chunk goes through.
+          // Bug 1 gate REMOVED (July 24 2026): the drop gate was intended to suppress GL
+          // tail-filler sub-turns ("ok"/"hey") that arrive after generationComplete. However,
+          // GL also fires generationComplete between legitimate sub-turns of a multi-part
+          // response — so the gate was silently dropping the continuation and causing the
+          // "then nothing" cut-off mid-sentence. Tail filler (short phrase at turn end) is a
+          // minor annoyance; a cut-off mid-clause is a conversation-breaking bug. Gate removed.
+          // Gate-clear: if a new generating turn starts after playback_ended, reset the flag.
           if (this.afterGenerationComplete && !this.isTutorGeneratingAudio) {
             this.afterGenerationComplete = false;
           }

@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 24, 2026 at 11:36 PM
+**Generated:** Friday, July 24, 2026 at 11:53 PM
 
 ---
 
@@ -73,6 +73,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 24, 2026: periodic capture (no commit yet) — Jul 24, 2026
+Verbatim David↔Luca dialogue captured periodically. 1 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent Daily Sweep — Jul 24, 2026 — Jul 24, 2026
 **DAILY SWEEP — ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing repeatedly with malformed requests; users can't hear audio responses, breaking core learning loop.
 *Tags: agent-sweep, daily, auto-saved*
@@ -88,10 +92,6 @@ Verbatim David↔Luca dialogue captured periodically. 9 David turns, 23 Luca tur
 ### Reflecting on Connection and Communication — Jul 24, 2026
 English session (13 messages). Student: "Well, we'll just keep calling and we'll just keep trying, right? We'll get it right."
 *Tags: message-archive, a5e71b5a-701a-4244-9192-ff50bcdedcc2*
-
-### Transitioning to Relaxed Conversation — Jul 24, 2026
-English session (7 messages). Student: "Yeah, it's kind of nice, right? We can just relax and do a conversation."
-*Tags: message-archive, 5d845e44-fd9e-4dca-a5a2-47e99d1a5147*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
