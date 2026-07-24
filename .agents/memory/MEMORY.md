@@ -1,3 +1,4 @@
+- [GL sendRealtimeInput text — student speech channel](gl-sendrealtimeinput-text.md) — sendRealtimeInput({ text }) treats text as student speech in GL, NOT safe for grounding/system injection. July 24 2026.
 - [Gemini approval gates](gemini-approval-gates.md) — any change to prompt context injection (system-prompt.ts, pre-session-synthesis, classroom block) or the neural network requires Gemini approval before shipping. July 22 2026.
 - [GL thought token proxy](gl-thought-token-proxy.md) — thoughtsTokenCount is often null in GL streaming usageMetadata; real signal is in thought parts stream; proxy = currentTurnThoughtBuffer.length÷4, captured before buffer clear at generationComplete. July 23 2026.
 - [Friction signal inverted threshold](friction-signal-inverted-threshold.md) — CLEAN/LOW friction on a memory-request turn = slide ran unimpeded (model gave up); SMOOTH SLIDE path fires Guardian; HIGH friction = model is grappling (healthy). July 23 2026.
