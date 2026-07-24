@@ -1431,6 +1431,71 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
    * has already produced a transcript — we route it here so Gemini Live
    * generates the audio response instead of the legacy pipeline.
    */
+
+  /**
+   * Arms (or re-arms) the generationComplete watchdog timer.
+   * Called on every audio chunk AND on thought-token arrival during active audio.
+   * Thought tokens between audio sub-turns mean GL is still reasoning — resetting
+   * here prevents premature turn-seal that would cut off Daniela mid-sentence.
+   *
+   * Timeout: 25s (was 12s). GL can have inter-chunk pauses >12s for complex
+   * English responses with heavy reasoning — 25s gives a safe margin while still
+   * recovering from a true dropped-completion-signal within a reasonable window.
+   */
+  private armGenerationCompleteWatchdog(): void {
+    if (this.generationCompleteWatchdogTimer) {
+      clearTimeout(this.generationCompleteWatchdogTimer);
+    }
+    this.generationCompleteWatchdogTimer = setTimeout(() => {
+      this.generationCompleteWatchdogTimer = null;
+      if (!this.isStopped && this.isTutorGeneratingAudio && this.hadAudioInCurrentSubturn) {
+        console.warn('[GeminiLive] generationComplete watchdog fired — GL dropped the completion signal; sealing turn manually');
+        const _watchdogPadSamples = Math.round(0.3 * AUDIO_OUTPUT_SAMPLE_RATE);
+        const _watchdogPadBuf = Buffer.alloc(_watchdogPadSamples * 4, 0);
+        this.sendWsMessage(this.session.ws, {
+          type: 'audio_chunk',
+          audio: _watchdogPadBuf.toString('base64'),
+          audioFormat: 'pcm_f32le',
+          sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
+          turnId: this.currentTurnId,
+          sentenceIndex: this.currentSentenceIndex,
+          chunkIndex: this.currentChunkIndex++,
+          isLast: false,
+        });
+        this.sendWsMessage(this.session.ws, {
+          type: 'audio_chunk',
+          audio: '',
+          audioFormat: 'pcm_f32le',
+          sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
+          turnId: this.currentTurnId,
+          sentenceIndex: this.currentSentenceIndex,
+          chunkIndex: this.currentChunkIndex,
+          isLast: true,
+        });
+        this.currentSentenceIndex++;
+        this.currentChunkIndex = 0;
+        this.hadAudioInCurrentSubturn = false;
+        this.isGenerationDone = true;
+        if (this.pendingPlaybackEndedLift) {
+          console.log('[GeminiLive] Watchdog seal — retroactive onPlaybackEnded() (single-sentence path)');
+          this.onPlaybackEnded();
+        }
+        if (this.playbackGateSafetyTimeout) clearTimeout(this.playbackGateSafetyTimeout);
+        this.playbackGateSafetyTimeout = setTimeout(() => {
+          this.playbackGateSafetyTimeout = null;
+          if (this.isTutorGeneratingAudio) {
+            this.isTutorGeneratingAudio = false;
+            console.log('[GeminiLive] Mic gate force-opened — safety timeout after watchdog seal');
+          }
+        }, 60000);
+        if (this.transcriptFlushTimer) { clearTimeout(this.transcriptFlushTimer); this.transcriptFlushTimer = null; }
+        this.flushTranscripts().catch(err =>
+          console.warn('[GeminiLive] Watchdog flush error:', err.message)
+        );
+      }
+    }, 25000);
+  }
+
   /**
    * Silence-triggered directive heartbeat.
    * Started once setupComplete fires. Polls every 5 s.
@@ -1778,69 +1843,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           }
 
           // Reset generationComplete watchdog on every audio chunk.
-          // If Gemini stops sending audio but never fires generationComplete (a known
-          // transient GL API failure), this timer fires 12s after the last chunk and
-          // executes the same sealing logic, preventing a permanently deaf session.
-          // NOTE: 12s (was 6s) — longer responses can have natural inter-chunk pauses
-          // exceeding 6s, causing premature turn-seal and audio cutoff mid-sentence.
-          if (this.generationCompleteWatchdogTimer) {
-            clearTimeout(this.generationCompleteWatchdogTimer);
-          }
-          this.generationCompleteWatchdogTimer = setTimeout(() => {
-            this.generationCompleteWatchdogTimer = null;
-            if (!this.isStopped && this.isTutorGeneratingAudio && this.hadAudioInCurrentSubturn) {
-              console.warn('[GeminiLive] generationComplete watchdog fired — GL dropped the completion signal; sealing turn manually');
-              // Seal the open audio sub-turn so the PCM player can render it.
-              // Same GL-tail padding as the normal generationComplete seal path:
-              // prepend 300ms of silence so the truncated last word has runway.
-              const _watchdogPadSamples = Math.round(0.3 * AUDIO_OUTPUT_SAMPLE_RATE);
-              const _watchdogPadBuf = Buffer.alloc(_watchdogPadSamples * 4, 0);
-              this.sendWsMessage(this.session.ws, {
-                type: 'audio_chunk',
-                audio: _watchdogPadBuf.toString('base64'),
-                audioFormat: 'pcm_f32le',
-                sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
-                turnId: this.currentTurnId,
-                sentenceIndex: this.currentSentenceIndex,
-                chunkIndex: this.currentChunkIndex++,
-                isLast: false,
-              });
-              this.sendWsMessage(this.session.ws, {
-                type: 'audio_chunk',
-                audio: '',
-                audioFormat: 'pcm_f32le',
-                sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
-                turnId: this.currentTurnId,
-                sentenceIndex: this.currentSentenceIndex,
-                chunkIndex: this.currentChunkIndex,
-                isLast: true,
-              });
-              this.currentSentenceIndex++;
-              this.currentChunkIndex = 0;
-              this.hadAudioInCurrentSubturn = false;
-              // Signal generation done so onPlaybackEnded() will lift the mic gate.
-              this.isGenerationDone = true;
-              // Retroactive lift: same single-sentence logic as generationComplete path.
-              if (this.pendingPlaybackEndedLift) {
-                console.log('[GeminiLive] Watchdog seal — retroactive onPlaybackEnded() (single-sentence path)');
-                this.onPlaybackEnded();
-              }
-              // Hold mic gate until playback_ended (same as normal generationComplete path)
-              if (this.playbackGateSafetyTimeout) clearTimeout(this.playbackGateSafetyTimeout);
-              this.playbackGateSafetyTimeout = setTimeout(() => {
-                this.playbackGateSafetyTimeout = null;
-                if (this.isTutorGeneratingAudio) {
-                  this.isTutorGeneratingAudio = false;
-                  console.log('[GeminiLive] Mic gate force-opened — safety timeout after watchdog seal');
-                }
-              }, 60000);
-              // Flush transcripts
-              if (this.transcriptFlushTimer) { clearTimeout(this.transcriptFlushTimer); this.transcriptFlushTimer = null; }
-              this.flushTranscripts().catch(err =>
-                console.warn('[GeminiLive] Watchdog flush error:', err.message)
-              );
-            }
-          }, 12000);
+          // Extracted into armGenerationCompleteWatchdog() — also called on thought
+          // tokens during active audio so inter-chunk reasoning doesn't trip the seal.
+          this.armGenerationCompleteWatchdog();
 
           // Flush accumulated user input the moment model starts generating audio
           // (user is definitely done speaking at this point).
@@ -1991,6 +1996,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         if ((part as any).thought === true) {
           if (part.text) {
             this.currentTurnThoughtBuffer += part.text;
+          }
+          // If audio has already started this turn, thought tokens between sub-turns
+          // mean GL is still reasoning — reset the generationComplete watchdog so
+          // inter-chunk thinking doesn't trigger a premature turn-seal / audio cutoff.
+          if (this.isTutorGeneratingAudio) {
+            this.armGenerationCompleteWatchdog();
           }
           // Arm/reset the thought-only stall watchdog. If audio or turnComplete
           // never follows within 10s, seal the turn manually instead of letting

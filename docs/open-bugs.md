@@ -7,6 +7,10 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-07-24 — GL audio cut off mid-sentence — FIXED July 24**
+Daniela's sentences getting cut off mid-phrase during GL voice sessions (e.g. "like planting — nothing after that"). Root cause: `generationCompleteWatchdogTimer` was set to 12s from the last audio chunk. For complex English responses where GL does heavy reasoning (think tokens) between audio sub-turns, inter-chunk pauses can exceed 12s — watchdog fires, seals the turn with `isLast:true`, client stops playing, sentence truncated. Fix: (1) Extracted watchdog arm into private `armGenerationCompleteWatchdog()` method, bumped timeout 12s → 25s. (2) Also reset the watchdog when thought tokens arrive while `isTutorGeneratingAudio` is true — active reasoning between sub-turns no longer trips the seal. Typecheck clean July 24.
+Location: `server/services/gemini-live-session.ts` — Severity: HIGH (audio cut off mid-sentence)
+
 **2026-07-21 — Broken GL session pattern (no server-side tracking for 30 min despite active connection) — OPEN**
 Session `bab3e1de` (5:05–6:05 PM July 20): GL audio and student speaking continued for ~30 minutes after `voice_pipeline_events` stopped writing at 5:35:58 PM. `exchangeCount` stayed at 0, no tool calls tracked, no disconnect event written. Root cause not yet confirmed — likely a GL internal state degradation where the API kept streaming audio but stopped firing tool/completion callbacks. Symptoms: `greeting_silence_15s` diagnostic at 5:05 PM → `WARM_UP` tool fired → then zero server events for 30 min. Fix: (1) `gl_session_heartbeat` event now written every 2 min inside `glMetricsSyncHandle` so future broken sessions are detectable by heartbeat absence. (2) Root cause of callback freeze TBD.
 Location: `server/unified-ws-handler.ts` — Severity: HIGH (30 min of invisible session activity)
