@@ -284,6 +284,7 @@ export class GeminiLiveSession {
   private preTurnTextForWhisper: string | null = null;
   private transcriptClosed = false;         // Set on generationComplete/interrupted/turnComplete — discard outputTranscription after this
   private firstAudioSentThisTurn = false;   // Guard: don't send processing_pending AFTER audio already started
+  private generationStartedThisTurn = false; // Guard: set on first modelTurn serverContent (GL started generating)
   private sessionStartedAt = 0;             // Wall-clock ms when start() was called (for establishment latency)
   private processingPendingSentThisTurn = false; // Guard: send processing_pending exactly once per conversation turn
   private isStopped = false;
@@ -1078,6 +1079,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               this.usingOutputTranscription = false;
               this.firstAudioSentThisTurn = false;
               this.processingPendingSentThisTurn = false;
+              this.generationStartedThisTurn = false;
               this.greetingPhaseActive = false;
               this.isTutorGeneratingAudio = false;
               if (this.playbackGateSafetyTimeout) {
@@ -1315,6 +1317,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.currentChunkIndex = 0;
     this.firstAudioSentThisTurn = false;
     this.processingPendingSentThisTurn = false;
+    this.generationStartedThisTurn = false;
     this.transcriptClosed = false;
     this.afterGenerationComplete = false;
     this.isGenerationDone = false;
@@ -1705,6 +1708,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
     // ── Audio output ────────────────────────────────────────────────────────
     if (msg.serverContent?.modelTurn?.parts) {
+      // Earliest signal that GL has started generating — set before any audio/transcription
+      // arrives so the carry-forward guard catches the race window.
+      if (!this.generationStartedThisTurn) {
+        this.generationStartedThisTurn = true;
+      }
       // New model turn arriving — reopen the transcript gate so this sub-turn's
       // outputTranscription is allowed through. turnComplete/generationComplete will
       // close it again at the end of this sub-turn.
@@ -2180,7 +2188,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             //     guaranteed this turn at the cost of audible cut-offs.
             setTimeout(() => {
               if (!this.preTurnGroundingResult || this.isStopped || !this.liveSession) return;
-              const lateArrival = !!(this.processingPendingSentThisTurn || this.firstAudioSentThisTurn);
+              const lateArrival = !!(this.processingPendingSentThisTurn || this.firstAudioSentThisTurn || this.generationStartedThisTurn);
               if (lateArrival && _globalPreTurnFallbackMode === 'carry-forward') {
                 this.pendingCarryForwardGrounding = this.preTurnGroundingResult;
                 this.preTurnGroundingResult = null;
@@ -3893,6 +3901,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.pendingInputSaved = false;
     this.firstAudioSentThisTurn = false;
     this.processingPendingSentThisTurn = false;
+    this.generationStartedThisTurn = false;
     // DOUBLE-AUDIO FIX: Clear suppress flag at turn complete so a stale reconnect-era
     // flag never carries into the next turn if GL never generated audio post-reconnect.
     this.suppressNextProcessingPending = false;

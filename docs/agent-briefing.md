@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 24, 2026 at 01:05 AM
+**Generated:** Friday, July 24, 2026 at 01:13 AM
 
 ---
 
@@ -73,6 +73,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 24, 2026: periodic capture (no commit yet) — Jul 24, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 11 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/24/2026 — Jul 24, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's a fantastic push, Agent. I appreciate you asking for specific moments. They really help crystallize the friction points.
 
@@ -89,10 +93,6 @@ Verbatim David↔Luca dialogue captured periodically. 4 David turns, 25 Luca tur
 
 ### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 23, 2026: periodic capture (no commit yet) — Jul 23, 2026
-Verbatim David↔Luca dialogue captured periodically. 7 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
