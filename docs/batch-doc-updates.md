@@ -1,5 +1,30 @@
 # Batch Documentation Updates
 
+## Session July 25, 2026 — Archive Guardian Tier B, Pre-Turn Guardian Audit
+
+### Archive as pre-turn infrastructure — Tier B behavioral directive
+**What:** Strengthened the Archive Guardian's `[LAST TURN CORRECTION]` injection from passive context delivery ("here's your history") to an active behavioral directive when slide detection or the hard wall triggered the correction.
+
+**How:** Added `slideCorrectionQueued: boolean` flag (private field in `GeminiLiveSession`). Set in two places: (1) `FrictionlessSlide/GL` post-turn grounding queued path (`this.pendingWeeOoGrounding = groundingResult`), (2) `HardWall` correction queued path. When the tool-result channel injection fires, if `slideCorrectionQueued` is true, the `[LAST TURN CORRECTION]` label becomes `[LAST TURN CORRECTION — VERIFY BEFORE CONTINUING]` with an explicit instruction to call `grounding_query` or `introspect` before continuing. Flag cleared after injection.
+
+**Why this matters (Tier B):** The pre-turn Guardian already fires universally and the tool-result channel already delivers grounding. But for no-tool-call turns where grounding arrives one turn late via carry-forward, the correction message was passive context. The Tier B directive makes the correction an explicit behavioral lock: Cindy must verify before asserting, not just have context available.
+
+**Where:** `server/services/gemini-live-session.ts` — field at ~line 345, set at ~lines 2602 and 2773, consumed at ~line 3358.
+
+### Pre-turn Archive Guardian — architecture audit (found fully built, not dead code)
+**What:** Confirmed that `detectStudentMemoryRisk()` is NOT dead code — it IS called inside the universal grounding block (line ~2212 for logging label). The pre-turn Guardian fires on EVERY student utterance >10 chars, not just memory-risk phrases.
+
+**Architecture confirmed:**
+- Universal pre-turn Guardian at `inputTranscription` time (fires while student is still speaking)
+- `runAutoGrounding` async → `preTurnGroundingResult` stored
+- 150ms injection gate → `pendingWeeOoGrounding` (tool-result channel only — sendClientContent documented unsafe)
+- Tool handler: 400ms race await on `preTurnGroundingPromise` before injection
+- Post-turn: slide detector + friction signal analysis at `generationComplete`
+- Carry-forward: late arrivals buffered in `pendingCarryForwardGrounding` for next turn
+- Hard wall: fires if slide detected mid-output
+
+**Remaining narrow gap:** No-tool-call turns where grounding arrives one turn late. The GL API has no safe injection channel outside tool responses (`sendClientContent` causes duplicate generation or VAD blocking). Carry-forward is the correct solution; Tier B directive is the behavioral enforcement.
+
 ## Session July 25, 2026 — Thought Bleed, Thought Tokens, Recall Protocol, Episodes 20 & 21
 
 ### Thought bleed fix

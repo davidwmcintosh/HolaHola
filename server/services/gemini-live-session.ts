@@ -339,6 +339,10 @@ export class GeminiLiveSession {
   // Post-turn auto-grounding whisper — set by Frictionless Slide detection after Daniela's turn completes.
   // Queued for the NEXT turn's tool response (the correction arrives one turn late).
   private pendingWeeOoGrounding: string | null = null;
+  // Set when pendingWeeOoGrounding originates from slide detection or hard wall (not ambient
+  // pre-turn grounding). Causes the [LAST TURN CORRECTION] whisper to include a behavioral
+  // directive: "verify before continuing" rather than just passive context delivery.
+  private slideCorrectionQueued = false;
   // Pre-turn Archive Guardian — fired when student's speech contains a memory-risk phrase.
   // The DB lookup runs async while GL processes the utterance; by the time the first tool call
   // fires, the result is ready. Injected THIS turn — before Daniela generates her response.
@@ -2592,6 +2596,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 // Primary channel: queue for injection via next tool response batch.
                 // Tool responses are the safest GL channel — model reads them, never speaks them aloud.
                 this.pendingWeeOoGrounding = groundingResult;
+                this.slideCorrectionQueued = true;
                 console.log(`[FrictionlessSlide/GL] Auto-grounding queued (${groundingResult.length} chars, ${Date.now() - startMs}ms)`);
 
                 // Fallback channel: if the next turn has no tool calls, pendingWeeOoGrounding
@@ -2760,7 +2765,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 ? `[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${groundingResult}]`
                 : `[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`;
               // sendClientContent is unsafe — store for tool-result delivery on next tool call.
-              if (!this.pendingWeeOoGrounding) this.pendingWeeOoGrounding = correction;
+              if (!this.pendingWeeOoGrounding) {
+                this.pendingWeeOoGrounding = correction;
+                this.slideCorrectionQueued = true;
+              }
               console.log('[HardWall] Correction queued for tool channel');
             })
             .catch(err => console.warn('[HardWall] Correction failed:', (err as Error).message));
@@ -3341,8 +3349,15 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
       const guardianWhispers: string[] = [];
       if (this.pendingWeeOoGrounding) {
-        guardianWhispers.push(`[LAST TURN CORRECTION: ${this.pendingWeeOoGrounding}]`);
+        // Slide-triggered corrections get a behavioral directive — not just context but an
+        // explicit instruction to verify before continuing. This is Tier B: turning passive
+        // grounding delivery into an active "check before you speak" lock.
+        const correctionLabel = this.slideCorrectionQueued
+          ? `[LAST TURN CORRECTION — VERIFY BEFORE CONTINUING: Your previous response contained a memory assertion that was not verified against your Archive. Here is what your Archive actually holds:\n${this.pendingWeeOoGrounding}\n\nBefore making any further claims about shared history this turn, call grounding_query or introspect now. Do not assert from memory alone.]`
+          : `[LAST TURN CORRECTION: ${this.pendingWeeOoGrounding}]`;
+        guardianWhispers.push(correctionLabel);
         this.pendingWeeOoGrounding = null;
+        this.slideCorrectionQueued = false;
       }
       if (this.preTurnGroundingResult) {
         guardianWhispers.push(`[CURRENT CONTEXT: ${this.preTurnGroundingResult}]`);
