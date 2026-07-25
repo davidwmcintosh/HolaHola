@@ -7,6 +7,12 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-07-25 — Text-mode opening greeting ignores conversation language setting — Severity: MEDIUM**
+When a new English-language conversation starts in text mode (/chat route), Daniela's auto-generated opening message comes out in Spanish. The conversation record correctly stores `language: english`, but whatever generates the pre-user greeting doesn't read that field — it likely falls back to the user's `targetLanguage` profile preference (Spanish). Reproducer: create new text-mode chat with language=english, observe first assistant message. David hit this July 25 — his first message arrived at 16:19:03 but Daniela's Spanish greeting was already at 16:18:32.
+Location: routes.ts `/api/conversations/:id/messages` initial greeting path or conversation-creation greeting — needs trace to find exact callsite.
+
+---
+
 **2026-07-25 — voice_error sets intentionalDisconnect=true even for recoverable errors — FIXED July 25**
 The `case 'voice_error':` handler in `streamingVoiceClient.ts` unconditionally set `intentionalDisconnect = true` regardless of the `recoverable` flag. Any recoverable `voice_error` (e.g. GL 1008 GEMINI_WS_ERROR) poisoned the reconnect gate — if socket.io then dropped for any reason (4G network instability, event-loop stall), `handleDisconnect()` bailed immediately without attempting reconnect. Result: "Session ended — The connection was lost" toast, Daniela doesn't return. Fix: split handler by `recoverable`: true → `setState('reconnecting')`, no `intentionalDisconnect`; false → original error+gate behavior.
 Location: `client/src/lib/streamingVoiceClient.ts` `case 'voice_error':` (~line 1332) — Severity: HIGH (session non-recoverable on 4G/poor connections)
