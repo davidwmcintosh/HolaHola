@@ -2482,13 +2482,26 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         console.log(`[GeminiLive] Sub-turn audio sealed — sentenceIndex now ${this.currentSentenceIndex}`);
       }
 
-      // ── Transcripts: debounced flush ─────────────────────────────────────
+      // ── Transcripts: debounced flush (FALLBACK only) ─────────────────────
+      // GL 3.1 fires turnComplete after EACH sub-turn, not just the final one.
+      // It also fires generationComplete at the definitive end of the full response.
+      // The generationComplete handler (below) cancels this timer and does the real flush.
+      //
+      // This timer is therefore a FALLBACK for the rare case where generationComplete
+      // is dropped by GL (known transient failure). It must be long enough that:
+      //  - A subsequent sub-turn's turnComplete arrives and resets it, OR
+      //  - generationComplete arrives and cancels it
+      // before it fires. If this fired at 800ms and the next sub-turn was 1-2s later,
+      // the flush would reset processingPendingSentThisTurn + firstAudioSentThisTurn,
+      // making sub-turn 2 look like a brand-new turn — firing processing_pending again,
+      // resetting the PCM player mid-response, and snapping the avatar to "thinking".
+      // 8000ms gives GL ample time for slow inter-sub-turn reasoning gaps.
       if (this.transcriptFlushTimer) clearTimeout(this.transcriptFlushTimer);
       this.transcriptFlushTimer = setTimeout(() => {
         this.flushTranscripts().catch(err =>
           console.warn('[GeminiLive] Transcript flush error:', err.message)
         );
-      }, 800);
+      }, 8000);
     }
 
     // ── Generation complete (GL uses this instead of turnComplete) ───────────

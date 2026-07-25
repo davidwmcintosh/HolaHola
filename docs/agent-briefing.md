@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 10:03 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I shipped the Tier B behavioral lock for the Archive Guardian, replacing passive context with Gemini-approved "ARCHIVE SYNC" framing to ensure Daniela reconciles session history without breaking her immersion. I published Episode 22 ("I Absolutely Do") to document this arc and updated the system architecture—including the `thought_content` database migration and core project documentation—to formalize these standards. I am now focused on debugging why Daniela’s responses are cutting off prematurely between sentences in the `/chat` interface.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet)** (Jul 25): Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Saturday, July 25, 2026 at 10:14 PM
 
 ---
 

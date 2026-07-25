@@ -1,6 +1,6 @@
 ---
-name: GL generationComplete — three cut-off mechanisms
-description: Three separate bugs all cut Daniela off mid-sentence in GL voice sessions; all fixed July 24-25 2026.
+name: GL generationComplete — cut-off and avatar-flicker mechanisms
+description: Four separate bugs causing mid-sentence cutoffs and avatar "thinking" flicker in GL voice sessions; all fixed July 24-25 2026.
 ---
 
 ## Cut-off mechanism 1: generationComplete watchdog timeout
@@ -57,3 +57,22 @@ The debounce only prevents early sealing when audio arrives WITHIN the window. B
 **How to apply:** Any time GL fires `generationComplete` and you need to seal: use the debounced path (800ms), not an immediate send. The 25s watchdog is the absolute safety net.
 
 **File:** `server/services/gemini-live-session.ts` — `sealCurrentAudioSubturn()`, `generationCompleteSealTimer`, audio chunk handler ~line 1862.
+
+---
+
+## Cut-off / flicker mechanism 4: premature turnComplete flush resets mid-response state (July 25 2026)
+
+**The bug:** GL 3.1 fires `turnComplete` after EACH sub-turn (not just the final one) AND fires `generationComplete` at the true end of the full response. The `turnComplete` handler had an 800ms debounced `transcriptFlushTimer`. For multi-sub-turn responses where GL takes > 800ms between sub-turns (slow reasoning, complex responses), the debounce fired between sub-turns and called `flushTranscripts()`. That reset `processingPendingSentThisTurn = false` and `firstAudioSentThisTurn = false`.
+
+**Cascade:** When sub-turn 2's audio arrived after the premature flush:
+1. Guards were clear → server fired `processing_pending` again for sub-turn 2
+2. Client received `processing_pending` → avatar snapped to "thinking" → `resetForNewTurn()` called → PCM player reset mid-response
+3. Sub-turn 2 audio played as if it were a brand-new response (the missing middle chunk)
+
+**Symptom:** Multi-sentence GL response plays first half, avatar goes to "thinking", second half plays from the beginning of the second sub-turn — with the word/clause junction between them silently dropped.
+
+**Fix (July 25 2026):** Changed `transcriptFlushTimer` debounce in the `turnComplete` handler from 800ms → 8000ms. The `generationComplete` handler (definitive end signal) always arrives and cancels this timer for normal GL 3.1 sessions. 8000ms is a safety-net fallback for dropped `generationComplete` signals — it fires before the 25s watchdog but after any realistic inter-sub-turn gap.
+
+**Why not remove the timer entirely:** If GL 3.1 drops `generationComplete` (known transient failure), the 8s fallback ensures transcripts still flush within a reasonable window. The 25s watchdog is the last resort but too slow for UX.
+
+**Interaction with mechanism 3 fix:** The 800ms `generationCompleteSealTimer` is the real flush path. The 8s `transcriptFlushTimer` is the fallback. They are independent timers. `generationComplete` handler cancels `transcriptFlushTimer` at line ~2925 before starting `generationCompleteSealTimer`.
