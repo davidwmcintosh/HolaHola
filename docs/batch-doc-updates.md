@@ -1,5 +1,26 @@
 # Batch Documentation Updates
 
+## GL voice_error reconnect gate fix — July 25, 2026
+
+### What was built
+
+One-line root-cause fix for the production crash: "Session ended — The connection was lost. Let's start fresh!" toast firing after GL 1008 mid-response cut-off, with Daniela not returning.
+
+**Root cause:** In `client/src/lib/streamingVoiceClient.ts`, the `voice_error` WS message handler at `case 'voice_error':` was unconditionally setting `this.intentionalDisconnect = true` and `this.setState('error')` — even when `recoverable: true`. When the server sends a recoverable `voice_error` (e.g. GL 1008 → GEMINI_WS_ERROR with `recoverable: true`) and then any socket.io network drop follows (4G network instability, event-loop stall, heartbeat miss), `handleDisconnect()` saw `intentionalDisconnect=true` and immediately returned — skipping the entire 12-attempt auto-reconnect path. The client stayed down permanently.
+
+**Fix:** Split the `voice_error` handler by `recoverable`:
+- `recoverable: true` → `setState('reconnecting')`, do NOT set `intentionalDisconnect`
+- `recoverable: false` → `setState('error')` + `intentionalDisconnect = true` (original behavior)
+
+**Key files:**
+- `client/src/lib/streamingVoiceClient.ts` — `case 'voice_error':` handler (~line 1332)
+
+**Crash sequence confirmed by Sofia Agent:** Sofia independently tracked the same pattern — `network_instability_4g`, 4G WebSocket drops + elevated p95 latency (3630ms) + "Session not ready" reconnect loops. The `intentionalDisconnect=true` bug was the gate that turned recoverable errors into permanent session kills.
+
+**No new endpoints, no DB changes, no schema changes.**
+
+---
+
 ## GL audio pipeline telemetry + client error reporter — July 25, 2026
 
 ### What was built

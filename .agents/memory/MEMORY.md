@@ -1,3 +1,4 @@
+- [voice_error recoverable gate bug](voice-error-recoverable-gate.md) — `case 'voice_error':` in streamingVoiceClient.ts set `intentionalDisconnect=true` unconditionally; recoverable errors poisoned reconnect gate; any subsequent socket.io drop was terminal. July 25 2026.
 - [GL watchdog inter-chunk cutoff](gl-watchdog-cutoff.md) — generationComplete watchdog fires after N seconds of no audio, sealing turn mid-sentence; fix: 25s timeout + reset on thought tokens during audio. July 24 2026.
 - [GL sendRealtimeInput text — student speech channel](gl-sendrealtimeinput-text.md) — sendRealtimeInput({ text }) treats text as student speech in GL, NOT safe for grounding/system injection. July 24 2026.
 - [Gemini approval gates](gemini-approval-gates.md) — any change to prompt context injection (system-prompt.ts, pre-session-synthesis, classroom block) or the neural network requires Gemini approval before shipping. July 22 2026.

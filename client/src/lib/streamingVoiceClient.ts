@@ -1333,8 +1333,16 @@ export class StreamingVoiceClient {
           console.error('[WS CLIENT] Voice error:', veCode, veMsg, 'recoverable:', veRecoverable);
           this.emit('voiceError', { code: veCode, message: veMsg, recoverable: veRecoverable });
           this.emit('error', new Error(veMsg || 'Voice connection encountered an error. Please try again.'));
-          this.setState('error');
-          this.intentionalDisconnect = true;
+          if (veRecoverable) {
+            // Recoverable = GL is reconnecting server-side; keep intentionalDisconnect false
+            // so any subsequent socket.io drop still triggers auto-reconnect.
+            // Set state to 'reconnecting' so the UI shows a spinner, not a hard error.
+            this.setState('reconnecting');
+          } else {
+            // Unrecoverable — block reconnect so we don't loop forever.
+            this.setState('error');
+            this.intentionalDisconnect = true;
+          }
           break;
         }
 
