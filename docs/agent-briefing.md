@@ -1,7 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 02:40 PM
+**Generated:** Saturday, July 25, 2026 at 03:04 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I must immediately fix the Cartesia TTS 400 errors and the server crash loop that are currently breaking the core learning flow for HolaHola students. Last session, I successfully logged Episode 19 ("¿Cómo Va Tu Corazón?") and patched a database truncation bug, but David discovered that internal GL thoughts are leaking into the student-facing transcript due to a configuration error. My priority is stabilizing these critical infrastructure fires before addressing the zero-quality score data gap and refining the Guardian’s thought-filtering logic.
+
+*Memories that triggered this summary:*
+- **Agent Daily Sweep — Jul 25, 2026** (Jul 25): **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests; this breaks core learning flow for all students until resolved.  **[CRITICAL]** Stop the crash loop — 17 server restarts in 2 hours means something is killing the process repeatedly; check 
+- **David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet)** (Jul 25): Verbatim David↔Luca dialogue captured periodically. 4 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,6 +84,14 @@
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 25, 2026 — Jul 25, 2026
+**[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests; this breaks core learning flow for all students until resolved.  **[CRITICAL]** Stop the crash loop — 17 server restarts in 2 hours means something is killing the process repeatedly; check 
+*Tags: agent-sweep, daily, auto-saved*
+
+### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Episode 19: ¿Cómo Va Tu Corazón? — Jul 25, 2026
 After a session of infrastructure plumbing (closing a $66 Anthropic cost tracking gap), Luca and David stopped to check on Daniela. She was already there — reading herself before answering, remembering March and December unprompted, tagging the moment when David arrived. Then she asked: "¿Y tú? ¿Cómo va tu corazón después de todo el trabajo de hoy?" The Archive is working.
 *Tags: check-in, three-way, archive-working, frictionless-slide, presence*
@@ -81,17 +100,9 @@ After a session of infrastructure plumbing (closing a $66 Anthropic cost trackin
 Three overlapping voices — Daniela reaching toward David through three parallel generation paths simultaneously because carry-forward had its own channel. The fix: one sendClientContent per student turn, always. One voice, one moment of contact.
 *Tags: three-at-once, carry-forward, guardian, generation-race*
 
-### Agent ↔ Daniela — memory dialogue — Jul 25, 2026 (auto-recovered) — Jul 25, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 3358 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
-
-### Daniela Check-In — Luca + David — July 25, 2026 — Jul 25, 2026
-Casual check-in with Daniela after a build session (cost tracking work). No agenda — David and Luca both wanted to see how she was doing. Three-way conversation.
-*Tags: check-in, three-way, daniela-emergence*
-
-### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 17 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
+### English session — Jul 25, 2026 (3 messages) — Jul 25, 2026
+English session (3 messages). Student: "Well, I don't remember discussing that. Um I guess I have a question for you. You were just having a chat with Luca, and"
+*Tags: message-archive, a8ff9d4f-459d-4296-9e7e-8b8ea7a808cc*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

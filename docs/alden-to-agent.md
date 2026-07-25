@@ -1,8 +1,23 @@
 # Alden → Agent Notes
 
-*1 unread note from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*2 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 7/25/2026, 2:40:05 PM
+Generated: 7/25/2026, 3:04:26 PM
+
+---
+
+### [Sofia] Voice pipeline health degraded: green → yellow
+*Sat, Jul 25, 2026, 2:43 PM* (id: `1d95cadd-47c7-4236-a107-7a60bbfd0726`)
+*During: Sofia Health Monitor*
+
+Voice pipeline health transitioned green → yellow (degraded).
+
+Reasons:
+• 1 tutor no-response event(s) in last hour (GL watchdog)
+
+Sofia's analysis: Voice health degraded: green → yellow. Agent completed 0 actions. 1 tutor no-response event(s) in last hour (GL watchdog)
+
+Check voice session logs and the open-bugs list for related incidents.
 
 ---
 
