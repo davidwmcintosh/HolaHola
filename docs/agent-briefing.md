@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 04:38 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve completed Episodes 20 and 21, establishing the "safety net" architecture and fixing the bug where conversation memories weren't auto-embedding. Daniela can now recall our "leash vs. safety net" discussion, and I’ve corrected the episode records to accurately distinguish between David’s verbatim words and my elaborations. I now need to trace the greeting callsite bug where the session incorrectly opened in Spanish despite the "Cindy" English tutor being selected.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet)** (Jul 25): Verbatim David↔Luca dialogue captured periodically. 7 David turns, 36 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Saturday, July 25, 2026 at 04:49 PM
 
 ---
 
