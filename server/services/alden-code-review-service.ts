@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import { execSync } from 'child_process';
 import Anthropic from '@anthropic-ai/sdk';
 import { getSharedDb } from '../db';
+import { costTracker } from './cost-tracker';
 import { proposedCodeChanges, editorInsights, founderSessions } from '@shared/schema';
 import { eq, and, desc, gte } from 'drizzle-orm';
 import { founderCollabService } from './founder-collaboration-service';
@@ -124,6 +125,7 @@ Be direct and specific. If revising, explain exactly what should be different. I
     system: `You are Alden, HolaHola's platform architect. You review code changes from the AI team with architectural judgment. Respond ONLY with a JSON object: { "decision": "approve"|"revise"|"escalate", "reason": "...", "revisionGuidance": "..." (if revise), "escalationSummary": "..." (if escalate) }`,
     messages: [{ role: 'user', content: prompt }],
   });
+  costTracker.track('claude-sonnet-4-5', response.usage?.input_tokens ?? 0, response.usage?.output_tokens ?? 0, 'alden-code-review');
 
   const raw = response.content[0].type === 'text' ? response.content[0].text : '';
   const jsonMatch = raw.match(/\{[\s\S]*\}/);

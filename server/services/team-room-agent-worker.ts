@@ -18,6 +18,7 @@ import { storage } from '../storage';
 import { emitNewMessage } from './team-room-ws-broker';
 import { getUserDb } from '../db';
 import { conversationMemories } from '@shared/schema';
+import { costTracker } from './cost-tracker';
 import { desc, sql } from 'drizzle-orm';
 import Anthropic from '@anthropic-ai/sdk';
 import { readFileSync, readdirSync, existsSync } from 'fs';
@@ -29,10 +30,10 @@ const BRIEFING_PATH = join(WORKSPACE, 'docs/agent-briefing.md');
 
 // ── Cost ceiling ───────────────────────────────────────────────────────────────
 // Approximate cost per message using claude-sonnet-4-5 pricing
-// ($10/MTok input, $50/MTok output). We keep a rolling 24 h window in memory.
+// ($3/MTok input, $15/MTok output). We keep a rolling 24 h window in memory.
 const DAILY_BUDGET_USD = 5.0;
-const INPUT_COST_PER_TOK = 10 / 1_000_000;
-const OUTPUT_COST_PER_TOK = 50 / 1_000_000;
+const INPUT_COST_PER_TOK = 3 / 1_000_000;
+const OUTPUT_COST_PER_TOK = 15 / 1_000_000;
 let dailySpend = 0;
 let dailyWindowStart = Date.now();
 
@@ -43,6 +44,7 @@ function trackCost(inputTokens: number, outputTokens: number) {
     dailyWindowStart = now;
   }
   dailySpend += inputTokens * INPUT_COST_PER_TOK + outputTokens * OUTPUT_COST_PER_TOK;
+  costTracker.track('claude-sonnet-4-5', inputTokens, outputTokens, 'team-room-agent');
 }
 
 function overBudget(): boolean {

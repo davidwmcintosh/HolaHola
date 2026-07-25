@@ -21,6 +21,7 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import Anthropic from '@anthropic-ai/sdk';
 import { getUserDb } from '../db';
+import { costTracker } from './cost-tracker';
 import { aldenNotifications, buildQueue } from '@shared/schema';
 
 const GUARDIAN_MANIFEST_PATH = '/tmp/alden-guardian-manifest.json';
@@ -104,6 +105,7 @@ async function classifyRepair(
       role: 'user',
       content: `You are Alden, the autonomous repair system for HolaHola (a 24/7 global language learning app). Evaluate whether this issue qualifies for immediate auto-repair without human approval.
 
+
 Issue: ${issueDescription}
 Recent errors: ${recentErrors.substring(0, 800)}
 
@@ -124,6 +126,7 @@ Respond with EXACTLY this JSON (no other text):
     }],
   });
 
+  costTracker.track('claude-sonnet-4-5', response.usage?.input_tokens ?? 0, response.usage?.output_tokens ?? 0, 'alden-auto-repair-classify');
   const text = response.content[0].type === 'text' ? response.content[0].text.trim() : '';
   const match = text.match(/\{[\s\S]*\}/);
   if (!match) return { eligible: false, type: null, confidence: 'low', reason: 'Could not parse LLM response' };
@@ -174,6 +177,7 @@ Respond with EXACTLY this JSON (no other text):
 }`,
     }],
   });
+  costTracker.track('claude-sonnet-4-5', response.usage?.input_tokens ?? 0, response.usage?.output_tokens ?? 0, 'alden-auto-repair-plan');
 
   const text = response.content[0].type === 'text' ? response.content[0].text.trim() : '';
   const match = text.match(/\{[\s\S]*\}/);

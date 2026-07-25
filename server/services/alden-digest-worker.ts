@@ -13,6 +13,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { postToActiveTeamRoom } from './team-room-proactive-poster';
+import { costTracker } from './cost-tracker';
 import { getSecurityAuditStats } from './wren-security-audit-worker';
 import { getLyraAnalyticsStats } from './lyra-analytics-worker';
 import { getSharedDb } from '../db';
@@ -211,6 +212,7 @@ async function generateDigestContent(snap: TeamSnapshot, digestNumber: number): 
       max_tokens: 400,
       messages: [{ role: 'user', content: prompt }],
     });
+    costTracker.track('claude-sonnet-4-5', message.usage?.input_tokens ?? 0, message.usage?.output_tokens ?? 0, 'alden-digest');
     const text = (message.content[0] as any).text?.trim() || '';
     return text || buildFallbackDigest(snap);
   } catch {
