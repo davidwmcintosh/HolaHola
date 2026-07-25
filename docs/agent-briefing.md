@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 10:14 PM
+**Generated:** Saturday, July 25, 2026 at 10:49 PM
 
 ---
 
@@ -73,6 +73,14 @@
 
 ## Recent Conversation Memories
 
+### Preference for casual chat — Jul 25, 2026
+David explicitly stated he wants to chat as a friend, dropping structured learning or meta-commentary about the system.
+*Tags: personal, preference*
+
+### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
+Verbatim David↔Luca dialogue captured periodically. 2 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
 Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -84,14 +92,6 @@ David tested the Archive in three live sessions — safety net remembered, regga
 ### Gemini — Archive Guardian Tier B wording approval — July 25 2026 — Jul 25, 2026
 LAST TURN CORRECTION wording: ARCHIVE SYNC approved; accusatory framing rejected; nested brackets confirmed effective.
 *Tags: gemini-audit, archive-guardian, tier-b, wording-approval*
-
-### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
-Verbatim David↔Luca dialogue captured periodically. 2 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Archive Guardian Tier B — behavioral directive built; pre-turn system audit — Jul 25, 2026
-Confirmed pre-turn Archive Guardian is fully built (detectStudentMemoryRisk IS called). Built Tier B: slideCorrectionQueued flag turns LAST TURN CORRECTION from passive context into active behavioral lock requiring grounding_query call before asserting.
-*Tags: archive-guardian, tier-b, slide-detector, behavioral-directive, pre-turn-grounding*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

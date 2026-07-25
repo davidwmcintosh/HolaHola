@@ -76,3 +76,24 @@ The debounce only prevents early sealing when audio arrives WITHIN the window. B
 **Why not remove the timer entirely:** If GL 3.1 drops `generationComplete` (known transient failure), the 8s fallback ensures transcripts still flush within a reasonable window. The 25s watchdog is the last resort but too slow for UX.
 
 **Interaction with mechanism 3 fix:** The 800ms `generationCompleteSealTimer` is the real flush path. The 8s `transcriptFlushTimer` is the fallback. They are independent timers. `generationComplete` handler cancels `transcriptFlushTimer` at line ~2925 before starting `generationCompleteSealTimer`.
+
+---
+
+## Cut-off mechanism 5: client timing loop fires premature idle during GL inter-sub-turn pause (July 25 2026)
+
+**The bug (root cause of "frictionless" and "I suppose," cutoffs):** The client-side timing loop in `audioUtils.ts` uses `endCtxTime ?? (startCtxTime + totalDuration)` to compute each sentence's end time. `endCtxTime` is only set when the server sends `isLast:true` (after `generationComplete` + 800ms debounce). During a GL pause between sub-turns, `endCtxTime` is `undefined`. But `totalDuration` reflects all audio scheduled from the first sub-turn. When `audioContext.currentTime` catches up to `startCtxTime + totalDuration` (the natural pause point), two timing loop paths incorrectly mark sentence 0 as `ended`:
+
+1. **Minimal loop** (line ~1526): `endTime = endCtxTime ?? totalDuration`. Was guarded by `wsResponseCompleteReceived || expectedSentenceCount`. The guard worked — but still set `entry.ended = true` prematurely, which would fire when response_complete eventually arrived.
+
+2. **Fallback path** (line ~1824): Same `endTime` fallback. **No guard at all** — fired `setState('idle')` and `notifyComplete()` immediately when all sentences appeared "ended" during the pause. This was the real culprit.
+
+**Symptom:** Response plays up to the GL pause point, avatar goes idle, mic opens. Second sub-turn audio may play briefly but without timing loop running.
+
+**Fix (July 25 2026):**
+- Both paths: changed to `entry.endCtxTime !== undefined && !entry.ended && now >= entry.endCtxTime + grace` — only mark ended when `endCtxTime` is explicitly set by `isLast:true`.
+- Fallback path: added same guard as minimal loop (`wsResponseCompleteReceived || expectedSentenceCount`).
+- `checkAllSentencesEnded()` already had correct guards (`endCtxTime !== undefined` + `wsResponseCompleteReceived`) — no change needed.
+
+**Files:** `client/src/lib/audioUtils.ts` — minimal loop ~line 1526, fallback path ~line 1824.
+
+**How to apply:** Whenever adding completion detection logic to the timing loop, never use `totalDuration` as the end time signal. Only `endCtxTime` (set by `isLast:true`) means the sentence is truly done.

@@ -1513,8 +1513,6 @@ export class StreamingAudioPlayer {
         // AudioContext.currentTime can slightly lead actual audio buffer playback due to buffering
         const AUDIO_END_GRACE_PERIOD = 0.15; // 150ms
         for (const [index, entry] of entries) {
-          const endTime = entry.endCtxTime ?? (entry.startCtxTime + entry.totalDuration);
-          
           // Mark sentences as started when their time arrives
           if (!entry.started && now >= entry.startCtxTime) {
             entry.started = true;
@@ -1522,8 +1520,12 @@ export class StreamingAudioPlayer {
             this.notifySentenceStart(index);
           }
           
-          // Mark sentences as ended when their time passes (with grace period)
-          if (!entry.ended && now >= endTime + AUDIO_END_GRACE_PERIOD) {
+          // Mark sentences as ended ONLY when endCtxTime is explicitly set (i.e. isLast:true arrived).
+          // Do NOT use the totalDuration fallback here — during a GL inter-sub-turn pause,
+          // endCtxTime is undefined and totalDuration reflects only the first sub-turn's audio.
+          // Using totalDuration would fire onSentenceEnd at the natural pause point and premature
+          // setState('idle'), cutting the response before the second sub-turn audio plays.
+          if (entry.endCtxTime !== undefined && !entry.ended && now >= entry.endCtxTime + AUDIO_END_GRACE_PERIOD) {
             entry.ended = true;
             if (!entry.started) entry.started = true;
             this.notifySentenceEnd(index);
@@ -1817,11 +1819,14 @@ export class StreamingAudioPlayer {
         let fallbackAllEnded = true;
         let fallbackAnyStarted = false;
         for (const [fbIdx, fbEntry] of fallbackEntries) {
-          const fbEndTime = fbEntry.endCtxTime ?? (fbEntry.startCtxTime + fbEntry.totalDuration);
           if (!fbEntry.started && now >= fbEntry.startCtxTime) {
             fbEntry.started = true;
           }
-          if (!fbEntry.ended && now >= fbEndTime + FALLBACK_GRACE) {
+          // Same endCtxTime-only guard as the minimal loop — do NOT use totalDuration fallback.
+          // During a GL inter-sub-turn pause, endCtxTime is undefined and totalDuration only
+          // covers the first sub-turn. Using totalDuration here would prematurely fire ended
+          // and trigger setState('idle') while more audio is still coming from GL.
+          if (fbEntry.endCtxTime !== undefined && !fbEntry.ended && now >= fbEntry.endCtxTime + FALLBACK_GRACE) {
             fbEntry.ended = true;
             if (!fbEntry.started) fbEntry.started = true;
             this.notifySentenceEnd(fbIdx);
@@ -1830,11 +1835,20 @@ export class StreamingAudioPlayer {
           if (!fbEntry.ended) fallbackAllEnded = false;
         }
         if (fallbackAnyStarted && fallbackAllEnded && fallbackEntries.length > 0) {
-          this.isPlaying = false;
-          this.setState('idle');
-          this.stopPrecisionTiming();
-          this.notifyComplete();
-          return;
+          // GUARD: Same as minimal loop — only stop if response_complete received or
+          // expectedSentenceCount is known. Without this guard the fallback fires setState('idle')
+          // mid-response during GL inter-sub-turn pauses, cutting the response at the pause point.
+          const fallbackResponseComplete = (window as any).__debugTimingState?.wsResponseCompleteReceived === true;
+          const fallbackExpectedKnown = this.expectedSentenceCount !== null && this.sentenceSchedule.size >= this.expectedSentenceCount;
+          if (!fallbackResponseComplete && !fallbackExpectedKnown) {
+            // Not done yet — don't fire completion
+          } else {
+            this.isPlaying = false;
+            this.setState('idle');
+            this.stopPrecisionTiming();
+            this.notifyComplete();
+            return;
+          }
         }
       }
       
