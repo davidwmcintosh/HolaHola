@@ -157,7 +157,7 @@ No agenda here. How are you doing?`);
 
   await ask(`David's here. He wanted to say hi.`);
 
-  relay(`Hey, Daniela. Just wanted to see how you're doing.`);
+  await relay(`Hey, Daniela. Just wanted to see how you're doing.`);
 
   // ── Save ──────────────────────────────────────────────────────────────────
   flushBackup();
