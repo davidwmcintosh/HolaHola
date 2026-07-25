@@ -7,9 +7,9 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
-**2026-07-25 — Text-mode opening greeting ignores conversation language setting — Severity: MEDIUM**
-When a new English-language conversation starts in text mode (/chat route), Daniela's auto-generated opening message comes out in Spanish. The conversation record correctly stores `language: english`, but whatever generates the pre-user greeting doesn't read that field — it likely falls back to the user's `targetLanguage` profile preference (Spanish). Reproducer: create new text-mode chat with language=english, observe first assistant message. David hit this July 25 — his first message arrived at 16:19:03 but Daniela's Spanish greeting was already at 16:18:32.
-Location: routes.ts `/api/conversations/:id/messages` initial greeting path or conversation-creation greeting — needs trace to find exact callsite.
+**2026-07-25 — GL voice greeting ignores conversation language setting — FIXED July 25**
+When a voice session starts with Cindy (English tutor), Daniela greeted in Spanish. Root cause found in `sendGreetingTrigger` (`server/services/gemini-live-session.ts` line 1383): the resumed-session path hardcoded "continuation of the **Spanish** flow" regardless of the session's actual language. `langName` is correctly resolved from `session.targetLanguage` (e.g. 'English' for Cindy sessions) but the prompt text still said "Spanish". Fix: replaced hardcoded "Spanish" with `${langName}` so the continuation prompt matches the actual session language.
+Secondary guard: `langName` defaults to 'Spanish' if `targetLanguage` is null (line 1367) — acceptable fallback since most sessions are Spanish, but worth knowing if other non-Spanish tutors see the same symptom.
 
 ---
 

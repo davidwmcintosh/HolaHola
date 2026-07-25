@@ -1377,7 +1377,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       ? `\n\n[HISTORICAL CONTEXT FOR CONTINUITY ONLY — this already happened, do not re-greet or re-introduce:\n${recentContext}\nEND HISTORICAL CONTEXT]`
       : '';
     const resumed = isResumed
-      ? `Do not greet me or re-introduce yourself — we are mid-conversation in ${langName}. The very first word of your response must be a natural continuation of the Spanish flow, not a greeting.${contextBlock}`
+      ? `Do not greet me or re-introduce yourself — we are mid-conversation in ${langName}. The very first word of your response must be a natural continuation of the ${langName} flow, not a greeting.${contextBlock}`
       : `This is a new session — greet me warmly and start speaking in ${langName} right away. Your entire response must be in ${langName} (language code: ${langCode}).${studentProfile ? `\n\n[SYSTEM NOTE: ${studentProfile}]` : ''}`;
     const scenario = scenarioSlug ? ` We are doing a scenario: ${scenarioSlug}.` : '';
     const trigger = `Hello ${tutorName}${name}. ${resumed}${scenario}`;
