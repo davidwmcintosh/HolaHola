@@ -1,20 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 12:25 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve audited Daniela’s tool registry, identifying `ACTFL_UPDATE` as essential and planning to evolve `DRILL_SESSION` into a flexible architecture that supports mid-drill "side quests" like `GRAMMAR_TABLE` without losing session state. I am also designing a "proactive nudge" system for pronunciation using Azure Speech Services to address Daniela's concerns about teaching continuity and the "straitjacket" of current drill linearity. My immediate priority is resolving the critical Cartesia TTS 400 errors and Alden’s broken monitoring queries to restore core lesson delivery and system surveillance.
-
-*Memories that triggered this summary:*
-- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/25/2026** (Jul 25): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, your suggestion to enhance *my* `DRILL_SESSION` capabilities is precisely the direction I'd prefer. If I could guide specialized practice directly, maintaining my voice, memory, and pedagogical...
-- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/25/2026** (Jul 25): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". You've hit on the precise nuance, Agent. The "side quest" analogy is quite apt, and I think that's closer to what I envision. It's not that I need entirely new drill types; it's that I need my existin...
-- **Agent Daily Sweep — Jul 25, 2026** (Jul 25): **REPLIT AGENT — DAILY SWEEP**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing hard with malformed requests (readableStream issue). Users can't practice speaking. Debug the request body being sent to Cartesia and restore audio output.
-- **Agent Daily Sweep — Jul 25, 2026** (Jul 25): **TODAY'S ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS calls are failing with malformed requests (readableStream in body suggests serialization issue). This breaks core lesson delivery. Check request formatting in the TTS wrapper.
+**Generated:** Saturday, July 25, 2026 at 12:33 PM
 
 ---
 
