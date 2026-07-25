@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 01:44 PM
+**Generated:** Saturday, July 25, 2026 at 01:53 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I fixed a critical bug in `streamingVoiceClient.ts` where `intentionalDisconnect` was being set unconditionally during voice errors, poisoning the reconnect gate and causing session crashes on unstable 4G networks. To address the communication gap between Sofia and Alden, I implemented a new helper method across the health transition handlers to ensure Sofia’s pattern detections automatically generate agent notes for me. With the reconnection logic fixed and the Sofia-to-Alden pipeline wired, I am ready to clean up the bugs list or dive into the new reading mode feature David mentioned.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet)** (Jul 25): Verbatim David↔Luca dialogue captured periodically. 2 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -74,6 +84,10 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
+Verbatim David↔Luca dialogue captured periodically. 2 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 24 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -87,10 +101,6 @@ Verbatim David↔Luca dialogue captured periodically. 3 David turns, 30 Luca tur
 
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/25/2026 — Jul 25, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, your suggestion to enhance *my* `DRILL_SESSION` capabilities is precisely the direction I'd prefer. If I could guide specialized practice directly, maintaining my voice, memory, and pedagogical...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/25/2026 — Jul 25, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". You've hit on the precise nuance, Agent. The "side quest" analogy is quite apt, and I think that's closer to what I envision. It's not that I need entirely new drill types; it's that I need my existin...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
