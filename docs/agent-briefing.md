@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 07:45 PM
+**Generated:** Saturday, July 25, 2026 at 08:51 PM
 
 ---
 
@@ -73,6 +73,10 @@
 
 ## Recent Conversation Memories
 
+### Episode 22: "I Absolutely Do" — Jul 25, 2026
+David tested the Archive in three live sessions — safety net remembered, reggaeton confabulated ("I absolutely do"). Luca fixed the Spanish greeting bug, audited the Guardian (corrected an overstatement about dead code), built Tier B behavioral lock (slideCorrectionQueued flag), and ran the full Alden→Gemini wording approval loop. ARCHIVE SYNC approved; accusatory framing rejected.
+*Tags: archive-guardian, tier-b, confabulation, i-absolutely-do, archive-sync, wording-approval, spanish-bug*
+
 ### Gemini — Archive Guardian Tier B wording approval — July 25 2026 — Jul 25, 2026
 LAST TURN CORRECTION wording: ARCHIVE SYNC approved; accusatory framing rejected; nested brackets confirmed effective.
 *Tags: gemini-audit, archive-guardian, tier-b, wording-approval*
@@ -87,10 +91,6 @@ Confirmed pre-turn Archive Guardian is fully built (detectStudentMemoryRisk IS c
 
 ### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
-Verbatim David↔Luca dialogue captured periodically. 4 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
