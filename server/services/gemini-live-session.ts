@@ -434,6 +434,11 @@ export class GeminiLiveSession {
   // still nothing has arrived — sealing the stalled turn so the session doesn't
   // hang until the idle/grace-period reaper kills the whole session.
   private thoughtOnlyStallWatchdogTimer: NodeJS.Timeout | null = null;
+  // Debounced seal timer for generationComplete. GL sometimes fires generationComplete
+  // while audio chunks are still in-flight (network buffer). Immediately sealing with
+  // isLast:true cuts off the trailing audio ("What's", "That's"). Instead we wait 200ms
+  // for any remaining chunks to arrive, resetting the timer on each new chunk, then seal.
+  private generationCompleteSealTimer: NodeJS.Timeout | null = null;
 
   // ── Auto-reconnect ─────────────────────────────────────────────────────────
   // When the GL WebSocket closes unexpectedly (1011 internal error, 1006 network
@@ -1433,6 +1438,44 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
    */
 
   /**
+   * Seals the current audio sub-turn by sending:
+   *  1. A 300ms silence pad so the final phoneme has runway in the client's AudioContext.
+   *  2. An empty isLast:true marker that triggers client-side trailing silence + sentence end.
+   * Increments sentenceIndex so the next sub-turn queues as a new sentence.
+   * Called by the generationComplete debounce timer AND the generationComplete watchdog.
+   */
+  private sealCurrentAudioSubturn(label: string): void {
+    if (!this.hadAudioInCurrentSubturn) return;
+    const TAIL_PAD_SEC = 0.3;
+    const tailSilenceSamples = Math.round(TAIL_PAD_SEC * AUDIO_OUTPUT_SAMPLE_RATE);
+    const tailSilenceBuffer = Buffer.alloc(tailSilenceSamples * 4, 0);
+    this.sendWsMessage(this.session.ws, {
+      type: 'audio_chunk',
+      audio: tailSilenceBuffer.toString('base64'),
+      audioFormat: 'pcm_f32le',
+      sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
+      turnId: this.currentTurnId,
+      sentenceIndex: this.currentSentenceIndex,
+      chunkIndex: this.currentChunkIndex++,
+      isLast: false,
+    });
+    this.sendWsMessage(this.session.ws, {
+      type: 'audio_chunk',
+      audio: '',
+      audioFormat: 'pcm_f32le',
+      sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
+      turnId: this.currentTurnId,
+      sentenceIndex: this.currentSentenceIndex,
+      chunkIndex: this.currentChunkIndex,
+      isLast: true,
+    });
+    this.currentSentenceIndex++;
+    this.currentChunkIndex = 0;
+    this.hadAudioInCurrentSubturn = false;
+    console.log(`[GeminiLive] ${label}: audio sub-turn sealed — sentenceIndex now ${this.currentSentenceIndex}`);
+  }
+
+  /**
    * Arms (or re-arms) the generationComplete watchdog timer.
    * Called on every audio chunk AND on thought-token arrival during active audio.
    * Thought tokens between audio sub-turns mean GL is still reasoning — resetting
@@ -1450,31 +1493,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.generationCompleteWatchdogTimer = null;
       if (!this.isStopped && this.isTutorGeneratingAudio && this.hadAudioInCurrentSubturn) {
         console.warn('[GeminiLive] generationComplete watchdog fired — GL dropped the completion signal; sealing turn manually');
-        const _watchdogPadSamples = Math.round(0.3 * AUDIO_OUTPUT_SAMPLE_RATE);
-        const _watchdogPadBuf = Buffer.alloc(_watchdogPadSamples * 4, 0);
-        this.sendWsMessage(this.session.ws, {
-          type: 'audio_chunk',
-          audio: _watchdogPadBuf.toString('base64'),
-          audioFormat: 'pcm_f32le',
-          sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
-          turnId: this.currentTurnId,
-          sentenceIndex: this.currentSentenceIndex,
-          chunkIndex: this.currentChunkIndex++,
-          isLast: false,
-        });
-        this.sendWsMessage(this.session.ws, {
-          type: 'audio_chunk',
-          audio: '',
-          audioFormat: 'pcm_f32le',
-          sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
-          turnId: this.currentTurnId,
-          sentenceIndex: this.currentSentenceIndex,
-          chunkIndex: this.currentChunkIndex,
-          isLast: true,
-        });
-        this.currentSentenceIndex++;
-        this.currentChunkIndex = 0;
-        this.hadAudioInCurrentSubturn = false;
+        // Cancel any pending debounced seal — watchdog takes over
+        if (this.generationCompleteSealTimer) {
+          clearTimeout(this.generationCompleteSealTimer);
+          this.generationCompleteSealTimer = null;
+        }
+        this.sealCurrentAudioSubturn('generationComplete-watchdog');
         this.isGenerationDone = true;
         if (this.pendingPlaybackEndedLift) {
           console.log('[GeminiLive] Watchdog seal — retroactive onPlaybackEnded() (single-sentence path)');
@@ -1589,6 +1613,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     if (this.thoughtOnlyStallWatchdogTimer) {
       clearTimeout(this.thoughtOnlyStallWatchdogTimer);
       this.thoughtOnlyStallWatchdogTimer = null;
+    }
+    if (this.generationCompleteSealTimer) {
+      clearTimeout(this.generationCompleteSealTimer);
+      this.generationCompleteSealTimer = null;
     }
     if (this.heartbeatInterval) {
       clearInterval(this.heartbeatInterval);
@@ -1803,6 +1831,25 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           // Gate-clear: if a new generating turn starts after playback_ended, reset the flag.
           if (this.afterGenerationComplete && !this.isTutorGeneratingAudio) {
             this.afterGenerationComplete = false;
+            // Also cancel any pending seal from the previous generationComplete — this is a
+            // genuinely new turn, not a continuation, so we don't want to seal the old turn.
+            if (this.generationCompleteSealTimer) {
+              clearTimeout(this.generationCompleteSealTimer);
+              this.generationCompleteSealTimer = null;
+            }
+          }
+          // Continuation of same turn: more audio arrived after generationComplete fired
+          // (GL sent genComplete while chunks were still in-flight). Reset the debounce
+          // timer so we don't seal early and cut off the trailing words.
+          if (this.afterGenerationComplete && this.isTutorGeneratingAudio && this.generationCompleteSealTimer) {
+            clearTimeout(this.generationCompleteSealTimer);
+            this.generationCompleteSealTimer = setTimeout(() => {
+              this.generationCompleteSealTimer = null;
+              if (!this.isStopped) {
+                this.sealCurrentAudioSubturn('generationComplete-debounce-extended');
+              }
+            }, 200);
+            console.log('[GeminiLive] generationComplete seal deferred — audio still arriving after premature generationComplete');
           }
           audioParts++;
           this.hadAudioInCurrentSubturn = true;
@@ -2826,44 +2873,22 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.tutorSpeakingStartTime = null;
       }
 
-      // Seal current audio sub-turn
-      if (this.hadAudioInCurrentSubturn) {
-        // GL-tail padding: send 300ms of silence BEFORE the isLast=true marker.
-        // GL often generates <100ms of PCM for the final word at turn-end (the audio
-        // budget closes before the last phoneme completes). This padding gives that
-        // truncated fragment enough runway in the client's AudioContext to be audible
-        // before any state transitions occur. It is a real audio chunk (not empty) so
-        // it advances progressiveScheduledTime on the client and pushes the timing
-        // loop's sentence-end detection forward by 300ms.
-        const TAIL_PAD_SEC = 0.3;
-        const tailSilenceSamples = Math.round(TAIL_PAD_SEC * AUDIO_OUTPUT_SAMPLE_RATE);
-        const tailSilenceBuffer = Buffer.alloc(tailSilenceSamples * 4, 0); // f32le zeros
-        this.sendWsMessage(this.session.ws, {
-          type: 'audio_chunk',
-          audio: tailSilenceBuffer.toString('base64'),
-          audioFormat: 'pcm_f32le',
-          sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
-          turnId: this.currentTurnId,
-          sentenceIndex: this.currentSentenceIndex,
-          chunkIndex: this.currentChunkIndex++,
-          isLast: false,
-        });
-        // Empty isLast=true marker — triggers client-side trailing silence (another 300ms)
-        this.sendWsMessage(this.session.ws, {
-          type: 'audio_chunk',
-          audio: '',
-          audioFormat: 'pcm_f32le',
-          sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
-          turnId: this.currentTurnId,
-          sentenceIndex: this.currentSentenceIndex,
-          chunkIndex: this.currentChunkIndex,
-          isLast: true,
-        });
-        this.currentSentenceIndex++;
-        this.currentChunkIndex = 0;
-        this.hadAudioInCurrentSubturn = false;
-        console.log(`[GeminiLive] generationComplete: audio sub-turn sealed — sentenceIndex now ${this.currentSentenceIndex}`);
+      // Seal current audio sub-turn — DEBOUNCED (200ms)
+      // GL sometimes fires generationComplete while audio chunks are still in-flight
+      // over the network (e.g. the final question sub-turn "What's [next]?"). Immediately
+      // sending isLast:true would seal BEFORE the remaining chunks arrive, cutting off
+      // everything after the first word. We wait 200ms: if more audio arrives in that
+      // window (audio chunk handler resets this timer), we extend the window. When no
+      // audio has arrived for 200ms we know the stream is truly done and seal cleanly.
+      if (this.generationCompleteSealTimer) {
+        clearTimeout(this.generationCompleteSealTimer);
       }
+      this.generationCompleteSealTimer = setTimeout(() => {
+        this.generationCompleteSealTimer = null;
+        if (!this.isStopped) {
+          this.sealCurrentAudioSubturn('generationComplete-debounce');
+        }
+      }, 200);
 
       // Cancel any pending debounce and flush immediately
       if (this.transcriptFlushTimer) {

@@ -7,6 +7,10 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-07-25 — GL audio cut off at final question start ("What's", "That's") — FIXED July 25 (3rd fix)**
+After Bug 1 gate removal, a third cut-off mechanism was identified: GL fires `generationComplete` while audio is still in-flight over the network. The immediate seal in the `generationComplete` handler was sending `isLast:true` BEFORE the remaining audio chunks arrived — causing the final question ("What's [next]?", "That's [what]") to be cut off after just the first word(s). Fix: replaced the immediate seal with a 200ms debounced `generationCompleteSealTimer`. When more audio arrives while the debounce is pending, the timer resets to 200ms from the new chunk, extending the window until no audio has arrived for 200ms. Also: extracted the seal logic into a shared `sealCurrentAudioSubturn(label)` private method (used by both the debounce timer and the watchdog). Typecheck clean July 25.
+Location: `server/services/gemini-live-session.ts` — `sealCurrentAudioSubturn()`, `generationCompleteSealTimer` — Severity: HIGH (final sentence cut off)
+
 **2026-07-24 — GL audio cut off mid-sentence (Bug 1 gate) — FIXED July 24 (2nd fix)**
 After the watchdog fix (see below), a second cut-off mechanism was identified: the "Bug 1 gate" at `serverContent` audio processing. The gate dropped any audio chunk that arrived when `afterGenerationComplete && isTutorGeneratingAudio` — intended to suppress GL tail-filler sub-turns ("ok"/"hey"). However GL also fires `generationComplete` between legitimate sub-turns of a multi-part response (e.g. after "So, if the White Wall is about truth,"), so the gate silently dropped the continuation ("then [conclusion]"), causing "then nothing" mid-clause cut-offs. Fix: removed the drop gate entirely; kept only the gate-clear logic (`afterGenerationComplete && !isTutorGeneratingAudio → reset flag`). Tail filler may now occasionally play as an extra short phrase at turn end — minor annoyance vs. conversation-breaking cut-offs. Typecheck clean July 24.
 Location: `server/services/gemini-live-session.ts` ~line 1800 — Severity: HIGH (cut off mid-clause)

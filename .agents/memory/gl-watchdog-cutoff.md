@@ -1,6 +1,6 @@
 ---
-name: GL generationComplete — two cut-off mechanisms
-description: Two separate bugs both cut Daniela off mid-sentence in GL voice sessions; both fixed July 24 2026.
+name: GL generationComplete — three cut-off mechanisms
+description: Three separate bugs all cut Daniela off mid-sentence in GL voice sessions; all fixed July 24-25 2026.
 ---
 
 ## Cut-off mechanism 1: generationComplete watchdog timeout
@@ -29,6 +29,22 @@ The `generationCompleteWatchdogTimer` fires N seconds after the last audio chunk
 
 **Key insight:** GL's `generationComplete` does NOT reliably signal "the complete response is done." It can fire mid-response between sub-turns. Do not use it as a gate to drop subsequent audio.
 
-**How to apply:** If tail filler becomes disruptive, suppress it by detecting very-short audio sub-turns (< ~0.5s) that arrive shortly after `generationComplete` — time-based rather than position-based. Do NOT use `afterGenerationComplete` as a global audio drop gate.
+---
 
-**File:** `server/services/gemini-live-session.ts` ~line 1800, `armGenerationCompleteWatchdog()` private method.
+## Cut-off mechanism 3: premature seal from immediate generationComplete handler (July 25 2026)
+
+**The bug:** The `generationComplete` handler immediately sealed the current audio sub-turn by sending a 300ms silence pad + `isLast:true`. But GL sometimes fires `generationComplete` while audio for the current sub-turn is still in-flight over the network. The seal would arrive at the client BEFORE the remaining audio chunks, so everything after the first word of the final question ("What's", "That's") was ignored by the client (sentence already marked ended).
+
+**Symptom:** Consistent cut-offs at the START of Daniela's final question — "What's [next]?", "That's [what]", "What does 'pretty close' feel like" — always after the first word or two of the last sentence.
+
+**Fix applied July 25 2026:**
+1. Replaced immediate seal with a 200ms debounced `generationCompleteSealTimer`.
+2. Audio chunk handler: if more audio arrives while the debounce is pending AND `afterGenerationComplete=true` AND `isTutorGeneratingAudio=true`, cancel and restart the debounce from 0ms. This allows in-flight chunks to land before the seal fires.
+3. Extracted seal logic into `sealCurrentAudioSubturn(label)` private method — used by debounce timer, watchdog, and watchdog handler to avoid code duplication.
+4. `generationCompleteSealTimer` cleared in `stop()` to prevent leaks.
+
+**Why 200ms:** Network RTT is 10–100ms; 200ms gives 2–5× headroom for in-flight buffers to drain. The `flushTranscripts()` / `response_complete` still fires immediately — only the `isLast:true` seal is deferred.
+
+**How to apply:** Any time GL fires `generationComplete` and you need to seal: use the debounced path, not an immediate send. The 25s watchdog is the absolute safety net.
+
+**File:** `server/services/gemini-live-session.ts` — `sealCurrentAudioSubturn()`, `generationCompleteSealTimer`, audio chunk handler ~line 1862.
