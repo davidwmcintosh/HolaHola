@@ -18005,6 +18005,70 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
   
+  // Voice client error reporting — fire-and-forget from browser (no auth required)
+  app.post("/api/telemetry/voice-client-error", async (req: any, res: Response) => {
+    try {
+      const { eventType, sessionId, error: errMsg, durationMs, metadata } = req.body ?? {};
+      if (!eventType) return res.status(400).json({ error: 'eventType required' });
+      const userId = String(req.user?.id ?? (req.session as any)?.userId ?? 'anonymous');
+      voiceTelemetry.log(
+        String(sessionId || 'unknown'),
+        userId,
+        `client_${eventType}`,
+        { error: String(errMsg ?? '').slice(0, 200), durationMs, ...(metadata ?? {}) }
+      );
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GL audio pipeline event query — for Luca & Alden diagnostics
+  app.get("/api/admin/voice-sessions/pipeline-events", requireFounderOrAgent, async (req: any, res: Response) => {
+    try {
+      const { sessionId, eventType, userId: filterUserId, limit: limitStr, hours: hoursStr } = req.query;
+      const limit = Math.min(parseInt(String(limitStr || '100'), 10), 500);
+      const hours = Math.min(parseInt(String(hoursStr || '24'), 10), 168);
+      const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+
+      const conditions: any[] = [gte(voicePipelineEvents.createdAt, since)];
+      if (sessionId) conditions.push(eq(voicePipelineEvents.sessionId, String(sessionId)));
+      if (eventType) conditions.push(eq(voicePipelineEvents.eventType, String(eventType)));
+      if (filterUserId) conditions.push(eq(voicePipelineEvents.userId, String(filterUserId)));
+
+      const rows = await getSharedDb()
+        .select()
+        .from(voicePipelineEvents)
+        .where(and(...conditions))
+        .orderBy(desc(voicePipelineEvents.createdAt))
+        .limit(limit);
+
+      // Build timeline with inter-event deltas (chronological)
+      const chrono = rows.reverse();
+      const withDeltas = chrono.map((row, i) => {
+        const prev = i > 0 && chrono[i - 1].sessionId === row.sessionId ? chrono[i - 1] : null;
+        const deltaMs = prev
+          ? new Date(row.createdAt).getTime() - new Date(prev.createdAt).getTime()
+          : null;
+        return { ...row, deltaMs };
+      });
+
+      const byType: Record<string, number> = {};
+      for (const r of rows) byType[r.eventType] = (byType[r.eventType] || 0) + 1;
+
+      res.json({
+        count: withDeltas.length,
+        period: `last ${hours}h`,
+        environment: process.env.NODE_ENV,
+        byType,
+        events: withDeltas,
+      });
+    } catch (err: any) {
+      console.error('[PipelineEvents] Query error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ===== Voice Auto-Remediation (Founder Only) =====
   // Persona-aware TTS fallback with auto-restore
   

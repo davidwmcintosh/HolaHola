@@ -79,6 +79,18 @@ export const ALDEN_TOOLS: AldenTool[] = [
     },
   },
   {
+    name: "get_voice_pipeline_events",
+    description: "Query the GL audio pipeline event log for a specific voice session. Returns a timeline of key events (gl_generation_complete, gl_audio_subturn_sealed, gl_processing_pending_fired, gl_transcripts_flushed, gl_watchdog_timeout, client_processing_timeout, client_voice_error) with timestamps and deltas between events. Use sessionId to inspect a specific session, or leave blank to see recent events across all sessions.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        sessionId: { type: "string" as const, description: "Voice session ID to inspect (optional — omit for recent events across all sessions)" },
+        eventType: { type: "string" as const, description: "Filter by event type, e.g. 'gl_watchdog_timeout' or 'client_processing_timeout'" },
+        limit: { type: "number" as const, description: "Max events to return (default 50, max 200)" },
+      },
+    },
+  },
+  {
     name: "get_sofia_report",
     description: "Get Sofia's latest health digests and issue reports. Shows what Sofia has found through her autonomous monitoring.",
     input_schema: {
@@ -842,6 +854,51 @@ export async function executeAldenTool(
                 when: i.createdAt?.toISOString(),
               })),
             },
+          },
+        };
+      }
+
+      case "get_voice_pipeline_events": {
+        const limitArg = Math.min(args.limit || 50, 200);
+        const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const sharedDb = getMonitoringDb();
+        const { voicePipelineEvents: vpe } = await import('@shared/schema');
+
+        const conditions: any[] = [gte(vpe.createdAt, since)];
+        if (args.sessionId) conditions.push(eq(vpe.sessionId, args.sessionId));
+        if (args.eventType) conditions.push(eq(vpe.eventType, args.eventType));
+
+        const rows = await sharedDb
+          .select()
+          .from(vpe)
+          .where(and(...conditions))
+          .orderBy(desc(vpe.createdAt))
+          .limit(limitArg);
+
+        // Build timeline with inter-event deltas (chronological order)
+        const chronological = rows.reverse();
+        const withDeltas = chronological.map((row, i) => {
+          const prev = i > 0 && chronological[i - 1].sessionId === row.sessionId ? chronological[i - 1] : null;
+          const deltaMs = prev ? new Date(row.createdAt).getTime() - new Date(prev.createdAt).getTime() : null;
+          return {
+            time: row.createdAt,
+            sessionId: row.sessionId.slice(0, 8),
+            eventType: row.eventType,
+            deltaMs,
+            data: row.eventData,
+          };
+        });
+
+        // Summarise by event type
+        const byType: Record<string, number> = {};
+        for (const r of rows) byType[r.eventType] = (byType[r.eventType] || 0) + 1;
+
+        return {
+          data: {
+            period: 'last 24h',
+            count: withDeltas.length,
+            byType,
+            timeline: withDeltas,
           },
         };
       }

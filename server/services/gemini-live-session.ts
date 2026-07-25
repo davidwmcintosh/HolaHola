@@ -1473,6 +1473,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.currentChunkIndex = 0;
     this.hadAudioInCurrentSubturn = false;
     console.log(`[GeminiLive] ${label}: audio sub-turn sealed — sentenceIndex now ${this.currentSentenceIndex}`);
+    voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_audio_subturn_sealed', {
+      label, sentenceIndex: this.currentSentenceIndex, turnId: this.currentTurnId,
+    });
   }
 
   /**
@@ -1493,6 +1496,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.generationCompleteWatchdogTimer = null;
       if (!this.isStopped && this.isTutorGeneratingAudio && this.hadAudioInCurrentSubturn) {
         console.warn('[GeminiLive] generationComplete watchdog fired — GL dropped the completion signal; sealing turn manually');
+        voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_watchdog_timeout', {
+          turnId: this.currentTurnId, isTutorGeneratingAudio: this.isTutorGeneratingAudio,
+        });
         // Cancel any pending debounced seal — watchdog takes over
         if (this.generationCompleteSealTimer) {
           clearTimeout(this.generationCompleteSealTimer);
@@ -2004,6 +2010,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 this.suppressNextProcessingPending = false;
               } else {
                 console.log('[GeminiLive] Firing processing_pending (first audio chunk, conversation turn)');
+                voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_processing_pending_fired', {
+                  path: 'audio_first', turnId: this.currentTurnId,
+                });
                 this.sendWsMessage(this.session.ws, {
                   type: 'processing_pending',
                   timestamp: Date.now(),
@@ -2368,6 +2377,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         if (isFirstOutputChunk && !this.firstAudioSentThisTurn && !this.processingPendingSentThisTurn) {
           this.processingPendingSentThisTurn = true;
           console.log('[GeminiLive] Firing processing_pending (transcription first, before audio)');
+          voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_processing_pending_fired', {
+            path: 'transcript_first', turnId: this.currentTurnId,
+          });
           this.sendWsMessage(this.session.ws, {
             type: 'processing_pending',
             timestamp: Date.now(),
@@ -2871,6 +2883,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.generationCompleteWatchdogTimer = null;
       }
       console.log('[GeminiLive] generationComplete received — sealing audio sub-turn and flushing transcripts');
+      voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_generation_complete', {
+        turnId: this.currentTurnId, hadAudio: this.hadAudioInCurrentSubturn,
+      });
 
       // ── Tutor speaking end ─────────────────────────────────────────────
       if (this.tutorSpeakingStartTime !== null) {
@@ -3751,6 +3766,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     // Capture state before async operations
     const totalSentences = this.currentSentenceIndex;  // how many PCM sentences were sent
     const flushTurnId = this.currentTurnId;            // turnId client associates with this response
+    voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_transcripts_flushed', {
+      totalSentences, turnId: flushTurnId,
+    });
 
     // Save user message first (ordering matters: user → assistant)
     if (!this.pendingInputSaved && this.pendingInputTranscript.trim()) {

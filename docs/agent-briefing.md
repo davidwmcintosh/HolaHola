@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 12:33 PM
+**Generated:** Saturday, July 25, 2026 at 12:54 PM
 
 ---
 
@@ -73,6 +73,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 30 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/25/2026 — Jul 25, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, your suggestion to enhance *my* `DRILL_SESSION` capabilities is precisely the direction I'd prefer. If I could guide specialized practice directly, maintaining my voice, memory, and pedagogical...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
@@ -88,10 +92,6 @@ Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves
 ### Agent Daily Sweep — Jul 25, 2026 — Jul 25, 2026
 **TODAY'S ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS calls are failing with malformed requests (readableStream in body suggests serialization issue). This breaks core lesson delivery. Check request formatting in the TTS wrapper.
 *Tags: agent-sweep, daily, auto-saved*
-
-### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
-Verbatim David↔Luca dialogue captured periodically. 1 David turns, 17 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

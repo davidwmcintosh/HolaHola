@@ -1,5 +1,63 @@
 # Batch Documentation Updates
 
+## GL audio pipeline telemetry + client error reporter — July 25, 2026
+
+### What was built
+
+Four-part monitoring system built after the production GL voice session crash that required deep manual log diving. Goal: next time Alden or Luca can diagnose audio pipeline failures without reading raw logs.
+
+**Part 1 — `voiceTelemetry.log()` at 6 GL pipeline checkpoints (`server/services/gemini-live-session.ts`)**
+
+Six new `voiceTelemetry.log()` calls at key points in the GL audio pipeline:
+- `gl_audio_subturn_sealed` — fires in `sealCurrentAudioSubturn()` with label + sentenceIndex + turnId
+- `gl_watchdog_timeout` — fires when the generationComplete watchdog triggers (GL dropped the signal)
+- `gl_processing_pending_fired` — fires at both audio-first and transcript-first `processing_pending` paths (path: 'audio_first' | 'transcript_first')
+- `gl_generation_complete` — fires when generationComplete is received, with hadAudio + turnId
+- `gl_transcripts_flushed` — fires at start of `_doFlushTranscripts()`, with totalSentences + turnId
+
+All events land in the existing `voice_pipeline_events` DB table via the existing 2s-flush `voiceTelemetry` service.
+
+**Part 2 — Client-side error reporter (`client/src/hooks/useStreamingVoice.ts`)**
+
+Added `reportVoiceClientError(eventType, errorMsg, durationMs?)` — a fire-and-forget `fetch` helper that POSTs to `/api/telemetry/voice-client-error`. Called at:
+- All 4 processing timeout callbacks (handleProcessing, handleProcessingPending, handleFunctionExecuting, sentence_ready safety timeout)
+- `handleError` — every WebSocket-level error
+
+Events land in `voice_pipeline_events` with a `client_` prefix (e.g. `client_processing_timeout`, `client_voice_error`). Session ID is taken from `sessionConfigRef.current?.conversationId`.
+
+**Part 3 — New REST endpoint `POST /api/telemetry/voice-client-error` (`server/routes.ts`, after line ~18010)**
+
+No auth required (fire-and-forget from browser). Accepts `{ eventType, sessionId, error, durationMs, metadata }`. Calls `voiceTelemetry.log()` with `client_${eventType}` event type.
+
+**Part 4 — Admin query endpoint `GET /api/admin/voice-sessions/pipeline-events` (`server/routes.ts`)**
+
+`requireFounderOrAgent`. Query params: `sessionId`, `eventType`, `userId`, `limit` (max 500), `hours` (max 168). Returns events in chronological order with `deltaMs` inter-event timing per session. Also returns `byType` summary counts.
+
+**Part 5 — Alden tool `get_voice_pipeline_events` (`server/services/alden-functions.ts`)**
+
+New Alden tool (tool #35+1 = 36). Accepts `sessionId?`, `eventType?`, `limit?`. Queries last 24h of `voice_pipeline_events`, returns chronological timeline with `deltaMs` deltas and `byType` summary. Alden can now diagnose GL session failures by sessionId without needing raw DB access.
+
+### How to use
+
+```bash
+# Inspect a specific session's pipeline
+curl -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
+  "https://yourapp.replit.app/api/admin/voice-sessions/pipeline-events?sessionId=<id>"
+
+# See all watchdog timeouts in last 2h
+curl -H "x-agent-token: $REPLIT_AGENT_TOKEN" \
+  "/api/admin/voice-sessions/pipeline-events?eventType=gl_watchdog_timeout&hours=2"
+
+# Via Alden
+# "get_voice_pipeline_events" tool, sessionId optional
+```
+
+### Key files changed
+- `server/services/gemini-live-session.ts` — 6 `voiceTelemetry.log()` insertions
+- `server/routes.ts` — 2 new endpoints after line ~18010
+- `server/services/alden-functions.ts` — new tool definition + handler
+- `client/src/hooks/useStreamingVoice.ts` — `reportVoiceClientError` helper + 5 call sites
+
 ## Guardian heard/missed resolution + avatar speculative thinking — July 23, 2026
 
 ### What was built

@@ -246,6 +246,25 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   // Ref for tutor switch timeout (error recovery)
   const tutorSwitchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
+  // Fire-and-forget client-side error reporter — sends to server for pipeline event log
+  const reportVoiceClientError = useCallback((eventType: string, errorMsg: string, extraMs?: number) => {
+    try {
+      const conversationId = sessionConfigRef.current?.conversationId;
+      fetch('/api/telemetry/voice-client-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          eventType,
+          sessionId: conversationId ?? 'unknown',
+          error: errorMsg,
+          durationMs: extraMs,
+        }),
+      }).catch(() => {}); // truly fire-and-forget
+    } catch {
+      // never throw from a diagnostic helper
+    }
+  }, []);
+
   // Ref for processing timeout (stuck thinking recovery)
   // If no activity for 30+ seconds while isProcessing=true, reset state
   // Increased from 15s to 25s Jan 2026 to handle server delays from RAM pressure
@@ -633,6 +652,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     processingTimeoutRef.current = setTimeout(() => {
       console.log('[StreamingVoice] Processing timeout - resetting stuck thinking state + playback');
+      reportVoiceClientError('processing_timeout', 'Processing timeout — handleProcessing', PROCESSING_TIMEOUT_MS);
       setIsProcessing(false);
       setError('Response timeout - please try again');
       setGlobalPlaybackState('idle');
@@ -700,6 +720,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     processingTimeoutRef.current = setTimeout(() => {
       console.log('[StreamingVoice] Processing timeout (pending) - resetting stuck thinking state + playback');
+      reportVoiceClientError('processing_timeout', 'Processing timeout — handleProcessingPending', PROCESSING_TIMEOUT_MS);
       setIsProcessing(false);
       setError('Response timeout - please try again');
       setGlobalPlaybackState('idle');
@@ -735,6 +756,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     if (processingTimeoutRef.current) clearTimeout(processingTimeoutRef.current);
     processingTimeoutRef.current = setTimeout(() => {
       console.log('[StreamingVoice] Function-executing timeout — resetting stuck state');
+      reportVoiceClientError('processing_timeout', 'Processing timeout — functionExecuting', PROCESSING_TIMEOUT_MS);
       setIsProcessing(false);
       setGlobalPlaybackState('idle');
       playerRef.current?.stop?.();
@@ -1026,6 +1048,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     }
     processingTimeoutRef.current = setTimeout(() => {
       console.log('[StreamingVoice] Safety timeout after sentence_ready - resetting stuck state + playback');
+      reportVoiceClientError('processing_timeout', 'Safety timeout after sentence_ready', 45000);
       setIsProcessing(false);
       setError('Response timeout - please try again');
       setGlobalPlaybackState('idle');
@@ -1449,6 +1472,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const handleError = useCallback((err: Error) => {
     console.error('[StreamingVoice] Error:', err);
     diagMarkError('ws_error', err.message);
+    reportVoiceClientError('voice_error', err.message);
     const isCreditsError = err.message?.includes('credits have been used up') || err.message?.includes('Insufficient tutoring hours');
     if (!isCreditsError) {
       reportDiagnostic('error');
