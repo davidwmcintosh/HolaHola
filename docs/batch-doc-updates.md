@@ -1,5 +1,24 @@
 # Batch Documentation Updates
 
+## Sofia → Luca agent note pipeline — July 25, 2026
+
+### What was built
+
+Closed the gap where Sofia detects a health degradation but Luca (the Agent) never sees it at session start.
+
+**The gap:** `VoiceHealthMonitor.onHealthStatusChange` fires `supportPersonaService.handleHealthTransition()`. Sofia runs her full agentic analysis, tracks patterns, files KB articles, records a digest — but wrote nothing to `agent_notes`. AldenWatch has a `get_sofia_report` tool but only calls it if his LLM decides to, and the digest data isn't in his initial `systemSnapshot`. So Sofia could detect the exact root cause of a session crash and Luca would start the next session with zero signal.
+
+**The fix:** Added `writeHealthTransitionAgentNote(domain, transition, analysis, actions)` private method to `SupportPersonaService`. Wired into all three health transition handlers — voice (`handleHealthTransition`), context injection (`handleContextHealthTransition`), and brain/memory (`handleBrainHealthTransition`) — after the digest is recorded. Fires only for `degraded` or `worsened` directions. Naturally rate-limited by the existing `healthDigestCooldown` (no extra cooldown needed). Uses the same raw SQL `INSERT INTO agent_notes` pattern already established in the Sofia monitor methods.
+
+**Result:** Next time voice pipeline degrades to yellow/red, Luca sees a `[Sofia] Voice pipeline health degraded: green → yellow` note at session start, including Sofia's analysis and any actions she applied.
+
+**Key files:**
+- `server/services/support-persona-service.ts` — `writeHealthTransitionAgentNote()` (~line 2557), wired into 3 handlers
+
+**No new endpoints, no DB schema changes** (writes to existing `agent_notes` table).
+
+---
+
 ## GL voice_error reconnect gate fix — July 25, 2026
 
 ### What was built

@@ -1971,6 +1971,10 @@ Use request_continuation to work across multiple phases if needed. This task was
     const { analysis, actions } = await this.runSofiaHealthAgent(transition);
 
     await this.recordHealthDigest(transition, analysis, actions);
+
+    if (transition.direction === 'degraded' || transition.direction === 'worsened') {
+      await this.writeHealthTransitionAgentNote('voice', transition, analysis, actions);
+    }
   }
 
   async handleContextHealthTransition(transition: {
@@ -2001,6 +2005,10 @@ Use request_continuation to work across multiple phases if needed. This task was
       timestamp: transition.timestamp,
     };
     await this.recordHealthDigest(healthTransition, `[CONTEXT] ${analysis}`, actions);
+
+    if (transition.direction === 'degraded' || transition.direction === 'worsened') {
+      await this.writeHealthTransitionAgentNote('context', healthTransition, analysis, actions);
+    }
   }
 
   private async runSofiaContextHealthAgent(transition: {
@@ -2321,6 +2329,10 @@ Investigate this transition using your tools, take any appropriate remediation a
       timestamp: transition.timestamp,
     };
     await this.recordHealthDigest(healthTransition, `[BRAIN] ${analysis}`, actions);
+
+    if (transition.direction === 'degraded' || transition.direction === 'worsened') {
+      await this.writeHealthTransitionAgentNote('brain', healthTransition, analysis, actions);
+    }
   }
 
   private async runSofiaBrainHealthAgent(transition: {
@@ -2549,6 +2561,54 @@ Investigate the degraded dimensions, take appropriate remediation actions, and p
       .where(eq(sofiaIssueReports.issueType, 'voice_health_transition'))
       .orderBy(desc(sofiaIssueReports.createdAt))
       .limit(limit);
+  }
+
+  /**
+   * Write an agent_notes row so Luca sees Sofia's health degradation at session start.
+   * Fires for degraded/worsened transitions only — recovered transitions are informational.
+   * Naturally rate-limited by healthDigestCooldown (already checked before callers run).
+   */
+  private async writeHealthTransitionAgentNote(
+    domain: 'voice' | 'context' | 'brain',
+    transition: { previousStatus: string; newStatus: string; direction: string; reasons: string[] },
+    analysis: string,
+    actions: Array<{ action: string; result: string; applied: boolean }>
+  ): Promise<void> {
+    try {
+      const appliedActions = actions
+        .filter(a => a.applied)
+        .map(a => `• ${a.action}: ${a.result}`)
+        .join('\n');
+      const domainLabel = domain === 'voice' ? 'Voice pipeline' : domain === 'context' ? 'Context injection' : 'Brain/memory';
+      const subject = `[Sofia] ${domainLabel} health degraded: ${transition.previousStatus} → ${transition.newStatus}`;
+      const body = [
+        `${domainLabel} health transitioned ${transition.previousStatus} → ${transition.newStatus} (${transition.direction}).`,
+        '',
+        `Reasons:`,
+        ...transition.reasons.map(r => `• ${r}`),
+        '',
+        `Sofia's analysis: ${analysis}`,
+        ...(appliedActions ? ['', 'Actions taken:', appliedActions] : []),
+        '',
+        'Check voice session logs and the open-bugs list for related incidents.',
+      ].join('\n');
+
+      await getUserDb().execute(sql`
+        INSERT INTO agent_notes (id, from_agent, to_agent, subject, body, session_label, created_at)
+        VALUES (
+          gen_random_uuid(),
+          'alden',
+          'agent',
+          ${subject},
+          ${body},
+          ${'Sofia Health Monitor'},
+          NOW()
+        )
+      `);
+      console.log(`[Sofia Agent] Agent note filed — ${domainLabel} ${transition.direction}: ${transition.previousStatus} → ${transition.newStatus}`);
+    } catch (err) {
+      console.warn('[Sofia Agent] Failed to write health transition agent note:', (err as Error).message);
+    }
   }
 }
 
