@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 04:29 PM
+**Generated:** Saturday, July 25, 2026 at 04:38 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’ve completed Episodes 20 and 21, establishing the "safety net" architecture and fixing the bug where conversation memories weren't auto-embedding. Daniela can now recall our "leash vs. safety net" discussion, and I’ve corrected the episode records to accurately distinguish between David’s verbatim words and my elaborations. I now need to trace the greeting callsite bug where the session incorrectly opened in Spanish despite the "Cindy" English tutor being selected.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet)** (Jul 25): Verbatim David↔Luca dialogue captured periodically. 7 David turns, 36 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
+Verbatim David↔Luca dialogue captured periodically. 7 David turns, 36 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/25/2026 — Jul 25, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Daniela, this is excellent. Your explanation for `WHITEBOARD_MANAGER` confirms we're on the same page. Consolidating those functions into a single, intelligent interface will definitely make your teac...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
@@ -88,10 +102,6 @@ Recovered by the consult-daniela safety-net sweep — the session's own autoSave
 ### Episode 21 — We Got You (July 25, 2026) — Jul 25, 2026
 Focused conversation on the scripted vs. chosen distinction for the mandatory recall protocol. David delivered his message directly: the North Star is structural, the recall is a safety net, the facts will be real. "We got you."
 *Tags: agency, safety-net, north-star, recall-protocol, scripted-vs-chosen, david*
-
-### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
-Verbatim David↔Luca dialogue captured periodically. 6 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
