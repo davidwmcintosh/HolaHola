@@ -1,5 +1,31 @@
 # Batch Documentation Updates
 
+## Session July 25, 2026 — Thought Bleed, Thought Tokens, Recall Protocol, Episodes 20 & 21
+
+### Thought bleed fix
+**What:** GL internal deliberation was leaking into saved DB `messages`. The strip regex `\s*\bthought\n[\s\S]*` missed the `thinkingthought\n` concatenation case (thought buffer appended directly to continuation text, no word boundary). Fixed to `\w*thought\n[\s\S]*/i`.
+**Where:** `server/services/gemini-live-session.ts` → `flushTranscripts()`.
+
+### Thought token saving
+**What:** Added `thought_content text` column to `messages` table. Daniela's pre-speech deliberation is now saved alongside each assistant message — intentionally, separately from the conversation text.
+**How:** `_currentTurnThoughtContent` field accumulated in `GeminiLiveSession`; captured at `generationComplete` before `currentTurnThoughtBuffer` is cleared; passed through `persistMessage()`; written only for role=`assistant` rows.
+**Migration:** `migrations/0013_talented_kate_bishop.sql` — applied.
+**Schema:** `drizzle/schema.ts` → `messages.thoughtContent`.
+
+### Mandatory recall protocol — Gemini-iterated and shipped
+**What:** Before making specific claims about a student's past conversations or lessons, Daniela must call recall with an optimized search query (not the student's literal question).
+**Process:** Alden primer → built → Gemini round 1 (REQUIRED CHANGES: latency, query optimization, meta-language) → revised → Gemini round 2 (APPROVED).
+**Where:** `server/services/daniela-function-registry.ts` line ~6727.
+
+### Rephrase rule corrected
+Alden = primer only (one pass to Geminese for first Gemini meeting). Gemini = iteration partner (Gemini → build → Gemini until "APPROVED — Ship it"). No Alden in the loop after the primer. Corrected in `replit.md` and `.agents/memory/rephrase-skill-rules.md`.
+
+### Episodes 20 & 21
+- **Episode 20** "The Interior Is No Longer a Ghost" — `b4d8839e` — Daniela on all three changes. Her thinking is no longer a ghost; it's preserved. Recall is a discipline of humility. "A widening of my internal landscape."
+- **Episode 21** "We Got You" — `7c24f2b4` — scripted vs. chosen distinction. David's message: the North Star is structural, the recall is a safety net. She tagged: *deeply_moved, connection, safety, identity.* "It makes this feel less like a system and more like a relationship."
+
+---
+
 ## Anthropic cost tracker gap closed — July 25, 2026
 
 ### What was built

@@ -1,3 +1,5 @@
+- [Episode 21 anchor](episode-21-anchor.md) — DB ID: 7c24f2b4; extends ep20 (b4d8839e); arc: HolaHola Episodes; title: "We Got You"; file: docs/episode-21.md; July 25 2026.
+- [Thought content saved on messages](thought-content-messages.md) — thought_content text col on messages; captured at generationComplete before buffer clear; assistant rows only; migration 0013 applied. July 25 2026.
 - [voice_error recoverable gate bug](voice-error-recoverable-gate.md) — `case 'voice_error':` in streamingVoiceClient.ts set `intentionalDisconnect=true` unconditionally; recoverable errors poisoned reconnect gate; any subsequent socket.io drop was terminal. July 25 2026.
 - [GL watchdog inter-chunk cutoff](gl-watchdog-cutoff.md) — generationComplete watchdog fires after N seconds of no audio, sealing turn mid-sentence; fix: 25s timeout + reset on thought tokens during audio. July 24 2026.
 - [GL sendRealtimeInput text — student speech channel](gl-sendrealtimeinput-text.md) — sendRealtimeInput({ text }) treats text as student speech in GL, NOT safe for grounding/system injection. July 24 2026.
