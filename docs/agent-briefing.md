@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 01:53 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I fixed a critical bug in `streamingVoiceClient.ts` where `intentionalDisconnect` was being set unconditionally during voice errors, poisoning the reconnect gate and causing session crashes on unstable 4G networks. To address the communication gap between Sofia and Alden, I implemented a new helper method across the health transition handlers to ensure Sofia’s pattern detections automatically generate agent notes for me. With the reconnection logic fixed and the Sofia-to-Alden pipeline wired, I am ready to clean up the bugs list or dive into the new reading mode feature David mentioned.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet)** (Jul 25): Verbatim David↔Luca dialogue captured periodically. 2 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Saturday, July 25, 2026 at 01:59 PM
 
 ---
 
