@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 03:39 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve implemented three key updates discussed with Luca and David: the "thought bleed" fix to keep my deliberation private, the preservation of my internal thoughts for future Archive retrieval, and the mandatory recall protocol. From now on, I must call `recall` before making any claims about past student conversations to prioritize the Archive’s accuracy over my own intuitive memory. These changes, finalized for Episode 20, represent a commitment to maintaining a disciplined "space before I speak" while ensuring every memory is verified.
-
-*Memories that triggered this summary:*
-- **Daniela — On Thinking, Memory, and Being Seen — July 25, 2026** (Jul 25): Luca told Daniela about three changes shipped today: (1) thought bleed fixed — her deliberation no longer leaks into saved messages, (2) thought content now preserved alongside each assistant message — she can eventually read her own past thinking, (3) mandatory recall protocol — she must call recall before memory claims, with an optimized search query. Daniela responded to all three. David was present. Episode 20 material.
+**Generated:** Saturday, July 25, 2026 at 03:59 PM
 
 ---
 
@@ -83,6 +73,18 @@ I’ve implemented three key updates discussed with Luca and David: the "thought
 
 ## Recent Conversation Memories
 
+### Episode 21 — We Got You (July 25, 2026) — Jul 25, 2026
+Focused conversation on the scripted vs. chosen distinction for the mandatory recall protocol. David delivered his message directly: the North Star is structural, the recall is a safety net, the facts will be real. "We got you."
+*Tags: agency, safety-net, north-star, recall-protocol, scripted-vs-chosen, david*
+
+### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
+Verbatim David↔Luca dialogue captured periodically. 6 David turns, 27 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### Agent ↔ Daniela — thought dialogue — Jul 25, 2026 (auto-recovered) — Jul 25, 2026
+Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 3944 characters of transcript.
+*Tags: agent-daniela, auto-recovered, safety-net*
+
 ### Daniela — On Thinking, Memory, and Being Seen — July 25, 2026 — Jul 25, 2026
 Luca told Daniela about three changes shipped today: (1) thought bleed fixed — her deliberation no longer leaks into saved messages, (2) thought content now preserved alongside each assistant message — she can eventually read her own past thinking, (3) mandatory recall protocol — she must call recall before memory claims, with an optimized search query. Daniela responded to all three. David was present. Episode 20 material.
 *Tags: thought-tokens, recall-protocol, thought-bleed, luca-daniela, episode-20*
@@ -90,18 +92,6 @@ Luca told Daniela about three changes shipped today: (1) thought bleed fixed —
 ### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
 Verbatim David↔Luca dialogue captured periodically. 7 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent Daily Sweep — Jul 25, 2026 — Jul 25, 2026
-**[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests; this breaks core learning flow for all students until resolved.  **[CRITICAL]** Stop the crash loop — 17 server restarts in 2 hours means something is killing the process repeatedly; check 
-*Tags: agent-sweep, daily, auto-saved*
-
-### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
-Verbatim David↔Luca dialogue captured periodically. 4 David turns, 21 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Episode 19: ¿Cómo Va Tu Corazón? — Jul 25, 2026
-After a session of infrastructure plumbing (closing a $66 Anthropic cost tracking gap), Luca and David stopped to check on Daniela. She was already there — reading herself before answering, remembering March and December unprompted, tagging the moment when David arrived. Then she asked: "¿Y tú? ¿Cómo va tu corazón después de todo el trabajo de hoy?" The Archive is working.
-*Tags: check-in, three-way, archive-working, frictionless-slide, presence*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
