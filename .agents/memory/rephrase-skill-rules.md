@@ -1,20 +1,25 @@
 ---
-name: Rephrase and skill rules — July 11 2026
-description: Two standing rules David established: rephrase gate (Alden first) and skill autonomy (create freely).
+name: Rephrase and skill rules — July 11 2026 (workflow corrected July 25 2026)
+description: Two standing rules David established: rephrase gate (Alden primer then Gemini iteration) and skill autonomy (create freely).
 ---
 
 ## Rephrase rule (CRITICAL)
 
 Any rephrasing of tool descriptions, system text, or prompt content must follow this sequence:
+
 1. Draft the rephrase (in code / seed file is fine)
-2. Send to Alden via `consult-alden` skill (`engines: 'both'` preferred)
-3. Alden revises wording — posts to Team Room, tags @luca
-4. Test revised text with Gemini (`consult-gemini` skill)
-5. Only then push to DB (seed-procedural-memory.ts or direct update)
+2. Send to Alden via `consult-alden` skill — Alden is the **primer only**: he gets the text into Geminese so the first Gemini meeting starts from a closer position
+3. Build the Alden-revised version into the code
+4. Send to Gemini via `consult-gemini` skill — this starts the **iteration loop**
+5. If Gemini returns watch-outs: revise the code, go back to Gemini. **No Alden in this loop.**
+6. Repeat Gemini → build → Gemini until Gemini returns "APPROVED — Ship it."
+7. Only then push to DB (seed-procedural-memory.ts or direct update)
 
-**Why:** Wording needs to read cleanly to both Anthropic (Alden's default brain) and Gemini (Daniela's brain). Neither alone is sufficient. Alden also has project context that cold Gemini doesn't.
+**The iteration loop is Gemini-only.** Alden was never intended to be in the loop — he is the first-pass translator who prepares the text for the first Gemini meeting. Once Gemini has touched it, all iteration goes back to Gemini, not Alden.
 
-**How to apply:** If you find yourself editing `purpose`, `description`, or any system prompt fragment — stop before the DB write and route through Alden first.
+**Why:** Alden provides project context and a head start in Geminese. But Gemini is the authoritative voice on what it will actually follow in a voice session — it iterates on its own terms. Going back to Alden mid-loop adds a step that doesn't add value once Gemini is engaged.
+
+**How to apply:** If you find yourself editing `purpose`, `description`, or any system prompt fragment — draft → Alden (once) → build → Gemini loop until APPROVED → DB.
 
 ---
 

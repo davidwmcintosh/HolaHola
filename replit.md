@@ -43,7 +43,7 @@ AI-powered language learning app — interactive conversation practice, vocabula
 
 **Skill autonomy:** Create skills freely — any time a task involves assembling things from memory or putting a reusable workflow together, turn it into a skill without asking. No permission needed.
 
-**Rephrase rule (CRITICAL):** Any rephrasing of tool descriptions, system text, or prompt content must go through Alden first (via `consult-alden` skill), then tested with Gemini, before it touches the DB. Draft in code is fine — do not seed to DB until Alden has reviewed.
+**Rephrase rule (CRITICAL):** Any rephrasing of tool descriptions, system text, or prompt content follows this sequence: (1) Alden first — he is the primer only, gets the text into Geminese for the first Gemini meeting. (2) Build the Alden version into the code. (3) Gemini iteration loop — Gemini check → revise → build → Gemini check, repeating until Gemini returns "APPROVED — Ship it." No going back to Alden once Gemini is in the loop. (4) Only then push to DB. Draft in code is fine — do not seed to DB until Gemini has approved.
 
 **Gemini approval gate — context injection and neural network (CRITICAL — July 22, 2026):** Any change to (1) prompt context injection — `server/system-prompt.ts`, `pre-session-synthesis.ts`, `classroom-environment.ts`, DANIELA_STATE blocks, GL system prompt assembly — or (2) the neural network — `daniela-tool-indexer.ts`, `memory_embeddings` usage, `tool_knowledge` content/schema, `neural-memory-search.ts`, embedding generation patterns — requires unconditional Gemini approval before shipping. Use `consult-gemini` skill, iterate until no remaining watch-outs. This is in addition to (not replacing) the rephrase rule. Memory: `.agents/memory/gemini-approval-gates.md`
 

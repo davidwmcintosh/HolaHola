@@ -481,6 +481,10 @@ export const messages = pgTable("messages", {
   actflLevel: text("actfl_level"), // novice_low, novice_mid, etc. - AI detects complexity of message content
   // Background enrichment status for voice chat optimization
   enrichmentStatus: text("enrichment_status"), // null (complete), "pending", "processing", "failed" - used for split response in voice chat
+  // GL thought content — Daniela's internal deliberation for this turn (from includeThoughts:true).
+  // Only populated for role='assistant' rows from voice sessions. Persisted so Daniela can read
+  // her own past thinking via the Archive.
+  thoughtContent: text("thought_content"),
   // Full-text search vector (auto-populated by database trigger)
   searchVector: text("search_vector"),
   // Legacy embedding column (preserved for data continuity - may contain vector embeddings)

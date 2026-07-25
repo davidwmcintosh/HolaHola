@@ -92,6 +92,13 @@
       "when": 1784851375577,
       "tag": "0012_add_guardian_carry_forward",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1784992820478,
+      "tag": "0013_talented_kate_bishop",
+      "breakpoints": true
     }
   ]
 }

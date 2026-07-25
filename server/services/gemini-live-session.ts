@@ -312,6 +312,9 @@ export class GeminiLiveSession {
    *  just before the buffer is cleared at generationComplete; read by the
    *  friction signal which runs after the clear. Null if no thought parts arrived. */
   private _currentTurnThoughtTokenProxy: number | null = null;
+  /** Raw thought content from this turn — captured before buffer clear at generationComplete,
+   *  persisted alongside the assistant message so Daniela can read her own past thinking. */
+  private _currentTurnThoughtContent: string | null = null;
 
   // ── Mic gate: blocks echo during ALL Daniela audio generation ────────────
   // When open-mic mode is active, the client streams audio continuously.
@@ -2528,6 +2531,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this._currentTurnThoughtTokenProxy = this.currentTurnThoughtBuffer.length > 0
         ? Math.round(this.currentTurnThoughtBuffer.length / 4)
         : null;
+      // Capture raw thought content before clearing — persisted to DB alongside the assistant
+      // message so the thought history is retained and Daniela can read her own past thinking.
+      this._currentTurnThoughtContent = this.currentTurnThoughtBuffer.trim() || null;
       this.currentTurnThoughtBuffer = '';
 
       // ── Frictionless Slide detection (GL) ────────────────────────────────────
@@ -3863,8 +3869,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         .replace(/\*\*/g, '')
         .replace(/\b\w+\{[^{}]*\}/g, '')    // strip tool call syntax: name{key:val,...}
         .replace(/\w*thought\nThinking Process[\s\S]*/i, '')  // strip GL thinking blocks (e.g. "wasthought\nThinking Process:...")
-        .replace(/([.!?])thought\n[\s\S]*/i, '$1')           // fallback: strip after sentence-end punct
-        .replace(/\s*\bthought\n[\s\S]*/i, '')               // fallback: strip with word boundary
+        .replace(/([.!?])thought\n[\s\S]*/i, '$1')           // strip after sentence-end punct
+        .replace(/\w*thought\n[\s\S]*/i, '')  // catch-all: strip ANY thought block including "thinkingthought\n..." (no word boundary needed)
         .replace(/\s{2,}/g, ' ')             // collapse double-spaces
         .trim();
       this.totalOutputCharacters += assistantText.length;
@@ -3878,7 +3884,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.transcriptBuffer.push({ role: 'daniela', text: assistantText.slice(0, 300) });
       if (this.transcriptBuffer.length > this.MAX_TRANSCRIPT_BUFFER) this.transcriptBuffer.shift();
       try {
-        const messageId = await this.persistMessage('assistant', assistantText);
+        const messageId = await this.persistMessage('assistant', assistantText, this._currentTurnThoughtContent);
+        this._currentTurnThoughtContent = null; // clear after use
         // Fire background enrichment (student_insights, recurring_struggles, vocab)
         // non-blocking — same pipeline as the text orchestrator uses.
         const conversationId = this.session.conversationId;
@@ -3969,7 +3976,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
    * Insert one message row and bump the conversation's message_count + duration.
    * Uses a raw SQL UPDATE so message_count is always accurate in the list view.
    */
-  private async persistMessage(role: 'user' | 'assistant', content: string): Promise<string | null> {
+  private async persistMessage(role: 'user' | 'assistant', content: string, thoughtContent: string | null = null): Promise<string | null> {
     // Incognito mode — skip all DB writes so nothing is recorded
     if (this.session.isIncognito) {
       console.log(`[GeminiLive] Incognito: skipping persistMessage (${role})`);
@@ -3994,7 +4001,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         return null;
       }
 
-      const inserted = await db.insert(messages).values({ conversationId, role, content }).returning({ id: messages.id });
+      const insertValues: Record<string, unknown> = { conversationId, role, content };
+      if (role === 'assistant' && thoughtContent) {
+        insertValues.thoughtContent = thoughtContent;
+      }
+      const inserted = await db.insert(messages).values(insertValues as any).returning({ id: messages.id });
       const messageId = inserted[0]?.id ?? null;
 
       // Update conversation stats so the list view shows correct counts
