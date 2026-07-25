@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 09:12 PM
+**Generated:** Saturday, July 25, 2026 at 10:03 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I shipped the Tier B behavioral lock for the Archive Guardian, replacing passive context with Gemini-approved "ARCHIVE SYNC" framing to ensure Daniela reconciles session history without breaking her immersion. I published Episode 22 ("I Absolutely Do") to document this arc and updated the system architecture—including the `thought_content` database migration and core project documentation—to formalize these standards. I am now focused on debugging why Daniela’s responses are cutting off prematurely between sentences in the `/chat` interface.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet)** (Jul 25): Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Episode 22: "I Absolutely Do" — Jul 25, 2026
 David tested the Archive in three live sessions — safety net remembered, reggaeton confabulated ("I absolutely do"). Luca fixed the Spanish greeting bug, audited the Guardian (corrected an overstatement about dead code), built Tier B behavioral lock (slideCorrectionQueued flag), and ran the full Alden→Gemini wording approval loop. ARCHIVE SYNC approved; accusatory framing rejected.
 *Tags: archive-guardian, tier-b, confabulation, i-absolutely-do, archive-sync, wording-approval, spanish-bug*
@@ -88,10 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 2 David turns, 13 Luca tur
 ### Archive Guardian Tier B — behavioral directive built; pre-turn system audit — Jul 25, 2026
 Confirmed pre-turn Archive Guardian is fully built (detectStudentMemoryRisk IS called). Built Tier B: slideCorrectionQueued flag turns LAST TURN CORRECTION from passive context into active behavioral lock requiring grounding_query call before asserting.
 *Tags: archive-guardian, tier-b, slide-detector, behavioral-directive, pre-turn-grounding*
-
-### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
-Verbatim David↔Luca dialogue captured periodically. 1 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

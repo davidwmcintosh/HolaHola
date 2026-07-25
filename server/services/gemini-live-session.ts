@@ -1854,8 +1854,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           // Continuation of same turn: more audio arrived after generationComplete fired
           // (GL sent genComplete while chunks were still in-flight). Reset the debounce
           // timer so we don't seal early and cut off the trailing words.
-          if (this.afterGenerationComplete && this.isTutorGeneratingAudio && this.generationCompleteSealTimer) {
-            clearTimeout(this.generationCompleteSealTimer);
+          if (this.afterGenerationComplete && this.isTutorGeneratingAudio && (this.generationCompleteSealTimer || !this.isFlushInProgress)) {
+            if (this.generationCompleteSealTimer) clearTimeout(this.generationCompleteSealTimer);
             this.generationCompleteSealTimer = setTimeout(() => {
               this.generationCompleteSealTimer = null;
               if (!this.isStopped) {
@@ -1866,7 +1866,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                   console.warn('[GeminiLive] generationComplete flush error (extended):', err.message)
                 );
               }
-            }, 200);
+            }, 800);
             console.log('[GeminiLive] generationComplete seal deferred — audio still arriving after premature generationComplete');
           }
           audioParts++;
@@ -2913,7 +2913,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // sending isLast:true would seal BEFORE the remaining chunks arrive, cutting off
       // everything after the first word. We wait 200ms: if more audio arrives in that
       // window (audio chunk handler resets this timer), we extend the window. When no
-      // audio has arrived for 200ms we know the stream is truly done and seal cleanly.
+      // audio has arrived for 800ms we know the stream is truly done and seal cleanly.
+      // 800ms (was 200ms): GL sometimes takes 300-700ms to flush the final audio chunks
+      // after firing generationComplete. With 200ms, those trailing chunks arrived AFTER
+      // the seal fired — they got a new sentenceIndex but response_complete had already
+      // been sent with totalSentences=N (not N+1), so the client dropped the late audio
+      // as an unexpected sentence and the last word/clause was silently cut.
       if (this.generationCompleteSealTimer) {
         clearTimeout(this.generationCompleteSealTimer);
       }
@@ -2936,7 +2941,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             console.warn('[GeminiLive] generationComplete flush error:', err.message)
           );
         }
-      }, 200);
+      }, 800);
     }
 
     // ── Interrupted signal (barge-in detected) ───────────────────────────────

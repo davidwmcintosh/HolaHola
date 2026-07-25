@@ -43,8 +43,17 @@ The `generationCompleteWatchdogTimer` fires N seconds after the last audio chunk
 3. Extracted seal logic into `sealCurrentAudioSubturn(label)` private method — used by debounce timer, watchdog, and watchdog handler to avoid code duplication.
 4. `generationCompleteSealTimer` cleared in `stop()` to prevent leaks.
 
-**Why 200ms:** Network RTT is 10–100ms; 200ms gives 2–5× headroom for in-flight buffers to drain. The `flushTranscripts()` / `response_complete` still fires immediately — only the `isLast:true` seal is deferred.
+**Why 200ms wasn't enough — the real root cause (July 25 2026):**
+The debounce only prevents early sealing when audio arrives WITHIN the window. But GL sometimes takes 300-700ms to flush its last audio chunks after firing `generationComplete`. When those late chunks arrived after the 200ms seal:
+1. `sealCurrentAudioSubturn()` fired → sent `isLast:true` for sentenceIndex N → incremented to N+1
+2. `flushTranscripts()` ran → captured `totalSentences = N+1` → reset `currentSentenceIndex = 0` → sent `response_complete` with `totalSentences: N+1`
+3. Late GL audio arrived → sent to client with NEW sentenceIndex N+1... but `response_complete` had already told the client `totalSentences = N+1` meaning only sentences 0..N were expected
+4. The client's PCM player dropped sentence N+1 audio as unexpected → last word/clause silently cut
 
-**How to apply:** Any time GL fires `generationComplete` and you need to seal: use the debounced path, not an immediate send. The 25s watchdog is the absolute safety net.
+**Fix (July 25 2026):** Debounce bumped from 200ms → 800ms in both the initial `generationComplete` handler and the audio-chunk extension path. 800ms gives GL 4-8× the typical network RTT to flush in-flight audio before the seal fires.
+
+**Extension condition also fixed:** Changed `this.generationCompleteSealTimer` guard to `(this.generationCompleteSealTimer || !this.isFlushInProgress)` — handles the rare case where a late chunk arrives after the timer fired but before `flushTranscripts()` sends `response_complete`. The extended timer re-seals and re-flushes correctly because `isFlushInProgress` prevents double-flush.
+
+**How to apply:** Any time GL fires `generationComplete` and you need to seal: use the debounced path (800ms), not an immediate send. The 25s watchdog is the absolute safety net.
 
 **File:** `server/services/gemini-live-session.ts` — `sealCurrentAudioSubturn()`, `generationCompleteSealTimer`, audio chunk handler ~line 1862.
