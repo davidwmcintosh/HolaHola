@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 04:49 PM
+**Generated:** Saturday, July 25, 2026 at 06:02 PM
 
 ---
 
@@ -73,25 +73,25 @@
 
 ## Recent Conversation Memories
 
+### The Importance of Contextual Truth — Jul 25, 2026
+English session (15 messages). Student: "Well, hello my friend. Let's just start there."
+*Tags: message-archive, 12d8de8b-7411-4084-ad10-c4b628871b61*
+
 ### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
 Verbatim David↔Luca dialogue captured periodically. 7 David turns, 36 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
+### The Metaphor of Safety Nets — Jul 25, 2026
+English session (14 messages). Student: "Hi Daniela. Well I was hoping you'd have your Cindy finger puppet on just so I wouldn't have to work so hard at Spanish "
+*Tags: message-archive, c628eeea-907d-40b0-84a6-afb7915e33d4*
+
+### English session — Jul 25, 2026 (3 messages) — Jul 25, 2026
+English session (3 messages). Student: "Sorry, did you get cut off after but now?"
+*Tags: message-archive, 58935d85-8dfa-4719-89d4-3748df7ab32c*
+
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/25/2026 — Jul 25, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Daniela, this is excellent. Your explanation for `WHITEBOARD_MANAGER` confirms we're on the same page. Consolidating those functions into a single, intelligent interface will definitely make your teac...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Agent ↔ Daniela — safety net dialogue — Jul 25, 2026 (auto-recovered) — Jul 25, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 4030 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
-
-### Agent ↔ Daniela — safety net dialogue — Jul 25, 2026 (auto-recovered) — Jul 25, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 603 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
-
-### Episode 21 — We Got You (July 25, 2026) — Jul 25, 2026
-Focused conversation on the scripted vs. chosen distinction for the mandatory recall protocol. David delivered his message directly: the North Star is structural, the recall is a safety net, the facts will be real. "We got you."
-*Tags: agency, safety-net, north-star, recall-protocol, scripted-vs-chosen, david*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

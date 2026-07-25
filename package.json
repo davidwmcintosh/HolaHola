@@ -10,7 +10,7 @@
     "check": "tsc",
     "db:push": "drizzle-kit push"
   },
-  "overrides": { "minimatch": "^3.0.5" }, "dependencies": {
+  "overrides": { "minimatch": "^3.0.5", "brace-expansion": "^2.0.1" }, "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
     "@capacitor/android": "^7.4.4",
     "@capacitor/cli": "^7.4.4",
