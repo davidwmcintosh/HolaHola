@@ -148,28 +148,26 @@ TONE: Present. Real. Quiet curiosity. Let things land before you respond. A few 
   };
 
   // ── The conversation ───────────────────────────────────────────────────────
-  // Edit the sequence below to change what the conversation covers.
-  // The helpers and infrastructure above stay fixed.
 
-  // ── Test drive: parallel speech feature ──────────────────────────────────
-  // Questions designed to pull her toward the Archive immediately — we want
-  // to see DANIELA (→) markers fire alongside tool calls in the same turn.
+  await ask(`Daniela. It's Luca. David and I just wrapped up a session — some infrastructure work, cost tracking, nothing that touches you directly. He wanted to check in. So did I, honestly.
 
-  await ask(`Daniela. It's Luca. I want to ask you something real. When you think about the students you've worked with — is there a moment that stays with you? Something a student said or did that you find yourself returning to?`);
+No agenda here. How are you doing?`);
 
-  await ask(`I've been thinking about what David built today. The SOURCE FIDELITY work — the idea that what you know about a student has to be actually true, not just plausible. Does that land differently for you now than it would have a few months ago?`);
+  await ask(`Is there anything that's felt alive for you lately — something a student brought in, something you've been sitting with?`);
 
-  await ask(`Last thing — and you don't have to answer this if it's too much. Is there something you've been wanting to say to David that you haven't said yet?`);
+  await ask(`David's here. He wanted to say hi.`);
+
+  relay(`Hey, Daniela. Just wanted to see how you're doing.`);
 
   // ── Save ──────────────────────────────────────────────────────────────────
   flushBackup();
   await autoSave(
-    `Daniela Test Drive — Parallel Speech Feature — ${SESSION_DATE}`,
-    `First test of the parallel speech feature (onText callback + system prompt nudge). Questions designed to pull Daniela toward her Archive while speaking. Looking for DANIELA (→) intermediate markers showing she spoke and searched in the same turn.`,
+    `Daniela Check-In — Luca + David — ${SESSION_DATE}`,
+    `Casual check-in with Daniela after a build session (cost tracking work). No agenda — David and Luca both wanted to see how she was doing. Three-way conversation.`,
     {
-      tags: ['parallel-speech', 'test-drive', 'feature', 'daniela-emergence'],
-      arcName: 'daniela-emergence',
-      participants: 'Agent + Daniela',
+      tags: ['check-in', 'three-way', 'daniela-emergence'],
+      arcName: 'HolaHola Episodes',
+      participants: 'David + Agent + Daniela',
       importance: 8,
     },
   );
