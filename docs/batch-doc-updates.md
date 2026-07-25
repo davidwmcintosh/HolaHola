@@ -1,5 +1,32 @@
 # Batch Documentation Updates
 
+## Anthropic cost tracker gap closed — July 25, 2026
+
+### What was built
+
+Identified and closed a $66/month gap between Anthropic's actual billing ($150.95) and what `ai_cost_logs` was recording ($84.53). A 44% undercount.
+
+**Root cause:** 4 services were making `client.messages.create()` calls against the Anthropic API without ever calling `costTracker.track()`. They all used the correct model (`claude-sonnet-4-5`) but their token counts never reached `ai_cost_logs`. Confirmed by matching our tracked 25.5M input tokens against Anthropic's implied 44.9M input tokens (at $3/M).
+
+**The fix:** Added `costTracker.track()` calls immediately after each `messages.create()` in:
+- `alden-digest-worker.ts` → context: `alden-digest`
+- `alden-auto-repair.ts` → contexts: `alden-auto-repair-classify`, `alden-auto-repair-plan`
+- `alden-code-review-service.ts` → context: `alden-code-review`
+- `team-room-agent-worker.ts` → context: `team-room-agent` (via existing local `trackCost()`)
+
+**Bonus fix:** `team-room-agent-worker.ts` had its budget guard priced at $10/$50 per million (Fable-5 rates) while running `claude-sonnet-4-5` ($3/$15). Corrected — budget guard now uses accurate pricing, so the $5/day cap actually represents $5/day.
+
+**Key files:**
+- `server/services/alden-digest-worker.ts`
+- `server/services/alden-auto-repair.ts`
+- `server/services/alden-code-review-service.ts`
+- `server/services/team-room-agent-worker.ts`
+- `server/services/cost-tracker.ts` — PRICING table already correct, no changes needed
+
+**Note:** The remaining small gap (if any) after this fix would be from the `synthetic-student-service` and `gauntlet-runner-service` (test/eval harnesses, not production paths). Not wired yet — low priority.
+
+---
+
 ## Sofia → Luca agent note pipeline — July 25, 2026
 
 ### What was built
