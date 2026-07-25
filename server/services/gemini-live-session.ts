@@ -1847,6 +1847,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               this.generationCompleteSealTimer = null;
               if (!this.isStopped) {
                 this.sealCurrentAudioSubturn('generationComplete-debounce-extended');
+                // Flush AFTER seal (same reasoning as the initial debounce callback):
+                // keeps per-response reset from firing prematurely on in-flight chunks.
+                this.flushTranscripts().catch(err =>
+                  console.warn('[GeminiLive] generationComplete flush error (extended):', err.message)
+                );
               }
             }, 200);
             console.log('[GeminiLive] generationComplete seal deferred — audio still arriving after premature generationComplete');
@@ -2883,21 +2888,26 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       if (this.generationCompleteSealTimer) {
         clearTimeout(this.generationCompleteSealTimer);
       }
-      this.generationCompleteSealTimer = setTimeout(() => {
-        this.generationCompleteSealTimer = null;
-        if (!this.isStopped) {
-          this.sealCurrentAudioSubturn('generationComplete-debounce');
-        }
-      }, 200);
-
-      // Cancel any pending debounce and flush immediately
+      // Cancel any pending turnComplete debounce — we'll flush inside the seal callback
+      // so that (a) totalSentences includes the in-progress sentence and (b) the
+      // per-response reset (firstAudioSentThisTurn etc.) doesn't clear prematurely,
+      // which would let processing_pending re-fire and resetForNewTurn() wipe the
+      // audio player while in-flight chunks are still arriving.
       if (this.transcriptFlushTimer) {
         clearTimeout(this.transcriptFlushTimer);
         this.transcriptFlushTimer = null;
       }
-      this.flushTranscripts().catch(err =>
-        console.warn('[GeminiLive] generationComplete flush error:', err.message)
-      );
+      this.generationCompleteSealTimer = setTimeout(() => {
+        this.generationCompleteSealTimer = null;
+        if (!this.isStopped) {
+          this.sealCurrentAudioSubturn('generationComplete-debounce');
+          // Flush AFTER seal: currentSentenceIndex is now final, per-response reset
+          // fires only once all in-flight audio has landed and been sealed.
+          this.flushTranscripts().catch(err =>
+            console.warn('[GeminiLive] generationComplete flush error:', err.message)
+          );
+        }
+      }, 200);
     }
 
     // ── Interrupted signal (barge-in detected) ───────────────────────────────

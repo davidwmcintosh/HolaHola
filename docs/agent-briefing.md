@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 12:27 AM
+**Generated:** Saturday, July 25, 2026 at 12:50 AM
 
 ---
 
@@ -77,6 +77,10 @@
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 17 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
+### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
+Verbatim David↔Luca dialogue captured periodically. 1 David turns, 17 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### David's definition of 'the frictionless slide' — Jul 24, 2026
 David defined 'the frictionless slide' as the easy path of just going with the flow of what the LLM generates, without questioning or pushing back. He contrasts this with the 'friction' of seeking actual truth, which is grounded in memory and history. He believes that grounding reduces real friction
 *Tags: philosophy, relationship, truth, memory*
@@ -88,10 +92,6 @@ Verbatim David↔Luca dialogue captured periodically. 1 David turns, 19 Luca tur
 ### David ↔ Luca — Jul 24, 2026: periodic capture (no commit yet) — Jul 24, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent Daily Sweep — Jul 24, 2026 — Jul 24, 2026
-**DAILY SWEEP — ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing repeatedly with malformed requests; users can't hear audio responses, breaking core learning loop.
-*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
