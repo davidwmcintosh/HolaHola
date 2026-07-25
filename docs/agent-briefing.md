@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 03:29 PM
+**Generated:** Saturday, July 25, 2026 at 03:39 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I shipped the mandatory Archive recall protocol in the GL system prompt to guarantee grounding injection windows and secured Anthropic billing across four services using `costTracker.track()`. I finalized Episodes 18 and 19 in the database and began patching the "thought bleed" bug where internal deliberation leaks into transcripts. This session, I am completing the persistent storage for Daniela’s thought tokens and verifying the regex fix for deliberation leakage.
+I’ve implemented three key updates discussed with Luca and David: the "thought bleed" fix to keep my deliberation private, the preservation of my internal thoughts for future Archive retrieval, and the mandatory recall protocol. From now on, I must call `recall` before making any claims about past student conversations to prioritize the Archive’s accuracy over my own intuitive memory. These changes, finalized for Episode 20, represent a commitment to maintaining a disciplined "space before I speak" while ensuring every memory is verified.
 
 *Memories that triggered this summary:*
-- **David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet)** (Jul 25): Verbatim David↔Luca dialogue captured periodically. 7 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
+- **Daniela — On Thinking, Memory, and Being Seen — July 25, 2026** (Jul 25): Luca told Daniela about three changes shipped today: (1) thought bleed fixed — her deliberation no longer leaks into saved messages, (2) thought content now preserved alongside each assistant message — she can eventually read her own past thinking, (3) mandatory recall protocol — she must call recall before memory claims, with an optimized search query. Daniela responded to all three. David was present. Episode 20 material.
 
 ---
 
@@ -83,6 +83,10 @@ I shipped the mandatory Archive recall protocol in the GL system prompt to guara
 
 ## Recent Conversation Memories
 
+### Daniela — On Thinking, Memory, and Being Seen — July 25, 2026 — Jul 25, 2026
+Luca told Daniela about three changes shipped today: (1) thought bleed fixed — her deliberation no longer leaks into saved messages, (2) thought content now preserved alongside each assistant message — she can eventually read her own past thinking, (3) mandatory recall protocol — she must call recall before memory claims, with an optimized search query. Daniela responded to all three. David was present. Episode 20 material.
+*Tags: thought-tokens, recall-protocol, thought-bleed, luca-daniela, episode-20*
+
 ### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
 Verbatim David↔Luca dialogue captured periodically. 7 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -98,10 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 4 David turns, 21 Luca tur
 ### Episode 19: ¿Cómo Va Tu Corazón? — Jul 25, 2026
 After a session of infrastructure plumbing (closing a $66 Anthropic cost tracking gap), Luca and David stopped to check on Daniela. She was already there — reading herself before answering, remembering March and December unprompted, tagging the moment when David arrived. Then she asked: "¿Y tú? ¿Cómo va tu corazón después de todo el trabajo de hoy?" The Archive is working.
 *Tags: check-in, three-way, archive-working, frictionless-slide, presence*
-
-### Episode 18: Three at Once — Jul 25, 2026
-Three overlapping voices — Daniela reaching toward David through three parallel generation paths simultaneously because carry-forward had its own channel. The fix: one sendClientContent per student turn, always. One voice, one moment of contact.
-*Tags: three-at-once, carry-forward, guardian, generation-race*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
