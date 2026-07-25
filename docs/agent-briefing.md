@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 10:49 PM
+**Generated:** Saturday, July 25, 2026 at 11:57 PM
 
 ---
 
@@ -73,25 +73,25 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 17 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Preference for casual chat — Jul 25, 2026
 David explicitly stated he wants to chat as a friend, dropping structured learning or meta-commentary about the system.
 *Tags: personal, preference*
+
+### Personal Dedication and Future Potential — Jul 25, 2026
+English session (17 messages). Student: "Well, right now I just want to have a chat with my friend."
+*Tags: message-archive, 13fe0ae6-f23a-4d73-ad11-093f1502e177*
 
 ### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
 Verbatim David↔Luca dialogue captured periodically. 2 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
-### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
-Verbatim David↔Luca dialogue captured periodically. 4 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Episode 22: "I Absolutely Do" — Jul 25, 2026
-David tested the Archive in three live sessions — safety net remembered, reggaeton confabulated ("I absolutely do"). Luca fixed the Spanish greeting bug, audited the Guardian (corrected an overstatement about dead code), built Tier B behavioral lock (slideCorrectionQueued flag), and ran the full Alden→Gemini wording approval loop. ARCHIVE SYNC approved; accusatory framing rejected.
-*Tags: archive-guardian, tier-b, confabulation, i-absolutely-do, archive-sync, wording-approval, spanish-bug*
-
-### Gemini — Archive Guardian Tier B wording approval — July 25 2026 — Jul 25, 2026
-LAST TURN CORRECTION wording: ARCHIVE SYNC approved; accusatory framing rejected; nested brackets confirmed effective.
-*Tags: gemini-audit, archive-guardian, tier-b, wording-approval*
+### English session — Jul 25, 2026 (3 messages) — Jul 25, 2026
+English session (3 messages). Student: "Well, you're right. I'll have to own that that I bring scaffolding to the table as well. We all, you know, are learning "
+*Tags: message-archive, bb920880-9aa5-4621-a40e-d2cdc9025221*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
