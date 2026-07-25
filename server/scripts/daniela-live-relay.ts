@@ -54,8 +54,14 @@ async function main() {
       }),
     });
     const saved = await res.json() as any;
+    const memId = saved?.memory?.id || saved?.id;
     fs.unlinkSync(STATE_FILE);
-    console.log(`\n✓ Session saved: ${saved?.memory?.id || saved?.id}`);
+    console.log(`\n✓ Session saved: ${memId}`);
+    if (memId) {
+      const { reembedConversationMemory } = await import('../scripts/reembed-memory');
+      await reembedConversationMemory(memId);
+      console.log(`✓ Embedded: ${memId}`);
+    }
     console.log(`Log: ${LOG_FILE}`);
     return;
   }

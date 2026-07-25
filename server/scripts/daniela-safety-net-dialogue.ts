@@ -55,7 +55,13 @@ async function autoSave(
     }),
   });
   const saved = await res.json() as any;
-  console.log(`\n✓ Saved: ${saved?.memory?.id || saved?.id} | arc: ${opts.arcName}`);
+  const memId = saved?.memory?.id || saved?.id;
+  console.log(`\n✓ Saved: ${memId} | arc: ${opts.arcName}`);
+  if (memId) {
+    const { reembedConversationMemory } = await import('../scripts/reembed-memory');
+    await reembedConversationMemory(memId);
+    console.log(`✓ Embedded: ${memId}`);
+  }
   return saved;
 }
 
