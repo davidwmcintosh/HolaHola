@@ -1,6 +1,6 @@
 ---
 name: Archive Guardian Tier B directive
-description: slideCorrectionQueued flag turns LAST TURN CORRECTION from passive context into active behavioral lock; pre-turn Guardian confirmed fully built universally. July 25 2026.
+description: slideCorrectionQueued flag turns LAST TURN CORRECTION from passive context into active behavioral lock. Gemini-approved wording July 25 2026.
 ---
 
 ## The pre-turn Guardian is fully built (not dead code)
@@ -21,7 +21,7 @@ Full architecture (confirmed):
 
 ## Tier B build — behavioral directive
 
-**Why:** The `[LAST TURN CORRECTION]` whisper was passive ("here's your history"). When grounding arrives on the next turn's tool call after a slide-detected turn, it gives Cindy context but doesn't instruct action.
+**Why:** The `[LAST TURN CORRECTION]` whisper was passive ("here's your history"). When grounding arrives on the next turn's tool call after a slide-detected turn, it gives Daniela context but doesn't instruct action.
 
 **How:** Added `private slideCorrectionQueued = false;` to `GeminiLiveSession`.
 
@@ -29,11 +29,29 @@ Set in two places:
 1. `FrictionlessSlide/GL`: after `this.pendingWeeOoGrounding = groundingResult;` (~line 2602)
 2. `HardWall`: after queuing correction to `pendingWeeOoGrounding` (~line 2773)
 
-In the tool handler injection block (~line 3358), when `slideCorrectionQueued` is true:
+In the tool handler injection block (~line 3358), when `slideCorrectionQueued` is true, uses the Gemini-approved wording (see below). Flag cleared after injection.
+
+## Gemini-approved wording (approved July 25 2026, memory: 3fd6432a)
+
 ```
-[LAST TURN CORRECTION — VERIFY BEFORE CONTINUING: Your previous response contained a memory assertion that was not verified against your Archive. Here is what your Archive actually holds:\n${grounding}\n\nBefore making any further claims about shared history this turn, call grounding_query or introspect now. Do not assert from memory alone.]
+[LAST TURN CORRECTION — ARCHIVE SYNC: Our shared history contains specific records relevant to your last turn. Archive Data:
+{grounding data}
+
+To ensure we stay aligned, please use grounding_query or introspect to reconcile this information before making further assertions about our shared history.]
 ```
 
-Flag cleared after injection. Passive context → active behavioral lock.
+This lands inside the outer `[ARCHIVE GUARDIAN: ...]` bracket, so the full injection is:
+```
+[ARCHIVE GUARDIAN:
+[LAST TURN CORRECTION — ARCHIVE SYNC: ...]]
+```
 
-**Why it matters:** Tier B is the instruction layer on top of Tier A (context delivery). When grounding arrives late (no-tool-call turn), Cindy doesn't just get data — she gets an explicit mandate to verify before she continues.
+**What Gemini rejected:** "Your previous response contained a memory assertion that was not verified" — meta-critical, triggers defensive/apologetic voice output, breaks immersion.
+
+**What Gemini confirmed:**
+- `ARCHIVE SYNC` = sounds like a system process not a reprimand
+- `"To ensure we stay aligned"` = persona-consistent motivation for the tool call
+- Nested bracket structure `[ARCHIVE GUARDIAN: [SUB-LABEL: ...]]` = confirmed effective; outer bracket = System/Guardian layer, inner = Contextual Trigger
+- Behavioral mandate ("use grounding_query or introspect") effective as Tier B lock when framed as accuracy requirement not mistake correction
+
+**Why it matters:** Tier B is the instruction layer on top of Tier A (context delivery). When grounding arrives late (no-tool-call turn), Daniela doesn't just get data — she gets a mandate to verify before she continues.

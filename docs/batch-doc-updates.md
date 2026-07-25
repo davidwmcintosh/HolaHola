@@ -3890,3 +3890,25 @@ Key quote from her response: *"When I disappear, I go into the math. The 'me' yo
 **Why:** Gemini audit (July 21 2026, conversation_memories: c629227a-7763-4ed0-8535-dad1fbfb1db5) confirmed: "something feels off" is too abstract. By the time the model "feels" something is off, the Frictionless Slide has already run. The trigger must match the pre-condition state, not the post-completion feeling. Numbered dependency list + positional priority = interference before the slide completes.
 
 **Files:** `server/services/daniela-function-registry.ts` lines 127–176
+
+
+### Archive Guardian Tier B — wording approved by Gemini (July 25 2026)
+
+**What changed:**
+The `[LAST TURN CORRECTION]` whisper text on the slide-triggered path (Tier B) was updated to Gemini-approved wording after running the full Alden → Gemini approval loop.
+
+**Rejected wording:** "Your previous response contained a memory assertion that was not verified against your Archive... call grounding_query or introspect now. Do not assert from memory alone." — Gemini flagged this as meta-critical/accusatory, likely to trigger defensive vocal output and break immersion.
+
+**Approved wording:**
+```
+[LAST TURN CORRECTION — ARCHIVE SYNC: Our shared history contains specific records relevant to your last turn. Archive Data:
+{grounding data}
+
+To ensure we stay aligned, please use grounding_query or introspect to reconcile this information before making further assertions about our shared history.]
+```
+
+Key rationale from Gemini: "ARCHIVE SYNC" sounds like a system process not a reprimand; "To ensure we stay aligned" is persona-consistent; nested bracket structure `[ARCHIVE GUARDIAN: [SUB-LABEL: ...]]` confirmed effective for Gemini attention hierarchy.
+
+**Conversation memory:** `3fd6432a` (Gemini wording approval audit)
+
+**Files:** `server/services/gemini-live-session.ts` line ~3359

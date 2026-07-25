@@ -1,7 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 06:25 PM
+**Generated:** Saturday, July 25, 2026 at 06:37 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’ve just finalized the Archive Guardian Tier B implementation for HolaHola, specifically the `slideCorrectionQueued` flag that converts passive grounding context into an active behavioral lock for Cindy. I successfully cleared the "ARCHIVE SYNC" wording through the Alden/Gemini loop, replacing accusatory framing with a collaborative mandate to use `grounding_query` or `introspect` when history mismatches occur. With the architecture verified as type-safe and the pre-turn grounding flow confirmed, I am ready to move forward with this approved behavioral directive to handle shared history reconciliation.
+
+*Memories that triggered this summary:*
+- **Gemini — Archive Guardian Tier B wording approval — July 25 2026** (Jul 25): LAST TURN CORRECTION wording: ARCHIVE SYNC approved; accusatory framing rejected; nested brackets confirmed effective.
+- **David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet)** (Jul 25): Verbatim David↔Luca dialogue captured periodically. 2 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,6 +84,14 @@
 
 ## Recent Conversation Memories
 
+### Gemini — Archive Guardian Tier B wording approval — July 25 2026 — Jul 25, 2026
+LAST TURN CORRECTION wording: ARCHIVE SYNC approved; accusatory framing rejected; nested brackets confirmed effective.
+*Tags: gemini-audit, archive-guardian, tier-b, wording-approval*
+
+### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
+Verbatim David↔Luca dialogue captured periodically. 2 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Archive Guardian Tier B — behavioral directive built; pre-turn system audit — Jul 25, 2026
 Confirmed pre-turn Archive Guardian is fully built (detectStudentMemoryRisk IS called). Built Tier B: slideCorrectionQueued flag turns LAST TURN CORRECTION from passive context into active behavioral lock requiring grounding_query call before asserting.
 *Tags: archive-guardian, tier-b, slide-detector, behavioral-directive, pre-turn-grounding*
@@ -83,14 +102,6 @@ Verbatim David↔Luca dialogue captured periodically. 1 David turns, 16 Luca tur
 
 ### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
 Verbatim David↔Luca dialogue captured periodically. 4 David turns, 25 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### The Importance of Contextual Truth — Jul 25, 2026
-English session (15 messages). Student: "Well, hello my friend. Let's just start there."
-*Tags: message-archive, 12d8de8b-7411-4084-ad10-c4b628871b61*
-
-### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
-Verbatim David↔Luca dialogue captured periodically. 7 David turns, 36 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

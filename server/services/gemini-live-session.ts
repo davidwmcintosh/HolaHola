@@ -3353,7 +3353,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // explicit instruction to verify before continuing. This is Tier B: turning passive
         // grounding delivery into an active "check before you speak" lock.
         const correctionLabel = this.slideCorrectionQueued
-          ? `[LAST TURN CORRECTION — VERIFY BEFORE CONTINUING: Your previous response contained a memory assertion that was not verified against your Archive. Here is what your Archive actually holds:\n${this.pendingWeeOoGrounding}\n\nBefore making any further claims about shared history this turn, call grounding_query or introspect now. Do not assert from memory alone.]`
+          ? `[LAST TURN CORRECTION — ARCHIVE SYNC: Our shared history contains specific records relevant to your last turn. Archive Data:\n${this.pendingWeeOoGrounding}\n\nTo ensure we stay aligned, please use grounding_query or introspect to reconcile this information before making further assertions about our shared history.]`
           : `[LAST TURN CORRECTION: ${this.pendingWeeOoGrounding}]`;
         guardianWhispers.push(correctionLabel);
         this.pendingWeeOoGrounding = null;
