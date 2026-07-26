@@ -20,7 +20,19 @@
 
 **Typecheck:** Clean (zero errors).
 
-### Fourth fix: thinkingLevel MEDIUM → LOW (root cause confirmed)
+### Fourth fix: thinkingLevel MEDIUM → LOW (tried + reversed), maxOutputTokens → 2000
+
+**LOW thinking tried and reversed:** LOW was applied briefly to reduce reasoning token consumption but reversed after David correctly identified the wrong tradeoff. Reducing reasoning quality is not the right mechanism for preventing cutoffs.
+
+**Gemini consult (July 26 2026, DB: 036309ca) — two questions answered:**
+
+**Q1: Mid-session system prompt re-assertion.** No GL API mechanism exists for refreshing system instructions mid-session — confirmed. The `setup` message is one-time only. `sendClientContent({role:'model'})` causes audio doubling (we already knew this). Gemini confirmed our tool-result body is the correct channel and IS our most powerful lever — because tool results sit at position N (the most recent, highest-attention-weight position in the context). Gemini's recommended pattern: **Instructional Piggybacking** — inject a brief "Session State" block every N turns inside the tool-result body, refreshing key behavioral directives without a system prompt update. Wording needs Alden → Gemini approval before implementing.
+
+**Q2: HIGH thinkingLevel for conciseness.** Rejected. Gemini: *"Conciseness is a behavioral constraint, not a computational byproduct."* HIGH thinking makes the model better at logic and constraint-following but does NOT produce shorter responses — may make her MORE verbose. Token cost: HIGH burns 1000-1200 reasoning tokens/turn (at 1500 limit = only 300 left for audio ≈ 10-12 seconds). Also increases TTFT (latency) noticeably. Rejected.
+
+**maxOutputTokens raised to 2000** (Gemini-confirmed): 1500 is tight for a 139-tool system with MEDIUM reasoning. 2000 gives ~1300-1400 audio tokens ≈ 52-56s ceiling. Response length is a behavioral concern (system prompt + injection directives), not a token ceiling concern.
+
+### Fourth fix (continued): Previous fix documentation
 
 **What happened during live test:** Cutoff at "So, let's" — same pattern. Server log showed `Daniela thought (2048 chars)` = ~512 reasoning tokens. With Archive Guardian firing a tool call, GL reasons TWICE per turn (before + after tool result). Total reasoning: ~600-700 tokens. Plus audio tokens (~25/sec × 15-20s = 375-500). Combined = 975-1200 tokens, hitting maxOutputTokens:1000 mid-sentence.
 

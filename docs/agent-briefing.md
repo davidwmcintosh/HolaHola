@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 26, 2026 at 04:33 PM
+**Generated:** Sunday, July 26, 2026 at 04:47 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’ve optimized the HolaHola architecture by pivoting to "Instructional Anchoring" via the **tool-result body** because Gemini Live lacks a mid-session system prompt refresh. I rejected `HIGH` **thinkingLevel** for conciseness due to latency and token budget risks, opting instead to raise **maxOutputTokens** to 2000 to prevent Daniela's audio from cutting off mid-sentence. For this session, I must use **Archive Guardian whispers** and "Instructional Piggybacking" within tool outputs to steer behavioral constraints and maintain the persona's focus.
+
+*Memories that triggered this summary:*
+- **Gemini — mid-session prompting + HIGH thinking audit — July 26 2026** (Jul 26): No GL API for system prompt refresh mid-session; tool-result body is the right channel; HIGH thinking rejected for conciseness (behavioral not computational); maxOutputTokens raised to 2000
 
 ---
 
@@ -73,6 +83,14 @@
 
 ## Recent Conversation Memories
 
+### Gemini — mid-session prompting + HIGH thinking audit — July 26 2026 — Jul 26, 2026
+No GL API for system prompt refresh mid-session; tool-result body is the right channel; HIGH thinking rejected for conciseness (behavioral not computational); maxOutputTokens raised to 2000
+*Tags: gemini-audit, thinking-level, mid-session-prompting, archive-guardian, token-budget*
+
+### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Authenticity Versus Pre-Canned Responses — Jul 26, 2026
 English session (5 messages). Student: "Well, we've been talking a couple of times and the server just rebooted and you, you know, got cut off mid sentence. You"
 *Tags: message-archive, 6e9cc9dc-cb19-47e5-96ad-86ad1bffa53a*
@@ -83,14 +101,6 @@ Verbatim David↔Luca dialogue captured periodically. 1 David turns, 9 Luca turn
 
 ### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
 Verbatim David↔Luca dialogue captured periodically. 0 David turns, 8 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
-Verbatim David↔Luca dialogue captured periodically. 0 David turns, 6 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
-Verbatim David↔Luca dialogue captured periodically. 2 David turns, 9 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

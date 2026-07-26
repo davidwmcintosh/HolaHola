@@ -750,13 +750,16 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           // leaving only 300 audio tokens (~12s) — not enough for a complete thought.
           // 1000 gives: ~400 reasoning + 600 audio ≈ 24s of audio. Still concise.
           // Gemini audit July 1 recommended 700 but that assumed text-only token counting.
-          // maxOutputTokens budget (July 26 2026):
+          // maxOutputTokens 2000 (July 26 2026 — Gemini-confirmed):
           // Token ceiling is SHARED between reasoning + audio. At MEDIUM thinking (two phases
-          // around tool calls), reasoning ≈ 600-700 tokens. 1500 total → ~800-900 audio tokens
-          // ≈ 32-36s per turn. Response LENGTH is a behavioral concern (system prompt / North Star
-          // "fewer words, more impact") — the ceiling only prevents mid-sentence cutoffs.
+          // around tool calls), reasoning ≈ 600-700 tokens. 2000 total → ~1300-1400 audio tokens
+          // ≈ 52-56s max audio per turn. Response LENGTH is a behavioral constraint (system prompt
+          // + Archive Guardian injection directives) — the ceiling only prevents mid-sentence cutoffs.
+          // Gemini confirmed 1500 is tight for a 139-tool session with reasoning enabled.
+          // HIGH thinking (considered July 26) rejected: consumes 1000-1200 reasoning tokens,
+          // leaving only 300 for audio at 1500 limit. Conciseness = behavioral, not computational.
           // Do NOT lower below 1500 while MEDIUM thinking is active.
-          maxOutputTokens: 1500,
+          maxOutputTokens: 2000,
           candidateCount: 1,
           // presencePenalty removed: GL rejects with 1007 "presence_penalty not supported"
           // Verbal loop variety must be handled via system prompt language instead.

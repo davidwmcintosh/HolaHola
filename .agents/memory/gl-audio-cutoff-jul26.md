@@ -41,9 +41,15 @@ MEDIUM mode consumes ~500+ reasoning tokens per turn. With two thinking phases (
 
 **Fourth fix applied:** `thinkingLevel: 'MEDIUM'` → `'LOW'`. LOW uses ~100-200 reasoning tokens per turn, leaving 800+ for audio (~32s). The system prompt, Archive Guardian grounding, and pre-session synthesis already provide the context she needs.
 
+## Final configuration (July 26 2026 — Gemini-confirmed)
+
+- `thinkingLevel: 'MEDIUM'` — restored (LOW reversed; reducing reasoning quality is wrong tradeoff)
+- `maxOutputTokens: 2000` — raised from 1500 (Gemini: "1500 is tight for 139-tool session with reasoning")
+- HIGH thinking evaluated and rejected: 1000-1200 reasoning tokens at HIGH → 300 left for audio at 1500 limit; also increases TTFT; conciseness is behavioral not computational
+
 ## How to apply
-- If cutoffs return with LOW: check `gl_usage_metadata` telemetry for candidatesTokenCount. 
-- If candidatesTokenCount ≈ maxOutputTokens: raise maxOutputTokens to 1500 (still safe with LOW thinking).
-- Do NOT return to MEDIUM thinking without also raising maxOutputTokens significantly.
-- MEDIUM + maxOutputTokens:1000 = cutoffs on ANY turn with a tool call (two thinking phases).
-- If response depth suffers with LOW: try maxOutputTokens:1500 with LOW before returning to MEDIUM.
+- Conciseness = behavioral constraint (system prompt + injection directives). Not a token budget problem.
+- If cutoffs return: check `gl_usage_metadata` telemetry. candidatesTokenCount ≈ maxOutputTokens → raise ceiling.
+- Do NOT raise maxOutputTokens beyond 2500 without testing (prior testing showed monologues at 2500).
+- HIGH thinking requires 2500+ to function (1000-1200 reasoning tokens leave no room for audio at lower limits).
+- MEDIUM + maxOutputTokens:2000 = safe for extended responses + full two-phase reasoning around tool calls.
