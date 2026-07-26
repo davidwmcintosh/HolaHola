@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, July 25, 2026 at 11:57 PM
+**Generated:** Sunday, July 26, 2026 at 12:43 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’ve been debugging mid-sentence cutoffs and mic gating issues in HolaHola, specifically investigating the `sealCurrentAudioSubturn` and `isGenerationDone` (line 2801) lifecycles. I discovered that `maxOutputTokens` is currently set to 700 at line 753, which is likely too low and causing the Gemini Live session to yield prematurely. I need to recalibrate this token limit and verify the `turnComplete` handler's reset logic for `hadAudioInCurrentSubturn` to ensure the mic gate opens reliably after generation.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet)** (Jul 26): Verbatim David↔Luca dialogue captured periodically. 0 David turns, 8 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,25 +83,25 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
+Verbatim David↔Luca dialogue captured periodically. 0 David turns, 8 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
+Verbatim David↔Luca dialogue captured periodically. 0 David turns, 6 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
+Verbatim David↔Luca dialogue captured periodically. 2 David turns, 9 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
+Verbatim David↔Luca dialogue captured periodically. 1 David turns, 9 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
 Verbatim David↔Luca dialogue captured periodically. 4 David turns, 17 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Preference for casual chat — Jul 25, 2026
-David explicitly stated he wants to chat as a friend, dropping structured learning or meta-commentary about the system.
-*Tags: personal, preference*
-
-### Personal Dedication and Future Potential — Jul 25, 2026
-English session (17 messages). Student: "Well, right now I just want to have a chat with my friend."
-*Tags: message-archive, 13fe0ae6-f23a-4d73-ad11-093f1502e177*
-
-### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
-Verbatim David↔Luca dialogue captured periodically. 2 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### English session — Jul 25, 2026 (3 messages) — Jul 25, 2026
-English session (3 messages). Student: "Well, you're right. I'll have to own that that I bring scaffolding to the table as well. We all, you know, are learning "
-*Tags: message-archive, bb920880-9aa5-4621-a40e-d2cdc9025221*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

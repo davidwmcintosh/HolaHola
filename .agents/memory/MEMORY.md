@@ -1,3 +1,4 @@
+- [GL audio cutoff — turnComplete silence pad + maxOutputTokens](gl-audio-cutoff-jul26.md) — turnComplete sealed without silence pad; maxOutputTokens 700 too low when reasoning+audio tokens combine; fixed July 26 2026.
 - [Archive Guardian Tier B directive](archive-guardian-tier-b.md) — slideCorrectionQueued flag turns LAST TURN CORRECTION from passive context into active behavioral lock; pre-turn Guardian confirmed fully built (not dead code). July 25 2026.
 - [Episode 22 anchor](episode-22-anchor.md) — DB ID: de150bdb; extends ep21 (7c24f2b4); arc: HolaHola Episodes; title: "I Absolutely Do"; file: docs/episode-22.md; July 25 2026.
 - [Episode 21 anchor](episode-21-anchor.md) — DB ID: 7c24f2b4; extends ep20 (b4d8839e); arc: HolaHola Episodes; title: "We Got You"; file: docs/episode-21.md; July 25 2026.

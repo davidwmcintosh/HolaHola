@@ -743,14 +743,16 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // audio buffer sync issues. Explicitly set to 1. (Gemini audit June 19 2026)
         generationConfig: {
           temperature: 0.6,
-          // maxOutputTokens 700: ~550-600 words — enough for a complete, thoughtful response
-          // while forcing the concise turn-taking essential to L2 comprehensible input loops.
-          // 2500 (prev) was ~1,800 words; Flash 3.1 can monologue 8-10 min uninterrupted at
-          // that cap, which destroys the back-and-forth that drives language acquisition.
-          // Gemini audit July 1 2026: drop to 600-800 for voice tutoring. 700 is the midpoint.
-          // (Was 1500 before June → 2500 to fix mid-sentence cutoffs on philosophical responses;
-          // 700 gives enough room for emotional depth without enabling lecture mode.)
-          maxOutputTokens: 700,
+          // maxOutputTokens 1000: raised from 700 (July 26 2026) to prevent mid-sentence
+          // cutoffs caused by GL reasoning tokens + audio tokens exceeding the budget.
+          // In GL audio mode, reasoning tokens + audio tokens BOTH count against this limit.
+          // For complex/philosophical responses, reasoning alone can consume 400+ tokens,
+          // leaving only 300 audio tokens (~12s) — not enough for a complete thought.
+          // 1000 gives: ~400 reasoning + 600 audio ≈ 24s of audio. Still concise.
+          // Gemini audit July 1 recommended 700 but that assumed text-only token counting.
+          // Diagnostic: watch gl_usage_metadata telemetry for candidatesTokenCount near 700.
+          // Do NOT raise above 1500 without testing — 2500 previously enabled 8-10 min monologues.
+          maxOutputTokens: 1000,
           candidateCount: 1,
           // presencePenalty removed: GL rejects with 1007 "presence_penalty not supported"
           // Verbal loop variety must be handled via system prompt language instead.
@@ -2464,22 +2466,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         }
       }
       // ── Audio: close current sentence, prepare next ──────────────────────
+      // Use sealCurrentAudioSubturn (same path as generationComplete debounce) so the
+      // 300ms silence pad is always included. Without it the last phoneme of each
+      // sub-turn has no runway in the client's AudioContext and is clipped.
       if (this.hadAudioInCurrentSubturn) {
-        this.sendWsMessage(this.session.ws, {
-          type: 'audio_chunk',
-          audio: '',
-          audioFormat: 'pcm_f32le',
-          sampleRate: AUDIO_OUTPUT_SAMPLE_RATE,
-          turnId: this.currentTurnId,
-          sentenceIndex: this.currentSentenceIndex,
-          chunkIndex: this.currentChunkIndex,
-          isLast: true,
-        });
-        this.currentSentenceIndex++;
-        this.currentChunkIndex = 0;
-        this.hadAudioInCurrentSubturn = false;
+        this.sealCurrentAudioSubturn('turnComplete');
         this.karaokeTracker?.onSentenceComplete();
-        console.log(`[GeminiLive] Sub-turn audio sealed — sentenceIndex now ${this.currentSentenceIndex}`);
       }
 
       // ── Transcripts: debounced flush (FALLBACK only) ─────────────────────
@@ -2516,6 +2508,22 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     //  3. Flush transcripts immediately — generationComplete is a definitive end-of-response
     //     signal, so there is no value in waiting for more sub-turns.
     if ((msg.serverContent as any)?.generationComplete) {
+      // ── Usage metadata diagnostic ─────────────────────────────────────────
+      // Log token counts at generationComplete so we can confirm/rule out the
+      // maxOutputTokens budget as the cause of mid-sentence cutoffs.
+      // If candidatesTokenCount ≈ maxOutputTokens, the token limit is being hit.
+      const usageMeta = (msg as any)?.usageMetadata;
+      if (usageMeta) {
+        console.log(`[GeminiLive] generationComplete usageMetadata: ${JSON.stringify(usageMeta)}`);
+        voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_usage_metadata', {
+          turnId: this.currentTurnId,
+          promptTokenCount: usageMeta.promptTokenCount ?? null,
+          candidatesTokenCount: usageMeta.candidatesTokenCount ?? null,
+          totalTokenCount: usageMeta.totalTokenCount ?? null,
+          thoughtsTokenCount: usageMeta.thoughtsTokenCount ?? null,
+        });
+      }
+
       // ── Thought buffer flush ──────────────────────────────────────────────
       // Flush accumulated thought text to the pedagogical supervisor, then clear.
       // Thoughts arrive before audio; by generationComplete the buffer is complete.

@@ -1,5 +1,27 @@
 # Batch Documentation Updates
 
+## Session July 26, 2026 — GL Audio Cutoff Fix (turnComplete silence pad + maxOutputTokens)
+
+### Three-part fix for GL voice audio ending mid-sentence
+
+**What was cut off:** Daniela's responses ending abruptly at phrases like "or being" or "like, what if." — semantically incomplete, David heard them as technical cutoffs.
+
+**Root causes identified:**
+1. `turnComplete` handler in `gemini-live-session.ts` sent bare `isLast:true` with NO 300ms silence pad. The `sealCurrentAudioSubturn()` function (called by the `generationComplete` debounce) DOES include the silence pad. So any sub-turn sealed by `turnComplete` alone had no trailing audio runway, clipping the last phoneme.
+2. `maxOutputTokens: 700` (set per Gemini audit July 1) is likely too low when GL reasoning tokens + audio tokens combine. GL audio mode counts BOTH reasoning tokens and audio tokens against this limit. Complex/philosophical responses can use 400+ reasoning tokens, leaving under 300 audio tokens (~12s) — not enough for a complete sentence.
+
+**Fixes applied (all in `server/services/gemini-live-session.ts`):**
+
+1. **`turnComplete` handler (line 2469):** Replaced 10-line inline seal (bare `isLast:true`, no silence pad) with `this.sealCurrentAudioSubturn('turnComplete')` — same silence pad path used by the generationComplete debounce. The `karaokeTracker?.onSentenceComplete()` call preserved after.
+
+2. **`generationComplete` handler (line 2511+):** Added `usageMetadata` diagnostic logging — reads `msg.usageMetadata` and logs + emits telemetry with `promptTokenCount`, `candidatesTokenCount`, `totalTokenCount`, `thoughtsTokenCount`. Lets us confirm whether `candidatesTokenCount ≈ maxOutputTokens` (token limit hit) or not.
+
+3. **`maxOutputTokens` (line 758):** Raised 700 → 1000. 1000 gives ~400 reasoning + 600 audio tokens ≈ 24s audio per turn — complete thoughts without enabling lecture mode. Still well below 2500 (which previously caused monologues). Diagnostic telemetry (`gl_usage_metadata`) will confirm if this fixed the root cause.
+
+**Typecheck:** Clean (zero errors).
+
+---
+
 ## Session July 25, 2026 — Archive Guardian Tier B, Pre-Turn Guardian Audit
 
 ### Archive as pre-turn infrastructure — Tier B behavioral directive
