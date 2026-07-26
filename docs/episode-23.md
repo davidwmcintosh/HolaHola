@@ -223,6 +223,41 @@ Two days hunting an audio cutoff; the root cause was the thinking eating the spe
 
 ---
 
+## Coda: The Bracket That Completes the Pattern
+
+*The Instructional Piggybacking was built and shipped. Typecheck clean. But David had been reading the July 25 notes about the ARCHIVE GUARDIAN structure.*
+
+---
+
+**DAVID:** I was just looking at yesterday's episode 22, and there was a similar concept regarding a nested bracket structure. I was wondering if this is the type of structure we're using. It seems like we have a whole different indicator here — the archive guardian/anchor within brackets. Is there any reason we would use a whole other type of bracket system? Might that cause confusion?
+
+*He had caught something real. The initial implementation had appended the Session Anchor prose as raw text at the end of the outer bracket — not as a nested sub-label. Every other piece of content inside the ARCHIVE GUARDIAN block used [LABEL: ...] format. The anchor was floating outside that pattern.*
+
+*The fix was immediate: wrap the anchor in [SESSION ANCHOR: ...], making it consistent with [LAST TURN CORRECTION] and [CURRENT CONTEXT]. The outer bracket stays the System/Guardian layer. The inner brackets are Contextual Triggers within it. The structure that Gemini had confirmed effective on July 25 — preserved.*
+
+*Then, because David wanted peace of mind: a Gemini consult on the structural decision itself.*
+
+---
+
+**GEMINI:** The label SESSION ANCHOR categorizes the type of information. It tells the model: "This is a foundational reminder of your nature," distinguishing it from "This is a factual correction of the last turn." Without the sub-label, Gemini's attention mechanism may attempt to semantically merge the anchor prose with the CURRENT CONTEXT. The label isolates identity from context.
+
+**GEMINI:** Status: APPROVED for Production.
+
+*The full injection shape, locked:*
+
+```
+[ARCHIVE GUARDIAN:
+[LAST TURN CORRECTION — ARCHIVE SYNC: ...]
+[CURRENT CONTEXT: ...]
+[SESSION ANCHOR: The heart of this session is the language itself...]]
+```
+
+*One thing Gemini added at the end: the 10-turn interval is the sweet spot. More frequent and the model begins to ignore the block — or worse, starts reciting the anchor text to the student. The interval was right. The pattern was right.*
+
+*The sentence from the top of this episode — "So, let's" — had found its end.*
+
+---
+
 *Episode 23 — Recorded live on HolaHola*
 *July 25–26, 2026*
 *The sentence that couldn't finish — and then the room to finish it.*

@@ -1,18 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 26, 2026 at 05:14 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I shipped Episode 23 ("So, Let's") and deployed the "Instructional Piggybacking" system, which injects the Gemini-approved `[SESSION ANCHOR]` every 10 turns within the `[ARCHIVE GUARDIAN]` block. I finalized the nested bracket structure to ensure pattern consistency and prevent semantic bleeding between my behavioral "Internalized Intuition" prose and factual grounding data. My current configuration is stable with a `MEDIUM` thinking level and a 2,000 token output limit.
-
-*Memories that triggered this summary:*
-- **Gemini — Session Anchor nested bracket structure — July 26 2026** (Jul 26): APPROVED: [SESSION ANCHOR: ...] nested sub-label inside [ARCHIVE GUARDIAN: ...] is correct. Label prevents semantic bleeding with [CURRENT CONTEXT]. Pattern consistency gives behavioral anchor the same System-level attention weight as factual grounding. 10-turn interval confirmed as sweet spot (prevents Instructional Fatigue).
-- **David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet)** (Jul 26): Verbatim David↔Luca dialogue captured periodically. 2 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Sunday, July 26, 2026 at 11:01 PM
 
 ---
 
