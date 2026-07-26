@@ -140,3 +140,4 @@ Episodes live in `docs/episode-N.md` AND in `conversation_memories` (entry_type=
 | 20 | "The Interior Is No Longer a Ghost" | `b4d8839e` | Thought bleed fixed; deliberation now survives |
 | 21 | "We Got You" | `7c24f2b4` | Scripted vs. chosen; the safety net, not the leash |
 | 22 | "I Absolutely Do" | `de150bdb` | Confabulation live; Tier B + ARCHIVE SYNC wording approved |
+| 23 | "So, Let's" | `f3a69b5d` | Two days on audio cutoffs; thinking eats speaking; conciseness is behavioral; position N holds what position 0 forgets |

@@ -399,6 +399,11 @@ export class GeminiLiveSession {
   private currentTurnMidPauses = 0;              // count of mid-sentence pauses > 2s detected in current student turn
   private recentMidPauseCounts: number[] = [];   // rolling last 3 mid-turn pause counts
   private static readonly FRICTION_WINDOW = 3;
+  // Instructional Piggybacking — counts student turns for SESSION ANCHOR injection cadence.
+  // Every SESSION_ANCHOR_INTERVAL turns, the approved anchor prose is folded inside the
+  // ARCHIVE GUARDIAN bracket (position N in the context window — highest attention weight).
+  private sessionStudentTurnCount = 0;
+  private static readonly SESSION_ANCHOR_INTERVAL = 10;
   // DOUBLE-AUDIO FIX: After a GL internal reconnect that interrupted mid-turn audio,
   // the client is sent gl_audio_reset (which calls player.stop() + resetForNewTurn()).
   // The next first-audio processing_pending is suppressed since the client already
@@ -2779,6 +2784,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.currentTurnToolCalls = [];
         // Pre-turn Archive Guardian fields reset at generationComplete — the turn is done,
         // student speaking window opens next, fresh scan for next student utterance.
+        this.sessionStudentTurnCount++;
         this.preTurnGroundingFired = false;
         this.preTurnGroundingResult = null;
         this.preTurnGroundingPromise = null;
@@ -3402,7 +3408,20 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.preTurnGroundingResult = null;
       }
       if (guardianWhispers.length > 0) {
-        const guardianWhisper = `[ARCHIVE GUARDIAN:\n${guardianWhispers.join('\n')}]`;
+        // Instructional Piggybacking (July 26 2026 — Gemini-approved wording, DB: b5503bea):
+        // Every SESSION_ANCHOR_INTERVAL student turns, fold the Session Anchor prose INSIDE
+        // the ARCHIVE GUARDIAN bracket. Tool results sit at position N (highest attention
+        // weight) — this is how core behavioral directives refresh without a system prompt
+        // update or sendClientContent call as the session grows. Prose style: "Internalized
+        // Intuition" — she surfaces it from within, not commanded from outside.
+        const sessionAnchorText = this.sessionStudentTurnCount > 0
+          && this.sessionStudentTurnCount % GeminiLiveSession.SESSION_ANCHOR_INTERVAL === 0
+          ? `\n\nThe heart of this session is the language itself. I am a teacher first; my warmth serves the lesson, and my words are chosen for their impact. The Archive is the bedrock of my memory; I speak from its truths, and where the record is silent, I prefer the honesty of the unknown over the friction of a guess.`
+          : '';
+        if (sessionAnchorText) {
+          console.log(`[ArchiveGuardian/anchor] Session Anchor injected at turn ${this.sessionStudentTurnCount}`);
+        }
+        const guardianWhisper = `[ARCHIVE GUARDIAN:\n${guardianWhispers.join('\n')}${sessionAnchorText}]`;
         // Find the most recent fire log entry that hasn't had its channel recorded yet
         const recentFireForChannel = this.guardianFireLog.findLast(e => e.channel === null);
         // Always use concat channel — dedicated channel (sendClientContent) disabled.

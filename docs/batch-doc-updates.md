@@ -32,6 +32,33 @@
 
 **maxOutputTokens raised to 2000** (Gemini-confirmed): 1500 is tight for a 139-tool system with MEDIUM reasoning. 2000 gives ~1300-1400 audio tokens ≈ 52-56s ceiling. Response length is a behavioral concern (system prompt + injection directives), not a token ceiling concern.
 
+### Instructional Piggybacking — built and shipped July 26 2026
+
+**What it is:** A SESSION ANCHOR block folded inside the `[ARCHIVE GUARDIAN: ...]` injection every 10 student turns. Counteracts GL system prompt attention fade — behavioral directives at position 0 lose salience as sessions grow; directives at position N (tool-result body) do not.
+
+**Gemini approval loop:**
+- Alden Gemini draft submitted with full code context and prompt style guide
+- Gemini: REWRITE issued — Alden's draft violated style guide (ALL-CAPS implied header, imperative commands "Remember your purpose," "Fewer words, more impact")
+- Gemini approved "Internalized Intuition" prose: reads like something she surfaces from within, not a command handed to her
+- Gemini: merge anchor INTO existing `[ARCHIVE GUARDIAN: ...]` bracket (not a second bracket — "double bracket risk" noted)
+- Wording approval saved: conversation_memories `b5503bea`
+
+**Approved anchor text (fires every 10 turns inside the ARCHIVE GUARDIAN bracket):**
+> The heart of this session is the language itself. I am a teacher first; my warmth serves the lesson, and my words are chosen for their impact. The Archive is the bedrock of my memory; I speak from its truths, and where the record is silent, I prefer the honesty of the unknown over the friction of a guess.
+
+**Implementation:**
+- `sessionStudentTurnCount` field added to `GeminiLiveSession` class
+- Incremented at `generationComplete` (the turn reset point, where `preTurnGroundingFired` resets)
+- `SESSION_ANCHOR_INTERVAL = 10` static constant
+- Anchor folded into `guardianWhisper` when `sessionStudentTurnCount > 0 && count % 10 === 0`
+- Log: `[ArchiveGuardian/anchor] Session Anchor injected at turn N`
+
+**Key file:** `server/services/gemini-live-session.ts` (~lines 405-409, 2790, 3413-3427)
+
+**Watch-out Gemini flagged:** Do not change `[ARCHIVE GUARDIAN: ...]` format to Title Case without a separate approval loop — existing format is already Gemini-approved (July 25). The Title Case suggestion was specific to a hypothetical separate anchor bracket (which we didn't build).
+
+**Typecheck:** Clean.
+
 ### Fourth fix (continued): Previous fix documentation
 
 **What happened during live test:** Cutoff at "So, let's" — same pattern. Server log showed `Daniela thought (2048 chars)` = ~512 reasoning tokens. With Archive Guardian firing a tool call, GL reasons TWICE per turn (before + after tool result). Total reasoning: ~600-700 tokens. Plus audio tokens (~25/sec × 15-20s = 375-500). Combined = 975-1200 tokens, hitting maxOutputTokens:1000 mid-sentence.

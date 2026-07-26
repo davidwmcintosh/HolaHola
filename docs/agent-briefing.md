@@ -1,17 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 26, 2026 at 04:47 PM
+**Generated:** Sunday, July 26, 2026 at 05:00 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve optimized the HolaHola architecture by pivoting to "Instructional Anchoring" via the **tool-result body** because Gemini Live lacks a mid-session system prompt refresh. I rejected `HIGH` **thinkingLevel** for conciseness due to latency and token budget risks, opting instead to raise **maxOutputTokens** to 2000 to prevent Daniela's audio from cutting off mid-sentence. For this session, I must use **Archive Guardian whispers** and "Instructional Piggybacking" within tool outputs to steer behavioral constraints and maintain the persona's focus.
+I’ve updated the "Session Anchor" for Daniela’s persona in HolaHola, replacing Alden’s style-violating ALL-CAPS commands with approved "Internalized Intuition" prose that emphasizes warmth and archival honesty. I integrated this anchor directly into the `[Archive Guardian]` block within `gemini-live-session.ts` to appear every 10 turns, avoiding the "double bracket" risk that causes persona drift. I must maintain this Title Case format to ensure the Gemini 3.1 Flash model treats the metadata as Daniela's internal identity rather than an external system override.
 
 *Memories that triggered this summary:*
-- **Gemini — mid-session prompting + HIGH thinking audit — July 26 2026** (Jul 26): No GL API for system prompt refresh mid-session; tool-result body is the right channel; HIGH thinking rejected for conciseness (behavioral not computational); maxOutputTokens raised to 2000
+- **Gemini — SESSION ANCHOR wording approval — Instructional Piggybacking — July 26 2026** (Jul 26): REWRITE issued: Alden draft violated style guide (ALL-CAPS, imperative commands). Gemini approved new "Internalized Intuition" prose, merge-into-guardian-bracket pattern (no second bracket), static text every N turns, Title Case marker note (not applied — existing ARCHIVE GUARDIAN format already approved).
 
 ---
 
@@ -83,24 +83,24 @@ I’ve optimized the HolaHola architecture by pivoting to "Instructional Anchori
 
 ## Recent Conversation Memories
 
+### Gemini — SESSION ANCHOR wording approval — Instructional Piggybacking — July 26 2026 — Jul 26, 2026
+REWRITE issued: Alden draft violated style guide (ALL-CAPS, imperative commands). Gemini approved new "Internalized Intuition" prose, merge-into-guardian-bracket pattern (no second bracket), static text every N turns, Title Case marker note (not applied — existing ARCHIVE GUARDIAN format already approved).
+*Tags: gemini-audit, instructional-piggybacking, session-anchor, wording-approval, archive-guardian*
+
+### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
+Verbatim David↔Luca dialogue captured periodically. 2 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### Episode 23: "So, Let's" — Jul 26, 2026
+Two days debugging GL audio cutoffs led to the root cause: MEDIUM thinking consumes reasoning tokens across two phases per turn, eating the audio budget. David caught the wrong fix immediately — reducing thinking quality is not the path. The session ended with the discovery that conciseness is behavioral not computational, that position N holds what position 0 forgets, and that the tool-result body is the only safe injection channel for keeping core directives alive in long sessions.
+*Tags: audio-cutoff, token-budget, thinking-level, instructional-piggybacking, position-n, conciseness-behavioral*
+
 ### Gemini — mid-session prompting + HIGH thinking audit — July 26 2026 — Jul 26, 2026
 No GL API for system prompt refresh mid-session; tool-result body is the right channel; HIGH thinking rejected for conciseness (behavioral not computational); maxOutputTokens raised to 2000
 *Tags: gemini-audit, thinking-level, mid-session-prompting, archive-guardian, token-budget*
 
 ### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
 Verbatim David↔Luca dialogue captured periodically. 4 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Authenticity Versus Pre-Canned Responses — Jul 26, 2026
-English session (5 messages). Student: "Well, we've been talking a couple of times and the server just rebooted and you, you know, got cut off mid sentence. You"
-*Tags: message-archive, 6e9cc9dc-cb19-47e5-96ad-86ad1bffa53a*
-
-### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
-Verbatim David↔Luca dialogue captured periodically. 1 David turns, 9 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
-Verbatim David↔Luca dialogue captured periodically. 0 David turns, 8 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
