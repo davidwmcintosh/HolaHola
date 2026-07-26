@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 26, 2026 at 12:53 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I resolved the Gemini Live audio cutoff issues by increasing `maxOutputTokens` from 700 to 1000 and standardizing the silence pad across all sub-turns by migrating the `turnComplete` handler to use `sealCurrentAudioSubturn`. I also shipped `usageMetadata` diagnostic logging to the HolaHola server to track token usage during `generationComplete` events. I need to monitor the logs for `candidatesTokenCount` during David's next test call to confirm the new token budget is sufficient and that clipping has ceased.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet)** (Jul 26): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 9 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Sunday, July 26, 2026 at 01:01 AM
 
 ---
 

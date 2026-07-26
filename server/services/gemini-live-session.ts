@@ -812,7 +812,14 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         //
         // SDK: "An error will be returned if this field is set for models that
         // don't support thinking." — native-audio skips it to avoid that error.
-        ...(!is25NativeAudio ? { thinkingConfig: { thinkingLevel: 'MEDIUM' as any, includeThoughts: true } } : {}),
+        // thinkingLevel LOW (was MEDIUM, changed July 26 2026): MEDIUM consumed ~500 reasoning
+        // tokens per turn (two phases: before + after tool calls). Combined with audio tokens
+        // (~25/sec) this hit maxOutputTokens:1000 at ~15-20s of audio, causing mid-sentence
+        // cutoffs. LOW uses ~100-200 reasoning tokens, leaving 800+ for audio (~32s). The
+        // system prompt and Archive Guardian grounding provide enough context — the model
+        // doesn't need to reason deeply in real-time voice mode. If response depth suffers,
+        // revisit by raising maxOutputTokens rather than returning to MEDIUM.
+        ...(!is25NativeAudio ? { thinkingConfig: { thinkingLevel: 'LOW' as any, includeThoughts: true } } : {}),
 
         // ── Turn coverage (2.5 native audio only) ────────────────────────
         // 2.5 native audio defaults to TURN_INCLUDES_ONLY_ACTIVITY, which can

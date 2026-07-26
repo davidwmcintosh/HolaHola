@@ -31,7 +31,19 @@ In GL audio mode, BOTH reasoning tokens (thought buffer) AND audio tokens count 
 - Timing loop: firing correctly after response_complete (fixed in prior session)
 - Silence pad on `generationComplete` debounce path: this was already correct
 
+## Root cause confirmed (live test, July 26 2026)
+
+Cutoff "So, let's" — log showed `Daniela thought (2048 chars)` = ~512 reasoning tokens at generationComplete. But GL reasons TWICE per turn when Archive Guardian fires a tool call: once before the tool call, once after receiving the tool result. Total reasoning: ~600-700 tokens. Audio for the response ≈ 375-500 tokens. Combined: ~975-1200 tokens > maxOutputTokens:1000.
+
+**Actual root cause: `thinkingLevel: 'MEDIUM'`**, not `maxOutputTokens`.
+
+MEDIUM mode consumes ~500+ reasoning tokens per turn. With two thinking phases (pre-tool + post-tool), the combined budget consistently hits the ceiling before audio finishes, regardless of where maxOutputTokens is set (unless set very high like 2500, which re-introduces monologues).
+
+**Fourth fix applied:** `thinkingLevel: 'MEDIUM'` → `'LOW'`. LOW uses ~100-200 reasoning tokens per turn, leaving 800+ for audio (~32s). The system prompt, Archive Guardian grounding, and pre-session synthesis already provide the context she needs.
+
 ## How to apply
-- If cutoffs return: check `gl_usage_metadata` telemetry. candidatesTokenCount near maxOutputTokens = raise it (max 1500).
-- If cutoffs return and candidatesTokenCount << maxOutputTokens: look at system prompt for conversational yield instructions, or GL model behavior.
-- Do NOT lower `maxOutputTokens` below 1000 without confirming the token budget is not the constraint.
+- If cutoffs return with LOW: check `gl_usage_metadata` telemetry for candidatesTokenCount. 
+- If candidatesTokenCount ≈ maxOutputTokens: raise maxOutputTokens to 1500 (still safe with LOW thinking).
+- Do NOT return to MEDIUM thinking without also raising maxOutputTokens significantly.
+- MEDIUM + maxOutputTokens:1000 = cutoffs on ANY turn with a tool call (two thinking phases).
+- If response depth suffers with LOW: try maxOutputTokens:1500 with LOW before returning to MEDIUM.

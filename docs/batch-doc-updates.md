@@ -20,6 +20,14 @@
 
 **Typecheck:** Clean (zero errors).
 
+### Fourth fix: thinkingLevel MEDIUM → LOW (root cause confirmed)
+
+**What happened during live test:** Cutoff at "So, let's" — same pattern. Server log showed `Daniela thought (2048 chars)` = ~512 reasoning tokens. With Archive Guardian firing a tool call, GL reasons TWICE per turn (before + after tool result). Total reasoning: ~600-700 tokens. Plus audio tokens (~25/sec × 15-20s = 375-500). Combined = 975-1200 tokens, hitting maxOutputTokens:1000 mid-sentence.
+
+**Root cause confirmed:** `thinkingLevel: 'MEDIUM'` is the primary driver. MEDIUM consumes ~500+ reasoning tokens per turn, and with two thinking phases (pre-tool + post-tool), the combined budget consistently hits the ceiling before audio finishes.
+
+**Fix applied (`server/services/gemini-live-session.ts` line 825):** `thinkingLevel: 'MEDIUM'` → `thinkingLevel: 'LOW'`. LOW mode uses ~100-200 reasoning tokens vs 500+ for MEDIUM, leaving 800+ tokens for audio (~32s). The system prompt and Archive Guardian grounding already provide the context Daniela needs — real-time voice mode doesn't require deep model reasoning per turn.
+
 ---
 
 ## Session July 25, 2026 — Archive Guardian Tier B, Pre-Turn Guardian Audit
