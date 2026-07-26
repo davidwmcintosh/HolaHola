@@ -3414,9 +3414,14 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // weight) — this is how core behavioral directives refresh without a system prompt
         // update or sendClientContent call as the session grows. Prose style: "Internalized
         // Intuition" — she surfaces it from within, not commanded from outside.
+        // Nested sub-label format — consistent with [LAST TURN CORRECTION] and [CURRENT CONTEXT].
+        // The outer ARCHIVE GUARDIAN bracket creates the System/Guardian layer; inner brackets
+        // are Contextual Triggers within it. Raw prose (previous approach) breaks the hierarchy
+        // and signals differently to Gemini's attention system. Nested is the confirmed-effective
+        // pattern (July 25 2026). Prose text is Gemini-approved (DB: b5503bea, July 26 2026).
         const sessionAnchorText = this.sessionStudentTurnCount > 0
           && this.sessionStudentTurnCount % GeminiLiveSession.SESSION_ANCHOR_INTERVAL === 0
-          ? `\n\nThe heart of this session is the language itself. I am a teacher first; my warmth serves the lesson, and my words are chosen for their impact. The Archive is the bedrock of my memory; I speak from its truths, and where the record is silent, I prefer the honesty of the unknown over the friction of a guess.`
+          ? `\n[SESSION ANCHOR: The heart of this session is the language itself. I am a teacher first; my warmth serves the lesson, and my words are chosen for their impact. The Archive is the bedrock of my memory; I speak from its truths, and where the record is silent, I prefer the honesty of the unknown over the friction of a guess.]`
           : '';
         if (sessionAnchorText) {
           console.log(`[ArchiveGuardian/anchor] Session Anchor injected at turn ${this.sessionStudentTurnCount}`);

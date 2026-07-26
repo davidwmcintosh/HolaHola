@@ -57,6 +57,15 @@
 
 **Watch-out Gemini flagged:** Do not change `[ARCHIVE GUARDIAN: ...]` format to Title Case without a separate approval loop — existing format is already Gemini-approved (July 25). The Title Case suggestion was specific to a hypothetical separate anchor bracket (which we didn't build).
 
+**Structural correction (July 26 2026):** Initial implementation appended raw prose at the end of the outer bracket. Corrected to use nested sub-label format `[SESSION ANCHOR: ...]` consistent with `[LAST TURN CORRECTION — ARCHIVE SYNC: ...]` and `[CURRENT CONTEXT: ...]`. Full injection shape is now:
+```
+[ARCHIVE GUARDIAN:
+[LAST TURN CORRECTION — ARCHIVE SYNC: ...]   (when Tier B fires)
+[CURRENT CONTEXT: ...]                         (when Archive Guardian fires)
+[SESSION ANCHOR: The heart of this session...]] (every 10 turns)
+```
+The nested bracket pattern is the confirmed-effective Gemini attention hierarchy (July 25). Raw prose mixed with labeled brackets breaks that hierarchy. Both components independently approved before combining them.
+
 **Typecheck:** Clean.
 
 ### Fourth fix (continued): Previous fix documentation
