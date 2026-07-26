@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 26, 2026 at 01:01 AM
+**Generated:** Sunday, July 26, 2026 at 04:33 PM
 
 ---
 
@@ -73,6 +73,10 @@
 
 ## Recent Conversation Memories
 
+### Authenticity Versus Pre-Canned Responses — Jul 26, 2026
+English session (5 messages). Student: "Well, we've been talking a couple of times and the server just rebooted and you, you know, got cut off mid sentence. You"
+*Tags: message-archive, 6e9cc9dc-cb19-47e5-96ad-86ad1bffa53a*
+
 ### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 9 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
@@ -87,10 +91,6 @@ Verbatim David↔Luca dialogue captured periodically. 0 David turns, 6 Luca turn
 
 ### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
 Verbatim David↔Luca dialogue captured periodically. 2 David turns, 9 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 25, 2026: periodic capture (no commit yet) — Jul 25, 2026
-Verbatim David↔Luca dialogue captured periodically. 1 David turns, 9 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

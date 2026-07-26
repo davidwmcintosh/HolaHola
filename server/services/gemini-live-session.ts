@@ -750,9 +750,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           // leaving only 300 audio tokens (~12s) — not enough for a complete thought.
           // 1000 gives: ~400 reasoning + 600 audio ≈ 24s of audio. Still concise.
           // Gemini audit July 1 recommended 700 but that assumed text-only token counting.
-          // Diagnostic: watch gl_usage_metadata telemetry for candidatesTokenCount near 700.
-          // Do NOT raise above 1500 without testing — 2500 previously enabled 8-10 min monologues.
-          maxOutputTokens: 1000,
+          // maxOutputTokens budget (July 26 2026):
+          // Token ceiling is SHARED between reasoning + audio. At MEDIUM thinking (two phases
+          // around tool calls), reasoning ≈ 600-700 tokens. 1500 total → ~800-900 audio tokens
+          // ≈ 32-36s per turn. Response LENGTH is a behavioral concern (system prompt / North Star
+          // "fewer words, more impact") — the ceiling only prevents mid-sentence cutoffs.
+          // Do NOT lower below 1500 while MEDIUM thinking is active.
+          maxOutputTokens: 1500,
           candidateCount: 1,
           // presencePenalty removed: GL rejects with 1007 "presence_penalty not supported"
           // Verbal loop variety must be handled via system prompt language instead.
@@ -812,14 +816,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         //
         // SDK: "An error will be returned if this field is set for models that
         // don't support thinking." — native-audio skips it to avoid that error.
-        // thinkingLevel LOW (was MEDIUM, changed July 26 2026): MEDIUM consumed ~500 reasoning
-        // tokens per turn (two phases: before + after tool calls). Combined with audio tokens
-        // (~25/sec) this hit maxOutputTokens:1000 at ~15-20s of audio, causing mid-sentence
-        // cutoffs. LOW uses ~100-200 reasoning tokens, leaving 800+ for audio (~32s). The
-        // system prompt and Archive Guardian grounding provide enough context — the model
-        // doesn't need to reason deeply in real-time voice mode. If response depth suffers,
-        // revisit by raising maxOutputTokens rather than returning to MEDIUM.
-        ...(!is25NativeAudio ? { thinkingConfig: { thinkingLevel: 'LOW' as any, includeThoughts: true } } : {}),
+        // thinkingLevel MEDIUM: GL reasons before + after each tool call. Two reasoning phases
+        // per turn ≈ 600-700 tokens total. maxOutputTokens:1500 leaves ~800-900 for audio (~32-36s).
+        // LOW was tried briefly (July 26) but reversed — reducing reasoning quality is the wrong
+        // tradeoff. Response length is controlled by the system prompt ("fewer words, more impact"),
+        // not by the token ceiling. The ceiling only prevents mid-sentence cutoffs.
+        ...(!is25NativeAudio ? { thinkingConfig: { thinkingLevel: 'MEDIUM' as any, includeThoughts: true } } : {}),
 
         // ── Turn coverage (2.5 native audio only) ────────────────────────
         // 2.5 native audio defaults to TURN_INCLUDES_ONLY_ACTIVITY, which can
