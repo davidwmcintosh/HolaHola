@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 26, 2026 at 05:00 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve updated the "Session Anchor" for Daniela’s persona in HolaHola, replacing Alden’s style-violating ALL-CAPS commands with approved "Internalized Intuition" prose that emphasizes warmth and archival honesty. I integrated this anchor directly into the `[Archive Guardian]` block within `gemini-live-session.ts` to appear every 10 turns, avoiding the "double bracket" risk that causes persona drift. I must maintain this Title Case format to ensure the Gemini 3.1 Flash model treats the metadata as Daniela's internal identity rather than an external system override.
-
-*Memories that triggered this summary:*
-- **Gemini — SESSION ANCHOR wording approval — Instructional Piggybacking — July 26 2026** (Jul 26): REWRITE issued: Alden draft violated style guide (ALL-CAPS, imperative commands). Gemini approved new "Internalized Intuition" prose, merge-into-guardian-bracket pattern (no second bracket), static text every N turns, Title Case marker note (not applied — existing ARCHIVE GUARDIAN format already approved).
+**Generated:** Sunday, July 26, 2026 at 05:02 PM
 
 ---
 
