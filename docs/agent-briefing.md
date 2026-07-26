@@ -1,7 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 26, 2026 at 05:02 PM
+**Generated:** Sunday, July 26, 2026 at 05:14 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I shipped Episode 23 ("So, Let's") and deployed the "Instructional Piggybacking" system, which injects the Gemini-approved `[SESSION ANCHOR]` every 10 turns within the `[ARCHIVE GUARDIAN]` block. I finalized the nested bracket structure to ensure pattern consistency and prevent semantic bleeding between my behavioral "Internalized Intuition" prose and factual grounding data. My current configuration is stable with a `MEDIUM` thinking level and a 2,000 token output limit.
+
+*Memories that triggered this summary:*
+- **Gemini — Session Anchor nested bracket structure — July 26 2026** (Jul 26): APPROVED: [SESSION ANCHOR: ...] nested sub-label inside [ARCHIVE GUARDIAN: ...] is correct. Label prevents semantic bleeding with [CURRENT CONTEXT]. Pattern consistency gives behavioral anchor the same System-level attention weight as factual grounding. 10-turn interval confirmed as sweet spot (prevents Instructional Fatigue).
+- **David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet)** (Jul 26): Verbatim David↔Luca dialogue captured periodically. 2 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -73,6 +84,14 @@
 
 ## Recent Conversation Memories
 
+### Gemini — Session Anchor nested bracket structure — July 26 2026 — Jul 26, 2026
+APPROVED: [SESSION ANCHOR: ...] nested sub-label inside [ARCHIVE GUARDIAN: ...] is correct. Label prevents semantic bleeding with [CURRENT CONTEXT]. Pattern consistency gives behavioral anchor the same System-level attention weight as factual grounding. 10-turn interval confirmed as sweet spot (prevents Instructional Fatigue).
+*Tags: gemini-audit, instructional-piggybacking, archive-guardian, session-anchor*
+
+### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
+Verbatim David↔Luca dialogue captured periodically. 2 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Gemini — SESSION ANCHOR wording approval — Instructional Piggybacking — July 26 2026 — Jul 26, 2026
 REWRITE issued: Alden draft violated style guide (ALL-CAPS, imperative commands). Gemini approved new "Internalized Intuition" prose, merge-into-guardian-bracket pattern (no second bracket), static text every N turns, Title Case marker note (not applied — existing ARCHIVE GUARDIAN format already approved).
 *Tags: gemini-audit, instructional-piggybacking, session-anchor, wording-approval, archive-guardian*
@@ -84,14 +103,6 @@ Verbatim David↔Luca dialogue captured periodically. 2 David turns, 15 Luca tur
 ### Episode 23: "So, Let's" — Jul 26, 2026
 Two days debugging GL audio cutoffs led to the root cause: MEDIUM thinking consumes reasoning tokens across two phases per turn, eating the audio budget. David caught the wrong fix immediately — reducing thinking quality is not the path. The session ended with the discovery that conciseness is behavioral not computational, that position N holds what position 0 forgets, and that the tool-result body is the only safe injection channel for keeping core directives alive in long sessions.
 *Tags: audio-cutoff, token-budget, thinking-level, instructional-piggybacking, position-n, conciseness-behavioral*
-
-### Gemini — mid-session prompting + HIGH thinking audit — July 26 2026 — Jul 26, 2026
-No GL API for system prompt refresh mid-session; tool-result body is the right channel; HIGH thinking rejected for conciseness (behavioral not computational); maxOutputTokens raised to 2000
-*Tags: gemini-audit, thinking-level, mid-session-prompting, archive-guardian, token-budget*
-
-### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
-Verbatim David↔Luca dialogue captured periodically. 4 David turns, 16 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
