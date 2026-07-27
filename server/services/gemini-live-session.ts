@@ -423,9 +423,10 @@ export class GeminiLiveSession {
   private pendingPlaybackEndedLift = false;
   private isTutorGeneratingAudio = false;
   // Double-generation guard: true only after confirmed student audio arrives at GL;
-  // reset when model audio starts. Prevents spurious second GL generation (unmasked by
-  // Bug 1 gate removal July 24 2026) from reaching the client.
-  private hasStudentInputSinceLastResponse = false;
+  // Initialized true so the greeting always passes the guard. Reset to false only after
+  // greetingPhaseActive is done, so GL multi-chunk greetings are never suppressed.
+  // Prevents spurious second GL generation (unmasked by Bug 1 gate removal July 24 2026).
+  private hasStudentInputSinceLastResponse = true;
   // Tool Call Deadlock fix: track function call IDs that were in-flight when the connection
   // dropped. On reconnect with a resumption handle, GL resumes in "waiting for tool response"
   // state — we send synthetic error responses to unblock it before the session hangs silently.
@@ -1937,9 +1938,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           }
           if (!this.isTutorGeneratingAudio) {
             this.isTutorGeneratingAudio = true;
-            // Reset double-generation guard: student must speak again before GL is allowed
-            // to start a new unprompted generation.
-            this.hasStudentInputSinceLastResponse = false;
+            // Reset double-generation guard only after the greeting is fully done.
+            // During greeting, GL may send multiple generations — we must not suppress them.
+            if (!this.greetingPhaseActive) {
+              this.hasStudentInputSinceLastResponse = false;
+            }
             // This is the start of a new response — clear the post-generationComplete gate
             // so legitimate next-turn audio isn't blocked.
             this.afterGenerationComplete = false;
