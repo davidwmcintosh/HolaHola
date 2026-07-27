@@ -42,7 +42,7 @@ export interface StreamingVoiceState {
   isProcessing: boolean;
   isPlaying: boolean;
   isSwitchingTutor: boolean;  // True during tutor handoff - mic should stay locked
-  sophiaIncident: { incidentId: string; category: string; priority: string; message: string; timestamp: number } | null;  // Active Sophia support incident
+  sofiaIncident: { incidentId: string; category: string; priority: string; message: string; timestamp: number } | null;  // Active Sofia support incident
   ttsUnavailable: boolean;    // True when TTS fails; clears after 8s
   sttDegraded: boolean;       // True when Deepgram STT has an error; clears after 6s
   sttDegradedMessage: string; // User-facing message for STT degraded state
@@ -221,7 +221,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   const isProcessingRef = useRef(false);
   isProcessingRef.current = isProcessing;
   const [isSwitchingTutor, setIsSwitchingTutor] = useState(false);  // Mic lockout during tutor handoff
-  const [sophiaIncident, setSophiaIncident] = useState<{ incidentId: string; category: string; priority: string; message: string; timestamp: number } | null>(null);
+  const [sofiaIncident, setSofiaIncident] = useState<{ incidentId: string; category: string; priority: string; message: string; timestamp: number } | null>(null);
   const isSwitchingTutorRef = useRef(false);
   isSwitchingTutorRef.current = isSwitchingTutor;
   const [error, setError] = useState<string | null>(null);
@@ -1572,12 +1572,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
 
   // Gap D — Shared Mission
-  const handleSophiaSupportMessage = useCallback((message: { type: string; incidentId: string; category: string; priority: string; message: string; timestamp: number }) => {
-    setSophiaIncident({ incidentId: message.incidentId, category: message.category, priority: message.priority, message: message.message, timestamp: message.timestamp });
+  const handleSofiaSupportMessage = useCallback((message: { type: string; incidentId: string; category: string; priority: string; message: string; timestamp: number }) => {
+    setSofiaIncident({ incidentId: message.incidentId, category: message.category, priority: message.priority, message: message.message, timestamp: message.timestamp });
   }, []);
 
-  const handleSophiaAllClear = useCallback((_message: { type: string; incidentId: string; timestamp: number }) => {
-    setSophiaIncident(null);
+  const handleSofiaAllClear = useCallback((_message: { type: string; incidentId: string; timestamp: number }) => {
+    setSofiaIncident(null);
   }, []);
 
   const handleMissionSet = useCallback((message: { type: string; mission: string; timestamp: number }) => {
@@ -2009,8 +2009,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('culturalContextShown', handleCulturalContextShown);
       clientRef.current.on('spotlightShown', handleSpotlightShown);
       clientRef.current.on('missionSet', handleMissionSet);  // Gap D: shared session mission badge
-      clientRef.current.on('sophiaSupportMessage', handleSophiaSupportMessage);  // Sophia student support
-      clientRef.current.on('sophiaAllClear', handleSophiaAllClear);  // Sophia incident resolved
+      clientRef.current.on('sophiaSupportMessage', handleSofiaSupportMessage);  // Sofia student support
+      clientRef.current.on('sophiaAllClear', handleSofiaAllClear);  // Sofia incident resolved
       clientRef.current.on('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.on('error', handleError);
       clientRef.current.on('ttsError', handleTtsError);
@@ -2143,8 +2143,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('culturalContextShown', handleCulturalContextShown);
       clientRef.current.off('spotlightShown', handleSpotlightShown);
       clientRef.current.off('missionSet', handleMissionSet);  // Gap D
-      clientRef.current.off('sophiaSupportMessage', handleSophiaSupportMessage);
-      clientRef.current.off('sophiaAllClear', handleSophiaAllClear);
+      clientRef.current.off('sophiaSupportMessage', handleSofiaSupportMessage);
+      clientRef.current.off('sophiaAllClear', handleSofiaAllClear);
       clientRef.current.off('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.off('error', handleError);
       clientRef.current.off('noSpeechDetected', handleNoSpeechDetected);  // Empty PTT reset
@@ -2485,7 +2485,7 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       isProcessing,
       isPlaying: playbackState === 'playing',
       isSwitchingTutor,  // Mic lockout during tutor handoff
-      sophiaIncident,    // Active Sophia support incident (null = no active incident)
+      sofiaIncident,    // Active Sofia support incident (null = no active incident)
       ttsUnavailable,    // True when TTS fails; clears after 8s
       sttDegraded,       // True when Deepgram STT has an error; clears after 6s
       sttDegradedMessage, // User-facing message for STT degraded state

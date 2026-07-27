@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 27, 2026 at 09:15 PM
+**Generated:** Monday, July 27, 2026 at 09:22 PM
 
 ---
 
@@ -73,6 +73,10 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet) — Jul 27, 2026
+Verbatim David↔Luca dialogue captured periodically. 3 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Agent Daily Sweep — Jul 27, 2026 — Jul 27, 2026
 **HOLAHOLA DAILY ACTIONS — System Sweep**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests. The `readableStream` body suggests an API payload issue. Check API key, request format, and Cartesia SDK version. This blocks all voice output.
 *Tags: agent-sweep, daily, auto-saved*
@@ -88,10 +92,6 @@ Verbatim David↔Luca dialogue captured periodically. 1 David turns, 6 Luca turn
 ### English session — Jul 27, 2026 (3 messages) — Jul 27, 2026
 English session (3 messages). Student: "Well, I'm trying to figure out this bug in your greeting, so I only hear part of it. But other than that, things are goi"
 *Tags: message-archive, 4cfdffc7-0225-4563-9d6f-631a1970d34a*
-
-### David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet) — Jul 27, 2026
-Verbatim David↔Luca dialogue captured periodically. 0 David turns, 10 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
