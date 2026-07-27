@@ -3127,7 +3127,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         const preTurnWordCount = preTurnText.split(/\s+/).filter(Boolean).length;
         const hasSubstantialAck = preTurnWordCount >= 3;
 
-        if (allLatencyHeavy && hasSubstantialAck) {
+        if (this.greetingPhaseActive) {
+          // During greeting, gl_audio_reset would cut the greeting audio mid-sentence.
+          // The greeting has no double-speech risk — skip the reset entirely.
+          console.log(`[GeminiLive] Tool call(s) [${toolNames.join(', ')}] during greeting — skipping gl_audio_reset to preserve greeting audio`);
+        } else if (allLatencyHeavy && hasSubstantialAck) {
           // Parallel speech path — preserve audio, inject transcript whisper after tool runs
           this.preTurnTextForWhisper = preTurnText;
           console.log(`[GeminiLive] Parallel speech [${toolNames.join(', ')}] — preserving pre-tool audio (${preTurnWordCount} words): "${preTurnText.slice(0, 80)}"`);

@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 27, 2026 at 08:48 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I implemented the `hasStudentInputSinceLastResponse` flag to fix the bug where Gemini Live was generating duplicate responses after the greeting. This included five key edits—including the suppression guard and audio-start resets—which passed typecheck and are now live. I am monitoring for the `[GeminiLive] Spurious GL audio` log warning to ensure the guard correctly suppresses redundant streams while preserving legitimate multi-part continuations.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet)** (Jul 27): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 6 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Monday, July 27, 2026 at 09:15 PM
 
 ---
 
@@ -83,24 +73,24 @@ I implemented the `hasStudentInputSinceLastResponse` flag to fix the bug where G
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 27, 2026 — Jul 27, 2026
+**HOLAHOLA DAILY ACTIONS — System Sweep**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests. The `readableStream` body suggests an API payload issue. Check API key, request format, and Cartesia SDK version. This blocks all voice output.
+*Tags: agent-sweep, daily, auto-saved*
+
+### The Hidden Pressure Washer Product — Jul 27, 2026
+English session (4 messages). Student: "outdoor tools for nine years. I just found the one product pressure washer companies are desperately trying to bury. It "
+*Tags: message-archive, 0a8720f6-d1a6-4288-b27a-aee81a28c4d0*
+
 ### David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet) — Jul 27, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 6 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
+### English session — Jul 27, 2026 (3 messages) — Jul 27, 2026
+English session (3 messages). Student: "Well, I'm trying to figure out this bug in your greeting, so I only hear part of it. But other than that, things are goi"
+*Tags: message-archive, 4cfdffc7-0225-4563-9d6f-631a1970d34a*
+
 ### David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet) — Jul 27, 2026
 Verbatim David↔Luca dialogue captured periodically. 0 David turns, 10 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet) — Jul 27, 2026
-Verbatim David↔Luca dialogue captured periodically. 4 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Gemini — Session Anchor nested bracket structure — July 26 2026 — Jul 26, 2026
-APPROVED: [SESSION ANCHOR: ...] nested sub-label inside [ARCHIVE GUARDIAN: ...] is correct. Label prevents semantic bleeding with [CURRENT CONTEXT]. Pattern consistency gives behavioral anchor the same System-level attention weight as factual grounding. 10-turn interval confirmed as sweet spot (prevents Instructional Fatigue).
-*Tags: gemini-audit, instructional-piggybacking, archive-guardian, session-anchor*
-
-### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
-Verbatim David↔Luca dialogue captured periodically. 2 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
