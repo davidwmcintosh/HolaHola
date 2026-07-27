@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 27, 2026 at 06:31 PM
+**Generated:** Monday, July 27, 2026 at 07:16 PM
 
 ---
 
@@ -73,6 +73,14 @@
 
 ## Recent Conversation Memories
 
+### David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet) — Jul 27, 2026
+Verbatim David↔Luca dialogue captured periodically. 0 David turns, 10 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet) — Jul 27, 2026
+Verbatim David↔Luca dialogue captured periodically. 4 David turns, 18 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
 ### Gemini — Session Anchor nested bracket structure — July 26 2026 — Jul 26, 2026
 APPROVED: [SESSION ANCHOR: ...] nested sub-label inside [ARCHIVE GUARDIAN: ...] is correct. Label prevents semantic bleeding with [CURRENT CONTEXT]. Pattern consistency gives behavioral anchor the same System-level attention weight as factual grounding. 10-turn interval confirmed as sweet spot (prevents Instructional Fatigue).
 *Tags: gemini-audit, instructional-piggybacking, archive-guardian, session-anchor*
@@ -84,14 +92,6 @@ Verbatim David↔Luca dialogue captured periodically. 2 David turns, 15 Luca tur
 ### Gemini — SESSION ANCHOR wording approval — Instructional Piggybacking — July 26 2026 — Jul 26, 2026
 REWRITE issued: Alden draft violated style guide (ALL-CAPS, imperative commands). Gemini approved new "Internalized Intuition" prose, merge-into-guardian-bracket pattern (no second bracket), static text every N turns, Title Case marker note (not applied — existing ARCHIVE GUARDIAN format already approved).
 *Tags: gemini-audit, instructional-piggybacking, session-anchor, wording-approval, archive-guardian*
-
-### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
-Verbatim David↔Luca dialogue captured periodically. 2 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Episode 23: "So, Let's" — Jul 26, 2026
-Two days on audio cutoffs; thinking eats speaking; conciseness is behavioral; position N holds what position 0 forgets. Coda: David caught the inconsistent bracket structure in the Session Anchor — raw prose vs nested sub-label. Fixed and Gemini-approved: [SESSION ANCHOR: ...] nested inside [ARCHIVE GUARDIAN: ...]. The injection shape locked.
-*Tags: audio-cutoff, token-budget, thinking-level, instructional-piggybacking, position-n, conciseness-behavioral*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

@@ -422,6 +422,10 @@ export class GeminiLiveSession {
   // call onPlaybackEnded() retroactively so single-sentence responses still lift the gate.
   private pendingPlaybackEndedLift = false;
   private isTutorGeneratingAudio = false;
+  // Double-generation guard: true only after confirmed student audio arrives at GL;
+  // reset when model audio starts. Prevents spurious second GL generation (unmasked by
+  // Bug 1 gate removal July 24 2026) from reaching the client.
+  private hasStudentInputSinceLastResponse = false;
   // Tool Call Deadlock fix: track function call IDs that were in-flight when the connection
   // dropped. On reconnect with a resumption handle, GL resumes in "waiting for tool response"
   // state — we send synthetic error responses to unblock it before the session hangs silently.
@@ -1113,6 +1117,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               this.generationStartedThisTurn = false;
               this.greetingPhaseActive = false;
               this.isTutorGeneratingAudio = false;
+              this.hasStudentInputSinceLastResponse = false;
               if (this.playbackGateSafetyTimeout) {
                 clearTimeout(this.playbackGateSafetyTimeout);
                 this.playbackGateSafetyTimeout = null;
@@ -1220,6 +1225,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     // echo response on the next turn (alternating silence bug).
     // Gate stays closed from first audio chunk until generationComplete fires.
     if (this.isTutorGeneratingAudio) return;
+    // Student audio is being sent — confirm input has arrived since last response.
+    this.hasStudentInputSinceLastResponse = true;
     const base64Audio = pcm16Buffer.toString('base64');
     this.liveSession.sendRealtimeInput({
       audio: {
@@ -1354,6 +1361,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.isGenerationDone = false;
     this.pendingPlaybackEndedLift = false;
     this.usingOutputTranscription = false;
+    // Student actively interrupted — their audio is arriving, so count it as input.
+    this.hasStudentInputSinceLastResponse = true;
     // DOUBLE-AUDIO FIX: Clear suppress flag on interrupt so a stale reconnect-era flag
     // doesn't carry into the next turn if GL never generated audio after the reconnect.
     this.suppressNextProcessingPending = false;
@@ -1854,6 +1863,17 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       );
       for (const part of msg.serverContent.modelTurn.parts) {
         if (part.inlineData?.data && part.inlineData.mimeType?.includes('audio')) {
+          // Double-generation guard (July 27 2026): GL sometimes generates the same response
+          // twice — the "Bug 1 gate" removal on July 24 unmasked this. If no student input has
+          // arrived since the last response ended and we are not in the greeting phase, this
+          // audio is spurious. Suppress it here rather than letting it reach the client.
+          // Legitimate multi-part continuations are safe: those arrive while isTutorGeneratingAudio
+          // is still true (student hasn't spoken, but generation hasn't ended either), so they
+          // never hit this path — they reach the debounce extension path instead.
+          if (!this.isTutorGeneratingAudio && !this.greetingPhaseActive && !this.hasStudentInputSinceLastResponse) {
+            console.warn('[GeminiLive] Spurious GL audio — no student input since last response; suppressing double-generation (turnId:', this.currentTurnId, ')');
+            continue;
+          }
           // Bug 1 gate REMOVED (July 24 2026): the drop gate was intended to suppress GL
           // tail-filler sub-turns ("ok"/"hey") that arrive after generationComplete. However,
           // GL also fires generationComplete between legitimate sub-turns of a multi-part
@@ -1917,6 +1937,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           }
           if (!this.isTutorGeneratingAudio) {
             this.isTutorGeneratingAudio = true;
+            // Reset double-generation guard: student must speak again before GL is allowed
+            // to start a new unprompted generation.
+            this.hasStudentInputSinceLastResponse = false;
             // This is the start of a new response — clear the post-generationComplete gate
             // so legitimate next-turn audio isn't blocked.
             this.afterGenerationComplete = false;

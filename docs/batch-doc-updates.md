@@ -1,5 +1,27 @@
 # Batch Documentation Updates
 
+## Session July 27, 2026 — GL Double Audio Fix (hasStudentInputSinceLastResponse guard)
+
+### Double audio on turn 2 — root cause and fix
+
+**Symptom:** Daniela's first response to a student message played completely, then restarted verbatim from the beginning. Transcript showed the same text twice. Next turn was clean. Confirmed by David July 27 2026.
+
+**Root cause:** The "Bug 1 gate" was removed July 24 2026 to fix mid-sentence audio cutoffs. That gate silently dropped any GL audio arriving after `generationComplete`. GL has a behavior (not yet precisely characterised — likely a sub-turn quirk on the first post-greeting exchange) where it generates the same response twice. Before July 24 the second generation was silently suppressed. After July 24 it reached the client — causing the audible double.
+
+**Fix:** `hasStudentInputSinceLastResponse` boolean flag in `GeminiLiveSession` (`server/services/gemini-live-session.ts`).
+- Starts `false`.
+- Set `true` when actual student PCM audio is forwarded to GL (line 1231).
+- Set `true` on `interrupt()` (student actively speaking).
+- Reset `false` when model audio begins (`isTutorGeneratingAudio` becomes true, line 1942).
+- Reset `false` on reconnect/close (line 1123).
+- **Suppression guard** (line 1873): if `!isTutorGeneratingAudio && !greetingPhaseActive && !hasStudentInputSinceLastResponse` → drop the audio chunk with a `[GeminiLive] Spurious GL audio` warning. This catches the exact scenario — GL generates again with no new student input — while leaving legitimate multi-part continuations untouched (those arrive while `isTutorGeneratingAudio` is still true).
+
+**Why it doesn't break multi-part continuations:** Continuation sub-turns arrive while `isTutorGeneratingAudio = true` (student hasn't spoken yet, model is still generating). The guard's first condition `!this.isTutorGeneratingAudio` is false → they pass through to the existing debounce-extension path.
+
+**Typecheck:** Zero errors.
+
+---
+
 ## Session July 26, 2026 — GL Audio Cutoff Fix (turnComplete silence pad + maxOutputTokens)
 
 ### Three-part fix for GL voice audio ending mid-sentence
