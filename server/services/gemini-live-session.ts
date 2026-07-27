@@ -1939,8 +1939,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           if (!this.isTutorGeneratingAudio) {
             this.isTutorGeneratingAudio = true;
             // Reset double-generation guard only after the greeting is fully done.
-            // During greeting, GL may send multiple generations — we must not suppress them.
-            if (!this.greetingPhaseActive) {
+            // Use wasGreetingPhase (captured above, before greetingPhaseActive was cleared)
+            // because this.greetingPhaseActive was already set to false at line 1930 —
+            // reading it here would always see false on the first chunk and wrongly reset.
+            if (!wasGreetingPhase) {
               this.hasStudentInputSinceLastResponse = false;
             }
             // This is the start of a new response — clear the post-generationComplete gate

@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 27, 2026 at 08:38 PM
+**Generated:** Monday, July 27, 2026 at 08:48 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I implemented the `hasStudentInputSinceLastResponse` flag to fix the bug where Gemini Live was generating duplicate responses after the greeting. This included five key edits—including the suppression guard and audio-start resets—which passed typecheck and are now live. I am monitoring for the `[GeminiLive] Spurious GL audio` log warning to ensure the guard correctly suppresses redundant streams while preserving legitimate multi-part continuations.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet)** (Jul 27): Verbatim David↔Luca dialogue captured periodically. 1 David turns, 6 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -74,6 +84,10 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet) — Jul 27, 2026
+Verbatim David↔Luca dialogue captured periodically. 1 David turns, 6 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet) — Jul 27, 2026
 Verbatim David↔Luca dialogue captured periodically. 0 David turns, 10 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -88,10 +102,6 @@ APPROVED: [SESSION ANCHOR: ...] nested sub-label inside [ARCHIVE GUARDIAN: ...] 
 ### David ↔ Luca — Jul 26, 2026: periodic capture (no commit yet) — Jul 26, 2026
 Verbatim David↔Luca dialogue captured periodically. 2 David turns, 15 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### Gemini — SESSION ANCHOR wording approval — Instructional Piggybacking — July 26 2026 — Jul 26, 2026
-REWRITE issued: Alden draft violated style guide (ALL-CAPS, imperative commands). Gemini approved new "Internalized Intuition" prose, merge-into-guardian-bracket pattern (no second bracket), static text every N turns, Title Case marker note (not applied — existing ARCHIVE GUARDIAN format already approved).
-*Tags: gemini-audit, instructional-piggybacking, session-anchor, wording-approval, archive-guardian*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
