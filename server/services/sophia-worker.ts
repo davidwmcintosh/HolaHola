@@ -245,7 +245,7 @@ async function processDetectedIncidents(): Promise<void> {
 
         // Send to student's active session
         const delivered = sendToSession(incident.studentId, {
-          type: 'sophia_support_message',
+          type: 'sofia_support_message',
           incidentId: incident.id,
           category,
           priority: incident.priority,
@@ -279,7 +279,7 @@ async function processDetectedIncidents(): Promise<void> {
               .where(eq(sophiaIncidents.id, incident.id));
 
             sendToSession(incident.studentId, {
-              type: 'sophia_all_clear',
+              type: 'sofia_all_clear',
               incidentId: incident.id,
               issueDescription: current.issueDescription ?? null,
               resolutionNote: 'Auto-resolved after timeout.',
@@ -326,7 +326,7 @@ export async function resolveIncident(incidentId: string): Promise<boolean> {
       .where(eq(sophiaIncidents.id, incidentId));
 
     sendToSession(incident.studentId, {
-      type: 'sophia_all_clear',
+      type: 'sofia_all_clear',
       incidentId: incident.id,
       issueDescription: incident.issueDescription ?? null,
       resolutionNote: 'Resolved by student acknowledgement.',

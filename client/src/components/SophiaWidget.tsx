@@ -30,7 +30,7 @@ export function SofiaWidget({ incident, onResolved }: SofiaWidgetProps) {
   const handleResolved = async () => {
     setResolving(true);
     try {
-      await apiRequest("POST", `/api/sophia/incidents/${incident.incidentId}/resolve`);
+      await apiRequest("POST", `/api/sofia/incidents/${incident.incidentId}/resolve`);
     } catch {
     } finally {
       onResolved();

@@ -4757,10 +4757,10 @@ export class NativeFunctionCallHandler {
           // Store on session for later all_clear delivery
           (session as any).activeSophiaIncidentId = incident.id;
 
-          // Notify the frontend so it can show the Sophia support widget
+          // Notify the frontend so it can show the Sofia support widget
           if (session.ws) {
             this.sendMessage(session.ws, {
-              type: 'sophia_incident_created',
+              type: 'sofia_incident_created',
               incidentId: incident.id,
               category,
               priority,

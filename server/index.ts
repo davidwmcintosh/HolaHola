@@ -478,8 +478,8 @@ app.use((req, res, next) => {
 
   await registerRoutes(app);
 
-  // Sophia student-support resolve endpoint
-  app.post('/api/sophia/incidents/:id/resolve', async (req: Request, res: Response) => {
+  // Sofia student-support resolve endpoint
+  app.post('/api/sofia/incidents/:id/resolve', async (req: Request, res: Response) => {
     try {
       const { resolveIncident } = await import('./services/sophia-worker');
       const ok = await resolveIncident(req.params.id);

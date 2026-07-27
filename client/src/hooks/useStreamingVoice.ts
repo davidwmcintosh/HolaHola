@@ -2009,8 +2009,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.on('culturalContextShown', handleCulturalContextShown);
       clientRef.current.on('spotlightShown', handleSpotlightShown);
       clientRef.current.on('missionSet', handleMissionSet);  // Gap D: shared session mission badge
-      clientRef.current.on('sophiaSupportMessage', handleSofiaSupportMessage);  // Sofia student support
-      clientRef.current.on('sophiaAllClear', handleSofiaAllClear);  // Sofia incident resolved
+      clientRef.current.on('sofiaSupportMessage', handleSofiaSupportMessage);  // Sofia student support
+      clientRef.current.on('sofiaAllClear', handleSofiaAllClear);  // Sofia incident resolved
       clientRef.current.on('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.on('error', handleError);
       clientRef.current.on('ttsError', handleTtsError);
@@ -2143,8 +2143,8 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       clientRef.current.off('culturalContextShown', handleCulturalContextShown);
       clientRef.current.off('spotlightShown', handleSpotlightShown);
       clientRef.current.off('missionSet', handleMissionSet);  // Gap D
-      clientRef.current.off('sophiaSupportMessage', handleSofiaSupportMessage);
-      clientRef.current.off('sophiaAllClear', handleSofiaAllClear);
+      clientRef.current.off('sofiaSupportMessage', handleSofiaSupportMessage);
+      clientRef.current.off('sofiaAllClear', handleSofiaAllClear);
       clientRef.current.off('pronunciationCoaching', handlePronunciationCoaching);  // Live pronunciation feedback
       clientRef.current.off('error', handleError);
       clientRef.current.off('noSpeechDetected', handleNoSpeechDetected);  // Empty PTT reset
