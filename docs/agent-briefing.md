@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, July 26, 2026 at 11:01 PM
+**Generated:** Monday, July 27, 2026 at 06:31 PM
 
 ---
 
@@ -90,7 +90,7 @@ Verbatim David↔Luca dialogue captured periodically. 2 David turns, 15 Luca tur
 *Tags: david-luca-chat, verbatim, auto-saved*
 
 ### Episode 23: "So, Let's" — Jul 26, 2026
-Two days debugging GL audio cutoffs led to the root cause: MEDIUM thinking consumes reasoning tokens across two phases per turn, eating the audio budget. David caught the wrong fix immediately — reducing thinking quality is not the path. The session ended with the discovery that conciseness is behavioral not computational, that position N holds what position 0 forgets, and that the tool-result body is the only safe injection channel for keeping core directives alive in long sessions.
+Two days on audio cutoffs; thinking eats speaking; conciseness is behavioral; position N holds what position 0 forgets. Coda: David caught the inconsistent bracket structure in the Session Anchor — raw prose vs nested sub-label. Fixed and Gemini-approved: [SESSION ANCHOR: ...] nested inside [ARCHIVE GUARDIAN: ...]. The injection shape locked.
 *Tags: audio-cutoff, token-budget, thinking-level, instructional-piggybacking, position-n, conciseness-behavioral*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
