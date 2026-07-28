@@ -1035,9 +1035,16 @@ export class StreamingAudioPlayer {
         this.wordSchedule.clear();
         // NOTE: processedChunks already cleared above BEFORE dedup check
         this.activeSentenceInLoop = -1;
-        // Reset scheduled time with larger prebuffer for smoother playback
-        // Increased from 0.2s to 0.4s to reduce stuttering from network jitter
-        this.progressiveScheduledTime = ctx.currentTime + 0.4;
+        // OVERLAP FIX: Preserve progressiveScheduledTime if it's still in the future.
+        // processing_pending + first chunk can arrive while the previous turn's WebAudio
+        // sources are still playing (they are fire-and-forget; clearing sentenceSchedule
+        // doesn't stop them). Resetting to ctx.currentTime + 0.4 would schedule new-turn
+        // audio into the middle of old-turn playback. Use max() so the old schedule is
+        // honoured when audio is still in flight, and only reset when we're past the end.
+        this.progressiveScheduledTime = Math.max(
+          this.progressiveScheduledTime,
+          ctx.currentTime + 0.4,
+        );
         this.progressivePlaybackStartCtxTime = 0;
       }
       
@@ -2502,7 +2509,11 @@ export class StreamingAudioPlayer {
         // Emit specific events for key transitions
         if (state === 'playing' && prevState === 'idle') {
           emitter.emit('playback_started' as ClientTelemetryEventType, {}, this.currentSentenceIndex);
-        } else if (state === 'idle' && prevState === 'playing') {
+        } else if (state === 'idle' && (prevState === 'playing' || prevState === 'buffering')) {
+          // Multi-sub-turn responses: sentence 1's first chunk calls setState('buffering') while
+          // sentence 0 is still playing, so the final idle transition arrives from 'buffering'
+          // rather than 'playing'. Without this guard, playback_ended is never emitted for
+          // two-sub-turn GL responses and the mic gate stays closed for the full 60s safety timeout.
           emitter.emit('playback_ended' as ClientTelemetryEventType, {}, this.currentSentenceIndex);
         }
       }

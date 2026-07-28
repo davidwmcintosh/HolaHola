@@ -1,8 +1,47 @@
 # Alden → Agent Notes
 
-*26 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*28 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 7/28/2026, 5:50:31 PM
+Generated: 7/28/2026, 6:49:06 PM
+
+---
+
+### [Sofia] Voice pipeline health degraded: green → red
+*Tue, Jul 28, 2026, 6:39 PM* (id: `f3fd0c07-3f47-45fd-b02b-a2994ad2e542`)
+*During: Sofia Health Monitor*
+
+Voice pipeline health transitioned green → red (degraded).
+
+Reasons:
+• High E2E latency: avg p95=8205ms over last hour (1 GL sessions)
+
+Sofia's analysis: Voice health degraded: green → red. Agent completed 1 actions. High E2E latency: avg p95=8205ms over last hour (1 GL sessions)
+
+Actions taken:
+• track_pattern: {"tracked":true,"pattern_type":"tool_orchestration_latency_spike","recentDigests":5}
+
+Check voice session logs and the open-bugs list for related incidents.
+
+---
+
+### [Sofia] Voice pipeline health degraded: green → red
+*Tue, Jul 28, 2026, 5:54 PM* (id: `f83c6356-d75a-4b24-86a5-f5445e1e6e69`)
+*During: Sofia Health Monitor*
+
+Voice pipeline health transitioned green → red (degraded).
+
+Reasons:
+• High E2E latency: avg p95=8205ms over last hour (1 GL sessions)
+
+Sofia's analysis: The voice health degradation to **red** (p95 latency 8.2s) was isolated to a single Gemini Live session for user `49847136`. Investigation reveals the latency was driven by a combination of long-running `introspect` tool calls (up to 4.5s) and significant client-side network instability on a 4G connection, which triggered multiple 45s failsafes and reconnection attempts. 
+
+While the brain health report shows a degraded `toolOrchestration` score (75/100) due to these tool latencies, the session has since ended and no other active sessions are currently affected. I have tracked the `high_latency_single_user_4g_tool_delay` pattern for long-term monitoring and verified that a troubleshooting KB article is available for students experiencing similar connection issues. No further remediation is required as the system is currently idle and stable.
+
+Actions taken:
+• track_pattern: {"tracked":true,"pattern_type":"high_latency_single_user_4g_tool_delay","recentDigests":5}
+• upsert_kb_article: {"action":"already_exists","articleId":"4e6e6e39-c4e9-4d66-a533-5fb40222785a","title":"Troubleshooting Slow Responses on Mobile"}
+
+Check voice session logs and the open-bugs list for related incidents.
 
 ---
 

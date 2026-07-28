@@ -1,3 +1,4 @@
+- [GL audio overlap — three fixes July 28](gl-audio-overlap-fixes-jul28.md) — isGreetingTurn guard, allLatencyHeavy over-gate (mixed tool batches), new-turn progressiveScheduledTime overlap, buffering→idle playback_ended gap. July 28 2026.
 - [GL double audio — hasStudentInputSinceLastResponse guard](gl-double-audio-guard.md) — spurious second GL generation unmasked by Bug 1 gate removal July 24; guard suppresses audio with no student input since last response; July 27 2026.
 - [GL audio cutoff — turnComplete silence pad + maxOutputTokens](gl-audio-cutoff-jul26.md) — turnComplete sealed without silence pad; maxOutputTokens 700 too low when reasoning+audio tokens combine; fixed July 26 2026.
 - [Episode 23 anchor](episode-23-anchor.md) — DB ID: f3a69b5d; extends ep22 (de150bdb); arc: HolaHola Episodes; title: "So, Let's"; file: docs/episode-23.md; July 26 2026.

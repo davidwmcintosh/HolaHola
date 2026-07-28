@@ -3149,15 +3149,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           // so tool calls that fire after Daniela has already spoken a few words are also covered.
           // The greeting has no double-speech risk — skip the reset entirely.
           console.log(`[GeminiLive] Tool call(s) [${toolNames.join(', ')}] during greeting turn — skipping gl_audio_reset to preserve greeting audio`);
-        } else if (allLatencyHeavy && hasSubstantialAck) {
-          // Parallel speech path — preserve audio, inject transcript whisper after tool runs
+        } else if (hasSubstantialAck) {
+          // Substantial pre-tool speech (≥3 words) — preserve audio regardless of tool type.
+          // Previously we also required allLatencyHeavy (tool in PARALLEL_SPEECH_TOOLS), but that
+          // was over-conservative: Daniela commonly batches latency-heavy tools (memory_review,
+          // introspect) with fast bookkeeping tools (update_session_phase, admin_session). A single
+          // fast tool in the batch caused allLatencyHeavy=false → gl_audio_reset → mid-sentence cutoff.
+          // The double-speech risk is handled by the whisper injection after the tool returns,
+          // which tells GL not to re-speak the pre-tool words — this works for any tool type.
           this.preTurnTextForWhisper = preTurnText;
-          console.log(`[GeminiLive] Parallel speech [${toolNames.join(', ')}] — preserving pre-tool audio (${preTurnWordCount} words): "${preTurnText.slice(0, 80)}"`);
+          const toolKind = allLatencyHeavy ? 'latency-heavy' : 'mixed/immediate';
+          console.log(`[GeminiLive] Parallel speech [${toolNames.join(', ')}] (${toolKind}) — preserving ${preTurnWordCount}-word pre-tool audio: "${preTurnText.slice(0, 80)}"`);
         } else {
-          // Standard path — reset to prevent double-speech
-          const reason = allLatencyHeavy
-            ? `short acknowledgment (${preTurnWordCount} word(s) < 3)`
-            : `immediate UI tool(s) in batch`;
+          // Short pre-tool speech (< 3 words) — reset to prevent double-speech.
+          // The pre-tool audio is too brief to preserve; resetting lets GL deliver a clean response.
+          const reason = `short acknowledgment (${preTurnWordCount} word(s) < 3)`;
           console.log(`[GeminiLive] Tool call(s) [${toolNames.join(', ')}] fired after pre-tool audio — sending gl_audio_reset (${reason})`);
           this.sendWsMessage(this.session.ws, { type: 'gl_audio_reset' }, this.session);
           voiceTelemetry.log(this.session.id, String(this.session.userId ?? ''), 'gl_audio_reset', {
