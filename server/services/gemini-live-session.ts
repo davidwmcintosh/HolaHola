@@ -326,6 +326,12 @@ export class GeminiLiveSession {
   // isTutorGeneratingAudio: gates mic for ALL subsequent Daniela turns.
   // Together these cover the full echo suppression lifecycle.
   private greetingPhaseActive = false;
+  // isGreetingTurn: true for the ENTIRE greeting generation turn — from sendGreetingTrigger
+  // until generationComplete or interrupted. Unlike greetingPhaseActive (which clears at first
+  // audio chunk), this flag stays live so tool calls that fire mid-greeting (after Daniela has
+  // already spoken a few words) can still suppress gl_audio_reset. Without this flag the
+  // standard pre-tool gl_audio_reset would kill the rest of the greeting audio.
+  private isGreetingTurn = false;
   // Greeting auto-retry: stores params so a silent greeting turn can re-trigger (max 2 retries).
   private greetingRetryCount = 0;
   private lastGreetingParams: { userName?: string; isResumed?: boolean; scenarioSlug?: string; recentContext?: string; studentProfile?: string } | null = null;
@@ -1449,6 +1455,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // sendClientContent with turnComplete:true already ends the turn. Sending activityEnd
       // after creates a SECOND turn-end signal and causes GL to generate a duplicate response.
       this.greetingPhaseActive = true;
+      this.isGreetingTurn = true;
       // Safety: if greeting produces no audio (content filter / text-only / error),
       // greetingPhaseActive would never be cleared and the mic stays permanently blocked.
       // Force-clear after 15s — greeting audio normally arrives within 1-2s.
@@ -1457,6 +1464,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.greetingWatchdogTimer = null;
         if (this.greetingPhaseActive) {
           this.greetingPhaseActive = false;
+          this.isGreetingTurn = false;
           console.warn('[GeminiLive] Greeting watchdog fired — greetingPhaseActive cleared (no audio in 15s)');
         }
       }, 15000);
@@ -1542,6 +1550,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         }
         this.sealCurrentAudioSubturn('generationComplete-watchdog');
         this.isGenerationDone = true;
+        this.isGreetingTurn = false;
         if (this.pendingPlaybackEndedLift) {
           console.log('[GeminiLive] Watchdog seal — retroactive onPlaybackEnded() (single-sentence path)');
           this.onPlaybackEnded();
@@ -1822,11 +1831,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               // causing GL to generate two responses (double greeting / double audio).
               // Block mic audio until GL sends its first response chunk.
               this.greetingPhaseActive = true;
+              this.isGreetingTurn = true;
               if (this.greetingWatchdogTimer) clearTimeout(this.greetingWatchdogTimer);
               this.greetingWatchdogTimer = setTimeout(() => {
                 this.greetingWatchdogTimer = null;
                 if (this.greetingPhaseActive) {
                   this.greetingPhaseActive = false;
+                  this.isGreetingTurn = false;
                   console.warn('[GeminiLive] Greeting watchdog fired — greetingPhaseActive cleared (no audio in 15s)');
                 }
               }, 15000);
@@ -2851,6 +2862,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // Bug 1 fix: arm the audio gate — any audio arriving after this point is a GL tail
       // sub-turn ("ok", "hey") and should be dropped before it reaches the client.
       this.afterGenerationComplete = true;
+      // Greeting turn is definitively over — clear the gl_audio_reset suppression guard.
+      this.isGreetingTurn = false;
       // Signal that generation is fully done so onPlaybackEnded() can safely lift the mic gate.
       this.isGenerationDone = true;
       // Retroactive lift: if playback_ended already fired between sub-turns (single-sentence
@@ -3051,6 +3064,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.isTutorGeneratingAudio = false;
         console.log('[GeminiLive] Mic gate lifted — barge-in interrupted Daniela (echo suppression off)');
       }
+      // Greeting turn interrupted — clear the gl_audio_reset suppression guard.
+      this.isGreetingTurn = false;
       // Clear the generationComplete watchdog — barge-in ends the generating turn
       if (this.generationCompleteWatchdogTimer) {
         clearTimeout(this.generationCompleteWatchdogTimer);
@@ -3127,10 +3142,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         const preTurnWordCount = preTurnText.split(/\s+/).filter(Boolean).length;
         const hasSubstantialAck = preTurnWordCount >= 3;
 
-        if (this.greetingPhaseActive) {
-          // During greeting, gl_audio_reset would cut the greeting audio mid-sentence.
+        if (this.isGreetingTurn) {
+          // During the greeting turn, gl_audio_reset would cut the greeting audio mid-sentence.
+          // greetingPhaseActive clears at first audio chunk — too early. isGreetingTurn stays
+          // live for the full greeting generation (until generationComplete or interrupted),
+          // so tool calls that fire after Daniela has already spoken a few words are also covered.
           // The greeting has no double-speech risk — skip the reset entirely.
-          console.log(`[GeminiLive] Tool call(s) [${toolNames.join(', ')}] during greeting — skipping gl_audio_reset to preserve greeting audio`);
+          console.log(`[GeminiLive] Tool call(s) [${toolNames.join(', ')}] during greeting turn — skipping gl_audio_reset to preserve greeting audio`);
         } else if (allLatencyHeavy && hasSubstantialAck) {
           // Parallel speech path — preserve audio, inject transcript whisper after tool runs
           this.preTurnTextForWhisper = preTurnText;
