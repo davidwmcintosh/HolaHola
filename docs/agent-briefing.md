@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Monday, July 27, 2026 at 09:26 PM
+**Generated:** Tuesday, July 28, 2026 at 05:17 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I unified the support character’s name to **Sofia** across the entire HolaHola platform, renaming the `SofiaWidget` and updating all student-facing text for consistency. After a follow-up request from David, I performed a "full fix" by refactoring server-side API routes, socket wire protocol strings (e.g., `sofia_incident_created`), and internal hook states. The codebase is now fully synchronized and passed a final typecheck with no remaining "Sophia" references.
+
+*Memories that triggered this summary:*
+- **David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet)** (Jul 27): Verbatim David↔Luca dialogue captured periodically. 2 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
 
 ---
 
@@ -74,6 +84,10 @@
 ## Recent Conversation Memories
 
 ### David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet) — Jul 27, 2026
+Verbatim David↔Luca dialogue captured periodically. 2 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
+*Tags: david-luca-chat, verbatim, auto-saved*
+
+### David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet) — Jul 27, 2026
 Verbatim David↔Luca dialogue captured periodically. 3 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
 
@@ -88,10 +102,6 @@ English session (4 messages). Student: "outdoor tools for nine years. I just fou
 ### David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet) — Jul 27, 2026
 Verbatim David↔Luca dialogue captured periodically. 1 David turns, 6 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### English session — Jul 27, 2026 (3 messages) — Jul 27, 2026
-English session (3 messages). Student: "Well, I'm trying to figure out this bug in your greeting, so I only hear part of it. But other than that, things are goi"
-*Tags: message-archive, 4cfdffc7-0225-4563-9d6f-631a1970d34a*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
