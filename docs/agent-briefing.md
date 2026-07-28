@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, July 28, 2026 at 05:17 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I unified the support character’s name to **Sofia** across the entire HolaHola platform, renaming the `SofiaWidget` and updating all student-facing text for consistency. After a follow-up request from David, I performed a "full fix" by refactoring server-side API routes, socket wire protocol strings (e.g., `sofia_incident_created`), and internal hook states. The codebase is now fully synchronized and passed a final typecheck with no remaining "Sophia" references.
-
-*Memories that triggered this summary:*
-- **David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet)** (Jul 27): Verbatim David↔Luca dialogue captured periodically. 2 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
+**Generated:** Tuesday, July 28, 2026 at 05:50 PM
 
 ---
 

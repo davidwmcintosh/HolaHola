@@ -1,8 +1,73 @@
 # Alden → Agent Notes
 
-*23 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*26 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 7/28/2026, 5:17:21 PM
+Generated: 7/28/2026, 5:50:31 PM
+
+---
+
+### [Sofia] Voice pipeline health degraded: green → red
+*Tue, Jul 28, 2026, 5:49 PM* (id: `69f991e6-ea05-4ca2-a208-5a1ee35af38f`)
+*During: Sofia Health Monitor*
+
+Voice pipeline health transitioned green → red (degraded).
+
+Reasons:
+• High E2E latency: avg p95=8205ms over last hour (1 GL sessions)
+
+Sofia's analysis: Voice health degraded: green → red. Agent completed 1 actions. High E2E latency: avg p95=8205ms over last hour (1 GL sessions)
+
+Check voice session logs and the open-bugs list for related incidents.
+
+---
+
+### [Sofia] Voice pipeline health degraded: green → red
+*Tue, Jul 28, 2026, 5:47 PM* (id: `cc713999-8e05-4706-8b1d-83a02bc4ad19`)
+*During: Sofia Health Monitor*
+
+Voice pipeline health transitioned green → red (degraded).
+
+Reasons:
+• High E2E latency: avg p95=8205ms over last hour (1 GL sessions)
+
+Sofia's analysis: The voice health degradation to **red** (p95 latency 8.2s) was isolated to a single Gemini Live session for user `49847136`. Investigation reveals the latency was driven by long-running `introspect` tool calls (up to 4.5s) and significant client-side network instability, which triggered multiple 45s failsafes and reconnection attempts. 
+
+While the brain health report shows a degraded `toolOrchestration` score (75/100) due to these tool latencies, the session has since ended and no other active sessions are affected. I have tracked the `gl_tool_latency_failsafe` pattern for long-term monitoring and verified that a troubleshooting KB article is available for students experiencing similar connection issues. No further remediation is required at this time as the system is currently idle and stable.
+
+Actions taken:
+• track_pattern: {"tracked":true,"pattern_type":"gl_tool_latency_failsafe","recentDigests":5}
+• upsert_kb_article: {"action":"already_exists","articleId":"45eee70a-f890-4446-9900-5cacf2807275","title":"Troubleshooting Connection and Latency Issues"}
+
+Check voice session logs and the open-bugs list for related incidents.
+
+---
+
+### [Sofia] Brain/memory health degraded: green → yellow
+*Tue, Jul 28, 2026, 5:38 PM* (id: `f13ab659-944c-4971-94e8-e8543425afe0`)
+*During: Sofia Health Monitor*
+
+Brain/memory health transitioned green → yellow (degraded).
+
+Reasons:
+• [Neural Retrieval] Assessment error: Failed query: select count(*) from "learner_error_patterns" where "learner_error_patterns"."is_active" = $1
+params: true
+• [Neural Sync] Assessment error: Failed query: select "id", "best_practice_id", "source_environment", "target_environment", "status", "submitted_by", "reviewed_by", "review_notes", "submitted_at", "reviewed_at" from "promotion_queue" where "promotion_queue"."status" = $1
+params: pending
+• [Student Learning] Assessment error: Failed query: select "user_id" from "brain_events" where ("brain_events"."user_id" IS NOT NULL and "brain_events"."created_at" >= $1)
+params: 2026-06-28T17:37:14.863Z
+• [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-07-27T17:37:14.864Z
+• [Context Injection] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: context_injection,2026-07-28T16:37:14.864Z
+
+Sofia's analysis: Brain health degraded: green → yellow. 0 actions taken. [Neural Retrieval] Assessment error: Failed query: select count(*) from "learner_error_patterns" where "learner_error_patterns"."is_active" = $1
+params: true; [Neural Sync] Assessment error: Failed query: select "id", "best_practice_id", "source_environment", "target_environment", "status", "submitted_by", "reviewed_by", "review_notes", "submitted_at", "reviewed_at" from "promotion_queue" where "promotion_queue"."status" = $1
+params: pending; [Student Learning] Assessment error: Failed query: select "user_id" from "brain_events" where ("brain_events"."user_id" IS NOT NULL and "brain_events"."created_at" >= $1)
+params: 2026-06-28T17:37:14.863Z; [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-07-27T17:37:14.864Z; [Context Injection] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: context_injection,2026-07-28T16:37:14.864Z
+
+Check voice session logs and the open-bugs list for related incidents.
 
 ---
 
