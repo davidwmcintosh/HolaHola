@@ -119,11 +119,13 @@ EDITOR_SECRET=<random string>               # Administrative editor access
 FOUNDER_EMAIL=...                           # Email for founder dashboard access
 ```
 
-### Object Storage ⚠️ (See Section 5)
+### Object Storage (See Section 5)
 ```
-DEFAULT_OBJECT_STORAGE_BUCKET_ID=...        # Primary bucket (currently Replit Object Storage)
-PUBLIC_OBJECT_SEARCH_PATHS=...              # Comma-separated paths for public assets
-PRIVATE_OBJECT_DIR=...                      # Directory for private uploads
+DEFAULT_OBJECT_STORAGE_BUCKET_ID=...        # Primary GCS bucket name (no gs:// prefix)
+PUBLIC_OBJECT_SEARCH_PATHS=...              # Comma-separated paths for public assets, e.g. /my-bucket/public
+PRIVATE_OBJECT_DIR=...                      # Directory for private uploads, e.g. /my-bucket/private
+GOOGLE_CLOUD_STORAGE_CREDENTIALS=...       # JSON service-account key (stringified). If set, Replit sidecar is NOT needed.
+GOOGLE_CLOUD_PROJECT_ID=...                # GCP project ID (only needed if not embedded in the credentials JSON)
 ```
 
 ### Replit-Specific (only needed on Replit)
@@ -155,9 +157,9 @@ npx drizzle-kit migrate    # Apply to new DB
 
 ---
 
-## Step 5 — Object Storage Migration ⚠️
+## Step 5 — Object Storage
 
-This is the one genuine Replit dependency. Object storage is used for:
+Object storage is used for:
 - Student/scene **images** (`server/services/image-storage.ts`)
 - **Voice notes** for SMS delivery (`server/services/voice-message-delivery.ts`)
 - **Public assets** (Madrigal scan images, curriculum visuals)
@@ -165,20 +167,43 @@ This is the one genuine Replit dependency. Object storage is used for:
 The core service lives at `server/replit_integrations/object_storage/objectStorage.ts`.
 
 ### Option A — Keep Using Replit Object Storage
-If David still has a Replit account (even without the full agent environment), the Replit Object Storage bucket remains accessible. Set the three `DEFAULT_OBJECT_STORAGE_BUCKET_ID`, `PUBLIC_OBJECT_SEARCH_PATHS`, `PRIVATE_OBJECT_DIR` env vars and nothing changes.
+If David still has a Replit account (even without the full agent environment), the Replit Object Storage bucket remains accessible. The server auto-detects the Replit sidecar — no `GOOGLE_CLOUD_STORAGE_CREDENTIALS` needed. Just confirm the three env vars are set:
 
-### Option B — Migrate to S3-Compatible Storage (Google Cloud Storage, AWS S3, Cloudflare R2)
+```
+DEFAULT_OBJECT_STORAGE_BUCKET_ID=<your-replit-bucket-name>
+PUBLIC_OBJECT_SEARCH_PATHS=/<bucket>/public
+PRIVATE_OBJECT_DIR=/<bucket>/private
+```
 
-The `objectStorage.ts` wrapper already uses `@google-cloud/storage` internally. To migrate:
+### Option B — Migrate to Google Cloud Storage (any environment)
 
-1. Create a new GCS bucket (or S3/R2 equivalent)
-2. Copy existing assets from the Replit bucket to the new bucket
-3. Update `objectStorage.ts` to point at the new provider
-4. Update the three env vars
+The `objectStorage.ts` service supports **dual-mode auth**:
+- If `GOOGLE_CLOUD_STORAGE_CREDENTIALS` is set → uses standard GCS service-account credentials (works anywhere)
+- If not set → falls back to the Replit sidecar (Replit-only)
 
-This is a ~2 hour task. The code change is in one file. The asset copy is the longest part.
+No code change is needed; it's purely configuration.
 
-> **For now:** If you're just moving environments but keeping a Replit account, Option A costs nothing and takes 5 minutes.
+**Step-by-step:**
+
+1. Create a GCS bucket in any GCP project
+2. Create a service account with `Storage Object Admin` role on that bucket
+3. Download the service account JSON key
+4. Set env vars:
+   ```
+   GOOGLE_CLOUD_STORAGE_CREDENTIALS=<contents of the JSON key file, single-line>
+   DEFAULT_OBJECT_STORAGE_BUCKET_ID=<new-bucket-name>
+   PUBLIC_OBJECT_SEARCH_PATHS=/<new-bucket-name>/public
+   PRIVATE_OBJECT_DIR=/<new-bucket-name>/private
+   ```
+5. Copy existing assets from the Replit bucket (run **while still on Replit** so sidecar is available):
+   ```bash
+   DESTINATION_BUCKET_ID=<new-bucket-name> \
+   GOOGLE_CLOUD_STORAGE_CREDENTIALS='<json-key>' \
+   npx tsx server/scripts/migrate-object-storage.ts
+   ```
+6. Restart the server — it will use standard GCS credentials from that point forward
+
+> The migration script (`server/scripts/migrate-object-storage.ts`) streams every object from the source bucket to the destination, preserving content-type and custom metadata. Re-running it is safe — it overwrites existing objects.
 
 ---
 
@@ -233,7 +258,7 @@ That's it. Everything else — Daniela's identity, the Archive, J-space reflecti
 | Episode chain | ✅ In Neon DB + `docs/episode-*.md` |
 | Source code | ✅ In the repo. |
 | Alden's conversations and notes | ✅ In Neon DB. |
-| Object storage (images, voice notes) | ⚠️ Replit-hosted. Needs migration if Replit is fully removed. |
+| Object storage (images, voice notes) | ✅ Portable. Set `GOOGLE_CLOUD_STORAGE_CREDENTIALS` to use any GCS bucket without Replit. See Step 5. |
 | Replit OIDC login | ⚠️ Replit-specific. New environment needs its own auth or skip it. |
 | Replit workflow runner | ℹ️ Replaced by `npm run dev` directly. |
 | Agent token | ℹ️ Just a secret string. Re-set it in new environment. |

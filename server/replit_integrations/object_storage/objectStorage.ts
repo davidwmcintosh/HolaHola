@@ -11,24 +11,63 @@ import {
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
-// The object storage client is used to interact with the object storage service.
-export const objectStorageClient = new Storage({
-  credentials: {
-    audience: "replit",
-    subject_token_type: "access_token",
-    token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-    type: "external_account",
-    credential_source: {
-      url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-      format: {
-        type: "json",
-        subject_token_field_name: "access_token",
+/**
+ * Determines whether standard GCS credentials are configured.
+ *
+ * When GOOGLE_CLOUD_STORAGE_CREDENTIALS is set (a JSON service-account key),
+ * the app uses those credentials directly and does NOT need the Replit sidecar.
+ * This lets HolaHola run on any host (Claude Code, AWS, GCP, local dev, etc.).
+ *
+ * When the env var is absent the code falls back to the Replit sidecar so that
+ * existing Replit deployments keep working with zero config change.
+ */
+function isStandardGcsConfigured(): boolean {
+  return !!process.env.GOOGLE_CLOUD_STORAGE_CREDENTIALS;
+}
+
+function createStorageClient(): Storage {
+  const credentialsJson = process.env.GOOGLE_CLOUD_STORAGE_CREDENTIALS;
+  if (credentialsJson) {
+    try {
+      const credentials = JSON.parse(credentialsJson);
+      return new Storage({
+        credentials,
+        projectId:
+          credentials.project_id ||
+          process.env.GOOGLE_CLOUD_PROJECT_ID ||
+          "",
+      });
+    } catch (e) {
+      console.error(
+        "[ObjectStorage] Failed to parse GOOGLE_CLOUD_STORAGE_CREDENTIALS — " +
+          "falling back to Replit sidecar. Error:",
+        e
+      );
+    }
+  }
+
+  // Replit sidecar auth (backward-compatible default)
+  return new Storage({
+    credentials: {
+      audience: "replit",
+      subject_token_type: "access_token",
+      token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
+      type: "external_account",
+      credential_source: {
+        url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
+        format: {
+          type: "json",
+          subject_token_field_name: "access_token",
+        },
       },
+      universe_domain: "googleapis.com",
     },
-    universe_domain: "googleapis.com",
-  },
-  projectId: "",
-});
+    projectId: "",
+  });
+}
+
+// The object storage client is used to interact with the object storage service.
+export const objectStorageClient = createStorageClient();
 
 export class ObjectNotFoundError extends Error {
   constructor() {
@@ -55,8 +94,8 @@ export class ObjectStorageService {
     );
     if (paths.length === 0) {
       throw new Error(
-        "PUBLIC_OBJECT_SEARCH_PATHS not set. Create a bucket in 'Object Storage' " +
-          "tool and set PUBLIC_OBJECT_SEARCH_PATHS env var (comma-separated paths)."
+        "PUBLIC_OBJECT_SEARCH_PATHS not set. Create a bucket and set " +
+          "PUBLIC_OBJECT_SEARCH_PATHS env var (comma-separated paths)."
       );
     }
     return paths;
@@ -67,8 +106,7 @@ export class ObjectStorageService {
     const dir = process.env.PRIVATE_OBJECT_DIR || "";
     if (!dir) {
       throw new Error(
-        "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
-          "tool and set PRIVATE_OBJECT_DIR env var."
+        "PRIVATE_OBJECT_DIR not set. Create a bucket and set PRIVATE_OBJECT_DIR env var."
       );
     }
     return dir;
@@ -135,8 +173,7 @@ export class ObjectStorageService {
     const privateObjectDir = this.getPrivateObjectDir();
     if (!privateObjectDir) {
       throw new Error(
-        "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
-          "tool and set PRIVATE_OBJECT_DIR env var."
+        "PRIVATE_OBJECT_DIR not set. Create a bucket and set PRIVATE_OBJECT_DIR env var."
       );
     }
 
@@ -181,26 +218,24 @@ export class ObjectStorageService {
     return objectFile;
   }
 
-  normalizeObjectEntityPath(
-    rawPath: string,
-  ): string {
+  normalizeObjectEntityPath(rawPath: string): string {
     if (!rawPath.startsWith("https://storage.googleapis.com/")) {
       return rawPath;
     }
-  
+
     // Extract the path from the URL by removing query parameters and domain
     const url = new URL(rawPath);
     const rawObjectPath = url.pathname;
-  
+
     let objectEntityDir = this.getPrivateObjectDir();
     if (!objectEntityDir.endsWith("/")) {
       objectEntityDir = `${objectEntityDir}/`;
     }
-  
+
     if (!rawObjectPath.startsWith(objectEntityDir)) {
       return rawObjectPath;
     }
-  
+
     // Extract the entity ID from the path
     const entityId = rawObjectPath.slice(objectEntityDir.length);
     return `/objects/${entityId}`;
@@ -271,6 +306,26 @@ async function signObjectURL({
   method: "GET" | "PUT" | "DELETE" | "HEAD";
   ttlSec: number;
 }): Promise<string> {
+  // When standard GCS credentials are available, use the GCS library's built-in
+  // signed-URL generation (works on any host).
+  if (isStandardGcsConfigured()) {
+    const actionMap: Record<string, "read" | "write" | "delete"> = {
+      GET: "read",
+      PUT: "write",
+      DELETE: "delete",
+      HEAD: "read",
+    };
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+    const [url] = await file.getSignedUrl({
+      version: "v4",
+      action: actionMap[method] ?? "read",
+      expires: Date.now() + ttlSec * 1000,
+    });
+    return url;
+  }
+
+  // Replit sidecar path (original implementation).
   const request = {
     bucket_name: bucketName,
     object_name: objectName,
@@ -290,11 +345,10 @@ async function signObjectURL({
   if (!response.ok) {
     throw new Error(
       `Failed to sign object URL, errorcode: ${response.status}, ` +
-        `make sure you're running on Replit`
+        `make sure you're running on Replit or set GOOGLE_CLOUD_STORAGE_CREDENTIALS`
     );
   }
 
   const { signed_url: signedURL } = await response.json();
   return signedURL;
 }
-
