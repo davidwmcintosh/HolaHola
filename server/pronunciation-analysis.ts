@@ -1,8 +1,11 @@
 import OpenAI from "openai";
 
+// Prefer Replit AI integration proxy; fall back to direct OpenAI key in non-Replit environments.
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://api.openai.com/v1',
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+    || process.env.USER_OPENAI_API_KEY
+    || process.env.OPENAI_API_KEY,
 });
 
 export interface PronunciationAnalysis {

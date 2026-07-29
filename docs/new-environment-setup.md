@@ -71,17 +71,30 @@ ELEVENLABS_API_KEY=...                      # Fallback TTS
 GOOGLE_CLOUD_TTS_CREDENTIALS=...           # JSON string of GCP service account (Google Cloud TTS)
 ```
 
-### AI — Secondary (features degrade gracefully without these)
+### AI — Secondary (Replit proxy keys — optional outside Replit)
+
+These keys route through Replit's managed AI proxy. **Outside Replit they are not needed** — the code falls back to the direct keys listed above.
+
 ```
-AI_INTEGRATIONS_OPENAI_API_KEY=...         # OpenAI via Replit integration proxy (pronunciation)
+AI_INTEGRATIONS_OPENAI_API_KEY=...         # OpenAI via Replit proxy → falls back to USER_OPENAI_API_KEY / OPENAI_API_KEY
 AI_INTEGRATIONS_OPENAI_BASE_URL=https://api.openai.com/v1
-AI_INTEGRATIONS_ANTHROPIC_API_KEY=...      # Anthropic via Replit integration proxy
+AI_INTEGRATIONS_ANTHROPIC_API_KEY=...      # Anthropic via Replit proxy → falls back to ANTHROPIC_API_KEY
 AI_INTEGRATIONS_ANTHROPIC_BASE_URL=https://api.anthropic.com
-AI_INTEGRATIONS_GEMINI_API_KEY=...         # Gemini via Replit integration proxy
+AI_INTEGRATIONS_GEMINI_API_KEY=...         # Gemini via Replit proxy → falls back to GEMINI_API_KEY
 AI_INTEGRATIONS_GEMINI_BASE_URL=...
 ```
 
-> **Note:** If the `AI_INTEGRATIONS_*` proxy isn't available outside Replit, use the direct keys above instead. The codebase has fallbacks.
+**Fallback matrix:**
+
+| Proxy key | Falls back to | Used by |
+|-----------|---------------|---------|
+| `AI_INTEGRATIONS_OPENAI_API_KEY` | `USER_OPENAI_API_KEY` → `OPENAI_API_KEY` | pronunciation analysis, strip-card translations |
+| `AI_INTEGRATIONS_ANTHROPIC_API_KEY` | `ANTHROPIC_API_KEY` | dev scripts only — production Alden uses `ANTHROPIC_API_KEY` directly |
+| `AI_INTEGRATIONS_GEMINI_API_KEY` | `GEMINI_API_KEY` | dev scripts only (gemini-benchmark, daniela-consultation) |
+
+> **At startup**, the server runs a proxy reachability check (`server/services/proxy-startup-check.ts`).
+> If a proxy key is set but the base URL is unreachable, it logs a `[ProxyCheck] WARN` line and
+> names the direct-key fallback to use instead. The server always starts — this check never blocks boot.
 
 ### Payments
 ```

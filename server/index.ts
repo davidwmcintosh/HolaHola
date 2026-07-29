@@ -18,6 +18,7 @@ import { migrationOrchestrator } from "./migrations/migration-orchestrator";
 import { memoryRecoveryWorker } from "./services/memory-recovery-worker";
 import { supportPersonaService } from "./services/support-persona-service";
 import { warmupNeonPool } from "./neon-db";
+import { runProxyStartupChecks } from "./services/proxy-startup-check";
 
 const app = express();
 
@@ -622,6 +623,9 @@ app.use((req, res, next) => {
         console.warn('[CostTracker] Failed to wire DB persister:', err?.message);
       }
     })();
+
+    // Immediate: AI proxy reachability check (non-blocking, logs warnings only)
+    runProxyStartupChecks().catch(() => {/* non-fatal */});
 
     // Immediate: Hive Consciousness (lightweight event listener)
     hiveConsciousnessService.startListening();

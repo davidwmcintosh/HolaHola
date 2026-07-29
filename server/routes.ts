@@ -184,10 +184,13 @@ function getDeepgramClient(): ReturnType<typeof createClient> {
   return _deepgramClient;
 }
 
-// Keep OpenAI for legacy fallback during migration
+// Keep OpenAI for legacy fallback during migration.
+// Prefer Replit AI integration proxy; fall back to direct OpenAI key in non-Replit environments.
 const openai = new OpenAI({
   baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://api.openai.com/v1',
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
+    || process.env.USER_OPENAI_API_KEY
+    || process.env.OPENAI_API_KEY,
 });
 
 // Language name to ISO-639-1 code mapping for OpenAI Whisper API
