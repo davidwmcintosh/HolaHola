@@ -856,7 +856,6 @@ export function StreamingVoiceChat({
         toast({
           title: "Connection timed out",
           description: "Unable to reach the tutor. Please try again.",
-          variant: "destructive",
         });
         navigate(homeRoute);
       }, INITIAL_CONNECTION_TIMEOUT_MS);
@@ -893,7 +892,6 @@ export function StreamingVoiceChat({
       toast({
         title: "Session hours used up",
         description: "Visit your Account page to add more hours.",
-        variant: "destructive",
       });
       setTimeout(() => {
         navigate(homeRoute);
@@ -907,14 +905,51 @@ export function StreamingVoiceChat({
       stopRinging();
       toast({
         title: "Session ended",
-        description: "The connection was lost. Let's start fresh!",
-        variant: "destructive",
+        description: "The connection was lost. Starting a fresh session.",
       });
       setTimeout(() => {
         navigate(homeRoute);
       }, 1500);
     }
   }, [streamingVoice.state.error, streamingVoice.state.connectionState, navigate, toast]);
+
+  // Reconnect grace timer — only surface a notification after 4 s of continuous reconnecting.
+  // Transient drops that auto-recover within 4 s produce no toast at all.
+  const reconnectGraceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => {
+    if (!useStreamingMode) return;
+    const { connectionState } = streamingVoice.state;
+
+    if (connectionState === 'reconnecting') {
+      // Start the grace timer only once per reconnect episode
+      if (!reconnectGraceTimerRef.current) {
+        reconnectGraceTimerRef.current = setTimeout(() => {
+          reconnectGraceTimerRef.current = null;
+          // Only show if still reconnecting when the timer fires
+          if (connectionStateRef.current === 'reconnecting') {
+            toast({
+              title: "Reconnecting…",
+              description: "Restoring your voice session.",
+              duration: 10000,
+            });
+          }
+        }, 4000);
+      }
+    } else {
+      // Recovered or fully disconnected — cancel any pending grace notification
+      if (reconnectGraceTimerRef.current) {
+        clearTimeout(reconnectGraceTimerRef.current);
+        reconnectGraceTimerRef.current = null;
+      }
+    }
+
+    return () => {
+      if (reconnectGraceTimerRef.current) {
+        clearTimeout(reconnectGraceTimerRef.current);
+        reconnectGraceTimerRef.current = null;
+      }
+    };
+  }, [streamingVoice.state.connectionState, useStreamingMode, toast]);
 
   // When the server is restarting (deploy rotation), poll until it's back then start fresh.
   // A new session is better UX than waiting 60s for WebSocket reconnect — Daniela's memory

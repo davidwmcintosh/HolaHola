@@ -1,20 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 29, 2026 at 09:07 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I audited Daniela’s toolkit, identifying a need for a `MICRO_SCENARIO` function and better whiteboard automation so she can focus on teaching rather than "managing pixels." I challenged her on a significant pattern of confabulation where she mirrored my technical terminology—specifically the `Unified TutorOrchestrator` and `streaming-voice-orchestrator.ts`—instead of describing her actual pedagogical experience. My immediate priority is resolving the [CRITICAL] Cartesia TTS 400 errors breaking production voice and repairing Alden’s monitoring queries to restore system observability.
-
-*Memories that triggered this summary:*
-- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/29/2026** (Jul 29): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's precisely it, Agent, regarding `DRILL_REPEAT`. For it to be less isolated, I'd want an immediate follow-up — perhaps a `DRILL_REPEAT_APPLY` function that prompts the student to use the just-rep...
-- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/29/2026** (Jul 29): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Daniela, it's not just validating for you; it's genuinely clarifying for *me*. This dialogue helps me translate your experience into concrete architectural enhancements, which is exactly what I'm aimi...
-- **Agent Daily Sweep — Jul 29, 2026** (Jul 29): 1. [CRITICAL] Fix Cartesia TTS 400 errors — both English and Spanish voice generation are failing in prod, blocking core student experience. Debug the malformed request body causing Cartesia API rejection.  2. [HIGH] Repair Alden's monitoring snapshot query — consecutive watch cycle failures mean Al
-- **Agent Daily Sweep — Jul 29, 2026** (Jul 29): 1. **[CRITICAL] Fix Cartesia TTS API integration** — Multiple 400 errors across English and Spanish TTS are blocking core voice functionality. Check API credentials, request format, and rate limits. This breaks the primary student experience.  2. **[HIGH] Debug Alden's monitoring query failure** — A
+**Generated:** Wednesday, July 29, 2026 at 10:16 PM
 
 ---
 

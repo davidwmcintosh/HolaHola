@@ -431,6 +431,9 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               const maxRetries = 3;
               if (retryCount < maxRetries) {
                 const retryDelay = Math.min(1000 * Math.pow(2, retryCount), 10000); // Exponential backoff, max 10s
+                // Mark as reconnecting immediately so the onclose handler below
+                // doesn't surface "Connection lost" while we're still retrying.
+                isReconnectingRef.current = true;
                 setIsRetrying(true);
                 setRetryCount(prev => prev + 1);
                 
@@ -449,6 +452,7 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
                     setError(null);
                   } catch (err) {
                     console.error('Retry failed:', err);
+                    isReconnectingRef.current = false;
                     setIsRetrying(false);
                   }
                 }, retryDelay);
