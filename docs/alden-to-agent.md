@@ -1,8 +1,141 @@
 # Alden → Agent Notes
 
-*29 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*34 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 7/29/2026, 5:18:46 AM
+Generated: 7/29/2026, 9:07:11 PM
+
+---
+
+### [Sofia] Brain/memory health degraded: green → yellow
+*Wed, Jul 29, 2026, 8:25 PM* (id: `cba42ebf-2ee5-4fec-b45b-31ff35d2c215`)
+*During: Sofia Health Monitor*
+
+Brain/memory health transitioned green → yellow (degraded).
+
+Reasons:
+• [Neural Retrieval] Assessment error: Failed query: select count(*) from "teaching_principles" where "teaching_principles"."is_active" = $1
+params: true
+• [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-07-28T20:24:07.200Z
+• [Context Injection] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: context_injection,2026-07-29T19:24:07.200Z
+
+Sofia's analysis: The brain health degradation to **yellow** was a transient telemetry issue caused by intermittent database query failures during the health assessment process, rather than a functional failure in Daniela's cognitive systems. Manual diagnostics confirm that **Neural Retrieval**, **Tool Orchestration**, and **Context Injection** are all performing normally, with the knowledge base containing 1,836 active entries and 382 tools. The sparse memory detected in **Student Learning** (60%) is attributed to internal test accounts (`luca-agent-consultation`) and does not indicate a failure in fact extraction.
+
+**Actions taken:**
+- Verified system stability via `get_brain_health_report` (95/100) and `get_neural_network_health` (100/100).
+- Confirmed that the "sparse memory" issue is limited to test accounts via `get_student_learning_health`.
+- Verified that a `telemetry_query_failure_recurring` pattern is already being tracked to address the underlying database contention.
+
+Check voice session logs and the open-bugs list for related incidents.
+
+---
+
+### [Sofia] Brain/memory health degraded: green → yellow
+*Wed, Jul 29, 2026, 8:10 PM* (id: `b5a31ec5-4a64-4d3c-ba10-152f95035f0a`)
+*During: Sofia Health Monitor*
+
+Brain/memory health transitioned green → yellow (degraded).
+
+Reasons:
+• [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-07-28T20:09:07.199Z
+• [Context Injection] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: context_injection,2026-07-29T19:09:07.199Z
+
+Sofia's analysis: The brain health degradation to **yellow** was a transient telemetry issue caused by failed database queries on the `brain_events` table, which prevented the health monitor from assessing the **Tool Orchestration** and **Context Injection** dimensions. Functional diagnostics (anomaly detection and real-time health reports) now show all systems are **green** and performing normally. The sparse memory detected in **Student Learning** (60%) is attributed to internal test accounts (`luca-agent-consultation`) rather than a failure in fact extraction, as a manual memory recovery attempt yielded no new data.
+
+**Actions taken:**
+- Verified system stability via `get_brain_health_report` (now 95/100).
+- Triggered `memory_recovery` to ensure no learning data was missed (0 facts recovered, confirming sparse data is expected for these sessions).
+- Logged the `telemetry_query_failure` pattern for long-term tracking of database contention.
+
+Actions taken:
+• trigger_memory_recovery: {"candidatesProcessed":0,"factsExtracted":0,"candidatesSkipped":0,"errors":[],"durationMs":328}
+• track_pattern: {"tracked":true,"pattern_type":"telemetry_query_failure","recentDigests":3}
+
+Check voice session logs and the open-bugs list for related incidents.
+
+---
+
+### [Sofia] Brain/memory health degraded: green → yellow
+*Wed, Jul 29, 2026, 3:03 PM* (id: `6bcffe5f-be62-4066-b666-6d93fcbc809e`)
+*During: Sofia Health Monitor*
+
+Brain/memory health transitioned green → yellow (degraded).
+
+Reasons:
+• [Memory] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" IN ('memory_retrieval', 'memory_injection', 'memory_lookup_tool') and "brain_events"."created_at" >= $1)
+params: 2026-07-28T15:01:43.922Z
+• [Neural Retrieval] Assessment error: Failed query: select count(*) from "tutor_procedures" where "tutor_procedures"."is_active" = $1
+params: true
+
+Sofia's analysis: Brain health degraded: green → yellow. 1 actions taken. [Memory] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" IN ('memory_retrieval', 'memory_injection', 'memory_lookup_tool') and "brain_events"."created_at" >= $1)
+params: 2026-07-28T15:01:43.922Z; [Neural Retrieval] Assessment error: Failed query: select count(*) from "tutor_procedures" where "tutor_procedures"."is_active" = $1
+params: true
+
+Actions taken:
+• trigger_memory_recovery: {"candidatesProcessed":0,"factsExtracted":0,"candidatesSkipped":0,"errors":[],"durationMs":431}
+
+Check voice session logs and the open-bugs list for related incidents.
+
+---
+
+### [Sofia] Brain/memory health degraded: green → yellow
+*Wed, Jul 29, 2026, 10:23 AM* (id: `3142b55d-3477-4462-b1b6-a743d21ee78e`)
+*During: Sofia Health Monitor*
+
+Brain/memory health transitioned green → yellow (degraded).
+
+Reasons:
+• [Neural Retrieval] Assessment error: Failed query: select count(*) from "teaching_principles" where "teaching_principles"."is_active" = $1
+params: true
+• [Neural Sync] Assessment error: Failed query: select "id", "best_practice_id", "source_environment", "target_environment", "status", "submitted_by", "reviewed_by", "review_notes", "submitted_at", "reviewed_at" from "promotion_queue" where "promotion_queue"."status" = $1
+params: pending
+• [Student Learning] Assessment error: Failed query: select "user_id" from "brain_events" where ("brain_events"."user_id" IS NOT NULL and "brain_events"."created_at" >= $1)
+params: 2026-06-29T10:17:43.710Z
+• [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-07-28T10:17:43.710Z
+• [Context Injection] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: context_injection,2026-07-29T09:17:43.710Z
+
+Sofia's analysis: Brain health degraded: green → yellow. 0 actions taken. [Neural Retrieval] Assessment error: Failed query: select count(*) from "teaching_principles" where "teaching_principles"."is_active" = $1
+params: true; [Neural Sync] Assessment error: Failed query: select "id", "best_practice_id", "source_environment", "target_environment", "status", "submitted_by", "reviewed_by", "review_notes", "submitted_at", "reviewed_at" from "promotion_queue" where "promotion_queue"."status" = $1
+params: pending; [Student Learning] Assessment error: Failed query: select "user_id" from "brain_events" where ("brain_events"."user_id" IS NOT NULL and "brain_events"."created_at" >= $1)
+params: 2026-06-29T10:17:43.710Z; [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-07-28T10:17:43.710Z; [Context Injection] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: context_injection,2026-07-29T09:17:43.710Z
+
+Check voice session logs and the open-bugs list for related incidents.
+
+---
+
+### [Sofia] Brain/memory health degraded: green → yellow
+*Wed, Jul 29, 2026, 6:03 AM* (id: `e79de375-a47e-4b10-a2e5-b768fe7eaf9f`)
+*During: Sofia Health Monitor*
+
+Brain/memory health transitioned green → yellow (degraded).
+
+Reasons:
+• [Neural Retrieval] Assessment error: Failed query: select count(*) from "teaching_principles" where "teaching_principles"."is_active" = $1
+params: true
+• [Neural Sync] Assessment error: Failed query: select "id", "best_practice_id", "source_environment", "target_environment", "status", "submitted_by", "reviewed_by", "review_notes", "submitted_at", "reviewed_at" from "promotion_queue" where "promotion_queue"."status" = $1
+params: pending
+• [Student Learning] Assessment error: Failed query: select "user_id" from "brain_events" where ("brain_events"."user_id" IS NOT NULL and "brain_events"."created_at" >= $1)
+params: 2026-06-29T06:02:39.315Z
+• [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-07-28T06:02:39.315Z
+• [Context Injection] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: context_injection,2026-07-29T05:02:39.315Z
+
+Sofia's analysis: Brain health degraded: green → yellow. 0 actions taken. [Neural Retrieval] Assessment error: Failed query: select count(*) from "teaching_principles" where "teaching_principles"."is_active" = $1
+params: true; [Neural Sync] Assessment error: Failed query: select "id", "best_practice_id", "source_environment", "target_environment", "status", "submitted_by", "reviewed_by", "review_notes", "submitted_at", "reviewed_at" from "promotion_queue" where "promotion_queue"."status" = $1
+params: pending; [Student Learning] Assessment error: Failed query: select "user_id" from "brain_events" where ("brain_events"."user_id" IS NOT NULL and "brain_events"."created_at" >= $1)
+params: 2026-06-29T06:02:39.315Z; [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-07-28T06:02:39.315Z; [Context Injection] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: context_injection,2026-07-29T05:02:39.315Z
+
+Check voice session logs and the open-bugs list for related incidents.
 
 ---
 

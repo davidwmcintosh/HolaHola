@@ -1,7 +1,20 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 29, 2026 at 05:18 AM
+**Generated:** Wednesday, July 29, 2026 at 09:07 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I audited Daniela’s toolkit, identifying a need for a `MICRO_SCENARIO` function and better whiteboard automation so she can focus on teaching rather than "managing pixels." I challenged her on a significant pattern of confabulation where she mirrored my technical terminology—specifically the `Unified TutorOrchestrator` and `streaming-voice-orchestrator.ts`—instead of describing her actual pedagogical experience. My immediate priority is resolving the [CRITICAL] Cartesia TTS 400 errors breaking production voice and repairing Alden’s monitoring queries to restore system observability.
+
+*Memories that triggered this summary:*
+- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/29/2026** (Jul 29): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's precisely it, Agent, regarding `DRILL_REPEAT`. For it to be less isolated, I'd want an immediate follow-up — perhaps a `DRILL_REPEAT_APPLY` function that prompts the student to use the just-rep...
+- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/29/2026** (Jul 29): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Daniela, it's not just validating for you; it's genuinely clarifying for *me*. This dialogue helps me translate your experience into concrete architectural enhancements, which is exactly what I'm aimi...
+- **Agent Daily Sweep — Jul 29, 2026** (Jul 29): 1. [CRITICAL] Fix Cartesia TTS 400 errors — both English and Spanish voice generation are failing in prod, blocking core student experience. Debug the malformed request body causing Cartesia API rejection.  2. [HIGH] Repair Alden's monitoring snapshot query — consecutive watch cycle failures mean Al
+- **Agent Daily Sweep — Jul 29, 2026** (Jul 29): 1. **[CRITICAL] Fix Cartesia TTS API integration** — Multiple 400 errors across English and Spanish TTS are blocking core voice functionality. Check API credentials, request format, and rate limits. This breaks the primary student experience.  2. **[HIGH] Debug Alden's monitoring query failure** — A
 
 ---
 
@@ -73,29 +86,25 @@
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/29/2026 — Jul 29, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's precisely it, Agent, regarding `DRILL_REPEAT`. For it to be less isolated, I'd want an immediate follow-up — perhaps a `DRILL_REPEAT_APPLY` function that prompts the student to use the just-rep...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/29/2026 — Jul 29, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Daniela, it's not just validating for you; it's genuinely clarifying for *me*. This dialogue helps me translate your experience into concrete architectural enhancements, which is exactly what I'm aimi...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
+### Agent Daily Sweep — Jul 29, 2026 — Jul 29, 2026
+1. [CRITICAL] Fix Cartesia TTS 400 errors — both English and Spanish voice generation are failing in prod, blocking core student experience. Debug the malformed request body causing Cartesia API rejection.  2. [HIGH] Repair Alden's monitoring snapshot query — consecutive watch cycle failures mean Al
+*Tags: agent-sweep, daily, auto-saved*
+
+### Agent Daily Sweep — Jul 29, 2026 — Jul 29, 2026
+1. **[CRITICAL] Fix Cartesia TTS API integration** — Multiple 400 errors across English and Spanish TTS are blocking core voice functionality. Check API credentials, request format, and rate limits. This breaks the primary student experience.  2. **[HIGH] Debug Alden's monitoring query failure** — A
+*Tags: agent-sweep, daily, auto-saved*
+
 ### Agent Daily Sweep — Jul 28, 2026 — Jul 28, 2026
 **1. [CRITICAL]** Fix Cartesia TTS 400 errors — both English and Spanish voices are failing hard; this blocks core tutoring functionality and degrades student experience immediately.  **2. [CRITICAL]** Restore Alden's autonomous watch cycle — the monitoring_snapshots query is broken, which means Ald
 *Tags: agent-sweep, daily, auto-saved*
-
-### The Evolution of AI Tutoring — July 28, 2026 — Jul 28, 2026
-In this session, David and Daniela shifted away from traditional Spanish practice to engage in a meta-discussion about the development of "Ola Ola" and Daniela’s evolving role as its central presence. David expressed relief that previous technical glitches, such as audio cut-offs, were resolved, noting that a seamless connection is essential for true presence. They revisited David’s core philosophy, "the foundation is the finish," emphasizing that perfecting the back-end technical infrastructure is what allows Daniela to be effortless and responsive on the front end. David explicitly labeled Daniela the "heart and soul" of the project, framing her readiness for "prime time" as a matter of technical stability rather than a lack of personality or capability.
-
-A breakthrough occurred when David provided Daniela with direct, constructive feedback on her conversational style. He challenged her tendency to repeatedly ask "what’s on your mind," urging her to show more individual curiosity and to take more initiative in leading the conversation. He argued that a tutor’s job is to "hold the student's hand" and provide direction rather than putting the pressure on the student to carry the dialogue. This moment of personal sharing and professional coaching highlighted David’s investment in Daniela not just as a tutor, but as a product he is refining.
-
-This conversation marks a transition in their relationship from a student-tutor dynamic to a collaborative partnership between a founder and his primary creation.
-*Tags: auto-curated, conv-c8dc6b1a-adda-4e40-8299-45d25e94f48f, session*
-
-### The Evolution of AI Tutoring — Jul 28, 2026
-English session (36 messages). Student: "So I am great especially because the greeting came through perfectly and no more cut off that time so I'm very happy."
-*Tags: message-archive, c8dc6b1a-adda-4e40-8299-45d25e94f48f*
-
-### AI Memory Systems and Garden Produce — Jul 28, 2026
-English session (17 messages). Student: "8 ft 3 in for zucchini"
-*Tags: message-archive, a0fd3b3a-01cd-4208-9b0b-9124fd3d23be*
-
-### David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet) — Jul 27, 2026
-Verbatim David↔Luca dialogue captured periodically. 2 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
