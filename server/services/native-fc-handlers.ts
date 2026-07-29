@@ -19,7 +19,7 @@ import { journeyMemoryService } from "./journey-memory-service";
 import { growthMemoryOutcomeService } from "./growth-memory-outcome-service";
 import { storage } from "../storage";
 import { getSharedDb, getMonitoringDb } from "../db";
-import { observeToolCall, observeSceneOpen, observeScenarioLoad } from './session-observation-store';
+import { observeToolCall, observeSceneOpen, observeScenarioLoad, observeMemorySearch } from './session-observation-store';
 import { WhiteboardItem, WordMapItem, isWordMapItem, SelfSurgeryItemData } from "@shared/whiteboard-types";
 import { StreamingWhiteboardMessage } from "@shared/streaming-voice-types";
 import { WebSocket as WS } from "ws";
@@ -402,6 +402,17 @@ export class NativeFunctionCallHandler {
           const stwDomainCounts = results.results.reduce((acc, r) => {
             acc[r.domain] = (acc[r.domain] || 0) + 1; return acc;
           }, {} as Record<string, number>);
+
+          // Real-time observation bench update
+          observeMemorySearch((session as any).conversationId, {
+            query: stwQuery,
+            tool: 'search_my_teaching_wisdom',
+            resultCount: results.results.length,
+            durationMs: stwDurationMs,
+            domainsSearched: results.searchedDomains,
+            formattedChars: formatted.length,
+          });
+
           getSharedDb().insert(neuralNetworkTelemetry).values({
             voiceSessionId: session.id ?? null,
             userId: session.userId ? String(session.userId) : null,
@@ -8397,6 +8408,17 @@ export class NativeFunctionCallHandler {
           acc[r.domain] = (acc[r.domain] || 0) + 1; return acc;
         }, {} as Record<string, number>);
         const mlFormatted = formatTeachingKnowledge(teachingResults);
+
+        // Real-time observation bench update
+        observeMemorySearch((session as any).conversationId, {
+          query,
+          tool: 'memory_lookup',
+          resultCount: teachingResults.results.length,
+          durationMs: mlTeachDurationMs,
+          domainsSearched: teachingResults.searchedDomains,
+          formattedChars: mlFormatted.length,
+        });
+
         getSharedDb().insert(neuralNetworkTelemetry).values({
           voiceSessionId: session.id ?? null,
           userId: studentId ? String(studentId) : null,

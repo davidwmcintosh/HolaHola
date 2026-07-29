@@ -27,6 +27,16 @@ export interface GuardianFireRecord {
   groundingPreview: string | null;
 }
 
+export interface MemorySearchRecord {
+  ts: number;
+  query: string;
+  tool: string;               // 'memory_lookup' | 'search_my_teaching_wisdom' | 'recall' etc.
+  resultCount: number;
+  durationMs: number;
+  domainsSearched: string[];
+  formattedChars: number;
+}
+
 export interface SessionObservation {
   conversationId: string;
   userId: string;
@@ -43,6 +53,8 @@ export interface SessionObservation {
   // Archive Guardian A/B state
   guardianChannel: 'concat' | 'dedicated';
   guardianFireLog: GuardianFireRecord[];
+  // Neural net memory searches (last 20)
+  recentMemorySearches: MemorySearchRecord[];
 }
 
 const store = new Map<string, SessionObservation>();
@@ -77,6 +89,7 @@ export function observeSessionStart(opts: {
     sessionStartedMs: existing?.sessionStartedMs ?? now(),
     guardianChannel: existing?.guardianChannel ?? 'concat',
     guardianFireLog: existing?.guardianFireLog ?? [],
+    recentMemorySearches: existing?.recentMemorySearches ?? [],
   });
 }
 
@@ -127,6 +140,25 @@ export function observeScenarioLoad(conversationId: string, slug: string): void 
   entry.scenarioSlug = slug;
   entry.sceneEnvironment = null;
   entry.sceneProps = [];
+  entry.lastUpdatedMs = now();
+}
+
+/**
+ * Record a neural-net memory or teaching-knowledge search into the observation
+ * store so it surfaces in real-time at GET /api/admin/luca/observe.
+ * Called from native-fc-handlers whenever searchTeachingKnowledge completes.
+ */
+export function observeMemorySearch(
+  conversationId: string | undefined,
+  record: Omit<MemorySearchRecord, 'ts'>,
+): void {
+  if (!conversationId) return;
+  const entry = touch(conversationId);
+  if (!entry) return;
+  entry.recentMemorySearches = [
+    { ...record, ts: now() },
+    ...entry.recentMemorySearches,
+  ].slice(0, 20);
   entry.lastUpdatedMs = now();
 }
 

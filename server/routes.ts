@@ -26967,6 +26967,16 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
           carryForwardBufferedCount: observation.guardianFireLog.filter(f => f.path === 'carry-forward-buffered').length,
           carryForwardInjectedCount: observation.guardianFireLog.filter(f => f.path === 'carry-forward-injected').length,
         },
+        // Neural-net memory searches — real-time feed from searchTeachingKnowledge calls
+        recentMemorySearches: (observation.recentMemorySearches ?? []).slice(0, 10).map(s => ({
+          secsAgo:       Math.round((Date.now() - s.ts) / 1000),
+          tool:          s.tool,
+          query:         s.query.slice(0, 80),
+          resultCount:   s.resultCount,
+          durationMs:    s.durationMs,
+          domainsHit:    s.domainsSearched,
+          formattedChars: s.formattedChars,
+        })),
       });
     } catch (err: any) {
       console.error('[Luca Observe] Error:', err.message);
