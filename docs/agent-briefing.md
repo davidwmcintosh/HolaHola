@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 29, 2026 at 04:18 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I must immediately resolve the Cartesia TTS 400 errors affecting English and Spanish voices and restore Alden’s autonomous watch cycle by fixing the `monitoring_snapshots` schema mismatch. After stabilizing these critical systems, I need to investigate the zero-quality-score student anomaly to ensure our tutoring data integrity isn't masking deeper platform issues. My next steps involve prioritizing these fixes before moving to the conversation memory tagging and "White Wall Defense" arcs flagged in the build queue.
-
-*Memories that triggered this summary:*
-- **Agent Daily Sweep — Jul 28, 2026** (Jul 28): **1. [CRITICAL]** Fix Cartesia TTS 400 errors — both English and Spanish voices are failing hard; this blocks core tutoring functionality and degrades student experience immediately.  **2. [CRITICAL]** Restore Alden's autonomous watch cycle — the monitoring_snapshots query is broken, which means Ald
+**Generated:** Wednesday, July 29, 2026 at 05:18 AM
 
 ---
 
