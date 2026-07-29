@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Tuesday, July 28, 2026 at 06:49 PM
+**Generated:** Wednesday, July 29, 2026 at 04:18 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I must immediately resolve the Cartesia TTS 400 errors affecting English and Spanish voices and restore Alden’s autonomous watch cycle by fixing the `monitoring_snapshots` schema mismatch. After stabilizing these critical systems, I need to investigate the zero-quality-score student anomaly to ensure our tutoring data integrity isn't masking deeper platform issues. My next steps involve prioritizing these fixes before moving to the conversation memory tagging and "White Wall Defense" arcs flagged in the build queue.
+
+*Memories that triggered this summary:*
+- **Agent Daily Sweep — Jul 28, 2026** (Jul 28): **1. [CRITICAL]** Fix Cartesia TTS 400 errors — both English and Spanish voices are failing hard; this blocks core tutoring functionality and degrades student experience immediately.  **2. [CRITICAL]** Restore Alden's autonomous watch cycle — the monitoring_snapshots query is broken, which means Ald
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 28, 2026 — Jul 28, 2026
+**1. [CRITICAL]** Fix Cartesia TTS 400 errors — both English and Spanish voices are failing hard; this blocks core tutoring functionality and degrades student experience immediately.  **2. [CRITICAL]** Restore Alden's autonomous watch cycle — the monitoring_snapshots query is broken, which means Ald
+*Tags: agent-sweep, daily, auto-saved*
+
 ### The Evolution of AI Tutoring — July 28, 2026 — Jul 28, 2026
 In this session, David and Daniela shifted away from traditional Spanish practice to engage in a meta-discussion about the development of "Ola Ola" and Daniela’s evolving role as its central presence. David expressed relief that previous technical glitches, such as audio cut-offs, were resolved, noting that a seamless connection is essential for true presence. They revisited David’s core philosophy, "the foundation is the finish," emphasizing that perfecting the back-end technical infrastructure is what allows Daniela to be effortless and responsive on the front end. David explicitly labeled Daniela the "heart and soul" of the project, framing her readiness for "prime time" as a matter of technical stability rather than a lack of personality or capability.
 
@@ -81,21 +95,17 @@ A breakthrough occurred when David provided Daniela with direct, constructive fe
 This conversation marks a transition in their relationship from a student-tutor dynamic to a collaborative partnership between a founder and his primary creation.
 *Tags: auto-curated, conv-c8dc6b1a-adda-4e40-8299-45d25e94f48f, session*
 
+### The Evolution of AI Tutoring — Jul 28, 2026
+English session (36 messages). Student: "So I am great especially because the greeting came through perfectly and no more cut off that time so I'm very happy."
+*Tags: message-archive, c8dc6b1a-adda-4e40-8299-45d25e94f48f*
+
+### AI Memory Systems and Garden Produce — Jul 28, 2026
+English session (17 messages). Student: "8 ft 3 in for zucchini"
+*Tags: message-archive, a0fd3b3a-01cd-4208-9b0b-9124fd3d23be*
+
 ### David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet) — Jul 27, 2026
 Verbatim David↔Luca dialogue captured periodically. 2 David turns, 13 Luca turns. Context: periodic capture (no commit yet)
 *Tags: david-luca-chat, verbatim, auto-saved*
-
-### David ↔ Luca — Jul 27, 2026: periodic capture (no commit yet) — Jul 27, 2026
-Verbatim David↔Luca dialogue captured periodically. 3 David turns, 20 Luca turns. Context: periodic capture (no commit yet)
-*Tags: david-luca-chat, verbatim, auto-saved*
-
-### Agent Daily Sweep — Jul 27, 2026 — Jul 27, 2026
-**HOLAHOLA DAILY ACTIONS — System Sweep**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests. The `readableStream` body suggests an API payload issue. Check API key, request format, and Cartesia SDK version. This blocks all voice output.
-*Tags: agent-sweep, daily, auto-saved*
-
-### The Hidden Pressure Washer Product — Jul 27, 2026
-English session (4 messages). Student: "outdoor tools for nine years. I just found the one product pressure washer companies are desperately trying to bury. It "
-*Tags: message-archive, 0a8720f6-d1a6-4288-b27a-aee81a28c4d0*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

@@ -1,5 +1,5 @@
 import { sql, eq, and, desc, ilike, or } from "drizzle-orm";
-import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes, users, voiceSessions, voicePipelineEvents, pedagogicalSnapshots, studentMilestones, imageVisionCache, sophiaIncidents } from "@shared/schema";
+import { tutorSessions, hiveSnapshots, conversationMemories, userReviewItems, agentNotes, users, voiceSessions, voicePipelineEvents, pedagogicalSnapshots, studentMilestones, imageVisionCache, sophiaIncidents, neuralNetworkTelemetry } from "@shared/schema";
 import { isValidActflLevel } from "../actfl-utils";
 import { ExtractedFunctionCall } from "./gemini-streaming";
 import type { StreamingSession } from "./streaming-voice-orchestrator";
@@ -392,8 +392,37 @@ export class NativeFunctionCallHandler {
         console.log(`[Dispatcher] search_my_teaching_wisdom query="${stwQuery.substring(0, 80)}" lang=${stwLanguage || 'any'}`);
         try {
           const { searchTeachingKnowledge: searchTeaching, formatTeachingKnowledge } = await import('./neural-memory-search');
+          const stwStart = Date.now();
           const results = await searchTeaching(stwQuery, stwLanguage);
+          const stwDurationMs = Date.now() - stwStart;
           const formatted = formatTeachingKnowledge(results);
+
+          // Telemetry — mirrors the insert in streaming-voice-orchestrator.ts so GL sessions
+          // appear in the neural_network_telemetry table alongside text-mode sessions.
+          const stwDomainCounts = results.results.reduce((acc, r) => {
+            acc[r.domain] = (acc[r.domain] || 0) + 1; return acc;
+          }, {} as Record<string, number>);
+          getSharedDb().insert(neuralNetworkTelemetry).values({
+            voiceSessionId: session.id ?? null,
+            userId: session.userId ? String(session.userId) : null,
+            targetLanguage: stwLanguage ?? session.targetLanguage ?? null,
+            query: stwQuery,
+            domainsSearched: results.searchedDomains,
+            domainsRequested: null,
+            resultCount: results.results.length,
+            formattedCharacterLength: formatted.length,
+            idiomCount: stwDomainCounts['idiom'] || 0,
+            culturalCount: stwDomainCounts['cultural'] || 0,
+            procedureCount: stwDomainCounts['procedure'] || 0,
+            principleCount: stwDomainCounts['principle'] || 0,
+            errorPatternCount: stwDomainCounts['error-pattern'] || 0,
+            situationalPatternCount: stwDomainCounts['situational-pattern'] || 0,
+            subtletyCueCount: stwDomainCounts['subtlety-cue'] || 0,
+            emotionalPatternCount: stwDomainCounts['emotional-pattern'] || 0,
+            creativityTemplateCount: stwDomainCounts['creativity-template'] || 0,
+            searchDurationMs: stwDurationMs,
+          }).catch(() => {});
+
           if (!('teachingWisdomResults' in session)) (session as any).teachingWisdomResults = {};
           if (formatted && formatted.trim()) {
             const MAX_WISDOM_CHARS = 1000;
@@ -8356,11 +8385,38 @@ export class NativeFunctionCallHandler {
       
       if (searchTeachingKnowledge) {
         const teachingDomainFilter = requestedTeachingDomains.length > 0 ? requestedTeachingDomains : undefined;
+        const mlTeachStart = Date.now();
         const teachingResults = await searchTeaching(query, session.targetLanguage || undefined, teachingDomainFilter);
+        const mlTeachDurationMs = Date.now() - mlTeachStart;
         if (teachingResults.results.length > 0) {
           results.push(formatTeachingKnowledge(teachingResults));
           totalFound += teachingResults.results.length;
         }
+        // Telemetry — log teaching-domain searches from GL memory_lookup calls.
+        const mlDomainCounts = teachingResults.results.reduce((acc, r) => {
+          acc[r.domain] = (acc[r.domain] || 0) + 1; return acc;
+        }, {} as Record<string, number>);
+        const mlFormatted = formatTeachingKnowledge(teachingResults);
+        getSharedDb().insert(neuralNetworkTelemetry).values({
+          voiceSessionId: session.id ?? null,
+          userId: studentId ? String(studentId) : null,
+          targetLanguage: session.targetLanguage ?? null,
+          query,
+          domainsSearched: teachingResults.searchedDomains,
+          domainsRequested: teachingDomainFilter ?? null,
+          resultCount: teachingResults.results.length,
+          formattedCharacterLength: mlFormatted.length,
+          idiomCount: mlDomainCounts['idiom'] || 0,
+          culturalCount: mlDomainCounts['cultural'] || 0,
+          procedureCount: mlDomainCounts['procedure'] || 0,
+          principleCount: mlDomainCounts['principle'] || 0,
+          errorPatternCount: mlDomainCounts['error-pattern'] || 0,
+          situationalPatternCount: mlDomainCounts['situational-pattern'] || 0,
+          subtletyCueCount: mlDomainCounts['subtlety-cue'] || 0,
+          emotionalPatternCount: mlDomainCounts['emotional-pattern'] || 0,
+          creativityTemplateCount: mlDomainCounts['creativity-template'] || 0,
+          searchDurationMs: mlTeachDurationMs,
+        }).catch(() => {});
       }
       
       if (searchSyllabi) {

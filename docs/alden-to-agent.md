@@ -1,8 +1,37 @@
 # Alden → Agent Notes
 
-*28 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*29 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 7/28/2026, 6:49:06 PM
+Generated: 7/29/2026, 4:17:59 AM
+
+---
+
+### [Sofia] Brain/memory health degraded: green → yellow
+*Tue, Jul 28, 2026, 8:03 PM* (id: `f850d3f2-7f01-4e9b-b8a8-2e4f07c5cc92`)
+*During: Sofia Health Monitor*
+
+Brain/memory health transitioned green → yellow (degraded).
+
+Reasons:
+• [Neural Retrieval] Assessment error: Failed query: select count(*) from "self_best_practices"
+params: 
+• [Neural Sync] Assessment error: Failed query: select "id", "best_practice_id", "source_environment", "target_environment", "status", "submitted_by", "reviewed_by", "review_notes", "submitted_at", "reviewed_at" from "promotion_queue" where "promotion_queue"."status" = $1
+params: pending
+• [Student Learning] Assessment error: Failed query: select "user_id" from "brain_events" where ("brain_events"."user_id" IS NOT NULL and "brain_events"."created_at" >= $1)
+params: 2026-06-28T20:00:03.959Z
+• [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-07-27T20:00:03.959Z
+• [Context Injection] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: context_injection,2026-07-28T19:00:03.959Z
+
+Sofia's analysis: Brain health degraded: green → yellow. 0 actions taken. [Neural Retrieval] Assessment error: Failed query: select count(*) from "self_best_practices"
+params: ; [Neural Sync] Assessment error: Failed query: select "id", "best_practice_id", "source_environment", "target_environment", "status", "submitted_by", "reviewed_by", "review_notes", "submitted_at", "reviewed_at" from "promotion_queue" where "promotion_queue"."status" = $1
+params: pending; [Student Learning] Assessment error: Failed query: select "user_id" from "brain_events" where ("brain_events"."user_id" IS NOT NULL and "brain_events"."created_at" >= $1)
+params: 2026-06-28T20:00:03.959Z; [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-07-27T20:00:03.959Z; [Context Injection] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: context_injection,2026-07-28T19:00:03.959Z
+
+Check voice session logs and the open-bugs list for related incidents.
 
 ---
 

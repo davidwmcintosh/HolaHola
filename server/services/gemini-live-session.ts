@@ -382,12 +382,31 @@ export class GeminiLiveSession {
     outcome: 'heard' | 'missed' | null;
     groundingPreview: string | null;   // first 150 chars of what was actually injected
   }> = [];
+  /** Tracks how many guardianFireLog entries have already been persisted to voice_pipeline_events. */
+  private _guardianLoggedCount = 0;
 
-  /** Push current guardian state to the observation store so Luca's observe endpoint reflects it live. */
+  /** Push current guardian state to the observation store so Luca's observe endpoint reflects it live.
+   *  Also persists any new fire-log entries to voice_pipeline_events immediately so they survive
+   *  session crashes — does not wait for stop() to flush. */
   private _observeGuardian(): void {
     const conversationId = (this.session as any).conversationId as string | undefined;
     if (!conversationId) return;
     observeGuardianState(conversationId, this.guardianChannel, this.guardianFireLog);
+
+    // Persist any newly appended entries to voice_pipeline_events in real-time.
+    const newEntries = this.guardianFireLog.slice(this._guardianLoggedCount);
+    if (!newEntries.length) return;
+    this._guardianLoggedCount = this.guardianFireLog.length;
+
+    const sessionId = this.session.id;
+    const userId = this.session.userId ? String(this.session.userId) : null;
+    for (const entry of newEntries) {
+      const payload = JSON.stringify({ ...entry, conversationId });
+      getSharedDb().execute(sql`
+        INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
+        VALUES (gen_random_uuid(), ${sessionId}, ${userId}, 'gl_guardian_fire', ${payload}::jsonb, NOW())
+      `).catch(() => {});
+    }
   }
 
   private static readonly WHISPER_INTERVAL = 8;
@@ -1695,19 +1714,28 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     if (this.session.conversationId) {
       observeSessionEnd(this.session.conversationId);
     }
-    // Persist Guardian metrics to voice_sessions so AldenWatch can monitor patterns
+    // Persist Guardian metrics to voice_sessions so AldenWatch can monitor patterns.
+    // Wrapped in an awaited async IIFE so the DB write completes before the JS event loop
+    // moves on — previously fire-and-forget caused the write to be silently lost.
     if (this.guardianFireLog.length > 0 && this.session.id) {
       const gFires   = this.guardianFireLog.length;
       const gHard    = this.guardianFireLog.filter(f => f.path === 'hard-wall').length;
       const gHeard   = this.guardianFireLog.filter(f => f.outcome === 'heard').length;
       const gMissed  = this.guardianFireLog.filter(f => f.outcome === 'missed').length;
       const gCarry   = this.guardianFireLog.filter(f => f.path === 'carry-forward-buffered').length;
-      getSharedDb()
-        .update(voiceSessions)
-        .set({ guardianFires: gFires, guardianHardWalls: gHard, guardianHeard: gHeard, guardianMissed: gMissed, guardianCarryForward: gCarry })
-        .where(eq(voiceSessions.id, this.session.id))
-        .execute()
-        .catch(err => console.warn('[GeminiLive] Guardian summary write failed:', err.message));
+      const sessionIdForGuardian = this.session.id;
+      void (async () => {
+        try {
+          await getSharedDb()
+            .update(voiceSessions)
+            .set({ guardianFires: gFires, guardianHardWalls: gHard, guardianHeard: gHeard, guardianMissed: gMissed, guardianCarryForward: gCarry })
+            .where(eq(voiceSessions.id, sessionIdForGuardian))
+            .execute();
+          console.log(`[GeminiLive] Guardian stats persisted — fires:${gFires} heard:${gHeard} missed:${gMissed} hard:${gHard} carry:${gCarry}`);
+        } catch (err: any) {
+          console.warn('[GeminiLive] Guardian summary write failed:', err.message);
+        }
+      })();
     }
     if (!this.session.isIncognito && this.session.conversationId) {
       import('./shadow-auditor').then(({ runShadowAudit }) => {
@@ -3316,7 +3344,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           if (!this.session.toolCallTrace) this.session.toolCallTrace = [];
           const startMs = toolStartTimes.get(fcName) ?? Date.now();
           const callDurationMs = Date.now() - startMs;
-          const resultStr = toolErrors.has(fcName)
+          const isToolError = toolErrors.has(fcName);
+          const resultStr = isToolError
             ? `ERROR: ${toolErrors.get(fcName)}`
             : JSON.stringify(toolResponsePayload).slice(0, 200);
           this.session.toolCallTrace.push({
@@ -3325,12 +3354,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             resultPreview: resultStr,
             durationMs: callDurationMs,
             timestamp: Date.now(),
-            status: toolErrors.has(fcName) ? 'error' : 'ok',
+            status: isToolError ? 'error' : 'ok',
           });
           if (this.session.toolCallTrace.length > 20) this.session.toolCallTrace.shift();
 
           // Persist success with timing — failures were already reported in Phase 1.
-          if (!toolErrors.has(fcName)) {
+          if (!isToolError) {
             reportGlToolCallSuccess({
               toolName: fcName,
               sessionId: this.session.id,
@@ -3340,6 +3369,32 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               durationMs: callDurationMs,
             }).catch(() => {});
           }
+
+          // ── Full GL tool-call record → voice_pipeline_events ────────────────
+          // Captures every tool invocation with args, result, duration, and
+          // success/failure so the founder dashboard can audit exactly what
+          // Daniela called and what came back during any session.
+          const toolEventPayload = JSON.stringify({
+            toolName: fcName,
+            legacyType: extractedFc.legacyType,
+            status: isToolError ? 'error' : 'ok',
+            durationMs: callDurationMs,
+            argsPreview: JSON.stringify(extractedFc.args ?? {}).slice(0, 300),
+            resultPreview: resultStr.slice(0, 500),
+            conversationId: this.session.conversationId ?? null,
+            turnId: this.currentTurnId,
+          });
+          getSharedDb().execute(sql`
+            INSERT INTO voice_pipeline_events (id, session_id, user_id, event_type, event_data, created_at)
+            VALUES (
+              gen_random_uuid(),
+              ${this.session.id},
+              ${this.session.userId ? String(this.session.userId) : null},
+              'gl_tool_call',
+              ${toolEventPayload}::jsonb,
+              NOW()
+            )
+          `).catch(() => {});
         }
 
         responses.push({
