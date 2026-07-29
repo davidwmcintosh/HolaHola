@@ -916,6 +916,9 @@ export function StreamingVoiceChat({
   // Reconnect grace timer — only surface a notification after 4 s of continuous reconnecting.
   // Transient drops that auto-recover within 4 s produce no toast at all.
   const reconnectGraceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Hold the dismiss function for the in-flight "Reconnecting…" toast so we can
+  // explicitly clear it when the session fully fails (preventing stacked toasts).
+  const reconnectToastDismissRef = useRef<(() => void) | null>(null);
   useEffect(() => {
     if (!useStreamingMode) return;
     const { connectionState } = streamingVoice.state;
@@ -927,11 +930,12 @@ export function StreamingVoiceChat({
           reconnectGraceTimerRef.current = null;
           // Only show if still reconnecting when the timer fires
           if (connectionStateRef.current === 'reconnecting') {
-            toast({
+            const { dismiss } = toast({
               title: "Reconnecting…",
               description: "Restoring your voice session.",
               duration: 10000,
             });
+            reconnectToastDismissRef.current = dismiss;
           }
         }, 4000);
       }
@@ -940,6 +944,11 @@ export function StreamingVoiceChat({
       if (reconnectGraceTimerRef.current) {
         clearTimeout(reconnectGraceTimerRef.current);
         reconnectGraceTimerRef.current = null;
+      }
+      // Dismiss the visible "Reconnecting…" toast if the connection left that state
+      if (reconnectToastDismissRef.current) {
+        reconnectToastDismissRef.current();
+        reconnectToastDismissRef.current = null;
       }
     }
 
