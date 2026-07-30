@@ -62,8 +62,31 @@ interface ResolvedNudge {
 
 type FilterType = ResolutionType | "all";
 
+const ABSENCE_FILTER_KEY = "absence-history-filter";
+
 function AbsenceHistoryPanel() {
-  const [activeFilter, setActiveFilter] = useState<FilterType>("all");
+  const [activeFilter, setActiveFilter] = useState<FilterType>(() => {
+    try {
+      const stored = localStorage.getItem(ABSENCE_FILTER_KEY);
+      if (stored === "all" || stored === "student_returned" || stored === "message_queued" || stored === "dismissed") {
+        return stored as FilterType;
+      }
+    } catch {
+      // localStorage unavailable
+    }
+    return "all";
+  });
+
+  const handleSetFilter = (filter: FilterType) => {
+    try {
+      if (filter !== null) {
+        localStorage.setItem(ABSENCE_FILTER_KEY, filter);
+      }
+    } catch {
+      // localStorage unavailable
+    }
+    setActiveFilter(filter);
+  };
 
   const queryKey =
     activeFilter === "all"
@@ -150,7 +173,7 @@ function AbsenceHistoryPanel() {
           {filters.map(({ key, label, count }) => (
             <button
               key={key}
-              onClick={() => setActiveFilter(key)}
+              onClick={() => handleSetFilter(key)}
               data-testid={`filter-absence-${key}`}
               className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
                 activeFilter === key
