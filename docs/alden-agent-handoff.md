@@ -3551,7 +3551,7 @@ Added `'garaje'` key to `SCENE_OVERRIDES` in `vocab-image-seed-service.ts` (alon
 `client/src/data/madrigal-page-scans.ts` has stubs for all known chapter boundaries. Only page 9 of "where are you going" is fully verified. As you view scans, you (or future sessions) should fill in `vocabulary`, `pageType`, `description`, and `verified: true` for each page you review. The `getLeftPageCount` and `findPageForVocab` helpers read from this registry.
 
 ### What Alden should know
-- The scan pipeline script requires the Replit sidecar (port 1106) for GCS auth — it only runs in-environment, never locally.
+- The scan pipeline script originally required the Replit sidecar (port 1106) for GCS auth. That sidecar is retired — object storage is now Cloudflare R2 (`holaholar2bucket`). The script runs against R2 via the `AWS_S3_*` credentials and no longer needs the sidecar.
 - The manifest endpoint currently uses `objectStorageClient.bucket().getFiles()` which returns all files under a prefix. If the bucket has many files this is fine but worth monitoring.
 - Pages are permanent/public cache (1-year `max-age`). No need to worry about expiry.
 
@@ -9236,7 +9236,7 @@ Directly accessed 15 real images via `/api/media/ai-image/vocab_*.png` (route co
 
 **Completed: Part I.E Extended — Full 243-image visual quality audit**
 
-Expanded the S58 sample (15 images) to cover the entire `public/ai-images/` GCS bucket. Every vocab_* category was screenshotted at full resolution and graded against the Question Fit Test.
+Expanded the S58 sample (15 images) to cover the entire `public/ai-images/` library (now stored in Cloudflare R2 `holaholar2bucket`; was GCS at audit time). Every vocab_* category was screenshotted at full resolution and graded against the Question Fit Test.
 
 **Audit scope:** ~243 images across 20 categories (actions, adjectives, animals, body, clothing, colors, emotions, food, health, home, nature, numbers, people, places, professionals, things, time, transport, weather, place-specific).
 
@@ -9321,7 +9321,7 @@ Place: banco ("BANK" English)
 
 **New backend endpoint built:**
 - `POST /api/admin/vocab-images/regen-key` added to routes.ts (line ~11415)
-- Takes `{ conceptKey, prompt }` — validates conceptKey starts with `vocab_`, calls DALL-E 3 via `generateImageWithGemini()`, converts to Buffer, calls `uploadPublicBuffer()` to overwrite GCS file directly
+- Takes `{ conceptKey, prompt }` — validates conceptKey starts with `vocab_`, calls DALL-E 3 via `generateImageWithGemini()`, converts to Buffer, calls `uploadPublicBuffer()` to overwrite the file in object storage (now R2; was GCS at build time) directly
 - Protected: `isAuthenticated` + `requireRole('admin')`
 - Returns `{ url, conceptKey, message }` on success
 
