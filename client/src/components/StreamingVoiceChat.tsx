@@ -992,6 +992,10 @@ export function StreamingVoiceChat({
         .then(r => {
           if (r.ok) {
             console.log('[StreamingVoice] Server back — navigating to fresh session');
+            if (reconnectToastRef.current) {
+              reconnectToastRef.current.dismiss();
+              reconnectToastRef.current = null;
+            }
             navigate(homeRoute);
           } else {
             restartPollRef.current = setTimeout(poll, 3000);
