@@ -593,6 +593,15 @@ app.use((req, res, next) => {
       console.error('[ObjectStorage] Failed to run startup check:', err?.message ?? err);
     }
 
+    // Run CopyObject probe — detects whether the S3 bucket supports in-place
+    // metadata updates.  Failure logs a WARN but does not block startup.
+    try {
+      const { runCopyObjectProbeAtStartup } = await import('./replit_integrations/object_storage/objectStorage');
+      await runCopyObjectProbeAtStartup();
+    } catch (err: any) {
+      console.warn('[ObjectStorage] CopyObject probe threw unexpectedly:', err?.message ?? err);
+    }
+
     // Record this boot for restart-spiral detection in AldenWatch.
     // Kept deliberately simple — any write error is silently swallowed.
     try {
