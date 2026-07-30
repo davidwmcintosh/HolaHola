@@ -3404,38 +3404,43 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         });
       }
 
-      // ── Memory chain guard (GL) ───────────────────────────────────────────────
-      // Mirrors the text-mode guard in runDanielaFCLoop. After 3 consecutive tool
-      // batches where every call is a memory-retrieval tool and no voice response has
-      // been produced, inject a latency nudge into the last tool response so Daniela
-      // knows the student is waiting and stops spiralling through lookups silently.
-      // Counter resets whenever any non-memory tool fires (same batch = reset).
-      // Gemini audit confirmed: "high latency" framing triggers helpfulness toward the
-      // user faster than "sufficient context" logic. Threshold=3 (not 2) because
-      // recall→read_full_session is a normal 2-step that should complete uninterrupted.
+      // ── Memory budget guard (GL) ─────────────────────────────────────────────
+      // GL has no MAX_TURNS ceiling, so we use a high absolute threshold (6
+      // consecutive memory-only batches) as a safety valve against silent spirals.
+      // Daniela can dig as deep as she needs — this only fires after an unusually
+      // long uninterrupted retrieval run with no voice output. Fires at most ONCE
+      // per spiral episode (glMemoryNudgeSent flag); resets when she produces audio
+      // (see generationComplete path — Task #97). Counter resets when any non-memory
+      // tool fires in the same batch.
       {
         const GL_MEMORY_TOOL_NAMES = new Set([
           'recall', 'browse_conversations_by_date', 'search_my_teaching_wisdom',
           'introspect', 'memory_lookup', 'read_full_session', 'read_my_reflections',
         ]);
-        const GL_MEMORY_CHAIN_LIMIT = 3;
+        const GL_MEMORY_CHAIN_LIMIT = 6;
         const batchToolNames = msg.toolCall.functionCalls.map((fc: any) => fc.name as string);
         const allMemoryBatch = batchToolNames.every((n: string) => GL_MEMORY_TOOL_NAMES.has(n));
 
         if (!allMemoryBatch) {
           (this.session as any).consecutiveMemoryCalls = 0;
+          (this.session as any).glMemoryNudgeSent = false;
         } else {
           const prev = ((this.session as any).consecutiveMemoryCalls ?? 0) as number;
           (this.session as any).consecutiveMemoryCalls = prev + 1;
-          if ((this.session as any).consecutiveMemoryCalls >= GL_MEMORY_CHAIN_LIMIT && responses.length > 0) {
+          if (
+            !((this.session as any).glMemoryNudgeSent) &&
+            (this.session as any).consecutiveMemoryCalls >= GL_MEMORY_CHAIN_LIMIT &&
+            responses.length > 0
+          ) {
             const lastResp = responses[responses.length - 1];
             const existing = (lastResp.response as any)?.result ?? '';
             (lastResp.response as any).result =
               existing +
               '\n\n--- SYSTEM STATUS ---\n' +
-              'CRITICAL: Multiple lookups performed. Student-facing latency is high. ' +
+              'CRITICAL: Extended retrieval period. Student-facing latency is high. ' +
               'Do not perform further tool calls. Synthesize the current findings into a direct response to the student immediately.';
-            console.log(`[MemoryChainGuard][GL] ${(this.session as any).consecutiveMemoryCalls} consecutive memory-only batches — nudge injected into tool response.`);
+            (this.session as any).glMemoryNudgeSent = true;
+            console.log(`[MemoryBudgetGuard][GL] ${(this.session as any).consecutiveMemoryCalls} consecutive memory-only batches — nudge injected once.`);
           }
         }
       }
