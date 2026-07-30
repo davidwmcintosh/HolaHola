@@ -261,14 +261,9 @@ function parseObjectPath(path: string): {
 export async function runCopyObjectProbeAtStartup(): Promise<void> {
   const tag = "[ObjectStorage:CopyProbe]";
 
-  if (!isS3Configured()) {
-    // GCS backend — CopyObject probe not applicable.
-    return;
-  }
-
   const privateDir = process.env.PRIVATE_OBJECT_DIR ?? "";
   if (!privateDir) {
-    console.warn(`${tag} PRIVATE_OBJECT_DIR not set — skipping CopyObject probe`);
+    console.warn(`${tag} PRIVATE_OBJECT_DIR not set — skipping metadata probe`);
     return;
   }
 
@@ -281,53 +276,102 @@ export async function runCopyObjectProbeAtStartup(): Promise<void> {
 
   const probeKey = `_health_probe/copy-object-probe-${Date.now()}.txt`;
 
-  try {
-    const s3 = getS3Client();
-
-    // 1. Upload a tiny sentinel object.
-    await s3.send(new PutObjectCommand({
-      Bucket: bucketName,
-      Key: probeKey,
-      Body: Buffer.from("holahola-startup-probe"),
-      ContentType: "text/plain",
-      Metadata: { "x-probe-init": "true" },
-    }));
-
-    // 2. Attempt in-place CopyObject (metadata update).
-    let copyObjectFailed = false;
-    try {
-      await s3.send(new CopyObjectCommand({
-        Bucket: bucketName,
-        CopySource: `${bucketName}/${probeKey}`,
-        Key: probeKey,
-        MetadataDirective: "REPLACE",
-        ContentType: "text/plain",
-        Metadata: { "x-probe-init": "true", "x-probe-updated": "true" },
-      }));
-    } catch (copyErr: any) {
-      copyObjectFailed = true;
-      console.warn(
-        `${tag} WARN CopyObject failed for bucket "${bucketName}" (${copyErr?.message ?? copyErr}). ` +
-        `Every setCustomMetadata call will fall back to download+reupload. ` +
-        `Check bucket region, permissions, or use a bucket that supports same-object copy.`,
-      );
-    }
-
-    if (!copyObjectFailed) {
-      console.log(`${tag} CopyObject probe OK — in-place metadata updates are supported (bucket: ${bucketName})`);
-    }
-  } catch (err: any) {
-    console.warn(
-      `${tag} WARN probe error (bucket: ${bucketName}) — ${err?.message ?? err}. ` +
-      `Storage uploads may fail until this is resolved.`,
-    );
-  } finally {
-    // 3. Best-effort cleanup — never blocks startup.
+  if (isS3Configured()) {
+    // ── S3 / R2 branch ─────────────────────────────────────────────────────
     try {
       const s3 = getS3Client();
-      await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: probeKey }));
-    } catch {
-      // Cleanup failure is not a health-check failure.
+
+      // 1. Upload a tiny sentinel object.
+      await s3.send(new PutObjectCommand({
+        Bucket: bucketName,
+        Key: probeKey,
+        Body: Buffer.from("holahola-startup-probe"),
+        ContentType: "text/plain",
+        Metadata: { "x-probe-init": "true" },
+      }));
+
+      // 2. Attempt in-place CopyObject (metadata update).
+      let copyObjectFailed = false;
+      try {
+        await s3.send(new CopyObjectCommand({
+          Bucket: bucketName,
+          CopySource: `${bucketName}/${probeKey}`,
+          Key: probeKey,
+          MetadataDirective: "REPLACE",
+          ContentType: "text/plain",
+          Metadata: { "x-probe-init": "true", "x-probe-updated": "true" },
+        }));
+      } catch (copyErr: any) {
+        copyObjectFailed = true;
+        console.warn(
+          `${tag} WARN CopyObject failed for bucket "${bucketName}" (${copyErr?.message ?? copyErr}). ` +
+          `Every setCustomMetadata call will fall back to download+reupload. ` +
+          `Check bucket region, permissions, or use a bucket that supports same-object copy.`,
+        );
+      }
+
+      if (!copyObjectFailed) {
+        console.log(`${tag} CopyObject probe OK — in-place metadata updates are supported (bucket: ${bucketName})`);
+      }
+    } catch (err: any) {
+      console.warn(
+        `${tag} WARN probe error (bucket: ${bucketName}) — ${err?.message ?? err}. ` +
+        `Storage uploads may fail until this is resolved.`,
+      );
+    } finally {
+      // 3. Best-effort cleanup — never blocks startup.
+      try {
+        const s3 = getS3Client();
+        await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: probeKey }));
+      } catch {
+        // Cleanup failure is not a health-check failure.
+      }
+    }
+  } else {
+    // ── GCS branch ─────────────────────────────────────────────────────────
+    // Verifies that the bucket's ACL / CMEK policy allows both writes and
+    // metadata updates.  A misconfigured policy would otherwise only surface
+    // when a real file is written, not at boot.
+    try {
+      const gcs = getGcsClient();
+      const file = gcs.bucket(bucketName).file(probeKey);
+
+      // 1. Upload a tiny sentinel object.
+      await file.save(Buffer.from("holahola-startup-probe"), {
+        contentType: "text/plain",
+        metadata: { "x-probe-init": "true" },
+      });
+
+      // 2. Attempt a metadata update — the operation most likely to fail under
+      //    a restrictive CMEK policy or restrictive ACL.
+      let setMetadataFailed = false;
+      try {
+        await file.setMetadata({ metadata: { "x-probe-init": "true", "x-probe-updated": "true" } });
+      } catch (metaErr: any) {
+        setMetadataFailed = true;
+        console.warn(
+          `${tag} WARN GCS setMetadata failed for bucket "${bucketName}" (${metaErr?.message ?? metaErr}). ` +
+          `Metadata updates will fail at runtime. ` +
+          `Check bucket IAM permissions (storage.objects.update) and any CMEK / ACL restrictions.`,
+        );
+      }
+
+      if (!setMetadataFailed) {
+        console.log(`${tag} GCS metadata probe OK — setMetadata supported (bucket: ${bucketName})`);
+      }
+    } catch (err: any) {
+      console.warn(
+        `${tag} WARN GCS probe error (bucket: ${bucketName}) — ${err?.message ?? err}. ` +
+        `Storage uploads may fail until this is resolved.`,
+      );
+    } finally {
+      // 3. Best-effort cleanup — never blocks startup.
+      try {
+        const gcs = getGcsClient();
+        await gcs.bucket(bucketName).file(probeKey).delete();
+      } catch {
+        // Cleanup failure is not a health-check failure.
+      }
     }
   }
 }
