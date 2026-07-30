@@ -17,13 +17,14 @@ Observed in the Guardian A/B test (Part 3): Daniela called `recall` (UNIFIED_REC
 
 **Impact:** Student experiences silence. Daniela chose to look something up; the system didn't give her a path from retrieval to response.
 
-**Partial fix applied (July 30):** `runDanielaFCLoop` now tracks consecutive memory-only turns. After 2 consecutive turns where ALL tool calls were memory tools and no text was produced, a brief prose note is appended to the next tool response batch — "You've retrieved sufficient context. The student is waiting — respond now." Counter resets whenever a non-memory tool fires or text is produced.
+**Fix applied (July 30):** Budget-proximity guard in both text-mode and GL:
+- Text-mode (`daniela-caller.ts`): fires once when 2 turns from MAX_TURNS and Daniela is still in a memory-only loop. No cap on number of lookups before that point.
+- GL (`gemini-live-session.ts`): fires once after 6 consecutive memory-only batches with no voice output. Resets when any non-memory tool fires.
+- Gemini-approved nudge text (unified): "CRITICAL: Approaching processing limit. Student-facing latency is high. Do not perform further tool calls. Synthesize the current findings into a direct response to the student immediately."
 
 **Memory tools in scope for the guard:** `recall`, `browse_conversations_by_date`, `search_my_teaching_wisdom`, `introspect`, `memory_lookup`, `read_full_session`, `read_my_reflections`.
 
-**Remaining gap:** GL sessions have no equivalent guard. If Daniela spirals through memory tools in a live voice session, there's no mechanism to nudge her toward responding. This needs a separate investigation — the GL tool dispatch loop in `gemini-live-session.ts` would need a parallel counter-based injection via the Archive Guardian channel (tool-result body concat).
-
-**Severity:** MEDIUM (text-mode partially mitigated; GL sessions still exposed)
+**Remaining consideration (design, not bug):** The parallel speech gate already handles the case where Daniela speaks an acknowledgment before calling a memory tool — her pre-tool audio is preserved and the search runs behind it. If Daniela consistently goes straight to tool calls without any pre-tool speech, a system-prompt addition encouraging a brief acknowledgment ("Let me look at our history...") before deep memory dives would let the parallel gate handle latency naturally instead of relying on the safety valve. Consequences of this change need to be weighed — noted for future discussion. Do not implement without deliberate decision.
 
 ---
 
