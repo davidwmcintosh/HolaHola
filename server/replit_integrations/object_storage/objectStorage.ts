@@ -1,4 +1,11 @@
-import { Storage, File } from "@google-cloud/storage";
+import { Storage } from "@google-cloud/storage";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+} from "@aws-sdk/client-s3";
+import { getSignedUrl as s3GetSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Response } from "express";
 import { randomUUID } from "crypto";
 import {
@@ -8,46 +15,77 @@ import {
   getObjectAclPolicy,
   setObjectAclPolicy,
 } from "./objectAcl";
+import type { StorageFile } from "./storageFile";
+import { GcsStorageFile } from "./gcsFile";
+import { S3StorageFile } from "./s3File";
+
+export type { StorageFile };
 
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
+// ---------------------------------------------------------------------------
+// Backend detection
+// ---------------------------------------------------------------------------
+
 /**
- * Determines whether standard GCS credentials are configured.
+ * Returns true when AWS S3 (or an S3-compatible provider such as Cloudflare R2)
+ * is fully configured.  S3 is preferred over GCS when both are set.
  *
- * When GOOGLE_CLOUD_STORAGE_CREDENTIALS is set (a JSON service-account key),
- * the app uses those credentials directly and does NOT need the Replit sidecar.
- * This lets HolaHola run on any host (Claude Code, AWS, GCP, local dev, etc.).
+ * Required env vars:
+ *   AWS_S3_ACCESS_KEY_ID
+ *   AWS_S3_SECRET_ACCESS_KEY
+ *   AWS_S3_REGION
  *
- * When the env var is absent the code falls back to the Replit sidecar so that
- * existing Replit deployments keep working with zero config change.
+ * Optional:
+ *   AWS_S3_ENDPOINT   — custom endpoint for R2 / MinIO / other S3-compatible stores
+ */
+export function isS3Configured(): boolean {
+  return !!(
+    process.env.AWS_S3_ACCESS_KEY_ID &&
+    process.env.AWS_S3_SECRET_ACCESS_KEY &&
+    process.env.AWS_S3_REGION
+  );
+}
+
+/**
+ * Returns true when a GCS service-account JSON key is present.
+ * When this is set the code bypasses the Replit sidecar and works on any host.
  */
 function isStandardGcsConfigured(): boolean {
   return !!process.env.GOOGLE_CLOUD_STORAGE_CREDENTIALS;
 }
 
-function createStorageClient(): Storage {
+// ---------------------------------------------------------------------------
+// Client factories (lazy-created singletons)
+// ---------------------------------------------------------------------------
+
+let _gcsClient: Storage | null = null;
+function getGcsClient(): Storage {
+  if (_gcsClient) return _gcsClient;
+
   const credentialsJson = process.env.GOOGLE_CLOUD_STORAGE_CREDENTIALS;
   if (credentialsJson) {
     try {
       const credentials = JSON.parse(credentialsJson);
-      return new Storage({
+      _gcsClient = new Storage({
         credentials,
         projectId:
           credentials.project_id ||
           process.env.GOOGLE_CLOUD_PROJECT_ID ||
           "",
       });
+      return _gcsClient;
     } catch (e) {
       console.error(
         "[ObjectStorage] Failed to parse GOOGLE_CLOUD_STORAGE_CREDENTIALS — " +
           "falling back to Replit sidecar. Error:",
-        e
+        e,
       );
     }
   }
 
   // Replit sidecar auth (backward-compatible default)
-  return new Storage({
+  _gcsClient = new Storage({
     credentials: {
       audience: "replit",
       subject_token_type: "access_token",
@@ -61,13 +99,45 @@ function createStorageClient(): Storage {
         },
       },
       universe_domain: "googleapis.com",
-    },
+    } as any,
     projectId: "",
   });
+  return _gcsClient;
 }
 
-// The object storage client is used to interact with the object storage service.
-export const objectStorageClient = createStorageClient();
+let _s3Client: S3Client | null = null;
+function getS3Client(): S3Client {
+  if (_s3Client) return _s3Client;
+  const config: ConstructorParameters<typeof S3Client>[0] = {
+    region: process.env.AWS_S3_REGION!,
+    credentials: {
+      accessKeyId: process.env.AWS_S3_ACCESS_KEY_ID!,
+      secretAccessKey: process.env.AWS_S3_SECRET_ACCESS_KEY!,
+    },
+  };
+  if (process.env.AWS_S3_ENDPOINT) {
+    config.endpoint = process.env.AWS_S3_ENDPOINT;
+    // Path-style URLs are required for R2 and most S3-compatible stores.
+    config.forcePathStyle = true;
+  }
+  _s3Client = new S3Client(config);
+  return _s3Client;
+}
+
+// ---------------------------------------------------------------------------
+// Exported GCS client (kept for backward compatibility with callers that
+// referenced objectStorageClient directly).
+// ---------------------------------------------------------------------------
+/** @deprecated Prefer ObjectStorageService methods; this export may be removed. */
+export const objectStorageClient = new Proxy({} as Storage, {
+  get(_target, prop) {
+    return (getGcsClient() as any)[prop];
+  },
+});
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
 
 export class ObjectNotFoundError extends Error {
   constructor() {
@@ -77,9 +147,223 @@ export class ObjectNotFoundError extends Error {
   }
 }
 
-// The object storage service is used to interact with the object storage service.
+function parseObjectPath(path: string): {
+  bucketName: string;
+  objectName: string;
+} {
+  if (!path.startsWith("/")) {
+    path = `/${path}`;
+  }
+  const pathParts = path.split("/");
+  if (pathParts.length < 3) {
+    throw new Error("Invalid path: must contain at least a bucket name");
+  }
+  return {
+    bucketName: pathParts[1],
+    objectName: pathParts.slice(2).join("/"),
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Backend-specific file factories (exported for external use)
+// ---------------------------------------------------------------------------
+
+export function makeGcsFile(bucketName: string, objectName: string): GcsStorageFile {
+  const gcs = getGcsClient();
+  const bucket = gcs.bucket(bucketName);
+  return new GcsStorageFile(bucketName, objectName, bucket.file(objectName));
+}
+
+export function makeS3File(bucketName: string, objectName: string): S3StorageFile {
+  return new S3StorageFile(bucketName, objectName, getS3Client());
+}
+
+export function makeStorageFile(bucketName: string, objectName: string): StorageFile {
+  return isS3Configured()
+    ? makeS3File(bucketName, objectName)
+    : makeGcsFile(bucketName, objectName);
+}
+
+// ---------------------------------------------------------------------------
+// Top-level storage helpers — use these instead of objectStorageClient directly
+// ---------------------------------------------------------------------------
+
+/**
+ * Upload a Buffer to the given bucket/object path.
+ * Works on both S3/R2 and GCS backends.
+ */
+export async function uploadBuffer(
+  bucketName: string,
+  objectName: string,
+  data: Buffer,
+  contentType: string,
+  customMetadata?: Record<string, string>,
+): Promise<void> {
+  if (isS3Configured()) {
+    const s3 = getS3Client();
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucketName,
+        Key: objectName,
+        Body: data,
+        ContentType: contentType,
+        Metadata: customMetadata,
+      }),
+    );
+    return;
+  }
+  // GCS path
+  const gcs = getGcsClient();
+  const file = gcs.bucket(bucketName).file(objectName);
+  await file.save(data, {
+    contentType,
+    metadata: customMetadata ?? {},
+  });
+}
+
+/**
+ * Download an object as a Buffer.
+ * Returns null if the object does not exist.
+ * Works on both S3/R2 and GCS backends.
+ */
+export async function downloadBuffer(
+  bucketName: string,
+  objectName: string,
+): Promise<{ buffer: Buffer; contentType: string } | null> {
+  const file = makeStorageFile(bucketName, objectName);
+  if (!(await file.exists())) return null;
+  const meta = await file.getMetadata();
+  const stream = file.createReadStream();
+  const chunks: Buffer[] = [];
+  await new Promise<void>((resolve, reject) => {
+    stream.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
+    stream.on("end", resolve);
+    stream.on("error", reject);
+  });
+  return {
+    buffer: Buffer.concat(chunks),
+    contentType: meta.contentType ?? "application/octet-stream",
+  };
+}
+
+/**
+ * List object names under a given prefix.
+ * Works on both S3/R2 and GCS backends.
+ * Returns full object keys (e.g. "public/ai-images/abc.jpg").
+ */
+export async function listObjects(
+  bucketName: string,
+  prefix: string,
+): Promise<string[]> {
+  if (isS3Configured()) {
+    const s3 = getS3Client();
+    const keys: string[] = [];
+    let continuationToken: string | undefined;
+    do {
+      const resp = await s3.send(
+        new ListObjectsV2Command({
+          Bucket: bucketName,
+          Prefix: prefix,
+          ContinuationToken: continuationToken,
+        }),
+      );
+      for (const obj of resp.Contents ?? []) {
+        if (obj.Key) keys.push(obj.Key);
+      }
+      continuationToken = resp.NextContinuationToken;
+    } while (continuationToken);
+    return keys;
+  }
+  // GCS path
+  const gcs = getGcsClient();
+  const [files] = await gcs.bucket(bucketName).getFiles({ prefix });
+  return files.map((f) => f.name);
+}
+
+// ---------------------------------------------------------------------------
+// Signed-URL generation
+// ---------------------------------------------------------------------------
+
+async function signObjectURL({
+  bucketName,
+  objectName,
+  method,
+  ttlSec,
+}: {
+  bucketName: string;
+  objectName: string;
+  method: "GET" | "PUT" | "DELETE" | "HEAD";
+  ttlSec: number;
+}): Promise<string> {
+  // ── S3 / R2 path ──────────────────────────────────────────────────────────
+  if (isS3Configured()) {
+    const s3 = getS3Client();
+    const commandMap = {
+      PUT: new PutObjectCommand({ Bucket: bucketName, Key: objectName }),
+      GET: new GetObjectCommand({ Bucket: bucketName, Key: objectName }),
+      // DELETE and HEAD presigned URLs use GET command for simplicity
+      DELETE: new GetObjectCommand({ Bucket: bucketName, Key: objectName }),
+      HEAD: new GetObjectCommand({ Bucket: bucketName, Key: objectName }),
+    };
+    return s3GetSignedUrl(s3, commandMap[method] ?? commandMap.GET, {
+      expiresIn: ttlSec,
+    });
+  }
+
+  // ── Standard GCS credentials path ─────────────────────────────────────────
+  if (isStandardGcsConfigured()) {
+    const actionMap: Record<string, "read" | "write" | "delete"> = {
+      GET: "read",
+      PUT: "write",
+      DELETE: "delete",
+      HEAD: "read",
+    };
+    const gcs = getGcsClient();
+    const file = gcs.bucket(bucketName).file(objectName);
+    const [url] = await file.getSignedUrl({
+      version: "v4",
+      action: actionMap[method] ?? "read",
+      expires: Date.now() + ttlSec * 1000,
+    });
+    return url;
+  }
+
+  // ── Replit sidecar path ────────────────────────────────────────────────────
+  const request = {
+    bucket_name: bucketName,
+    object_name: objectName,
+    method,
+    expires_at: new Date(Date.now() + ttlSec * 1000).toISOString(),
+  };
+  const response = await fetch(
+    `${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Failed to sign object URL, errorcode: ${response.status}, ` +
+        `make sure you're running on Replit or set GOOGLE_CLOUD_STORAGE_CREDENTIALS / AWS_S3_ACCESS_KEY_ID`,
+    );
+  }
+  const { signed_url: signedURL } = await response.json();
+  return signedURL;
+}
+
+// ---------------------------------------------------------------------------
+// ObjectStorageService
+// ---------------------------------------------------------------------------
+
 export class ObjectStorageService {
   constructor() {}
+
+  /** Returns the active storage backend: "s3" | "gcs" */
+  getBackend(): "s3" | "gcs" {
+    return isS3Configured() ? "s3" : "gcs";
+  }
 
   // Gets the public object search paths.
   getPublicObjectSearchPaths(): Array<string> {
@@ -89,13 +373,13 @@ export class ObjectStorageService {
         pathsStr
           .split(",")
           .map((path) => path.trim())
-          .filter((path) => path.length > 0)
-      )
+          .filter((path) => path.length > 0),
+      ),
     );
     if (paths.length === 0) {
       throw new Error(
         "PUBLIC_OBJECT_SEARCH_PATHS not set. Create a bucket and set " +
-          "PUBLIC_OBJECT_SEARCH_PATHS env var (comma-separated paths)."
+          "PUBLIC_OBJECT_SEARCH_PATHS env var (comma-separated paths).",
       );
     }
     return paths;
@@ -106,50 +390,46 @@ export class ObjectStorageService {
     const dir = process.env.PRIVATE_OBJECT_DIR || "";
     if (!dir) {
       throw new Error(
-        "PRIVATE_OBJECT_DIR not set. Create a bucket and set PRIVATE_OBJECT_DIR env var."
+        "PRIVATE_OBJECT_DIR not set. Create a bucket and set PRIVATE_OBJECT_DIR env var.",
       );
     }
     return dir;
   }
 
   // Search for a public object from the search paths.
-  async searchPublicObject(filePath: string): Promise<File | null> {
+  async searchPublicObject(filePath: string): Promise<StorageFile | null> {
     for (const searchPath of this.getPublicObjectSearchPaths()) {
       const fullPath = `${searchPath}/${filePath}`;
-
-      // Full path format: /<bucket_name>/<object_name>
       const { bucketName, objectName } = parseObjectPath(fullPath);
-      const bucket = objectStorageClient.bucket(bucketName);
-      const file = bucket.file(objectName);
-
-      // Check if file exists
-      const [exists] = await file.exists();
-      if (exists) {
+      const file = makeStorageFile(bucketName, objectName);
+      if (await file.exists()) {
         return file;
       }
     }
-
     return null;
   }
 
   // Downloads an object to the response.
-  async downloadObject(file: File, res: Response, cacheTtlSec: number = 3600) {
+  async downloadObject(
+    file: StorageFile,
+    res: Response,
+    cacheTtlSec: number = 3600,
+  ) {
     try {
-      // Get file metadata
-      const [metadata] = await file.getMetadata();
-      // Get the ACL policy for the object.
+      const metadata = await file.getMetadata();
       const aclPolicy = await getObjectAclPolicy(file);
       const isPublic = aclPolicy?.visibility === "public";
-      // Set appropriate headers
+
       res.set({
         "Content-Type": metadata.contentType || "application/octet-stream",
-        "Content-Length": metadata.size,
+        ...(metadata.size != null
+          ? { "Content-Length": String(metadata.size) }
+          : {}),
         "Cache-Control": `${
           isPublic ? "public" : "private"
         }, max-age=${cacheTtlSec}`,
       });
 
-      // Stream the file to the response
       const stream = file.createReadStream();
 
       stream.on("error", (err) => {
@@ -171,18 +451,10 @@ export class ObjectStorageService {
   // Gets the upload URL for an object entity.
   async getObjectEntityUploadURL(): Promise<string> {
     const privateObjectDir = this.getPrivateObjectDir();
-    if (!privateObjectDir) {
-      throw new Error(
-        "PRIVATE_OBJECT_DIR not set. Create a bucket and set PRIVATE_OBJECT_DIR env var."
-      );
-    }
-
     const objectId = randomUUID();
     const fullPath = `${privateObjectDir}/uploads/${objectId}`;
-
     const { bucketName, objectName } = parseObjectPath(fullPath);
 
-    // Sign URL for PUT method with TTL
     return signObjectURL({
       bucketName,
       objectName,
@@ -192,7 +464,7 @@ export class ObjectStorageService {
   }
 
   // Gets the object entity file from the object path.
-  async getObjectEntityFile(objectPath: string): Promise<File> {
+  async getObjectEntityFile(objectPath: string): Promise<StorageFile> {
     if (!objectPath.startsWith("/objects/")) {
       throw new ObjectNotFoundError();
     }
@@ -209,34 +481,51 @@ export class ObjectStorageService {
     }
     const objectEntityPath = `${entityDir}${entityId}`;
     const { bucketName, objectName } = parseObjectPath(objectEntityPath);
-    const bucket = objectStorageClient.bucket(bucketName);
-    const objectFile = bucket.file(objectName);
-    const [exists] = await objectFile.exists();
-    if (!exists) {
+    const file = makeStorageFile(bucketName, objectName);
+    if (!(await file.exists())) {
       throw new ObjectNotFoundError();
     }
-    return objectFile;
+    return file;
   }
 
   normalizeObjectEntityPath(rawPath: string): string {
+    // Handle S3 presigned URLs
+    if (isS3Configured()) {
+      try {
+        const url = new URL(rawPath);
+        // S3 URL format: https://<bucket>.s3.<region>.amazonaws.com/<key>
+        // or path-style: https://s3.<region>.amazonaws.com/<bucket>/<key>
+        // or R2: https://<account>.r2.cloudflarestorage.com/<bucket>/<key>
+        const rawObjectPath = url.pathname;
+        let entityDir = this.getPrivateObjectDir();
+        if (!entityDir.endsWith("/")) entityDir = `${entityDir}/`;
+
+        // Path-style: /<bucket>/<key...>
+        const { objectName } = parseObjectPath(rawObjectPath);
+        const entityDirKey = entityDir.replace(/^\/[^/]+\//, ""); // strip /bucket/
+        if (objectName.startsWith(entityDirKey)) {
+          const entityId = objectName.slice(entityDirKey.length);
+          return `/objects/${entityId}`;
+        }
+        return rawObjectPath;
+      } catch {
+        return rawPath;
+      }
+    }
+
+    // GCS URL normalization (original implementation)
     if (!rawPath.startsWith("https://storage.googleapis.com/")) {
       return rawPath;
     }
-
-    // Extract the path from the URL by removing query parameters and domain
     const url = new URL(rawPath);
     const rawObjectPath = url.pathname;
-
     let objectEntityDir = this.getPrivateObjectDir();
     if (!objectEntityDir.endsWith("/")) {
       objectEntityDir = `${objectEntityDir}/`;
     }
-
     if (!rawObjectPath.startsWith(objectEntityDir)) {
       return rawObjectPath;
     }
-
-    // Extract the entity ID from the path
     const entityId = rawObjectPath.slice(objectEntityDir.length);
     return `/objects/${entityId}`;
   }
@@ -244,7 +533,7 @@ export class ObjectStorageService {
   // Tries to set the ACL policy for the object entity and return the normalized path.
   async trySetObjectEntityAclPolicy(
     rawPath: string,
-    aclPolicy: ObjectAclPolicy
+    aclPolicy: ObjectAclPolicy,
   ): Promise<string> {
     const normalizedPath = this.normalizeObjectEntityPath(rawPath);
     if (!normalizedPath.startsWith("/")) {
@@ -263,7 +552,7 @@ export class ObjectStorageService {
     requestedPermission,
   }: {
     userId?: string;
-    objectFile: File;
+    objectFile: StorageFile;
     requestedPermission?: ObjectPermission;
   }): Promise<boolean> {
     return canAccessObject({
@@ -272,83 +561,4 @@ export class ObjectStorageService {
       requestedPermission: requestedPermission ?? ObjectPermission.READ,
     });
   }
-}
-
-function parseObjectPath(path: string): {
-  bucketName: string;
-  objectName: string;
-} {
-  if (!path.startsWith("/")) {
-    path = `/${path}`;
-  }
-  const pathParts = path.split("/");
-  if (pathParts.length < 3) {
-    throw new Error("Invalid path: must contain at least a bucket name");
-  }
-
-  const bucketName = pathParts[1];
-  const objectName = pathParts.slice(2).join("/");
-
-  return {
-    bucketName,
-    objectName,
-  };
-}
-
-async function signObjectURL({
-  bucketName,
-  objectName,
-  method,
-  ttlSec,
-}: {
-  bucketName: string;
-  objectName: string;
-  method: "GET" | "PUT" | "DELETE" | "HEAD";
-  ttlSec: number;
-}): Promise<string> {
-  // When standard GCS credentials are available, use the GCS library's built-in
-  // signed-URL generation (works on any host).
-  if (isStandardGcsConfigured()) {
-    const actionMap: Record<string, "read" | "write" | "delete"> = {
-      GET: "read",
-      PUT: "write",
-      DELETE: "delete",
-      HEAD: "read",
-    };
-    const bucket = objectStorageClient.bucket(bucketName);
-    const file = bucket.file(objectName);
-    const [url] = await file.getSignedUrl({
-      version: "v4",
-      action: actionMap[method] ?? "read",
-      expires: Date.now() + ttlSec * 1000,
-    });
-    return url;
-  }
-
-  // Replit sidecar path (original implementation).
-  const request = {
-    bucket_name: bucketName,
-    object_name: objectName,
-    method,
-    expires_at: new Date(Date.now() + ttlSec * 1000).toISOString(),
-  };
-  const response = await fetch(
-    `${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    }
-  );
-  if (!response.ok) {
-    throw new Error(
-      `Failed to sign object URL, errorcode: ${response.status}, ` +
-        `make sure you're running on Replit or set GOOGLE_CLOUD_STORAGE_CREDENTIALS`
-    );
-  }
-
-  const { signed_url: signedURL } = await response.json();
-  return signedURL;
 }

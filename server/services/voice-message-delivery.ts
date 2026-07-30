@@ -17,7 +17,7 @@ import { danielaOutboundQueue } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { canContactStudent } from './outbound-consent';
 import { storage } from '../storage';
-import { objectStorageClient } from '../replit_integrations/object_storage/objectStorage';
+import { uploadBuffer } from '../replit_integrations/object_storage/objectStorage';
 
 const APP_URL = process.env.APP_URL || 'https://getholahola.com';
 const BUCKET_ID = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID || '';
@@ -60,12 +60,13 @@ async function uploadAudioToStorage(queueId: string, wavBuffer: Buffer): Promise
   }
   try {
     const filename = `${queueId}.wav`;
-    const bucket = objectStorageClient.bucket(BUCKET_ID);
-    const file = bucket.file(`public/voice-messages/${filename}`);
-    await file.save(wavBuffer, {
-      contentType: 'audio/wav',
-      metadata: { cacheControl: 'public, max-age=86400' },
-    });
+    await uploadBuffer(
+      BUCKET_ID,
+      `public/voice-messages/${filename}`,
+      wavBuffer,
+      'audio/wav',
+      { cacheControl: 'public, max-age=86400' },
+    );
     return `/api/media/vm-audio/${filename}`;
   } catch (err: any) {
     console.error('[VoiceMessageDelivery] Storage upload error:', err.message);

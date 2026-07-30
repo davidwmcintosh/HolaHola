@@ -2,15 +2,19 @@
  * Permanent Image Storage Service
  *
  * Downloads AI-generated image bytes (e.g. expiring DALL-E URLs) and uploads
- * them to Replit Object Storage, returning an app-relative URL that is served
- * through the Express proxy route /api/media/ai-image/:filename.
+ * them to object storage (S3/R2 or GCS), returning an app-relative URL that
+ * is served through the Express proxy route /api/media/ai-image/:filename.
  *
- * Direct storage.googleapis.com URLs return 403 (bucket not public).
- * All image access goes through the app proxy so the Replit sidecar credentials
- * are used to authorise the download from GCS.
+ * Direct storage URLs return 403 (bucket not public).
+ * All image access goes through the app proxy so backend credentials are used
+ * to authorise the download.
  */
 
-import { objectStorageClient } from '../replit_integrations/object_storage/objectStorage';
+import {
+  uploadBuffer,
+  downloadBuffer,
+  makeStorageFile,
+} from '../replit_integrations/object_storage/objectStorage';
 
 const BUCKET_ID = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID || '';
 
@@ -28,12 +32,13 @@ export async function uploadPublicBuffer(
   buffer: Buffer,
   contentType: string
 ): Promise<string> {
-  const bucket = objectStorageClient.bucket(getBucketName());
-  const file = bucket.file(`public/ai-images/${filename}`);
-  await file.save(buffer, {
+  await uploadBuffer(
+    getBucketName(),
+    `public/ai-images/${filename}`,
+    buffer,
     contentType,
-    metadata: { cacheControl: 'public, max-age=31536000' },
-  });
+    { cacheControl: 'public, max-age=31536000' },
+  );
   return `/api/media/ai-image/${filename}`;
 }
 
@@ -100,14 +105,7 @@ export async function downloadAiImageAsBuffer(
   filename: string
 ): Promise<{ buffer: Buffer; contentType: string } | null> {
   if (!BUCKET_ID) return null;
-  const bucket = objectStorageClient.bucket(getBucketName());
-  const file = bucket.file(`public/ai-images/${filename}`);
-  const [exists] = await file.exists();
-  if (!exists) return null;
-  const [metadata] = await file.getMetadata();
-  const contentType = (metadata.contentType as string) || 'image/jpeg';
-  const [data] = await file.download();
-  return { buffer: data as Buffer, contentType };
+  return downloadBuffer(getBucketName(), `public/ai-images/${filename}`);
 }
 
 /**
@@ -123,18 +121,16 @@ export async function serveStoredAiImage(
     return;
   }
 
-  const bucket = objectStorageClient.bucket(getBucketName());
-  const file = bucket.file(`public/ai-images/${filename}`);
+  const file = makeStorageFile(getBucketName(), `public/ai-images/${filename}`);
 
-  const [exists] = await file.exists();
-  if (!exists) {
+  if (!(await file.exists())) {
     res.status(404).json({ error: 'Image not found' });
     return;
   }
 
-  const [metadata] = await file.getMetadata();
+  const metadata = await file.getMetadata();
   res.set({
-    'Content-Type': (metadata.contentType as string) || 'image/jpeg',
+    'Content-Type': metadata.contentType || 'image/jpeg',
     'Cache-Control': 'public, max-age=3600',
   });
 

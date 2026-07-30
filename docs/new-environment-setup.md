@@ -121,11 +121,21 @@ FOUNDER_EMAIL=...                           # Email for founder dashboard access
 
 ### Object Storage (See Section 5)
 ```
-DEFAULT_OBJECT_STORAGE_BUCKET_ID=...        # Primary GCS bucket name (no gs:// prefix)
+DEFAULT_OBJECT_STORAGE_BUCKET_ID=...        # Primary bucket name (GCS only, no gs:// prefix)
 PUBLIC_OBJECT_SEARCH_PATHS=...              # Comma-separated paths for public assets, e.g. /my-bucket/public
 PRIVATE_OBJECT_DIR=...                      # Directory for private uploads, e.g. /my-bucket/private
+
+# GCS backend (Replit sidecar or service account)
 GOOGLE_CLOUD_STORAGE_CREDENTIALS=...       # JSON service-account key (stringified). If set, Replit sidecar is NOT needed.
 GOOGLE_CLOUD_PROJECT_ID=...                # GCP project ID (only needed if not embedded in the credentials JSON)
+
+# S3 / Cloudflare R2 backend (takes priority over GCS when all three are set)
+AWS_S3_ACCESS_KEY_ID=...                   # S3 access key (or R2 Access Key ID)
+AWS_S3_SECRET_ACCESS_KEY=...              # S3 secret key (or R2 Secret Access Key)
+AWS_S3_REGION=...                          # AWS region (e.g. us-east-1) or "auto" for Cloudflare R2
+AWS_S3_ENDPOINT=...                        # Custom endpoint — required for R2:
+                                           #   https://<account-id>.r2.cloudflarestorage.com
+                                           #   Leave unset for standard AWS S3.
 ```
 
 ### Replit-Specific (only needed on Replit)
@@ -205,6 +215,62 @@ No code change is needed; it's purely configuration.
 
 > The migration script (`server/scripts/migrate-object-storage.ts`) streams every object from the source bucket to the destination, preserving content-type and custom metadata. Re-running it is safe — it overwrites existing objects.
 
+### Option C — Migrate to AWS S3 or Cloudflare R2 (zero egress cost on R2)
+
+The S3 backend is activated automatically when `AWS_S3_ACCESS_KEY_ID`, `AWS_S3_SECRET_ACCESS_KEY`, and `AWS_S3_REGION` are all set. It takes priority over GCS. The same `PUBLIC_OBJECT_SEARCH_PATHS` and `PRIVATE_OBJECT_DIR` path format is used — only the credentials change.
+
+**Cloudflare R2** is the recommended choice for most new deployments: zero egress fees, S3-compatible API, and global CDN.
+
+#### AWS S3
+
+1. Create an S3 bucket in any region
+2. Create an IAM user with `s3:PutObject`, `s3:GetObject`, `s3:HeadObject`, `s3:DeleteObject` on that bucket
+3. Generate an access key for the IAM user
+4. Set env vars:
+   ```
+   AWS_S3_ACCESS_KEY_ID=<access-key-id>
+   AWS_S3_SECRET_ACCESS_KEY=<secret-access-key>
+   AWS_S3_REGION=us-east-1                  # or your chosen region
+   PUBLIC_OBJECT_SEARCH_PATHS=/<bucket>/public
+   PRIVATE_OBJECT_DIR=/<bucket>/private
+   ```
+5. Migrate existing assets from GCS (run while sidecar or GCS credentials are still available):
+   ```bash
+   AWS_S3_ACCESS_KEY_ID='...' \
+   AWS_S3_SECRET_ACCESS_KEY='...' \
+   AWS_S3_REGION='us-east-1' \
+   AWS_S3_DESTINATION_BUCKET='<bucket>' \
+   npx tsx server/scripts/migrate-gcs-to-s3.ts
+   ```
+6. Restart the server
+
+#### Cloudflare R2
+
+1. In the Cloudflare dashboard → R2 → Create bucket
+2. Create an API token with Object Read & Write on that bucket
+3. Note your **Account ID** from the R2 page
+4. Set env vars:
+   ```
+   AWS_S3_ACCESS_KEY_ID=<r2-access-key-id>
+   AWS_S3_SECRET_ACCESS_KEY=<r2-secret-access-key>
+   AWS_S3_REGION=auto
+   AWS_S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
+   PUBLIC_OBJECT_SEARCH_PATHS=/<bucket>/public
+   PRIVATE_OBJECT_DIR=/<bucket>/private
+   ```
+5. Migrate (same script, just add `AWS_S3_ENDPOINT`):
+   ```bash
+   AWS_S3_ACCESS_KEY_ID='...' \
+   AWS_S3_SECRET_ACCESS_KEY='...' \
+   AWS_S3_REGION='auto' \
+   AWS_S3_ENDPOINT='https://<account-id>.r2.cloudflarestorage.com' \
+   AWS_S3_DESTINATION_BUCKET='<bucket>' \
+   npx tsx server/scripts/migrate-gcs-to-s3.ts
+   ```
+6. Restart the server
+
+> The migration script (`server/scripts/migrate-gcs-to-s3.ts`) is idempotent — objects already present in S3/R2 with the same byte size are skipped. Re-running after a partial failure is safe.
+
 ---
 
 ## Step 6 — Start the Server
@@ -258,7 +324,7 @@ That's it. Everything else — Daniela's identity, the Archive, J-space reflecti
 | Episode chain | ✅ In Neon DB + `docs/episode-*.md` |
 | Source code | ✅ In the repo. |
 | Alden's conversations and notes | ✅ In Neon DB. |
-| Object storage (images, voice notes) | ✅ Portable. Set `GOOGLE_CLOUD_STORAGE_CREDENTIALS` to use any GCS bucket without Replit. See Step 5. |
+| Object storage (images, voice notes) | ✅ Portable. GCS (set `GOOGLE_CLOUD_STORAGE_CREDENTIALS`) or S3/R2 (set `AWS_S3_*` vars). See Step 5. |
 | Replit OIDC login | ⚠️ Replit-specific. New environment needs its own auth or skip it. |
 | Replit workflow runner | ℹ️ Replaced by `npm run dev` directly. |
 | Agent token | ℹ️ Just a secret string. Re-set it in new environment. |

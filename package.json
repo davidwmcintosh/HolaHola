@@ -10,8 +10,15 @@
     "check": "tsc",
     "db:push": "drizzle-kit push"
   },
-  "overrides": { "minimatch": "^3.1.2", "brace-expansion": "^2.0.1", "rimraf": "^3.0.2" }, "dependencies": {
+  "overrides": {
+    "minimatch": "^3.1.2",
+    "brace-expansion": "^2.0.1",
+    "rimraf": "^3.0.2"
+  },
+  "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
+    "@aws-sdk/client-s3": "^3.1098.0",
+    "@aws-sdk/s3-request-presigner": "^3.1098.0",
     "@capacitor/android": "^7.4.4",
     "@capacitor/cli": "^7.4.4",
     "@capacitor/core": "^7.4.4",

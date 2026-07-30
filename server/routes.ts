@@ -8960,17 +8960,15 @@ Return ONLY the ${targetLanguage} phrase:`;
       if (!filename.endsWith('.wav')) return res.status(400).json({ error: 'Invalid filename' });
       const bucketId = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID || '';
       if (!bucketId) return res.status(503).json({ error: 'Audio storage not configured' });
-      const { objectStorageClient } = await import('./replit_integrations/object_storage/objectStorage');
-      const file = objectStorageClient.bucket(bucketId).file(`public/voice-messages/${filename}`);
-      const [exists] = await file.exists();
-      if (!exists) return res.status(404).json({ error: 'Audio not found' });
-      const [data] = await file.download();
+      const { downloadBuffer } = await import('./replit_integrations/object_storage/objectStorage');
+      const result = await downloadBuffer(bucketId, `public/voice-messages/${filename}`);
+      if (!result) return res.status(404).json({ error: 'Audio not found' });
       res.set({
         'Content-Type': 'audio/wav',
         'Cache-Control': 'public, max-age=86400',
-        'Content-Length': String(data.length),
+        'Content-Length': String(result.buffer.length),
       });
-      res.send(data);
+      res.send(result.buffer);
     } catch (err: any) {
       console.error('[Route] vm-audio serve error:', err.message);
       if (!res.headersSent) res.status(500).json({ error: 'Failed to serve audio' });
@@ -12180,12 +12178,11 @@ Return ONLY the ${targetLanguage} phrase:`;
         .split(",")[0].trim().replace(/^\//, "").split("/")[0];
       if (!bucketName) return res.status(500).json({ error: "Bucket not configured" });
 
-      const { objectStorageClient } = await import("./replit_integrations/object_storage/objectStorage");
-      const bucket = objectStorageClient.bucket(bucketName);
-      const [files] = await bucket.getFiles({ prefix: `public/madrigal/scans/${book}/` });
-      const pages = files
-        .map((f: any) => {
-          const m = f.name.match(/page-(\d+)\.jpg$/);
+      const { listObjects } = await import("./replit_integrations/object_storage/objectStorage");
+      const keys = await listObjects(bucketName, `public/madrigal/scans/${book}/`);
+      const pages = keys
+        .map((name: string) => {
+          const m = name.match(/page-(\d+)\.jpg$/);
           return m ? parseInt(m[1], 10) : null;
         })
         .filter(Boolean)
@@ -22180,7 +22177,7 @@ Current conversation context:
 
       await fsp.mkdir(tmpDir, { recursive: true });
 
-      const { objectStorageClient } = await import('./replit_integrations/object_storage/objectStorage');
+      const { downloadBuffer } = await import('./replit_integrations/object_storage/objectStorage');
       const BUCKET_ID = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID || '';
 
       for (const prop of props) {
@@ -22189,9 +22186,8 @@ Current conversation context:
         const safeName = prop.name.replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
         const outPath = pathMod.join(tmpDir, `${safeName}.png`);
         try {
-          const bucket = objectStorageClient.bucket(BUCKET_ID);
-          const [buffer] = await bucket.file(storagePath).download();
-          await fsp.writeFile(outPath, buffer as Buffer);
+          const result = await downloadBuffer(BUCKET_ID, storagePath);
+          if (result) await fsp.writeFile(outPath, result.buffer);
         } catch (err: any) {
           console.warn(`[ZonePropDownload] Skipped ${prop.name}: ${err.message}`);
         }
