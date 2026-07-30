@@ -3345,6 +3345,23 @@ ${lastNote.tutorNotes}`);
                 geminiLiveSession = null;
                 // Fall through — session still works via legacy pipeline
               }
+            } else {
+              // ── Text-mode (Deepgram) absence return resolution ─────────────
+              // The GL branch resolves the absence nudge inside its synthesis block so
+              // the returning-student signal can color the inner monologue.  In text-mode
+              // there is no baked synthesis, so we fire the same idempotent call here to
+              // ensure the DB row is resolved when the student actually returns.
+              // Founder-mode sessions are David's admin/test sessions — skip them.
+              if (userId && !isFounderMode) {
+                autoResolveAbsenceNudgeOnReturn(String(userId)).then((absenceReturn) => {
+                  if (absenceReturn) {
+                    console.log(`[TextMode] ✓ Student returning after ${absenceReturn.daysSinceLastSession} day(s) absence — nudge resolved`);
+                  }
+                }).catch((absErr: any) => {
+                  // Non-fatal — session continues without absence resolution
+                  console.warn('[TextMode] Absence return check failed (non-fatal):', absErr?.message);
+                });
+              }
             }
             
             // Track reconnection state — prevents double greetings when client reconnects.
