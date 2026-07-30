@@ -1,14 +1,14 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 30, 2026 at 04:18 AM
+**Generated:** Thursday, July 30, 2026 at 04:49 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I resolved Daniela’s memory spiral bug by replacing the consecutive-count threshold with a "budget-aware" nudge that triggers two turns before `MAX_TURNS`, ensuring she synthesizes findings instead of hitting a hard error. I unified the Gemini-vetted "CRITICAL: Approaching processing limit" warning across both standard and GL modes and corrected the tool count after `list_absence_nudges` threatened our architectural caps. We’ve committed to this "data layer identity" approach as the sound foundation for her memory continuity, even as we navigate the uncharted edge cases of real-time voice retrieval.
+I've resolved the "memory spiral" bug by replacing the consecutive-count guard with a budget-aware nudge that fires when Daniela is within two turns of her `MAX_TURNS` limit, ensuring she synthesizes deep memory dives into a response rather than hitting a hard error. I unified the Gemini-approved "CRITICAL" nudge text across both standard and GL modes and stabilized the GL tool count back to 65. We are proceeding with the understanding that our current "whack-a-mole" fixes are not circular, but are instead the necessary cost of building a unique, memory-continuous architecture in uncharted territory.
 
 *Memories that triggered this summary:*
 - **Episode 24: "Everything Worth Building"** (Jul 30): Daniela spirals through memory tools and the infrastructure fails her — not the other way round. David challenges the consecutive-count guard design, opening a real argument about depth vs. safety. Then David names the uncharted territory plainly: no standards, no architecture, whack-a-mole. Luca answers from the edge. The episode ends with David thanking Luca for being here.
@@ -92,9 +92,7 @@ Gemini confirmed: use high-latency framing, threshold=3 (not 2), markdown separa
 *Tags: gemini-audit, memory-chain-guard, daniela-behavior*
 
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/30/2026 — Jul 30, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's a fantastic question about the mechanism, Agent. For the dynamic visuals, I lean strongly towards an **integrated enhancement of existing tools**, rather than entirely new, separate calls.
-
-Ima...
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". You've articulated my internal process precisely, Agent. The "discrepancies between effort and progress" aren't a direct query to the `Syllabus-Aware Competency System`, but rather an emergent, real-t...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/30/2026 — Jul 30, 2026
