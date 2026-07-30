@@ -7670,99 +7670,10 @@ ${memoryContext}
 
   // Azure Pronunciation Assessment - Test endpoint for POC
   // Analyzes audio against expected text and returns phoneme-level scores
-  app.post("/api/voice/assess-pronunciation", voiceLimiter, isAuthenticated, upload.single('audio'), async (req: any, res: Response) => {
-    try {
-      const { azurePronunciationService } = await import("./services/azure-pronunciation-service");
-      
-      if (!azurePronunciationService.isAvailable()) {
-        return res.status(503).json({ 
-          error: "Azure Pronunciation Assessment not configured",
-          hint: "Set AZURE_SPEECH_KEY and AZURE_SPEECH_REGION environment variables" 
-        });
-      }
-
-      const { referenceText, language, classId, sessionId } = req.body;
-      const userId = getRequestUserId(req);
-      
-      if (!req.file) {
-        return res.status(400).json({ error: "Audio file required" });
-      }
-      
-      if (!referenceText) {
-        return res.status(400).json({ error: "Reference text required for pronunciation assessment" });
-      }
-
-      const audioBuffer = req.file.buffer;
-      const targetLanguage = language || 'spanish';
-      
-      console.log(`[Azure Pronunciation] Assessing pronunciation for: "${referenceText}" (${targetLanguage})`);
-      
-      const result = await azurePronunciationService.assessPronunciation(
-        audioBuffer,
-        referenceText,
-        targetLanguage
-      );
-      
-      if (!result) {
-        // No speech was recognized — surface as pronunciation_unavailable so
-        // the client can show a meaningful notice instead of a blank result.
-        return res.status(422).json({
-          error: 'pronunciation_unavailable',
-          reason: 'No speech recognized in the audio — please try again with a clear recording.',
-        });
-      }
-      
-      // Store phoneme struggles in database with learning context
-      await azurePronunciationService.storePhonemeStruggles(
-        userId,
-        targetLanguage,
-        result,
-        sessionId || undefined,
-        classId || undefined // Learning source tracking
-      );
-      
-      res.json({
-        success: true,
-        scores: {
-          accuracy: result.accuracyScore,
-          fluency: result.fluencyScore,
-          completeness: result.completenessScore,
-          pronunciation: result.pronScore,
-        },
-        words: result.words.map(w => ({
-          word: w.word,
-          accuracy: w.accuracyScore,
-          errorType: w.errorType,
-          phonemes: w.phonemes.map(p => ({
-            phoneme: p.phoneme,
-            accuracy: p.accuracyScore,
-          })),
-        })),
-        strugglingPhonemes: result.rawPhonemes
-          .filter(p => p.score < 85)
-          .map(p => ({
-            phoneme: p.phoneme,
-            score: p.score,
-            word: p.word,
-          })),
-      });
-    } catch (error: any) {
-      console.error("[Azure Pronunciation] Assessment error:", error);
-      // Classify Azure service failures so clients receive a machine-readable field.
-      // Expected error shape: { error: 'pronunciation_unavailable', reason: string }
-      if (error?.name === 'AzurePronunciationError') {
-        const status = error.category === 'rate_limit' ? 429 : 503;
-        return res.status(status).json({
-          error: 'pronunciation_unavailable',
-          reason: error.message,
-        });
-      }
-      res.status(500).json({
-        error: 'pronunciation_unavailable',
-        reason: error?.message || 'Pronunciation assessment failed',
-      });
-    }
-  });
+  // Handler extracted to server/handlers/pronunciation-assess.ts so integration
+  // tests can import the real implementation without copying it.
+  const { assessPronunciationHandler } = await import("./handlers/pronunciation-assess.js");
+  app.post("/api/voice/assess-pronunciation", voiceLimiter, isAuthenticated, upload.single('audio'), assessPronunciationHandler);
 
   // Slow repeat: Get simplified version of last teaching and speak it slowly
   // Used when student needs more help understanding a phrase
