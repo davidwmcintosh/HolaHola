@@ -327,6 +327,83 @@ export async function resolveAbsenceNudge(
   console.log(`[AbsenceWorker] Nudge resolved for user ${userId} (type: ${resolutionType}${suppressDays ? `, snoozed ${suppressDays}d` : ''})`);
 }
 
+/**
+ * List all pending (unresolved) absence nudges with enriched student details.
+ * Called by the LIST_ABSENCE_NUDGES native FC handler so Daniela can see
+ * her full pending inbox and act on multiple nudges in one session.
+ */
+export async function listAbsenceNudges(): Promise<Array<{
+  nudgeId: string;
+  userId: string;
+  firstName: string | null;
+  daysSinceLastSession: number;
+  lastSessionDate: Date | null;
+  lastTopic: string | null;
+  suppressUntil: Date | null;
+}>> {
+  const db = getSharedDb();
+
+  // Fetch all unresolved nudges, newest first
+  const pendingNudges = await db
+    .select({
+      id: danielaAbsenceNudges.id,
+      userId: danielaAbsenceNudges.userId,
+      daysSinceLastSession: danielaAbsenceNudges.daysSinceLastSession,
+      lastSessionDate: danielaAbsenceNudges.lastSessionDate,
+      suppressUntil: danielaAbsenceNudges.suppressUntil,
+    })
+    .from(danielaAbsenceNudges)
+    .where(isNull(danielaAbsenceNudges.resolvedAt))
+    .orderBy(desc(danielaAbsenceNudges.notifiedAt));
+
+  if (pendingNudges.length === 0) return [];
+
+  // Enrich with user names and last topics
+  const enriched = await Promise.all(
+    pendingNudges.map(async (nudge) => {
+      let firstName: string | null = null;
+      let lastTopic: string | null = null;
+
+      try {
+        const [user] = await db
+          .select({ firstName: users.firstName })
+          .from(users)
+          .where(eq(users.id, nudge.userId))
+          .limit(1);
+        firstName = user?.firstName ?? null;
+      } catch { /* non-critical */ }
+
+      try {
+        const [note] = await db
+          .select({ topicsCovered: sessionNotes.topicsCovered, summary: sessionNotes.summary })
+          .from(sessionNotes)
+          .where(eq(sessionNotes.studentId, nudge.userId))
+          .orderBy(desc(sessionNotes.createdAt))
+          .limit(1);
+        if (note) {
+          if (note.topicsCovered && note.topicsCovered.length > 0) {
+            lastTopic = note.topicsCovered.slice(0, 3).join(', ');
+          } else if (note.summary) {
+            lastTopic = note.summary.substring(0, 120);
+          }
+        }
+      } catch { /* non-critical */ }
+
+      return {
+        nudgeId: nudge.id,
+        userId: nudge.userId,
+        firstName,
+        daysSinceLastSession: nudge.daysSinceLastSession ?? 0,
+        lastSessionDate: nudge.lastSessionDate ?? null,
+        lastTopic,
+        suppressUntil: nudge.suppressUntil ?? null,
+      };
+    })
+  );
+
+  return enriched;
+}
+
 export function startDanielaAbsenceWorker(): void {
   console.log('[AbsenceWorker] Starting (interval: 24h, threshold: 5 days absent)');
   // Initial check after 10 minutes to let everything settle and avoid boot storms

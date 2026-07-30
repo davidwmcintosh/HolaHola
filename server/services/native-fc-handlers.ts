@@ -7701,6 +7701,44 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'LIST_ABSENCE_NUDGES': {
+        // Security: only allowed in Founder Mode or Raw Honesty Mode — same gate as DISMISS_ABSENCE_NUDGE.
+        // The nudge inbox includes student userId, names, and session dates which should not be
+        // accessible from a normal student session.
+        if (!session.isFounderMode && !session.isRawHonestyMode) {
+          console.warn(`[Native→ListAbsenceNudges] Blocked: not in trusted context`);
+          (session as any).listAbsenceNudgesResult = '[SYSTEM: list_absence_nudges is only available in a trusted session context.]';
+          break;
+        }
+        try {
+          const { listAbsenceNudges } = await import('./daniela-absence-worker');
+          const nudges = await listAbsenceNudges();
+          if (nudges.length === 0) {
+            (session as any).listAbsenceNudgesResult = '[SYSTEM: No pending absence nudges — all students are accounted for.]';
+          } else {
+            const now = new Date();
+            const lines = nudges.map((n) => {
+              const name = n.firstName ?? `student ${n.userId.slice(-6)}`;
+              const lastDate = n.lastSessionDate
+                ? n.lastSessionDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+                : 'unknown';
+              const topicLine = n.lastTopic ? ` Last topic: ${n.lastTopic}.` : '';
+              const snoozeLine = n.suppressUntil && n.suppressUntil > now
+                ? ` (snoozed until ${n.suppressUntil.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})`
+                : '';
+              return `- ${name}${snoozeLine}: ${n.daysSinceLastSession} days absent (last session ${lastDate}).${topicLine} userId: ${n.userId}`;
+            });
+            (session as any).listAbsenceNudgesResult =
+              `[SYSTEM: ${nudges.length} pending absence nudge${nudges.length > 1 ? 's' : ''}]\n${lines.join('\n')}\n\nFor each: call leave_for_next_session(content, targetUserId="...") to leave a message, or dismiss_absence_nudge(userId="...") to dismiss (add suppressDays=N to snooze).`;
+          }
+          console.log(`[Native→ListAbsenceNudges] Returned ${nudges.length} pending nudge(s)`);
+        } catch (err: any) {
+          console.error('[Native→ListAbsenceNudges] Error:', err.message);
+          (session as any).listAbsenceNudgesResult = `[SYSTEM: Could not fetch absence nudges — ${err.message}]`;
+        }
+        break;
+      }
+
       // ─── Overlay Panel Toolkit ──────────────────────────────────────────────
 
       case 'SHOW_VOCAB_GRID': {

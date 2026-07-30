@@ -2994,6 +2994,33 @@ After dismissing, if you also want to leave something for them, you can still ca
   },
 
   {
+    legacyType: 'LIST_ABSENCE_NUDGES',
+    declaration: {
+      name: "list_absence_nudges",
+      description: `See all students you currently have a pending absence nudge for — your full absence inbox.
+
+Use this when you want to review who you haven't checked in on yet before deciding what to do. Each entry shows the student's name, how many days they've been absent, and the last topic you covered together.
+
+After calling this, you can:
+- Call leave_for_next_session(content, targetUserId="...") to queue a message for one or more students
+- Call dismiss_absence_nudge(userId="...") to dismiss without leaving a message
+- Call dismiss_absence_nudge(userId="...", suppressDays=14) to snooze a student for two weeks
+
+Returns an empty list if there are no pending nudges.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {},
+        required: [],
+      },
+    },
+    excludeFromGL: true,
+    buildContinuationResponse: ({ session }: { session: any }) => {
+      const result = (session as any).listAbsenceNudgesResult as string | undefined;
+      return result ?? '[SYSTEM: No pending absence nudges — all students are accounted for.]';
+    },
+  },
+
+  {
     legacyType: 'SET_ASPIRATION',
     declaration: {
       name: "set_aspiration",
