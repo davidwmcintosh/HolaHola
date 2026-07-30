@@ -328,50 +328,65 @@ export async function runCopyObjectProbeAtStartup(): Promise<void> {
       }
     }
   } else {
-    // ── GCS branch ─────────────────────────────────────────────────────────
-    // Verifies that the bucket's ACL / CMEK policy allows both writes and
-    // metadata updates.  A misconfigured policy would otherwise only surface
-    // when a real file is written, not at boot.
+    await runGcsCopyProbeWithClient(getGcsClient(), bucketName, probeKey);
+  }
+}
+
+/**
+ * Extracted GCS probe body — accepts an injected Storage client so it can be
+ * exercised in tests without real credentials or a real bucket.
+ *
+ * Exported for testing only; prefer runCopyObjectProbeAtStartup() at runtime.
+ */
+export async function runGcsCopyProbeWithClient(
+  gcs: Storage,
+  bucketName: string,
+  probeKey?: string,
+): Promise<void> {
+  const tag = "[ObjectStorage:CopyProbe]";
+  const key = probeKey ?? `_health_probe/copy-object-probe-${Date.now()}.txt`;
+
+  // ── GCS branch ─────────────────────────────────────────────────────────
+  // Verifies that the bucket's ACL / CMEK policy allows both writes and
+  // metadata updates.  A misconfigured policy would otherwise only surface
+  // when a real file is written, not at boot.
+  try {
+    const file = gcs.bucket(bucketName).file(key);
+
+    // 1. Upload a tiny sentinel object.
+    await file.save(Buffer.from("holahola-startup-probe"), {
+      contentType: "text/plain",
+      metadata: { "x-probe-init": "true" },
+    });
+
+    // 2. Attempt a metadata update — the operation most likely to fail under
+    //    a restrictive CMEK policy or restrictive ACL.
+    let setMetadataFailed = false;
     try {
-      const gcs = getGcsClient();
-      const file = gcs.bucket(bucketName).file(probeKey);
-
-      // 1. Upload a tiny sentinel object.
-      await file.save(Buffer.from("holahola-startup-probe"), {
-        contentType: "text/plain",
-        metadata: { "x-probe-init": "true" },
-      });
-
-      // 2. Attempt a metadata update — the operation most likely to fail under
-      //    a restrictive CMEK policy or restrictive ACL.
-      let setMetadataFailed = false;
-      try {
-        await file.setMetadata({ metadata: { "x-probe-init": "true", "x-probe-updated": "true" } });
-      } catch (metaErr: any) {
-        setMetadataFailed = true;
-        console.warn(
-          `${tag} WARN GCS setMetadata failed for bucket "${bucketName}" (${metaErr?.message ?? metaErr}). ` +
-          `Metadata updates will fail at runtime. ` +
-          `Check bucket IAM permissions (storage.objects.update) and any CMEK / ACL restrictions.`,
-        );
-      }
-
-      if (!setMetadataFailed) {
-        console.log(`${tag} GCS metadata probe OK — setMetadata supported (bucket: ${bucketName})`);
-      }
-    } catch (err: any) {
+      await file.setMetadata({ metadata: { "x-probe-init": "true", "x-probe-updated": "true" } });
+    } catch (metaErr: any) {
+      setMetadataFailed = true;
       console.warn(
-        `${tag} WARN GCS probe error (bucket: ${bucketName}) — ${err?.message ?? err}. ` +
-        `Storage uploads may fail until this is resolved.`,
+        `${tag} WARN GCS setMetadata failed for bucket "${bucketName}" (${metaErr?.message ?? metaErr}). ` +
+        `Metadata updates will fail at runtime. ` +
+        `Check bucket IAM permissions (storage.objects.update) and any CMEK / ACL restrictions.`,
       );
-    } finally {
-      // 3. Best-effort cleanup — never blocks startup.
-      try {
-        const gcs = getGcsClient();
-        await gcs.bucket(bucketName).file(probeKey).delete();
-      } catch {
-        // Cleanup failure is not a health-check failure.
-      }
+    }
+
+    if (!setMetadataFailed) {
+      console.log(`${tag} GCS metadata probe OK — setMetadata supported (bucket: ${bucketName})`);
+    }
+  } catch (err: any) {
+    console.warn(
+      `${tag} WARN GCS probe error (bucket: ${bucketName}) — ${err?.message ?? err}. ` +
+      `Storage uploads may fail until this is resolved.`,
+    );
+  } finally {
+    // 3. Best-effort cleanup — never blocks startup.
+    try {
+      await gcs.bucket(bucketName).file(key).delete();
+    } catch {
+      // Cleanup failure is not a health-check failure.
     }
   }
 }
