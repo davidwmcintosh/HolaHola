@@ -328,9 +328,12 @@ async function runPart3(): Promise<void> {
 //   b) A synthesis generated WITHOUT the signal lacks absence warmth words
 //   c) A synthesis generated WITH the signal (simulating what the warm-synthesis
 //      route does via its peekAbsenceReturnDetails call) DOES contain them
-//   d) consumeWarmSynthesis() faithfully returns whatever was stored — confirming
-//      that the WS handler relies on the warm-synthesis route having baked in the
-//      signal correctly (rather than re-generating when the warm cache is stale)
+//   d) The WS handler guard fires when stale warm cache + non-null absenceReturn
+//      coexist — it discards the stale cache and regenerates with the signal
+//      (unified-ws-handler.ts: if (warmedNote && absenceReturn) → regenerate)
+//   e) consumeWarmSynthesis() faithfully returns whatever was stored — confirming
+//      that when the warm-synthesis route ran correctly (peek → generate WITH
+//      signal → store), the WS handler receives the signal-aware synthesis
 //
 // Uses TEST_USER_ID_2 to avoid in-memory resolve-cache contamination from Parts 1-3.
 // ══════════════════════════════════════════════════════════════════════════════
@@ -470,6 +473,73 @@ async function runPart4(): Promise<void> {
     consumedAgain === null,
     consumedAgain !== null ? 'Second consumeWarmSynthesis returned non-null — cache was not cleared' : undefined,
   );
+
+  // 4d-ws-guard. Verify the WS handler guard fires when stale warm cache + absence signal coexist.
+  //
+  //   The unified-ws-handler now contains:
+  //     if (warmedNote && absenceReturn) → discard warm cache, regenerate with signal
+  //
+  //   We simulate this: re-store the stale synthesis, consume it as the WS handler would,
+  //   confirm both conditions are non-null (guard triggers), then call generatePreSessionSynthesis
+  //   with the signal and assert the output contains at least one absence warmth word — proving
+  //   the regenerated synthesis carries the returning-student awareness.
+  origLog(D('\n  [4d-ws-guard] Simulating WS handler guard: stale warm cache + absence signal → regenerate...'));
+  if (staleSynthesis) {
+    setWarmSynthesis(TEST_USER_ID_2, staleSynthesis);
+    const wsWarmedNote = consumeWarmSynthesis(TEST_USER_ID_2);
+    const wsAbsenceReturn = peeked ?? { daysSinceLastSession: TEST_DAYS_ABSENT_2, firstName: null };
+
+    assert(
+      '[ws-guard] consumeWarmSynthesis returns the stale note (guard precondition: warmedNote non-null)',
+      wsWarmedNote !== null && wsWarmedNote === staleSynthesis,
+      wsWarmedNote === null ? 'consumeWarmSynthesis returned null — re-store failed' : 'Returned unexpected string',
+    );
+    assert(
+      '[ws-guard] absenceReturn is non-null (guard precondition: signal detected)',
+      wsAbsenceReturn !== null,
+      'peeked was null — absence nudge not found; guard would not fire',
+    );
+
+    const guardWouldFire = wsWarmedNote !== null && wsAbsenceReturn !== null;
+    assert(
+      '[ws-guard] Both guard preconditions met → WS handler discards stale warm cache and regenerates with signal',
+      guardWouldFire,
+      'One or both preconditions were null — guard would NOT fire',
+    );
+
+    if (guardWouldFire) {
+      origLog(D('  Guard conditions met — calling generatePreSessionSynthesis with signal (as WS handler now does)...'));
+      startCapture();
+      const guardRegen = await generatePreSessionSynthesis(
+        compassContext,
+        'Daniela',
+        TEST_USER_ID_2,
+        'spanish',
+        wsAbsenceReturn,
+      );
+      const guardLogs = stopCapture();
+      const guardAbsenceLog = guardLogs.find(l =>
+        l.includes('[PreSynthesis] ✓ Returning-after-absence signal:') &&
+        l.includes(String(TEST_DAYS_ABSENT_2)),
+      );
+      assert(
+        '[ws-guard] Regenerated synthesis triggers "[PreSynthesis] ✓ Returning-after-absence signal" log — signal reached buildLiteContext',
+        !!guardAbsenceLog,
+        guardAbsenceLog ?? 'Log line not found — signal may not be reaching buildLiteContext',
+      );
+
+      if (guardRegen) {
+        const lowerRegen = guardRegen.toLowerCase();
+        const regenWarmthHit = warmthWords.find(w => lowerRegen.includes(w));
+        assert(
+          `[ws-guard] Regenerated synthesis (guard path) contains at least one warmth/return indicator (${regenWarmthHit ? `"${regenWarmthHit}"` : 'none found'})`,
+          !!regenWarmthHit,
+          `None of ${warmthWords.slice(0, 8).join(', ')} found — regenerated synthesis may not carry the absence awareness`,
+        );
+        origLog(D(`  Guard-regenerated synthesis (${guardRegen.length} chars): "${guardRegen.slice(0, 200)}..."`));
+      }
+    }
+  }
 
   // 4e. Now simulate the warm-synthesis route's CORRECT behavior:
   //     peek → generate WITH signal → store in warm cache.

@@ -3070,15 +3070,22 @@ ${lastNote.tutorNotes}`);
                     // Check warm cache first — the frontend fires POST /api/sessions/warm-synthesis
                     // when the "Prepare" screen loads, pre-computing this in the background.
                     // If it's there and fresh (< 3 min), use it and skip the 1-2s await here.
-                    // The warm-synthesis route now also checks for a pending absence nudge and
-                    // resolves it before generating, so the warm cache carries the returning-student
-                    // signal when present. We therefore always check the warm cache — the old
-                    // !absenceReturn skip is no longer needed.
+                    //
+                    // Guard: if absenceReturn is non-null the warm cache may have been generated
+                    // BEFORE the absence nudge existed (stale).  In that case we discard it and
+                    // regenerate with the signal so Daniela always opens with the returning-student
+                    // awareness baked into her inner monologue.
                     const warmedNote = userId ? consumeWarmSynthesis(String(userId)) : null;
-                    const synthesisNote = warmedNote
-                      ?? await generatePreSessionSynthesis(compassContext, tutorName, userId ? String(userId) : undefined, effectiveLanguage || undefined, absenceReturn);
-                    if (warmedNote) {
-                      console.log(`[GeminiLive] ✓ Using pre-warmed synthesis (${warmedNote.length} chars) — 0ms latency`);
+                    let synthesisNote: string | null;
+                    if (warmedNote && absenceReturn) {
+                      console.log('[GeminiLive] Warm cache present but absence signal detected — regenerating with signal');
+                      synthesisNote = await generatePreSessionSynthesis(compassContext, tutorName, userId ? String(userId) : undefined, effectiveLanguage || undefined, absenceReturn);
+                    } else {
+                      synthesisNote = warmedNote
+                        ?? await generatePreSessionSynthesis(compassContext, tutorName, userId ? String(userId) : undefined, effectiveLanguage || undefined, absenceReturn);
+                      if (warmedNote) {
+                        console.log(`[GeminiLive] ✓ Using pre-warmed synthesis (${warmedNote.length} chars) — 0ms latency`);
+                      }
                     }
                     if (synthesisNote) {
                       const wrapped = wrapSynthesisForSystemPrompt(synthesisNote);
