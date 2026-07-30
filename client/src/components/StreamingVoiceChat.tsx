@@ -885,14 +885,21 @@ export function StreamingVoiceChat({
     
     if (!streamError || connectionState !== 'disconnected') return;
     
+    // Helper: update the shared reconnect toast slot in-place, or show a new toast if none exists.
+    const showConnectionToast = (title: string, description: string) => {
+      if (reconnectToastRef.current) {
+        reconnectToastRef.current.update({ id: reconnectToastRef.current.id, title, description });
+        reconnectToastRef.current = null;
+      } else {
+        toast({ title, description });
+      }
+    };
+
     // Credits exhausted - show clear message and redirect to account
     if (streamError.includes('credits have been used up') || streamError.includes('Insufficient tutoring hours')) {
       console.log('[STREAMING] Credits exhausted - redirecting to account page');
       stopRinging();
-      toast({
-        title: "Session hours used up",
-        description: "Visit your Account page to add more hours.",
-      });
+      showConnectionToast("Session hours used up", "Visit your Account page to add more hours.");
       setTimeout(() => {
         navigate(homeRoute);
       }, 2500);
@@ -903,10 +910,7 @@ export function StreamingVoiceChat({
     if (streamError.includes('Please restart') || streamError.includes('session has ended') || streamError.includes('Please start a new')) {
       console.log('[STREAMING] Unrecoverable error - redirecting to language hub');
       stopRinging();
-      toast({
-        title: "Session ended",
-        description: "The connection was lost. Starting a fresh session.",
-      });
+      showConnectionToast("Session ended", "The connection was lost. Starting a fresh session.");
       setTimeout(() => {
         navigate(homeRoute);
       }, 1500);
@@ -916,9 +920,9 @@ export function StreamingVoiceChat({
   // Reconnect grace timer — only surface a notification after 4 s of continuous reconnecting.
   // Transient drops that auto-recover within 4 s produce no toast at all.
   const reconnectGraceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  // Hold the dismiss function for the in-flight "Reconnecting…" toast so we can
-  // explicitly clear it when the session fully fails (preventing stacked toasts).
-  const reconnectToastDismissRef = useRef<(() => void) | null>(null);
+  // Hold the full toast handle for the in-flight "Reconnecting…" toast so we can
+  // update it in-place when the session fully fails (preventing stacked toasts).
+  const reconnectToastRef = useRef<{ id: string; dismiss: () => void; update: (props: any) => void } | null>(null);
   useEffect(() => {
     if (!useStreamingMode) return;
     const { connectionState } = streamingVoice.state;
@@ -930,12 +934,11 @@ export function StreamingVoiceChat({
           reconnectGraceTimerRef.current = null;
           // Only show if still reconnecting when the timer fires
           if (connectionStateRef.current === 'reconnecting') {
-            const { dismiss } = toast({
+            reconnectToastRef.current = toast({
               title: "Reconnecting…",
               description: "Restoring your voice session.",
               duration: 10000,
             });
-            reconnectToastDismissRef.current = dismiss;
           }
         }, 4000);
       }
@@ -946,9 +949,9 @@ export function StreamingVoiceChat({
         reconnectGraceTimerRef.current = null;
       }
       // Dismiss the visible "Reconnecting…" toast if the connection left that state
-      if (reconnectToastDismissRef.current) {
-        reconnectToastDismissRef.current();
-        reconnectToastDismissRef.current = null;
+      if (reconnectToastRef.current) {
+        reconnectToastRef.current.dismiss();
+        reconnectToastRef.current = null;
       }
     }
 
