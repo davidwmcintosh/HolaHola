@@ -19,7 +19,7 @@ import {
   sessionNotes,
   users,
 } from '@shared/schema';
-import { eq, and, isNull, ne, lte, desc, max, sql, gte, count } from 'drizzle-orm';
+import { eq, and, isNull, isNotNull, ne, lte, desc, max, sql, gte, count } from 'drizzle-orm';
 import { founderCollabService } from './founder-collaboration-service';
 import { founderCollabWSBroker } from './founder-collab-ws-broker';
 
@@ -602,6 +602,65 @@ export async function autoResolveAbsenceNudgeOnReturn(
     console.warn(`[AbsenceWorker] autoResolveAbsenceNudgeOnReturn failed for ${userId}: ${err.message}`);
     return null;
   }
+}
+
+/**
+ * List recently resolved absence nudges, newest first.
+ * Used by the founder history view so David can see how nudges were resolved
+ * (e.g. student_returned vs dismissed vs message_queued).
+ */
+export async function listResolvedNudges(limit = 20): Promise<Array<{
+  nudgeId: string;
+  userId: string;
+  firstName: string | null;
+  daysSinceLastSession: number;
+  lastSessionDate: Date | null;
+  resolvedAt: Date;
+  resolutionType: string | null;
+}>> {
+  const db = getSharedDb();
+
+  const resolved = await db
+    .select({
+      id: danielaAbsenceNudges.id,
+      userId: danielaAbsenceNudges.userId,
+      daysSinceLastSession: danielaAbsenceNudges.daysSinceLastSession,
+      lastSessionDate: danielaAbsenceNudges.lastSessionDate,
+      resolvedAt: danielaAbsenceNudges.resolvedAt,
+      resolutionType: danielaAbsenceNudges.resolutionType,
+    })
+    .from(danielaAbsenceNudges)
+    .where(isNotNull(danielaAbsenceNudges.resolvedAt))
+    .orderBy(desc(danielaAbsenceNudges.resolvedAt))
+    .limit(Math.min(limit, 100));
+
+  if (resolved.length === 0) return [];
+
+  const enriched = await Promise.all(
+    resolved.map(async (nudge) => {
+      let firstName: string | null = null;
+      try {
+        const [user] = await db
+          .select({ firstName: users.firstName })
+          .from(users)
+          .where(eq(users.id, nudge.userId))
+          .limit(1);
+        firstName = user?.firstName ?? null;
+      } catch { /* non-critical */ }
+
+      return {
+        nudgeId: nudge.id,
+        userId: nudge.userId,
+        firstName,
+        daysSinceLastSession: nudge.daysSinceLastSession ?? 0,
+        lastSessionDate: nudge.lastSessionDate ?? null,
+        resolvedAt: nudge.resolvedAt!,
+        resolutionType: nudge.resolutionType ?? null,
+      };
+    })
+  );
+
+  return enriched;
 }
 
 export function startDanielaAbsenceWorker(): void {

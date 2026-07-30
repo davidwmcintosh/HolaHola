@@ -9,11 +9,146 @@ import {
   Wifi,
   WifiOff,
   Volume2,
+  History,
+  ChevronDown,
+  ChevronRight,
+  UserCheck,
+  MessageSquare,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useFounderCollab } from "@/hooks/useFounderCollab";
+import { useQuery } from "@tanstack/react-query";
+
+// ── Resolution label helpers ─────────────────────────────────────────────────
+
+type ResolutionType = "student_returned" | "message_queued" | "dismissed" | null;
+
+interface ResolutionConfig {
+  label: string;
+  icon: React.ReactNode;
+  badgeVariant: "default" | "secondary" | "outline" | "destructive";
+  className: string;
+}
+
+function getResolutionConfig(type: ResolutionType): ResolutionConfig {
+  switch (type) {
+    case "student_returned":
+      return {
+        label: "Student returned",
+        icon: <UserCheck className="h-3 w-3" />,
+        badgeVariant: "default",
+        className: "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30",
+      };
+    case "message_queued":
+      return {
+        label: "Message queued",
+        icon: <MessageSquare className="h-3 w-3" />,
+        badgeVariant: "secondary",
+        className: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30",
+      };
+    case "dismissed":
+      return {
+        label: "Dismissed",
+        icon: <XCircle className="h-3 w-3" />,
+        badgeVariant: "outline",
+        className: "bg-muted text-muted-foreground border-border",
+      };
+    default:
+      return {
+        label: "Resolved",
+        icon: <XCircle className="h-3 w-3" />,
+        badgeVariant: "outline",
+        className: "bg-muted text-muted-foreground border-border",
+      };
+  }
+}
+
+// ── Absence history types ────────────────────────────────────────────────────
+
+interface ResolvedNudge {
+  nudgeId: string;
+  userId: string;
+  firstName: string | null;
+  daysSinceLastSession: number;
+  lastSessionDate: string | null;
+  resolvedAt: string;
+  resolutionType: ResolutionType;
+}
+
+// ── AbsenceHistoryPanel ──────────────────────────────────────────────────────
+
+function AbsenceHistoryPanel() {
+  const { data, isLoading, error } = useQuery<{ history: ResolvedNudge[] }>({
+    queryKey: ["/api/admin/absence-nudges/history"],
+    refetchInterval: 60000,
+  });
+
+  const history = data?.history ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-4">
+        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <p className="text-[10px] text-red-500 px-1 py-2">
+        Failed to load history
+      </p>
+    );
+  }
+
+  if (history.length === 0) {
+    return (
+      <p className="text-[10px] text-muted-foreground px-1 py-2 italic">
+        No resolved nudges yet
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5" data-testid="absence-nudge-history">
+      {history.map((nudge) => {
+        const cfg = getResolutionConfig(nudge.resolutionType);
+        const name = nudge.firstName ?? `student …${nudge.userId.slice(-5)}`;
+        const resolvedDate = new Date(nudge.resolvedAt).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        });
+        return (
+          <div
+            key={nudge.nudgeId}
+            className="flex items-start gap-1.5 rounded-md border bg-muted/30 px-2 py-1.5"
+            data-testid={`absence-nudge-history-row-${nudge.nudgeId}`}
+          >
+            <div className="flex-1 min-w-0">
+              <span className="text-[11px] font-medium block truncate">{name}</span>
+              <span className="text-[10px] text-muted-foreground">
+                {nudge.daysSinceLastSession}d absent · resolved {resolvedDate}
+              </span>
+            </div>
+            <Badge
+              variant="outline"
+              className={`flex items-center gap-1 text-[10px] px-1.5 py-0 h-5 flex-shrink-0 border ${cfg.className}`}
+              data-testid={`absence-resolution-badge-${nudge.nudgeId}`}
+            >
+              {cfg.icon}
+              {cfg.label}
+            </Badge>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── ExpressLanePane ──────────────────────────────────────────────────────────
 
 export function ExpressLanePane() {
   const {
@@ -29,6 +164,7 @@ export function ExpressLanePane() {
   } = useFounderCollab();
 
   const [message, setMessage] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -53,6 +189,7 @@ export function ExpressLanePane() {
 
   return (
     <div className="flex flex-col h-full" data-testid="express-lane-pane">
+      {/* Status bar */}
       <div className="flex items-center gap-2 px-3 py-1.5 border-b bg-muted/30">
         {syncIsConnected ? (
           <div className="flex items-center gap-1 text-[10px] text-green-600 dark:text-green-400">
@@ -68,8 +205,36 @@ export function ExpressLanePane() {
         <span className="text-[10px] text-muted-foreground ml-auto">
           Founder + Daniela + Wren
         </span>
+        {/* History toggle */}
+        <button
+          onClick={() => setHistoryOpen((v) => !v)}
+          className="flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+          data-testid="button-toggle-absence-history"
+          title="Absence nudge history"
+        >
+          <History className="h-3 w-3" />
+          {historyOpen ? (
+            <ChevronDown className="h-2.5 w-2.5" />
+          ) : (
+            <ChevronRight className="h-2.5 w-2.5" />
+          )}
+        </button>
       </div>
 
+      {/* Collapsible absence history panel */}
+      {historyOpen && (
+        <div
+          className="border-b bg-background/60 px-3 py-2 max-h-52 overflow-y-auto"
+          data-testid="absence-history-panel"
+        >
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
+            Resolved absence nudges
+          </p>
+          <AbsenceHistoryPanel />
+        </div>
+      )}
+
+      {/* Message feed */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
         {syncState.messages.length === 0 ? (
           <div className="text-center text-muted-foreground text-sm py-8">
@@ -122,6 +287,7 @@ export function ExpressLanePane() {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Input area */}
       <div className="p-2 border-t space-y-1.5">
         {syncVoiceState.currentTranscript && (
           <div className="text-[10px] text-muted-foreground bg-muted/50 rounded p-1.5 animate-pulse">

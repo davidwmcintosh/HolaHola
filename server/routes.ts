@@ -33468,6 +33468,19 @@ You have full access to your neural network knowledge.
     }
   });
 
+  // ABSENCE NUDGES: Resolved nudge history with resolutionType labels
+  app.get("/api/admin/absence-nudges/history", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
+    try {
+      const { listResolvedNudges } = await import('./services/daniela-absence-worker');
+      const limit = Math.min(parseInt((req.query.limit as string) ?? '20', 10), 100);
+      const history = await listResolvedNudges(limit);
+      res.json({ history });
+    } catch (error: any) {
+      console.error('[AbsenceNudges] History endpoint error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // EXPRESS LANE: Get current collaboration context
   app.get("/api/express-lane/context", async (req: any, res: Response) => {
     try {
