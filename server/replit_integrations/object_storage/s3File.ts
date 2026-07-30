@@ -6,6 +6,7 @@ import {
   GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
+  CopyObjectCommand,
 } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 import type { StorageFile, StorageFileMetadata } from "./storageFile";
@@ -54,8 +55,29 @@ export class S3StorageFile implements StorageFile {
     );
     const merged = { ...(head.Metadata ?? {}), ...meta };
 
-    // Download the object, then re-upload with merged metadata.
-    // (copy-in-place via CopyObject doesn't work cross-account / R2 reliably)
+    // Primary path: same-bucket server-side copy with MetadataDirective REPLACE.
+    // This avoids downloading any bytes — S3 copies in-place at the storage layer.
+    try {
+      await this.s3.send(
+        new CopyObjectCommand({
+          Bucket: this.bucketName,
+          CopySource: `${this.bucketName}/${this.name}`,
+          Key: this.name,
+          MetadataDirective: "REPLACE",
+          ContentType: head.ContentType,
+          Metadata: merged,
+        }),
+      );
+      return;
+    } catch (copyErr: any) {
+      // CopyObject can fail for cross-region, cross-account, or R2 edge cases.
+      // Fall through to the download-and-reupload path.
+      console.warn(
+        `S3: CopyObject failed for ${this.name} (${copyErr?.message}), falling back to download+reupload`,
+      );
+    }
+
+    // Fallback: download the object and re-upload with merged metadata.
     const get = await this.s3.send(
       new GetObjectCommand({ Bucket: this.bucketName, Key: this.name }),
     );
