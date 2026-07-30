@@ -362,20 +362,28 @@ The actual bug here is narrower: **the term "White Wall" leaked into Cindy's stu
 
 ## Pronunciation API error contract
 
-**Location:** `server/routes.ts` `/api/pronunciation-scores/analyze` · `server/services/drill-orchestrator.ts` `evaluateRepeatDrill`
+**Endpoints covered:**
+- `POST /api/pronunciation-scores/analyze` — OpenAI-backed path (`server/routes.ts`)
+- `POST /api/pronunciation-assessment` — Azure-backed path (`server/routes.ts`)
+- `server/services/drill-orchestrator.ts` `evaluateRepeatDrill` (calls the OpenAI path)
 
-When `analyzePronunciation` (in `server/pronunciation-analysis.ts`) throws — due to a missing key, an expired key (401), or a rate-limit (429) — the HTTP endpoint returns:
+Both endpoints return the same error shape on any failure:
 
 ```json
 { "error": "pronunciation_unavailable", "reason": "<human-readable cause>" }
 ```
 
-Possible `reason` values:
+**OpenAI path** — possible `reason` values:
 - `"OpenAI API key not configured"` — no key in env
 - `"OpenAI API key is invalid or expired"` — HTTP 401 from OpenAI
 - `"OpenAI rate limit reached; try again shortly"` — HTTP 429 from OpenAI
+- raw `error.message` for any other unexpected failure (including storage errors)
+
+**Azure path** — possible `reason` values:
+- `error.message` from `AzurePronunciationError` (category: `rate_limit` → HTTP 429, other → HTTP 503)
+- `"No speech recognized in the audio — please try again with a clear recording."` — null result from SDK
 - raw `error.message` for any other unexpected failure
 
 Drill orchestrator callers receive a graceful fallback result (`score: 0`, `feedback: 'Pronunciation analysis is temporarily unavailable.'`) so the drill session doesn't crash.
 
-Client callers of `/api/pronunciation-scores/analyze` must check for `response.error === 'pronunciation_unavailable'` and show a visible notice rather than treating the missing score as a silent success.
+Client callers of either endpoint must check for `response.error === 'pronunciation_unavailable'` and show a visible notice rather than treating the missing score as a silent success.

@@ -8641,7 +8641,7 @@ Return ONLY the ${targetLanguage} phrase:`;
       });
     } catch (error: any) {
       console.error("Error analyzing pronunciation:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: 'pronunciation_unavailable', reason: error?.message || 'Pronunciation analysis failed' });
     }
   });
 
