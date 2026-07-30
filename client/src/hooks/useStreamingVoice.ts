@@ -1554,9 +1554,17 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
 
   const handleQuizPresented = useCallback((message: { type: string; timestamp: number; data: any }) => {
-    if (sessionConfigRef.current?.onQuizPresented && message.data) {
-      sessionConfigRef.current.onQuizPresented(message.data);
+    if (!sessionConfigRef.current?.onQuizPresented || !message.data) return;
+    const d = message.data;
+    if (typeof d.question !== 'string' || !d.question.trim() ||
+        !Array.isArray(d.options) || d.options.length === 0 ||
+        !d.options.every((o: unknown) => typeof o === 'string' && (o as string).trim().length > 0) ||
+        typeof d.correctIndex !== 'number' || !Number.isInteger(d.correctIndex) ||
+        d.correctIndex < 0 || d.correctIndex >= d.options.length) {
+      console.warn('[useStreamingVoice] handleQuizPresented: malformed data, skipping', d);
+      return;
     }
+    sessionConfigRef.current.onQuizPresented(d);
   }, []);
 
   const handleCulturalContextShown = useCallback((message: { type: string; timestamp: number; data: any }) => {

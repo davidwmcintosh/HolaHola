@@ -1238,6 +1238,15 @@ export function StreamingVoiceChat({
             grammarFlagTimerRef.current = setTimeout(() => setGrammarFlag(null), 6000);
           },
           onQuizPresented: (data) => {
+            if (typeof data.question !== 'string' || !data.question.trim() ||
+                !Array.isArray(data.options) || data.options.length === 0 ||
+                !data.options.every((o: unknown) => typeof o === 'string' && (o as string).trim().length > 0) ||
+                typeof data.correctIndex !== 'number' || !Number.isInteger(data.correctIndex) ||
+                data.correctIndex < 0 || data.correctIndex >= data.options.length) {
+              console.warn('[StreamingVoiceChat] onQuizPresented: malformed quiz data', data);
+              toast({ title: 'Quiz unavailable', description: 'Daniela sent an incomplete quiz — skipping.', variant: 'destructive' });
+              return;
+            }
             setActiveQuiz({ ...data, selectedIndex: undefined, showResult: false });
           },
           onCulturalContextShown: (data) => {

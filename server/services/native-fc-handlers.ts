@@ -3695,10 +3695,22 @@ export class NativeFunctionCallHandler {
       }
 
       case 'QUIZ_PRESENTED': {
-        const qzQuestion = fn.args.question as string;
-        const qzOptions = fn.args.options as string[];
-        const qzCorrectIndex = fn.args.correct_index as number;
+        const qzQuestion = fn.args.question as string | undefined;
+        const qzOptions = fn.args.options as unknown;
+        const qzCorrectIndex = fn.args.correct_index as number | undefined;
         const qzExplanation = fn.args.explanation as string | undefined;
+        if (typeof qzQuestion !== 'string' || !qzQuestion.trim()) {
+          console.warn('[Native Function→Quiz] Skipping: missing or invalid question field');
+          break;
+        }
+        if (!Array.isArray(qzOptions) || qzOptions.length === 0 || !(qzOptions as unknown[]).every(o => typeof o === 'string' && (o as string).trim().length > 0)) {
+          console.warn(`[Native Function→Quiz] Skipping: options must be a non-empty string array, got ${JSON.stringify(qzOptions)}`);
+          break;
+        }
+        if (typeof qzCorrectIndex !== 'number' || !Number.isInteger(qzCorrectIndex) || qzCorrectIndex < 0 || qzCorrectIndex >= qzOptions.length) {
+          console.warn(`[Native Function→Quiz] Skipping: correct_index ${qzCorrectIndex} is invalid for ${qzOptions.length} options`);
+          break;
+        }
         console.log(`[Native Function→Quiz] "${qzQuestion}" (${qzOptions.length} options)`);
         this.sendMessage(session.ws, {
           type: 'quiz_presented',
