@@ -191,6 +191,17 @@ export async function runDanielaFCLoop({
 
   const MAX_TURNS = maxTurns;
 
+  // Memory tools that retrieve without producing a student-facing response.
+  // After MEMORY_CHAIN_LIMIT consecutive turns where ALL calls are memory-only
+  // and no text was produced, we append a note to the tool results nudging
+  // Daniela to respond — so she doesn't burn all turns retrieving and go silent.
+  const MEMORY_TOOL_NAMES = new Set([
+    'recall', 'browse_conversations_by_date', 'search_my_teaching_wisdom',
+    'introspect', 'memory_lookup', 'read_full_session', 'read_my_reflections',
+  ]);
+  const MEMORY_CHAIN_LIMIT = 2;
+  let consecutiveMemoryOnlyTurns = 0;
+
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const result = await gemini.models.generateContent({
       model: MODEL,
@@ -334,6 +345,27 @@ export async function runDanielaFCLoop({
           response: { output: [{ text: responseText }] },
         },
       });
+    }
+
+    // ── Memory chain guard ────────────────────────────────────────────────────
+    // Track consecutive turns where every tool call was a memory retrieval and
+    // no text was produced. After MEMORY_CHAIN_LIMIT such turns, append a brief
+    // prose note to the last tool result so Daniela knows the student is waiting.
+    const allMemoryTools = fcParts.every((p: any) => MEMORY_TOOL_NAMES.has(p.functionCall?.name));
+    if (allMemoryTools && !textContent) {
+      consecutiveMemoryOnlyTurns++;
+      if (consecutiveMemoryOnlyTurns >= MEMORY_CHAIN_LIMIT && functionResponseParts.length > 0) {
+        const last = functionResponseParts[functionResponseParts.length - 1];
+        const existing = last?.functionResponse?.response?.output?.[0]?.text ?? '';
+        last.functionResponse.response.output[0].text =
+          existing +
+          '\n\nYou have retrieved sufficient context across multiple searches. ' +
+          'The student is waiting — draw on what you have found and respond now.';
+        console.log(`[MemoryChainGuard] Turn ${turn}: ${consecutiveMemoryOnlyTurns} consecutive memory-only turns — nudge appended.`);
+      }
+    } else {
+      // Non-memory tool fired or text was produced — reset the streak
+      consecutiveMemoryOnlyTurns = 0;
     }
 
     // ── Inject tool response turn ─────────────────────────────────────────────

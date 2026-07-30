@@ -7,6 +7,26 @@ Format: `[date found] — location — description — severity`
 
 ## Active
 
+**2026-07-30 — Memory tool chain spiral — Daniela retrieves without responding — WATCH / PARTIAL FIX**
+
+Observed in the Guardian A/B test (Part 3): Daniela called `recall` (UNIFIED_RECALL), then chained into `browse_conversations_by_date` (CONVERSATION_DATE_BROWSE) without producing a text response between them. She burned all 8 turns retrieving and never spoke, returning `[DANIELA_CALLER_ERROR: reached MAX_TURNS]`.
+
+**Root cause:** `runDanielaFCLoop` (text-mode) has no guard against consecutive memory-only turns. The loop continues as long as the model produces tool calls, even if every turn is a memory retrieval. MAX_TURNS is the only backstop — and it produces a hard error, not a response.
+
+**In live GL sessions:** No explicit iteration limit on the server side — the GL protocol drives the loop. Student voice acts as a natural interrupt but silent memory spirals are possible.
+
+**Impact:** Student experiences silence. Daniela chose to look something up; the system didn't give her a path from retrieval to response.
+
+**Partial fix applied (July 30):** `runDanielaFCLoop` now tracks consecutive memory-only turns. After 2 consecutive turns where ALL tool calls were memory tools and no text was produced, a brief prose note is appended to the next tool response batch — "You've retrieved sufficient context. The student is waiting — respond now." Counter resets whenever a non-memory tool fires or text is produced.
+
+**Memory tools in scope for the guard:** `recall`, `browse_conversations_by_date`, `search_my_teaching_wisdom`, `introspect`, `memory_lookup`, `read_full_session`, `read_my_reflections`.
+
+**Remaining gap:** GL sessions have no equivalent guard. If Daniela spirals through memory tools in a live voice session, there's no mechanism to nudge her toward responding. This needs a separate investigation — the GL tool dispatch loop in `gemini-live-session.ts` would need a parallel counter-based injection via the Archive Guardian channel (tool-result body concat).
+
+**Severity:** MEDIUM (text-mode partially mitigated; GL sessions still exposed)
+
+---
+
 **2026-07-25 — GL voice greeting ignores conversation language setting — FIXED July 25**
 When a voice session starts with Cindy (English tutor), Daniela greeted in Spanish. Root cause found in `sendGreetingTrigger` (`server/services/gemini-live-session.ts` line 1383): the resumed-session path hardcoded "continuation of the **Spanish** flow" regardless of the session's actual language. `langName` is correctly resolved from `session.targetLanguage` (e.g. 'English' for Cindy sessions) but the prompt text still said "Spanish". Fix: replaced hardcoded "Spanish" with `${langName}` so the continuation prompt matches the actual session language.
 Secondary guard: `langName` defaults to 'Spanish' if `targetLanguage` is null (line 1367) — acceptable fallback since most sessions are Spanish, but worth knowing if other non-Spanish tutors see the same symptom.
