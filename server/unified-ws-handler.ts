@@ -3070,10 +3070,11 @@ ${lastNote.tutorNotes}`);
                     // Check warm cache first — the frontend fires POST /api/sessions/warm-synthesis
                     // when the "Prepare" screen loads, pre-computing this in the background.
                     // If it's there and fresh (< 3 min), use it and skip the 1-2s await here.
-                    // Note: warm cache cannot carry the absence signal (it was pre-computed before
-                    // session start), so when the student is returning after absence we skip it
-                    // and generate fresh so the inner monologue reflects the return.
-                    const warmedNote = (userId && !absenceReturn) ? consumeWarmSynthesis(String(userId)) : null;
+                    // The warm-synthesis route now also checks for a pending absence nudge and
+                    // resolves it before generating, so the warm cache carries the returning-student
+                    // signal when present. We therefore always check the warm cache — the old
+                    // !absenceReturn skip is no longer needed.
+                    const warmedNote = userId ? consumeWarmSynthesis(String(userId)) : null;
                     const synthesisNote = warmedNote
                       ?? await generatePreSessionSynthesis(compassContext, tutorName, userId ? String(userId) : undefined, effectiveLanguage || undefined, absenceReturn);
                     if (warmedNote) {

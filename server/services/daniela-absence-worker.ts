@@ -441,6 +441,69 @@ const _absenceReturnCache = new Map<string, { details: AbsenceReturnDetails; cac
 const ABSENCE_RETURN_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
 /**
+ * Read-only peek: check whether the student has a pending absence nudge and
+ * return its details WITHOUT resolving the DB row or posting any Express Lane note.
+ *
+ * Use this in pre-session warm-synthesis paths (e.g. POST /api/sessions/warm-synthesis)
+ * where we want to enrich the synthesis with the returning-student signal but must NOT
+ * mutate state — the student may never actually start a session after the Prepare screen.
+ *
+ * The actual resolution (DB update + Express Lane note) always happens at real session
+ * start via autoResolveAbsenceNudgeOnReturn in the WS handler / orchestrator.
+ *
+ * Also checks the in-memory cache so a warm-synthesis peek that runs concurrently
+ * with a WS-handler resolve still returns consistent details.
+ *
+ * Returns null when there is no pending nudge and no recent cache entry.
+ */
+export async function peekAbsenceReturnDetails(
+  userId: string,
+): Promise<AbsenceReturnDetails | null> {
+  try {
+    // ── Cache check (fast path) ───────────────────────────────────────────────
+    // Honour the resolve cache — if the WS handler already ran, the details are here.
+    const cached = _absenceReturnCache.get(userId);
+    if (cached && (Date.now() - cached.cachedAt) < ABSENCE_RETURN_CACHE_TTL_MS) {
+      return cached.details;
+    }
+
+    const db = getSharedDb();
+
+    // ── DB check (read-only) ─────────────────────────────────────────────────
+    const [pending] = await db
+      .select({
+        daysSinceLastSession: danielaAbsenceNudges.daysSinceLastSession,
+      })
+      .from(danielaAbsenceNudges)
+      .where(
+        and(
+          eq(danielaAbsenceNudges.userId, userId),
+          isNull(danielaAbsenceNudges.resolvedAt),
+        )
+      )
+      .limit(1);
+
+    if (!pending) return null;
+
+    // Fetch name for context — non-mutating
+    let firstName: string | null = null;
+    try {
+      const [user] = await db
+        .select({ firstName: users.firstName })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      firstName = user?.firstName ?? null;
+    } catch { /* non-critical */ }
+
+    return { daysSinceLastSession: pending.daysSinceLastSession ?? 0, firstName };
+  } catch (err: any) {
+    console.warn(`[AbsenceWorker] peekAbsenceReturnDetails failed for ${userId}: ${err.message}`);
+    return null;
+  }
+}
+
+/**
  * Auto-resolve an absence nudge when the student returns for a session.
  * Called from both the streaming orchestrator (fire-and-forget) and the WS
  * handler (awaited, before pre-session synthesis).

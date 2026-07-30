@@ -7246,7 +7246,31 @@ ${memoryContext}
       const compassContext = await sessionCompassService.getCompassContext(conversationId);
       if (!compassContext) return;
       const tutorName = "Daniela"; // default — the WS handler will use the real name anyway
-      const synthesis = await generatePreSessionSynthesis(compassContext, tutorName, String(userId), req.body?.language || 'spanish');
+
+      // Peek at whether this student has a pending absence nudge so the warm cache
+      // carries the returning-student signal. We deliberately use the READ-ONLY peek
+      // here — the actual nudge resolution (DB update + Express Lane note) must only
+      // happen at true session start (WS handler / orchestrator), not on Prepare screen
+      // load, because the student may close the browser without ever starting a session.
+      let returningAfterAbsence: { daysSinceLastSession: number; firstName: string | null } | null = null;
+      try {
+        const { peekAbsenceReturnDetails } = await import('./services/daniela-absence-worker');
+        returningAfterAbsence = await peekAbsenceReturnDetails(String(userId));
+        if (returningAfterAbsence) {
+          console.log(`[WarmSynthesis] ✓ Pending absence nudge detected (${returningAfterAbsence.daysSinceLastSession} day(s)) — baking into warm cache (read-only peek, no resolution)`);
+        }
+      } catch (absErr: any) {
+        // Non-fatal — absence check failure must never block synthesis
+        console.warn('[WarmSynthesis] Absence peek failed (non-fatal):', absErr?.message);
+      }
+
+      const synthesis = await generatePreSessionSynthesis(
+        compassContext,
+        tutorName,
+        String(userId),
+        req.body?.language || 'spanish',
+        returningAfterAbsence,
+      );
       if (synthesis) {
         setWarmSynthesis(String(userId), synthesis);
         console.log(`[WarmSynthesis] ✓ Pre-computed for user ${String(userId).substring(0, 8)} (${synthesis.length} chars)`);
