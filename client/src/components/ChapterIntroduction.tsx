@@ -2656,7 +2656,10 @@ export function ConversationStripsSection({
         return r.json();
       })
       .then((data: { translations: Record<string, string> } | null) => {
-        if (data?.translations) setDynamicTranslations(data.translations);
+        if (data?.translations) {
+          setDynamicTranslations(data.translations);
+          setTranslationError(false);
+        }
       })
       .catch(() => {
         setTranslationError(true);
