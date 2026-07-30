@@ -311,6 +311,112 @@ describe('frontend summary counts — always from unfiltered list', () => {
   });
 });
 
+// ── Tests: limit param clamping (mirrors routes.ts + listResolvedNudges) ─────
+//
+// routes.ts (fixed):
+//   const rawLimit = parseInt(req.query.limit as string, 10);
+//   const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 20, 1), 100);
+//
+// listResolvedNudges (daniela-absence-worker.ts):
+//   .limit(Math.min(limit, 100))
+//
+// Together these ensure:
+//   - oversized limit (e.g. 200) is silently capped at 100
+//   - non-numeric limit (e.g. "abc") falls back to the default 20
+//   - missing limit (undefined) falls back to the default 20
+//   - zero or negative limit is clamped to 1 (lower bound — never an unsafe DB call)
+
+/** Inline replica of the fixed routes.ts limit-parsing expression */
+function parseLimit(raw: string | undefined): number {
+  const parsed = parseInt(raw as string, 10);
+  return Math.min(Math.max(Number.isFinite(parsed) ? parsed : 20, 1), 100);
+}
+
+/**
+ * Simulate applying the parsed limit to an in-memory list.
+ * parseLimit already enforces [1..100], so we can always slice safely.
+ */
+function applyLimit(rows: ResolvedNudge[], raw: string | undefined): ResolvedNudge[] {
+  return rows.slice(0, parseLimit(raw));
+}
+
+// Build a larger dataset (150 items) so cap tests are meaningful
+const LARGE_SEED: ResolvedNudge[] = Array.from({ length: 150 }, (_, i) => ({
+  nudgeId: `nudge-${i + 1}`,
+  userId: `user-${i + 1}`,
+  firstName: `Student${i + 1}`,
+  daysSinceLastSession: 5 + (i % 10),
+  lastSessionDate: new Date('2026-07-01T00:00:00Z'),
+  resolvedAt: new Date('2026-07-28T00:00:00Z'),
+  resolutionType: (['student_returned', 'message_queued', 'dismissed'] as const)[i % 3],
+}));
+
+describe('history endpoint — limit param clamping', () => {
+  it('limit=200 is capped at 100 — never more than 100 rows returned', () => {
+    const rows = applyLimit(LARGE_SEED, '200');
+    assert.ok(rows.length <= 100, `Expected ≤100 rows, got ${rows.length}`);
+    assert.equal(rows.length, 100);
+  });
+
+  it('limit=100 returns exactly 100 rows (at-boundary value)', () => {
+    const rows = applyLimit(LARGE_SEED, '100');
+    assert.equal(rows.length, 100);
+  });
+
+  it('limit=50 returns exactly 50 rows (under-cap value)', () => {
+    const rows = applyLimit(LARGE_SEED, '50');
+    assert.equal(rows.length, 50);
+  });
+
+  it('limit=20 (default) returns exactly 20 rows', () => {
+    const rows = applyLimit(LARGE_SEED, '20');
+    assert.equal(rows.length, 20);
+  });
+
+  it('limit="abc" (non-numeric) falls back to default 20', () => {
+    // parseInt('abc', 10) === NaN; Number.isFinite(NaN) === false → default 20 used.
+    const parsed = parseLimit('abc');
+    assert.equal(parsed, 20, 'parseLimit("abc") should return the default 20');
+    const rows = applyLimit(LARGE_SEED, 'abc');
+    assert.equal(rows.length, 20, 'non-numeric limit should return 20 rows (the default)');
+  });
+
+  it('limit=undefined (omitted) falls back to default 20', () => {
+    const rows = applyLimit(LARGE_SEED, undefined);
+    assert.equal(rows.length, 20, 'missing limit should default to 20');
+  });
+
+  it('limit=0 is clamped to 1 (lower bound — prevents unsafe DB LIMIT 0)', () => {
+    const rows = applyLimit(LARGE_SEED, '0');
+    assert.equal(rows.length, 1);
+  });
+
+  it('limit=-5 (negative) is clamped to 1 (lower bound — prevents unsafe negative DB LIMIT)', () => {
+    const rows = applyLimit(LARGE_SEED, '-5');
+    assert.equal(rows.length, 1);
+  });
+
+  it('limit=1 returns exactly 1 row (minimum valid positive value)', () => {
+    const rows = applyLimit(LARGE_SEED, '1');
+    assert.equal(rows.length, 1);
+  });
+
+  it('limit=999 is capped at 100 — caller cannot request thousands of rows', () => {
+    const rows = applyLimit(LARGE_SEED, '999');
+    assert.equal(rows.length, 100);
+  });
+
+  it('parsed limit is always ≤ 100 for any string input from "1" to "10000"', () => {
+    for (const n of [1, 50, 100, 101, 500, 1000, 10000]) {
+      const parsed = parseLimit(String(n));
+      assert.ok(
+        Number.isNaN(parsed) || parsed <= 100,
+        `parseLimit("${n}") = ${parsed}; expected ≤ 100`,
+      );
+    }
+  });
+});
+
 // ── Tests: empty state ───────────────────────────────────────────────────────
 
 describe('edge cases — empty or no matching rows', () => {

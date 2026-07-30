@@ -33383,7 +33383,8 @@ You have full access to your neural network knowledge.
   app.get("/api/admin/absence-nudges/history", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
       const { listResolvedNudges } = await import('./services/daniela-absence-worker');
-      const limit = Math.min(parseInt((req.query.limit as string) ?? '20', 10), 100);
+      const rawLimit = parseInt(req.query.limit as string, 10);
+      const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 20, 1), 100);
       const rawType = req.query.resolutionType as string | undefined;
       const VALID_TYPES = ['student_returned', 'message_queued', 'dismissed'] as const;
       type ValidType = typeof VALID_TYPES[number];

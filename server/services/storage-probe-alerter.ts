@@ -25,7 +25,7 @@ export interface SessionHandle {
 
 export interface ProbeAlerterSessionService {
   findOrCreateSessionByTitle(founderId: string, title: string): Promise<SessionHandle>;
-  getSessionMessages(sessionId: string, limit: number): Promise<{ metadata?: Record<string, any> | null }[]>;
+  getSessionMessages(sessionId: string, limit: number): Promise<{ metadata?: unknown }[]>;
 }
 
 export interface ProbeAlerterBroker {
