@@ -361,7 +361,7 @@ import { join } from 'path';
 
 sep();
 console.log(B('PART 2b — Cross-check: replicated constants vs live source files'));
-console.log(Y('  MEMORY_CHAIN_LIMIT lives in memory-chain-guard.ts; nudge text in daniela-caller.ts'));
+console.log(Y('  MEMORY_CHAIN_LIMIT, SHARED_HISTORY_TRIGGER_PHRASES, and MEMORY_CHAIN_NUDGE_TEXT all live in memory-chain-guard.ts'));
 sep();
 
 try {
@@ -369,21 +369,17 @@ try {
     join(import.meta.dirname ?? __dirname, '../services/memory-chain-guard.ts'),
     'utf-8',
   );
-  const callerFile = readFileSync(
-    join(import.meta.dirname ?? __dirname, '../services/daniela-caller.ts'),
-    'utf-8',
-  );
 
   const sourceHasLimit3 = guardFile.includes('MEMORY_CHAIN_LIMIT = 3');
-  const sourceHasException = callerFile.includes('do you remember when I told you about');
-  const sourceHasSynthesizeImmediately = callerFile.includes('Synthesize the current findings into a direct response to the student immediately');
-  const sourceHasOneMoreSearch = callerFile.includes('one more targeted search');
+  const sourceHasException = guardFile.includes('do you remember when I told you about');
+  const sourceHasSynthesizeImmediately = guardFile.includes('Synthesize the current findings into a direct response to the student immediately');
+  const sourceHasOneMoreSearch = guardFile.includes('one more targeted search');
 
   const crossChecks = [
-    { label: 'MEMORY_CHAIN_LIMIT = 3 in memory-chain-guard.ts',  pass: sourceHasLimit3 },
-    { label: 'Shared-history phrase in daniela-caller.ts nudge',  pass: sourceHasException },
-    { label: '"one more targeted search" in daniela-caller.ts',   pass: sourceHasOneMoreSearch },
-    { label: '"Synthesize... immediately" in daniela-caller.ts',  pass: sourceHasSynthesizeImmediately },
+    { label: 'MEMORY_CHAIN_LIMIT = 3 in memory-chain-guard.ts',                    pass: sourceHasLimit3 },
+    { label: 'Shared-history phrase in memory-chain-guard.ts (canonical source)',   pass: sourceHasException },
+    { label: '"one more targeted search" in memory-chain-guard.ts nudge text',      pass: sourceHasOneMoreSearch },
+    { label: '"Synthesize... immediately" in memory-chain-guard.ts nudge text',     pass: sourceHasSynthesizeImmediately },
   ];
 
   for (const { label, pass } of crossChecks) {
@@ -400,67 +396,79 @@ try {
   console.log(Y(`  ⚠ Could not read source file for cross-check: ${(err as Error).message}`));
 }
 
-// ─── Part 2c — Cross-check: system-prompt.ts exception paragraph vs nudge ─────
-// The shared-history trigger phrases exist in two independent places:
-//   1. system-prompt.ts ~line 360 — soft-limit paragraph (Daniela's inner voice)
-//   2. daniela-caller.ts nudge   — hard-enforcement backstop (SYSTEM STATUS block)
-// If they drift (e.g. someone softens one without updating the other), Daniela's
-// soft and hard limits say contradictory things.  This block reads both source
-// files and asserts the same key phrases appear in both.
+// ─── Part 2c — Cross-check: shared constant wiring ────────────────────────────
+// SHARED_HISTORY_TRIGGER_PHRASES and MEMORY_CHAIN_NUDGE_TEXT now live in
+// memory-chain-guard.ts (the single source of truth).  system-prompt.ts and
+// daniela-caller.ts both import from that file — so drift can only happen by
+// editing the constant itself, not by hand-editing two independent copies.
+//
+// This block verifies:
+//   1. The canonical phrases are present as string literals in memory-chain-guard.ts
+//   2. system-prompt.ts imports SHARED_HISTORY_TRIGGER_PHRASES from memory-chain-guard
+//   3. daniela-caller.ts imports MEMORY_CHAIN_NUDGE_TEXT from memory-chain-guard
+//   4. "One exception:" appears in both memory-chain-guard.ts (nudge) and system-prompt.ts (prose)
 sep();
-console.log(B('PART 2c — Cross-check: system-prompt.ts exception phrase vs nudge in daniela-caller.ts'));
-console.log(Y('  Ensures the soft-limit paragraph and the hard-enforcement nudge stay in sync.'));
+console.log(B('PART 2c — Cross-check: SHARED_HISTORY_TRIGGER_PHRASES wired from single canonical source'));
+console.log(Y('  memory-chain-guard.ts is now the single source of truth for trigger phrases and nudge text.'));
 sep();
 
-// Canonical trigger phrases — the phrases that identify a shared-history test.
-// Both the system-prompt paragraph AND the nudge must contain these exact strings.
-// If you update either file's wording, update the other and update this list.
+// Reference copy used only by the simulation tests above — not the "live" canonical version.
 const SHARED_HISTORY_TRIGGER_PHRASES = [
   'do you remember when I told you about',
   'what did I say about',
 ] as const;
 
 try {
+  const guardSource = readFileSync(
+    join(import.meta.dirname ?? __dirname, '../services/memory-chain-guard.ts'),
+    'utf-8',
+  );
   const systemPromptSource = readFileSync(
     join(import.meta.dirname ?? __dirname, '../system-prompt.ts'),
     'utf-8',
   );
-  const nudgeSource = readFileSync(
+  const callerSource = readFileSync(
     join(import.meta.dirname ?? __dirname, '../services/daniela-caller.ts'),
     'utf-8',
   );
 
-  console.log('\n  Trigger phrases — must appear in BOTH system-prompt.ts and daniela-caller.ts nudge:');
-
+  console.log('\n  Canonical phrases — must appear as string literals in memory-chain-guard.ts:');
   for (const phrase of SHARED_HISTORY_TRIGGER_PHRASES) {
-    const inPrompt = systemPromptSource.includes(phrase);
-    const inNudge  = nudgeSource.includes(phrase);
-    const bothPresent = inPrompt && inNudge;
-
+    const inGuard = guardSource.includes(phrase);
     console.log(`\n  Phrase: "${phrase}"`);
-    console.log(`    system-prompt.ts:      ${inPrompt  ? G('✓ present') : R('✗ MISSING')}`);
-    console.log(`    daniela-caller.ts:     ${inNudge   ? G('✓ present') : R('✗ MISSING')}`);
-    console.log(`    In sync:               ${bothPresent ? G('✓') : R('✗ DRIFT DETECTED — update both files to match')}`);
-
-    if (!bothPresent) allPassed = false;
+    console.log(`    memory-chain-guard.ts (canonical): ${inGuard ? G('✓ present') : R('✗ MISSING — add to SHARED_HISTORY_TRIGGER_PHRASES')}`);
+    if (!inGuard) allPassed = false;
   }
 
-  // Also assert the "One exception" label itself appears in both —
-  // a rename in either place would break the conceptual link.
-  const exceptionLabelInPrompt = systemPromptSource.includes('One exception:');
-  const exceptionLabelInNudge  = nudgeSource.includes('One exception:');
-  console.log('\n  "One exception:" label (structural anchor):');
-  console.log(`    system-prompt.ts:      ${exceptionLabelInPrompt ? G('✓ present') : R('✗ MISSING')}`);
-  console.log(`    daniela-caller.ts:     ${exceptionLabelInNudge  ? G('✓ present') : R('✗ MISSING')}`);
-  if (!exceptionLabelInPrompt) allPassed = false;
-  if (!exceptionLabelInNudge)  allPassed = false;
+  // Import wiring checks — both consumer files must import from the guard.
+  const promptImportsGuard  = systemPromptSource.includes('SHARED_HISTORY_TRIGGER_PHRASES') &&
+                              systemPromptSource.includes('memory-chain-guard');
+  const callerImportsNudge  = callerSource.includes('MEMORY_CHAIN_NUDGE_TEXT') &&
+                              callerSource.includes('memory-chain-guard');
 
-  if (SHARED_HISTORY_TRIGGER_PHRASES.every(p => systemPromptSource.includes(p) && nudgeSource.includes(p))
-      && exceptionLabelInPrompt && exceptionLabelInNudge) {
-    console.log('\n' + G('  ✓ system-prompt.ts and daniela-caller.ts nudge are in sync on shared-history exception.'));
+  console.log('\n  Import wiring:');
+  console.log(`    system-prompt.ts imports SHARED_HISTORY_TRIGGER_PHRASES from memory-chain-guard: ${promptImportsGuard  ? G('✓') : R('✗ MISSING IMPORT')}`);
+  console.log(`    daniela-caller.ts imports MEMORY_CHAIN_NUDGE_TEXT from memory-chain-guard:       ${callerImportsNudge  ? G('✓') : R('✗ MISSING IMPORT')}`);
+  if (!promptImportsGuard) allPassed = false;
+  if (!callerImportsNudge)  allPassed = false;
+
+  // "One exception:" structural anchor — must appear in both the nudge (guard) and the prose (system-prompt).
+  const exceptionLabelInGuard  = guardSource.includes('One exception:');
+  const exceptionLabelInPrompt = systemPromptSource.includes('One exception:');
+  console.log('\n  "One exception:" label (structural anchor):');
+  console.log(`    memory-chain-guard.ts (nudge text): ${exceptionLabelInGuard  ? G('✓ present') : R('✗ MISSING')}`);
+  console.log(`    system-prompt.ts (prose):           ${exceptionLabelInPrompt ? G('✓ present') : R('✗ MISSING')}`);
+  if (!exceptionLabelInGuard)  allPassed = false;
+  if (!exceptionLabelInPrompt) allPassed = false;
+
+  const allWired = SHARED_HISTORY_TRIGGER_PHRASES.every(p => guardSource.includes(p))
+    && promptImportsGuard && callerImportsNudge
+    && exceptionLabelInGuard && exceptionLabelInPrompt;
+
+  if (allWired) {
+    console.log('\n' + G('  ✓ Single source of truth wired correctly — no drift possible from hand-editing two copies.'));
   } else {
-    console.log('\n' + R('  ✗ DRIFT: system-prompt.ts and daniela-caller.ts nudge have diverged.'));
-    console.log(R('    Update both files so they use the same trigger phrases, then re-run this script.'));
+    console.log('\n' + R('  ✗ WIRING BROKEN: fix missing imports or missing phrases in memory-chain-guard.ts.'));
   }
 } catch (err) {
   console.log(Y(`  ⚠ Could not read source files for Part 2c cross-check: ${(err as Error).message}`));
@@ -499,13 +507,13 @@ for (const name of knownNonMemoryTools) {
   if (inSet) allPassed = false;
 }
 
-// Verify cross-check from source file
+// Verify cross-check from source file — MEMORY_TOOL_NAMES lives in memory-chain-guard.ts
 try {
   const sourceFile = readFileSync(
-    join(import.meta.dirname ?? __dirname, '../services/daniela-caller.ts'),
+    join(import.meta.dirname ?? __dirname, '../services/memory-chain-guard.ts'),
     'utf-8',
   );
-  // Extract MEMORY_TOOL_NAMES block from source
+  // Extract MEMORY_TOOL_NAMES block from canonical source
   const match = sourceFile.match(/MEMORY_TOOL_NAMES = new Set\(\[([\s\S]*?)\]\)/);
   if (match) {
     const sourceNames = (match[1].match(/'([^']+)'/g) || []).map(s => s.replace(/'/g, ''));
@@ -513,7 +521,7 @@ try {
     const replicaMissing = [...sourceSet].filter(n => !MEMORY_TOOL_NAMES.has(n));
     const replicaExtra = [...MEMORY_TOOL_NAMES].filter(n => !sourceSet.has(n));
 
-    console.log('\n  MEMORY_TOOL_NAMES sync check vs source:');
+    console.log('\n  MEMORY_TOOL_NAMES sync check vs memory-chain-guard.ts:');
     if (replicaMissing.length === 0 && replicaExtra.length === 0) {
       console.log(G('  ✓ MEMORY_TOOL_NAMES matches source exactly.'));
     } else {

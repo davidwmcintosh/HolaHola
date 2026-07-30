@@ -26,7 +26,7 @@ import { unifiedDanielaContext } from "./unified-daniela-context-service";
 import { NativeFunctionCallHandler } from "./native-fc-handlers";
 import { buildFunctionContinuationResponse, createDanielaTools } from "./gemini-function-declarations";
 import { lookupLegacyType } from "./daniela-function-registry";
-import { MEMORY_TOOL_NAMES, MEMORY_CHAIN_LIMIT } from "./memory-chain-guard";
+import { MEMORY_TOOL_NAMES, MEMORY_CHAIN_LIMIT, MEMORY_CHAIN_NUDGE_TEXT } from "./memory-chain-guard";
 import { TOOL_CONTEXT_TEAM_ROOM } from "./daniela-tool-contexts";
 import {
   detectFrictionlessSlide,
@@ -357,14 +357,7 @@ export async function runDanielaFCLoop({
       if (consecutiveMemoryOnlyTurns >= MEMORY_CHAIN_LIMIT && functionResponseParts.length > 0) {
         const last = functionResponseParts[functionResponseParts.length - 1];
         const existing = last?.functionResponse?.response?.output?.[0]?.text ?? '';
-        last.functionResponse.response.output[0].text =
-          existing +
-          '\n\n--- SYSTEM STATUS ---\n' +
-          'CRITICAL: Multiple lookups performed. Student-facing latency is high. ' +
-          'Do not perform further tool calls. ' +
-          'One exception: if the student is explicitly testing shared memory — phrasing like "do you remember when I told you about…" or "what did I say about…" — you may attempt one more targeted search. ' +
-          'After that search (or if no such test is happening), respond honestly with whatever you have found, including "I don\'t have your exact words in front of me right now" if the specific detail was not in the results. ' +
-          'Synthesize the current findings into a direct response to the student immediately.';
+        last.functionResponse.response.output[0].text = existing + MEMORY_CHAIN_NUDGE_TEXT;
         console.log(`[MemoryChainGuard] Turn ${turn}: ${consecutiveMemoryOnlyTurns} consecutive memory-only turns — nudge appended.`);
       }
     } else {
