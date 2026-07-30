@@ -731,8 +731,6 @@ export { calculateAdaptiveSpeedMultiplier, getAdaptiveSpeakingRate, trackSttConf
 export type { StreamingSession, StreamingMetrics };
 
 
-
-
 /**
  * Streaming Voice Orchestrator
  * Manages the full pipeline from user audio to AI audio response
@@ -1575,6 +1573,22 @@ ${expressLaneContext.contextString}
           }
         }).catch(err => console.warn(`[Context Prefetch] Express Lane failed:`, err.message))
       );
+
+      // Pending absence nudges — surface inbox count at session start for trusted contexts only.
+      // Gated on isFounderMode || isRawHonestyMode so regular student sessions never see
+      // internal absence-management signals. Lightweight: one COUNT query.
+      if (session.isFounderMode || session.isRawHonestyMode) {
+        promises.push(
+          import('./daniela-absence-worker').then(({ countPendingNudges }) => countPendingNudges())
+            .then(n => {
+              if (n > 0) {
+                cache.pendingNudgesSection = `[${n} absence nudge${n > 1 ? 's' : ''} pending — call list_absence_nudges to review]`;
+                console.log(`[AbsenceNudges] ${n} pending nudge(s) prefetched into session context`);
+              }
+            })
+            .catch(err => console.warn(`[Context Prefetch] Absence nudge count failed:`, err.message))
+        );
+      }
       
       promises.push(
         (async () => {
@@ -2277,6 +2291,7 @@ Remember: David may reference things discussed in these recent text chats.
       let patternSignalsSection = (hasFreshCache && session.cachedContext?.patternSignalsSection) || '';
       let textChatSection = (hasFreshCache && session.cachedContext?.textChatSection) || '';
       let editorFeedbackSection = (hasFreshCache && session.cachedContext?.editorFeedbackSection) || '';
+      let pendingNudgesSection = (hasFreshCache && session.cachedContext?.pendingNudgesSection) || '';
       let studentLearningSection = (hasFreshCache && session.cachedContext?.studentLearningSection) || '';
       let passiveMemorySection = '';    // PASSIVE MEMORY: Always fresh (transcript-dependent)
       let surfacedFeedbackIds: string[] = (hasFreshCache && session.cachedContext?.editorFeedbackIds) || [];
@@ -2783,6 +2798,21 @@ Remember: David may reference things discussed in these recent text chats.
               console.warn(`[EXPRESS Lane Memory] Failed to prefetch (${Date.now() - elHistStart}ms):`, err.message);
             })
         );
+
+        // 7. Pending absence nudges — surfaced at session start for Founder/Honesty Mode
+        // This is the cold-cache fallback path; prefetchSessionContext writes to cache for the fast path.
+        if (session.isFounderMode || session.isRawHonestyMode) {
+          contextPromises.push(
+            import('./daniela-absence-worker').then(({ countPendingNudges }) => countPendingNudges())
+              .then((n: number) => {
+                if (n > 0) {
+                  pendingNudgesSection = `[${n} absence nudge${n > 1 ? 's' : ''} pending — call list_absence_nudges to review]`;
+                  console.log(`[Absence Nudges] ${n} pending nudge(s) injected into session context (cold-cache path)`);
+                }
+              })
+              .catch((err: Error) => console.warn(`[Absence Nudges] Failed to count pending nudges (cold-cache path):`, err.message))
+          );
+        }
       } else if (!needsExpressLaneContext) {
         // Log when neither Founder Mode nor Honesty Mode is active - helps diagnose Express Lane visibility issues
         console.log(`[EXPRESS Lane] Neither Founder Mode nor Honesty Mode active for user ${session.userId} - skipping Hive/Express Lane context.`);
@@ -2879,6 +2909,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
       if (expressLaneSection) {
         dynamicContextParts.push(expressLaneSection);
+      }
+      if (pendingNudgesSection) {
+        dynamicContextParts.push(pendingNudgesSection);
       }
       if (textChatSection) {
         dynamicContextParts.push(textChatSection);

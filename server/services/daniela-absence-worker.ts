@@ -405,6 +405,19 @@ export async function listAbsenceNudges(): Promise<Array<{
 }
 
 /**
+ * Count pending (unresolved) absence nudges.
+ * Lightweight — used at Express Lane session start to decide whether to surface the inbox.
+ */
+export async function countPendingNudges(): Promise<number> {
+  const db = getSharedDb();
+  const [row] = await db
+    .select({ n: count() })
+    .from(danielaAbsenceNudges)
+    .where(isNull(danielaAbsenceNudges.resolvedAt));
+  return Number(row?.n ?? 0);
+}
+
+/**
  * Auto-resolve an absence nudge when the student returns for a session.
  * Called fire-and-forget from the streaming orchestrator at session start.
  *
