@@ -3641,6 +3641,22 @@ export class NativeFunctionCallHandler {
         const psWordScores = fn.args.word_scores as Array<{ word: string; score: number; tip?: string }>;
         const psOverall = fn.args.overall_score as number;
         const psEncouragement = fn.args.encouragement as string | undefined;
+
+        // Guard: all required fields must be valid before sending to client.
+        // Missing or malformed data would silently crash the word-score renderer.
+        if (!psPhrase || typeof psPhrase !== 'string') {
+          console.warn('[Native Function→PronunciationScore] skipping — missing or non-string phrase');
+          break;
+        }
+        if (!Array.isArray(psWordScores)) {
+          console.warn('[Native Function→PronunciationScore] skipping — word_scores is not an array');
+          break;
+        }
+        if (typeof psOverall !== 'number' || isNaN(psOverall)) {
+          console.warn('[Native Function→PronunciationScore] skipping — overall_score is not a valid number');
+          break;
+        }
+
         console.log(`[Native Function→PronunciationScore] phrase="${psPhrase}" overall=${psOverall}`);
         this.sendMessage(session.ws, {
           type: 'pronunciation_score_shown',

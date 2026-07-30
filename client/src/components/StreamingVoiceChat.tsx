@@ -1211,6 +1211,23 @@ export function StreamingVoiceChat({
             // Don't auto-open — notes accumulate quietly; student opens when ready
           },
           onPronunciationScoreShown: (data) => {
+            // Guard: validate required fields before updating state.
+            // wordScores must be an array — rendering calls .map() on it directly.
+            // A missing or non-array value would throw a runtime error with no user feedback.
+            if (
+              !data ||
+              typeof data.phrase !== 'string' ||
+              !Array.isArray(data.wordScores) ||
+              typeof data.overallScore !== 'number'
+            ) {
+              console.warn('[StreamingVoiceChat] Received malformed pronunciation score data — skipping display', data);
+              toast({
+                title: "Pronunciation feedback is temporarily unavailable",
+                description: "Scoring data could not be displayed right now.",
+                variant: "destructive",
+              });
+              return;
+            }
             if (pronunciationScoreTimerRef.current) clearTimeout(pronunciationScoreTimerRef.current);
             setPronunciationScore(data);
             pronunciationScoreTimerRef.current = setTimeout(() => setPronunciationScore(null), 8000);
