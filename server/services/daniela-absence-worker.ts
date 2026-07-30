@@ -404,6 +404,81 @@ export async function listAbsenceNudges(): Promise<Array<{
   return enriched;
 }
 
+/**
+ * Auto-resolve an absence nudge when the student returns for a session.
+ * Called fire-and-forget from the streaming orchestrator at session start.
+ *
+ * Checks whether the student has an unresolved nudge. If so, resolves it as
+ * 'dismissed' and posts a brief follow-up note to the Express Lane so Daniela
+ * knows the absence cycle closed naturally (student came back on their own).
+ *
+ * Safe to call for every student session start — no-ops immediately if there
+ * is no pending nudge.
+ */
+export async function autoResolveAbsenceNudgeOnReturn(userId: string): Promise<void> {
+  try {
+    const db = getSharedDb();
+
+    // Check whether there is actually a pending nudge — avoid touching the DB
+    // or posting Express Lane noise when there is nothing to resolve.
+    const [pending] = await db
+      .select({ id: danielaAbsenceNudges.id })
+      .from(danielaAbsenceNudges)
+      .where(
+        and(
+          eq(danielaAbsenceNudges.userId, userId),
+          isNull(danielaAbsenceNudges.resolvedAt),
+        )
+      )
+      .limit(1);
+
+    if (!pending) return; // Nothing to resolve — common case, exit fast.
+
+    // Resolve the nudge (same path as a Daniela-triggered dismiss)
+    await resolveAbsenceNudge(userId, 'dismissed');
+
+    // Look up the student's name for a human-readable Express Lane note
+    let firstName: string | null = null;
+    try {
+      const [user] = await db
+        .select({ firstName: users.firstName })
+        .from(users)
+        .where(eq(users.id, userId))
+        .limit(1);
+      firstName = user?.firstName ?? null;
+    } catch { /* non-critical — name is cosmetic */ }
+
+    const name = firstName ?? `student ${userId.slice(-6)}`;
+
+    // Post a brief follow-up note to the Express Lane so Daniela can see the
+    // student returned without needing to act on a nudge.
+    try {
+      const expressSession = await founderCollabService.findOrCreateSessionByTitle(
+        EXPRESS_LANE_FOUNDER_ID,
+        EXPRESS_LANE_SESSION_TITLE,
+      );
+      await founderCollabWSBroker.addAndBroadcastMessage(expressSession.id, {
+        role: 'system',
+        content: `[STUDENT RETURNED] ${name} just started a new session — the pending absence nudge was auto-cleared. No action needed.`,
+        messageType: 'text',
+        metadata: {
+          source: 'absence_worker',
+          absentUserId: userId,
+          event: 'student_returned',
+        },
+      });
+    } catch (err: any) {
+      // Express Lane post is cosmetic — don't let it break the session start path.
+      console.warn(`[AbsenceWorker] Failed to post return note for ${name}: ${err.message}`);
+    }
+
+    console.log(`[AbsenceWorker] Auto-cleared absence nudge for ${name} on session return`);
+  } catch (err: any) {
+    // Fully fire-and-forget — never let this bubble up to session start.
+    console.warn(`[AbsenceWorker] autoResolveAbsenceNudgeOnReturn failed for ${userId}: ${err.message}`);
+  }
+}
+
 export function startDanielaAbsenceWorker(): void {
   console.log('[AbsenceWorker] Starting (interval: 24h, threshold: 5 days absent)');
   // Initial check after 10 minutes to let everything settle and avoid boot storms

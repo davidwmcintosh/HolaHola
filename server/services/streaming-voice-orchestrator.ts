@@ -1104,6 +1104,16 @@ export class StreamingVoiceOrchestrator {
       }
     }
 
+    // AUTO-CLEAR ABSENCE NUDGE: fire-and-forget when a real student returns.
+    // Resolves any pending absence nudge so Daniela's inbox stays clean and the
+    // detection cycle doesn't re-trigger for a student who has already come back.
+    // Skipped for founder-mode sessions (those are David's test/admin sessions).
+    if (userId && !isFounderMode) {
+      import('./daniela-absence-worker')
+        .then(({ autoResolveAbsenceNudgeOnReturn }) => autoResolveAbsenceNudgeOnReturn(userId))
+        .catch(err => console.warn('[AbsenceWorker] Auto-resolve fire failed:', (err as Error)?.message));
+    }
+
     // TUTOR DIRECTORY: Populate at session start for name-based language inference
     // This enables inferLanguageFromTutorName to work during SWITCH_TUTOR parsing
     // (If Daniela says "Let me get Juliette" but forgets language="french", we can infer it)
