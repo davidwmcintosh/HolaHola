@@ -31,6 +31,24 @@ interface VoiceHealthData {
   };
 }
 
+function NudgeBadge() {
+  const { data } = useQuery<{ count: number }>({
+    queryKey: ["/api/admin/absence-nudges/count"],
+    refetchInterval: 30000,
+  });
+  const count = data?.count ?? 0;
+  if (count === 0) return null;
+  return (
+    <Badge
+      variant="destructive"
+      className="h-4 min-w-4 px-1 text-[10px] leading-none"
+      data-testid="badge-nudge-count"
+    >
+      {count}
+    </Badge>
+  );
+}
+
 function VoiceHealthPane() {
   const { data, isLoading, error, refetch } = useQuery<VoiceHealthData>({
     queryKey: ["/api/voice/health-score"],
@@ -206,6 +224,7 @@ export default function MissionControl() {
           icon={<Radio className="h-4 w-4 text-amber-500" />}
           expandedPane={expandedPane}
           onToggleExpand={toggleExpand}
+          badge={<NudgeBadge />}
         >
           <ExpressLanePane />
         </PaneWrapper>

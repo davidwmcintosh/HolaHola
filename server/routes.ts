@@ -33415,6 +33415,18 @@ You have full access to your neural network knowledge.
     }
   });
 
+  // ABSENCE NUDGES: Count pending nudges for badge display
+  app.get("/api/admin/absence-nudges/count", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
+    try {
+      const { countPendingNudges } = await import('./services/daniela-absence-worker');
+      const count = await countPendingNudges();
+      res.json({ count });
+    } catch (error: any) {
+      console.error('[AbsenceNudges] Count endpoint error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // EXPRESS LANE: Get current collaboration context
   app.get("/api/express-lane/context", async (req: any, res: Response) => {
     try {

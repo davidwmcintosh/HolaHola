@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useSearch, useLocation } from "wouter";
 import { ChatInterface, type SupportHandoffContext } from "@/components/ChatInterface";
 import { StreamingVoiceChat as VoiceChat } from "@/components/StreamingVoiceChat";
@@ -187,6 +188,14 @@ export default function Chat() {
     replayMessage: syncReplayMessage,
     isConnected: syncIsConnected 
   } = useFounderCollab();
+
+  // Absence nudge count — shown as a badge on the EXPRESS Lane header in founder mode
+  const { data: nudgeCountData } = useQuery<{ count: number }>({
+    queryKey: ["/api/admin/absence-nudges/count"],
+    refetchInterval: 30000,
+    enabled: isFounderMode,
+  });
+  const pendingNudgeCount = nudgeCountData?.count ?? 0;
 
   // Auto-connect to founder collaboration when entering Founder Mode or Reading Room
   useEffect(() => {
@@ -971,6 +980,15 @@ export default function Chat() {
                   <div className="flex items-center gap-2">
                     <Radio className="h-4 w-4 text-amber-500" />
                     <span className="font-medium text-sm">EXPRESS Lane</span>
+                    {pendingNudgeCount > 0 && (
+                      <Badge
+                        variant="destructive"
+                        className="h-4 min-w-4 px-1 text-[10px] leading-none"
+                        data-testid="badge-nudge-count-chat"
+                      >
+                        {pendingNudgeCount}
+                      </Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-1">
                     {syncIsConnected ? (
