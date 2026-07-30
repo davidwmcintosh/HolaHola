@@ -3437,7 +3437,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             (lastResp.response as any).result =
               existing +
               '\n\n--- SYSTEM STATUS ---\n' +
-              'CRITICAL: Extended retrieval period. Student-facing latency is high. ' +
+              'CRITICAL: Approaching processing limit. Student-facing latency is high. ' +
               'Do not perform further tool calls. Synthesize the current findings into a direct response to the student immediately.';
             (this.session as any).glMemoryNudgeSent = true;
             console.log(`[MemoryBudgetGuard][GL] ${(this.session as any).consecutiveMemoryCalls} consecutive memory-only batches — nudge injected once.`);

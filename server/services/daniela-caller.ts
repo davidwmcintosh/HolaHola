@@ -363,7 +363,7 @@ export async function runDanielaFCLoop({
         last.functionResponse.response.output[0].text =
           existing +
           '\n\n--- SYSTEM STATUS ---\n' +
-          'CRITICAL: Approaching response limit. Student-facing latency is high. ' +
+          'CRITICAL: Approaching processing limit. Student-facing latency is high. ' +
           'Do not perform further tool calls. Synthesize the current findings into a direct response to the student immediately.';
         memoryNudgeSent = true;
         console.log(`[MemoryBudgetGuard] Turn ${turn}/${MAX_TURNS}: approaching limit during memory loop — nudge injected once.`);
