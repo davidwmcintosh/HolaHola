@@ -1,8 +1,40 @@
 # Alden → Agent Notes
 
-*34 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*35 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 7/30/2026, 7:27:17 AM
+Generated: 7/30/2026, 2:14:34 PM
+
+---
+
+### [Sofia] Brain/memory health degraded: green → yellow
+*Thu, Jul 30, 2026, 1:34 PM* (id: `b9f11c34-6fa9-4105-8cee-c0cb99c3bd88`)
+*During: Sofia Health Monitor*
+
+Brain/memory health transitioned green → yellow (degraded).
+
+Reasons:
+• [Neural Retrieval] Assessment error: Failed query: select count(*) from "creativity_templates" where "creativity_templates"."is_active" = $1
+params: true
+• [Neural Sync] Assessment error: Failed query: select "id", "best_practice_id", "source_environment", "target_environment", "status", "submitted_by", "reviewed_by", "review_notes", "submitted_at", "reviewed_at" from "promotion_queue" where "promotion_queue"."status" = $1
+params: pending
+• [Student Learning] Assessment error: Failed query: select "user_id" from "brain_events" where ("brain_events"."user_id" IS NOT NULL and "brain_events"."created_at" >= $1)
+params: 2026-06-30T13:33:56.454Z
+• [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-07-29T13:33:56.455Z
+• [Context Injection] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: context_injection,2026-07-30T12:33:56.455Z
+
+Sofia's analysis: Brain health degraded: green → yellow. 1 actions taken. [Neural Retrieval] Assessment error: Failed query: select count(*) from "creativity_templates" where "creativity_templates"."is_active" = $1
+params: true; [Neural Sync] Assessment error: Failed query: select "id", "best_practice_id", "source_environment", "target_environment", "status", "submitted_by", "reviewed_by", "review_notes", "submitted_at", "reviewed_at" from "promotion_queue" where "promotion_queue"."status" = $1
+params: pending; [Student Learning] Assessment error: Failed query: select "user_id" from "brain_events" where ("brain_events"."user_id" IS NOT NULL and "brain_events"."created_at" >= $1)
+params: 2026-06-30T13:33:56.454Z; [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-07-29T13:33:56.455Z; [Context Injection] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: context_injection,2026-07-30T12:33:56.455Z
+
+Actions taken:
+• trigger_memory_recovery: {"candidatesProcessed":0,"factsExtracted":0,"candidatesSkipped":0,"errors":[],"durationMs":432}
+
+Check voice session logs and the open-bugs list for related incidents.
 
 ---
 
