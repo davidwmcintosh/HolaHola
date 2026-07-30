@@ -275,6 +275,93 @@ async function checkPreSessionSynthesis() {
   }
 }
 
+// ─── OBJECT STORAGE — CopyObject probe ───────────────────────────────────────
+
+async function checkObjectStorageMetadata() {
+  console.log(`\n${BOLD}── Object Storage — CopyObject metadata probe ──────────${RESET}`);
+
+  const {
+    isS3Configured,
+    makeS3File,
+    uploadBuffer,
+  } = await import("../replit_integrations/object_storage/objectStorage.js");
+
+  if (!isS3Configured()) {
+    console.log(`  ℹ  S3 not configured — GCS backend in use (CopyObject probe skipped)`);
+    return;
+  }
+
+  // Derive bucket from PRIVATE_OBJECT_DIR (format: /bucket-name/path/…)
+  const privateDir = process.env.PRIVATE_OBJECT_DIR ?? "";
+  if (!privateDir) {
+    warn("CopyObject probe", "PRIVATE_OBJECT_DIR not set — cannot derive bucket for probe");
+    return;
+  }
+  const parts = privateDir.replace(/^\//, "").split("/");
+  const bucketName = parts[0];
+  if (!bucketName) {
+    warn("CopyObject probe", `Could not parse bucket from PRIVATE_OBJECT_DIR="${privateDir}"`);
+    return;
+  }
+
+  const probeKey = `_health_probe/copy-object-probe-${Date.now()}.txt`;
+
+  try {
+    // 1. Upload a tiny probe object.
+    await uploadBuffer(bucketName, probeKey, Buffer.from("holahola-probe"), "text/plain", {
+      "x-probe-init": "true",
+    });
+
+    // 2. Intercept console.warn to catch the fallback warning from s3File.ts.
+    let fallbackFired = false;
+    const originalWarn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      const msg = args.map(String).join(" ");
+      if (msg.includes("falling back to download+reupload")) {
+        fallbackFired = true;
+      }
+      originalWarn.apply(console, args);
+    };
+
+    try {
+      const file = makeS3File(bucketName, probeKey);
+      await file.setCustomMetadata({ "x-probe-updated": "true" });
+    } finally {
+      console.warn = originalWarn;
+    }
+
+    if (fallbackFired) {
+      warn(
+        "CopyObject probe",
+        `CopyObject FAILED — fell back to download+reupload for bucket "${bucketName}". ` +
+          `Every metadata update will download the full object. Check bucket region/permissions.`,
+      );
+    } else {
+      pass("CopyObject probe", `CopyObject succeeded on bucket "${bucketName}"`);
+    }
+  } catch (err: any) {
+    warn("CopyObject probe", `probe error: ${err?.message ?? err}`);
+  } finally {
+    // 3. Clean up — best-effort, ignore errors.
+    try {
+      const { S3Client, DeleteObjectCommand } = await import("@aws-sdk/client-s3");
+      const s3 = new S3Client({
+        region: process.env.AWS_S3_REGION!,
+        credentials: {
+          accessKeyId: process.env.AWS_S3_ACCESS_KEY_ID!,
+          secretAccessKey: process.env.AWS_S3_SECRET_ACCESS_KEY!,
+        },
+        ...(process.env.AWS_S3_ENDPOINT
+          ? { endpoint: process.env.AWS_S3_ENDPOINT, forcePathStyle: true }
+          : {}),
+      });
+      await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: probeKey }));
+    } catch {
+      // Probe cleanup failed — not a health-check failure, just note it.
+    }
+  }
+}
+
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -287,6 +374,7 @@ async function main() {
   await checkCurriculum();
   await checkWorkers();
   await checkPreSessionSynthesis();
+  await checkObjectStorageMetadata();
 
   console.log(`\n${BOLD}── Summary ─────────────────────────────────────────────${RESET}`);
   if (failures === 0 && warnings === 0) {
