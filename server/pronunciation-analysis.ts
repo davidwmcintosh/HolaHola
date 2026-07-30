@@ -1,12 +1,36 @@
 import OpenAI from "openai";
 
-// Prefer Replit AI integration proxy; fall back to direct OpenAI key in non-Replit environments.
-const openai = new OpenAI({
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://api.openai.com/v1',
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY
-    || process.env.USER_OPENAI_API_KEY
-    || process.env.OPENAI_API_KEY,
-});
+/**
+ * Returns the effective OpenAI API key from env vars, or null if none is set.
+ * Priority: AI_INTEGRATIONS_OPENAI_API_KEY → USER_OPENAI_API_KEY → OPENAI_API_KEY
+ */
+export function getEffectiveOpenAIKey(): string | null {
+  return (
+    process.env.AI_INTEGRATIONS_OPENAI_API_KEY ||
+    process.env.USER_OPENAI_API_KEY ||
+    process.env.OPENAI_API_KEY ||
+    null
+  );
+}
+
+/**
+ * Build an OpenAI client using whichever key is available.
+ * Throws a clear ConfigurationError when no key is present so callers get an
+ * explicit failure instead of a silent 401 or a swallowed neutral result.
+ */
+function createOpenAIClient(): OpenAI {
+  const key = getEffectiveOpenAIKey();
+  if (!key) {
+    throw new Error(
+      '[pronunciation-analysis] No OpenAI API key configured. ' +
+      'Set AI_INTEGRATIONS_OPENAI_API_KEY (Replit proxy) or OPENAI_API_KEY (direct).'
+    );
+  }
+  return new OpenAI({
+    baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || 'https://api.openai.com/v1',
+    apiKey: key,
+  });
+}
 
 export interface PronunciationAnalysis {
   score: number; // 0-100
@@ -29,8 +53,11 @@ export async function analyzePronunciation(
   difficulty: string,
   context?: string
 ): Promise<PronunciationAnalysis> {
-  try {
-    const systemPrompt = `You are an expert ${targetLanguage} pronunciation coach. Analyze the student's speech based on the transcribed text and provide detailed feedback.
+  // Throws immediately with a clear message if no key is configured.
+  // This surfaces as a real error to the caller instead of a silent neutral score.
+  const openai = createOpenAIClient();
+
+  const systemPrompt = `You are an expert ${targetLanguage} pronunciation coach. Analyze the student's speech based on the transcribed text and provide detailed feedback.
 
 Your analysis should consider:
 1. Clarity and accuracy of pronunciation
@@ -56,47 +83,37 @@ Scoring rubric:
 
 Be encouraging but honest. Focus on 1-3 key issues rather than listing everything.`;
 
-    const userPrompt = `Student's transcribed speech: "${transcribedText}"
+  const userPrompt = `Student's transcribed speech: "${transcribedText}"
 Target language: ${targetLanguage}
 Difficulty level: ${difficulty}
 ${context ? `Context: ${context}` : ''}
 
 Analyze the pronunciation quality based on the transcription.`;
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      response_format: { type: "json_object" },
-      temperature: 0.3,
-    });
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ],
+    response_format: { type: "json_object" },
+    temperature: 0.3,
+  });
 
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error("No response from OpenAI");
-    }
-
-    const analysis = JSON.parse(content) as PronunciationAnalysis;
-    
-    // Validate and sanitize the response
-    return {
-      score: Math.max(0, Math.min(100, analysis.score || 0)),
-      feedback: analysis.feedback || "Unable to analyze pronunciation",
-      phoneticIssues: Array.isArray(analysis.phoneticIssues) ? analysis.phoneticIssues : [],
-      strengths: Array.isArray(analysis.strengths) ? analysis.strengths : [],
-    };
-  } catch (error) {
-    console.error("Error analyzing pronunciation:", error);
-    // Return a neutral score on error rather than failing
-    return {
-      score: 70,
-      feedback: "Unable to fully analyze pronunciation at this time. Keep practicing!",
-      phoneticIssues: [],
-      strengths: [],
-    };
+  const content = completion.choices[0]?.message?.content;
+  if (!content) {
+    throw new Error("[pronunciation-analysis] No response from OpenAI");
   }
+
+  const analysis = JSON.parse(content) as PronunciationAnalysis;
+
+  // Validate and sanitize the response
+  return {
+    score: Math.max(0, Math.min(100, analysis.score || 0)),
+    feedback: analysis.feedback || "Unable to analyze pronunciation",
+    phoneticIssues: Array.isArray(analysis.phoneticIssues) ? analysis.phoneticIssues : [],
+    strengths: Array.isArray(analysis.strengths) ? analysis.strengths : [],
+  };
 }
 
 /**

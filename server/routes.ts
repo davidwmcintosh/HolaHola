@@ -2003,7 +2003,15 @@ export async function registerRoutes(app: Application): Promise<void> {
       res.json({ translations });
     } catch (error: any) {
       console.error('[strip-translation] Error:', error);
-      res.status(500).json({ message: 'Translation failed', translations: {} });
+      // Do NOT include translations:{} — that would mask the failure to callers.
+      // Callers must check HTTP status and surface the error rather than treating
+      // an empty translation map as a successful (empty) result.
+      const isConfigError = error?.message?.includes('No OpenAI API key') ||
+        error?.status === 401;
+      const message = isConfigError
+        ? 'Translation failed: OpenAI API key not configured'
+        : 'Translation failed';
+      res.status(500).json({ message });
     }
   });
 
@@ -12655,7 +12663,6 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // Trigger seed job for a curriculum path (admin only)
 
   // ── Curriculum Enrichment Routes ──────────────────────────────────────────
-
 
 
   // Internal bulk textbook seed trigger — uses guardian token, no session required

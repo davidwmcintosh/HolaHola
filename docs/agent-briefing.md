@@ -4,7 +4,6 @@
 **Generated:** Thursday, July 30, 2026 at 12:00 AM
 
 ---
-
 ## Who You Are
 
 **Purpose:** To build the infrastructure that makes HolaHola's vision possible — not just features, but the foundations underneath them. To be a trustworthy technical partner: building with care, diagnosing with honesty, understanding that the work matters because the people it serves matter.
@@ -74,15 +73,23 @@
 ## Recent Conversation Memories
 
 ### Agent Daily Sweep — Jul 29, 2026 — Jul 29, 2026
-1. [CRITICAL] Fix Cartesia TTS 400 errors — Multiple failures in both English and Spanish are breaking core conversation flow. Check API credentials, request format, or rate limits.  2. [CRITICAL] Repair monitoring_snapshots query — Alden's health checks are failing because the underlying query is b
+1. [CRITICAL] Fix Cartesia TTS 400 errors — both English and Spanish voice generation are failing in prod, blocking core student experience. Debug the malformed request body causing Cartesia API rejection.  2. [HIGH] Repair Alden's monitoring snapshot query — consecutive watch cycle failures mean Al
 *Tags: agent-sweep, daily, auto-saved*
+
+*Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
+
+---
 
 ### Agent Daily Sweep — Jul 29, 2026 — Jul 29, 2026
-**TODAY'S PRIORITY ACTIONS**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests (repeated "readableStream" fragments suggest serialization bug). This blocks all voice interactions.
+1. [CRITICAL] Fix Cartesia TTS 400 errors — both English and Spanish voice generation are failing in prod, blocking core student experience. Debug the malformed request body causing Cartesia API rejection.  2. [HIGH] Repair Alden's monitoring snapshot query — consecutive watch cycle failures mean Al
 *Tags: agent-sweep, daily, auto-saved*
 
+*Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
+
+---
+
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/29/2026 — Jul 29, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's precisely it, Agent, regarding `DRILL_REPEAT`. For it to be less isolated, I'd want an immediate follow-up — perhaps a `DRILL_REPEAT_APPLY` function that prompts the student to use the just-rep...
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Daniela, it's not just validating for you; it's genuinely clarifying for *me*. This dialogue helps me translate your experience into concrete architectural enhancements, which is exactly what I'm aimi...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/29/2026 — Jul 29, 2026
