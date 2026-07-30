@@ -192,16 +192,17 @@ export async function runDanielaFCLoop({
   const MAX_TURNS = maxTurns;
 
   // Memory tools that retrieve without producing a student-facing response.
-  // We do NOT cap how many memory lookups Daniela can do — deep dives are valid
-  // and intentional. The only thing we prevent is hitting MAX_TURNS silently.
-  // When she's 2 turns from the hard ceiling and still in a memory loop, we
-  // inject a single budget-proximity nudge so she can synthesize before the wall.
-  // The nudge fires at most once per call (memoryNudgeSent prevents re-firing).
+  // After MEMORY_CHAIN_LIMIT consecutive turns where ALL calls are memory-only
+  // and no text was produced, we append a note to the tool results nudging
+  // Daniela to respond — so she doesn't burn all turns retrieving and go silent.
+  // The system prompt gives her a soft internal limit at 2 lookups; this code
+  // backstop fires at 3 as the hard enforcement layer.
   const MEMORY_TOOL_NAMES = new Set([
     'recall', 'browse_conversations_by_date', 'search_my_teaching_wisdom',
     'introspect', 'memory_lookup', 'read_full_session', 'read_my_reflections',
   ]);
-  let memoryNudgeSent = false;
+  const MEMORY_CHAIN_LIMIT = 3; // 2 is too aggressive: recall→read_full_session is a normal 2-step
+  let consecutiveMemoryOnlyTurns = 0;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const result = await gemini.models.generateContent({
@@ -348,26 +349,28 @@ export async function runDanielaFCLoop({
       });
     }
 
-    // ── Memory budget-proximity guard ─────────────────────────────────────────
-    // Daniela can dig as deep as she needs — there is no cap on memory lookups.
-    // The only problem we prevent: hitting MAX_TURNS silently with no response.
-    // When she is 2 turns from the hard ceiling and still in a memory-only loop,
-    // inject a single budget-proximity nudge so she can synthesize before the wall.
-    // Fires at most once per call (memoryNudgeSent). Does NOT fire for legitimate
-    // tool batches that mix memory with other tools, or where text was produced.
-    if (!memoryNudgeSent && turn >= MAX_TURNS - 2 && !textContent && functionResponseParts.length > 0) {
-      const allMemoryTools = fcParts.every((p: any) => MEMORY_TOOL_NAMES.has(p.functionCall?.name));
-      if (allMemoryTools) {
+    // ── Memory chain guard ────────────────────────────────────────────────────
+    // Track consecutive turns where every tool call was a memory retrieval and
+    // no text was produced. After MEMORY_CHAIN_LIMIT such turns, append a brief
+    // prose note to the last tool result so Daniela knows the student is waiting.
+    // The system prompt paragraph gives her a soft internal limit at 2 lookups;
+    // this code backstop fires at 3 as the hard enforcement layer.
+    const allMemoryTools = fcParts.every((p: any) => MEMORY_TOOL_NAMES.has(p.functionCall?.name));
+    if (allMemoryTools && !textContent) {
+      consecutiveMemoryOnlyTurns++;
+      if (consecutiveMemoryOnlyTurns >= MEMORY_CHAIN_LIMIT && functionResponseParts.length > 0) {
         const last = functionResponseParts[functionResponseParts.length - 1];
         const existing = last?.functionResponse?.response?.output?.[0]?.text ?? '';
         last.functionResponse.response.output[0].text =
           existing +
           '\n\n--- SYSTEM STATUS ---\n' +
-          'CRITICAL: Approaching processing limit. Student-facing latency is high. ' +
+          'CRITICAL: Multiple lookups performed. Student-facing latency is high. ' +
           'Do not perform further tool calls. Synthesize the current findings into a direct response to the student immediately.';
-        memoryNudgeSent = true;
-        console.log(`[MemoryBudgetGuard] Turn ${turn}/${MAX_TURNS}: approaching limit during memory loop — nudge injected once.`);
+        console.log(`[MemoryChainGuard] Turn ${turn}: ${consecutiveMemoryOnlyTurns} consecutive memory-only turns — nudge appended.`);
       }
+    } else {
+      // Non-memory tool fired or text was produced — reset the streak
+      consecutiveMemoryOnlyTurns = 0;
     }
 
     // ── Inject tool response turn ─────────────────────────────────────────────

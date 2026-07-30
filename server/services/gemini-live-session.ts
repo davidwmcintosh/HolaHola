@@ -2645,6 +2645,15 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this._currentTurnThoughtContent = this.currentTurnThoughtBuffer.trim() || null;
       this.currentTurnThoughtBuffer = '';
 
+      // ── Memory chain guard — reset on speech output ───────────────────────────
+      // When Daniela produces audio (generationComplete fires), the memory-only
+      // streak is broken — she spoke. Reset both the counter and the one-shot
+      // nudge gate so a new memory-only chain in the next turn can trigger again.
+      if ((this.session as any).consecutiveMemoryCalls > 0) {
+        (this.session as any).consecutiveMemoryCalls = 0;
+        (this.session as any).glMemoryNudgeSent = false;
+      }
+
       // ── Frictionless Slide detection (GL) ────────────────────────────────────
       // Runs at generationComplete — by this point pendingOutputTranscript holds the
       // full text of Daniela's turn and currentTurnToolCalls holds every tool name
@@ -3407,20 +3416,20 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         });
       }
 
-      // ── Memory budget guard (GL) ─────────────────────────────────────────────
-      // GL has no MAX_TURNS ceiling, so we use a high absolute threshold (6
-      // consecutive memory-only batches) as a safety valve against silent spirals.
-      // Daniela can dig as deep as she needs — this only fires after an unusually
-      // long uninterrupted retrieval run with no voice output. Fires at most ONCE
-      // per spiral episode (glMemoryNudgeSent flag); resets when she produces audio
-      // (see generationComplete path — Task #97). Counter resets when any non-memory
+      // ── Memory chain guard (GL) ─────────────────────────────────────────────
+      // Track consecutive tool batches where every call is a memory retrieval and
+      // no voice output was produced. After GL_MEMORY_CHAIN_LIMIT such batches,
+      // append a nudge to the last tool response so Daniela synthesizes and speaks.
+      // The system prompt paragraph gives her a soft internal limit at 2 lookups;
+      // this code backstop fires at 3 as the hard enforcement layer. Counter resets
+      // when she produces audio (see generationComplete path) or when any non-memory
       // tool fires in the same batch.
       {
         const GL_MEMORY_TOOL_NAMES = new Set([
           'recall', 'browse_conversations_by_date', 'search_my_teaching_wisdom',
           'introspect', 'memory_lookup', 'read_full_session', 'read_my_reflections',
         ]);
-        const GL_MEMORY_CHAIN_LIMIT = 6;
+        const GL_MEMORY_CHAIN_LIMIT = 3;
         const batchToolNames = msg.toolCall.functionCalls.map((fc: any) => fc.name as string);
         const allMemoryBatch = batchToolNames.every((n: string) => GL_MEMORY_TOOL_NAMES.has(n));
 
