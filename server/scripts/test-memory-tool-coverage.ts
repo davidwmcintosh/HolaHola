@@ -76,17 +76,27 @@ const KNOWN_NON_GUARD_TOOLS = new Set<string>([
   // Reads Daniela's open questions about David (Founder mode). Not student data.
 
   'read_queued_for_student',
-  // Reads leave_for_next_session messages queued for the student.  One-shot at
-  // session start, not part of iterative recall chains.
+  // One-shot session-start check for messages Daniela queued via
+  // leave_for_next_session.  Executes a single-row DB lookup (no embedding
+  // search); designed to be called once at session open, not as part of an
+  // iterative recall chain.  A session turn containing only this call is
+  // session initialization, not a memory spiral.
 
   'read_full_memory',
-  // Retrieves complete verbatim content of a named memory record.  Used after
-  // another search has already found the entry; the developer team has chosen
-  // to treat it as a follow-up lookup, not a chain-triggering scan.
+  // Deep-archive follow-up that retrieves the full verbatim text of a memory
+  // already surfaced by recall or memory_lookup.  Runs a live ILIKE search
+  // with a semantic fallback, but is BLOCKED from the mid-session student
+  // classroom tool rack (excluded in CLASSROOM_EXCLUDED_TOOLS).  Only
+  // reachable in Founder / Reading Room mode where iterative archive reading
+  // is intentional behavior, not a spiral.  Not a standalone scan tool
+  // available to students.
 
   'recall_what_i_shared',
-  // Reads Daniela's personal consistency log (what she said about herself).
-  // J-space / identity tool; not triggered by student memory-check questions.
+  // Reads Daniela's personal consistency log (danielaPersonalShares table) —
+  // what she has expressed about herself to David.  J-space / identity tool,
+  // not student-session memory.  Cannot cause a recall chain: result set is
+  // capped (max 20 rows), no embedding search is involved, and the tool is
+  // not surfaced in student-facing session contexts.
 
   // ── memory_ prefix ──────────────────────────────────────────────────────────
   'memory_record',
