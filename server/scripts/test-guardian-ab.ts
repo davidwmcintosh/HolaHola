@@ -177,3 +177,5 @@ try {
 sep();
 console.log(B('Test complete.'));
 sep();
+
+process.exit(0);

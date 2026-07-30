@@ -2894,6 +2894,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.isGreetingTurn = false;
       // Signal that generation is fully done so onPlaybackEnded() can safely lift the mic gate.
       this.isGenerationDone = true;
+      // Memory-loop counter reset: Daniela produced audio, so the consecutive-memory-call
+      // chain is definitively broken. Any new memory lookups after this point start fresh.
+      (this.session as any).consecutiveMemoryCalls = 0;
       // Retroactive lift: if playback_ended already fired between sub-turns (single-sentence
       // responses finish playing before generationComplete arrives over the network), call
       // onPlaybackEnded() now so the mic gate lifts without waiting for the safety timeout.
