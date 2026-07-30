@@ -24,8 +24,6 @@ import { S3StorageFile } from "./s3File";
 
 export type { StorageFile };
 
-const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
-
 // ---------------------------------------------------------------------------
 // Backend detection
 // ---------------------------------------------------------------------------
@@ -88,7 +86,15 @@ export async function logStorageBackend(): Promise<void> {
     } catch { /* ignore */ }
     backendLabel = `GCS service-account${projectHint}`;
   } else {
-    backendLabel = "GCS via Replit sidecar";
+    // The Replit GCS sidecar (port 1106) is retired.  Neither S3 nor a
+    // GCS service-account key is configured — storage calls will fail.
+    backendLabel = "UNCONFIGURED (no S3 credentials and no GCS service-account key)";
+    console.error(
+      `${tag} WARNING: No storage backend is configured. ` +
+      "Set AWS_S3_ACCESS_KEY_ID / AWS_S3_SECRET_ACCESS_KEY / AWS_S3_REGION for R2, " +
+      "or GOOGLE_CLOUD_STORAGE_CREDENTIALS for GCS. " +
+      "The Replit GCS sidecar (port 1106) is retired.",
+    );
   }
 
   console.log(`${tag} backend: ${backendLabel}`);
@@ -147,43 +153,25 @@ function getGcsClient(): Storage {
   if (_gcsClient) return _gcsClient;
 
   const credentialsJson = process.env.GOOGLE_CLOUD_STORAGE_CREDENTIALS;
-  if (credentialsJson) {
-    try {
-      const credentials = JSON.parse(credentialsJson);
-      _gcsClient = new Storage({
-        credentials,
-        projectId:
-          credentials.project_id ||
-          process.env.GOOGLE_CLOUD_PROJECT_ID ||
-          "",
-      });
-      return _gcsClient;
-    } catch (e) {
-      console.error(
-        "[ObjectStorage] Failed to parse GOOGLE_CLOUD_STORAGE_CREDENTIALS — " +
-          "falling back to Replit sidecar. Error:",
-        e,
-      );
-    }
+  if (!credentialsJson) {
+    // The Replit GCS sidecar (port 1106) is retired.  Without an explicit
+    // service-account key the GCS backend cannot authenticate.  In production
+    // R2 (AWS_S3_*) is the active backend; isS3Configured() should be true
+    // before this function is ever reached.
+    throw new Error(
+      "[ObjectStorage] GOOGLE_CLOUD_STORAGE_CREDENTIALS is not set and the " +
+      "Replit GCS sidecar (port 1106) is retired. " +
+      "Configure AWS_S3_* credentials to use the R2 backend instead.",
+    );
   }
 
-  // Replit sidecar auth (backward-compatible default)
+  const credentials = JSON.parse(credentialsJson);
   _gcsClient = new Storage({
-    credentials: {
-      audience: "replit",
-      subject_token_type: "access_token",
-      token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-      type: "external_account",
-      credential_source: {
-        url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-        format: {
-          type: "json",
-          subject_token_field_name: "access_token",
-        },
-      },
-      universe_domain: "googleapis.com",
-    } as any,
-    projectId: "",
+    credentials,
+    projectId:
+      credentials.project_id ||
+      process.env.GOOGLE_CLOUD_PROJECT_ID ||
+      "",
   });
   return _gcsClient;
 }
@@ -555,29 +543,15 @@ async function signObjectURL({
     return url;
   }
 
-  // ── Replit sidecar path ────────────────────────────────────────────────────
-  const request = {
-    bucket_name: bucketName,
-    object_name: objectName,
-    method,
-    expires_at: new Date(Date.now() + ttlSec * 1000).toISOString(),
-  };
-  const response = await fetch(
-    `${REPLIT_SIDECAR_ENDPOINT}/object-storage/signed-object-url`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(request),
-    },
+  // The Replit GCS sidecar (port 1106) that previously handled this path is
+  // retired.  Neither S3 nor a GCS service-account key is configured —
+  // signed URL generation cannot proceed.
+  throw new Error(
+    "Cannot generate a signed URL: no storage backend is configured. " +
+    "Set AWS_S3_ACCESS_KEY_ID / AWS_S3_SECRET_ACCESS_KEY / AWS_S3_REGION for R2, " +
+    "or GOOGLE_CLOUD_STORAGE_CREDENTIALS for GCS. " +
+    "The Replit GCS sidecar (port 1106) is retired.",
   );
-  if (!response.ok) {
-    throw new Error(
-      `Failed to sign object URL, errorcode: ${response.status}, ` +
-        `make sure you're running on Replit or set GOOGLE_CLOUD_STORAGE_CREDENTIALS / AWS_S3_ACCESS_KEY_ID`,
-    );
-  }
-  const { signed_url: signedURL } = await response.json();
-  return signedURL;
 }
 
 // ---------------------------------------------------------------------------

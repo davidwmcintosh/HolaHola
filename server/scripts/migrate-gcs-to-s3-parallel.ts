@@ -29,28 +29,16 @@ const CONCURRENCY     = parseInt(process.env.MIGRATION_CONCURRENCY || "20", 10);
 // ---------------------------------------------------------------------------
 
 function createSourceGcs(): Storage {
-  if (GCS_CREDS_JSON) {
-    try {
-      const credentials = JSON.parse(GCS_CREDS_JSON);
-      return new Storage({ credentials, projectId: credentials.project_id || "" });
-    } catch {
-      console.warn("[migrate] Could not parse GOOGLE_CLOUD_STORAGE_CREDENTIALS — using sidecar");
-    }
+  // The Replit GCS sidecar (port 1106) is retired — a service-account JSON
+  // key must be supplied via GOOGLE_CLOUD_STORAGE_CREDENTIALS.
+  if (!GCS_CREDS_JSON) {
+    throw new Error(
+      "GOOGLE_CLOUD_STORAGE_CREDENTIALS is required. " +
+      "The Replit GCS sidecar (port 1106) is retired and can no longer provide credentials.",
+    );
   }
-  return new Storage({
-    credentials: {
-      audience: "replit",
-      subject_token_type: "access_token",
-      token_url: "http://127.0.0.1:1106/token",
-      type: "external_account",
-      credential_source: {
-        url: "http://127.0.0.1:1106/credential",
-        format: { type: "json", subject_token_field_name: "access_token" },
-      },
-      universe_domain: "googleapis.com",
-    } as any,
-    projectId: "",
-  });
+  const credentials = JSON.parse(GCS_CREDS_JSON);
+  return new Storage({ credentials, projectId: credentials.project_id || "" });
 }
 
 function createDestS3(): S3Client {
@@ -105,6 +93,7 @@ async function runPool<T>(
 async function main() {
   const missing: string[] = [];
   if (!SOURCE_BUCKET)   missing.push("DEFAULT_OBJECT_STORAGE_BUCKET_ID");
+  if (!GCS_CREDS_JSON)  missing.push("GOOGLE_CLOUD_STORAGE_CREDENTIALS");
   if (!DEST_BUCKET)     missing.push("AWS_S3_DESTINATION_BUCKET");
   if (!DEST_ACCESS_KEY) missing.push("AWS_S3_ACCESS_KEY_ID");
   if (!DEST_SECRET_KEY) missing.push("AWS_S3_SECRET_ACCESS_KEY");

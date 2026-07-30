@@ -1,22 +1,25 @@
 /**
  * GCS → S3 / Cloudflare R2 Migration Script
  *
- * Copies every object from the current GCS bucket (Replit sidecar or
- * service-account credentials) to an AWS S3 bucket or a Cloudflare R2 bucket.
+ * Copies every object from a GCS bucket (service-account credentials required)
+ * to an AWS S3 bucket or a Cloudflare R2 bucket.
+ *
+ * NOTE: The Replit GCS sidecar (port 1106) is retired.  A valid
+ * GOOGLE_CLOUD_STORAGE_CREDENTIALS service-account JSON key is now required
+ * to read from GCS.  The script will refuse to start without it.
  *
  * Usage:
  *   npx tsx server/scripts/migrate-gcs-to-s3.ts
  *
  * Required env vars:
  *   DEFAULT_OBJECT_STORAGE_BUCKET_ID   — source GCS bucket name
+ *   GOOGLE_CLOUD_STORAGE_CREDENTIALS   — JSON service-account key for GCS source
  *   AWS_S3_ACCESS_KEY_ID               — destination S3 / R2 access key
  *   AWS_S3_SECRET_ACCESS_KEY           — destination S3 / R2 secret key
  *   AWS_S3_REGION                      — region (use "auto" for R2)
  *   AWS_S3_DESTINATION_BUCKET          — destination bucket name
  *
  * Optional:
- *   GOOGLE_CLOUD_STORAGE_CREDENTIALS   — JSON service-account key for GCS source
- *                                        (if not set the Replit sidecar is used)
  *   AWS_S3_ENDPOINT                    — custom endpoint for R2 / MinIO
  *                                        e.g. https://<account-id>.r2.cloudflarestorage.com
  *
@@ -49,45 +52,24 @@ const DEST_REGION = process.env.AWS_S3_REGION || "";
 const DEST_ENDPOINT = process.env.AWS_S3_ENDPOINT || "";
 const GCS_CREDENTIALS_JSON = process.env.GOOGLE_CLOUD_STORAGE_CREDENTIALS || "";
 
-const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
-
 // ---------------------------------------------------------------------------
 // Client factories
 // ---------------------------------------------------------------------------
 
 function createSourceGcs(): Storage {
-  if (GCS_CREDENTIALS_JSON) {
-    try {
-      const credentials = JSON.parse(GCS_CREDENTIALS_JSON);
-      return new Storage({
-        credentials,
-        projectId: credentials.project_id || "",
-      });
-    } catch {
-      console.warn(
-        "[migrate] Could not parse GOOGLE_CLOUD_STORAGE_CREDENTIALS — " +
-          "falling back to Replit sidecar."
-      );
-    }
+  // The Replit GCS sidecar (port 1106) is retired — a service-account JSON
+  // key must be supplied via GOOGLE_CLOUD_STORAGE_CREDENTIALS.
+  if (!GCS_CREDENTIALS_JSON) {
+    throw new Error(
+      "GOOGLE_CLOUD_STORAGE_CREDENTIALS is required. " +
+      "The Replit GCS sidecar (port 1106) is retired and can no longer provide credentials."
+    );
   }
 
-  // Replit sidecar (must be run inside the Replit environment)
+  const credentials = JSON.parse(GCS_CREDENTIALS_JSON);
   return new Storage({
-    credentials: {
-      audience: "replit",
-      subject_token_type: "access_token",
-      token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-      type: "external_account",
-      credential_source: {
-        url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-        format: {
-          type: "json",
-          subject_token_field_name: "access_token",
-        },
-      },
-      universe_domain: "googleapis.com",
-    } as any,
-    projectId: "",
+    credentials,
+    projectId: credentials.project_id || "",
   });
 }
 
@@ -139,6 +121,7 @@ async function main() {
   // Validate required env vars
   const missing: string[] = [];
   if (!SOURCE_BUCKET) missing.push("DEFAULT_OBJECT_STORAGE_BUCKET_ID");
+  if (!GCS_CREDENTIALS_JSON) missing.push("GOOGLE_CLOUD_STORAGE_CREDENTIALS");
   if (!DEST_BUCKET)   missing.push("AWS_S3_DESTINATION_BUCKET");
   if (!DEST_ACCESS_KEY) missing.push("AWS_S3_ACCESS_KEY_ID");
   if (!DEST_SECRET_KEY) missing.push("AWS_S3_SECRET_ACCESS_KEY");
@@ -240,7 +223,7 @@ async function main() {
     `     PUBLIC_OBJECT_SEARCH_PATHS and PRIVATE_OBJECT_DIR stay the same` +
       ` — just point them at the new bucket name if it changed.`
   );
-  console.log("  2. Unset GOOGLE_CLOUD_STORAGE_CREDENTIALS (or leave it — S3 takes priority)");
+  console.log("  2. Once confirmed, GOOGLE_CLOUD_STORAGE_CREDENTIALS can be removed from secrets (R2 is now the sole backend)");
   console.log("  3. Restart the server");
 }
 
