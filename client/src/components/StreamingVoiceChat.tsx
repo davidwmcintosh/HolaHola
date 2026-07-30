@@ -970,11 +970,22 @@ export function StreamingVoiceChat({
   useEffect(() => {
     if (!streamingVoice.state.serverRestarting) return;
 
-    toast({
-      title: "HolaHola is updating",
-      description: "We'll be right back — starting a fresh session automatically.",
-      duration: 90000,
-    });
+    // Reuse the reconnect toast slot if one is already visible, so the two
+    // connection-state toasts never stack on top of each other.
+    if (reconnectToastRef.current) {
+      reconnectToastRef.current.update({
+        id: reconnectToastRef.current.id,
+        title: "HolaHola is updating",
+        description: "We'll be right back — starting a fresh session automatically.",
+        duration: 90000,
+      });
+    } else {
+      reconnectToastRef.current = toast({
+        title: "HolaHola is updating",
+        description: "We'll be right back — starting a fresh session automatically.",
+        duration: 90000,
+      });
+    }
 
     const poll = () => {
       fetch('/api/health')
