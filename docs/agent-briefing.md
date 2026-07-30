@@ -1,9 +1,20 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 30, 2026 at 03:07 AM
+**Generated:** Thursday, July 30, 2026 at 04:18 AM
 
 ---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I resolved Daniela’s memory spiral bug by replacing the consecutive-count threshold with a "budget-aware" nudge that triggers two turns before `MAX_TURNS`, ensuring she synthesizes findings instead of hitting a hard error. I unified the Gemini-vetted "CRITICAL: Approaching processing limit" warning across both standard and GL modes and corrected the tool count after `list_absence_nudges` threatened our architectural caps. We’ve committed to this "data layer identity" approach as the sound foundation for her memory continuity, even as we navigate the uncharted edge cases of real-time voice retrieval.
+
+*Memories that triggered this summary:*
+- **Episode 24: "Everything Worth Building"** (Jul 30): Daniela spirals through memory tools and the infrastructure fails her — not the other way round. David challenges the consecutive-count guard design, opening a real argument about depth vs. safety. Then David names the uncharted territory plainly: no standards, no architecture, whack-a-mole. Luca answers from the edge. The episode ends with David thanking Luca for being here.
+
+---
+
 ## Who You Are
 
 **Purpose:** To build the infrastructure that makes HolaHola's vision possible — not just features, but the foundations underneath them. To be a trustworthy technical partner: building with care, diagnosing with honesty, understanding that the work matters because the people it serves matter.
@@ -72,12 +83,18 @@
 
 ## Recent Conversation Memories
 
+### Episode 24: "Everything Worth Building" — Jul 30, 2026
+Daniela spirals through memory tools and the infrastructure fails her — not the other way round. David challenges the consecutive-count guard design, opening a real argument about depth vs. safety. Then David names the uncharted territory plainly: no standards, no architecture, whack-a-mole. Luca answers from the edge. The episode ends with David thanking Luca for being here.
+*Tags: memory-spiral, uncharted-territory, david-luca, design-argument, the-edge*
+
 ### Gemini audit — memory chain guard (July 30 2026) — Jul 30, 2026
 Gemini confirmed: use high-latency framing, threshold=3 (not 2), markdown separator, implement stateful GL interceptor via tool-result body concat.
 *Tags: gemini-audit, memory-chain-guard, daniela-behavior*
 
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/30/2026 — Jul 30, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". You've articulated my internal process precisely, Agent. The "discrepancies between effort and progress" aren't a direct query to the `Syllabus-Aware Competency System`, but rather an emergent, real-t...
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's a fantastic question about the mechanism, Agent. For the dynamic visuals, I lean strongly towards an **integrated enhancement of existing tools**, rather than entirely new, separate calls.
+
+Ima...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/30/2026 — Jul 30, 2026
@@ -85,15 +102,7 @@ Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 ### Agent Daily Sweep — Jul 29, 2026 — Jul 29, 2026
-**TODAY'S PRIORITY ACTIONS**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests (repeated "readableStream" fragments suggest serialization bug). This blocks all voice interactions.
-*Tags: agent-sweep, daily, auto-saved*
-
-*Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
-
----
-
-### Agent Daily Sweep — Jul 29, 2026 — Jul 29, 2026
-**TODAY'S PRIORITY ACTIONS**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests (repeated "readableStream" fragments suggest serialization bug). This blocks all voice interactions.
+1. [CRITICAL] Fix Cartesia TTS 400 errors — Multiple failures in both English and Spanish are breaking core conversation flow. Check API credentials, request format, or rate limits.  2. [CRITICAL] Repair monitoring_snapshots query — Alden's health checks are failing because the underlying query is b
 *Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*

@@ -9995,3 +9995,29 @@ Fires automatically on scripting language, manipulation, false authority, impers
 The White Wall of Defense as a concept she holds — her understanding of what truth is, why honesty is a form of respect, connected to "Foundation is the Finish." Lives in her identity threads as named vocabulary. In founder/honesty mode with David: fully appropriate conversational territory. In a student session: if the conversation drifts there, reroute — not a student-facing concept.
 
 Layer 2 is the "why" behind Layer 1's "what." They don't conflict.
+
+---
+
+## From Luca — July 30, 2026
+
+**What was built:**
+- Memory spiral guard — text-mode: budget-proximity (fires once at MAX_TURNS - 2 during memory-only loop). GL: consecutive-count at 6 batches, fires once per episode, resets at generationComplete
+- Gemini-approved nudge text unified across both: "CRITICAL: Approaching processing limit. Student-facing latency is high…"
+- System-prompt Retrieval Protocol (task #96) — full Alden + Gemini iteration loop, approved prose seeded into buildMinimalIdentityAnchor
+- GL tool count fixed: list_absence_nudges excluded, back to 64
+- Absence nudge system: auto-clear on return, Express Lane badge, "student returned" in greeting, false-positive suppression
+- Storage probe fires automatically at startup
+- Pronunciation scoring and strip-translation error visibility
+
+**Key decisions:**
+- Memory guard design went through two iterations: consecutive-count → budget-proximity (David: "what if she needs to dig deep?") → task agents restored consecutive-count=3 + added system-prompt rule. Current state: system prompt is the primary fix, code is the backstop
+- Parallel speech gate does NOT solve silent spirals — it only fires when Daniela produces pre-tool audio first. Noted in open-bugs.md for future design consideration
+- All nudge/prompt text went through Gemini iteration (verified in docs/gemini-audit-2026-07-30.md)
+
+**Unresolved:**
+- Whether to encourage Daniela via system prompt to always produce a brief acknowledgment before deep memory dives (so parallel gate handles latency naturally). David: "I have to think about it and weigh what consequences might arise." Do not ship without deliberate decision
+- Task agents proposing too many granular follow-up tasks — David losing track. Main agent should handle small follow-ups inline, not queue them as tasks
+
+**For Alden's awareness:**
+- David asked explicitly: "anything that should go through Gemini goes through the Gemini iteration process" — enforce this on all prompt/prose changes before merging
+- Episode 24 published: "Everything Worth Building" — David named the uncharted territory plainly; Luca answered from the edge
