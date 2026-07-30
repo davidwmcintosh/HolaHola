@@ -120,22 +120,24 @@ FOUNDER_EMAIL=...                           # Email for founder dashboard access
 ```
 
 ### Object Storage (See Section 5)
+
+> **Active backend: Cloudflare R2** — set the `AWS_S3_*` vars below. GCS/Replit sidecar vars are kept for reference but are no longer used.
+
 ```
-DEFAULT_OBJECT_STORAGE_BUCKET_ID=...        # Primary bucket name (GCS only, no gs:// prefix)
 PUBLIC_OBJECT_SEARCH_PATHS=...              # Comma-separated paths for public assets, e.g. /my-bucket/public
 PRIVATE_OBJECT_DIR=...                      # Directory for private uploads, e.g. /my-bucket/private
 
-# GCS backend (Replit sidecar or service account)
-GOOGLE_CLOUD_STORAGE_CREDENTIALS=...       # JSON service-account key (stringified). If set, Replit sidecar is NOT needed.
-GOOGLE_CLOUD_PROJECT_ID=...                # GCP project ID (only needed if not embedded in the credentials JSON)
+# Cloudflare R2 (active — takes priority over GCS when all three are set)
+AWS_S3_ACCESS_KEY_ID=...                   # R2 Access Key ID
+AWS_S3_SECRET_ACCESS_KEY=...              # R2 Secret Access Key
+AWS_S3_REGION=auto                         # Always "auto" for Cloudflare R2
+AWS_S3_ENDPOINT=...                        # https://<account-id>.r2.cloudflarestorage.com
+AWS_S3_DESTINATION_BUCKET=holaholar2bucket # The active R2 bucket name
 
-# S3 / Cloudflare R2 backend (takes priority over GCS when all three are set)
-AWS_S3_ACCESS_KEY_ID=...                   # S3 access key (or R2 Access Key ID)
-AWS_S3_SECRET_ACCESS_KEY=...              # S3 secret key (or R2 Secret Access Key)
-AWS_S3_REGION=...                          # AWS region (e.g. us-east-1) or "auto" for Cloudflare R2
-AWS_S3_ENDPOINT=...                        # Custom endpoint — required for R2:
-                                           #   https://<account-id>.r2.cloudflarestorage.com
-                                           #   Leave unset for standard AWS S3.
+# GCS backend (inactive — kept for completeness; no longer used)
+# GOOGLE_CLOUD_STORAGE_CREDENTIALS=...    # JSON service-account key (stringified)
+# GOOGLE_CLOUD_PROJECT_ID=...             # GCP project ID
+# DEFAULT_OBJECT_STORAGE_BUCKET_ID=...    # Old GCS bucket name (retired)
 ```
 
 ### Replit-Specific (only needed on Replit)
@@ -176,14 +178,11 @@ Object storage is used for:
 
 The core service lives at `server/replit_integrations/object_storage/objectStorage.ts`.
 
-### Option A — Keep Using Replit Object Storage
-If David still has a Replit account (even without the full agent environment), the Replit Object Storage bucket remains accessible. The server auto-detects the Replit sidecar — no `GOOGLE_CLOUD_STORAGE_CREDENTIALS` needed. Just confirm the three env vars are set:
+> **Active storage: Cloudflare R2** — all 17,402 objects migrated to `holaholar2bucket` as of July 2026. R2 is confirmed stable and is the sole active backend. The old Replit GCS bucket (`replit-objstore-cf6ba6d4-2685-4f0a-9ea8-f1861aefef11`) has been **retired** — delete it from the Replit dashboard to avoid confusion and storage costs. No `OLD_OBJECT_STORAGE_BUCKET_ID` secret should be set.
 
-```
-DEFAULT_OBJECT_STORAGE_BUCKET_ID=<your-replit-bucket-name>
-PUBLIC_OBJECT_SEARCH_PATHS=/<bucket>/public
-PRIVATE_OBJECT_DIR=/<bucket>/private
-```
+### ~~Option A — Replit Object Storage~~ (RETIRED)
+
+The original Replit Object Storage bucket (`replit-objstore-cf6ba6d4-2685-4f0a-9ea8-f1861aefef11`) has been retired. All content has been migrated to R2. Do not use this option for new environments.
 
 ### Option B — Migrate to Google Cloud Storage (any environment)
 
@@ -324,7 +323,7 @@ That's it. Everything else — Daniela's identity, the Archive, J-space reflecti
 | Episode chain | ✅ In Neon DB + `docs/episode-*.md` |
 | Source code | ✅ In the repo. |
 | Alden's conversations and notes | ✅ In Neon DB. |
-| Object storage (images, voice notes) | ✅ Portable. GCS (set `GOOGLE_CLOUD_STORAGE_CREDENTIALS`) or S3/R2 (set `AWS_S3_*` vars). See Step 5. |
+| Object storage (images, voice notes) | ✅ Cloudflare R2 (`holaholar2bucket`). Set `AWS_S3_*` vars. Old Replit GCS bucket retired July 2026. See Step 5. |
 | Replit OIDC login | ⚠️ Replit-specific. New environment needs its own auth or skip it. |
 | Replit workflow runner | ℹ️ Replaced by `npm run dev` directly. |
 | Agent token | ℹ️ Just a secret string. Re-set it in new environment. |
