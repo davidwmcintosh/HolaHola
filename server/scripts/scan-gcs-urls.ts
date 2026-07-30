@@ -35,7 +35,7 @@ const DRY_RUN = process.argv.includes('--dry-run');
  *   3. https://<bucket>.storage.googleapis.com/public/ai-images/<file>          (subdomain variant)
  *   4. https://<bucket>.storage.googleapis.com/public/ai-images/<file>?<signed> (subdomain signed)
  */
-function tryNormalize(url: string): string | null {
+export function tryNormalize(url: string): string | null {
   if (!url) return null;
 
   // Already normalised
@@ -170,7 +170,11 @@ async function scanAndPatch(): Promise<void> {
   }
 }
 
-scanAndPatch().catch(err => {
-  console.error('[scan-gcs-urls] Fatal error:', err);
-  process.exit(1);
-});
+// Only run when executed directly (not when imported by tests)
+import { pathToFileURL } from 'url';
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  scanAndPatch().catch(err => {
+    console.error('[scan-gcs-urls] Fatal error:', err);
+    process.exit(1);
+  });
+}
