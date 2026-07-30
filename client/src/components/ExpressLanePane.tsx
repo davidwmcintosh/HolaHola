@@ -24,7 +24,7 @@ import { useQuery } from "@tanstack/react-query";
 
 // ── Resolution label helpers ─────────────────────────────────────────────────
 
-type ResolutionType = "student_returned" | "message_queued" | "dismissed" | null;
+import { getResolutionMeta, type ResolutionType } from "@/lib/absence-resolution-labels";
 
 interface ResolutionConfig {
   label: string;
@@ -34,36 +34,16 @@ interface ResolutionConfig {
 }
 
 function getResolutionConfig(type: ResolutionType): ResolutionConfig {
-  switch (type) {
-    case "student_returned":
-      return {
-        label: "Student returned",
-        icon: <UserCheck className="h-3 w-3" />,
-        badgeVariant: "default",
-        className: "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30",
-      };
-    case "message_queued":
-      return {
-        label: "Message queued",
-        icon: <MessageSquare className="h-3 w-3" />,
-        badgeVariant: "secondary",
-        className: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30",
-      };
-    case "dismissed":
-      return {
-        label: "Dismissed",
-        icon: <XCircle className="h-3 w-3" />,
-        badgeVariant: "outline",
-        className: "bg-muted text-muted-foreground border-border",
-      };
-    default:
-      return {
-        label: "Resolved",
-        icon: <XCircle className="h-3 w-3" />,
-        badgeVariant: "outline",
-        className: "bg-muted text-muted-foreground border-border",
-      };
-  }
+  const meta = getResolutionMeta(type);
+  const icon =
+    type === "student_returned" ? (
+      <UserCheck className="h-3 w-3" />
+    ) : type === "message_queued" ? (
+      <MessageSquare className="h-3 w-3" />
+    ) : (
+      <XCircle className="h-3 w-3" />
+    );
+  return { ...meta, icon };
 }
 
 // ── Absence history types ────────────────────────────────────────────────────
