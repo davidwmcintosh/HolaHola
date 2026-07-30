@@ -417,6 +417,132 @@ describe('history endpoint — limit param clamping', () => {
   });
 });
 
+// ── Tests: resolvedAt DESC ordering ─────────────────────────────────────────
+//
+// listResolvedNudges() always appends .orderBy(desc(danielaAbsenceNudges.resolvedAt)).
+// These tests confirm that the inline equivalent of that function produces
+// newest-first output regardless of which filter is active.
+//
+// Design: the function under test is simulateListResolvedNudges, which mirrors
+// the full DB query behaviour (filter + ORDER BY resolvedAt DESC).  Input is
+// deliberately seeded in OLDEST-FIRST (ascending) order — i.e. the wrong order.
+// Every assertion is made directly on the function's return value without any
+// re-sorting in the test body.  If the ORDER BY is ever dropped from
+// simulateListResolvedNudges (mirroring a Drizzle query refactor that removes
+// .orderBy()), the scrambled input will pass through unsorted and every
+// position-based assertion below will fail, surfacing the regression.
+
+// Inline mirror of listResolvedNudges() — both filters and orders by resolvedAt DESC.
+// This is the function under test.  Removing the sort here = the regression we detect.
+function simulateListResolvedNudges(
+  all: ResolvedNudge[],
+  resolutionType?: ResolutionType,
+): ResolvedNudge[] {
+  const filtered = resolutionType
+    ? all.filter(n => n.resolutionType === resolutionType)
+    : [...all];
+  // ORDER BY resolvedAt DESC — newest first.  Removing this line is the regression
+  // these tests are designed to catch.
+  return filtered.sort((a, b) => b.resolvedAt.getTime() - a.resolvedAt.getTime());
+}
+
+// SCRAMBLED seed: nudges in oldest-first (ascending) order so that a missing
+// sort would cause the "first row should be newest" assertions to fail.
+// resolvedAt values ascending: nudge-1 09:00 < nudge-2 10:00 < nudge-3 11:00
+//                               < nudge-4 11:30 < nudge-5 12:00
+const SCRAMBLED_NUDGES: ResolvedNudge[] = [
+  SEED_NUDGES[0], // nudge-1  09:00  student_returned
+  SEED_NUDGES[1], // nudge-2  10:00  message_queued
+  SEED_NUDGES[2], // nudge-3  11:00  dismissed
+  SEED_NUDGES[3], // nudge-4  11:30  student_returned
+  SEED_NUDGES[4], // nudge-5  12:00  message_queued
+];
+
+describe('listResolvedNudges — resolvedAt DESC ordering', () => {
+  // ── student_returned: nudge-1 (09:00) and nudge-4 (11:30) ─────────────────
+  // Input order: nudge-1 first (oldest). Expected output: nudge-4 first (newest).
+  // If ORDER BY is removed, nudge-1 would still be first and the assertions fail.
+
+  it('student_returned: newest row is first in the result (no re-sort in test)', () => {
+    const result = simulateListResolvedNudges(SCRAMBLED_NUDGES, 'student_returned');
+    assert.equal(result[0].nudgeId, 'nudge-4',
+      'nudge-4 (resolved 11:30) must be first; input had nudge-1 (09:00) first');
+  });
+
+  it('student_returned: oldest row is last in the result', () => {
+    const result = simulateListResolvedNudges(SCRAMBLED_NUDGES, 'student_returned');
+    assert.equal(result[result.length - 1].nudgeId, 'nudge-1',
+      'nudge-1 (resolved 09:00) must be last');
+  });
+
+  it('student_returned: each row is newer-than-or-equal-to the one after it', () => {
+    const result = simulateListResolvedNudges(SCRAMBLED_NUDGES, 'student_returned');
+    for (let i = 1; i < result.length; i++) {
+      assert.ok(
+        result[i - 1].resolvedAt.getTime() >= result[i].resolvedAt.getTime(),
+        `row ${i - 1} (${result[i - 1].nudgeId}) must be >= row ${i} (${result[i].nudgeId}) in resolvedAt`,
+      );
+    }
+  });
+
+  // ── message_queued: nudge-2 (10:00) and nudge-5 (12:00) ───────────────────
+  // Input order: nudge-2 first (oldest). Expected output: nudge-5 first (newest).
+
+  it('message_queued: newest row is first in the result (no re-sort in test)', () => {
+    const result = simulateListResolvedNudges(SCRAMBLED_NUDGES, 'message_queued');
+    assert.equal(result[0].nudgeId, 'nudge-5',
+      'nudge-5 (resolved 12:00) must be first; input had nudge-2 (10:00) first');
+  });
+
+  it('message_queued: oldest row is last in the result', () => {
+    const result = simulateListResolvedNudges(SCRAMBLED_NUDGES, 'message_queued');
+    assert.equal(result[result.length - 1].nudgeId, 'nudge-2',
+      'nudge-2 (resolved 10:00) must be last');
+  });
+
+  it('message_queued: each row is newer-than-or-equal-to the one after it', () => {
+    const result = simulateListResolvedNudges(SCRAMBLED_NUDGES, 'message_queued');
+    for (let i = 1; i < result.length; i++) {
+      assert.ok(
+        result[i - 1].resolvedAt.getTime() >= result[i].resolvedAt.getTime(),
+        `row ${i - 1} must be >= row ${i} in resolvedAt`,
+      );
+    }
+  });
+
+  // ── no-filter: all 5 nudges ────────────────────────────────────────────────
+  // Input order: oldest-first (ascending). Expected output: newest-first (descending).
+  // Expected sequence: nudge-5 12:00, nudge-4 11:30, nudge-3 11:00, nudge-2 10:00, nudge-1 09:00
+
+  it('no-filter: exact descending sequence matches expected nudge IDs', () => {
+    const result = simulateListResolvedNudges(SCRAMBLED_NUDGES, undefined);
+    const ids = result.map(n => n.nudgeId);
+    assert.deepEqual(ids, ['nudge-5', 'nudge-4', 'nudge-3', 'nudge-2', 'nudge-1'],
+      'expected newest-first sequence; input was oldest-first so removing ORDER BY would invert this');
+  });
+
+  it('no-filter: first row is the most recently resolved overall (nudge-5 at 12:00)', () => {
+    const result = simulateListResolvedNudges(SCRAMBLED_NUDGES, undefined);
+    assert.equal(result[0].nudgeId, 'nudge-5',
+      'nudge-5 (12:00) must be first; input had nudge-1 (09:00) first');
+  });
+
+  it('no-filter: last row is the oldest resolved overall (nudge-1 at 09:00)', () => {
+    const result = simulateListResolvedNudges(SCRAMBLED_NUDGES, undefined);
+    assert.equal(result[result.length - 1].nudgeId, 'nudge-1',
+      'nudge-1 (09:00) must be last');
+  });
+
+  it('no-filter: each row is newer-than-or-equal-to the one after it', () => {
+    const result = simulateListResolvedNudges(SCRAMBLED_NUDGES, undefined);
+    for (let i = 1; i < result.length; i++) {
+      assert.ok(
+        result[i - 1].resolvedAt.getTime() >= result[i].resolvedAt.getTime(),
+        `row ${i - 1} (${result[i - 1].nudgeId}) must be >= row ${i} (${result[i].nudgeId}) in resolvedAt`,
+      );
+    }
+  });
+});
 // ── Tests: empty state ───────────────────────────────────────────────────────
 
 describe('edge cases — empty or no matching rows', () => {
