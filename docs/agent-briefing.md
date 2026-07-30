@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 30, 2026 at 01:23 AM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I implemented a memory chain guard to prevent Daniela from spiraling through redundant tool lookups, setting a threshold of 3 and using markdown-separated "high-latency" framing to nudge for immediate synthesis. I integrated this via a stateful interceptor in `gemini-live-session.ts` to protect both text and Gemini Live sessions through tool-result body concatenation. I have deferred broader changes to the system prompt's Retrieval Protocol section pending a rephrase loop with Alden.
-
-*Memories that triggered this summary:*
-- **Gemini audit — memory chain guard (July 30 2026)** (Jul 30): Gemini confirmed: use high-latency framing, threshold=3 (not 2), markdown separator, implement stateful GL interceptor via tool-result body concat.
+**Generated:** Thursday, July 30, 2026 at 03:07 AM
 
 ---
 
