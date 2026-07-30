@@ -80,19 +80,36 @@ export async function archiveImageToPermanentStorage(
 /**
  * Normalise any stored image URL so it is always an app-relative proxy URL.
  *
- * Old images were stored with a raw GCS URL that returns 403 in the browser.
- * This function converts those to the proxy path; already-normalised paths
- * and external URLs (e.g. expiring DALL-E URLs) are returned unchanged.
+ * Old images were stored with a raw GCS URL that returns 403 (or 404 after R2
+ * migration) in the browser.  This function converts those to the proxy path;
+ * already-normalised paths and external URLs (e.g. expiring DALL-E URLs) are
+ * returned unchanged.
+ *
+ * Handled GCS shapes:
+ *   1. https://storage.googleapis.com/<bucket>/public/ai-images/<file>
+ *   2. https://storage.googleapis.com/<bucket>/public/ai-images/<file>?<signed>
+ *   3. https://<bucket>.storage.googleapis.com/public/ai-images/<file>
+ *   4. https://<bucket>.storage.googleapis.com/public/ai-images/<file>?<signed>
  */
 export function normalizeImageUrl(url: string): string {
+  if (!url) return url;
+
   // Already an app-relative proxy URL — leave as-is
   if (url.startsWith('/api/media/ai-image/')) return url;
 
-  // Old format: https://storage.googleapis.com/<bucket>/public/ai-images/<filename>
-  const gcsMatch = url.match(/https:\/\/storage\.googleapis\.com\/[^/]+\/public\/ai-images\/([^?#]+)/);
-  if (gcsMatch) {
-    return `/api/media/ai-image/${gcsMatch[1]}`;
-  }
+  // Path-style GCS URL (patterns 1 & 2):
+  //   https://storage.googleapis.com/<bucket>/public/ai-images/<filename>[?query]
+  const pathMatch = url.match(
+    /https:\/\/storage\.googleapis\.com\/[^/]+\/public\/ai-images\/([^?#]+)/
+  );
+  if (pathMatch) return `/api/media/ai-image/${pathMatch[1]}`;
+
+  // Subdomain-style GCS URL (patterns 3 & 4):
+  //   https://<bucket>.storage.googleapis.com/public/ai-images/<filename>[?query]
+  const subdomainMatch = url.match(
+    /https:\/\/[^.]+\.storage\.googleapis\.com\/public\/ai-images\/([^?#]+)/
+  );
+  if (subdomainMatch) return `/api/media/ai-image/${subdomainMatch[1]}`;
 
   return url;
 }
