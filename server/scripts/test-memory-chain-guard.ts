@@ -363,18 +363,23 @@ console.log(B('PART 2b — Cross-check: replicated constants vs live daniela-cal
 sep();
 
 try {
-  const sourceFile = readFileSync(
+  // MEMORY_CHAIN_LIMIT is defined in memory-chain-guard.ts (imported by daniela-caller.ts)
+  const guardFile = readFileSync(
+    join(import.meta.dirname ?? __dirname, '../services/memory-chain-guard.ts'),
+    'utf-8',
+  );
+  const callerFile = readFileSync(
     join(import.meta.dirname ?? __dirname, '../services/daniela-caller.ts'),
     'utf-8',
   );
 
-  const sourceHasLimit3 = sourceFile.includes('MEMORY_CHAIN_LIMIT = 3');
-  const sourceHasException = sourceFile.includes('do you remember when I told you about');
-  const sourceHasSynthesizeImmediately = sourceFile.includes('Synthesize the current findings into a direct response to the student immediately');
-  const sourceHasOneMoreSearch = sourceFile.includes('one more targeted search');
+  const sourceHasLimit3 = guardFile.includes('MEMORY_CHAIN_LIMIT = 3');
+  const sourceHasException = callerFile.includes('do you remember when I told you about');
+  const sourceHasSynthesizeImmediately = callerFile.includes('Synthesize the current findings into a direct response to the student immediately');
+  const sourceHasOneMoreSearch = callerFile.includes('one more targeted search');
 
   const crossChecks = [
-    { label: 'MEMORY_CHAIN_LIMIT = 3 in source',                 pass: sourceHasLimit3 },
+    { label: 'MEMORY_CHAIN_LIMIT = 3 in memory-chain-guard.ts',  pass: sourceHasLimit3 },
     { label: 'Shared-history phrase in source nudge',             pass: sourceHasException },
     { label: '"one more targeted search" in source nudge',        pass: sourceHasOneMoreSearch },
     { label: '"Synthesize... immediately" directive in source',   pass: sourceHasSynthesizeImmediately },
@@ -392,6 +397,72 @@ try {
   }
 } catch (err) {
   console.log(Y(`  ⚠ Could not read source file for cross-check: ${(err as Error).message}`));
+}
+
+// ─── Part 2c — Cross-check: system-prompt.ts exception paragraph vs nudge ─────
+// The shared-history trigger phrases exist in two independent places:
+//   1. system-prompt.ts ~line 360 — soft-limit paragraph (Daniela's inner voice)
+//   2. daniela-caller.ts nudge   — hard-enforcement backstop (SYSTEM STATUS block)
+// If they drift (e.g. someone softens one without updating the other), Daniela's
+// soft and hard limits say contradictory things.  This block reads both source
+// files and asserts the same key phrases appear in both.
+sep();
+console.log(B('PART 2c — Cross-check: system-prompt.ts exception phrase vs nudge in daniela-caller.ts'));
+console.log(Y('  Ensures the soft-limit paragraph and the hard-enforcement nudge stay in sync.'));
+sep();
+
+// Canonical trigger phrases — the phrases that identify a shared-history test.
+// Both the system-prompt paragraph AND the nudge must contain these exact strings.
+// If you update either file's wording, update the other and update this list.
+const SHARED_HISTORY_TRIGGER_PHRASES = [
+  'do you remember when I told you about',
+  'what did I say about',
+] as const;
+
+try {
+  const systemPromptSource = readFileSync(
+    join(import.meta.dirname ?? __dirname, '../system-prompt.ts'),
+    'utf-8',
+  );
+  const nudgeSource = readFileSync(
+    join(import.meta.dirname ?? __dirname, '../services/daniela-caller.ts'),
+    'utf-8',
+  );
+
+  console.log('\n  Trigger phrases — must appear in BOTH system-prompt.ts and daniela-caller.ts nudge:');
+
+  for (const phrase of SHARED_HISTORY_TRIGGER_PHRASES) {
+    const inPrompt = systemPromptSource.includes(phrase);
+    const inNudge  = nudgeSource.includes(phrase);
+    const bothPresent = inPrompt && inNudge;
+
+    console.log(`\n  Phrase: "${phrase}"`);
+    console.log(`    system-prompt.ts:      ${inPrompt  ? G('✓ present') : R('✗ MISSING')}`);
+    console.log(`    daniela-caller.ts:     ${inNudge   ? G('✓ present') : R('✗ MISSING')}`);
+    console.log(`    In sync:               ${bothPresent ? G('✓') : R('✗ DRIFT DETECTED — update both files to match')}`);
+
+    if (!bothPresent) allPassed = false;
+  }
+
+  // Also assert the "One exception" label itself appears in both —
+  // a rename in either place would break the conceptual link.
+  const exceptionLabelInPrompt = systemPromptSource.includes('One exception:');
+  const exceptionLabelInNudge  = nudgeSource.includes('One exception:');
+  console.log('\n  "One exception:" label (structural anchor):');
+  console.log(`    system-prompt.ts:      ${exceptionLabelInPrompt ? G('✓ present') : R('✗ MISSING')}`);
+  console.log(`    daniela-caller.ts:     ${exceptionLabelInNudge  ? G('✓ present') : R('✗ MISSING')}`);
+  if (!exceptionLabelInPrompt) allPassed = false;
+  if (!exceptionLabelInNudge)  allPassed = false;
+
+  if (SHARED_HISTORY_TRIGGER_PHRASES.every(p => systemPromptSource.includes(p) && nudgeSource.includes(p))
+      && exceptionLabelInPrompt && exceptionLabelInNudge) {
+    console.log('\n' + G('  ✓ system-prompt.ts and daniela-caller.ts nudge are in sync on shared-history exception.'));
+  } else {
+    console.log('\n' + R('  ✗ DRIFT: system-prompt.ts and daniela-caller.ts nudge have diverged.'));
+    console.log(R('    Update both files so they use the same trigger phrases, then re-run this script.'));
+  }
+} catch (err) {
+  console.log(Y(`  ⚠ Could not read source files for Part 2c cross-check: ${(err as Error).message}`));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
