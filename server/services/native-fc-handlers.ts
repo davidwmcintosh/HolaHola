@@ -1586,7 +1586,8 @@ export class NativeFunctionCallHandler {
                 tv_newsroom: 'professional TV news anchor studio, curved glass desk, multiple screens showing news ticker graphics, dramatic backlighting, modern minimalist set, empty, no people',
               };
               const concept = sceneConceptMap[sceneEnv] ?? sceneEnv.replace(/_/g, ' ');
-              envImageUrl = await generateEnvironmentScene(concept, 'environment');
+              const { normalizeImageUrl } = await import('../services/image-storage');
+              envImageUrl = normalizeImageUrl(await generateEnvironmentScene(concept, 'environment'));
               const displayName = sceneEnv.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
               await openDb.execute(sqlTag`
                 INSERT INTO visual_environments (id, name, display_name, description, image_url, width, height, tags, created_at)

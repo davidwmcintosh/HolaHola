@@ -10,6 +10,7 @@
  */
 
 import { generateFromCustomPrompt } from './google-image-service';
+import { uploadPublicBuffer, normalizeImageUrl } from './image-storage';
 
 // ─── Worker state ──────────────────────────────────────────────────────────────
 export const menuWorker = {
@@ -104,7 +105,7 @@ export async function startMenuImageWorker(opts: MenuWorkerOptions = {}): Promis
           const ext = mimeType.includes('png') ? 'png' : 'jpg';
           const slug = item.name.replace(/[^a-z0-9]+/g, '-').slice(0, 40);
           const filename = `menu-item-${slug}-${Date.now()}.${ext}`;
-          const permanentUrl = await uploadPublicBuffer(filename, buffer, mimeType);
+          const permanentUrl = normalizeImageUrl(await uploadPublicBuffer(filename, buffer, mimeType));
 
           await db.execute(sqlTag`
             UPDATE visual_assets SET image_url = ${permanentUrl} WHERE name = ${item.name}

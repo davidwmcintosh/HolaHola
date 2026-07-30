@@ -18,7 +18,7 @@ import { generateFromCustomPrompt } from './google-image-service';
 import { getSharedDb } from '../db';
 import { curriculumLessons, curriculumUnits, curriculumPaths } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
-import { uploadPublicBuffer } from './image-storage';
+import { uploadPublicBuffer, normalizeImageUrl } from './image-storage';
 
 const MAX_PER_RUN = 50; // Gemini is fast — larger batches are fine
 
@@ -147,7 +147,7 @@ export async function generateLessonImages(): Promise<number> {
 
         const filename = `lesson-${lesson.id}.png`;
         const baseUrl = await uploadPublicBuffer(filename, img.buffer, img.mimeType);
-        const url = `${baseUrl}?v=${Date.now()}`;
+        const url = normalizeImageUrl(`${baseUrl}?v=${Date.now()}`);
 
         await db.update(curriculumLessons)
           .set({ imageUrl: url })

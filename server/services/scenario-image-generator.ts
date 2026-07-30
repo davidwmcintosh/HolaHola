@@ -13,7 +13,7 @@ import { generateFromCustomPrompt } from './google-image-service';
 import { getSharedDb } from '../db';
 import { scenarios } from '../../shared/schema';
 import { isNull, eq } from 'drizzle-orm';
-import { uploadPublicBuffer } from './image-storage';
+import { uploadPublicBuffer, normalizeImageUrl } from './image-storage';
 
 const GEMINI_STYLE = `Soft watercolor children's book illustration style. Warm, gentle colors with clean fine ink outlines. Wide landscape format. The artwork fills the entire image canvas completely — no white space, no color bars, no borders, no margins, no frames, no vignette at any edge. Color and content go all the way to every corner. At most 2-3 people visible in the entire scene. Every character shown from head to waist with face clearly visible, positioned well within the center of the frame. All characters wear contemporary casual clothing — jeans, T-shirts, blouses, sweaters, blazers, sneakers. CRITICAL HAIR RULE: Every single character has completely bare, natural, uncovered hair — absolutely NO hijab, NO headscarf, NO religious head covering, NO hat, NO hood, NO cap, NO turban, NO hair wrap of any kind on any character under any circumstances. No text, letters, numbers, signs, labels, or typography of any kind anywhere in the image. Suitable for a language-learning app scenario card thumbnail.`;
 
@@ -157,7 +157,7 @@ async function generateScenarioImages(): Promise<void> {
 
         const filename = `scenario-${scenario.slug}.png`;
         const baseUrl = await uploadPublicBuffer(filename, img.buffer, img.mimeType);
-        const url = `${baseUrl}?v=${Date.now()}`;
+        const url = normalizeImageUrl(`${baseUrl}?v=${Date.now()}`);
 
         await db
           .update(scenarios)

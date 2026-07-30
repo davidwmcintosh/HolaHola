@@ -14,7 +14,7 @@ import sharp from 'sharp';
 import crypto from 'crypto';
 import { db } from '../db';
 import { sql } from 'drizzle-orm';
-import { uploadPublicBuffer } from './image-storage';
+import { uploadPublicBuffer, normalizeImageUrl } from './image-storage';
 import { generateFromCustomPrompt } from './google-image-service';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -833,7 +833,7 @@ export async function generateAllSceneImages(
         continue;
       }
       const buf = Buffer.from(matches[2], 'base64');
-      const permanentUrl = await uploadPublicBuffer(`scene-${env.name}-${Date.now()}.jpg`, buf, 'image/jpeg');
+      const permanentUrl = normalizeImageUrl(await uploadPublicBuffer(`scene-${env.name}-${Date.now()}.jpg`, buf, 'image/jpeg'));
 
       await db.execute(sql`UPDATE visual_environments SET image_url = ${permanentUrl} WHERE id = ${env.id}`);
       console.log(`[PropRoom] ✓ ${env.name} → ${permanentUrl}`);

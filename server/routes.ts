@@ -644,8 +644,8 @@ export async function registerRoutes(app: Application): Promise<void> {
       const filename = `menu-item-${slug}-${Date.now()}.${ext}`;
       let permanentUrl: string = dataUrl;
       try {
-        const { uploadPublicBuffer } = await import('./services/image-storage');
-        permanentUrl = await uploadPublicBuffer(filename, buffer, mimeType);
+        const { uploadPublicBuffer, normalizeImageUrl } = await import('./services/image-storage');
+        permanentUrl = normalizeImageUrl(await uploadPublicBuffer(filename, buffer, mimeType));
       } catch (storageErr) {
         console.warn('[MenuImage] Object storage upload failed, using data URL as fallback:', storageErr);
       }
@@ -854,7 +854,7 @@ export async function registerRoutes(app: Application): Promise<void> {
 
       send({ type: 'start', batchSize: items.length, total: totalItems, done: doneItems });
 
-      const { uploadPublicBuffer } = await import('./services/image-storage');
+      const { uploadPublicBuffer, normalizeImageUrl } = await import('./services/image-storage');
 
       for (let i = 0; i < items.length; i++) {
         if (aborted) break;
@@ -877,7 +877,7 @@ export async function registerRoutes(app: Application): Promise<void> {
           const slug = item.name.replace(/[^a-z0-9]+/g, '-').slice(0, 40);
           const filename = `menu-item-${slug}-${Date.now()}.${ext}`;
 
-          const permanentUrl = await uploadPublicBuffer(filename, buffer, mimeType);
+          const permanentUrl = normalizeImageUrl(await uploadPublicBuffer(filename, buffer, mimeType));
 
           await userDb.execute(rawSql`
             UPDATE visual_assets
