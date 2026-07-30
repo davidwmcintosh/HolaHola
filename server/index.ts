@@ -12,6 +12,7 @@ import { validateVoiceConfig } from "./services/voice-config";
 import { generalLimiter } from "./middleware/rate-limiter";
 import { setupUnifiedWebSocketHandler, setupSocketIOHandler } from "./unified-ws-handler";
 import { founderCollabWSBroker } from "./services/founder-collab-ws-broker";
+import { founderCollabService } from "./services/founder-collaboration-service";
 import { initializeTeamRoomWS } from "./services/team-room-ws-broker";
 import { hiveConsciousnessService } from "./services/hive-consciousness-service";
 import { migrationOrchestrator } from "./migrations/migration-orchestrator";
@@ -586,9 +587,63 @@ app.use((req, res, next) => {
     log(`serving on port ${port}`);
 
     // Log which object-storage backend is active and probe credentials.
+    // On failure, post a founder-visible alert to the Express Lane so the
+    // broken configuration is caught immediately rather than silently.
     try {
       const { logStorageBackend } = await import('./replit_integrations/object_storage/objectStorage');
-      await logStorageBackend();
+      const probeResult = await logStorageBackend();
+
+      const EXPRESS_LANE_FOUNDER_ID = '49847136';
+      const EXPRESS_LANE_SESSION_TITLE = 'Daniela — Student Watch';
+
+      if (!probeResult.ok && probeResult.bucket) {
+        try {
+          const expressSession = await founderCollabService.findOrCreateSessionByTitle(
+            EXPRESS_LANE_FOUNDER_ID,
+            EXPRESS_LANE_SESSION_TITLE,
+          );
+          await founderCollabWSBroker.addAndBroadcastMessage(expressSession.id, {
+            role: 'system',
+            content: `[STORAGE PROBE FAILED] The startup credential probe could not reach bucket "${probeResult.bucket}". All file uploads will fail until this is resolved.\n\nError: ${probeResult.error}`,
+            messageType: 'text',
+            metadata: {
+              source: 'storage_probe',
+              event: 'probe_failed',
+              bucket: probeResult.bucket,
+              error: probeResult.error,
+            },
+          });
+        } catch (alertErr: any) {
+          console.warn('[ObjectStorage] Could not post Express Lane alert:', alertErr?.message ?? alertErr);
+        }
+      } else if (probeResult.ok && probeResult.bucket) {
+        // If a prior failure alert exists, post a resolution note so the founder knows it's cleared.
+        try {
+          const expressSession = await founderCollabService.findOrCreateSessionByTitle(
+            EXPRESS_LANE_FOUNDER_ID,
+            EXPRESS_LANE_SESSION_TITLE,
+          );
+          const recentMessages = await founderCollabService.getSessionMessages(expressSession.id, 30);
+          const lastProbeMsg = [...recentMessages].reverse().find(
+            (m: any) => m.metadata?.source === 'storage_probe',
+          );
+          if ((lastProbeMsg?.metadata as any)?.event === 'probe_failed') {
+            await founderCollabWSBroker.addAndBroadcastMessage(expressSession.id, {
+              role: 'system',
+              content: `[STORAGE PROBE OK] Bucket "${probeResult.bucket}" is reachable — previous failure alert is now resolved.`,
+              messageType: 'text',
+              metadata: {
+                source: 'storage_probe',
+                event: 'probe_cleared',
+                bucket: probeResult.bucket,
+              },
+            });
+          }
+        } catch (clearErr: any) {
+          // Non-critical — clearing the alert is cosmetic.
+          console.warn('[ObjectStorage] Could not post Express Lane clearance note:', clearErr?.message ?? clearErr);
+        }
+      }
     } catch (err: any) {
       console.error('[ObjectStorage] Failed to run startup check:', err?.message ?? err);
     }

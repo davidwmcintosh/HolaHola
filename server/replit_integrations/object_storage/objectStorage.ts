@@ -56,18 +56,25 @@ function isStandardGcsConfigured(): boolean {
   return !!process.env.GOOGLE_CLOUD_STORAGE_CREDENTIALS;
 }
 
-// ---------------------------------------------------------------------------
-// Startup diagnostics
-// ---------------------------------------------------------------------------
-
+export interface StorageProbeResult {
+  ok: boolean;
+  /** The bucket name that was probed (undefined when no bucket is configured). */
+  bucket?: string;
+  /** Error message when ok is false. */
+  error?: string;
+}
 /**
  * Logs which storage backend is active.  Optionally runs a lightweight
  * PUT → HEAD → DELETE probe against a sentinel object so credential errors
  * are caught at boot rather than at first real upload.
  *
+ * Returns a StorageProbeResult so callers (e.g. server/index.ts) can surface
+ * failures in founder-visible dashboards without this module depending on
+ * higher-level services.
+ *
  * Call once from server/index.ts after the server starts listening.
  */
-export async function logStorageBackend(): Promise<void> {
+export async function logStorageBackend(): Promise<StorageProbeResult> {
   const tag = "[ObjectStorage]";
 
   // ── Determine backend label ──────────────────────────────────────────────
@@ -108,7 +115,7 @@ export async function logStorageBackend(): Promise<void> {
 
   if (!probeBucket) {
     console.log(`${tag} no probe bucket configured — skipping credential check`);
-    return;
+    return { ok: true };
   }
 
   const sentinelKey = `__startup-probe-${Date.now()}.txt`;
@@ -136,11 +143,14 @@ export async function logStorageBackend(): Promise<void> {
       await file.delete();
     }
     console.log(`${tag} credential probe OK (bucket: ${probeBucket})`);
+    return { ok: true, bucket: probeBucket };
   } catch (err: any) {
+    const errorMessage = err?.message ?? String(err);
     console.error(
       `${tag} credential probe FAILED (bucket: ${probeBucket}) — ` +
-      `uploads will fail until this is resolved. Error: ${err?.message ?? err}`,
+      `uploads will fail until this is resolved. Error: ${errorMessage}`,
     );
+    return { ok: false, bucket: probeBucket, error: errorMessage };
   }
 }
 
