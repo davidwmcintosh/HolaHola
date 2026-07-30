@@ -1571,6 +1571,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.sealCurrentAudioSubturn('generationComplete-watchdog');
         this.isGenerationDone = true;
         this.isGreetingTurn = false;
+        // Memory-loop counter reset: watchdog seal means audio WAS produced (same
+        // condition as the generationComplete path). Reset so the next turn starts
+        // with a clean consecutive-memory-call count. Without this, an interrupted
+        // turn that produced audio would carry a stale non-zero counter into the next
+        // turn, causing the nudge to fire too early.
+        (this.session as any).consecutiveMemoryCalls = 0;
+        (this.session as any).glMemoryNudgeSent = false;
         if (this.pendingPlaybackEndedLift) {
           console.log('[GeminiLive] Watchdog seal — retroactive onPlaybackEnded() (single-sentence path)');
           this.onPlaybackEnded();
