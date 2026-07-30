@@ -46,6 +46,10 @@ args = "guardian-ab"
 task = "workflow.run"
 args = "test"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "memory-tool-coverage"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -84,6 +88,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm test"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "memory-tool-coverage"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-memory-tool-coverage.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
