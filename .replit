@@ -50,6 +50,10 @@ args = "test"
 task = "workflow.run"
 args = "memory-tool-coverage"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "absence-gl-path"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -99,6 +103,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-memory-tool-coverage.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "absence-gl-path"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-absence-gl-path.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
