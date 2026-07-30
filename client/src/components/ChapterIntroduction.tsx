@@ -2613,6 +2613,7 @@ export function ConversationStripsSection({
   const [activePanelIdx, setActivePanelIdx] = useState<number | null>(null);
   const [loadingStripIdx, setLoadingStripIdx] = useState<number | null>(null);
   const [dynamicTranslations, setDynamicTranslations] = useState<Record<string, string>>({});
+  const [translationError, setTranslationError] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const stopRef = useRef(false);
 
@@ -2647,11 +2648,19 @@ export function ConversationStripsSection({
       texts: allEnglishTexts,
       targetLanguage: nativeLanguage,
     })
-      .then(r => r.json())
-      .then((data: { translations: Record<string, string> }) => {
+      .then(r => {
+        if (!r.ok) {
+          setTranslationError(true);
+          return null;
+        }
+        return r.json();
+      })
+      .then((data: { translations: Record<string, string> } | null) => {
         if (data?.translations) setDynamicTranslations(data.translations);
       })
-      .catch(() => {});
+      .catch(() => {
+        setTranslationError(true);
+      });
   }, [language, chapterType, nativeLanguage, needsTranslation]);
 
   const playStrip = useCallback(async (
@@ -2725,6 +2734,11 @@ export function ConversationStripsSection({
         <MessageSquare className="h-4 w-4 text-muted-foreground" />
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">In Conversation</h3>
       </div>
+      {needsTranslation && translationError && (
+        <p className="text-xs text-amber-600 dark:text-amber-400 px-1" data-testid="translation-error-notice">
+          Translations unavailable — check your API key
+        </p>
+      )}
       {content.conversationStrips.map((strip, sIdx) => {
         const uniqueSpeakers = [...new Set(strip.panels.map(p => p.speaker))];
         const colorMap = new Map(uniqueSpeakers.map((s, i) => [s, SPEAKER_COLORS[i % SPEAKER_COLORS.length]]));
