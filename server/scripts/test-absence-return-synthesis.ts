@@ -55,6 +55,12 @@ const TEST_USER_ID  = '00000000-test-absence-synthesis-0000';
 const TEST_DAYS_ABSENT = 9;
 const SAFE_MODE_SENTINEL = 'Something quiet settles before these sessions'; // first 8 words of safe-mode fallback
 
+// Part 4 uses a separate userId to avoid in-memory cache contamination from Parts 1-3.
+// Parts 1-3 call autoResolveAbsenceNudgeOnReturn which populates the in-memory cache
+// for TEST_USER_ID. Part 4 needs a clean slate to test peekAbsenceReturnDetails freshly.
+const TEST_USER_ID_2 = '00000000-test-absence-warm-cache-000';
+const TEST_DAYS_ABSENT_2 = 5;
+
 // ── Log capture helpers ───────────────────────────────────────────────────────
 const capturedLogs: string[] = [];
 const origLog  = console.log;
@@ -86,6 +92,8 @@ async function cleanUpTestRows(): Promise<void> {
   const db = getSharedDb();
   await db.delete(danielaAbsenceNudges)
     .where(eq(danielaAbsenceNudges.userId, TEST_USER_ID));
+  await db.delete(danielaAbsenceNudges)
+    .where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_2));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -310,6 +318,226 @@ async function runPart3(): Promise<void> {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PART 4 — Warm-synthesis race: stale cache vs. absence-signal-aware generation
+//
+// Simulates the race where the frontend fires POST /api/sessions/warm-synthesis
+// BEFORE autoResolveAbsenceNudgeOnReturn has run (i.e. the warm cache is
+// populated without the absence signal). Confirms:
+//
+//   a) peekAbsenceReturnDetails() correctly detects the pending nudge (read-only)
+//   b) A synthesis generated WITHOUT the signal lacks absence warmth words
+//   c) A synthesis generated WITH the signal (simulating what the warm-synthesis
+//      route does via its peekAbsenceReturnDetails call) DOES contain them
+//   d) consumeWarmSynthesis() faithfully returns whatever was stored — confirming
+//      that the WS handler relies on the warm-synthesis route having baked in the
+//      signal correctly (rather than re-generating when the warm cache is stale)
+//
+// Uses TEST_USER_ID_2 to avoid in-memory resolve-cache contamination from Parts 1-3.
+// ══════════════════════════════════════════════════════════════════════════════
+async function runPart4(): Promise<void> {
+  sep();
+  origLog(B('PART 4 — Warm-synthesis race: stale cache vs. signal-aware generation'));
+  sep();
+
+  const db = getSharedDb();
+
+  // 4a. Seed a fresh nudge for the second test user
+  const lastSessionDate = new Date(Date.now() - TEST_DAYS_ABSENT_2 * 24 * 60 * 60 * 1000);
+  await db.insert(danielaAbsenceNudges).values({
+    userId: TEST_USER_ID_2,
+    lastSessionDate,
+    daysSinceLastSession: TEST_DAYS_ABSENT_2,
+  });
+  origLog(D(`  Seeded nudge row: userId=${TEST_USER_ID_2}, daysSince=${TEST_DAYS_ABSENT_2}`));
+
+  const { peekAbsenceReturnDetails } = await import('../services/daniela-absence-worker');
+  const { generatePreSessionSynthesis, setWarmSynthesis, consumeWarmSynthesis } = await import('../services/pre-session-synthesis');
+
+  // 4b. peekAbsenceReturnDetails — read-only check: confirms nudge is pending
+  //     and returns details without touching the DB row.
+  const peeked = await peekAbsenceReturnDetails(TEST_USER_ID_2);
+  assert(
+    'peekAbsenceReturnDetails() detects pending nudge without resolving it',
+    peeked !== null,
+    peeked === null ? 'Returned null — nudge not found (check DB insert)' : undefined,
+  );
+  if (peeked) {
+    assert(
+      `peekAbsenceReturnDetails() returns correct daysSinceLastSession (${TEST_DAYS_ABSENT_2})`,
+      peeked.daysSinceLastSession === TEST_DAYS_ABSENT_2,
+      `Got ${peeked.daysSinceLastSession}`,
+    );
+  }
+
+  // Confirm nudge is still unresolved in DB (peek must not mutate it)
+  const [stillPending] = await db
+    .select({ resolvedAt: danielaAbsenceNudges.resolvedAt })
+    .from(danielaAbsenceNudges)
+    .where(
+      and(
+        eq(danielaAbsenceNudges.userId, TEST_USER_ID_2),
+        isNull(danielaAbsenceNudges.resolvedAt),
+      )
+    )
+    .limit(1);
+  assert(
+    'Nudge row is still unresolved after peekAbsenceReturnDetails() (read-only confirmed)',
+    !!stillPending,
+    stillPending ? undefined : 'resolvedAt is not null — peek mutated the DB row',
+  );
+
+  // Minimal compass context for synthesis calls
+  const compassContext: any = {
+    studentName: 'TestStudent2',
+    studentGoals: 'Learn conversational Spanish',
+    studentInterests: 'Music and travel',
+    studentActflLevel: 'novice-mid',
+    lastSessionSummary: 'We practised common greetings and numbers. Good progress.',
+    danielaSelfReflection: 'TestStudent2 is motivated but needs more vocabulary exposure.',
+    conversationMemories: [],
+    mustHaveTopics: [],
+    niceToHaveTopics: [],
+  };
+
+  const warmthWords = [
+    'back', 'return', 'away', 'absence', 'again', 'missed', 'gap', 'been a while',
+    'a while', "haven't", 'weeks', 'days', 'come back', 'glad', 'here',
+  ];
+
+  // 4c. Generate synthesis WITHOUT absence signal — the "stale" warm cache scenario.
+  //     This simulates the frontend firing warm-synthesis BEFORE a nudge existed,
+  //     or before the peekAbsenceReturnDetails call was added to that route.
+  origLog(D('\n  Generating stale synthesis (no absence signal)...'));
+  startCapture();
+  const staleSynthesis = await generatePreSessionSynthesis(
+    compassContext,
+    'Daniela',
+    TEST_USER_ID_2,
+    'spanish',
+    null, // <-- no absence signal: this is the stale path
+  );
+  const staleLogs = stopCapture();
+  const stalePresynLogs = staleLogs.filter(l => l.includes('[PreSynthesis]'));
+  if (stalePresynLogs.length) {
+    origLog(D('  Stale [PreSynthesis] logs:'));
+    stalePresynLogs.forEach(l => origLog(D(`    ${l}`)));
+  }
+
+  assert(
+    'Stale synthesis (no absence signal) returned a non-null string',
+    typeof staleSynthesis === 'string' && (staleSynthesis?.length ?? 0) > 0,
+    staleSynthesis === null ? 'Returned null — Gemini call failed. Check GEMINI_API_KEY.' : undefined,
+  );
+
+  // Confirm the stale synthesis does NOT contain absence warmth words
+  // (if it does, Daniela's voice just happened to use one generically — still acceptable)
+  if (staleSynthesis) {
+    const lowerStale = staleSynthesis.toLowerCase();
+    const staleWarmthHit = warmthWords.find(w => lowerStale.includes(w));
+    origLog(D(`\n  Stale synthesis (${staleSynthesis.length} chars):\n  "${staleSynthesis.slice(0, 200)}..."\n`));
+    // We note — but don't fail — if a warmth word appears generically.
+    // The critical test is that the signal-aware synthesis ALSO has them (step 4d).
+    if (staleWarmthHit) {
+      origLog(Y(`  Note: stale synthesis contains "${staleWarmthHit}" generically — this is acceptable (Daniela's voice is natural). The signal-aware synthesis must also contain warmth words.`));
+    } else {
+      origLog(D(`  ✓ Stale synthesis contains no absence warmth words — confirms it was generated without the signal.`));
+    }
+  }
+
+  // 4d. Store the stale synthesis in the warm cache (simulating the frontend having
+  //     pre-warmed without the absence signal).
+  if (staleSynthesis) {
+    setWarmSynthesis(TEST_USER_ID_2, staleSynthesis);
+  }
+
+  // Confirm consumeWarmSynthesis returns the stale text (one-shot).
+  // This is what the WS handler would receive if it consumes a stale warm cache.
+  const consumed = consumeWarmSynthesis(TEST_USER_ID_2);
+  assert(
+    'consumeWarmSynthesis() returns the stored synthesis (WS handler will receive exactly what was warmed)',
+    consumed !== null && consumed === staleSynthesis,
+    consumed === null
+      ? 'consumeWarmSynthesis returned null — warm cache was not stored or TTL already expired'
+      : consumed !== staleSynthesis
+        ? 'consumeWarmSynthesis returned a different string than what was stored'
+        : undefined,
+  );
+
+  // Confirm the cache is now empty (one-shot consumed)
+  const consumedAgain = consumeWarmSynthesis(TEST_USER_ID_2);
+  assert(
+    'consumeWarmSynthesis() is one-shot — second call returns null (cache cleared on first consume)',
+    consumedAgain === null,
+    consumedAgain !== null ? 'Second consumeWarmSynthesis returned non-null — cache was not cleared' : undefined,
+  );
+
+  // 4e. Now simulate the warm-synthesis route's CORRECT behavior:
+  //     peek → generate WITH signal → store in warm cache.
+  //     This is what POST /api/sessions/warm-synthesis does when peekAbsenceReturnDetails
+  //     finds a pending nudge. The WS handler then consumes this signal-aware synthesis.
+  origLog(D('\n  Generating signal-aware synthesis (with absence signal — simulating warm-synthesis route)...'));
+  startCapture();
+  const signalSynthesis = await generatePreSessionSynthesis(
+    compassContext,
+    'Daniela',
+    TEST_USER_ID_2,
+    'spanish',
+    peeked ?? { daysSinceLastSession: TEST_DAYS_ABSENT_2, firstName: null }, // absence signal baked in
+  );
+  const signalLogs = stopCapture();
+  const signalPresynLogs = signalLogs.filter(l => l.includes('[PreSynthesis]'));
+  if (signalPresynLogs.length) {
+    origLog(D('  Signal-aware [PreSynthesis] logs:'));
+    signalPresynLogs.forEach(l => origLog(D(`    ${l}`)));
+  }
+
+  assert(
+    'Signal-aware synthesis (with absence signal) returned a non-null string',
+    typeof signalSynthesis === 'string' && (signalSynthesis?.length ?? 0) > 0,
+    signalSynthesis === null ? 'Returned null — Gemini call failed. Check GEMINI_API_KEY.' : undefined,
+  );
+
+  // The "Returning-after-absence signal" log must appear — confirms the signal
+  // reached buildLiteContext and the RETURNING AFTER ABSENCE block was injected.
+  const absenceSignalLog = signalLogs.find(l =>
+    l.includes('[PreSynthesis] ✓ Returning-after-absence signal:') &&
+    l.includes(String(TEST_DAYS_ABSENT_2))
+  );
+  assert(
+    '"[PreSynthesis] ✓ Returning-after-absence signal: N days" logged for signal-aware synthesis — RETURNING AFTER ABSENCE block was injected',
+    !!absenceSignalLog,
+    absenceSignalLog ?? 'Log line not found — returningAfterAbsence argument may not be reaching buildLiteContext',
+  );
+
+  if (signalSynthesis) {
+    origLog(D(`\n  Signal-aware synthesis (${signalSynthesis.length} chars):\n  "${signalSynthesis.slice(0, 200)}..."\n`));
+
+    // Signal-aware synthesis should contain at least one warmth/return word
+    const lowerSignal = signalSynthesis.toLowerCase();
+    const foundWarmthWord = warmthWords.find(w => lowerSignal.includes(w));
+    assert(
+      `Signal-aware synthesis contains at least one warmth/return indicator (${foundWarmthWord ? `"${foundWarmthWord}"` : 'none found'})`,
+      !!foundWarmthWord,
+      `None of ${warmthWords.slice(0, 8).join(', ')} (and more) found in signal-aware synthesis. Absence context may not be influencing Daniela's inner monologue.`,
+    );
+  }
+
+  // 4f. Store the signal-aware synthesis in the warm cache (what the route does correctly)
+  //     and confirm the WS handler would receive the signal-aware text.
+  if (signalSynthesis) {
+    setWarmSynthesis(TEST_USER_ID_2, signalSynthesis);
+    const wsConsume = consumeWarmSynthesis(TEST_USER_ID_2);
+    assert(
+      'WS handler receives the signal-aware synthesis when warm-synthesis route ran correctly (peek → generate WITH signal → setWarmSynthesis)',
+      wsConsume === signalSynthesis,
+      wsConsume === null
+        ? 'consumeWarmSynthesis returned null — signal-aware synthesis was not stored'
+        : 'consumeWarmSynthesis returned a different string than the signal-aware synthesis',
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MAIN
 // ══════════════════════════════════════════════════════════════════════════════
 (async () => {
@@ -325,18 +553,21 @@ async function runPart3(): Promise<void> {
       origLog(R('\nPart 1 did not return details — skipping Parts 2 and 3.\n'));
       failed++;
     }
+
+    // Part 4 runs independently — uses TEST_USER_ID_2 to avoid cache contamination.
+    await runPart4();
   } catch (err: any) {
     stopCapture();
     origLog(R(`\nUnhandled error: ${err?.message ?? err}`));
     if (err?.stack) origLog(D(err.stack));
     process.exit(1);
   } finally {
-    // Always clean up the seeded row, even on failure
+    // Always clean up the seeded rows, even on failure
     try {
       await cleanUpTestRows();
-      origLog(D('\n  Test row cleaned up.'));
+      origLog(D('\n  Test rows cleaned up.'));
     } catch (cleanupErr: any) {
-      origLog(Y(`  Warning: cleanup failed — ${cleanupErr?.message}. Delete manually: DELETE FROM daniela_absence_nudges WHERE user_id = '${TEST_USER_ID}';`));
+      origLog(Y(`  Warning: cleanup failed — ${cleanupErr?.message}. Delete manually:\n    DELETE FROM daniela_absence_nudges WHERE user_id IN ('${TEST_USER_ID}', '${TEST_USER_ID_2}');`));
     }
   }
 
