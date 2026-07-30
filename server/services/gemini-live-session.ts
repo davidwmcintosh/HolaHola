@@ -3452,8 +3452,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             (lastResp.response as any).result =
               existing +
               '\n\n--- SYSTEM STATUS ---\n' +
-              'CRITICAL: Approaching processing limit. Student-facing latency is high. ' +
-              'Do not perform further tool calls. Synthesize the current findings into a direct response to the student immediately.';
+              'CRITICAL: Multiple lookups performed. Student-facing latency is high. ' +
+              'Do not perform further tool calls. ' +
+              'One exception: if the student is explicitly testing shared memory — phrasing like "do you remember when I told you about…" or "what did I say about…" — you may attempt one more targeted search. ' +
+              'After that search (or if no such test is happening), respond honestly with whatever you have found, including "I don\'t have your exact words in front of me right now" if the specific detail was not in the results. ' +
+              'Synthesize the current findings into a direct response to the student immediately.';
             (this.session as any).glMemoryNudgeSent = true;
             console.log(`[MemoryBudgetGuard][GL] ${(this.session as any).consecutiveMemoryCalls} consecutive memory-only batches — nudge injected once.`);
           }
