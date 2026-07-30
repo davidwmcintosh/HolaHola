@@ -3,6 +3,8 @@ import {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
+  DeleteObjectCommand,
   ListObjectsV2Command,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl as s3GetSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -53,6 +55,86 @@ export function isS3Configured(): boolean {
  */
 function isStandardGcsConfigured(): boolean {
   return !!process.env.GOOGLE_CLOUD_STORAGE_CREDENTIALS;
+}
+
+// ---------------------------------------------------------------------------
+// Startup diagnostics
+// ---------------------------------------------------------------------------
+
+/**
+ * Logs which storage backend is active.  Optionally runs a lightweight
+ * PUT → HEAD → DELETE probe against a sentinel object so credential errors
+ * are caught at boot rather than at first real upload.
+ *
+ * Call once from server/index.ts after the server starts listening.
+ */
+export async function logStorageBackend(): Promise<void> {
+  const tag = "[ObjectStorage]";
+
+  // ── Determine backend label ──────────────────────────────────────────────
+  let backendLabel: string;
+  if (isS3Configured()) {
+    const region = process.env.AWS_S3_REGION!;
+    const endpoint = process.env.AWS_S3_ENDPOINT;
+    backendLabel = endpoint
+      ? `S3-compatible (${region} / ${endpoint})`
+      : `S3 (${region})`;
+  } else if (isStandardGcsConfigured()) {
+    let projectHint = "";
+    try {
+      const creds = JSON.parse(process.env.GOOGLE_CLOUD_STORAGE_CREDENTIALS!);
+      if (creds.project_id) projectHint = ` / ${creds.project_id}`;
+    } catch { /* ignore */ }
+    backendLabel = `GCS service-account${projectHint}`;
+  } else {
+    backendLabel = "GCS via Replit sidecar";
+  }
+
+  console.log(`${tag} backend: ${backendLabel}`);
+
+  // ── Lightweight credential probe ─────────────────────────────────────────
+  // Only run when a bucket is known; skipped when no bucket env var is set.
+  const probeBucket =
+    process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID ||
+    process.env.AWS_S3_BUCKET_NAME ||
+    process.env.GCS_BUCKET_NAME;
+
+  if (!probeBucket) {
+    console.log(`${tag} no probe bucket configured — skipping credential check`);
+    return;
+  }
+
+  const sentinelKey = `__startup-probe-${Date.now()}.txt`;
+  const sentinelData = Buffer.from("ok");
+
+  try {
+    if (isS3Configured()) {
+      const s3 = getS3Client();
+      // PUT
+      await s3.send(new PutObjectCommand({
+        Bucket: probeBucket,
+        Key: sentinelKey,
+        Body: sentinelData,
+        ContentType: "text/plain",
+      }));
+      // HEAD
+      await s3.send(new HeadObjectCommand({ Bucket: probeBucket, Key: sentinelKey }));
+      // DELETE
+      await s3.send(new DeleteObjectCommand({ Bucket: probeBucket, Key: sentinelKey }));
+    } else {
+      const gcs = getGcsClient();
+      const file = gcs.bucket(probeBucket).file(sentinelKey);
+      await file.save(sentinelData, { contentType: "text/plain" });
+      await file.exists();
+      await file.delete();
+    }
+    console.log(`${tag} credential probe OK (bucket: ${probeBucket})`);
+  } catch (err: any) {
+    console.error(
+      `${tag} credential probe FAILED (bucket: ${probeBucket}) — ` +
+      `uploads will fail until this is resolved. Error: ${err?.message ?? err}`,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

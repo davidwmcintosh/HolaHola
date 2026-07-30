@@ -585,6 +585,14 @@ app.use((req, res, next) => {
   }, async () => {
     log(`serving on port ${port}`);
 
+    // Log which object-storage backend is active and probe credentials.
+    try {
+      const { logStorageBackend } = await import('./replit_integrations/object_storage/objectStorage');
+      await logStorageBackend();
+    } catch (err: any) {
+      console.error('[ObjectStorage] Failed to run startup check:', err?.message ?? err);
+    }
+
     // Record this boot for restart-spiral detection in AldenWatch.
     // Kept deliberately simple — any write error is silently swallowed.
     try {
