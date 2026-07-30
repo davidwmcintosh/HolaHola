@@ -1106,7 +1106,7 @@ export class StreamingVoiceOrchestrator {
     // Resolves any pending absence nudge so Daniela's inbox stays clean and the
     // detection cycle doesn't re-trigger for a student who has already come back.
     // Skipped for founder-mode sessions (those are David's test/admin sessions).
-    if (userId && !isFounderMode) {
+    if (userId && !isFounderMode && !isRawHonestyMode) {
       import('./daniela-absence-worker')
         .then(({ autoResolveAbsenceNudgeOnReturn }) => autoResolveAbsenceNudgeOnReturn(userId))
         .catch(err => console.warn('[AbsenceWorker] Auto-resolve fire failed:', (err as Error)?.message));
