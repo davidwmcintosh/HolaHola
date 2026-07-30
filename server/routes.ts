@@ -33384,7 +33384,11 @@ You have full access to your neural network knowledge.
     try {
       const { listResolvedNudges } = await import('./services/daniela-absence-worker');
       const limit = Math.min(parseInt((req.query.limit as string) ?? '20', 10), 100);
-      const history = await listResolvedNudges(limit);
+      const rawType = req.query.resolutionType as string | undefined;
+      const VALID_TYPES = ['student_returned', 'message_queued', 'dismissed'] as const;
+      type ValidType = typeof VALID_TYPES[number];
+      const resolutionType = VALID_TYPES.includes(rawType as ValidType) ? (rawType as ValidType) : undefined;
+      const history = await listResolvedNudges(limit, resolutionType);
       res.json({ history });
     } catch (error: any) {
       console.error('[AbsenceNudges] History endpoint error:', error);

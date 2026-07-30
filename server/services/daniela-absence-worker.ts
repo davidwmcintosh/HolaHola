@@ -609,7 +609,10 @@ export async function autoResolveAbsenceNudgeOnReturn(
  * Used by the founder history view so David can see how nudges were resolved
  * (e.g. student_returned vs dismissed vs message_queued).
  */
-export async function listResolvedNudges(limit = 20): Promise<Array<{
+export async function listResolvedNudges(
+  limit = 20,
+  resolutionType?: 'student_returned' | 'message_queued' | 'dismissed',
+): Promise<Array<{
   nudgeId: string;
   userId: string;
   firstName: string | null;
@@ -619,6 +622,13 @@ export async function listResolvedNudges(limit = 20): Promise<Array<{
   resolutionType: string | null;
 }>> {
   const db = getSharedDb();
+
+  const whereClause = resolutionType
+    ? and(
+        isNotNull(danielaAbsenceNudges.resolvedAt),
+        eq(danielaAbsenceNudges.resolutionType, resolutionType),
+      )
+    : isNotNull(danielaAbsenceNudges.resolvedAt);
 
   const resolved = await db
     .select({
@@ -630,7 +640,7 @@ export async function listResolvedNudges(limit = 20): Promise<Array<{
       resolutionType: danielaAbsenceNudges.resolutionType,
     })
     .from(danielaAbsenceNudges)
-    .where(isNotNull(danielaAbsenceNudges.resolvedAt))
+    .where(whereClause)
     .orderBy(desc(danielaAbsenceNudges.resolvedAt))
     .limit(Math.min(limit, 100));
 
