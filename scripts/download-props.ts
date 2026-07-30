@@ -15,7 +15,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../server/db';
 import { sql } from 'drizzle-orm';
-import { objectStorageClient } from '../server/replit_integrations/object_storage/objectStorage';
+import { downloadBuffer } from '../server/replit_integrations/object_storage/objectStorage';
 
 const args = process.argv.slice(2);
 const outArg = args.find(a => a.startsWith('--out='));
@@ -32,10 +32,9 @@ function urlToStoragePath(imageUrl: string): string {
 }
 
 async function downloadFromStorage(storagePath: string): Promise<Buffer> {
-  const bucket = objectStorageClient.bucket(BUCKET_ID);
-  const file = bucket.file(storagePath);
-  const [buffer] = await file.download();
-  return buffer as Buffer;
+  const result = await downloadBuffer(BUCKET_ID, storagePath);
+  if (!result) throw new Error(`Object not found: ${storagePath}`);
+  return result.buffer;
 }
 
 async function main() {

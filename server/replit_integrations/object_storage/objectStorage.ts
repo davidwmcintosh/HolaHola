@@ -206,17 +206,6 @@ function getS3Client(): S3Client {
 }
 
 // ---------------------------------------------------------------------------
-// Exported GCS client (kept for backward compatibility with callers that
-// referenced objectStorageClient directly).
-// ---------------------------------------------------------------------------
-/** @deprecated Prefer ObjectStorageService methods; this export may be removed. */
-export const objectStorageClient = new Proxy({} as Storage, {
-  get(_target, prop) {
-    return (getGcsClient() as any)[prop];
-  },
-});
-
-// ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
 
@@ -410,7 +399,7 @@ export function makeStorageFile(bucketName: string, objectName: string): Storage
 }
 
 // ---------------------------------------------------------------------------
-// Top-level storage helpers — use these instead of objectStorageClient directly
+// Top-level storage helpers — use these instead of accessing the storage client directly
 // ---------------------------------------------------------------------------
 
 /**

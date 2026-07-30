@@ -14,10 +14,10 @@
  */
 
 import { execSync } from "child_process";
-import { unlinkSync, mkdirSync, existsSync, readdirSync } from "fs";
+import { readFileSync, unlinkSync, mkdirSync, existsSync, readdirSync } from "fs";
 import * as path from "path";
 import * as os from "os";
-import { objectStorageClient } from "../replit_integrations/object_storage/objectStorage";
+import { makeStorageFile, uploadBuffer } from "../replit_integrations/object_storage/objectStorage";
 
 const BUCKET_NAME = "replit-objstore-cf6ba6d4-2685-4f0a-9ea8-f1861aefef11";
 const DPI = 120;
@@ -45,7 +45,6 @@ async function uploadSource(source: (typeof SOURCES)[0]) {
     return;
   }
 
-  const bucket = objectStorageClient.bucket(BUCKET_NAME);
   const tmpDir = path.join(os.tmpdir(), `madrigal-${source.label}`);
   mkdirSync(tmpDir, { recursive: true });
 
@@ -59,7 +58,7 @@ async function uploadSource(source: (typeof SOURCES)[0]) {
     const destination = `${source.storagePrefix}/page-${padded}.jpg`;
 
     // Check if already uploaded
-    const [exists] = await bucket.file(destination).exists();
+    const exists = await makeStorageFile(BUCKET_NAME, destination).exists();
     if (exists) {
       skipped++;
       process.stdout.write(`  skip page-${padded}\r`);
@@ -81,11 +80,8 @@ async function uploadSource(source: (typeof SOURCES)[0]) {
     }
     const localFile = path.join(tmpDir, files[0]);
 
-    await bucket.upload(localFile, {
-      destination,
-      contentType: "image/jpeg",
-      metadata: { cacheControl: "public, max-age=31536000" },
-    });
+    const imageBuffer = readFileSync(localFile);
+    await uploadBuffer(BUCKET_NAME, destination, imageBuffer, "image/jpeg");
     uploaded++;
     process.stdout.write(`  ✓ page-${padded} (${uploaded} uploaded, ${skipped} skipped)\r`);
     unlinkSync(localFile);
