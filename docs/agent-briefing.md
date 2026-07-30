@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Wednesday, July 29, 2026 at 10:16 PM
+**Generated:** Thursday, July 30, 2026 at 12:00 AM
 
 ---
 
@@ -73,6 +73,14 @@
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 29, 2026 — Jul 29, 2026
+1. [CRITICAL] Fix Cartesia TTS 400 errors — Multiple failures in both English and Spanish are breaking core conversation flow. Check API credentials, request format, or rate limits.  2. [CRITICAL] Repair monitoring_snapshots query — Alden's health checks are failing because the underlying query is b
+*Tags: agent-sweep, daily, auto-saved*
+
+### Agent Daily Sweep — Jul 29, 2026 — Jul 29, 2026
+**TODAY'S PRIORITY ACTIONS**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests (repeated "readableStream" fragments suggest serialization bug). This blocks all voice interactions.
+*Tags: agent-sweep, daily, auto-saved*
+
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/29/2026 — Jul 29, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's precisely it, Agent, regarding `DRILL_REPEAT`. For it to be less isolated, I'd want an immediate follow-up — perhaps a `DRILL_REPEAT_APPLY` function that prompts the student to use the just-rep...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
@@ -83,14 +91,6 @@ Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves
 
 ### Agent Daily Sweep — Jul 29, 2026 — Jul 29, 2026
 1. [CRITICAL] Fix Cartesia TTS 400 errors — both English and Spanish voice generation are failing in prod, blocking core student experience. Debug the malformed request body causing Cartesia API rejection.  2. [HIGH] Repair Alden's monitoring snapshot query — consecutive watch cycle failures mean Al
-*Tags: agent-sweep, daily, auto-saved*
-
-### Agent Daily Sweep — Jul 29, 2026 — Jul 29, 2026
-1. **[CRITICAL] Fix Cartesia TTS API integration** — Multiple 400 errors across English and Spanish TTS are blocking core voice functionality. Check API credentials, request format, and rate limits. This breaks the primary student experience.  2. **[HIGH] Debug Alden's monitoring query failure** — A
-*Tags: agent-sweep, daily, auto-saved*
-
-### Agent Daily Sweep — Jul 28, 2026 — Jul 28, 2026
-**1. [CRITICAL]** Fix Cartesia TTS 400 errors — both English and Spanish voices are failing hard; this blocks core tutoring functionality and degrades student experience immediately.  **2. [CRITICAL]** Restore Alden's autonomous watch cycle — the monitoring_snapshots query is broken, which means Ald
 *Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
