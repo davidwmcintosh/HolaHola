@@ -73,6 +73,7 @@ import { detectFrictionlessSlide, recordSlideDetection, initSlideState, buildGro
 import { analyzeFriction } from './llm-friction-analyzer';
 import { storage } from '../storage';
 import type { IStorage } from '../storage';
+import { MEMORY_TOOL_NAMES, MEMORY_CHAIN_LIMIT } from './memory-chain-guard';
 
 export const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
 const AUDIO_OUTPUT_SAMPLE_RATE = 24000;
@@ -3418,20 +3419,15 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
       // ── Memory chain guard (GL) ─────────────────────────────────────────────
       // Track consecutive tool batches where every call is a memory retrieval and
-      // no voice output was produced. After GL_MEMORY_CHAIN_LIMIT such batches,
+      // no voice output was produced. After MEMORY_CHAIN_LIMIT such batches,
       // append a nudge to the last tool response so Daniela synthesizes and speaks.
       // The system prompt paragraph gives her a soft internal limit at 2 lookups;
       // this code backstop fires at 3 as the hard enforcement layer. Counter resets
       // when she produces audio (see generationComplete path) or when any non-memory
       // tool fires in the same batch.
       {
-        const GL_MEMORY_TOOL_NAMES = new Set([
-          'recall', 'browse_conversations_by_date', 'search_my_teaching_wisdom',
-          'introspect', 'memory_lookup', 'read_full_session', 'read_my_reflections',
-        ]);
-        const GL_MEMORY_CHAIN_LIMIT = 3;
         const batchToolNames = msg.toolCall.functionCalls.map((fc: any) => fc.name as string);
-        const allMemoryBatch = batchToolNames.every((n: string) => GL_MEMORY_TOOL_NAMES.has(n));
+        const allMemoryBatch = batchToolNames.every((n: string) => MEMORY_TOOL_NAMES.has(n));
 
         if (!allMemoryBatch) {
           (this.session as any).consecutiveMemoryCalls = 0;
@@ -3441,7 +3437,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           (this.session as any).consecutiveMemoryCalls = prev + 1;
           if (
             !((this.session as any).glMemoryNudgeSent) &&
-            (this.session as any).consecutiveMemoryCalls >= GL_MEMORY_CHAIN_LIMIT &&
+            (this.session as any).consecutiveMemoryCalls >= MEMORY_CHAIN_LIMIT &&
             responses.length > 0
           ) {
             const lastResp = responses[responses.length - 1];

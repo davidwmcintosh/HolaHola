@@ -26,6 +26,7 @@ import { unifiedDanielaContext } from "./unified-daniela-context-service";
 import { NativeFunctionCallHandler } from "./native-fc-handlers";
 import { buildFunctionContinuationResponse, createDanielaTools } from "./gemini-function-declarations";
 import { lookupLegacyType } from "./daniela-function-registry";
+import { MEMORY_TOOL_NAMES, MEMORY_CHAIN_LIMIT } from "./memory-chain-guard";
 import { TOOL_CONTEXT_TEAM_ROOM } from "./daniela-tool-contexts";
 import {
   detectFrictionlessSlide,
@@ -197,11 +198,6 @@ export async function runDanielaFCLoop({
   // Daniela to respond — so she doesn't burn all turns retrieving and go silent.
   // The system prompt gives her a soft internal limit at 2 lookups; this code
   // backstop fires at 3 as the hard enforcement layer.
-  const MEMORY_TOOL_NAMES = new Set([
-    'recall', 'browse_conversations_by_date', 'search_my_teaching_wisdom',
-    'introspect', 'memory_lookup', 'read_full_session', 'read_my_reflections',
-  ]);
-  const MEMORY_CHAIN_LIMIT = 3; // 2 is too aggressive: recall→read_full_session is a normal 2-step
   let consecutiveMemoryOnlyTurns = 0;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
