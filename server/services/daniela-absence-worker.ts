@@ -418,24 +418,65 @@ export async function countPendingNudges(): Promise<number> {
 }
 
 /**
- * Auto-resolve an absence nudge when the student returns for a session.
- * Called fire-and-forget from the streaming orchestrator at session start.
- *
- * Checks whether the student has an unresolved nudge. If so, resolves it as
- * 'dismissed' and posts a brief follow-up note to the Express Lane so Daniela
- * knows the absence cycle closed naturally (student came back on their own).
- *
- * Safe to call for every student session start — no-ops immediately if there
- * is no pending nudge.
+ * Details returned when a pending absence nudge is resolved on student return.
+ * Used to inject returning-student context into Daniela's session greeting.
  */
-export async function autoResolveAbsenceNudgeOnReturn(userId: string): Promise<void> {
+export interface AbsenceReturnDetails {
+  daysSinceLastSession: number;
+  firstName: string | null;
+}
+
+// Short-lived in-memory cache: when a nudge is resolved on student return, the
+// result is stored here for ABSENCE_RETURN_CACHE_TTL_MS so that a second call
+// (e.g. the WS handler running after the orchestrator's fire-and-forget) still
+// receives the details even though the DB row is already resolved.
+//
+// This eliminates the race between:
+//   orchestrator: fire-and-forget autoResolveAbsenceNudgeOnReturn (early)
+//   WS handler:   awaited autoResolveAbsenceNudgeOnReturn (before synthesis)
+//
+// The cache is keyed by userId and scoped to this server process. TTL of 2
+// minutes is long enough for any session start sequence to complete.
+const _absenceReturnCache = new Map<string, { details: AbsenceReturnDetails; cachedAt: number }>();
+const ABSENCE_RETURN_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
+/**
+ * Auto-resolve an absence nudge when the student returns for a session.
+ * Called from both the streaming orchestrator (fire-and-forget) and the WS
+ * handler (awaited, before pre-session synthesis).
+ *
+ * Checks whether the student has an unresolved nudge. If so, resolves it,
+ * posts an Express Lane note, caches the details, and returns them so the
+ * caller can inject returning-student context into Daniela's session greeting.
+ *
+ * If the nudge was already resolved (e.g. by an earlier fire-and-forget call),
+ * the in-memory cache is checked so the second caller still receives the
+ * details within the 2-minute session-start window.
+ *
+ * Returns null when there is no pending nudge and no recent cache entry.
+ * Safe to call for every session start — no-ops immediately in the common case.
+ */
+export async function autoResolveAbsenceNudgeOnReturn(
+  userId: string,
+): Promise<AbsenceReturnDetails | null> {
   try {
+    // ── Cache check (fast path) ───────────────────────────────────────────────
+    // If a prior call in this session already resolved the nudge and stored the
+    // details here, return them immediately without hitting the DB again.
+    const cached = _absenceReturnCache.get(userId);
+    if (cached && (Date.now() - cached.cachedAt) < ABSENCE_RETURN_CACHE_TTL_MS) {
+      return cached.details;
+    }
+
     const db = getSharedDb();
 
-    // Check whether there is actually a pending nudge — avoid touching the DB
-    // or posting Express Lane noise when there is nothing to resolve.
+    // ── DB check ─────────────────────────────────────────────────────────────
+    // Look for an unresolved nudge. If none exists, return null (common case).
     const [pending] = await db
-      .select({ id: danielaAbsenceNudges.id })
+      .select({
+        id: danielaAbsenceNudges.id,
+        daysSinceLastSession: danielaAbsenceNudges.daysSinceLastSession,
+      })
       .from(danielaAbsenceNudges)
       .where(
         and(
@@ -445,9 +486,9 @@ export async function autoResolveAbsenceNudgeOnReturn(userId: string): Promise<v
       )
       .limit(1);
 
-    if (!pending) return; // Nothing to resolve — common case, exit fast.
+    if (!pending) return null; // Nothing to resolve and nothing cached — common case.
 
-    // Resolve the nudge (same path as a Daniela-triggered dismiss)
+    // ── Resolve ───────────────────────────────────────────────────────────────
     await resolveAbsenceNudge(userId, 'dismissed');
 
     // Look up the student's name for a human-readable Express Lane note
@@ -462,9 +503,15 @@ export async function autoResolveAbsenceNudgeOnReturn(userId: string): Promise<v
     } catch { /* non-critical — name is cosmetic */ }
 
     const name = firstName ?? `student ${userId.slice(-6)}`;
+    const daysSince = pending.daysSinceLastSession ?? 0;
+    const details: AbsenceReturnDetails = { daysSinceLastSession: daysSince, firstName };
 
-    // Post a brief follow-up note to the Express Lane so Daniela can see the
-    // student returned without needing to act on a nudge.
+    // ── Cache the result ──────────────────────────────────────────────────────
+    // Store immediately so any subsequent call within the TTL window returns
+    // details even after the DB row is resolved.
+    _absenceReturnCache.set(userId, { details, cachedAt: Date.now() });
+
+    // ── Express Lane note ─────────────────────────────────────────────────────
     try {
       const expressSession = await founderCollabService.findOrCreateSessionByTitle(
         EXPRESS_LANE_FOUNDER_ID,
@@ -485,10 +532,12 @@ export async function autoResolveAbsenceNudgeOnReturn(userId: string): Promise<v
       console.warn(`[AbsenceWorker] Failed to post return note for ${name}: ${err.message}`);
     }
 
-    console.log(`[AbsenceWorker] Auto-cleared absence nudge for ${name} on session return`);
+    console.log(`[AbsenceWorker] Auto-cleared absence nudge for ${name} on session return (${daysSince} days absent)`);
+    return details;
   } catch (err: any) {
-    // Fully fire-and-forget — never let this bubble up to session start.
+    // Never let this bubble up to session start.
     console.warn(`[AbsenceWorker] autoResolveAbsenceNudgeOnReturn failed for ${userId}: ${err.message}`);
+    return null;
   }
 }
 

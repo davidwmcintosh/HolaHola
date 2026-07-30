@@ -262,10 +262,27 @@ function buildLiteContext(
   pedagogicalBrief?: { brief: string; focusArea: string | null; struggledWith: string | null; notedProgress: string | null } | null,
   masteryDigest?: string | null,
   advisoryGoal?: string | null,
+  returningAfterAbsence?: { daysSinceLastSession: number; firstName: string | null } | null,
 ): string {
   const parts: string[] = [];
 
   const name = compassContext.studentName || "the student";
+
+  // Returning-after-absence signal — highest priority: inject first so the synthesis
+  // model's inner monologue opens with the right emotional register. This student
+  // was away; Daniela had a pending absence nudge for them that just auto-cleared.
+  // Keep the tone warm and grounding — not celebratory, not over-explained. Just present.
+  if (returningAfterAbsence) {
+    const days = returningAfterAbsence.daysSinceLastSession;
+    const daysLabel = days === 1 ? '1 day' : `${days} days`;
+    parts.push(
+      `RETURNING AFTER ABSENCE: ${name} has not had a session in ${daysLabel}. ` +
+      `A pending absence nudge was just auto-cleared because they came back. ` +
+      `This is the opening of the session — your inner monologue should carry the natural warmth ` +
+      `of seeing someone return after a real gap. Do not explicitly announce their absence or ` +
+      `make it the centrepiece of the greeting. Just let it color how you arrive.`
+    );
+  }
 
   // Who this student is to Daniela
   if (compassContext.studentGoals || compassContext.studentInterests) {
@@ -395,6 +412,7 @@ export async function generatePreSessionSynthesis(
   tutorName: string = "Daniela",
   userId?: string,
   language?: string,
+  returningAfterAbsence?: { daysSinceLastSession: number; firstName: string | null } | null,
 ): Promise<string | null> {
   const startMs = Date.now();
   try {
@@ -418,7 +436,10 @@ export async function generatePreSessionSynthesis(
         console.log(`[PreSynthesis] ✓ Advisory goal loaded for ${userId.substring(0, 8)}`);
       }
     }
-    const liteContext = buildLiteContext(compassContext, tutorName, pedagogicalBrief, masteryDigest, advisoryGoal);
+    if (returningAfterAbsence) {
+      console.log(`[PreSynthesis] ✓ Returning-after-absence signal: ${returningAfterAbsence.daysSinceLastSession} days`);
+    }
+    const liteContext = buildLiteContext(compassContext, tutorName, pedagogicalBrief, masteryDigest, advisoryGoal, returningAfterAbsence);
     if (!liteContext.trim()) {
       console.log("[PreSynthesis] No usable context — skipping synthesis");
       return null;

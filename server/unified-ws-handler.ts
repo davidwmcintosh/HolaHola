@@ -66,6 +66,7 @@ import { db, getUserDb, getSharedDb } from './db';
 import { eq, and, gt, lt, ne, desc, sql } from 'drizzle-orm';
 import { getPendingSuggestions } from './services/daniela-reflection';
 import { generatePreSessionSynthesis, wrapSynthesisForSystemPrompt, consumeWarmSynthesis, getTuRevealFragment, getStewardshipReminderFragment } from './services/pre-session-synthesis';
+import { autoResolveAbsenceNudgeOnReturn } from './services/daniela-absence-worker';
 import { consumeBroadcastBrief } from './services/broadcast-data-service';
 import { generateReflectionNow, schedulePendingReflectionIfMissing, buildTranscriptPreview, processAndClearPendingReflection, MIN_EXCHANGES_FOR_REFLECTION } from './services/session-reflection-worker';
 import { generateAndStorePedagogicalBrief, MIN_EXCHANGES_FOR_BRIEF } from './services/pedagogical-brief-worker';
@@ -3048,12 +3049,33 @@ ${lastNote.tutorNotes}`);
                 // If synthesis fails for any reason, session continues without it (null return).
                 if (compassContext) {
                   try {
+                    // Returning-after-absence check — awaited here so the result can color
+                    // the inner monologue. The orchestrator fires the same call fire-and-forget
+                    // at session init (earlier in the stack); this second call is idempotent
+                    // (returns null immediately when no nudge is pending). For founder-mode
+                    // sessions we skip: those are David's admin/test sessions, not student returns.
+                    let absenceReturn: { daysSinceLastSession: number; firstName: string | null } | null = null;
+                    if (userId && !isFounderMode) {
+                      try {
+                        absenceReturn = await autoResolveAbsenceNudgeOnReturn(String(userId));
+                        if (absenceReturn) {
+                          console.log(`[GeminiLive] ✓ Student returning after ${absenceReturn.daysSinceLastSession} day(s) absence — injecting into synthesis`);
+                        }
+                      } catch (absErr: any) {
+                        // Non-fatal — synthesis continues without absence signal
+                        console.warn('[GeminiLive] Absence return check failed (non-fatal):', absErr?.message);
+                      }
+                    }
+
                     // Check warm cache first — the frontend fires POST /api/sessions/warm-synthesis
                     // when the "Prepare" screen loads, pre-computing this in the background.
                     // If it's there and fresh (< 3 min), use it and skip the 1-2s await here.
-                    const warmedNote = userId ? consumeWarmSynthesis(String(userId)) : null;
+                    // Note: warm cache cannot carry the absence signal (it was pre-computed before
+                    // session start), so when the student is returning after absence we skip it
+                    // and generate fresh so the inner monologue reflects the return.
+                    const warmedNote = (userId && !absenceReturn) ? consumeWarmSynthesis(String(userId)) : null;
                     const synthesisNote = warmedNote
-                      ?? await generatePreSessionSynthesis(compassContext, tutorName, userId ? String(userId) : undefined, effectiveLanguage || undefined);
+                      ?? await generatePreSessionSynthesis(compassContext, tutorName, userId ? String(userId) : undefined, effectiveLanguage || undefined, absenceReturn);
                     if (warmedNote) {
                       console.log(`[GeminiLive] ✓ Using pre-warmed synthesis (${warmedNote.length} chars) — 0ms latency`);
                     }
