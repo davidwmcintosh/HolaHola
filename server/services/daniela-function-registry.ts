@@ -7027,6 +7027,9 @@ const GL_EXCLUDED_TOOLS = new Set<string>([
   'read_full_session',
   // Pure server-side logging — no output reaches the student
   'log_page_event',
+  // Absence inbox review — not needed mid-voice-session; nudge count is already
+  // injected into session context at start via Express Lane pre-session synthesis.
+  'list_absence_nudges',
 
   // === TRULY EXCLUDED CLASSROOM TOOLS ===
   // These have no dispatcher path in GL — purely background/scene-manipulation
