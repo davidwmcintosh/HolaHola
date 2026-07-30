@@ -1576,8 +1576,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // with a clean consecutive-memory-call count. Without this, an interrupted
         // turn that produced audio would carry a stale non-zero counter into the next
         // turn, causing the nudge to fire too early.
-        (this.session as any).consecutiveMemoryCalls = 0;
-        (this.session as any).glMemoryNudgeSent = false;
+        this.session.consecutiveMemoryCalls = 0;
+        this.session.glMemoryNudgeSent = false;
         if (this.pendingPlaybackEndedLift) {
           console.log('[GeminiLive] Watchdog seal — retroactive onPlaybackEnded() (single-sentence path)');
           this.onPlaybackEnded();
@@ -2657,9 +2657,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // When Daniela produces audio (generationComplete fires), the memory-only
       // streak is broken — she spoke. Reset both the counter and the one-shot
       // nudge gate so a new memory-only chain in the next turn can trigger again.
-      if ((this.session as any).consecutiveMemoryCalls > 0) {
-        (this.session as any).consecutiveMemoryCalls = 0;
-        (this.session as any).glMemoryNudgeSent = false;
+      if ((this.session.consecutiveMemoryCalls ?? 0) > 0) {
+        this.session.consecutiveMemoryCalls = 0;
+        this.session.glMemoryNudgeSent = false;
       }
 
       // ── Frictionless Slide detection (GL) ────────────────────────────────────
@@ -2913,7 +2913,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.isGenerationDone = true;
       // Memory-loop counter reset: Daniela produced audio, so the consecutive-memory-call
       // chain is definitively broken. Any new memory lookups after this point start fresh.
-      (this.session as any).consecutiveMemoryCalls = 0;
+      this.session.consecutiveMemoryCalls = 0;
       // Retroactive lift: if playback_ended already fired between sub-turns (single-sentence
       // responses finish playing before generationComplete arrives over the network), call
       // onPlaybackEnded() now so the mic gate lifts without waiting for the safety timeout.
@@ -3437,14 +3437,14 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         const allMemoryBatch = batchToolNames.every((n: string) => MEMORY_TOOL_NAMES.has(n));
 
         if (!allMemoryBatch) {
-          (this.session as any).consecutiveMemoryCalls = 0;
-          (this.session as any).glMemoryNudgeSent = false;
+          this.session.consecutiveMemoryCalls = 0;
+          this.session.glMemoryNudgeSent = false;
         } else {
-          const prev = ((this.session as any).consecutiveMemoryCalls ?? 0) as number;
-          (this.session as any).consecutiveMemoryCalls = prev + 1;
+          const prev = this.session.consecutiveMemoryCalls ?? 0;
+          this.session.consecutiveMemoryCalls = prev + 1;
           if (
-            !((this.session as any).glMemoryNudgeSent) &&
-            (this.session as any).consecutiveMemoryCalls >= MEMORY_CHAIN_LIMIT &&
+            !this.session.glMemoryNudgeSent &&
+            this.session.consecutiveMemoryCalls >= MEMORY_CHAIN_LIMIT &&
             responses.length > 0
           ) {
             const lastResp = responses[responses.length - 1];
@@ -3457,8 +3457,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               'One exception: if the student is explicitly testing shared memory — phrasing like "do you remember when I told you about…" or "what did I say about…" — you may attempt one more targeted search. ' +
               'After that search (or if no such test is happening), respond honestly with whatever you have found, including "I don\'t have your exact words in front of me right now" if the specific detail was not in the results. ' +
               'Synthesize the current findings into a direct response to the student immediately.';
-            (this.session as any).glMemoryNudgeSent = true;
-            console.log(`[MemoryBudgetGuard][GL] ${(this.session as any).consecutiveMemoryCalls} consecutive memory-only batches — nudge injected once.`);
+            this.session.glMemoryNudgeSent = true;
+            console.log(`[MemoryBudgetGuard][GL] ${this.session.consecutiveMemoryCalls} consecutive memory-only batches — nudge injected once.`);
           }
         }
       }

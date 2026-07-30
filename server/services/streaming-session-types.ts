@@ -329,6 +329,9 @@ export interface StreamingSession {
   transcriptTail?: TranscriptTailEntry[];
   sosLog?: SosLogEntry[];        // Daniela SOS signals — issues she can't fix herself
   dbWriteLog?: DbWriteLogEntry[]; // key DB writes this session (last 30)
+  // GL memory-chain guard counters — typed here so field-name typos are caught at compile time
+  consecutiveMemoryCalls?: number;  // increments each memory-only tool batch; resets on audio
+  glMemoryNudgeSent?: boolean;      // one-shot gate — nudge fires once per streak then suppressed
 }
 
 /**
