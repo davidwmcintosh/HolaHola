@@ -14,6 +14,8 @@
  * Run: npx tsx server/scripts/test-memory-chain-guard.ts
  */
 
+import { MEMORY_CHAIN_NUDGE_TEXT } from '../services/memory-chain-guard';
+
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
 const B = (s: string) => `\x1b[34m${s}\x1b[0m`;
@@ -31,14 +33,6 @@ const MEMORY_TOOL_NAMES = new Set([
 ]);
 
 const MEMORY_CHAIN_LIMIT = 3; // hard backstop; system prompt soft-limits at 2
-
-const NUDGE_TEXT =
-  '\n\n--- SYSTEM STATUS ---\n' +
-  'CRITICAL: Multiple lookups performed. Student-facing latency is high. ' +
-  'Do not perform further tool calls. ' +
-  'One exception: if the student is explicitly testing shared memory — phrasing like "do you remember when I told you about…" or "what did I say about…" — you may attempt one more targeted search. ' +
-  'After that search (or if no such test is happening), respond honestly with whatever you have found, including "I don\'t have your exact words in front of me right now" if the specific detail was not in the results. ' +
-  'Synthesize the current findings into a direct response to the student immediately.';
 
 // ─── Simulation helpers ───────────────────────────────────────────────────
 
@@ -89,7 +83,7 @@ function simulateGuardIteration(params: {
     if (consecutiveMemoryOnlyTurns >= MEMORY_CHAIN_LIMIT && functionResponseParts.length > 0) {
       const last = functionResponseParts[functionResponseParts.length - 1];
       const existing = last?.functionResponse?.response?.output?.[0]?.text ?? '';
-      last.functionResponse.response.output[0].text = existing + NUDGE_TEXT;
+      last.functionResponse.response.output[0].text = existing + MEMORY_CHAIN_NUDGE_TEXT;
       nudgeAppended = true;
       nudgeText = last.functionResponse.response.output[0].text;
     }
@@ -160,7 +154,7 @@ console.log('            Daniela is allowed ONE more targeted search, NOT cut of
   // After nudge fires, a 4th search is allowed (shared-history exception).
   // The nudge does NOT say "stop immediately" — it says "you MAY attempt one more".
   // Verify: nudge does NOT say "Do not perform further tool calls" WITHOUT the exception.
-  const finalNudgeText = NUDGE_TEXT;
+  const finalNudgeText = MEMORY_CHAIN_NUDGE_TEXT;
   const hasStopInstruction = finalNudgeText.includes('Do not perform further tool calls');
   const hasExceptionFollowing = finalNudgeText.includes('One exception:');
   const exceptionComesAfterStop = finalNudgeText.indexOf('One exception:') > finalNudgeText.indexOf('Do not perform further tool calls');
@@ -309,43 +303,43 @@ sep();
 const checks: Array<{ label: string; pass: boolean }> = [
   {
     label: 'Contains SYSTEM STATUS header',
-    pass: NUDGE_TEXT.includes('--- SYSTEM STATUS ---'),
+    pass: MEMORY_CHAIN_NUDGE_TEXT.includes('--- SYSTEM STATUS ---'),
   },
   {
     label: 'Contains latency warning',
-    pass: NUDGE_TEXT.includes('Student-facing latency is high'),
+    pass: MEMORY_CHAIN_NUDGE_TEXT.includes('Student-facing latency is high'),
   },
   {
     label: 'Contains stop directive',
-    pass: NUDGE_TEXT.includes('Do not perform further tool calls'),
+    pass: MEMORY_CHAIN_NUDGE_TEXT.includes('Do not perform further tool calls'),
   },
   {
     label: 'Contains "One exception" clause',
-    pass: NUDGE_TEXT.includes('One exception:'),
+    pass: MEMORY_CHAIN_NUDGE_TEXT.includes('One exception:'),
   },
   {
     label: 'Shared-history trigger: "do you remember when I told you about"',
-    pass: NUDGE_TEXT.includes('do you remember when I told you about'),
+    pass: MEMORY_CHAIN_NUDGE_TEXT.includes('do you remember when I told you about'),
   },
   {
     label: 'Shared-history trigger: "what did I say about"',
-    pass: NUDGE_TEXT.includes('what did I say about'),
+    pass: MEMORY_CHAIN_NUDGE_TEXT.includes('what did I say about'),
   },
   {
     label: 'Exception allows one more search ("one more targeted search")',
-    pass: NUDGE_TEXT.includes('one more targeted search'),
+    pass: MEMORY_CHAIN_NUDGE_TEXT.includes('one more targeted search'),
   },
   {
     label: 'Honest fallback ("I don\'t have your exact words")',
-    pass: NUDGE_TEXT.includes("I don't have your exact words in front of me right now"),
+    pass: MEMORY_CHAIN_NUDGE_TEXT.includes("I don't have your exact words in front of me right now"),
   },
   {
     label: 'Synthesize-immediately directive',
-    pass: NUDGE_TEXT.includes('Synthesize the current findings into a direct response to the student immediately'),
+    pass: MEMORY_CHAIN_NUDGE_TEXT.includes('Synthesize the current findings into a direct response to the student immediately'),
   },
   {
     label: '"One exception" appears AFTER the stop directive (correct ordering)',
-    pass: NUDGE_TEXT.indexOf('One exception:') > NUDGE_TEXT.indexOf('Do not perform further tool calls'),
+    pass: MEMORY_CHAIN_NUDGE_TEXT.indexOf('One exception:') > MEMORY_CHAIN_NUDGE_TEXT.indexOf('Do not perform further tool calls'),
   },
 ];
 
