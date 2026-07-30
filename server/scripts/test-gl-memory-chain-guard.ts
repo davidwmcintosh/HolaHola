@@ -29,6 +29,7 @@ const sep = () => console.log('\n' + '─'.repeat(70));
 const MEMORY_TOOL_NAMES = new Set([
   'recall', 'browse_conversations_by_date', 'search_my_teaching_wisdom',
   'introspect', 'memory_lookup', 'read_full_session', 'read_my_reflections',
+  'memory_review',
 ]);
 
 const MEMORY_CHAIN_LIMIT = 3; // hard backstop; system prompt soft-limits at 2
@@ -397,6 +398,7 @@ sep();
 const knownMemoryTools = [
   'recall', 'browse_conversations_by_date', 'search_my_teaching_wisdom',
   'introspect', 'memory_lookup', 'read_full_session', 'read_my_reflections',
+  'memory_review',
 ];
 const knownNonMemoryTools = [
   'show_vocab_grid', 'show_image', 'start_scene', 'flag_for_agent',

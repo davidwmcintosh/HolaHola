@@ -27,6 +27,7 @@ const sep = () => console.log('\n' + '─'.repeat(70));
 const MEMORY_TOOL_NAMES = new Set([
   'recall', 'browse_conversations_by_date', 'search_my_teaching_wisdom',
   'introspect', 'memory_lookup', 'read_full_session', 'read_my_reflections',
+  'memory_review',
 ]);
 
 const MEMORY_CHAIN_LIMIT = 3; // hard backstop; system prompt soft-limits at 2
@@ -359,11 +360,11 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 sep();
-console.log(B('PART 2b — Cross-check: replicated constants vs live daniela-caller.ts'));
+console.log(B('PART 2b — Cross-check: replicated constants vs live source files'));
+console.log(Y('  MEMORY_CHAIN_LIMIT lives in memory-chain-guard.ts; nudge text in daniela-caller.ts'));
 sep();
 
 try {
-  // MEMORY_CHAIN_LIMIT is defined in memory-chain-guard.ts (imported by daniela-caller.ts)
   const guardFile = readFileSync(
     join(import.meta.dirname ?? __dirname, '../services/memory-chain-guard.ts'),
     'utf-8',
@@ -380,9 +381,9 @@ try {
 
   const crossChecks = [
     { label: 'MEMORY_CHAIN_LIMIT = 3 in memory-chain-guard.ts',  pass: sourceHasLimit3 },
-    { label: 'Shared-history phrase in source nudge',             pass: sourceHasException },
-    { label: '"one more targeted search" in source nudge',        pass: sourceHasOneMoreSearch },
-    { label: '"Synthesize... immediately" directive in source',   pass: sourceHasSynthesizeImmediately },
+    { label: 'Shared-history phrase in daniela-caller.ts nudge',  pass: sourceHasException },
+    { label: '"one more targeted search" in daniela-caller.ts',   pass: sourceHasOneMoreSearch },
+    { label: '"Synthesize... immediately" in daniela-caller.ts',  pass: sourceHasSynthesizeImmediately },
   ];
 
   for (const { label, pass } of crossChecks) {
@@ -475,6 +476,7 @@ sep();
 const knownMemoryTools = [
   'recall', 'browse_conversations_by_date', 'search_my_teaching_wisdom',
   'introspect', 'memory_lookup', 'read_full_session', 'read_my_reflections',
+  'memory_review',
 ];
 
 const knownNonMemoryTools = [

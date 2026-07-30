@@ -18,6 +18,7 @@ export const MEMORY_TOOL_NAMES = new Set([
   'memory_lookup',
   'read_full_session',
   'read_my_reflections',
+  'memory_review',
 ]);
 
 /**
