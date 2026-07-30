@@ -13,8 +13,9 @@
  */
 
 import { getSharedDb } from '../db';
-import { danielaAbsenceNudges } from '@shared/schema';
-import { eq, isNull } from 'drizzle-orm';
+import { danielaAbsenceNudges, collaborationMessages } from '@shared/schema';
+import { eq, isNull, isNotNull, and, gte } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
@@ -150,16 +151,16 @@ function runPart2() {
     'utf-8',
   );
 
-  // The guard line must exist: `if (!pending) return;`
-  const hasGuard = /if\s*\(\s*!pending\s*\)\s*return\s*;/.test(src);
+  // The guard line must exist: `if (!pending) return null;`
+  const hasGuard = /if\s*\(\s*!pending\s*\)\s*return\s+null\s*;/.test(src);
   assert(
-    'Source contains `if (!pending) return;` guard before any side-effects',
+    'Source contains `if (!pending) return null;` guard before any side-effects',
     hasGuard,
   );
 
   // The Express Lane post block must be INSIDE the `if (pending)` branch —
   // i.e., it appears AFTER the guard.  Simplest check: guard offset < post offset.
-  const guardIdx = src.search(/if\s*\(\s*!pending\s*\)\s*return\s*;/);
+  const guardIdx = src.search(/if\s*\(\s*!pending\s*\)\s*return\s+null\s*;/);
   const expressLaneIdx = src.indexOf('STUDENT RETURNED');
   assert(
     'Express Lane post code appears after the guard (cannot be reached when no nudge)',
@@ -177,6 +178,134 @@ function runPart2() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PART 3 — Positive path: pending nudge exists → resolves it, logs it
+// ══════════════════════════════════════════════════════════════════════════════
+sep();
+console.log(B('PART 3 — Positive path: nudge IS pending → gets cleared and logged'));
+sep();
+
+// Separate deterministic userId — guaranteed to have a seeded row for this test
+const TEST_RETURN_USER_ID = '00000000-test-has-nudge-0000';
+
+async function runPart3() {
+  const db = getSharedDb();
+
+  // ── Cleanup helper: ensure no leftover row from a prior crashed run ─────────
+  await db
+    .delete(danielaAbsenceNudges)
+    .where(eq(danielaAbsenceNudges.userId, TEST_RETURN_USER_ID));
+
+  // ── 1. Seed a pending nudge row ─────────────────────────────────────────────
+  await db.insert(danielaAbsenceNudges).values({
+    userId: TEST_RETURN_USER_ID,
+    daysSinceLastSession: 7,
+    lastSessionDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+  });
+
+  // Confirm it landed with resolvedAt = null
+  const [seeded] = await db
+    .select({ id: danielaAbsenceNudges.id, resolvedAt: danielaAbsenceNudges.resolvedAt })
+    .from(danielaAbsenceNudges)
+    .where(eq(danielaAbsenceNudges.userId, TEST_RETURN_USER_ID))
+    .limit(1);
+
+  assert('Precondition: seeded nudge row has resolvedAt = null', !!seeded && seeded.resolvedAt === null,
+    seeded ? `resolvedAt was ${seeded.resolvedAt}` : 'row not found');
+
+  // ── 2. Call the function under test with captured output ────────────────────
+  const callStartedAt = new Date();
+  startCapture();
+  let result: Awaited<ReturnType<typeof import('../services/daniela-absence-worker').autoResolveAbsenceNudgeOnReturn>> | undefined;
+  try {
+    const { autoResolveAbsenceNudgeOnReturn } = await import('../services/daniela-absence-worker');
+    result = await autoResolveAbsenceNudgeOnReturn(TEST_RETURN_USER_ID);
+  } finally {
+    stopCapture();
+  }
+  const logs = [...capturedLogs];
+
+  // ── 3. Assert the DB row is now resolved ────────────────────────────────────
+  const [after] = await db
+    .select({ id: danielaAbsenceNudges.id, resolvedAt: danielaAbsenceNudges.resolvedAt })
+    .from(danielaAbsenceNudges)
+    .where(eq(danielaAbsenceNudges.userId, TEST_RETURN_USER_ID))
+    .limit(1);
+
+  assert(
+    'DB row resolvedAt IS NOT NULL after autoResolveAbsenceNudgeOnReturn()',
+    !!after && after.resolvedAt !== null,
+    after ? `resolvedAt is still null` : 'row not found',
+  );
+
+  // ── 4. Assert the "[AbsenceWorker] Auto-cleared..." log was emitted ─────────
+  const autoClearedLog = logs.find(l => l.includes('[AbsenceWorker] Auto-cleared'));
+  assert(
+    '"[AbsenceWorker] Auto-cleared..." log was emitted',
+    !!autoClearedLog,
+    autoClearedLog ?? 'log line not found in captured output',
+  );
+
+  // ── 5. Assert Express Lane note IS persisted in collaboration_messages ───────
+  // Query for a message written after the call started, whose metadata carries
+  // the expected absentUserId and event tag that the worker embeds.
+  const expressLaneMessages = await db
+    .select({
+      id: collaborationMessages.id,
+      content: collaborationMessages.content,
+      metadata: collaborationMessages.metadata,
+    })
+    .from(collaborationMessages)
+    .where(
+      and(
+        gte(collaborationMessages.createdAt, callStartedAt),
+        sql`${collaborationMessages.metadata}->>'absentUserId' = ${TEST_RETURN_USER_ID}`,
+        sql`${collaborationMessages.metadata}->>'event' = 'student_returned'`,
+      ),
+    )
+    .limit(5);
+
+  assert(
+    'Express Lane note persisted in collaboration_messages with correct absentUserId + event metadata',
+    expressLaneMessages.length > 0,
+    expressLaneMessages.length === 0 ? 'no matching row found in collaboration_messages' : undefined,
+  );
+
+  if (expressLaneMessages.length > 0) {
+    const contentOk = expressLaneMessages[0].content.includes('[STUDENT RETURNED]');
+    assert(
+      'Express Lane note content contains "[STUDENT RETURNED]"',
+      contentOk,
+      contentOk ? undefined : `content was: ${expressLaneMessages[0].content.slice(0, 120)}`,
+    );
+  }
+
+  // ── 6. Assert the function returned non-null details ───────────────────────
+  assert(
+    'Return value is non-null (details object returned)',
+    result !== null && result !== undefined,
+    result === null ? 'returned null' : String(result),
+  );
+
+  if (logs.length > 0) {
+    console.log(Y(`\n  ℹ  Captured output (${logs.length} line(s)):`));
+    logs.forEach(l => console.log(`     ${l}`));
+  }
+
+  // ── Cleanup: delete the test row ────────────────────────────────────────────
+  await db
+    .delete(danielaAbsenceNudges)
+    .where(eq(danielaAbsenceNudges.userId, TEST_RETURN_USER_ID));
+
+  const [gone] = await db
+    .select({ id: danielaAbsenceNudges.id })
+    .from(danielaAbsenceNudges)
+    .where(eq(danielaAbsenceNudges.userId, TEST_RETURN_USER_ID))
+    .limit(1);
+
+  assert('Test row cleaned up from DB', !gone, gone ? `Row still present: ${gone.id}` : undefined);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MAIN
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -184,16 +313,22 @@ function runPart2() {
   try {
     await runPart1();
     runPart2();
+    await runPart3();
   } catch (err: any) {
     stopCapture();
     console.error(R(`\nUnhandled error: ${err?.message ?? err}`));
+    // Best-effort cleanup on crash
+    try {
+      const db = getSharedDb();
+      await db.delete(danielaAbsenceNudges).where(eq(danielaAbsenceNudges.userId, TEST_RETURN_USER_ID));
+    } catch { /* ignore */ }
     process.exit(1);
   }
 
   sep();
   const all = passed + failed;
   if (failed === 0) {
-    console.log(G(`\n✓  All ${all} assertions passed — autoResolveAbsenceNudgeOnReturn() is a proven no-op when no nudge is pending.\n`));
+    console.log(G(`\n✓  All ${all} assertions passed — no-op guard and positive return path both verified.\n`));
     process.exit(0);
   } else {
     console.log(R(`\n✗  ${failed} of ${all} assertions failed.\n`));
