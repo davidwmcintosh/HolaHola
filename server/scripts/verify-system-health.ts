@@ -362,6 +362,140 @@ async function checkObjectStorageMetadata() {
   }
 }
 
+// ─── R2 READ PATHS ───────────────────────────────────────────────────────────
+
+async function checkR2ReadPaths() {
+  console.log(`\n${BOLD}── R2 Student-Facing Read Paths ────────────────────────${RESET}`);
+
+  const BUCKET = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID ?? "";
+  const REGION = process.env.AWS_S3_REGION ?? "auto";
+  const ENDPOINT = process.env.AWS_S3_ENDPOINT ?? "";
+  const ACCESS_KEY = process.env.AWS_S3_ACCESS_KEY_ID ?? "";
+  const SECRET_KEY = process.env.AWS_S3_SECRET_ACCESS_KEY ?? "";
+
+  if (!BUCKET || !ACCESS_KEY || !SECRET_KEY) {
+    const missing: string[] = [];
+    if (!BUCKET) missing.push("DEFAULT_OBJECT_STORAGE_BUCKET_ID");
+    if (!ACCESS_KEY) missing.push("AWS_S3_ACCESS_KEY_ID");
+    if (!SECRET_KEY) missing.push("AWS_S3_SECRET_ACCESS_KEY");
+    console.log(`  ℹ  R2 not configured (${missing.join(", ")} missing) — read-path checks skipped`);
+    return;
+  }
+
+  const { S3Client, ListObjectsV2Command, GetObjectCommand } = await import("@aws-sdk/client-s3");
+
+  const s3Config: ConstructorParameters<typeof S3Client>[0] = {
+    region: REGION,
+    credentials: { accessKeyId: ACCESS_KEY, secretAccessKey: SECRET_KEY },
+  };
+  if (ENDPOINT) {
+    s3Config.endpoint = ENDPOINT;
+    s3Config.forcePathStyle = true;
+  }
+  const s3 = new S3Client(s3Config);
+
+  // App HTTP base — used to verify the Express proxy routes students actually hit.
+  // The health verifier runs in the same process context as the server, but we
+  // check via HTTP to exercise the full stack.  Fall back to localhost:5000.
+  const APP_BASE = process.env.APP_BASE ?? "http://localhost:5000";
+
+  async function listPrefix(prefix: string): Promise<string[]> {
+    const keys: string[] = [];
+    let token: string | undefined;
+    do {
+      const resp = await s3.send(
+        new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix, MaxKeys: 20, ContinuationToken: token })
+      );
+      for (const obj of resp.Contents ?? []) {
+        if (obj.Key) keys.push(obj.Key);
+      }
+      token = resp.NextContinuationToken;
+    } while (token && keys.length < 20);
+    return keys;
+  }
+
+  async function directRead(key: string): Promise<{ bytes: number; contentType: string }> {
+    const resp = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+    let bytes = 0;
+    if (resp.Body) {
+      for await (const chunk of resp.Body as AsyncIterable<Uint8Array>) bytes += chunk.length;
+    }
+    return { bytes, contentType: resp.ContentType ?? "unknown" };
+  }
+
+  async function appGet(url: string): Promise<{ status: number; bytes: number }> {
+    const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    const buf = await resp.arrayBuffer();
+    return { status: resp.status, bytes: buf.byteLength };
+  }
+
+  type PrefixSpec = { prefix: string; routeFn: (fname: string) => string; label: string };
+  const prefixes: PrefixSpec[] = [
+    { prefix: "public/ai-images/",      routeFn: (f) => `/api/media/ai-image/${f}`,  label: "ai-image" },
+    { prefix: "public/voice-messages/", routeFn: (f) => `/api/media/vm-audio/${f}`,  label: "vm-audio" },
+  ];
+
+  let anyChecked = false;
+
+  for (const { prefix, routeFn, label } of prefixes) {
+    let keys: string[];
+    try {
+      keys = await listPrefix(prefix);
+    } catch (err: any) {
+      fail(`R2 list ${label}`, `ListObjectsV2 failed: ${err?.message ?? err}`);
+      continue;
+    }
+
+    if (keys.length === 0) {
+      warn(`R2 read-path ${label}`, `No objects found under "${prefix}" — cannot verify read path`);
+      continue;
+    }
+
+    anyChecked = true;
+    // Prefer a key with a file extension so content-type is meaningful
+    const key = keys.find((k) => (k.split("/").pop() ?? "").includes(".")) ?? keys[0];
+    const filename = key.split("/").pop()!;
+
+    // 1. Direct S3 read
+    let directBytes = 0;
+    try {
+      const d = await directRead(key);
+      directBytes = d.bytes;
+      if (directBytes === 0) {
+        fail(`R2 direct read ${label}`, `Key "${key}" returned 0 bytes`);
+      } else {
+        pass(`R2 direct read ${label}`, `${directBytes} bytes (${d.contentType})`);
+      }
+    } catch (err: any) {
+      fail(`R2 direct read ${label}`, `GetObject failed: ${err?.message ?? err}`);
+    }
+
+    // 2. App route (server must be running; gracefully skip if refused)
+    const url = `${APP_BASE}${routeFn(filename)}`;
+    try {
+      const a = await appGet(url);
+      if (a.status === 200 && a.bytes > 0) {
+        pass(`R2 app route ${label}`, `HTTP ${a.status}, ${a.bytes} bytes`);
+      } else if (a.status === 200 && a.bytes === 0) {
+        fail(`R2 app route ${label}`, `HTTP 200 but 0 bytes returned for "${filename}"`);
+      } else {
+        fail(`R2 app route ${label}`, `HTTP ${a.status} for GET ${routeFn(filename)}`);
+      }
+    } catch (err: any) {
+      const msg: string = err?.message ?? String(err);
+      if (msg.includes("ECONNREFUSED") || msg.includes("fetch failed")) {
+        warn(`R2 app route ${label}`, `Server not reachable at ${APP_BASE} — app-route check skipped`);
+      } else {
+        fail(`R2 app route ${label}`, msg);
+      }
+    }
+  }
+
+  if (!anyChecked) {
+    warn("R2 read paths", "No objects found in any watched prefix — bucket may be empty or migrating");
+  }
+}
+
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -375,6 +509,7 @@ async function main() {
   await checkWorkers();
   await checkPreSessionSynthesis();
   await checkObjectStorageMetadata();
+  await checkR2ReadPaths();
 
   console.log(`\n${BOLD}── Summary ─────────────────────────────────────────────${RESET}`);
   if (failures === 0 && warnings === 0) {
