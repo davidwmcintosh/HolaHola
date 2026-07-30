@@ -9336,7 +9336,7 @@ export const danielaAbsenceNudges = pgTable("daniela_absence_nudges", {
   userId: varchar("user_id").notNull(),
   notifiedAt: timestamp("notified_at").notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at"),         // null = Daniela hasn't acted yet
-  resolutionType: varchar("resolution_type"),   // 'message_queued' | 'dismissed'
+  resolutionType: varchar("resolution_type"),   // 'message_queued' | 'dismissed' | 'student_returned'
   suppressUntil: timestamp("suppress_until"),   // if Daniela snoozes, no re-nudge before this
   lastSessionDate: timestamp("last_session_date"),
   daysSinceLastSession: integer("days_since_last_session"),

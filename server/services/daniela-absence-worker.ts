@@ -298,7 +298,7 @@ const MAX_SUPPRESS_DAYS = 365;
 
 export async function resolveAbsenceNudge(
   userId: string,
-  resolutionType: 'message_queued' | 'dismissed',
+  resolutionType: 'message_queued' | 'dismissed' | 'student_returned',
   suppressDays?: number,
 ): Promise<void> {
   const db = getSharedDb();
@@ -552,7 +552,7 @@ export async function autoResolveAbsenceNudgeOnReturn(
     if (!pending) return null; // Nothing to resolve and nothing cached — common case.
 
     // ── Resolve ───────────────────────────────────────────────────────────────
-    await resolveAbsenceNudge(userId, 'dismissed');
+    await resolveAbsenceNudge(userId, 'student_returned');
 
     // Look up the student's name for a human-readable Express Lane note
     let firstName: string | null = null;

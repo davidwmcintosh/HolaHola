@@ -226,7 +226,11 @@ async function runPart3() {
 
   // ── 3. Assert the DB row is now resolved ────────────────────────────────────
   const [after] = await db
-    .select({ id: danielaAbsenceNudges.id, resolvedAt: danielaAbsenceNudges.resolvedAt })
+    .select({
+      id: danielaAbsenceNudges.id,
+      resolvedAt: danielaAbsenceNudges.resolvedAt,
+      resolutionType: danielaAbsenceNudges.resolutionType,
+    })
     .from(danielaAbsenceNudges)
     .where(eq(danielaAbsenceNudges.userId, TEST_RETURN_USER_ID))
     .limit(1);
@@ -235,6 +239,12 @@ async function runPart3() {
     'DB row resolvedAt IS NOT NULL after autoResolveAbsenceNudgeOnReturn()',
     !!after && after.resolvedAt !== null,
     after ? `resolvedAt is still null` : 'row not found',
+  );
+
+  assert(
+    'DB row resolutionType === "student_returned" (not "dismissed")',
+    after?.resolutionType === 'student_returned',
+    after ? `resolutionType was: ${after.resolutionType}` : 'row not found',
   );
 
   // ── 4. Assert the "[AbsenceWorker] Auto-cleared..." log was emitted ─────────
