@@ -3,6 +3,21 @@ import { db, getUserDb } from "../db";
 import { phonemeStruggles, type InsertPhonemeStruggle } from "@shared/schema";
 import { eq, and } from "drizzle-orm";
 
+/**
+ * Thrown by assessPronunciation when the Azure service returns a classifiable
+ * failure (auth, rate-limit, or network). Callers should surface this to the
+ * client as { error: 'pronunciation_unavailable', reason: string }.
+ */
+export class AzurePronunciationError extends Error {
+  constructor(
+    message: string,
+    public readonly category: 'auth' | 'rate_limit' | 'network' | 'unknown'
+  ) {
+    super(message);
+    this.name = 'AzurePronunciationError';
+  }
+}
+
 const AZURE_SPEECH_KEY = process.env.AZURE_SPEECH_KEY;
 const AZURE_SPEECH_REGION = process.env.AZURE_SPEECH_REGION;
 
@@ -170,20 +185,71 @@ class AzurePronunciationService {
               
               recognizer.close();
               resolve(assessmentResult);
+            } else if (result.reason === sdk.ResultReason.NoMatch) {
+              // Genuine no-speech / no-match — not a service failure.
+              console.log(`[Azure Pronunciation] No speech recognized (NoMatch)`);
+              recognizer.close();
+              resolve(null);
+            } else if (result.reason === sdk.ResultReason.Canceled) {
+              // Credential, network, or service errors surface here via Canceled,
+              // NOT via the error callback. Extract details so we can classify.
+              const cancellation = sdk.CancellationDetails.fromResult(result);
+              const details = (cancellation.errorDetails || '').toLowerCase();
+              const code = cancellation.ErrorCode;
+
+              let category: AzurePronunciationError['category'] = 'unknown';
+              if (code === sdk.CancellationErrorCode.AuthenticationFailure ||
+                  details.includes('401') || details.includes('unauthorized') ||
+                  details.includes('authentication') || details.includes('403') ||
+                  details.includes('forbidden')) {
+                category = 'auth';
+              } else if (details.includes('429') || details.includes('too many requests')) {
+                category = 'rate_limit';
+              } else if (code === sdk.CancellationErrorCode.ConnectionFailure ||
+                         details.includes('connection') || details.includes('network') ||
+                         details.includes('timeout') || details.includes('websocket')) {
+                category = 'network';
+              }
+
+              const message = cancellation.errorDetails || `Recognition canceled (code ${code})`;
+              console.error(`[Azure Pronunciation] Canceled (${category}): ${message}`);
+              recognizer.close();
+              reject(new AzurePronunciationError(message, category));
             } else {
-              console.log(`[Azure Pronunciation] Recognition failed: ${result.reason}`);
+              // Unknown non-success reason — treat as no-speech for safety.
+              console.log(`[Azure Pronunciation] Unhandled result reason: ${result.reason}`);
               recognizer.close();
               resolve(null);
             }
           },
           (error) => {
-            console.error("[Azure Pronunciation] Error:", error);
             recognizer.close();
-            reject(error);
+            const errStr = String(error).toLowerCase();
+            let category: AzurePronunciationError['category'] = 'unknown';
+            if (errStr.includes('401') || errStr.includes('unauthorized') || errStr.includes('authentication')) {
+              category = 'auth';
+            } else if (errStr.includes('403') || errStr.includes('forbidden')) {
+              category = 'auth';
+            } else if (errStr.includes('429') || errStr.includes('too many requests')) {
+              category = 'rate_limit';
+            } else if (
+              errStr.includes('connection') || errStr.includes('network') ||
+              errStr.includes('timeout') || errStr.includes('socket') ||
+              errStr.includes('websocket')
+            ) {
+              category = 'network';
+            }
+            console.error(`[Azure Pronunciation] SDK error (${category}):`, error);
+            reject(new AzurePronunciationError(String(error), category));
           }
         );
       });
     } catch (error) {
+      // Re-throw classified errors so the route can return a structured response.
+      // Swallow only unexpected setup errors (e.g. bad SDK config objects).
+      if (error instanceof AzurePronunciationError) {
+        throw error;
+      }
       console.error("[Azure Pronunciation] Assessment error:", error);
       return null;
     }

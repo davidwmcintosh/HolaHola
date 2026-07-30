@@ -7704,7 +7704,12 @@ ${memoryContext}
       );
       
       if (!result) {
-        return res.status(500).json({ error: "Pronunciation assessment failed" });
+        // No speech was recognized — surface as pronunciation_unavailable so
+        // the client can show a meaningful notice instead of a blank result.
+        return res.status(422).json({
+          error: 'pronunciation_unavailable',
+          reason: 'No speech recognized in the audio — please try again with a clear recording.',
+        });
       }
       
       // Store phoneme struggles in database with learning context
@@ -7743,7 +7748,19 @@ ${memoryContext}
       });
     } catch (error: any) {
       console.error("[Azure Pronunciation] Assessment error:", error);
-      res.status(500).json({ error: error.message || "Pronunciation assessment failed" });
+      // Classify Azure service failures so clients receive a machine-readable field.
+      // Expected error shape: { error: 'pronunciation_unavailable', reason: string }
+      if (error?.name === 'AzurePronunciationError') {
+        const status = error.category === 'rate_limit' ? 429 : 503;
+        return res.status(status).json({
+          error: 'pronunciation_unavailable',
+          reason: error.message,
+        });
+      }
+      res.status(500).json({
+        error: 'pronunciation_unavailable',
+        reason: error?.message || 'Pronunciation assessment failed',
+      });
     }
   });
 
