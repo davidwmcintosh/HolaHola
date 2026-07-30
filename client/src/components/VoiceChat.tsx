@@ -29,6 +29,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { type Message, Conversation } from "@shared/schema";
 import { AudioRecorder, AudioPlayer, pcm16ToBase64 } from "@/lib/audioUtils";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 import { InstructorAvatar, type AvatarState } from "@/components/InstructorAvatar";
 import { CompactDifficultyControl } from "@/components/CompactDifficultyControl";
 import { LanguageSelector } from "@/components/LanguageSelector";
@@ -56,6 +57,7 @@ interface VoiceChatProps {
 export function VoiceChat({ conversationId, setConversationId, setCurrentConversationOnboarding }: VoiceChatProps) {
   const { language, difficulty, userName } = useLanguage();
   const { user } = useAuth();
+  const { toast } = useToast();
   const [isRecording, setIsRecording] = useState(false);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
   const [transcript, setTranscript] = useState<Array<{ role: string; content: string; messageId?: string }>>([]);
@@ -336,6 +338,18 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               });
               const analysisResult = await analysisResponse.json();
 
+              // Server returns { error: 'pronunciation_unavailable', reason: '...' } when
+              // the OpenAI key is missing, expired, or rate-limited.
+              if (analysisResult.error === 'pronunciation_unavailable') {
+                console.warn("[pronunciation] Scoring unavailable:", analysisResult.reason);
+                toast({
+                  title: "Pronunciation feedback is temporarily unavailable",
+                  description: analysisResult.reason || "Scoring could not be completed right now.",
+                  variant: "destructive",
+                });
+                break;
+              }
+
               // Update pronunciation scores state
               setPronunciationScores(prev => new Map(prev).set(savedMessage.id, {
                 messageId: savedMessage.id,
@@ -346,6 +360,11 @@ export function VoiceChat({ conversationId, setConversationId, setCurrentConvers
               }));
             } catch (error) {
               console.error("Failed to analyze pronunciation:", error);
+              toast({
+                title: "Pronunciation feedback is temporarily unavailable",
+                description: "Scoring could not be completed right now.",
+                variant: "destructive",
+              });
               // Don't block the conversation if pronunciation analysis fails
             }
             break;
