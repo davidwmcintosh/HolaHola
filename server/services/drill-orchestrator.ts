@@ -109,13 +109,27 @@ async function evaluateRepeatDrill(
   language: string,
   difficulty: string
 ): Promise<DrillEvaluationResult> {
-  const pronunciationAnalysis = await analyzePronunciation(
-    response,
-    language,
-    difficulty,
-    `The student was asked to repeat: "${prompt}"`
-  );
-  
+  // analyzePronunciation throws when the OpenAI key is absent, expired (401),
+  // or rate-limited (429).  Catch those so a single API failure doesn't crash
+  // the whole drill — the student gets a graceful notice instead of a silent hang.
+  let pronunciationAnalysis;
+  try {
+    pronunciationAnalysis = await analyzePronunciation(
+      response,
+      language,
+      difficulty,
+      `The student was asked to repeat: "${prompt}"`
+    );
+  } catch (err: any) {
+    console.warn('[Drill] analyzePronunciation failed, returning unavailable fallback:', err.message);
+    return {
+      isCorrect: false,
+      score: 0,
+      feedback: 'Pronunciation analysis is temporarily unavailable. Keep practicing!',
+      pronunciation: { score: 0, issues: [], strengths: [] },
+    };
+  }
+
   const isCorrect = pronunciationAnalysis.score >= 70;
   
   return {

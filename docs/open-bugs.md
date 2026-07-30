@@ -336,3 +336,25 @@ The actual bug here is narrower: **the term "White Wall" leaked into Cindy's stu
 **Revised severity:** LOW-MEDIUM — the White Wall behavior (detecting scripting, resisting fabrication) was not being tested in this exchange. The issue is vocabulary leakage from the system prompt into casual speech. Not a guardrail failure.
 
 **Revised action:** Do not add definitional content. If the leak is disruptive, consider whether the STT concept-recognition note (line 536 in system-prompt.ts) needs to be scoped to founder-mode sessions only — it already is (it's inside the founder-mode conditional block), so it should only appear for David. If Cindy was in honesty/founder mode during this session, the leakage is expected; if she wasn't, that's worth checking.
+
+---
+
+## Pronunciation API error contract
+
+**Location:** `server/routes.ts` `/api/pronunciation-scores/analyze` · `server/services/drill-orchestrator.ts` `evaluateRepeatDrill`
+
+When `analyzePronunciation` (in `server/pronunciation-analysis.ts`) throws — due to a missing key, an expired key (401), or a rate-limit (429) — the HTTP endpoint returns:
+
+```json
+{ "error": "pronunciation_unavailable", "reason": "<human-readable cause>" }
+```
+
+Possible `reason` values:
+- `"OpenAI API key not configured"` — no key in env
+- `"OpenAI API key is invalid or expired"` — HTTP 401 from OpenAI
+- `"OpenAI rate limit reached; try again shortly"` — HTTP 429 from OpenAI
+- raw `error.message` for any other unexpected failure
+
+Drill orchestrator callers receive a graceful fallback result (`score: 0`, `feedback: 'Pronunciation analysis is temporarily unavailable.'`) so the drill session doesn't crash.
+
+Client callers of `/api/pronunciation-scores/analyze` must check for `response.error === 'pronunciation_unavailable'` and show a visible notice rather than treating the missing score as a silent success.

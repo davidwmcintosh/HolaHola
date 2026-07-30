@@ -8540,11 +8540,47 @@ Return ONLY the ${targetLanguage} phrase:`;
       const { analyzePronunciation } = await import("./pronunciation-analysis");
       
       // Analyze pronunciation
-      const analysis = await analyzePronunciation(
-        transcribedText,
-        conversation.language,
-        conversation.difficulty
-      );
+      // analyzePronunciation throws on missing key (ConfigurationError) and on
+      // API failures (401 expired, 429 rate-limit, network errors).  We catch
+      // those here and return a structured { error, reason } body so the client
+      // can show a visible notice rather than treating a missing result as success.
+      //
+      // Expected error shape on HTTP 500:
+      //   { error: 'pronunciation_unavailable', reason: '<human-readable cause>' }
+      //
+      // Possible reason values (non-exhaustive):
+      //   'OpenAI API key not configured'
+      //   'OpenAI API key is invalid or expired'
+      //   'OpenAI rate limit reached; try again shortly'
+      //   '<raw error message>'           ← for unexpected failures
+      let analysis;
+      try {
+        analysis = await analyzePronunciation(
+          transcribedText,
+          conversation.language,
+          conversation.difficulty
+        );
+      } catch (apiError: any) {
+        console.error("[pronunciation-analysis] API call failed:", apiError);
+        const isConfigError = apiError?.message?.includes('No OpenAI API key');
+        const isAuthError =
+          apiError?.status === 401 ||
+          apiError?.message?.includes('401') ||
+          apiError?.message?.includes('Unauthorized') ||
+          apiError?.message?.includes('invalid_api_key');
+        const isRateLimit =
+          apiError?.status === 429 ||
+          apiError?.message?.includes('429') ||
+          apiError?.message?.toLowerCase().includes('rate limit');
+        const reason = isConfigError
+          ? 'OpenAI API key not configured'
+          : isAuthError
+          ? 'OpenAI API key is invalid or expired'
+          : isRateLimit
+          ? 'OpenAI rate limit reached; try again shortly'
+          : apiError?.message || 'Unknown error';
+        return res.status(500).json({ error: 'pronunciation_unavailable', reason });
+      }
 
       // Save the score
       const score = await storage.createPronunciationScore({
