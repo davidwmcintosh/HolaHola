@@ -3404,6 +3404,42 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         });
       }
 
+      // ── Memory chain guard (GL) ───────────────────────────────────────────────
+      // Mirrors the text-mode guard in runDanielaFCLoop. After 3 consecutive tool
+      // batches where every call is a memory-retrieval tool and no voice response has
+      // been produced, inject a latency nudge into the last tool response so Daniela
+      // knows the student is waiting and stops spiralling through lookups silently.
+      // Counter resets whenever any non-memory tool fires (same batch = reset).
+      // Gemini audit confirmed: "high latency" framing triggers helpfulness toward the
+      // user faster than "sufficient context" logic. Threshold=3 (not 2) because
+      // recall→read_full_session is a normal 2-step that should complete uninterrupted.
+      {
+        const GL_MEMORY_TOOL_NAMES = new Set([
+          'recall', 'browse_conversations_by_date', 'search_my_teaching_wisdom',
+          'introspect', 'memory_lookup', 'read_full_session', 'read_my_reflections',
+        ]);
+        const GL_MEMORY_CHAIN_LIMIT = 3;
+        const batchToolNames = msg.toolCall.functionCalls.map((fc: any) => fc.name as string);
+        const allMemoryBatch = batchToolNames.every((n: string) => GL_MEMORY_TOOL_NAMES.has(n));
+
+        if (!allMemoryBatch) {
+          (this.session as any).consecutiveMemoryCalls = 0;
+        } else {
+          const prev = ((this.session as any).consecutiveMemoryCalls ?? 0) as number;
+          (this.session as any).consecutiveMemoryCalls = prev + 1;
+          if ((this.session as any).consecutiveMemoryCalls >= GL_MEMORY_CHAIN_LIMIT && responses.length > 0) {
+            const lastResp = responses[responses.length - 1];
+            const existing = (lastResp.response as any)?.result ?? '';
+            (lastResp.response as any).result =
+              existing +
+              '\n\n--- SYSTEM STATUS ---\n' +
+              'CRITICAL: Multiple lookups performed. Student-facing latency is high. ' +
+              'Do not perform further tool calls. Synthesize the current findings into a direct response to the student immediately.';
+            console.log(`[MemoryChainGuard][GL] ${(this.session as any).consecutiveMemoryCalls} consecutive memory-only batches — nudge injected into tool response.`);
+          }
+        }
+      }
+
       // System Whisper injection (Gemini audit 2026-06-17 + review correction):
       // If the turn counter has armed the whisper, append it to the last tool response's result
       // string. Tool responses are a safe channel — GL feeds them to the model as function results,

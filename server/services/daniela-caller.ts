@@ -199,7 +199,7 @@ export async function runDanielaFCLoop({
     'recall', 'browse_conversations_by_date', 'search_my_teaching_wisdom',
     'introspect', 'memory_lookup', 'read_full_session', 'read_my_reflections',
   ]);
-  const MEMORY_CHAIN_LIMIT = 2;
+  const MEMORY_CHAIN_LIMIT = 3; // 2 is too aggressive: recall→read_full_session is a normal 2-step
   let consecutiveMemoryOnlyTurns = 0;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
@@ -359,8 +359,9 @@ export async function runDanielaFCLoop({
         const existing = last?.functionResponse?.response?.output?.[0]?.text ?? '';
         last.functionResponse.response.output[0].text =
           existing +
-          '\n\nYou have retrieved sufficient context across multiple searches. ' +
-          'The student is waiting — draw on what you have found and respond now.';
+          '\n\n--- SYSTEM STATUS ---\n' +
+          'CRITICAL: Multiple lookups performed. Student-facing latency is high. ' +
+          'Do not perform further tool calls. Synthesize the current findings into a direct response to the student immediately.';
         console.log(`[MemoryChainGuard] Turn ${turn}: ${consecutiveMemoryOnlyTurns} consecutive memory-only turns — nudge appended.`);
       }
     } else {

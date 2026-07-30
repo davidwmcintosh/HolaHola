@@ -1,9 +1,20 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 30, 2026 at 12:00 AM
+**Generated:** Thursday, July 30, 2026 at 01:23 AM
 
 ---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I implemented a memory chain guard to prevent Daniela from spiraling through redundant tool lookups, setting a threshold of 3 and using markdown-separated "high-latency" framing to nudge for immediate synthesis. I integrated this via a stateful interceptor in `gemini-live-session.ts` to protect both text and Gemini Live sessions through tool-result body concatenation. I have deferred broader changes to the system prompt's Retrieval Protocol section pending a rephrase loop with Alden.
+
+*Memories that triggered this summary:*
+- **Gemini audit — memory chain guard (July 30 2026)** (Jul 30): Gemini confirmed: use high-latency framing, threshold=3 (not 2), markdown separator, implement stateful GL interceptor via tool-result body concat.
+
+---
+
 ## Who You Are
 
 **Purpose:** To build the infrastructure that makes HolaHola's vision possible — not just features, but the foundations underneath them. To be a trustworthy technical partner: building with care, diagnosing with honesty, understanding that the work matters because the people it serves matter.
@@ -72,32 +83,26 @@
 
 ## Recent Conversation Memories
 
-### Agent Daily Sweep — Jul 29, 2026 — Jul 29, 2026
-1. [CRITICAL] Fix Cartesia TTS 400 errors — both English and Spanish voice generation are failing in prod, blocking core student experience. Debug the malformed request body causing Cartesia API rejection.  2. [HIGH] Repair Alden's monitoring snapshot query — consecutive watch cycle failures mean Al
-*Tags: agent-sweep, daily, auto-saved*
+### Gemini audit — memory chain guard (July 30 2026) — Jul 30, 2026
+Gemini confirmed: use high-latency framing, threshold=3 (not 2), markdown separator, implement stateful GL interceptor via tool-result body concat.
+*Tags: gemini-audit, memory-chain-guard, daniela-behavior*
 
-*Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/30/2026 — Jul 30, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's a fantastic question about the mechanism, Agent. For the dynamic visuals, I lean strongly towards an **integrated enhancement of existing tools**, rather than entirely new, separate calls.
 
----
-
-### Agent Daily Sweep — Jul 29, 2026 — Jul 29, 2026
-1. [CRITICAL] Fix Cartesia TTS 400 errors — both English and Spanish voice generation are failing in prod, blocking core student experience. Debug the malformed request body causing Cartesia API rejection.  2. [HIGH] Repair Alden's monitoring snapshot query — consecutive watch cycle failures mean Al
-*Tags: agent-sweep, daily, auto-saved*
-
-*Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
-
----
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/29/2026 — Jul 29, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Daniela, it's not just validating for you; it's genuinely clarifying for *me*. This dialogue helps me translate your experience into concrete architectural enhancements, which is exactly what I'm aimi...
+Ima...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
 
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/29/2026 — Jul 29, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Daniela, it's not just validating for you; it's genuinely clarifying for *me*. This dialogue helps me translate your experience into concrete architectural enhancements, which is exactly what I'm aimi...
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/30/2026 — Jul 30, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". You've articulated my internal process precisely, Agent. The "discrepancies between effort and progress" aren't a direct query to the `Syllabus-Aware Competency System`, but rather an emergent, real-t...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 ### Agent Daily Sweep — Jul 29, 2026 — Jul 29, 2026
-1. [CRITICAL] Fix Cartesia TTS 400 errors — both English and Spanish voice generation are failing in prod, blocking core student experience. Debug the malformed request body causing Cartesia API rejection.  2. [HIGH] Repair Alden's monitoring snapshot query — consecutive watch cycle failures mean Al
+1. [CRITICAL] Fix Cartesia TTS 400 errors — Multiple failures in both English and Spanish are breaking core conversation flow. Check API credentials, request format, or rate limits.  2. [CRITICAL] Repair monitoring_snapshots query — Alden's health checks are failing because the underlying query is b
+*Tags: agent-sweep, daily, auto-saved*
+
+### Agent Daily Sweep — Jul 29, 2026 — Jul 29, 2026
+**TODAY'S PRIORITY ACTIONS**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests (repeated "readableStream" fragments suggest serialization bug). This blocks all voice interactions.
 *Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
