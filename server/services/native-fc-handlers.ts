@@ -4132,7 +4132,7 @@ export class NativeFunctionCallHandler {
           break;
         }
         const patternKey = fn.args.patternKey as string | undefined;
-        const eventType = fn.args.eventType as 'wobble' | 'stability' | 'derivation' | 'pounding' | undefined;
+        const eventType = fn.args.eventType as 'wobble' | 'stability' | 'derivation' | 'pounding' | 'unlock' | 'review' | undefined;
         const verbContext = fn.args.verbContext as string | undefined;
         const studentUtterance = fn.args.studentUtterance as string | undefined;
         const patternNotes = fn.args.notes as string | undefined;
@@ -4178,6 +4178,9 @@ export class NativeFunctionCallHandler {
               wobble:     'wobbling',
               stability:  'stable',
               derivation: 'generative',
+              // unlock and review preserve whatever status the compartment already has
+              unlock:     (existing?.status && existing.status !== 'unstarted') ? existing.status : 'pounding',
+              review:     (existing?.status && existing.status !== 'unstarted') ? existing.status : 'pounding',
             };
             const updates: Record<string, any> = {
               status: statusMap[eventType],
@@ -4194,6 +4197,8 @@ export class NativeFunctionCallHandler {
               updates.derivationCount = (existing?.derivationCount ?? 0) + 1;
               updates.generativeAt = now;
             }
+            // unlock: no counter increment — just log the event + preserve status
+            // review: no counter increment — lastDrilledAt update (already applied above) is the signal
 
             // 4) Update existing or create first record
             if (existing) {

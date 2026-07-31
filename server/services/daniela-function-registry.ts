@@ -4320,6 +4320,8 @@ Call this when you detect any of the following during natural conversation:
 - stability: ending held correctly when you introduced a new verb — the form is landing
 - derivation: student produced the correct form for a verb you have never drilled together — the compartment is generative
 - pounding: you are actively drilling one pattern across multiple verbs in this turn (call once per verb drilled)
+- unlock: you are introducing the next grammatical person using an already-installed compartment as the key (e.g. "yo-AR-present" is stable → now introducing "tú-AR-present") — call once at the moment of introduction
+- review: you are returning to a pattern after a practice gap (student hasn't used it this session or in recent sessions) — call at the start of the revisit
 
 patternKey format: subject-verbEnding-tense — e.g. "yo-AR-present", "tú-ER-present", "él-IR-present", "nosotros-AR-present"
 
@@ -4333,8 +4335,8 @@ This is how the system learns what this student has installed. Call it whenever 
           },
           eventType: {
             type: "string",
-            enum: ["wobble", "stability", "derivation", "pounding"],
-            description: "wobble = ending dropped on new verb | stability = ending held on new verb | derivation = correct unseen form | pounding = active drill of this form"
+            enum: ["wobble", "stability", "derivation", "pounding", "unlock", "review"],
+            description: "wobble = ending dropped on new verb | stability = ending held on new verb | derivation = correct unseen form | pounding = active drill of this form | unlock = introducing next grammatical person using an installed compartment as the key | review = returning to a pattern after a practice gap"
           },
           verbContext: {
             type: "string",
