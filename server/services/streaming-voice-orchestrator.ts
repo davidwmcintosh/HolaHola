@@ -516,7 +516,7 @@ async function fetchRecentMilestonesContext(userId: string, language: string): P
  * ACTFL-isms into the preamble turns. If it's not in the last 1,000 tokens, you can't
  * guarantee Flash will follow it."
  */
-function buildActflPersonaAnchor(session: { studentActflLevel?: string; targetLanguage?: string; nativeLanguage?: string; tutorName?: string; conversationHistory?: unknown[]; startTime?: number }): string | null {
+function buildActflPersonaAnchor(session: { studentActflLevel?: string; targetLanguage?: string; nativeLanguage?: string; tutorName?: string; conversationHistory?: unknown[]; startTime?: number; activePatternSignals?: string | null }): string | null {
   const level = session.studentActflLevel || 'novice_low';
   const targetLang = session.targetLanguage || 'Spanish';
   const nativeLang = session.nativeLanguage || 'english';
@@ -587,8 +587,23 @@ function buildActflPersonaAnchor(session: { studentActflLevel?: string; targetLa
     ? `\nSession clock: ~${sessionElapsedMin} min in — begin guiding toward a natural close. Name today's wins, plant a cliffhanger for next session. Don't open new grammar topics.`
     : '';
 
+  // PATTERN SIGNALS: Compact wobbling/pounding reminder — carried from greeting into every
+  // mid-session turn so Daniela doesn't lose track of active patterns after turn 1.
+  // Capped at 5 lines; wobbling (regression) listed before pounding (in progress).
+  let patternSignalNote = '';
+  if (session.activePatternSignals) {
+    const lines = session.activePatternSignals
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.startsWith('-') || l.startsWith('•'))
+      .slice(0, 5);
+    if (lines.length > 0) {
+      patternSignalNote = `\nActive grammar patterns: ${lines.join(' | ')}`;
+    }
+  }
+
   // "TEACHING CONSTRAINTS" sounds like a hard rule list. "This turn:" names the moment, not a constraint system. (Gemini consult rec.)
-  return `This turn:\n${langConstraint}\n${personaAnchor}${ongoingNote}${contextAgeNote}${memoryGuidance}${temporalAnchor}`;
+  return `This turn:\n${langConstraint}\n${personaAnchor}${ongoingNote}${contextAgeNote}${memoryGuidance}${temporalAnchor}${patternSignalNote}`;
 }
 
 function parseSprintSuggestion(content: string): { title: string; description: string; priority?: string } {
@@ -3443,6 +3458,9 @@ Remember: David may reference things discussed in these recent text chats.
                           verbContext, studentUtterance, sessionId: conversationId, notes,
                         });
                         console.log(`[PatternSignal] ${patternKey} → ${eventType}${verbContext ? ` (${verbContext})` : ''} via ${cmd.source}`);
+                        // Refresh mid-session pattern anchor so buildActflPersonaAnchor stays current
+                        const refreshed = await fetchPatternSignalContext(userId, language).catch(() => null);
+                        if (refreshed !== null) session.activePatternSignals = refreshed;
                       } catch (err: any) {
                         console.error(`[PatternSignal] Error:`, err.message);
                       }
@@ -6898,6 +6916,9 @@ Remember: David may reference things discussed in these recent text chats.
                         verbContext, studentUtterance, sessionId: conversationId, notes,
                       });
                       console.log(`[PatternSignal - OpenMic] ${patternKey} → ${eventType}${verbContext ? ` (${verbContext})` : ''}`);
+                      // Refresh mid-session pattern anchor so buildActflPersonaAnchor stays current
+                      const refreshed = await fetchPatternSignalContext(userId, language).catch(() => null);
+                      if (refreshed !== null) session.activePatternSignals = refreshed;
                     } catch (err: any) {
                       console.error(`[PatternSignal - OpenMic] Error:`, err.message);
                     }
@@ -9440,7 +9461,11 @@ Remember: David may reference things discussed in these recent text chats.
         patternSignalContext = psCtx;
         recentMilestonesContext = msCtx;
         flashbackMemories = flashback;
-        if (patternSignalContext) console.log(`[Streaming Greeting] Pattern signals loaded (${patternSignalContext.split('\n').length} active patterns)`);
+        // Carry pattern signals into mid-session anchor so they persist beyond the greeting
+        if (patternSignalContext) {
+          session.activePatternSignals = patternSignalContext;
+          console.log(`[Streaming Greeting] Pattern signals loaded (${patternSignalContext.split('\n').length} active patterns)`);
+        }
         if (recentMilestonesContext) console.log(`[Streaming Greeting] Recent milestones loaded (${recentMilestonesContext.split('\n').length} milestones)`);
         if (flashbackMemories) console.log(`[Streaming Greeting] Pre-session flashback loaded (${flashbackMemories.split('\n\n').length} memories)`);
       }

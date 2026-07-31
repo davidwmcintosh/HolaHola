@@ -153,6 +153,11 @@ export interface StreamingSession {
   __greetingInProgress?: boolean;
   __greetingDelivered?: boolean;
   greetingTriggeredByOrchestrator?: boolean;
+  /**
+   * Compact wobbling/pounding pattern signals carried from the greeting into mid-session.
+   * Refreshed after every RECORD_PATTERN_SIGNAL so the per-turn ACTFL anchor stays current.
+   */
+  activePatternSignals?: string | null;
   // Active secondary character (multi-character voice)
   activeCharacter?: {
     id: string;
