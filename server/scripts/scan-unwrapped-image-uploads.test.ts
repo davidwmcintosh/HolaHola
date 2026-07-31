@@ -205,6 +205,22 @@ describe('GCS guard — every upload call wrapped in normalizeImageUrl', () => {
     const hasGuard = mockLine.includes('normalizeImageUrl(');
     assert.ok(hasGuard, 'wrapped call must satisfy the guard');
   });
+
+  it('every path in EXCLUDED_FILES exists on disk (rename guard)', () => {
+    const missing: string[] = [];
+    for (const filePath of EXCLUDED_FILES) {
+      if (!fs.existsSync(filePath)) {
+        missing.push(path.relative(PROJECT_ROOT, filePath));
+      }
+    }
+    assert.equal(
+      missing.length,
+      0,
+      `EXCLUDED_FILES contains ${missing.length} path(s) that no longer exist on disk.\n` +
+      `Update the EXCLUDED_FILES constant to match the current file locations:\n` +
+      missing.map(p => `  ${p}`).join('\n'),
+    );
+  });
 });
 
 // ─── Meta-test: scanner end-to-end against a real temporary file ──────────────
