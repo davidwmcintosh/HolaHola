@@ -9255,6 +9255,92 @@ Return ONLY the ${targetLanguage} phrase:`;
             .where(eq(danielaOutboundQueue.id, targetQueueId));
 
           console.log(`[Route] recording-complete — transcript stored (${transcript.length} chars) for queue ${targetQueueId.slice(-6)}`);
+
+          // ── Save absence call to conversation_memories ─────────────────────
+          // Daniela needs to remember what the student told her on this call
+          // when they return to their next regular session. The topic scorer in
+          // session-compass-service will surface this memory for the right student
+          // because it contains their name and the content of their conversation.
+          if (userId) {
+            try {
+              // Build speaker-separated transcript from Deepgram word-level diarization.
+              // Speaker 0 = first speaker = Daniela (she initiates the call).
+              const words: Array<{ speaker?: number; word: string; punctuated_word?: string }> =
+                result?.results?.channels?.[0]?.alternatives?.[0]?.words ?? [];
+
+              let formattedTranscript = transcript; // fallback: raw combined transcript
+              if (words.length > 0 && words[0]?.speaker !== undefined) {
+                // Group consecutive same-speaker words into utterances
+                const utterances: Array<{ speaker: number; text: string }> = [];
+                let curSpeaker = words[0].speaker as number;
+                let curWords: string[] = [];
+                for (const w of words) {
+                  const sp = w.speaker as number;
+                  if (sp === curSpeaker) {
+                    curWords.push(w.punctuated_word || w.word);
+                  } else {
+                    utterances.push({ speaker: curSpeaker, text: curWords.join(' ') });
+                    curSpeaker = sp;
+                    curWords = [w.punctuated_word || w.word];
+                  }
+                }
+                if (curWords.length > 0) utterances.push({ speaker: curSpeaker, text: curWords.join(' ') });
+
+                const firstSpeaker = utterances[0]?.speaker ?? 0;
+                formattedTranscript = utterances
+                  .map(u => `${u.speaker === firstSpeaker ? 'Daniela' : 'Student'}: ${u.text}`)
+                  .join('\n');
+              }
+
+              // Fetch student name — non-fatal if missing
+              const { users: usersTable } = await import('@shared/schema');
+              const [userRow] = await db
+                .select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+                .from(usersTable)
+                .where(eq(usersTable.id, userId))
+                .limit(1);
+              const studentName = userRow
+                ? ([userRow.firstName, userRow.lastName].filter(Boolean).join(' ') || 'Student')
+                : 'Student';
+
+              // canonical conversation_memories format (approved July 12 2026):
+              // title: "With <Name> — <topic>"
+              // content: "With <Name> — <topic>\n\n---\n\n<dialogue>"
+              const memTitle = `With ${studentName} — Absence check-in call`;
+              const memContent = `${memTitle}\n\n---\n\n${formattedTranscript}`;
+              const memSummary = `Daniela called ${studentName} during an absence to check in. Call transcript preserved so Daniela can reference what the student shared when they return to class.`;
+
+              const { conversationMemories } = await import('@shared/schema');
+              const [savedMem] = await db
+                .insert(conversationMemories)
+                .values({
+                  title: memTitle,
+                  summary: memSummary,
+                  content: memContent,
+                  participants: `Daniela + ${studentName}`,
+                  entryType: 'conversation',
+                  // Tags: 'absence-call' makes it queryable; userId slice lets future
+                  // queries find this student's calls without a full table scan.
+                  tags: ['absence-call', 'student-interaction', `student:${userId}`],
+                  importance: 8,
+                })
+                .returning({ id: conversationMemories.id });
+
+              if (savedMem?.id) {
+                console.log(`[Route] recording-complete — absence call memory saved: ${savedMem.id} (user ${userId.slice(-6)})`);
+                try {
+                  const { reembedConversationMemory } = await import('./scripts/reembed-memory');
+                  await reembedConversationMemory(savedMem.id);
+                } catch (embedErr: any) {
+                  console.warn(`[Route] recording-complete — re-embed failed (non-fatal): ${embedErr.message}`);
+                }
+              }
+            } catch (memErr: any) {
+              // Non-fatal — the transcript is already saved to daniela_outbound_queue;
+              // a memory write failure must never cause the whole webhook to crash.
+              console.warn('[Route] recording-complete — conversation_memories write failed (non-fatal):', memErr.message);
+            }
+          }
         } catch (txErr: unknown) {
           console.error('[Route] recording-complete transcription error:', txErr instanceof Error ? txErr.message : String(txErr));
         }
