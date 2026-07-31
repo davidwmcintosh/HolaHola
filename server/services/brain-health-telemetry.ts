@@ -79,6 +79,8 @@ class BrainHealthTelemetry {
         console.warn('[BrainHealth] Flush error:', err.message);
       });
     }, this.FLUSH_INTERVAL_MS);
+    // unref so the interval does not block process exit in test environments
+    this.flushInterval.unref();
   }
 
   private generateRedundancyHash(userId: string, memoryIds: string[]): string {
