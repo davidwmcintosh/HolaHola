@@ -865,7 +865,7 @@ export class UsageService {
       .from(voiceSessions)
       .where(eq(voiceSessions.userId, userId))
       .orderBy(desc(voiceSessions.startedAt))
-      .limit(limit);
+      .limit(limit) as unknown as Promise<VoiceSession[]>;
   }
   
   /**

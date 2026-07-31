@@ -27,7 +27,7 @@ import { normalizeE164 } from '../services/voice-message-delivery';
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
-interface Row {
+interface Row extends Record<string, unknown> {
   id: string;
   user_id: string;
   phone: string;

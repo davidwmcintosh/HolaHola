@@ -36261,7 +36261,7 @@ Under 250 words. Write as yourself.`;
     let emitParticipantsDone: ((roomId: string) => void) | undefined;
     try {
       const { id } = req.params;
-      const { content, speaker = 'David', dismissedParticipants = [] } = req.body;
+      const { content, speaker = 'David', dismissedParticipants = [], studentUserId, studentLanguage } = req.body;
       console.log('[TeamRoom] POST message - room:', id, 'speaker:', speaker, 'content length:', content?.length ?? 0);
       if (!content) return res.status(400).json({ error: 'content is required' });
       const room = await storage.getTeamRoom(id);
@@ -36335,8 +36335,12 @@ Under 250 words. Write as yourself.`;
       const mentions = parseMentions(content, guestNames);
       const thinkingList = mentions && mentions.length > 0 ? mentions : ['alden', 'daniela', ...guestNames.map((n: string) => n.toLowerCase())];
       emitParticipantThinking(id, thinkingList);
+      // Resolve student context: prefer explicit request body fields, fall back to room metadata.
+      // This lets a student-focused room carry pattern signals without requiring every message payload to repeat them.
+      const resolvedStudentUserId = studentUserId || (room.metadata as any)?.focusedStudentId || undefined;
+      const resolvedStudentLanguage = studentLanguage || (room.metadata as any)?.focusedStudentLanguage || undefined;
       try {
-        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors, dismissedParticipants: [...new Set([...dismissedParticipants, 'agent'])] });
+        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors, dismissedParticipants: [...new Set([...dismissedParticipants, 'agent'])], studentUserId: resolvedStudentUserId, studentLanguage: resolvedStudentLanguage });
         const aiMessages = [];
         const expressLaneItems = [];
         const artifacts = [];
@@ -36745,7 +36749,7 @@ Under 250 words. Write as yourself.`;
     let emitParticipantsDone: ((roomId: string) => void) | undefined;
     try {
       const { id } = req.params;
-      const { content, speaker = 'Agent' } = req.body;
+      const { content, speaker = 'Agent', studentUserId: agentStudentUserId, studentLanguage: agentStudentLanguage } = req.body;
       if (!content) return res.status(400).json({ error: 'content is required' });
       const room = await storage.getTeamRoom(id);
       if (!room) return res.status(404).json({ error: 'Room not found' });
@@ -36759,8 +36763,11 @@ Under 250 words. Write as yourself.`;
       const mentions = parseMentions(content, guestNames);
       const thinkingList = mentions && mentions.length > 0 ? mentions : ['alden', 'daniela', ...guestNames.map((n: string) => n.toLowerCase())];
       emitParticipantThinking(id, thinkingList);
+      // Resolve student context: prefer explicit request body fields, fall back to room metadata.
+      const resolvedAgentStudentUserId = agentStudentUserId || (room.metadata as any)?.focusedStudentId || undefined;
+      const resolvedAgentStudentLanguage = agentStudentLanguage || (room.metadata as any)?.focusedStudentLanguage || undefined;
       try {
-        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors, dismissedParticipants: ['agent'] });
+        const evalResult = await evaluateAllParticipants({ roomId: id, topic: room.topic, newMessage: content, speaker, mentions, guestTutors, dismissedParticipants: ['agent'], studentUserId: resolvedAgentStudentUserId, studentLanguage: resolvedAgentStudentLanguage });
         const aiMessages = [];
         const expressLaneItems = [];
         const artifacts = [];

@@ -31,6 +31,7 @@ import { unifiedDanielaContext } from './unified-daniela-context-service';
 import { NativeFunctionCallHandler } from './native-fc-handlers';
 import { createDanielaTools } from './gemini-function-declarations';
 import { lookupLegacyType, buildFunctionContinuationResponse } from './daniela-function-registry';
+import { buildTextModeSystemPrompt } from './pattern-signal-context';
 
 const LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
 const CALL_TIMEOUT_MS = 45_000;
@@ -40,6 +41,12 @@ export interface DanielaLiveOptions {
   includeHiveContext?: boolean;
   includeNeuralNetwork?: boolean;
   enableTools?: boolean;
+  /**
+   * Active grammar pattern signals (wobbling/pounding compartments) for the student
+   * being discussed. When provided, appended to the system prompt so Daniela keeps
+   * her pattern map during Team Room colleague conversations about that student.
+   */
+  activePatternSignals?: string | null;
 }
 
 export interface DanielaLiveResult {
@@ -195,6 +202,7 @@ export async function callDanielaLive(
     includeHiveContext = false,
     includeNeuralNetwork = true,
     enableTools = false,
+    activePatternSignals,
   } = options;
 
   // Build Daniela's full data-layer context (same path as callDaniela)
@@ -208,9 +216,12 @@ export async function callDanielaLive(
     includeVoiceSummary: false,
   }).catch(() => '');
 
-  const systemPrompt = ['You are Daniela.', functionalContext, dataLayer]
+  const baseSystemPrompt = ['You are Daniela.', functionalContext, dataLayer]
     .filter(Boolean)
     .join('\n\n');
+
+  // Append pattern signals so Daniela keeps her student pattern map in the response
+  const systemPrompt = buildTextModeSystemPrompt(baseSystemPrompt, activePatternSignals);
 
   const tools = enableTools ? createDanielaTools(TEAM_ROOM_ALLOWED_TOOLS) : [];
   const mockSession = buildMockSession(userId);

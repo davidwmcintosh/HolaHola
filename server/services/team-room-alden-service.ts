@@ -1,6 +1,7 @@
 import { generateAldenResponse } from "./alden-persona-service";
 import { callDaniela } from "./daniela-caller";
 import { callDanielaLive } from "./daniela-team-room-live";
+import { fetchPatternSignalContext } from "./pattern-signal-context";
 import { storage } from "../storage";
 import { GoogleGenAI } from "@google/genai";
 import type { RoomVoiceMessage, RoomSessionSummary, RoomArtifact } from "@shared/schema";
@@ -323,9 +324,14 @@ async function getDanielaMemoryContext(): Promise<string> {
   }
 }
 
-async function evaluateDaniela(roomContext: string, speaker: string, newMessage: string, forceMention = false): Promise<ParticipantResponse> {
-  // Load memories once and build enriched context — same Daniela across all channels
-  const memoryContext = await getDanielaMemoryContext();
+async function evaluateDaniela(roomContext: string, speaker: string, newMessage: string, forceMention = false, studentUserId?: string, studentLanguage?: string): Promise<ParticipantResponse> {
+  // Load memories + pattern signals in parallel — same Daniela across all channels
+  const [memoryContext, patternSignals] = await Promise.all([
+    getDanielaMemoryContext(),
+    (studentUserId && studentLanguage)
+      ? fetchPatternSignalContext(studentUserId, studentLanguage)
+      : Promise.resolve(null),
+  ]);
   const danielaContext = memoryContext
     ? `${DANIELA_TEAM_ROOM_CONTEXT}${memoryContext}`
     : DANIELA_TEAM_ROOM_CONTEXT;
@@ -360,7 +366,7 @@ Respond ONLY in this JSON format:
   let handRaise: HandRaiseEvaluation = { shouldRaise: false, reasoning: 'not curriculum related', confidence: 'medium' };
 
   try {
-    const text = await callDaniela(danielaContext, evalPrompt, { includeHiveContext: true });
+    const text = await callDaniela(danielaContext, evalPrompt, { includeHiveContext: true, activePatternSignals: patternSignals });
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
@@ -404,6 +410,7 @@ EXPRESS: [specific insight or reflection if genuinely warranted — or "none"]`;
       userId: '49847136',
       includeHiveContext: true,
       enableTools: true,
+      activePatternSignals: patternSignals,
     });
     const text = result.transcript;
     const voiceMatch = text.match(/VOICE:\s*(.*?)(?=EXPRESS:|$)/s);
@@ -1408,8 +1415,11 @@ export async function evaluateAllParticipants(params: {
   mentions?: Participant[] | null;
   guestTutors?: GuestTutor[];
   dismissedParticipants?: string[];
+  /** Optional student context — when provided, Daniela gets pattern signals for that student */
+  studentUserId?: string;
+  studentLanguage?: string;
 }): Promise<RoomEvaluationResult> {
-  const { roomId, topic, newMessage, speaker, mentions, guestTutors = [], dismissedParticipants = [] } = params;
+  const { roomId, topic, newMessage, speaker, mentions, guestTutors = [], dismissedParticipants = [], studentUserId, studentLanguage } = params;
   const isDismissed = (name: string) => dismissedParticipants.map(d => d.toLowerCase()).includes(name.toLowerCase());
   const [roomContext, recentMessages] = await Promise.all([
     buildRoomContext(roomId, topic),
@@ -1450,7 +1460,7 @@ export async function evaluateAllParticipants(params: {
     evaluators.push(evaluateAlden(roomContext, speaker, newMessage, isNamed('alden')));
   }
   if (!isDismissed('daniela')) {
-    evaluators.push(evaluateDaniela(roomContext, speaker, newMessage, isNamed('daniela')));
+    evaluators.push(evaluateDaniela(roomContext, speaker, newMessage, isNamed('daniela'), studentUserId, studentLanguage));
   }
   // Monitors (Sofia, Lyra, Wren) stay silent during social sharing unless called by name
   if (!isSocialSharing && !isDismissed('sofia')) {
