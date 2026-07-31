@@ -48,17 +48,22 @@ function isBatchMemoryOnly(toolNames: string[], hasText: boolean): boolean {
 // Each element is { toolNames, hasText }.
 // Returns the consecutiveMemoryOnlyTurns value AND whether the nudge fired on
 // each turn (i.e., whether the limit was reached and there were response parts).
+// textMemoryNudgeSent mirrors glMemoryNudgeSent: the nudge fires at most once
+// per streak and resets when the streak breaks (non-memory tool or text produced).
 function simulateGuard(
   batches: Array<{ toolNames: string[]; hasText: boolean; hasResponseParts?: boolean }>,
 ): Array<{ counter: number; nudgeFired: boolean }> {
   let counter = 0;
+  let nudgeSent = false;
   return batches.map(({ toolNames, hasText, hasResponseParts = true }) => {
     if (isBatchMemoryOnly(toolNames, hasText)) {
       counter++;
     } else {
       counter = 0;
+      nudgeSent = false;
     }
-    const nudgeFired = counter >= MEMORY_CHAIN_LIMIT && hasResponseParts;
+    const nudgeFired = !nudgeSent && counter >= MEMORY_CHAIN_LIMIT && hasResponseParts;
+    if (nudgeFired) nudgeSent = true;
     return { counter, nudgeFired };
   });
 }
@@ -222,16 +227,18 @@ describe('Test 3 — three consecutive guarded-tool-only batches fire the backst
     assert.equal(b.nudgeFired, false);
   });
 
-  it('nudge fires again on turn 4+ when no text is produced (streak continues)', () => {
+  it('nudge fires exactly once even when the streak continues past the limit', () => {
     const batches = [
       { toolNames: ['recall'], hasText: false },
       { toolNames: ['recall'], hasText: false },
       { toolNames: ['recall'], hasText: false },
-      { toolNames: ['recall'], hasText: false }, // turn 4
+      { toolNames: ['recall'], hasText: false }, // turn 4 — streak continues but nudgeSent=true
     ];
     const results = simulateGuard(batches);
-    assert.equal(results[2].nudgeFired, true, 'fires at turn 3');
-    assert.equal(results[3].nudgeFired, true, 'fires again at turn 4 (counter > limit)');
+    assert.equal(results[2].nudgeFired, true, 'nudge fires at turn 3 (first time limit is reached)');
+    assert.equal(results[3].nudgeFired, false, 'nudge must NOT fire again at turn 4 (textMemoryNudgeSent gate)');
+    const nudgeCount = results.filter(r => r.nudgeFired).length;
+    assert.equal(nudgeCount, 1, 'text-mode nudge must fire exactly once per streak (matches GL behaviour)');
   });
 
   it('nudge does not fire when response parts are absent (empty tool response)', () => {

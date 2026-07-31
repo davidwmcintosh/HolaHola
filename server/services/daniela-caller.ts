@@ -223,7 +223,10 @@ export async function runDanielaFCLoop({
   // Daniela to respond — so she doesn't burn all turns retrieving and go silent.
   // The system prompt gives her a soft internal limit at 2 lookups; this code
   // backstop fires at 3 as the hard enforcement layer.
+  // textMemoryNudgeSent mirrors glMemoryNudgeSent in gemini-live-session.ts:
+  // the nudge fires at most once per streak and resets when the streak breaks.
   let consecutiveMemoryOnlyTurns = 0;
+  let textMemoryNudgeSent = false;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const result = await gemini.models.generateContent({
@@ -379,15 +382,17 @@ export async function runDanielaFCLoop({
     const allMemoryTools = fcParts.every((p: any) => MEMORY_TOOL_NAMES.has(p.functionCall?.name));
     if (allMemoryTools && !textContent) {
       consecutiveMemoryOnlyTurns++;
-      if (consecutiveMemoryOnlyTurns >= MEMORY_CHAIN_LIMIT && functionResponseParts.length > 0) {
+      if (!textMemoryNudgeSent && consecutiveMemoryOnlyTurns >= MEMORY_CHAIN_LIMIT && functionResponseParts.length > 0) {
         const last = functionResponseParts[functionResponseParts.length - 1];
         const existing = last?.functionResponse?.response?.output?.[0]?.text ?? '';
         last.functionResponse.response.output[0].text = existing + MEMORY_CHAIN_NUDGE_TEXT;
-        console.log(`[MemoryChainGuard] Turn ${turn}: ${consecutiveMemoryOnlyTurns} consecutive memory-only turns — nudge appended.`);
+        textMemoryNudgeSent = true;
+        console.log(`[MemoryChainGuard] Turn ${turn}: ${consecutiveMemoryOnlyTurns} consecutive memory-only turns — nudge appended (once per streak).`);
       }
     } else {
       // Non-memory tool fired or text was produced — reset the streak
       consecutiveMemoryOnlyTurns = 0;
+      textMemoryNudgeSent = false;
     }
 
     // ── Inject tool response turn ─────────────────────────────────────────────

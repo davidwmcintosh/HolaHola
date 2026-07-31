@@ -21,7 +21,7 @@ import assert from 'node:assert/strict';
 
 import { NativeFunctionCallHandler } from '../services/native-fc-handlers.js';
 import type { StreamingSession } from '../services/streaming-session-types.js';
-import { getSharedDb } from '../db.js';
+import { getSharedDb, closeDbConnections } from '../db.js';
 import { compartmentEvents, compartmentInstallation, users } from '@shared/schema.js';
 import { eq, and } from 'drizzle-orm';
 
@@ -93,6 +93,7 @@ describe('RECORD_PATTERN_SIGNAL handler → DB integration', () => {
 
   after(async () => {
     await cleanRows(testUserId, language, patternKey);
+    await closeDbConnections();
   });
 
   // ── Event type coverage ────────────────────────────────────────────────────

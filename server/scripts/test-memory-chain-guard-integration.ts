@@ -196,7 +196,7 @@ async function testNudgeAbsentWhenNonMemoryToolBreaksStreak() {
 }
 
 async function testNudgeFiresOnEachTurnAtOrBeyondLimit() {
-  const name = 'nudge fires on each turn at or beyond MEMORY_CHAIN_LIMIT (text-mode has no once-only gate)';
+  const name = 'nudge fires exactly once per streak even when streak extends beyond MEMORY_CHAIN_LIMIT (matches GL once-only gate)';
   const messages: any[] = [
     { role: 'user', parts: [{ text: 'Tell me everything you know about me.' }] },
   ];
@@ -221,17 +221,18 @@ async function testNudgeFiresOnEachTurnAtOrBeyondLimit() {
 
   const toolTexts = collectToolResponseTexts(messages);
   const nudgeCount = toolTexts.filter(t => t.includes(MEMORY_CHAIN_NUDGE_TEXT)).length;
-  // Text-mode fires the nudge on every turn ≥ MEMORY_CHAIN_LIMIT (no glMemoryNudgeSent flag).
-  // With totalMemoryTurns = MEMORY_CHAIN_LIMIT + extraTurns, nudge fires on extraTurns+1 turns.
-  const expectedNudgeCount = extraTurns + 1;
+  // Text-mode now fires the nudge at most once per streak (textMemoryNudgeSent flag),
+  // matching the GL glMemoryNudgeSent gate. Even with extraTurns beyond the limit,
+  // only 1 nudge should appear in the tool-response history.
+  const expectedNudgeCount = 1;
   if (nudgeCount !== expectedNudgeCount) {
     return fail(
       name,
-      `Expected ${expectedNudgeCount} nudge occurrences (one per turn at/beyond limit), got ${nudgeCount}. ` +
-      `If the guard was changed to fire only once (like GL), update expectedNudgeCount to 1.`,
+      `Expected exactly ${expectedNudgeCount} nudge occurrence (once-per-streak gate), got ${nudgeCount}. ` +
+      `Check that textMemoryNudgeSent is set on first fire and reset when the streak breaks.`,
     );
   }
-  pass(name, `${nudgeCount} nudge(s) as expected (one per turn at/beyond limit)`);
+  pass(name, `${nudgeCount} nudge occurrence — once-per-streak gate working correctly`);
 }
 
 async function testGuardSensitiveToMEMORY_TOOL_NAMES() {
