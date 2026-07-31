@@ -33399,6 +33399,44 @@ You have full access to your neural network knowledge.
     }
   });
 
+  // TEST SMS PIPELINE: Queue a test voice message and trigger immediate delivery
+  app.post("/api/admin/test-voice-sms", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
+    try {
+      const { userId, message } = req.body;
+      if (!userId || typeof userId !== 'string') {
+        return res.status(400).json({ error: 'userId is required' });
+      }
+      const content = (typeof message === 'string' && message.trim())
+        ? message.trim()
+        : "¡Hola! I was thinking about our last session and wanted to leave you a little voice note before we meet again. See you soon!";
+
+      const db = getSharedDb();
+      const [row] = await db.insert(danielaOutboundQueue).values({
+        userId,
+        content,
+      }).returning({ id: danielaOutboundQueue.id });
+
+      const queueId = row.id;
+      const appUrl = process.env.APP_URL || 'https://getholahola.com';
+      const playbackUrl = `${appUrl}/vm/${queueId}`;
+
+      // Fire-and-forget: errors are logged inside deliverVoiceMessageViaSms
+      const { deliverVoiceMessageViaSms } = await import('./services/voice-message-delivery');
+      deliverVoiceMessageViaSms(queueId, userId, content).catch((err: any) =>
+        console.error('[TestVoiceSms] Delivery error:', err.message)
+      );
+
+      res.json({
+        queueId,
+        playbackUrl,
+        message: 'Queued and delivery triggered. Check server logs for SMS/audio status.',
+      });
+    } catch (error: any) {
+      console.error('[TestVoiceSms] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // EXPRESS LANE: Get current collaboration context
   app.get("/api/express-lane/context", async (req: any, res: Response) => {
     try {

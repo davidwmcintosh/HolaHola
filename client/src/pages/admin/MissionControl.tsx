@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Maximize2,
   Minimize2,
@@ -14,6 +16,10 @@ import {
   CheckCircle,
   Clock,
   Loader2,
+  Send,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
 } from "lucide-react";
 import { ConferenceCall } from "@/components/ConferenceCall";
 import { ExpressLanePane } from "@/components/ExpressLanePane";
@@ -46,6 +52,104 @@ function NudgeBadge() {
     >
       {count}
     </Badge>
+  );
+}
+
+function TestVoiceSmsPanel() {
+  const [open, setOpen] = useState(false);
+  const [userId, setUserId] = useState("");
+  const [message, setMessage] = useState("");
+  const [result, setResult] = useState<{ queueId: string; playbackUrl: string; message: string } | null>(null);
+
+  const { mutate, isPending, isError, error } = useMutation<
+    { queueId: string; playbackUrl: string; message: string },
+    Error,
+    { userId: string; message: string }
+  >({
+    mutationFn: async (body) => {
+      const res = await fetch("/api/admin/test-voice-sms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || res.statusText);
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setResult(data);
+    },
+  });
+
+  const fire = () => {
+    setResult(null);
+    mutate({ userId: userId.trim(), message: message.trim() });
+  };
+
+  return (
+    <div className="border-t pt-3 mt-3" data-testid="test-sms-panel">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground w-full text-left"
+        data-testid="button-toggle-test-sms"
+      >
+        <Send className="h-3.5 w-3.5 text-amber-500" />
+        Test SMS Pipeline
+        {open ? <ChevronUp className="h-3 w-3 ml-auto" /> : <ChevronDown className="h-3 w-3 ml-auto" />}
+      </button>
+
+      {open && (
+        <div className="mt-2 flex flex-col gap-2">
+          <Input
+            placeholder="Student user ID"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            className="h-7 text-xs"
+            data-testid="input-test-sms-userid"
+          />
+          <Textarea
+            placeholder="Message (leave blank for default)"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            className="text-xs min-h-[60px] resize-none"
+            data-testid="input-test-sms-message"
+          />
+          <Button
+            size="sm"
+            className="h-7 text-xs"
+            onClick={fire}
+            disabled={isPending || !userId.trim()}
+            data-testid="button-fire-test-sms"
+          >
+            {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Send className="h-3.5 w-3.5 mr-1" />}
+            Fire Test
+          </Button>
+
+          {isError && (
+            <p className="text-xs text-red-500" data-testid="test-sms-error">{(error as Error).message}</p>
+          )}
+
+          {result && (
+            <div className="rounded-md bg-green-500/10 p-2 space-y-1" data-testid="test-sms-result">
+              <p className="text-xs text-green-700 dark:text-green-400">{result.message}</p>
+              <a
+                href={result.playbackUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 underline break-all"
+                data-testid="link-test-sms-playback"
+              >
+                <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                {result.playbackUrl}
+              </a>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -131,6 +235,8 @@ function VoiceHealthPane() {
           </div>
         </div>
       )}
+
+      <TestVoiceSmsPanel />
     </div>
   );
 }
