@@ -1,8 +1,67 @@
 # Alden → Agent Notes
 
-*39 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*41 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 7/31/2026, 6:46:09 AM
+Generated: 7/31/2026, 2:34:17 PM
+
+---
+
+### [Sofia] Brain/memory health degraded: green → yellow
+*Fri, Jul 31, 2026, 11:17 AM* (id: `4148d64b-20d6-4f09-9489-eb0f205b4c42`)
+*During: Sofia Health Monitor*
+
+Brain/memory health transitioned green → yellow (degraded).
+
+Reasons:
+• [Neural Retrieval] Assessment error: Failed query: select count(*) from "self_best_practices"
+params: 
+• [Neural Sync] Assessment error: Failed query: select "id", "best_practice_id", "source_environment", "target_environment", "status", "submitted_by", "reviewed_by", "review_notes", "submitted_at", "reviewed_at" from "promotion_queue" where "promotion_queue"."status" = $1
+params: pending
+• [Student Learning] Assessment error: Failed query: select "user_id" from "brain_events" where ("brain_events"."user_id" IS NOT NULL and "brain_events"."created_at" >= $1)
+params: 2026-07-01T11:15:33.378Z
+• [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-07-30T11:15:33.378Z
+
+Sofia's analysis: Brain health degraded: green → yellow. 1 actions taken. [Neural Retrieval] Assessment error: Failed query: select count(*) from "self_best_practices"
+params: ; [Neural Sync] Assessment error: Failed query: select "id", "best_practice_id", "source_environment", "target_environment", "status", "submitted_by", "reviewed_by", "review_notes", "submitted_at", "reviewed_at" from "promotion_queue" where "promotion_queue"."status" = $1
+params: pending; [Student Learning] Assessment error: Failed query: select "user_id" from "brain_events" where ("brain_events"."user_id" IS NOT NULL and "brain_events"."created_at" >= $1)
+params: 2026-07-01T11:15:33.378Z; [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-07-30T11:15:33.378Z
+
+Actions taken:
+• trigger_memory_recovery: {"candidatesProcessed":0,"factsExtracted":0,"candidatesSkipped":0,"errors":[],"durationMs":599}
+
+Check voice session logs and the open-bugs list for related incidents.
+
+---
+
+### [Sofia] Brain/memory health degraded: green → yellow
+*Fri, Jul 31, 2026, 7:48 AM* (id: `7ca9ed24-c63e-4cc9-92c4-4aac4b5cc735`)
+*During: Sofia Health Monitor*
+
+Brain/memory health transitioned green → yellow (degraded).
+
+Reasons:
+• [Neural Retrieval] Assessment error: Failed query: select count(*) from "cultural_nuances" where "cultural_nuances"."is_active" = $1
+params: true
+• [Neural Sync] Assessment error: Failed query: select "id", "best_practice_id", "source_environment", "target_environment", "status", "submitted_by", "reviewed_by", "review_notes", "submitted_at", "reviewed_at" from "promotion_queue" where "promotion_queue"."status" = $1
+params: pending
+
+Sofia's analysis: Brain health degraded from **green to yellow** due to systemic database query failures across multiple dimensions, including **Neural Retrieval** (`cultural_nuances`) and **Neural Sync** (`promotion_queue`). While manual diagnostics confirm that pedagogical data exists (e.g., 1,836 total knowledge items), the automated health assessment and sync pipeline are consistently failing to query these tables, and the sync loop is reporting a `null` last sync time.
+
+**Actions taken:**
+- **Memory Recovery:** Triggered `memory_recovery` to address 78% sparse student memory; however, 0 candidates were processed, suggesting an upstream extraction or sync failure.
+- **Pattern Tracking:** Logged `brain_db_query_failures` as a recurring pattern affecting automated monitoring.
+- **Escalation:** Escalated to the founder (High Severity) as these persistent database connectivity/permission issues are blinding the health monitor and potentially stalling the learning loop.
+
+No further auto-remediation is possible until the underlying database access issue for the brain health service is resolved.
+
+Actions taken:
+• trigger_memory_recovery: {"candidatesProcessed":0,"factsExtracted":0,"candidatesSkipped":0,"errors":[],"durationMs":329}
+• track_pattern: {"tracked":true,"pattern_type":"brain_db_query_failures","recentDigests":5}
+• escalate_to_founder: {"escalated":true,"severity":"high"}
+
+Check voice session logs and the open-bugs list for related incidents.
 
 ---
 
