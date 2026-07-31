@@ -3060,9 +3060,8 @@ ${lastNote.tutorNotes}`);
                         absenceReturn = await autoResolveAbsenceNudgeOnReturn(String(userId));
                         if (absenceReturn) {
                           console.log(`[GeminiLive] ✓ Student returning after ${absenceReturn.daysSinceLastSession} day(s) absence — injecting into synthesis`);
-                          // Persist the returning-student signal on the voice_sessions row so the
-                          // founder view can surface a "Returned after N days" indicator.
-                          // Non-fatal — GL session continues even if the DB write fails.
+                          // Fire-and-forget: persist the returning-student flag on the voice_sessions
+                          // row so the founder view can surface a "Returned after N days" indicator.
                           if (dbSessionId) {
                             db.update(voiceSessions)
                               .set({
@@ -3373,14 +3372,17 @@ ${lastNote.tutorNotes}`);
               // Founder-mode sessions are David's admin/test sessions — skip them.
               if (userId && !isFounderMode) {
                 const _textModeDbSessionId = dbSessionId;
-                // Stored so request_greeting can await it — prevents the greeting from
-                // firing before __textModeAbsenceSynthesis is set on fast reconnects.
+                // Store the promise so request_greeting can await it before prompt assembly.
+                // Without this, request_greeting can fire before __textModeAbsenceSynthesis
+                // is set and silently miss the absence warmth on fast/reconnect paths.
                 (session as any).__textModeAbsencePromise = (async () => {
                   try {
                     const absenceReturn = await autoResolveAbsenceNudgeOnReturn(String(userId));
                     if (absenceReturn) {
                       console.log(`[TextMode] ✓ Student returning after ${absenceReturn.daysSinceLastSession} day(s) absence — nudge resolved`);
-                      if (compassContext && session) {
+                      // Build synthesis first so the warm returning-student context reaches
+                      // the greeting. Founder sessions are skipped (!isFounderMode guard).
+                      if (compassContext && session && !isFounderMode) {
                         const synthesisNote = await generatePreSessionSynthesis(
                           compassContext,
                           tutorName,
@@ -3393,8 +3395,8 @@ ${lastNote.tutorNotes}`);
                           console.log(`[TextMode] ✓ Absence-return synthesis stored for greeting (${synthesisNote.length} chars)`);
                         }
                       }
-                      // Persist the returning-student signal on the voice_sessions row so
-                      // the founder view can surface a "Returned after N days" indicator.
+                      // Fire-and-forget: persist the returning-student flag on the voice_sessions
+                      // row so the founder view can surface a "Returned after N days" indicator.
                       if (_textModeDbSessionId) {
                         db.update(voiceSessions)
                           .set({

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, index, uniqueIndex, jsonb, pgEnum, date, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, index, uniqueIndex, jsonb, pgEnum, date, doublePrecision, check } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -9340,13 +9340,19 @@ export const danielaAbsenceNudges = pgTable("daniela_absence_nudges", {
   userId: varchar("user_id").notNull(),
   notifiedAt: timestamp("notified_at").notNull().defaultNow(),
   resolvedAt: timestamp("resolved_at"),         // null = Daniela hasn't acted yet
-  resolutionType: varchar("resolution_type"),   // 'message_queued' | 'dismissed' | 'student_returned'
+  // Allowed values: 'message_queued' | 'dismissed' | 'student_returned'
+  // Enforced at DB level by chk_daniela_absence_nudges_resolution_type below.
+  resolutionType: varchar("resolution_type"),
   suppressUntil: timestamp("suppress_until"),   // if Daniela snoozes, no re-nudge before this
   lastSessionDate: timestamp("last_session_date"),
   daysSinceLastSession: integer("days_since_last_session"),
 }, (table) => [
   index("idx_daniela_absence_nudges_user").on(table.userId),
   index("idx_daniela_absence_nudges_resolved").on(table.resolvedAt),
+  check(
+    "chk_daniela_absence_nudges_resolution_type",
+    sql`${table.resolutionType} IS NULL OR ${table.resolutionType} IN ('message_queued', 'dismissed', 'student_returned')`,
+  ),
 ]);
 
 export const insertDanielaAbsenceNudgeSchema = createInsertSchema(danielaAbsenceNudges).omit({ id: true, notifiedAt: true });
