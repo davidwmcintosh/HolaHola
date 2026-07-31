@@ -1,19 +1,19 @@
 /**
- * Unit tests for the grammar-correction blank-card guard.
+ * Unit tests for the grammar correction card blank-render guard.
  *
  * Two guard layers exist in production:
  *
- *  Layer 1 — useStreamingVoice.ts `handleGrammarFlagShown` (~line 1550)
- *    Drops the message before the callback fires when `original` or `corrected`
- *    is missing or whitespace-only.
+ *  Layer 1 — useStreamingVoice.ts `handleGrammarFlagShown` (~line 1562)
+ *    Drops the message before the callback fires when original, corrected, or
+ *    explanation is missing or whitespace-only.
  *
- *  Layer 2 — StreamingVoiceChat.tsx `onGrammarFlagShown` (~line 1243)
+ *  Layer 2 — StreamingVoiceChat.tsx `onGrammarFlagShown` (~line 1248)
  *    Secondary guard: if a whitespace-only value somehow reaches the component
  *    callback, it calls toast() and returns early without calling setGrammarFlag.
  *
  * Both layers are tested here using extracted standalone functions that mirror
- * the production logic verbatim.  If the component guard changes, update the
- * mirror below to match.
+ * the production logic verbatim.  If either guard changes, update the mirror
+ * below to match.
  *
  * Run with:
  *   npx tsx --test client/src/components/grammar-correction-blank-guard.test.ts
@@ -25,8 +25,7 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 // ---------------------------------------------------------------------------
-// Mirror of Layer 1 — useStreamingVoice.ts handleGrammarFlagShown
-// Verbatim port of the guard.
+// Types
 // ---------------------------------------------------------------------------
 
 interface GrammarFlagData {
@@ -38,6 +37,11 @@ interface GrammarFlagData {
   timestamp?: number;
 }
 
+// ---------------------------------------------------------------------------
+// Mirror of Layer 1 — useStreamingVoice.ts handleGrammarFlagShown
+// Verbatim port of the guard logic.
+// ---------------------------------------------------------------------------
+
 /**
  * Mirrors the hook-level guard in useStreamingVoice.ts.
  * Returns the data object when valid, or null when the message is rejected.
@@ -47,10 +51,9 @@ function hookGuard(
 ): GrammarFlagData | null {
   if (!message.data) return null;
   const d = message.data;
-  if (
-    !d.original  || typeof d.original  !== 'string' || !d.original.trim() ||
-    !d.corrected || typeof d.corrected !== 'string' || !d.corrected.trim()
-  ) {
+  if (!d.original || typeof d.original !== 'string' || !d.original.trim() ||
+      !d.corrected || typeof d.corrected !== 'string' || !d.corrected.trim() ||
+      !d.explanation || typeof d.explanation !== 'string' || !d.explanation.trim()) {
     return null; // malformed — drop
   }
   return d as GrammarFlagData;
@@ -58,7 +61,7 @@ function hookGuard(
 
 // ---------------------------------------------------------------------------
 // Mirror of Layer 2 — StreamingVoiceChat.tsx onGrammarFlagShown callback
-// Verbatim port of the guard.
+// Verbatim port of the guard logic.
 // ---------------------------------------------------------------------------
 
 /**
@@ -72,7 +75,7 @@ function componentGuard(
   toast: (opts: { title: string; description: string; variant: string }) => void,
   setGrammarFlag: (d: GrammarFlagData) => void,
 ): 'set' | 'toast' {
-  if (!data.original || !data.original.trim() || !data.corrected || !data.corrected.trim()) {
+  if (!data.original || !data.original.trim() || !data.corrected || !data.corrected.trim() || !data.explanation || !data.explanation.trim()) {
     toast({
       title: 'Grammar correction unavailable',
       description: 'Daniela sent an incomplete grammar correction card — skipping.',
@@ -110,6 +113,18 @@ function makeSetFlagSpy(): {
   };
 }
 
+function validData(overrides: Partial<GrammarFlagData> = {}): GrammarFlagData {
+  return {
+    id: 'gf-1',
+    original: 'yo soy estudiante',
+    corrected: 'yo soy un estudiante',
+    explanation: 'Use the indefinite article "un" before a profession or role.',
+    ruleLabel: 'Articles',
+    timestamp: Date.now(),
+    ...overrides,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Tests — Layer 1 (hook guard)
 // ---------------------------------------------------------------------------
@@ -122,7 +137,7 @@ describe('Layer 1 — useStreamingVoice hook guard (handleGrammarFlagShown)', ()
     const result = hookGuard({
       type: 'grammar_flag_shown',
       timestamp: Date.now(),
-      data: { original: '   ', corrected: 'Yo fui al mercado.', explanation: 'Use pretérito indefinido.' },
+      data: { original: '   ', corrected: 'yo soy un estudiante', explanation: 'Use article.' },
     });
     assert.equal(result, null, 'Expected null for whitespace-only original');
   });
@@ -131,16 +146,25 @@ describe('Layer 1 — useStreamingVoice hook guard (handleGrammarFlagShown)', ()
     const result = hookGuard({
       type: 'grammar_flag_shown',
       timestamp: Date.now(),
-      data: { original: 'Yo iba al mercado.', corrected: '\t\n', explanation: 'Use pretérito indefinido.' },
+      data: { original: 'yo soy estudiante', corrected: '\t\n', explanation: 'Use article.' },
     });
     assert.equal(result, null, 'Expected null for whitespace-only corrected');
+  });
+
+  it('rejects when explanation is whitespace-only ("  ")', () => {
+    const result = hookGuard({
+      type: 'grammar_flag_shown',
+      timestamp: Date.now(),
+      data: { original: 'yo soy estudiante', corrected: 'yo soy un estudiante', explanation: '  ' },
+    });
+    assert.equal(result, null, 'Expected null for whitespace-only explanation');
   });
 
   it('rejects when original is an empty string', () => {
     const result = hookGuard({
       type: 'grammar_flag_shown',
       timestamp: Date.now(),
-      data: { original: '', corrected: 'Yo fui al mercado.', explanation: 'Use pretérito indefinido.' },
+      data: { original: '', corrected: 'yo soy un estudiante', explanation: 'Use article.' },
     });
     assert.equal(result, null, 'Expected null for empty original');
   });
@@ -149,16 +173,25 @@ describe('Layer 1 — useStreamingVoice hook guard (handleGrammarFlagShown)', ()
     const result = hookGuard({
       type: 'grammar_flag_shown',
       timestamp: Date.now(),
-      data: { original: 'Yo iba al mercado.', corrected: '', explanation: 'Use pretérito indefinido.' },
+      data: { original: 'yo soy estudiante', corrected: '', explanation: 'Use article.' },
     });
     assert.equal(result, null, 'Expected null for empty corrected');
+  });
+
+  it('rejects when explanation is an empty string', () => {
+    const result = hookGuard({
+      type: 'grammar_flag_shown',
+      timestamp: Date.now(),
+      data: { original: 'yo soy estudiante', corrected: 'yo soy un estudiante', explanation: '' },
+    });
+    assert.equal(result, null, 'Expected null for empty explanation');
   });
 
   it('rejects when original is missing (undefined)', () => {
     const result = hookGuard({
       type: 'grammar_flag_shown',
       timestamp: Date.now(),
-      data: { corrected: 'Yo fui al mercado.', explanation: 'Use pretérito indefinido.' } as any,
+      data: { corrected: 'yo soy un estudiante', explanation: 'Use article.' } as any,
     });
     assert.equal(result, null, 'Expected null for missing original');
   });
@@ -167,18 +200,18 @@ describe('Layer 1 — useStreamingVoice hook guard (handleGrammarFlagShown)', ()
     const result = hookGuard({
       type: 'grammar_flag_shown',
       timestamp: Date.now(),
-      data: { original: 'Yo iba al mercado.', explanation: 'Use pretérito indefinido.' } as any,
+      data: { original: 'yo soy estudiante', explanation: 'Use article.' } as any,
     });
     assert.equal(result, null, 'Expected null for missing corrected');
   });
 
-  it('rejects when both original and corrected are whitespace-only', () => {
+  it('rejects when explanation is missing (undefined)', () => {
     const result = hookGuard({
       type: 'grammar_flag_shown',
       timestamp: Date.now(),
-      data: { original: '  ', corrected: '  ', explanation: 'Some explanation.' },
+      data: { original: 'yo soy estudiante', corrected: 'yo soy un estudiante' } as any,
     });
-    assert.equal(result, null, 'Expected null for both whitespace-only');
+    assert.equal(result, null, 'Expected null for missing explanation');
   });
 
   it('rejects when data is null', () => {
@@ -194,67 +227,57 @@ describe('Layer 1 — useStreamingVoice hook guard (handleGrammarFlagShown)', ()
     const result = hookGuard({
       type: 'grammar_flag_shown',
       timestamp: Date.now(),
-      data: { original: 42 as any, corrected: 'Yo fui al mercado.', explanation: 'Use pretérito indefinido.' },
+      data: { original: 42 as any, corrected: 'yo soy un estudiante', explanation: 'Use article.' },
     });
     assert.equal(result, null, 'Expected null for non-string original');
   });
 
-  it('rejects when corrected is a non-string type (number)', () => {
+  it('rejects when all three required fields are whitespace-only', () => {
     const result = hookGuard({
       type: 'grammar_flag_shown',
       timestamp: Date.now(),
-      data: { original: 'Yo iba al mercado.', corrected: 99 as any, explanation: 'Use pretérito indefinido.' },
+      data: { original: '  ', corrected: '  ', explanation: '  ' },
     });
-    assert.equal(result, null, 'Expected null for non-string corrected');
+    assert.equal(result, null, 'Expected null for all whitespace-only fields');
   });
 
   // ── Acceptance cases ────────────────────────────────────────────────────
 
-  it('accepts valid original and corrected, returning the data object', () => {
-    const data = {
-      original: 'Yo iba al mercado.',
-      corrected: 'Yo fui al mercado.',
-      explanation: 'Use pretérito indefinido for completed past actions.',
-    };
+  it('accepts valid original, corrected, and explanation, returning the data object', () => {
+    const data = validData();
     const result = hookGuard({
       type: 'grammar_flag_shown',
       timestamp: Date.now(),
       data,
     });
     assert.ok(result !== null, 'Expected data object, got null');
-    assert.equal(result!.original, 'Yo iba al mercado.');
-    assert.equal(result!.corrected, 'Yo fui al mercado.');
+    assert.equal(result!.original, 'yo soy estudiante');
+    assert.equal(result!.corrected, 'yo soy un estudiante');
+    assert.equal(result!.explanation, 'Use the indefinite article "un" before a profession or role.');
   });
 
-  it('accepts data with optional fields (ruleLabel, id)', () => {
-    const data = {
-      id: 'gf-1',
-      original: 'Yo iba al mercado.',
-      corrected: 'Yo fui al mercado.',
-      explanation: 'Use pretérito indefinido.',
-      ruleLabel: 'Preterite vs. Imperfect',
-    };
+  it('accepts data with optional fields (ruleLabel, id, timestamp)', () => {
+    const data = validData({ ruleLabel: 'Articles', id: 'gf-99' });
     const result = hookGuard({
       type: 'grammar_flag_shown',
       timestamp: Date.now(),
       data,
     });
     assert.ok(result !== null, 'Expected data object, got null');
-    assert.equal(result!.ruleLabel, 'Preterite vs. Imperfect');
+    assert.equal(result!.ruleLabel, 'Articles');
   });
 
-  it('accepts original/corrected that have leading/trailing whitespace around real content', () => {
-    const data = {
-      original: '  Yo iba al mercado.  ',
-      corrected: '  Yo fui al mercado.  ',
-      explanation: 'Use pretérito indefinido.',
-    };
+  it('accepts fields that have leading/trailing whitespace around real content', () => {
     const result = hookGuard({
       type: 'grammar_flag_shown',
       timestamp: Date.now(),
-      data,
+      data: {
+        original: '  yo soy estudiante  ',
+        corrected: '  yo soy un estudiante  ',
+        explanation: '  Use article.  ',
+      },
     });
-    assert.ok(result !== null, 'A string with surrounding whitespace around content should pass');
+    assert.ok(result !== null, 'Fields with surrounding whitespace around real content should pass');
   });
 });
 
@@ -276,7 +299,7 @@ describe('Layer 2 — StreamingVoiceChat component guard (onGrammarFlagShown)', 
 
   it('calls toast and does NOT set card when original is whitespace-only', () => {
     const outcome = componentGuard(
-      { original: '   ', corrected: 'Yo fui al mercado.', explanation: 'Use pretérito indefinido.' },
+      { original: '   ', corrected: 'yo soy un estudiante', explanation: 'Use article.' },
       toastSpy.fn,
       setFlagSpy.fn,
     );
@@ -287,7 +310,18 @@ describe('Layer 2 — StreamingVoiceChat component guard (onGrammarFlagShown)', 
 
   it('calls toast and does NOT set card when corrected is whitespace-only', () => {
     const outcome = componentGuard(
-      { original: 'Yo iba al mercado.', corrected: '\n  \t', explanation: 'Use pretérito indefinido.' },
+      { original: 'yo soy estudiante', corrected: '\n  \t', explanation: 'Use article.' },
+      toastSpy.fn,
+      setFlagSpy.fn,
+    );
+    assert.equal(outcome, 'toast');
+    assert.equal(toastSpy.calls.length, 1, 'toast() should fire once');
+    assert.equal(setFlagSpy.calls.length, 0, 'setGrammarFlag() must NOT be called');
+  });
+
+  it('calls toast and does NOT set card when explanation is whitespace-only', () => {
+    const outcome = componentGuard(
+      { original: 'yo soy estudiante', corrected: 'yo soy un estudiante', explanation: '   ' },
       toastSpy.fn,
       setFlagSpy.fn,
     );
@@ -298,7 +332,7 @@ describe('Layer 2 — StreamingVoiceChat component guard (onGrammarFlagShown)', 
 
   it('calls toast and does NOT set card when original is empty string', () => {
     const outcome = componentGuard(
-      { original: '', corrected: 'Yo fui al mercado.', explanation: 'Use pretérito indefinido.' },
+      { original: '', corrected: 'yo soy un estudiante', explanation: 'Use article.' },
       toastSpy.fn,
       setFlagSpy.fn,
     );
@@ -309,7 +343,7 @@ describe('Layer 2 — StreamingVoiceChat component guard (onGrammarFlagShown)', 
 
   it('calls toast and does NOT set card when corrected is empty string', () => {
     const outcome = componentGuard(
-      { original: 'Yo iba al mercado.', corrected: '', explanation: 'Use pretérito indefinido.' },
+      { original: 'yo soy estudiante', corrected: '', explanation: 'Use article.' },
       toastSpy.fn,
       setFlagSpy.fn,
     );
@@ -318,9 +352,20 @@ describe('Layer 2 — StreamingVoiceChat component guard (onGrammarFlagShown)', 
     assert.equal(setFlagSpy.calls.length, 0);
   });
 
-  it('calls toast and does NOT set card when both are whitespace-only', () => {
+  it('calls toast and does NOT set card when explanation is empty string', () => {
     const outcome = componentGuard(
-      { original: '  ', corrected: '  ', explanation: 'Some explanation.' },
+      { original: 'yo soy estudiante', corrected: 'yo soy un estudiante', explanation: '' },
+      toastSpy.fn,
+      setFlagSpy.fn,
+    );
+    assert.equal(outcome, 'toast');
+    assert.equal(toastSpy.calls.length, 1);
+    assert.equal(setFlagSpy.calls.length, 0);
+  });
+
+  it('calls toast and does NOT set card when all three required fields are whitespace-only', () => {
+    const outcome = componentGuard(
+      { original: '  ', corrected: '  ', explanation: '  ' },
       toastSpy.fn,
       setFlagSpy.fn,
     );
@@ -331,7 +376,7 @@ describe('Layer 2 — StreamingVoiceChat component guard (onGrammarFlagShown)', 
 
   it('toast fires with the correct title and variant', () => {
     componentGuard(
-      { original: '   ', corrected: 'Yo fui al mercado.', explanation: 'Use pretérito indefinido.' },
+      { original: '   ', corrected: 'yo soy un estudiante', explanation: 'Use article.' },
       toastSpy.fn,
       setFlagSpy.fn,
     );
@@ -342,7 +387,7 @@ describe('Layer 2 — StreamingVoiceChat component guard (onGrammarFlagShown)', 
 
   it('toast description mentions incomplete card', () => {
     componentGuard(
-      { original: 'Yo iba al mercado.', corrected: '  ', explanation: 'Use pretérito indefinido.' },
+      { original: 'yo soy estudiante', corrected: '  ', explanation: 'Use article.' },
       toastSpy.fn,
       setFlagSpy.fn,
     );
@@ -356,14 +401,7 @@ describe('Layer 2 — StreamingVoiceChat component guard (onGrammarFlagShown)', 
   // ── Acceptance cases ────────────────────────────────────────────────────
 
   it('calls setGrammarFlag and does NOT call toast for valid data', () => {
-    const data: GrammarFlagData = {
-      id: 'gf-1',
-      original: 'Yo iba al mercado.',
-      corrected: 'Yo fui al mercado.',
-      explanation: 'Use pretérito indefinido for completed past actions.',
-      ruleLabel: 'Preterite vs. Imperfect',
-      timestamp: Date.now(),
-    };
+    const data = validData();
     const outcome = componentGuard(data, toastSpy.fn, setFlagSpy.fn);
     assert.equal(outcome, 'set');
     assert.equal(toastSpy.calls.length, 0, 'toast() must NOT fire for valid data');
@@ -372,14 +410,7 @@ describe('Layer 2 — StreamingVoiceChat component guard (onGrammarFlagShown)', 
   });
 
   it('passes the full data object (including optional fields) to setGrammarFlag', () => {
-    const data: GrammarFlagData = {
-      id: 'gf-2',
-      original: 'Yo iba al mercado.',
-      corrected: 'Yo fui al mercado.',
-      explanation: 'Use pretérito indefinido.',
-      ruleLabel: 'Preterite vs. Imperfect',
-      timestamp: 1234567890,
-    };
+    const data = validData({ ruleLabel: 'Articles', id: 'gf-42', timestamp: 1234567890 });
     componentGuard(data, toastSpy.fn, setFlagSpy.fn);
     assert.deepEqual(setFlagSpy.calls[0], data);
   });
@@ -392,13 +423,11 @@ describe('Layer 2 — StreamingVoiceChat component guard (onGrammarFlagShown)', 
 describe('End-to-end guard chain (hook → component callback)', () => {
 
   it('whitespace-only original is rejected at Layer 1 before reaching Layer 2', () => {
-    const data = { original: '   ', corrected: 'Yo fui al mercado.', explanation: 'Use pretérito indefinido.' };
     const hookResult = hookGuard({
       type: 'grammar_flag_shown',
       timestamp: Date.now(),
-      data,
+      data: { original: '   ', corrected: 'yo soy un estudiante', explanation: 'Use article.' },
     });
-    // Layer 1 returns null → Layer 2 is never called
     assert.equal(hookResult, null, 'Layer 1 must stop whitespace-only original');
   });
 
@@ -406,17 +435,22 @@ describe('End-to-end guard chain (hook → component callback)', () => {
     const hookResult = hookGuard({
       type: 'grammar_flag_shown',
       timestamp: Date.now(),
-      data: { original: 'Yo iba al mercado.', corrected: '   ', explanation: 'Use pretérito indefinido.' },
+      data: { original: 'yo soy estudiante', corrected: '   ', explanation: 'Use article.' },
     });
     assert.equal(hookResult, null, 'Layer 1 must stop whitespace-only corrected');
   });
 
+  it('whitespace-only explanation is rejected at Layer 1 before reaching Layer 2', () => {
+    const hookResult = hookGuard({
+      type: 'grammar_flag_shown',
+      timestamp: Date.now(),
+      data: { original: 'yo soy estudiante', corrected: 'yo soy un estudiante', explanation: '   ' },
+    });
+    assert.equal(hookResult, null, 'Layer 1 must stop whitespace-only explanation');
+  });
+
   it('valid data passes Layer 1 AND is accepted by Layer 2', () => {
-    const data: GrammarFlagData = {
-      original: 'Yo iba al mercado.',
-      corrected: 'Yo fui al mercado.',
-      explanation: 'Use pretérito indefinido for completed past actions.',
-    };
+    const data = validData();
     const hookResult = hookGuard({
       type: 'grammar_flag_shown',
       timestamp: Date.now(),

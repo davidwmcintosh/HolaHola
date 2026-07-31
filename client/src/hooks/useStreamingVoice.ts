@@ -1563,8 +1563,9 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
     if (!sessionConfigRef.current?.onGrammarFlagShown || !message.data) return;
     const d = message.data;
     if (!d.original || typeof d.original !== 'string' || !d.original.trim() ||
-        !d.corrected || typeof d.corrected !== 'string' || !d.corrected.trim()) {
-      console.warn('[useStreamingVoice] handleGrammarFlagShown: malformed grammar flag data (blank original or corrected)', d);
+        !d.corrected || typeof d.corrected !== 'string' || !d.corrected.trim() ||
+        !d.explanation || typeof d.explanation !== 'string' || !d.explanation.trim()) {
+      console.warn('[useStreamingVoice] handleGrammarFlagShown: malformed grammar flag data (blank original, corrected, or explanation)', d);
       return;
     }
     sessionConfigRef.current.onGrammarFlagShown(d);
