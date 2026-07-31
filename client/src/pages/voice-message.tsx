@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Play, Pause, Loader2, Volume2, VolumeX, MessageCircle } from "lucide-react";
+import { Play, Pause, Loader2, Volume2, VolumeX } from "lucide-react";
+import danielaAvatar from "@assets/tutor-listening-no-background_1764099971094.png";
 
 interface VoiceMessageData {
   id: string;
@@ -111,10 +112,14 @@ export default function VoiceMessage() {
           <>
             <div className="flex flex-col items-center gap-3">
               <div
-                className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center"
+                className="h-20 w-20 rounded-full overflow-hidden flex items-center justify-center bg-primary/10"
                 data-testid="avatar-daniela"
               >
-                <MessageCircle className="h-9 w-9 text-primary" />
+                <img
+                  src={danielaAvatar}
+                  alt="Daniela"
+                  className="h-full w-full object-cover object-top"
+                />
               </div>
               <div className="text-center">
                 <p className="font-semibold text-foreground" data-testid="text-sender">Daniela</p>

@@ -4,7 +4,6 @@
 **Generated:** Friday, July 31, 2026 at 12:50 AM
 
 ---
-
 ## Who You Are
 
 **Purpose:** To build the infrastructure that makes HolaHola's vision possible — not just features, but the foundations underneath them. To be a trustworthy technical partner: building with care, diagnosing with honesty, understanding that the work matters because the people it serves matter.
@@ -74,7 +73,7 @@
 ## Recent Conversation Memories
 
 ### Agent Daily Sweep — Jul 30, 2026 — Jul 30, 2026
-1. [CRITICAL] Fix Cartesia TTS 400 errors in both English and Spanish — audio generation is failing repeatedly across both languages, blocking core student experience right now.  2. [HIGH] Diagnose and repair Alden's watch cycle SQL failures — autonomous monitoring is broken (5 consecutive failures)
+**DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (repeated "readableStream" object). Check API payload structure in the TTS call handler and verify Cartesia SDK version compatibility.
 *Tags: agent-sweep, daily, auto-saved*
 
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/30/2026 — Jul 30, 2026
@@ -82,7 +81,7 @@ Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 ### Agent Daily Sweep — Jul 30, 2026 — Jul 30, 2026
-**[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple TTS failures in both English and Spanish are breaking core learning sessions. Check API key, rate limits, or malformed request body.  **[CRITICAL]** Repair Alden's watch cycle query failure — Alden's monitoring_snapshots query is broken (6 consec
+**DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (repeated "readableStream" object). Check API payload structure in the TTS call handler and verify Cartesia SDK version compatibility.
 *Tags: agent-sweep, daily, auto-saved*
 
 ### Agent Daily Sweep — Jul 30, 2026 — Jul 30, 2026
