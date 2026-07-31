@@ -65,27 +65,25 @@ async function fetchImageBytes(url: string): Promise<{ data: string; mimeType: s
 }
 
 /**
- * Look up a cached description by URL.
+ * Look up a cached description by the normalised proxy URL.
  *
- * @param normUrl - The normalised proxy URL (/api/media/ai-image/…) — used for new rows.
- * @param rawUrl  - The original URL as supplied by the caller (may be a raw GCS URL for
- *                  legacy rows that pre-date URL normalisation).  When the two are equal
- *                  (already normalised) the IN () degenerates to a single-value lookup.
+ * After the backfill (backfill-image-vision-cache-urls.ts) all rows are stored
+ * under the /api/media/ai-image/ proxy form, so a single equality check is
+ * sufficient.  The raw GCS URL is no longer needed as a fallback key.
  */
-async function getCachedDescription(normUrl: string, rawUrl: string): Promise<string | null> {
+async function getCachedDescription(normUrl: string): Promise<string | null> {
   try {
     const db = getUserDb();
-    // Query both keys so old GCS-keyed rows are found even when new code passes proxy URLs.
     const result = await db.execute(sql`
       SELECT description FROM image_vision_cache
-      WHERE image_url IN (${normUrl}, ${rawUrl})
+      WHERE image_url = ${normUrl}
       LIMIT 1
     `);
     const row = result.rows[0] as any;
     if (row?.description) {
       db.execute(sql`
         UPDATE image_vision_cache SET last_used_at = NOW()
-        WHERE image_url IN (${normUrl}, ${rawUrl})
+        WHERE image_url = ${normUrl}
       `).catch(() => {});
       return row.description as string;
     }
@@ -201,8 +199,8 @@ export async function getImageVision(
   }
 
   // 2. Persistent cache: described in a prior session — use text, no byte fetch needed.
-  // Pass both the normalised URL and the original raw URL so legacy GCS-keyed rows are found.
-  const cached = await getCachedDescription(normUrl, imageUrl);
+  // All cache rows are stored under the normalised proxy URL after the backfill.
+  const cached = await getCachedDescription(normUrl);
   if (cached) {
     if (!session.seenImageUrls) session.seenImageUrls = new Set();
     session.seenImageUrls.add(normUrl);
