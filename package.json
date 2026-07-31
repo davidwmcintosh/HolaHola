@@ -9,7 +9,7 @@
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push",
-    "test": "npx tsx --test server/scripts/scan-gcs-urls.test.ts server/scripts/normalize-image-url-guards.test.ts client/src/components/absence-filter-persistence.test.ts client/src/components/absence-history-panel-filters.test.ts client/src/components/restart-poll-toast-dismiss.test.ts server/scripts/storage-probe-alerter.test.ts client/src/components/cultural-context-blank-guard.test.ts server/__tests__/quiz-correct-index-bounds.test.ts server/__tests__/absence-monitor-empty-state.test.ts server/__tests__/absence-return-badge.test.ts server/tests/voice-sms-delivery.test.ts && npx tsx server/scripts/test-openai-pronunciation-error-notice.ts"
+    "test": "npx tsx --test server/scripts/scan-gcs-urls.test.ts server/scripts/normalize-image-url-guards.test.ts client/src/components/absence-filter-persistence.test.ts client/src/components/absence-history-panel-filters.test.ts client/src/components/restart-poll-toast-dismiss.test.ts server/scripts/storage-probe-alerter.test.ts client/src/components/cultural-context-blank-guard.test.ts server/__tests__/quiz-correct-index-bounds.test.ts server/__tests__/absence-monitor-empty-state.test.ts server/__tests__/absence-return-badge.test.ts server/tests/voice-sms-delivery.test.ts && npx tsx server/scripts/test-openai-pronunciation-error-notice.ts && npx tsx server/scripts/test-memory-tool-coverage.ts"
   },
   "overrides": {
     "minimatch": "^3.1.2",
