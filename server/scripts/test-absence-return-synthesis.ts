@@ -30,6 +30,7 @@ import { getSharedDb } from '../db';
 import { danielaAbsenceNudges } from '@shared/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import type { CompassContext } from '@shared/schema';
+import { runWarmSynthesisCore, type WarmSynthesisSignal } from '../services/warm-synthesis-core';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = pathDirname(__filename);
@@ -106,9 +107,6 @@ async function cleanUpTestRows(): Promise<void> {
     .where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_3));
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// PART 1 — Seed a nudge row and confirm autoResolveAbsenceNudgeOnReturn works
-// ══════════════════════════════════════════════════════════════════════════════
 async function runPart1(): Promise<{ daysSinceLastSession: number; firstName: string | null } | null> {
   sep();
   console.log(B('PART 1 — Seed nudge row + autoResolveAbsenceNudgeOnReturn()'));
@@ -758,7 +756,7 @@ async function runPart4(): Promise<void> {
 // ══════════════════════════════════════════════════════════════════════════════
 function runPart5(): void {
   sep();
-  console.log(B('PART 5 — Source-level: warm-synthesis HTTP route bakes absence signal in (guard is last resort)'));
+  console.log(B('PART 5 — Source-level: warm-synthesis core bakes absence signal in (guard is last resort)'));
   sep();
 
   const routesSrc = readFileSync(
@@ -771,68 +769,72 @@ function runPart5(): void {
     'utf-8',
   ) as string;
 
-  // ── 5a. Route calls peekAbsenceReturnDetails ─────────────────────────────
-  const routeCallsPeek = routesSrc.includes('peekAbsenceReturnDetails');
-  assert(
-    '5a. warm-synthesis route calls peekAbsenceReturnDetails (read-only absence check)',
-    routeCallsPeek,
-    routeCallsPeek ? undefined : 'peekAbsenceReturnDetails not found in routes.ts — route may not be checking for pending nudges',
-  );
+  // Core logic (try/catch around peek, signal forwarding, setWarm call) now lives
+  // in the production service — routes.ts delegates to runWarmSynthesisCore().
+  const coreSrc = readFileSync(
+    pathResolve(__dirname, '../services/warm-synthesis-core.ts'),
+    'utf-8',
+  ) as string;
 
-  // ── 5b. returningAfterAbsence is forwarded to generatePreSessionSynthesis ─
-  // The route must pass the peek result as the last arg of generatePreSessionSynthesis.
-  // We look for the pattern: generatePreSessionSynthesis( ... returningAfterAbsence )
-  // within the warm-synthesis route block.
+  // warmSynthesisBlock is still used for the 5g peek-vs-resolve ordering check.
   const warmSynthesisBlock = (() => {
     const routeMarker = '/api/sessions/warm-synthesis';
     const startIdx = routesSrc.indexOf(routeMarker);
     if (startIdx === -1) return '';
-    // Grab ~150 lines after the route declaration
     return routesSrc.slice(startIdx, startIdx + 4000);
   })();
 
-  const signalForwardedToSynth =
-    warmSynthesisBlock.includes('generatePreSessionSynthesis') &&
-    warmSynthesisBlock.includes('returningAfterAbsence');
+  // ── 5a. Route references peekAbsenceReturnDetails ────────────────────────
+  // After the refactor the route passes it as an argument to runWarmSynthesisCore.
+  const routeCallsPeek = routesSrc.includes('peekAbsenceReturnDetails');
   assert(
-    '5b. returningAfterAbsence (peek result) is forwarded to generatePreSessionSynthesis in the warm-synthesis route',
+    '5a. warm-synthesis route references peekAbsenceReturnDetails (passed to runWarmSynthesisCore)',
+    routeCallsPeek,
+    routeCallsPeek ? undefined : 'peekAbsenceReturnDetails not found in routes.ts — route may not be passing the peek function',
+  );
+
+  // ── 5b. returningAfterAbsence forwarded to generateFn in the core service ─
+  // The service receives the peek result and passes it to generateFn (generatePreSessionSynthesis).
+  const signalForwardedToSynth =
+    coreSrc.includes('returningAfterAbsence') &&
+    coreSrc.includes('generateFn(');
+  assert(
+    '5b. returningAfterAbsence (peek result) is forwarded to generateFn in warm-synthesis-core.ts',
     signalForwardedToSynth,
     signalForwardedToSynth
       ? undefined
-      : 'Either generatePreSessionSynthesis or returningAfterAbsence not found in the warm-synthesis route block — the absence signal may not be reaching synthesis',
+      : 'Either returningAfterAbsence or generateFn( not found in warm-synthesis-core.ts — the absence signal may not be reaching synthesis',
   );
 
-  // ── 5c. Peek happens BEFORE generatePreSessionSynthesis ──────────────────
-  const peekIdx   = warmSynthesisBlock.indexOf('peekAbsenceReturnDetails');
-  const synthIdx  = warmSynthesisBlock.indexOf('generatePreSessionSynthesis');
+  // ── 5c. Peek happens BEFORE generateFn in the core service ───────────────
+  const peekIdx  = coreSrc.indexOf('returningAfterAbsence = await peekFn(');
+  const synthIdx = coreSrc.indexOf('generateFn(');
   const peekBeforeSynth = peekIdx !== -1 && synthIdx !== -1 && peekIdx < synthIdx;
   assert(
-    '5c. peekAbsenceReturnDetails() is called BEFORE generatePreSessionSynthesis() in the route (correct ordering)',
+    '5c. peekFn() is called BEFORE generateFn() in warm-synthesis-core.ts (correct ordering)',
     peekBeforeSynth,
     peekBeforeSynth
       ? undefined
-      : `Ordering wrong or symbols missing — peekIdx=${peekIdx}, synthIdx=${synthIdx}`,
+      : `Ordering wrong or symbols missing in core service — peekIdx=${peekIdx}, synthIdx=${synthIdx}`,
   );
 
-  // ── 5d. setWarmSynthesis is called with the synthesis result ─────────────
-  const routeCallsSetWarm = warmSynthesisBlock.includes('setWarmSynthesis');
+  // ── 5d. setWarmFn is called with the synthesis result ────────────────────
+  const coreCallsSetWarm = coreSrc.includes('setWarmFn(');
   assert(
-    '5d. setWarmSynthesis() is called in the warm-synthesis route (warm cache is populated with signal-aware synthesis)',
-    routeCallsSetWarm,
-    routeCallsSetWarm ? undefined : 'setWarmSynthesis not found in the warm-synthesis route block',
+    '5d. setWarmFn() is called in warm-synthesis-core.ts (warm cache is populated with signal-aware synthesis)',
+    coreCallsSetWarm,
+    coreCallsSetWarm ? undefined : 'setWarmFn not found in warm-synthesis-core.ts',
   );
 
   // ── 5e. Log line confirms signal-aware path ───────────────────────────────
-  const hasNudgeDetectedLog = warmSynthesisBlock.includes('[WarmSynthesis] ✓ Pending absence nudge detected');
+  const hasNudgeDetectedLog = coreSrc.includes('[WarmSynthesis] ✓ Pending absence nudge detected');
   assert(
-    '5e. Route emits "[WarmSynthesis] ✓ Pending absence nudge detected" log when a nudge is found',
+    '5e. warm-synthesis-core.ts emits "[WarmSynthesis] ✓ Pending absence nudge detected" log when a nudge is found',
     hasNudgeDetectedLog,
-    hasNudgeDetectedLog ? undefined : 'Log line not found — the signal-aware branch may be missing its confirmation log',
+    hasNudgeDetectedLog ? undefined : 'Log line not found in warm-synthesis-core.ts — the signal-aware branch may be missing its confirmation log',
   );
 
   // ── 5f. WS guard exists in unified-ws-handler.ts ─────────────────────────
-  // The guard must exist as a safety net for the edge case where the warm-synthesis
-  // route ran BEFORE the nudge was created (or if the route failed).
   const wsGuardPattern = /warmedNote\s*&&\s*absenceReturn/;
   const wsHasGuard = wsGuardPattern.test(wsSrc);
   assert(
@@ -841,20 +843,16 @@ function runPart5(): void {
     wsHasGuard ? undefined : 'Guard pattern "warmedNote && absenceReturn" not found in unified-ws-handler.ts — the last-resort safety net may be missing',
   );
 
-  // ── 5g. Route peek is non-mutating; WS handler uses the resolving call ────
-  // The route uses peekAbsenceReturnDetails (read-only).
-  // The WS handler uses autoResolveAbsenceNudgeOnReturn (which resolves the nudge).
-  // This separation means the warm cache is populated BEFORE the session starts,
-  // and the actual nudge resolution still happens at true session start.
+  // ── 5g. Route passes peek (not resolve); WS handler uses the resolving call ─
   const routeUsesPeekNotResolve =
     warmSynthesisBlock.includes('peekAbsenceReturnDetails') &&
     !warmSynthesisBlock.includes('autoResolveAbsenceNudgeOnReturn');
   assert(
-    '5g. Warm-synthesis route uses peekAbsenceReturnDetails (read-only) — not autoResolveAbsenceNudgeOnReturn (which must only run at true session start)',
+    '5g. Warm-synthesis route passes peekAbsenceReturnDetails (read-only) to runWarmSynthesisCore — not autoResolveAbsenceNudgeOnReturn',
     routeUsesPeekNotResolve,
     routeUsesPeekNotResolve
       ? undefined
-      : 'Route either missing peek call or incorrectly calling autoResolveAbsenceNudgeOnReturn — nudge resolution must only happen at WS connect, not on Prepare-screen pre-warm',
+      : 'Route either missing peek reference or incorrectly referencing autoResolveAbsenceNudgeOnReturn — nudge resolution must only happen at WS connect',
   );
 
   const wsUsesResolve = wsSrc.includes('autoResolveAbsenceNudgeOnReturn');
@@ -864,9 +862,8 @@ function runPart5(): void {
     wsUsesResolve ? undefined : 'autoResolveAbsenceNudgeOnReturn not found in unified-ws-handler.ts',
   );
 
-  console.log(D('\n  Summary: warm-synthesis route is the PRIMARY absence-signal path. The WS guard'));
-  console.log(D('  (warmedNote && absenceReturn → regenerate) is a LAST RESORT for the edge case where'));
-  console.log(D('  the route ran before a nudge existed or the route failed silently.\n'));
+  console.log(D('\n  Summary: warm-synthesis-core.ts is the production unit. The route delegates to it'));
+  console.log(D('  with real functions; Part 7 injects a throwing peekFn to exercise the catch path at runtime.\n'));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -905,41 +902,36 @@ async function runPart6(): Promise<void> {
 
   const db = getSharedDb();
 
-  // 6a/6b. Source-level checks: route wraps peek in try/catch and warns on error.
-  const routesSrc = readFileSync(
-    pathResolve(__dirname, '../routes.ts'),
+  // 6a/6b. Source-level checks now target warm-synthesis-core.ts — that is where
+  // the try/catch around peekFn lives after the route was refactored to delegate
+  // to the production runWarmSynthesisCore helper (Part 7 exercises that path at runtime).
+  const coreSrc6 = readFileSync(
+    pathResolve(__dirname, '../services/warm-synthesis-core.ts'),
     'utf-8',
   ) as string;
 
-  const warmSynthesisBlock = (() => {
-    const startIdx = routesSrc.indexOf('/api/sessions/warm-synthesis');
-    if (startIdx === -1) return '';
-    return routesSrc.slice(startIdx, startIdx + 4000);
-  })();
-
-  // 6a. The peek call must be inside a try block
+  // 6a. The peek call must be inside a try block in the core service
   const peekInTryCatch = (() => {
-    const peekIdx = warmSynthesisBlock.indexOf('peekAbsenceReturnDetails');
-    if (peekIdx === -1) return false;
-    // Look for 'try {' or 'try{' before the peek call within the warm-synthesis block
-    const beforePeek = warmSynthesisBlock.slice(0, peekIdx);
+    const peekFnIdx = coreSrc6.indexOf('await peekFn(');
+    if (peekFnIdx === -1) return false;
+    const beforePeek = coreSrc6.slice(0, peekFnIdx);
     return /try\s*\{/.test(beforePeek);
   })();
   assert(
-    '6a. warm-synthesis route wraps peekAbsenceReturnDetails in a try block (peek failure is non-fatal)',
+    '6a. warm-synthesis-core.ts wraps peekFn() in a try block (peek failure is non-fatal)',
     peekInTryCatch,
-    peekInTryCatch ? undefined : 'No try block found before peekAbsenceReturnDetails in the warm-synthesis route — a DB error would crash the route',
+    peekInTryCatch ? undefined : 'No try block found before await peekFn() in warm-synthesis-core.ts — a DB error would propagate and block synthesis',
   );
 
-  // 6b. The catch block for the peek must warn (not throw)
+  // 6b. The catch block must warn (not throw)
   const catchWarnPattern = /catch\s*\([^)]*\)\s*\{[^}]*console\.warn[^}]*\[WarmSynthesis\][^}]*\}/s;
-  const hasCatchWarn = catchWarnPattern.test(warmSynthesisBlock);
+  const hasCatchWarn = catchWarnPattern.test(coreSrc6);
   assert(
-    '6b. Peek catch block emits console.warn (not throw) — synthesis continues without the absence signal on DB error',
+    '6b. Peek catch block in warm-synthesis-core.ts emits console.warn (not throw) — synthesis continues without the absence signal on error',
     hasCatchWarn,
     hasCatchWarn
       ? undefined
-      : 'console.warn not found inside the catch block around peekAbsenceReturnDetails in the warm-synthesis route — error may surface as 500 or block synthesis',
+      : 'console.warn with [WarmSynthesis] not found in the catch block in warm-synthesis-core.ts — error may surface as 500 or block synthesis',
   );
 
   // ── Seed a fresh nudge for Part 6 ─────────────────────────────────────────
@@ -1115,6 +1107,127 @@ async function runPart6(): Promise<void> {
   origLog(D('\n  Part 6 test row cleaned up.'));
 }
 
+async function runPart7(): Promise<void> {
+  sep();
+  origLog(B('PART 7 — RUNTIME: throwing peekAbsenceReturnDetails is caught; synthesis still completes'));
+  sep();
+
+  const { generatePreSessionSynthesis, setWarmSynthesis, consumeWarmSynthesis } =
+    await import('../services/pre-session-synthesis');
+
+  // Use a userId that is not in any of the other parts — no DB rows seeded
+  const TEST_USER_ID_7 = '00000000-test-absence-peek-throw-00';
+
+  // Clean up any stale warm-cache entry from a prior interrupted run
+  consumeWarmSynthesis(TEST_USER_ID_7);
+
+  const compassContext: any = {
+    studentName: 'TestStudent7',
+    studentGoals: 'Learn conversational Spanish',
+    studentInterests: 'Literature and hiking',
+    studentActflLevel: 'novice-mid',
+    lastSessionSummary: 'We practised telling the time and ordinal numbers. Good session.',
+    danielaSelfReflection: 'TestStudent7 is careful and methodical — benefits from visual anchors.',
+    conversationMemories: [],
+    mustHaveTopics: [],
+    niceToHaveTopics: [],
+  };
+
+  // Throwing mock — simulates DB being momentarily unreachable during peek
+  const PEEK_ERROR_MSG = 'simulated DB timeout in peekAbsenceReturnDetails';
+  const throwingPeekFn = async (_userId: string): Promise<WarmSynthesisSignal> => {
+    throw new Error(PEEK_ERROR_MSG);
+  };
+
+  origLog(D('\n  Calling runWarmSynthesisCore with a throwing peekFn (no DB, no HTTP)...'));
+
+  let threwOutside = false;
+  let result: string | null = null;
+
+  startCapture();
+  try {
+    result = await runWarmSynthesisCore(
+      TEST_USER_ID_7,
+      compassContext,
+      'spanish',
+      throwingPeekFn,
+      generatePreSessionSynthesis,
+      setWarmSynthesis,
+    );
+  } catch (err: any) {
+    threwOutside = true;
+    origLog(R(`  runWarmSynthesisCore unexpectedly propagated the peek error: ${err?.message}`));
+  }
+  const logs7 = stopCapture();
+
+  // 7a. catch block must not re-throw
+  assert(
+    '7a. runWarmSynthesisCore does NOT propagate the peek error (catch block recovers)',
+    !threwOutside,
+    threwOutside ? 'Function threw — peek error was re-thrown instead of caught by the inner try/catch' : undefined,
+  );
+
+  // 7b. synthesis must be non-null (generatePreSessionSynthesis ran)
+  assert(
+    '7b. Synthesis is non-null and non-empty (generatePreSessionSynthesis ran despite peek failure)',
+    typeof result === 'string' && result.length > 0,
+    result === null
+      ? 'Returned null — generatePreSessionSynthesis may not have run after the peek error; check for an unexpected outer throw'
+      : undefined,
+  );
+
+  // 7c. The warn log must have been captured with the injected error message
+  const warnLog = logs7.find(
+    l =>
+      l.includes('[WARN]') &&
+      l.includes('[WarmSynthesis] Absence peek failed (non-fatal):') &&
+      l.includes(PEEK_ERROR_MSG),
+  );
+  assert(
+    '7c. "[WarmSynthesis] Absence peek failed (non-fatal):" captured in console.warn with injected error text',
+    !!warnLog,
+    warnLog
+      ? undefined
+      : `Warn line not found. First 10 captured logs:\n      ${logs7.slice(0, 10).join('\n      ')}`,
+  );
+
+  // 7d. No absence signal log — null was passed to generatePreSessionSynthesis
+  const absenceSignalLog = logs7.find(l =>
+    l.includes('[PreSynthesis] ✓ Returning-after-absence signal:'),
+  );
+  assert(
+    '7d. No "[PreSynthesis] ✓ Returning-after-absence signal" log — null signal passed to synthesis (peek threw)',
+    !absenceSignalLog,
+    absenceSignalLog
+      ? `Unexpected signal log: ${absenceSignalLog} — returningAfterAbsence should have stayed null after peek error`
+      : undefined,
+  );
+
+  // 7e/7f. setWarmSynthesis was called — consumeWarmSynthesis must return the synthesis
+  const consumed = consumeWarmSynthesis(TEST_USER_ID_7);
+
+  assert(
+    '7e. setWarmSynthesis was called (warm cache populated despite peek failure)',
+    consumed !== null,
+    consumed === null
+      ? 'consumeWarmSynthesis returned null — setWarmSynthesis may not have been called after the peek error'
+      : undefined,
+  );
+
+  assert(
+    '7f. consumeWarmSynthesis returns the synthesis generated after peek failure (cache round-trip correct)',
+    consumed === result,
+    consumed !== result
+      ? 'Cache content differs from the returned synthesis — possible userId mismatch or double-consume'
+      : undefined,
+  );
+
+  if (result) {
+    origLog(D(`\n  Synthesis after peek failure (${result.length} chars): "${result.slice(0, 200)}..."`));
+  }
+  origLog(D('\n  Part 7 complete — catch path exercised at runtime with an injected throwing mock.\n'));
+}
+
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1140,6 +1253,11 @@ async function runPart6(): Promise<void> {
 
     // Part 6 — peek-failure path: warm cache nudge-unaware → WS guard fires and regenerates.
     await runPart6();
+
+    // Part 7 — RUNTIME catch-path: inject a throwing peekAbsenceReturnDetails and
+    // confirm the inner try/catch recovers (synthesis completes, warn emitted, no re-throw).
+    // This is the runtime complement to Parts 6a/6b which were source-level grep checks.
+    await runPart7();
   } catch (err: any) {
     stopCapture();
     origLog(R(`\nUnhandled error: ${err?.message ?? err}`));
@@ -1174,3 +1292,7 @@ async function runPart6(): Promise<void> {
 function skipGemini(label: string): void {
   origLog(Y(`  ⚠ SKIP  ${label} — GEMINI_API_KEY not set (keyless CI run)`));
 }
+
+// runWarmSynthesisCore is now the production export from
+// server/services/warm-synthesis-core.ts — imported at the top of this file.
+// Part 7 calls it directly with a throwing mock to exercise the real catch path.
