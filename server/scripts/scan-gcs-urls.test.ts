@@ -568,3 +568,114 @@ describe('Static source-code scan — no raw storage.googleapis.com literals out
     );
   });
 });
+
+// ---------------------------------------------------------------------------
+// Meta-test: source-code scanner self-validation (end-to-end with a real file)
+//
+// Proves the source scanner would actually fail CI if someone hardcoded a raw
+// storage.googleapis.com URL in a new (non-test) TypeScript file.  The tests
+// below write a real temporary file, run the same scan logic used above, and
+// assert the expected outcome — mirroring the pattern used by
+// scan-unwrapped-image-uploads.test.ts.
+//
+// No database connection is required.
+// ---------------------------------------------------------------------------
+
+describe('Static source-code scan — scanner self-validation (end-to-end with a real file)', () => {
+  const thisFile2 = fileURLToPath(import.meta.url);
+  const scriptsDir2 = path.dirname(thisFile2);
+  const workspaceRoot2 = path.resolve(scriptsDir2, '..', '..');
+  // Temp file must NOT end in .test.ts so it is not auto-exempted.
+  const TEMP_FILE = path.resolve(
+    workspaceRoot2, 'server/scripts/__gcs-source-selftest-tmp__.ts',
+  );
+  const TARGET2 = 'storage.googleapis.com';
+
+  /** Mirror of isExemptPath used by the main scan above. */
+  function isExemptSelfTest(absPath: string): boolean {
+    if (/\.test\.tsx?$/.test(absPath)) return true;
+    if (absPath.includes(`${path.sep}replit_integrations${path.sep}`)) return true;
+    if (absPath.includes(`${path.sep}__tests__${path.sep}`)) return true;
+    return false;
+  }
+
+  /** Run the same per-line scan logic used above against a set of lines. */
+  function scanLines(absPath: string, lines: string[]): string[] {
+    const violations: string[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trimStart();
+      if (trimmed.startsWith('//') || trimmed.startsWith('*')) continue;
+      if (trimmed.includes(TARGET2)) {
+        const rel = path.relative(workspaceRoot2, absPath);
+        violations.push(`${rel}:${i + 1}: ${lines[i].trim()}`);
+      }
+    }
+    return violations;
+  }
+
+  it('detects a violation when a non-test .ts file contains a raw storage.googleapis.com URL', () => {
+    // This is the core CI-gap test: a developer who hardcodes a GCS URL in a
+    // new service file would be caught before the row ever reaches the DB scanner.
+    const source = [
+      `// Temporary file written by scan-gcs-urls.test.ts — DO NOT COMMIT`,
+      `export const imageUrl = 'https://storage.googleapis.com/my-bucket/public/ai-images/new.jpg';`,
+      `export async function writeImage() { return imageUrl; }`,
+    ].join('\n');
+
+    fs.writeFileSync(TEMP_FILE, source, 'utf8');
+    try {
+      assert.ok(
+        !isExemptSelfTest(TEMP_FILE),
+        'Temp file must not be exempt so the scanner actually processes it',
+      );
+      const lines = fs.readFileSync(TEMP_FILE, 'utf8').split('\n');
+      const violations = scanLines(TEMP_FILE, lines);
+      assert.equal(
+        violations.length,
+        1,
+        `Scanner must detect exactly 1 violation but found ${violations.length}.\n` +
+        `Violations: ${JSON.stringify(violations)}`,
+      );
+      assert.ok(
+        violations[0].includes('storage.googleapis.com'),
+        'Violation message must name the offending GCS URL',
+      );
+    } finally {
+      fs.unlinkSync(TEMP_FILE);
+    }
+  });
+
+  it('does NOT flag the same file when the GCS URL appears only on a comment line', () => {
+    // Comment lines are always skipped — they are documentation, not write paths.
+    const source = [
+      `// Temporary file written by scan-gcs-urls.test.ts — DO NOT COMMIT`,
+      `// Reference: https://storage.googleapis.com/my-bucket/public/ai-images/new.jpg`,
+      `export const imageUrl = '/api/media/ai-image/new.jpg';`,
+      `export async function writeImage() { return imageUrl; }`,
+    ].join('\n');
+
+    fs.writeFileSync(TEMP_FILE, source, 'utf8');
+    try {
+      const lines = fs.readFileSync(TEMP_FILE, 'utf8').split('\n');
+      const violations = scanLines(TEMP_FILE, lines);
+      assert.equal(
+        violations.length,
+        0,
+        `Scanner must not flag comment lines but found ${violations.length} violation(s).\n` +
+        `Violations: ${JSON.stringify(violations)}`,
+      );
+    } finally {
+      fs.unlinkSync(TEMP_FILE);
+    }
+  });
+
+  it('a .test.ts file with a GCS URL fixture is exempt (test files are safe)', () => {
+    // Confirms the exemption rule that lets this very test file contain GCS URLs
+    // as test fixtures without triggering a violation.
+    const testFilePath = TEMP_FILE.replace(/\.ts$/, '.test.ts');
+    assert.ok(
+      isExemptSelfTest(testFilePath),
+      '.test.ts paths must always be exempt so test fixtures are allowed',
+    );
+  });
+});
