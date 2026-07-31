@@ -132,6 +132,25 @@ export function formatPatternSignals(
  * Single source of truth — used by buildActflPersonaAnchor (voice) and
  * runDanielaFCLoop (text) so the two paths can never drift.
  */
+/**
+ * Construct the effectiveSystemPrompt used by runDanielaFCLoop.
+ *
+ * Exported as a pure function so unit tests can verify the injection without
+ * importing daniela-caller.ts (which initialises the DB, Deepgram, Cartesia,
+ * etc. at module load time, leaking handles in lightweight test runs).
+ *
+ * The logic must stay in sync with the three lines in runDanielaFCLoop that
+ * build effectiveSystemPrompt — any change there must be mirrored here.
+ */
+export function buildTextModeSystemPrompt(
+  systemPrompt: string,
+  activePatternSignals?: string | null,
+): string {
+  const suffix = formatActivePatternSignalNote(activePatternSignals);
+  if (!suffix) return systemPrompt;
+  return systemPrompt + (systemPrompt.endsWith('\n') ? '' : '\n') + suffix.trimStart();
+}
+
 export function formatActivePatternSignalNote(signals: string | null | undefined): string {
   if (!signals) return '';
   const lines = signals

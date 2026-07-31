@@ -36,7 +36,7 @@ import {
   shouldAutoGround,
   runAutoGrounding,
 } from "./frictionless-slide-detector";
-import { formatActivePatternSignalNote } from "./pattern-signal-context";
+import { buildTextModeSystemPrompt } from "./pattern-signal-context";
 
 const MODEL = 'gemini-3-flash-preview';
 
@@ -191,12 +191,10 @@ export async function runDanielaFCLoop({
 
   // ── Pattern signal injection — mirrors buildActflPersonaAnchor in voice ───────
   // Carries wobbling/pounding grammar context into text-mode so a voice→text switch
-  // doesn't silently drop the active pattern map. Uses the shared formatter in
-  // pattern-signal-context.ts so the two paths can never drift in format.
-  const patternSuffix = formatActivePatternSignalNote(activePatternSignals);
-  const effectiveSystemPrompt = patternSuffix
-    ? systemPrompt + (systemPrompt.endsWith('\n') ? '' : '\n') + patternSuffix.trimStart()
-    : systemPrompt;
+  // doesn't silently drop the active pattern map. Uses the shared pure helper so
+  // unit tests can verify the exact same construction logic without pulling in the
+  // heavy runtime dependencies that daniela-caller.ts initialises at module load.
+  const effectiveSystemPrompt = buildTextModeSystemPrompt(systemPrompt, activePatternSignals);
 
   // ── Frictionless Slide tracking — accumulate tool calls across all turns ─────
   if (!mockSession.frictionlessSlide) {
@@ -469,10 +467,7 @@ export async function callDaniela(
   // would double-stamp the pattern note and cause instruction fatigue.
   // For the simple (generateContent) path there is no FC loop, so we inject here.
   if (!enableTools) {
-    const patternNote = formatActivePatternSignalNote(activePatternSignals);
-    if (patternNote) {
-      systemPrompt = systemPrompt + (systemPrompt.endsWith('\n') ? '' : '\n') + patternNote.trimStart();
-    }
+    systemPrompt = buildTextModeSystemPrompt(systemPrompt, activePatternSignals);
   }
 
   try {
