@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Globe, Users, BookOpen, Lightbulb, MessageSquare, ChevronRight, Play, Square, Loader2 } from "lucide-react";
+import { Sparkles, Globe, Users, BookOpen, Lightbulb, MessageSquare, ChevronRight, Play, Square, Loader2, RefreshCw } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { SunArcGreetings, FormalInformalComparison, QuickPhraseGrid, SerEstarCard, PretImperfectCard, PorParaCard, FalseCognatesGrid, SentenceFrameGrid, CognateRecognitionGrid, VocabQAGrid, GenderAgreementGrid, VerbAnchorGrid, ModalVerbsCard } from "./TextbookInfographics";
 import {
@@ -2628,7 +2628,7 @@ export function ConversationStripsSection({
     setLoadingStripIdx(null);
   }, []);
 
-  useEffect(() => {
+  const fetchTranslations = useCallback(() => {
     if (!needsTranslation || !chapterType) return;
     const langKey = language as keyof typeof languageChapterData;
     const langData = languageChapterData[langKey];
@@ -2665,6 +2665,10 @@ export function ConversationStripsSection({
         setTranslationError(true);
       });
   }, [language, chapterType, nativeLanguage, needsTranslation]);
+
+  useEffect(() => {
+    fetchTranslations();
+  }, [fetchTranslations]);
 
   const playStrip = useCallback(async (
     panels: Array<{ speaker: string; gender?: 'male' | 'female'; text: string }>,
@@ -2738,9 +2742,25 @@ export function ConversationStripsSection({
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">In Conversation</h3>
       </div>
       {needsTranslation && translationError && (
-        <p className="text-xs text-amber-600 dark:text-amber-400 px-1" data-testid="translation-error-notice">
-          Translations unavailable — check your API key
-        </p>
+        <div
+          className="flex items-center gap-3 rounded-md border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-2.5"
+          data-testid="translation-error-notice"
+        >
+          <Globe className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+          <p className="text-xs text-amber-700 dark:text-amber-300 flex-1">
+            Translations unavailable. Check your connection and try again.
+          </p>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-shrink-0 h-7 px-2 text-xs border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900"
+            onClick={fetchTranslations}
+            data-testid="button-retry-translation"
+          >
+            <RefreshCw className="h-3 w-3 mr-1" />
+            Retry
+          </Button>
+        </div>
       )}
       {content.conversationStrips.map((strip, sIdx) => {
         const uniqueSpeakers = [...new Set(strip.panels.map(p => p.speaker))];
