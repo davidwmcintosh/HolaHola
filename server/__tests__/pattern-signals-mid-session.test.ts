@@ -552,3 +552,126 @@ describe('RECORD_PATTERN_SIGNAL handler — session.activePatternSignals write-b
     );
   });
 });
+
+// ── Sabotage guard: CI must fail when pattern section is dropped ───────────────
+//
+// These tests prove that the "Active grammar patterns:" assertions above are
+// actually load-bearing.  Each test defines an inline broken version of
+// buildActflPersonaAnchor — one that omits the formatActivePatternSignalNote
+// call — and wraps the production assertion in assert.throws to confirm it fires.
+//
+// If someone edits buildActflPersonaAnchor to silently drop the pattern block,
+// the tests in the sections above will start failing; these sabotage tests
+// document *why* those failures matter and make the mechanism explicit.
+
+describe('buildActflPersonaAnchor — sabotage: CI fails when pattern section is dropped', () => {
+  // Inline broken implementation: mirrors buildActflPersonaAnchor but never
+  // appends the patternSignalNote.  Represents the regression we are guarding
+  // against (e.g. the formatActivePatternSignalNote call being deleted).
+  function buildActflPersonaAnchorBroken(session: PatternAnchorSession): string {
+    const level      = session.studentActflLevel || 'novice_low';
+    const targetLang = session.targetLanguage    || 'Spanish';
+    const nativeLang = session.nativeLanguage    || 'english';
+    const nativeLangDisplay = nativeLang.charAt(0).toUpperCase() + nativeLang.slice(1);
+    const targetLangDisplay = targetLang.charAt(0).toUpperCase() + targetLang.slice(1);
+    const tutorName  = session.tutorName         || 'Daniela';
+
+    // Minimal lang constraint (same logic, condensed for test brevity)
+    const langConstraint = `Output language mix: Blend ${nativeLangDisplay} and ${targetLangDisplay} for ${level}.`;
+    const personaAnchor  = `Persona: You are ${tutorName} — warm, human, teacher-first.`;
+    const historyLength  = session.conversationHistory?.length ?? 0;
+    const ongoingNote    = historyLength > 2
+      ? `\nSession status: ONGOING.`
+      : '';
+
+    // BUG: patternSignalNote is intentionally omitted here —
+    // this is the regression the production tests must catch.
+    return `This turn:\n${langConstraint}\n${personaAnchor}${ongoingNote}`;
+  }
+
+  it('broken anchor omits "Active grammar patterns:" even when signals are set', () => {
+    const signals = '- ser_vs_estar: WOBBLING — slipped back. Needs revisiting.';
+    const session: PatternAnchorSession = {
+      studentActflLevel: 'novice_mid',
+      targetLanguage: 'Spanish',
+      nativeLanguage: 'english',
+      tutorName: 'Daniela',
+      conversationHistory: ['t1', 't2', 't3'],
+      activePatternSignals: signals,
+    };
+
+    const brokenAnchor = buildActflPersonaAnchorBroken(session);
+
+    // The production assertion — assert.ok(anchor.includes('Active grammar patterns:'))
+    // — must throw for the broken implementation.  If it doesn't throw, the CI check
+    // is no longer load-bearing.
+    assert.throws(
+      () => assert.ok(
+        brokenAnchor.includes('Active grammar patterns:'),
+        'Expected "Active grammar patterns:" in anchor when activePatternSignals is set',
+      ),
+      /Expected "Active grammar patterns:"/,
+      'CI must fail when buildActflPersonaAnchor drops the pattern section',
+    );
+  });
+
+  it('broken anchor also drops the patternKey — round-trip assertion would fire', () => {
+    const compartments = makeCompartments([
+      {
+        patternKey: 'subjunctive_present',
+        status: 'wobbling',
+        wobbleCount: 2,
+        lastWobbledAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      },
+    ]);
+    const signals = formatPatternSignals(compartments);
+    assert.ok(signals !== null);
+
+    const session: PatternAnchorSession = {
+      studentActflLevel: 'intermediate_mid',
+      targetLanguage: 'Spanish',
+      nativeLanguage: 'english',
+      activePatternSignals: signals,
+    };
+
+    const brokenAnchor = buildActflPersonaAnchorBroken(session);
+
+    // The round-trip test asserts anchor.includes('subjunctive_present').
+    // Confirm that assertion fires for the broken implementation.
+    assert.throws(
+      () => assert.ok(
+        brokenAnchor.includes('subjunctive_present'),
+        'Wobbling key must survive round-trip into per-turn anchor',
+      ),
+      /Wobbling key must survive round-trip/,
+      'CI must fire when the patternKey is absent from the broken anchor',
+    );
+  });
+
+  it('real buildActflPersonaAnchor passes the same assertions — sabotage test does not break the passing suite', () => {
+    // Sanity check: the production function still passes both assertions that the
+    // broken function fails above.  This ensures the sabotage tests are not
+    // over-broad (i.e. they only catch regressions, not normal behaviour).
+    const signals = '- ser_vs_estar: WOBBLING — slipped back. Needs revisiting.';
+    const session: PatternAnchorSession = {
+      studentActflLevel: 'novice_mid',
+      targetLanguage: 'Spanish',
+      nativeLanguage: 'english',
+      tutorName: 'Daniela',
+      conversationHistory: ['t1', 't2', 't3'],
+      activePatternSignals: signals,
+    };
+
+    const realAnchor = buildActflPersonaAnchor(session)!;
+
+    // These must NOT throw — the real function is correct.
+    assert.ok(
+      realAnchor.includes('Active grammar patterns:'),
+      'Real anchor must include "Active grammar patterns:"',
+    );
+    assert.ok(
+      realAnchor.includes('ser_vs_estar'),
+      'Real anchor must include the patternKey',
+    );
+  });
+});
