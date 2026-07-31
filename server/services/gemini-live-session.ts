@@ -3226,7 +3226,16 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.pendingFunctionCallIds = msg.toolCall.functionCalls
         .map((fc: any) => fc.id as string)
         .filter(Boolean);
-      const responses: Array<{ id: string; name: string; response: Record<string, unknown> }> = [];
+      /** Typed shape for every GL function-call response payload.
+       * The `result` field is the string that Daniela reads; all other keys are
+       * optional pass-through data.  Using an explicit interface (rather than
+       * `Record<string, unknown>`) means a field rename (e.g. result→output) on
+       * the GL SDK side will produce a compile error instead of a silent no-op. */
+      interface GLToolResponsePayload {
+        result: string;
+        [key: string]: unknown;
+      }
+      const responses: Array<{ id: string; name: string; response: GLToolResponsePayload }> = [];
 
       // Phase 1: Build extractedFcs upfront (order-safe) then fire all handlers in parallel.
       // fcHandler.handle() returns quickly — it queues background work into
@@ -3319,7 +3328,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         const fcName = fc.name || '';
         const extractedFc = extractedFcs[idx];
 
-        let toolResponsePayload: Record<string, unknown> = { result: 'done' };
+        let toolResponsePayload: GLToolResponsePayload = { result: 'done' };
 
         if (toolErrors.has(fcName)) {
           toolResponsePayload = { result: `Tool call failed: ${toolErrors.get(fcName)}` };
@@ -3448,8 +3457,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             responses.length > 0
           ) {
             const lastResp = responses[responses.length - 1];
-            const existing = (lastResp.response as any)?.result ?? '';
-            (lastResp.response as any).result =
+            const existing = lastResp.response.result ?? '';
+            lastResp.response.result =
               existing +
               '\n\n--- SYSTEM STATUS ---\n' +
               'CRITICAL: Multiple lookups performed. Student-facing latency is high. ' +
@@ -3470,7 +3479,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // of prepending to student speech. Clears the flag after injection so it fires exactly once.
       if (this.pendingSystemWhisper && responses.length > 0) {
         const last = responses[responses.length - 1];
-        const currentResult = (last.response as any)?.result ?? '';
+        const currentResult = last.response.result ?? '';
 
         // Gap B — Temporal Pacing: inject session elapsed time so Daniela can self-pace.
         // When > 25 minutes in, shift into landing mode (synthesize wins, set cliffhanger).
@@ -3534,7 +3543,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
           : '';
         const whisperPayload = `[${labels[turn % labels.length]}: ${coreContent}${affirmationNote} ${tails[turn % tails.length]}]`;
 
-        (last.response as any).result = currentResult
+        last.response.result = currentResult
           + (currentResult ? '\n\n' : '')
           + whisperPayload;
         this.pendingSystemWhisper = false;
@@ -3604,8 +3613,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // Tool-result body is the only safe injection channel available in the GL API.
         if (responses.length > 0) {
           const last = responses[responses.length - 1];
-          const currentResult = (last.response as any)?.result ?? '';
-          (last.response as any).result = currentResult
+          const currentResult = last.response.result ?? '';
+          last.response.result = currentResult
             + (currentResult ? '\n\n' : '')
             + guardianWhisper;
           console.log(`[ArchiveGuardian/concat] ${guardianWhispers.length} whisper(s) injected into tool response (${last.name}) — ${guardianWhisper.length} chars`);
@@ -3622,9 +3631,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // Injected into the LAST tool response so it is the most-recently-seen context.
       if (this.preTurnTextForWhisper && responses.length > 0) {
         const last = responses[responses.length - 1];
-        const currentResult = (last.response as any)?.result ?? '';
+        const currentResult = last.response.result ?? '';
         const transcriptWhisper = `[Parallel speech — not spoken: You have already spoken the following aloud: "${this.preTurnTextForWhisper}". Do not repeat these words. Resume your response immediately with the information found.]`;
-        (last.response as any).result = currentResult
+        last.response.result = currentResult
           + (currentResult ? '\n\n' : '')
           + transcriptWhisper;
         console.log(`[GeminiLive] Parallel speech whisper injected — "${this.preTurnTextForWhisper.slice(0, 60)}"`);
@@ -3636,9 +3645,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       // the student never saw. Cleared after injection so it fires once per failure.
       if ((this.session as any).lastVisualFailure && responses.length > 0) {
         const last = responses[responses.length - 1];
-        const currentResult = (last.response as any)?.result ?? '';
+        const currentResult = last.response.result ?? '';
         const failureNote = `[System note — not spoken: A visual failed to load (${(this.session as any).lastVisualFailure}). Do not reference the image or ask the student about it. Describe the concept in words instead — act as if you had intended to use words all along.]`;
-        (last.response as any).result = currentResult + (currentResult ? '\n\n' : '') + failureNote;
+        last.response.result = currentResult + (currentResult ? '\n\n' : '') + failureNote;
         (this.session as any).lastVisualFailure = undefined;
         console.log(`[GeminiLive] Gap C: visual failure note injected into tool response`);
       }
@@ -3650,11 +3659,11 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       const pendingCtx = this.session.pendingGlContext;
       if (pendingCtx?.length && responses.length > 0) {
         const last = responses[responses.length - 1];
-        const currentResult = (last.response as any)?.result ?? '';
+        const currentResult = last.response.result ?? '';
         // Observer-report format (Gemini audit recommendation): state what IS showing now,
         // not what was shown before. Model reads this as the current visual state post-tool.
         const ctxNote = '[SYSTEM UPDATE — not spoken: The student\'s screen now shows: ' + pendingCtx.join(' | ') + ']';
-        (last.response as any).result = currentResult + (currentResult ? '\n\n' : '') + ctxNote;
+        last.response.result = currentResult + (currentResult ? '\n\n' : '') + ctxNote;
         this.session.pendingGlContext = [];
         console.log(`[GeminiLive] Gap 10: flushed ${pendingCtx.length} frontend context item(s) into tool response`);
       }
@@ -3673,8 +3682,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         const heartbeat = newSeatCallCount % 10 === 0; // re-inject every 10 tool calls
         if (stateSnapshot && (stateSnapshot !== lastSnapshot || heartbeat)) {
           const last = responses[responses.length - 1];
-          const currentResult = (last.response as any)?.result ?? '';
-          (last.response as any).result = currentResult
+          const currentResult = last.response.result ?? '';
+          last.response.result = currentResult
             + (currentResult ? '\n\n' : '')
             + `[Observer Seat — not spoken: ${stateSnapshot}]`;
           (this.session as any)._lastObserverSnapshot = stateSnapshot;
@@ -3699,9 +3708,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                        'no scaffolding — full target language, native speed, treat errors as production mistakes';
         const last = responses[responses.length - 1];
         if (last?.response) {
-          const currentResult = (last.response as any)?.result ?? '';
+          const currentResult = last.response.result ?? '';
           const note = `[Scaffolding Level — not spoken: ${level}/10 — ${descriptor}]`;
-          (last.response as any).result = currentResult + (currentResult ? '\n\n' : '') + note;
+          last.response.result = currentResult + (currentResult ? '\n\n' : '') + note;
           console.log(`[GeminiLive] ScaffoldingSlider level ${level}/10 injected (call ${scaffoldingCallCount})`);
         }
       }
@@ -3729,10 +3738,10 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         }
         if (pedagogicalDirective) {
           const last = responses[responses.length - 1];
-          const currentResult = (last.response as any)?.result ?? '';
+          const currentResult = last.response.result ?? '';
           const urgencyPrefix = pedagogicalDirective.urgency === 'emergency' ? 'URGENT — ' : '';
           const note = `[Pedagogical Supervisor — not spoken: ${urgencyPrefix}${pedagogicalDirective.directive}]`;
-          (last.response as any).result = currentResult + (currentResult ? '\n\n' : '') + note;
+          last.response.result = currentResult + (currentResult ? '\n\n' : '') + note;
           console.log(`[GeminiLive] PedagogicalSupervisor [${pedagogicalDirective.urgency}] injected into tool response (${(last as any).name ?? 'unknown'}): ${pedagogicalDirective.directive.slice(0, 80)}...`);
         }
       }
