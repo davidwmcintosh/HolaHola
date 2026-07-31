@@ -174,6 +174,7 @@ const GUST_CHAPTER_MAP: Record<string, string> = {
   "lo-veo":                 "lo veo",
   "me-lo":                  "me lo",
   "hable-formal-commands":  "hable:",
+  "telling-time":           "telling time",
 };
 
 function extractGustVocab(lookupKey: string): VocabEntry[] {
@@ -239,6 +240,47 @@ function getTextbookVocab(chapterKey: string): VocabEntry[] {
             description: item.english || item.translation || item.description || "",
           })
         );
+      });
+    }
+  } else if (chapterKey === "puedo-ir") {
+    const c = getHayContent("puedo ir") as any;
+    if (c) {
+      const clusters: any[] = c.clusters || [];
+      clusters.forEach((cl: any) => {
+        const pairs: any[] = cl.pairs || [];
+        pairs.forEach((p: any) => {
+          if (p.imageWord) {
+            entries.push({ word: p.imageWord, description: p.answerTranslation || p.questionTranslation || "" });
+          }
+        });
+      });
+    }
+  } else if (chapterKey === "estar-locations") {
+    const c = getSerContent("estar") as any;
+    if (c) {
+      (c.clusters as any[]).forEach((cl: any) => {
+        // estar-statements and ser-qa clusters have cards with imageWord
+        if (Array.isArray(cl.cards)) {
+          cl.cards.forEach((card: any) => {
+            if (card.imageWord) {
+              entries.push({
+                word: card.imageWord,
+                description: card.translation || card.answerTranslation || "",
+              });
+            }
+          });
+        }
+        // estar-expressions have genderPairs and additionalItems
+        if (Array.isArray(cl.genderPairs)) {
+          cl.genderPairs.forEach((gp: any) => {
+            if (gp.masculine) entries.push({ word: gp.masculine.spanish, description: gp.masculine.english });
+          });
+        }
+        if (Array.isArray(cl.additionalItems)) {
+          cl.additionalItems.forEach((item: any) => {
+            if (item.spanish) entries.push({ word: item.spanish, description: item.english || "" });
+          });
+        }
       });
     }
   }

@@ -5491,7 +5491,9 @@ SUPPORTED CHAPTER KEYS:
 • "tener-i-have" — Tener: having/possessing
 • "quiero-i-want" — Querer: wanting things
 • "ser-plurals-gender" — Ser: gender and plurals
+• "estar-locations" — Estar: locations and conditions (está en el baño, está contento…)
 • "hay" — Hay: there is / there are
+• "puedo-ir" — Puedo ir: I can go / can you go? (places and events)
 • "gustar-me-gusta" — Gustar: me gusta / me gustan
 • "gustaria" — Me gustaría: I would like
 • "fui-i-went" — Fui: I went (preterite of ir)
@@ -5513,6 +5515,7 @@ SUPPORTED CHAPTER KEYS:
 • "lo-veo" — Lo veo: I see it / I see him (direct object pronoun)
 • "me-lo" — Me lo: to me / it to me (double object pronoun)
 • "hable-formal-commands" — Hable: speak! (formal command)
+• "telling-time" — ¿Qué hora es?: telling time and expressing duration (hace + time)
 
 SHOW AND SPEAK PROTOCOL (mandatory):
 1. Say something natural FIRST in the "text" field — "Let me pull up that chapter so we can see the full list."
@@ -5527,7 +5530,7 @@ SHOW AND SPEAK PROTOCOL (mandatory):
           },
           chapter_key: {
             type: "string",
-            enum: ["ir-going-places", "tomar-i-took", "comprar-i-bought", "near-future-voy-a", "tener-i-have", "quiero-i-want", "ser-plurals-gender", "hay", "gustar-me-gusta", "gustaria", "fui-i-went", "voy-a-infinitive", "va-a-third-person", "que-hizo", "tuvo-he-had", "le-indirect-object", "esta-he-is", "estudie-i-studied", "recibi-i-received", "compraba-imperfect", "tengo-catarro", "a-que-hora", "como-esta", "que-esta-haciendo", "me-levanto", "he-comprado", "lo-veo", "me-lo", "hable-formal-commands"],
+            enum: ["ir-going-places", "tomar-i-took", "comprar-i-bought", "near-future-voy-a", "tener-i-have", "quiero-i-want", "ser-plurals-gender", "estar-locations", "hay", "puedo-ir", "gustar-me-gusta", "gustaria", "fui-i-went", "voy-a-infinitive", "va-a-third-person", "que-hizo", "tuvo-he-had", "le-indirect-object", "esta-he-is", "estudie-i-studied", "recibi-i-received", "compraba-imperfect", "tengo-catarro", "a-que-hora", "como-esta", "que-esta-haciendo", "me-levanto", "he-comprado", "lo-veo", "me-lo", "hable-formal-commands", "telling-time"],
             description: "The textbook chapter to display (see supported keys above)",
           },
           title: {
