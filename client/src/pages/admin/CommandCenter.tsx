@@ -15823,7 +15823,16 @@ function AbsenceMonitorTab() {
             </div>
           </div>
 
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              refetch();
+              queryClient.invalidateQueries({ queryKey: ['/api/admin/absence-nudges/count'] });
+            }}
+            disabled={isFetching}
+            data-testid="button-refresh-absence"
+          >
             <RefreshCw className={`h-4 w-4 mr-2${isFetching ? ' animate-spin' : ''}`} />
             Refresh
           </Button>

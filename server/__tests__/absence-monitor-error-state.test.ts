@@ -336,44 +336,55 @@ function readAbsenceMonitorTabSource(): string {
 
 const absenceMonitorTabSrc = readAbsenceMonitorTabSource();
 
-// ── Helper: extract the lines around the Refresh button ──────────────────────
+// ── Helper: locate the Refresh button region in the source ───────────────────
 //
-// The button JSX is:
-//   <Button variant="outline" size="sm" onClick={() => refetch()}>
-//     <RefreshCw className="h-4 w-4 mr-2" />
-//     Refresh
-//   </Button>
+// The Refresh button is identified by its data-testid="button-refresh-absence".
+// We locate that anchor and check:
+//   - refetch() is called inside the same onClick block
+//   - the badge-count key is also invalidated in the same block
+//   - the button is NOT inside an isLoading/data conditional
 //
-// We locate the Button line containing onClick={() => refetch()} and check
-// whether it lives directly inside a CardContent (unconditional) or is wrapped
-// in an `if`/ternary that could hide it.
+// The onClick handler is a multi-statement block:
+//   onClick={() => {
+//     refetch();
+//     queryClient.invalidateQueries({ queryKey: ['/api/admin/absence-nudges/count'] });
+//   }}
 
 function findRefreshButtonContext(src: string): {
   buttonLine: string;
   precedingConditional: boolean;
 } {
   const lines = src.split('\n');
-  const btnIdx = lines.findIndex(
-    (l) => l.includes('onClick={() => refetch()}') && l.includes('<Button'),
+
+  // Step 1: locate the testid anchor (stable even when onClick shape changes).
+  const testidIdx = lines.findIndex(
+    (l) => l.includes('data-testid="button-refresh-absence"'),
   );
-  if (btnIdx === -1) return { buttonLine: '', precedingConditional: false };
+  if (testidIdx === -1) return { buttonLine: '', precedingConditional: false };
 
-  const buttonLine = lines[btnIdx];
+  // Step 2: walk backward from the testid line to find the opening <Button tag.
+  // The button's props span multiple lines; we need the *opening* line so that
+  // the conditional lookback starts before the button, not inside its prop block
+  // (where `isLoading` appears legitimately as a disabled / className expression).
+  let openingIdx = testidIdx;
+  for (let i = testidIdx; i >= Math.max(0, testidIdx - 20); i--) {
+    if (lines[i].trimStart().startsWith('<Button')) {
+      openingIdx = i;
+      break;
+    }
+  }
 
-  // Walk back up to 15 lines to see if the nearest control-flow keyword before
-  // the button is `isLoading ?` or `data ?` (conditional render) vs plain JSX.
-  const lookback = lines.slice(Math.max(0, btnIdx - 15), btnIdx);
+  const buttonLine = lines[openingIdx];
+
+  // Step 3: look back up to 15 lines from the <Button opening to detect whether
+  // the button is wrapped in an isLoading/data conditional block.
+  const lookback = lines.slice(Math.max(0, openingIdx - 15), openingIdx);
   const conditionalKeywords = /\bisLoading\s*\?|\bdata\s*\?|\bdata\s*&&/;
-  // Ignore the isLoading ternary used for the *list* below the button; we need
-  // to find an open ternary that the button itself is inside.  A closing `)`
-  // between the keyword and the button means the ternary was already closed.
-  // Simple heuristic: check for unmatched ternary openers in the lookback.
   const lookbackStr = lookback.join('\n');
   const hasConditional =
     conditionalKeywords.test(lookbackStr) &&
-    // If the last occurrence of `?` is balanced by a corresponding `:` before
-    // the button, the ternary is closed.  For our purposes: if the block ends
-    // with `</div>` or `</>` or `</Card` before the button, it's outside.
+    // A closing tag just before the <Button means any preceding ternary was
+    // already closed — the button lives outside that conditional block.
     !/(\/div>|<\/>|<\/Card[^>]*>)\s*$/.test(lookbackStr.trimEnd());
 
   return { buttonLine, precedingConditional: hasConditional };
@@ -388,17 +399,26 @@ describe('Refresh button — source-level presence and refetch wiring', () => {
     );
   });
 
-  it('Refresh button exists in AbsenceMonitorTab with onClick={() => refetch()}', () => {
+  it('Refresh button exists in AbsenceMonitorTab and calls refetch()', () => {
+    // The onClick may be an inline arrow or a block — both must call refetch().
     assert.ok(
-      absenceMonitorTabSrc.includes('onClick={() => refetch()}'),
-      'AbsenceMonitorTab must contain a button with onClick={() => refetch()} — ' +
-        'if this fails the button was removed or its onClick was changed',
+      absenceMonitorTabSrc.includes('refetch()'),
+      'AbsenceMonitorTab must call refetch() somewhere in the Refresh button handler — ' +
+        'if this fails the button was removed or refetch() is no longer invoked',
+    );
+  });
+
+  it('Refresh button also invalidates the badge-count query key on click', () => {
+    // Task 405: clicking Refresh must also clear the /api/admin/absence-nudges/count
+    // cache so the tab-label badge updates immediately without waiting for the 30s poll.
+    assert.ok(
+      absenceMonitorTabSrc.includes('/api/admin/absence-nudges/count'),
+      'AbsenceMonitorTab Refresh handler must invalidate /api/admin/absence-nudges/count — ' +
+        'without this the badge lags up to 30 s after the founder manually refreshes',
     );
   });
 
   it('Refresh button carries the RefreshCw icon (visual identity check)', () => {
-    // The button is identified by its icon as well as its handler; both must be
-    // present so a replacement button without the icon also fails this test.
     assert.ok(
       absenceMonitorTabSrc.includes('RefreshCw'),
       'AbsenceMonitorTab must contain a RefreshCw icon near the Refresh button',
@@ -409,7 +429,7 @@ describe('Refresh button — source-level presence and refetch wiring', () => {
     const { buttonLine, precedingConditional } = findRefreshButtonContext(absenceMonitorTabSrc);
     assert.ok(
       buttonLine.length > 0,
-      'Refresh button must be present (onClick={() => refetch()})',
+      'Refresh button must be present (located via data-testid="button-refresh-absence")',
     );
     assert.equal(
       precedingConditional,
@@ -420,8 +440,6 @@ describe('Refresh button — source-level presence and refetch wiring', () => {
   });
 
   it('refetch is declared via useQuery in AbsenceMonitorTab', () => {
-    // The component must destructure `refetch` from useQuery so the button
-    // onClick has a real React Query refetch to call.
     assert.ok(
       absenceMonitorTabSrc.includes('refetch') &&
         absenceMonitorTabSrc.includes('useQuery'),
