@@ -294,10 +294,11 @@ for (const { label, pass } of nudgeChecks) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// PART 2b — Cross-check: GL nudge text vs. source file
+// PART 2b — Cross-check: gemini-live-session.ts imports from memory-chain-guard
+// (nudge text must not be inline — it must come from the canonical source)
 // ══════════════════════════════════════════════════════════════════════════════
 sep();
-console.log(B('PART 2b — Cross-check: GL nudge text vs. live gemini-live-session.ts'));
+console.log(B('PART 2b — Cross-check: gemini-live-session.ts imports from memory-chain-guard.ts'));
 sep();
 
 try {
@@ -307,21 +308,16 @@ try {
   );
 
   const crossChecks = [
-    { label: 'GL source has "One exception" clause in nudge',
-      pass: sourceFile.includes('One exception: if the student is explicitly testing shared memory') },
-    { label: 'GL source has shared-history phrase "do you remember when I told you about"',
-      pass: sourceFile.includes('do you remember when I told you about') },
-    { label: 'GL source has honest fallback phrase',
-      // Use a substring without the apostrophe to avoid escaped-quote mismatch in raw source text.
-      pass: sourceFile.includes("exact words in front of me right now") },
-    { label: 'GL source has "one more targeted search"',
-      pass: sourceFile.includes('one more targeted search') },
-    { label: 'GL source has "Synthesize the current findings into a direct response to the student immediately"',
-      pass: sourceFile.includes('Synthesize the current findings into a direct response to the student immediately') },
+    { label: 'GL source imports MEMORY_CHAIN_NUDGE_TEXT from memory-chain-guard',
+      pass: sourceFile.includes('MEMORY_CHAIN_NUDGE_TEXT') && sourceFile.includes('memory-chain-guard') },
     { label: 'GL source imports MEMORY_CHAIN_LIMIT from memory-chain-guard',
       pass: sourceFile.includes('MEMORY_CHAIN_LIMIT') && sourceFile.includes('memory-chain-guard') },
     { label: 'GL source imports MEMORY_TOOL_NAMES from memory-chain-guard',
       pass: sourceFile.includes('MEMORY_TOOL_NAMES') && sourceFile.includes('memory-chain-guard') },
+    { label: 'GL source has no inline nudge text (no "--- SYSTEM STATUS ---" literal)',
+      pass: !sourceFile.includes('--- SYSTEM STATUS ---') },
+    { label: 'GL source uses MEMORY_CHAIN_NUDGE_TEXT constant at the injection site',
+      pass: sourceFile.includes('MEMORY_CHAIN_NUDGE_TEXT') },
   ];
 
   for (const { label, pass } of crossChecks) {
@@ -330,48 +326,64 @@ try {
   }
 
   if (crossChecks.every(c => c.pass)) {
-    console.log('\n' + G('  ✓ GL source nudge text is in sync with the expected content.'));
+    console.log('\n' + G('  ✓ GL source correctly delegates nudge text to memory-chain-guard.ts.'));
   } else {
-    console.log('\n' + R('  ✗ DRIFT: GL source does not match expected nudge content. Update gemini-live-session.ts.'));
+    console.log('\n' + R('  ✗ DRIFT: GL source has inline nudge text or missing imports. Fix gemini-live-session.ts.'));
   }
 } catch (err) {
   console.log(Y(`  ⚠ Could not read source file for cross-check: ${(err as Error).message}`));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// PART 3 — Parity check: GL nudge must contain the same key phrases as text-mode
+// PART 3 — Parity check: both GL and text-mode import nudge text from the
+// canonical single source (memory-chain-guard.ts) — no inline copies allowed.
 // ══════════════════════════════════════════════════════════════════════════════
 sep();
-console.log(B('PART 3 — Parity: GL nudge matches text-mode (daniela-caller.ts) nudge'));
+console.log(B('PART 3 — Parity: both GL and text-mode import nudge text from memory-chain-guard.ts'));
 sep();
 
+// Design intent: both paths share the same MEMORY_CHAIN_NUDGE_TEXT constant
+// from memory-chain-guard.ts. Neither file should have the nudge text inline.
+// Parity is guaranteed structurally (one source) rather than by text comparison.
+
 try {
+  const guardFile = readFileSync(
+    join(import.meta.dirname ?? __dirname, '../services/memory-chain-guard.ts'),
+    'utf-8',
+  );
   const callerFile = readFileSync(
     join(import.meta.dirname ?? __dirname, '../services/daniela-caller.ts'),
     'utf-8',
   );
+  const glFile = readFileSync(
+    join(import.meta.dirname ?? __dirname, '../services/gemini-live-session.ts'),
+    'utf-8',
+  );
 
-  // Extract the nudge text block from daniela-caller.ts
-  const callerHasException = callerFile.includes('One exception: if the student is explicitly testing shared memory');
-  const callerHasSharedHistory = callerFile.includes('do you remember when I told you about');
-  // Use apostrophe-free substring to avoid escaped-quote mismatch in raw source text.
-  const callerHasHonestFallback = callerFile.includes("exact words in front of me right now");
-  const callerHasSynthesizeNow = callerFile.includes('Synthesize the current findings into a direct response to the student immediately');
+  // Both consumer files must import MEMORY_CHAIN_NUDGE_TEXT from the canonical source.
+  const callerImportsNudge = callerFile.includes('MEMORY_CHAIN_NUDGE_TEXT') && callerFile.includes('memory-chain-guard');
+  const glImportsNudge     = glFile.includes('MEMORY_CHAIN_NUDGE_TEXT') && glFile.includes('memory-chain-guard');
 
-  const glHasException = GL_NUDGE_TEXT.includes('One exception: if the student is explicitly testing shared memory');
-  const glHasSharedHistory = GL_NUDGE_TEXT.includes('do you remember when I told you about');
-  const glHasHonestFallback = GL_NUDGE_TEXT.includes("I don't have your exact words in front of me right now");
-  const glHasSynthesizeNow = GL_NUDGE_TEXT.includes('Synthesize the current findings into a direct response to the student immediately');
+  // Neither consumer should have the nudge text hardcoded inline.
+  // (Presence of the canonical constant in the guard file is the positive check below.)
+  const callerNotInline = !callerFile.includes('--- SYSTEM STATUS ---');
+  const glNotInline     = !glFile.includes('--- SYSTEM STATUS ---');
+
+  // Canonical source (memory-chain-guard.ts) must have all required phrases.
+  const guardHasException    = guardFile.includes('One exception: if the student is explicitly testing shared memory');
+  const guardHasSharedHist   = guardFile.includes('do you remember when I told you about');
+  const guardHasFallback     = guardFile.includes('exact words in front of me right now');
+  const guardHasSynthesize   = guardFile.includes('Synthesize the current findings into a direct response to the student immediately');
 
   const parityChecks = [
-    { label: '"One exception" clause: both paths agree',
-      pass: callerHasException === glHasException },
-    { label: '"do you remember" phrase: both paths agree',
-      pass: callerHasSharedHistory === glHasSharedHistory },
-    { label: 'Honest fallback: both paths agree',
-      pass: callerHasHonestFallback === glHasHonestFallback },
-    { label: '"Synthesize immediately": both paths agree',
-      pass: callerHasSynthesizeNow === glHasSynthesizeNow },
+    { label: 'daniela-caller.ts imports MEMORY_CHAIN_NUDGE_TEXT from memory-chain-guard',   pass: callerImportsNudge },
+    { label: 'gemini-live-session.ts imports MEMORY_CHAIN_NUDGE_TEXT from memory-chain-guard', pass: glImportsNudge },
+    { label: 'daniela-caller.ts has no inline nudge text (no "--- SYSTEM STATUS ---")',      pass: callerNotInline },
+    { label: 'gemini-live-session.ts has no inline nudge text (no "--- SYSTEM STATUS ---")', pass: glNotInline },
+    { label: 'Canonical source has "One exception" clause',   pass: guardHasException },
+    { label: 'Canonical source has shared-history phrase',    pass: guardHasSharedHist },
+    { label: 'Canonical source has honest fallback phrase',   pass: guardHasFallback },
+    { label: 'Canonical source has synthesize-immediately directive', pass: guardHasSynthesize },
   ];
 
   for (const { label, pass } of parityChecks) {
@@ -380,12 +392,12 @@ try {
   }
 
   if (parityChecks.every(c => c.pass)) {
-    console.log('\n' + G('  ✓ GL and text-mode nudge texts are in parity — both paths enforce the same guard.'));
+    console.log('\n' + G('  ✓ Both paths import from one canonical source — parity is structural, not fragile text comparison.'));
   } else {
-    console.log('\n' + R('  ✗ PARITY DRIFT: GL and text-mode nudge texts have diverged.'));
+    console.log('\n' + R('  ✗ PARITY DRIFT: one or both paths have diverged from the canonical source.'));
   }
 } catch (err) {
-  console.log(Y(`  ⚠ Could not read caller source for parity check: ${(err as Error).message}`));
+  console.log(Y(`  ⚠ Could not read source files for parity check: ${(err as Error).message}`));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

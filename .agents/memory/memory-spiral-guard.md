@@ -27,10 +27,12 @@ Full Alden + Gemini iteration trail in `docs/gemini-audit-2026-07-30.md`.
 - Gemini-approved text: "CRITICAL: Approaching processing limit. Student-facing latency is high. Do not perform further tool calls. Synthesize the current findings into a direct response to the student immediately."
 
 ### Code backstop: GL (gemini-live-session.ts)
-- `GL_MEMORY_CHAIN_LIMIT = 6` — higher threshold, no MAX_TURNS ceiling
+- `MEMORY_CHAIN_LIMIT = 3` — same threshold as text-mode (shared constant from memory-chain-guard.ts)
+- `MEMORY_CHAIN_NUDGE_TEXT` — imported from memory-chain-guard.ts (canonical source; no inline copy)
 - `glMemoryNudgeSent` flag — fires once per spiral episode
 - Resets when: (a) non-memory tool fires in same batch, (b) Daniela produces audio (generationComplete)
-- Same approved nudge text
+- Console.log: `[MemoryBudgetGuard][GL] N consecutive memory-only batches — nudge injected once.`
+- Test: `server/scripts/test-gl-memory-chain-guard.ts` — 4 parts covering logic, content, import wiring, tool coverage
 
 ## What was tried and rejected
 
