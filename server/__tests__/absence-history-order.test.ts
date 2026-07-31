@@ -33,15 +33,17 @@ import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import express from 'express';
-import { getSharedDb } from '../db';
+import { getSharedDb, closeDbConnections } from '../db';
 import { danielaAbsenceNudges } from '@shared/schema';
 import { inArray } from 'drizzle-orm';
 
-// Import the REAL route handler from its dedicated module.
-// This is the same function registered as the production route in routes.ts:
-//   app.get("/api/admin/absence-nudges/history", isAuthenticated, ..., absenceHistoryHandler)
-// Any change to the handler's logic is automatically picked up by this test.
-import { absenceHistoryHandler } from '../routes/absence-nudges-history';
+// Import the REAL route handler factory and the lightweight DB query.
+// Using buildAbsenceHistoryHandler + listResolvedNudges (from the lightweight
+// absence-nudges-query module) avoids importing daniela-absence-worker, which
+// eagerly initialises Deepgram / Cartesia connections that keep the process
+// alive after all tests complete — preventing a clean CI exit.
+import { buildAbsenceHistoryHandler } from '../routes/absence-nudges-history';
+import { listResolvedNudges } from '../services/absence-nudges-query';
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
 
@@ -134,11 +136,12 @@ before(async () => {
     seededIds.push(inserted.id);
   }
 
-  // Mount the REAL handler from routes.ts — no auth middleware so the test
-  // can call it directly.  The handler itself (limit clamping, resolutionType
-  // validation, listResolvedNudges() call) is unchanged.
+  // Mount the REAL handler with the real DB query function.
+  // buildAbsenceHistoryHandler(listResolvedNudges) exercises the actual limit
+  // parsing, resolutionType validation, and ORDER BY clause without importing
+  // the full worker module (which eagerly opens Deepgram/Cartesia connections).
   const app = express();
-  app.get('/api/admin/absence-nudges/history', absenceHistoryHandler);
+  app.get('/api/admin/absence-nudges/history', buildAbsenceHistoryHandler(listResolvedNudges));
 
   const result = await startTestServer(app);
   server = result.server;
@@ -154,6 +157,9 @@ after(async () => {
     const db = getSharedDb();
     await db.delete(danielaAbsenceNudges).where(inArray(danielaAbsenceNudges.id, seededIds));
   }
+
+  // Close the DB connection pool so the process can exit cleanly in CI.
+  await closeDbConnections();
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
