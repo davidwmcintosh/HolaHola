@@ -15,6 +15,10 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import {
   deriveTargetColumn,
   deriveFileSuffix,
@@ -145,5 +149,89 @@ describe('column and suffix stay in sync', () => {
   it('main column maps to main suffix', () => {
     assert.equal(deriveTargetColumn(true), 'image_url');
     assert.equal(deriveFileSuffix(true), 'main');
+  });
+});
+
+// ─── 7. --dry-run does not open a DB connection ───────────────────────────────
+// upload-props.ts imports db lazily; in --dry-run mode it must exit cleanly
+// even when NEON_SHARED_DATABASE_URL is absent (CI preview / local dev without DB).
+
+describe('upload-props --dry-run: no DB connection required', () => {
+  it('exits 0 with --dry-run and no NEON_SHARED_DATABASE_URL set', () => {
+    // Create a temp dir with a minimal PNG file so the script has something to preview.
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'upload-props-test-'));
+    // Minimal 1×1 white PNG (67 bytes — valid PNG header + IHDR + IDAT + IEND).
+    const minimalPng = Buffer.from(
+      '89504e470d0a1a0a0000000d49484452000000010000000108020000009001' +
+      '2e000000000c4944415478016360f8ff000000020001e221bc330000000049454e44ae426082',
+      'hex',
+    );
+    fs.writeFileSync(path.join(tmpDir, 'test_cup.png'), minimalPng);
+
+    try {
+      // Strip DB env vars so the script cannot open a connection even if it tries.
+      const env: NodeJS.ProcessEnv = { ...process.env };
+      delete env['NEON_SHARED_DATABASE_URL'];
+      delete env['DATABASE_URL'];
+
+      const result = spawnSync(
+        'npx',
+        ['tsx', 'scripts/upload-props.ts', `--from=${tmpDir}`, '--dry-run'],
+        { env, encoding: 'utf8', timeout: 30_000 },
+      );
+
+      const stdout = result.stdout ?? '';
+      const stderr = result.stderr ?? '';
+
+      assert.equal(
+        result.status,
+        0,
+        `Expected exit 0 but got ${result.status}.\nstdout: ${stdout}\nstderr: ${stderr}`,
+      );
+      assert.ok(
+        stdout.includes('DRY RUN'),
+        `Expected "DRY RUN" in stdout; got:\n${stdout}`,
+      );
+      assert.ok(
+        stdout.includes('would upload'),
+        `Expected "would upload" in stdout; got:\n${stdout}`,
+      );
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('--dry-run output does not mention "Fatal" or DB errors', () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'upload-props-test-'));
+    const minimalPng = Buffer.from(
+      '89504e470d0a1a0a0000000d49484452000000010000000108020000009001' +
+      '2e000000000c4944415478016360f8ff000000020001e221bc330000000049454e44ae426082',
+      'hex',
+    );
+    fs.writeFileSync(path.join(tmpDir, 'fork.png'), minimalPng);
+
+    try {
+      const env: NodeJS.ProcessEnv = { ...process.env };
+      delete env['NEON_SHARED_DATABASE_URL'];
+      delete env['DATABASE_URL'];
+
+      const result = spawnSync(
+        'npx',
+        ['tsx', 'scripts/upload-props.ts', `--from=${tmpDir}`, '--dry-run'],
+        { env, encoding: 'utf8', timeout: 30_000 },
+      );
+
+      const combined = (result.stdout ?? '') + (result.stderr ?? '');
+      assert.ok(
+        !combined.toLowerCase().includes('fatal'),
+        `Expected no "Fatal" in output; got:\n${combined}`,
+      );
+      assert.ok(
+        !combined.toLowerCase().includes('neon_shared_database_url'),
+        `Expected no DB env-var errors in output; got:\n${combined}`,
+      );
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
