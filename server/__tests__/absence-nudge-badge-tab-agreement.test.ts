@@ -280,7 +280,90 @@ describe('CommandCenter.tsx — AbsenceMonitorTab reads from /api/founder/absenc
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PART 5 — Cross-cutting: the two endpoint URLs are distinct and consistent
+// PART 5 — Mutation guard: sabotage confirms the predicate checks are genuine
+//
+// Each test below constructs a deliberately broken copy of the worker source
+// (removing isNull from one function's region) and asserts that the SAME
+// predicate logic used in Part 1 would catch the divergence.
+//
+// If any of these tests fail it means the Part 1 assertions are NOT a
+// genuine guard — they would pass even after a real regression.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('mutation guard — sabotage confirms the isNull predicate checks catch real regressions', () => {
+  /**
+   * Build a mutated copy of workerSrc where every occurrence of 'isNull'
+   * inside the given function's region is replaced with a no-op string.
+   * The rest of the file is untouched so the mutation is surgical.
+   */
+  function sabotageIsNullInFunction(src: string, fnName: string, windowSize = 800): string {
+    const anchor = `export async function ${fnName}`;
+    const start = src.indexOf(anchor);
+    if (start === -1) return src; // function not found — test will catch it separately
+    const end = Math.min(src.length, start + anchor.length + windowSize);
+    const before = src.slice(0, start);
+    const region = src.slice(start, end).replace(/\bisNull\b/g, 'SABOTAGED_ISNULL');
+    const after = src.slice(end);
+    return before + region + after;
+  }
+
+  it('removing isNull from countPendingNudges region causes the countPendingNudges predicate check to fail', () => {
+    const mutated = sabotageIsNullInFunction(workerSrc, 'countPendingNudges', 600);
+    const region = regionAround(mutated, 'export async function countPendingNudges', 0, 600);
+    // The same logic as the production assertion in Part 1:
+    const hasFilter = region.includes('resolvedAt') && region.includes('isNull');
+    assert.equal(hasFilter, false,
+      'MUTATION GUARD FAILED: after removing isNull from countPendingNudges the predicate check ' +
+      'still passes — the Part 1 assertion would not catch a real regression where the filter is dropped');
+  });
+
+  it('removing isNull from listAbsenceNudges region causes the listAbsenceNudges predicate check to fail', () => {
+    const mutated = sabotageIsNullInFunction(workerSrc, 'listAbsenceNudges', 800);
+    const region = regionAround(mutated, 'export async function listAbsenceNudges', 0, 800);
+    const hasFilter = region.includes('resolvedAt') && region.includes('isNull');
+    assert.equal(hasFilter, false,
+      'MUTATION GUARD FAILED: after removing isNull from listAbsenceNudges the predicate check ' +
+      'still passes — the Part 1 assertion would not catch a real regression where the filter is dropped');
+  });
+
+  it('removing isNull from countPendingNudges does NOT affect the listAbsenceNudges check (mutations are surgical)', () => {
+    // Confirm the sabotage helper only touches the target function's window.
+    const mutated = sabotageIsNullInFunction(workerSrc, 'countPendingNudges', 600);
+    const listRegion = regionAround(mutated, 'export async function listAbsenceNudges', 0, 800);
+    const listStillHasFilter = listRegion.includes('resolvedAt') && listRegion.includes('isNull');
+    assert.equal(listStillHasFilter, true,
+      'Sabotage of countPendingNudges spilled into listAbsenceNudges — ' +
+      'the mutation is not surgical; fix the sabotageIsNullInFunction window size');
+  });
+
+  it('removing isNull from listAbsenceNudges does NOT affect the countPendingNudges check (mutations are surgical)', () => {
+    const mutated = sabotageIsNullInFunction(workerSrc, 'listAbsenceNudges', 800);
+    const countRegion = regionAround(mutated, 'export async function countPendingNudges', 0, 600);
+    const countStillHasFilter = countRegion.includes('resolvedAt') && countRegion.includes('isNull');
+    assert.equal(countStillHasFilter, true,
+      'Sabotage of listAbsenceNudges spilled into countPendingNudges — ' +
+      'the mutation is not surgical; fix the sabotageIsNullInFunction window size');
+  });
+
+  it('replacing danielaAbsenceNudges table ref in countPendingNudges causes the table-agreement check to fail', () => {
+    // Simulates someone changing countPendingNudges to query a different table.
+    const anchor = 'export async function countPendingNudges';
+    const start = workerSrc.indexOf(anchor);
+    const end = Math.min(workerSrc.length, start + anchor.length + 600);
+    const mutated =
+      workerSrc.slice(0, start) +
+      workerSrc.slice(start, end).replace(/\bdanielAAbsenceNudges\b/g, 'WRONG_TABLE').replace(/\bdanielaAbsenceNudges\b/g, 'WRONG_TABLE') +
+      workerSrc.slice(end);
+    const region = regionAround(mutated, anchor, 0, 600);
+    const hasCorrectTable = region.includes('danielaAbsenceNudges');
+    assert.equal(hasCorrectTable, false,
+      'MUTATION GUARD FAILED: after replacing the table reference in countPendingNudges ' +
+      'the table-agreement check still passes — the Part 1 assertion is not a genuine guard');
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PART 6 — Cross-cutting: the two endpoint URLs are distinct and consistent
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe('cross-cutting — endpoint URL consistency', () => {
