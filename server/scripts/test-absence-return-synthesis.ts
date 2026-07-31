@@ -280,6 +280,7 @@ async function runPart2(returnDetails: { daysSinceLastSession: number; firstName
     const warmthWords = [
       'back', 'return', 'away', 'absence', 'again', 'time', 'missed', 'gap', 'been a while',
       'a while', 'haven\'t', 'weeks', 'days', 'come back', 'glad', 'here',
+      'break', 'last session', 'last time', 'remember', 'session', 'welcome', 'since',
     ];
     const lowerSynth = synthesis.toLowerCase();
     const foundWarmthWord = warmthWords.find(w => lowerSynth.includes(w));
@@ -417,6 +418,7 @@ async function runPart4(): Promise<void> {
   const warmthWords = [
     'back', 'return', 'away', 'absence', 'again', 'missed', 'gap', 'been a while',
     'a while', "haven't", 'weeks', 'days', 'come back', 'glad', 'here',
+    'break', 'last session', 'last time', 'remember', 'session', 'welcome', 'since',
   ];
 
   // 4c. Generate synthesis WITHOUT absence signal — the "stale" warm cache scenario.
@@ -857,6 +859,7 @@ async function runPart6(): Promise<void> {
   const warmthWords = [
     'back', 'return', 'away', 'absence', 'again', 'missed', 'gap', 'been a while',
     'a while', "haven't", 'weeks', 'days', 'come back', 'glad', 'here',
+    'break', 'last session', 'last time', 'remember', 'session', 'welcome', 'since',
   ];
 
   // 6c. Simulate peek failure: generate synthesis WITHOUT signal (returningAfterAbsence = null).
