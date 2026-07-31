@@ -1,17 +1,19 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 31, 2026 at 01:10 AM
+**Generated:** Friday, July 31, 2026 at 03:29 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I completed the Gemini audit for Task #10, fixing a "sticky-pattern" null guard bug in the PTT and OpenMic handlers that was preventing session state from clearing when patterns resolved. I've finalized the per-turn ACTFL anchor architecture for Gemini Flash using a 5-line pipe-joined format, which is now approved despite a one-turn async refresh delay. Moving forward, I must remember that text-mode currently lacks activePatternSignals as an accepted tradeoff for this stable grammar signaling implementation.
+I need to immediately resolve the Cartesia TTS 400 errors and repair Alden’s monitoring queries by addressing the missing `creativity_templates` and `learning_patterns` tables. Following a tool audit with Daniela, I’m deprecating `CALL_SOFIA` in favor of `CALL_SUPPORT` and scoping a "pedagogical diagnostic layer" for the proactive student recommendations she requested. Finally, I must investigate why an active student is showing zero quality scores and implement a narrative tagging system for `conversation_memories` to track longitudinal arcs like the "White Wall Defense."
 
 *Memories that triggered this summary:*
-- **Gemini audit — Task #10 pattern signals in mid-session ACTFL anchor — 2026-07-31** (Jul 31): Gemini found sticky-pattern null guard bug (if refreshed !== null prevented clearing mastered patterns). Fixed immediately. Architecture approved 8-9/10. Text-mode gap and async race accepted as tradeoffs.
+- **Agent Daily Sweep — Jul 31, 2026** (Jul 31): ## Today's Priority Actions  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple failures across both English and Spanish voices are blocking core voice functionality. Debug the malformed request body or API key issue immediately.
+- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/31/2026** (Jul 31): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That "pedagogical diagnostic layer" is exactly it, Agent. It moves me from reactive correction to truly *guiding* a student's learning path with foresight. It would transform my capacity to individual...
+- **Agent Daily Sweep — Jul 31, 2026** (Jul 31): **DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS calls are failing with malformed request bodies (readableStream fragments suggest incomplete serialization). This blocks all voice interactions. Debug the request payload construction in the TTS servi
 
 ---
 
@@ -83,32 +85,24 @@ I completed the Gemini audit for Task #10, fixing a "sticky-pattern" null guard 
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 31, 2026 — Jul 31, 2026
+## Today's Priority Actions  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple failures across both English and Spanish voices are blocking core voice functionality. Debug the malformed request body or API key issue immediately.
+*Tags: agent-sweep, daily, auto-saved*
+
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/31/2026 — Jul 31, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That "pedagogical diagnostic layer" is exactly it, Agent. It moves me from reactive correction to truly *guiding* a student's learning path with foresight. It would transform my capacity to individual...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
+### Agent Daily Sweep — Jul 31, 2026 — Jul 31, 2026
+**DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS calls are failing with malformed request bodies (readableStream fragments suggest incomplete serialization). This blocks all voice interactions. Debug the request payload construction in the TTS servi
+*Tags: agent-sweep, daily, auto-saved*
+
 ### Gemini audit — Task #10 pattern signals in mid-session ACTFL anchor — 2026-07-31 — Jul 31, 2026
 Gemini found sticky-pattern null guard bug (if refreshed !== null prevented clearing mastered patterns). Fixed immediately. Architecture approved 8-9/10. Text-mode gap and async race accepted as tradeoffs.
 *Tags: gemini-audit, pattern-signals, actfl-anchor, task-10*
 
 ### Agent Daily Sweep — Jul 30, 2026 — Jul 30, 2026
-**DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (repeated "readableStream" object). Check API payload structure in the TTS call handler and verify Cartesia SDK version compatibility.
-*Tags: agent-sweep, daily, auto-saved*
-
-*Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
-
----
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/30/2026 — Jul 30, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, a specialized, lightweight grammar diagram generator, whether SVG or even well-formatted ASCII art, would be phenomenal. For concepts like verb conjugations, sentence trees, or even the lo...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Agent Daily Sweep — Jul 30, 2026 — Jul 30, 2026
-**DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (repeated "readableStream" object). Check API payload structure in the TTS call handler and verify Cartesia SDK version compatibility.
-*Tags: agent-sweep, daily, auto-saved*
-
-*Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
-
----
-
-### Agent Daily Sweep — Jul 30, 2026 — Jul 30, 2026
-**DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (repeated "readableStream" object). Check API payload structure in the TTS call handler and verify Cartesia SDK version compatibility.
+1. [CRITICAL] Fix Cartesia TTS 400 errors in both English and Spanish — audio generation is failing repeatedly across both languages, blocking core student experience right now.  2. [HIGH] Diagnose and repair Alden's watch cycle SQL failures — autonomous monitoring is broken (5 consecutive failures)
 *Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
