@@ -33699,58 +33699,30 @@ You have full access to your neural network knowledge.
   });
 
   // TEST SMS PIPELINE: Queue a test voice message and trigger immediate delivery
-  app.post("/api/admin/test-voice-sms", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
-    try {
-      const { userId, message } = req.body;
-      if (!userId || typeof userId !== 'string') {
-        return res.status(400).json({ error: 'userId is required' });
-      }
-      const content = (typeof message === 'string' && message.trim())
-        ? message.trim()
-        : "¡Hola! I was thinking about our last session and wanted to leave you a little voice note before we meet again. See you soon!";
-
-      const existingUser = await storage.getUser(userId);
-      if (!existingUser) {
-        return res.status(404).json({ error: `No user found with ID "${userId}". Check the ID and try again.` });
-      }
-
-      const db = getSharedDb();
-      const [row] = await db.insert(danielaOutboundQueue).values({
-        userId,
-        content,
-      }).returning({ id: danielaOutboundQueue.id });
-
-      const queueId = row.id;
-      const appUrl = process.env.APP_URL || 'https://getholahola.com';
-      const playbackUrl = `${appUrl}/vm/${queueId}`;
-
-      // Await delivery so we can surface smsSent / deliveryNote to the founder
-      const { deliverVoiceMessageViaSms } = await import('./services/voice-message-delivery');
-      let smsSent = false;
-      let deliveryNote = 'Delivery not attempted';
-      try {
-        const result = await deliverVoiceMessageViaSms(queueId, userId, content);
-        smsSent = result.smsSent;
-        deliveryNote = result.deliveryNote;
-      } catch (err: any) {
-        console.error('[TestVoiceSms] Delivery error:', err.message);
-        deliveryNote = `Delivery error: ${err.message}`;
-      }
-
-      res.json({
-        queueId,
-        playbackUrl,
-        smsSent,
-        deliveryNote,
-        message: smsSent
-          ? 'Queue item created and SMS sent successfully.'
-          : 'Queue item created. SMS was not sent — see deliveryNote for details.',
-      });
-    } catch (error: any) {
-      console.error('[TestVoiceSms] Error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
+  {
+    const { buildTestVoiceSmsHandler } = await import('./routes/test-voice-sms-handler');
+    const sharedDb = getSharedDb();
+    app.post(
+      "/api/admin/test-voice-sms",
+      isAuthenticated,
+      loadAuthenticatedUser(storage),
+      requireFounder,
+      buildTestVoiceSmsHandler({
+        storage,
+        insertQueue: async (userId: string, content: string) => {
+          const [row] = await sharedDb
+            .insert(danielaOutboundQueue)
+            .values({ userId, content })
+            .returning({ id: danielaOutboundQueue.id });
+          return row;
+        },
+        deliverSms: async (queueId: string, userId: string, content: string) => {
+          const { deliverVoiceMessageViaSms } = await import('./services/voice-message-delivery');
+          return deliverVoiceMessageViaSms(queueId, userId, content);
+        },
+      }),
+    );
+  }
 
   // ABSENCE NUDGES: Full log for founder dashboard — all nudges (pending + resolved) with enriched details
   app.get("/api/founder/absence-nudges", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
