@@ -1660,12 +1660,23 @@ interface OutboundQueueItem {
   createdAt: string;
   deliveredAt: string | null;
   smsDeliveredAt: string | null;
+  audioUrl: string | null;
+  deliveryError: string | null;
+}
+
+/** An item counts as "stuck" if it has a delivery error and no successful delivery after 5 minutes. */
+function isStuckItem(item: OutboundQueueItem): boolean {
+  if (item.smsDeliveredAt || item.deliveredAt || item.callAnsweredAt) return false;
+  if (!item.deliveryError) return false;
+  const ageMs = Date.now() - new Date(item.createdAt).getTime();
+  return ageMs > 5 * 60 * 1000;
 }
 
 function VoipConsoleTab() {
   const { toast } = useToast();
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [callContent, setCallContent] = useState<string>("");
+  const [retryingId, setRetryingId] = useState<string | null>(null);
 
   const { data: usersData } = useQuery<{ users: { id: string; firstName: string | null; lastName: string | null; email: string | null; role: string | null; isTestAccount: boolean | null; phone: string | null; phoneConsentVoice: boolean; phoneConsentSms: boolean }[] }>({
     queryKey: ["/api/admin/voip-users"],
@@ -1699,8 +1710,28 @@ function VoipConsoleTab() {
     },
   });
 
+  async function retrySms(item: OutboundQueueItem) {
+    setRetryingId(item.id);
+    try {
+      const res = await apiRequest("POST", `/api/admin/outbound-queue/${item.id}/retry-sms`, {});
+      const data: { success: boolean; deliveryNote: string } = await res.json();
+      if (data.success) {
+        toast({ title: "SMS resent ✓", description: data.deliveryNote });
+      } else {
+        toast({ title: "Retry failed", description: data.deliveryNote, variant: "destructive" });
+      }
+    } catch (err: any) {
+      toast({ title: "Retry error", description: err.message, variant: "destructive" });
+    } finally {
+      setRetryingId(null);
+      refetchQueue();
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/outbound-queue"] });
+    }
+  }
+
   const users = usersData?.users ?? [];
   const items = queueData?.items ?? [];
+  const stuckItems = items.filter(isStuckItem);
 
   function formatTs(ts: string | null) {
     if (!ts) return "—";
@@ -1713,6 +1744,7 @@ function VoipConsoleTab() {
     if (item.callSid) return <Badge variant="outline" data-testid={`badge-initiated-${item.id}`}>Initiated</Badge>;
     if (item.smsDeliveredAt) return <Badge variant="secondary" data-testid={`badge-sms-${item.id}`}>SMS</Badge>;
     if (item.deliveredAt) return <Badge variant="secondary" data-testid={`badge-delivered-${item.id}`}>In-App</Badge>;
+    if (item.deliveryError) return <Badge variant="destructive" data-testid={`badge-smsfailed-${item.id}`}>SMS Failed</Badge>;
     return <Badge variant="outline" data-testid={`badge-pending-${item.id}`}>Pending</Badge>;
   }
 
@@ -1776,6 +1808,38 @@ function VoipConsoleTab() {
         </CardContent>
       </Card>
 
+      {stuckItems.length > 0 && (
+        <div
+          className="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 flex items-start gap-3"
+          data-testid="alert-stuck-deliveries"
+        >
+          <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-destructive">
+              {stuckItems.length} voice-note SMS{stuckItems.length > 1 ? "s" : ""} failed to deliver
+            </p>
+            <ul className="mt-1 space-y-1">
+              {stuckItems.map((item) => (
+                <li key={item.id} className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap" data-testid={`alert-stuck-item-${item.id}`}>
+                  <span className="font-mono">…{item.userId.slice(-8)}</span>
+                  <span className="truncate max-w-xs">{item.deliveryError}</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-6 px-2 text-xs shrink-0"
+                    disabled={retryingId === item.id}
+                    onClick={() => retrySms(item)}
+                    data-testid={`button-retry-stuck-${item.id}`}
+                  >
+                    {retryingId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Retry"}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
           <div>
@@ -1811,12 +1875,18 @@ function VoipConsoleTab() {
                     <th className="pb-2 pr-4 font-medium">Answered At</th>
                     <th className="pb-2 pr-4 font-medium">Duration (s)</th>
                     <th className="pb-2 pr-4 font-medium">No Answer</th>
+                    <th className="pb-2 pr-4 font-medium">Delivery Error</th>
                     <th className="pb-2 pr-4 font-medium">Created</th>
+                    <th className="pb-2 font-medium">Retry</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((item) => (
-                    <tr key={item.id} className="border-b last:border-0" data-testid={`row-queue-${item.id}`}>
+                    <tr
+                      key={item.id}
+                      className={`border-b last:border-0 ${item.deliveryError && !item.smsDeliveredAt ? "bg-destructive/5" : ""}`}
+                      data-testid={`row-queue-${item.id}`}
+                    >
                       <td className="py-2 pr-4">{callStatus(item)}</td>
                       <td className="py-2 pr-4 font-mono text-xs text-muted-foreground" data-testid={`text-userid-${item.id}`}>
                         {item.userId.slice(-8)}
@@ -1832,7 +1902,26 @@ function VoipConsoleTab() {
                       <td className="py-2 pr-4 text-xs" data-testid={`text-noanswer-${item.id}`}>
                         {item.callNoAnswer ? <Badge variant="destructive" className="text-xs">Yes</Badge> : "—"}
                       </td>
-                      <td className="py-2 text-xs text-muted-foreground" data-testid={`text-created-${item.id}`}>{formatTs(item.createdAt)}</td>
+                      <td className="py-2 pr-4 text-xs max-w-[200px]" data-testid={`text-deliveryerror-${item.id}`}>
+                        {item.deliveryError
+                          ? <span className="text-destructive truncate block" title={item.deliveryError}>{item.deliveryError}</span>
+                          : "—"}
+                      </td>
+                      <td className="py-2 pr-4 text-xs text-muted-foreground" data-testid={`text-created-${item.id}`}>{formatTs(item.createdAt)}</td>
+                      <td className="py-2 text-xs">
+                        {item.deliveryError && !item.smsDeliveredAt ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-xs"
+                            disabled={retryingId === item.id}
+                            onClick={() => retrySms(item)}
+                            data-testid={`button-retry-sms-${item.id}`}
+                          >
+                            {retryingId === item.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Retry SMS"}
+                          </Button>
+                        ) : "—"}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

@@ -199,19 +199,32 @@ export async function deliverVoiceMessageViaSms(
 
   console.log(`[VoiceMessageDelivery] Starting SMS voice note delivery for user …${userId.slice(-6)}`);
 
+  const db = getSharedDb();
+
+  /** Persist a delivery error to the queue row so the founder can see it in CommandCenter. */
+  async function markFailed(note: string): Promise<VoiceDeliveryResult> {
+    try {
+      await db.update(danielaOutboundQueue)
+        .set({ deliveryError: note })
+        .where(eq(danielaOutboundQueue.id, queueId));
+    } catch (dbErr: any) {
+      console.error('[VoiceMessageDelivery] Failed to persist deliveryError:', dbErr.message);
+    }
+    return { smsSent: false, deliveryNote: note };
+  }
+
   const wavBuffer = await renderAudioBuffer(content);
   if (!wavBuffer || wavBuffer.length === 0) {
     console.warn('[VoiceMessageDelivery] Audio rendering produced empty buffer — delivery skipped');
-    return { smsSent: false, deliveryNote: 'SMS skipped — audio rendering failed (check Gemini TTS config)' };
+    return markFailed('Audio rendering failed (check Gemini TTS config)');
   }
 
   const audioPath = await uploadAudioToStorage(queueId, wavBuffer);
   if (!audioPath) {
     console.warn('[VoiceMessageDelivery] Audio upload failed — delivery skipped');
-    return { smsSent: false, deliveryNote: 'SMS skipped — audio upload to storage failed' };
+    return markFailed('Audio upload to storage failed');
   }
 
-  const db = getSharedDb();
   await db.update(danielaOutboundQueue)
     .set({ audioUrl: audioPath })
     .where(eq(danielaOutboundQueue.id, queueId));
@@ -224,16 +237,17 @@ export async function deliverVoiceMessageViaSms(
     smsSent = await sendTwilioSms(normalizeE164(prefs.phone), smsBody);
   } catch (err: any) {
     console.error('[VoiceMessageDelivery] SMS send failed:', err.message);
-    return { smsSent: false, deliveryNote: `SMS failed — Twilio API error: ${err.message}` };
+    return markFailed(`Twilio API error: ${err.message}`);
   }
 
   if (!smsSent) {
     // Credentials not configured — logged inside sendTwilioSms
-    return { smsSent: false, deliveryNote: 'SMS skipped — Twilio not configured (add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER to Secrets)' };
+    return markFailed('Twilio not configured (add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER to Secrets)');
   }
 
+  // Success — clear any prior error flag and stamp delivery time
   await db.update(danielaOutboundQueue)
-    .set({ smsDeliveredAt: new Date() })
+    .set({ smsDeliveredAt: new Date(), deliveryError: null })
     .where(eq(danielaOutboundQueue.id, queueId));
 
   console.log(`[VoiceMessageDelivery] Complete — queue item ${queueId} delivered via SMS`);

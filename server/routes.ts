@@ -16546,6 +16546,28 @@ Return ONLY valid JSON, no markdown, no explanation.`;
     }
   });
 
+  // Retry a failed SMS delivery for a specific queue item (founder-visible in CommandCenter)
+  app.post("/api/admin/outbound-queue/:id/retry-sms", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
+    try {
+      const { id } = req.params;
+      const db = getSharedDb();
+      const rows = await db.select().from(danielaOutboundQueue).where(eq(danielaOutboundQueue.id, id)).limit(1);
+      if (!rows.length) {
+        return res.status(404).json({ error: 'Queue item not found' });
+      }
+      const item = rows[0];
+      if (item.smsDeliveredAt) {
+        return res.status(400).json({ error: 'SMS already delivered for this item' });
+      }
+      const { deliverVoiceMessageViaSms } = await import('./services/voice-message-delivery');
+      const result = await deliverVoiceMessageViaSms(item.id, item.userId, item.content);
+      res.json({ success: result.smsSent, deliveryNote: result.deliveryNote });
+    } catch (error: any) {
+      console.error('[Admin] retry-sms error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Manually trigger an outbound Daniela call for a specific user (bypasses time-window)
   app.post("/api/admin/trigger-call", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
@@ -33708,7 +33730,8 @@ You have full access to your neural network knowledge.
   // ABSENCE NUDGES: Full log for founder dashboard — all nudges (pending + resolved) with enriched details
   app.get("/api/founder/absence-nudges", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
-      const { listAbsenceNudges, listResolvedNudges, countPendingNudges } = await import('./services/daniela-absence-worker');
+      const { listAbsenceNudges, countPendingNudges } = await import('./services/daniela-absence-worker');
+      const { listResolvedNudges } = await import('./services/absence-nudges-query');
 
       const rawLimit = parseInt(req.query.limit as string, 10);
       const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 50, 1), 200);

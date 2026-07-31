@@ -9322,6 +9322,7 @@ export const danielaOutboundQueue = pgTable("daniela_outbound_queue", {
   callDurationSeconds: integer("call_duration_seconds"), // total call length
   callNoAnswer: boolean("call_no_answer").default(false), // true → fell back to SMS
   callTranscript: text("call_transcript"), // transcription of the recorded phone call
+  deliveryError: text("delivery_error"), // set when SMS delivery fails; cleared on retry success
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [
   index("idx_daniela_outbound_queue_user").on(table.userId),

@@ -43,7 +43,7 @@ export function buildAbsenceHistoryHandler(
       if (listNudgesOverride) {
         listResolvedNudges = listNudgesOverride;
       } else {
-        const mod = await import('../services/daniela-absence-worker');
+        const mod = await import('../services/absence-nudges-query');
         listResolvedNudges = mod.listResolvedNudges;
       }
 

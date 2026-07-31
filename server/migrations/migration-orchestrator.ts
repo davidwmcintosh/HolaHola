@@ -579,6 +579,17 @@ const MIGRATIONS: Migration[] = [
       console.log('[MIGRATIONS] 014: Ensured student_absence_config table');
     },
   },
+  {
+    version: '015',
+    name: 'daniela-outbound-queue-delivery-error',
+    up: async () => {
+      await db.execute(sql`
+        ALTER TABLE daniela_outbound_queue
+          ADD COLUMN IF NOT EXISTS delivery_error TEXT
+      `);
+      console.log('[MIGRATIONS] 015: Added delivery_error column to daniela_outbound_queue');
+    },
+  },
 ];
 
 export class MigrationOrchestrator {
