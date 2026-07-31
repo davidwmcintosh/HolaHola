@@ -15823,14 +15823,53 @@ interface PendingNudge {
   suppressUntil: string | null;
 }
 
+const PROCEDURE_FLAG_TABLES = [
+  { value: '', label: 'All tables' },
+  { value: 'tutor_procedures', label: 'Tutor Procedures' },
+  { value: 'teaching_principles', label: 'Teaching Principles' },
+  { value: 'tool_knowledge', label: 'Tool Knowledge' },
+  { value: 'situational_patterns', label: 'Situational Patterns' },
+  { value: 'language_idioms', label: 'Language Idioms' },
+  { value: 'cultural_nuances', label: 'Cultural Nuances' },
+  { value: 'learner_error_patterns', label: 'Learner Errors' },
+  { value: 'dialect_variations', label: 'Dialect Variations' },
+  { value: 'linguistic_bridges', label: 'Linguistic Bridges' },
+];
+
+const DATE_RANGE_OPTIONS = [
+  { value: '', label: 'All time' },
+  { value: '7', label: 'Last 7 days' },
+  { value: '30', label: 'Last 30 days' },
+  { value: '90', label: 'Last 90 days' },
+];
+
 function ProcedureFlagsSection() {
   const { toast } = useToast();
   const [showReviewed, setShowReviewed] = useState(false);
   const [expandedFlag, setExpandedFlag] = useState<string | null>(null);
+  const [targetTable, setTargetTable] = useState('');
+  const [afterDays, setAfterDays] = useState('');
 
-  const flagsUrl = `/api/admin/procedure-flags?includeReviewed=${showReviewed}`;
+  const buildFlagsUrl = () => {
+    const params = new URLSearchParams();
+    params.set('includeReviewed', String(showReviewed));
+    if (targetTable) params.set('targetTable', targetTable);
+    if (afterDays) {
+      const d = new Date();
+      d.setDate(d.getDate() - Number(afterDays));
+      params.set('after', d.toISOString());
+    }
+    return `/api/admin/procedure-flags?${params.toString()}`;
+  };
+
+  const flagsUrl = buildFlagsUrl();
   const { data, isLoading, refetch } = useQuery<{ flags: ProcedureFlag[]; pending: number; total: number }>({
-    queryKey: [flagsUrl],
+    queryKey: ["/api/admin/procedure-flags", showReviewed, targetTable, afterDays],
+    queryFn: async () => {
+      const res = await fetch(flagsUrl, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch procedure flags');
+      return res.json();
+    },
   });
 
   const flags = data?.flags || [];
@@ -15919,6 +15958,38 @@ function ProcedureFlagsSection() {
             <RefreshCw className="h-4 w-4 mr-1" />
             Refresh
           </Button>
+        </div>
+
+        {/* Filter row */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground whitespace-nowrap">Table:</label>
+            <select
+              value={targetTable}
+              onChange={e => setTargetTable(e.target.value)}
+              className="text-xs border rounded-md px-2 py-1 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              data-testid="filter-target-table"
+            >
+              {PROCEDURE_FLAG_TABLES.map(opt => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-1">
+            <label className="text-xs text-muted-foreground whitespace-nowrap">Date:</label>
+            {DATE_RANGE_OPTIONS.map(opt => (
+              <Button
+                key={opt.value}
+                variant={afterDays === opt.value ? "default" : "outline"}
+                size="sm"
+                className="text-xs h-7 px-2"
+                onClick={() => setAfterDays(opt.value)}
+                data-testid={`filter-date-${opt.value || 'all'}`}
+              >
+                {opt.label}
+              </Button>
+            ))}
+          </div>
         </div>
 
         {/* Flags list */}

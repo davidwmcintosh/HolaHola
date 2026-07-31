@@ -33487,18 +33487,28 @@ You have full access to your neural network knowledge.
       const { ilike: ilikeOp, isNull: isNullOp, and: andOp } = await import('drizzle-orm');
       const db = getSharedDb();
       const includeReviewed = req.query.includeReviewed === 'true';
+      const targetTableParam = (req.query.targetTable as string | undefined)?.trim() || '';
+      const afterParam = (req.query.after as string | undefined)?.trim() || '';
+
+      const { gte: gteOp } = await import('drizzle-orm');
       const conditions: any[] = [
         ilikeOp(agentNotes.subject, '[Daniela \u2014 REQUIRES FOUNDER REVIEW]%'),
       ];
       if (!includeReviewed) {
         conditions.push(isNullOp(agentNotes.readAt));
       }
+      if (afterParam) {
+        const afterDate = new Date(afterParam);
+        if (!isNaN(afterDate.getTime())) {
+          conditions.push(gteOp(agentNotes.createdAt, afterDate));
+        }
+      }
       const rows = await db
         .select()
         .from(agentNotes)
         .where(andOp(...conditions))
         .orderBy(desc(agentNotes.createdAt))
-        .limit(100);
+        .limit(500);
 
       // Parse body into structured fields for convenience
       const parsed = rows.map(note => {
@@ -33537,7 +33547,12 @@ You have full access to your neural network knowledge.
         };
       });
 
-      res.json({ flags: parsed, total: parsed.length, pending: parsed.filter(f => f.pending).length });
+      // Apply targetTable post-parse filter (parsed from subject, not a DB column)
+      const filtered = targetTableParam
+        ? parsed.filter(f => f.parsedTargetTable.toLowerCase() === targetTableParam.toLowerCase())
+        : parsed;
+
+      res.json({ flags: filtered, total: filtered.length, pending: filtered.filter(f => f.pending).length });
     } catch (error: any) {
       console.error('[ProcedureFlags] GET error:', error);
       res.status(500).json({ error: error.message });
