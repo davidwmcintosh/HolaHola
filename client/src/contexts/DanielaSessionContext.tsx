@@ -113,6 +113,16 @@ export function DanielaSessionProvider({ children }: { children: ReactNode }) {
     resetDormancyTimer();
   }, [resetDormancyTimer]);
 
+  // Reset voiceStatus to idle when the session truly ends (conversationId → null).
+  // This is the only place voiceStatus should be forced to 'idle'; the
+  // StreamingVoiceChat unmount path intentionally leaves it untouched so the
+  // widget keeps showing the last active state while the student is on other pages.
+  useEffect(() => {
+    if (sessionConversationId === null) {
+      setVoiceStatus("idle");
+    }
+  }, [sessionConversationId]);
+
   useEffect(() => {
     return () => {
       if (dormancyTimerRef.current) clearTimeout(dormancyTimerRef.current);

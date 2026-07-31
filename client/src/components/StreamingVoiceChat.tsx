@@ -2275,10 +2275,10 @@ export function StreamingVoiceChat({
       publishVoiceStatus('idle');
     }
   }, [avatarState, streamingVoice.state.connectionState, publishVoiceStatus]);
-  // On unmount, reset to idle so the widget doesn't show stale state after /chat is left
-  useEffect(() => {
-    return () => { publishVoiceStatus('idle'); };
-  }, [publishVoiceStatus]);
+  // NOTE: We intentionally do NOT reset voiceStatus to 'idle' on unmount.
+  // The widget should continue to show the last known active state while the
+  // student browses other pages.  voiceStatus is reset to 'idle' in
+  // DanielaSessionContext when sessionConversationId becomes null (session ends).
   
   // Track playbackState for guards - 'buffering' happens before 'playing'
   // This catches speculative PTT audio earlier than avatarState
