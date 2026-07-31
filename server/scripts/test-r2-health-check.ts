@@ -13,6 +13,13 @@
  * An empty bucket is NOT a failure — it just means there is nothing to
  * read-verify yet; the credentials check still passes.
  *
+ * When the bucket has objects in a watched prefix the script ALSO fetches
+ * the first matching object through the Express proxy route that students
+ * actually hit (/api/media/ai-image/:file or /api/media/vm-audio/:file) and
+ * fails if the status is not 200 or the response body is empty.  If the app
+ * server is not reachable the app-route check is skipped with a warning
+ * (not a failure), matching the behaviour in verify-system-health.ts.
+ *
  * Usage:
  *   npx tsx server/scripts/test-r2-health-check.ts
  *
@@ -36,6 +43,10 @@ function fail(label: string, detail = ""): void {
   failed++;
 }
 
+function warn(label: string, detail = ""): void {
+  console.warn(`  ⚠️   ${label}${detail ? `  — ${detail}` : ""}`);
+}
+
 // ── env ──────────────────────────────────────────────────────────────────────
 
 const BUCKET    = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID ?? "";
@@ -43,6 +54,10 @@ const REGION    = process.env.AWS_S3_REGION ?? "auto";
 const ENDPOINT  = process.env.AWS_S3_ENDPOINT ?? "";
 const ACCESS_KEY = process.env.AWS_S3_ACCESS_KEY_ID ?? "";
 const SECRET_KEY = process.env.AWS_S3_SECRET_ACCESS_KEY ?? "";
+
+// App HTTP base — used to verify the Express proxy routes students actually hit.
+// Falls back to localhost:5000 (same default as verify-system-health.ts).
+const APP_BASE = process.env.APP_BASE ?? "http://localhost:5000";
 
 console.log("\n── R2 Health Check (CI) ─────────────────────────────────────");
 
@@ -98,17 +113,25 @@ async function directRead(key: string): Promise<number> {
   return bytes;
 }
 
+async function appGet(url: string): Promise<{ status: number; bytes: number }> {
+  const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  const buf = await resp.arrayBuffer();
+  return { status: resp.status, bytes: buf.byteLength };
+}
+
 // ── prefixes to verify ───────────────────────────────────────────────────────
 
-const PREFIXES = [
-  { prefix: "public/ai-images/",      label: "ai-image" },
-  { prefix: "public/voice-messages/", label: "vm-audio" },
+type PrefixSpec = { prefix: string; routeFn: (fname: string) => string; label: string };
+
+const PREFIXES: PrefixSpec[] = [
+  { prefix: "public/ai-images/",      routeFn: (f) => `/api/media/ai-image/${f}`,  label: "ai-image" },
+  { prefix: "public/voice-messages/", routeFn: (f) => `/api/media/vm-audio/${f}`,  label: "vm-audio" },
 ];
 
 let anySucceeded = false;
 let anyRead = false;
 
-for (const { prefix, label } of PREFIXES) {
+for (const { prefix, routeFn, label } of PREFIXES) {
   let keys: string[];
   try {
     keys = await listPrefix(prefix);
@@ -127,7 +150,9 @@ for (const { prefix, label } of PREFIXES) {
 
   // Prefer a key with a file extension so content-type is meaningful.
   const key = keys.find((k) => (k.split("/").pop() ?? "").includes(".")) ?? keys[0];
+  const filename = key.split("/").pop()!;
 
+  // 1. Direct S3 read
   try {
     const bytes = await directRead(key);
     if (bytes === 0) {
@@ -137,6 +162,26 @@ for (const { prefix, label } of PREFIXES) {
     }
   } catch (err: any) {
     fail(`R2 direct read ${label}`, `GetObject failed: ${err?.message ?? err}`);
+  }
+
+  // 2. App route (server must be running; gracefully skip if refused)
+  const url = `${APP_BASE}${routeFn(filename)}`;
+  try {
+    const a = await appGet(url);
+    if (a.status === 200 && a.bytes > 0) {
+      pass(`R2 app route ${label}`, `HTTP ${a.status}, ${a.bytes} bytes`);
+    } else if (a.status === 200 && a.bytes === 0) {
+      fail(`R2 app route ${label}`, `HTTP 200 but 0 bytes returned for "${filename}"`);
+    } else {
+      fail(`R2 app route ${label}`, `HTTP ${a.status} for GET ${routeFn(filename)}`);
+    }
+  } catch (err: any) {
+    const msg: string = err?.message ?? String(err);
+    if (msg.includes("ECONNREFUSED") || msg.includes("fetch failed")) {
+      warn(`R2 app route ${label}`, `Server not reachable at ${APP_BASE} — app-route check skipped`);
+    } else {
+      fail(`R2 app route ${label}`, msg);
+    }
   }
 }
 
