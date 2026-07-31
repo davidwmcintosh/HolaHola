@@ -3328,9 +3328,18 @@ Remember: David may reference things discussed in these recent text chats.
                           verbContext, studentUtterance, sessionId: conversationId, notes,
                         });
                         console.log(`[PatternSignal] ${patternKey} → ${eventType}${verbContext ? ` (${verbContext})` : ''} via ${cmd.source}`);
-                        // Refresh mid-session pattern anchor so buildActflPersonaAnchor stays current
-                        const refreshed = await fetchPatternSignalContext(userId, language).catch(() => null);
-                        session.activePatternSignals = refreshed; // null clears stale patterns when all resolve to stable
+                        // Refresh mid-session pattern anchor so buildActflPersonaAnchor stays current.
+                        // Mirrors the guard in native-fc-handlers.ts RECORD_PATTERN_SIGNAL:
+                        //   null      = all compartments resolved to stable → intentional clear
+                        //   undefined = fetchPatternSignalContext threw → preserve stale-but-correct value
+                        //   string    = active patterns found → replace with fresh signal
+                        const refreshed = await fetchPatternSignalContext(userId, language).catch((): undefined => {
+                          console.warn('[PatternSignal] fetchPatternSignalContext threw unexpectedly — preserving existing activePatternSignals to avoid silently dropping live wobble context');
+                          return undefined;
+                        });
+                        if (refreshed !== undefined) {
+                          session.activePatternSignals = refreshed;
+                        }
                       } catch (err: any) {
                         console.error(`[PatternSignal] Error:`, err.message);
                       }
@@ -6786,9 +6795,18 @@ Remember: David may reference things discussed in these recent text chats.
                         verbContext, studentUtterance, sessionId: conversationId, notes,
                       });
                       console.log(`[PatternSignal - OpenMic] ${patternKey} → ${eventType}${verbContext ? ` (${verbContext})` : ''}`);
-                      // Refresh mid-session pattern anchor so buildActflPersonaAnchor stays current
-                      const refreshed = await fetchPatternSignalContext(userId, language).catch(() => null);
-                      session.activePatternSignals = refreshed; // null clears stale patterns when all resolve to stable
+                      // Refresh mid-session pattern anchor so buildActflPersonaAnchor stays current.
+                      // Mirrors the guard in native-fc-handlers.ts RECORD_PATTERN_SIGNAL:
+                      //   null      = all compartments resolved to stable → intentional clear
+                      //   undefined = fetchPatternSignalContext threw → preserve stale-but-correct value
+                      //   string    = active patterns found → replace with fresh signal
+                      const refreshed = await fetchPatternSignalContext(userId, language).catch((): undefined => {
+                        console.warn('[PatternSignal - OpenMic] fetchPatternSignalContext threw unexpectedly — preserving existing activePatternSignals to avoid silently dropping live wobble context');
+                        return undefined;
+                      });
+                      if (refreshed !== undefined) {
+                        session.activePatternSignals = refreshed;
+                      }
                     } catch (err: any) {
                       console.error(`[PatternSignal - OpenMic] Error:`, err.message);
                     }
