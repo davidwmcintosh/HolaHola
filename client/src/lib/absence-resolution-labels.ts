@@ -22,10 +22,12 @@ export interface ResolutionMeta {
  * value stored in the database.
  *
  * CONTRACT: every value that can appear in danielaAbsenceNudges.resolutionType
- * must have an explicit case here. Unknown/future values fall through to the
- * generic "Resolved" fallback so the UI never shows a raw DB string.
+ * must have an explicit case here. The exhaustiveness check in the default
+ * branch turns a missing case into a TypeScript compile error, so a new
+ * resolutionType value cannot be added to the union without also adding a
+ * matching label here.
  */
-export function getResolutionMeta(type: string | null | undefined): ResolutionMeta {
+export function getResolutionMeta(type: ResolutionType): ResolutionMeta {
   switch (type) {
     case "student_returned":
       return {
@@ -45,11 +47,21 @@ export function getResolutionMeta(type: string | null | undefined): ResolutionMe
         badgeVariant: "outline",
         className: "bg-muted text-muted-foreground border-border",
       };
-    default:
+    case null:
       return {
         label: "Resolved",
         badgeVariant: "outline",
         className: "bg-muted text-muted-foreground border-border",
       };
+    default: {
+      // Exhaustiveness check: if a new value is added to ResolutionType without
+      // a matching case above, TypeScript will error here at compile time.
+      const _exhaustive: never = type;
+      return {
+        label: "Resolved",
+        badgeVariant: "outline",
+        className: "bg-muted text-muted-foreground border-border",
+      };
+    }
   }
 }
