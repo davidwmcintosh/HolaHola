@@ -208,7 +208,7 @@ function TestVoiceSmsPanel() {
             size="sm"
             className="h-7 text-xs"
             onClick={fire}
-            disabled={isPending || !userId.trim()}
+            disabled={isPending || !userId.trim() || !selectedStudent?.phone}
             data-testid="button-fire-test-sms"
           >
             {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Send className="h-3.5 w-3.5 mr-1" />}

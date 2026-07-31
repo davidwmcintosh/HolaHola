@@ -5,6 +5,7 @@
 
 ---
 
+
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
@@ -92,9 +93,6 @@ Double injection bug caught: callDaniela was injecting pattern note AND passing 
 *Tags: gemini-audit, pattern-signals, text-mode, double-injection*
 
 ### Agent Daily Sweep — Jul 31, 2026 — Jul 31, 2026
-1. [CRITICAL] Fix production database schema drift — Multiple tables (`cultural_nuances`, `teaching_principles`, `conversation_memories`) are missing in production but exist in dev, causing brain health monitoring and Alden's autonomous cycles to fail. Deploy schema migration immediately.  2. [HIGH]
-*Tags: agent-sweep, daily, auto-saved*
-
 ### Gemini audit — Task #338 text-mode memory nudge once-per-streak — 2026-08-01 — Jul 31, 2026
 Approved with no further comments. Text-mode memory chain nudge now fires once per streak matching GL behavior. Reset logic correct. Minor delimiter note non-blocking.
 *Tags: gemini-audit, memory-chain-guard, text-mode*
