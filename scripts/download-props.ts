@@ -16,6 +16,7 @@ import * as path from 'path';
 import { db } from '../server/db';
 import { sql } from 'drizzle-orm';
 import { downloadBuffer } from '../server/replit_integrations/object_storage/objectStorage';
+import { sanitisePropName, urlToStoragePath } from './prop-round-trip-helpers';
 
 const args = process.argv.slice(2);
 const outArg = args.find(a => a.startsWith('--out='));
@@ -25,11 +26,7 @@ const ONLY = onlyArg ? onlyArg.replace('--only=', '').split(',').map(s => s.trim
 
 const BUCKET_ID = process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID || '';
 
-// Extract the storage path from an app-relative URL like /api/media/ai-image/foo.png
-function urlToStoragePath(imageUrl: string): string {
-  const filename = imageUrl.replace('/api/media/ai-image/', '');
-  return `public/ai-images/${filename}`;
-}
+// urlToStoragePath and sanitisePropName are imported from ./prop-round-trip-helpers
 
 async function downloadFromStorage(storagePath: string): Promise<Buffer> {
   const result = await downloadBuffer(BUCKET_ID, storagePath);
@@ -59,7 +56,7 @@ async function main() {
       continue;
     }
 
-    const safeName = prop.name.replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+    const safeName = sanitisePropName(prop.name);
     const outPath = path.join(OUT_DIR, `${safeName}.png`);
     process.stdout.write(`  ${prop.name.padEnd(25)} → ${safeName}.png  `);
 

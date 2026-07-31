@@ -21,6 +21,7 @@ import * as path from 'path';
 import { db } from '../server/db';
 import { sql } from 'drizzle-orm';
 import { uploadPublicBuffer } from '../server/services/image-storage';
+import { deriveTargetColumn, deriveFilename, sanitisePropName } from './prop-round-trip-helpers';
 
 const args = process.argv.slice(2);
 const fromArg = args.find(a => a.startsWith('--from='));
@@ -41,7 +42,7 @@ async function main() {
     throw new Error(`Folder not found: ${absDir}`);
   }
 
-  const targetCol = REPLACE_MAIN ? 'image_url' : 'zone_image_url';
+  const targetCol = deriveTargetColumn(REPLACE_MAIN);
   console.log(`=== Prop Image Uploader ===`);
   console.log(`Source: ${absDir}`);
   console.log(`Target column: ${targetCol}${REPLACE_MAIN ? ' (WARNING: replaces vocab version)' : ' (safe — vocab version untouched)'}`);
@@ -58,7 +59,7 @@ async function main() {
   for (const prop of props) {
     if (ONLY && !ONLY.includes(prop.name)) { skipped++; continue; }
 
-    const safeName = prop.name.replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+    const safeName = sanitisePropName(prop.name);
     const filePath = path.join(absDir, `${safeName}.png`);
 
     if (!fs.existsSync(filePath)) {
@@ -77,14 +78,10 @@ async function main() {
     }
 
     try {
-      const suffix = REPLACE_MAIN ? 'main' : 'zone';
-      const filename = `prop-${safeName}-${suffix}-${Date.now()}.png`;
+      const filename = deriveFilename(safeName, REPLACE_MAIN, Date.now());
       const newUrl = await uploadPublicBuffer(filename, buffer, 'image/png');
-      if (REPLACE_MAIN) {
-        await db.execute(sql`UPDATE visual_assets SET image_url = ${newUrl} WHERE id = ${prop.id}`);
-      } else {
-        await db.execute(sql`UPDATE visual_assets SET zone_image_url = ${newUrl} WHERE id = ${prop.id}`);
-      }
+      // Column name comes exclusively from deriveTargetColumn — same source of truth as the log line.
+      await db.execute(sql`UPDATE visual_assets SET ${sql.raw(targetCol)} = ${newUrl} WHERE id = ${prop.id}`);
       console.log(`✓  → ${newUrl}`);
       succeeded++;
     } catch (err: any) {
