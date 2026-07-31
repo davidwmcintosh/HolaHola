@@ -560,6 +560,131 @@ describe('GL generationComplete path — counter resets after Daniela speaks', (
   });
 });
 
+// ── GL non-memory tool mid-streak reset ───────────────────────────────────────
+// Mirrors the !allMemoryBatch branch in gemini-live-session.ts:
+//
+//   const allMemoryBatch = toolNames.every(n => MEMORY_TOOL_NAMES.has(n));
+//   if (!allMemoryBatch) {
+//     this.session.glMemoryChainTurns = 0;
+//     this.session.glMemoryNudgeSent = false;
+//   }
+//
+// When Daniela calls a non-memory tool (e.g. show_image, translate, play_audio)
+// in the middle of a memory-recall streak, the counter MUST reset to 0 and the
+// nudge gate MUST reopen. Without this reset, a streak of:
+//   recall × 2 → show_image → recall × 1
+// would have counter=3 and fire the nudge on a fresh streak that only has 1
+// actual consecutive memory batch — a false positive.
+
+describe('GL non-memory tool mid-streak — counter and nudge gate both reset', () => {
+  it('non-memory tool after 2 recall batches resets counter to 0', () => {
+    // recall → recall → show_image
+    // Counter should be 1, 2, 0 (reset).
+    const batches = [
+      { toolNames: ['recall'] },       // counter → 1
+      { toolNames: ['recall'] },       // counter → 2
+      { toolNames: ['show_image'] },   // not in MEMORY_TOOL_NAMES → counter → 0
+    ];
+    const [a, b, c] = simulateGLGuard(batches);
+    assert.equal(a.counter, 1);
+    assert.equal(b.counter, 2);
+    assert.equal(c.counter, 0, 'non-memory tool must reset the GL counter');
+    assert.equal(c.nudgeFired, false, 'nudge must NOT fire — non-memory tool reset the streak');
+  });
+
+  it('nudge does NOT fire prematurely: recall × (LIMIT-1) → non-memory → recall × (LIMIT-1)', () => {
+    // The key regression scenario: a streak that *would have* reached the limit
+    // if not interrupted by a non-memory tool.
+    // Without the reset, counter at step LIMIT-1 + 1 more recall = LIMIT → nudge.
+    // With correct reset, the fresh streak only reaches LIMIT-1 → no nudge.
+    const memBatches = Array.from({ length: MEMORY_CHAIN_LIMIT - 1 }, () => ({
+      toolNames: ['recall'],
+    }));
+    const batches = [
+      ...memBatches,                         // counter → MEMORY_CHAIN_LIMIT - 1
+      { toolNames: ['translate'] },           // non-memory → counter → 0
+      ...memBatches,                         // counter → MEMORY_CHAIN_LIMIT - 1 (fresh streak)
+    ];
+    const results = simulateGLGuard(batches);
+    const afterReset = results[MEMORY_CHAIN_LIMIT - 1]; // the translate batch
+    assert.equal(afterReset.counter, 0, 'translate must reset the streak mid-flight');
+    assert.equal(afterReset.nudgeFired, false);
+    const finalResult = results[results.length - 1];
+    assert.equal(
+      finalResult.counter,
+      MEMORY_CHAIN_LIMIT - 1,
+      'fresh streak must restart from 0, reaching only LIMIT-1',
+    );
+    assert.equal(
+      finalResult.nudgeFired,
+      false,
+      'nudge must NOT fire — fresh streak is only at LIMIT-1, not LIMIT',
+    );
+    // Confirm the nudge never fired at any point
+    assert.ok(
+      results.every(r => !r.nudgeFired),
+      'nudge must not fire at any point in the sequence',
+    );
+  });
+
+  it('nudge fires correctly once after a full fresh streak following a non-memory reset', () => {
+    // recall × (LIMIT-1) → non-memory tool → recall × LIMIT → nudge fires exactly once.
+    const memBatch = { toolNames: ['memory_lookup'] };
+    const batches = [
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT - 1 }, () => memBatch),
+      { toolNames: ['show_vocab_grid'] },   // non-memory → reset
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT }, () => memBatch),  // fresh full streak
+    ];
+    const results = simulateGLGuard(batches);
+    const resetResult = results[MEMORY_CHAIN_LIMIT - 1];
+    assert.equal(resetResult.counter, 0, 'non-memory tool must reset counter');
+    const lastResult = results[results.length - 1];
+    assert.equal(lastResult.counter, MEMORY_CHAIN_LIMIT, 'fresh streak must reach the limit');
+    assert.equal(lastResult.nudgeFired, true, 'nudge must fire after a full fresh streak');
+    const nudgeCount = results.filter(r => r.nudgeFired).length;
+    assert.equal(nudgeCount, 1, 'nudge must fire exactly once');
+  });
+
+  it('mixed batch with one non-memory tool resets the counter even if recall is also present', () => {
+    // A batch where Daniela calls both recall and show_image — the non-memory tool
+    // makes allMemoryBatch=false, so the counter resets.
+    const batches = [
+      { toolNames: ['recall'] },                     // counter → 1
+      { toolNames: ['recall'] },                     // counter → 2
+      { toolNames: ['recall', 'play_audio'] },        // mixed — allMemoryBatch=false → reset
+    ];
+    const [a, b, c] = simulateGLGuard(batches);
+    assert.equal(a.counter, 1);
+    assert.equal(b.counter, 2);
+    assert.equal(c.counter, 0, 'mixed batch with a non-memory tool must reset the streak');
+    assert.equal(c.nudgeFired, false);
+  });
+
+  it('non-memory tool also clears the nudge gate so the next streak can fire a fresh nudge', () => {
+    // First full streak fires the nudge → non-memory tool (not generationComplete) → second streak.
+    // The non-memory tool's !allMemoryBatch branch also sets nudgeSent=false,
+    // so the second streak can fire the nudge again.
+    const memBatch = { toolNames: ['browse_conversations_by_date'] };
+    const batches = [
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT }, () => memBatch), // streak 1 → nudge fires
+      { toolNames: ['update_session_pedagogy'] },                      // non-memory → reset + gate clear
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT }, () => memBatch), // streak 2 → nudge fires again
+    ];
+    const results = simulateGLGuard(batches);
+    // Streak 1 must fire
+    assert.equal(results[MEMORY_CHAIN_LIMIT - 1].nudgeFired, true, 'streak 1 must fire the nudge');
+    // After the non-memory tool, counter resets
+    const afterReset = results[MEMORY_CHAIN_LIMIT]; // the update_session_pedagogy batch
+    assert.equal(afterReset.counter, 0, 'counter must reset on non-memory tool');
+    // Streak 2 must also fire
+    const lastResult = results[results.length - 1];
+    assert.equal(lastResult.counter, MEMORY_CHAIN_LIMIT, 'streak 2 must reach the limit');
+    assert.equal(lastResult.nudgeFired, true, 'nudge must fire again after the non-memory reset cleared the gate');
+    const nudgeCount = results.filter(r => r.nudgeFired).length;
+    assert.equal(nudgeCount, 2, 'nudge must fire exactly once per streak (two total)');
+  });
+});
+
 // ── GL watchdog-seal reset path ───────────────────────────────────────────────
 // Mirrors lines 1592-1593 in gemini-live-session.ts — the generationComplete
 // watchdog timer path.  When GL drops the generationComplete signal (a known
