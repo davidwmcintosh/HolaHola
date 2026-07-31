@@ -67,6 +67,10 @@ const SAFE_MODE_SENTINEL = 'Something quiet settles before these sessions'; // f
 const TEST_USER_ID_2 = '00000000-test-absence-warm-cache-000';
 const TEST_DAYS_ABSENT_2 = 5;
 
+// Part 6 uses a third userId to test the peek-failure path without cache contamination.
+const TEST_USER_ID_3 = '00000000-test-absence-peek-fail-000';
+const TEST_DAYS_ABSENT_3 = 7;
+
 // ── Log capture helpers ───────────────────────────────────────────────────────
 const capturedLogs: string[] = [];
 const origLog  = console.log;
@@ -100,6 +104,8 @@ async function cleanUpTestRows(): Promise<void> {
     .where(eq(danielaAbsenceNudges.userId, TEST_USER_ID));
   await db.delete(danielaAbsenceNudges)
     .where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_2));
+  await db.delete(danielaAbsenceNudges)
+    .where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_3));
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -749,6 +755,231 @@ function runPart5(): void {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PART 6 — Peek-failure path: warm cache is nudge-unaware when peek throws;
+//           WS handler guard must fire and regenerate with the absence signal.
+//
+// This is the scenario the task is specifically about:
+//
+//   warm-synthesis route fires →
+//     peekAbsenceReturnDetails THROWS (DB momentarily unreachable) →
+//     route catch block: console.warn only, returningAfterAbsence stays null →
+//     generatePreSessionSynthesis called WITHOUT signal →
+//     warm cache populated with nudge-UNAWARE synthesis
+//
+//   student then starts the session →
+//     WS handler calls autoResolveAbsenceNudgeOnReturn → returns signal (non-null) →
+//     consumeWarmSynthesis → returns stale (nudge-unaware) synthesis →
+//     guard fires: warmedNote && absenceReturn → regenerate with signal →
+//     synthesisNote carries returning-student awareness
+//
+// Checks:
+//   6a. Source-level: warm-synthesis route wraps peekAbsenceReturnDetails in try/catch
+//   6b. Source-level: the catch block emits a console.warn (not throw) so synthesis continues
+//   6c. A synthesis generated with no absence signal (peek failure case) is stored in cache
+//   6d. autoResolveAbsenceNudgeOnReturn (WS-handler call) finds the pending nudge (non-null)
+//   6e. Both guard preconditions hold: warmedNote !== null && absenceReturn !== null
+//   6f. WS handler regenerates with signal → "[PreSynthesis] ✓ Returning-after-absence signal" logged
+//   6g. Regenerated synthesis contains at least one absence warmth word
+//
+// Uses TEST_USER_ID_3 — distinct from Parts 1–4 to avoid resolve-cache contamination.
+// ══════════════════════════════════════════════════════════════════════════════
+async function runPart6(): Promise<void> {
+  sep();
+  origLog(B('PART 6 — Peek-failure path: WS handler guard fires when warm cache is nudge-unaware'));
+  sep();
+
+  const db = getSharedDb();
+
+  // 6a/6b. Source-level checks: route wraps peek in try/catch and warns on error.
+  const routesSrc = readFileSync(
+    pathResolve(__dirname, '../routes.ts'),
+    'utf-8',
+  ) as string;
+
+  const warmSynthesisBlock = (() => {
+    const startIdx = routesSrc.indexOf('/api/sessions/warm-synthesis');
+    if (startIdx === -1) return '';
+    return routesSrc.slice(startIdx, startIdx + 4000);
+  })();
+
+  // 6a. The peek call must be inside a try block
+  const peekInTryCatch = (() => {
+    const peekIdx = warmSynthesisBlock.indexOf('peekAbsenceReturnDetails');
+    if (peekIdx === -1) return false;
+    // Look for 'try {' or 'try{' before the peek call within the warm-synthesis block
+    const beforePeek = warmSynthesisBlock.slice(0, peekIdx);
+    return /try\s*\{/.test(beforePeek);
+  })();
+  assert(
+    '6a. warm-synthesis route wraps peekAbsenceReturnDetails in a try block (peek failure is non-fatal)',
+    peekInTryCatch,
+    peekInTryCatch ? undefined : 'No try block found before peekAbsenceReturnDetails in the warm-synthesis route — a DB error would crash the route',
+  );
+
+  // 6b. The catch block for the peek must warn (not throw)
+  const catchWarnPattern = /catch\s*\([^)]*\)\s*\{[^}]*console\.warn[^}]*\[WarmSynthesis\][^}]*\}/s;
+  const hasCatchWarn = catchWarnPattern.test(warmSynthesisBlock);
+  assert(
+    '6b. Peek catch block emits console.warn (not throw) — synthesis continues without the absence signal on DB error',
+    hasCatchWarn,
+    hasCatchWarn
+      ? undefined
+      : 'console.warn not found inside the catch block around peekAbsenceReturnDetails in the warm-synthesis route — error may surface as 500 or block synthesis',
+  );
+
+  // ── Seed a fresh nudge for Part 6 ─────────────────────────────────────────
+  // Clean up any stale row first
+  await db.delete(danielaAbsenceNudges).where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_3));
+
+  const lastSessionDate = new Date(Date.now() - TEST_DAYS_ABSENT_3 * 24 * 60 * 60 * 1000);
+  await db.insert(danielaAbsenceNudges).values({
+    userId: TEST_USER_ID_3,
+    lastSessionDate,
+    daysSinceLastSession: TEST_DAYS_ABSENT_3,
+  });
+  origLog(D(`  Seeded nudge row: userId=${TEST_USER_ID_3}, daysSince=${TEST_DAYS_ABSENT_3}`));
+
+  const { generatePreSessionSynthesis, setWarmSynthesis, consumeWarmSynthesis } = await import('../services/pre-session-synthesis');
+  const { autoResolveAbsenceNudgeOnReturn } = await import('../services/daniela-absence-worker');
+
+  const compassContext: any = {
+    studentName: 'TestStudent3',
+    studentGoals: 'Learn conversational Spanish',
+    studentInterests: 'Art and cooking',
+    studentActflLevel: 'novice-mid',
+    lastSessionSummary: 'We practised colours and food vocabulary. Great session.',
+    danielaSelfReflection: 'TestStudent3 shows real curiosity and retention is solid.',
+    conversationMemories: [],
+    mustHaveTopics: [],
+    niceToHaveTopics: [],
+  };
+
+  const warmthWords = [
+    'back', 'return', 'away', 'absence', 'again', 'missed', 'gap', 'been a while',
+    'a while', "haven't", 'weeks', 'days', 'come back', 'glad', 'here',
+  ];
+
+  // 6c. Simulate peek failure: generate synthesis WITHOUT signal (returningAfterAbsence = null).
+  //     This is exactly what the route does when peekAbsenceReturnDetails throws.
+  origLog(D('\n  [6c] Simulating peek-failure: generating synthesis WITHOUT signal (as route would on DB error)...'));
+  startCapture();
+  const peekFailSynthesis = await generatePreSessionSynthesis(
+    compassContext,
+    'Daniela',
+    TEST_USER_ID_3,
+    'spanish',
+    null, // <-- peek failed, signal is null
+  );
+  const peekFailLogs = stopCapture();
+
+  assert(
+    '6c. Synthesis generated without signal (peek-failure path) returns a non-null string',
+    typeof peekFailSynthesis === 'string' && (peekFailSynthesis?.length ?? 0) > 0,
+    peekFailSynthesis === null ? 'Returned null — Gemini call failed. Check GEMINI_API_KEY.' : undefined,
+  );
+
+  // Confirm NO absence signal log was emitted (signal was not injected)
+  const peekFailAbsenceLog = peekFailLogs.find(l => l.includes('[PreSynthesis] ✓ Returning-after-absence signal:'));
+  assert(
+    '6c. No "[PreSynthesis] ✓ Returning-after-absence signal" log emitted for peek-failure synthesis (signal absent)',
+    !peekFailAbsenceLog,
+    peekFailAbsenceLog ? `Unexpected signal log: ${peekFailAbsenceLog}` : undefined,
+  );
+
+  // Store the nudge-unaware synthesis in the warm cache (simulating route behaviour on peek failure).
+  if (peekFailSynthesis) {
+    setWarmSynthesis(TEST_USER_ID_3, peekFailSynthesis);
+    origLog(D(`  Stored nudge-unaware synthesis in warm cache (${peekFailSynthesis.length} chars).`));
+  }
+
+  // 6d. WS handler calls autoResolveAbsenceNudgeOnReturn at true session start.
+  //     It must return the pending nudge details (the nudge was NOT resolved by the route).
+  origLog(D('\n  [6d] WS handler calls autoResolveAbsenceNudgeOnReturn at true session start...'));
+  startCapture();
+  const wsAbsenceReturn = await autoResolveAbsenceNudgeOnReturn(TEST_USER_ID_3);
+  stopCapture();
+
+  assert(
+    '6d. autoResolveAbsenceNudgeOnReturn returns non-null at WS session start — nudge was NOT resolved by the route (peek-only)',
+    wsAbsenceReturn !== null,
+    wsAbsenceReturn === null ? 'Returned null — nudge may have been resolved already (route must only peek, not resolve)' : undefined,
+  );
+
+  if (wsAbsenceReturn) {
+    assert(
+      `6d. Resolved nudge carries correct daysSinceLastSession (${TEST_DAYS_ABSENT_3})`,
+      wsAbsenceReturn.daysSinceLastSession === TEST_DAYS_ABSENT_3,
+      `Got ${wsAbsenceReturn.daysSinceLastSession}`,
+    );
+  }
+
+  // 6e. Consume the warm cache (as the WS handler would) — guard preconditions must both hold.
+  const wsWarmedNote = consumeWarmSynthesis(TEST_USER_ID_3);
+
+  assert(
+    '6e. consumeWarmSynthesis returns the nudge-unaware synthesis (guard precondition: warmedNote non-null)',
+    wsWarmedNote !== null && wsWarmedNote === peekFailSynthesis,
+    wsWarmedNote === null
+      ? 'consumeWarmSynthesis returned null — warm cache not stored or already expired'
+      : 'Returned different string than what was stored',
+  );
+
+  const guardWouldFire = wsWarmedNote !== null && wsAbsenceReturn !== null;
+  assert(
+    '6e. Both guard preconditions met (warmedNote && absenceReturn) — WS handler will discard stale cache and regenerate',
+    guardWouldFire,
+    'One or both preconditions are null — guard would NOT fire (peek-failure safety net is broken)',
+  );
+
+  // 6f/6g. Simulate guard firing: regenerate with the absence signal.
+  if (guardWouldFire) {
+    origLog(D('\n  [6f/6g] Guard fires — regenerating synthesis with absence signal...'));
+    startCapture();
+    const guardRegen = await generatePreSessionSynthesis(
+      compassContext,
+      'Daniela',
+      TEST_USER_ID_3,
+      'spanish',
+      wsAbsenceReturn ?? { daysSinceLastSession: TEST_DAYS_ABSENT_3, firstName: null },
+    );
+    const guardLogs = stopCapture();
+
+    // 6f. The "[PreSynthesis] ✓ Returning-after-absence signal" log must appear
+    const guardAbsenceLog = guardLogs.find(l =>
+      l.includes('[PreSynthesis] ✓ Returning-after-absence signal:') &&
+      l.includes(String(TEST_DAYS_ABSENT_3)),
+    );
+    assert(
+      '6f. Guard regeneration emits "[PreSynthesis] ✓ Returning-after-absence signal: N days" — signal reached buildLiteContext',
+      !!guardAbsenceLog,
+      guardAbsenceLog ?? 'Log line not found — signal may not be passing through to buildLiteContext',
+    );
+
+    // 6g. Regenerated synthesis must contain at least one absence warmth word
+    if (guardRegen) {
+      const lowerRegen = guardRegen.toLowerCase();
+      const regenWarmthHit = warmthWords.find(w => lowerRegen.includes(w));
+      assert(
+        `6g. Guard-regenerated synthesis contains at least one absence warmth word (${regenWarmthHit ? `"${regenWarmthHit}"` : 'none found'}) — returning-student awareness is baked in`,
+        !!regenWarmthHit,
+        `None of ${warmthWords.slice(0, 8).join(', ')} found — regenerated synthesis may not carry absence awareness`,
+      );
+      origLog(D(`  Guard-regenerated synthesis (${guardRegen.length} chars): "${guardRegen.slice(0, 200)}..."`));
+    } else {
+      assert(
+        '6g. Guard-regenerated synthesis is non-null',
+        false,
+        'generatePreSessionSynthesis returned null — Gemini call failed',
+      );
+    }
+  }
+
+  // Clean up Part 6 row (cleanup also runs in finally, this is belt-and-suspenders)
+  await db.delete(danielaAbsenceNudges).where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_3));
+  origLog(D('\n  Part 6 test row cleaned up.'));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MAIN
 // ══════════════════════════════════════════════════════════════════════════════
 (async () => {
@@ -770,6 +1001,9 @@ function runPart5(): void {
 
     // Part 5 is synchronous source-level analysis — no DB or network calls.
     runPart5();
+
+    // Part 6 — peek-failure path: warm cache nudge-unaware → WS guard fires and regenerates.
+    await runPart6();
   } catch (err: any) {
     stopCapture();
     origLog(R(`\nUnhandled error: ${err?.message ?? err}`));
