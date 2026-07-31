@@ -36,6 +36,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useWhiteboard } from "@/hooks/useWhiteboard";
 import { VoiceInputContext } from "@/contexts/VoiceInputContext";
 import { useDanielaSession } from "@/contexts/DanielaSessionContext";
+import { deriveVoiceStatus } from "@/lib/voice-widget-state";
 import { setGlobalVoiceInput } from "@/lib/voiceInputStore";
 import { getTutorNames } from "@/lib/tutor-avatars";
 import { SupportAssistModal } from "@/components/SupportAssistModal";
@@ -2262,18 +2263,7 @@ export function StreamingVoiceChat({
   // Task #32: Publish voice status to DanielaSessionContext so FloatingVoiceWidget shows live state
   const { publishVoiceStatus } = useDanielaSession();
   useEffect(() => {
-    const connState = streamingVoice.state.connectionState;
-    if (connState === 'connecting' || connState === 'reconnecting') {
-      publishVoiceStatus('connecting');
-    } else if (avatarState === 'speaking') {
-      publishVoiceStatus('speaking');
-    } else if (avatarState === 'thinking') {
-      publishVoiceStatus('thinking');
-    } else if (avatarState === 'listening') {
-      publishVoiceStatus('listening');
-    } else {
-      publishVoiceStatus('idle');
-    }
+    publishVoiceStatus(deriveVoiceStatus(avatarState, streamingVoice.state.connectionState));
   }, [avatarState, streamingVoice.state.connectionState, publishVoiceStatus]);
   // NOTE: We intentionally do NOT reset voiceStatus to 'idle' on unmount.
   // The widget should continue to show the last known active state while the

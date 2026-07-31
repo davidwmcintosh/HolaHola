@@ -23,6 +23,11 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useDanielaSession } from "@/contexts/DanielaSessionContext";
+import {
+  computeWidgetLabel,
+  computeWidgetClasses,
+  deriveWidgetState,
+} from "@/lib/voice-widget-state";
 
 export function FloatingVoiceWidget() {
   const [currentPath, navigate] = useLocation();
@@ -31,41 +36,11 @@ export function FloatingVoiceWidget() {
   // Not shown on the dedicated chat page — it has its own full UI
   if (currentPath === "/chat") return null;
 
-  const hasSession = sessionConversationId !== null && !isDormant;
-  const isSpeaking = voiceStatus === "speaking";
-  const isListening = voiceStatus === "listening";
-  const isThinking = voiceStatus === "thinking" || voiceStatus === "connecting";
-  const isActive = hasSession && voiceStatus !== "idle";
-
-  // Colour variants
-  let ringClass = "border-muted-foreground/30 text-muted-foreground bg-background";
-  let pulseClass = "";
-  if (isSpeaking) {
-    ringClass = "border-primary bg-primary text-primary-foreground";
-    pulseClass = "animate-pulse";
-  } else if (isListening) {
-    ringClass =
-      "border-green-500 text-green-600 dark:text-green-400 bg-green-500/10";
-    pulseClass = "animate-pulse";
-  } else if (isThinking) {
-    ringClass =
-      "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-500/10";
-    pulseClass = "animate-pulse";
-  } else if (hasSession) {
-    ringClass = "border-primary/50 text-primary bg-background";
-  }
-
-  const label = isActive
-    ? isSpeaking
-      ? "Daniela is speaking"
-      : isListening
-      ? "Daniela is listening"
-      : isThinking
-      ? "Daniela is thinking…"
-      : "Session active — return to Daniela"
-    : hasSession
-    ? "Session paused — tap to resume"
-    : "Talk to Daniela";
+  const widgetInput = { sessionConversationId, voiceStatus, isDormant };
+  const { hasSession, isSpeaking, isListening, isActive } =
+    deriveWidgetState(widgetInput);
+  const { ringClass, pulseClass } = computeWidgetClasses(widgetInput);
+  const label = computeWidgetLabel(widgetInput);
 
   return (
     <Tooltip>
