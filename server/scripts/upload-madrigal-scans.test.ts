@@ -402,3 +402,115 @@ describe('uploadSource — missing PDF early-return path', () => {
     assert.equal(result!.skipped, 0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Missing-bucket guard
+// ---------------------------------------------------------------------------
+// Mirrors the top-level guard in upload-madrigal-scans.ts (lines 22-32).
+// Tests verify the guard fires before any upload attempt and that it does NOT
+// require a real bucket or call process.exit().
+
+interface BucketGuardResult {
+  /** true when no bucket name could be resolved — process.exit(1) would fire */
+  shouldExit: boolean;
+  bucketName: string;
+}
+
+/**
+ * Inlined version of the bucket-name resolution + guard in upload-madrigal-scans.ts.
+ *
+ * Production code:
+ *   const BUCKET_NAME =
+ *     process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID ||
+ *     process.env.AWS_S3_DESTINATION_BUCKET ||
+ *     "";
+ *   if (!BUCKET_NAME) { console.error(...); process.exit(1); }
+ *
+ * Here we accept an explicit env map so the test controls the env without
+ * touching process.env or calling process.exit.
+ */
+function checkBucketGuard(env: Record<string, string | undefined>): BucketGuardResult {
+  const bucketName =
+    env['DEFAULT_OBJECT_STORAGE_BUCKET_ID'] ||
+    env['AWS_S3_DESTINATION_BUCKET'] ||
+    '';
+  return { shouldExit: !bucketName, bucketName };
+}
+
+/**
+ * Simulates the top-level startup: guard fires first, upload loop runs only
+ * when a bucket name is available.  Returns the number of upload calls made
+ * so the test can assert that zero uploads happened when the guard fires.
+ */
+async function runWithGuard(
+  env: Record<string, string | undefined>,
+  source: SourceConfig,
+): Promise<{ guardFired: boolean; uploadAttempts: number }> {
+  const { shouldExit, bucketName } = checkBucketGuard(env);
+  if (shouldExit) {
+    return { guardFired: true, uploadAttempts: 0 };
+  }
+
+  let uploadAttempts = 0;
+  await runUploadLoop(
+    source,
+    dummyBuffer(),
+    alwaysNew(),
+    async (_bucket, _dest, _buf, _ct) => { uploadAttempts++; },
+  );
+  return { guardFired: false, uploadAttempts };
+}
+
+describe('missing-bucket guard', () => {
+  it('guard fires when both env vars are absent', () => {
+    const { shouldExit } = checkBucketGuard({});
+    assert.equal(shouldExit, true, 'guard must fire when no bucket env var is set');
+  });
+
+  it('guard fires when both env vars are empty strings', () => {
+    const { shouldExit } = checkBucketGuard({
+      DEFAULT_OBJECT_STORAGE_BUCKET_ID: '',
+      AWS_S3_DESTINATION_BUCKET: '',
+    });
+    assert.equal(shouldExit, true, 'empty strings must trigger the guard');
+  });
+
+  it('guard does NOT fire when DEFAULT_OBJECT_STORAGE_BUCKET_ID is set', () => {
+    const { shouldExit, bucketName } = checkBucketGuard({
+      DEFAULT_OBJECT_STORAGE_BUCKET_ID: 'my-bucket',
+    });
+    assert.equal(shouldExit, false);
+    assert.equal(bucketName, 'my-bucket');
+  });
+
+  it('guard does NOT fire when AWS_S3_DESTINATION_BUCKET is set', () => {
+    const { shouldExit, bucketName } = checkBucketGuard({
+      AWS_S3_DESTINATION_BUCKET: 'fallback-bucket',
+    });
+    assert.equal(shouldExit, false);
+    assert.equal(bucketName, 'fallback-bucket');
+  });
+
+  it('DEFAULT_OBJECT_STORAGE_BUCKET_ID takes priority over AWS_S3_DESTINATION_BUCKET', () => {
+    const { bucketName } = checkBucketGuard({
+      DEFAULT_OBJECT_STORAGE_BUCKET_ID: 'primary',
+      AWS_S3_DESTINATION_BUCKET: 'secondary',
+    });
+    assert.equal(bucketName, 'primary');
+  });
+
+  it('guard fires BEFORE any upload attempt — zero uploads when bucket is missing', async () => {
+    const { guardFired, uploadAttempts } = await runWithGuard({}, TEST_SOURCE);
+    assert.equal(guardFired, true, 'guard must fire');
+    assert.equal(uploadAttempts, 0, 'no upload must be attempted when the guard fires');
+  });
+
+  it('uploads proceed normally when a bucket name is present', async () => {
+    const { guardFired, uploadAttempts } = await runWithGuard(
+      { DEFAULT_OBJECT_STORAGE_BUCKET_ID: 'good-bucket' },
+      TEST_SOURCE,
+    );
+    assert.equal(guardFired, false, 'guard must not fire when bucket is configured');
+    assert.equal(uploadAttempts, TEST_SOURCE.totalPages, 'all pages should be attempted');
+  });
+});
