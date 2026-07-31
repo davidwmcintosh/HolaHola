@@ -28,6 +28,9 @@
 
 export {}; // top-level await requires module mode
 
+// ── shared app-route check (imported so negative-path test exercises same code) ─
+import { checkAppRouteUrl } from './r2-app-route-check.js';
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 let passed = 0;
@@ -113,12 +116,6 @@ async function directRead(key: string): Promise<number> {
   return bytes;
 }
 
-async function appGet(url: string): Promise<{ status: number; bytes: number }> {
-  const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  const buf = await resp.arrayBuffer();
-  return { status: resp.status, bytes: buf.byteLength };
-}
-
 // ── prefixes to verify ───────────────────────────────────────────────────────
 
 type PrefixSpec = { prefix: string; routeFn: (fname: string) => string; label: string };
@@ -166,22 +163,18 @@ for (const { prefix, routeFn, label } of PREFIXES) {
 
   // 2. App route (server must be running; gracefully skip if refused)
   const url = `${APP_BASE}${routeFn(filename)}`;
-  try {
-    const a = await appGet(url);
-    if (a.status === 200 && a.bytes > 0) {
-      pass(`R2 app route ${label}`, `HTTP ${a.status}, ${a.bytes} bytes`);
-    } else if (a.status === 200 && a.bytes === 0) {
-      fail(`R2 app route ${label}`, `HTTP 200 but 0 bytes returned for "${filename}"`);
-    } else {
-      fail(`R2 app route ${label}`, `HTTP ${a.status} for GET ${routeFn(filename)}`);
-    }
-  } catch (err: any) {
-    const msg: string = err?.message ?? String(err);
-    if (msg.includes("ECONNREFUSED") || msg.includes("fetch failed")) {
-      warn(`R2 app route ${label}`, `Server not reachable at ${APP_BASE} — app-route check skipped`);
-    } else {
-      fail(`R2 app route ${label}`, msg);
-    }
+  const r = await checkAppRouteUrl(url);
+  if (r.outcome === "pass") {
+    pass(`R2 app route ${label}`, `HTTP ${r.status}, ${r.bytes} bytes`);
+  } else if (r.outcome === "fail-empty") {
+    fail(`R2 app route ${label}`, `HTTP 200 but 0 bytes returned for "${filename}"`);
+  } else if (r.outcome === "fail-non-200") {
+    fail(`R2 app route ${label}`, `HTTP ${r.status} for GET ${routeFn(filename)}`);
+  } else if (r.outcome === "fail-error") {
+    fail(`R2 app route ${label}`, r.message ?? "unknown error");
+  } else {
+    // outcome === "skip"
+    warn(`R2 app route ${label}`, `Server not reachable at ${APP_BASE} — app-route check skipped`);
   }
 }
 
