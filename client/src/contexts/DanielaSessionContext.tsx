@@ -22,6 +22,11 @@ import {
   type ReactNode,
 } from "react";
 import { getStreamingVoiceClient } from "@/lib/streamingVoiceClient";
+import {
+  applyUnrecoverableDropReset,
+  type VoiceStatus,
+} from "./unrecoverable-drop-reset";
+export type { VoiceStatus } from "./unrecoverable-drop-reset";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -31,14 +36,6 @@ export interface PageContext {
   subject?: string;
   currentContent?: string;
 }
-
-export type VoiceStatus =
-  | "idle"
-  | "connecting"
-  | "listening"
-  | "speaking"
-  | "thinking";
-
 interface DanielaSessionContextValue {
   // Published by chat.tsx ─────────────────────────────────────────
   /** The conversationId of the currently active voice session. */
@@ -124,18 +121,20 @@ export function DanielaSessionProvider({ children }: { children: ReactNode }) {
     }
   }, [sessionConversationId]);
 
-  // Reset voiceStatus to idle when the WebSocket drops unrecoverably while
-  // StreamingVoiceChat is not mounted (student is on another page).
+  // Mirror the WebSocket state onto voiceStatus while StreamingVoiceChat is
+  // not mounted (student is on another page).
+  // - 'error' / 'disconnected' → 'idle'   (unrecoverable; session is dead)
+  // - 'reconnecting'           → 'connecting' (auto-reconnect in progress)
   // We listen directly on the global singleton so we catch drops regardless of
   // whether the voice component is mounted.
-  // 'reconnecting' is intentionally left alone — it may still recover.
   useEffect(() => {
     const client = getStreamingVoiceClient();
 
     const handleStateChange = (state: string) => {
-      if (state === "error" || state === "disconnected") {
-        setVoiceStatus("idle");
-      } else if (state === "reconnecting") {
+      // Unrecoverable drops — handled by the extracted testable function.
+      applyUnrecoverableDropReset(state, setVoiceStatus);
+      // Transient reconnect — show 'connecting' so the widget is accurate.
+      if (state === "reconnecting") {
         setVoiceStatus("connecting");
       }
     };
