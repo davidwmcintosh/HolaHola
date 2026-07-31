@@ -47,8 +47,23 @@ import { buildAbsenceHistoryHandler } from '../routes/absence-nudges-history.js'
 // its own), the response body row count directly reflects what the real handler
 // computed and passed to the DB layer.  If the handler ever stops clamping
 // correctly, the assertion on response length will catch it.
+//
+// SENTINEL: the mock asserts that `limit` is a safe integer.  This is the key
+// property that catches the parseInt → parseFloat regression:
+//
+//   parseInt("99.9", 10) === 99        ← integer ✓  mock proceeds
+//   parseFloat("99.9")   === 99.9      ← non-integer ✗  mock throws → test fails
+//
+// Without this guard, JavaScript's Array.from({ length: 99.9 }) would silently
+// truncate the float and return 99 rows — making the test a false positive.
 
 async function mockListResolvedNudges(limit: number) {
+  if (!Number.isInteger(limit)) {
+    throw new Error(
+      `mockListResolvedNudges received a non-integer limit (${limit}). ` +
+      'The handler must parse the query param with parseInt, not parseFloat.',
+    );
+  }
   return Array.from({ length: limit }, (_, i) => ({
     nudgeId: `nudge-${i + 1}`,
     userId: `user-${i + 1}`,
