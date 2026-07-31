@@ -93,12 +93,36 @@ const COLUMNS: ColumnSpec[] = [
 // Main
 // ---------------------------------------------------------------------------
 
-interface ScanResult {
+export interface ScanResult {
   table: string;
   urlCol: string;
   id: string | number;
   rawUrl: string;
   normalized: string | null;
+}
+
+/**
+ * Pure helper — splits scan results into patchable vs unresolved and returns
+ * the process exit code that the scanner would emit.
+ *
+ * Exported so CI tests can verify the exit-code logic directly without
+ * needing a live database connection:
+ *
+ *   evaluateScanResults([{ ..., normalized: null }]).exitCode === 1
+ *
+ * Exit code semantics:
+ *   0  — every URL was either already clean or successfully mapped to a proxy path
+ *   1  — at least one URL has a shape that tryNormalize() cannot map; manual review
+ *        required (also the --strict signal that fails a CI run)
+ */
+export function evaluateScanResults(results: ScanResult[]): {
+  patchable: ScanResult[];
+  unresolved: ScanResult[];
+  exitCode: number;
+} {
+  const patchable  = results.filter(r => r.normalized !== null);
+  const unresolved = results.filter(r => r.normalized === null);
+  return { patchable, unresolved, exitCode: unresolved.length > 0 ? 1 : 0 };
 }
 
 async function scanAndPatch(): Promise<void> {

@@ -9,7 +9,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { tryNormalize } from './scan-gcs-urls.js';
+import { tryNormalize, evaluateScanResults, type ScanResult } from './scan-gcs-urls.js';
 
 // ---------------------------------------------------------------------------
 // Pattern 1 — path-style (no query string)
@@ -164,5 +164,78 @@ describe('Unrecognised googleapis.com shapes → null (CI --strict guard)', () =
     // OAuth-style download links use a completely different URL structure
     const url = 'https://www.googleapis.com/download/storage/v1/b/my-bucket/o/file.jpg?alt=media';
     assert.equal(tryNormalize(url), null);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// --strict exit-code behaviour
+//
+// These tests confirm that evaluateScanResults() — the pure helper that
+// drives the script's process.exitCode — returns 1 whenever any googleapis.com
+// URL cannot be normalised.  This is the condition that causes the --strict
+// scan to fail in CI when a developer introduces a new, unrecognised URL shape.
+//
+// No database connection is required: the tests operate entirely on in-memory
+// ScanResult objects constructed below.
+// ---------------------------------------------------------------------------
+describe('--strict exit-code behaviour — evaluateScanResults()', () => {
+  it('returns exitCode 0 when every result is already normalised', () => {
+    const results: ScanResult[] = [
+      {
+        table: 'visual_assets', urlCol: 'image_url', id: 1,
+        rawUrl: 'https://storage.googleapis.com/bucket/public/ai-images/img.jpg',
+        normalized: '/api/media/ai-image/img.jpg',
+      },
+      {
+        table: 'visual_compositions', urlCol: 'composed_image_url', id: 2,
+        rawUrl: 'https://bucket.storage.googleapis.com/public/ai-images/comp.png',
+        normalized: '/api/media/ai-image/comp.png',
+      },
+    ];
+    const { exitCode, unresolved } = evaluateScanResults(results);
+    assert.equal(exitCode, 0);
+    assert.equal(unresolved.length, 0);
+  });
+
+  it('returns exitCode 1 when a single URL has an unrecognised shape', () => {
+    // Simulates a developer writing a new image path that uses a googleapis.com
+    // URL shape not covered by tryNormalize() — this is the CI --strict guard.
+    const results: ScanResult[] = [
+      {
+        table: 'users', urlCol: 'profile_image_url', id: 99,
+        rawUrl: 'https://new-cdn.googleapis.com/v2/images/avatar.jpg',
+        normalized: null,   // tryNormalize() returned null → unrecognised shape
+      },
+    ];
+    const { exitCode, unresolved, patchable } = evaluateScanResults(results);
+    assert.equal(exitCode, 1, 'unrecognised URL shape must produce exit code 1');
+    assert.equal(unresolved.length, 1);
+    assert.equal(patchable.length, 0);
+  });
+
+  it('returns exitCode 1 when even one URL in a mixed batch is unresolved', () => {
+    const results: ScanResult[] = [
+      {
+        table: 'scenarios', urlCol: 'image_url', id: 10,
+        rawUrl: 'https://storage.googleapis.com/bucket/public/ai-images/scene.jpg',
+        normalized: '/api/media/ai-image/scene.jpg',
+      },
+      {
+        table: 'scenarios', urlCol: 'image_url', id: 11,
+        rawUrl: 'https://storage.googleapis.com/bucket/private/ai-images/secret.jpg',
+        normalized: null,   // private/ prefix — not a recognised pattern
+      },
+    ];
+    const { exitCode, unresolved, patchable } = evaluateScanResults(results);
+    assert.equal(exitCode, 1, 'one unresolved URL in a mixed batch must still fail');
+    assert.equal(unresolved.length, 1);
+    assert.equal(patchable.length, 1);
+  });
+
+  it('returns exitCode 0 for an empty result set (database is clean)', () => {
+    const { exitCode, unresolved, patchable } = evaluateScanResults([]);
+    assert.equal(exitCode, 0);
+    assert.equal(unresolved.length, 0);
+    assert.equal(patchable.length, 0);
   });
 });
