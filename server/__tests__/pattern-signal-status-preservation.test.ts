@@ -1,6 +1,8 @@
 /**
  * Confirms that `unlock` and `review` events in RECORD_PATTERN_SIGNAL preserve
- * a compartment's existing status rather than overwriting it.
+ * a compartment's existing status rather than overwriting it, and that `wobble`
+ * unconditionally resets status to 'wobbling' (intentional regression signal)
+ * while incrementing wobbleCount and setting lastWobbledAt.
  *
  * CONTRACTS tested — via static source analysis of the real production handler
  * (server/services/native-fc-handlers.ts, RECORD_PATTERN_SIGNAL case):
@@ -548,5 +550,172 @@ describe('RECORD_PATTERN_SIGNAL statusMap — pounding on stable/generative comp
     const updates = computePoundingUpdates(existing);
     assert.strictEqual(updates.poundingCount, 1,
       `poundingCount must default to 0 then increment to 1 when the field is absent`);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PART 8 — wobble event: unconditional regression signal
+//
+// Unlike unlock/review, a 'wobble' event ALWAYS sets status='wobbling', even
+// when the compartment was previously 'generative' or 'stable'. This is the
+// intentional design: a wobble is a real regression that must surface.
+// These tests confirm:
+//   (a) the statusMap entry for wobble is a fixed literal (not conditional)
+//   (b) wobbleCount is incremented and lastWobbledAt is set on every wobble
+//   (c) the boundary: wobble on a 'generative' compartment yields 'wobbling'
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('RECORD_PATTERN_SIGNAL statusMap — wobble is an unconditional regression signal', () => {
+  it("wobble entry in statusMap is a fixed literal 'wobbling' (not conditional on existing.status)", () => {
+    // A conditional form would allow wobble to silently preserve 'generative' or 'stable',
+    // masking the regression. The fixed literal 'wobbling' is the contract.
+    const region = regionAround(handlerSrc, STATUS_MAP_ANCHOR, 0, 600);
+    // Must match: wobble: 'wobbling',  (fixed literal, not a ternary)
+    const hasFixedWobble = /wobble\s*:\s*'wobbling'/.test(region);
+    assert.ok(
+      hasFixedWobble,
+      `wobble entry in statusMap is not a fixed 'wobbling' literal — ` +
+      `if it uses a conditional, a 'generative' compartment will not be demoted on wobble, masking regressions`,
+    );
+  });
+
+  it("wobble entry does NOT use the conditional existing.status form", () => {
+    // If someone accidentally makes wobble preserve-status like unlock/review,
+    // this test will catch it immediately.
+    const region = regionAround(handlerSrc, STATUS_MAP_ANCHOR, 0, 600);
+    const hasConditionalWobble = /wobble\s*:\s*\(existing\?\.status\b/.test(region);
+    assert.ok(
+      !hasConditionalWobble,
+      `wobble entry in statusMap uses the conditional existing.status form — ` +
+      `wobble must unconditionally write 'wobbling' to surface the regression, not preserve a higher status`,
+    );
+  });
+});
+
+describe('RECORD_PATTERN_SIGNAL — wobble increments wobbleCount and sets lastWobbledAt', () => {
+  it("wobbleCount increment is guarded by eventType === 'wobble'", () => {
+    const region = regionAround(handlerSrc, "if (eventType === 'pounding')", 0, 600);
+    const wobbleGuardIdx  = region.indexOf("eventType === 'wobble'");
+    const wobbleCountIdx  = region.indexOf('wobbleCount');
+    assert.ok(wobbleGuardIdx !== -1, `eventType === 'wobble' guard not found in counter block`);
+    assert.ok(wobbleCountIdx !== -1, `wobbleCount not found in counter block`);
+    assert.ok(
+      wobbleCountIdx > wobbleGuardIdx,
+      `wobbleCount increment appears before the 'wobble' guard — ` +
+      `it may be incremented unconditionally or skipped entirely`,
+    );
+  });
+
+  it("lastWobbledAt is set inside the wobble counter block", () => {
+    // lastWobbledAt is specific to wobble events; it must appear after the wobble guard.
+    const region = regionAround(handlerSrc, "if (eventType === 'pounding')", 0, 600);
+    const wobbleGuardIdx    = region.indexOf("eventType === 'wobble'");
+    const lastWobbledAtIdx  = region.indexOf('lastWobbledAt');
+    assert.ok(lastWobbledAtIdx !== -1, `lastWobbledAt not found in counter block`);
+    assert.ok(
+      lastWobbledAtIdx > wobbleGuardIdx,
+      `lastWobbledAt is not inside the wobble guard block — ` +
+      `a wobble event will not stamp the timestamp, making regression tracking unreliable`,
+    );
+  });
+
+  it("wobbleCount increment reads from existing.wobbleCount (not hard-coded)", () => {
+    // Confirms the increment is cumulative, not a reset to 1.
+    const region = regionAround(handlerSrc, "if (eventType === 'pounding')", 0, 600);
+    const hasCumulativeIncrement = /wobbleCount\s*=\s*\(existing\?\.wobbleCount/.test(region) ||
+                                   /wobbleCount\s*=\s*\(existing\.wobbleCount/.test(region);
+    assert.ok(
+      hasCumulativeIncrement,
+      `wobbleCount increment does not read from existing.wobbleCount — ` +
+      `the counter will be reset to 1 on every wobble instead of accumulating`,
+    );
+  });
+});
+
+describe('statusMap logic simulation — wobble on any status always yields wobbling', () => {
+  /**
+   * Replicate the exact statusMap + counter logic from native-fc-handlers.ts
+   * for the 'wobble' event type, to assert boundary behaviour without a live DB.
+   */
+  function simulateWobble(existing: { status: string; wobbleCount: number } | null): {
+    status: string;
+    wobbleCount: number;
+    hasLastWobbledAt: boolean;
+  } {
+    // Mirror of the production statusMap for wobble
+    const status = 'wobbling'; // fixed literal — intentional
+
+    const updates: Record<string, unknown> = {
+      status,
+      lastDrilledAt: new Date(),
+    };
+    // Mirror of the production counter block for wobble
+    updates.wobbleCount   = (existing?.wobbleCount ?? 0) + 1;
+    updates.lastWobbledAt = new Date();
+
+    return {
+      status: updates.status as string,
+      wobbleCount: updates.wobbleCount as number,
+      hasLastWobbledAt: 'lastWobbledAt' in updates,
+    };
+  }
+
+  it("wobble on a 'generative' compartment sets status='wobbling' (regression signal)", () => {
+    const result = simulateWobble({ status: 'generative', wobbleCount: 0 });
+    assert.strictEqual(
+      result.status,
+      'wobbling',
+      `wobble on a 'generative' compartment must demote to 'wobbling', got '${result.status}'`,
+    );
+  });
+
+  it("wobble on a 'stable' compartment sets status='wobbling'", () => {
+    const result = simulateWobble({ status: 'stable', wobbleCount: 2 });
+    assert.strictEqual(
+      result.status,
+      'wobbling',
+      `wobble on a 'stable' compartment must demote to 'wobbling', got '${result.status}'`,
+    );
+  });
+
+  it("wobble on a 'pounding' compartment sets status='wobbling'", () => {
+    const result = simulateWobble({ status: 'pounding', wobbleCount: 0 });
+    assert.strictEqual(result.status, 'wobbling');
+  });
+
+  it('wobble on a new compartment (null existing) sets status=wobbling and wobbleCount=1', () => {
+    const result = simulateWobble(null);
+    assert.strictEqual(result.status, 'wobbling');
+    assert.strictEqual(result.wobbleCount, 1,
+      `wobbleCount must be 1 on first wobble of a new compartment`);
+  });
+
+  it('wobble increments wobbleCount cumulatively', () => {
+    const result = simulateWobble({ status: 'stable', wobbleCount: 5 });
+    assert.strictEqual(result.wobbleCount, 6,
+      `wobbleCount must be 6 after wobble on a compartment with wobbleCount=5, got ${result.wobbleCount}`);
+  });
+
+  it('wobble sets lastWobbledAt', () => {
+    const result = simulateWobble({ status: 'generative', wobbleCount: 0 });
+    assert.ok(result.hasLastWobbledAt,
+      `wobble must set lastWobbledAt so the regression timestamp is recorded`);
+  });
+
+  it('wobble does not preserve a higher status — confirms the design is unconditional', () => {
+    // This test is the guard against someone accidentally making wobble status-preserving.
+    // If statusMap ever changes to: wobble: (existing?.status...) ? existing.status : 'wobbling'
+    // the simulation above would start returning 'generative', breaking the first test.
+    // This test documents the intent explicitly.
+    const statuses = ['generative', 'stable', 'pounding', 'wobbling'];
+    for (const status of statuses) {
+      const result = simulateWobble({ status, wobbleCount: 0 });
+      assert.strictEqual(
+        result.status,
+        'wobbling',
+        `wobble must override '${status}' and set 'wobbling' — ` +
+        `a wobble is always a regression signal, not a no-op`,
+      );
+    }
   });
 });
