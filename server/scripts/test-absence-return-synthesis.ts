@@ -1011,14 +1011,19 @@ async function runPart6(): Promise<void> {
     stopCapture();
     origLog(R(`\nUnhandled error: ${err?.message ?? err}`));
     if (err?.stack) origLog(D(err.stack));
-    process.exit(1);
+    // Do NOT call process.exit() here — the finally block must run to clean up
+    // seeded DB rows even when the test crashes mid-run.
+    failed++;
   } finally {
-    // Always clean up the seeded rows, even on failure
+    // Always clean up the seeded rows, even on failure or an unhandled throw.
+    // IMPORTANT: process.exit() must NOT be called before this block; doing so
+    // terminates Node immediately and skips cleanup, leaving dangling nudge rows
+    // that cause false-positive/false-negative results on the next CI run.
     try {
       await cleanUpTestRows();
       origLog(D('\n  Test rows cleaned up.'));
     } catch (cleanupErr: any) {
-      origLog(Y(`  Warning: cleanup failed — ${cleanupErr?.message}. Delete manually:\n    DELETE FROM daniela_absence_nudges WHERE user_id IN ('${TEST_USER_ID}', '${TEST_USER_ID_2}');`));
+      origLog(Y(`  Warning: cleanup failed — ${cleanupErr?.message}. Delete manually:\n    DELETE FROM daniela_absence_nudges WHERE user_id IN ('${TEST_USER_ID}', '${TEST_USER_ID_2}', '${TEST_USER_ID_3}');`));
     }
   }
 
