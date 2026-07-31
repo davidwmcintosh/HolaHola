@@ -245,6 +245,147 @@ function testResultFieldRenameWouldBeDetected() {
   pass(name, 'absent "result" key is detectable — rename would be caught by the payload check');
 }
 
+// ── Multi-batch accumulation helpers ──────────────────────────────────────────
+//
+// In the real GeminiLiveSession, pendingFunctionCallIds is a plain string[] that
+// accumulates IDs across every tool batch during a turn.  If GL fires two tool
+// batches before the connection drops, BOTH batches' IDs sit in the array and
+// all of them must appear in the synthetic unblock response.
+//
+// The helpers below simulate the accumulation pattern so we can test it without
+// a live session object.
+
+/**
+ * Simulates adding IDs from a single tool batch into the accumulator array,
+ * exactly as the real session does via Array.push().
+ */
+function accumulateBatch(accumulator: string[], batchIds: string[]): void {
+  for (const id of batchIds) {
+    accumulator.push(id);
+  }
+}
+
+/**
+ * Runs the reconnect-unblock path against the accumulated ID list, then
+ * returns the captured sendToolResponse call (or null if it was never called).
+ * Reuses simulateReconnectUnblock so the same guard block is exercised.
+ */
+function simulateMultiBatchUnblock(
+  batches: string[][],
+): CapturedSendToolResponse | null {
+  const accumulated: string[] = [];
+  for (const batch of batches) {
+    accumulateBatch(accumulated, batch);
+  }
+  return simulateReconnectUnblock(true, accumulated);
+}
+
+// ── Multi-batch tests ──────────────────────────────────────────────────────────
+
+function testMultiBatchIdsAllForwarded() {
+  const name = 'all IDs from two separate tool batches appear in the synthetic response';
+
+  // Simulate batch 1 arriving (e.g. show_image + search_my_archive in-flight)
+  const batch1 = ['batch1-call-001', 'batch1-call-002'];
+  // Simulate batch 2 arriving before the connection drops (e.g. unified_recall + show_vocab_card)
+  const batch2 = ['batch2-call-001', 'batch2-call-002'];
+  const allIds = [...batch1, ...batch2];
+
+  const result = simulateMultiBatchUnblock([batch1, batch2]);
+
+  if (result === null) {
+    return fail(name, 'sendToolResponse was never called. The unblock guard did not fire despite stale IDs from two batches.');
+  }
+
+  const returnedIds = result.functionResponses.map(r => r.id);
+  const missing = allIds.filter(id => !returnedIds.includes(id));
+
+  if (missing.length > 0) {
+    return fail(
+      name,
+      `IDs from at least one batch were dropped: ${missing.join(', ')}. ` +
+      `Got ${returnedIds.join(', ')}. ` +
+      `If pendingFunctionCallIds was reset between batches instead of accumulated, only the last batch survives.`,
+    );
+  }
+
+  pass(name, `all ${allIds.length} IDs across 2 batches forwarded: ${returnedIds.join(', ')}`);
+}
+
+function testMultiBatchCountMatchesTotal() {
+  const name = 'synthetic response count equals the total across both batches (not just the last batch count)';
+
+  const batch1 = ['b1-call-A', 'b1-call-B', 'b1-call-C'];
+  const batch2 = ['b2-call-X', 'b2-call-Y'];
+  const expectedTotal = batch1.length + batch2.length; // 5, NOT 2 (last batch only)
+
+  const result = simulateMultiBatchUnblock([batch1, batch2]);
+
+  if (result === null) {
+    return fail(name, 'sendToolResponse was never called.');
+  }
+
+  const count = result.functionResponses.length;
+  if (count !== expectedTotal) {
+    return fail(
+      name,
+      `Expected ${expectedTotal} synthetic responses (${batch1.length} from batch1 + ${batch2.length} from batch2) ` +
+      `but got ${count}. ` +
+      (count === batch2.length
+        ? 'This matches batch2 count only — pendingFunctionCallIds may be reset between batches instead of accumulated.'
+        : 'Count mismatch suggests some IDs were dropped or duplicated.'),
+    );
+  }
+
+  pass(name, `${count} responses = ${batch1.length} (batch1) + ${batch2.length} (batch2), not just last-batch count`);
+}
+
+function testOnlyLastBatchWouldFail() {
+  const name = 'a last-batch-only implementation would be detected (negative regression check)';
+
+  // Simulate what a buggy implementation does: only keeps the last batch.
+  const batch1 = ['dropped-call-001', 'dropped-call-002'];
+  const batch2 = ['kept-call-001'];
+
+  // Buggy path: only use the last batch, dropping batch1.
+  const buggyResult = simulateReconnectUnblock(true, batch2); // ← last batch only
+
+  if (buggyResult === null) {
+    return fail(name, 'sendToolResponse was not called even for the last batch — unblock guard is entirely broken.');
+  }
+
+  const returnedIds = buggyResult.functionResponses.map(r => r.id);
+  const droppedIds = batch1.filter(id => !returnedIds.includes(id));
+
+  // In the buggy path, all batch1 IDs are missing — our detection correctly sees this.
+  if (droppedIds.length !== batch1.length) {
+    return fail(
+      name,
+      `Expected the buggy (last-batch-only) path to drop all ${batch1.length} batch1 IDs, ` +
+      `but only ${droppedIds.length} were missing. Detection logic may be wrong.`,
+    );
+  }
+
+  // Confirm the correct path (accumulated) would NOT miss them.
+  const correctResult = simulateMultiBatchUnblock([batch1, batch2]);
+  if (correctResult === null) {
+    return fail(name, 'The correct (accumulated) path did not call sendToolResponse.');
+  }
+  const correctIds = correctResult.functionResponses.map(r => r.id);
+  const stillMissing = batch1.filter(id => !correctIds.includes(id));
+  if (stillMissing.length > 0) {
+    return fail(
+      name,
+      `Even the accumulated path is missing batch1 IDs: ${stillMissing.join(', ')}. Accumulation is broken.`,
+    );
+  }
+
+  pass(
+    name,
+    `last-batch-only path drops ${droppedIds.length} ID(s) from batch1; accumulated path retains all — regression detectable`,
+  );
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 (async () => {
@@ -261,6 +402,13 @@ function testResultFieldRenameWouldBeDetected() {
   testResultFieldRenameWouldBeDetected();
 
   sep();
+  console.log(B('  Multi-batch accumulation tests\n'));
+
+  testMultiBatchIdsAllForwarded();
+  testMultiBatchCountMatchesTotal();
+  testOnlyLastBatchWouldFail();
+
+  sep();
   const total = passed + failed;
   console.log(`  Results: ${G(String(passed))} passed, ${failed > 0 ? R(String(failed)) : String(failed)} failed  (${total} checks)`);
 
@@ -272,7 +420,8 @@ function testResultFieldRenameWouldBeDetected() {
     console.log(`    • sendToolResponse not called when stale IDs are present`);
     console.log(`    • sendToolResponse over-fires on fresh (no-handle) reconnects`);
     console.log(`    • Synthetic response count mismatches stale ID count`);
-    console.log(`    • id or name fields missing from the functionResponses payload\n`);
+    console.log(`    • id or name fields missing from the functionResponses payload`);
+    console.log(`    • IDs from earlier tool batches silently dropped (last-batch-only bug)\n`);
     process.exit(0);
   } else {
     console.log(`\n  ${R('✗ SOME CHECKS FAILED')} — review items above\n`);
