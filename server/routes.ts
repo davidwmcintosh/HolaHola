@@ -33662,6 +33662,11 @@ You have full access to your neural network knowledge.
         ? message.trim()
         : "¡Hola! I was thinking about our last session and wanted to leave you a little voice note before we meet again. See you soon!";
 
+      const existingUser = await storage.getUser(userId);
+      if (!existingUser) {
+        return res.status(404).json({ error: `No user found with ID "${userId}". Check the ID and try again.` });
+      }
+
       const db = getSharedDb();
       const [row] = await db.insert(danielaOutboundQueue).values({
         userId,
