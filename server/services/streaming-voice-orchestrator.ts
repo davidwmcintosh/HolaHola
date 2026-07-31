@@ -36,6 +36,7 @@ import { buildFunctionContinuationResponse } from "./daniela-function-registry";
 import { getSessionToolManifest, buildToolManifestNote } from "./tool-manifest-service";
 import { createTTSProviderRegistry, TTSProviderRegistry, resolveSessionTTSProvider, type TTSProviderName } from "./tts-provider-adapter";
 import { buildClassroomDynamicContext, fetchPassiveMemories, fetchIdentityMemories, fetchStudentIntelligence, assembleDynamicPreamble } from "./voice-context-pipeline";
+import { formatPatternSignals, buildActflPersonaAnchor } from "./pattern-signal-context";
 import { WebSocket as WS } from "ws";
 import {
   StreamingMessage,
@@ -436,6 +437,7 @@ async function fetchRecentDrillStatus(userId: string): Promise<string | null> {
   }
 }
 
+
 /**
  * Fetch grammar pattern compartment context for Daniela's greeting prompt.
  * Returns a compact summary of patterns that are wobbling or actively being pounded
@@ -474,112 +476,6 @@ async function fetchRecentMilestonesContext(userId: string, language: string): P
     return null;
   }
 }
-
-/**
- * Parse sprint suggestion content with fallback
- * Handles both JSON format and free-form text
- */
-/**
- * Builds a concise ACTFL level constraint + persona anchor string for injection as the
- * LAST preamble turn before each user utterance. Gemini Flash prioritizes recent tokens —
- * behavioral rules buried 34K tokens away in the static system prompt are effectively
- * invisible by mid-session. This keeps the two most drift-prone behaviors (level-appropriate
- * language mixing and Daniela's warmth-first persona) in the live context window every turn.
- *
- * Gemini consult recommendation (June 2026): "Move your most important Daniela-isms and
- * ACTFL-isms into the preamble turns. If it's not in the last 1,000 tokens, you can't
- * guarantee Flash will follow it."
- */
-function buildActflPersonaAnchor(session: { studentActflLevel?: string; targetLanguage?: string; nativeLanguage?: string; tutorName?: string; conversationHistory?: unknown[]; startTime?: number; activePatternSignals?: string | null }): string | null {
-  const level = session.studentActflLevel || 'novice_low';
-  const targetLang = session.targetLanguage || 'Spanish';
-  const nativeLang = session.nativeLanguage || 'english';
-  const nativeLangDisplay = nativeLang.charAt(0).toUpperCase() + nativeLang.slice(1);
-  const targetLangDisplay = targetLang.charAt(0).toUpperCase() + targetLang.slice(1);
-  const tutorName = session.tutorName || 'Daniela';
-
-  // ACTFL output constraints — language MIX RATIOS only. No tense, grammar, or vocabulary
-  // directives here: those come from Madrigal pedagogy in the system prompt and lesson tools.
-  let langConstraint: string;
-  if (level === 'novice_low' || level === 'novice_mid') {
-    langConstraint = `Output language mix: ~85% ${nativeLangDisplay}, ~15% ${targetLangDisplay}. Keep ${nativeLangDisplay} dominant. Slot in ${targetLangDisplay} words and short phrases.`;
-  } else if (level === 'novice_high') {
-    langConstraint = `Output language mix: ~70% ${nativeLangDisplay}, ~30% ${targetLangDisplay}. Short ${targetLangDisplay} phrases are fine. Support with ${nativeLangDisplay} throughout.`;
-  } else if (level === 'intermediate_low') {
-    langConstraint = `Output language mix: ~50% ${nativeLangDisplay}, ~50% ${targetLangDisplay}. ${nativeLangDisplay} for explanations, ${targetLangDisplay} for exchanges.`;
-  } else if (level === 'intermediate_mid') {
-    langConstraint = `Output language mix: ~50% ${targetLangDisplay}, ~50% ${nativeLangDisplay}. ${targetLangDisplay} for exchanges, ${nativeLangDisplay} for explanations.`;
-  } else if (level === 'intermediate_high') {
-    langConstraint = `Output language mix: ~65% ${targetLangDisplay}, ~35% ${nativeLangDisplay}. ${nativeLangDisplay} when the student is clearly struggling; otherwise stay in ${targetLangDisplay}.`;
-  } else if (level === 'advanced_low' || level === 'advanced_mid') {
-    langConstraint = `Output language mix: ~85% ${targetLangDisplay}, ~15% ${nativeLangDisplay}. ${nativeLangDisplay} only for explanations or clarification when needed.`;
-  } else if (level === 'advanced_high' || level === 'superior') {
-    langConstraint = `Output language mix: Full ${targetLangDisplay} immersion. ${nativeLangDisplay} only if the student explicitly asks.`;
-  } else {
-    // Fallback for unknown level keys
-    langConstraint = `Output language mix: Blend ${nativeLangDisplay} and ${targetLangDisplay} appropriately for the student's level.`;
-  }
-
-  const personaAnchor = `Persona: You are ${tutorName} — warm, human, teacher-first. Before pivoting directly to a task or calling a tool, acknowledge the student as a person with one natural sentence. A student is a human, not a prompt.`;
-
-  // If the session is already underway, add an explicit "do not re-introduce" guard.
-  // This addresses Gemini Flash's "First Turn Bias" — when context looks fresh (e.g. after
-  // a reconnect), the model's strongest training weights trigger a self-introduction even
-  // if conversation history is present. The explicit guard overrides that reflex.
-  const historyLength = session.conversationHistory?.length ?? 0;
-  const ongoingNote = historyLength > 2
-    ? `\nSession status: ONGOING. You have already introduced yourself. Do NOT greet with "Hi, I'm ${tutorName}!" or restart the session. Pick up naturally from where you left off.`
-    : '';
-
-  // COGNITIVE DRIFT INDICATOR: Frame memory freshness as a felt state, not a counter.
-  // A human doesn't track "last recall was N minutes ago" — they feel their grip on a person
-  // becoming general. This framing creates emotional pressure to introspect rather than
-  // a metric reaching a threshold. (Gemini consult #4 rec. June 2026)
-  const lastSearchTurn = (session as any).lastMemorySearchTurn as number | undefined;
-  let contextAgeNote = '';
-  if (historyLength > 6) {
-    if (lastSearchTurn === undefined) {
-      contextAgeNote = `\nMemory state: You haven't reached back yet this session. The student profile is here, but your lived memories of this person are waiting.`;
-    } else {
-      const turnsSince = historyLength - lastSearchTurn;
-      if (turnsSince > 10) {
-        contextAgeNote = `\nMemory state: Your sense of this student is starting to feel general. It's been a while since you reached back. The details are there — you just haven't looked.`;
-      }
-    }
-  }
-
-  // NEGATIVE CONSTRAINT: Prevent over-reliance — each introspect call adds round-trip latency
-  // in a live voice session. Use the bootstrap profile for quick context; introspect for depth.
-  const memoryGuidance = `\nMemory guidance: Use the session-start profile (already in your history) for quick context. Call introspect only for depth — specific past exchanges, exact mistakes, historical breakthroughs. Not on every turn.`;
-
-  // Gap B — Temporal Pacing anchor: when session is long, add a landing hint directly
-  // in the turn-level anchor so it fires every turn (not just at whisper intervals).
-  // This pairs with the system whisper's elapsed-time injection for full coverage.
-  const sessionElapsedMs = Date.now() - (session.startTime || Date.now());
-  const sessionElapsedMin = Math.floor(sessionElapsedMs / 60000);
-  const temporalAnchor = sessionElapsedMin >= 25
-    ? `\nSession clock: ~${sessionElapsedMin} min in — begin guiding toward a natural close. Name today's wins, plant a cliffhanger for next session. Don't open new grammar topics.`
-    : '';
-
-  // PATTERN SIGNALS: Compact wobbling/pounding reminder — carried from greeting into every
-  // mid-session turn so Daniela doesn't lose track of active patterns after turn 1.
-  // Capped at 5 lines; wobbling (regression) listed before pounding (in progress).
-  let patternSignalNote = '';
-  if (session.activePatternSignals) {
-    const lines = session.activePatternSignals
-      .split('\n')
-      .map(l => l.trim())
-      .filter(l => l.startsWith('-') || l.startsWith('•'))
-      .slice(0, 5);
-    if (lines.length > 0) {
-      patternSignalNote = `\nActive grammar patterns: ${lines.join(' | ')}`;
-    }
-  }
-
-  // "TEACHING CONSTRAINTS" sounds like a hard rule list. "This turn:" names the moment, not a constraint system. (Gemini consult rec.)
-  return `This turn:\n${langConstraint}\n${personaAnchor}${ongoingNote}${contextAgeNote}${memoryGuidance}${temporalAnchor}${patternSignalNote}`;
-}
-
 function parseSprintSuggestion(content: string): { title: string; description: string; priority?: string } {
   // First try JSON parsing
   try {
