@@ -14,7 +14,7 @@
  */
 
 import { MEMORY_TOOL_NAMES } from '../services/memory-chain-guard';
-import { DANIELA_FUNCTION_DECLARATIONS } from '../services/daniela-function-registry';
+import { DANIELA_FUNCTION_DECLARATIONS, GL_EXCLUDED_TOOLS } from '../services/daniela-function-registry';
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
@@ -216,12 +216,65 @@ if (exclusionPhantoms.length > 0) {
   console.log(G('✓ Every entry in KNOWN_NON_GUARD_TOOLS exists in the live registry.'));
 }
 
+// ── Classroom-exclusion sync check ───────────────────────────────────────────
+//
+// Some tools in KNOWN_NON_GUARD_TOOLS are exempted from the chain guard
+// specifically because they are blocked from student classroom sessions (i.e.
+// they live in GL_EXCLUDED_TOOLS).  If a developer removes one of them from
+// GL_EXCLUDED_TOOLS without updating the exemption comment, the guard bypass
+// silently becomes wrong — students could chain those calls unchecked.
+//
+// List every KNOWN_NON_GUARD_TOOLS entry whose exemption reason is
+// "blocked from student sessions / classroom context".  The check below
+// asserts each one is still present in GL_EXCLUDED_TOOLS.
+//
+const CLASSROOM_BLOCKED_EXEMPTIONS = new Set<string>([
+  // Exemption reason: "BLOCKED from the mid-session student classroom tool rack
+  // (excluded in CLASSROOM_EXCLUDED_TOOLS)."  If this is ever re-enabled for
+  // students, the chain-guard bypass must be removed at the same time.
+  'read_full_memory',
+]);
+
+sep();
+console.log(B('Classroom-exclusion sync: KNOWN_NON_GUARD_TOOLS entries blocked from student sessions'));
+console.log(Y('  Each tool listed in CLASSROOM_BLOCKED_EXEMPTIONS must also be in GL_EXCLUDED_TOOLS.'));
+console.log(Y('  A drift here means a student could chain the tool without the guard ever firing.'));
+
+const classroomDrift: string[] = [];
+for (const toolName of CLASSROOM_BLOCKED_EXEMPTIONS) {
+  if (GL_EXCLUDED_TOOLS.has(toolName)) {
+    console.log(`  ${G('✓')} ${toolName}  (still in GL_EXCLUDED_TOOLS)`);
+  } else {
+    console.log(R(`  ✗ ${toolName}  — NOT in GL_EXCLUDED_TOOLS but exempted from chain guard on that basis`));
+    classroomDrift.push(toolName);
+  }
+}
+
+if (classroomDrift.length > 0) {
+  console.log('');
+  console.log(R('FAIL — classroom-exclusion drift detected:'));
+  for (const name of classroomDrift) {
+    console.log(R(`  ✗ ${name}`));
+  }
+  console.log('');
+  console.log(Y('  To fix, do ONE of the following for each drifted tool:'));
+  console.log(Y('    a) Re-add it to GL_EXCLUDED_TOOLS in daniela-function-registry.ts'));
+  console.log(Y('       (if it should still be blocked from student classroom sessions), OR'));
+  console.log(Y('    b) Remove it from CLASSROOM_BLOCKED_EXEMPTIONS here AND add it to'));
+  console.log(Y('       MEMORY_TOOL_NAMES in memory-chain-guard.ts so the chain guard fires'));
+  console.log(Y('       (if it is now intentionally reachable in student sessions).'));
+  allPassed = false;
+} else if (CLASSROOM_BLOCKED_EXEMPTIONS.size > 0) {
+  console.log(`  ${G('✓')} All classroom-blocked exemptions are still excluded from student sessions.`);
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 sep();
 console.log(`  Pattern-matching tools found:  ${patternMatches.length}`);
 console.log(`  Guarded (MEMORY_TOOL_NAMES):   ${inGuard.length}`);
 console.log(`  Excluded (KNOWN_NON_GUARD):    ${inExclusion.length}`);
 console.log(`  Uncategorized (FAIL):          ${uncategorized.length}`);
+console.log(`  Classroom-blocked exemptions:  ${CLASSROOM_BLOCKED_EXEMPTIONS.size} checked, ${classroomDrift.length} drifted`);
 sep();
 
 if (allPassed) {

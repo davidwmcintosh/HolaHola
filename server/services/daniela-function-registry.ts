@@ -7060,7 +7060,7 @@ When you need a visual association, a cultural note, a teaching procedure, a lan
  * NOT excluded — Daniela needs keyword search during voice sessions to recall specific
  * past conversations (e.g. "find the ting ting ting conversation").
  */
-const GL_EXCLUDED_TOOLS = new Set<string>([
+export const GL_EXCLUDED_TOOLS = new Set<string>([
 
   // === ALREADY ESTABLISHED ===
   // Background behavioral signal — fires silently, never a conversational act
