@@ -17,6 +17,7 @@ import { useGlobalPropTap } from '../lib/propTapStore';
 import { diagSetSession, diagSetHookRefs, diagEvent, diagMarkConnect, diagMarkFirstAudio, diagMarkResponseComplete, diagMarkDisconnect, diagMarkTurnStart, diagMarkSpeechEnd, diagMarkError, diagMarkTtsError, diagMarkFailsafe, reportDiagnostic, startLockoutWatchdog, startGreetingSilenceWatchdog } from '../lib/lockoutDiagnostics';
 import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock';
 import { validateSpotlightMessage } from '../lib/spotlight-guard';
+import { validatePronunciationScorePayload } from '../lib/pronunciation-score-guard';
 import { preWarmMicroAcks, selectMicroAck, playMicroAck } from '../services/microAckService';
 import { 
   STREAMING_FEATURE_FLAGS,
@@ -83,7 +84,7 @@ export interface StreamingSessionConfig {
   /** Called when Daniela adds an item to the session lesson notes */
   onLessonNoteAdded?: (note: { id: string; type: string; content: string; detail?: string; timestamp: number }) => void;
   /** Called when Daniela shows a pronunciation score card */
-  onPronunciationScoreShown?: (data: { id: string; phrase: string; wordScores: Array<{ word: string; score: number; tip?: string }>; overallScore: number; encouragement?: string; timestamp: number }) => void;
+  onPronunciationScoreShown?: (data: { id: string; phrase: string; wordScores: Array<{ word: string; score: number; tip?: string }>; overallScore: number; encouragement?: string; timestamp?: number }) => void;
   /** Called when Daniela flags a grammar correction */
   onGrammarFlagShown?: (data: { id: string; original: string; corrected: string; explanation: string; ruleLabel?: string; timestamp: number }) => void;
   /** Called when Daniela presents a quiz */
@@ -1544,24 +1545,14 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
 
   const handlePronunciationScoreShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
     if (!sessionConfigRef.current?.onPronunciationScoreShown || !message.data) return;
-    const d = message.data;
-    // Guard: drop malformed payloads before they reach the component.
-    // A whitespace-only phrase renders a blank header; an empty wordScores array
-    // renders an empty score list — both show a contentless card with no feedback.
-    if (
-      typeof d.phrase !== 'string' || !d.phrase.trim() ||
-      !Array.isArray(d.wordScores) || d.wordScores.length === 0 ||
-      typeof d.overallScore !== 'number'
-    ) {
-      console.warn('[useStreamingVoice] Dropped malformed pronunciation_score_shown — phrase or wordScores invalid', d);
+    // Guard: validatePronunciationScorePayload drops malformed payloads before they
+    // reach the component (missing phrase, empty wordScores, non-numeric overallScore).
+    // It also sanitises whitespace-only encouragement strings.
+    const payload = validatePronunciationScorePayload(message.data);
+    if (!payload) {
+      console.warn('[useStreamingVoice] Dropped malformed pronunciation_score_shown — phrase or wordScores invalid', message.data);
       return;
     }
-    // Sanitize optional encouragement: a whitespace-only value renders a blank
-    // encouragement line on the card.  Strip it so the component receives either
-    // a real string or nothing.
-    const payload = (typeof d.encouragement === 'string' && !d.encouragement.trim())
-      ? { ...d, encouragement: undefined }
-      : d;
     sessionConfigRef.current.onPronunciationScoreShown(payload);
   }, []);
 

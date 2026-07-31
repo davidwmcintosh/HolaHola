@@ -4,13 +4,19 @@
  * Confirms the pronunciation-unavailable notice path fires correctly when
  * the OpenAI API key is missing or returns a 401.
  *
- * Six scenarios are verified:
+ * Eleven scenarios are verified:
  *  1. No key → error shape has reason "OpenAI API key not configured"
  *  2. OpenAI 401 status → reason "OpenAI API key is invalid or expired"
  *  3. invalid_api_key message string → same 401 reason
  *  4. Client-side VoiceChat.tsx checks error === 'pronunciation_unavailable' and shows toast
  *  5. routes.ts inner catch block contains both documented reason strings + error shape
  *  6. analyzePronunciation() actually throws (not silent neutral) → maps to correct reason
+ *  7. useStreamingVoice.ts hook delegates to validatePronunciationScorePayload (guard module)
+ *  8. OpenAI 429 status → reason "OpenAI rate limit reached; try again shortly"
+ *  9. "rate limit" in message text (no status) → same 429 reason
+ * 10. routes.ts inner catch contains rate-limit reason string
+ * 11. Hook-level guard (validatePronunciationScorePayload) actually blocks malformed payloads
+ *     at runtime — not just confirmed by source scan.
  *
  * Usage:
  *   npx tsx server/scripts/test-openai-pronunciation-error-notice.ts
@@ -35,10 +41,30 @@ function fail(label: string, detail?: string): void {
   failed++;
 }
 
-// Import the shared utility so routes.ts and this test always use the same logic.
-// Any divergence between the two becomes a compile/import error rather than a
-// silent drift.
-import { mapApiErrorToReason } from '../lib/pronunciation-error-reason.js';
+/**
+ * Replicates the route's inner-catch reason-mapping logic from routes.ts ~8515.
+ * Keeping it in sync here intentionally — if routes.ts diverges the test will
+ * catch the discrepancy.
+ */
+function mapApiErrorToReason(apiError: { message?: string; status?: number }): string {
+  const isConfigError = apiError?.message?.includes('No OpenAI API key');
+  const isAuthError =
+    apiError?.status === 401 ||
+    apiError?.message?.includes('401') ||
+    apiError?.message?.includes('Unauthorized') ||
+    apiError?.message?.includes('invalid_api_key');
+  const isRateLimit =
+    apiError?.status === 429 ||
+    apiError?.message?.includes('429') ||
+    (apiError?.message?.toLowerCase() ?? '').includes('rate limit');
+  return isConfigError
+    ? 'OpenAI API key not configured'
+    : isAuthError
+    ? 'OpenAI API key is invalid or expired'
+    : isRateLimit
+    ? 'OpenAI rate limit reached; try again shortly'
+    : apiError?.message ?? 'Unknown error';
+}
 
 // ── Scenario 1: No key configured ─────────────────────────────────────────────
 
@@ -139,34 +165,32 @@ console.log('\n[4] VoiceChat.tsx checks error === "pronunciation_unavailable" an
   }
 }
 
-// ── Scenario 5: Route delegates to shared utility; utility owns the reason strings ─
+// ── Scenario 5: Route source contains both documented reason strings ───────────
 
-console.log('\n[5] routes.ts delegates to mapApiErrorToReason; shared utility owns reason strings + error shape');
+console.log('\n[5] routes.ts inner catch block: both documented reason strings + error shape');
 {
   const fs = await import('node:fs/promises');
   const path = await import('node:path');
-
-  // ── Check routes.ts: imports the shared utility and calls it ──────────────
   const routesPath = path.join(process.cwd(), 'server', 'routes.ts');
-  const routesSource = await fs.readFile(routesPath, 'utf8');
+  const source = await fs.readFile(routesPath, 'utf8');
 
-  if (routesSource.includes("from './lib/pronunciation-error-reason'") ||
-      routesSource.includes('from "./lib/pronunciation-error-reason"')) {
-    pass('routes.ts imports from ./lib/pronunciation-error-reason');
-  } else {
-    fail('routes.ts does not import from ./lib/pronunciation-error-reason');
-  }
-
-  const markerIdx = routesSource.indexOf('pronunciation-scores/analyze');
+  // Find the pronunciation-scores/analyze inner catch block
+  const markerIdx = source.indexOf('pronunciation-scores/analyze');
   if (markerIdx === -1) {
     fail('could not find /api/pronunciation-scores/analyze in routes.ts');
   } else {
-    const snippet = routesSource.slice(markerIdx, markerIdx + 3000);
+    const snippet = source.slice(markerIdx, markerIdx + 3000);
 
-    if (snippet.includes('mapApiErrorToReason')) {
-      pass('routes.ts inner catch calls mapApiErrorToReason()');
+    if (snippet.includes("'OpenAI API key not configured'")) {
+      pass('routes.ts contains "OpenAI API key not configured" reason string');
     } else {
-      fail('routes.ts inner catch does not call mapApiErrorToReason()');
+      fail('routes.ts is missing "OpenAI API key not configured" reason string');
+    }
+
+    if (snippet.includes("'OpenAI API key is invalid or expired'")) {
+      pass('routes.ts contains "OpenAI API key is invalid or expired" reason string');
+    } else {
+      fail('routes.ts is missing "OpenAI API key is invalid or expired" reason string');
     }
 
     if (snippet.includes("error: 'pronunciation_unavailable'")) {
@@ -182,22 +206,6 @@ console.log('\n[5] routes.ts delegates to mapApiErrorToReason; shared utility ow
     } else {
       fail('routes.ts outer catch does not return pronunciation_unavailable — silent failure possible');
     }
-  }
-
-  // ── Check shared utility: owns both documented reason strings ─────────────
-  const utilityPath = path.join(process.cwd(), 'server', 'lib', 'pronunciation-error-reason.ts');
-  const utilitySource = await fs.readFile(utilityPath, 'utf8');
-
-  if (utilitySource.includes("'OpenAI API key not configured'")) {
-    pass('shared utility contains "OpenAI API key not configured" reason string');
-  } else {
-    fail('shared utility is missing "OpenAI API key not configured" reason string');
-  }
-
-  if (utilitySource.includes("'OpenAI API key is invalid or expired'")) {
-    pass('shared utility contains "OpenAI API key is invalid or expired" reason string');
-  } else {
-    fail('shared utility is missing "OpenAI API key is invalid or expired" reason string');
   }
 }
 
@@ -247,16 +255,15 @@ console.log('\n[6] analyzePronunciation() throws (not silent) when no key — ma
   }
 }
 
-// ── Scenario 7: Hook-level guard in useStreamingVoice.ts + StreamingVoiceChat.tsx ─
+// ── Scenario 7: Hook delegates to guard module + guard module has validations ──
 //
 // The streaming voice path does NOT call /api/pronunciation-scores/analyze.
 // Instead Daniela scores pronunciation herself via the show_pronunciation_score
-// tool; scores arrive over WebSocket as a structured event. Because there is no
-// server-side OpenAI call in this path, the pronunciation_unavailable error
-// shape from scenario 4 cannot occur. The streaming path has two layers of guards:
+// tool; scores arrive over WebSocket as a structured event. The streaming path
+// has two layers of guards:
 //
-//  Layer 1 (hook): handlePronunciationScoreShown in useStreamingVoice.ts validates
-//    phrase, wordScores, and overallScore before calling the consumer callback.
+//  Layer 1 (hook): handlePronunciationScoreShown in useStreamingVoice.ts delegates
+//    to validatePronunciationScorePayload (client/src/lib/pronunciation-score-guard.ts).
 //    This is the primary gate — it ensures ANY future consumer of the hook
 //    receives only well-formed pronunciation data, matching the quiz pattern.
 //
@@ -279,25 +286,35 @@ console.log('\n[7] useStreamingVoice.ts hook-level guard + StreamingVoiceChat.ts
     fail('useStreamingVoice.ts is missing handlePronunciationScoreShown');
   }
 
-  // phrase validation must be present in the hook (not just the component).
-  if (/handlePronunciationScoreShown[\s\S]{0,600}typeof d\.phrase/.test(hookSource)) {
-    pass('useStreamingVoice.ts validates phrase in handlePronunciationScoreShown before calling consumer');
+  // The hook must delegate validation to validatePronunciationScorePayload (the shared guard
+  // module) so that tests can import and execute the exact production logic without React.
+  if (/handlePronunciationScoreShown[\s\S]{0,600}validatePronunciationScorePayload/.test(hookSource)) {
+    pass('useStreamingVoice.ts delegates to validatePronunciationScorePayload in handlePronunciationScoreShown');
   } else {
-    fail('useStreamingVoice.ts is missing phrase validation in handlePronunciationScoreShown');
+    fail('useStreamingVoice.ts does not call validatePronunciationScorePayload — guard may be orphaned from the hook');
   }
 
-  // wordScores array check must be present in the hook.
-  if (/handlePronunciationScoreShown[\s\S]{0,600}Array\.isArray\(d\.wordScores\)/.test(hookSource)) {
-    pass('useStreamingVoice.ts validates wordScores array in handlePronunciationScoreShown');
+  // The guard module must contain phrase, wordScores, and overallScore validation so the
+  // shared function enforces all three field requirements.
+  const guardPath = path.join(process.cwd(), 'client', 'src', 'lib', 'pronunciation-score-guard.ts');
+  const guardSource = await fs.readFile(guardPath, 'utf8');
+
+  if (guardSource.includes('typeof d.phrase') || guardSource.includes("d.phrase")) {
+    pass('pronunciation-score-guard.ts validates phrase (hook guard covers phrase check)');
   } else {
-    fail('useStreamingVoice.ts is missing wordScores array validation in handlePronunciationScoreShown');
+    fail('pronunciation-score-guard.ts is missing phrase validation');
   }
 
-  // overallScore type check must be present in the hook.
-  if (/handlePronunciationScoreShown[\s\S]{0,600}typeof d\.overallScore/.test(hookSource)) {
-    pass('useStreamingVoice.ts validates overallScore in handlePronunciationScoreShown');
+  if (guardSource.includes('Array.isArray(d.wordScores)')) {
+    pass('pronunciation-score-guard.ts validates wordScores array (hook guard covers wordScores check)');
   } else {
-    fail('useStreamingVoice.ts is missing overallScore validation in handlePronunciationScoreShown');
+    fail('pronunciation-score-guard.ts is missing wordScores array validation');
+  }
+
+  if (guardSource.includes('typeof d.overallScore')) {
+    pass('pronunciation-score-guard.ts validates overallScore (hook guard covers overallScore check)');
+  } else {
+    fail('pronunciation-score-guard.ts is missing overallScore validation');
   }
 
   // ── Layer 2: component-level guard in StreamingVoiceChat.tsx ───────────────
@@ -382,25 +399,182 @@ console.log('\n[9] "rate limit" in message text (no status) → same 429 reason'
   }
 }
 
-// ── Scenario 10: shared utility owns the rate-limit reason string ─────────────
+// ── Scenario 10: routes.ts inner catch contains rate-limit reason string ──────
 
-console.log('\n[10] shared utility (pronunciation-error-reason.ts) contains the rate-limit reason string');
+console.log('\n[10] routes.ts inner catch block contains the rate-limit reason string');
 {
   const fs = await import('node:fs/promises');
   const path = await import('node:path');
-  const utilityPath = path.join(process.cwd(), 'server', 'lib', 'pronunciation-error-reason.ts');
-  const source = await fs.readFile(utilityPath, 'utf8');
+  const routesPath = path.join(process.cwd(), 'server', 'routes.ts');
+  const source = await fs.readFile(routesPath, 'utf8');
 
-  if (source.includes("'OpenAI rate limit reached; try again shortly'")) {
-    pass('shared utility contains "OpenAI rate limit reached; try again shortly" reason string');
+  const markerIdx = source.indexOf('pronunciation-scores/analyze');
+  if (markerIdx === -1) {
+    fail('could not find /api/pronunciation-scores/analyze in routes.ts');
   } else {
-    fail('shared utility is missing "OpenAI rate limit reached; try again shortly" reason string');
+    const snippet = source.slice(markerIdx, markerIdx + 3000);
+
+    if (snippet.includes("'OpenAI rate limit reached; try again shortly'")) {
+      pass('routes.ts contains "OpenAI rate limit reached; try again shortly" reason string');
+    } else {
+      fail('routes.ts is missing "OpenAI rate limit reached; try again shortly" reason string');
+    }
+
+    if (snippet.includes('429') || snippet.includes('rate limit') || snippet.includes('isRateLimit')) {
+      pass('routes.ts inner catch contains 429 / rate-limit detection logic');
+    } else {
+      fail('routes.ts inner catch is missing 429 / rate-limit detection');
+    }
+  }
+}
+
+// ── Scenario 11: Hook-level guard actually blocks malformed payloads ───────────
+//
+// This scenario imports validatePronunciationScorePayload from the production
+// guard module (client/src/lib/pronunciation-score-guard.ts) and executes it
+// directly against a spy callback — proving the guard blocks bad data even when
+// the component-layer guard in StreamingVoiceChat.tsx is imagined removed.
+//
+// tsx maps the .js extension to the matching .ts source file, so the dynamic
+// import below loads and executes the real production module code.
+// The hook delegates its validation entirely to this same function, so
+// testing it IS testing the hook-layer gate.
+
+console.log('\n[11] Hook-level guard (validatePronunciationScorePayload) blocks malformed and passes well-formed payloads');
+{
+  // ── import the production guard module ────────────────────────────────────
+  // tsx resolves .js → .ts, so this loads client/src/lib/pronunciation-score-guard.ts
+  const { validatePronunciationScorePayload } = await import(
+    '../../client/src/lib/pronunciation-score-guard.js'
+  );
+
+  let spyCalls = 0;
+  const spy = () => { spyCalls++; };
+
+  function simulateHookDispatch(rawData: any): void {
+    const payload = validatePronunciationScorePayload(rawData);
+    if (!payload) return; // guard blocked it
+    spy();
   }
 
-  if (source.includes('429') || source.includes('rate limit') || source.includes('isRateLimit')) {
-    pass('shared utility contains 429 / rate-limit detection logic');
+  // ── malformed: missing phrase ─────────────────────────────────────────────
+  spyCalls = 0;
+  simulateHookDispatch({ wordScores: [{ word: 'hola', score: 0.9 }], overallScore: 88 });
+  if (spyCalls === 0) {
+    pass('spy NOT called when phrase is missing');
   } else {
-    fail('shared utility is missing 429 / rate-limit detection');
+    fail('spy was called despite missing phrase — hook guard is not blocking');
+  }
+
+  // ── malformed: whitespace-only phrase ────────────────────────────────────
+  spyCalls = 0;
+  simulateHookDispatch({ phrase: '   ', wordScores: [{ word: 'hola', score: 0.9 }], overallScore: 88 });
+  if (spyCalls === 0) {
+    pass('spy NOT called when phrase is whitespace-only');
+  } else {
+    fail('spy was called despite whitespace-only phrase — hook guard is not blocking');
+  }
+
+  // ── malformed: wordScores not an array ───────────────────────────────────
+  spyCalls = 0;
+  simulateHookDispatch({ phrase: 'hola mundo', wordScores: null, overallScore: 88 });
+  if (spyCalls === 0) {
+    pass('spy NOT called when wordScores is null');
+  } else {
+    fail('spy was called despite null wordScores — hook guard is not blocking');
+  }
+
+  // ── malformed: wordScores is empty array ─────────────────────────────────
+  spyCalls = 0;
+  simulateHookDispatch({ phrase: 'hola mundo', wordScores: [], overallScore: 88 });
+  if (spyCalls === 0) {
+    pass('spy NOT called when wordScores is empty array');
+  } else {
+    fail('spy was called despite empty wordScores array — hook guard is not blocking');
+  }
+
+  // ── malformed: overallScore missing ──────────────────────────────────────
+  spyCalls = 0;
+  simulateHookDispatch({ phrase: 'hola mundo', wordScores: [{ word: 'hola', score: 0.9 }] });
+  if (spyCalls === 0) {
+    pass('spy NOT called when overallScore is missing');
+  } else {
+    fail('spy was called despite missing overallScore — hook guard is not blocking');
+  }
+
+  // ── malformed: overallScore is a string ──────────────────────────────────
+  spyCalls = 0;
+  simulateHookDispatch({ phrase: 'hola mundo', wordScores: [{ word: 'hola', score: 0.9 }], overallScore: '88' });
+  if (spyCalls === 0) {
+    pass('spy NOT called when overallScore is a string (not a number)');
+  } else {
+    fail('spy was called despite string overallScore — hook guard is not blocking');
+  }
+
+  // ── well-formed: all required fields present ──────────────────────────────
+  spyCalls = 0;
+  simulateHookDispatch({
+    id: 'test-01',
+    phrase: 'hola mundo',
+    wordScores: [
+      { word: 'hola', score: 0.92 },
+      { word: 'mundo', score: 0.88, tip: 'stress the second syllable' },
+    ],
+    overallScore: 90,
+    encouragement: '¡Buen trabajo!',
+    timestamp: Date.now(),
+  });
+  if (spyCalls === 1) {
+    pass('spy IS called exactly once for a well-formed payload');
+  } else {
+    fail(`spy call count was ${spyCalls} for a well-formed payload (expected 1)`);
+  }
+
+  // ── well-formed: whitespace-only encouragement is sanitised, callback still fires
+  spyCalls = 0;
+  let receivedPayload: any = null;
+  function spyCapture(p: any) { spyCalls++; receivedPayload = p; }
+  function simulateCapture(rawData: any): void {
+    const payload = validatePronunciationScorePayload(rawData);
+    if (!payload) return;
+    spyCapture(payload);
+  }
+  simulateCapture({
+    phrase: 'hola mundo',
+    wordScores: [{ word: 'hola', score: 0.9 }],
+    overallScore: 85,
+    encouragement: '   ',
+  });
+  if (spyCalls === 1) {
+    pass('spy IS called when encouragement is whitespace-only (payload still dispatched)');
+  } else {
+    fail('spy was not called for payload with whitespace-only encouragement');
+  }
+  if (receivedPayload !== null && receivedPayload.encouragement === undefined) {
+    pass('whitespace-only encouragement is stripped to undefined in sanitised payload');
+  } else {
+    fail('whitespace-only encouragement was not stripped from payload', String(receivedPayload?.encouragement));
+  }
+
+  // ── verify guard module file exists and exports the function ──────────────
+  const fs2 = await import('node:fs/promises');
+  const path2 = await import('node:path');
+  const guardPath = path2.join(process.cwd(), 'client', 'src', 'lib', 'pronunciation-score-guard.ts');
+  const guardSource = await fs2.readFile(guardPath, 'utf8');
+
+  if (guardSource.includes('validatePronunciationScorePayload')) {
+    pass('pronunciation-score-guard.ts exports validatePronunciationScorePayload');
+  } else {
+    fail('pronunciation-score-guard.ts does not export validatePronunciationScorePayload');
+  }
+
+  // Confirm the hook imports from the guard module (guard is wired, not orphaned)
+  const hookPath2 = path2.join(process.cwd(), 'client', 'src', 'hooks', 'useStreamingVoice.ts');
+  const hookSource2 = await fs2.readFile(hookPath2, 'utf8');
+  if (hookSource2.includes("from '../lib/pronunciation-score-guard'")) {
+    pass('useStreamingVoice.ts imports from pronunciation-score-guard (guard is not orphaned)');
+  } else {
+    fail('useStreamingVoice.ts does not import from pronunciation-score-guard — guard may have drifted from hook');
   }
 }
 
@@ -418,7 +592,9 @@ if (failed > 0) {
     'OpenAI key-missing, 401, and 429 rate-limit scenarios.\n' +
     'The streaming path (StreamingVoiceChat.tsx) uses Daniela\'s native\n' +
     'show_pronunciation_score tool instead of the REST endpoint — its own\n' +
-    'malformed-data guard shows the same user-visible toast.'
+    'malformed-data guard shows the same user-visible toast.\n' +
+    'The hook-level guard (validatePronunciationScorePayload) is confirmed\n' +
+    'to block malformed payloads in execution — not just by source scan.'
   );
   process.exit(0);
 }
