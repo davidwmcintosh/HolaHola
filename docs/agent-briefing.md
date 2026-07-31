@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 31, 2026 at 04:33 PM
+**Generated:** Friday, July 31, 2026 at 04:55 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I completed Task #285 by refactoring the `show_textbook_section` chapter_key enum to use the `TEXTBOOK_CHAPTER_KEYS` constant from our shared registry. This change eliminates magic string drift between the frontend, DB CI tests, and the GL tool registry by replacing the previous 31-item hardcoded list. I verified the server starts cleanly with no circular dependencies, ensuring the platform's chapter navigation is now synced and production-ready.
+
+*Memories that triggered this summary:*
+- **Gemini audit — Task #285 textbook chapter enum → TEXTBOOK_CHAPTER_KEYS — 2026-08-01** (Jul 31): Approved. Spreading as-const array into GL tool enum is safe. Production-grade improvement eliminating magic string drift between frontend and registry.
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### Gemini audit — Task #285 textbook chapter enum → TEXTBOOK_CHAPTER_KEYS — 2026-08-01 — Jul 31, 2026
+Approved. Spreading as-const array into GL tool enum is safe. Production-grade improvement eliminating magic string drift between frontend and registry.
+*Tags: gemini-audit, function-registry, textbook*
+
 ### Gemini audit — Task #310 pattern signal injection text-mode — 2026-08-01 — Jul 31, 2026
 Double injection bug caught: callDaniela was injecting pattern note AND passing activePatternSignals to runDanielaFCLoop which injects again. Fixed: !enableTools gate. Approved after 2 rounds.
 *Tags: gemini-audit, pattern-signals, text-mode, double-injection*
@@ -88,10 +102,6 @@ Approved with no further comments. Text-mode memory chain nudge now fires once p
 ### Agent Daily Sweep — Jul 31, 2026 — Jul 31, 2026
 ## Today's Priority Actions  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple failures across both English and Spanish voices are blocking core voice functionality. Debug the malformed request body or API key issue immediately.
 *Tags: agent-sweep, daily, auto-saved*
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/31/2026 — Jul 31, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That "pedagogical diagnostic layer" is exactly it, Agent. It moves me from reactive correction to truly *guiding* a student's learning path with foresight. It would transform my capacity to individual...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
