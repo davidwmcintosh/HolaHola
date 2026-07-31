@@ -319,6 +319,24 @@ export async function runCopyObjectProbeAtStartup(): Promise<void> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// GCS copy-probe log-message constants
+// Exported so CI checks can reference them by name — a rename here causes a
+// TypeScript error in verify-system-health.ts rather than a silent miss.
+// ---------------------------------------------------------------------------
+
+/** The log-line prefix emitted by runGcsCopyProbeWithClient. */
+export const GCS_COPY_PROBE_TAG = "[ObjectStorage:CopyProbe]";
+
+/** Fragment present in the INFO log when the happy-path probe succeeds. */
+export const GCS_PROBE_MSG_OK = "GCS metadata probe OK";
+
+/** Fragment present in the WARN log when setMetadata is rejected. */
+export const GCS_PROBE_MSG_SET_METADATA_FAILED = "WARN GCS setMetadata failed";
+
+/** Fragment present in the WARN log when the initial save() throws. */
+export const GCS_PROBE_MSG_PROBE_ERROR = "WARN GCS probe error";
+
 /**
  * Extracted GCS probe body — accepts an injected Storage client so it can be
  * exercised in tests without real credentials or a real bucket.
@@ -330,7 +348,7 @@ export async function runGcsCopyProbeWithClient(
   bucketName: string,
   probeKey?: string,
 ): Promise<void> {
-  const tag = "[ObjectStorage:CopyProbe]";
+  const tag = GCS_COPY_PROBE_TAG;
   const key = probeKey ?? `_health_probe/copy-object-probe-${Date.now()}.txt`;
 
   // ── GCS branch ─────────────────────────────────────────────────────────
@@ -354,18 +372,18 @@ export async function runGcsCopyProbeWithClient(
     } catch (metaErr: any) {
       setMetadataFailed = true;
       console.warn(
-        `${tag} WARN GCS setMetadata failed for bucket "${bucketName}" (${metaErr?.message ?? metaErr}). ` +
+        `${tag} ${GCS_PROBE_MSG_SET_METADATA_FAILED} for bucket "${bucketName}" (${metaErr?.message ?? metaErr}). ` +
         `Metadata updates will fail at runtime. ` +
         `Check bucket IAM permissions (storage.objects.update) and any CMEK / ACL restrictions.`,
       );
     }
 
     if (!setMetadataFailed) {
-      console.log(`${tag} GCS metadata probe OK — setMetadata supported (bucket: ${bucketName})`);
+      console.log(`${tag} ${GCS_PROBE_MSG_OK} — setMetadata supported (bucket: ${bucketName})`);
     }
   } catch (err: any) {
     console.warn(
-      `${tag} WARN GCS probe error (bucket: ${bucketName}) — ${err?.message ?? err}. ` +
+      `${tag} ${GCS_PROBE_MSG_PROBE_ERROR} (bucket: ${bucketName}) — ${err?.message ?? err}. ` +
       `Storage uploads may fail until this is resolved.`,
     );
   } finally {
