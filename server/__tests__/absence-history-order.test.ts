@@ -203,6 +203,32 @@ describe('GET /api/admin/absence-nudges/history — ORDER BY resolvedAt DESC via
   // Rows were inserted oldest-first (alpha 09:00, beta 11:00, gamma 14:00).
   // With .orderBy(desc(resolvedAt)), output must be gamma → beta → alpha.
   // Removing .orderBy() from listResolvedNudges() causes these assertions to fail.
+  //
+  // MUTATION TEST RESULT (verified 2026-07-31)
+  // ------------------------------------------
+  // When the `.orderBy(desc(danielaAbsenceNudges.resolvedAt))` call is removed
+  // from server/services/absence-nudges-query.ts the following four assertions
+  // fail with clear diagnostic messages:
+  //
+  //   not ok 4  — "first test row is gamma (newest, 14:00) — not alpha (oldest, 09:00)"
+  //               AssertionError: "First row resolvedAt must be 14:00 (gamma, newest).
+  //               Got 2026-07-28T09:00:00.000Z. Rows were inserted oldest-first —
+  //               a missing ORDER BY would put alpha (09:00) first."
+  //
+  //   not ok 5  — "test rows are in strict newest-first order (each resolvedAt >= the next)"
+  //               AssertionError: "Row 0 (2026-07-28T09:00:00.000Z) must be >=
+  //               row 1 (2026-07-28T11:00:00.000Z). ORDER BY resolvedAt DESC not enforced."
+  //
+  //   not ok 6  — "last test row is alpha (oldest, 09:00)"
+  //               AssertionError: "Last row resolvedAt must be 09:00 (alpha, oldest).
+  //               Got 2026-07-28T14:00:00.000Z."
+  //
+  //   not ok 12 — "ordering still holds under an explicit large limit with no filter"
+  //               AssertionError: first > last violated.
+  //
+  // Summary: removing .orderBy() produces 4 failures / 0 passes on the ordering
+  // suite (tests 4–6 and 12).  The failure message on test 5 explicitly names
+  // "ORDER BY resolvedAt DESC not enforced" so the regression is self-describing.
 
   it('first test row is gamma (newest, 14:00) — not alpha (oldest, 09:00)', async () => {
     const { status, body } = await httpGet(`${baseUrl}/api/admin/absence-nudges/history?limit=100`);
