@@ -269,14 +269,17 @@ async function runPart4() {
     before ? `resolvedAt was: ${before.resolvedAt}` : 'row not found — Part 3 may have failed',
   );
 
-  // Now call the function (simulating a student — not founder — session start)
+  // Now call the function (simulating a student — not founder — session start).
+  // Import is hoisted before startCapture() so that first-time module loading
+  // (Cartesia/Deepgram async init) completes before we enter the capture window
+  // — prevents those init logs from racing with the DB query inside the function.
+  const { autoResolveAbsenceNudgeOnReturn } = await import('../services/daniela-absence-worker');
   const isFounderMode = false; // student session
-  let result: Awaited<ReturnType<typeof import('../services/daniela-absence-worker').autoResolveAbsenceNudgeOnReturn>> | undefined;
+  let result: Awaited<ReturnType<typeof autoResolveAbsenceNudgeOnReturn>> | undefined;
 
   startCapture();
   try {
     if (!isFounderMode) {
-      const { autoResolveAbsenceNudgeOnReturn } = await import('../services/daniela-absence-worker');
       result = await autoResolveAbsenceNudgeOnReturn(FOUNDER_TEST_USER_ID);
     }
   } finally {
