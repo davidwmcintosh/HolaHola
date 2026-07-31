@@ -170,3 +170,89 @@ describe('GCS guard — every upload call wrapped in normalizeImageUrl', () => {
     assert.ok(hasGuard, 'wrapped call must satisfy the guard');
   });
 });
+
+// ─── Meta-test: scanner end-to-end against a real temporary file ──────────────
+//
+// Proves the scanner would actually fail CI if someone introduced a new
+// unwrapped call in a brand-new file.  Without this, the scanner could silently
+// pass everything and developers would have false confidence.
+
+describe('GCS guard — scanner self-validation (end-to-end with a real file)', () => {
+  const TEMP_FILE = path.join(SERVER_ROOT, 'scripts', '__gcs-guard-selftest-tmp__.ts');
+
+  it('detects a violation when an unwrapped uploadPublicBuffer() call is written to a real file', () => {
+    const source = [
+      `// Temporary file written by scan-unwrapped-image-uploads.test.ts — DO NOT COMMIT`,
+      `import { uploadPublicBuffer } from '../services/image-storage';`,
+      `async function bad() {`,
+      `  const url = await uploadPublicBuffer('test.png', Buffer.from(''), 'image/png');`,
+      `  return url;`,
+      `}`,
+    ].join('\n');
+
+    fs.writeFileSync(TEMP_FILE, source, 'utf8');
+    try {
+      const violations = scanForViolations().filter(
+        v => v.file.includes('__gcs-guard-selftest-tmp__'),
+      );
+      assert.ok(
+        violations.length >= 1,
+        `Scanner should have flagged the unwrapped call in the temp file but found 0 violations.\n` +
+        `This means the scanner would silently miss a real violation.`,
+      );
+    } finally {
+      fs.unlinkSync(TEMP_FILE);
+    }
+  });
+
+  it('does NOT flag the same file when the call is wrapped in normalizeImageUrl()', () => {
+    const source = [
+      `// Temporary file written by scan-unwrapped-image-uploads.test.ts — DO NOT COMMIT`,
+      `import { uploadPublicBuffer } from '../services/image-storage';`,
+      `import { normalizeImageUrl } from '../services/image-storage';`,
+      `async function good() {`,
+      `  const url = normalizeImageUrl(await uploadPublicBuffer('test.png', Buffer.from(''), 'image/png'));`,
+      `  return url;`,
+      `}`,
+    ].join('\n');
+
+    fs.writeFileSync(TEMP_FILE, source, 'utf8');
+    try {
+      const violations = scanForViolations().filter(
+        v => v.file.includes('__gcs-guard-selftest-tmp__'),
+      );
+      assert.equal(
+        violations.length,
+        0,
+        `Scanner incorrectly flagged a correctly-wrapped call.\nViolations: ${JSON.stringify(violations)}`,
+      );
+    } finally {
+      fs.unlinkSync(TEMP_FILE);
+    }
+  });
+
+  it('does NOT flag the same file when the call carries the exempt marker', () => {
+    const source = [
+      `// Temporary file written by scan-unwrapped-image-uploads.test.ts — DO NOT COMMIT`,
+      `import { uploadPublicBuffer } from '../services/image-storage';`,
+      `async function exempted() {`,
+      `  const url = await uploadPublicBuffer('audio.wav', Buffer.from(''), 'audio/wav'); // gcs-guard-exempt: audio upload`,
+      `  return url;`,
+      `}`,
+    ].join('\n');
+
+    fs.writeFileSync(TEMP_FILE, source, 'utf8');
+    try {
+      const violations = scanForViolations().filter(
+        v => v.file.includes('__gcs-guard-selftest-tmp__'),
+      );
+      assert.equal(
+        violations.length,
+        0,
+        `Scanner incorrectly flagged an exempt call.\nViolations: ${JSON.stringify(violations)}`,
+      );
+    } finally {
+      fs.unlinkSync(TEMP_FILE);
+    }
+  });
+});
