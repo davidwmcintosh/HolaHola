@@ -340,6 +340,79 @@ console.log('\n[7] useStreamingVoice.ts hook-level guard + StreamingVoiceChat.ts
   }
 }
 
+// ── Scenario 8: Rate-limit (429 status) → correct reason string ───────────────
+
+console.log('\n[8] OpenAI 429 status → reason = "OpenAI rate limit reached; try again shortly"');
+{
+  // The OpenAI SDK surfaces 429 via an APIError with .status = 429.
+  const thrown = {
+    status: 429,
+    message: 'Rate limit reached for model gpt-4o-audio-preview on tokens per minute.',
+  };
+
+  const reason = mapApiErrorToReason(thrown);
+  const body = { error: 'pronunciation_unavailable' as const, reason };
+
+  if (body.error === 'pronunciation_unavailable') {
+    pass('error field is "pronunciation_unavailable"');
+  } else {
+    fail('error field is not pronunciation_unavailable', body.error);
+  }
+
+  if (reason === 'OpenAI rate limit reached; try again shortly') {
+    pass('reason is exactly "OpenAI rate limit reached; try again shortly" for 429 status');
+  } else {
+    fail('reason mismatch for 429 status case', reason);
+  }
+}
+
+// ── Scenario 9: Rate-limit via message text (no status field) ─────────────────
+
+console.log('\n[9] "rate limit" in message text (no status) → same 429 reason');
+{
+  // Some SDK wrappers surface rate-limit errors only via message, without .status.
+  const thrown = {
+    message: 'You have exceeded the rate limit for this endpoint.',
+  };
+
+  const reason = mapApiErrorToReason(thrown);
+
+  if (reason === 'OpenAI rate limit reached; try again shortly') {
+    pass('reason is "OpenAI rate limit reached; try again shortly" for rate-limit message path');
+  } else {
+    fail('reason mismatch for rate-limit message-only path', reason);
+  }
+}
+
+// ── Scenario 10: routes.ts inner catch contains rate-limit reason string ──────
+
+console.log('\n[10] routes.ts inner catch block contains the rate-limit reason string');
+{
+  const fs = await import('node:fs/promises');
+  const path = await import('node:path');
+  const routesPath = path.join(process.cwd(), 'server', 'routes.ts');
+  const source = await fs.readFile(routesPath, 'utf8');
+
+  const markerIdx = source.indexOf('pronunciation-scores/analyze');
+  if (markerIdx === -1) {
+    fail('could not find /api/pronunciation-scores/analyze in routes.ts');
+  } else {
+    const snippet = source.slice(markerIdx, markerIdx + 3000);
+
+    if (snippet.includes("'OpenAI rate limit reached; try again shortly'")) {
+      pass('routes.ts contains "OpenAI rate limit reached; try again shortly" reason string');
+    } else {
+      fail('routes.ts is missing "OpenAI rate limit reached; try again shortly" reason string');
+    }
+
+    if (snippet.includes('429') || snippet.includes('rate limit') || snippet.includes('isRateLimit')) {
+      pass('routes.ts inner catch contains 429 / rate-limit detection logic');
+    } else {
+      fail('routes.ts inner catch is missing 429 / rate-limit detection');
+    }
+  }
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 console.log(`\n${'─'.repeat(60)}`);
@@ -351,7 +424,7 @@ if (failed > 0) {
   console.log(
     '\nAll checks passed.\n' +
     'The pronunciation-unavailable notice is wired end-to-end for the\n' +
-    'OpenAI key-missing and 401 scenarios.\n' +
+    'OpenAI key-missing, 401, and 429 rate-limit scenarios.\n' +
     'The streaming path (StreamingVoiceChat.tsx) uses Daniela\'s native\n' +
     'show_pronunciation_score tool instead of the REST endpoint — its own\n' +
     'malformed-data guard shows the same user-visible toast.'
