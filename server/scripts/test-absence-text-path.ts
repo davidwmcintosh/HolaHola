@@ -251,6 +251,42 @@ function part1() {
     promiseStoreIdx !== -1 && promiseConsumeIdx !== -1 && promiseStoreIdx < promiseConsumeIdx,
     `promiseStoreIdx=${promiseStoreIdx}, promiseConsumeIdx=${promiseConsumeIdx}`,
   );
+
+  // ── 1p. Warm cache is consumed in the text-mode absence block ─────────────
+  // The text-mode block must call consumeWarmSynthesis() so that a pre-warmed
+  // cache generated BEFORE the absence nudge is detected and discarded rather
+  // than silently used with a stale (absence-unaware) synthesis.
+  const hasWarmCacheConsumption = textModeRegion.includes('consumeWarmSynthesis');
+  assert(
+    '`consumeWarmSynthesis()` is called in the text-mode absence block (stale-cache invalidation)',
+    hasWarmCacheConsumption,
+    hasWarmCacheConsumption
+      ? undefined
+      : '`consumeWarmSynthesis` not found in text-mode region — a stale pre-warmed cache is never invalidated for text-mode sessions',
+  );
+
+  // ── 1q. Stale-cache guard mirrors the GL path: warmedNote && absenceReturn ─
+  // If the warm cache was built before the absence nudge, it must be discarded.
+  // The guard pattern `warmedNote && absenceReturn` must be present in the
+  // text-mode region, matching the identical guard on the GL path.
+  const hasStaleGuard = /warmedNote\s*&&\s*absenceReturn/.test(textModeRegion);
+  assert(
+    'Stale-cache guard `warmedNote && absenceReturn` present in text-mode region (matches GL path)',
+    hasStaleGuard,
+    hasStaleGuard
+      ? undefined
+      : '`warmedNote && absenceReturn` guard not found — stale warm cache may be used without checking absence signal',
+  );
+
+  // ── 1r. Log line for stale-cache discard exists in text-mode region ───────
+  const hasStaleDiscardLog = textModeRegion.includes('[TextMode] Warm cache present but absence signal detected');
+  assert(
+    'Log "[TextMode] Warm cache present but absence signal detected — regenerating with signal" exists',
+    hasStaleDiscardLog,
+    hasStaleDiscardLog
+      ? undefined
+      : 'Stale-discard log not found in text-mode region — discard branch is unobservable',
+  );
 }
 
 part1();

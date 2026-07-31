@@ -3060,9 +3060,8 @@ ${lastNote.tutorNotes}`);
                         absenceReturn = await autoResolveAbsenceNudgeOnReturn(String(userId));
                         if (absenceReturn) {
                           console.log(`[GeminiLive] ✓ Student returning after ${absenceReturn.daysSinceLastSession} day(s) absence — injecting into synthesis`);
-                          // Persist the returning-student signal on the voice_sessions row so the
-                          // founder view can surface a "Returned after N days" indicator.
-                          // Non-fatal — GL session continues even if the DB write fails.
+                          // Fire-and-forget: persist the returning-student flag on the voice_sessions
+                          // row so the founder view can surface a "Returned after N days" indicator.
                           if (dbSessionId) {
                             db.update(voiceSessions)
                               .set({
@@ -3373,36 +3372,59 @@ ${lastNote.tutorNotes}`);
               // Founder-mode sessions are David's admin/test sessions — skip them.
               if (userId && !isFounderMode) {
                 const _textModeDbSessionId = dbSessionId;
-                // Stored as a promise so request_greeting can await it before prompt assembly.
+                // Store the promise so request_greeting can await it before prompt assembly.
+                // Without this, request_greeting can fire before __textModeAbsenceSynthesis
+                // is set and silently miss the absence warmth on fast/reconnect paths.
                 (session as any).__textModeAbsencePromise = (async () => {
                   try {
                     const absenceReturn = await autoResolveAbsenceNudgeOnReturn(String(userId));
                     if (absenceReturn) {
                       console.log(`[TextMode] ✓ Student returning after ${absenceReturn.daysSinceLastSession} day(s) absence — nudge resolved`);
-                      // Generate synthesis note first so it reaches the greeting handler.
-                      if (compassContext && session) {
-                        const synthesisNote = await generatePreSessionSynthesis(
+                    }
+                    // Build synthesis for the greeting.  Apply the same stale-cache guard as
+                    // the GL path: consume any pre-warmed synthesis first so the warm cache is
+                    // always invalidated on session start.  If the cache was generated BEFORE
+                    // the absence nudge existed, discard it and regenerate with the signal so
+                    // Daniela always opens with the returning-student awareness baked in.
+                    if (compassContext && session && !isFounderMode) {
+                      const warmedNote = userId ? consumeWarmSynthesis(String(userId)) : null;
+                      let synthesisNote: string | null = null;
+                      if (warmedNote && absenceReturn) {
+                        console.log('[TextMode] Warm cache present but absence signal detected — regenerating with signal');
+                        synthesisNote = await generatePreSessionSynthesis(
                           compassContext,
                           tutorName,
                           userId ? String(userId) : undefined,
                           effectiveLanguage || undefined,
                           absenceReturn,
                         );
-                        if (synthesisNote) {
-                          (session as any).__textModeAbsenceSynthesis = synthesisNote;
-                          console.log(`[TextMode] ✓ Absence-return synthesis stored for greeting (${synthesisNote.length} chars)`);
-                        }
+                      } else if (warmedNote) {
+                        synthesisNote = warmedNote;
+                        console.log(`[TextMode] ✓ Using pre-warmed synthesis (${warmedNote.length} chars) — 0ms latency`);
+                      } else if (absenceReturn) {
+                        synthesisNote = await generatePreSessionSynthesis(
+                          compassContext,
+                          tutorName,
+                          userId ? String(userId) : undefined,
+                          effectiveLanguage || undefined,
+                          absenceReturn,
+                        );
                       }
-                      // Persist flag to DB (fire-and-forget, non-blocking).
-                      if (_textModeDbSessionId) {
-                        db.update(voiceSessions)
-                          .set({
-                            hadAbsenceReturn: true,
-                            absenceReturnDays: absenceReturn.daysSinceLastSession,
-                          })
-                          .where(eq(voiceSessions.id, _textModeDbSessionId))
-                          .catch((e: Error) => console.warn('[TextMode] Failed to flag absence return on session row (non-fatal):', e.message));
+                      if (synthesisNote) {
+                        (session as any).__textModeAbsenceSynthesis = synthesisNote;
+                        console.log(`[TextMode] ✓ Absence-return synthesis stored for greeting (${synthesisNote.length} chars)`);
                       }
+                    }
+                    // Fire-and-forget: persist the returning-student flag on the voice_sessions
+                    // row so the founder view can surface a "Returned after N days" indicator.
+                    if (absenceReturn && _textModeDbSessionId) {
+                      db.update(voiceSessions)
+                        .set({
+                          hadAbsenceReturn: true,
+                          absenceReturnDays: absenceReturn.daysSinceLastSession,
+                        })
+                        .where(eq(voiceSessions.id, _textModeDbSessionId))
+                        .catch((e: Error) => console.warn('[TextMode] Failed to flag absence return on session row (non-fatal):', e.message));
                     }
                   } catch (absErr: any) {
                     // Non-fatal — session continues without absence resolution
