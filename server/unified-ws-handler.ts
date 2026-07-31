@@ -3060,17 +3060,6 @@ ${lastNote.tutorNotes}`);
                         absenceReturn = await autoResolveAbsenceNudgeOnReturn(String(userId));
                         if (absenceReturn) {
                           console.log(`[GeminiLive] ✓ Student returning after ${absenceReturn.daysSinceLastSession} day(s) absence — injecting into synthesis`);
-                          // Persist the returning-student signal on the voice_sessions row so the
-                          // founder view can surface a "Returned after N days" indicator.
-                          if (dbSessionId) {
-                            db.update(voiceSessions)
-                              .set({
-                                hadAbsenceReturn: true,
-                                absenceReturnDays: absenceReturn.daysSinceLastSession,
-                              })
-                              .where(eq(voiceSessions.id, dbSessionId))
-                              .catch((e: Error) => console.warn('[GeminiLive] Failed to flag absence return on session row (non-fatal):', e.message));
-                          }
                         }
                       } catch (absErr: any) {
                         // Non-fatal — synthesis continues without absence signal
@@ -3372,25 +3361,44 @@ ${lastNote.tutorNotes}`);
               // Founder-mode sessions are David's admin/test sessions — skip them.
               if (userId && !isFounderMode) {
                 const _textModeDbSessionId = dbSessionId;
-                autoResolveAbsenceNudgeOnReturn(String(userId)).then((absenceReturn) => {
-                  if (absenceReturn) {
-                    console.log(`[TextMode] ✓ Student returning after ${absenceReturn.daysSinceLastSession} day(s) absence — nudge resolved`);
-                    // Persist the returning-student signal on the voice_sessions row so the
-                    // founder view can surface a "Returned after N days" indicator.
-                    if (_textModeDbSessionId) {
-                      db.update(voiceSessions)
-                        .set({
-                          hadAbsenceReturn: true,
-                          absenceReturnDays: absenceReturn.daysSinceLastSession,
-                        })
-                        .where(eq(voiceSessions.id, _textModeDbSessionId))
-                        .catch((e: Error) => console.warn('[TextMode] Failed to flag absence return on session row (non-fatal):', e.message));
+                // Store the promise so request_greeting can await it before prompt assembly.
+                // Without this, request_greeting can fire before __textModeAbsenceSynthesis
+                // is set and silently miss the absence warmth on fast/reconnect paths.
+                (session as any).__textModeAbsencePromise = (async () => {
+                  try {
+                    const absenceReturn = await autoResolveAbsenceNudgeOnReturn(String(userId));
+                    if (absenceReturn) {
+                      console.log(`[TextMode] ✓ Student returning after ${absenceReturn.daysSinceLastSession} day(s) absence — nudge resolved`);
+                      // Persist the returning-student signal on the voice_sessions row so the
+                      // founder view can surface a "Returned after N days" indicator.
+                      if (_textModeDbSessionId) {
+                        db.update(voiceSessions)
+                          .set({
+                            hadAbsenceReturn: true,
+                            absenceReturnDays: absenceReturn.daysSinceLastSession,
+                          })
+                          .where(eq(voiceSessions.id, _textModeDbSessionId))
+                          .catch((e: Error) => console.warn('[TextMode] Failed to flag absence return on session row (non-fatal):', e.message));
+                      }
+                      if (compassContext && session) {
+                        const synthesisNote = await generatePreSessionSynthesis(
+                          compassContext,
+                          tutorName,
+                          userId ? String(userId) : undefined,
+                          effectiveLanguage || undefined,
+                          absenceReturn,
+                        );
+                        if (synthesisNote) {
+                          (session as any).__textModeAbsenceSynthesis = synthesisNote;
+                          console.log(`[TextMode] ✓ Absence-return synthesis stored for greeting (${synthesisNote.length} chars)`);
+                        }
+                      }
                     }
+                  } catch (absErr: any) {
+                    // Non-fatal — session continues without absence resolution
+                    console.warn('[TextMode] Absence return check failed (non-fatal):', absErr?.message);
                   }
-                }).catch((absErr: any) => {
-                  // Non-fatal — session continues without absence resolution
-                  console.warn('[TextMode] Absence return check failed (non-fatal):', absErr?.message);
-                });
+                })();
               }
             }
             
@@ -3589,6 +3597,29 @@ ${lastNote.tutorNotes}`);
             }
           } else {
             // Legacy orchestrator path (used when GeminiLive is not active)
+            // ── Text-mode absence synthesis injection ──────────────────────
+            // Settle the absence promise (started in start_session) before prompt
+            // assembly.  A bounded 3-second race prevents the greeting from
+            // blocking indefinitely if synthesis or DB lookup hangs.
+            const absenceSettlePromise = (session as any).__textModeAbsencePromise as Promise<void> | undefined;
+            if (absenceSettlePromise) {
+              try {
+                await Promise.race([
+                  absenceSettlePromise,
+                  new Promise<void>(resolve => setTimeout(resolve, 3000)),
+                ]);
+              } catch {
+                // Non-fatal — absence synthesis missed but session continues
+              }
+              delete (session as any).__textModeAbsencePromise; // clear regardless
+            }
+            const textModeAbsenceSynthesis = (session as any).__textModeAbsenceSynthesis as string | undefined;
+            if (textModeAbsenceSynthesis) {
+              const wrapped = wrapSynthesisForSystemPrompt(textModeAbsenceSynthesis);
+              session.systemPrompt = wrapped + '\n\n' + session.systemPrompt;
+              delete (session as any).__textModeAbsenceSynthesis; // one-shot: consumed
+              console.log(`[TextMode] ✓ Absence-return synthesis injected into session system prompt for greeting (${textModeAbsenceSynthesis.length} chars)`);
+            }
             try {
               await orchestrator.processGreetingRequest(
                 session.id,
