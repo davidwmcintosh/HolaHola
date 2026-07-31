@@ -591,9 +591,8 @@ app.use((req, res, next) => {
     // broken configuration is caught immediately rather than silently.
     try {
       const { logStorageBackend } = await import('./replit_integrations/object_storage/objectStorage');
-      const { handleStorageProbeResult } = await import('./services/storage-probe-alerter');
-      const probeResult = await logStorageBackend();
-      await handleStorageProbeResult(probeResult, founderCollabService, founderCollabWSBroker);
+      const { runStartupStorageProbe } = await import('./services/storage-probe-alerter');
+      await runStartupStorageProbe(logStorageBackend, founderCollabService, founderCollabWSBroker);
     } catch (err: any) {
       console.error('[ObjectStorage] Failed to run startup check:', err?.message ?? err);
     }

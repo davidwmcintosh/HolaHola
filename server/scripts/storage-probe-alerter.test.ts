@@ -15,6 +15,7 @@ import assert from 'node:assert/strict';
 import {
   handleStorageProbeResult,
   runPeriodicStorageProbe,
+  runStartupStorageProbe,
   EXPRESS_LANE_FOUNDER_ID,
   EXPRESS_LANE_SESSION_TITLE,
   type ProbeAlerterSessionService,
@@ -296,6 +297,58 @@ describe('runPeriodicStorageProbe — interval wiring', () => {
       state.postedMessages.length,
       0,
       'interval callback must not post when probe passes and there is no prior failure to clear',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Startup probe wiring — confirms the one-shot boot call reaches handleStorageProbeResult
+// ---------------------------------------------------------------------------
+
+describe('runStartupStorageProbe — startup wiring', () => {
+  it('calls handleStorageProbeResult with a failing probe result and posts [STORAGE PROBE FAILED]', async () => {
+    const { sessionService, broker, state } = makeMocks();
+
+    // Stub logStorageBackend to return a failing result, simulating a broken
+    // credential at boot time.
+    const stubLogFn = async (): Promise<StorageProbeResult> => ({
+      ok: false,
+      bucket: 'startup-probe-bucket',
+      error: 'invalid credentials at boot',
+    });
+
+    await runStartupStorageProbe(stubLogFn, sessionService, broker);
+
+    assert.equal(state.postedMessages.length, 1, 'expected exactly one alert message from the startup probe');
+    const msg = state.postedMessages[0]!;
+    assert.ok(
+      msg.content?.includes('[STORAGE PROBE FAILED]'),
+      'startup probe must post [STORAGE PROBE FAILED] on a failing probe',
+    );
+    assert.ok(
+      msg.content?.includes('startup-probe-bucket'),
+      'alert must include the bucket name from the probe result',
+    );
+    assert.ok(
+      msg.content?.includes('invalid credentials at boot'),
+      'alert must include the error text from the probe result',
+    );
+  });
+
+  it('posts nothing when logStorageBackend returns a passing result with no prior failure', async () => {
+    const { sessionService, broker, state } = makeMocks([]);
+
+    const stubLogFn = async (): Promise<StorageProbeResult> => ({
+      ok: true,
+      bucket: 'startup-probe-bucket',
+    });
+
+    await runStartupStorageProbe(stubLogFn, sessionService, broker);
+
+    assert.equal(
+      state.postedMessages.length,
+      0,
+      'startup probe must not post when probe passes and there is no prior failure to clear',
     );
   });
 });
