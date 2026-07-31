@@ -1258,6 +1258,11 @@ export function StreamingVoiceChat({
             setCulturalContext(data);
           },
           onSpotlightShown: (data) => {
+            if (!data.message || !data.message.trim()) {
+              console.warn('[StreamingVoiceChat] onSpotlightShown: malformed spotlight data (empty message)', data);
+              toast({ title: 'Spotlight unavailable', description: 'Daniela sent an incomplete spotlight card — skipping.', variant: 'destructive' });
+              return;
+            }
             if (spotlightTimerRef.current) clearTimeout(spotlightTimerRef.current);
             setSpotlight(data);
             spotlightTimerRef.current = setTimeout(() => setSpotlight(null), data.durationMs);

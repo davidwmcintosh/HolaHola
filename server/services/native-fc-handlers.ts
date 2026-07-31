@@ -3758,8 +3758,12 @@ export class NativeFunctionCallHandler {
 
       case 'SPOTLIGHT': {
         const spZone = (fn.args.zone as string | undefined) || 'screen';
-        const spMessage = fn.args.message as string;
+        const spMessage = fn.args.message as string | undefined;
         const spDurationMs = (fn.args.duration_ms as number | undefined) ?? 8000;
+        if (!spMessage || typeof spMessage !== 'string' || !spMessage.trim()) {
+          console.warn('[Native Function→Spotlight] missing or empty message — skipping');
+          break;
+        }
         console.log(`[Native Function→Spotlight] zone="${spZone}" message="${spMessage}"`);
         this.sendMessage(session.ws, {
           type: 'spotlight_shown',

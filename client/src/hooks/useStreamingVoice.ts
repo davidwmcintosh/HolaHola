@@ -1579,9 +1579,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
 
   const handleSpotlightShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
-    if (sessionConfigRef.current?.onSpotlightShown && message.data) {
-      sessionConfigRef.current.onSpotlightShown(message.data);
+    if (!sessionConfigRef.current?.onSpotlightShown || !message.data) return;
+    const d = message.data;
+    if (!d.message || typeof d.message !== 'string' || !d.message.trim()) {
+      console.warn('[useStreamingVoice] handleSpotlightShown: malformed spotlight data (empty message)', d);
+      return;
     }
+    sessionConfigRef.current.onSpotlightShown(d);
   }, []);
 
   // Gap D — Shared Mission
