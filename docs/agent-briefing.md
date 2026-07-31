@@ -1,18 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 31, 2026 at 04:31 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I’ve successfully fixed the `callDaniela` double-injection bug using the `!enableTools` gate and refactored Spanish strings into the `STUDY_MODE_LANGUAGE` constant. My immediate priority is deploying a schema migration to fix critical production drift—specifically missing `cultural_nuances` and `conversation_memories` tables—to restore Alden’s autonomous monitoring. I also need to troubleshoot Cartesia TTS 400 errors and investigate why the scoring pipeline is returning zero quality metrics for active students.
-
-*Memories that triggered this summary:*
-- **Gemini audit — Task #310 pattern signal injection text-mode — 2026-08-01** (Jul 31): Double injection bug caught: callDaniela was injecting pattern note AND passing activePatternSignals to runDanielaFCLoop which injects again. Fixed: !enableTools gate. Approved after 2 rounds.
-- **Agent Daily Sweep — Jul 31, 2026** (Jul 31): 1. [CRITICAL] Fix production database schema drift — Multiple tables (`cultural_nuances`, `teaching_principles`, `conversation_memories`) are missing in production but exist in dev, causing brain health monitoring and Alden's autonomous cycles to fail. Deploy schema migration immediately.  2. [HIGH]
+**Generated:** Friday, July 31, 2026 at 04:33 PM
 
 ---
 
