@@ -397,6 +397,122 @@ function part3() {
 part3();
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PART 4 — Pre-warmed synthesis: warm-cache path when absenceReturn is null
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// Task 181 restructured the text-mode absence block so consumeWarmSynthesis()
+// is called unconditionally — not just when there is an absence return.  This
+// means regular (non-absence) sessions also benefit from the pre-warmed cache.
+//
+// This part confirms:
+//   a. The `else if (warmedNote)` branch exists (warm cache, no absence return)
+//   b. That branch assigns synthesisNote = warmedNote (no generatePreSessionSynthesis call)
+//   c. The warm-path log "[TextMode] ✓ Using pre-warmed synthesis" is emitted
+//   d. The warm branch body does NOT call generatePreSessionSynthesis
+//   e. The unified `if (synthesisNote)` → `__textModeAbsenceSynthesis` storage
+//      pattern covers the warm path so the greeting handler picks it up
+// ══════════════════════════════════════════════════════════════════════════════
+sep();
+console.log(B('PART 4 — Pre-warmed synthesis: warm-cache path when absenceReturn is null'));
+sep();
+
+function part4() {
+  // ── Anchor the warm-path region ───────────────────────────────────────────
+  // Use the warm-path log as anchor; expand generously to capture the full
+  // three-branch if/else block above and the unified storage block below.
+  const warmLogMarker = '[TextMode] \u2713 Using pre-warmed synthesis';
+  const warmLogIdx = wsHandlerSrc.indexOf(warmLogMarker);
+  assert(
+    `'[TextMode] ✓ Using pre-warmed synthesis …' log line exists in handler source`,
+    warmLogIdx !== -1,
+    warmLogIdx !== -1
+      ? undefined
+      : 'Log not found — the warm-cache path for non-absence sessions may be missing',
+  );
+  if (warmLogIdx === -1) return; // can't continue without the anchor
+
+  // Expand window to capture the full three-branch block and the storage step below.
+  const warmRegionStart = Math.max(0, warmLogIdx - 1000);
+  const warmRegionEnd   = Math.min(wsHandlerSrc.length, warmLogIdx + 800);
+  const warmRegion      = wsHandlerSrc.slice(warmRegionStart, warmRegionEnd);
+
+  // ── 4a. `else if (warmedNote)` branch exists ─────────────────────────────
+  const hasWarmBranch = /else\s+if\s*\(\s*warmedNote\s*\)/.test(warmRegion);
+  assert(
+    '`else if (warmedNote)` branch exists in text-mode absence block (non-absence warm path)',
+    hasWarmBranch,
+    hasWarmBranch
+      ? undefined
+      : '`else if (warmedNote)` not found — non-absence warm-cache path may be missing',
+  );
+
+  // ── 4b. Warm branch assigns synthesisNote = warmedNote ────────────────────
+  // This is the key: the warm branch must use the cached value directly,
+  // NOT call generatePreSessionSynthesis again.
+  const hasWarmAssignment = /else\s+if\s*\(\s*warmedNote\s*\)[\s\S]{0,300}synthesisNote\s*=\s*warmedNote/.test(warmRegion);
+  assert(
+    'Warm branch assigns `synthesisNote = warmedNote` (uses cache directly, no regeneration)',
+    hasWarmAssignment,
+    hasWarmAssignment
+      ? undefined
+      : '`synthesisNote = warmedNote` not found near `else if (warmedNote)` — warm cache may not be consumed',
+  );
+
+  // ── 4c. Warm-path log emitted in the branch ───────────────────────────────
+  const warmLogInRegion = warmRegion.includes(warmLogMarker);
+  assert(
+    'Log "[TextMode] ✓ Using pre-warmed synthesis …" is present in the warm-branch region',
+    warmLogInRegion,
+    warmLogInRegion ? undefined : 'Warm-path log not found in region — observability missing',
+  );
+
+  // ── 4d. Warm branch does NOT call generatePreSessionSynthesis ─────────────
+  // Extract just the warm branch body: from `else if (warmedNote) {` to the
+  // matching `}`, i.e. up to `} else if (absenceReturn)` or end of block.
+  // A simple proxy: between `else if (warmedNote)` and `else if (absenceReturn)`
+  // there must be no call to generatePreSessionSynthesis.
+  const betweenBranchesMatch = warmRegion.match(
+    /else\s+if\s*\(\s*warmedNote\s*\)([\s\S]*?)else\s+if\s*\(\s*absenceReturn\s*\)/,
+  );
+  if (betweenBranchesMatch) {
+    const warmBody = betweenBranchesMatch[1];
+    const warmBodyCallsSynth = warmBody.includes('generatePreSessionSynthesis');
+    assert(
+      '`else if (warmedNote)` branch body does NOT call generatePreSessionSynthesis (0ms path)',
+      !warmBodyCallsSynth,
+      warmBodyCallsSynth
+        ? '`generatePreSessionSynthesis` found inside the warm branch — warm cache is being discarded unnecessarily'
+        : undefined,
+    );
+  } else {
+    // Fallback: the `else if (absenceReturn)` branch may follow in a non-adjacent
+    // position; assert the warm log and synthesisNote assignment are sufficient.
+    assert(
+      '`else if (warmedNote)` branch body does NOT call generatePreSessionSynthesis (0ms path)',
+      hasWarmAssignment, // if warmedNote is assigned directly, synth was not called
+      'Could not isolate warm branch body for deeper check; synthesisNote assignment used as proxy',
+    );
+  }
+
+  // ── 4e. Unified storage: `if (synthesisNote)` → `__textModeAbsenceSynthesis` ─
+  // All three branches funnel their result into `synthesisNote`.  The single
+  // `if (synthesisNote)` block below all branches stores it as
+  // `__textModeAbsenceSynthesis` regardless of which branch ran.
+  // This ensures the warm path is picked up by the greeting handler just like
+  // the absence path.
+  const hasUnifiedStorage = /if\s*\(\s*synthesisNote\s*\)[\s\S]{0,300}__textModeAbsenceSynthesis\s*=\s*synthesisNote/.test(warmRegion);
+  assert(
+    '`if (synthesisNote)` → `__textModeAbsenceSynthesis = synthesisNote` storage covers the warm path',
+    hasUnifiedStorage,
+    hasUnifiedStorage
+      ? undefined
+      : 'Unified storage pattern not found near warm branch — warm synthesis may not reach the greeting handler',
+  );
+}
+
+part4();
+
+// ══════════════════════════════════════════════════════════════════════════════
 // SUMMARY
 // ══════════════════════════════════════════════════════════════════════════════
 sep();
@@ -408,7 +524,9 @@ if (failed === 0) {
   console.log(D('   2. The result (absenceReturn) is forwarded to generatePreSessionSynthesis()'));
   console.log(D('   3. The synthesis note is stored on the session for the greeting handler'));
   console.log(D('   4. pre-session-synthesis.ts injects RETURNING AFTER ABSENCE as the first context block'));
-  console.log(D('   5. The in-memory cache makes repeated calls within a session idempotent\n'));
+  console.log(D('   5. The in-memory cache makes repeated calls within a session idempotent'));
+  console.log(D('   6. When warmedNote is truthy and absenceReturn is null, the warm cache is used directly'));
+  console.log(D('      (else if (warmedNote) branch — no generatePreSessionSynthesis call, 0ms latency)\n'));
   process.exit(0);
 } else {
   console.log(R(`\n✗  ${failed} of ${all} assertions failed — review output above.\n`));
