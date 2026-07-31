@@ -45,7 +45,7 @@ A task agent that merges without this loop is shipping a behavioral change witho
    - Does this interact with Gemini Flash's recency bias or the 34K prompt cap in a harmful way?
    - Would Daniela misread or over-weight this injection?
    - What would you change, and where exactly?
-4. Iterate until the response contains an unconditional clear ("approved", no outstanding concerns).
+4. Iterate until the response contains an unconditional clear — **"approved with no further comments"** or equivalent language with zero outstanding concerns or watch-outs. "Approved, but..." is not a pass. Keep iterating until there is no "but."
 5. Save the audit to `docs/gemini-audit-YYYY-MM-DD.md` and a `conversation_memories` row (tag: `gemini-audit`).
 
 ## For task agents
@@ -53,7 +53,7 @@ A task agent that merges without this loop is shipping a behavioral change witho
 If your task touches any file or category above, your plan must include:
 
 > **Step N (mandatory): Gemini approval loop.**  
-> Before marking this task complete, run the full Gemini approval loop as specified in `docs/GEMINI_REQUIRED.md`. Do not merge without an unconditional clear. If you cannot run the loop directly, return the diff to the main agent and block on their review.
+> Before marking this task complete, run the full Gemini approval loop as specified in `docs/GEMINI_REQUIRED.md`. Do not merge without an unconditional clear. If you cannot run the loop directly, return the diff to the main agent and block on their review. The bar is **"approved with no further comments"** — not "approved with caveats."
 
 If a task agent cannot run the loop (no direct API access), the task description must explicitly say: **"Gemini approval required — return diff to main agent before completing."**
 
