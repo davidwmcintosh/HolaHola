@@ -3373,25 +3373,13 @@ ${lastNote.tutorNotes}`);
               // Founder-mode sessions are David's admin/test sessions — skip them.
               if (userId && !isFounderMode) {
                 const _textModeDbSessionId = dbSessionId;
-                // Store the promise so request_greeting can await it before prompt assembly.
-                // Without this, request_greeting can fire before __textModeAbsenceSynthesis
-                // is set and silently miss the absence warmth on fast/reconnect paths.
+                // Stored so request_greeting can await it — prevents the greeting from
+                // firing before __textModeAbsenceSynthesis is set on fast reconnects.
                 (session as any).__textModeAbsencePromise = (async () => {
                   try {
                     const absenceReturn = await autoResolveAbsenceNudgeOnReturn(String(userId));
                     if (absenceReturn) {
                       console.log(`[TextMode] ✓ Student returning after ${absenceReturn.daysSinceLastSession} day(s) absence — nudge resolved`);
-                      // Persist the returning-student signal on the voice_sessions row so the
-                      // founder view can surface a "Returned after N days" indicator.
-                      if (_textModeDbSessionId) {
-                        db.update(voiceSessions)
-                          .set({
-                            hadAbsenceReturn: true,
-                            absenceReturnDays: absenceReturn.daysSinceLastSession,
-                          })
-                          .where(eq(voiceSessions.id, _textModeDbSessionId))
-                          .catch((e: Error) => console.warn('[TextMode] Failed to flag absence return on session row (non-fatal):', e.message));
-                      }
                       if (compassContext && session) {
                         const synthesisNote = await generatePreSessionSynthesis(
                           compassContext,
@@ -3404,6 +3392,17 @@ ${lastNote.tutorNotes}`);
                           (session as any).__textModeAbsenceSynthesis = synthesisNote;
                           console.log(`[TextMode] ✓ Absence-return synthesis stored for greeting (${synthesisNote.length} chars)`);
                         }
+                      }
+                      // Persist the returning-student signal on the voice_sessions row so
+                      // the founder view can surface a "Returned after N days" indicator.
+                      if (_textModeDbSessionId) {
+                        db.update(voiceSessions)
+                          .set({
+                            hadAbsenceReturn: true,
+                            absenceReturnDays: absenceReturn.daysSinceLastSession,
+                          })
+                          .where(eq(voiceSessions.id, _textModeDbSessionId))
+                          .catch((e: Error) => console.warn('[TextMode] Failed to flag absence return on session row (non-fatal):', e.message));
                       }
                     }
                   } catch (absErr: any) {
