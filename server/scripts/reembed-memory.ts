@@ -119,7 +119,12 @@ async function main() {
   process.exit(0);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Only run main() when this file is the entry point (not when imported as a module).
+const isEntryPoint = process.argv[1]?.endsWith('reembed-memory.ts') ||
+  process.argv[1]?.endsWith('reembed-memory.js');
+if (isEntryPoint) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
