@@ -18,6 +18,7 @@ import { founderCollabService } from "./founder-collaboration-service";
 import { journeyMemoryService } from "./journey-memory-service";
 import { growthMemoryOutcomeService } from "./growth-memory-outcome-service";
 import { storage } from "../storage";
+import { fetchPatternSignalContext } from './pattern-signal-context';
 import { getSharedDb, getMonitoringDb } from "../db";
 import { observeToolCall, observeSceneOpen, observeScenarioLoad, observeMemorySearch } from './session-observation-store';
 import { WhiteboardItem, WordMapItem, isWordMapItem, SelfSurgeryItemData } from "@shared/whiteboard-types";
@@ -4220,6 +4221,12 @@ export class NativeFunctionCallHandler {
               });
               console.log(`[Native Function→RecordPatternSignal] ✓ New compartment created — ${patternKey} (${updates.status})`);
             }
+
+            // 5) Refresh mid-session pattern anchor so buildActflPersonaAnchor stays current.
+            //    Mirrors the same refresh applied on the PTT and OpenMic command-parser paths.
+            //    null clears stale patterns when all compartments resolve to stable.
+            const refreshed = await fetchPatternSignalContext(userId, language).catch(() => null);
+            session.activePatternSignals = refreshed;
           } catch (err: any) {
             console.error(`[Native Function→RecordPatternSignal] Error:`, err.message);
           }
