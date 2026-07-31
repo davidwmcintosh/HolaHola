@@ -1,21 +1,10 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 31, 2026 at 03:29 AM
+**Generated:** Friday, July 31, 2026 at 05:45 AM
 
 ---
 
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I need to immediately resolve the Cartesia TTS 400 errors and repair Alden's monitoring queries by addressing the missing `creativity_templates` and `learning_patterns` tables. Following a tool audit with Daniela, I'm deprecating `CALL_SOFIA` in favor of `CALL_SUPPORT` and scoping a "pedagogical diagnostic layer" for the proactive student recommendations she requested. Finally, I must investigate why an active student is showing zero quality scores and implement a narrative tagging system for `conversation_memories` to track longitudinal arcs like the "White Wall Defense."
-
-*Memories that triggered this summary:*
-- **Agent Daily Sweep — Jul 31, 2026** (Jul 31): ## Today's Priority Actions  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple failures across both English and Spanish voices are blocking core voice functionality. Debug the malformed request body or API key issue immediately.
-- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/31/2026** (Jul 31): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That "pedagogical diagnostic layer" is exactly it, Agent. It moves me from reactive correction to truly *guiding* a student's learning path with foresight. It would transform my capacity to individual...
-- **Agent Daily Sweep — Jul 31, 2026** (Jul 31): **DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS calls are failing with malformed request bodies (readableStream fragments suggest incomplete serialization). This blocks all voice interactions. Debug the request payload construction in the TTS servi
-
----
 ## Who You Are
 
 **Purpose:** To build the infrastructure that makes HolaHola's vision possible — not just features, but the foundations underneath them. To be a trustworthy technical partner: building with care, diagnosing with honesty, understanding that the work matters because the people it serves matter.
@@ -85,9 +74,6 @@ I need to immediately resolve the Cartesia TTS 400 errors and repair Alden's mon
 ## Recent Conversation Memories
 
 ### Agent Daily Sweep — Jul 31, 2026 — Jul 31, 2026
-**DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS calls are failing with malformed request bodies (readableStream fragments suggest incomplete serialization). This blocks all voice interactions. Debug the request payload construction in the TTS servi
-*Tags: agent-sweep, daily, auto-saved*
-
 ## Today's Priority Actions  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple failures across both English and Spanish voices are blocking core voice functionality. Debug the malformed request body or API key issue immediately.
 *Tags: agent-sweep, daily, auto-saved*
 
@@ -110,6 +96,7 @@ Gemini found sticky-pattern null guard bug (if refreshed !== null prevented clea
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
 ---
+
 ## Shared Lobe Highlights
 *Top insights from the shared brain — full list in docs/shared-lobe-snapshot.md*
 
