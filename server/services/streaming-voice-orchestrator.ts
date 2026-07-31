@@ -3460,7 +3460,7 @@ Remember: David may reference things discussed in these recent text chats.
                         console.log(`[PatternSignal] ${patternKey} → ${eventType}${verbContext ? ` (${verbContext})` : ''} via ${cmd.source}`);
                         // Refresh mid-session pattern anchor so buildActflPersonaAnchor stays current
                         const refreshed = await fetchPatternSignalContext(userId, language).catch(() => null);
-                        if (refreshed !== null) session.activePatternSignals = refreshed;
+                        session.activePatternSignals = refreshed; // null clears stale patterns when all resolve to stable
                       } catch (err: any) {
                         console.error(`[PatternSignal] Error:`, err.message);
                       }
@@ -6918,7 +6918,7 @@ Remember: David may reference things discussed in these recent text chats.
                       console.log(`[PatternSignal - OpenMic] ${patternKey} → ${eventType}${verbContext ? ` (${verbContext})` : ''}`);
                       // Refresh mid-session pattern anchor so buildActflPersonaAnchor stays current
                       const refreshed = await fetchPatternSignalContext(userId, language).catch(() => null);
-                      if (refreshed !== null) session.activePatternSignals = refreshed;
+                      session.activePatternSignals = refreshed; // null clears stale patterns when all resolve to stable
                     } catch (err: any) {
                       console.error(`[PatternSignal - OpenMic] Error:`, err.message);
                     }

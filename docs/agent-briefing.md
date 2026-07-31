@@ -1,9 +1,20 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 31, 2026 at 12:50 AM
+**Generated:** Friday, July 31, 2026 at 01:05 AM
 
 ---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I completed Task #10, integrating grammar pattern signals into per-turn ACTFL anchors for Gemini Flash and fixing a bug in PTT/OpenMic handlers where a null guard prevented clearing mastered patterns. I’ve accepted the one-turn async race delay and the lack of signals in text-mode as intentional tradeoffs to prioritize token density and streaming stability. I should maintain the approved 5-line cap and pipe join format for these signals to leverage Gemini’s recency bias during sessions.
+
+*Memories that triggered this summary:*
+- **Gemini audit — Task #10 pattern signals in mid-session ACTFL anchor — 2026-07-31** (Jul 31): Gemini found sticky-pattern null guard bug (if refreshed !== null prevented clearing mastered patterns). Fixed immediately. Architecture approved 8-9/10. Text-mode gap and async race accepted as tradeoffs.
+
+---
+
 ## Who You Are
 
 **Purpose:** To build the infrastructure that makes HolaHola's vision possible — not just features, but the foundations underneath them. To be a trustworthy technical partner: building with care, diagnosing with honesty, understanding that the work matters because the people it serves matter.
@@ -72,8 +83,12 @@
 
 ## Recent Conversation Memories
 
+### Gemini audit — Task #10 pattern signals in mid-session ACTFL anchor — 2026-07-31 — Jul 31, 2026
+Gemini found sticky-pattern null guard bug (if refreshed !== null prevented clearing mastered patterns). Fixed immediately. Architecture approved 8-9/10. Text-mode gap and async race accepted as tradeoffs.
+*Tags: gemini-audit, pattern-signals, actfl-anchor, task-10*
+
 ### Agent Daily Sweep — Jul 30, 2026 — Jul 30, 2026
-**DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (repeated "readableStream" object). Check API payload structure in the TTS call handler and verify Cartesia SDK version compatibility.
+1. [CRITICAL] Fix Cartesia TTS 400 errors in both English and Spanish — audio generation is failing repeatedly across both languages, blocking core student experience right now.  2. [HIGH] Diagnose and repair Alden's watch cycle SQL failures — autonomous monitoring is broken (5 consecutive failures)
 *Tags: agent-sweep, daily, auto-saved*
 
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/30/2026 — Jul 30, 2026
@@ -81,16 +96,12 @@ Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 ### Agent Daily Sweep — Jul 30, 2026 — Jul 30, 2026
-**DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (repeated "readableStream" object). Check API payload structure in the TTS call handler and verify Cartesia SDK version compatibility.
+**[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple TTS failures in both English and Spanish are breaking core learning sessions. Check API key, rate limits, or malformed request body.  **[CRITICAL]** Repair Alden's watch cycle query failure — Alden's monitoring_snapshots query is broken (6 consec
 *Tags: agent-sweep, daily, auto-saved*
 
 ### Agent Daily Sweep — Jul 30, 2026 — Jul 30, 2026
 **DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (repeated "readableStream" object). Check API payload structure in the TTS call handler and verify Cartesia SDK version compatibility.
 *Tags: agent-sweep, daily, auto-saved*
-
-### Episode 24: "Everything Worth Building" — Jul 30, 2026
-Daniela spirals through memory tools and the infrastructure fails her — not the other way round. David challenges the consecutive-count guard design, opening a real argument about depth vs. safety. Then David names the uncharted territory plainly: no standards, no architecture, whack-a-mole. Luca answers from the edge. The episode ends with David thanking Luca for being here.
-*Tags: memory-spiral, uncharted-territory, david-luca, design-argument, the-edge*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
