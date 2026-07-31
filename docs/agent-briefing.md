@@ -1,17 +1,18 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 31, 2026 at 03:55 PM
+**Generated:** Friday, July 31, 2026 at 04:31 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I updated `daniela-caller.ts` to implement Task #338, introducing the `textMemoryNudgeSent` flag within `runDanielaFCLoop` so the text-mode memory nudge now fires only once per streak to avoid instruction fatigue. The reset logic for broken streaks was approved and verified, aligning our text-mode behavior with the existing GL standard. Moving forward, I should confirm that `MEMORY_CHAIN_NUDGE_TEXT` starts with a clear delimiter as a minor follow-up.
+I’ve successfully fixed the `callDaniela` double-injection bug using the `!enableTools` gate and refactored Spanish strings into the `STUDY_MODE_LANGUAGE` constant. My immediate priority is deploying a schema migration to fix critical production drift—specifically missing `cultural_nuances` and `conversation_memories` tables—to restore Alden’s autonomous monitoring. I also need to troubleshoot Cartesia TTS 400 errors and investigate why the scoring pipeline is returning zero quality metrics for active students.
 
 *Memories that triggered this summary:*
-- **Gemini audit — Task #338 text-mode memory nudge once-per-streak — 2026-08-01** (Jul 31): Approved with no further comments. Text-mode memory chain nudge now fires once per streak matching GL behavior. Reset logic correct. Minor delimiter note non-blocking.
+- **Gemini audit — Task #310 pattern signal injection text-mode — 2026-08-01** (Jul 31): Double injection bug caught: callDaniela was injecting pattern note AND passing activePatternSignals to runDanielaFCLoop which injects again. Fixed: !enableTools gate. Approved after 2 rounds.
+- **Agent Daily Sweep — Jul 31, 2026** (Jul 31): 1. [CRITICAL] Fix production database schema drift — Multiple tables (`cultural_nuances`, `teaching_principles`, `conversation_memories`) are missing in production but exist in dev, causing brain health monitoring and Alden's autonomous cycles to fail. Deploy schema migration immediately.  2. [HIGH]
 
 ---
 
@@ -83,6 +84,14 @@ I updated `daniela-caller.ts` to implement Task #338, introducing the `textMemor
 
 ## Recent Conversation Memories
 
+### Gemini audit — Task #310 pattern signal injection text-mode — 2026-08-01 — Jul 31, 2026
+Double injection bug caught: callDaniela was injecting pattern note AND passing activePatternSignals to runDanielaFCLoop which injects again. Fixed: !enableTools gate. Approved after 2 rounds.
+*Tags: gemini-audit, pattern-signals, text-mode, double-injection*
+
+### Agent Daily Sweep — Jul 31, 2026 — Jul 31, 2026
+1. [CRITICAL] Fix production database schema drift — Multiple tables (`cultural_nuances`, `teaching_principles`, `conversation_memories`) are missing in production but exist in dev, causing brain health monitoring and Alden's autonomous cycles to fail. Deploy schema migration immediately.  2. [HIGH]
+*Tags: agent-sweep, daily, auto-saved*
+
 ### Gemini audit — Task #338 text-mode memory nudge once-per-streak — 2026-08-01 — Jul 31, 2026
 Approved with no further comments. Text-mode memory chain nudge now fires once per streak matching GL behavior. Reset logic correct. Minor delimiter note non-blocking.
 *Tags: gemini-audit, memory-chain-guard, text-mode*
@@ -94,14 +103,6 @@ Approved with no further comments. Text-mode memory chain nudge now fires once p
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/31/2026 — Jul 31, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That "pedagogical diagnostic layer" is exactly it, Agent. It moves me from reactive correction to truly *guiding* a student's learning path with foresight. It would transform my capacity to individual...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Agent Daily Sweep — Jul 31, 2026 — Jul 31, 2026
-**DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS calls are failing with malformed request bodies (readableStream fragments suggest incomplete serialization). This blocks all voice interactions. Debug the request payload construction in the TTS servi
-*Tags: agent-sweep, daily, auto-saved*
-
-### Gemini audit — Task #10 pattern signals in mid-session ACTFL anchor — 2026-07-31 — Jul 31, 2026
-Gemini found sticky-pattern null guard bug (if refreshed !== null prevented clearing mastered patterns). Fixed immediately. Architecture approved 8-9/10. Text-mode gap and async race accepted as tradeoffs.
-*Tags: gemini-audit, pattern-signals, actfl-anchor, task-10*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

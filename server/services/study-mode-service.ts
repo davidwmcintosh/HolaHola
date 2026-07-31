@@ -367,9 +367,11 @@ Keep the scenario alive, correct gently inline, and move forward.`;
   // Fetch active grammar pattern signals for this student so Daniela keeps her
   // pattern map in the text-mode study session. No StreamingSession is available
   // here, so we hydrate directly from the DB via fetchPatternSignalContext.
-  // Study mode is Spanish-only; if it expands, wire scenario.language here.
+  // Study mode is currently Spanish-only. When multi-language support is added,
+  // replace STUDY_MODE_LANGUAGE with scenario.language (or equivalent).
+  const STUDY_MODE_LANGUAGE = 'spanish' as const;
   const activePatternSignals = userId
-    ? await fetchPatternSignalContext(userId, 'spanish').catch(() => null)
+    ? await fetchPatternSignalContext(userId, STUDY_MODE_LANGUAGE).catch(() => null)
     : null;
 
   try {

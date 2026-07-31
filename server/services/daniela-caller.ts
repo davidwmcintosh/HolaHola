@@ -464,11 +464,15 @@ export async function callDaniela(
   let systemPrompt = systemParts.join('\n\n');
 
   // ── Pattern signal injection for the simple (non-tools) path ─────────────
-  // The tools path delegates injection to runDanielaFCLoop; for the simple path
-  // we must inject here so both paths carry the active pattern map.
-  const patternNote = formatActivePatternSignalNote(activePatternSignals);
-  if (patternNote) {
-    systemPrompt = systemPrompt + (systemPrompt.endsWith('\n') ? '' : '\n') + patternNote.trimStart();
+  // The tools path delegates injection to runDanielaFCLoop (via effectiveSystemPrompt
+  // inside that loop), so we must NOT inject here when enableTools=true — doing so
+  // would double-stamp the pattern note and cause instruction fatigue.
+  // For the simple (generateContent) path there is no FC loop, so we inject here.
+  if (!enableTools) {
+    const patternNote = formatActivePatternSignalNote(activePatternSignals);
+    if (patternNote) {
+      systemPrompt = systemPrompt + (systemPrompt.endsWith('\n') ? '' : '\n') + patternNote.trimStart();
+    }
   }
 
   try {
