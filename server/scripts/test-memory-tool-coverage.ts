@@ -13,7 +13,7 @@
  * Run: npx tsx server/scripts/test-memory-tool-coverage.ts
  */
 
-import { MEMORY_TOOL_NAMES } from '../services/memory-chain-guard';
+import { MEMORY_TOOL_NAMES, CLASSROOM_BLOCKED_EXEMPTIONS } from '../services/memory-chain-guard';
 import { DANIELA_FUNCTION_DECLARATIONS, GL_EXCLUDED_TOOLS } from '../services/daniela-function-registry';
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -218,49 +218,11 @@ if (exclusionPhantoms.length > 0) {
 
 // ── Classroom-exclusion sync check ───────────────────────────────────────────
 //
-// Some tools in KNOWN_NON_GUARD_TOOLS are exempted from the chain guard
-// specifically because they are blocked from student classroom sessions (i.e.
-// they live in GL_EXCLUDED_TOOLS).  If a developer removes one of them from
-// GL_EXCLUDED_TOOLS without updating the exemption comment, the guard bypass
-// silently becomes wrong — students could chain those calls unchecked.
+// CLASSROOM_BLOCKED_EXEMPTIONS is the single source of truth for tools whose
+// chain-guard bypass is justified by classroom exclusion.  It is imported from
+// server/services/memory-chain-guard.ts so this script and
+// test-classroom-exclusion-negative-path.ts always agree on the list.
 //
-// List every KNOWN_NON_GUARD_TOOLS entry whose exemption reason is
-// "blocked from student sessions / classroom context".  The check below
-// asserts each one is still present in GL_EXCLUDED_TOOLS.
-//
-const CLASSROOM_BLOCKED_EXEMPTIONS = new Set<string>([
-  // Exemption reason: "BLOCKED from the mid-session student classroom tool rack
-  // (excluded in CLASSROOM_EXCLUDED_TOOLS)."  If this is ever re-enabled for
-  // students, the chain-guard bypass must be removed at the same time.
-  'read_full_memory',
-
-  // Exemption reason: "Founder mode only — students never trigger this."
-  // Students reaching this tool would chain full message-history scans
-  // unchecked.  Must remain in GL_EXCLUDED_TOOLS; if ever re-enabled for
-  // students, add to MEMORY_TOOL_NAMES instead.
-  'search_my_history',
-
-  // Exemption reason: "not surfaced in student-facing session contexts."
-  // Reads Daniela's personal consistency log (danielaPersonalShares) — a
-  // J-space / identity tool.  Blocked from student classroom rack via
-  // GL_EXCLUDED_TOOLS.  If ever re-enabled for students, add to
-  // MEMORY_TOOL_NAMES so the chain guard fires.
-  'recall_what_i_shared',
-
-  // Exemption reason: "Founder mode. Not student data."
-  // Reads Daniela's open questions about David (read_my_curiosities table).
-  // Blocked from student classroom rack via GL_EXCLUDED_TOOLS.  If ever
-  // re-enabled for students, add to MEMORY_TOOL_NAMES.
-  'read_my_curiosities',
-
-  // Exemption reason: "Founder/Honesty mode only."
-  // Retrieves an image from image_vision_cache — not a conversation or session
-  // memory record.  Blocked from student classroom rack via GL_EXCLUDED_TOOLS.
-  // If ever re-enabled for students, evaluate whether MEMORY_TOOL_NAMES
-  // coverage is needed.
-  'recall_express_lane_image',
-]);
-
 sep();
 console.log(B('Classroom-exclusion sync: KNOWN_NON_GUARD_TOOLS entries blocked from student sessions'));
 console.log(Y('  Each tool listed in CLASSROOM_BLOCKED_EXEMPTIONS must also be in GL_EXCLUDED_TOOLS.'));

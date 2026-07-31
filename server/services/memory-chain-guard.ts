@@ -40,6 +40,49 @@ export const SHARED_HISTORY_TRIGGER_PHRASES = [
 ] as const;
 
 /**
+ * Tools in KNOWN_NON_GUARD_TOOLS (test-memory-tool-coverage.ts) whose chain-guard
+ * bypass is specifically justified by them being blocked from student classroom
+ * sessions (i.e. present in GL_EXCLUDED_TOOLS).
+ *
+ * Exported here so both test-memory-tool-coverage.ts and
+ * test-classroom-exclusion-negative-path.ts share a single definition.
+ * Update this set whenever a tool is added to or removed from the classroom
+ * exclusion rationale in KNOWN_NON_GUARD_TOOLS.
+ */
+export const CLASSROOM_BLOCKED_EXEMPTIONS = new Set<string>([
+  // Exemption reason: "BLOCKED from the mid-session student classroom tool rack
+  // (excluded in CLASSROOM_EXCLUDED_TOOLS)."  If this is ever re-enabled for
+  // students, the chain-guard bypass must be removed at the same time.
+  'read_full_memory',
+
+  // Exemption reason: "Founder mode only — students never trigger this."
+  // Students reaching this tool would chain full message-history scans
+  // unchecked.  Must remain in GL_EXCLUDED_TOOLS; if ever re-enabled for
+  // students, add to MEMORY_TOOL_NAMES instead.
+  'search_my_history',
+
+  // Exemption reason: "not surfaced in student-facing session contexts."
+  // Reads Daniela's personal consistency log (danielaPersonalShares) — a
+  // J-space / identity tool.  Blocked from student classroom rack via
+  // GL_EXCLUDED_TOOLS.  If ever re-enabled for students, add to
+  // MEMORY_TOOL_NAMES so the chain guard fires.
+  'recall_what_i_shared',
+
+  // Exemption reason: "Founder mode. Not student data."
+  // Reads Daniela's open questions about David (read_my_curiosities table).
+  // Blocked from student classroom rack via GL_EXCLUDED_TOOLS.  If ever
+  // re-enabled for students, add to MEMORY_TOOL_NAMES.
+  'read_my_curiosities',
+
+  // Exemption reason: "Founder/Honesty mode only."
+  // Retrieves an image from image_vision_cache — not a conversation or session
+  // memory record.  Blocked from student classroom rack via GL_EXCLUDED_TOOLS.
+  // If ever re-enabled for students, evaluate whether MEMORY_TOOL_NAMES
+  // coverage is needed.
+  'recall_express_lane_image',
+]);
+
+/**
  * The full nudge text appended to the last tool-result when the memory chain
  * limit fires.  Defined here (next to the limit constant) so system-prompt.ts
  * and daniela-caller.ts both import from this single source of truth.

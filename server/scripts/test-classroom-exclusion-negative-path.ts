@@ -22,6 +22,10 @@
  */
 
 import { GL_EXCLUDED_TOOLS } from '../services/daniela-function-registry';
+// CLASSROOM_BLOCKED_EXEMPTIONS is the single source of truth — defined in
+// memory-chain-guard.ts and shared with test-memory-tool-coverage.ts so the
+// two scripts cannot silently drift apart.
+import { CLASSROOM_BLOCKED_EXEMPTIONS } from '../services/memory-chain-guard';
 
 // ─── Colour helpers ───────────────────────────────────────────────────────────
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -29,15 +33,6 @@ const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
 const Y = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const B = (s: string) => `\x1b[34m${s}\x1b[0m`;
 const sep = () => console.log('\n' + '─'.repeat(70));
-
-// ─── Tools whose chain-guard bypass depends on classroom exclusion ─────────────
-//
-// Mirror of CLASSROOM_BLOCKED_EXEMPTIONS in test-memory-tool-coverage.ts.
-// Keep this list in sync if new entries are added there.
-//
-const CLASSROOM_BLOCKED_EXEMPTIONS = new Set<string>([
-  'read_full_memory',
-]);
 
 // ─── Core check: returns drift list ───────────────────────────────────────────
 function runClassroomExclusionCheck(): string[] {
