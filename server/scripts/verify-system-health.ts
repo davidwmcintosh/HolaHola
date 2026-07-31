@@ -362,8 +362,107 @@ async function checkObjectStorageMetadata() {
   }
 }
 
-// ─── R2 READ PATHS ───────────────────────────────────────────────────────────
+async function checkGcsCopyProbe() {
+  console.log(`\n${BOLD}── GCS Copy-Probe (mocked) ─────────────────────────────${RESET}`);
 
+  const { runGcsCopyProbeWithClient } = await import(
+    "../replit_integrations/object_storage/objectStorage.js"
+  );
+
+  type AnyStorage = any;
+
+  /** Capture console output produced by fn() without suppressing it. */
+  async function capture(fn: () => Promise<void>): Promise<{ logs: string[]; warns: string[] }> {
+    const logs: string[] = [];
+    const warns: string[] = [];
+    const origLog = console.log.bind(console);
+    const origWarn = console.warn.bind(console);
+    console.log = (...a: any[]) => { const m = a.join(" "); logs.push(m); origLog(m); };
+    console.warn = (...a: any[]) => { const m = a.join(" "); warns.push(m); origWarn(m); };
+    try { await fn(); } finally { console.log = origLog; console.warn = origWarn; }
+    return { logs, warns };
+  }
+
+  function makeMock(opts: { saveThrows?: boolean; setMetadataThrows?: boolean } = {}): {
+    gcs: AnyStorage;
+    calls: { save: number; setMetadata: number; delete: number };
+  } {
+    const calls = { save: 0, setMetadata: 0, delete: 0 };
+    const mockFile = {
+      save: async () => { calls.save++; if (opts.saveThrows) throw new Error("403 save denied (simulated)"); },
+      setMetadata: async () => { calls.setMetadata++; if (opts.setMetadataThrows) throw new Error("403 storage.objects.update not granted (simulated)"); },
+      delete: async () => { calls.delete++; },
+    };
+    const gcs = { bucket: () => ({ file: () => mockFile }) } as AnyStorage;
+    return { gcs, calls };
+  }
+
+  const TAG = "[ObjectStorage:CopyProbe]";
+
+  // ── Test 1: happy path ──────────────────────────────────────────────────────
+  {
+    const { gcs, calls } = makeMock();
+    const { logs, warns } = await capture(() =>
+      runGcsCopyProbeWithClient(gcs, "mock-bucket-happy", "_health_probe/ci-probe-1.txt"),
+    );
+    if (logs.some((l: string) => l.includes(`${TAG} GCS metadata probe OK`))) {
+      pass("GCS probe — happy path logged OK");
+    } else {
+      fail("GCS probe — happy path", "'GCS metadata probe OK' not found in logs");
+    }
+    if (calls.save === 1 && calls.setMetadata === 1 && calls.delete === 1) {
+      pass("GCS probe — happy path call counts correct");
+    } else {
+      fail("GCS probe — happy path call counts", `save=${calls.save} setMetadata=${calls.setMetadata} delete=${calls.delete} (expected 1 each)`);
+    }
+    if (warns.length === 0) {
+      pass("GCS probe — happy path produced no warnings");
+    } else {
+      fail("GCS probe — happy path unexpected warnings", warns.join("; "));
+    }
+  }
+
+  // ── Test 2: setMetadata failure ─────────────────────────────────────────────
+  {
+    const { gcs, calls } = makeMock({ setMetadataThrows: true });
+    const { warns } = await capture(() =>
+      runGcsCopyProbeWithClient(gcs, "mock-bucket-meta-fail", "_health_probe/ci-probe-2.txt"),
+    );
+    if (warns.some((w: string) => w.includes(`${TAG} WARN GCS setMetadata failed`))) {
+      pass("GCS probe — setMetadata failure logged WARN");
+    } else {
+      fail("GCS probe — setMetadata failure", "expected WARN not found");
+    }
+    if (calls.delete === 1) {
+      pass("GCS probe — setMetadata failure still cleaned up sentinel");
+    } else {
+      fail("GCS probe — setMetadata failure cleanup", `delete called ${calls.delete} time(s), expected 1`);
+    }
+  }
+
+  // ── Test 3: save() failure ──────────────────────────────────────────────────
+  {
+    const { gcs, calls } = makeMock({ saveThrows: true });
+    const { warns } = await capture(() =>
+      runGcsCopyProbeWithClient(gcs, "mock-bucket-save-fail", "_health_probe/ci-probe-3.txt"),
+    );
+    if (warns.some((w: string) => w.includes(`${TAG} WARN GCS probe error`))) {
+      pass("GCS probe — save() failure logged outer WARN");
+    } else {
+      fail("GCS probe — save() failure", "expected outer WARN not found");
+    }
+    if (calls.setMetadata === 0) {
+      pass("GCS probe — save() failure short-circuited setMetadata");
+    } else {
+      fail("GCS probe — save() failure", "setMetadata was called after save() failed");
+    }
+    if (calls.delete === 1) {
+      pass("GCS probe — save() failure still cleaned up sentinel (finally block)");
+    } else {
+      fail("GCS probe — save() failure cleanup", `delete called ${calls.delete} time(s), expected 1`);
+    }
+  }
+}
 async function checkR2ReadPaths() {
   console.log(`\n${BOLD}── R2 Student-Facing Read Paths ────────────────────────${RESET}`);
 
@@ -517,6 +616,7 @@ async function main() {
   await checkWorkers();
   await checkPreSessionSynthesis();
   await checkObjectStorageMetadata();
+  await checkGcsCopyProbe();
   await checkR2ReadPaths();
 
   console.log(`\n${BOLD}── Summary ─────────────────────────────────────────────${RESET}`);
