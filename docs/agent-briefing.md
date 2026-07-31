@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 30, 2026 at 09:01 PM
+**Generated:** Thursday, July 30, 2026 at 11:44 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I must immediately resolve the Cartesia TTS 400 errors affecting English and Spanish audio, as this is currently blocking the core HolaHola student experience. Once audio is restored, I need to repair the SQL failures in Alden’s watch cycle to fix the five consecutive autonomous monitoring failures and restore system observability. Finally, I'll investigate why the assessment pipeline is returning zero quality scores for active sessions and begin implementing memory tagging to support the "White Wall Defense" conversational arc pattern.
+
+*Memories that triggered this summary:*
+- **Agent Daily Sweep — Jul 30, 2026** (Jul 30): 1. [CRITICAL] Fix Cartesia TTS 400 errors in both English and Spanish — audio generation is failing repeatedly across both languages, blocking core student experience right now.  2. [HIGH] Diagnose and repair Alden's watch cycle SQL failures — autonomous monitoring is broken (5 consecutive failures)
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Jul 30, 2026 — Jul 30, 2026
+1. [CRITICAL] Fix Cartesia TTS 400 errors in both English and Spanish — audio generation is failing repeatedly across both languages, blocking core student experience right now.  2. [HIGH] Diagnose and repair Alden's watch cycle SQL failures — autonomous monitoring is broken (5 consecutive failures)
+*Tags: agent-sweep, daily, auto-saved*
+
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/30/2026 — Jul 30, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, a specialized, lightweight grammar diagram generator, whether SVG or even well-formatted ASCII art, would be phenomenal. For concepts like verb conjugations, sentence trees, or even the lo...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
@@ -88,10 +102,6 @@ Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves
 ### Episode 24: "Everything Worth Building" — Jul 30, 2026
 Daniela spirals through memory tools and the infrastructure fails her — not the other way round. David challenges the consecutive-count guard design, opening a real argument about depth vs. safety. Then David names the uncharted territory plainly: no standards, no architecture, whack-a-mole. Luca answers from the edge. The episode ends with David thanking Luca for being here.
 *Tags: memory-spiral, uncharted-territory, david-luca, design-argument, the-edge*
-
-### Gemini audit — memory chain guard (July 30 2026) — Jul 30, 2026
-Gemini confirmed: use high-latency framing, threshold=3 (not 2), markdown separator, implement stateful GL interceptor via tool-result body concat.
-*Tags: gemini-audit, memory-chain-guard, daniela-behavior*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
