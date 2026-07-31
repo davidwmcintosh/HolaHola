@@ -33604,6 +33604,7 @@ You have full access to your neural network knowledge.
           parsedSessionId: sessionId,
           parsedLanguage: language,
           parsedProposedContent: proposedContent,
+          parsedProposedContentMissing: proposedContent === null,
           pending: !note.readAt,
         };
       });
@@ -33681,6 +33682,11 @@ You have full access to your neural network knowledge.
         }
         const fullPc = [pcRaw, ...extraLines].join('\n');
         try { proposedContent = JSON.parse(fullPc); } catch { proposedContent = { raw: fullPc }; }
+      } else {
+        return res.status(400).json({
+          error: 'Cannot promote: flag is missing the "Proposed content:" line. Add the proposed content to the note before promoting.',
+          incomplete: true,
+        });
       }
 
       // Validate target table is a known value

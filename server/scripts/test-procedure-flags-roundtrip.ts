@@ -70,11 +70,36 @@ function parseProcedureFlag(note: { subject: string; body: string; readAt: Date 
     parsedSessionId: sessionId,
     parsedLanguage: language,
     parsedProposedContent: proposedContent,
+    parsedProposedContentMissing: proposedContent === null,
     pending: !note.readAt,
   };
 }
 
-// ── Test data ─────────────────────────────────────────────────────────────────
+type PromoteResult =
+  | { ok: true; proposedContent: any }
+  | { ok: false; error: string; incomplete: boolean };
+
+function simulatePromote(note: { subject: string; body: string }): PromoteResult {
+  const bodyLines = note.body.split('\n');
+  const pcLineIdx = bodyLines.findIndex((l: string) => l.startsWith('Proposed content: '));
+  if (pcLineIdx === -1) {
+    return {
+      ok: false,
+      error: 'Cannot promote: flag is missing the "Proposed content:" line. Add the proposed content to the note before promoting.',
+      incomplete: true,
+    };
+  }
+  const pcRaw = bodyLines[pcLineIdx].replace('Proposed content: ', '');
+  const extraLines: string[] = [];
+  for (let i = pcLineIdx + 1; i < bodyLines.length; i++) {
+    if (bodyLines[i] === '') break;
+    extraLines.push(bodyLines[i]);
+  }
+  const fullPc = [pcRaw, ...extraLines].join('\n');
+  let proposedContent: any;
+  try { proposedContent = JSON.parse(fullPc); } catch { proposedContent = { raw: fullPc }; }
+  return { ok: true, proposedContent };
+}
 
 const TARGET_TABLE = 'teaching_examples';
 const REASONING    = 'Student made three attempts with wrong subjunctive form — examples table may need more contrastive pairs.';
@@ -142,6 +167,7 @@ async function run() {
   let insertedId: string | null = null;
   let promoteNoteId: string | null = null;
   let promoteProposalId: string | null = null;
+  let incompleteInsertedId: string | null = null;
 
   try {
     // ══════════════════════════════════════════════════════════════════════════
@@ -398,8 +424,98 @@ async function run() {
       }
     }
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // PART 5 — Flag with no "Proposed content:" line is surfaced, not silently dropped
+    // ══════════════════════════════════════════════════════════════════════════
+    sep();
+    console.log(B('PART 5 — Incomplete flag (no "Proposed content:" line)'));
+    sep();
+
+    const INCOMPLETE_SUBJECT = `[Daniela \u2014 REQUIRES FOUNDER REVIEW] teaching_examples: Incomplete flag for roundtrip test`;
+    const INCOMPLETE_BODY = [
+      `Reasoning: Something seemed off but I forgot to include a proposal.`,
+      `Session: test-session-incomplete-365`,
+      `Language: es`,
+      `Source: Daniela (self_surgery \u2014 normal session)`,
+      // Deliberately omit the "Proposed content:" line
+    ].join('\n');
+
+    const [incompleteInserted] = await db
+      .insert(agentNotes)
+      .values({
+        fromAgent: 'daniela',
+        toAgent: 'agent',
+        subject: INCOMPLETE_SUBJECT,
+        body: INCOMPLETE_BODY,
+        sessionLabel: 'Procedure flags roundtrip test — incomplete flag',
+      })
+      .returning();
+
+    incompleteInsertedId = incompleteInserted?.id ?? null;
+    assert('Incomplete flag inserted without error', !!incompleteInsertedId);
+
+    if (incompleteInsertedId) {
+      // Query it back (mirrors GET /api/admin/procedure-flags)
+      const incompleteRows = await db
+        .select()
+        .from(agentNotes)
+        .where(
+          and(
+            ilike(agentNotes.subject, '[Daniela \u2014 REQUIRES FOUNDER REVIEW]%'),
+            isNull(agentNotes.readAt),
+            eq(agentNotes.id, incompleteInsertedId),
+          ),
+        )
+        .limit(1);
+
+      assert(
+        'GET query returns the incomplete flag without 500 (no crash)',
+        incompleteRows.length === 1,
+        `got ${incompleteRows.length} rows`,
+      );
+
+      if (incompleteRows.length === 1) {
+        const incompleteParsed = parseProcedureFlag(incompleteRows[0]);
+
+        assert(
+          'parsedProposedContent is null when "Proposed content:" line is absent',
+          incompleteParsed.parsedProposedContent === null,
+          `got: ${JSON.stringify(incompleteParsed.parsedProposedContent)}`,
+        );
+
+        assert(
+          'parsedProposedContentMissing is true when "Proposed content:" line is absent',
+          incompleteParsed.parsedProposedContentMissing === true,
+          `got: ${incompleteParsed.parsedProposedContentMissing}`,
+        );
+
+        // Simulate the promote endpoint — it should reject with a clear error, not silently write {}
+        const promoteResult = simulatePromote(incompleteRows[0]);
+
+        assert(
+          'Promote returns ok:false for an incomplete flag',
+          promoteResult.ok === false,
+          promoteResult.ok ? `unexpectedly succeeded with content: ${JSON.stringify((promoteResult as any).proposedContent)}` : undefined,
+        );
+
+        if (!promoteResult.ok) {
+          assert(
+            'Promote error carries incomplete:true flag',
+            promoteResult.incomplete === true,
+            `got: ${promoteResult.incomplete}`,
+          );
+
+          assert(
+            'Promote error message mentions "Proposed content:" so the founder knows what to add',
+            promoteResult.error.includes('"Proposed content:"'),
+            `got: "${promoteResult.error}"`,
+          );
+        }
+      }
+    }
+
   } finally {
-    // ── Cleanup: remove the test note so it does not pollute the real panel ──
+    // ── Cleanup: remove all test notes ───────────────────────────────────────
     if (insertedId) {
       await db.delete(agentNotes).where(eq(agentNotes.id, insertedId));
       console.log(`\n  (cleaned up test note ${insertedId})`);
@@ -411,6 +527,10 @@ async function run() {
     if (promoteNoteId) {
       await db.delete(agentNotes).where(eq(agentNotes.id, promoteNoteId));
       console.log(`  (cleaned up promote test note ${promoteNoteId})`);
+    }
+    if (incompleteInsertedId) {
+      await db.delete(agentNotes).where(eq(agentNotes.id, incompleteInsertedId));
+      console.log(`  (cleaned up incomplete test note ${incompleteInsertedId})`);
     }
   }
 
