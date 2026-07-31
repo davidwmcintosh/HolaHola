@@ -196,7 +196,7 @@ export default function VoiceMessage() {
               onClick={() => window.location.href = '/chat'}
               data-testid="button-start-session"
             >
-              Start a session with Daniela
+              Start a session with {getTutorName(data.language, data.gender as TutorGender)}
             </Button>
 
             <p className="text-center text-xs text-muted-foreground">
