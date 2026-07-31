@@ -21,6 +21,7 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
+import { getStreamingVoiceClient } from "@/lib/streamingVoiceClient";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -122,6 +123,26 @@ export function DanielaSessionProvider({ children }: { children: ReactNode }) {
       setVoiceStatus("idle");
     }
   }, [sessionConversationId]);
+
+  // Reset voiceStatus to idle when the WebSocket drops unrecoverably while
+  // StreamingVoiceChat is not mounted (student is on another page).
+  // We listen directly on the global singleton so we catch drops regardless of
+  // whether the voice component is mounted.
+  // 'reconnecting' is intentionally left alone — it may still recover.
+  useEffect(() => {
+    const client = getStreamingVoiceClient();
+
+    const handleStateChange = (state: string) => {
+      if (state === "error" || state === "disconnected") {
+        setVoiceStatus("idle");
+      }
+    };
+
+    client.on("stateChange", handleStateChange);
+    return () => {
+      client.off("stateChange", handleStateChange);
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
