@@ -139,6 +139,12 @@ export interface RunDanielaFCLoopParams {
    * pattern map when the student switches from voice to text mid-session.
    */
   activePatternSignals?: string | null;
+  /**
+   * FOR TESTING ONLY — inject a fake Gemini client so the FC loop can be exercised
+   * without hitting the real API. Production callers must never pass this.
+   * The object must implement { models: { generateContent(args): Promise<any> } }.
+   */
+  _geminiOverride?: { models: { generateContent(args: any): Promise<any> } };
 }
 
 /**
@@ -167,8 +173,9 @@ export async function runDanielaFCLoop({
   existingSession,
   onText,
   activePatternSignals,
+  _geminiOverride,
 }: RunDanielaFCLoopParams): Promise<string> {
-  const gemini = getGemini();
+  const gemini = _geminiOverride ?? getGemini();
   const tools = createDanielaTools(allowedTools);
   const mockSession = existingSession || buildMockSession(userId);
   const fcHandler = buildFcHandler();
