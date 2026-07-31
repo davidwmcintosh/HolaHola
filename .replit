@@ -56,6 +56,10 @@ args = "absence-gl-path"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
+args = "absence-text-path"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
 args = "absence-text-mode-return"
 
 [[workflows.workflow.tasks]]
