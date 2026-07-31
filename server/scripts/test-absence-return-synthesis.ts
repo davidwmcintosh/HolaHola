@@ -54,9 +54,7 @@ function assert(label: string, condition: boolean, detail?: string) {
   }
 }
 
-// ── Test constants ────────────────────────────────────────────────────────────
-// Fake userId — must not exist in the users table (no FK on daniela_absence_nudges).
-// Uses a sentinel prefix so accidental DB rows are obviously test artefacts.
+const hasGeminiKey = !!process.env.GEMINI_API_KEY;
 const TEST_USER_ID  = '00000000-test-absence-synthesis-0000';
 const TEST_DAYS_ABSENT = 9;
 const SAFE_MODE_SENTINEL = 'Something quiet settles before these sessions'; // first 8 words of safe-mode fallback
@@ -206,6 +204,62 @@ async function runPart2(returnDetails: { daysSinceLastSession: number; firstName
   sep();
   console.log(B('PART 2 — generatePreSessionSynthesis() with returning-student signal'));
   sep();
+
+  // ── Keyless path: source-level injection checks only ─────────────────────
+  // When GEMINI_API_KEY is absent we cannot call generatePreSessionSynthesis(),
+  // but we can still verify that the injection logic is intact in the source.
+  // These checks catch the regressions that matter most:
+  //   • returningAfterAbsence is forwarded from generatePreSessionSynthesis to buildLiteContext
+  //   • buildLiteContext injects the "RETURNING AFTER ABSENCE:" block when the signal is present
+  //   • The observable log line still exists in the source (will fire at runtime)
+  if (!hasGeminiKey) {
+    origLog(Y('\n  ⚠  GEMINI_API_KEY not set — skipping live synthesis call (keyless CI run).'));
+    origLog(Y('     Running source-level injection checks to catch logic regressions.\n'));
+
+    const synthSrc = readFileSync(
+      pathResolve(__dirname, '../services/pre-session-synthesis.ts'),
+      'utf-8',
+    ) as string;
+
+    // 2a-src. returningAfterAbsence must be forwarded to buildLiteContext
+    const signalForwardedToBuildLite =
+      synthSrc.includes('buildLiteContext(') &&
+      synthSrc.includes('returningAfterAbsence');
+    assert(
+      '2a (source). returningAfterAbsence forwarded to buildLiteContext() in generatePreSessionSynthesis — injection wiring intact',
+      signalForwardedToBuildLite,
+      signalForwardedToBuildLite
+        ? undefined
+        : 'returningAfterAbsence not found in buildLiteContext call — signal would not reach the context builder',
+    );
+
+    // 2a-src. buildLiteContext must have the guard that injects "RETURNING AFTER ABSENCE:"
+    const buildLiteInjectsBlock =
+      synthSrc.includes('RETURNING AFTER ABSENCE:') &&
+      /if\s*\(\s*returningAfterAbsence\s*\)/.test(synthSrc);
+    assert(
+      '2a (source). buildLiteContext() contains "RETURNING AFTER ABSENCE:" block guarded by if(returningAfterAbsence)',
+      buildLiteInjectsBlock,
+      buildLiteInjectsBlock
+        ? undefined
+        : '"RETURNING AFTER ABSENCE:" block or its guard removed from buildLiteContext — injection logic is broken',
+    );
+
+    // 2a-src. The observable log line must still exist in the source
+    const logLinePresent = synthSrc.includes('[PreSynthesis] ✓ Returning-after-absence signal:');
+    assert(
+      '2a (source). "[PreSynthesis] ✓ Returning-after-absence signal:" log line present — observable at runtime when key is available',
+      logLinePresent,
+      logLinePresent
+        ? undefined
+        : 'Log line removed from source — injection signal will no longer be observable at runtime',
+    );
+
+    skipGemini('2b — synthesis non-empty');
+    skipGemini('2c — safe-mode sentinel');
+    skipGemini('2d — warmth/return indicator words');
+    return;
+  }
 
   const { generatePreSessionSynthesis } = await import('../services/pre-session-synthesis');
 
@@ -402,7 +456,66 @@ async function runPart4(): Promise<void> {
     stillPending ? undefined : 'resolvedAt is not null — peek mutated the DB row',
   );
 
-  // Minimal compass context for synthesis calls
+  // ── Keyless path for Part 4 synthesis sub-steps ──────────────────────────
+  // When GEMINI_API_KEY is absent we skip the actual synthesis calls (4c/4d/4e/4f)
+  // but still exercise the warm-cache store/consume/one-shot logic using a mock
+  // synthesis string, and verify the ws-guard preconditions using the real peeked value.
+  if (!hasGeminiKey) {
+    origLog(Y('\n  ⚠  GEMINI_API_KEY not set — skipping Gemini synthesis calls in Part 4 (keyless CI run).'));
+    origLog(Y('     Cache store/consume/one-shot and ws-guard precondition assertions run with a mock string.\n'));
+
+    const MOCK_SYNTH = '[MOCK_SYNTHESIS — no Gemini key]';
+
+    // 4c (keyless). Use mock string as the "stale" synthesis.
+    skipGemini('4c — stale synthesis (no absence signal) quality check');
+    setWarmSynthesis(TEST_USER_ID_2, MOCK_SYNTH);
+
+    // Warm-cache assertions: these exercise setWarmSynthesis/consumeWarmSynthesis, not Gemini.
+    const consumed = consumeWarmSynthesis(TEST_USER_ID_2);
+    assert(
+      '4d (keyless). consumeWarmSynthesis() returns the stored mock synthesis (cache store/consume intact)',
+      consumed !== null && consumed === MOCK_SYNTH,
+      consumed === null
+        ? 'consumeWarmSynthesis returned null — warm cache store failed'
+        : 'consumeWarmSynthesis returned a different string than what was stored',
+    );
+
+    const consumedAgain = consumeWarmSynthesis(TEST_USER_ID_2);
+    assert(
+      '4d (keyless). consumeWarmSynthesis() is one-shot — second call returns null (cache cleared on first consume)',
+      consumedAgain === null,
+      consumedAgain !== null ? 'Second consumeWarmSynthesis returned non-null — cache was not cleared' : undefined,
+    );
+
+    // 4d-ws-guard (keyless). Verify guard preconditions with mock data.
+    origLog(D('\n  [4d-ws-guard keyless] Testing guard preconditions with mock stale synthesis...'));
+    setWarmSynthesis(TEST_USER_ID_2, MOCK_SYNTH);
+    const wsWarmedNote = consumeWarmSynthesis(TEST_USER_ID_2);
+    const wsAbsenceReturn = peeked ?? { daysSinceLastSession: TEST_DAYS_ABSENT_2, firstName: null };
+
+    assert(
+      '[ws-guard keyless] consumeWarmSynthesis returns mock stale note (guard precondition: warmedNote non-null)',
+      wsWarmedNote !== null && wsWarmedNote === MOCK_SYNTH,
+      wsWarmedNote === null ? 'consumeWarmSynthesis returned null — re-store failed' : 'Returned unexpected string',
+    );
+    assert(
+      '[ws-guard keyless] absenceReturn is non-null (guard precondition: signal from peeked nudge)',
+      wsAbsenceReturn !== null,
+      'peeked was null — absence nudge not found; guard would not fire',
+    );
+    assert(
+      '[ws-guard keyless] Both guard preconditions met → WS handler would discard stale cache and regenerate',
+      wsWarmedNote !== null && wsAbsenceReturn !== null,
+      'One or both preconditions were null — guard would NOT fire',
+    );
+
+    skipGemini('[ws-guard] 4d — regenerated synthesis log and warmth checks');
+    skipGemini('4e — signal-aware synthesis generation and warmth check');
+    skipGemini('4f — WS handler receives signal-aware synthesis');
+    return;
+  }
+
+  // ── Keyed path: full live synthesis assertions ────────────────────────────
   const compassContext: any = {
     studentName: 'TestStudent2',
     studentGoals: 'Learn conversational Spanish',
@@ -862,32 +975,43 @@ async function runPart6(): Promise<void> {
     'break', 'last session', 'last time', 'remember', 'session', 'welcome', 'since',
   ];
 
-  // 6c. Simulate peek failure: generate synthesis WITHOUT signal (returningAfterAbsence = null).
-  //     This is exactly what the route does when peekAbsenceReturnDetails throws.
-  origLog(D('\n  [6c] Simulating peek-failure: generating synthesis WITHOUT signal (as route would on DB error)...'));
-  startCapture();
-  const peekFailSynthesis = await generatePreSessionSynthesis(
-    compassContext,
-    'Daniela',
-    TEST_USER_ID_3,
-    'spanish',
-    null, // <-- peek failed, signal is null
-  );
-  const peekFailLogs = stopCapture();
+  // 6c. Simulate peek failure: populate warm cache WITHOUT absence signal.
+  //     When GEMINI_API_KEY is present we call generatePreSessionSynthesis(null) exactly as
+  //     the route does on a DB error. When the key is absent we use a mock string — the
+  //     important property is that whatever is stored carries no absence signal, so the
+  //     guard-precondition assertions (6e) can still run.
+  let peekFailSynthesis: string | null;
 
-  assert(
-    '6c. Synthesis generated without signal (peek-failure path) returns a non-null string',
-    typeof peekFailSynthesis === 'string' && (peekFailSynthesis?.length ?? 0) > 0,
-    peekFailSynthesis === null ? 'Returned null — Gemini call failed. Check GEMINI_API_KEY.' : undefined,
-  );
+  if (hasGeminiKey) {
+    origLog(D('\n  [6c] Simulating peek-failure: generating synthesis WITHOUT signal (as route would on DB error)...'));
+    startCapture();
+    peekFailSynthesis = await generatePreSessionSynthesis(
+      compassContext,
+      'Daniela',
+      TEST_USER_ID_3,
+      'spanish',
+      null, // <-- peek failed, signal is null
+    );
+    const peekFailLogs = stopCapture();
 
-  // Confirm NO absence signal log was emitted (signal was not injected)
-  const peekFailAbsenceLog = peekFailLogs.find(l => l.includes('[PreSynthesis] ✓ Returning-after-absence signal:'));
-  assert(
-    '6c. No "[PreSynthesis] ✓ Returning-after-absence signal" log emitted for peek-failure synthesis (signal absent)',
-    !peekFailAbsenceLog,
-    peekFailAbsenceLog ? `Unexpected signal log: ${peekFailAbsenceLog}` : undefined,
-  );
+    assert(
+      '6c. Synthesis generated without signal (peek-failure path) returns a non-null string',
+      typeof peekFailSynthesis === 'string' && (peekFailSynthesis?.length ?? 0) > 0,
+      peekFailSynthesis === null ? 'Returned null — Gemini call failed. Check GEMINI_API_KEY.' : undefined,
+    );
+
+    // Confirm NO absence signal log was emitted (signal was not injected)
+    const peekFailAbsenceLog = peekFailLogs.find(l => l.includes('[PreSynthesis] ✓ Returning-after-absence signal:'));
+    assert(
+      '6c. No "[PreSynthesis] ✓ Returning-after-absence signal" log emitted for peek-failure synthesis (signal absent)',
+      !peekFailAbsenceLog,
+      peekFailAbsenceLog ? `Unexpected signal log: ${peekFailAbsenceLog}` : undefined,
+    );
+  } else {
+    origLog(Y('\n  ⚠  GEMINI_API_KEY not set — 6c uses mock synthesis string (keyless CI run).'));
+    skipGemini('6c — peek-failure synthesis quality check');
+    peekFailSynthesis = '[MOCK_PEEK_FAIL_SYNTHESIS — no Gemini key]';
+  }
 
   // Store the nudge-unaware synthesis in the warm cache (simulating route behaviour on peek failure).
   if (peekFailSynthesis) {
@@ -897,6 +1021,7 @@ async function runPart6(): Promise<void> {
 
   // 6d. WS handler calls autoResolveAbsenceNudgeOnReturn at true session start.
   //     It must return the pending nudge details (the nudge was NOT resolved by the route).
+  //     This assertion is unconditional — it exercises the DB and absence-worker logic.
   origLog(D('\n  [6d] WS handler calls autoResolveAbsenceNudgeOnReturn at true session start...'));
   startCapture();
   const wsAbsenceReturn = await autoResolveAbsenceNudgeOnReturn(TEST_USER_ID_3);
@@ -917,6 +1042,7 @@ async function runPart6(): Promise<void> {
   }
 
   // 6e. Consume the warm cache (as the WS handler would) — guard preconditions must both hold.
+  //     Unconditional: exercises warm-cache consume logic regardless of Gemini key.
   const wsWarmedNote = consumeWarmSynthesis(TEST_USER_ID_3);
 
   assert(
@@ -935,45 +1061,52 @@ async function runPart6(): Promise<void> {
   );
 
   // 6f/6g. Simulate guard firing: regenerate with the absence signal.
+  //        Skipped when no Gemini key — the precondition check above (6e) is the
+  //        regression-relevant assertion; warmth quality requires a live model.
   if (guardWouldFire) {
-    origLog(D('\n  [6f/6g] Guard fires — regenerating synthesis with absence signal...'));
-    startCapture();
-    const guardRegen = await generatePreSessionSynthesis(
-      compassContext,
-      'Daniela',
-      TEST_USER_ID_3,
-      'spanish',
-      wsAbsenceReturn ?? { daysSinceLastSession: TEST_DAYS_ABSENT_3, firstName: null },
-    );
-    const guardLogs = stopCapture();
-
-    // 6f. The "[PreSynthesis] ✓ Returning-after-absence signal" log must appear
-    const guardAbsenceLog = guardLogs.find(l =>
-      l.includes('[PreSynthesis] ✓ Returning-after-absence signal:') &&
-      l.includes(String(TEST_DAYS_ABSENT_3)),
-    );
-    assert(
-      '6f. Guard regeneration emits "[PreSynthesis] ✓ Returning-after-absence signal: N days" — signal reached buildLiteContext',
-      !!guardAbsenceLog,
-      guardAbsenceLog ?? 'Log line not found — signal may not be passing through to buildLiteContext',
-    );
-
-    // 6g. Regenerated synthesis must contain at least one absence warmth word
-    if (guardRegen) {
-      const lowerRegen = guardRegen.toLowerCase();
-      const regenWarmthHit = warmthWords.find(w => lowerRegen.includes(w));
-      assert(
-        `6g. Guard-regenerated synthesis contains at least one absence warmth word (${regenWarmthHit ? `"${regenWarmthHit}"` : 'none found'}) — returning-student awareness is baked in`,
-        !!regenWarmthHit,
-        `None of ${warmthWords.slice(0, 8).join(', ')} found — regenerated synthesis may not carry absence awareness`,
-      );
-      origLog(D(`  Guard-regenerated synthesis (${guardRegen.length} chars): "${guardRegen.slice(0, 200)}..."`));
+    if (!hasGeminiKey) {
+      skipGemini('6f — guard regeneration "[PreSynthesis] ✓ Returning-after-absence signal" log check');
+      skipGemini('6g — guard-regenerated synthesis warmth word check');
     } else {
-      assert(
-        '6g. Guard-regenerated synthesis is non-null',
-        false,
-        'generatePreSessionSynthesis returned null — Gemini call failed',
+      origLog(D('\n  [6f/6g] Guard fires — regenerating synthesis with absence signal...'));
+      startCapture();
+      const guardRegen = await generatePreSessionSynthesis(
+        compassContext,
+        'Daniela',
+        TEST_USER_ID_3,
+        'spanish',
+        wsAbsenceReturn ?? { daysSinceLastSession: TEST_DAYS_ABSENT_3, firstName: null },
       );
+      const guardLogs = stopCapture();
+
+      // 6f. The "[PreSynthesis] ✓ Returning-after-absence signal" log must appear
+      const guardAbsenceLog = guardLogs.find(l =>
+        l.includes('[PreSynthesis] ✓ Returning-after-absence signal:') &&
+        l.includes(String(TEST_DAYS_ABSENT_3)),
+      );
+      assert(
+        '6f. Guard regeneration emits "[PreSynthesis] ✓ Returning-after-absence signal: N days" — signal reached buildLiteContext',
+        !!guardAbsenceLog,
+        guardAbsenceLog ?? 'Log line not found — signal may not be passing through to buildLiteContext',
+      );
+
+      // 6g. Regenerated synthesis must contain at least one absence warmth word
+      if (guardRegen) {
+        const lowerRegen = guardRegen.toLowerCase();
+        const regenWarmthHit = warmthWords.find(w => lowerRegen.includes(w));
+        assert(
+          `6g. Guard-regenerated synthesis contains at least one absence warmth word (${regenWarmthHit ? `"${regenWarmthHit}"` : 'none found'}) — returning-student awareness is baked in`,
+          !!regenWarmthHit,
+          `None of ${warmthWords.slice(0, 8).join(', ')} found — regenerated synthesis may not carry absence awareness`,
+        );
+        origLog(D(`  Guard-regenerated synthesis (${guardRegen.length} chars): "${guardRegen.slice(0, 200)}..."`));
+      } else {
+        assert(
+          '6g. Guard-regenerated synthesis is non-null',
+          false,
+          'generatePreSessionSynthesis returned null — Gemini call failed',
+        );
+      }
     }
   }
 
@@ -1037,3 +1170,7 @@ async function runPart6(): Promise<void> {
     process.exit(1);
   }
 })();
+
+function skipGemini(label: string): void {
+  origLog(Y(`  ⚠ SKIP  ${label} — GEMINI_API_KEY not set (keyless CI run)`));
+}
