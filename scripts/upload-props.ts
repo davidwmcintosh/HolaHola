@@ -20,7 +20,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../server/db';
 import { sql } from 'drizzle-orm';
-import { uploadPublicBuffer } from '../server/services/image-storage';
+import { uploadPublicBuffer, normalizeImageUrl } from '../server/services/image-storage';
 import { deriveTargetColumn, deriveFilename, sanitisePropName } from './prop-round-trip-helpers';
 
 const args = process.argv.slice(2);
@@ -79,7 +79,7 @@ async function main() {
 
     try {
       const filename = deriveFilename(safeName, REPLACE_MAIN, Date.now());
-      const newUrl = await uploadPublicBuffer(filename, buffer, 'image/png');
+      const newUrl = normalizeImageUrl(await uploadPublicBuffer(filename, buffer, 'image/png'));
       // Column name comes exclusively from deriveTargetColumn — same source of truth as the log line.
       await db.execute(sql`UPDATE visual_assets SET ${sql.raw(targetCol)} = ${newUrl} WHERE id = ${prop.id}`);
       console.log(`✓  → ${newUrl}`);

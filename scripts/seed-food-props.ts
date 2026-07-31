@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { uploadPublicBuffer } from '../server/services/image-storage';
+import { uploadPublicBuffer, normalizeImageUrl } from '../server/services/image-storage';
 import { db } from '../server/db';
 import { sql } from 'drizzle-orm';
 
@@ -19,7 +19,7 @@ async function run() {
     const file = `attached_assets/generated_images/prop-${p.name}.png`;
     if (!fs.existsSync(file)) { console.log('MISSING:', file); continue; }
     const buf = fs.readFileSync(file);
-    const url = await uploadPublicBuffer(`prop-${p.name}-${Date.now()}.png`, buf, 'image/png');
+    const url = normalizeImageUrl(await uploadPublicBuffer(`prop-${p.name}-${Date.now()}.png`, buf, 'image/png'));
     await db.execute(sql`
       INSERT INTO visual_assets (name, display_name, object_type, zone_image_url, image_url)
       VALUES (${p.name}, ${p.display}, ${p.type}, ${url}, ${url})

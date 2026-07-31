@@ -1,11 +1,17 @@
 /**
  * CI guard: every call to uploadPublicBuffer() and generateEnvironmentScene()
- * in the server/ tree must be immediately wrapped in normalizeImageUrl().
+ * in the server/ tree AND admin/migration scripts outside it must be
+ * immediately wrapped in normalizeImageUrl().
  *
  * Rationale: raw GCS URLs stored in the database bypass the /api/media proxy,
  * break cache lookups, and leak bucket names to clients. Task 145 added unit
  * tests for every existing write path; this test prevents new paths from
  * silently skipping the guard.
+ *
+ * Scanned roots (configurable via EXTRA_ROOTS below):
+ *   - server/   — application code
+ *   - scripts/  — admin / data-migration / seeder scripts
+ *   - project root — individual .ts files at the repo root (non-recursive)
  *
  * Exemptions:
  *   Append  // gcs-guard-exempt: <reason>  to any line that is intentionally
@@ -28,7 +34,17 @@ import path from 'node:path';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-const SERVER_ROOT = path.resolve(import.meta.dirname, '..');
+// PROJECT_ROOT must be declared before SERVER_ROOT and EXTRA_ROOTS.
+const PROJECT_ROOT = path.resolve(import.meta.dirname, '../..');
+const SERVER_ROOT = path.resolve(PROJECT_ROOT, 'server');
+
+/**
+ * Additional directories to scan beyond server/.
+ * Add any new top-level script/admin/migration directories here.
+ */
+const EXTRA_ROOTS: string[] = [
+  path.resolve(PROJECT_ROOT, 'scripts'),
+];
 
 /** Files that define the functions — skip them (they are not call sites). */
 const EXCLUDED_FILES = new Set([
@@ -56,6 +72,18 @@ function* walkTs(dir: string): Generator<string> {
   }
 }
 
+/**
+ * Yield all .ts files directly at the project root (non-recursive —
+ * subdirectories are covered by their own roots in EXTRA_ROOTS).
+ */
+function* walkRootTs(dir: string): Generator<string> {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isFile() && entry.name.endsWith('.ts')) {
+      yield path.join(dir, entry.name);
+    }
+  }
+}
+
 // ─── Scanner ─────────────────────────────────────────────────────────────────
 
 interface Violation {
@@ -68,44 +96,53 @@ interface Violation {
 function scanForViolations(): Violation[] {
   const violations: Violation[] = [];
 
-  for (const filePath of walkTs(SERVER_ROOT)) {
-    if (EXCLUDED_FILES.has(filePath)) continue;
+  // Collect all roots: server/ + every configured extra root + root-level .ts files.
+  const fileSources: Array<() => Generator<string>> = [
+    () => walkTs(SERVER_ROOT),
+    ...EXTRA_ROOTS.filter(r => fs.existsSync(r)).map(r => () => walkTs(r)),
+    () => walkRootTs(PROJECT_ROOT),
+  ];
 
-    const lines = fs.readFileSync(filePath, 'utf8').split('\n');
-    for (let i = 0; i < lines.length; i++) {
-      const lineText = lines[i];
+  for (const source of fileSources) {
+    for (const filePath of source()) {
+      if (EXCLUDED_FILES.has(filePath)) continue;
 
-      for (const fn of GUARDED_FUNCTIONS) {
-        // Only check lines that actually call the function (have the open-paren)
-        if (!lineText.includes(`${fn}(`)) continue;
+      const lines = fs.readFileSync(filePath, 'utf8').split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const lineText = lines[i];
 
-        // Line is explicitly opted out
-        if (lineText.includes(EXEMPT_MARKER)) continue;
+        for (const fn of GUARDED_FUNCTIONS) {
+          // Only check lines that actually call the function (have the open-paren)
+          if (!lineText.includes(`${fn}(`)) continue;
 
-        // Import declarations and re-exports are not call sites
-        const trimmed = lineText.trim();
-        if (
-          trimmed.startsWith('import ') ||
-          trimmed.startsWith('export ') ||
-          trimmed.startsWith('*') ||
-          trimmed.startsWith('//')
-        ) continue;
+          // Line is explicitly opted out
+          if (lineText.includes(EXEMPT_MARKER)) continue;
 
-        // The call must be wrapped: normalizeImageUrl( must appear on the same
-        // line OR on the immediately following line (two-line assignment pattern:
-        //   const baseUrl = await uploadPublicBuffer(...);
-        //   const url = normalizeImageUrl(`${baseUrl}?v=...`);
-        // ).
-        const nextLine = lines[i + 1] ?? '';
-        if (lineText.includes('normalizeImageUrl(')) continue;
-        if (nextLine.includes('normalizeImageUrl(')) continue;
+          // Import declarations and re-exports are not call sites
+          const trimmed = lineText.trim();
+          if (
+            trimmed.startsWith('import ') ||
+            trimmed.startsWith('export ') ||
+            trimmed.startsWith('*') ||
+            trimmed.startsWith('//')
+          ) continue;
 
-        violations.push({
-          file: path.relative(path.resolve(SERVER_ROOT, '..'), filePath),
-          line: i + 1,
-          text: lineText.trim(),
-          fn,
-        });
+          // The call must be wrapped: normalizeImageUrl( must appear on the same
+          // line OR on the immediately following line (two-line assignment pattern:
+          //   const baseUrl = await uploadPublicBuffer(...);
+          //   const url = normalizeImageUrl(`${baseUrl}?v=...`);
+          // ).
+          const nextLine = lines[i + 1] ?? '';
+          if (lineText.includes('normalizeImageUrl(')) continue;
+          if (nextLine.includes('normalizeImageUrl(')) continue;
+
+          violations.push({
+            file: path.relative(PROJECT_ROOT, filePath),
+            line: i + 1,
+            text: lineText.trim(),
+            fn,
+          });
+        }
       }
     }
   }
@@ -116,7 +153,7 @@ function scanForViolations(): Violation[] {
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('GCS guard — every upload call wrapped in normalizeImageUrl', () => {
-  it('finds no unwrapped uploadPublicBuffer() calls in server/', () => {
+  it('finds no unwrapped uploadPublicBuffer() calls in server/, scripts/, or project root', () => {
     const violations = scanForViolations().filter(v => v.fn === 'uploadPublicBuffer');
 
     if (violations.length > 0) {
@@ -132,7 +169,7 @@ describe('GCS guard — every upload call wrapped in normalizeImageUrl', () => {
     }
   });
 
-  it('finds no unwrapped generateEnvironmentScene() calls in server/', () => {
+  it('finds no unwrapped generateEnvironmentScene() calls in server/, scripts/, or project root', () => {
     const violations = scanForViolations().filter(v => v.fn === 'generateEnvironmentScene');
 
     if (violations.length > 0) {
@@ -156,7 +193,6 @@ describe('GCS guard — every upload call wrapped in normalizeImageUrl', () => {
   });
 
   it('unwrapped call without marker IS flagged (scanner logic self-check)', () => {
-    // Write a tiny synthetic source and run the logic inline
     const mockLine = `    const url = await uploadPublicBuffer(filename, buf, 'image/jpeg');`;
     const hasGuard = mockLine.includes('normalizeImageUrl(');
     const hasExempt = mockLine.includes(EXEMPT_MARKER);
@@ -185,33 +221,7 @@ describe('GCS guard — scanner self-validation (end-to-end with a real file)', 
       `// Temporary file written by scan-unwrapped-image-uploads.test.ts — DO NOT COMMIT`,
       `import { uploadPublicBuffer } from '../services/image-storage';`,
       `async function bad() {`,
-      `  const url = await uploadPublicBuffer('test.png', Buffer.from(''), 'image/png');`,
-      `  return url;`,
-      `}`,
-    ].join('\n');
-
-    fs.writeFileSync(TEMP_FILE, source, 'utf8');
-    try {
-      const violations = scanForViolations().filter(
-        v => v.file.includes('__gcs-guard-selftest-tmp__'),
-      );
-      assert.ok(
-        violations.length >= 1,
-        `Scanner should have flagged the unwrapped call in the temp file but found 0 violations.\n` +
-        `This means the scanner would silently miss a real violation.`,
-      );
-    } finally {
-      fs.unlinkSync(TEMP_FILE);
-    }
-  });
-
-  it('does NOT flag the same file when the call is wrapped in normalizeImageUrl()', () => {
-    const source = [
-      `// Temporary file written by scan-unwrapped-image-uploads.test.ts — DO NOT COMMIT`,
-      `import { uploadPublicBuffer } from '../services/image-storage';`,
-      `import { normalizeImageUrl } from '../services/image-storage';`,
-      `async function good() {`,
-      `  const url = normalizeImageUrl(await uploadPublicBuffer('test.png', Buffer.from(''), 'image/png'));`,
+      `  const url = await uploadPublicBuffer('image.png', Buffer.from(''), 'image/png');`,
       `  return url;`,
       `}`,
     ].join('\n');
@@ -223,8 +233,8 @@ describe('GCS guard — scanner self-validation (end-to-end with a real file)', 
       );
       assert.equal(
         violations.length,
-        0,
-        `Scanner incorrectly flagged a correctly-wrapped call.\nViolations: ${JSON.stringify(violations)}`,
+        1,
+        `Scanner should have found 1 unwrapped call but found ${violations.length}.\nViolations: ${JSON.stringify(violations)}`,
       );
     } finally {
       fs.unlinkSync(TEMP_FILE);
@@ -250,6 +260,31 @@ describe('GCS guard — scanner self-validation (end-to-end with a real file)', 
         violations.length,
         0,
         `Scanner incorrectly flagged an exempt call.\nViolations: ${JSON.stringify(violations)}`,
+      );
+    } finally {
+      fs.unlinkSync(TEMP_FILE);
+    }
+  });
+
+  it('does NOT flag the same file when the call is wrapped in normalizeImageUrl', () => {
+    const source = [
+      `// Temporary file written by scan-unwrapped-image-uploads.test.ts — DO NOT COMMIT`,
+      `import { uploadPublicBuffer, normalizeImageUrl } from '../services/image-storage';`,
+      `async function wrapped() {`,
+      `  const url = normalizeImageUrl(await uploadPublicBuffer('image.png', Buffer.from(''), 'image/png'));`,
+      `  return url;`,
+      `}`,
+    ].join('\n');
+
+    fs.writeFileSync(TEMP_FILE, source, 'utf8');
+    try {
+      const violations = scanForViolations().filter(
+        v => v.file.includes('__gcs-guard-selftest-tmp__'),
+      );
+      assert.equal(
+        violations.length,
+        0,
+        `Scanner incorrectly flagged a correctly-wrapped call.\nViolations: ${JSON.stringify(violations)}`,
       );
     } finally {
       fs.unlinkSync(TEMP_FILE);

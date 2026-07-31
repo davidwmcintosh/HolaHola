@@ -11,7 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { db } from '../server/db';
 import { sql } from 'drizzle-orm';
-import { uploadPublicBuffer } from '../server/services/image-storage';
+import { uploadPublicBuffer, normalizeImageUrl } from '../server/services/image-storage';
 
 const PROPS = [
   { name: 'ketchup',        displayName: 'Ketchup',         objectType: 'condiment',     file: 'prop-ketchup.png' },
@@ -45,8 +45,8 @@ async function main() {
       const zoneFilename = `prop-${prop.name}-zone-${ts}.png`;
       const mainFilename = `prop-${prop.name}-${ts}.png`;
 
-      const zoneUrl = await uploadPublicBuffer(zoneFilename, buffer, 'image/png');
-      const mainUrl = await uploadPublicBuffer(mainFilename, buffer, 'image/png');
+      const zoneUrl = normalizeImageUrl(await uploadPublicBuffer(zoneFilename, buffer, 'image/png'));
+      const mainUrl = normalizeImageUrl(await uploadPublicBuffer(mainFilename, buffer, 'image/png'));
 
       // Check if this prop already exists
       const existing = await db.execute(sql`SELECT id FROM visual_assets WHERE name = ${prop.name} LIMIT 1`);

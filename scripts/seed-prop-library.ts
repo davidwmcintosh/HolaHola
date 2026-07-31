@@ -9,7 +9,7 @@
 import sharp from 'sharp';
 import { db } from '../server/db';
 import { sql } from 'drizzle-orm';
-import { uploadPublicBuffer } from '../server/services/image-storage';
+import { uploadPublicBuffer, normalizeImageUrl } from '../server/services/image-storage';
 
 const OPENAI_KEY = process.env.USER_OPENAI_API_KEY || process.env.OPENAI_API_KEY || '';
 
@@ -835,7 +835,7 @@ async function processProp(prop: PropDef): Promise<void> {
 
   console.log(`  [UP]   ${prop.display_name} — uploading...`);
   const filename = `prop-${prop.name}-${Date.now()}.png`;
-  const appUrl = await uploadPublicBuffer(filename, pngBuf, 'image/png');
+  const appUrl = normalizeImageUrl(await uploadPublicBuffer(filename, pngBuf, 'image/png'));
 
   console.log(`  [DB]   ${prop.display_name} — saving...`);
   await upsertProp(prop, appUrl);
