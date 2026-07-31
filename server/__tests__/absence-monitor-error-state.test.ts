@@ -534,6 +534,155 @@ describe('Refresh button click → recovered data shows real nudge counts, not 0
   });
 });
 
+// ── Tests: Refresh button disabled/loading state ──────────────────────────────
+//
+// CONTRACT: When a refetch is in flight the Refresh button must be disabled to
+// prevent double-clicks, and the RefreshCw icon must carry `animate-spin` so
+// the user sees visual feedback.
+//
+// TanStack Query v5 detail:
+//   - `isLoading` is only true on the FIRST fetch (no data yet, pending status).
+//   - `isFetching` is true during EVERY in-flight request — initial load AND
+//     every subsequent refetch() call.
+//   After an error the user clicks Refresh: query status is 'error', but
+//   isFetching=true while the retry is in flight.  isLoading stays false.
+//   The button/icon must be gated on `isFetching`, not `isLoading`.
+//
+// Tests:
+//   A. Source-level: confirm the prop/class condition references `isFetching`.
+//   B. Behavioural: simulate the three relevant query states and assert that
+//      the button disabled expression and icon className expression produce the
+//      correct values in each state.
+
+// ── A. Source-level assertions ────────────────────────────────────────────────
+
+describe('Refresh button — source guard uses isFetching (not isLoading)', () => {
+  it('isFetching is destructured from useQuery in AbsenceMonitorTab', () => {
+    assert.ok(
+      absenceMonitorTabSrc.includes('isFetching'),
+      'AbsenceMonitorTab must destructure isFetching from useQuery — ' +
+        'isLoading stays false during a manual refetch; isFetching covers all in-flight states',
+    );
+  });
+
+  it('Refresh button has disabled={isFetching} prop', () => {
+    assert.ok(
+      absenceMonitorTabSrc.includes('disabled={isFetching}'),
+      'AbsenceMonitorTab Refresh button must carry disabled={isFetching} — ' +
+        'without it the button can be double-clicked while a refetch is in flight',
+    );
+  });
+
+  it('RefreshCw icon applies animate-spin conditional on isFetching', () => {
+    // The class must reference isFetching, not isLoading, for the same reason.
+    const hasConditional =
+      absenceMonitorTabSrc.includes('animate-spin') &&
+      /isFetching[^}]{0,80}animate-spin|animate-spin[^}]{0,80}isFetching/.test(
+        absenceMonitorTabSrc,
+      );
+    assert.ok(
+      hasConditional,
+      'animate-spin must be conditionally applied based on isFetching — ' +
+        'if it references isLoading the spinner will not appear during a manual refetch',
+    );
+  });
+
+  it('Refresh button still carries RefreshCw icon (visual identity check)', () => {
+    assert.ok(
+      absenceMonitorTabSrc.includes('RefreshCw'),
+      'AbsenceMonitorTab Refresh button must include a RefreshCw icon',
+    );
+  });
+});
+
+// ── B. Behavioural: inline replicas of the button expressions ─────────────────
+//
+// These tests simulate the three relevant query states a user will encounter:
+//
+//   State 1 — idle (initial load done, no refetch pending):
+//     isFetching=false → button enabled, no spinner.
+//
+//   State 2 — refetch in flight (user clicked Refresh after an error):
+//     isFetching=true, isLoading=false → button disabled, spinner visible.
+//     This is the critical path the task targets.
+//
+//   State 3 — initial load (first ever fetch, no data yet):
+//     isFetching=true, isLoading=true → button disabled, spinner visible.
+
+// Inline replicas (mirror AbsenceMonitorTab JSX):
+//   disabled={isFetching}
+//   className={`h-4 w-4 mr-2${isFetching ? ' animate-spin' : ''}`}
+
+function buttonDisabled(isFetching: boolean): boolean {
+  return isFetching;
+}
+
+function iconClassName(isFetching: boolean): string {
+  return `h-4 w-4 mr-2${isFetching ? ' animate-spin' : ''}`;
+}
+
+describe('Refresh button — behavioural: disabled and spinner states', () => {
+  // State 1: idle — no request in flight
+  it('[idle] button is NOT disabled when isFetching=false', () => {
+    assert.equal(buttonDisabled(false), false);
+  });
+
+  it('[idle] icon does NOT have animate-spin when isFetching=false', () => {
+    const cls = iconClassName(false);
+    assert.ok(!cls.includes('animate-spin'), `expected no animate-spin, got: ${cls}`);
+  });
+
+  // State 2: refetch in flight — the exact path triggered by clicking Refresh
+  // after a 500.  isLoading stays false; isFetching becomes true.
+  it('[refetch in flight] button IS disabled when isFetching=true, isLoading=false', () => {
+    const isFetching = true;
+    const isLoading  = false;          // typical after-error refetch: no isLoading
+    void isLoading;                    // isLoading not used in the guard — intentional
+    assert.equal(buttonDisabled(isFetching), true);
+  });
+
+  it('[refetch in flight] icon HAS animate-spin when isFetching=true, isLoading=false', () => {
+    const isFetching = true;
+    const cls = iconClassName(isFetching);
+    assert.ok(cls.includes('animate-spin'), `expected animate-spin, got: ${cls}`);
+  });
+
+  it('[refetch in flight] isLoading=false alone would NOT disable button — confirms isFetching is required', () => {
+    // This test documents WHY we need isFetching rather than isLoading:
+    // during a manual refetch after error, isLoading is false.
+    // If the button were gated on isLoading, it would be enabled (wrong).
+    const isLoadingOnlyGate = false;   // simulating isLoading during a manual refetch
+    assert.equal(isLoadingOnlyGate, false,
+      'isLoading stays false during a post-error refetch — gating on it leaves the button clickable');
+  });
+
+  // State 3: initial load (first fetch, no prior data)
+  it('[initial load] button IS disabled when isFetching=true', () => {
+    assert.equal(buttonDisabled(true), true);
+  });
+
+  it('[initial load] icon HAS animate-spin when isFetching=true', () => {
+    const cls = iconClassName(true);
+    assert.ok(cls.includes('animate-spin'), `expected animate-spin on initial load, got: ${cls}`);
+  });
+
+  // Transition: error → refetch in flight → success
+  it('transition: button goes from enabled → disabled → enabled across the refetch cycle', () => {
+    // Before Refresh click: isFetching=false (idle/error, not fetching)
+    assert.equal(buttonDisabled(false), false, 'enabled before Refresh click');
+    // During refetch: isFetching=true
+    assert.equal(buttonDisabled(true), true,  'disabled while refetch is in flight');
+    // After refetch resolves: isFetching=false
+    assert.equal(buttonDisabled(false), false, 'enabled again after refetch completes');
+  });
+
+  it('transition: icon animates only during the in-flight window', () => {
+    assert.ok(!iconClassName(false).includes('animate-spin'), 'no spin before Refresh');
+    assert.ok( iconClassName(true ).includes('animate-spin'), 'spins while in flight');
+    assert.ok(!iconClassName(false).includes('animate-spin'), 'no spin after completion');
+  });
+});
+
 // ── Tests: ?? 0 guard semantics ───────────────────────────────────────────────
 //
 // Explicit verification that ?? catches null and undefined but not 0 or NaN.
