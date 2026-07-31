@@ -257,8 +257,9 @@ function isWhitelistedToken(token: string): boolean {
   // CamelCase without hyphen: iPhone, JavaScript
   if (!token.includes('-') && /[a-z]/.test(token) && /[A-Z]/.test(token)) return true;
   
-  // Locale codes: en-US, es-MX
-  if (/^[a-z]{2,4}-[A-Z]{2,4}$/.test(token)) return true;
+  // Locale codes: en-US, es-MX (exactly 2-letter ISO language + 2-letter ISO country)
+  // Narrowed from {2,4} to {2} to reject phonetic syllables like kah-FEH, fah-VOR
+  if (/^[a-z]{2}-[A-Z]{2}$/.test(token)) return true;
   
   // Proper nouns: Pre-Columbian
   if (/^[A-Z][a-z]+-[A-Z][a-z]+/.test(token)) return true;

@@ -25,7 +25,7 @@ function normalizeDiacritics(text: string): string {
 
 function isWhitelistedToken(token: string): boolean {
   if (!token.includes('-') && /[a-z]/.test(token) && /[A-Z]/.test(token)) return true;
-  if (/^[a-z]{2,4}-[A-Z]{2,4}$/.test(token)) return true;
+  if (/^[a-z]{2}-[A-Z]{2}$/.test(token)) return true;
   if (/^[A-Z][a-z]+-[A-Z][a-z]+/.test(token)) return true;
   if (/^[a-z]+-[a-z]+$/.test(token)) return true;
   return false;
@@ -111,7 +111,8 @@ describe('TTS Text Cleaning Pipeline', () => {
 
     it('should remove all-caps phonetic notation after equals sign', () => {
       // Tokens matching UPPER-UPPER are correctly detected as phonetic.
-      // Mixed-case tokens (kah-FEH) match the locale-code whitelist and are preserved.
+      // Mixed-case tokens (kah-FEH) are also phonetic: the locale-code whitelist
+      // was narrowed to exactly 2-letter codes (en-US) so kah-FEH no longer matches.
       assert.equal(stripMarkdownForSpeech('Hola = OH-LAH'), 'Hola');
     });
 
@@ -195,10 +196,12 @@ describe('TTS Text Cleaning Pipeline', () => {
       );
     });
 
-    it('should preserve prose when phonetic ratio is low', () => {
+    it('should strip phonetic token even when other prose is present in the clause', () => {
+      // kah-FEH is phonetic (lowercase-UPPERCASE); the locale-code whitelist no longer
+      // matches it (narrowed to exactly 2+2 letters). The surrounding prose is preserved.
       assert.equal(
         stripMarkdownForSpeech('Keep practicing; Pre-Columbian stories and kah-FEH matter'),
-        'Keep practicing; Pre-Columbian stories and kah-FEH matter',
+        'Keep practicing; Pre-Columbian stories and matter',
       );
     });
   });
