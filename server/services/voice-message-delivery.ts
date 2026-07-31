@@ -25,6 +25,49 @@ const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
 const TWILIO_FROM_NUMBER = (process.env.TWILIO_FROM_NUMBER || '').replace(/[\s\-().]/g, '');
 
+/** Returns true when all three required Twilio env vars are present. */
+export function isTwilioConfigured(): boolean {
+  return !!(TWILIO_ACCOUNT_SID && TWILIO_AUTH_TOKEN && TWILIO_FROM_NUMBER);
+}
+
+/**
+ * Attempt to send an SMS using explicitly-supplied credentials.
+ * This injectable form is used by tests so they can exercise both the
+ * "configured" and "not configured" paths without module mocking.
+ *
+ * Returns true if sent, false if credentials are missing. Throws on API errors.
+ */
+export async function sendSmsWithCredentials(
+  credentials: { accountSid: string; authToken: string; fromNumber: string },
+  to: string,
+  body: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<boolean> {
+  const { accountSid, authToken, fromNumber } = credentials;
+  if (!accountSid || !authToken || !fromNumber) {
+    return false;
+  }
+  const auth = Buffer.from(`${accountSid}:${authToken}`).toString('base64');
+  const response = await fetchImpl(
+    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ To: to, From: fromNumber, Body: body }).toString(),
+    },
+  );
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Twilio ${response.status}: ${errText.substring(0, 200)}`);
+  }
+  const data = await response.json() as { sid?: string; status?: string };
+  console.log(`[VoiceMessageDelivery] SMS sent sid=${data.sid} status=${data.status}`);
+  return true;
+}
+
 function normalizeE164(phone: string): string {
   const stripped = phone.replace(/[\s\-().]/g, '');
   if (!stripped.startsWith('+')) return stripped;
@@ -102,39 +145,50 @@ async function sendTwilioSms(to: string, body: string): Promise<boolean> {
   return true;
 }
 
+export interface VoiceDeliveryResult {
+  smsSent: boolean;
+  deliveryNote: string;
+}
+
 /**
  * Attempt to deliver a queued voice message via SMS.
  *
  * Called fire-and-forget after LEAVE_FOR_NEXT_SESSION writes to the queue.
  * Errors are logged; the message always remains in the queue for session-start
  * delivery as a fallback.
+ *
+ * Returns a result describing what happened so callers (e.g. the test endpoint)
+ * can surface it to the founder without reading server logs.
  */
 export async function deliverVoiceMessageViaSms(
   queueId: string,
   userId: string,
   content: string,
-): Promise<void> {
+): Promise<VoiceDeliveryResult> {
   const canSend = await canContactStudent(userId, 'sms');
   if (!canSend) {
     console.log(`[VoiceMessageDelivery] No SMS consent for user …${userId.slice(-6)} — message stays in queue`);
-    return;
+    return { smsSent: false, deliveryNote: 'SMS skipped — student has not granted SMS consent' };
   }
 
   const prefs = await storage.getContactPreferences(userId);
-  if (!prefs?.phone) return;
+  if (!prefs?.phone) {
+    console.log(`[VoiceMessageDelivery] No phone on file for user …${userId.slice(-6)} — delivery skipped`);
+    return { smsSent: false, deliveryNote: 'SMS skipped — no phone number on file for this student' };
+  }
 
   console.log(`[VoiceMessageDelivery] Starting SMS voice note delivery for user …${userId.slice(-6)}`);
 
   const wavBuffer = await renderAudioBuffer(content);
   if (!wavBuffer || wavBuffer.length === 0) {
     console.warn('[VoiceMessageDelivery] Audio rendering produced empty buffer — delivery skipped');
-    return;
+    return { smsSent: false, deliveryNote: 'SMS skipped — audio rendering failed (check Gemini TTS config)' };
   }
 
   const audioPath = await uploadAudioToStorage(queueId, wavBuffer);
   if (!audioPath) {
     console.warn('[VoiceMessageDelivery] Audio upload failed — delivery skipped');
-    return;
+    return { smsSent: false, deliveryNote: 'SMS skipped — audio upload to storage failed' };
   }
 
   const db = getSharedDb();
@@ -150,12 +204,12 @@ export async function deliverVoiceMessageViaSms(
     smsSent = await sendTwilioSms(normalizeE164(prefs.phone), smsBody);
   } catch (err: any) {
     console.error('[VoiceMessageDelivery] SMS send failed:', err.message);
-    return;
+    return { smsSent: false, deliveryNote: `SMS failed — Twilio API error: ${err.message}` };
   }
 
   if (!smsSent) {
-    // Credentials not configured — logged inside sendTwilioSms; leave queue item as-is
-    return;
+    // Credentials not configured — logged inside sendTwilioSms
+    return { smsSent: false, deliveryNote: 'SMS skipped — Twilio not configured (add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER to Secrets)' };
   }
 
   await db.update(danielaOutboundQueue)
@@ -163,4 +217,5 @@ export async function deliverVoiceMessageViaSms(
     .where(eq(danielaOutboundQueue.id, queueId));
 
   console.log(`[VoiceMessageDelivery] Complete — queue item ${queueId} delivered via SMS`);
+  return { smsSent: true, deliveryNote: 'SMS sent ✓' };
 }

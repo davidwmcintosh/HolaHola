@@ -9,13 +9,15 @@
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
     "db:push": "drizzle-kit push",
-    "test": "npx tsx --test server/scripts/scan-gcs-urls.test.ts server/scripts/normalize-image-url-guards.test.ts client/src/components/absence-filter-persistence.test.ts client/src/components/absence-history-panel-filters.test.ts client/src/components/restart-poll-toast-dismiss.test.ts server/scripts/storage-probe-alerter.test.ts client/src/components/cultural-context-blank-guard.test.ts server/__tests__/quiz-correct-index-bounds.test.ts server/__tests__/absence-monitor-empty-state.test.ts && npx tsx server/scripts/test-openai-pronunciation-error-notice.ts"
+    "test": "npx tsx --test server/scripts/scan-gcs-urls.test.ts server/scripts/normalize-image-url-guards.test.ts client/src/components/absence-filter-persistence.test.ts client/src/components/absence-history-panel-filters.test.ts client/src/components/restart-poll-toast-dismiss.test.ts server/scripts/storage-probe-alerter.test.ts client/src/components/cultural-context-blank-guard.test.ts server/__tests__/quiz-correct-index-bounds.test.ts server/__tests__/absence-monitor-empty-state.test.ts server/tests/voice-sms-delivery.test.ts && npx tsx server/scripts/test-openai-pronunciation-error-notice.ts"
   },
   "overrides": {
     "minimatch": "^3.1.2",
     "brace-expansion": "^2.0.1",
-    "rimraf": "^3.0.2", "glob": "^7.2.3",
-    "gaxios": "^6.1.1", "sucrase": "^3.34.0"
+    "rimraf": "^3.0.2",
+    "glob": "^7.2.3",
+    "gaxios": "^6.1.1",
+    "sucrase": "^3.34.0"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",

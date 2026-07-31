@@ -74,7 +74,7 @@ function TestVoiceSmsPanel() {
   const [open, setOpen] = useState(false);
   const [userId, setUserId] = useState("");
   const [message, setMessage] = useState("");
-  const [result, setResult] = useState<{ queueId: string; playbackUrl: string; message: string } | null>(null);
+  const [result, setResult] = useState<{ queueId: string; playbackUrl: string; message: string; smsSent: boolean; deliveryNote: string } | null>(null);
 
   const { data: voipData, isLoading: loadingUsers } = useQuery<{ users: VoipUser[] }>({
     queryKey: ["/api/admin/voip-users"],
@@ -85,7 +85,7 @@ function TestVoiceSmsPanel() {
   const students = voipData?.users ?? [];
 
   const { mutate, isPending, isError, error } = useMutation<
-    { queueId: string; playbackUrl: string; message: string },
+    { queueId: string; playbackUrl: string; message: string; smsSent: boolean; deliveryNote: string },
     Error,
     { userId: string; message: string }
   >({
@@ -212,8 +212,11 @@ function TestVoiceSmsPanel() {
           )}
 
           {result && (
-            <div className="rounded-md bg-green-500/10 p-2 space-y-1" data-testid="test-sms-result">
-              <p className="text-xs text-green-700 dark:text-green-400">{result.message}</p>
+            <div className={`rounded-md p-2 space-y-1 ${result.smsSent ? "bg-green-500/10" : "bg-amber-500/10"}`} data-testid="test-sms-result">
+              <p className={`text-xs font-medium ${result.smsSent ? "text-green-700 dark:text-green-400" : "text-amber-700 dark:text-amber-400"}`} data-testid="test-sms-delivery-note">
+                {result.deliveryNote}
+              </p>
+              <p className="text-xs text-muted-foreground">{result.message}</p>
               <a
                 href={result.playbackUrl}
                 target="_blank"

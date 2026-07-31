@@ -33572,16 +33572,27 @@ You have full access to your neural network knowledge.
       const appUrl = process.env.APP_URL || 'https://getholahola.com';
       const playbackUrl = `${appUrl}/vm/${queueId}`;
 
-      // Fire-and-forget: errors are logged inside deliverVoiceMessageViaSms
+      // Await delivery so we can surface smsSent / deliveryNote to the founder
       const { deliverVoiceMessageViaSms } = await import('./services/voice-message-delivery');
-      deliverVoiceMessageViaSms(queueId, userId, content).catch((err: any) =>
-        console.error('[TestVoiceSms] Delivery error:', err.message)
-      );
+      let smsSent = false;
+      let deliveryNote = 'Delivery not attempted';
+      try {
+        const result = await deliverVoiceMessageViaSms(queueId, userId, content);
+        smsSent = result.smsSent;
+        deliveryNote = result.deliveryNote;
+      } catch (err: any) {
+        console.error('[TestVoiceSms] Delivery error:', err.message);
+        deliveryNote = `Delivery error: ${err.message}`;
+      }
 
       res.json({
         queueId,
         playbackUrl,
-        message: 'Queued and delivery triggered. Check server logs for SMS/audio status.',
+        smsSent,
+        deliveryNote,
+        message: smsSent
+          ? 'Queue item created and SMS sent successfully.'
+          : 'Queue item created. SMS was not sent — see deliveryNote for details.',
       });
     } catch (error: any) {
       console.error('[TestVoiceSms] Error:', error);
