@@ -7,12 +7,9 @@ import { SentenceColumnGenerator } from "@/components/SentenceColumnGenerator";
 import type { SentenceColumn } from "@/components/SentenceColumnGenerator";
 import type { OverlayPanel, OverlayPanelVocabWord } from "@shared/whiteboard-types";
 import {
-  getBookVerbContent,
-  getPreteriteContent,
-  getSerContent,
-  getHayContent,
-  getGustContent,
-} from "@/data/madrigal-unit-content";
+  getTextbookVocab,
+  type VocabEntry,
+} from "@/components/textbook-chapter-vocab-resolver";
 
 // ── Vocab image card ──────────────────────────────────────────────────────────
 
@@ -145,153 +142,6 @@ function TextbookWordRow({
       </div>
     </div>
   );
-}
-
-interface VocabEntry {
-  word: string;
-  description: string;
-}
-
-const GUST_CHAPTER_MAP: Record<string, string> = {
-  "gustar-me-gusta":        "gustar:",
-  "gustaria":               "me gustaría:",
-  "fui-i-went":             "fui:",
-  "voy-a-infinitive":       "voy a:",
-  "va-a-third-person":      "va a:",
-  "que-hizo":               "qué hizo",
-  "tuvo-he-had":            "tuvo:",
-  "le-indirect-object":     "le:",
-  "esta-he-is":             "está:",
-  "estudie-i-studied":      "estudié:",
-  "recibi-i-received":      "recibí:",
-  "compraba-imperfect":     "compraba",
-  "tengo-catarro":          "tengo catarro",
-  "a-que-hora":             "a qué hora",
-  "como-esta":              "cómo está",
-  "que-esta-haciendo":      "qué está haciendo",
-  "me-levanto":             "me levanto",
-  "he-comprado":            "he comprado",
-  "lo-veo":                 "lo veo",
-  "me-lo":                  "me lo",
-  "hable-formal-commands":  "hable:",
-  "telling-time":           "telling time",
-};
-
-function extractGustVocab(lookupKey: string): VocabEntry[] {
-  const c = getGustContent(lookupKey) as any;
-  if (!c) return [];
-  const entries: VocabEntry[] = [];
-  (c.clusters as any[]).forEach((cl: any) => {
-    const pairs: any[] = cl.pairs || [];
-    pairs.forEach((p: any) => {
-      if (p.imageWord) {
-        entries.push({ word: p.imageWord, description: p.answerTranslation || p.answer || "" });
-      }
-    });
-  });
-  return entries.filter(e => Boolean(e.word));
-}
-
-function getTextbookVocab(chapterKey: string): VocabEntry[] {
-  const entries: VocabEntry[] = [];
-
-  if (chapterKey === "ir-going-places") {
-    const c = getBookVerbContent("ir");
-    if (c) c.positiveItems.forEach((i) => entries.push({ word: i.word, description: i.translation }));
-  } else if (chapterKey === "tomar-i-took") {
-    const c = getPreteriteContent("tomar");
-    if (c) c.clusters.forEach((cl) => (cl.qaCards || []).forEach((card) => entries.push({ word: card.imageWord, description: card.answerTranslation })));
-  } else if (chapterKey === "comprar-i-bought") {
-    const c = getPreteriteContent("comprar");
-    if (c) c.clusters.forEach((cl) => (cl.qaCards || []).forEach((card) => entries.push({ word: card.imageWord, description: card.answerTranslation })));
-  } else if (chapterKey === "near-future-voy-a") {
-    const c = getPreteriteContent("near future");
-    if (c) c.clusters.forEach((cl) => (cl.qaCards || []).forEach((card) => entries.push({ word: card.imageWord, description: card.answerTranslation })));
-  } else if (chapterKey === "tener-i-have") {
-    const c = getPreteriteContent("tener");
-    if (c) c.clusters.forEach((cl) => (cl.qaCards || []).forEach((card) => entries.push({ word: card.imageWord, description: card.answerTranslation })));
-  } else if (chapterKey === "quiero-i-want") {
-    const c = getPreteriteContent("quiero");
-    if (c) c.clusters.forEach((cl) => (cl.qaCards || []).forEach((card) => entries.push({ word: card.imageWord, description: card.answerTranslation })));
-  } else if (chapterKey === "ser-plurals-gender") {
-    const c = getSerContent("ser");
-    if (c) {
-      (c.clusters as any[]).forEach((cl: any) => {
-        if (Array.isArray(cl.pairs)) {
-          cl.pairs.forEach((p: any) =>
-            entries.push({ word: p.singular || p.word || "", description: p.singularTranslation || p.translation || "" })
-          );
-        } else if (Array.isArray(cl.items)) {
-          cl.items.forEach((item: any) =>
-            entries.push({ word: item.spanish || item.word || "", description: item.english || item.translation || "" })
-          );
-        }
-      });
-    }
-  } else if (chapterKey === "hay") {
-    const c = getHayContent("hay") as any;
-    if (c) {
-      const clusters: any[] = c.vocabClusters || c.clusters || [];
-      clusters.forEach((cl: any) => {
-        const items: any[] = cl.items || cl.pairs || [];
-        items.forEach((item: any) =>
-          entries.push({
-            word: item.spanish || item.word || item.text || "",
-            description: item.english || item.translation || item.description || "",
-          })
-        );
-      });
-    }
-  } else if (chapterKey === "puedo-ir") {
-    const c = getHayContent("puedo ir") as any;
-    if (c) {
-      const clusters: any[] = c.clusters || [];
-      clusters.forEach((cl: any) => {
-        const pairs: any[] = cl.pairs || [];
-        pairs.forEach((p: any) => {
-          if (p.imageWord) {
-            entries.push({ word: p.imageWord, description: p.answerTranslation || p.questionTranslation || "" });
-          }
-        });
-      });
-    }
-  } else if (chapterKey === "estar-locations") {
-    const c = getSerContent("estar") as any;
-    if (c) {
-      (c.clusters as any[]).forEach((cl: any) => {
-        // estar-statements and ser-qa clusters have cards with imageWord
-        if (Array.isArray(cl.cards)) {
-          cl.cards.forEach((card: any) => {
-            if (card.imageWord) {
-              entries.push({
-                word: card.imageWord,
-                description: card.translation || card.answerTranslation || "",
-              });
-            }
-          });
-        }
-        // estar-expressions have genderPairs and additionalItems
-        if (Array.isArray(cl.genderPairs)) {
-          cl.genderPairs.forEach((gp: any) => {
-            if (gp.masculine) entries.push({ word: gp.masculine.spanish, description: gp.masculine.english });
-          });
-        }
-        if (Array.isArray(cl.additionalItems)) {
-          cl.additionalItems.forEach((item: any) => {
-            if (item.spanish) entries.push({ word: item.spanish, description: item.english || "" });
-          });
-        }
-      });
-    }
-  }
-
-  // Gust chapter family — covers all Madrigal chapters not handled above
-  const gustLookup = GUST_CHAPTER_MAP[chapterKey];
-  if (gustLookup) {
-    return extractGustVocab(gustLookup);
-  }
-
-  return entries.filter((e) => Boolean(e.word));
 }
 
 function TextbookSectionPanel({

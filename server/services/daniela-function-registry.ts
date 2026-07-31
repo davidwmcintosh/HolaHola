@@ -50,6 +50,7 @@
  */
 
 import { FunctionDeclaration } from "@google/genai";
+import { TEXTBOOK_CHAPTER_KEYS } from "@shared/textbook-chapter-keys";
 
 export interface FunctionCallInfo {
   name: string;
@@ -5532,7 +5533,7 @@ SHOW AND SPEAK PROTOCOL (mandatory):
           },
           chapter_key: {
             type: "string",
-            enum: ["ir-going-places", "tomar-i-took", "comprar-i-bought", "near-future-voy-a", "tener-i-have", "quiero-i-want", "ser-plurals-gender", "estar-locations", "hay", "puedo-ir", "gustar-me-gusta", "gustaria", "fui-i-went", "voy-a-infinitive", "va-a-third-person", "que-hizo", "tuvo-he-had", "le-indirect-object", "esta-he-is", "estudie-i-studied", "recibi-i-received", "compraba-imperfect", "tengo-catarro", "a-que-hora", "como-esta", "que-esta-haciendo", "me-levanto", "he-comprado", "lo-veo", "me-lo", "hable-formal-commands", "telling-time"],
+            enum: [...TEXTBOOK_CHAPTER_KEYS],
             description: "The textbook chapter to display (see supported keys above)",
           },
           title: {

@@ -1,13 +1,17 @@
 /**
- * Regression test: three textbook chapters must resolve to vocab entries.
+ * CI guard: every chapter key in TEXTBOOK_CHAPTER_KEYS (the canonical invocation
+ * surface used by show_textbook_section in daniela-function-registry.ts) must
+ * resolve to at least one vocab entry through getTextbookVocab().
  *
- * Chapters under test:
- *   - estar-locations  (getSerContent("estar") → estar-statements / estar-expressions clusters)
- *   - puedo-ir         (getHayContent("puedo ir") → pairs with imageWord)
- *   - telling-time     (getGustContent("telling time") → pairs with imageWord)
+ * How this catches regressions:
+ *   - A developer adds a new key to TEXTBOOK_CHAPTER_KEYS (shared/textbook-chapter-keys.ts).
+ *   - They forget to add an extractor branch or GUST_CHAPTER_MAP entry in
+ *     textbook-chapter-vocab-resolver.ts.
+ *   - This test fails on that key before the change can merge.
  *
- * All three were added in Task 31.  Without this test a data-shape mismatch
- * could silently cause the panel to show "Chapter not available in preview."
+ * The test is anchored to the canonical invocation surface (the shared constant),
+ * not to the resolver's internal KNOWN_CHAPTER_KEYS, so it catches drift between
+ * the two independently-maintained lists.
  *
  * Run with:
  *   npx tsx --test client/src/components/textbook-chapter-vocab.test.ts
@@ -18,165 +22,105 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { TEXTBOOK_CHAPTER_KEYS } from '@shared/textbook-chapter-keys';
 import {
-  getSerContent,
-  getHayContent,
-  getGustContent,
-} from '@/data/madrigal-unit-content';
+  getTextbookVocab,
+  KNOWN_CHAPTER_KEYS,
+} from '@/components/textbook-chapter-vocab-resolver';
 
 // ---------------------------------------------------------------------------
-// Mirror of the three extraction paths in OverlayPanelContent.tsx
-// getTextbookVocab() — keep in sync with the production function.
+// Parity guard — canonical invocation surface vs. resolver coverage.
+//
+// This is the drift check: if a key is added to the function registry (via
+// TEXTBOOK_CHAPTER_KEYS) but forgotten in the resolver, the set diff fails.
 // ---------------------------------------------------------------------------
 
-interface VocabEntry { word: string; description: string }
+describe('Textbook chapter vocab — canonical ↔ resolver parity', () => {
 
-/** estar-locations branch */
-function extractEstarLocations(): VocabEntry[] {
-  const entries: VocabEntry[] = [];
-  const c = getSerContent('estar') as any;
-  if (!c) return entries;
-  (c.clusters as any[]).forEach((cl: any) => {
-    if (Array.isArray(cl.cards)) {
-      cl.cards.forEach((card: any) => {
-        if (card.imageWord) {
-          entries.push({
-            word: card.imageWord,
-            description: card.translation || card.answerTranslation || '',
-          });
-        }
-      });
-    }
-    if (Array.isArray(cl.genderPairs)) {
-      cl.genderPairs.forEach((gp: any) => {
-        if (gp.masculine) {
-          entries.push({ word: gp.masculine.spanish, description: gp.masculine.english });
-        }
-      });
-    }
-    if (Array.isArray(cl.additionalItems)) {
-      cl.additionalItems.forEach((item: any) => {
-        if (item.spanish) entries.push({ word: item.spanish, description: item.english || '' });
-      });
-    }
+  it('TEXTBOOK_CHAPTER_KEYS is non-empty', () => {
+    assert.ok(TEXTBOOK_CHAPTER_KEYS.length > 0, 'Canonical key list must not be empty');
   });
-  return entries.filter(e => Boolean(e.word));
-}
 
-/** puedo-ir branch */
-function extractPuedoIr(): VocabEntry[] {
-  const entries: VocabEntry[] = [];
-  const c = getHayContent('puedo ir') as any;
-  if (!c) return entries;
-  (c.clusters as any[]).forEach((cl: any) => {
-    (cl.pairs as any[] || []).forEach((p: any) => {
-      if (p.imageWord) {
-        entries.push({
-          word: p.imageWord,
-          description: p.answerTranslation || p.questionTranslation || '',
-        });
-      }
-    });
+  it('every canonical key is present in KNOWN_CHAPTER_KEYS (no un-wired registry keys)', () => {
+    const missing = TEXTBOOK_CHAPTER_KEYS.filter((k) => !KNOWN_CHAPTER_KEYS.has(k));
+    assert.deepEqual(
+      missing,
+      [],
+      `These keys are in TEXTBOOK_CHAPTER_KEYS (the show_textbook_section enum) but have ` +
+        `no extractor in textbook-chapter-vocab-resolver.ts. Add a branch or GUST_CHAPTER_MAP ` +
+        `entry for each: ${missing.join(', ')}`,
+    );
   });
-  return entries.filter(e => Boolean(e.word));
-}
 
-/** telling-time branch (via GUST_CHAPTER_MAP → extractGustVocab) */
-function extractTellingTime(): VocabEntry[] {
-  const entries: VocabEntry[] = [];
-  const c = getGustContent('telling time') as any;
-  if (!c) return entries;
-  (c.clusters as any[]).forEach((cl: any) => {
-    (cl.pairs as any[] || []).forEach((p: any) => {
-      if (p.imageWord) {
-        entries.push({
-          word: p.imageWord,
-          description: p.answerTranslation || p.answer || '',
-        });
-      }
-    });
+  it('every resolver key is present in TEXTBOOK_CHAPTER_KEYS (no orphan extractors)', () => {
+    const orphans = [...KNOWN_CHAPTER_KEYS].filter(
+      (k) => !(TEXTBOOK_CHAPTER_KEYS as readonly string[]).includes(k),
+    );
+    assert.deepEqual(
+      orphans,
+      [],
+      `These keys have an extractor in the resolver but are absent from ` +
+        `TEXTBOOK_CHAPTER_KEYS. Either add them to shared/textbook-chapter-keys.ts ` +
+        `or remove the dead extractor: ${orphans.join(', ')}`,
+    );
   });
-  return entries.filter(e => Boolean(e.word));
-}
+});
 
 // ---------------------------------------------------------------------------
-// Tests
+// Coverage guard — every canonical key resolves to ≥1 vocab entry.
+//
+// Iterates TEXTBOOK_CHAPTER_KEYS (the canonical surface) so a newly added key
+// that passes parity but has a broken extractor is still caught.
 // ---------------------------------------------------------------------------
 
-describe('Textbook chapter vocab — three new chapters (Task 31)', () => {
+describe('Textbook chapter vocab — every canonical chapter resolves to entries', () => {
 
-  describe('estar-locations', () => {
-    it('getSerContent("estar") resolves to a non-null unit', () => {
-      const c = getSerContent('estar');
-      assert.ok(c !== null, 'getSerContent("estar") returned null — chapter data is missing');
-    });
+  it('canonical key list is non-empty', () => {
+    assert.ok(TEXTBOOK_CHAPTER_KEYS.length > 0, 'Canonical key list must not be empty');
+  });
 
-    it('extractEstarLocations() returns at least one entry', () => {
-      const entries = extractEstarLocations();
+  for (const key of TEXTBOOK_CHAPTER_KEYS) {
+    it(`"${key}" returns at least one vocab entry`, () => {
+      const entries = getTextbookVocab(key);
       assert.ok(
         entries.length > 0,
-        `estar-locations produced 0 entries — panel would show "Chapter not available in preview."`,
+        `Chapter key "${key}" resolved to 0 entries — the panel would show ` +
+          `"Chapter not available in preview." Add a branch in getTextbookVocab() ` +
+          `or an entry in GUST_CHAPTER_MAP in textbook-chapter-vocab-resolver.ts.`,
       );
     });
 
-    it('every estar-locations entry has a non-empty word field', () => {
-      const entries = extractEstarLocations();
+    it(`"${key}" — every entry has a non-empty word field`, () => {
+      const entries = getTextbookVocab(key);
       for (const e of entries) {
         assert.ok(
           typeof e.word === 'string' && e.word.trim().length > 0,
-          `Entry has empty word: ${JSON.stringify(e)}`,
+          `Chapter "${key}" produced an entry with an empty word: ${JSON.stringify(e)}`,
         );
       }
     });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Allowlist integrity — an unrecognized key returns 0 entries (dev warn fires).
+// ---------------------------------------------------------------------------
+
+describe('Textbook chapter vocab — unrecognized key behaviour', () => {
+
+  it('an unrecognized chapter key is absent from TEXTBOOK_CHAPTER_KEYS', () => {
+    assert.ok(
+      !(TEXTBOOK_CHAPTER_KEYS as readonly string[]).includes('unknown-chapter-xyz'),
+      'Fake key should not appear in the canonical key list',
+    );
   });
 
-  describe('puedo-ir', () => {
-    it('getHayContent("puedo ir") resolves to a non-null unit', () => {
-      const c = getHayContent('puedo ir');
-      assert.ok(c !== null, 'getHayContent("puedo ir") returned null — chapter data is missing');
-    });
-
-    it('extractPuedoIr() returns at least one entry', () => {
-      const entries = extractPuedoIr();
-      assert.ok(
-        entries.length > 0,
-        `puedo-ir produced 0 entries — panel would show "Chapter not available in preview."`,
-      );
-    });
-
-    it('every puedo-ir entry has a non-empty word field', () => {
-      const entries = extractPuedoIr();
-      for (const e of entries) {
-        assert.ok(
-          typeof e.word === 'string' && e.word.trim().length > 0,
-          `Entry has empty word: ${JSON.stringify(e)}`,
-        );
-      }
-    });
-  });
-
-  describe('telling-time', () => {
-    it('getGustContent("telling time") resolves to a non-null unit', () => {
-      const c = getGustContent('telling time');
-      assert.ok(c !== null, 'getGustContent("telling time") returned null — chapter data is missing');
-    });
-
-    it('extractTellingTime() returns at least one entry', () => {
-      const entries = extractTellingTime();
-      assert.ok(
-        entries.length > 0,
-        `telling-time produced 0 entries — panel would show "Chapter not available in preview."`,
-      );
-    });
-
-    it('every telling-time entry has a non-empty word field', () => {
-      const entries = extractTellingTime();
-      for (const e of entries) {
-        assert.ok(
-          typeof e.word === 'string' && e.word.trim().length > 0,
-          `Entry has empty word: ${JSON.stringify(e)}`,
-        );
-      }
-    });
+  it('an unrecognized chapter key returns 0 entries (triggering the dev warn path)', () => {
+    const entries = getTextbookVocab('unknown-chapter-xyz');
+    assert.strictEqual(
+      entries.length,
+      0,
+      'An unrecognized key must return 0 entries so the console.warn fires in dev mode',
+    );
   });
 });
