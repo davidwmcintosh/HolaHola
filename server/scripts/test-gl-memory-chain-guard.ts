@@ -21,11 +21,17 @@
  * Run: npx tsx server/scripts/test-gl-memory-chain-guard.ts
  */
 
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import {
   MEMORY_TOOL_NAMES,
   MEMORY_CHAIN_LIMIT,
   MEMORY_CHAIN_NUDGE_TEXT,
 } from '../services/memory-chain-guard';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -310,6 +316,138 @@ function testNudgeTextIsCanonical() {
   pass(name, 'canonical nudge text appended correctly');
 }
 
+/**
+ * Scenario F — watchdog source guard + behavioural proof.
+ *
+ * Part F-1 (source guard):
+ *   Reads the real gemini-live-session.ts and extracts the
+ *   armGenerationCompleteWatchdog() setTimeout callback.  Asserts that BOTH:
+ *     this.session.consecutiveMemoryCalls = 0;
+ *     this.session.glMemoryNudgeSent = false;
+ *   appear inside the watchdog callback body.  If either line is removed the
+ *   check fails — CI catches the regression without needing a live GL session.
+ *
+ * Part F-2 (behavioural proof):
+ *   Shows WHY the gate line matters by demonstrating that clearing only the
+ *   counter (but NOT glMemoryNudgeSent) causes the nudge to silently skip the
+ *   next streak — the exact bug the watchdog reset is meant to prevent.
+ */
+function testWatchdogResetClearsBothCounterAndGate() {
+  // ── Part F-1: source guard ────────────────────────────────────────────────
+  const srcName = 'armGenerationCompleteWatchdog() in gemini-live-session.ts resets both consecutiveMemoryCalls and glMemoryNudgeSent';
+
+  let src: string;
+  try {
+    src = readFileSync(
+      resolve(__dirname, '../services/gemini-live-session.ts'),
+      'utf8',
+    );
+  } catch (e: any) {
+    return fail(srcName, `Could not read gemini-live-session.ts: ${e.message}`);
+  }
+
+  // Locate the armGenerationCompleteWatchdog method and extract its body.
+  const methodStart = src.indexOf('private armGenerationCompleteWatchdog()');
+  if (methodStart === -1) {
+    return fail(srcName, 'armGenerationCompleteWatchdog() not found in gemini-live-session.ts — method was renamed or removed.');
+  }
+
+  // Find the outer closing brace of the method by counting braces.
+  let depth = 0;
+  let methodEnd = -1;
+  for (let i = methodStart; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') {
+      depth--;
+      if (depth === 0) { methodEnd = i; break; }
+    }
+  }
+  if (methodEnd === -1) {
+    return fail(srcName, 'Could not find closing brace of armGenerationCompleteWatchdog().');
+  }
+
+  const watchdogBody = src.slice(methodStart, methodEnd + 1);
+
+  // Find the setTimeout callback — the inner callback body is where the resets must live.
+  const setTimeoutIdx = watchdogBody.indexOf('setTimeout(');
+  if (setTimeoutIdx === -1) {
+    return fail(srcName, 'No setTimeout() call found inside armGenerationCompleteWatchdog() — watchdog structure changed unexpectedly.');
+  }
+
+  // Extract from 'setTimeout(' to the end of the method body (covers the full callback).
+  const callbackRegion = watchdogBody.slice(setTimeoutIdx);
+
+  const hasCounterReset = callbackRegion.includes('this.session.consecutiveMemoryCalls = 0');
+  const hasGateReset    = callbackRegion.includes('this.session.glMemoryNudgeSent = false');
+
+  if (!hasCounterReset && !hasGateReset) {
+    return fail(srcName, 'Neither this.session.consecutiveMemoryCalls = 0 nor this.session.glMemoryNudgeSent = false found in the watchdog setTimeout callback.');
+  }
+  if (!hasCounterReset) {
+    return fail(srcName, 'this.session.consecutiveMemoryCalls = 0 is missing from the watchdog setTimeout callback — counter reset was removed.');
+  }
+  if (!hasGateReset) {
+    return fail(srcName, 'this.session.glMemoryNudgeSent = false is missing from the watchdog setTimeout callback — nudge-gate reset was removed; the next memory chain after a watchdog seal would silently skip its nudge.');
+  }
+
+  pass(srcName, 'both reset lines confirmed present in watchdog setTimeout callback');
+
+  // ── Part F-2: behavioural proof — gate omission silences next nudge ───────
+  const behavName = 'omitting the glMemoryNudgeSent reset (counter-only reset) silences the nudge on the next streak';
+
+  // Reach the limit so nudge fires and gate is set.
+  const state = freshState();
+  for (let i = 0; i < MEMORY_CHAIN_LIMIT; i++) {
+    simulateGLBatch(state, ['recall'], makeResponses());
+  }
+  if (!state.glMemoryNudgeSent) {
+    return fail(behavName, 'Precondition: nudgeSent should be true after reaching the limit.');
+  }
+
+  // Simulate an INCOMPLETE watchdog reset: counter zeroed but gate NOT cleared.
+  // (This is exactly what would happen if the glMemoryNudgeSent = false line were removed.)
+  state.consecutiveMemoryCalls = 0;
+  // state.glMemoryNudgeSent intentionally NOT cleared — mirrors the buggy path.
+
+  // Run a fresh streak; nudge must NOT fire because the gate is still true.
+  let nudgeFiredBuggy = false;
+  for (let i = 0; i < MEMORY_CHAIN_LIMIT + 2; i++) {
+    const r = makeResponses();
+    simulateGLBatch(state, ['recall'], r);
+    if (r[0].response.result.includes(MEMORY_CHAIN_NUDGE_TEXT)) nudgeFiredBuggy = true;
+  }
+  if (nudgeFiredBuggy) {
+    return fail(behavName, 'Nudge fired even with the gate still set — the one-shot guard itself is broken (separate issue).');
+  }
+  pass(behavName, 'confirmed: counter-only reset leaves gate true, silently suppressing nudge on next streak');
+
+  // Prove the CORRECT full reset (both fields) re-enables the nudge.
+  const correctName = 'full watchdog reset (counter + gate) re-enables nudge at exactly MEMORY_CHAIN_LIMIT';
+  state.consecutiveMemoryCalls = 0;
+  state.glMemoryNudgeSent = false;   // gate cleared as the real watchdog code does
+
+  let nudgeCount = 0;
+  let nudgeTurn = -1;
+  for (let i = 0; i < MEMORY_CHAIN_LIMIT + 2; i++) {
+    const r = makeResponses();
+    simulateGLBatch(state, ['recall'], r);
+    if (r[0].response.result.includes(MEMORY_CHAIN_NUDGE_TEXT)) {
+      nudgeCount++;
+      if (nudgeTurn === -1) nudgeTurn = i + 1;
+    }
+  }
+  if (nudgeCount === 0) {
+    return fail(correctName, 'Nudge did not fire after full reset — the one-shot gate or counter logic regressed.');
+  }
+  if (nudgeTurn !== MEMORY_CHAIN_LIMIT) {
+    return fail(correctName, `Nudge fired at turn ${nudgeTurn}, expected turn ${MEMORY_CHAIN_LIMIT}.`);
+  }
+  if (nudgeCount > 1) {
+    return fail(correctName, `Nudge fired ${nudgeCount} times — one-shot gate is broken after a full reset.`);
+  }
+  pass(correctName, `nudge re-fired at turn ${nudgeTurn} (once only) after correct full reset`);
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 (async () => {
@@ -324,6 +462,7 @@ function testNudgeTextIsCanonical() {
   testNudgeDoesNotFireWithNoResponses();
   testAllGuardedToolsIncrementCounter();
   testNudgeTextIsCanonical();
+  testWatchdogResetClearsBothCounterAndGate();
 
   sep();
   const total = passed + failed;
