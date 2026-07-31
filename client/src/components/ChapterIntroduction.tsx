@@ -2659,6 +2659,10 @@ export function ConversationStripsSection({
         if (data?.translations) {
           setDynamicTranslations(data.translations);
           setTranslationError(false);
+        } else if (data !== null) {
+          // 200-OK but malformed payload — translations key missing; do NOT set
+          // translationError (no false alarm) and leave dynamicTranslations empty.
+          console.warn('[fetchTranslations] 200-OK response missing translations key; payload shape:', data);
         }
       })
       .catch(() => {

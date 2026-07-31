@@ -292,3 +292,64 @@ describe('fetchTranslations — early-exit guards prevent spurious requests', ()
       'fetchTranslations() call inside useEffect not found — translations may not load on initial render');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PART 6 — malformed 200-OK payload (missing 'translations' key)
+//
+// Scenario: the server returns HTTP 200 but the JSON body does not contain the
+// 'translations' key (e.g. `{}`, `{ "error": "..." }`, etc.).
+//
+// Expected behaviour:
+//   • translationError is NOT set to true  — no false alarm shown to the user
+//   • dynamicTranslations remains empty    — stale data is never overwritten
+//   • a console.warn is emitted            — developers / monitoring can detect
+//                                            malformed payloads without UX noise
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('malformed 200-OK payload — missing translations key', () => {
+
+  it('data?.translations guard is present so dynamicTranslations stays empty on missing key', () => {
+    // The guard `if (data?.translations)` must wrap the setDynamicTranslations call.
+    // Without it a missing key would leave state unchanged but silently; with it the
+    // behaviour is explicit and testable.
+    const hasGuard =
+      /if\s*\(\s*data\?\.translations\s*\)/.test(src) ||
+      /data\?\.translations\s*&&/.test(src) ||
+      /data\s*&&\s*data\.translations/.test(src);
+    assert.ok(hasGuard,
+      'data?.translations guard not found — a missing translations key may crash or silently corrupt state');
+  });
+
+  it('does NOT set translationError(true) when data is non-null but lacks translations', () => {
+    // A 200-OK with a malformed body is not a user-facing error; showing the error
+    // notice would be a false alarm.  Verify that setTranslationError(true) does NOT
+    // appear in the else-branch that follows if (data?.translations).
+    const idx = src.indexOf('if (data?.translations)');
+    assert.ok(idx !== -1, 'if (data?.translations) guard not found in source');
+    // Examine up to 500 chars after the guard for an else path that sets true
+    const region = src.slice(idx, Math.min(src.length, idx + 500));
+    const setsErrorInElse = /else[^}]*setTranslationError\s*\(\s*true\s*\)/.test(region);
+    assert.ok(!setsErrorInElse,
+      'setTranslationError(true) found in the else branch of data?.translations — a malformed 200-OK response would show a false error notice to the user');
+  });
+
+  it('does NOT call setDynamicTranslations when data lacks translations key', () => {
+    // setDynamicTranslations must only be called inside `if (data?.translations)`.
+    // An else-branch call would overwrite (or incorrectly reset) translation state.
+    const idx = src.indexOf('if (data?.translations)');
+    assert.ok(idx !== -1, 'if (data?.translations) guard not found in source');
+    const region = src.slice(idx, Math.min(src.length, idx + 500));
+    const setsTranslationsInElse = /else[^}]*setDynamicTranslations/.test(region);
+    assert.ok(!setsTranslationsInElse,
+      'setDynamicTranslations found in the else branch — would incorrectly update translations on a malformed response');
+  });
+
+  it('emits console.warn when a 200-OK response arrives but lacks the translations key', () => {
+    // A warning must be logged so that developers and monitoring tools can detect
+    // malformed API payloads without showing a user-visible error notice.
+    const region = regionAround('if (data?.translations)', 0, 500);
+    const hasWarn = /console\.warn/.test(region);
+    assert.ok(hasWarn,
+      'console.warn not found near the data?.translations guard — malformed 200-OK payloads are silently ignored with no diagnostic signal');
+  });
+});
