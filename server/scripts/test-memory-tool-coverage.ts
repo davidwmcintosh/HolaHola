@@ -61,6 +61,29 @@ const MEMORY_PATTERN_PREFIXES = [
   'load_',         // e.g. load_student_context, load_session_history
                    //   (existing content-loading tools like load_scenario and
                    //    load_vocab_set are whitelisted in KNOWN_NON_GUARD_TOOLS)
+
+  // ── Dispatcher-name prefixes ──────────────────────────────────────────────
+  // These are prefixes used by dispatcher tools that internally route to memory
+  // sub-tools. Adding the prefix here ensures the dispatcher itself is caught
+  // by the check and must be explicitly registered in KNOWN_MEMORY_DISPATCHERS
+  // (see below) rather than silently passing.
+  //
+  // DISPATCHER BLIND-SPOT WARNING
+  // ──────────────────────────────
+  // A dispatcher tool whose name does not match ANY prefix in this list will
+  // bypass the coverage check entirely, even if it routes to memory-reading
+  // sub-tools.  For example, a tool named "agent_memory_router" would be
+  // invisible to this check if "agent_" is not listed here.
+  //
+  // When you add a new dispatcher whose name uses a novel prefix:
+  //   1. Add the prefix to this list.
+  //   2. Register the dispatcher in KNOWN_MEMORY_DISPATCHERS with a comment
+  //      listing the memory sub-tools it routes to.
+  //
+  'self_',         // e.g. self_read — routes to read_my_diary, read_my_reflections,
+                   //   read_my_core_self, search_my_feelings, recall_what_i_shared,
+                   //   read_queued_for_student, list_character_candidates, reach_north_star
+                   //   (self_write is a write dispatcher, not a read; see KNOWN_NON_GUARD_TOOLS)
 ];
 
 // ─── Tools that match a pattern above but are intentionally NOT chain-guarded ─
@@ -144,14 +167,74 @@ const KNOWN_NON_GUARD_TOOLS = new Set<string>([
   // Loads vocabulary words from a lesson's required vocabulary list.
   // Reads curriculum/lesson data, not student-session or conversation memory.
   // No embedding search; no chain risk.
+
+  // ── self_ prefix — write-side dispatcher and admin edit tool ────────────────
+  'self_write',
+  // Write-side dispatcher — routes to write-only sub-tools
+  // (link_feeling_to_principle, propose_character_candidate,
+  // request_stewardship_review).  No memory retrieval; not a chain risk.
+
+  'self_surgery',
+  // Admin-only persona-edit tool.  Writes to Daniela's persona data store;
+  // does not read from any memory store, session history, or embedding index.
+  // Cannot cause a recall chain.  Only reachable in admin/founder mode.
+]);
+
+// ─── Dispatcher tools that route to memory sub-tools ─────────────────────────
+//
+// A "memory-routing dispatcher" is a tool whose name does not use a standard
+// memory-retrieval naming convention (recall_, read_, search_my_, etc.) but
+// whose internal dispatch table routes to one or more sub-tools that DO read
+// from memory stores (DB, embeddings, session records).
+//
+// Such tools are caught by matching their name prefix in MEMORY_PATTERN_PREFIXES
+// (see the "self_" entry above) and must be listed here instead of in
+// MEMORY_TOOL_NAMES or KNOWN_NON_GUARD_TOOLS.
+//
+// Why a separate set?
+//   • MEMORY_TOOL_NAMES — for tools that directly trigger the chain guard.
+//     A dispatcher does not directly read memory; its sub-tools do.  Adding the
+//     dispatcher here would fire the guard on every dispatch call, including
+//     write-only sub-tool calls, which is incorrect.
+//   • KNOWN_NON_GUARD_TOOLS — for tools whose bypass is permanent and needs no
+//     further tracking.  A dispatcher DOES route to guarded memory sub-tools; it
+//     needs explicit documentation so future engineers know to audit sub-tool
+//     routing when the dispatcher changes.
+//   • KNOWN_MEMORY_DISPATCHERS — the correct home: visible in coverage reports,
+//     sanity-checked against the live registry, and documented with the sub-tools
+//     that require chain-guard attention.
+//
+// If you add a new dispatcher tool that routes to memory sub-tools:
+//   1. Add its name prefix to MEMORY_PATTERN_PREFIXES (if not already present).
+//   2. Add the tool name here with a comment listing the memory sub-tools it
+//      routes to.
+//   3. Confirm the sub-tools themselves are in MEMORY_TOOL_NAMES (they are the
+//      actual chain-guard targets).
+//
+const KNOWN_MEMORY_DISPATCHERS = new Set<string>([
+  'self_read',
+  // Dispatcher: routes to memory-reading sub-tools via an "action" parameter.
+  // Memory sub-tools dispatched:
+  //   read_my_diary            → reads David↔Daniela voice transcripts
+  //   read_my_reflections      → reads private reflection records
+  //   read_my_core_self        → reads bedrock-principles document
+  //   search_my_feelings       → embedding search on feelings table
+  //   recall_what_i_shared     → reads danielaPersonalShares table
+  //   read_queued_for_student  → single-row queued-message lookup
+  //   list_character_candidates → reviews pending slow-tier candidates
+  //   reach_north_star         → constitutional grounding lookup
+  // The sub-tools above are in MEMORY_TOOL_NAMES or KNOWN_NON_GUARD_TOOLS
+  // individually.  The dispatcher wrapper itself is NOT chain-guarded because
+  // it also routes write-adjacent sub-tools and non-retrieval paths, and
+  // because the sub-tool level is where the chain-guard fires correctly.
 ]);
 
 // ─── Run ─────────────────────────────────────────────────────────────────────
 
 sep();
 console.log(B('Memory-tool chain-guard coverage check'));
-console.log(Y('  Every pattern-matching tool must be in MEMORY_TOOL_NAMES or KNOWN_NON_GUARD_TOOLS.'));
-console.log(Y('  Failing to categorize a new tool is a test failure.'));
+console.log(Y('  Every pattern-matching tool must be in MEMORY_TOOL_NAMES, KNOWN_NON_GUARD_TOOLS,'));
+console.log(Y('  or KNOWN_MEMORY_DISPATCHERS.  Failing to categorize a new tool is a test failure.'));
 sep();
 
 const allToolNames: string[] = DANIELA_FUNCTION_DECLARATIONS.map((d) => d.name as string);
@@ -165,12 +248,15 @@ let allPassed = true;
 const uncategorized: string[] = [];
 const inGuard: string[] = [];
 const inExclusion: string[] = [];
+const inDispatcher: string[] = [];
 
 for (const toolName of patternMatches) {
   if (MEMORY_TOOL_NAMES.has(toolName)) {
     inGuard.push(toolName);
   } else if (KNOWN_NON_GUARD_TOOLS.has(toolName)) {
     inExclusion.push(toolName);
+  } else if (KNOWN_MEMORY_DISPATCHERS.has(toolName)) {
+    inDispatcher.push(toolName);
   } else {
     uncategorized.push(toolName);
   }
@@ -194,6 +280,17 @@ if (inExclusion.length === 0) {
   console.log(Y('  (none)'));
 }
 
+// ── Report: memory-routing dispatchers ───────────────────────────────────────
+console.log('\n' + B('Memory-routing dispatchers (KNOWN_MEMORY_DISPATCHERS):'));
+console.log(Y('  These tools route to memory sub-tools internally but are not chain-guarded'));
+console.log(Y('  at the dispatcher level.  The sub-tools they dispatch to ARE guarded.'));
+for (const name of inDispatcher) {
+  console.log(`  ${B('⇒')} ${name}`);
+}
+if (inDispatcher.length === 0) {
+  console.log(Y('  (none)'));
+}
+
 // ── Report: uncategorized tools — FAIL ───────────────────────────────────────
 sep();
 if (uncategorized.length > 0) {
@@ -204,12 +301,15 @@ if (uncategorized.length > 0) {
   }
   console.log('');
   console.log(R('  Each tool above matches a memory-retrieval naming pattern but is'));
-  console.log(R('  present in NEITHER MEMORY_TOOL_NAMES nor KNOWN_NON_GUARD_TOOLS.'));
+  console.log(R('  present in NONE of: MEMORY_TOOL_NAMES, KNOWN_NON_GUARD_TOOLS,'));
+  console.log(R('  or KNOWN_MEMORY_DISPATCHERS.'));
   console.log('');
-  console.log(Y('  To fix: add the tool to one of these two lists in:'));
+  console.log(Y('  To fix: add the tool to one of these lists in:'));
   console.log(Y('    • server/services/memory-chain-guard.ts  (if it should trigger the guard)'));
   console.log(Y('    • server/scripts/test-memory-tool-coverage.ts KNOWN_NON_GUARD_TOOLS'));
   console.log(Y('      (if it intentionally bypasses the guard — add a comment explaining why)'));
+  console.log(Y('    • server/scripts/test-memory-tool-coverage.ts KNOWN_MEMORY_DISPATCHERS'));
+  console.log(Y('      (if it is a dispatcher that routes to memory sub-tools internally)'));
   console.log('');
   allPassed = false;
 } else {
@@ -257,6 +357,28 @@ if (exclusionPhantoms.length > 0) {
   console.log(G('✓ Every entry in KNOWN_NON_GUARD_TOOLS exists in the live registry.'));
 }
 
+// ── Sanity: verify KNOWN_MEMORY_DISPATCHERS has no phantom entries ───────────
+sep();
+console.log(B('Sanity check: KNOWN_MEMORY_DISPATCHERS entries exist in the registry'));
+console.log(Y('  If a dispatcher was renamed or removed, its entry here becomes a phantom.'));
+console.log(Y('  Remove the phantom and update MEMORY_PATTERN_PREFIXES if its prefix is no longer needed.'));
+const dispatcherPhantoms: string[] = [];
+for (const dispatcherName of KNOWN_MEMORY_DISPATCHERS) {
+  if (!toolNameSet.has(dispatcherName)) {
+    dispatcherPhantoms.push(dispatcherName);
+  }
+}
+if (dispatcherPhantoms.length > 0) {
+  console.log(R('FAIL — KNOWN_MEMORY_DISPATCHERS contains tool names not found in the registry:'));
+  for (const name of dispatcherPhantoms) {
+    console.log(R(`  ✗ ${name}  (was it renamed or removed?)`));
+  }
+  console.log(Y('  Remove or rename these entries in KNOWN_MEMORY_DISPATCHERS above.'));
+  allPassed = false;
+} else {
+  console.log(G('✓ Every entry in KNOWN_MEMORY_DISPATCHERS exists in the live registry.'));
+}
+
 // ── Classroom-exclusion sync check ───────────────────────────────────────────
 //
 // CLASSROOM_BLOCKED_EXEMPTIONS is the single source of truth for tools whose
@@ -302,6 +424,7 @@ sep();
 console.log(`  Pattern-matching tools found:  ${patternMatches.length}`);
 console.log(`  Guarded (MEMORY_TOOL_NAMES):   ${inGuard.length}`);
 console.log(`  Excluded (KNOWN_NON_GUARD):    ${inExclusion.length}`);
+console.log(`  Dispatchers (KNOWN_DISPATCH):  ${inDispatcher.length}`);
 console.log(`  Uncategorized (FAIL):          ${uncategorized.length}`);
 console.log(`  Classroom-blocked exemptions:  ${CLASSROOM_BLOCKED_EXEMPTIONS.size} checked, ${classroomDrift.length} drifted`);
 sep();
