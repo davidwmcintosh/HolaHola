@@ -9353,6 +9353,26 @@ export const insertDanielaAbsenceNudgeSchema = createInsertSchema(danielaAbsence
 export type InsertDanielaAbsenceNudge = z.infer<typeof insertDanielaAbsenceNudgeSchema>;
 export type DanielaAbsenceNudge = typeof danielaAbsenceNudges.$inferSelect;
 
+// ===== Student Absence Config =====
+// Per-student absence threshold override. When set, the absence worker uses
+// this threshold instead of the global ABSENCE_THRESHOLD_DAYS constant.
+// Primary use case: weekly learners or travellers who need a longer window
+// before Daniela is notified. One row per student (upserted by userId).
+export const studentAbsenceConfig = pgTable("student_absence_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  thresholdDays: integer("threshold_days").notNull(),  // custom absence threshold in days
+  notes: text("notes"),  // optional explanation (e.g. "weekly learner — travels for work")
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (table) => [
+  index("idx_student_absence_config_user").on(table.userId),
+]);
+
+export const insertStudentAbsenceConfigSchema = createInsertSchema(studentAbsenceConfig).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertStudentAbsenceConfig = z.infer<typeof insertStudentAbsenceConfigSchema>;
+export type StudentAbsenceConfig = typeof studentAbsenceConfig.$inferSelect;
+
 // ===== Student Contact Preferences =====
 // Stores phone number and explicit SMS/voice consent for outbound Daniela contact.
 // Written only on explicit student action (settings UI or in-session verbal consent).

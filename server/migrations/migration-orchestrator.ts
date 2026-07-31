@@ -556,6 +556,29 @@ const MIGRATIONS: Migration[] = [
       console.log('[MIGRATIONS] 013: Ensured actfl_levels column on teaching_skills');
     },
   },
+  {
+    version: '014',
+    name: 'student-absence-config',
+    up: async () => {
+      // Per-student absence threshold override table.
+      // Allows the absence worker to use a custom threshold per student
+      // instead of the global ABSENCE_THRESHOLD_DAYS constant.
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS student_absence_config (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          user_id VARCHAR NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+          threshold_days INTEGER NOT NULL,
+          notes TEXT,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      await db.execute(sql`
+        CREATE INDEX IF NOT EXISTS idx_student_absence_config_user ON student_absence_config(user_id)
+      `);
+      console.log('[MIGRATIONS] 014: Ensured student_absence_config table');
+    },
+  },
 ];
 
 export class MigrationOrchestrator {

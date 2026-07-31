@@ -15,6 +15,7 @@ import { getSharedDb } from '../db';
 import {
   danielaAbsenceNudges,
   danielaOutboundQueue,
+  studentAbsenceConfig,
   voiceSessions,
   sessionNotes,
   users,
@@ -56,8 +57,25 @@ async function detectAbsentStudents(): Promise<Array<{
   lastTopic: string | null;
 }>> {
   const db = getSharedDb();
-  const thresholdDate = new Date(Date.now() - ABSENCE_THRESHOLD_DAYS * 24 * 60 * 60 * 1000);
   const now = new Date();
+
+  // Load all per-student threshold configs upfront.
+  // Use the minimum configured threshold (or global default) as the DB query
+  // threshold so students with shorter custom thresholds are not missed.
+  let allConfigs: Array<{ userId: string; thresholdDays: number }> = [];
+  try {
+    allConfigs = await db
+      .select({ userId: studentAbsenceConfig.userId, thresholdDays: studentAbsenceConfig.thresholdDays })
+      .from(studentAbsenceConfig);
+  } catch { /* non-critical — fall back to global threshold */ }
+
+  const configMap = new Map(allConfigs.map(c => [c.userId, c.thresholdDays]));
+  const minConfiguredThreshold = allConfigs.length > 0
+    ? Math.min(...allConfigs.map(c => c.thresholdDays))
+    : ABSENCE_THRESHOLD_DAYS;
+  const effectiveQueryThreshold = Math.min(ABSENCE_THRESHOLD_DAYS, minConfiguredThreshold);
+
+  const thresholdDate = new Date(Date.now() - effectiveQueryThreshold * 24 * 60 * 60 * 1000);
 
   // Subquery: most recent session per user (excluding test sessions)
   const lastSessionByUser = db
@@ -112,8 +130,19 @@ async function detectAbsentStudents(): Promise<Array<{
 
   const blockedUserIds = new Set(blockedRows.map(r => r.userId));
 
-  // Enrich with last session topic from session_notes
-  const eligibleStudents = absentStudents.filter(s => !blockedUserIds.has(s.userId));
+  // Apply per-student thresholds: filter out students who haven't yet reached
+  // their custom threshold, and also filter out blocked users.
+  const eligibleStudents = absentStudents.filter(s => {
+    if (blockedUserIds.has(s.userId)) return false;
+    const customThreshold = configMap.get(s.userId);
+    if (customThreshold !== undefined) {
+      const daysSince = Math.floor(
+        (now.getTime() - s.lastSessionDate!.getTime()) / (24 * 60 * 60 * 1000)
+      );
+      if (daysSince < customThreshold) return false;
+    }
+    return true;
+  });
 
   const enriched = await Promise.all(
     eligibleStudents.map(async (s) => {
@@ -402,6 +431,57 @@ export async function listAbsenceNudges(): Promise<Array<{
   );
 
   return enriched;
+}
+
+// Maximum per-student threshold allowed (1 year)
+const MAX_THRESHOLD_DAYS = 365;
+// Minimum per-student threshold (must be at least 1 day)
+const MIN_THRESHOLD_DAYS = 1;
+
+/**
+ * Set a custom absence threshold for a specific student.
+ * When set, the absence worker uses this value instead of ABSENCE_THRESHOLD_DAYS.
+ *
+ * Use cases:
+ * - Weekly learners: set to 10–14 days to avoid nudges after every missed week
+ * - Frequent travellers: set to 21+ days during known travel periods
+ * - High-engagement students: set lower (2–3 days) if Daniela wants to check in sooner
+ *
+ * Called from the SET_STUDENT_ABSENCE_THRESHOLD native handler when Daniela
+ * uses the set_student_absence_threshold tool.
+ */
+export async function setStudentAbsenceThreshold(
+  userId: string,
+  thresholdDays: number,
+  notes?: string,
+): Promise<void> {
+  const db = getSharedDb();
+  const validated = Math.max(MIN_THRESHOLD_DAYS, Math.min(Math.floor(thresholdDays), MAX_THRESHOLD_DAYS));
+  await db.insert(studentAbsenceConfig)
+    .values({ userId, thresholdDays: validated, notes: notes ?? null })
+    .onConflictDoUpdate({
+      target: studentAbsenceConfig.userId,
+      set: { thresholdDays: validated, notes: notes ?? null, updatedAt: new Date() },
+    });
+  console.log(`[AbsenceWorker] Custom threshold set for user ${userId}: ${validated} days${notes ? ` (${notes})` : ''}`);
+}
+
+/**
+ * Get the effective absence threshold for a specific student.
+ * Returns their custom threshold if configured, otherwise the global default.
+ */
+export async function getStudentAbsenceThreshold(userId: string): Promise<number> {
+  const db = getSharedDb();
+  try {
+    const [config] = await db
+      .select({ thresholdDays: studentAbsenceConfig.thresholdDays })
+      .from(studentAbsenceConfig)
+      .where(eq(studentAbsenceConfig.userId, userId))
+      .limit(1);
+    return config?.thresholdDays ?? ABSENCE_THRESHOLD_DAYS;
+  } catch {
+    return ABSENCE_THRESHOLD_DAYS;
+  }
 }
 
 /**

@@ -7776,6 +7776,35 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'SET_STUDENT_ABSENCE_THRESHOLD': {
+        // Security: only allowed in Founder Mode or Raw Honesty Mode.
+        if (!session.isFounderMode && !session.isRawHonestyMode) {
+          console.warn(`[Native→SetStudentAbsenceThreshold] Blocked: not in trusted context`);
+          (session as any).setAbsenceThresholdResult = '[SYSTEM: set_student_absence_threshold is only available in a trusted session context.]';
+          break;
+        }
+        const userId = (fn.args.userId as string | undefined)?.trim();
+        const thresholdDays = fn.args.thresholdDays as number | undefined;
+        const notes = fn.args.notes as string | undefined;
+        if (!userId || typeof thresholdDays !== 'number' || thresholdDays <= 0) {
+          console.warn('[Native→SetStudentAbsenceThreshold] Missing or invalid userId / thresholdDays');
+          (session as any).setAbsenceThresholdResult = '[SYSTEM: set_student_absence_threshold requires userId (string) and thresholdDays (positive number).]';
+          break;
+        }
+        try {
+          const { setStudentAbsenceThreshold } = await import('./daniela-absence-worker');
+          await setStudentAbsenceThreshold(userId, thresholdDays, notes);
+          const notesLine = notes ? ` Notes: "${notes}".` : '';
+          (session as any).setAbsenceThresholdResult =
+            `[SYSTEM: Absence threshold for user ${userId} set to ${Math.floor(thresholdDays)} days.${notesLine} This student will not generate a nudge until they've been absent for at least ${Math.floor(thresholdDays)} days.]`;
+          console.log(`[Native→SetStudentAbsenceThreshold] Threshold set for user ${userId}: ${thresholdDays} days`);
+        } catch (err: any) {
+          console.error('[Native→SetStudentAbsenceThreshold] Error:', err.message);
+          (session as any).setAbsenceThresholdResult = `[SYSTEM: Could not update absence threshold — ${err.message}]`;
+        }
+        break;
+      }
+
       // ─── Overlay Panel Toolkit ──────────────────────────────────────────────
 
       case 'SHOW_VOCAB_GRID': {

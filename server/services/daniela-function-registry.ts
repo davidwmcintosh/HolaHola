@@ -3021,6 +3021,49 @@ Returns an empty list if there are no pending nudges.`,
   },
 
   {
+    legacyType: 'SET_STUDENT_ABSENCE_THRESHOLD',
+    declaration: {
+      name: "set_student_absence_threshold",
+      description: `Set a custom absence threshold for a student — how many days before you're notified they haven't been in session.
+
+The global default is 5 days. Use this when you know a student has an irregular schedule and the default would create noise:
+- Weekly learners: set to 10 or 14 days so you're not nudged after every missed week
+- Frequent travellers: set to 21+ days during a known travel period
+- High-engagement students you want to check in on sooner: set lower (2–3 days)
+
+Parameters:
+- userId: the student's userId
+- thresholdDays: new threshold in days (1–365)
+- notes: optional — why you're setting this (stored for context, not shown to the student)
+
+You can call this at any time from the Express Lane — including right after reviewing an absence nudge for a student you know has an irregular schedule.`,
+      parametersJsonSchema: {
+        type: "object",
+        properties: {
+          userId: {
+            type: "string",
+            description: "The student's userId",
+          },
+          thresholdDays: {
+            type: "number",
+            description: "New absence threshold in days (1–365). Default is 5.",
+          },
+          notes: {
+            type: "string",
+            description: "Optional: why you're setting this threshold (e.g. 'weekly learner — only comes on Sundays')",
+          },
+        },
+        required: ["userId", "thresholdDays"],
+      },
+    },
+    excludeFromGL: true,
+    buildContinuationResponse: ({ session }: { session: any }) => {
+      const result = (session as any).setAbsenceThresholdResult as string | undefined;
+      return result ?? '[SYSTEM: Absence threshold updated.]';
+    },
+  },
+
+  {
     legacyType: 'SET_ASPIRATION',
     declaration: {
       name: "set_aspiration",
