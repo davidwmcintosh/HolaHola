@@ -30,6 +30,13 @@ import {
   writeAbsenceFilterToStorage,
   type AbsenceFilterType,
 } from "@/lib/absence-filter-storage";
+import {
+  shouldRenderFilterButtons,
+  buildHistoryUrl,
+  isActiveButton,
+  buildFilters,
+  type ResolvedNudge,
+} from "@/lib/absence-history-panel-logic";
 
 interface ResolutionConfig {
   label: string;
@@ -49,18 +56,6 @@ function getResolutionConfig(type: ResolutionType): ResolutionConfig {
       <XCircle className="h-3 w-3" />
     );
   return { ...meta, icon };
-}
-
-// ── Absence history types ────────────────────────────────────────────────────
-
-interface ResolvedNudge {
-  nudgeId: string;
-  userId: string;
-  firstName: string | null;
-  daysSinceLastSession: number;
-  lastSessionDate: string | null;
-  resolvedAt: string;
-  resolutionType: ResolutionType;
 }
 
 // ── AbsenceHistoryPanel ──────────────────────────────────────────────────────
@@ -83,10 +78,7 @@ function AbsenceHistoryPanel() {
       : ["/api/admin/absence-nudges/history", { resolutionType: activeFilter }];
 
   const queryFn = async () => {
-    const url =
-      activeFilter === "all"
-        ? "/api/admin/absence-nudges/history"
-        : `/api/admin/absence-nudges/history?resolutionType=${activeFilter}`;
+    const url = buildHistoryUrl(activeFilter);
     const res = await fetch(url, { credentials: "include" });
     if (!res.ok) throw new Error("Failed to load history");
     return res.json() as Promise<{ history: ResolvedNudge[] }>;
@@ -107,19 +99,12 @@ function AbsenceHistoryPanel() {
   const allHistory = allData?.history ?? [];
   const history = data?.history ?? [];
 
-  // Compute summary counts from the unfiltered list
+  const filters = buildFilters(allHistory);
   const counts = {
-    student_returned: allHistory.filter((n) => n.resolutionType === "student_returned").length,
-    message_queued: allHistory.filter((n) => n.resolutionType === "message_queued").length,
-    dismissed: allHistory.filter((n) => n.resolutionType === "dismissed").length,
+    student_returned: filters.find((f) => f.key === "student_returned")?.count ?? 0,
+    message_queued: filters.find((f) => f.key === "message_queued")?.count ?? 0,
+    dismissed: filters.find((f) => f.key === "dismissed")?.count ?? 0,
   };
-
-  const filters: Array<{ key: FilterType; label: string; count: number }> = [
-    { key: "all", label: "All", count: allHistory.length },
-    { key: "student_returned", label: "Returned", count: counts.student_returned },
-    { key: "message_queued", label: "Messaged", count: counts.message_queued },
-    { key: "dismissed", label: "Dismissed", count: counts.dismissed },
-  ];
 
   if (isLoading && allHistory.length === 0) {
     return (
@@ -157,7 +142,7 @@ function AbsenceHistoryPanel() {
       )}
 
       {/* Filter buttons */}
-      {allHistory.length > 0 && (
+      {shouldRenderFilterButtons(allHistory) && (
         <div className="flex gap-1 flex-wrap" data-testid="absence-history-filters">
           {filters.map(({ key, label, count }) => (
             <button
@@ -165,7 +150,7 @@ function AbsenceHistoryPanel() {
               onClick={() => handleSetFilter(key)}
               data-testid={`filter-absence-${key}`}
               className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
-                activeFilter === key
+                isActiveButton(activeFilter, key)
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-muted/50 text-muted-foreground border-border hover:bg-muted"
               }`}
