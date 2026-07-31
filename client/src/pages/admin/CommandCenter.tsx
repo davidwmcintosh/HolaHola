@@ -10227,6 +10227,13 @@ function EditorChatTab() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   
+  // Absence nudge count for badge
+  const { data: nudgeCountData } = useQuery<{ count: number }>({
+    queryKey: ['/api/admin/absence-nudges/count'],
+    refetchInterval: 30000,
+  });
+  const pendingNudgeCount = nudgeCountData?.count ?? 0;
+
   // Agenda Queue state
   const [showAgenda, setShowAgenda] = useState(false);
   const [newAgendaTitle, setNewAgendaTitle] = useState('');
@@ -10928,6 +10935,11 @@ function EditorChatTab() {
               {expressLaneMode && (
                 <Badge variant="outline" className="ml-2 border-yellow-500 text-yellow-600 dark:text-yellow-400" data-testid="badge-express-lane">
                   Neural Network
+                </Badge>
+              )}
+              {pendingNudgeCount > 0 && (
+                <Badge variant="destructive" className="ml-2" data-testid="badge-nudge-count">
+                  {pendingNudgeCount} nudge{pendingNudgeCount !== 1 ? 's' : ''}
                 </Badge>
               )}
             </CardTitle>
