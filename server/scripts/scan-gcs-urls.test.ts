@@ -9,7 +9,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { tryNormalize, evaluateScanResults, buildStrictWarning, type ScanResult } from './scan-gcs-urls.js';
+import { tryNormalize, evaluateScanResults, buildStrictWarning, COLUMNS, type ScanResult } from './scan-gcs-urls.js';
 
 // ---------------------------------------------------------------------------
 // Pattern 1 — path-style (no query string)
@@ -318,5 +318,89 @@ describe('--strict stderr warning message — buildStrictWarning()', () => {
       warning.includes('--strict: treating unresolved rows as a CI failure'),
       '--strict warning must be present so CI logs surface the failure',
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// image_vision_cache — backfill CI guard
+//
+// These tests confirm that image_vision_cache.image_url is included in the
+// COLUMNS manifest so the --strict scan cannot be silently bypassed.
+//
+// getCachedDescription now uses a single equality lookup against the proxy
+// path.  Any un-backfilled GCS-keyed row will be silently missed.  These
+// tests ensure the scanner catches that case in CI before the code ships.
+// ---------------------------------------------------------------------------
+describe('image_vision_cache — backfill CI guard', () => {
+  it('COLUMNS manifest includes image_vision_cache.image_url', () => {
+    // If this assertion fails it means image_vision_cache was removed from the
+    // COLUMNS list — the --strict scan will no longer catch lingering GCS rows
+    // and getCachedDescription will silently miss un-backfilled entries.
+    const entry = COLUMNS.find(
+      c => c.table === 'image_vision_cache' && c.urlCol === 'image_url',
+    );
+    assert.ok(
+      entry !== undefined,
+      'image_vision_cache.image_url must be in the COLUMNS manifest so the ' +
+      '--strict scan catches un-backfilled GCS rows in CI',
+    );
+  });
+
+  it('a GCS URL in image_vision_cache.image_url is patchable via tryNormalize', () => {
+    // Confirms that the common path-style GCS URL stored by the image-vision
+    // service can be normalised — meaning the backfill script (and the scanner)
+    // can actually fix these rows rather than flagging them as unresolved.
+    const gcsUrl =
+      'https://storage.googleapis.com/holahola-prod/public/ai-images/scene-abc123.jpg';
+    const normalised = tryNormalize(gcsUrl);
+    assert.equal(
+      normalised,
+      '/api/media/ai-image/scene-abc123.jpg',
+      'path-style GCS URL from image_vision_cache must normalise to the proxy path',
+    );
+  });
+
+  it('evaluateScanResults returns exitCode 1 for an un-backfilled image_vision_cache row', () => {
+    // Simulates what happens when scan-gcs-urls --strict encounters a GCS-keyed
+    // image_vision_cache row whose shape is NOT in the known patterns — the scan
+    // must exit non-zero so CI blocks the merge.
+    const results: ScanResult[] = [
+      {
+        table: 'image_vision_cache',
+        urlCol: 'image_url',
+        id: 'ivc-001',
+        rawUrl: 'https://storage.googleapis.com/holahola-prod/private/vision/img.jpg',
+        normalized: null, // private/ prefix — tryNormalize returns null
+      },
+    ];
+    const { exitCode, unresolved } = evaluateScanResults(results);
+    assert.equal(
+      exitCode,
+      1,
+      'un-backfilled image_vision_cache row with unknown URL shape must fail CI',
+    );
+    assert.equal(unresolved.length, 1);
+    assert.equal(unresolved[0].table, 'image_vision_cache');
+  });
+
+  it('evaluateScanResults returns exitCode 0 when image_vision_cache rows are already normalised', () => {
+    // Simulates the clean state after the backfill has run: all rows use the
+    // proxy path.  The scan should pass silently.
+    const results: ScanResult[] = [
+      {
+        table: 'image_vision_cache',
+        urlCol: 'image_url',
+        id: 'ivc-002',
+        rawUrl: 'https://storage.googleapis.com/holahola-prod/public/ai-images/env.png',
+        normalized: '/api/media/ai-image/env.png',
+      },
+    ];
+    const { exitCode, unresolved } = evaluateScanResults(results);
+    assert.equal(
+      exitCode,
+      0,
+      'fully-normalised image_vision_cache rows must not fail the CI scan',
+    );
+    assert.equal(unresolved.length, 0);
   });
 });

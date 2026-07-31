@@ -70,13 +70,13 @@ export function tryNormalize(url: string): string | null {
 // Table / column manifest
 // ---------------------------------------------------------------------------
 
-interface ColumnSpec {
+export interface ColumnSpec {
   table: string;
   idCol: string;        // primary key column name in DB
   urlCol: string;       // the URL column name in DB
 }
 
-const COLUMNS: ColumnSpec[] = [
+export const COLUMNS: ColumnSpec[] = [
   { table: 'users',                 idCol: 'id',  urlCol: 'profile_image_url' },
   { table: 'curriculum_lessons',    idCol: 'id',  urlCol: 'image_url' },
   { table: 'textbook_visual_assets',idCol: 'id',  urlCol: 'image_url' },
