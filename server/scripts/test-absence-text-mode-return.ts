@@ -360,6 +360,135 @@ async function runPart3() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// PART 5 — Mid-snooze guard: snoozed row (resolvedAt set + suppressUntil future)
+//           is NOT re-resolved and NOT overwritten when the student returns
+// ──────────────────────────────────────────────────────────────────────────────
+sep();
+console.log(B('PART 5 — Mid-snooze guard: student returns while snooze is still active'));
+sep();
+
+const TEST_USER_ID_3 = '00000000-test-text-mode-177-002';
+
+async function runPart5() {
+  const db = getSharedDb();
+  const { autoResolveAbsenceNudgeOnReturn } = await import('../services/daniela-absence-worker');
+
+  // Cleanup any leftover row
+  await db.delete(danielaAbsenceNudges).where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_3));
+
+  // ── 1. Seed a snoozed nudge row ───────────────────────────────────────────
+  // resolvedAt is already set (Daniela called dismiss_absence_nudge with suppressDays=14)
+  // suppressUntil is 7 days from now (still within the snooze window)
+  const originalResolvedAt = new Date(Date.now() - 60 * 1000); // resolved 1 minute ago
+  const originalSuppressUntil = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+
+  await db.insert(danielaAbsenceNudges).values({
+    userId: TEST_USER_ID_3,
+    daysSinceLastSession: 8,
+    lastSessionDate: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
+    resolvedAt: originalResolvedAt,
+    resolutionType: 'dismissed',
+    suppressUntil: originalSuppressUntil,
+  });
+
+  const [seeded] = await db
+    .select({
+      id: danielaAbsenceNudges.id,
+      resolvedAt: danielaAbsenceNudges.resolvedAt,
+      suppressUntil: danielaAbsenceNudges.suppressUntil,
+      resolutionType: danielaAbsenceNudges.resolutionType,
+    })
+    .from(danielaAbsenceNudges)
+    .where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_3))
+    .limit(1);
+
+  assert(
+    'Precondition: seeded snoozed row has resolvedAt set',
+    !!seeded && seeded.resolvedAt !== null,
+    seeded ? `resolvedAt was ${seeded.resolvedAt}` : 'row not found after insert',
+  );
+  assert(
+    'Precondition: seeded snoozed row has suppressUntil in the future',
+    !!seeded && seeded.suppressUntil !== null && seeded.suppressUntil > new Date(),
+    seeded ? `suppressUntil was ${seeded.suppressUntil}` : 'row not found after insert',
+  );
+
+  // ── 2. Student returns mid-snooze — call autoResolveAbsenceNudgeOnReturn ──
+  startCapture();
+  let result: Awaited<ReturnType<typeof autoResolveAbsenceNudgeOnReturn>> | undefined;
+  try {
+    result = await autoResolveAbsenceNudgeOnReturn(TEST_USER_ID_3);
+  } finally {
+    stopCapture();
+  }
+  const logs = [...capturedLogs];
+
+  // ── 3. Assert function returns null (no pending nudge to resolve) ──────────
+  assert(
+    'Return value is null (no pending nudge — row is already resolved)',
+    result === null,
+    result !== null ? `Expected null but got: ${JSON.stringify(result)}` : undefined,
+  );
+
+  // ── 4. Assert the DB row is unchanged ─────────────────────────────────────
+  const [after] = await db
+    .select({
+      resolvedAt: danielaAbsenceNudges.resolvedAt,
+      suppressUntil: danielaAbsenceNudges.suppressUntil,
+      resolutionType: danielaAbsenceNudges.resolutionType,
+    })
+    .from(danielaAbsenceNudges)
+    .where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_3))
+    .limit(1);
+
+  assert(
+    'DB row still exists and resolvedAt was NOT overwritten',
+    !!after && after.resolvedAt !== null &&
+      Math.abs(after.resolvedAt.getTime() - originalResolvedAt.getTime()) < 2000,
+    after
+      ? `resolvedAt changed to: ${after.resolvedAt} (original: ${originalResolvedAt})`
+      : 'row not found',
+  );
+
+  assert(
+    'DB row suppressUntil was NOT overwritten (snooze window preserved)',
+    !!after && after.suppressUntil !== null &&
+      Math.abs(after.suppressUntil.getTime() - originalSuppressUntil.getTime()) < 2000,
+    after
+      ? `suppressUntil changed to: ${after.suppressUntil} (original: ${originalSuppressUntil})`
+      : 'row not found',
+  );
+
+  assert(
+    "DB row resolutionType still 'dismissed' (not overwritten to 'student_returned')",
+    after?.resolutionType === 'dismissed',
+    after ? `resolutionType was: ${after.resolutionType}` : 'row not found',
+  );
+
+  // ── 5. No "[AbsenceWorker] Auto-cleared" log — no resolve happened ────────
+  const autoClearedLog = logs.find(l => l.includes('[AbsenceWorker] Auto-cleared'));
+  assert(
+    'No "[AbsenceWorker] Auto-cleared..." log emitted (snoozed row was not re-resolved)',
+    !autoClearedLog,
+    autoClearedLog ?? undefined,
+  );
+
+  if (logs.length > 0) {
+    console.log(Y(`\n  ℹ  Captured output (${logs.length} line(s)):`));
+    logs.forEach(l => console.log(`     ${l}`));
+  }
+
+  // ── Cleanup ────────────────────────────────────────────────────────────────
+  await db.delete(danielaAbsenceNudges).where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_3));
+  const [gone] = await db
+    .select({ id: danielaAbsenceNudges.id })
+    .from(danielaAbsenceNudges)
+    .where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_3))
+    .limit(1);
+  assert('Test row cleaned up from DB', !gone, gone ? `Row still present: ${gone.id}` : undefined);
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // PART 4 — GL path cross-check (smoke, no DB needed)
 // ──────────────────────────────────────────────────────────────────────────────
 sep();
@@ -408,6 +537,7 @@ part4();
   try {
     await runPart2();
     await runPart3();
+    await runPart5();
   } catch (err: any) {
     stopCapture();
     console.error(R(`\nUnhandled error: ${err?.message ?? err}`));
@@ -415,6 +545,7 @@ part4();
     const db = getSharedDb();
     await db.delete(danielaAbsenceNudges).where(eq(danielaAbsenceNudges.userId, TEST_USER_ID)).catch(() => {});
     await db.delete(danielaAbsenceNudges).where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_2)).catch(() => {});
+    await db.delete(danielaAbsenceNudges).where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_3)).catch(() => {});
     process.exit(1);
   }
 
@@ -428,7 +559,9 @@ part4();
     console.log(D('   3. resolutionType = "student_returned" (not "dismissed")'));
     console.log(D('   4. Express Lane note posted in collaboration_messages'));
     console.log(D('   5. Second call within TTL returns cached details (idempotent, no double-resolve)'));
-    console.log(D('   6. GL path also wires the same function with await before synthesis\n'));
+    console.log(D('   6. GL path also wires the same function with await before synthesis'));
+    console.log(D('   7. Mid-snooze guard: snoozed row (resolvedAt set + suppressUntil future) returns null\n'));
+    console.log(D('      → resolvedAt and suppressUntil are NOT overwritten when student returns mid-snooze\n'));
     process.exit(0);
   } else {
     console.log(R(`\n✗  ${failed} of ${all} assertions failed — review output above.\n`));
