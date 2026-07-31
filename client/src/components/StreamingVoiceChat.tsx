@@ -4253,7 +4253,10 @@ export function StreamingVoiceChat({
         )}
 
         {/* Quiz Pop-in — interactive multiple-choice overlay */}
-        {activeQuiz && (
+        {/* Render-side guard: never mount the overlay with blank or malformed data */}
+        {activeQuiz &&
+          typeof activeQuiz.question === 'string' && activeQuiz.question.trim().length > 0 &&
+          Array.isArray(activeQuiz.options) && activeQuiz.options.length > 0 && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" data-testid="quiz-overlay">
             <div className="bg-card border rounded-md shadow-xl p-4 w-80 max-w-[calc(100vw-2rem)] mx-4">
               <p className="text-sm font-semibold mb-3" data-testid="quiz-question">{activeQuiz.question}</p>
