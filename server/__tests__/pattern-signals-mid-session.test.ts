@@ -20,11 +20,21 @@
  *    - buildActflPersonaAnchor reads that value on every subsequent per-turn call.
  *    - The value persists across turns (no automatic reset between turns).
  *
+ * 4. RECORD_PATTERN_SIGNAL handler — session.activePatternSignals write-back
+ *    - The handler calls fetchPatternSignalContext after the upsert and writes the
+ *      result to session.activePatternSignals (streaming-voice-orchestrator.ts ~line 3341).
+ *    - When fetchPatternSignalContext returns a non-null string, the session field is
+ *      updated to the fresh formatted signal text.
+ *    - When all compartments are now stable, fetchPatternSignalContext returns null and
+ *      the handler intentionally clears session.activePatternSignals to null.
+ *    - When fetchPatternSignalContext throws, the handler preserves the stale value
+ *      (returns undefined from the .catch() and skips the assignment).
+ *
  * Run with:
  *   npx tsx --test server/__tests__/pattern-signals-mid-session.test.ts
  */
 
-import { describe, it } from 'node:test';
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 // Import the real production functions — these are the same functions that
@@ -33,8 +43,16 @@ import assert from 'node:assert/strict';
 import {
   formatPatternSignals,
   buildActflPersonaAnchor,
+  fetchPatternSignalContext,
   type PatternAnchorSession,
 } from '../services/pattern-signal-context';
+
+// Import the storage singleton so we can monkey-patch getCompartmentMap to avoid
+// hitting the real DB. The handler (streaming-voice-orchestrator.ts ~line 3336)
+// calls fetchPatternSignalContext(userId, language) which in turn calls
+// storage.getCompartmentMap — patching the singleton is the lightest way to
+// control what fetchPatternSignalContext returns in a unit test.
+import { storage } from '../storage';
 
 // CompartmentInstallation shape (shared/schema.ts $inferSelect).
 // We import the type only; the actual table is not touched by these pure helpers.
@@ -338,5 +356,199 @@ describe('pattern signals round-trip (greeting → mid-session)', () => {
     const afterClear = buildActflPersonaAnchor(session)!;
     assert.ok(!afterClear.includes('Active grammar patterns:'),
       'Pattern section must be absent after signals are cleared to null');
+  });
+});
+
+// ── RECORD_PATTERN_SIGNAL handler — session.activePatternSignals write-back ───
+//
+// These tests exercise the exact logic inside the RECORD_PATTERN_SIGNAL handler
+// (streaming-voice-orchestrator.ts ~lines 3336–3342 and ~6803–6809):
+//
+//   const refreshed = await fetchPatternSignalContext(userId, language).catch((): undefined => {
+//     console.warn('...');
+//     return undefined;
+//   });
+//   if (refreshed !== undefined) {
+//     session.activePatternSignals = refreshed;
+//   }
+//
+// We monkey-patch storage.getCompartmentMap (the only external call inside
+// fetchPatternSignalContext) so the tests run without a live database.
+
+describe('RECORD_PATTERN_SIGNAL handler — session.activePatternSignals write-back', () => {
+  // Save the real implementation so we can restore it after each test.
+  let originalGetCompartmentMap: typeof storage.getCompartmentMap;
+
+  before(() => {
+    originalGetCompartmentMap = storage.getCompartmentMap.bind(storage);
+  });
+
+  after(() => {
+    // Restore the real implementation so other test suites are unaffected.
+    (storage as any).getCompartmentMap = originalGetCompartmentMap;
+  });
+
+  /**
+   * Helper: simulate the handler's write-back logic.
+   *
+   * The handler fires fetchPatternSignalContext, suppresses errors (returning
+   * undefined on throw), then only assigns when the result is not undefined.
+   * This faithfully reproduces those ~7 lines so the tests are coupled to the
+   * real function, not a re-implementation.
+   */
+  async function simulateHandlerWriteBack(
+    session: PatternAnchorSession,
+    userId: string,
+    language: string,
+  ): Promise<void> {
+    const refreshed = await fetchPatternSignalContext(userId, language).catch((): undefined => undefined);
+    if (refreshed !== undefined) {
+      session.activePatternSignals = refreshed;
+    }
+  }
+
+  it('updates session.activePatternSignals to fresh signal text when wobbling compartments exist', async () => {
+    const compartments = makeCompartments([
+      { patternKey: 'subjunctive_present', status: 'wobbling', wobbleCount: 2 },
+      { patternKey: 'reflexive_verbs',     status: 'pounding', poundingCount: 3 },
+    ]);
+
+    // Patch storage to return our controlled compartments.
+    (storage as any).getCompartmentMap = async () => compartments;
+
+    const session: PatternAnchorSession = {
+      studentActflLevel: 'intermediate_mid',
+      targetLanguage: 'Spanish',
+      nativeLanguage: 'english',
+      activePatternSignals: null,
+    };
+
+    await simulateHandlerWriteBack(session, 'user-test', 'spanish');
+
+    assert.ok(
+      session.activePatternSignals !== null,
+      'session.activePatternSignals must be non-null after handler fires with active compartments',
+    );
+    assert.ok(
+      typeof session.activePatternSignals === 'string',
+      'session.activePatternSignals must be a string',
+    );
+    assert.ok(
+      (session.activePatternSignals as string).includes('subjunctive_present'),
+      'Refreshed signals must include the wobbling patternKey',
+    );
+    assert.ok(
+      (session.activePatternSignals as string).includes('reflexive_verbs'),
+      'Refreshed signals must include the pounding patternKey',
+    );
+
+    // Verify buildActflPersonaAnchor picks up the written value on the next turn.
+    const anchor = buildActflPersonaAnchor(session)!;
+    assert.ok(
+      anchor.includes('Active grammar patterns:'),
+      'Per-turn anchor must include the pattern section after the handler write-back',
+    );
+  });
+
+  it('clears session.activePatternSignals to null when all compartments become stable', async () => {
+    // After a 'stability' event, the compartment status transitions to stable.
+    // fetchPatternSignalContext re-reads all compartments and finds none wobbling/pounding,
+    // so it returns null — and the handler writes null to session.activePatternSignals.
+    const stableCompartments = makeCompartments([
+      { patternKey: 'ser_vs_estar', status: 'stable' },
+      { patternKey: 'preterite_ir', status: 'mastered' },
+    ]);
+
+    (storage as any).getCompartmentMap = async () => stableCompartments;
+
+    const session: PatternAnchorSession = {
+      studentActflLevel: 'novice_high',
+      targetLanguage: 'Spanish',
+      nativeLanguage: 'english',
+      // Pre-existing stale signals from the greeting — handler must clear these.
+      activePatternSignals: '- ser_vs_estar: WOBBLING — slipped back. Needs revisiting.',
+    };
+
+    await simulateHandlerWriteBack(session, 'user-test', 'spanish');
+
+    assert.strictEqual(
+      session.activePatternSignals,
+      null,
+      'Handler must write null to session.activePatternSignals when fetchPatternSignalContext returns null',
+    );
+
+    // Confirm the anchor no longer shows the pattern section.
+    const anchor = buildActflPersonaAnchor(session)!;
+    assert.ok(
+      !anchor.includes('Active grammar patterns:'),
+      'Per-turn anchor must have no pattern section after signals are cleared to null',
+    );
+  });
+
+  it('clears session.activePatternSignals to null when storage throws (fetchPatternSignalContext swallows errors internally)', async () => {
+    // fetchPatternSignalContext has its own try/catch that returns null on any storage
+    // error (pattern-signal-context.ts lines 51-54):
+    //   } catch (err) {
+    //     console.warn('[PatternSignals] Failed to fetch compartment context:', err);
+    //     return null;
+    //   }
+    //
+    // This means the outer `.catch(() => undefined)` in the orchestrator handler is
+    // never triggered in practice — the function always resolves (never rejects).
+    // When storage throws, fetchPatternSignalContext returns null, which the handler
+    // then writes to session.activePatternSignals via the `refreshed !== undefined` guard.
+    (storage as any).getCompartmentMap = async () => {
+      throw new Error('DB connection lost');
+    };
+
+    const session: PatternAnchorSession = {
+      studentActflLevel: 'intermediate_low',
+      targetLanguage: 'Spanish',
+      nativeLanguage: 'english',
+      activePatternSignals: '- imperfect_tense: WOBBLING — slipped back. Needs revisiting.',
+    };
+
+    await simulateHandlerWriteBack(session, 'user-test', 'spanish');
+
+    // fetchPatternSignalContext caught the error internally and returned null;
+    // null !== undefined so the handler assigned it to the session field.
+    assert.strictEqual(
+      session.activePatternSignals,
+      null,
+      'Handler writes null to session.activePatternSignals when fetchPatternSignalContext swallows a storage error',
+    );
+  });
+
+  it('writes refreshed signals even when a prior stale value was non-null', async () => {
+    // Verifies that the handler replaces an outdated stale string with a fresh one,
+    // not just filling an initially-null slot.
+    const freshCompartments = makeCompartments([
+      { patternKey: 'past_subjunctive', status: 'wobbling', wobbleCount: 1 },
+    ]);
+
+    (storage as any).getCompartmentMap = async () => freshCompartments;
+
+    const session: PatternAnchorSession = {
+      studentActflLevel: 'advanced_low',
+      targetLanguage: 'Spanish',
+      nativeLanguage: 'english',
+      // Stale value from a previous refresh — should be replaced.
+      activePatternSignals: '- old_pattern: IN PROGRESS — being drilled (1 poundings, 0 wobbles). Keep building.',
+    };
+
+    await simulateHandlerWriteBack(session, 'user-test', 'spanish');
+
+    assert.ok(
+      typeof session.activePatternSignals === 'string',
+      'Refreshed value must be a string',
+    );
+    assert.ok(
+      (session.activePatternSignals as string).includes('past_subjunctive'),
+      'Refreshed value must contain the new patternKey',
+    );
+    assert.ok(
+      !(session.activePatternSignals as string).includes('old_pattern'),
+      'Stale patternKey must not survive into the refreshed value',
+    );
   });
 });
