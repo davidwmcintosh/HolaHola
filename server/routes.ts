@@ -33549,6 +33549,7 @@ You have full access to your neural network knowledge.
       const includeReviewed = req.query.includeReviewed === 'true';
       const targetTableParam = (req.query.targetTable as string | undefined)?.trim() || '';
       const afterParam = (req.query.after as string | undefined)?.trim() || '';
+      const qParam = (req.query.q as string | undefined)?.trim() || '';
 
       const { gte: gteOp } = await import('drizzle-orm');
       const conditions: any[] = [
@@ -33608,9 +33609,15 @@ You have full access to your neural network knowledge.
       });
 
       // Apply targetTable post-parse filter (parsed from subject, not a DB column)
-      const filtered = targetTableParam
+      let filtered = targetTableParam
         ? parsed.filter(f => f.parsedTargetTable.toLowerCase() === targetTableParam.toLowerCase())
         : parsed;
+
+      // Apply keyword search over the note body (case-insensitive substring)
+      if (qParam) {
+        const needle = qParam.toLowerCase();
+        filtered = filtered.filter(f => f.body.toLowerCase().includes(needle));
+      }
 
       res.json({ flags: filtered, total: filtered.length, pending: filtered.filter(f => f.pending).length });
     } catch (error: any) {

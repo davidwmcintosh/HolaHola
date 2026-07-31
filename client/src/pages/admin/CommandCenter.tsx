@@ -15973,6 +15973,7 @@ function ProcedureFlagsSection() {
   const [expandedFlag, setExpandedFlag] = useState<string | null>(null);
   const [targetTable, setTargetTable] = useState('');
   const [afterDays, setAfterDays] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const buildFlagsUrl = () => {
     const params = new URLSearchParams();
@@ -15983,12 +15984,13 @@ function ProcedureFlagsSection() {
       d.setDate(d.getDate() - Number(afterDays));
       params.set('after', d.toISOString());
     }
+    if (searchQuery.trim()) params.set('q', searchQuery.trim());
     return `/api/admin/procedure-flags?${params.toString()}`;
   };
 
   const flagsUrl = buildFlagsUrl();
   const { data, isLoading, refetch } = useQuery<{ flags: ProcedureFlag[]; pending: number; total: number }>({
-    queryKey: ["/api/admin/procedure-flags", showReviewed, targetTable, afterDays],
+    queryKey: ["/api/admin/procedure-flags", showReviewed, targetTable, afterDays, searchQuery],
     queryFn: async () => {
       const res = await fetch(flagsUrl, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch procedure flags');
@@ -16113,6 +16115,17 @@ function ProcedureFlagsSection() {
                 {opt.label}
               </Button>
             ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground whitespace-nowrap">Search:</label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              placeholder="e.g. usted, subjunctive…"
+              className="text-xs border rounded-md px-2 py-1 bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring w-44"
+              data-testid="filter-search-query"
+            />
           </div>
         </div>
 
