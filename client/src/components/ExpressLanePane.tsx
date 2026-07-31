@@ -25,6 +25,11 @@ import { useQuery } from "@tanstack/react-query";
 // ── Resolution label helpers ─────────────────────────────────────────────────
 
 import { getResolutionMeta, type ResolutionType } from "@/lib/absence-resolution-labels";
+import {
+  readAbsenceFilterFromStorage,
+  writeAbsenceFilterToStorage,
+  type AbsenceFilterType,
+} from "@/lib/absence-filter-storage";
 
 interface ResolutionConfig {
   label: string;
@@ -60,31 +65,15 @@ interface ResolvedNudge {
 
 // ── AbsenceHistoryPanel ──────────────────────────────────────────────────────
 
-type FilterType = ResolutionType | "all";
-
-const ABSENCE_FILTER_KEY = "absence-history-filter";
+type FilterType = AbsenceFilterType;
 
 function AbsenceHistoryPanel() {
-  const [activeFilter, setActiveFilter] = useState<FilterType>(() => {
-    try {
-      const stored = localStorage.getItem(ABSENCE_FILTER_KEY);
-      if (stored === "all" || stored === "student_returned" || stored === "message_queued" || stored === "dismissed") {
-        return stored as FilterType;
-      }
-    } catch {
-      // localStorage unavailable
-    }
-    return "all";
-  });
+  const [activeFilter, setActiveFilter] = useState<FilterType>(
+    readAbsenceFilterFromStorage,
+  );
 
   const handleSetFilter = (filter: FilterType) => {
-    try {
-      if (filter !== null) {
-        localStorage.setItem(ABSENCE_FILTER_KEY, filter);
-      }
-    } catch {
-      // localStorage unavailable
-    }
+    writeAbsenceFilterToStorage(filter);
     setActiveFilter(filter);
   };
 
