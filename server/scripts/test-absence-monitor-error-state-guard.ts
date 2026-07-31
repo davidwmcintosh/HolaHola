@@ -70,10 +70,14 @@ function runPart1() {
   );
 
   const suiteRef = 'server/__tests__/absence-monitor-error-state.test.ts';
+  // Accept either the literal filename or the glob that covers the whole __tests__/ dir.
+  const suiteRefCovered =
+    testScript.includes(suiteRef) ||
+    testScript.includes('server/__tests__/*.test.ts');
   assert(
-    `"${suiteRef}" is listed in npm test`,
-    testScript.includes(suiteRef),
-    testScript.includes(suiteRef)
+    `"${suiteRef}" is listed in npm test (or covered by server/__tests__/*.test.ts glob)`,
+    suiteRefCovered,
+    suiteRefCovered
       ? undefined
       : `Not found in: ${testScript.slice(0, 200)}…`,
   );

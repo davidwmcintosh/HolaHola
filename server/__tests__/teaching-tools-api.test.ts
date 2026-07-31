@@ -1,15 +1,14 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 
 /**
  * API Tests for Teaching Tools Analytics Endpoints
  * Tests response structure and data format validation
  */
 
-const BASE_URL = process.env.TEST_API_URL || 'http://localhost:5000';
-
 describe('Teaching Tools API Endpoints', () => {
   describe('GET /api/admin/teaching-tools/summary', () => {
-    it('should return correct response structure with totals, toolStats, and dailyTrend', async () => {
+    it('should return correct response structure with totals, toolStats, and dailyTrend', () => {
       const expectedStructure = {
         totals: {
           totalEvents: 'number',
@@ -19,10 +18,10 @@ describe('Teaching Tools API Endpoints', () => {
         toolStats: 'array',
         dailyTrend: 'array',
       };
-      
-      expect(expectedStructure.totals).toBeDefined();
-      expect(expectedStructure.toolStats).toBe('array');
-      expect(expectedStructure.dailyTrend).toBe('array');
+
+      assert.ok(expectedStructure.totals !== undefined);
+      assert.equal(expectedStructure.toolStats, 'array');
+      assert.equal(expectedStructure.dailyTrend, 'array');
     });
 
     it('should validate toolStats item structure', () => {
@@ -34,11 +33,11 @@ describe('Teaching Tools API Endpoints', () => {
         drillCorrect: 'number',
         drillTotal: 'number',
       };
-      
+
       const requiredFields = ['toolType', 'count', 'uniqueStudents', 'drillCorrect', 'drillTotal'];
-      requiredFields.forEach(field => {
-        expect(Object.keys(expectedToolStatShape)).toContain(field);
-      });
+      for (const field of requiredFields) {
+        assert.ok(Object.keys(expectedToolStatShape).includes(field), `Missing field: ${field}`);
+      }
     });
 
     it('should validate dailyTrend item structure', () => {
@@ -46,27 +45,27 @@ describe('Teaching Tools API Endpoints', () => {
         date: 'string',
         count: 'number',
       };
-      
-      expect(Object.keys(expectedDailyTrendShape)).toContain('date');
-      expect(Object.keys(expectedDailyTrendShape)).toContain('count');
+
+      assert.ok(Object.keys(expectedDailyTrendShape).includes('date'));
+      assert.ok(Object.keys(expectedDailyTrendShape).includes('count'));
     });
 
     it('should verify drill accuracy calculation formula', () => {
       const drillCorrect = 75;
       const drillTotal = 100;
       const expectedAccuracy = Math.round((drillCorrect / drillTotal) * 100);
-      
-      expect(expectedAccuracy).toBe(75);
+
+      assert.equal(expectedAccuracy, 75);
     });
 
     it('should handle zero drill total gracefully', () => {
       const drillCorrect = 0;
       const drillTotal = 0;
-      const accuracy = drillTotal > 0 
-        ? Math.round((drillCorrect / drillTotal) * 100) 
+      const accuracy = drillTotal > 0
+        ? Math.round((drillCorrect / drillTotal) * 100)
         : null;
-      
-      expect(accuracy).toBeNull();
+
+      assert.equal(accuracy, null);
     });
   });
 
@@ -76,9 +75,9 @@ describe('Teaching Tools API Endpoints', () => {
         students: 'array',
         periodDays: 'number',
       };
-      
-      expect(expectedStructure.students).toBe('array');
-      expect(expectedStructure.periodDays).toBe('number');
+
+      assert.equal(expectedStructure.students, 'array');
+      assert.equal(expectedStructure.periodDays, 'number');
     });
 
     it('should validate student item structure', () => {
@@ -88,11 +87,11 @@ describe('Teaching Tools API Endpoints', () => {
         languages: 'array',
         tools: 'object',
       };
-      
+
       const requiredFields = ['userId', 'totalEvents', 'languages', 'tools'];
-      requiredFields.forEach(field => {
-        expect(Object.keys(expectedStudentShape)).toContain(field);
-      });
+      for (const field of requiredFields) {
+        assert.ok(Object.keys(expectedStudentShape).includes(field), `Missing field: ${field}`);
+      }
     });
 
     it('should validate tools structure within student', () => {
@@ -101,10 +100,10 @@ describe('Teaching Tools API Endpoints', () => {
         avgResponseTime: 'number|null',
         drillAccuracy: 'number|null',
       };
-      
-      expect(Object.keys(expectedToolDataShape)).toContain('count');
-      expect(Object.keys(expectedToolDataShape)).toContain('avgResponseTime');
-      expect(Object.keys(expectedToolDataShape)).toContain('drillAccuracy');
+
+      assert.ok(Object.keys(expectedToolDataShape).includes('count'));
+      assert.ok(Object.keys(expectedToolDataShape).includes('avgResponseTime'));
+      assert.ok(Object.keys(expectedToolDataShape).includes('drillAccuracy'));
     });
   });
 
@@ -113,8 +112,8 @@ describe('Teaching Tools API Endpoints', () => {
       const expectedStructure = {
         events: 'array',
       };
-      
-      expect(expectedStructure.events).toBe('array');
+
+      assert.equal(expectedStructure.events, 'array');
     });
 
     it('should validate event item structure', () => {
@@ -128,11 +127,11 @@ describe('Teaching Tools API Endpoints', () => {
         drillResult: 'string|null',
         studentResponseTime: 'number|null',
       };
-      
+
       const requiredFields = ['id', 'toolType', 'occurredAt'];
-      requiredFields.forEach(field => {
-        expect(Object.keys(expectedEventShape)).toContain(field);
-      });
+      for (const field of requiredFields) {
+        assert.ok(Object.keys(expectedEventShape).includes(field), `Missing field: ${field}`);
+      }
     });
   });
 
@@ -140,36 +139,36 @@ describe('Teaching Tools API Endpoints', () => {
     it('should validate summary query key format', () => {
       const days = '30';
       const queryKey = ['/api/admin/teaching-tools/summary', { days }];
-      
-      expect(queryKey[0]).toBe('/api/admin/teaching-tools/summary');
-      expect(queryKey[1]).toEqual({ days: '30' });
+
+      assert.equal(queryKey[0], '/api/admin/teaching-tools/summary');
+      assert.deepEqual(queryKey[1], { days: '30' });
     });
 
     it('should validate by-student query key format', () => {
       const days = '30';
       const limit = '20';
       const queryKey = ['/api/admin/teaching-tools/by-student', { days, limit }];
-      
-      expect(queryKey[0]).toBe('/api/admin/teaching-tools/by-student');
-      expect(queryKey[1]).toEqual({ days: '30', limit: '20' });
+
+      assert.equal(queryKey[0], '/api/admin/teaching-tools/by-student');
+      assert.deepEqual(queryKey[1], { days: '30', limit: '20' });
     });
 
     it('should validate events query key format', () => {
       const limit = '50';
       const queryKey = ['/api/admin/teaching-tools/events', { limit }];
-      
-      expect(queryKey[0]).toBe('/api/admin/teaching-tools/events');
-      expect(queryKey[1]).toEqual({ limit: '50' });
+
+      assert.equal(queryKey[0], '/api/admin/teaching-tools/events');
+      assert.deepEqual(queryKey[1], { limit: '50' });
     });
 
     it('should support different day ranges', () => {
       const dayRanges = ['7', '30', '90'];
-      
-      dayRanges.forEach(days => {
+
+      for (const days of dayRanges) {
         const daysAgo = new Date();
         daysAgo.setDate(daysAgo.getDate() - parseInt(days));
-        expect(daysAgo.getTime()).toBeLessThan(Date.now());
-      });
+        assert.ok(daysAgo.getTime() < Date.now(), `Expected past date for ${days} days`);
+      }
     });
   });
 
@@ -180,14 +179,14 @@ describe('Teaching Tools API Endpoints', () => {
         { drillCorrect: 20, drillTotal: 25 },
         { drillCorrect: 25, drillTotal: 35 },
       ];
-      
+
       const totalCorrect = toolStats.reduce((sum, t) => sum + t.drillCorrect, 0);
       const totalDrills = toolStats.reduce((sum, t) => sum + t.drillTotal, 0);
       const calculatedAccuracy = Math.round((totalCorrect / totalDrills) * 100);
-      
-      expect(totalCorrect).toBe(75);
-      expect(totalDrills).toBe(100);
-      expect(calculatedAccuracy).toBe(75);
+
+      assert.equal(totalCorrect, 75);
+      assert.equal(totalDrills, 100);
+      assert.equal(calculatedAccuracy, 75);
     });
 
     it('should detect date gaps in trend data', () => {
@@ -196,7 +195,7 @@ describe('Teaching Tools API Endpoints', () => {
         { date: '2025-12-11', count: 3 },
         { date: '2025-12-13', count: 7 },
       ];
-      
+
       let gapCount = 0;
       for (let i = 1; i < dailyTrend.length; i++) {
         const prev = new Date(dailyTrend[i - 1].date);
@@ -204,21 +203,21 @@ describe('Teaching Tools API Endpoints', () => {
         const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays !== 1) gapCount++;
       }
-      
-      expect(gapCount).toBe(1);
+
+      assert.equal(gapCount, 1);
     });
 
     it('should recognize known tool types', () => {
       const knownToolTypes = [
         'WRITE', 'PHONETIC', 'COMPARE', 'IMAGE', 'DRILL',
         'CONTEXT', 'GRAMMAR_TABLE', 'READING', 'STROKE',
-        'TONE', 'WORD_MAP', 'CULTURE', 'PLAY', 'SCENARIO', 'SUMMARY'
+        'TONE', 'WORD_MAP', 'CULTURE', 'PLAY', 'SCENARIO', 'SUMMARY',
       ];
-      
-      expect(knownToolTypes).toContain('WRITE');
-      expect(knownToolTypes).toContain('DRILL');
-      expect(knownToolTypes).toContain('PHONETIC');
-      expect(knownToolTypes.length).toBe(15);
+
+      assert.ok(knownToolTypes.includes('WRITE'));
+      assert.ok(knownToolTypes.includes('DRILL'));
+      assert.ok(knownToolTypes.includes('PHONETIC'));
+      assert.equal(knownToolTypes.length, 15);
     });
   });
 });

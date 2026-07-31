@@ -1,15 +1,14 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
 import {
   trigramSimilarity,
   normalizeForFingerprint,
-  generateTrigrams,
-  SIMILARITY_THRESHOLD,
 } from '../services/student-learning-service';
 
 /**
  * Unit tests for Learner Memory System
  * Tests deduplication edge cases, long-session chunking, and explicit remember commands
- * 
+ *
  * IMPORTANT: These tests import production functions to catch regressions
  */
 
@@ -20,7 +19,7 @@ describe('Learner Memory Deduplication', () => {
         'Planning trip to Madrid',
         'Planning trip to Madrid'
       );
-      expect(similarity).toBe(1);
+      assert.equal(similarity, 1);
     });
 
     it('should detect very similar facts (>0.82 threshold)', () => {
@@ -28,7 +27,7 @@ describe('Learner Memory Deduplication', () => {
         'Planning trip to Madrid in June',
         'Planning a trip to Madrid in June'
       );
-      expect(similarity).toBeGreaterThan(0.82);
+      assert.ok(similarity > 0.82, `Expected similarity > 0.82, got ${similarity}`);
     });
 
     it('should distinguish different facts (<0.82 threshold)', () => {
@@ -36,17 +35,17 @@ describe('Learner Memory Deduplication', () => {
         'Planning trip to Madrid',
         'Working at Google'
       );
-      expect(similarity).toBeLessThan(0.82);
+      assert.ok(similarity < 0.82, `Expected similarity < 0.82, got ${similarity}`);
     });
 
     it('should handle short strings gracefully', () => {
       const similarity = trigramSimilarity('job', 'job');
-      expect(similarity).toBe(1);
+      assert.equal(similarity, 1);
     });
 
     it('should handle empty strings', () => {
       const similarity = trigramSimilarity('', 'something');
-      expect(similarity).toBe(0);
+      assert.equal(similarity, 0);
     });
   });
 
@@ -54,25 +53,25 @@ describe('Learner Memory Deduplication', () => {
     it('should strip diacritics for comparison', () => {
       const a = normalizeForFingerprint('café in París');
       const b = normalizeForFingerprint('cafe in Paris');
-      expect(a).toBe(b);
+      assert.equal(a, b);
     });
 
     it('should remove punctuation', () => {
       const a = normalizeForFingerprint("I'm planning a trip!");
       const b = normalizeForFingerprint('Im planning a trip');
-      expect(a).toBe(b);
+      assert.equal(a, b);
     });
 
     it('should normalize whitespace', () => {
       const a = normalizeForFingerprint('Trip   to    Madrid');
       const b = normalizeForFingerprint('Trip to Madrid');
-      expect(a).toBe(b);
+      assert.equal(a, b);
     });
 
     it('should be case insensitive', () => {
       const a = normalizeForFingerprint('TRIP TO MADRID');
       const b = normalizeForFingerprint('trip to madrid');
-      expect(a).toBe(b);
+      assert.equal(a, b);
     });
   });
 
@@ -82,7 +81,7 @@ describe('Learner Memory Deduplication', () => {
         '日本語を勉強しています',
         '日本語を勉強しています'
       );
-      expect(similarity).toBeCloseTo(1, 5);
+      assert.ok(Math.abs(similarity - 1) < 1e-5, `Expected ~1, got ${similarity}`);
     });
 
     it('should calculate meaningful similarity for similar Japanese text', () => {
@@ -90,10 +89,8 @@ describe('Learner Memory Deduplication', () => {
         '東京に旅行します',
         '東京に旅行する'
       );
-      // Similar but not identical - produces meaningful similarity (not 0 or 1)
-      // Actual: ~0.55 due to different verb endings (します vs する)
-      expect(similarity).toBeGreaterThan(0.4);
-      expect(similarity).toBeLessThan(1);
+      assert.ok(similarity > 0.4, `Expected > 0.4, got ${similarity}`);
+      assert.ok(similarity < 1, `Expected < 1, got ${similarity}`);
     });
 
     it('should handle Korean text deduplication', () => {
@@ -101,7 +98,7 @@ describe('Learner Memory Deduplication', () => {
         '한국어를 공부하고 있습니다',
         '한국어를 공부하고 있습니다'
       );
-      expect(similarity).toBeCloseTo(1, 5);
+      assert.ok(Math.abs(similarity - 1) < 1e-5, `Expected ~1, got ${similarity}`);
     });
 
     it('should handle Chinese text deduplication', () => {
@@ -109,23 +106,23 @@ describe('Learner Memory Deduplication', () => {
         '我正在学习中文',
         '我正在学习中文'
       );
-      expect(similarity).toBeCloseTo(1, 5);
+      assert.ok(Math.abs(similarity - 1) < 1e-5, `Expected ~1, got ${similarity}`);
     });
 
     it('should handle mixed Latin and CJK content', () => {
       const normalized = normalizeForFingerprint('I am learning 日本語');
-      expect(normalized).toContain('日本語');
-      expect(normalized).toContain('learning');
+      assert.ok(normalized.includes('日本語'), `Expected "日本語" in "${normalized}"`);
+      assert.ok(normalized.includes('learning'), `Expected "learning" in "${normalized}"`);
     });
 
     it('should handle mixed language content', () => {
       const normalized = normalizeForFingerprint('Ich möchte Deutsch lernen');
-      expect(normalized).toBe('ich mochte deutsch lernen');
+      assert.equal(normalized, 'ich mochte deutsch lernen');
     });
 
     it('should handle emoji removal', () => {
       const normalized = normalizeForFingerprint('Going to Spain 🇪🇸');
-      expect(normalized).toBe('going to spain');
+      assert.equal(normalized, 'going to spain');
     });
   });
 });
@@ -148,37 +145,37 @@ describe('Explicit Remember Commands', () => {
   it('should detect [REMEMBER: ...] tag format', () => {
     const content = 'That sounds exciting! [REMEMBER: Student is traveling to Madrid in June]';
     const extracted = extractRememberCommand(content);
-    expect(extracted).toBe('Student is traveling to Madrid in June');
+    assert.equal(extracted, 'Student is traveling to Madrid in June');
   });
 
   it('should detect "remember that:" format', () => {
     const content = 'Remember that: you have a meeting tomorrow';
     const extracted = extractRememberCommand(content);
-    expect(extracted).toBe('you have a meeting tomorrow');
+    assert.equal(extracted, 'you have a meeting tomorrow');
   });
 
   it('should detect "note:" format', () => {
     const content = 'Note: Student works at a tech company';
     const extracted = extractRememberCommand(content);
-    expect(extracted).toBe('Student works at a tech company');
+    assert.equal(extracted, 'Student works at a tech company');
   });
 
   it('should return null when no command present', () => {
     const content = 'Just a normal conversation about weather';
     const extracted = extractRememberCommand(content);
-    expect(extracted).toBeNull();
+    assert.equal(extracted, null);
   });
 
   it('should handle case insensitivity', () => {
     const content = '[remember: case insensitive test]';
     const extracted = extractRememberCommand(content);
-    expect(extracted).toBe('case insensitive test');
+    assert.equal(extracted, 'case insensitive test');
   });
 });
 
 describe('Long Session Chunking', () => {
   const MESSAGES_PER_WINDOW = 10;
-  
+
   function chunkMessages<T>(messages: T[], windowSize: number): T[][] {
     const chunks: T[][] = [];
     for (let i = 0; i < messages.length; i += windowSize) {
@@ -190,41 +187,41 @@ describe('Long Session Chunking', () => {
   it('should create correct number of chunks', () => {
     const messages = Array.from({ length: 25 }, (_, i) => ({ id: i }));
     const chunks = chunkMessages(messages, MESSAGES_PER_WINDOW);
-    expect(chunks.length).toBe(3);
+    assert.equal(chunks.length, 3);
   });
 
   it('should handle messages less than window size', () => {
     const messages = Array.from({ length: 5 }, (_, i) => ({ id: i }));
     const chunks = chunkMessages(messages, MESSAGES_PER_WINDOW);
-    expect(chunks.length).toBe(1);
-    expect(chunks[0].length).toBe(5);
+    assert.equal(chunks.length, 1);
+    assert.equal(chunks[0].length, 5);
   });
 
   it('should handle exact window size', () => {
     const messages = Array.from({ length: 10 }, (_, i) => ({ id: i }));
     const chunks = chunkMessages(messages, MESSAGES_PER_WINDOW);
-    expect(chunks.length).toBe(1);
-    expect(chunks[0].length).toBe(10);
+    assert.equal(chunks.length, 1);
+    assert.equal(chunks[0].length, 10);
   });
 
   it('should handle empty array', () => {
     const chunks = chunkMessages([], MESSAGES_PER_WINDOW);
-    expect(chunks.length).toBe(0);
+    assert.equal(chunks.length, 0);
   });
 
   it('should preserve message order within chunks', () => {
     const messages = [{ id: 0 }, { id: 1 }, { id: 2 }];
     const chunks = chunkMessages(messages, 2);
-    expect(chunks[0][0].id).toBe(0);
-    expect(chunks[0][1].id).toBe(1);
-    expect(chunks[1][0].id).toBe(2);
+    assert.equal(chunks[0][0].id, 0);
+    assert.equal(chunks[0][1].id, 1);
+    assert.equal(chunks[1][0].id, 2);
   });
 });
 
 describe('Fact Type Inference', () => {
   function inferFactType(content: string): string {
     const lower = content.toLowerCase();
-    
+
     if (lower.includes('trip') || lower.includes('travel') || lower.includes('vacation')) {
       return 'travel';
     }
@@ -249,37 +246,37 @@ describe('Fact Type Inference', () => {
     if (lower.includes('friend') || lower.includes('colleague') || lower.includes('partner')) {
       return 'relationship';
     }
-    
+
     return 'personal_detail';
   }
 
   it('should infer travel type', () => {
-    expect(inferFactType('Planning a trip to Madrid')).toBe('travel');
-    expect(inferFactType('Going on vacation next month')).toBe('travel');
+    assert.equal(inferFactType('Planning a trip to Madrid'), 'travel');
+    assert.equal(inferFactType('Going on vacation next month'), 'travel');
   });
 
   it('should infer work type', () => {
-    expect(inferFactType('I work at a tech company')).toBe('work');
-    expect(inferFactType('Starting a new job next week')).toBe('work');
+    assert.equal(inferFactType('I work at a tech company'), 'work');
+    assert.equal(inferFactType('Starting a new job next week'), 'work');
   });
 
   it('should infer family type', () => {
-    expect(inferFactType('My wife is learning Spanish too')).toBe('family');
-    expect(inferFactType('I have two kids')).toBe('family');
+    assert.equal(inferFactType('My wife is learning Spanish too'), 'family');
+    assert.equal(inferFactType('I have two kids'), 'family');
   });
 
   it('should infer life_event type', () => {
-    expect(inferFactType('My wedding is in June')).toBe('life_event');
-    expect(inferFactType('Birthday party next Saturday')).toBe('life_event');
+    assert.equal(inferFactType('My wedding is in June'), 'life_event');
+    assert.equal(inferFactType('Birthday party next Saturday'), 'life_event');
   });
 
   it('should infer goal type', () => {
-    expect(inferFactType('I want to become fluent')).toBe('goal');
-    expect(inferFactType('My goal is to speak by summer')).toBe('goal');
+    assert.equal(inferFactType('I want to become fluent'), 'goal');
+    assert.equal(inferFactType('My goal is to speak by summer'), 'goal');
   });
 
   it('should default to personal_detail', () => {
-    expect(inferFactType('I live in New York')).toBe('personal_detail');
+    assert.equal(inferFactType('I live in New York'), 'personal_detail');
   });
 });
 
@@ -294,18 +291,15 @@ describe('Privacy Filtering', () => {
   function isCategoryAllowed(factType: string, settings: PrivacySettings): boolean {
     if (!settings.enabled) return false;
     if (settings.redactionRequested) return false;
-    
-    // If allowedCategories is set, only those are allowed
+
     if (settings.allowedCategories.length > 0) {
       return settings.allowedCategories.includes(factType);
     }
-    
-    // If blockedCategories is set, those are blocked
+
     if (settings.blockedCategories.length > 0) {
       return !settings.blockedCategories.includes(factType);
     }
-    
-    // Default: allow all
+
     return true;
   }
 
@@ -316,7 +310,7 @@ describe('Privacy Filtering', () => {
       blockedCategories: [],
       redactionRequested: false,
     };
-    expect(isCategoryAllowed('travel', settings)).toBe(false);
+    assert.equal(isCategoryAllowed('travel', settings), false);
   });
 
   it('should block when redaction requested', () => {
@@ -326,7 +320,7 @@ describe('Privacy Filtering', () => {
       blockedCategories: [],
       redactionRequested: true,
     };
-    expect(isCategoryAllowed('travel', settings)).toBe(false);
+    assert.equal(isCategoryAllowed('travel', settings), false);
   });
 
   it('should allow only whitelisted categories', () => {
@@ -336,8 +330,8 @@ describe('Privacy Filtering', () => {
       blockedCategories: [],
       redactionRequested: false,
     };
-    expect(isCategoryAllowed('travel', settings)).toBe(true);
-    expect(isCategoryAllowed('work', settings)).toBe(false);
+    assert.equal(isCategoryAllowed('travel', settings), true);
+    assert.equal(isCategoryAllowed('work', settings), false);
   });
 
   it('should block blacklisted categories', () => {
@@ -347,8 +341,8 @@ describe('Privacy Filtering', () => {
       blockedCategories: ['family', 'work'],
       redactionRequested: false,
     };
-    expect(isCategoryAllowed('travel', settings)).toBe(true);
-    expect(isCategoryAllowed('family', settings)).toBe(false);
+    assert.equal(isCategoryAllowed('travel', settings), true);
+    assert.equal(isCategoryAllowed('family', settings), false);
   });
 
   it('should allow all when no restrictions', () => {
@@ -358,7 +352,7 @@ describe('Privacy Filtering', () => {
       blockedCategories: [],
       redactionRequested: false,
     };
-    expect(isCategoryAllowed('travel', settings)).toBe(true);
-    expect(isCategoryAllowed('work', settings)).toBe(true);
+    assert.equal(isCategoryAllowed('travel', settings), true);
+    assert.equal(isCategoryAllowed('work', settings), true);
   });
 });

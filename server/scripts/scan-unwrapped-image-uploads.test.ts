@@ -257,6 +257,31 @@ describe('GCS guard — scanner self-validation (end-to-end with a real file)', 
     }
   });
 
+  it('detects a violation when an unwrapped generateEnvironmentScene() call is written to a real file', () => {
+    const source = [
+      `// Temporary file written by scan-unwrapped-image-uploads.test.ts — DO NOT COMMIT`,
+      `import { generateEnvironmentScene } from '../services/image-engine';`,
+      `async function bad() {`,
+      `  const url = await generateEnvironmentScene({ theme: 'forest', style: 'watercolor' });`,
+      `  return url;`,
+      `}`,
+    ].join('\n');
+
+    fs.writeFileSync(TEMP_FILE, source, 'utf8');
+    try {
+      const violations = scanForViolations().filter(
+        v => v.file.includes('__gcs-guard-selftest-tmp__'),
+      );
+      assert.equal(
+        violations.length,
+        1,
+        `Scanner should have found 1 unwrapped generateEnvironmentScene() call but found ${violations.length}.\nViolations: ${JSON.stringify(violations)}`,
+      );
+    } finally {
+      fs.unlinkSync(TEMP_FILE);
+    }
+  });
+
   it('does NOT flag the same file when the call carries the exempt marker', () => {
     const source = [
       `// Temporary file written by scan-unwrapped-image-uploads.test.ts — DO NOT COMMIT`,
