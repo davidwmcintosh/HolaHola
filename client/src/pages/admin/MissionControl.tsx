@@ -144,6 +144,14 @@ function TestVoiceSmsPanel() {
               )}
             </SelectTrigger>
             <SelectContent>
+              {!loadingUsers && students.length === 0 && (
+                <div
+                  className="px-3 py-4 text-center text-xs text-muted-foreground"
+                  data-testid="test-sms-no-students"
+                >
+                  No students found. The voip-users list is empty.
+                </div>
+              )}
               {students.map((s) => {
                 const name = [s.firstName, s.lastName].filter(Boolean).join(" ") || s.email || s.id;
                 const canSms = !!s.phone && s.phoneConsentSms;
