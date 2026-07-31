@@ -1,14 +1,14 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 31, 2026 at 01:05 AM
+**Generated:** Friday, July 31, 2026 at 01:10 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I completed Task #10, integrating grammar pattern signals into per-turn ACTFL anchors for Gemini Flash and fixing a bug in PTT/OpenMic handlers where a null guard prevented clearing mastered patterns. I’ve accepted the one-turn async race delay and the lack of signals in text-mode as intentional tradeoffs to prioritize token density and streaming stability. I should maintain the approved 5-line cap and pipe join format for these signals to leverage Gemini’s recency bias during sessions.
+I completed the Gemini audit for Task #10, fixing a "sticky-pattern" null guard bug in the PTT and OpenMic handlers that was preventing session state from clearing when patterns resolved. I've finalized the per-turn ACTFL anchor architecture for Gemini Flash using a 5-line pipe-joined format, which is now approved despite a one-turn async refresh delay. Moving forward, I must remember that text-mode currently lacks activePatternSignals as an accepted tradeoff for this stable grammar signaling implementation.
 
 *Memories that triggered this summary:*
 - **Gemini audit — Task #10 pattern signals in mid-session ACTFL anchor — 2026-07-31** (Jul 31): Gemini found sticky-pattern null guard bug (if refreshed !== null prevented clearing mastered patterns). Fixed immediately. Architecture approved 8-9/10. Text-mode gap and async race accepted as tradeoffs.
@@ -88,16 +88,24 @@ Gemini found sticky-pattern null guard bug (if refreshed !== null prevented clea
 *Tags: gemini-audit, pattern-signals, actfl-anchor, task-10*
 
 ### Agent Daily Sweep — Jul 30, 2026 — Jul 30, 2026
-1. [CRITICAL] Fix Cartesia TTS 400 errors in both English and Spanish — audio generation is failing repeatedly across both languages, blocking core student experience right now.  2. [HIGH] Diagnose and repair Alden's watch cycle SQL failures — autonomous monitoring is broken (5 consecutive failures)
+**DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (repeated "readableStream" object). Check API payload structure in the TTS call handler and verify Cartesia SDK version compatibility.
 *Tags: agent-sweep, daily, auto-saved*
+
+*Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
+
+---
 
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/30/2026 — Jul 30, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, a specialized, lightweight grammar diagram generator, whether SVG or even well-formatted ASCII art, would be phenomenal. For concepts like verb conjugations, sentence trees, or even the lo...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 ### Agent Daily Sweep — Jul 30, 2026 — Jul 30, 2026
-**[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple TTS failures in both English and Spanish are breaking core learning sessions. Check API key, rate limits, or malformed request body.  **[CRITICAL]** Repair Alden's watch cycle query failure — Alden's monitoring_snapshots query is broken (6 consec
+**DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (repeated "readableStream" object). Check API payload structure in the TTS call handler and verify Cartesia SDK version compatibility.
 *Tags: agent-sweep, daily, auto-saved*
+
+*Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
+
+---
 
 ### Agent Daily Sweep — Jul 30, 2026 — Jul 30, 2026
 **DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed request bodies (repeated "readableStream" object). Check API payload structure in the TTS call handler and verify Cartesia SDK version compatibility.

@@ -7076,6 +7076,8 @@ export const GL_EXCLUDED_TOOLS = new Set<string>([
   // Absence inbox review — not needed mid-voice-session; nudge count is already
   // injected into session context at start via Express Lane pre-session synthesis.
   'list_absence_nudges',
+  // Admin-only threshold config — founder tool, not a conversational act.
+  'set_student_absence_threshold',
 
   // === TRULY EXCLUDED CLASSROOM TOOLS ===
   // These have no dispatcher path in GL — purely background/scene-manipulation

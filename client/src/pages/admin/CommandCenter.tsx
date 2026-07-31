@@ -1879,6 +1879,14 @@ export default function CommandCenter() {
   });
   const pendingProposalsCount = pendingProposalsData?.proposals?.filter(p => p.status === 'pending').length || 0;
 
+  // Query pending procedure flags count for notification badge
+  const { data: procedureFlagsData } = useQuery<{ pending: number }>({
+    queryKey: ["/api/admin/procedure-flags"],
+    enabled: isFounder,
+    refetchInterval: 60_000,
+  });
+  const pendingFlagsCount = procedureFlagsData?.pending || 0;
+
   // Tab groups for organized display - grouped by function
   const tabGroups = [
     {
@@ -2063,7 +2071,8 @@ export default function CommandCenter() {
               // Add tabs
               groupTabs.forEach(tab => {
                 const Icon = tab.icon;
-                const showBadge = tab.id === 'brain-surgery' && pendingProposalsCount > 0;
+                const brainSurgeryBadge = (tab.id === 'brain-surgery') && (pendingProposalsCount + pendingFlagsCount > 0);
+                const showBadge = brainSurgeryBadge;
                 elements.push(
                   <TabsTrigger 
                     key={tab.id} 
@@ -2075,7 +2084,7 @@ export default function CommandCenter() {
                     <span className="hidden sm:inline">{tab.label}</span>
                     {showBadge && (
                       <Badge variant="destructive" className="h-4 min-w-4 px-1 text-[10px]" data-testid="badge-pending-proposals">
-                        {pendingProposalsCount}
+                        {pendingProposalsCount + pendingFlagsCount}
                       </Badge>
                     )}
                   </TabsTrigger>
@@ -14416,6 +14425,20 @@ function BrainHealthTab() {
   return <BrainHealthContent />;
 }
 
+interface ProcedureFlag {
+  id: string;
+  subject: string;
+  body: string;
+  sessionLabel: string | null;
+  readAt: string | null;
+  createdAt: string;
+  parsedTargetTable: string;
+  parsedReasoning: string;
+  parsedSessionId: string | null;
+  parsedLanguage: string | null;
+  parsedProposedContent: any;
+  pending: boolean;
+}
 function BrainSurgeryTab() {
   const { toast } = useToast();
   const [statusFilter, setStatusFilter] = useState<string>("pending");
@@ -14936,6 +14959,9 @@ function BrainSurgeryTab() {
           </CardContent>
         </Card>
       </CollapsibleSection>
+
+      {/* Procedure Flags — knowledge-domain flags from normal sessions */}
+      <ProcedureFlagsSection />
 
       {/* Self-Surgery Proposals Section */}
       <Card className="border-primary/20 bg-primary/5">
@@ -15782,4 +15808,240 @@ interface PendingNudge {
   lastSessionDate: string | null;
   lastTopic: string | null;
   suppressUntil: string | null;
+}
+
+function ProcedureFlagsSection() {
+  const { toast } = useToast();
+  const [showReviewed, setShowReviewed] = useState(false);
+  const [expandedFlag, setExpandedFlag] = useState<string | null>(null);
+
+  const flagsUrl = `/api/admin/procedure-flags?includeReviewed=${showReviewed}`;
+  const { data, isLoading, refetch } = useQuery<{ flags: ProcedureFlag[]; pending: number; total: number }>({
+    queryKey: [flagsUrl],
+  });
+
+  const flags = data?.flags || [];
+
+  const markMutation = useMutation({
+    mutationFn: async ({ id, action }: { id: string; action: 'reviewed' | 'dismissed' }) => {
+      return apiRequest("PATCH", `/api/admin/procedure-flags/${id}`, { action });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/procedure-flags"] });
+      toast({ title: "Flag updated", description: "Flag marked as reviewed." });
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const promoteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("POST", `/api/admin/procedure-flags/${id}/promote`);
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/procedure-flags"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/self-surgery/proposals"] });
+      toast({ title: "Promoted!", description: `Created proposal ${data.proposalId}. Find it in Self-Surgery Proposals below.` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Promotion failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const getTargetTableLabel = (target: string) => {
+    const labels: Record<string, string> = {
+      tutor_procedures: "Tutor Procedures",
+      teaching_principles: "Teaching Principles",
+      tool_knowledge: "Tool Knowledge",
+      situational_patterns: "Situational Patterns",
+      language_idioms: "Language Idioms",
+      cultural_nuances: "Cultural Nuances",
+      learner_error_patterns: "Learner Errors",
+      dialect_variations: "Dialect Variations",
+      linguistic_bridges: "Linguistic Bridges",
+    };
+    return labels[target] || target;
+  };
+
+  const getTargetColor = (target: string) => {
+    const colors: Record<string, string> = {
+      tutor_procedures: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+      teaching_principles: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+      tool_knowledge: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      situational_patterns: "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+      language_idioms: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
+      cultural_nuances: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+      learner_error_patterns: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+      dialect_variations: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200",
+      linguistic_bridges: "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
+    };
+    return colors[target] || "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
+  };
+
+  return (
+    <CollapsibleSection
+      title="Procedure Flags"
+      icon={<AlertTriangle className="h-5 w-5 text-amber-500" />}
+      defaultOpen={(data?.pending || 0) > 0}
+      badge={data?.pending ? `${data.pending} pending` : undefined}
+    >
+      <div className="mt-4 space-y-4">
+        {/* Header row */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <p className="text-sm text-muted-foreground flex-1">
+            Knowledge-domain flags Daniela raised during normal sessions. Each flag requires founder review before any change is applied.
+          </p>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-reviewed-flags"
+              checked={showReviewed}
+              onCheckedChange={setShowReviewed}
+            />
+            <label htmlFor="show-reviewed-flags" className="text-xs text-muted-foreground cursor-pointer">
+              Show reviewed
+            </label>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh-flags">
+            <RefreshCw className="h-4 w-4 mr-1" />
+            Refresh
+          </Button>
+        </div>
+
+        {/* Flags list */}
+        {isLoading ? (
+          <div className="space-y-3">
+            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-28" />)}
+          </div>
+        ) : flags.length === 0 ? (
+          <Card>
+            <CardContent className="py-8 text-center">
+              <CheckCircle className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+              <p className="text-muted-foreground text-sm">
+                {showReviewed ? "No procedure flags yet." : "No pending flags — all caught up."}
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {flags.map(flag => (
+              <Card
+                key={flag.id}
+                className={flag.pending
+                  ? "border-amber-400/50 bg-amber-50/30 dark:bg-amber-950/10"
+                  : "opacity-60"}
+                data-testid={`procedure-flag-${flag.id}`}
+              >
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className={getTargetColor(flag.parsedTargetTable)}>
+                        {getTargetTableLabel(flag.parsedTargetTable)}
+                      </Badge>
+                      {flag.parsedLanguage && (
+                        <Badge variant="secondary">{flag.parsedLanguage}</Badge>
+                      )}
+                      {flag.pending ? (
+                        <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200">
+                          Needs Review
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">Reviewed</Badge>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {new Date(flag.createdAt).toLocaleDateString()} {new Date(flag.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <p className="text-sm mt-1">
+                    {flag.parsedReasoning.length > 160
+                      ? flag.parsedReasoning.substring(0, 160) + "…"
+                      : flag.parsedReasoning}
+                  </p>
+                </CardHeader>
+
+                <CardContent className="space-y-2">
+                  {/* Expandable content */}
+                  <Collapsible
+                    open={expandedFlag === flag.id}
+                    onOpenChange={open => setExpandedFlag(open ? flag.id : null)}
+                  >
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="w-full justify-between" data-testid={`button-expand-flag-${flag.id}`}>
+                        <span className="text-xs">View proposed content &amp; session context</span>
+                        {expandedFlag === flag.id
+                          ? <ChevronDown className="h-4 w-4" />
+                          : <ChevronRight className="h-4 w-4" />}
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-2 space-y-2">
+                      {flag.parsedProposedContent && (
+                        <div className="bg-muted/50 rounded-md p-3">
+                          <p className="text-xs text-muted-foreground mb-1 font-medium">Proposed Content:</p>
+                          <pre className="text-xs overflow-x-auto whitespace-pre-wrap">
+                            {typeof flag.parsedProposedContent === 'string'
+                              ? flag.parsedProposedContent
+                              : JSON.stringify(flag.parsedProposedContent, null, 2)}
+                          </pre>
+                        </div>
+                      )}
+                      {flag.parsedSessionId && (
+                        <div className="bg-muted/50 rounded-md p-3">
+                          <p className="text-xs text-muted-foreground mb-1 font-medium">Session:</p>
+                          <code className="text-xs">{flag.parsedSessionId}</code>
+                        </div>
+                      )}
+                      <div className="bg-muted/50 rounded-md p-3">
+                        <p className="text-xs text-muted-foreground mb-1 font-medium">Full note body:</p>
+                        <pre className="text-xs overflow-x-auto whitespace-pre-wrap max-h-48">{flag.body}</pre>
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+
+                  {/* Action buttons — only for pending flags */}
+                  {flag.pending && (
+                    <div className="flex items-center gap-2 pt-1 border-t flex-wrap">
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={() => promoteMutation.mutate(flag.id)}
+                        disabled={promoteMutation.isPending}
+                        data-testid={`button-promote-flag-${flag.id}`}
+                      >
+                        {promoteMutation.isPending
+                          ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                          : <Zap className="h-3.5 w-3.5 mr-1" />}
+                        Promote to Proposal
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => markMutation.mutate({ id: flag.id, action: 'reviewed' })}
+                        disabled={markMutation.isPending}
+                        data-testid={`button-reviewed-flag-${flag.id}`}
+                      >
+                        <Check className="h-3.5 w-3.5 mr-1" />
+                        Mark Reviewed
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-muted-foreground"
+                        onClick={() => markMutation.mutate({ id: flag.id, action: 'dismissed' })}
+                        disabled={markMutation.isPending}
+                        data-testid={`button-dismiss-flag-${flag.id}`}
+                      >
+                        <XCircle className="h-3.5 w-3.5 mr-1" />
+                        Dismiss
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    </CollapsibleSection>
+  );
 }

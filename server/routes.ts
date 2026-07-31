@@ -33399,6 +33399,164 @@ You have full access to your neural network knowledge.
     }
   });
 
+  // PROCEDURE FLAGS: Daniela's knowledge-domain flags from normal sessions
+  // These land in agent_notes with subject prefix "[Daniela — REQUIRES FOUNDER REVIEW]"
+
+  app.get("/api/admin/procedure-flags", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
+    try {
+      const { agentNotes } = await import('@shared/schema');
+      const { ilike: ilikeOp, isNull: isNullOp, and: andOp } = await import('drizzle-orm');
+      const db = getSharedDb();
+      const includeReviewed = req.query.includeReviewed === 'true';
+      const conditions: any[] = [
+        ilikeOp(agentNotes.subject, '[Daniela \u2014 REQUIRES FOUNDER REVIEW]%'),
+      ];
+      if (!includeReviewed) {
+        conditions.push(isNullOp(agentNotes.readAt));
+      }
+      const rows = await db
+        .select()
+        .from(agentNotes)
+        .where(andOp(...conditions))
+        .orderBy(desc(agentNotes.createdAt))
+        .limit(100);
+
+      // Parse body into structured fields for convenience
+      const parsed = rows.map(note => {
+        const subjectRest = note.subject.replace('[Daniela \u2014 REQUIRES FOUNDER REVIEW] ', '');
+        const colonIdx = subjectRest.indexOf(':');
+        const targetTable = colonIdx > -1 ? subjectRest.substring(0, colonIdx).trim() : subjectRest;
+
+        const bodyLines = note.body.split('\n');
+        const reasoning = (bodyLines.find(l => l.startsWith('Reasoning: '))?.replace('Reasoning: ', '') || '').trim();
+        const sessionId = (bodyLines.find(l => l.startsWith('Session: '))?.replace('Session: ', '') || '').trim() || null;
+        const language = (bodyLines.find(l => l.startsWith('Language: '))?.replace('Language: ', '') || '').trim() || null;
+
+        // Proposed content block spans from "Proposed content:" line to empty line after it
+        let proposedContent: any = null;
+        const pcLineIdx = bodyLines.findIndex(l => l.startsWith('Proposed content: '));
+        if (pcLineIdx > -1) {
+          const pcRaw = bodyLines[pcLineIdx].replace('Proposed content: ', '');
+          // Multi-line JSON may continue on subsequent lines until blank
+          const extraLines: string[] = [];
+          for (let i = pcLineIdx + 1; i < bodyLines.length; i++) {
+            if (bodyLines[i] === '') break;
+            extraLines.push(bodyLines[i]);
+          }
+          const fullPc = [pcRaw, ...extraLines].join('\n');
+          try { proposedContent = JSON.parse(fullPc); } catch { proposedContent = fullPc; }
+        }
+
+        return {
+          ...note,
+          parsedTargetTable: targetTable,
+          parsedReasoning: reasoning,
+          parsedSessionId: sessionId,
+          parsedLanguage: language,
+          parsedProposedContent: proposedContent,
+          pending: !note.readAt,
+        };
+      });
+
+      res.json({ flags: parsed, total: parsed.length, pending: parsed.filter(f => f.pending).length });
+    } catch (error: any) {
+      console.error('[ProcedureFlags] GET error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Mark a procedure flag as reviewed or dismissed (sets readAt)
+  app.patch("/api/admin/procedure-flags/:id", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { action } = req.body; // 'reviewed' | 'dismissed'
+      if (!['reviewed', 'dismissed'].includes(action)) {
+        return res.status(400).json({ error: 'action must be "reviewed" or "dismissed"' });
+      }
+      const { agentNotes } = await import('@shared/schema');
+      const db = getSharedDb();
+      const [updated] = await db
+        .update(agentNotes)
+        .set({ readAt: new Date() })
+        .where(eq(agentNotes.id, id))
+        .returning();
+      if (!updated) return res.status(404).json({ error: 'Flag not found' });
+      console.log(`[ProcedureFlags] Flag ${id} marked as ${action}`);
+      res.json({ success: true, flag: updated });
+    } catch (error: any) {
+      console.error('[ProcedureFlags] PATCH error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Promote a procedure flag to a self-surgery proposal
+  app.post("/api/admin/procedure-flags/:id/promote", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { agentNotes, selfSurgeryProposals } = await import('@shared/schema');
+      const db = getSharedDb();
+
+      const [note] = await db.select().from(agentNotes).where(eq(agentNotes.id, id)).limit(1);
+      if (!note) return res.status(404).json({ error: 'Flag not found' });
+
+      // Parse the note body
+      const subjectRest = note.subject.replace('[Daniela \u2014 REQUIRES FOUNDER REVIEW] ', '');
+      const colonIdx = subjectRest.indexOf(':');
+      const targetTable = colonIdx > -1 ? subjectRest.substring(0, colonIdx).trim() : subjectRest;
+
+      const bodyLines = note.body.split('\n');
+      const reasoning = (bodyLines.find((l: string) => l.startsWith('Reasoning: '))?.replace('Reasoning: ', '') || '').trim() || 'Knowledge-domain flag from normal session';
+      const sessionId = (bodyLines.find((l: string) => l.startsWith('Session: '))?.replace('Session: ', '') || '').trim() || null;
+      const language = (bodyLines.find((l: string) => l.startsWith('Language: '))?.replace('Language: ', '') || '').trim() || null;
+
+      let proposedContent: any = {};
+      const pcLineIdx = bodyLines.findIndex((l: string) => l.startsWith('Proposed content: '));
+      if (pcLineIdx > -1) {
+        const pcRaw = bodyLines[pcLineIdx].replace('Proposed content: ', '');
+        const extraLines: string[] = [];
+        for (let i = pcLineIdx + 1; i < bodyLines.length; i++) {
+          if (bodyLines[i] === '') break;
+          extraLines.push(bodyLines[i]);
+        }
+        const fullPc = [pcRaw, ...extraLines].join('\n');
+        try { proposedContent = JSON.parse(fullPc); } catch { proposedContent = { raw: fullPc }; }
+      }
+
+      // Validate target table is a known value
+      const validTargets = [
+        'tutor_procedures', 'teaching_principles', 'tool_knowledge',
+        'situational_patterns', 'language_idioms', 'cultural_nuances',
+        'learner_error_patterns', 'dialect_variations', 'linguistic_bridges',
+      ];
+      if (!validTargets.includes(targetTable)) {
+        return res.status(400).json({ error: `Cannot promote: unknown target table "${targetTable}"` });
+      }
+
+      // Create the self-surgery proposal
+      const [proposal] = await db.insert(selfSurgeryProposals).values({
+        targetTable: targetTable as any,
+        proposedContent,
+        reasoning,
+        triggerContext: `Promoted from procedure flag ${id}. Original session: ${sessionId || 'unknown'}`,
+        status: 'pending',
+        conversationId: sessionId,
+        sessionMode: 'normal',
+        targetLanguage: language,
+        priority: 50,
+        confidence: 70,
+      }).returning();
+
+      // Mark the flag as read (reviewed)
+      await db.update(agentNotes).set({ readAt: new Date() }).where(eq(agentNotes.id, id));
+
+      console.log(`[ProcedureFlags] Flag ${id} promoted to self-surgery proposal ${proposal.id}`);
+      res.json({ success: true, proposalId: proposal.id, proposal });
+    } catch (error: any) {
+      console.error('[ProcedureFlags] Promote error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // TEST SMS PIPELINE: Queue a test voice message and trigger immediate delivery
   app.post("/api/admin/test-voice-sms", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
