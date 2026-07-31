@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, index, uniqueIndex, jsonb, pgEnum, date, doublePrecision, check } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import type { ResolutionType } from "./absence-types";
 
 // ===== Enums =====
 
@@ -9342,7 +9343,10 @@ export const danielaAbsenceNudges = pgTable("daniela_absence_nudges", {
   resolvedAt: timestamp("resolved_at"),         // null = Daniela hasn't acted yet
   // Allowed values: 'message_queued' | 'dismissed' | 'student_returned'
   // Enforced at DB level by chk_daniela_absence_nudges_resolution_type below.
-  resolutionType: varchar("resolution_type"),
+  // Typed as NonNullable<ResolutionType> so Drizzle insert/update calls reject
+  // unknown strings at compile time — the column is still nullable at runtime
+  // (null means Daniela hasn't acted yet).
+  resolutionType: varchar("resolution_type").$type<NonNullable<ResolutionType>>(),
   suppressUntil: timestamp("suppress_until"),   // if Daniela snoozes, no re-nudge before this
   lastSessionDate: timestamp("last_session_date"),
   daysSinceLastSession: integer("days_since_last_session"),
