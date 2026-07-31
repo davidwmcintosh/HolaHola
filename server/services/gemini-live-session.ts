@@ -79,6 +79,18 @@ export const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-fl
 const AUDIO_OUTPUT_SAMPLE_RATE = 24000;
 const AUDIO_INPUT_SAMPLE_RATE = 16000;
 
+/** Typed shape for every GL function-call response payload.
+ * The `result` field is the string that Daniela reads; all other keys are
+ * optional pass-through data.  Using an explicit interface (rather than
+ * `Record<string, unknown>`) means a field rename (e.g. result→output) on
+ * the GL SDK side will produce a compile error instead of a silent no-op.
+ * Defined at module level so both the main tool-call handler AND the
+ * reconnect-unblock synthetic-response path share the same type — preventing
+ * either path from silently drifting to a different field name. */
+export interface GLToolResponsePayload {
+  result: string;
+  [key: string]: unknown;
+}
 /** Default voice for Daniela in Gemini Live mode. */
 const DEFAULT_LIVE_VOICE = 'Aoede';
 
@@ -1185,11 +1197,12 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 const sessionForUnblock = this.liveSession as Session | null;
                 if (hadHandle && staleFunctionCallIds.length > 0 && sessionForUnblock) {
                   try {
-                    const syntheticResponses = staleFunctionCallIds.map(id => ({
-                      id,
-                      name: 'unknown',
-                      response: { error: 'Session interrupted — tool response lost. Please continue naturally.' },
-                    }));
+                    const syntheticResponses: Array<{ id: string; name: string; response: GLToolResponsePayload }> =
+                      staleFunctionCallIds.map(id => ({
+                        id,
+                        name: 'unknown',
+                        response: { result: 'Session interrupted — tool response lost. Please continue naturally.' } satisfies GLToolResponsePayload,
+                      }));
                     sessionForUnblock.sendToolResponse({ functionResponses: syntheticResponses });
                     console.log(`[GeminiLive] Sent ${staleFunctionCallIds.length} synthetic tool response(s) to unblock GL after reconnect`);
                   } catch (unblockErr) {
@@ -3226,15 +3239,6 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       this.pendingFunctionCallIds = msg.toolCall.functionCalls
         .map((fc: any) => fc.id as string)
         .filter(Boolean);
-      /** Typed shape for every GL function-call response payload.
-       * The `result` field is the string that Daniela reads; all other keys are
-       * optional pass-through data.  Using an explicit interface (rather than
-       * `Record<string, unknown>`) means a field rename (e.g. result→output) on
-       * the GL SDK side will produce a compile error instead of a silent no-op. */
-      interface GLToolResponsePayload {
-        result: string;
-        [key: string]: unknown;
-      }
       const responses: Array<{ id: string; name: string; response: GLToolResponsePayload }> = [];
 
       // Phase 1: Build extractedFcs upfront (order-safe) then fire all handlers in parallel.
