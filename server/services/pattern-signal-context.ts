@@ -123,6 +123,26 @@ export function formatPatternSignals(
 }
 
 /**
+ * Convert session.activePatternSignals (the pre-formatted bullet string stored at
+ * greeting time) into the compact injection note shared by both voice and text paths.
+ *
+ * Returns '' when signals is null/empty so callers can concatenate directly.
+ * Capped at 5 lines; only bullet/dash lines are included so stray header text is ignored.
+ *
+ * Single source of truth — used by buildActflPersonaAnchor (voice) and
+ * runDanielaFCLoop (text) so the two paths can never drift.
+ */
+export function formatActivePatternSignalNote(signals: string | null | undefined): string {
+  if (!signals) return '';
+  const lines = signals
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.startsWith('-') || l.startsWith('•'))
+    .slice(0, 5);
+  return lines.length > 0 ? `\nActive grammar patterns: ${lines.join(' | ')}` : '';
+}
+
+/**
  * Build the per-turn "This turn:" preamble injected into Gemini's context on
  * every student turn.
  *
@@ -194,18 +214,7 @@ export function buildActflPersonaAnchor(session: PatternAnchorSession): string |
 
   // PATTERN SIGNALS: Compact wobbling/pounding reminder carried from greeting
   // into every mid-session turn so Daniela doesn't lose track of active patterns.
-  // Capped at 5 lines; wobbling (regression) listed before pounding (in progress).
-  let patternSignalNote = '';
-  if (session.activePatternSignals) {
-    const lines = session.activePatternSignals
-      .split('\n')
-      .map((l) => l.trim())
-      .filter((l) => l.startsWith('-') || l.startsWith('•'))
-      .slice(0, 5);
-    if (lines.length > 0) {
-      patternSignalNote = `\nActive grammar patterns: ${lines.join(' | ')}`;
-    }
-  }
+  const patternSignalNote = formatActivePatternSignalNote(session.activePatternSignals);
 
   return `This turn:\n${langConstraint}\n${personaAnchor}${ongoingNote}${contextAgeNote}${memoryGuidance}${temporalAnchor}${patternSignalNote}`;
 }

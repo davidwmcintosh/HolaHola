@@ -23,3 +23,33 @@ Text-mode path doesn't get `activePatternSignals`. Noted as a gap. Low priority 
 
 ### Async race (accepted tradeoff)  
 DB refresh may complete one turn after the RECORD_PATTERN_SIGNAL event in GL streaming. Stable behavior — refresh is for next turn, not current response.
+
+---
+
+# Gemini Audit — Task #240 (Text-mode pattern signal injection — voice→text gap)
+**Date:** 2026-07-31  
+**Auditor:** Gemini 3-flash-preview (two-round loop)  
+**Triggered by:** Pre-merge requirement per `docs/GEMINI_REQUIRED.md`
+
+## What was reviewed
+Added `activePatternSignals?: string | null` to `RunDanielaFCLoopParams`. When provided, injected into the system prompt before the first `generateContent` call — same pipe-joined, 5-line-capped format as `buildActflPersonaAnchor` in voice. Closes the gap where a student switching from voice to text mid-session loses all active grammar pattern context.
+
+## Round 1 findings (not approved — two issues flagged)
+
+### Issue 1: Logic duplication
+The `split('\n').map.filter.slice` parsing block was copied inline into `daniela-caller.ts` instead of shared. A future format change would drift the two paths.
+
+**Fix:** Extracted into `formatActivePatternSignalNote(signals: string | null | undefined): string` in `pattern-signal-context.ts`. Both `buildActflPersonaAnchor` (voice) and `runDanielaFCLoop` (text) now call this single function.
+
+### Issue 2: Missing newline separator
+Appending to `systemPrompt` without checking for a trailing newline could merge the injection with a closing instruction on the same line.
+
+**Fix:** `systemPrompt + (systemPrompt.endsWith('\n') ? '' : '\n') + patternSuffix.trimStart()` guarantees exactly one newline between the base prompt and the injection.
+
+## Round 2 verdict: **Ship it.**
+
+Gemini confirmed both fixes address the flagged issues fully. Two hygiene notes (non-blocking):
+- `formatActivePatternSignalNote` adds a leading `\n` which `runDanielaFCLoop` immediately strips with `trimStart()` — slightly redundant but safe; ensures `buildActflPersonaAnchor` keeps its required newline without needing a special case.
+- The `-`/`•` filter is excellent input safety — blobs of text can't pollute the prompt.
+
+**Full logic flow verified:** shared helper → voice path (leading `\n` for temporalAnchor gap) → text path (endsWith guard for systemPrompt gap) → Daniela's pattern context consistent across both modalities.

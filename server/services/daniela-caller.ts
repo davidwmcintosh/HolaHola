@@ -36,6 +36,7 @@ import {
   shouldAutoGround,
   runAutoGrounding,
 } from "./frictionless-slide-detector";
+import { formatActivePatternSignalNote } from "./pattern-signal-context";
 
 const MODEL = 'gemini-3-flash-preview';
 
@@ -131,6 +132,13 @@ export interface RunDanielaFCLoopParams {
    * same text as the last isFinal:true chunk, returned for backward compatibility.
    */
   onText?: (chunk: string, meta: { turnIndex: number; isFinal: boolean }) => void;
+  /**
+   * Active grammar pattern signals (wobbling/pounding compartments) carried from
+   * a voice session. When provided, injected into the system prompt in the same
+   * pipe-joined format as buildActflPersonaAnchor — so Daniela keeps her active
+   * pattern map when the student switches from voice to text mid-session.
+   */
+  activePatternSignals?: string | null;
 }
 
 /**
@@ -158,11 +166,21 @@ export async function runDanielaFCLoop({
   temperature,
   existingSession,
   onText,
+  activePatternSignals,
 }: RunDanielaFCLoopParams): Promise<string> {
   const gemini = getGemini();
   const tools = createDanielaTools(allowedTools);
   const mockSession = existingSession || buildMockSession(userId);
   const fcHandler = buildFcHandler();
+
+  // ── Pattern signal injection — mirrors buildActflPersonaAnchor in voice ───────
+  // Carries wobbling/pounding grammar context into text-mode so a voice→text switch
+  // doesn't silently drop the active pattern map. Uses the shared formatter in
+  // pattern-signal-context.ts so the two paths can never drift in format.
+  const patternSuffix = formatActivePatternSignalNote(activePatternSignals);
+  const effectiveSystemPrompt = patternSuffix
+    ? systemPrompt + (systemPrompt.endsWith('\n') ? '' : '\n') + patternSuffix.trimStart()
+    : systemPrompt;
 
   // ── Frictionless Slide tracking — accumulate tool calls across all turns ─────
   if (!mockSession.frictionlessSlide) {
@@ -183,7 +201,7 @@ export async function runDanielaFCLoop({
   }
 
   const configBase: any = {
-    systemInstruction: systemPrompt,
+    systemInstruction: effectiveSystemPrompt,
     tools,
     maxOutputTokens,
     thinkingConfig: { thinkingBudget: 512 },
