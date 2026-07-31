@@ -338,6 +338,93 @@ async function runPart4() {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// PART 5 — Negative self-check: static patterns FAIL on a guard-stripped source
+// ──────────────────────────────────────────────────────────────────────────────
+//
+// This section proves that Parts 1/2 would catch a real regression.
+// It synthesises a version of the source where the `!isFounderMode` component
+// of every guard is removed (simulating the variable being renamed or the check
+// being deleted), and asserts that each Part 1/2 assertion fires as a failure.
+// If the patterns in Parts 1/2 were too loose they would still match the stripped
+// source — that would mean the CI check cannot catch the regression.
+//
+// No DB access needed; this is purely static string analysis.
+// ──────────────────────────────────────────────────────────────────────────────
+sep();
+console.log(B('PART 5 — Negative self-check: patterns must FAIL on a guard-stripped source'));
+sep();
+
+function part5() {
+  // ── Synthesise a "guard-stripped" source ─────────────────────────────────
+  // Strategy: replace each occurrence of `if (userId && !isFounderMode)` with
+  // `if (userId)` — exactly what the source would look like if the guard were
+  // removed or the variable renamed to something else.
+  const strippedSrc = wsSrc
+    // Covers the canonical form used at lines 3058 and 3368
+    .replace(/if\s*\(\s*userId\s*&&\s*!isFounderMode\s*\)/g, 'if (userId)');
+
+  // Confirm the substitution actually happened (self-test of the self-test).
+  const substitutionHappened = strippedSrc !== wsSrc;
+  assert(
+    'Self-check precondition: stripping produced a different source (substitution applied)',
+    substitutionHappened,
+    'Source was unchanged — the guard pattern regex may not match the current source wording; update Part 5 substitution regex',
+  );
+
+  // ── 5-1  Guard pattern must NOT match in stripped source ─────────────────
+  const guardStillPresent = /if\s*\(\s*userId\s*&&\s*!isFounderMode\s*\)/.test(strippedSrc);
+  assert(
+    '5-1  Guard pattern `/if (userId && !isFounderMode)/` does NOT match the stripped source',
+    !guardStillPresent,
+    guardStillPresent
+      ? 'Pattern still matches after stripping — the Part 1 check would miss this regression; strengthen the regex or the substitution'
+      : undefined,
+  );
+
+  // ── 5-2  Guard count drops to zero ───────────────────────────────────────
+  const strippedGuardCount = [...strippedSrc.matchAll(/if\s*\(\s*userId\s*&&\s*!isFounderMode\s*\)/g)].length;
+  assert(
+    '5-2  Guard count is 0 in the stripped source (Part 2 "≥ 2" assertion would fail)',
+    strippedGuardCount === 0,
+    `Found ${strippedGuardCount} guard(s) after stripping — Part 2 would still pass; the substitution is incomplete`,
+  );
+
+  // ── 5-3  Text-mode second guard index returns -1 in stripped source ───────
+  // Part 2 looks for the second guard AFTER the GL log landmark.
+  const glLogIdxStripped = strippedSrc.indexOf('[GeminiLive] ✓ Student returning after');
+  const tmGuardIdxStripped = glLogIdxStripped !== -1
+    ? strippedSrc.indexOf('if (userId && !isFounderMode)', glLogIdxStripped)
+    : -1;
+  assert(
+    '5-3  Text-mode guard index is -1 in the stripped source (Part 2 placement check would fail)',
+    tmGuardIdxStripped === -1,
+    `tmGuardIdxStripped=${tmGuardIdxStripped} — guard was found at that offset even after stripping`,
+  );
+
+  // ── 5-4  GL await proximity check fails in stripped source ───────────────
+  // Part 1c asserts the await call is within 400 chars of the guard.
+  // After stripping, glGuardIdx will be -1, so the proximity check fails.
+  const glGuardIdxStripped = strippedSrc.search(/if\s*\(\s*userId\s*&&\s*!isFounderMode\s*\)/);
+  assert(
+    '5-4  GL guard search returns -1 in the stripped source (Part 1c proximity check would fail)',
+    glGuardIdxStripped === -1,
+    `glGuardIdxStripped=${glGuardIdxStripped} — guard still found; proximity assertion would not catch the regression`,
+  );
+
+  // ── 5-5  Rename scenario: isAdminMode substitution is also caught ─────────
+  // Simulate a developer renaming isFounderMode → isAdminMode without touching the guard structure.
+  const renamedSrc = wsSrc.replace(/isFounderMode/g, 'isAdminMode');
+  const renamedGuardCount = [...renamedSrc.matchAll(/if\s*\(\s*userId\s*&&\s*!isFounderMode\s*\)/g)].length;
+  assert(
+    '5-5  Rename scenario: guard count is 0 when `isFounderMode` is renamed to `isAdminMode` (Parts 1-2 would fail)',
+    renamedGuardCount === 0,
+    `Found ${renamedGuardCount} guard(s) after renaming — the test would miss a rename regression`,
+  );
+}
+
+part5();
+
+// ──────────────────────────────────────────────────────────────────────────────
 // MAIN
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -364,7 +451,8 @@ async function runPart4() {
     console.log(D('   1. GL branch: `if (userId && !isFounderMode)` wraps autoResolveAbsenceNudgeOnReturn()'));
     console.log(D('   2. Text-mode branch: same guard wraps the call in the else block'));
     console.log(D('   3. DB: nudge row stays unresolved (resolvedAt = null) when call is skipped'));
-    console.log(D('   4. Positive baseline: same function correctly resolves the nudge for student sessions\n'));
+    console.log(D('   4. Positive baseline: same function correctly resolves the nudge for student sessions'));
+    console.log(D('   5. Negative self-check: all Part 1/2 patterns fail on a guard-stripped source\n'));
     process.exit(0);
   } else {
     console.log(R(`\n✗  ${failed} of ${all} assertions failed — review output above.\n`));
