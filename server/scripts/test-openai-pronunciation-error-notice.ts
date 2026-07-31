@@ -249,6 +249,57 @@ console.log('\n[6] analyzePronunciation() throws (not silent) when no key — ma
   }
 }
 
+// ── Scenario 7: StreamingVoiceChat.tsx — streaming path guard ─────────────────
+//
+// The streaming voice path does NOT call /api/pronunciation-scores/analyze.
+// Instead Daniela scores pronunciation herself via the show_pronunciation_score
+// tool; scores arrive over WebSocket as a structured event. Because there is no
+// server-side OpenAI call in this path, the pronunciation_unavailable error
+// shape from scenario 4 cannot occur. The streaming path has its own guard:
+// it validates the incoming tool data before touching React state, and shows the
+// same "Pronunciation feedback is temporarily unavailable" toast on malformed data.
+
+console.log('\n[7] StreamingVoiceChat.tsx — streaming path: no direct endpoint call, malformed-data guard present');
+{
+  const fs = await import('node:fs/promises');
+  const path = await import('node:path');
+  const streamingPath = path.join(process.cwd(), 'client', 'src', 'components', 'StreamingVoiceChat.tsx');
+  const source = await fs.readFile(streamingPath, 'utf8');
+
+  // The streaming component must NOT call the REST scoring endpoint — that belongs
+  // to the legacy VoiceChat path only. Calling it here would be a latency regression
+  // and would re-introduce the OpenAI key dependency in the streaming path.
+  // We check for an actual apiRequest/fetch call to the endpoint (not just a comment
+  // or documentation string that mentions the path).
+  const hasActualCall = /apiRequest\s*\([^)]*pronunciation-scores\/analyze|fetch\s*\([^)]*pronunciation-scores\/analyze/.test(source);
+  if (!hasActualCall) {
+    pass('StreamingVoiceChat.tsx does NOT call /api/pronunciation-scores/analyze (intentional: Daniela scores natively)');
+  } else {
+    fail('StreamingVoiceChat.tsx unexpectedly calls /api/pronunciation-scores/analyze — review intended architecture');
+  }
+
+  // The streaming component must have its own error guard for malformed tool data.
+  if (source.includes('onPronunciationScoreShown')) {
+    pass('StreamingVoiceChat.tsx wires onPronunciationScoreShown callback');
+  } else {
+    fail('StreamingVoiceChat.tsx is missing the onPronunciationScoreShown callback');
+  }
+
+  // The guard must surface a visible error notice — same toast title as the legacy path.
+  if (source.includes('Pronunciation feedback is temporarily unavailable')) {
+    pass('StreamingVoiceChat.tsx shows "Pronunciation feedback is temporarily unavailable" toast on malformed data');
+  } else {
+    fail('StreamingVoiceChat.tsx is missing the pronunciation error toast for malformed data');
+  }
+
+  // The architecture comment must be present so future developers understand the split.
+  if (source.includes('show_pronunciation_score')) {
+    pass('StreamingVoiceChat.tsx references show_pronunciation_score (documents native-scoring architecture)');
+  } else {
+    fail('StreamingVoiceChat.tsx is missing the show_pronunciation_score architecture note');
+  }
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 console.log(`\n${'─'.repeat(60)}`);
@@ -260,7 +311,10 @@ if (failed > 0) {
   console.log(
     '\nAll checks passed.\n' +
     'The pronunciation-unavailable notice is wired end-to-end for the\n' +
-    'OpenAI key-missing and 401 scenarios.'
+    'OpenAI key-missing and 401 scenarios.\n' +
+    'The streaming path (StreamingVoiceChat.tsx) uses Daniela\'s native\n' +
+    'show_pronunciation_score tool instead of the REST endpoint — its own\n' +
+    'malformed-data guard shows the same user-visible toast.'
   );
   process.exit(0);
 }

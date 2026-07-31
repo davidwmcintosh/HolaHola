@@ -1211,6 +1211,13 @@ export function StreamingVoiceChat({
             // Don't auto-open — notes accumulate quietly; student opens when ready
           },
           onPronunciationScoreShown: (data) => {
+            // ARCHITECTURE NOTE: The streaming path does NOT call /api/pronunciation-scores/analyze.
+            // Instead, Daniela scores the student's pronunciation herself via the show_pronunciation_score
+            // tool (see daniela-function-registry.ts). The scores arrive here as a WebSocket event.
+            // This means the OpenAI key error path from VoiceChat.tsx (pronunciation_unavailable) cannot
+            // occur in this path — there is no server-side OpenAI call on the scoring route.
+            // The guard below covers the only failure mode that can reach here: malformed tool data.
+            //
             // Guard: validate required fields before updating state.
             // wordScores must be an array — rendering calls .map() on it directly.
             // A missing or non-array value would throw a runtime error with no user feedback.
