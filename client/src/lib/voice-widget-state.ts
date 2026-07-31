@@ -5,6 +5,13 @@
  * without a DOM or React renderer.  Both the component and the test suite
  * import from here; a regression in either file will be caught.
  *
+ * ⚠️  REFACTOR GUARD — if you rename, split, or change the exports of this
+ * file you MUST also update the following consumer and test:
+ *   • client/src/components/floating-voice-widget-state.test.ts  (26 cases)
+ *     — imports computeWidgetLabel, computeWidgetClasses, deriveVoiceStatus
+ *   The test is listed by name (not glob) in the npm test script and in
+ *   .github/workflows/ci.yml, so a rename will break CI immediately.
+ *
  * Keep this file free of React / DOM imports.
  */
 
