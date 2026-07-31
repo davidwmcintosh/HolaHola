@@ -120,6 +120,7 @@ import {
   Map as MapIcon,
   Bot,
   Layers,
+  UserX,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -1909,6 +1910,7 @@ export default function CommandCenter() {
         { id: "dept-chat", label: "Dept Chat", icon: Lock, roles: ['admin', 'developer'] },
         { id: "collaboration", label: "Collab", icon: Handshake, roles: ['admin', 'developer'] },
         { id: "beacons", label: "Beacons", icon: Radio, roles: ['admin', 'developer'] },
+        { id: "absence-monitor", label: "Absence", icon: UserX, roles: ['admin', 'developer'] },
         { id: "feature-sprint", label: "Sprint", icon: Zap, roles: ['admin', 'developer'] },
       ]
     },
@@ -2210,6 +2212,10 @@ export default function CommandCenter() {
 
           <TabsContent value="beacons" className="space-y-4">
             <BeaconsTab />
+          </TabsContent>
+
+          <TabsContent value="absence-monitor" className="space-y-4">
+            <AbsenceMonitorTab />
           </TabsContent>
 
           <TabsContent value="memory-migration" className="space-y-4">
@@ -15206,8 +15212,11 @@ function BrainSurgeryTab() {
   );
 }
 
-// ===== Beacons Tab - Daniela's Capability Requests =====
-
+interface AbsenceNudgeSummary {
+  pending: number;
+  resolved: number;
+  total: number;
+}
 interface DanielaBeacon {
   id: string;
   beaconType: string;
@@ -15571,4 +15580,194 @@ function BeaconsTab() {
       </AlertDialog>
     </div>
   );
+}
+
+interface ResolvedNudge {
+  nudgeId: string;
+  userId: string;
+  firstName: string | null;
+  daysSinceLastSession: number;
+  lastSessionDate: string | null;
+  resolvedAt: string;
+  resolutionType: string | null;
+}
+
+interface AbsenceNudgesResponse {
+  summary: AbsenceNudgeSummary;
+  pending: PendingNudge[];
+  resolved: ResolvedNudge[];
+}
+
+function AbsenceMonitorTab() {
+  const [view, setView] = useState<'pending' | 'resolved'>('pending');
+
+  const { data, isLoading, refetch } = useQuery<AbsenceNudgesResponse>({
+    queryKey: ["/api/founder/absence-nudges"],
+  });
+
+  const resolutionMeta = (type: string | null | undefined) => {
+    switch (type) {
+      case 'student_returned':
+        return { label: 'Student returned', className: 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30' };
+      case 'message_queued':
+        return { label: 'Message queued', className: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30' };
+      case 'dismissed':
+        return { label: 'Dismissed', className: 'bg-muted text-muted-foreground border-border' };
+      default:
+        return { label: 'Resolved', className: 'bg-muted text-muted-foreground border-border' };
+    }
+  };
+
+  const formatDate = (iso: string | null | undefined) => {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  return (
+    <div className="space-y-6" data-testid="absence-monitor-tab">
+      {/* Summary Cards */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserX className="h-5 w-5 text-primary" />
+            Student Absence Monitor
+          </CardTitle>
+          <CardDescription>
+            Students Daniela has been nudged about — who hasn't shown up, what she decided, and whether nudges are piling up.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-3 mb-6">
+            <div
+              className={`p-4 rounded-lg cursor-pointer transition-colors ${view === 'pending' ? 'bg-primary/10 ring-1 ring-primary' : 'bg-muted/50 hover:bg-muted'}`}
+              onClick={() => setView('pending')}
+            >
+              <div className="text-3xl font-bold text-orange-600 dark:text-orange-400">
+                {isLoading ? '…' : (data?.summary.pending ?? 0)}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">Pending — Daniela hasn't acted yet</div>
+            </div>
+            <div
+              className={`p-4 rounded-lg cursor-pointer transition-colors ${view === 'resolved' ? 'bg-primary/10 ring-1 ring-primary' : 'bg-muted/50 hover:bg-muted'}`}
+              onClick={() => setView('resolved')}
+            >
+              <div className="text-3xl font-bold text-green-600 dark:text-green-400">
+                {isLoading ? '…' : (data?.summary.resolved ?? 0)}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">Resolved — acted on</div>
+            </div>
+            <div className="p-4 rounded-lg bg-muted/50">
+              <div className="text-3xl font-bold">
+                {isLoading ? '…' : (data?.summary.total ?? 0)}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1">Total nudges recorded</div>
+            </div>
+          </div>
+
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Nudge List */}
+      {isLoading ? (
+        <div className="space-y-3">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20" />)}
+        </div>
+      ) : view === 'pending' ? (
+        <>
+          {(data?.pending ?? []).length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-500" />
+                No pending nudges — all students are either active or Daniela has acted on every absence.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {(data?.pending ?? []).map((nudge) => (
+                <Card key={nudge.nudgeId} className="hover-elevate" data-testid={`absence-nudge-pending-${nudge.nudgeId}`}>
+                  <CardContent className="pt-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium">{nudge.firstName ?? `Student …${nudge.userId.slice(-6)}`}</span>
+                          <Badge variant="outline" className="text-orange-600 border-orange-400/40 bg-orange-500/10">
+                            {nudge.daysSinceLastSession}d absent
+                          </Badge>
+                          {nudge.suppressUntil && new Date(nudge.suppressUntil) > new Date() && (
+                            <Badge variant="outline" className="text-muted-foreground">
+                              Snoozed until {formatDate(nudge.suppressUntil)}
+                            </Badge>
+                          )}
+                        </div>
+                        {nudge.lastTopic && (
+                          <div className="text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">Last topic:</span> {nudge.lastTopic}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground whitespace-nowrap">
+                        Last seen {formatDate(nudge.lastSessionDate)}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          {(data?.resolved ?? []).length === 0 ? (
+            <Card>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+                No resolved nudges yet.
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {(data?.resolved ?? []).map((nudge) => {
+                const meta = resolutionMeta(nudge.resolutionType);
+                return (
+                  <Card key={nudge.nudgeId} className="hover-elevate" data-testid={`absence-nudge-resolved-${nudge.nudgeId}`}>
+                    <CardContent className="pt-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium">{nudge.firstName ?? `Student …${nudge.userId.slice(-6)}`}</span>
+                            <Badge variant="outline" className="text-muted-foreground">
+                              {nudge.daysSinceLastSession}d absent
+                            </Badge>
+                            <Badge variant="outline" className={meta.className}>
+                              {meta.label}
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            Resolved {formatDate(nudge.resolvedAt)} · Last seen {formatDate(nudge.lastSessionDate)}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+interface PendingNudge {
+  nudgeId: string;
+  userId: string;
+  firstName: string | null;
+  daysSinceLastSession: number;
+  lastSessionDate: string | null;
+  lastTopic: string | null;
+  suppressUntil: string | null;
 }

@@ -33437,6 +33437,34 @@ You have full access to your neural network knowledge.
     }
   });
 
+  // ABSENCE NUDGES: Full log for founder dashboard — all nudges (pending + resolved) with enriched details
+  app.get("/api/founder/absence-nudges", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
+    try {
+      const { listAbsenceNudges, listResolvedNudges, countPendingNudges } = await import('./services/daniela-absence-worker');
+
+      const rawLimit = parseInt(req.query.limit as string, 10);
+      const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 50, 1), 200);
+
+      const [pending, resolved, pendingCount] = await Promise.all([
+        listAbsenceNudges(),
+        listResolvedNudges(limit),
+        countPendingNudges(),
+      ]);
+
+      res.json({
+        summary: {
+          pending: pendingCount,
+          resolved: resolved.length,
+          total: pendingCount + resolved.length,
+        },
+        pending,
+        resolved,
+      });
+    } catch (error: any) {
+      console.error('[AbsenceNudges] Founder dashboard endpoint error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
   // EXPRESS LANE: Get current collaboration context
   app.get("/api/express-lane/context", async (req: any, res: Response) => {
     try {
