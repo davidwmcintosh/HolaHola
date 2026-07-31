@@ -3,7 +3,7 @@
  *
  * Confirms that the DB-level CHECK constraint on
  * daniela_absence_nudges.resolution_type actually fires when an invalid value
- * is inserted — and that valid values (and NULL) are accepted.
+ * is inserted or updated — and that valid values (and NULL) are accepted.
  *
  * WHY this test exists:
  *   The constraint lives in migrations/0014_absence_nudge_resolution_type_check.sql.
@@ -18,6 +18,10 @@
  *   PART 4 — Valid value 'dismissed' is accepted
  *   PART 5 — NULL is accepted (resolution_type is nullable until Daniela acts)
  *   PART 6 — Another arbitrary typo 'resolved' is rejected
+ *   PART 7 (UPDATE path) — INSERT NULL row, then UPDATE with invalid type → rejected (23514)
+ *   PART 8 (UPDATE path) — UPDATE to valid 'student_returned' succeeds
+ *   PART 9 (UPDATE path) — UPDATE to valid 'message_queued' succeeds
+ *   PART 10 (UPDATE path) — UPDATE to valid 'dismissed' succeeds
  *
  * Run: npx tsx server/scripts/test-resolution-type-check-constraint.ts
  */
@@ -79,6 +83,24 @@ async function tryInsert(resolutionType: string | null): Promise<{ ok: boolean; 
     // PostgreSQL error codes:
     //   23514 = check_violation
     //   23503 = foreign_key_violation
+    const code: string | undefined = err?.code ?? err?.cause?.code;
+    return { ok: false, code };
+  }
+}
+
+/**
+ * Attempt to UPDATE resolution_type on an existing row identified by id.
+ * Returns { ok: true } on success, or { ok: false, code } on constraint failure.
+ */
+async function tryUpdate(id: string, resolutionType: string | null): Promise<{ ok: boolean; code?: string }> {
+  try {
+    await sql`
+      UPDATE daniela_absence_nudges
+      SET resolution_type = ${resolutionType}
+      WHERE id = ${id}
+    `;
+    return { ok: true };
+  } catch (err: any) {
     const code: string | undefined = err?.code ?? err?.cause?.code;
     return { ok: false, code };
   }
@@ -205,6 +227,95 @@ async function runTests() {
         'INSERT with "resolved" should have been rejected',
         'Row was inserted — constraint is NOT firing!',
       );
+    }
+  }
+
+  // ── UPDATE PATH TESTS ─────────────────────────────────────────────────────
+  // These confirm that the CHECK constraint fires on UPDATE, not just INSERT.
+  // The production write path (resolveAbsenceNudge) uses UPDATE, never INSERT.
+
+  // Insert a base row with NULL resolution_type for the UPDATE tests.
+  sep();
+  console.log(B('PART 7 — UPDATE path: invalid value "studenr_returned" is rejected (23514)'));
+  {
+    const inserted = await tryInsert(null);
+    if (!inserted.ok || !inserted.id) {
+      fail('PART 7 setup: INSERT NULL row for UPDATE test', `code=${inserted.code}`);
+    } else {
+      const updateResult = await tryUpdate(inserted.id, 'studenr_returned');
+      if (!updateResult.ok && updateResult.code === '23514') {
+        pass(
+          'UPDATE with resolution_type="studenr_returned" raises check_violation (23514)',
+          `pg code=${updateResult.code}`,
+        );
+      } else if (!updateResult.ok) {
+        fail(
+          'UPDATE with "studenr_returned" was rejected but with wrong error code',
+          `expected code=23514, got code=${updateResult.code ?? 'unknown'}`,
+        );
+      } else {
+        fail(
+          'UPDATE with "studenr_returned" should have been rejected',
+          'Row was updated — constraint is NOT firing on UPDATE!',
+        );
+      }
+    }
+  }
+
+  sep();
+  console.log(B('PART 8 — UPDATE path: valid value "student_returned" is accepted'));
+  {
+    const inserted = await tryInsert(null);
+    if (!inserted.ok || !inserted.id) {
+      fail('PART 8 setup: INSERT NULL row for UPDATE test', `code=${inserted.code}`);
+    } else {
+      const updateResult = await tryUpdate(inserted.id, 'student_returned');
+      if (updateResult.ok) {
+        pass('UPDATE with resolution_type="student_returned" succeeds');
+      } else {
+        fail(
+          'UPDATE with "student_returned" should have succeeded',
+          `Error code=${updateResult.code ?? 'unknown'}`,
+        );
+      }
+    }
+  }
+
+  sep();
+  console.log(B('PART 9 — UPDATE path: valid value "message_queued" is accepted'));
+  {
+    const inserted = await tryInsert(null);
+    if (!inserted.ok || !inserted.id) {
+      fail('PART 9 setup: INSERT NULL row for UPDATE test', `code=${inserted.code}`);
+    } else {
+      const updateResult = await tryUpdate(inserted.id, 'message_queued');
+      if (updateResult.ok) {
+        pass('UPDATE with resolution_type="message_queued" succeeds');
+      } else {
+        fail(
+          'UPDATE with "message_queued" should have succeeded',
+          `Error code=${updateResult.code ?? 'unknown'}`,
+        );
+      }
+    }
+  }
+
+  sep();
+  console.log(B('PART 10 — UPDATE path: valid value "dismissed" is accepted'));
+  {
+    const inserted = await tryInsert(null);
+    if (!inserted.ok || !inserted.id) {
+      fail('PART 10 setup: INSERT NULL row for UPDATE test', `code=${inserted.code}`);
+    } else {
+      const updateResult = await tryUpdate(inserted.id, 'dismissed');
+      if (updateResult.ok) {
+        pass('UPDATE with resolution_type="dismissed" succeeds');
+      } else {
+        fail(
+          'UPDATE with "dismissed" should have succeeded',
+          `Error code=${updateResult.code ?? 'unknown'}`,
+        );
+      }
     }
   }
 
