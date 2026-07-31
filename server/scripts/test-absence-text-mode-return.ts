@@ -77,16 +77,32 @@ function part1() {
   );
 
   // 1c. The __textModeAbsencePromise IIFE is guarded by `if (userId && !isFounderMode)`.
-  // Look for !isFounderMode within 500 chars before the __textModeAbsencePromise assignment
-  // (the guard + comment block preceding the IIFE spans ~370 chars).
-  const windowBefore = iifeSiteIdx > 500
-    ? wsSrc.slice(iifeSiteIdx - 500, iifeSiteIdx)
-    : wsSrc.slice(0, iifeSiteIdx);
-  const hasFounderGuard = iifeSiteIdx !== -1 && windowBefore.includes('!isFounderMode');
+  // Strategy: search BACKWARDS from the IIFE assignment using lastIndexOf so we find the
+  // NEAREST preceding guard — this is always the text-mode guard, not the GL guard that
+  // appears ~22 000 chars earlier in the file.  We then assert the gap is < 800 chars.
+  //
+  //   Current measurement (as of the text-mode else-branch at line ~3368):
+  //     text-mode guard → __textModeAbsencePromise : ~398 chars
+  //     GL guard        → __textModeAbsencePromise : ~22 139 chars
+  //
+  //   The 800-char limit gives ample headroom for comment growth while remaining far
+  //   smaller than the GL-guard distance.  If the text-mode !isFounderMode guard is ever
+  //   removed, lastIndexOf lands on the GL guard (~22 000 chars away) and the proximity
+  //   check fails — catching the regression.  If the comment block between the guard and
+  //   the IIFE grows significantly, update the limit here and note the new measurement.
+  const guardStr = 'if (userId && !isFounderMode)';
+  const lastGuardBeforeIife = iifeSiteIdx !== -1
+    ? wsSrc.lastIndexOf(guardStr, iifeSiteIdx - 1)
+    : -1;
+  const guardGap = lastGuardBeforeIife !== -1 ? iifeSiteIdx - lastGuardBeforeIife : Infinity;
+  const hasFounderGuard = iifeSiteIdx !== -1 && lastGuardBeforeIife !== -1 && guardGap < 800;
   assert(
     'Text-mode autoResolveAbsenceNudgeOnReturn() is guarded by !isFounderMode',
     hasFounderGuard,
-    hasFounderGuard ? undefined : '!isFounderMode guard not found near __textModeAbsencePromise assignment',
+    hasFounderGuard
+      ? undefined
+      : `Text-mode !isFounderMode guard not found immediately before __textModeAbsencePromise ` +
+        `(nearest preceding guard is ${guardGap === Infinity ? '∞' : guardGap} chars away; expected < 800)`,
   );
 
   // 1d. The .then() handler logs "[TextMode] ✓ Student returning after N day(s)"
