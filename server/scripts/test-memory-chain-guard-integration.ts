@@ -53,7 +53,9 @@ function fail(name: string, detail: string) {
 
 type FakeSpec =
   | { functionCall: { name: string; args?: Record<string, string> } }
-  | { text: string };
+  | { text: string }
+  /** Mixed turn: Daniela emits text AND calls a function in the same response. */
+  | { functionCallWithText: { name: string; text: string; args?: Record<string, string> } };
 
 function makeFakeClient(responses: FakeSpec[]) {
   let callIndex = 0;
@@ -62,6 +64,23 @@ function makeFakeClient(responses: FakeSpec[]) {
       async generateContent(_args: any): Promise<any> {
         const spec = responses[callIndex] ?? responses[responses.length - 1];
         callIndex++;
+
+        if ('functionCallWithText' in spec) {
+          const { name, text, args } = spec.functionCallWithText;
+          return {
+            candidates: [
+              {
+                content: {
+                  parts: [
+                    { text },
+                    { functionCall: { name, args: args ?? { query: 'test query' } } },
+                  ],
+                },
+                finishReason: 'STOP',
+              },
+            ],
+          };
+        }
 
         if ('functionCall' in spec) {
           return {
@@ -270,6 +289,55 @@ async function testGuardSensitiveToMEMORY_TOOL_NAMES() {
   pass(name, `"${guardedTool}" correctly triggers the guard`);
 }
 
+async function testNudgeAbsentAfterTextContentReset() {
+  const name = 'nudge does NOT fire when a recall+text mixed turn resets the counter mid-streak';
+
+  // Sequence:
+  //   turn 0: recall only          → counter = 1
+  //   turn 1: recall + text        → counter RESETS to 0  (textContent branch)
+  //   turn 2: recall only          → counter = 1
+  //   turn 3: recall only          → counter = 2
+  //   turn 4: final text           → result returned
+  //
+  // Max counter = 2 < MEMORY_CHAIN_LIMIT (3) → nudge must NOT fire.
+  // If the guard only checked !allMemoryTools (dropped the !textContent check),
+  // the counter would reach 3 at turn 3 and the nudge would fire prematurely.
+  const messages: any[] = [
+    { role: 'user', parts: [{ text: 'What do you remember about me?' }] },
+  ];
+
+  const responses: FakeSpec[] = [
+    { functionCall: { name: 'recall', args: { query: 'student history' } } },           // turn 0: counter → 1
+    { functionCallWithText: { name: 'recall', text: 'Let me dig deeper…', args: { query: 'more detail' } } }, // turn 1: counter → 0 (reset)
+    { functionCall: { name: 'recall', args: { query: 'recent sessions' } } },            // turn 2: counter → 1
+    { functionCall: { name: 'recall', args: { query: 'preferences' } } },               // turn 3: counter → 2
+    { text: 'Here is everything I found about you.' },                                   // turn 4: exit
+  ];
+
+  await runDanielaFCLoop({
+    systemPrompt: 'You are Daniela.',
+    messages,
+    userId: 'ci-test-user',
+    allowedTools: ['recall'],
+    maxTurns: 8,
+    _geminiOverride: makeFakeClient(responses),
+  });
+
+  const toolTexts = collectToolResponseTexts(messages);
+  const nudgeCount = toolTexts.filter(t => t.includes(MEMORY_CHAIN_NUDGE_TEXT)).length;
+
+  if (nudgeCount !== 0) {
+    return fail(
+      name,
+      `Nudge fired ${nudgeCount} time(s) — textContent reset branch is broken. ` +
+      `The guard in runDanielaFCLoop must check !textContent (not just !allMemoryTools) ` +
+      `so that a mixed recall+text turn resets the consecutive counter to 0. ` +
+      `Counter should have peaked at 2 (below MEMORY_CHAIN_LIMIT=${MEMORY_CHAIN_LIMIT}).`,
+    );
+  }
+
+  pass(name, `counter peaked at 2 (< ${MEMORY_CHAIN_LIMIT}) — no nudge appended`);
+}
 async function testReadFullMemoryExcluded() {
   const name = 'read_full_memory does NOT trigger the guard (intentional exclusion)';
   const messages: any[] = [
@@ -312,6 +380,7 @@ async function testReadFullMemoryExcluded() {
 
   await testNudgeAppearsAtLimit();
   await testNudgeAbsentWhenNonMemoryToolBreaksStreak();
+  await testNudgeAbsentAfterTextContentReset();
   await testNudgeFiresOnEachTurnAtOrBeyondLimit();
   await testGuardSensitiveToMEMORY_TOOL_NAMES();
   await testReadFullMemoryExcluded();
