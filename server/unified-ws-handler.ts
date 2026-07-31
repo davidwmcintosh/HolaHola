@@ -66,7 +66,7 @@ import { db, getUserDb, getSharedDb } from './db';
 import { eq, and, gt, lt, ne, desc, sql } from 'drizzle-orm';
 import { getPendingSuggestions } from './services/daniela-reflection';
 import { generatePreSessionSynthesis, wrapSynthesisForSystemPrompt, consumeWarmSynthesis, getTuRevealFragment, getStewardshipReminderFragment } from './services/pre-session-synthesis';
-import { autoResolveAbsenceNudgeOnReturn } from './services/daniela-absence-worker';
+import { autoResolveAbsenceNudgeOnReturn, applyAbsenceReturnFlag } from './services/daniela-absence-worker';
 import { consumeBroadcastBrief } from './services/broadcast-data-service';
 import { generateReflectionNow, schedulePendingReflectionIfMissing, buildTranscriptPreview, processAndClearPendingReflection, MIN_EXCHANGES_FOR_REFLECTION } from './services/session-reflection-worker';
 import { generateAndStorePedagogicalBrief, MIN_EXCHANGES_FOR_BRIEF } from './services/pedagogical-brief-worker';
@@ -3063,12 +3063,7 @@ ${lastNote.tutorNotes}`);
                           // Fire-and-forget: persist the returning-student flag on the voice_sessions
                           // row so the founder view can surface a "Returned after N days" indicator.
                           if (dbSessionId) {
-                            db.update(voiceSessions)
-                              .set({
-                                hadAbsenceReturn: true,
-                                absenceReturnDays: absenceReturn.daysSinceLastSession,
-                              })
-                              .where(eq(voiceSessions.id, dbSessionId))
+                            applyAbsenceReturnFlag(dbSessionId, absenceReturn.daysSinceLastSession)
                               .catch((e: Error) => console.warn('[GeminiLive] Failed to flag absence return on session row (non-fatal):', e.message));
                           }
                         }
@@ -3418,12 +3413,7 @@ ${lastNote.tutorNotes}`);
                     // Fire-and-forget: persist the returning-student flag on the voice_sessions
                     // row so the founder view can surface a "Returned after N days" indicator.
                     if (absenceReturn && _textModeDbSessionId) {
-                      db.update(voiceSessions)
-                        .set({
-                          hadAbsenceReturn: true,
-                          absenceReturnDays: absenceReturn.daysSinceLastSession,
-                        })
-                        .where(eq(voiceSessions.id, _textModeDbSessionId))
+                      applyAbsenceReturnFlag(_textModeDbSessionId, absenceReturn.daysSinceLastSession)
                         .catch((e: Error) => console.warn('[TextMode] Failed to flag absence return on session row (non-fatal):', e.message));
                     }
                   } catch (absErr: any) {

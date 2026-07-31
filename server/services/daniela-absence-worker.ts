@@ -753,6 +753,31 @@ export async function listResolvedNudges(
   return enriched;
 }
 
+/**
+ * Write the hadAbsenceReturn flag onto an existing voice_sessions row.
+ *
+ * Called by unified-ws-handler.ts (both the GL path and the text-mode path)
+ * immediately after autoResolveAbsenceNudgeOnReturn() returns non-null details.
+ * Exported so integration tests can call the exact same production function
+ * and assert the DB state without reimplementing the update logic inline.
+ *
+ * Fire-and-forget in the WS handler (errors are non-fatal and logged).
+ * In tests, await it so the assertion can read the committed row.
+ */
+export async function applyAbsenceReturnFlag(
+  sessionId: string,
+  daysSinceLastSession: number,
+): Promise<void> {
+  const db = getSharedDb();
+  await db.update(voiceSessions)
+    .set({
+      hadAbsenceReturn: true,
+      absenceReturnDays: daysSinceLastSession,
+    })
+    .where(eq(voiceSessions.id, sessionId));
+  console.log(`[AbsenceWorker] ✓ hadAbsenceReturn flag written to voice_sessions row ${sessionId} (${daysSinceLastSession} days)`);
+}
+
 export function startDanielaAbsenceWorker(): void {
   console.log('[AbsenceWorker] Starting (interval: 24h, threshold: 5 days absent)');
   // Initial check after 10 minutes to let everything settle and avoid boot storms

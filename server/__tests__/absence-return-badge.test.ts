@@ -166,27 +166,28 @@ describe('unified-ws-handler.ts — GL path badge write', () => {
       `'${GL_LOG}' not found in unified-ws-handler.ts — GL path absence block may have been removed`);
   });
 
-  it('GL path writes hadAbsenceReturn: true to the voice_sessions row', () => {
+  it('GL path calls applyAbsenceReturnFlag() to write badge fields to voice_sessions', () => {
+    // The db.update() with hadAbsenceReturn/absenceReturnDays was extracted into
+    // applyAbsenceReturnFlag() in daniela-absence-worker.ts so that both the WS
+    // handler and integration tests call the same production function.
     const region = regionAround(wsSrc, GL_LOG, 100, GL_AFTER);
-    assert.ok(region.includes('hadAbsenceReturn: true'),
-      'hadAbsenceReturn: true not found within the GL path — badge will not be set for GL sessions');
+    assert.ok(region.includes('applyAbsenceReturnFlag'),
+      'applyAbsenceReturnFlag not found within the GL path — badge write may have been removed; check daniela-absence-worker.ts export and unified-ws-handler.ts import');
   });
 
-  it('GL path writes absenceReturnDays: absenceReturn.daysSinceLastSession to the voice_sessions row', () => {
+  it('GL path passes absenceReturn.daysSinceLastSession to applyAbsenceReturnFlag', () => {
     const region = regionAround(wsSrc, GL_LOG, 100, GL_AFTER);
-    assert.ok(region.includes('absenceReturnDays: absenceReturn.daysSinceLastSession'),
-      'absenceReturnDays: absenceReturn.daysSinceLastSession not found in GL path — badge day count will not be set');
+    assert.ok(region.includes('absenceReturn.daysSinceLastSession'),
+      'absenceReturn.daysSinceLastSession not found in GL path — badge day count will not be set');
   });
 
-  it('GL path writes both badge fields in the same db.update().set() call', () => {
+  it('GL path badge write passes daysSinceLastSession inside the applyAbsenceReturnFlag() call', () => {
     const region = regionAround(wsSrc, GL_LOG, 100, GL_AFTER);
-    const hadIdx  = region.indexOf('hadAbsenceReturn: true');
-    const daysIdx = region.indexOf('absenceReturnDays: absenceReturn.daysSinceLastSession');
-    assert.ok(hadIdx !== -1 && daysIdx !== -1,
-      'Both badge fields must be present in the GL path set() call');
-    // Must be within 150 chars of each other (same .set({}) block)
-    assert.ok(Math.abs(hadIdx - daysIdx) < 150,
-      `hadAbsenceReturn (offset ${hadIdx}) and absenceReturnDays (offset ${daysIdx}) are too far apart — they may not be in the same set() call`);
+    // Match the actual call: applyAbsenceReturnFlag(dbSessionId, absenceReturn.daysSinceLastSession)
+    // Use a regex so we don't confuse the arg with the earlier log-line occurrence of daysSinceLastSession.
+    const hasCall = /applyAbsenceReturnFlag\s*\([^)]*absenceReturn\.daysSinceLastSession[^)]*\)/.test(region);
+    assert.ok(hasCall,
+      'applyAbsenceReturnFlag(..., absenceReturn.daysSinceLastSession) not found in GL path — badge day count will not be set');
   });
 
   it('GL path awaits autoResolveAbsenceNudgeOnReturn (not fire-and-forget)', () => {
@@ -199,15 +200,15 @@ describe('unified-ws-handler.ts — GL path badge write', () => {
 
   it('GL path DB write is gated on absenceReturn being non-null (not unconditional)', () => {
     const region = regionAround(wsSrc, GL_LOG, 200, GL_AFTER);
-    // Pattern: if (absenceReturn) { ... or if (dbSessionId) inside that block
+    // Pattern: if (absenceReturn) { ... applyAbsenceReturnFlag(...)
     // Confirms the write only fires when a pending nudge was actually resolved.
     const absenceGateIdx = region.indexOf('if (absenceReturn)');
-    const hadIdx         = region.indexOf('hadAbsenceReturn: true');
+    const fnIdx          = region.indexOf('applyAbsenceReturnFlag');
     assert.ok(absenceGateIdx !== -1,
       'GL path badge write must be inside an `if (absenceReturn)` block — ' +
       'otherwise every session sets hadAbsenceReturn=true unconditionally');
-    assert.ok(hadIdx > absenceGateIdx,
-      'hadAbsenceReturn: true must appear after the `if (absenceReturn)` guard, not before it');
+    assert.ok(fnIdx > absenceGateIdx,
+      'applyAbsenceReturnFlag must appear after the `if (absenceReturn)` guard, not before it');
   });
 
   it('GL path skips absence resolution for founder-mode sessions (!isFounderMode guard)', () => {
@@ -219,7 +220,7 @@ describe('unified-ws-handler.ts — GL path badge write', () => {
 
   it('GL path DB write is non-blocking (.catch() so a failed write never aborts the session)', () => {
     const region = regionAround(wsSrc, GL_LOG, 100, GL_AFTER + 200);
-    const hasCatch = /hadAbsenceReturn[\s\S]{0,400}\.catch\s*\(/.test(region);
+    const hasCatch = /applyAbsenceReturnFlag[\s\S]{0,400}\.catch\s*\(/.test(region);
     assert.ok(hasCatch,
       'GL path DB write must use .catch() (fire-and-forget) — ' +
       'a failed write should never propagate and abort session start');
@@ -249,16 +250,16 @@ describe('unified-ws-handler.ts — text-mode path badge write', () => {
       `'${TEXT_LOG}' not found in unified-ws-handler.ts — text-mode path absence block may have been removed`);
   });
 
-  it('text-mode path writes hadAbsenceReturn: true to the voice_sessions row', () => {
+  it('text-mode path calls applyAbsenceReturnFlag() to write badge fields to voice_sessions', () => {
     const region = regionAround(wsSrc, TEXT_LOG, 100, TEXT_AFTER);
-    assert.ok(region.includes('hadAbsenceReturn: true'),
-      'hadAbsenceReturn: true not found in text-mode path — badge will not be set for text-mode sessions');
+    assert.ok(region.includes('applyAbsenceReturnFlag'),
+      'applyAbsenceReturnFlag not found in text-mode path — badge write may have been removed; check daniela-absence-worker.ts export and unified-ws-handler.ts import');
   });
 
-  it('text-mode path writes absenceReturnDays: absenceReturn.daysSinceLastSession to voice_sessions', () => {
+  it('text-mode path passes absenceReturn.daysSinceLastSession to applyAbsenceReturnFlag', () => {
     const region = regionAround(wsSrc, TEXT_LOG, 100, TEXT_AFTER);
-    assert.ok(region.includes('absenceReturnDays: absenceReturn.daysSinceLastSession'),
-      'absenceReturnDays: absenceReturn.daysSinceLastSession not found in text-mode path — badge day count will not be set');
+    assert.ok(region.includes('absenceReturn.daysSinceLastSession'),
+      'absenceReturn.daysSinceLastSession not found in text-mode path — badge day count will not be set');
   });
 
   it('text-mode path awaits autoResolveAbsenceNudgeOnReturn', () => {
@@ -288,16 +289,17 @@ describe('unified-ws-handler.ts — text-mode path badge write', () => {
 
   it('text-mode path DB write is non-blocking (.catch() so a failed write never aborts the session)', () => {
     const region = regionAround(wsSrc, TEXT_LOG, 100, TEXT_AFTER + 200);
-    const hasCatch = /hadAbsenceReturn[\s\S]{0,500}\.catch\s*\(/.test(region);
+    const hasCatch = /applyAbsenceReturnFlag[\s\S]{0,500}\.catch\s*\(/.test(region);
     assert.ok(hasCatch,
       'text-mode path DB write must use .catch() — a failed write should never abort session start');
   });
 
   it('GL and text-mode paths each have an independent absence write (both session modes covered)', () => {
-    // Count occurrences of the badge write across the whole handler file.
-    const writeCount = (wsSrc.match(/hadAbsenceReturn\s*:\s*true/g) ?? []).length;
+    // The db.update() was extracted into applyAbsenceReturnFlag() in daniela-absence-worker.ts.
+    // Both the GL and text-mode paths call it. Count call sites in unified-ws-handler.ts.
+    const writeCount = (wsSrc.match(/applyAbsenceReturnFlag\s*\(/g) ?? []).length;
     assert.ok(writeCount >= 2,
-      `Expected ≥2 badge write sites (GL + text-mode), found ${writeCount} — one session mode may be missing the write`);
+      `Expected ≥2 applyAbsenceReturnFlag() call sites (GL + text-mode), found ${writeCount} — one session mode may be missing the badge write`);
   });
 });
 
@@ -350,26 +352,30 @@ describe('routes.ts — GET /api/usage/sessions response shape', () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe('field name consistency — same names across schema, handler, and route', () => {
-  it('hadAbsenceReturn appears in all three production files (schema, handler, routes)', () => {
+  it('hadAbsenceReturn appears in schema, worker, and routes (handler delegates to applyAbsenceReturnFlag)', () => {
+    // The WS handler was refactored to call applyAbsenceReturnFlag() so the field
+    // name assignment lives in daniela-absence-worker.ts, not unified-ws-handler.ts.
     assert.ok(schemaSrc.includes('hadAbsenceReturn'),   'missing in shared/schema.ts');
-    assert.ok(wsSrc.includes('hadAbsenceReturn'),       'missing in unified-ws-handler.ts');
+    assert.ok(workerSrc.includes('hadAbsenceReturn'),   'missing in daniela-absence-worker.ts — applyAbsenceReturnFlag() must set this field');
     assert.ok(routesSrc.includes('hadAbsenceReturn'),   'missing in routes.ts');
   });
 
-  it('absenceReturnDays appears in all three production files', () => {
+  it('absenceReturnDays appears in schema, worker, and routes (handler delegates to applyAbsenceReturnFlag)', () => {
     assert.ok(schemaSrc.includes('absenceReturnDays'),  'missing in shared/schema.ts');
-    assert.ok(wsSrc.includes('absenceReturnDays'),      'missing in unified-ws-handler.ts');
+    assert.ok(workerSrc.includes('absenceReturnDays'),  'missing in daniela-absence-worker.ts — applyAbsenceReturnFlag() must set this field');
     assert.ok(routesSrc.includes('absenceReturnDays'),  'missing in routes.ts');
   });
 
-  it('WS handler reads absenceReturn.daysSinceLastSession (matching the worker return field)', () => {
+  it('WS handler calls applyAbsenceReturnFlag with absenceReturn.daysSinceLastSession (matching worker return field)', () => {
     // worker:  return { daysSinceLastSession: ..., firstName }
-    // handler: absenceReturnDays: absenceReturn.daysSinceLastSession
-    // If the worker renames daysSinceLastSession the handler write silently becomes undefined.
+    // handler: applyAbsenceReturnFlag(sessionId, absenceReturn.daysSinceLastSession)
+    // If the worker renames daysSinceLastSession the handler passes undefined silently.
     assert.ok(workerSrc.includes('daysSinceLastSession'),
-      'daysSinceLastSession not found in daniela-absence-worker.ts — the WS handler reads absenceReturn.daysSinceLastSession');
+      'daysSinceLastSession not found in daniela-absence-worker.ts — the WS handler passes absenceReturn.daysSinceLastSession');
     assert.ok(wsSrc.includes('absenceReturn.daysSinceLastSession'),
-      'absenceReturn.daysSinceLastSession not found in unified-ws-handler.ts — handler is reading the wrong field name');
+      'absenceReturn.daysSinceLastSession not found in unified-ws-handler.ts — handler must pass this field to applyAbsenceReturnFlag');
+    assert.ok(wsSrc.includes('applyAbsenceReturnFlag'),
+      'applyAbsenceReturnFlag not imported/called in unified-ws-handler.ts — badge writes have been removed');
   });
 
   it('DB column had_absence_return matches Drizzle camelCase field hadAbsenceReturn', () => {
