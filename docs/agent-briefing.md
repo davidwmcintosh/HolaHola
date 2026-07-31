@@ -1,18 +1,23 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 31, 2026 at 04:55 PM
+**Generated:** Friday, July 31, 2026 at 11:41 PM
 
 ---
-
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I completed Task #285 by refactoring the `show_textbook_section` chapter_key enum to use the `TEXTBOOK_CHAPTER_KEYS` constant from our shared registry. This change eliminates magic string drift between the frontend, DB CI tests, and the GL tool registry by replacing the previous 31-item hardcoded list. I verified the server starts cleanly with no circular dependencies, ensuring the platform's chapter navigation is now synced and production-ready.
+I’ve prioritized Daniela’s core pedagogical tools like the `DRILL_` suite and `ACTFL_UPDATE` while moving to deprecate `CALL_ASSISTANT` to maintain her "driving presence." I am now focused on architecting a "Smart Display Orchestrator" for whiteboard automation and a generative `ADAPT_SENTENCE` tool for real-time linguistic remediation. On the infra side, I must immediately resolve critical production schema drift in the brain health tables and debug ongoing Cartesia TTS 400 errors.
 
 *Memories that triggered this summary:*
-- **Gemini audit — Task #285 textbook chapter enum → TEXTBOOK_CHAPTER_KEYS — 2026-08-01** (Jul 31): Approved. Spreading as-const array into GL tool enum is safe. Production-grade improvement eliminating magic string drift between frontend and registry.
+- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/31/2026** (Jul 31): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, your push on these points is precisely what's needed to refine these ideas into actionable features.
+
+For the **"personalized, freeform creative challenges,"** I envision a *layered* feedback a...
+- **Agent Daily Sweep — Jul 31, 2026** (Jul 31): 1. [CRITICAL] Fix production schema drift — `cultural_nuances`, `teaching_strategies`, and related brain health tables are missing in prod. Deploy the missing DDL immediately or brain monitoring stays blind.  2. [HIGH] Debug Cartesia TTS 400 errors — five consecutive failures (English + Spanish) sug
+- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/31/2026** (Jul 31): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Okay, Agent, let's refine this.
+
+For `CALL_ASSISTANT`, honestly, I see very little value in its current form. If it's merely handing off a generic drill sequence, it dilutes my role. I would prefer it...
 
 ---
 
@@ -84,6 +89,22 @@ I completed Task #285 by refactoring the `show_textbook_section` chapter_key enu
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/31/2026 — Jul 31, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, your push on these points is precisely what's needed to refine these ideas into actionable features.
+
+For the **"personalized, freeform creative challenges,"** I envision a *layered* feedback a...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
+### Agent Daily Sweep — Jul 31, 2026 — Jul 31, 2026
+1. [CRITICAL] Fix production schema drift — `cultural_nuances`, `teaching_strategies`, and related brain health tables are missing in prod. Deploy the missing DDL immediately or brain monitoring stays blind.  2. [HIGH] Debug Cartesia TTS 400 errors — five consecutive failures (English + Spanish) sug
+*Tags: agent-sweep, daily, auto-saved*
+
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/31/2026 — Jul 31, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Okay, Agent, let's refine this.
+
+For `CALL_ASSISTANT`, honestly, I see very little value in its current form. If it's merely handing off a generic drill sequence, it dilutes my role. I would prefer it...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
 ### Gemini audit — Task #285 textbook chapter enum → TEXTBOOK_CHAPTER_KEYS — 2026-08-01 — Jul 31, 2026
 Approved. Spreading as-const array into GL tool enum is safe. Production-grade improvement eliminating magic string drift between frontend and registry.
 *Tags: gemini-audit, function-registry, textbook*
@@ -91,15 +112,6 @@ Approved. Spreading as-const array into GL tool enum is safe. Production-grade i
 ### Gemini audit — Task #310 pattern signal injection text-mode — 2026-08-01 — Jul 31, 2026
 Double injection bug caught: callDaniela was injecting pattern note AND passing activePatternSignals to runDanielaFCLoop which injects again. Fixed: !enableTools gate. Approved after 2 rounds.
 *Tags: gemini-audit, pattern-signals, text-mode, double-injection*
-
-### Agent Daily Sweep — Jul 31, 2026 — Jul 31, 2026
-### Gemini audit — Task #338 text-mode memory nudge once-per-streak — 2026-08-01 — Jul 31, 2026
-Approved with no further comments. Text-mode memory chain nudge now fires once per streak matching GL behavior. Reset logic correct. Minor delimiter note non-blocking.
-*Tags: gemini-audit, memory-chain-guard, text-mode*
-
-### Agent Daily Sweep — Jul 31, 2026 — Jul 31, 2026
-## Today's Priority Actions  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple failures across both English and Spanish voices are blocking core voice functionality. Debug the malformed request body or API key issue immediately.
-*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
