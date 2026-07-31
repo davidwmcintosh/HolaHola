@@ -29,13 +29,38 @@ const sep = () => console.log('\n' + '─'.repeat(70));
 // and it does NOT read from any memory store (DB, embeddings, session), add it
 // to KNOWN_NON_GUARD_TOOLS below instead of MEMORY_TOOL_NAMES.
 //
+// COVERAGE GAP WARNING
+// ────────────────────
+// This prefix list only catches tools whose names use established conventions.
+// A developer who adds a tool like "fetch_prior_session" or "load_student_context"
+// or "retrieve_shared_history" would bypass the check if none of those prefixes
+// appear below.  The list below therefore casts a deliberately wide net — it
+// includes prefixes that apply to many non-memory tools too — and relies on
+// KNOWN_NON_GUARD_TOOLS to explicitly whitelist the innocent ones.
+//
+// If you add a new prefix convention for memory retrieval that is not in this
+// list, add the prefix here and categorize any existing tools it catches in
+// KNOWN_NON_GUARD_TOOLS.
+//
 const MEMORY_PATTERN_PREFIXES = [
   'recall',        // e.g. recall, recall_what_i_shared
   'browse_',       // e.g. browse_conversations_by_date
   'search_my_',    // e.g. search_my_teaching_wisdom, search_my_feelings
   'introspect',    // e.g. introspect
   'read_',         // e.g. read_full_session, read_my_reflections
-  'memory_',       // e.g. memory_lookup
+  'memory_',       // e.g. memory_lookup, memory_review
+
+  // ── Additional prefixes added to close the naming-convention gap ─────────────
+  // These cover aliases a developer might naturally choose when building a new
+  // memory-retrieval tool, even if no such tool exists in the registry today.
+  // Any tool that matches AND is intentionally not chain-guarded must be added
+  // to KNOWN_NON_GUARD_TOOLS with an explanatory comment.
+  'fetch_',        // e.g. fetch_prior_session, fetch_student_context
+  'retrieve_',     // e.g. retrieve_shared_history, retrieve_student_data
+  'get_memory_',   // e.g. get_memory_entry, get_memory_snapshot
+  'load_',         // e.g. load_student_context, load_session_history
+                   //   (existing content-loading tools like load_scenario and
+                   //    load_vocab_set are whitelisted in KNOWN_NON_GUARD_TOOLS)
 ];
 
 // ─── Tools that match a pattern above but are intentionally NOT chain-guarded ─
@@ -103,6 +128,22 @@ const KNOWN_NON_GUARD_TOOLS = new Set<string>([
   // Write tool — saves, corrects, pins, or forgets memory records.
   // Writing is not a retrieval lookup; it does not cause the spiral the guard
   // is designed to catch.
+
+  // ── load_ prefix ────────────────────────────────────────────────────────────
+  // The 'load_' prefix was added to MEMORY_PATTERN_PREFIXES to catch future
+  // tools like "load_student_context" or "load_session_history".  The tools
+  // below pre-date that addition and are content-loading tools, not memory
+  // retrieval — they do not query DB memory stores, embedding indices, or
+  // session history records.
+  'load_scenario',
+  // Launches a pre-built, multi-stage roleplay arc from the scenario library.
+  // Reads scenario metadata (slugs, prop sets, zone sequences) — not student
+  // session memory.  No embedding search; no chain risk.
+
+  'load_vocab_set',
+  // Loads vocabulary words from a lesson's required vocabulary list.
+  // Reads curriculum/lesson data, not student-session or conversation memory.
+  // No embedding search; no chain risk.
 ]);
 
 // ─── Run ─────────────────────────────────────────────────────────────────────
