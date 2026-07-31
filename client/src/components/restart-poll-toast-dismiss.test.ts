@@ -317,3 +317,174 @@ describe('restart-poll toast dismiss — contract with the fresh session page', 
     assert.equal(reconnectToastRef.current, null, 'ref remains null');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Mutation check — proves the ordering guard actually catches a real regression
+//
+// This describe block runs a *deliberately broken* version of runRestartPoll
+// where navigate() fires BEFORE dismiss().  It then applies the same assertion
+// logic used by the main suite and confirms the assertion would fail.
+//
+// If this block starts passing (i.e. the mutant is no longer detected), the
+// main test suite has lost its ability to catch the regression — that's a bug
+// in the test, not a fix.
+// ---------------------------------------------------------------------------
+
+/**
+ * Mutated variant: navigate() fires BEFORE dismiss() (the regression we guard
+ * against).  This is NOT the correct production ordering — it exists only so
+ * the mutation check below can prove the ordering assertion catches it.
+ */
+async function runRestartPollMutated(
+  fetchHealth: () => Promise<{ ok: boolean }>,
+  toastHandle: ToastHandle,
+  navigate: (route: string) => void,
+  homeRoute: string,
+  delayMs = 0,
+): Promise<void> {
+  const reconnectToastRef: { current: ToastHandle | null } = {
+    current: toastHandle,
+  };
+
+  return new Promise<void>((resolve, reject) => {
+    const poll = () => {
+      fetchHealth()
+        .then(r => {
+          if (r.ok) {
+            // ── MUTATION: navigate fires BEFORE dismiss ──────────────────
+            // This is the wrong order — the regression we are guarding against.
+            navigate(homeRoute);
+            if (reconnectToastRef.current) {
+              reconnectToastRef.current.dismiss();
+              reconnectToastRef.current = null;
+            }
+            resolve();
+          } else {
+            setTimeout(poll, 0);
+          }
+        })
+        .catch(() => {
+          setTimeout(poll, 0);
+        });
+    };
+
+    setTimeout(poll, delayMs);
+  });
+}
+
+describe('Mutation check — ordering guard catches navigate-before-dismiss regression', () => {
+
+  it('the mutated poll (navigate before dismiss) produces a call log that violates the ordering assertion', async () => {
+    // Run the mutated implementation and record the call log.
+    const callLog: string[] = [];
+    const toast = makeMockToast(callLog);
+    const navigate = (_route: string) => { callLog.push('navigate'); };
+
+    await runRestartPollMutated(
+      makeFetchSequence([{ ok: true }]),
+      toast,
+      navigate,
+      '/chat',
+    );
+
+    // The mutant produces ['navigate', 'dismiss'] — the wrong order.
+    // Apply the same assertion logic the main suite uses and confirm it fails.
+    const dismissIdx = callLog.indexOf('dismiss');
+    const navigateIdx = callLog.indexOf('navigate');
+
+    assert.ok(dismissIdx !== -1, 'dismiss() must still be called (even in the mutant)');
+    assert.ok(navigateIdx !== -1, 'navigate() must still be called (even in the mutant)');
+
+    // In the mutated build, navigate fires FIRST — so navigateIdx < dismissIdx.
+    // The main suite requires dismissIdx < navigateIdx.
+    // Confirm the ordering is genuinely violated so the guard would catch it.
+    assert.ok(
+      navigateIdx < dismissIdx,
+      `Mutation check: expected navigate (pos ${navigateIdx}) to appear BEFORE dismiss ` +
+      `(pos ${dismissIdx}) in the mutated build — got: ${JSON.stringify(callLog)}. ` +
+      `If this assertion fails the mutant no longer exercises the right regression.`,
+    );
+
+    // The main-suite assertion (dismissIdx < navigateIdx) would throw here —
+    // confirm it by running it and catching the error.
+    let caughtError: Error | null = null;
+    try {
+      assert.ok(
+        dismissIdx < navigateIdx,
+        `dismiss() (pos ${dismissIdx}) must fire before navigate() (pos ${navigateIdx})`,
+      );
+    } catch (err) {
+      caughtError = err as Error;
+    }
+
+    assert.ok(
+      caughtError !== null,
+      'The main-suite ordering assertion MUST throw on the mutated call log — ' +
+      'if it does not, the guard can no longer catch the navigate-before-dismiss regression.',
+    );
+    assert.ok(
+      caughtError!.message.includes('dismiss'),
+      `Caught error message should reference 'dismiss'; got: ${caughtError!.message}`,
+    );
+  });
+
+  it('the mutated poll still calls both dismiss() and navigate() exactly once', async () => {
+    // Confirm the mutant is a faithful mutation (same observable side-effects,
+    // wrong order) — not a broken stub that skips calls altogether.
+    let dismissCount = 0;
+    let navigateCount = 0;
+    const toast: ToastHandle = {
+      id: 'mock',
+      dismiss() { dismissCount++; },
+      update() {},
+    };
+    const navigate = () => { navigateCount++; };
+
+    await runRestartPollMutated(
+      makeFetchSequence([{ ok: true }]),
+      toast,
+      navigate,
+      '/chat',
+    );
+
+    assert.equal(dismissCount, 1, 'mutated poll must still call dismiss() exactly once');
+    assert.equal(navigateCount, 1, 'mutated poll must still call navigate() exactly once');
+  });
+
+  it('mutant is detected even after retries (not just on the first poll)', async () => {
+    const callLog: string[] = [];
+    const toast = makeMockToast(callLog);
+    const navigate = (_route: string) => { callLog.push('navigate'); };
+
+    // Two not-ready responses, then ok — mirrors the main suite retry test.
+    await runRestartPollMutated(
+      makeFetchSequence([{ ok: false }, { ok: false }, { ok: true }]),
+      toast,
+      navigate,
+      '/chat',
+    );
+
+    const dismissIdx = callLog.indexOf('dismiss');
+    const navigateIdx = callLog.indexOf('navigate');
+
+    // Mutant: navigate fires first, so navigateIdx must be < dismissIdx.
+    assert.ok(
+      navigateIdx < dismissIdx,
+      `After retries: mutated poll must still place navigate (pos ${navigateIdx}) ` +
+      `before dismiss (pos ${dismissIdx}); got: ${JSON.stringify(callLog)}`,
+    );
+
+    // The main-suite assertion would throw — confirm it.
+    let caughtError: Error | null = null;
+    try {
+      assert.ok(dismissIdx < navigateIdx, 'dismiss must precede navigate');
+    } catch (err) {
+      caughtError = err as Error;
+    }
+
+    assert.ok(
+      caughtError !== null,
+      'Main-suite ordering assertion must fail on the retry-path mutant too.',
+    );
+  });
+});
