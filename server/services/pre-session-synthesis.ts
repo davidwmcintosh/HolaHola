@@ -262,7 +262,7 @@ function buildLiteContext(
   pedagogicalBrief?: { brief: string; focusArea: string | null; struggledWith: string | null; notedProgress: string | null } | null,
   masteryDigest?: string | null,
   advisoryGoal?: string | null,
-  returningAfterAbsence?: { daysSinceLastSession: number; firstName: string | null } | null,
+  returningAfterAbsence?: { daysSinceLastSession: number; firstName: string | null; callTranscript?: string | null } | null,
 ): string {
   const parts: string[] = [];
 
@@ -275,13 +275,33 @@ function buildLiteContext(
   if (returningAfterAbsence) {
     const days = returningAfterAbsence.daysSinceLastSession;
     const daysLabel = days === 1 ? '1 day' : `${days} days`;
-    parts.push(
+    let absenceBlock =
       `RETURNING AFTER ABSENCE: ${name} has not had a session in ${daysLabel}. ` +
       `A pending absence nudge was just auto-cleared because they came back. ` +
       `This is the opening of the session — your inner monologue should carry the natural warmth ` +
       `of seeing someone return after a real gap. Do not explicitly announce their absence or ` +
-      `make it the centrepiece of the greeting. Just let it color how you arrive.`
-    );
+      `make it the centrepiece of the greeting. Just let it color how you arrive.`;
+    // If Daniela left a check-in call and the call was recorded and transcribed, inject it here.
+    // This makes the call transcript directly available so Daniela can reference what was said —
+    // e.g. what the student mentioned about why they were away, or what they said they'd do next.
+    // Ground the greeting in the real call rather than relying on topic-score surfacing.
+    if (returningAfterAbsence.callTranscript) {
+      // Cap at 2500 chars (~500 words) — enough for a 3-minute call's key moments without
+      // overwhelming the synthesis model's attention relative to the pedagogical context.
+      const cappedTranscript = returningAfterAbsence.callTranscript.trim().slice(0, 2500);
+      const wasCapped = returningAfterAbsence.callTranscript.trim().length > 2500;
+      absenceBlock +=
+        `\n\nDURING THEIR ABSENCE, YOU LEFT THEM A CHECK-IN CALL. HERE IS THE TRANSCRIPT` +
+        (wasCapped ? ` (first ~500 words)` : ``) +
+        `:\n` +
+        cappedTranscript +
+        `\n\nNote: this transcript may be a one-sided message you left on voicemail, or a ` +
+        `two-way conversation. Only attribute statements to the student if the transcript ` +
+        `clearly shows them speaking. If they did not pick up, use the fact that you reached ` +
+        `out as emotional context for your warmth — do not invent a response from them. ` +
+        `Fidelity rule: only reference specifics you can read verbatim in the transcript above.`;
+    }
+    parts.push(absenceBlock);
   }
 
   // Who this student is to Daniela
@@ -412,7 +432,7 @@ export async function generatePreSessionSynthesis(
   tutorName: string = "Daniela",
   userId?: string,
   language?: string,
-  returningAfterAbsence?: { daysSinceLastSession: number; firstName: string | null } | null,
+  returningAfterAbsence?: { daysSinceLastSession: number; firstName: string | null; callTranscript?: string | null } | null,
 ): Promise<string | null> {
   const startMs = Date.now();
   try {

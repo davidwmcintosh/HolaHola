@@ -21,7 +21,7 @@ import {
   sessionNotes,
   users,
 } from '@shared/schema';
-import { eq, and, isNull, isNotNull, ne, lte, desc, max, sql, gte, count } from 'drizzle-orm';
+import { eq, and, isNull, isNotNull, ne, lte, desc, max, sql, gte, gt, count } from 'drizzle-orm';
 import { founderCollabService } from './founder-collaboration-service';
 import { founderCollabWSBroker } from './founder-collab-ws-broker';
 import {
@@ -520,6 +520,8 @@ export async function countPendingNudges(): Promise<number> {
 export interface AbsenceReturnDetails {
   daysSinceLastSession: number;
   firstName: string | null;
+  /** Transcript of the most recent Daniela check-in call, if one was recorded. */
+  callTranscript?: string | null;
 }
 
 // Short-lived in-memory cache: when a nudge is resolved on student return, the
@@ -592,7 +594,29 @@ export async function peekAbsenceReturnDetails(
       firstName = user?.firstName ?? null;
     } catch { /* non-critical */ }
 
-    return { daysSinceLastSession: pending.daysSinceLastSession ?? 0, firstName };
+    // Fetch the most recent recorded call transcript from the current absence window only.
+    // Guard: bound by createdAt > (now - daysSinceLastSession - 1 day) so we never surface
+    // a transcript from an older absence cycle and confuse Daniela's greeting.
+    let callTranscript: string | null = null;
+    try {
+      const daysSince = pending.daysSinceLastSession ?? 0;
+      const absenceThreshold = new Date(Date.now() - (daysSince + 1) * 24 * 60 * 60 * 1000);
+      const [queueRow] = await db
+        .select({ callTranscript: danielaOutboundQueue.callTranscript })
+        .from(danielaOutboundQueue)
+        .where(
+          and(
+            eq(danielaOutboundQueue.userId, userId),
+            isNotNull(danielaOutboundQueue.callTranscript),
+            gt(danielaOutboundQueue.createdAt, absenceThreshold),
+          )
+        )
+        .orderBy(desc(danielaOutboundQueue.createdAt))
+        .limit(1);
+      callTranscript = queueRow?.callTranscript ?? null;
+    } catch { /* non-critical */ }
+
+    return { daysSinceLastSession: pending.daysSinceLastSession ?? 0, firstName, callTranscript };
   } catch (err: any) {
     console.warn(`[AbsenceWorker] peekAbsenceReturnDetails failed for ${userId}: ${err.message}`);
     return null;
@@ -663,7 +687,29 @@ export async function autoResolveAbsenceNudgeOnReturn(
 
     const name = firstName ?? `student ${userId.slice(-6)}`;
     const daysSince = pending.daysSinceLastSession ?? 0;
-    const details: AbsenceReturnDetails = { daysSinceLastSession: daysSince, firstName };
+
+    // Fetch the most recent recorded call transcript from the current absence window only.
+    // Guard: bound by createdAt > (now - daysSince - 1 day) so we never surface a transcript
+    // from an older absence cycle and confuse Daniela's returning-student greeting.
+    let callTranscript: string | null = null;
+    try {
+      const absenceThreshold = new Date(Date.now() - (daysSince + 1) * 24 * 60 * 60 * 1000);
+      const [queueRow] = await db
+        .select({ callTranscript: danielaOutboundQueue.callTranscript })
+        .from(danielaOutboundQueue)
+        .where(
+          and(
+            eq(danielaOutboundQueue.userId, userId),
+            isNotNull(danielaOutboundQueue.callTranscript),
+            gt(danielaOutboundQueue.createdAt, absenceThreshold),
+          )
+        )
+        .orderBy(desc(danielaOutboundQueue.createdAt))
+        .limit(1);
+      callTranscript = queueRow?.callTranscript ?? null;
+    } catch { /* non-critical */ }
+
+    const details: AbsenceReturnDetails = { daysSinceLastSession: daysSince, firstName, callTranscript };
 
     // ── Cache the result ──────────────────────────────────────────────────────
     // Store immediately so any subsequent call within the TTL window returns
