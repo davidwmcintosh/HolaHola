@@ -419,3 +419,134 @@ describe('statusMap logic simulation — stable compartment + unlock/review', ()
     assert.ok('lastDrilledAt'     in updates,  'review must always set lastDrilledAt');
   });
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PART 7 — pounding on a stable/generative compartment preserves status
+//           AND increments poundingCount
+//
+// The statusMap entry for 'pounding' uses the same conditional-preservation
+// form as unlock and review:
+//   pounding: (existing?.status && existing.status !== 'unstarted') ? existing.status : 'pounding'
+//
+// This means pounding a compartment that is already 'stable' or 'generative'
+// must NOT demote it back to 'pounding' — it keeps its current status.
+// At the same time, poundingCount must still be incremented (the drill event
+// is recorded even though the status is preserved).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('RECORD_PATTERN_SIGNAL statusMap — pounding on stable/generative compartment', () => {
+  // ── Source-level assertions ────────────────────────────────────────────────
+
+  it('pounding entry uses the conditional existing.status form (not a fixed reset string)', () => {
+    // The pattern we require:
+    //   pounding: (existing?.status && existing.status !== 'unstarted') ? existing.status : 'pounding',
+    // A hard-coded 'pounding' literal unconditionally would demote a stable compartment.
+    const region = regionAround(handlerSrc, STATUS_MAP_ANCHOR, 0, 600);
+    const hasPoundingPreserve = /pounding\s*:\s*\(existing\?\.status\b/.test(region);
+    assert.ok(
+      hasPoundingPreserve,
+      `pounding entry in statusMap does not use the conditional existing.status form — ` +
+      `a hard-coded 'pounding' literal would demote a 'stable' or 'generative' compartment on every drill`,
+    );
+  });
+
+  it("pounding falls back to 'pounding' only when the compartment is new/unstarted", () => {
+    // The fallback pattern:  ? existing.status : 'pounding'
+    // must appear at least 3 times (unlock + review + pounding)
+    const region = regionAround(handlerSrc, STATUS_MAP_ANCHOR, 0, 600);
+    const fallbackMatches = (region.match(/\?\s*existing\.status\s*:\s*'pounding'/g) ?? []).length;
+    assert.ok(
+      fallbackMatches >= 3,
+      `Expected at least 3 conditional fallback patterns (unlock + review + pounding), found ${fallbackMatches} — ` +
+      `the pounding entry may be missing the preserve-or-fallback guard`,
+    );
+  });
+
+  it('poundingCount increment block is guarded by eventType === pounding in the handler', () => {
+    // Assert the production handler increments poundingCount inside an
+    // `if (eventType === 'pounding')` block (not unconditionally).
+    const hasPoundingGuard = /if\s*\(\s*eventType\s*===\s*'pounding'\s*\)/.test(handlerSrc);
+    assert.ok(
+      hasPoundingGuard,
+      `poundingCount increment must be inside an if(eventType === 'pounding') guard; ` +
+      `removing the guard would increment the counter on every RECORD_PATTERN_SIGNAL call`,
+    );
+  });
+
+  // ── Logic simulations ─────────────────────────────────────────────────────
+
+  /**
+   * Replicate the exact pounding statusMap conditional from native-fc-handlers.ts.
+   * If the production expression changes, the source-level test above will fail
+   * first; this block adds a behavioural cross-check.
+   */
+  function computePoundingStatus(existing: { status: string } | null): string {
+    return (existing?.status && existing.status !== 'unstarted')
+      ? existing.status
+      : 'pounding';
+  }
+
+  /**
+   * Replicate the poundingCount increment from the handler counter block.
+   */
+  function computePoundingUpdates(
+    existing: { poundingCount?: number; status: string } | null,
+  ): Record<string, unknown> {
+    const status = computePoundingStatus(existing);
+    const updates: Record<string, unknown> = { status, lastDrilledAt: new Date() };
+    // handler: if (eventType === 'pounding') { updates.poundingCount = (existing?.poundingCount ?? 0) + 1; }
+    updates.poundingCount = (existing?.poundingCount ?? 0) + 1;
+    return updates;
+  }
+
+  it("pounding on a 'generative' compartment keeps status 'generative'", () => {
+    const result = computePoundingStatus({ status: 'generative' });
+    assert.strictEqual(result, 'generative',
+      `pounding must not demote a 'generative' compartment — status should remain 'generative'`);
+  });
+
+  it("pounding on a 'stable' compartment keeps status 'stable'", () => {
+    const result = computePoundingStatus({ status: 'stable' });
+    assert.strictEqual(result, 'stable',
+      `pounding must not demote a 'stable' compartment — status should remain 'stable'`);
+  });
+
+  it("poundingCount is incremented even when a 'generative' compartment preserves its status", () => {
+    const existing = { poundingCount: 4, status: 'generative' };
+    const updates = computePoundingUpdates(existing);
+    assert.strictEqual(updates.status, 'generative',
+      `status must be preserved as 'generative'`);
+    assert.strictEqual(updates.poundingCount, 5,
+      `poundingCount must go from 4 → 5 even when status is preserved`);
+  });
+
+  it("poundingCount is incremented even when a 'stable' compartment preserves its status", () => {
+    const existing = { poundingCount: 2, status: 'stable' };
+    const updates = computePoundingUpdates(existing);
+    assert.strictEqual(updates.status, 'stable',
+      `status must be preserved as 'stable'`);
+    assert.strictEqual(updates.poundingCount, 3,
+      `poundingCount must go from 2 → 3 even when status is preserved`);
+  });
+
+  it("pounding on a new compartment (null existing) falls back to 'pounding' and starts poundingCount at 1", () => {
+    const updates = computePoundingUpdates(null);
+    assert.strictEqual(updates.status, 'pounding',
+      `pounding on a brand-new compartment must set status to 'pounding'`);
+    assert.strictEqual(updates.poundingCount, 1,
+      `poundingCount must start at 1 for a new compartment`);
+  });
+
+  it("pounding on an 'unstarted' compartment falls back to 'pounding'", () => {
+    const result = computePoundingStatus({ status: 'unstarted' });
+    assert.strictEqual(result, 'pounding',
+      `pounding on an 'unstarted' compartment must fall back to 'pounding'`);
+  });
+
+  it("poundingCount is initialised to 1 when existing.poundingCount is undefined", () => {
+    const existing = { status: 'stable' } as { poundingCount?: number; status: string };
+    const updates = computePoundingUpdates(existing);
+    assert.strictEqual(updates.poundingCount, 1,
+      `poundingCount must default to 0 then increment to 1 when the field is absent`);
+  });
+});
