@@ -135,6 +135,8 @@ export function DanielaSessionProvider({ children }: { children: ReactNode }) {
     const handleStateChange = (state: string) => {
       if (state === "error" || state === "disconnected") {
         setVoiceStatus("idle");
+      } else if (state === "reconnecting") {
+        setVoiceStatus("connecting");
       }
     };
 
