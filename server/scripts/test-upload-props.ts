@@ -103,7 +103,7 @@ console.log("\nTest 2: uploadPublicBuffer returns /api/media/ai-image/<filename>
     let uploadError: string | null = null;
 
     try {
-      uploadedUrl = await uploadPublicBuffer(testFilename, makeTestPng(), "image/png");
+      uploadedUrl = await uploadPublicBuffer(testFilename, makeTestPng(), "image/png"); // gcs-guard-exempt: developer probe script, result not persisted to DB
     } catch (err: any) {
       uploadError = err?.message ?? String(err);
     }

@@ -12994,8 +12994,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
       const buffer = Buffer.from(base64, 'base64');
 
       const { uploadPublicBuffer } = await import('./services/image-storage');
-      await uploadPublicBuffer(`${safeKey}.png`, buffer, 'image/png');
-
+      await uploadPublicBuffer(`${safeKey}.png`, buffer, 'image/png'); // gcs-guard-exempt: result discarded; proxy URL constructed manually in response
       auditPreviewStore.delete(safeKey);
       console.log(`[AuditApply] ✓ Applied preview → ${safeKey}.png in GCS`);
       res.json({ url: `/api/media/ai-image/${safeKey}.png`, conceptKey: safeKey, message: `Applied — ${safeKey}.png replaced in GCS` });
@@ -13685,7 +13684,8 @@ Return ONLY valid JSON, no markdown, no explanation.`;
       (async () => {
         try {
           const { generateEnvironmentScene } = await import('./services/google-image-service');
-          const imageUrl = await generateEnvironmentScene(bgPrompt, 'comparison_bg');
+          const { normalizeImageUrl } = await import('./services/image-storage');
+          const imageUrl = normalizeImageUrl(await generateEnvironmentScene(bgPrompt, 'comparison_bg'));
           await storage.cacheImage({
             url: imageUrl,
             filename: `compare_bg_shared_${Date.now()}.jpg`,
@@ -13722,8 +13722,7 @@ Return ONLY valid JSON, no markdown, no explanation.`;
       const bgPrompt = `Two large dark green chalkboards mounted side by side on a warm classroom wall, viewed straight-on. Dark wooden frames with a thin gap between the boards. Warm neutral beige plaster wall. Soft diffused overhead classroom lighting. Both boards completely blank and empty.`;
 
       const { generateEnvironmentScene } = await import('./services/google-image-service');
-      const candidateUrl = await generateEnvironmentScene(bgPrompt, 'comparison_bg');
-
+      const candidateUrl = await generateEnvironmentScene(bgPrompt, 'comparison_bg'); // gcs-guard-exempt: preview only, not persisted to DB; caller adopts via a separate /adopt endpoint
       console.log(`[Admin] Comparison bg preview generated: ${candidateUrl}`);
       res.json({ currentUrl, candidateUrl });
     } catch (error: any) {
@@ -25496,7 +25495,7 @@ ${buildDemoOutputConstraints(actflLevelParam)}`;
         try {
           if (ve.type === 'open_scene') {
             const env = ve.data.environment || ve.data.scene || '';
-            const imageUrl = await generateEnvironmentScene(env, 'daniela').catch(() => null);
+            const imageUrl = await generateEnvironmentScene(env, 'daniela').catch(() => null); // gcs-guard-exempt: returned in JSON for visual display only, not persisted to DB
             resolvedEvents.push({ ...ve, imageUrl: imageUrl || null });
           } else if (ve.type === 'show_vocab_grid') {
             const words = Array.isArray(ve.data.words) ? ve.data.words.slice(0, 6) : [];
@@ -25554,7 +25553,7 @@ ${buildDemoOutputConstraints(actflLevelParam)}`;
       try {
         if (wavBuffer) {
           const { uploadPublicBuffer } = await import('./services/image-storage');
-          audioUrl = await uploadPublicBuffer(`observer-seat-${Date.now()}.wav`, wavBuffer, 'audio/wav');
+          audioUrl = await uploadPublicBuffer(`observer-seat-${Date.now()}.wav`, wavBuffer, 'audio/wav'); // gcs-guard-exempt: audio upload, not an image URL
         }
         const sceneOk = resolvedEvents.some((e: any) => e.type === 'open_scene' || e.type === 'show_cultural_scene');
         const vocabOk = resolvedEvents.some((e: any) => e.type === 'show_vocab_grid');

@@ -631,7 +631,7 @@ export async function composeVisualScene(req: ComposeRequest): Promise<ComposeRe
 
     const composedBuffer = await compositeScene(envRow, layers, environment);
     const filename = `composed_${buildCompositionKey(environment, termsSorted, preposition_context)}.jpg`;
-    const permanentUrl = await uploadPublicBuffer(filename, composedBuffer, 'image/jpeg');
+    const permanentUrl = normalizeImageUrl(await uploadPublicBuffer(filename, composedBuffer, 'image/jpeg'));
 
     // Cache asynchronously — a cache write failure must NOT prevent returning the composed image
     cacheComposition(environment, termsSorted, preposition_context, permanentUrl, layers.map((l, i) => ({

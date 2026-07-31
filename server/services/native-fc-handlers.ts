@@ -1274,7 +1274,8 @@ export class NativeFunctionCallHandler {
             } else {
               // Cache miss — generate with ENV_STYLE (Gemini Flash, no characters)
               const { generateEnvironmentScene } = await import('../services/google-image-service');
-              imageUrl = await generateEnvironmentScene(bgScene, 'comparison_bg');
+              const { normalizeImageUrl } = await import('../services/image-storage');
+              imageUrl = normalizeImageUrl(await generateEnvironmentScene(bgScene, 'comparison_bg'));
               // Store in cache for all future calls
               await storage.cacheImage({
                 url: imageUrl,

@@ -1,7 +1,7 @@
 import { getSharedDb } from '../db';
 import { curriculumLessons, curriculumUnits, curriculumPaths } from '../../shared/schema';
 import { eq } from 'drizzle-orm';
-import { uploadPublicBuffer } from '../services/image-storage';
+import { uploadPublicBuffer, normalizeImageUrl } from '../services/image-storage';
 import { GoogleGenAI, Modality } from '@google/genai';
 
 const LANGUAGE_PRIORITY: Record<string, number> = {
@@ -89,7 +89,8 @@ async function main() {
       const buffer = Buffer.from(part.inlineData.data, 'base64');
       const mime = part.inlineData.mimeType || 'image/png';
       const ext = mime === 'image/jpeg' ? 'jpg' : 'png';
-      const url = await uploadPublicBuffer(`lesson-${lesson.id}.${ext}`, buffer, mime);
+      const rawUrl = await uploadPublicBuffer(`lesson-${lesson.id}.${ext}`, buffer, mime);
+      const url = normalizeImageUrl(rawUrl);
       await db.update(curriculumLessons).set({ imageUrl: url }).where(eq(curriculumLessons.id, lesson.id));
       done++;
       console.log(`[${done}] [${lesson.language}] ${lesson.name.slice(0, 55)}`);
