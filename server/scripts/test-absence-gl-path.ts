@@ -299,6 +299,109 @@ function part3() {
 part3();
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PART 4 — GL warm-only branch (warmedNote truthy, absenceReturn null)
+//
+// When the student starts a normal (non-return) GL session the pre-warm cache
+// may already contain a fresh synthesis note. The GL handler must use it
+// directly — no unnecessary generatePreSessionSynthesis() call — and still
+// forward the note into the GL session context.
+//
+// GL branch structure (unified-ws-handler.ts):
+//   Branch 1 (stale-discard): warmedNote && absenceReturn → regenerate
+//   Branch 2 (warm-only):     else + warmedNote truthy   → use warm note (??  short-circuits)
+//   Branch 3 (cold):          else + warmedNote null     → await generatePreSessionSynthesis()
+// ══════════════════════════════════════════════════════════════════════════════
+sep();
+console.log(B('PART 4 — GL warm-only branch: no regeneration when no absence return'));
+sep();
+
+function part4() {
+  // ── 4a. Stale-discard guard exists: `warmedNote && absenceReturn` ─────────────
+  // This is the gate that separates branch 1 from branches 2+3. Without it the
+  // warm note would be used even when the absence signal was present (stale data).
+  const hasStaleDiscardGuard = /warmedNote\s*&&\s*absenceReturn/.test(wsHandlerSrc);
+  assert(
+    'GL block has stale-discard guard: `warmedNote && absenceReturn` (branch 1 gate)',
+    hasStaleDiscardGuard,
+    hasStaleDiscardGuard ? undefined : '`warmedNote && absenceReturn` guard not found — stale warm note may slip past',
+  );
+
+  // ── 4b. Nullish-coalescing pattern in the else branch ───────────────────────
+  // Pattern: `synthesisNote = warmedNote\n?? await generatePreSessionSynthesis`
+  // When warmedNote is truthy (branch 2), the right-hand side is never evaluated —
+  // generatePreSessionSynthesis() is NOT called. This is the short-circuit guarantee.
+  const hasNullishCoalesce = /warmedNote\s*\n?\s*\?\?\s*await\s+generatePreSessionSynthesis/.test(wsHandlerSrc);
+  assert(
+    'GL else-branch uses `warmedNote ?? await generatePreSessionSynthesis(...)` — warm note short-circuits the generate call',
+    hasNullishCoalesce,
+    hasNullishCoalesce ? undefined : 'Nullish-coalescing pattern not found — warm-only path may re-call generatePreSessionSynthesis unnecessarily',
+  );
+
+  // ── 4c. Warm-path log exists ─────────────────────────────────────────────────
+  // Must emit: `[GeminiLive] ✓ Using pre-warmed synthesis (N chars) — 0ms latency`
+  const hasWarmLog = wsHandlerSrc.includes('[GeminiLive] ✓ Using pre-warmed synthesis');
+  assert(
+    'Warm-path log "[GeminiLive] ✓ Using pre-warmed synthesis" emitted in GL block',
+    hasWarmLog,
+    hasWarmLog ? undefined : 'Warm-path observability log missing from GL handler',
+  );
+
+  // ── 4d. Warm-path log is inside `if (warmedNote)` guard (not unconditional) ──
+  // The log must only fire when the warm cache was actually used (branch 2),
+  // not when generatePreSessionSynthesis() was called instead (branch 3).
+  const warmLogGuarded = /if\s*\(\s*warmedNote\s*\)[\s\S]{0,300}\[GeminiLive\].*Using pre-warmed synthesis/.test(wsHandlerSrc);
+  assert(
+    'Warm-path log is inside `if (warmedNote)` guard — does not fire for cold-path sessions',
+    warmLogGuarded,
+    warmLogGuarded ? undefined : 'Log guard missing — cold-path sessions may log a false warm-hit',
+  );
+
+  // ── 4e. synthesisNote is the shared variable for both branches ───────────────
+  // Both branch 1 (stale-discard) and branch 2 (warm-only) assign to the same
+  // `synthesisNote` local variable so the forwarding code below is path-agnostic.
+  const hasSynthesisNoteVar = /let\s+synthesisNote\s*:\s*string\s*\|\s*null/.test(wsHandlerSrc) ||
+                               /let\s+synthesisNote\b/.test(wsHandlerSrc);
+  assert(
+    '`synthesisNote` is declared as a shared output variable covering all GL synthesis branches',
+    hasSynthesisNoteVar,
+    hasSynthesisNoteVar ? undefined : '`let synthesisNote` declaration not found — branch isolation may prevent forwarding',
+  );
+
+  // ── 4f. Warm note is forwarded into GL via wrapSynthesisForSystemPrompt ───────
+  // After the if/else block, `if (synthesisNote)` wraps and prepends regardless
+  // of which branch populated it — the warm-only branch is not a dead end.
+  const hasSynthesisForward = wsHandlerSrc.includes('wrapSynthesisForSystemPrompt(synthesisNote)');
+  assert(
+    '`synthesisNote` is forwarded into GL via wrapSynthesisForSystemPrompt(synthesisNote)',
+    hasSynthesisForward,
+    hasSynthesisForward ? undefined : 'Forwarding call not found — warm note may not reach the GL session context',
+  );
+
+  // ── 4g. Forwarding log confirms warm note reached GL system prompt ────────────
+  // `[GeminiLive] ✓ Pre-session synthesis prepended` fires after wrapSynthesisForSystemPrompt,
+  // confirming the note (whether warm or freshly generated) landed in the prompt.
+  const hasPrependLog = wsHandlerSrc.includes('[GeminiLive] ✓ Pre-session synthesis prepended');
+  assert(
+    'Log "[GeminiLive] ✓ Pre-session synthesis prepended" confirms forwarding reached geminiLiveSystemPrompt',
+    hasPrependLog,
+    hasPrependLog ? undefined : 'Prepend confirmation log missing — cannot verify warm note reached GL session',
+  );
+
+  // ── 4h. Warm-only branch is structurally in the else of the stale-discard if ──
+  // The stale-discard guard and the warm-only log must appear in the correct order:
+  // guard fires first (decides whether to discard), warm log fires in the else path.
+  const staleDiscardIdx = wsHandlerSrc.indexOf('warmedNote && absenceReturn');
+  const warmLogIdx      = wsHandlerSrc.indexOf('[GeminiLive] ✓ Using pre-warmed synthesis');
+  assert(
+    'Stale-discard guard appears before warm-path log in source (branch 1 gate then branch 2 body)',
+    staleDiscardIdx !== -1 && warmLogIdx !== -1 && staleDiscardIdx < warmLogIdx,
+    `staleDiscardIdx=${staleDiscardIdx}, warmLogIdx=${warmLogIdx}`,
+  );
+}
+
+part4();
+
+// ══════════════════════════════════════════════════════════════════════════════
 // SUMMARY
 // ══════════════════════════════════════════════════════════════════════════════
 sep();
@@ -310,7 +413,8 @@ if (failed === 0) {
   console.log(D('   2. The result (absenceReturn) is forwarded to generatePreSessionSynthesis()'));
   console.log(D('   3. Synthesis is prepended to geminiLiveSystemPrompt before geminiLiveSession.start()'));
   console.log(D('   4. pre-session-synthesis.ts injects RETURNING AFTER ABSENCE as the first context block'));
-  console.log(D('   5. The in-memory cache makes the second call (orchestrator fire-and-forget) idempotent\n'));
+  console.log(D('   5. The in-memory cache makes the second call (orchestrator fire-and-forget) idempotent'));
+  console.log(D('   6. GL warm-only branch uses pre-warmed note directly (no regeneration) and forwards it\n'));
   process.exit(0);
 } else {
   console.log(R(`\n✗  ${failed} of ${all} assertions failed — review output above.\n`));
