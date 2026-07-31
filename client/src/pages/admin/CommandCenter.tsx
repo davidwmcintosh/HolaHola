@@ -1887,6 +1887,14 @@ export default function CommandCenter() {
   });
   const pendingFlagsCount = procedureFlagsData?.pending || 0;
 
+  // Query pending absence nudge count for tab badge (founder-only endpoint)
+  const { data: absenceNudgeCountData } = useQuery<{ count: number }>({
+    queryKey: ['/api/admin/absence-nudges/count'],
+    enabled: isFounder,
+    refetchInterval: 30_000,
+  });
+  const pendingNudgeCount = absenceNudgeCountData?.count ?? 0;
+
   // Tab groups for organized display - grouped by function
   const tabGroups = [
     {
@@ -2072,7 +2080,7 @@ export default function CommandCenter() {
               groupTabs.forEach(tab => {
                 const Icon = tab.icon;
                 const brainSurgeryBadge = (tab.id === 'brain-surgery') && (pendingProposalsCount + pendingFlagsCount > 0);
-                const showBadge = brainSurgeryBadge;
+                const absenceBadge = (tab.id === 'absence-monitor') && (pendingNudgeCount > 0);
                 elements.push(
                   <TabsTrigger 
                     key={tab.id} 
@@ -2082,9 +2090,14 @@ export default function CommandCenter() {
                   >
                     <Icon className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">{tab.label}</span>
-                    {showBadge && (
+                    {brainSurgeryBadge && (
                       <Badge variant="destructive" className="h-4 min-w-4 px-1 text-[10px]" data-testid="badge-pending-proposals">
                         {pendingProposalsCount + pendingFlagsCount}
+                      </Badge>
+                    )}
+                    {absenceBadge && (
+                      <Badge variant="destructive" className="h-4 min-w-4 px-1 text-[10px]" data-testid="badge-absence-nudges">
+                        {pendingNudgeCount}
                       </Badge>
                     )}
                   </TabsTrigger>
