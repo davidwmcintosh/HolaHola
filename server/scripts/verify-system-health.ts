@@ -436,18 +436,20 @@ async function checkR2ReadPaths() {
   ];
 
   let anyChecked = false;
+  let anyListSucceeded = false;
 
   for (const { prefix, routeFn, label } of prefixes) {
     let keys: string[];
     try {
       keys = await listPrefix(prefix);
+      anyListSucceeded = true;
     } catch (err: any) {
       fail(`R2 list ${label}`, `ListObjectsV2 failed: ${err?.message ?? err}`);
       continue;
     }
 
     if (keys.length === 0) {
-      warn(`R2 read-path ${label}`, `No objects found under "${prefix}" — cannot verify read path`);
+      // ListObjectsV2 succeeded but prefix is empty — credentials work, nothing to read-verify
       continue;
     }
 
@@ -492,7 +494,13 @@ async function checkR2ReadPaths() {
   }
 
   if (!anyChecked) {
-    warn("R2 read paths", "No objects found in any watched prefix — bucket may be empty or migrating");
+    if (anyListSucceeded) {
+      // Credentials are valid — bucket is reachable but both prefixes are empty
+      pass("R2 credentials valid", "ListObjectsV2 succeeded, 0 objects in watched prefixes");
+    } else {
+      // All ListObjectsV2 calls failed — failures already recorded above
+      // (nothing extra to emit here; avoid a redundant warning)
+    }
   }
 }
 

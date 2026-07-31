@@ -85,9 +85,11 @@ function part1() {
 
   // ── Isolate the text-mode region ──────────────────────────────────────────
   // The text-mode log ("[TextMode] ✓ Student returning after") is the anchor.
-  // We extract a window that starts ~600 chars before the first TextMode log
-  // (to capture the if-guard and await call) and ends ~700 chars after it
-  // (to capture the generatePreSessionSynthesis call that follows).
+  // We extract a window that starts ~1200 chars before the first TextMode log
+  // (to capture the !isFounderMode if-guard ~630 chars back) and ends ~1400
+  // chars after it (to capture the generatePreSessionSynthesis call ~910 chars
+  // forward). Narrower windows caused false-negative assertion failures when
+  // the surrounding block grew slightly larger than the original estimates.
   const textModeLogMarker = '[TextMode] \u2713 Student returning after';
   const textModeLogIdx = wsHandlerSrc.indexOf(textModeLogMarker);
   assert(
@@ -99,8 +101,8 @@ function part1() {
   );
   if (textModeLogIdx === -1) return; // can't continue region checks without anchor
 
-  const regionStart = Math.max(0, textModeLogIdx - 600);
-  const regionEnd   = Math.min(wsHandlerSrc.length, textModeLogIdx + 700);
+  const regionStart = Math.max(0, textModeLogIdx - 1200);
+  const regionEnd   = Math.min(wsHandlerSrc.length, textModeLogIdx + 1400);
   const textModeRegion = wsHandlerSrc.slice(regionStart, regionEnd);
 
   // ── 1c. await autoResolveAbsenceNudgeOnReturn in the text-mode region ─────

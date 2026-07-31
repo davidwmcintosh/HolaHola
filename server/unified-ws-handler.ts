@@ -3060,6 +3060,18 @@ ${lastNote.tutorNotes}`);
                         absenceReturn = await autoResolveAbsenceNudgeOnReturn(String(userId));
                         if (absenceReturn) {
                           console.log(`[GeminiLive] ✓ Student returning after ${absenceReturn.daysSinceLastSession} day(s) absence — injecting into synthesis`);
+                          // Persist the returning-student signal on the voice_sessions row so the
+                          // founder view can surface a "Returned after N days" indicator.
+                          // Non-fatal — GL session continues even if the DB write fails.
+                          if (dbSessionId) {
+                            db.update(voiceSessions)
+                              .set({
+                                hadAbsenceReturn: true,
+                                absenceReturnDays: absenceReturn.daysSinceLastSession,
+                              })
+                              .where(eq(voiceSessions.id, dbSessionId))
+                              .catch((e: Error) => console.warn('[GeminiLive] Failed to flag absence return on session row (non-fatal):', e.message));
+                          }
                         }
                       } catch (absErr: any) {
                         // Non-fatal — synthesis continues without absence signal
