@@ -9,7 +9,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { tryNormalize, evaluateScanResults, type ScanResult } from './scan-gcs-urls.js';
+import { tryNormalize, evaluateScanResults, buildStrictWarning, type ScanResult } from './scan-gcs-urls.js';
 
 // ---------------------------------------------------------------------------
 // Pattern 1 — path-style (no query string)
@@ -237,5 +237,86 @@ describe('--strict exit-code behaviour — evaluateScanResults()', () => {
     assert.equal(exitCode, 0);
     assert.equal(unresolved.length, 0);
     assert.equal(patchable.length, 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// --strict stderr warning message — buildStrictWarning()
+//
+// These tests confirm that the exact stderr text emitted by the scanner when
+// unresolved googleapis.com rows are found contains:
+//   • the unresolved-count embedded in the message
+//   • the correct mode-specific suffix:
+//       --strict mode  → "(--strict: treating unresolved rows as a CI failure)"
+//       normal mode    → "(re-run with --strict to enforce this as a CI failure)"
+//
+// This is the signal that causes `npx tsx scan-gcs-urls.ts --strict` to appear
+// as an explicit CI failure in build logs rather than a silent warning.
+// ---------------------------------------------------------------------------
+describe('--strict stderr warning message — buildStrictWarning()', () => {
+  it('includes the unresolved count and --strict suffix when strict=true', () => {
+    // Simulates: developer added a new googleapis.com URL shape; CI runs with
+    // --strict; scanner cannot normalise it; scanner emits this warning to stderr.
+    const msg = buildStrictWarning(1, true);
+    assert.ok(
+      msg.includes('1 unresolved googleapis.com URL(s) found'),
+      'message must contain the unresolved count',
+    );
+    assert.ok(
+      msg.includes('--strict: treating unresolved rows as a CI failure'),
+      'message must include the --strict CI-failure suffix',
+    );
+    assert.ok(
+      msg.includes('[scan-gcs-urls]'),
+      'message must carry the scanner prefix for easy log grepping',
+    );
+  });
+
+  it('includes the correct non-strict suffix when strict=false', () => {
+    const msg = buildStrictWarning(3, false);
+    assert.ok(
+      msg.includes('3 unresolved googleapis.com URL(s) found'),
+      'message must contain the unresolved count',
+    );
+    assert.ok(
+      msg.includes('re-run with --strict to enforce this as a CI failure'),
+      'non-strict message must suggest using --strict',
+    );
+    assert.ok(
+      !msg.includes('--strict: treating unresolved rows as a CI failure'),
+      'non-strict message must NOT contain the CI-failure suffix',
+    );
+  });
+
+  it('pluralises correctly for multiple unresolved rows', () => {
+    const msg = buildStrictWarning(5, true);
+    assert.ok(
+      msg.includes('5 unresolved googleapis.com URL(s) found'),
+      'count must reflect the actual number of unresolved rows',
+    );
+  });
+
+  it('round-trips: evaluateScanResults exitCode 1 + buildStrictWarning strict suffix together', () => {
+    // Full --strict guard path in one assertion:
+    //   1. A new, unrecognised googleapis.com URL shape enters the database.
+    //   2. tryNormalize() returns null  →  evaluateScanResults gives exitCode 1.
+    //   3. buildStrictWarning(…, true) produces a message that a CI runner can grep.
+    const results: ScanResult[] = [
+      {
+        table: 'users',
+        urlCol: 'profile_image_url',
+        id: 42,
+        rawUrl: 'https://new-cdn.googleapis.com/v3/images/avatar.jpg',
+        normalized: null,
+      },
+    ];
+    const { exitCode, unresolved } = evaluateScanResults(results);
+    assert.equal(exitCode, 1, 'unrecognised URL must produce exit code 1');
+
+    const warning = buildStrictWarning(unresolved.length, /* strict= */ true);
+    assert.ok(
+      warning.includes('--strict: treating unresolved rows as a CI failure'),
+      '--strict warning must be present so CI logs surface the failure',
+    );
   });
 });

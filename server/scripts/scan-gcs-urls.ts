@@ -125,6 +125,30 @@ export function evaluateScanResults(results: ScanResult[]): {
   return { patchable, unresolved, exitCode: unresolved.length > 0 ? 1 : 0 };
 }
 
+/**
+ * Pure helper — builds the stderr warning message that the scanner emits
+ * when unresolved googleapis.com rows are found.
+ *
+ * Exported so CI tests can assert the exact warning text without needing a
+ * live database connection:
+ *
+ *   buildStrictWarning(1, true)
+ *   // → "[scan-gcs-urls] ⚠️  1 unresolved googleapis.com URL(s) found …
+ *   //    (--strict: treating unresolved rows as a CI failure)"
+ *
+ * @param unresolvedCount  Number of rows tryNormalize() could not map.
+ * @param strict           Whether the scanner was invoked with --strict.
+ */
+export function buildStrictWarning(unresolvedCount: number, strict: boolean): string {
+  const strictNote = strict
+    ? ' (--strict: treating unresolved rows as a CI failure)'
+    : ' (re-run with --strict to enforce this as a CI failure)';
+  return (
+    `\n[scan-gcs-urls] ⚠️  ${unresolvedCount} unresolved googleapis.com URL(s) found` +
+    ` — these URL shapes are not recognised by tryNormalize().${strictNote}`
+  );
+}
+
 async function scanAndPatch(): Promise<void> {
   const db = getSharedDb();
   const { sql: rawSql } = await import('drizzle-orm');
@@ -199,12 +223,7 @@ async function scanAndPatch(): Promise<void> {
 
     // Always emit to stderr so CI logs surface the problem even when stdout
     // is captured or piped.  --strict makes this an explicit build failure.
-    const strictNote = STRICT
-      ? ' (--strict: treating unresolved rows as a CI failure)'
-      : ' (re-run with --strict to enforce this as a CI failure)';
-    console.error(
-      `\n[scan-gcs-urls] ⚠️  ${unresolved.length} unresolved googleapis.com URL(s) found — these URL shapes are not recognised by tryNormalize().${strictNote}`
-    );
+    console.error(buildStrictWarning(unresolved.length, STRICT));
 
     process.exitCode = 1;
   }
