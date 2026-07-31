@@ -26,13 +26,21 @@
  * Uses Node.js built-in test runner — no extra packages needed.
  */
 
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it, before, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
 // Import the REAL production guard functions — not mirrors.
 // If these are changed or deleted in production code this test will fail.
 import { validateSpotlightMessage, isSpotlightMessageValid } from '../lib/spotlight-guard.js';
 import type { SpotlightData } from '../lib/spotlight-guard.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = dirname(__filename);
+// workspace root (two levels up from client/src/components/)
+const root       = resolve(__dirname, '../../..');
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -347,5 +355,255 @@ describe('End-to-end guard chain (validateSpotlightMessage → isSpotlightMessag
     assert.equal(outcome, 'set');
     assert.equal(toastSpy.calls.length, 0, 'No toast for valid data');
     assert.equal(setSpotlightSpy.calls.length, 1, 'setSpotlight called once');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Source-binding fidelity: verify the production file contains the required
+// timer-clear ordering inside onSpotlightShown.
+//
+// StreamingVoiceChat.tsx onSpotlightShown (~line 1289):
+//   if (spotlightTimerRef.current) clearTimeout(spotlightTimerRef.current);  ← must come FIRST
+//   setSpotlight(data);
+//   spotlightTimerRef.current = setTimeout(() => setSpotlight(null), data.durationMs);
+//
+// If the clearTimeout call is removed or reordered, these source-sentinel
+// assertions fail — they read the REAL production file, not a mirror.
+// ---------------------------------------------------------------------------
+
+let componentSrc: string;
+/** Slice of the source file from 'onSpotlightShown' to the closing brace of its callback. */
+let callbackRegion: string;
+
+before(() => {
+  componentSrc = readFileSync(
+    resolve(root, 'client/src/components/StreamingVoiceChat.tsx'),
+    'utf-8',
+  );
+  // Extract the onSpotlightShown callback region (up to ~400 chars after the anchor)
+  const anchor = 'onSpotlightShown: (data) =>';
+  const idx = componentSrc.indexOf(anchor);
+  assert.ok(idx !== -1, 'onSpotlightShown callback not found in StreamingVoiceChat.tsx');
+  callbackRegion = componentSrc.slice(idx, idx + 700);
+});
+
+describe('Source fidelity — onSpotlightShown timer-clear ordering (production StreamingVoiceChat.tsx)', () => {
+
+  it('onSpotlightShown callback is present in the production source', () => {
+    assert.ok(
+      componentSrc.includes('onSpotlightShown: (data) =>'),
+      'onSpotlightShown callback is missing from StreamingVoiceChat.tsx — guard cannot operate',
+    );
+  });
+
+  it('clearTimeout(spotlightTimerRef.current) is present in the callback', () => {
+    assert.ok(
+      callbackRegion.includes('clearTimeout(spotlightTimerRef.current)'),
+      'clearTimeout(spotlightTimerRef.current) is missing from onSpotlightShown — ' +
+      'a rapid second spotlight will be auto-dismissed by the first spotlight\'s timer',
+    );
+  });
+
+  it('clearTimeout is guarded by a spotlightTimerRef.current truthiness check', () => {
+    assert.ok(
+      callbackRegion.includes('if (spotlightTimerRef.current) clearTimeout(spotlightTimerRef.current)') ||
+      callbackRegion.includes('if (spotlightTimerRef.current)'),
+      'clearTimeout must be guarded — look for "if (spotlightTimerRef.current)" in onSpotlightShown',
+    );
+  });
+
+  it('clearTimeout appears BEFORE setSpotlight(data) in the callback', () => {
+    const clearIdx   = callbackRegion.indexOf('clearTimeout(spotlightTimerRef.current)');
+    const setIdx     = callbackRegion.indexOf('setSpotlight(data)');
+    assert.ok(clearIdx !== -1, 'clearTimeout(spotlightTimerRef.current) not found in callback region');
+    assert.ok(setIdx   !== -1, 'setSpotlight(data) not found in callback region');
+    assert.ok(
+      clearIdx < setIdx,
+      `clearTimeout must appear BEFORE setSpotlight(data) — ` +
+      `found clearTimeout at offset ${clearIdx}, setSpotlight at offset ${setIdx}`,
+    );
+  });
+
+  it('setSpotlight(data) appears BEFORE the new setTimeout in the callback', () => {
+    const setIdx     = callbackRegion.indexOf('setSpotlight(data)');
+    const timerIdx   = callbackRegion.indexOf('setTimeout(() => setSpotlight(null)');
+    assert.ok(setIdx   !== -1, 'setSpotlight(data) not found in callback region');
+    assert.ok(timerIdx !== -1, 'setTimeout(() => setSpotlight(null) not found in callback region');
+    assert.ok(
+      setIdx < timerIdx,
+      `setSpotlight(data) must appear BEFORE the new setTimeout — ` +
+      `found setSpotlight at offset ${setIdx}, setTimeout at offset ${timerIdx}`,
+    );
+  });
+
+  it('clearTimeout appears BEFORE the new setTimeout (full ordering check)', () => {
+    const clearIdx  = callbackRegion.indexOf('clearTimeout(spotlightTimerRef.current)');
+    const timerIdx  = callbackRegion.indexOf('setTimeout(() => setSpotlight(null)');
+    assert.ok(clearIdx  !== -1, 'clearTimeout(spotlightTimerRef.current) not found in callback region');
+    assert.ok(timerIdx  !== -1, 'setTimeout(() => setSpotlight(null) not found in callback region');
+    assert.ok(
+      clearIdx < timerIdx,
+      `clearTimeout must appear BEFORE the new setTimeout — ` +
+      `found clearTimeout at offset ${clearIdx}, setTimeout at offset ${timerIdx}`,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Timer ordering: clearTimeout before setTimeout (stale auto-dismiss guard)
+//
+// Behavioral simulation using a hand-rolled fake timer to verify the logic is
+// correct.  The source-sentinel tests above confirm the production code
+// contains this pattern; the behavioral tests below confirm the pattern
+// actually prevents the stale-dismiss bug.
+//
+// Node.js mock.timers does not support clearTimeout as a fake-able API on this
+// runtime, so we use a lightweight hand-rolled fake timer that fully controls
+// setTimeout / clearTimeout without any Node.js internals.
+// ---------------------------------------------------------------------------
+
+/**
+ * Minimal fake timer that supports setTimeout and clearTimeout.
+ * All timers are stored in-process; tick() advances virtual time and fires
+ * any callbacks whose deadline has passed.
+ */
+function makeFakeTimers() {
+  let now = 0;
+  let nextId = 1;
+  const pending = new Map<number, { deadline: number; fn: () => void; cancelled: boolean }>();
+
+  function fakeSetTimeout(fn: () => void, ms: number): number {
+    const id = nextId++;
+    pending.set(id, { deadline: now + ms, fn, cancelled: false });
+    return id;
+  }
+
+  function fakeClearTimeout(id: number | null | undefined): void {
+    if (id == null) return;
+    const entry = pending.get(id);
+    if (entry) entry.cancelled = true;
+  }
+
+  function tick(ms: number): void {
+    now += ms;
+    // Fire in deadline order so multiple timers fire correctly
+    const ready = [...pending.entries()]
+      .filter(([, e]) => !e.cancelled && e.deadline <= now)
+      .sort(([, a], [, b]) => a.deadline - b.deadline);
+    for (const [id, entry] of ready) {
+      pending.delete(id);
+      if (!entry.cancelled) entry.fn();
+    }
+  }
+
+  return { fakeSetTimeout, fakeClearTimeout, tick };
+}
+
+/**
+ * Mirrors the onSpotlightShown timer block from StreamingVoiceChat.tsx using
+ * injected fake timer functions so the test controls scheduling.
+ */
+function runSpotlightWithClear(
+  data: SpotlightData,
+  state: { timerRef: number | null },
+  setSpotlight: (d: SpotlightData | null) => void,
+  fakeSetTimeout: (fn: () => void, ms: number) => number,
+  fakeClearTimeout: (id: number | null | undefined) => void,
+): void {
+  if (!isSpotlightMessageValid(data)) return;
+  // ── The critical line under test ──
+  if (state.timerRef !== null) fakeClearTimeout(state.timerRef);
+  setSpotlight(data);
+  state.timerRef = fakeSetTimeout(() => setSpotlight(null), data.durationMs);
+}
+
+/**
+ * Same as above but WITHOUT the clearTimeout — simulates the bug so the
+ * regression-detector test proves the suite would catch the removal.
+ */
+function runSpotlightWithoutClear(
+  data: SpotlightData,
+  state: { timerRef: number | null },
+  setSpotlight: (d: SpotlightData | null) => void,
+  fakeSetTimeout: (fn: () => void, ms: number) => number,
+  _fakeClearTimeout: (id: number | null | undefined) => void,
+): void {
+  if (!isSpotlightMessageValid(data)) return;
+  // clearTimeout intentionally OMITTED — bug simulation
+  setSpotlight(data);
+  state.timerRef = fakeSetTimeout(() => setSpotlight(null), data.durationMs);
+}
+
+describe('Spotlight timer — clearTimeout before setTimeout prevents stale auto-dismiss', () => {
+
+  it('second spotlight is NOT dismissed when first spotlight timer is cleared', () => {
+    const { fakeSetTimeout, fakeClearTimeout, tick } = makeFakeTimers();
+
+    let spotlight: SpotlightData | null = null;
+    const setSpotlight = (d: SpotlightData | null) => { spotlight = d; };
+    const state: { timerRef: number | null } = { timerRef: null };
+
+    // First spotlight: 2 000 ms duration
+    const first: SpotlightData = {
+      id: 'sp-1', zone: 'screen', message: 'First spotlight', durationMs: 2000,
+    };
+    runSpotlightWithClear(first, state, setSpotlight, fakeSetTimeout, fakeClearTimeout);
+    assert.deepEqual(spotlight, first, 'First spotlight should be active');
+
+    // Advance 1 000 ms — still within first spotlight's window
+    tick(1000);
+    assert.deepEqual(spotlight, first, 'First spotlight should still be active at 1 000 ms');
+
+    // Second spotlight arrives — 1 000 ms remain on the first timer
+    const second: SpotlightData = {
+      id: 'sp-2', zone: 'mic', message: 'Second spotlight', durationMs: 5000,
+    };
+    runSpotlightWithClear(second, state, setSpotlight, fakeSetTimeout, fakeClearTimeout);
+    assert.deepEqual(spotlight, second, 'Second spotlight should be active immediately after being set');
+
+    // Advance 1 500 ms more (total 2 500 ms) — first timer would have fired at 2 000 ms
+    // if it had NOT been cleared.  With clearTimeout it is a no-op.
+    tick(1500);
+    assert.deepEqual(
+      spotlight, second,
+      'Second spotlight must still be active — first timer was cleared and must not dismiss it',
+    );
+
+    // Advance the remainder of the second spotlight's duration (3 500 ms more = 5 000 ms from when it was set)
+    tick(3500);
+    assert.equal(spotlight, null, 'Second spotlight should be dismissed after its own durationMs');
+  });
+
+  it('regression detector — without clearTimeout the first timer prematurely dismisses the second spotlight', () => {
+    // This test verifies the suite WOULD catch the regression.
+    // If this assertion fails it means the test is no longer sensitive to the guard removal.
+    const { fakeSetTimeout, fakeClearTimeout, tick } = makeFakeTimers();
+
+    let spotlight: SpotlightData | null = null;
+    const setSpotlight = (d: SpotlightData | null) => { spotlight = d; };
+    const state: { timerRef: number | null } = { timerRef: null };
+
+    // First spotlight: 2 000 ms
+    const first: SpotlightData = {
+      id: 'sp-1', zone: 'screen', message: 'First spotlight', durationMs: 2000,
+    };
+    runSpotlightWithoutClear(first, state, setSpotlight, fakeSetTimeout, fakeClearTimeout);
+
+    tick(1000);
+
+    // Second spotlight arrives — first timer is NOT cancelled (bug path)
+    const second: SpotlightData = {
+      id: 'sp-2', zone: 'mic', message: 'Second spotlight', durationMs: 5000,
+    };
+    runSpotlightWithoutClear(second, state, setSpotlight, fakeSetTimeout, fakeClearTimeout);
+    assert.deepEqual(spotlight, second, 'Second spotlight set immediately');
+
+    // First timer fires 1 000 ms later (2 000 ms from start) — prematurely clears second spotlight
+    tick(1500);
+    assert.equal(
+      spotlight, null,
+      'Without clearTimeout the first timer prematurely clears the second spotlight — ' +
+      'this is the exact bug the production clearTimeout call prevents',
+    );
   });
 });
