@@ -199,6 +199,119 @@ describe('QUIZ_PRESENTED guard — correct_index is non-integer', () => {
   });
 });
 
+// ── Tests: blank / missing question ──────────────────────────────────────────
+
+describe('QUIZ_PRESENTED guard — blank or missing question', () => {
+  it('question: "" (empty string) is rejected (no WS message)', () => {
+    const warns: string[] = [];
+    const result = processQuizPresented(
+      { question: '', options: VALID_OPTIONS, correct_index: 0 },
+      w => warns.push(w),
+    );
+
+    assert.equal(result, null, 'sendMessage must NOT be called for an empty question');
+    assert.ok(
+      warns.some(w => w.startsWith('[Native Function→Quiz] Skipping:')),
+      `Expected a warn starting with "[Native Function→Quiz] Skipping:", got: ${JSON.stringify(warns)}`,
+    );
+  });
+
+  it('question: "   " (whitespace-only) is rejected (no WS message)', () => {
+    const warns: string[] = [];
+    const result = processQuizPresented(
+      { question: '   ', options: VALID_OPTIONS, correct_index: 0 },
+      w => warns.push(w),
+    );
+
+    assert.equal(result, null, 'sendMessage must NOT be called for a whitespace-only question');
+    assert.ok(warns.some(w => w.startsWith('[Native Function→Quiz] Skipping:')));
+  });
+
+  it('question: undefined is rejected (no WS message)', () => {
+    const warns: string[] = [];
+    const result = processQuizPresented(
+      { question: undefined, options: VALID_OPTIONS, correct_index: 0 },
+      w => warns.push(w),
+    );
+
+    assert.equal(result, null, 'sendMessage must NOT be called when question is missing');
+    assert.ok(warns.some(w => w.startsWith('[Native Function→Quiz] Skipping:')));
+  });
+
+  it('question: 42 (non-string) is rejected (no WS message)', () => {
+    const warns: string[] = [];
+    const result = processQuizPresented(
+      { question: 42 as unknown as string, options: VALID_OPTIONS, correct_index: 0 },
+      w => warns.push(w),
+    );
+
+    assert.equal(result, null, 'sendMessage must NOT be called when question is not a string');
+    assert.ok(warns.some(w => w.startsWith('[Native Function→Quiz] Skipping:')));
+  });
+});
+
+// ── Tests: invalid options list ───────────────────────────────────────────────
+
+describe('QUIZ_PRESENTED guard — invalid options list', () => {
+  it('options: [] (empty array) is rejected (no WS message)', () => {
+    const warns: string[] = [];
+    const result = processQuizPresented(
+      { question: VALID_QUESTION, options: [], correct_index: 0 },
+      w => warns.push(w),
+    );
+
+    assert.equal(result, null, 'sendMessage must NOT be called for an empty options array');
+    assert.ok(
+      warns.some(w => w.startsWith('[Native Function→Quiz] Skipping:')),
+      `Expected a warn starting with "[Native Function→Quiz] Skipping:", got: ${JSON.stringify(warns)}`,
+    );
+  });
+
+  it('options: [42, "valid"] (mixed types) is rejected (no WS message)', () => {
+    const warns: string[] = [];
+    const result = processQuizPresented(
+      { question: VALID_QUESTION, options: [42, 'valid'] as unknown as string[], correct_index: 1 },
+      w => warns.push(w),
+    );
+
+    assert.equal(result, null, 'sendMessage must NOT be called when options contains a non-string');
+    assert.ok(warns.some(w => w.startsWith('[Native Function→Quiz] Skipping:')));
+  });
+
+  it('options: ["gato", ""] (includes empty string) is rejected (no WS message)', () => {
+    const warns: string[] = [];
+    const result = processQuizPresented(
+      { question: VALID_QUESTION, options: ['gato', ''], correct_index: 0 },
+      w => warns.push(w),
+    );
+
+    assert.equal(result, null, 'sendMessage must NOT be called when any option is an empty string');
+    assert.ok(warns.some(w => w.startsWith('[Native Function→Quiz] Skipping:')));
+  });
+
+  it('options: "gato,perro" (string, not array) is rejected (no WS message)', () => {
+    const warns: string[] = [];
+    const result = processQuizPresented(
+      { question: VALID_QUESTION, options: 'gato,perro' as unknown as string[], correct_index: 0 },
+      w => warns.push(w),
+    );
+
+    assert.equal(result, null, 'sendMessage must NOT be called when options is not an array');
+    assert.ok(warns.some(w => w.startsWith('[Native Function→Quiz] Skipping:')));
+  });
+
+  it('options: null is rejected (no WS message)', () => {
+    const warns: string[] = [];
+    const result = processQuizPresented(
+      { question: VALID_QUESTION, options: null as unknown as string[], correct_index: 0 },
+      w => warns.push(w),
+    );
+
+    assert.equal(result, null, 'sendMessage must NOT be called when options is null');
+    assert.ok(warns.some(w => w.startsWith('[Native Function→Quiz] Skipping:')));
+  });
+});
+
 // ── Tests: valid correct_index — sendMessage IS called ───────────────────────
 
 describe('QUIZ_PRESENTED guard — valid correct_index (message IS emitted)', () => {
