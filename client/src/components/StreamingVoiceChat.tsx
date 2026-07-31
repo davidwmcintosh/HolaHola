@@ -1224,8 +1224,8 @@ export function StreamingVoiceChat({
             // A missing or non-array value would throw a runtime error with no user feedback.
             if (
               !data ||
-              typeof data.phrase !== 'string' ||
-              !Array.isArray(data.wordScores) ||
+              typeof data.phrase !== 'string' || !data.phrase.trim() ||
+              !Array.isArray(data.wordScores) || data.wordScores.length === 0 ||
               typeof data.overallScore !== 'number'
             ) {
               console.warn('[StreamingVoiceChat] Received malformed pronunciation score data — skipping display', data);

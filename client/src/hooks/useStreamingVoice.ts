@@ -1542,9 +1542,20 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
 
   const handlePronunciationScoreShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
-    if (sessionConfigRef.current?.onPronunciationScoreShown && message.data) {
-      sessionConfigRef.current.onPronunciationScoreShown(message.data);
+    if (!sessionConfigRef.current?.onPronunciationScoreShown || !message.data) return;
+    const d = message.data;
+    // Guard: drop malformed payloads before they reach the component.
+    // A whitespace-only phrase renders a blank header; an empty wordScores array
+    // renders an empty score list — both show a contentless card with no feedback.
+    if (
+      typeof d.phrase !== 'string' || !d.phrase.trim() ||
+      !Array.isArray(d.wordScores) || d.wordScores.length === 0 ||
+      typeof d.overallScore !== 'number'
+    ) {
+      console.warn('[useStreamingVoice] Dropped malformed pronunciation_score_shown — phrase or wordScores invalid', d);
+      return;
     }
+    sessionConfigRef.current.onPronunciationScoreShown(d);
   }, []);
 
   const handleGrammarFlagShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
