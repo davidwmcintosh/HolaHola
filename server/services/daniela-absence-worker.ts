@@ -29,6 +29,9 @@ import {
   EXPRESS_LANE_SESSION_TITLE,
 } from './storage-probe-alerter';
 
+// Re-exported for backwards compatibility — function now lives in absence-nudges-query.ts
+export { listResolvedNudges } from './absence-nudges-query';
+
 // How many days of absence before Daniela is notified
 // Override via ABSENCE_THRESHOLD_DAYS env var (e.g. "7" for weekly learners)
 const ABSENCE_THRESHOLD_DAYS = parseInt(process.env.ABSENCE_THRESHOLD_DAYS ?? '5', 10);
