@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, timestamp, integer, boolean, real, bigint, index, uniqueIndex, jsonb, pgEnum, date, doublePrecision, check } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { RESOLUTION_TYPE_VALUES } from "./absence-types";
 import type { ResolutionType } from "./absence-types";
 
 // ===== Enums =====
@@ -9360,7 +9361,14 @@ export const danielaAbsenceNudges = pgTable("daniela_absence_nudges", {
   ),
 ]);
 
-export const insertDanielaAbsenceNudgeSchema = createInsertSchema(danielaAbsenceNudges).omit({ id: true, notifiedAt: true });
+export const insertDanielaAbsenceNudgeSchema = createInsertSchema(danielaAbsenceNudges)
+  .omit({ id: true, notifiedAt: true })
+  .extend({
+    // Refine resolutionType so runtime validation matches the compile-time type.
+    // Values are sourced from RESOLUTION_TYPE_VALUES so schema.ts and
+    // absence-types.ts can never drift apart.
+    resolutionType: z.enum(RESOLUTION_TYPE_VALUES).nullable().optional(),
+  });
 export type InsertDanielaAbsenceNudge = z.infer<typeof insertDanielaAbsenceNudgeSchema>;
 export type DanielaAbsenceNudge = typeof danielaAbsenceNudges.$inferSelect;
 
