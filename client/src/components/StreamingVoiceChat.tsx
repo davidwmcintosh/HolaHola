@@ -1241,8 +1241,13 @@ export function StreamingVoiceChat({
               });
               return;
             }
+            // Sanitize optional encouragement: strip whitespace-only values so the
+            // card never renders a blank encouragement line.
+            const sanitizedData = (typeof data.encouragement === 'string' && !data.encouragement.trim())
+              ? { ...data, encouragement: undefined }
+              : data;
             if (pronunciationScoreTimerRef.current) clearTimeout(pronunciationScoreTimerRef.current);
-            setPronunciationScore(data);
+            setPronunciationScore(sanitizedData);
             pronunciationScoreTimerRef.current = setTimeout(() => setPronunciationScore(null), 8000);
           },
           onGrammarFlagShown: (data) => {

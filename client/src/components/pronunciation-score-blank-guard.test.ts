@@ -51,18 +51,24 @@ interface PronunciationScoreData {
 /**
  * Mirrors the hook-level guard in useStreamingVoice.ts.
  * Returns the data object when valid, or null when the message is rejected.
+ * Whitespace-only encouragement is stripped (set to undefined) rather than
+ * causing a card drop, since encouragement is optional.
  */
 function hookGuard(
   message: { type: string; timestamp: number; data: any },
 ): PronunciationScoreData | null {
   if (!message.data) return null;
-  const d = message.data;
+  let d = message.data;
   if (
     typeof d.phrase !== 'string' || !d.phrase.trim() ||
     !Array.isArray(d.wordScores) || d.wordScores.length === 0 ||
     typeof d.overallScore !== 'number'
   ) {
     return null; // malformed — drop
+  }
+  // Sanitize optional encouragement
+  if (typeof d.encouragement === 'string' && !d.encouragement.trim()) {
+    d = { ...d, encouragement: undefined };
   }
   return d as PronunciationScoreData;
 }
@@ -96,7 +102,11 @@ function componentGuard(
     });
     return 'toast';
   }
-  setPronunciationScore(data as PronunciationScoreData);
+  // Sanitize optional encouragement
+  const sanitizedData = (typeof data.encouragement === 'string' && !data.encouragement.trim())
+    ? { ...data, encouragement: undefined }
+    : data;
+  setPronunciationScore(sanitizedData as PronunciationScoreData);
   return 'set';
 }
 
@@ -273,6 +283,26 @@ describe('Layer 1 — useStreamingVoice hook guard (handlePronunciationScoreShow
     assert.ok(result !== null, 'Expected data object, got null');
     assert.equal(result!.encouragement, '¡Excelente!');
   });
+
+  it('strips whitespace-only encouragement so the card does not render a blank section', () => {
+    const result = hookGuard({
+      type: 'pronunciation_score_shown',
+      timestamp: Date.now(),
+      data: { phrase: 'Buenos días', wordScores: [{ word: 'Buenos', score: 90 }], overallScore: 90, encouragement: '   ' },
+    });
+    assert.ok(result !== null, 'Card should still be shown');
+    assert.equal(result!.encouragement, undefined, 'Whitespace-only encouragement must be stripped');
+  });
+
+  it('keeps valid encouragement string unchanged', () => {
+    const result = hookGuard({
+      type: 'pronunciation_score_shown',
+      timestamp: Date.now(),
+      data: { phrase: 'Buenos días', wordScores: [{ word: 'Buenos', score: 90 }], overallScore: 90, encouragement: '¡Muy bien!' },
+    });
+    assert.ok(result !== null);
+    assert.equal(result!.encouragement, '¡Muy bien!');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -383,6 +413,20 @@ describe('Layer 2 — StreamingVoiceChat component guard (onPronunciationScoreSh
     const data = validData({ encouragement: 'Keep it up!', id: 'ps-42' });
     componentGuard(data, toastSpy.fn, setScoreSpy.fn);
     assert.deepEqual(setScoreSpy.calls[0], data);
+  });
+
+  it('strips whitespace-only encouragement before calling setPronunciationScore', () => {
+    const data = validData({ encouragement: '\t  \n' });
+    const outcome = componentGuard(data, toastSpy.fn, setScoreSpy.fn);
+    assert.equal(outcome, 'set', 'Card should still be shown');
+    assert.equal(toastSpy.calls.length, 0, 'No toast for this case');
+    assert.equal(setScoreSpy.calls[0].encouragement, undefined, 'Whitespace-only encouragement must be stripped');
+  });
+
+  it('keeps a valid encouragement string unchanged', () => {
+    const data = validData({ encouragement: '¡Buen trabajo!' });
+    componentGuard(data, toastSpy.fn, setScoreSpy.fn);
+    assert.equal(setScoreSpy.calls[0].encouragement, '¡Buen trabajo!');
   });
 });
 

@@ -1556,7 +1556,13 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
       console.warn('[useStreamingVoice] Dropped malformed pronunciation_score_shown — phrase or wordScores invalid', d);
       return;
     }
-    sessionConfigRef.current.onPronunciationScoreShown(d);
+    // Sanitize optional encouragement: a whitespace-only value renders a blank
+    // encouragement line on the card.  Strip it so the component receives either
+    // a real string or nothing.
+    const payload = (typeof d.encouragement === 'string' && !d.encouragement.trim())
+      ? { ...d, encouragement: undefined }
+      : d;
+    sessionConfigRef.current.onPronunciationScoreShown(payload);
   }, []);
 
   const handleGrammarFlagShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
