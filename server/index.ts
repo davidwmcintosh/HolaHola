@@ -598,6 +598,20 @@ app.use((req, res, next) => {
       console.error('[ObjectStorage] Failed to run startup check:', err?.message ?? err);
     }
 
+    // Periodic storage probe — re-runs every 30 minutes so a credential
+    // rotation or bucket-policy change mid-session is caught and alerted
+    // without waiting for the next server restart.
+    setInterval(async () => {
+      try {
+        const { logStorageBackend } = await import('./replit_integrations/object_storage/objectStorage');
+        const { handleStorageProbeResult } = await import('./services/storage-probe-alerter');
+        const probeResult = await logStorageBackend();
+        await handleStorageProbeResult(probeResult, founderCollabService, founderCollabWSBroker);
+      } catch (err: any) {
+        console.warn('[ObjectStorage] Periodic probe threw unexpectedly:', err?.message ?? err);
+      }
+    }, 30 * 60 * 1000).unref();
+
     // Run CopyObject probe — detects whether the S3 bucket supports in-place
     // metadata updates.  Failure logs a WARN but does not block startup.
     try {

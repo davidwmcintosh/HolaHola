@@ -65,7 +65,7 @@ export async function handleStorageProbeResult(
       );
       await broker.addAndBroadcastMessage(expressSession.id, {
         role: 'system',
-        content: `[STORAGE PROBE FAILED] The startup credential probe could not reach bucket "${probeResult.bucket}". All file uploads will fail until this is resolved.\n\nError: ${probeResult.error}`,
+        content: `[STORAGE PROBE FAILED] The credential probe could not reach bucket "${probeResult.bucket}". All file uploads will fail until this is resolved.\n\nError: ${probeResult.error}`,
         messageType: 'text',
         metadata: {
           source: 'storage_probe',
