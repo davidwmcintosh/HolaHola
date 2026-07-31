@@ -9,6 +9,9 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { tryNormalize, evaluateScanResults, buildStrictWarning, COLUMNS, type ScanResult } from './scan-gcs-urls.js';
 
 // ---------------------------------------------------------------------------
@@ -402,5 +405,166 @@ describe('image_vision_cache — backfill CI guard', () => {
       'fully-normalised image_vision_cache rows must not fail the CI scan',
     );
     assert.equal(unresolved.length, 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Static source-code scan — no raw storage.googleapis.com literals in .ts/.tsx
+// ---------------------------------------------------------------------------
+// These files are the ONLY legitimate locations for storage.googleapis.com:
+//   • server/services/image-storage.ts  — the write path; normalizeImageUrl lives here
+//   • server/scripts/scan-gcs-urls.ts   — the DB scanner (URL patterns as comments/strings)
+//   • server/scripts/scan-gcs-urls.test.ts — this file (URL fixtures in test data)
+//
+// Any other TypeScript file that hardcodes a raw GCS URL is a bug waiting to
+// reach the database without normalisation.
+
+/** Recursively collect all .ts and .tsx files under `dir`. */
+function collectTsFiles(dir: string): string[] {
+  const results: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...collectTsFiles(full));
+    } else if (entry.isFile() && /\.(tsx?)$/.test(entry.name)) {
+      results.push(full);
+    }
+  }
+  return results;
+}
+
+describe('Static source-code scan — no raw storage.googleapis.com literals outside exempt files', () => {
+  // Resolve the workspace root relative to this test file's location.
+  const thisFile = fileURLToPath(import.meta.url);
+  // __dirname equivalent: <workspace>/server/scripts/
+  const scriptsDir = path.dirname(thisFile);
+  const workspaceRoot = path.resolve(scriptsDir, '..', '..');
+
+  // Individual files that are allowed to contain storage.googleapis.com.
+  //   • image-storage.ts       — normalizeImageUrl() is the one legitimate write path
+  //   • scan-gcs-urls.ts       — the DB scanner that matches on GCS URL patterns
+  //   • scan-gcs-urls.test.ts  — this file (URL fixtures in evaluateScanResults tests)
+  //   • backfill-lesson-image-urls.ts — uses GCS patterns in SQL LIKE queries to find
+  //                                     rows to fix; does not write raw URLs itself
+  const EXEMPT_FILES = new Set([
+    path.resolve(workspaceRoot, 'server/services/image-storage.ts'),
+    path.resolve(workspaceRoot, 'server/scripts/scan-gcs-urls.ts'),
+    path.resolve(workspaceRoot, 'server/scripts/scan-gcs-urls.test.ts'),
+    path.resolve(workspaceRoot, 'server/scripts/backfill-lesson-image-urls.ts'),
+  ]);
+
+  // Directory subtrees that are categorically exempt:
+  //   • server/replit_integrations/ — Replit-managed storage SDK; uses GCS URLs
+  //                                   only to validate input, never to write them
+  //   • server/__tests__/ and any *.test.ts — URL fixtures in test suites are
+  //                                            intentional; they are the inputs to
+  //                                            normalisation tests, not write paths
+  function isExemptPath(absPath: string): boolean {
+    if (EXEMPT_FILES.has(absPath)) return true;
+    // Replit-managed integration code
+    if (absPath.includes(`${path.sep}replit_integrations${path.sep}`)) return true;
+    // Any test file (*.test.ts / *.test.tsx)
+    if (/\.test\.tsx?$/.test(absPath)) return true;
+    // __tests__ directories
+    if (absPath.includes(`${path.sep}__tests__${path.sep}`)) return true;
+    return false;
+  }
+
+  const SCAN_DIRS = [
+    path.resolve(workspaceRoot, 'server'),
+    path.resolve(workspaceRoot, 'client/src'),
+  ];
+
+  const TARGET = 'storage.googleapis.com';
+
+  it('finds no raw GCS URL literals in server/ outside the exempt list', () => {
+    const violations: string[] = [];
+
+    const serverDir = SCAN_DIRS[0];
+    if (!fs.existsSync(serverDir)) return; // nothing to scan
+
+    for (const file of collectTsFiles(serverDir)) {
+      if (isExemptPath(file)) continue;
+
+      const lines = fs.readFileSync(file, 'utf8').split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trimStart();
+        // Skip pure comment lines (// … and JSDoc/block * …)
+        if (trimmed.startsWith('//') || trimmed.startsWith('*')) continue;
+        if (trimmed.includes(TARGET)) {
+          const rel = path.relative(workspaceRoot, file);
+          violations.push(`${rel}:${i + 1}: ${lines[i].trim()}`);
+        }
+      }
+    }
+
+    assert.deepEqual(
+      violations,
+      [],
+      `Raw storage.googleapis.com URL literal(s) found in non-exempt server/ files.\n` +
+        `These must be normalised via normalizeImageUrl() in image-storage.ts before storage.\n\n` +
+        violations.join('\n'),
+    );
+  });
+
+  it('finds no raw GCS URL literals in client/src/ outside the exempt list', () => {
+    const violations: string[] = [];
+
+    const clientSrcDir = SCAN_DIRS[1];
+    if (!fs.existsSync(clientSrcDir)) return; // nothing to scan
+
+    for (const file of collectTsFiles(clientSrcDir)) {
+      if (isExemptPath(file)) continue;
+
+      const lines = fs.readFileSync(file, 'utf8').split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trimStart();
+        if (trimmed.startsWith('//') || trimmed.startsWith('*')) continue;
+        if (trimmed.includes(TARGET)) {
+          const rel = path.relative(workspaceRoot, file);
+          violations.push(`${rel}:${i + 1}: ${lines[i].trim()}`);
+        }
+      }
+    }
+
+    assert.deepEqual(
+      violations,
+      [],
+      `Raw storage.googleapis.com URL literal(s) found in non-exempt client/src/ files.\n` +
+        `These must be normalised via normalizeImageUrl() in image-storage.ts before storage.\n\n` +
+        violations.join('\n'),
+    );
+  });
+
+  it('fails (simulated) when a new write path hardcodes a raw GCS URL', () => {
+    // Inject a synthetic violation to prove the detection logic actually fires.
+    // We run the same loop logic but over a fake in-memory "file" so we do not
+    // need to touch the real filesystem.
+    const fakeFile = path.resolve(workspaceRoot, 'server/services/fake-new-writer.ts');
+    const fakeLines = [
+      `// This is a new image-write helper`,
+      `const url = 'https://storage.googleapis.com/my-bucket/public/ai-images/new.jpg';`,
+      `export async function writeImage() { return url; }`,
+    ];
+
+    const violations: string[] = [];
+    for (let i = 0; i < fakeLines.length; i++) {
+      const trimmed = fakeLines[i].trimStart();
+      if (trimmed.startsWith('//') || trimmed.startsWith('*')) continue;
+      if (trimmed.includes(TARGET)) {
+        const rel = path.relative(workspaceRoot, fakeFile);
+        violations.push(`${rel}:${i + 1}: ${fakeLines[i].trim()}`);
+      }
+    }
+
+    assert.equal(
+      violations.length,
+      1,
+      'Simulated new write path with a hardcoded GCS URL must produce exactly one violation',
+    );
+    assert.ok(
+      violations[0].includes('storage.googleapis.com'),
+      'Violation message must name the offending URL',
+    );
   });
 });
