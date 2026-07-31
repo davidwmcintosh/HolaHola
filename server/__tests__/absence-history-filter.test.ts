@@ -415,6 +415,42 @@ describe('history endpoint — limit param clamping', () => {
       );
     }
   });
+
+  // ── Float-string inputs ───────────────────────────────────────────────────
+  //
+  // parseInt('99.9', 10)  → 99   (truncates fractional part, under cap)
+  // parseInt('100.1', 10) → 100  (truncates fractional part, at cap boundary)
+  // parseInt('200.9', 10) → 200  (truncates fractional part, then clamped to 100)
+  //
+  // These tests lock in the parseInt truncation behaviour so that a future
+  // change from parseInt to parseFloat cannot silently let >100 rows through.
+
+  it('limit="99.9" (float string under cap) → exactly 99 rows returned', () => {
+    // parseInt('99.9', 10) === 99; 99 ≤ 100 so no cap applied
+    const parsed = parseLimit('99.9');
+    assert.equal(parsed, 99, 'parseLimit("99.9") should truncate to 99');
+    const rows = applyLimit(LARGE_SEED, '99.9');
+    assert.ok(rows.length <= 100, `Expected ≤100 rows, got ${rows.length}`);
+    assert.equal(rows.length, 99);
+  });
+
+  it('limit="100.1" (float string at cap boundary) → exactly 100 rows returned', () => {
+    // parseInt('100.1', 10) === 100; exactly at cap, not over
+    const parsed = parseLimit('100.1');
+    assert.equal(parsed, 100, 'parseLimit("100.1") should truncate to 100');
+    const rows = applyLimit(LARGE_SEED, '100.1');
+    assert.ok(rows.length <= 100, `Expected ≤100 rows, got ${rows.length}`);
+    assert.equal(rows.length, 100);
+  });
+
+  it('limit="200.9" (float string over cap) → capped at 100 rows', () => {
+    // parseInt('200.9', 10) === 200; then Math.min(200, 100) === 100
+    const parsed = parseLimit('200.9');
+    assert.equal(parsed, 100, 'parseLimit("200.9") should truncate to 200 then cap at 100');
+    const rows = applyLimit(LARGE_SEED, '200.9');
+    assert.ok(rows.length <= 100, `Expected ≤100 rows, got ${rows.length}`);
+    assert.equal(rows.length, 100);
+  });
 });
 
 // ── Tests: resolvedAt DESC ordering ─────────────────────────────────────────
