@@ -420,7 +420,8 @@ describe('GL guard — read_full_memory exclusion matches text-mode', () => {
 
 type GLEvent =
   | { kind: 'tool_batch'; toolNames: string[]; hasResponses?: boolean }
-  | { kind: 'generation_complete' };
+  | { kind: 'generation_complete' }
+  | { kind: 'watchdog_seal' };
 
 interface GLEventResult {
   eventKind: string;
@@ -437,10 +438,22 @@ function simulateGLGuardWithGenerationComplete(events: GLEvent[]): GLEventResult
 
     if (event.kind === 'generation_complete') {
       // Mirrors: if ((this.session.consecutiveMemoryCalls ?? 0) > 0) { reset }
+      // — conditional on counter > 0 to avoid spurious log noise.
       if (counter > 0) {
         counter = 0;
         nudgeSent = false;
       }
+    } else if (event.kind === 'watchdog_seal') {
+      // Mirrors lines 1592-1593 in gemini-live-session.ts (watchdog timer path):
+      //   this.session.consecutiveMemoryCalls = 0;
+      //   this.session.glMemoryNudgeSent = false;
+      // Unlike generationComplete, the watchdog reset is UNCONDITIONAL — it fires
+      // regardless of whether the counter is currently 0. This matters because the
+      // watchdog seals the turn even when no memory tools fired (e.g., GL dropped
+      // the generationComplete signal mid-greeting), so the reset must always clear
+      // both fields to prevent a permanently-stuck nudge gate.
+      counter = 0;
+      nudgeSent = false;
     } else {
       // tool_batch — mirrors the MEMORY_CHAIN_LIMIT block in the tool-call handler
       const allMemoryBatch = event.toolNames.every((n: string) => MEMORY_TOOL_NAMES.has(n));
@@ -544,5 +557,117 @@ describe('GL generationComplete path — counter resets after Daniela speaks', (
     const results = simulateGLGuardWithGenerationComplete(events);
     const nudgeFires = results.filter(r => r.nudgeFired);
     assert.equal(nudgeFires.length, 2, 'nudge must fire exactly once per streak (two total across both streaks)');
+  });
+});
+
+// ── GL watchdog-seal reset path ───────────────────────────────────────────────
+// Mirrors lines 1592-1593 in gemini-live-session.ts — the generationComplete
+// watchdog timer path.  When GL drops the generationComplete signal (a known
+// transient failure), the watchdog fires and executes:
+//
+//   this.session.consecutiveMemoryCalls = 0;
+//   this.session.glMemoryNudgeSent = false;
+//
+// Key difference from the normal generationComplete path (lines 2673-2676):
+//   • generationComplete: conditional — only resets when counter > 0.
+//   • watchdog_seal:      unconditional — always resets both fields.
+//
+// Without this reset, a nudge that fired before the watchdog would leave
+// glMemoryNudgeSent permanently true. Any subsequent streak — even after a
+// long silence — would be silently blocked from sending a second nudge.
+
+describe('GL watchdog-seal path — both counter AND nudge gate reset unconditionally', () => {
+  it('counter is 0 and nudgeSent is false after watchdog_seal following a full streak + nudge', () => {
+    // Full streak fires the nudge → watchdog seal → both fields must be cleared.
+    const events: GLEvent[] = [
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT }, () =>
+        ({ kind: 'tool_batch' as const, toolNames: ['recall'] })),
+      { kind: 'watchdog_seal' },
+    ];
+    const results = simulateGLGuardWithGenerationComplete(events);
+    // Nudge must have fired during the streak
+    assert.equal(
+      results[MEMORY_CHAIN_LIMIT - 1].nudgeFired,
+      true,
+      'nudge must fire at the streak limit before the watchdog fires',
+    );
+    const afterWatchdog = results[results.length - 1];
+    assert.equal(afterWatchdog.counter, 0, 'counter must be 0 after watchdog_seal');
+    assert.equal(afterWatchdog.nudgeSent, false, 'nudgeSent must be false after watchdog_seal — gate must reopen');
+    assert.equal(afterWatchdog.nudgeFired, false, 'watchdog_seal itself does not fire the nudge');
+  });
+
+  it('a fresh streak after watchdog_seal can trigger the nudge again', () => {
+    // First streak → nudge fires → watchdog seal → second full streak → nudge fires again.
+    const memBatch = { kind: 'tool_batch' as const, toolNames: ['recall'] };
+    const events: GLEvent[] = [
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT }, () => memBatch), // streak 1 — nudge fires
+      { kind: 'watchdog_seal' },                                       // unconditional reset
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT }, () => memBatch), // streak 2
+    ];
+    const results = simulateGLGuardWithGenerationComplete(events);
+    // streak 1 must have fired the nudge
+    assert.equal(results[MEMORY_CHAIN_LIMIT - 1].nudgeFired, true, 'streak 1 must fire the nudge');
+    // streak 2 (after watchdog) must also fire the nudge
+    const lastResult = results[results.length - 1];
+    assert.equal(lastResult.counter, MEMORY_CHAIN_LIMIT, 'counter must reach the limit in streak 2');
+    assert.equal(lastResult.nudgeFired, true, 'nudge must fire again after watchdog_seal clears the gate');
+  });
+
+  it('single memory batch after watchdog_seal does NOT fire the nudge (counter only at 1)', () => {
+    // After the watchdog resets, the counter starts fresh — one batch is not enough.
+    const events: GLEvent[] = [
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT }, () =>
+        ({ kind: 'tool_batch' as const, toolNames: ['memory_lookup'] })),
+      { kind: 'watchdog_seal' },
+      { kind: 'tool_batch', toolNames: ['recall'] },
+    ];
+    const results = simulateGLGuardWithGenerationComplete(events);
+    const firstPostWatchdog = results[results.length - 1];
+    assert.equal(firstPostWatchdog.counter, 1, 'counter must restart at 1 after watchdog_seal');
+    assert.equal(firstPostWatchdog.nudgeFired, false, 'nudge must NOT fire on the first post-watchdog memory batch');
+  });
+
+  it('watchdog_seal on a zero counter is still a no-op (unconditional reset of already-zero state)', () => {
+    // No tool calls before watchdog fires (e.g., watchdog during greeting turn).
+    // Both fields are already 0/false — the reset is safe and produces no change.
+    const events: GLEvent[] = [
+      { kind: 'watchdog_seal' },
+    ];
+    const [result] = simulateGLGuardWithGenerationComplete(events);
+    assert.equal(result.counter, 0, 'counter must remain 0 (was already 0)');
+    assert.equal(result.nudgeSent, false, 'nudgeSent must remain false (was already false)');
+    assert.equal(result.nudgeFired, false);
+  });
+
+  it('watchdog_seal resets mid-streak partial counter so it cannot reach the limit retroactively', () => {
+    // Two memory batches (counter = 2, one short of the limit) → watchdog fires → counter resets.
+    // Without the reset, one more memory batch after the watchdog would reach 3 and fire prematurely.
+    const memBatch = { kind: 'tool_batch' as const, toolNames: ['introspect'] };
+    const events: GLEvent[] = [
+      memBatch,
+      memBatch,
+      { kind: 'watchdog_seal' }, // counter was 2 — unconditionally resets to 0
+      memBatch,                   // counter restarts at 1 (not 3) — nudge must NOT fire
+    ];
+    const results = simulateGLGuardWithGenerationComplete(events);
+    const afterWatchdog = results[2];
+    assert.equal(afterWatchdog.counter, 0, 'watchdog_seal must reset a partial counter');
+    const afterOneBatch = results[3];
+    assert.equal(afterOneBatch.counter, 1, 'counter must restart from 1 after watchdog_seal reset');
+    assert.equal(afterOneBatch.nudgeFired, false, 'nudge must NOT fire — counter only at 1, not yet at MEMORY_CHAIN_LIMIT');
+  });
+
+  it('nudge fires exactly once per streak across watchdog-separated streaks (mirrors generationComplete behaviour)', () => {
+    // Two full streaks separated by a watchdog_seal — each fires the nudge exactly once.
+    const memBatch = { kind: 'tool_batch' as const, toolNames: ['read_my_reflections'] };
+    const events: GLEvent[] = [
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT + 1 }, () => memBatch), // streak 1 (fires at LIMIT, one extra)
+      { kind: 'watchdog_seal' },
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT + 1 }, () => memBatch), // streak 2
+    ];
+    const results = simulateGLGuardWithGenerationComplete(events);
+    const nudgeFires = results.filter(r => r.nudgeFired);
+    assert.equal(nudgeFires.length, 2, 'nudge must fire exactly once per streak (two total across watchdog-separated streaks)');
   });
 });
