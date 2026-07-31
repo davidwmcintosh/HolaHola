@@ -109,3 +109,60 @@ describe('Edge cases', () => {
     assert.equal(tryNormalize(url), '/api/media/ai-image/img.jpg');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Unrecognised googleapis.com shapes — must return null so the scanner flags
+// them for manual review rather than silently patching to an incorrect path.
+// Each case below represents a shape that tryNormalize() cannot safely map.
+// ---------------------------------------------------------------------------
+describe('Unrecognised googleapis.com shapes → null (CI --strict guard)', () => {
+  it('returns null for a path-style URL under a different object prefix', () => {
+    // "media/" instead of "public/ai-images/" — not a known pattern
+    const url = 'https://storage.googleapis.com/my-bucket/media/uploads/photo.jpg';
+    assert.equal(tryNormalize(url), null);
+  });
+
+  it('returns null for a path-style URL under a private/ prefix', () => {
+    const url = 'https://storage.googleapis.com/my-bucket/private/ai-images/secret.jpg';
+    assert.equal(tryNormalize(url), null);
+  });
+
+  it('returns null for a path-style URL where "public" would be the bucket — no second /public/ segment', () => {
+    // URL: storage.googleapis.com/public/ai-images/img.jpg
+    // Pattern 1 regex needs /[bucket]/public/ai-images/<file>.
+    // Here "public" is consumed as the bucket, leaving /ai-images/img.jpg
+    // which does NOT start with /public/ai-images/ — so no pattern matches.
+    const url = 'https://storage.googleapis.com/public/ai-images/img.jpg';
+    assert.equal(tryNormalize(url), null);
+  });
+
+  it('returns null for a non-storage googleapis.com service URL', () => {
+    // e.g. Fonts API — not a storage object at all
+    const url = 'https://fonts.googleapis.com/css2?family=Inter';
+    assert.equal(tryNormalize(url), null);
+  });
+
+  it('returns null for a googleapis.com URL with an unknown subdomain service', () => {
+    // A hypothetical new GCS HTTPS endpoint with a different subdomain pattern
+    const url = 'https://content-storage.googleapis.com/my-bucket/public/ai-images/img.jpg';
+    assert.equal(tryNormalize(url), null);
+  });
+
+  it('returns null for a subdomain-style URL under a different object prefix', () => {
+    // Same host pattern as Pattern 3/4 but path is not public/ai-images/
+    const url = 'https://my-bucket.storage.googleapis.com/uploads/raw/file.jpg';
+    assert.equal(tryNormalize(url), null);
+  });
+
+  it('returns null for a subdomain-style URL with a versioned prefix', () => {
+    // e.g. a future migration to a /v2/ai-images/ prefix would be unrecognised
+    const url = 'https://my-bucket.storage.googleapis.com/public/v2/ai-images/img.png';
+    assert.equal(tryNormalize(url), null);
+  });
+
+  it('returns null for an authenticated googleapis.com download URL', () => {
+    // OAuth-style download links use a completely different URL structure
+    const url = 'https://www.googleapis.com/download/storage/v1/b/my-bucket/o/file.jpg?alt=media';
+    assert.equal(tryNormalize(url), null);
+  });
+});

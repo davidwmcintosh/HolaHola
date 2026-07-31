@@ -6,19 +6,25 @@
  * safely normalised to the proxy path.
  *
  * Usage:
- *   npx tsx server/scripts/scan-gcs-urls.ts [--dry-run]
+ *   npx tsx server/scripts/scan-gcs-urls.ts [--dry-run] [--strict]
  *
  * Flags:
  *   --dry-run   Report findings without writing any changes.
+ *   --strict    Exit non-zero and emit a stderr warning whenever any
+ *               googleapis.com URL cannot be auto-patched.  Use this flag in
+ *               CI so unrecognised URL shapes are caught automatically rather
+ *               than silently accumulating as "needs manual review" rows.
  *
  * Exit codes:
  *   0  All URLs patched (or already clean)
  *   1  Some URLs could not be auto-patched and need manual review
+ *      (always in --strict mode; also set in normal mode for visibility)
  */
 
 import { getSharedDb } from '../db';
 
 const DRY_RUN = process.argv.includes('--dry-run');
+const STRICT  = process.argv.includes('--strict');
 
 // ---------------------------------------------------------------------------
 // Normalise helpers
@@ -166,6 +172,16 @@ async function scanAndPatch(): Promise<void> {
     }
     console.log('\n  These URLs could not be automatically mapped to the proxy path.');
     console.log('  Check whether the files exist in R2 and update the rows manually.');
+
+    // Always emit to stderr so CI logs surface the problem even when stdout
+    // is captured or piped.  --strict makes this an explicit build failure.
+    const strictNote = STRICT
+      ? ' (--strict: treating unresolved rows as a CI failure)'
+      : ' (re-run with --strict to enforce this as a CI failure)';
+    console.error(
+      `\n[scan-gcs-urls] ⚠️  ${unresolved.length} unresolved googleapis.com URL(s) found — these URL shapes are not recognised by tryNormalize().${strictNote}`
+    );
+
     process.exitCode = 1;
   }
 }
