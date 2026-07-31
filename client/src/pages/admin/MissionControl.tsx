@@ -3,24 +3,30 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Maximize2,
   Minimize2,
-  Activity,
   Radio,
   Users,
   Heart,
   AlertTriangle,
   CheckCircle,
-  Clock,
   Loader2,
   Send,
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  Phone,
+  PhoneOff,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ConferenceCall } from "@/components/ConferenceCall";
 import { ExpressLanePane } from "@/components/ExpressLanePane";
 
@@ -55,11 +61,28 @@ function NudgeBadge() {
   );
 }
 
+interface VoipUser {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  phoneConsentSms: boolean;
+}
+
 function TestVoiceSmsPanel() {
   const [open, setOpen] = useState(false);
   const [userId, setUserId] = useState("");
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<{ queueId: string; playbackUrl: string; message: string } | null>(null);
+
+  const { data: voipData, isLoading: loadingUsers } = useQuery<{ users: VoipUser[] }>({
+    queryKey: ["/api/admin/voip-users"],
+    enabled: open,
+    staleTime: 60_000,
+  });
+
+  const students = voipData?.users ?? [];
 
   const { mutate, isPending, isError, error } = useMutation<
     { queueId: string; playbackUrl: string; message: string },
@@ -89,6 +112,8 @@ function TestVoiceSmsPanel() {
     mutate({ userId: userId.trim(), message: message.trim() });
   };
 
+  const selectedStudent = students.find((s) => s.id === userId);
+
   return (
     <div className="border-t pt-3 mt-3" data-testid="test-sms-panel">
       <button
@@ -103,13 +128,67 @@ function TestVoiceSmsPanel() {
 
       {open && (
         <div className="mt-2 flex flex-col gap-2">
-          <Input
-            placeholder="Student user ID"
+          {/* Student selector */}
+          <Select
             value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            className="h-7 text-xs"
-            data-testid="input-test-sms-userid"
-          />
+            onValueChange={(val) => { setUserId(val); setResult(null); }}
+            data-testid="select-test-sms-student"
+          >
+            <SelectTrigger className="h-7 text-xs" data-testid="select-trigger-test-sms-student">
+              {loadingUsers ? (
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Loading students…
+                </span>
+              ) : (
+                <SelectValue placeholder="Pick a student…" />
+              )}
+            </SelectTrigger>
+            <SelectContent>
+              {students.map((s) => {
+                const name = [s.firstName, s.lastName].filter(Boolean).join(" ") || s.email || s.id;
+                const canSms = !!s.phone && s.phoneConsentSms;
+                const hasPhone = !!s.phone;
+                return (
+                  <SelectItem
+                    key={s.id}
+                    value={s.id}
+                    className="text-xs"
+                    data-testid={`option-student-${s.id}`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      {canSms ? (
+                        <Phone className="h-3 w-3 text-green-500 flex-shrink-0" />
+                      ) : hasPhone ? (
+                        <Phone className="h-3 w-3 text-yellow-500 flex-shrink-0" />
+                      ) : (
+                        <PhoneOff className="h-3 w-3 text-muted-foreground/50 flex-shrink-0" />
+                      )}
+                      <span className={!hasPhone ? "text-muted-foreground/60" : ""}>{name}</span>
+                      {canSms && (
+                        <span className="ml-auto text-[10px] text-green-600 dark:text-green-400 font-medium">SMS✓</span>
+                      )}
+                      {hasPhone && !canSms && (
+                        <span className="ml-auto text-[10px] text-yellow-600 dark:text-yellow-400">no consent</span>
+                      )}
+                      {!hasPhone && (
+                        <span className="ml-auto text-[10px] text-muted-foreground/50">no phone</span>
+                      )}
+                    </span>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+
+          {/* Consent warning for selected student */}
+          {selectedStudent && !selectedStudent.phoneConsentSms && (
+            <p className="text-[10px] text-yellow-600 dark:text-yellow-400" data-testid="test-sms-consent-warning">
+              {selectedStudent.phone
+                ? "This student has a phone number but has not consented to SMS."
+                : "This student has no phone number on file."}
+            </p>
+          )}
+
           <Textarea
             placeholder="Message (leave blank for default)"
             value={message}
