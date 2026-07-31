@@ -56,6 +56,10 @@ args = "absence-gl-path"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
+args = "absence-text-mode-return"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
 args = "voice-sms-pipeline"
 
 [[workflows.workflow]]
@@ -129,6 +133,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-absence-text-path.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "absence-text-mode-return"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-absence-text-mode-return.ts"
 
 [workflows.workflow.metadata]
 isValidation = true

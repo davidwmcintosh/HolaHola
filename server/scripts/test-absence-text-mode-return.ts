@@ -64,27 +64,29 @@ function part1() {
     wsSrc.includes('autoResolveAbsenceNudgeOnReturn'),
   );
 
-  // 1b. The text-mode else branch fires the call (fire-and-forget .then() pattern)
-  // Pattern: autoResolveAbsenceNudgeOnReturn(String(userId)).then(...)  — fire-and-forget
-  // Note: [^)]*  would fail because the arg `String(userId)` contains its own closing paren.
-  // Use a lookahead over up to 60 chars instead.
-  const fireAndForgetPattern = /autoResolveAbsenceNudgeOnReturn[\s\S]{0,60}\.then\s*\(/.test(wsSrc);
+  // 1b. The text-mode path calls autoResolveAbsenceNudgeOnReturn inside an async IIFE stored on
+  // the session as __textModeAbsencePromise.  The call uses `await` (not fire-and-forget .then())
+  // so that request_greeting can await the promise before prompt assembly.
+  const iifeSiteIdx = wsSrc.indexOf('__textModeAbsencePromise');
+  const hasAwaitCall = iifeSiteIdx !== -1 &&
+    /await\s+autoResolveAbsenceNudgeOnReturn\s*\(\s*String\s*\(\s*userId\s*\)\s*\)/.test(wsSrc);
   assert(
-    'Text-mode else branch calls autoResolveAbsenceNudgeOnReturn(...).then(...) (fire-and-forget)',
-    fireAndForgetPattern,
-    fireAndForgetPattern ? undefined : 'Fire-and-forget .then() call site not found',
+    'Text-mode path stores autoResolveAbsenceNudgeOnReturn in __textModeAbsencePromise IIFE (awaited)',
+    hasAwaitCall,
+    hasAwaitCall ? undefined : 'await autoResolveAbsenceNudgeOnReturn(String(userId)) not found in text-mode IIFE',
   );
 
-  // 1c. The text-mode call is inside a userId && !isFounderMode guard
-  // Strategy: locate the fire-and-forget call site and look for the guard nearby
-  const ffIdx = wsSrc.indexOf('.then((absenceReturn) =>');
-  // We expect !isFounderMode to appear within 300 chars before the call
-  const windowBefore = ffIdx > 300 ? wsSrc.slice(ffIdx - 300, ffIdx) : wsSrc.slice(0, ffIdx);
-  const hasFounderGuard = windowBefore.includes('!isFounderMode');
+  // 1c. The __textModeAbsencePromise IIFE is guarded by `if (userId && !isFounderMode)`.
+  // Look for !isFounderMode within 500 chars before the __textModeAbsencePromise assignment
+  // (the guard + comment block preceding the IIFE spans ~370 chars).
+  const windowBefore = iifeSiteIdx > 500
+    ? wsSrc.slice(iifeSiteIdx - 500, iifeSiteIdx)
+    : wsSrc.slice(0, iifeSiteIdx);
+  const hasFounderGuard = iifeSiteIdx !== -1 && windowBefore.includes('!isFounderMode');
   assert(
     'Text-mode autoResolveAbsenceNudgeOnReturn() is guarded by !isFounderMode',
-    ffIdx !== -1 && hasFounderGuard,
-    hasFounderGuard ? undefined : '!isFounderMode guard not found near text-mode call site',
+    hasFounderGuard,
+    hasFounderGuard ? undefined : '!isFounderMode guard not found near __textModeAbsencePromise assignment',
   );
 
   // 1d. The .then() handler logs "[TextMode] ✓ Student returning after N day(s)"
