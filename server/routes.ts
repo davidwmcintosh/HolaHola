@@ -8979,13 +8979,19 @@ Return ONLY the ${targetLanguage} phrase:`;
       const { danielaOutboundQueue } = await import('@shared/schema');
       const { eq } = await import('drizzle-orm');
       const db = getSharedDb();
+      const { users } = await import('@shared/schema');
       const [item] = await db.select({
         id: danielaOutboundQueue.id,
         content: danielaOutboundQueue.content,
         audioUrl: danielaOutboundQueue.audioUrl,
         audioPlayedAt: danielaOutboundQueue.audioPlayedAt,
         createdAt: danielaOutboundQueue.createdAt,
-      }).from(danielaOutboundQueue).where(eq(danielaOutboundQueue.id, id)).limit(1);
+        userId: danielaOutboundQueue.userId,
+        targetLanguage: users.targetLanguage,
+        tutorGender: users.tutorGender,
+      }).from(danielaOutboundQueue)
+        .leftJoin(users, eq(danielaOutboundQueue.userId, users.id))
+        .where(eq(danielaOutboundQueue.id, id)).limit(1);
       if (!item) return res.status(404).json({ error: 'Voice note not found' });
       res.json({
         id: item.id,
@@ -8993,6 +8999,8 @@ Return ONLY the ${targetLanguage} phrase:`;
         content: item.content,
         playedAt: item.audioPlayedAt,
         createdAt: item.createdAt,
+        language: item.targetLanguage ?? 'spanish',
+        gender: item.tutorGender ?? 'female',
       });
     } catch (err: any) {
       console.error('[Route] GET /api/vm/:id error:', err.message);

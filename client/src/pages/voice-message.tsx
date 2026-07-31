@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, Loader2, Volume2, VolumeX } from "lucide-react";
-import danielaAvatar from "@assets/tutor-listening-no-background_1764099971094.png";
+import { getTutorAvatar, getTutorName, type TutorGender } from "@/lib/tutor-avatars";
 
 interface VoiceMessageData {
   id: string;
@@ -10,6 +10,8 @@ interface VoiceMessageData {
   content: string;
   playedAt: string | null;
   createdAt: string;
+  language: string;
+  gender: string;
 }
 
 export default function VoiceMessage() {
@@ -116,14 +118,14 @@ export default function VoiceMessage() {
                 data-testid="avatar-daniela"
               >
                 <img
-                  src={danielaAvatar}
-                  alt="Daniela"
+                  src={getTutorAvatar(data.language, (data.gender as TutorGender) || 'female', 'listening')}
+                  alt={getTutorName(data.language, (data.gender as TutorGender) || 'female')}
                   className="h-full w-full object-cover object-top"
                 />
               </div>
               <div className="text-center">
-                <p className="font-semibold text-foreground" data-testid="text-sender">Daniela</p>
-                <p className="text-sm text-muted-foreground">Your Spanish tutor</p>
+                <p className="font-semibold text-foreground" data-testid="text-sender">{getTutorName(data.language, (data.gender as TutorGender) || 'female')}</p>
+                <p className="text-sm text-muted-foreground">Your {data.language} tutor</p>
               </div>
             </div>
 
