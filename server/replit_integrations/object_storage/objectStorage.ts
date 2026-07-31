@@ -265,57 +265,94 @@ export async function runCopyObjectProbeAtStartup(): Promise<void> {
 
   if (isS3Configured()) {
     // ── S3 / R2 branch ─────────────────────────────────────────────────────
-    try {
-      const s3 = getS3Client();
-
-      // 1. Upload a tiny sentinel object.
-      await s3.send(new PutObjectCommand({
-        Bucket: bucketName,
-        Key: probeKey,
-        Body: Buffer.from("holahola-startup-probe"),
-        ContentType: "text/plain",
-        Metadata: { "x-probe-init": "true" },
-      }));
-
-      // 2. Attempt in-place CopyObject (metadata update).
-      let copyObjectFailed = false;
-      try {
-        await s3.send(new CopyObjectCommand({
-          Bucket: bucketName,
-          CopySource: `${bucketName}/${probeKey}`,
-          Key: probeKey,
-          MetadataDirective: "REPLACE",
-          ContentType: "text/plain",
-          Metadata: { "x-probe-init": "true", "x-probe-updated": "true" },
-        }));
-      } catch (copyErr: any) {
-        copyObjectFailed = true;
-        console.warn(
-          `${tag} WARN CopyObject failed for bucket "${bucketName}" (${copyErr?.message ?? copyErr}). ` +
-          `Every setCustomMetadata call will fall back to download+reupload. ` +
-          `Check bucket region, permissions, or use a bucket that supports same-object copy.`,
-        );
-      }
-
-      if (!copyObjectFailed) {
-        console.log(`${tag} CopyObject probe OK — in-place metadata updates are supported (bucket: ${bucketName})`);
-      }
-    } catch (err: any) {
-      console.warn(
-        `${tag} WARN probe error (bucket: ${bucketName}) — ${err?.message ?? err}. ` +
-        `Storage uploads may fail until this is resolved.`,
-      );
-    } finally {
-      // 3. Best-effort cleanup — never blocks startup.
-      try {
-        const s3 = getS3Client();
-        await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: probeKey }));
-      } catch {
-        // Cleanup failure is not a health-check failure.
-      }
-    }
+    await runS3CopyProbeWithClient(getS3Client(), bucketName, probeKey);
   } else {
     await runGcsCopyProbeWithClient(getGcsClient(), bucketName, probeKey);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// S3/R2 copy-probe log-message constants
+// Exported so CI checks can reference them by name — a rename here causes a
+// TypeScript error in verify-system-health.ts rather than a silent miss.
+// ---------------------------------------------------------------------------
+
+/** The log-line prefix emitted by runS3CopyProbeWithClient. */
+export const S3_COPY_PROBE_TAG = "[ObjectStorage:CopyProbe]";
+
+/** Fragment present in the INFO log when CopyObject succeeds. */
+export const S3_PROBE_MSG_OK = "CopyObject probe OK";
+
+/** Fragment present in the WARN log when CopyObject is rejected. */
+export const S3_PROBE_MSG_COPY_FAILED = "WARN CopyObject failed";
+
+/** Fragment present in the WARN log when the initial PutObject throws. */
+export const S3_PROBE_MSG_PROBE_ERROR = "WARN probe error";
+
+/** Minimal S3-compatible client interface required by the probe. */
+export interface S3ProbeClient {
+  send(command: any): Promise<any>;
+}
+
+/**
+ * Extracted S3/R2 probe body — accepts an injected S3 client so it can be
+ * exercised in tests without real credentials or a real bucket.
+ *
+ * Exported for testing only; prefer runCopyObjectProbeAtStartup() at runtime.
+ */
+export async function runS3CopyProbeWithClient(
+  s3: S3ProbeClient,
+  bucketName: string,
+  probeKey?: string,
+): Promise<void> {
+  const tag = S3_COPY_PROBE_TAG;
+  const key = probeKey ?? `_health_probe/copy-object-probe-${Date.now()}.txt`;
+
+  try {
+    // 1. Upload a tiny sentinel object.
+    await s3.send(new PutObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      Body: Buffer.from("holahola-startup-probe"),
+      ContentType: "text/plain",
+      Metadata: { "x-probe-init": "true" },
+    }));
+
+    // 2. Attempt in-place CopyObject (metadata update).
+    let copyObjectFailed = false;
+    try {
+      await s3.send(new CopyObjectCommand({
+        Bucket: bucketName,
+        CopySource: `${bucketName}/${key}`,
+        Key: key,
+        MetadataDirective: "REPLACE",
+        ContentType: "text/plain",
+        Metadata: { "x-probe-init": "true", "x-probe-updated": "true" },
+      }));
+    } catch (copyErr: any) {
+      copyObjectFailed = true;
+      console.warn(
+        `${tag} ${S3_PROBE_MSG_COPY_FAILED} for bucket "${bucketName}" (${copyErr?.message ?? copyErr}). ` +
+        `Every setCustomMetadata call will fall back to download+reupload. ` +
+        `Check bucket region, permissions, or use a bucket that supports same-object copy.`,
+      );
+    }
+
+    if (!copyObjectFailed) {
+      console.log(`${tag} ${S3_PROBE_MSG_OK} — in-place metadata updates are supported (bucket: ${bucketName})`);
+    }
+  } catch (err: any) {
+    console.warn(
+      `${tag} ${S3_PROBE_MSG_PROBE_ERROR} (bucket: ${bucketName}) — ${err?.message ?? err}. ` +
+      `Storage uploads may fail until this is resolved.`,
+    );
+  } finally {
+    // 3. Best-effort cleanup — never blocks startup.
+    try {
+      await s3.send(new DeleteObjectCommand({ Bucket: bucketName, Key: key }));
+    } catch {
+      // Cleanup failure is not a health-check failure.
+    }
   }
 }
 

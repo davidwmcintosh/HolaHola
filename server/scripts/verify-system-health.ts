@@ -467,6 +467,118 @@ async function checkGcsCopyProbe() {
     }
   }
 }
+async function checkS3CopyProbe() {
+  console.log(`\n${BOLD}── S3/R2 Copy-Probe (mocked) ────────────────────────────${RESET}`);
+
+  const {
+    runS3CopyProbeWithClient,
+    S3_COPY_PROBE_TAG,
+    S3_PROBE_MSG_OK,
+    S3_PROBE_MSG_COPY_FAILED,
+    S3_PROBE_MSG_PROBE_ERROR,
+  } = await import(
+    "../replit_integrations/object_storage/objectStorage.js"
+  );
+
+  /** Capture console output produced by fn() without suppressing it. */
+  async function capture(fn: () => Promise<void>): Promise<{ logs: string[]; warns: string[] }> {
+    const logs: string[] = [];
+    const warns: string[] = [];
+    const origLog = console.log.bind(console);
+    const origWarn = console.warn.bind(console);
+    console.log = (...a: any[]) => { const m = a.join(" "); logs.push(m); origLog(m); };
+    console.warn = (...a: any[]) => { const m = a.join(" "); warns.push(m); origWarn(m); };
+    try { await fn(); } finally { console.log = origLog; console.warn = origWarn; }
+    return { logs, warns };
+  }
+
+  function makeMock(opts: { putThrows?: boolean; copyThrows?: boolean } = {}): {
+    s3: { send: (cmd: any) => Promise<any> };
+    calls: { put: number; copy: number; delete: number };
+  } {
+    const calls = { put: 0, copy: 0, delete: 0 };
+    const s3 = {
+      send: async (cmd: any) => {
+        const name: string = cmd?.constructor?.name ?? "";
+        if (name === "PutObjectCommand") {
+          calls.put++;
+          if (opts.putThrows) throw new Error("403 put denied (simulated)");
+        } else if (name === "CopyObjectCommand") {
+          calls.copy++;
+          if (opts.copyThrows) throw new Error("405 CopyObject not allowed (simulated)");
+        } else if (name === "DeleteObjectCommand") {
+          calls.delete++;
+        }
+      },
+    };
+    return { s3, calls };
+  }
+
+  // ── Test 1: happy path ──────────────────────────────────────────────────────
+  {
+    const { s3, calls } = makeMock();
+    const { logs, warns } = await capture(() =>
+      runS3CopyProbeWithClient(s3, "mock-bucket-happy", "_health_probe/ci-s3-probe-1.txt"),
+    );
+    if (logs.some((l: string) => l.includes(`${S3_COPY_PROBE_TAG} ${S3_PROBE_MSG_OK}`))) {
+      pass("S3 probe — happy path logged OK");
+    } else {
+      fail("S3 probe — happy path", `'${S3_PROBE_MSG_OK}' not found in logs`);
+    }
+    if (calls.put === 1 && calls.copy === 1 && calls.delete === 1) {
+      pass("S3 probe — happy path call counts correct");
+    } else {
+      fail("S3 probe — happy path call counts", `put=${calls.put} copy=${calls.copy} delete=${calls.delete} (expected 1 each)`);
+    }
+    if (warns.length === 0) {
+      pass("S3 probe — happy path produced no warnings");
+    } else {
+      fail("S3 probe — happy path unexpected warnings", warns.join("; "));
+    }
+  }
+
+  // ── Test 2: CopyObject failure ──────────────────────────────────────────────
+  {
+    const { s3, calls } = makeMock({ copyThrows: true });
+    const { warns } = await capture(() =>
+      runS3CopyProbeWithClient(s3, "mock-bucket-copy-fail", "_health_probe/ci-s3-probe-2.txt"),
+    );
+    if (warns.some((w: string) => w.includes(`${S3_COPY_PROBE_TAG} ${S3_PROBE_MSG_COPY_FAILED}`))) {
+      pass("S3 probe — CopyObject failure logged WARN");
+    } else {
+      fail("S3 probe — CopyObject failure", `expected '${S3_PROBE_MSG_COPY_FAILED}' WARN not found`);
+    }
+    if (calls.delete === 1) {
+      pass("S3 probe — CopyObject failure still cleaned up sentinel");
+    } else {
+      fail("S3 probe — CopyObject failure cleanup", `delete called ${calls.delete} time(s), expected 1`);
+    }
+  }
+
+  // ── Test 3: PutObject failure ───────────────────────────────────────────────
+  {
+    const { s3, calls } = makeMock({ putThrows: true });
+    const { warns } = await capture(() =>
+      runS3CopyProbeWithClient(s3, "mock-bucket-put-fail", "_health_probe/ci-s3-probe-3.txt"),
+    );
+    if (warns.some((w: string) => w.includes(`${S3_COPY_PROBE_TAG} ${S3_PROBE_MSG_PROBE_ERROR}`))) {
+      pass("S3 probe — PutObject failure logged outer WARN");
+    } else {
+      fail("S3 probe — PutObject failure", `expected '${S3_PROBE_MSG_PROBE_ERROR}' WARN not found`);
+    }
+    if (calls.copy === 0) {
+      pass("S3 probe — PutObject failure short-circuited CopyObject");
+    } else {
+      fail("S3 probe — PutObject failure", "CopyObject was called after PutObject failed");
+    }
+    if (calls.delete === 1) {
+      pass("S3 probe — PutObject failure still attempted cleanup (finally block)");
+    } else {
+      fail("S3 probe — PutObject failure cleanup", `delete called ${calls.delete} time(s), expected 1`);
+    }
+  }
+}
+
 async function checkR2ReadPaths() {
   console.log(`\n${BOLD}── R2 Student-Facing Read Paths ────────────────────────${RESET}`);
 
@@ -621,6 +733,7 @@ async function main() {
   await checkPreSessionSynthesis();
   await checkObjectStorageMetadata();
   await checkGcsCopyProbe();
+  await checkS3CopyProbe();
   await checkR2ReadPaths();
 
   console.log(`\n${BOLD}── Summary ─────────────────────────────────────────────${RESET}`);
