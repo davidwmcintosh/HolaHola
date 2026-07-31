@@ -18,6 +18,8 @@ interface VoiceSession {
   exchangeCount: number | null;
   status: string;
   language?: string;
+  hadAbsenceReturn?: boolean | null;
+  absenceReturnDays?: number | null;
 }
 
 interface SessionsResponse {
@@ -298,6 +300,11 @@ export function SessionHistory({ limit = 10, showHeader = true }: SessionHistory
                           <span className="flex items-center gap-1">
                             <MessageSquare className="h-3 w-3" />
                             {session.exchangeCount} exchanges
+                          </span>
+                        )}
+                        {session.hadAbsenceReturn && (
+                          <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-medium">
+                            ↩ Returned after {session.absenceReturnDays ?? '?'} day{session.absenceReturnDays !== 1 ? 's' : ''}
                           </span>
                         )}
                       </div>

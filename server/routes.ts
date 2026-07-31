@@ -17058,6 +17058,8 @@ Return ONLY valid JSON, no markdown, no explanation.`;
         status: voiceSessions.status,
         classId: voiceSessions.classId,
         isTestSession: voiceSessions.isTestSession,
+        hadAbsenceReturn: voiceSessions.hadAbsenceReturn,
+        absenceReturnDays: voiceSessions.absenceReturnDays,
         userName: users.firstName,
         userEmail: users.email,
       })

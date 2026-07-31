@@ -61,7 +61,7 @@ import { founderCollabService } from './services/founder-collaboration-service';
 import { studentLearningService } from './services/student-learning-service';
 import { voiceDiagnostics } from './services/voice-diagnostics-service';
 import type { VoiceSession as UsageVoiceSession, CompassContext, TutorSession } from '@shared/schema';
-import { voiceGracePeriods, compartmentInstallation, messages } from '@shared/schema';
+import { voiceGracePeriods, compartmentInstallation, messages, voiceSessions } from '@shared/schema';
 import { db, getUserDb, getSharedDb } from './db';
 import { eq, and, gt, lt, ne, desc, sql } from 'drizzle-orm';
 import { getPendingSuggestions } from './services/daniela-reflection';
@@ -3060,6 +3060,17 @@ ${lastNote.tutorNotes}`);
                         absenceReturn = await autoResolveAbsenceNudgeOnReturn(String(userId));
                         if (absenceReturn) {
                           console.log(`[GeminiLive] ✓ Student returning after ${absenceReturn.daysSinceLastSession} day(s) absence — injecting into synthesis`);
+                          // Persist the returning-student signal on the voice_sessions row so the
+                          // founder view can surface a "Returned after N days" indicator.
+                          if (dbSessionId) {
+                            db.update(voiceSessions)
+                              .set({
+                                hadAbsenceReturn: true,
+                                absenceReturnDays: absenceReturn.daysSinceLastSession,
+                              })
+                              .where(eq(voiceSessions.id, dbSessionId))
+                              .catch((e: Error) => console.warn('[GeminiLive] Failed to flag absence return on session row (non-fatal):', e.message));
+                          }
                         }
                       } catch (absErr: any) {
                         // Non-fatal — synthesis continues without absence signal
@@ -3360,9 +3371,21 @@ ${lastNote.tutorNotes}`);
               // ensure the DB row is resolved when the student actually returns.
               // Founder-mode sessions are David's admin/test sessions — skip them.
               if (userId && !isFounderMode) {
+                const _textModeDbSessionId = dbSessionId;
                 autoResolveAbsenceNudgeOnReturn(String(userId)).then((absenceReturn) => {
                   if (absenceReturn) {
                     console.log(`[TextMode] ✓ Student returning after ${absenceReturn.daysSinceLastSession} day(s) absence — nudge resolved`);
+                    // Persist the returning-student signal on the voice_sessions row so the
+                    // founder view can surface a "Returned after N days" indicator.
+                    if (_textModeDbSessionId) {
+                      db.update(voiceSessions)
+                        .set({
+                          hadAbsenceReturn: true,
+                          absenceReturnDays: absenceReturn.daysSinceLastSession,
+                        })
+                        .where(eq(voiceSessions.id, _textModeDbSessionId))
+                        .catch((e: Error) => console.warn('[TextMode] Failed to flag absence return on session row (non-fatal):', e.message));
+                    }
                   }
                 }).catch((absErr: any) => {
                   // Non-fatal — session continues without absence resolution

@@ -8295,6 +8295,8 @@ interface VoiceSessionReport {
   status: string | null;
   classId: string | null;
   isTestSession: boolean | null;
+  hadAbsenceReturn: boolean | null;
+  absenceReturnDays: number | null;
   userName: string | null;
   userEmail: string | null;
   estimatedCost: {
@@ -8617,6 +8619,11 @@ function ReportsTab() {
                           </Badge>
                           {session.isTestSession && (
                             <Badge variant="outline" className="ml-1">test</Badge>
+                          )}
+                          {session.hadAbsenceReturn && (
+                            <Badge variant="outline" className="ml-1 border-amber-400 text-amber-700 dark:text-amber-400" title={`Student returned after ${session.absenceReturnDays ?? '?'} days absent`}>
+                              ↩ {session.absenceReturnDays ?? '?'}d
+                            </Badge>
                           )}
                         </td>
                       </tr>

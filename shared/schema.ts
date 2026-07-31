@@ -1530,6 +1530,10 @@ export const voiceSessions = pgTable("voice_sessions", {
   guardianHeard: integer("guardian_heard"),
   guardianMissed: integer("guardian_missed"),
   guardianCarryForward: integer("guardian_carry_forward"),
+  // Returning-student signal — set when autoResolveAbsenceNudgeOnReturn fires at session start.
+  // Lets the founder view confirm the warm-greeting fired for a given session.
+  hadAbsenceReturn: boolean("had_absence_return").default(false),
+  absenceReturnDays: integer("absence_return_days"),
 }, (table) => [
   index("idx_voice_sessions_user").on(table.userId),
   index("idx_voice_sessions_started").on(table.startedAt),
