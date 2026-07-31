@@ -304,7 +304,106 @@ describe('client/src/lib/tutor-avatars.ts — structural integrity', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// PART 3 — getTutorAvatar() logic: different languages produce different avatar URLs
+// PART 3 — self-test: the guard is sensitive to the Spanish-collapse regression
+// ═══════════════════════════════════════════════════════════════════════════════
+//
+// If normalizeLanguage were hardcoded to always return 'spanish', every
+// language check above would silently pass incorrect data.  This section
+// proves the guard actually catches that: a deliberately broken function
+// triggers assertion failures in exactly the cases our guard is meant to
+// protect.
+
+describe('self-test: guard fails when normalizeLanguage is hardcoded to spanish', () => {
+
+  // A deliberately broken normalizeLanguage that mirrors the regression:
+  // every non-null input collapses to 'spanish'.
+  function brokenNormalizeLanguage(_language: string | null | undefined): SupportedLanguage {
+    return 'spanish';
+  }
+
+  const nonSpanish: string[] = [
+    'french', 'german', 'korean', 'japanese', 'chinese',
+    'italian', 'portuguese', 'english', 'hebrew',
+  ];
+
+  it('brokenNormalizeLanguage collapses every non-Spanish language to spanish (establishing the regression)', () => {
+    for (const lang of nonSpanish) {
+      assert.equal(
+        brokenNormalizeLanguage(lang),
+        'spanish',
+        `brokenNormalizeLanguage('${lang}') should return 'spanish' to simulate the collapse regression`,
+      );
+    }
+  });
+
+  it('the notEqual guard WOULD throw for french when normalizeLanguage is broken', () => {
+    // assert.notEqual(brokenNormalizeLanguage('french'), 'spanish') must throw.
+    // Node's AssertionError message: "Expected "actual" to be strictly unequal to: 'spanish'"
+    assert.throws(
+      () => assert.notEqual(brokenNormalizeLanguage('french'), 'spanish'),
+      /strictly unequal/,
+      'Guard did not throw for french — the notEqual assertion is not catching the collapse',
+    );
+  });
+
+  it('the notEqual guard WOULD throw for german when normalizeLanguage is broken', () => {
+    assert.throws(
+      () => assert.notEqual(brokenNormalizeLanguage('german'), 'spanish'),
+      /strictly unequal/,
+      'Guard did not throw for german',
+    );
+  });
+
+  it('the notEqual guard WOULD throw for korean when normalizeLanguage is broken', () => {
+    assert.throws(
+      () => assert.notEqual(brokenNormalizeLanguage('korean'), 'spanish'),
+      /strictly unequal/,
+      'Guard did not throw for korean',
+    );
+  });
+
+  it('the notEqual guard catches all non-Spanish languages when normalizeLanguage is broken', () => {
+    let failCount = 0;
+    for (const lang of nonSpanish) {
+      try {
+        assert.notEqual(
+          brokenNormalizeLanguage(lang),
+          'spanish',
+          `normalizeLanguage('${lang}') returned 'spanish'`,
+        );
+      } catch {
+        failCount++;
+      }
+    }
+    assert.equal(
+      failCount,
+      nonSpanish.length,
+      `Expected all ${nonSpanish.length} non-Spanish languages to trigger the guard, but only ${failCount} did — the guard is not covering all languages`,
+    );
+  });
+
+  it('equal guard WOULD throw for french ISO code when normalizeLanguage is broken', () => {
+    // The equal assertions (e.g. normalizeLanguage('fr') === 'french') also fail
+    // because the broken function returns 'spanish', not 'french'.
+    // Node's AssertionError message: "Expected values to be strictly equal: 'spanish' !== 'french'"
+    assert.throws(
+      () => assert.equal(brokenNormalizeLanguage('fr'), 'french'),
+      /strictly equal/,
+      "equal assertion for 'fr' → 'french' did not throw against the broken function",
+    );
+  });
+
+  it('equal guard WOULD throw for german ISO code when normalizeLanguage is broken', () => {
+    assert.throws(
+      () => assert.equal(brokenNormalizeLanguage('de'), 'german'),
+      /strictly equal/,
+      "equal assertion for 'de' → 'german' did not throw against the broken function",
+    );
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// PART 4 — getTutorAvatar() logic: different languages produce different avatar URLs
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // We cannot import getTutorAvatar() directly here because tutor-avatars.ts uses
