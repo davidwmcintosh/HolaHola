@@ -158,6 +158,7 @@ import { createClient } from "@deepgram/sdk";
 import { validateOneUnitRule, countConceptualUnits } from "./phrase-detection";
 import { getOnboardingDialogue, updateOnboardingDialogue, resetOnboardingDialogue, fillTemplate, DEFAULT_DIALOGUE } from "./onboarding-dialogue-config";
 import { brainHealthTelemetry } from "./services/brain-health-telemetry";
+import { mapApiErrorToReason } from "./lib/pronunciation-error-reason";
 
 // ============================================================================
 // AI PROVIDERS: Gemini (Text) + Deepgram (Voice STT) + Google Cloud (Voice TTS)
@@ -8515,23 +8516,7 @@ Return ONLY the ${targetLanguage} phrase:`;
         );
       } catch (apiError: any) {
         console.error("[pronunciation-analysis] API call failed:", apiError);
-        const isConfigError = apiError?.message?.includes('No OpenAI API key');
-        const isAuthError =
-          apiError?.status === 401 ||
-          apiError?.message?.includes('401') ||
-          apiError?.message?.includes('Unauthorized') ||
-          apiError?.message?.includes('invalid_api_key');
-        const isRateLimit =
-          apiError?.status === 429 ||
-          apiError?.message?.includes('429') ||
-          apiError?.message?.toLowerCase().includes('rate limit');
-        const reason = isConfigError
-          ? 'OpenAI API key not configured'
-          : isAuthError
-          ? 'OpenAI API key is invalid or expired'
-          : isRateLimit
-          ? 'OpenAI rate limit reached; try again shortly'
-          : apiError?.message || 'Unknown error';
+        const reason = mapApiErrorToReason(apiError);
         return res.status(500).json({ error: 'pronunciation_unavailable', reason });
       }
 

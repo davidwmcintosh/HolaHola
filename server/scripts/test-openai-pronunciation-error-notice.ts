@@ -35,30 +35,10 @@ function fail(label: string, detail?: string): void {
   failed++;
 }
 
-/**
- * Replicates the route's inner-catch reason-mapping logic from routes.ts ~8515.
- * Keeping it in sync here intentionally — if routes.ts diverges the test will
- * catch the discrepancy.
- */
-function mapApiErrorToReason(apiError: { message?: string; status?: number }): string {
-  const isConfigError = apiError?.message?.includes('No OpenAI API key');
-  const isAuthError =
-    apiError?.status === 401 ||
-    apiError?.message?.includes('401') ||
-    apiError?.message?.includes('Unauthorized') ||
-    apiError?.message?.includes('invalid_api_key');
-  const isRateLimit =
-    apiError?.status === 429 ||
-    apiError?.message?.includes('429') ||
-    (apiError?.message?.toLowerCase() ?? '').includes('rate limit');
-  return isConfigError
-    ? 'OpenAI API key not configured'
-    : isAuthError
-    ? 'OpenAI API key is invalid or expired'
-    : isRateLimit
-    ? 'OpenAI rate limit reached; try again shortly'
-    : apiError?.message ?? 'Unknown error';
-}
+// Import the shared utility so routes.ts and this test always use the same logic.
+// Any divergence between the two becomes a compile/import error rather than a
+// silent drift.
+import { mapApiErrorToReason } from '../lib/pronunciation-error-reason.js';
 
 // ── Scenario 1: No key configured ─────────────────────────────────────────────
 
@@ -159,32 +139,34 @@ console.log('\n[4] VoiceChat.tsx checks error === "pronunciation_unavailable" an
   }
 }
 
-// ── Scenario 5: Route source contains both documented reason strings ───────────
+// ── Scenario 5: Route delegates to shared utility; utility owns the reason strings ─
 
-console.log('\n[5] routes.ts inner catch block: both documented reason strings + error shape');
+console.log('\n[5] routes.ts delegates to mapApiErrorToReason; shared utility owns reason strings + error shape');
 {
   const fs = await import('node:fs/promises');
   const path = await import('node:path');
-  const routesPath = path.join(process.cwd(), 'server', 'routes.ts');
-  const source = await fs.readFile(routesPath, 'utf8');
 
-  // Find the pronunciation-scores/analyze inner catch block
-  const markerIdx = source.indexOf('pronunciation-scores/analyze');
+  // ── Check routes.ts: imports the shared utility and calls it ──────────────
+  const routesPath = path.join(process.cwd(), 'server', 'routes.ts');
+  const routesSource = await fs.readFile(routesPath, 'utf8');
+
+  if (routesSource.includes("from './lib/pronunciation-error-reason'") ||
+      routesSource.includes('from "./lib/pronunciation-error-reason"')) {
+    pass('routes.ts imports from ./lib/pronunciation-error-reason');
+  } else {
+    fail('routes.ts does not import from ./lib/pronunciation-error-reason');
+  }
+
+  const markerIdx = routesSource.indexOf('pronunciation-scores/analyze');
   if (markerIdx === -1) {
     fail('could not find /api/pronunciation-scores/analyze in routes.ts');
   } else {
-    const snippet = source.slice(markerIdx, markerIdx + 3000);
+    const snippet = routesSource.slice(markerIdx, markerIdx + 3000);
 
-    if (snippet.includes("'OpenAI API key not configured'")) {
-      pass('routes.ts contains "OpenAI API key not configured" reason string');
+    if (snippet.includes('mapApiErrorToReason')) {
+      pass('routes.ts inner catch calls mapApiErrorToReason()');
     } else {
-      fail('routes.ts is missing "OpenAI API key not configured" reason string');
-    }
-
-    if (snippet.includes("'OpenAI API key is invalid or expired'")) {
-      pass('routes.ts contains "OpenAI API key is invalid or expired" reason string');
-    } else {
-      fail('routes.ts is missing "OpenAI API key is invalid or expired" reason string');
+      fail('routes.ts inner catch does not call mapApiErrorToReason()');
     }
 
     if (snippet.includes("error: 'pronunciation_unavailable'")) {
@@ -200,6 +182,22 @@ console.log('\n[5] routes.ts inner catch block: both documented reason strings +
     } else {
       fail('routes.ts outer catch does not return pronunciation_unavailable — silent failure possible');
     }
+  }
+
+  // ── Check shared utility: owns both documented reason strings ─────────────
+  const utilityPath = path.join(process.cwd(), 'server', 'lib', 'pronunciation-error-reason.ts');
+  const utilitySource = await fs.readFile(utilityPath, 'utf8');
+
+  if (utilitySource.includes("'OpenAI API key not configured'")) {
+    pass('shared utility contains "OpenAI API key not configured" reason string');
+  } else {
+    fail('shared utility is missing "OpenAI API key not configured" reason string');
+  }
+
+  if (utilitySource.includes("'OpenAI API key is invalid or expired'")) {
+    pass('shared utility contains "OpenAI API key is invalid or expired" reason string');
+  } else {
+    fail('shared utility is missing "OpenAI API key is invalid or expired" reason string');
   }
 }
 
@@ -384,32 +382,25 @@ console.log('\n[9] "rate limit" in message text (no status) → same 429 reason'
   }
 }
 
-// ── Scenario 10: routes.ts inner catch contains rate-limit reason string ──────
+// ── Scenario 10: shared utility owns the rate-limit reason string ─────────────
 
-console.log('\n[10] routes.ts inner catch block contains the rate-limit reason string');
+console.log('\n[10] shared utility (pronunciation-error-reason.ts) contains the rate-limit reason string');
 {
   const fs = await import('node:fs/promises');
   const path = await import('node:path');
-  const routesPath = path.join(process.cwd(), 'server', 'routes.ts');
-  const source = await fs.readFile(routesPath, 'utf8');
+  const utilityPath = path.join(process.cwd(), 'server', 'lib', 'pronunciation-error-reason.ts');
+  const source = await fs.readFile(utilityPath, 'utf8');
 
-  const markerIdx = source.indexOf('pronunciation-scores/analyze');
-  if (markerIdx === -1) {
-    fail('could not find /api/pronunciation-scores/analyze in routes.ts');
+  if (source.includes("'OpenAI rate limit reached; try again shortly'")) {
+    pass('shared utility contains "OpenAI rate limit reached; try again shortly" reason string');
   } else {
-    const snippet = source.slice(markerIdx, markerIdx + 3000);
+    fail('shared utility is missing "OpenAI rate limit reached; try again shortly" reason string');
+  }
 
-    if (snippet.includes("'OpenAI rate limit reached; try again shortly'")) {
-      pass('routes.ts contains "OpenAI rate limit reached; try again shortly" reason string');
-    } else {
-      fail('routes.ts is missing "OpenAI rate limit reached; try again shortly" reason string');
-    }
-
-    if (snippet.includes('429') || snippet.includes('rate limit') || snippet.includes('isRateLimit')) {
-      pass('routes.ts inner catch contains 429 / rate-limit detection logic');
-    } else {
-      fail('routes.ts inner catch is missing 429 / rate-limit detection');
-    }
+  if (source.includes('429') || source.includes('rate limit') || source.includes('isRateLimit')) {
+    pass('shared utility contains 429 / rate-limit detection logic');
+  } else {
+    fail('shared utility is missing 429 / rate-limit detection');
   }
 }
 
