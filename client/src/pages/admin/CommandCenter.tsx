@@ -15739,10 +15739,29 @@ interface AbsenceNudgesResponse {
 }
 
 function AbsenceMonitorTab() {
+  const { toast } = useToast();
   const [view, setView] = useState<'pending' | 'resolved'>('pending');
 
   const { data, isLoading, isFetching, refetch } = useQuery<AbsenceNudgesResponse>({
     queryKey: ["/api/founder/absence-nudges"],
+  });
+
+  // Founder-initiated dismiss: resolves the nudge immediately and invalidates
+  // the badge count so the EXPRESS Lane header badge disappears without waiting
+  // for the 30-second poll interval.
+  const dismissNudgeMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await apiRequest("PATCH", `/api/admin/absence-nudges/${userId}/dismiss`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/absence-nudges/count'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/founder/absence-nudges'] });
+      toast({ title: "Nudge dismissed", description: "The absence nudge has been resolved." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to dismiss nudge", variant: "destructive" });
+    },
   });
 
   const resolutionMeta = (type: string | null | undefined) => {
@@ -15849,8 +15868,24 @@ function AbsenceMonitorTab() {
                           </div>
                         )}
                       </div>
-                      <div className="text-sm text-muted-foreground whitespace-nowrap">
-                        Last seen {formatDate(nudge.lastSessionDate)}
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="text-sm text-muted-foreground whitespace-nowrap">
+                          Last seen {formatDate(nudge.lastSessionDate)}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => dismissNudgeMutation.mutate(nudge.userId)}
+                          disabled={dismissNudgeMutation.isPending}
+                          data-testid={`button-dismiss-nudge-${nudge.nudgeId}`}
+                        >
+                          {dismissNudgeMutation.isPending ? (
+                            <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                          ) : (
+                            <X className="h-3 w-3 mr-1" />
+                          )}
+                          Dismiss
+                        </Button>
                       </div>
                     </div>
                   </CardContent>

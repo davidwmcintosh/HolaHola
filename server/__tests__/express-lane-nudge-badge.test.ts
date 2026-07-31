@@ -252,6 +252,90 @@ describe('CommandCenter.tsx — EXPRESS Lane badge rendering', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// PART 6 — Immediate badge update: count query is invalidated on nudge dismissal
+// ═══════════════════════════════════════════════════════════════════════════════
+
+describe('CommandCenter.tsx — badge invalidated immediately on nudge dismissal', () => {
+  it('dismissNudgeMutation is defined in AbsenceMonitorTab', () => {
+    assert.ok(
+      commandCenterSrc.includes('dismissNudgeMutation'),
+      'dismissNudgeMutation not found in CommandCenter.tsx — ' +
+      'AbsenceMonitorTab has no mutation to dismiss nudges from the founder UI',
+    );
+  });
+
+  it('dismissNudgeMutation calls the PATCH /api/admin/absence-nudges/:userId/dismiss route', () => {
+    const region = regionAround(commandCenterSrc, 'dismissNudgeMutation', 0, 600);
+    assert.ok(
+      region.includes('/api/admin/absence-nudges/') && region.includes('/dismiss'),
+      'PATCH /api/admin/absence-nudges/:userId/dismiss not found near dismissNudgeMutation — ' +
+      'the dismiss action may be calling the wrong endpoint',
+    );
+  });
+
+  it("dismissNudgeMutation onSuccess invalidates '/api/admin/absence-nudges/count'", () => {
+    // The onSuccess handler must call queryClient.invalidateQueries with the count key
+    // so the EXPRESS Lane badge drops to 0 immediately (not after the 30s poll).
+    const region = regionAround(commandCenterSrc, 'dismissNudgeMutation', 0, 800);
+    const hasInvalidate = region.includes("invalidateQueries") &&
+      region.includes('/api/admin/absence-nudges/count');
+    assert.ok(
+      hasInvalidate,
+      "queryClient.invalidateQueries for '/api/admin/absence-nudges/count' not found in " +
+      "dismissNudgeMutation — badge will not update until the 30s poll fires",
+    );
+  });
+
+  it("dismissNudgeMutation onSuccess also invalidates '/api/founder/absence-nudges' (list refreshes)", () => {
+    const region = regionAround(commandCenterSrc, 'dismissNudgeMutation', 0, 800);
+    const hasListInvalidate = region.includes("invalidateQueries") &&
+      region.includes('/api/founder/absence-nudges');
+    assert.ok(
+      hasListInvalidate,
+      "queryClient.invalidateQueries for '/api/founder/absence-nudges' not found in " +
+      "dismissNudgeMutation onSuccess — the pending nudge list would not refresh after dismissal",
+    );
+  });
+
+  it('dismiss route is registered in routes.ts (PATCH method)', () => {
+    const DISMISS_ROUTE = '/api/admin/absence-nudges/:userId/dismiss';
+    const region = regionAround(routesSrc, DISMISS_ROUTE, 50, 10);
+    assert.ok(
+      routesSrc.includes(DISMISS_ROUTE) && region.includes('app.patch('),
+      'app.patch("/api/admin/absence-nudges/:userId/dismiss") not found in routes.ts — ' +
+      'the client mutation has no server handler to call',
+    );
+  });
+
+  it('dismiss route is protected by requireFounder', () => {
+    const DISMISS_ROUTE = '/api/admin/absence-nudges/:userId/dismiss';
+    const region = regionAround(routesSrc, DISMISS_ROUTE, 0, 300);
+    assert.ok(
+      region.includes('requireFounder'),
+      'requireFounder not found on the dismiss route — nudge dismissal would be publicly accessible',
+    );
+  });
+
+  it('dismiss route calls resolveAbsenceNudge (reuses the worker function)', () => {
+    const DISMISS_ROUTE = '/api/admin/absence-nudges/:userId/dismiss';
+    const region = regionAround(routesSrc, DISMISS_ROUTE, 0, 600);
+    assert.ok(
+      region.includes('resolveAbsenceNudge'),
+      'resolveAbsenceNudge not called in the dismiss route — ' +
+      'the route may not be updating the DB correctly',
+    );
+  });
+
+  it('pending nudge cards have a dismiss button in CommandCenter.tsx', () => {
+    assert.ok(
+      commandCenterSrc.includes('button-dismiss-nudge-'),
+      'data-testid="button-dismiss-nudge-..." not found — ' +
+      'pending nudge cards are missing the Dismiss button',
+    );
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // PART 5 — Cross-cutting: endpoint name is consistent across all files
 // ═══════════════════════════════════════════════════════════════════════════════
 

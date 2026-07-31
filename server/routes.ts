@@ -33505,6 +33505,23 @@ You have full access to your neural network knowledge.
     }
   });
 
+  // ABSENCE NUDGES: Founder-initiated dismiss — resolves a pending nudge with resolutionType='dismissed'
+  // so the badge count drops immediately after the founder acts from the Absence Monitor tab.
+  app.patch("/api/admin/absence-nudges/:userId/dismiss", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
+    try {
+      const { userId } = req.params;
+      if (!userId || typeof userId !== 'string') {
+        return res.status(400).json({ error: 'userId param required' });
+      }
+      const { resolveAbsenceNudge } = await import('./services/daniela-absence-worker');
+      await resolveAbsenceNudge(userId, 'dismissed');
+      res.json({ ok: true });
+    } catch (error: any) {
+      console.error('[AbsenceNudges] Dismiss endpoint error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // ABSENCE NUDGES: Count pending nudges for badge display
   app.get("/api/admin/absence-nudges/count", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
     try {
