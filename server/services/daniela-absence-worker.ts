@@ -12,6 +12,7 @@
  */
 
 import { getSharedDb } from '../db';
+import type { ResolutionType } from '@shared/absence-types';
 import {
   danielaAbsenceNudges,
   danielaOutboundQueue,
@@ -326,7 +327,7 @@ const MAX_SUPPRESS_DAYS = 365;
 
 export async function resolveAbsenceNudge(
   userId: string,
-  resolutionType: 'message_queued' | 'dismissed' | 'student_returned',
+  resolutionType: NonNullable<ResolutionType>,
   suppressDays?: number,
 ): Promise<void> {
   const db = getSharedDb();

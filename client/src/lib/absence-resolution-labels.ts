@@ -5,11 +5,8 @@
  * without a React/JSX environment.
  */
 
-export type ResolutionType =
-  | "student_returned"
-  | "message_queued"
-  | "dismissed"
-  | null;
+import type { ResolutionType } from "@shared/absence-types";
+export type { ResolutionType };
 
 export interface ResolutionMeta {
   label: string;
