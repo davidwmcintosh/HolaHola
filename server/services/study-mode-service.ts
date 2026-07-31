@@ -6,6 +6,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { callDaniela } from "./daniela-caller";
+import { fetchPatternSignalContext } from "./pattern-signal-context";
 import { getUserDb } from "../db";
 import { sql } from "drizzle-orm";
 import { generateVisual } from "./visual-content-service";
@@ -363,8 +364,16 @@ LEARNER SAYS: "${userMessage}"
 
 Keep the scenario alive, correct gently inline, and move forward.`;
 
+  // Fetch active grammar pattern signals for this student so Daniela keeps her
+  // pattern map in the text-mode study session. No StreamingSession is available
+  // here, so we hydrate directly from the DB via fetchPatternSignalContext.
+  // Study mode is Spanish-only; if it expands, wire scenario.language here.
+  const activePatternSignals = userId
+    ? await fetchPatternSignalContext(userId, 'spanish').catch(() => null)
+    : null;
+
   try {
-    return await callDaniela(DANIELA_IMMERSION_CONTEXT, prompt, { userId });
+    return await callDaniela(DANIELA_IMMERSION_CONTEXT, prompt, { userId, activePatternSignals });
   } catch {
     return '¡Interesante! [Interesting!] ¿Puedes decirme más? [Can you tell me more?]';
   }

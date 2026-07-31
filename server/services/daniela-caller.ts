@@ -60,6 +60,15 @@ export interface CallDanielaOptions {
   includeNeuralNetwork?: boolean;
   /** Enable real tool pipeline (memory search, identity reads, flag_for_agent, etc.) */
   enableTools?: boolean;
+  /**
+   * Active grammar pattern signals (wobbling/pounding compartments) for this student.
+   * When provided, appended to the system prompt via formatActivePatternSignalNote so
+   * Daniela keeps her pattern map when called from text-mode handlers.
+   *
+   * Text-mode callers that have a StreamingSession should pass session.activePatternSignals.
+   * Callers without a session should obtain this by calling fetchPatternSignalContext(userId, language).
+   */
+  activePatternSignals?: string | null;
 }
 
 /**
@@ -418,9 +427,10 @@ async function callDanielaWithTools(
   systemPrompt: string,
   userPrompt: string,
   userId: string,
+  activePatternSignals?: string | null,
 ): Promise<string> {
   const messages: any[] = [{ role: 'user', parts: [{ text: userPrompt }] }];
-  return runDanielaFCLoop({ systemPrompt, messages, userId });
+  return runDanielaFCLoop({ systemPrompt, messages, userId, activePatternSignals });
 }
 
 export async function callDaniela(
@@ -434,6 +444,7 @@ export async function callDaniela(
     includeHiveContext = false,
     includeNeuralNetwork = true,
     enableTools = false,
+    activePatternSignals,
   } = options;
 
   const dataLayer = await unifiedDanielaContext.getContext({
@@ -450,12 +461,20 @@ export async function callDaniela(
   if (functionalContext) systemParts.push(functionalContext);
   if (dataLayer) systemParts.push(dataLayer);
 
-  const systemPrompt = systemParts.join('\n\n');
+  let systemPrompt = systemParts.join('\n\n');
+
+  // ── Pattern signal injection for the simple (non-tools) path ─────────────
+  // The tools path delegates injection to runDanielaFCLoop; for the simple path
+  // we must inject here so both paths carry the active pattern map.
+  const patternNote = formatActivePatternSignalNote(activePatternSignals);
+  if (patternNote) {
+    systemPrompt = systemPrompt + (systemPrompt.endsWith('\n') ? '' : '\n') + patternNote.trimStart();
+  }
 
   try {
     // ── Full tool pipeline (Team Room responses, consult-Daniela, etc.) ────────
     if (enableTools && userId) {
-      const text = await callDanielaWithTools(systemPrompt, userPrompt, userId);
+      const text = await callDanielaWithTools(systemPrompt, userPrompt, userId, activePatternSignals);
       return text || '[DANIELA_CALLER_ERROR: empty response from tool pipeline]';
     }
 
