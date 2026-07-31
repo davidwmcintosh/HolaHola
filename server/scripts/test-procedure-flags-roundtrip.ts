@@ -7,6 +7,8 @@
  *   2. Returned by the GET /api/admin/procedure-flags query with all fields
  *      parsed correctly (targetTable, reasoning, proposedContent)
  *   3. Marked as reviewed when readAt is set (PATCH action=reviewed behaviour)
+ *   4. Promoted to a selfSurgeryProposals row with all parsed fields preserved
+ *      (targetTable, reasoning, proposedContent, conversationId, targetLanguage)
  *
  * Does NOT require a running HTTP server — it exercises the same DB operations
  * and parsing logic used by routes.ts directly, so it can run in any environment.
@@ -15,7 +17,7 @@
  */
 
 import { getSharedDb } from '../db';
-import { agentNotes } from '@shared/schema';
+import { agentNotes, selfSurgeryProposals } from '@shared/schema';
 import { eq, ilike, isNull, and } from 'drizzle-orm';
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -89,11 +91,57 @@ const BODY = [
   `Proposed content: ${JSON.stringify(PROPOSED_CONTENT)}`,
 ].join('\n');
 
+// Promote-path test data — must use a targetTable that the promote endpoint accepts
+const PROMOTE_TARGET_TABLE = 'tutor_procedures';
+const PROMOTE_REASONING    = 'Student consistently skipped greeting protocol — procedure may need a stronger opening scaffold.';
+const PROMOTE_SESSION_ID   = 'test-session-promote-364';
+const PROMOTE_LANGUAGE     = 'es';
+const PROMOTE_PROPOSED_CONTENT = { update: { field: 'greeting_steps', value: ['introduce', 'ask_name', 'set_goal'] } };
+
+const PROMOTE_SUBJECT = `[Daniela \u2014 REQUIRES FOUNDER REVIEW] ${PROMOTE_TARGET_TABLE}: ${PROMOTE_REASONING.substring(0, 60)}`;
+const PROMOTE_BODY = [
+  `Reasoning: ${PROMOTE_REASONING}`,
+  `Session: ${PROMOTE_SESSION_ID}`,
+  `Language: ${PROMOTE_LANGUAGE}`,
+  `Source: Daniela (self_surgery \u2014 normal session)`,
+  `Proposed content: ${JSON.stringify(PROMOTE_PROPOSED_CONTENT)}`,
+].join('\n');
+
+// ── Promote logic (mirrors routes.ts POST /api/admin/procedure-flags/:id/promote) ──
+
+function promoteParseNote(note: { id: string; subject: string; body: string }) {
+  const subjectRest = note.subject.replace('[Daniela \u2014 REQUIRES FOUNDER REVIEW] ', '');
+  const colonIdx = subjectRest.indexOf(':');
+  const targetTable = colonIdx > -1 ? subjectRest.substring(0, colonIdx).trim() : subjectRest;
+
+  const bodyLines = note.body.split('\n');
+  const reasoning = (bodyLines.find((l: string) => l.startsWith('Reasoning: '))?.replace('Reasoning: ', '') || '').trim() || 'Knowledge-domain flag from normal session';
+  const sessionId = (bodyLines.find((l: string) => l.startsWith('Session: '))?.replace('Session: ', '') || '').trim() || null;
+  const language  = (bodyLines.find((l: string) => l.startsWith('Language: '))?.replace('Language: ', '') || '').trim() || null;
+
+  let proposedContent: any = {};
+  const pcLineIdx = bodyLines.findIndex((l: string) => l.startsWith('Proposed content: '));
+  if (pcLineIdx > -1) {
+    const pcRaw = bodyLines[pcLineIdx].replace('Proposed content: ', '');
+    const extraLines: string[] = [];
+    for (let i = pcLineIdx + 1; i < bodyLines.length; i++) {
+      if (bodyLines[i] === '') break;
+      extraLines.push(bodyLines[i]);
+    }
+    const fullPc = [pcRaw, ...extraLines].join('\n');
+    try { proposedContent = JSON.parse(fullPc); } catch { proposedContent = { raw: fullPc }; }
+  }
+
+  return { targetTable, reasoning, sessionId, language, proposedContent };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 async function run() {
   const db = getSharedDb();
   let insertedId: string | null = null;
+  let promoteNoteId: string | null = null;
+  let promoteProposalId: string | null = null;
 
   try {
     // ══════════════════════════════════════════════════════════════════════════
@@ -239,11 +287,130 @@ async function run() {
       `got ${allRows.length} rows, readAt=${allRows[0]?.readAt}`,
     );
 
+    // ══════════════════════════════════════════════════════════════════════════
+    // PART 4 — Promote to selfSurgeryProposals and verify all fields preserved
+    // ══════════════════════════════════════════════════════════════════════════
+    sep();
+    console.log(B('PART 4 — Promote flag to self-surgery proposal (field preservation)'));
+    sep();
+
+    // 4a. Insert a promote-specific note (uses a targetTable the promote endpoint accepts)
+    const [promoteNote] = await db
+      .insert(agentNotes)
+      .values({
+        fromAgent: 'daniela',
+        toAgent: 'agent',
+        subject: PROMOTE_SUBJECT,
+        body: PROMOTE_BODY,
+        sessionLabel: 'Procedure flags promote roundtrip test — Task 364',
+      })
+      .returning();
+
+    promoteNoteId = promoteNote?.id ?? null;
+    assert('Promote test note inserted', !!promoteNoteId);
+
+    if (promoteNoteId) {
+      // 4b. Fetch the note back (mirrors what the promote route does)
+      const [fetchedNote] = await db
+        .select()
+        .from(agentNotes)
+        .where(eq(agentNotes.id, promoteNoteId))
+        .limit(1);
+
+      assert('Promote note fetched from DB', !!fetchedNote);
+
+      if (fetchedNote) {
+        // 4c. Run the same parsing logic the promote route uses
+        const parsed = promoteParseNote(fetchedNote);
+
+        // 4d. Insert the proposal (mirrors routes.ts promote logic exactly)
+        const [proposal] = await db
+          .insert(selfSurgeryProposals)
+          .values({
+            targetTable: parsed.targetTable as any,
+            proposedContent: parsed.proposedContent,
+            reasoning: parsed.reasoning,
+            triggerContext: `Promoted from procedure flag ${promoteNoteId}. Original session: ${parsed.sessionId || 'unknown'}`,
+            status: 'pending',
+            conversationId: parsed.sessionId,
+            sessionMode: 'normal',
+            targetLanguage: parsed.language,
+            priority: 50,
+            confidence: 70,
+          })
+          .returning();
+
+        promoteProposalId = proposal?.id ?? null;
+        assert('selfSurgeryProposals row created', !!promoteProposalId);
+
+        if (proposal) {
+          // 4e. Verify every field survived the round-trip
+          assert(
+            `proposal.targetTable = "${PROMOTE_TARGET_TABLE}"`,
+            proposal.targetTable === PROMOTE_TARGET_TABLE,
+            `got: "${proposal.targetTable}"`,
+          );
+          assert(
+            'proposal.reasoning matches original',
+            proposal.reasoning === PROMOTE_REASONING,
+            `got: "${proposal.reasoning}"`,
+          );
+          assert(
+            `proposal.conversationId = "${PROMOTE_SESSION_ID}"`,
+            proposal.conversationId === PROMOTE_SESSION_ID,
+            `got: "${proposal.conversationId}"`,
+          );
+          assert(
+            `proposal.targetLanguage = "${PROMOTE_LANGUAGE}"`,
+            proposal.targetLanguage === PROMOTE_LANGUAGE,
+            `got: "${proposal.targetLanguage}"`,
+          );
+          assert(
+            'proposal.proposedContent is the original JSON object (not corrupted)',
+            JSON.stringify(proposal.proposedContent) === JSON.stringify(PROMOTE_PROPOSED_CONTENT),
+            `got: ${JSON.stringify(proposal.proposedContent)}`,
+          );
+          assert(
+            "proposal.status = 'pending'",
+            proposal.status === 'pending',
+            `got: "${proposal.status}"`,
+          );
+          assert(
+            'proposal.triggerContext mentions the note id',
+            typeof proposal.triggerContext === 'string' && proposal.triggerContext.includes(promoteNoteId),
+            `got: "${proposal.triggerContext}"`,
+          );
+          assert(
+            'proposal.triggerContext mentions the session id',
+            typeof proposal.triggerContext === 'string' && proposal.triggerContext.includes(PROMOTE_SESSION_ID),
+            `got: "${proposal.triggerContext}"`,
+          );
+
+          // 4f. Mark the note as reviewed (the promote route does this too)
+          const [markedNote] = await db
+            .update(agentNotes)
+            .set({ readAt: new Date() })
+            .where(eq(agentNotes.id, promoteNoteId))
+            .returning();
+
+          assert('Note marked as reviewed after promote', markedNote?.readAt !== null && markedNote?.readAt !== undefined);
+        }
+      }
+    }
+
   } finally {
     // ── Cleanup: remove the test note so it does not pollute the real panel ──
     if (insertedId) {
       await db.delete(agentNotes).where(eq(agentNotes.id, insertedId));
       console.log(`\n  (cleaned up test note ${insertedId})`);
+    }
+    if (promoteProposalId) {
+      await db.delete(selfSurgeryProposals).where(eq(selfSurgeryProposals.id, promoteProposalId));
+      console.log(`  (cleaned up test proposal ${promoteProposalId})`);
+    }
+    if (promoteNoteId) {
+      await db.delete(agentNotes).where(eq(agentNotes.id, promoteNoteId));
+      console.log(`  (cleaned up promote test note ${promoteNoteId})`);
     }
   }
 
