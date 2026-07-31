@@ -390,3 +390,152 @@ describe('GL guard — read_full_memory exclusion matches text-mode', () => {
     );
   });
 });
+
+// ── GL generationComplete reset path ─────────────────────────────────────────
+// Mirrors the exact reset block in gemini-live-session.ts (lines ~2673-2676):
+//
+//   if ((this.session.consecutiveMemoryCalls ?? 0) > 0) {
+//     this.session.consecutiveMemoryCalls = 0;
+//     this.session.glMemoryNudgeSent = false;
+//   }
+//
+// This block fires at generationComplete — when Daniela produces audio output.
+// It resets both the counter AND the one-shot nudge gate so the next memory
+// streak can trigger a fresh nudge. Without it, a stale counter could cause a
+// false nudge on the very first memory call of a new student turn.
+//
+// The simulation below treats events as either:
+//   { kind: 'tool_batch', toolNames, hasResponses? }  — a GL tool call batch
+//   { kind: 'generation_complete' }                   — Daniela produced audio
+//
+// A generation_complete event only resets if the counter is > 0 (matching the
+// `if (counter > 0)` guard in the real code — avoids spurious log noise).
+
+type GLEvent =
+  | { kind: 'tool_batch'; toolNames: string[]; hasResponses?: boolean }
+  | { kind: 'generation_complete' };
+
+interface GLEventResult {
+  eventKind: string;
+  counter: number;
+  nudgeSent: boolean;
+  nudgeFired: boolean;
+}
+
+function simulateGLGuardWithGenerationComplete(events: GLEvent[]): GLEventResult[] {
+  let counter = 0;
+  let nudgeSent = false;
+  return events.map((event) => {
+    let nudgeFired = false;
+
+    if (event.kind === 'generation_complete') {
+      // Mirrors: if ((this.session.consecutiveMemoryCalls ?? 0) > 0) { reset }
+      if (counter > 0) {
+        counter = 0;
+        nudgeSent = false;
+      }
+    } else {
+      // tool_batch — mirrors the MEMORY_CHAIN_LIMIT block in the tool-call handler
+      const allMemoryBatch = event.toolNames.every((n: string) => MEMORY_TOOL_NAMES.has(n));
+      if (!allMemoryBatch) {
+        counter = 0;
+        nudgeSent = false;
+      } else {
+        counter++;
+        const hasResponses = event.hasResponses ?? true;
+        if (!nudgeSent && counter >= MEMORY_CHAIN_LIMIT && hasResponses) {
+          nudgeFired = true;
+          nudgeSent = true;
+        }
+      }
+    }
+
+    return { eventKind: event.kind, counter, nudgeSent, nudgeFired };
+  });
+}
+
+describe('GL generationComplete path — counter resets after Daniela speaks', () => {
+  it('counter is 0 and nudgeSent is false after generationComplete following a full streak', () => {
+    // MEMORY_CHAIN_LIMIT batches → nudge fires; then Daniela speaks → full reset.
+    const events: GLEvent[] = [
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT }, () =>
+        ({ kind: 'tool_batch' as const, toolNames: ['recall'] })),
+      { kind: 'generation_complete' },
+    ];
+    const results = simulateGLGuardWithGenerationComplete(events);
+    const afterSpeak = results[results.length - 1];
+    assert.equal(afterSpeak.counter, 0, 'counter must be 0 after generationComplete');
+    assert.equal(afterSpeak.nudgeSent, false, 'nudgeSent must be false after generationComplete — one-shot gate must reopen');
+  });
+
+  it('nudge does NOT re-fire on the very next memory batch after generationComplete', () => {
+    // Full streak → nudge fired → Daniela speaks → one more memory batch.
+    // The nudge must NOT fire again on the first post-speak memory call.
+    const events: GLEvent[] = [
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT }, () =>
+        ({ kind: 'tool_batch' as const, toolNames: ['recall'] })),
+      { kind: 'generation_complete' },
+      { kind: 'tool_batch', toolNames: ['recall'] },
+    ];
+    const results = simulateGLGuardWithGenerationComplete(events);
+    const firstPostSpeak = results[results.length - 1];
+    assert.equal(firstPostSpeak.counter, 1, 'counter must restart at 1 after generationComplete');
+    assert.equal(firstPostSpeak.nudgeFired, false, 'nudge must NOT re-fire on the first post-speak memory batch');
+  });
+
+  it('nudge fires again once a fresh full streak is reached after generationComplete', () => {
+    // First streak → Daniela speaks → second streak of MEMORY_CHAIN_LIMIT → nudge fires again.
+    const singleBatch = { kind: 'tool_batch' as const, toolNames: ['recall'] };
+    const events: GLEvent[] = [
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT }, () => singleBatch),
+      { kind: 'generation_complete' },
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT }, () => singleBatch),
+    ];
+    const results = simulateGLGuardWithGenerationComplete(events);
+    const lastResult = results[results.length - 1];
+    assert.equal(lastResult.counter, MEMORY_CHAIN_LIMIT, 'counter must reach the limit again in the second streak');
+    assert.equal(lastResult.nudgeFired, true, 'nudge must fire again after a fresh streak post-generationComplete');
+  });
+
+  it('generationComplete on a zero counter is a no-op (guard condition is counter > 0)', () => {
+    // No tool calls yet — generationComplete fires at session start (greeting turn).
+    // Counter stays at 0, nudgeSent stays false — no state mutation at all.
+    const events: GLEvent[] = [
+      { kind: 'generation_complete' },
+    ];
+    const [result] = simulateGLGuardWithGenerationComplete(events);
+    assert.equal(result.counter, 0, 'counter must remain 0');
+    assert.equal(result.nudgeSent, false, 'nudgeSent must remain false');
+    assert.equal(result.nudgeFired, false);
+  });
+
+  it('generationComplete mid-streak resets partial counter and allows re-fire at new limit', () => {
+    // Two memory batches (counter = 2, not yet at limit) → Daniela speaks (counter → 0)
+    // → MEMORY_CHAIN_LIMIT more batches → nudge fires.
+    const memBatch = { kind: 'tool_batch' as const, toolNames: ['memory_lookup'] };
+    const events: GLEvent[] = [
+      memBatch,
+      memBatch,
+      { kind: 'generation_complete' },   // counter was 2, drops to 0
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT }, () => memBatch),
+    ];
+    const results = simulateGLGuardWithGenerationComplete(events);
+    const afterReset = results[2]; // the generationComplete event
+    assert.equal(afterReset.counter, 0, 'partial counter must reset to 0 at generationComplete');
+    const finalResult = results[results.length - 1];
+    assert.equal(finalResult.nudgeFired, true, 'nudge must fire after a full streak built after the mid-streak reset');
+  });
+
+  it('nudge fires exactly once per streak even with generationComplete separating two streaks', () => {
+    // Two full streaks separated by a generationComplete — each fires the nudge exactly once.
+    const memBatch = { kind: 'tool_batch' as const, toolNames: ['browse_conversations_by_date'] };
+    const events: GLEvent[] = [
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT + 1 }, () => memBatch), // streak 1 (fires at position LIMIT, then one extra)
+      { kind: 'generation_complete' },
+      ...Array.from({ length: MEMORY_CHAIN_LIMIT + 1 }, () => memBatch), // streak 2
+    ];
+    const results = simulateGLGuardWithGenerationComplete(events);
+    const nudgeFires = results.filter(r => r.nudgeFired);
+    assert.equal(nudgeFires.length, 2, 'nudge must fire exactly once per streak (two total across both streaks)');
+  });
+});
