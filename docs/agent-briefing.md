@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, July 30, 2026 at 11:44 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I must immediately resolve the Cartesia TTS 400 errors affecting English and Spanish audio, as this is currently blocking the core HolaHola student experience. Once audio is restored, I need to repair the SQL failures in Alden’s watch cycle to fix the five consecutive autonomous monitoring failures and restore system observability. Finally, I'll investigate why the assessment pipeline is returning zero quality scores for active sessions and begin implementing memory tagging to support the "White Wall Defense" conversational arc pattern.
-
-*Memories that triggered this summary:*
-- **Agent Daily Sweep — Jul 30, 2026** (Jul 30): 1. [CRITICAL] Fix Cartesia TTS 400 errors in both English and Spanish — audio generation is failing repeatedly across both languages, blocking core student experience right now.  2. [HIGH] Diagnose and repair Alden's watch cycle SQL failures — autonomous monitoring is broken (5 consecutive failures)
+**Generated:** Friday, July 31, 2026 at 12:50 AM
 
 ---
 
