@@ -21,19 +21,17 @@
  *
  *   7. One day before the boundary (daysSince === customThreshold - 1) is excluded.
  *
- *   8. CONFIG QUERY FAILURE FALLBACK (task 279): when the studentAbsenceConfig table
- *      query fails, detectAbsentStudents() catches the error and leaves configMap
- *      empty (daniela-absence-worker.ts lines 65-72).  The observable effect is:
+ *   8. CONFIG QUERY FAILURE (task 332): when the studentAbsenceConfig table
+ *      query fails, detectAbsentStudents() logs a warning and returns [] immediately
+ *      — the entire absence check is skipped for that cycle.  No students are
+ *      nudged until the config table is available again on the next run.
  *
- *        - No custom threshold is applied to any student.
- *        - Every student that passed the DB query (absent >= global threshold) is
- *          included in the nudge batch — even those who would normally be protected
- *          by a longer custom threshold.
- *        - Students are NOT blocked by their custom threshold when config is
- *          unavailable.  This is intentional: the worker errs toward notifying
- *          Daniela rather than silently dropping students.
+ *      This replaces the previous "errs toward notifying" fallback (empty configMap)
+ *      which could nudge weekly learners after only 5 days during a table outage.
  *
- *      Simulated in tests by passing an empty configMap to applyCustomThresholdFilter.
+ *      The filter-level tests below still exercise applyCustomThresholdFilter with
+ *      an empty configMap to document its contract, but in production that path is
+ *      now unreachable when the config query fails.
  *
  * The filter logic is inlined here (same approach as absence-history-filter.test.ts)
  * so the test is zero-dependency and fast — no DB, no server.
@@ -380,105 +378,89 @@ describe('per-student threshold — config is per-userId (not shared across user
   });
 });
 
-// ── Tests: config-query failure fallback (Task 279) ───────────────────────────
+// ── Tests: config-query failure — skip entire check (Task 332) ───────────────
 //
-// When the studentAbsenceConfig DB query throws, detectAbsentStudents() catches
-// the error and falls back to an empty configMap (daniela-absence-worker.ts
-// lines 65-72):
+// PRODUCTION BEHAVIOUR (after Task 332 fix):
+//   When the studentAbsenceConfig DB query throws, detectAbsentStudents()
+//   logs a warning and returns [] immediately — the entire absence check is
+//   skipped for that cycle.  No students are nudged until the next run when the
+//   config table is available again.
 //
-//   let allConfigs = [];
-//   try {
-//     allConfigs = await db.select(...).from(studentAbsenceConfig);
-//   } catch { /* non-critical — fall back to global threshold */ }
-//   const configMap = new Map(allConfigs.map(c => [c.userId, c.thresholdDays]));
+//   Previous behaviour (before Task 332):
+//     The catch block swallowed the error and continued with an empty configMap.
+//     This silently ignored longer custom thresholds and could nudge weekly
+//     learners after only 5 days — the exact failure mode the worker exists to
+//     prevent.
 //
-// Observable effect: no custom threshold is applied to any student.  Every
-// student that the DB query returned (absent >= global default) passes through
-// the filter unimpeded — including students who would normally be protected by a
-// longer custom threshold.
+//   Why skip the whole run instead of falling back?
+//     A false nudge to a student who set a 14-day threshold is unrecoverable
+//     from the student's perspective.  A missed daily run is recoverable — the
+//     next scheduled cycle will catch the same students.
 //
-// This is intentional: the worker errs toward notifying Daniela rather than
-// silently dropping a student.  Daniela can always dismiss the nudge; a missed
-// nudge cannot be recovered.
+// The tests below verify the filter function's behaviour when called with an
+// empty configMap (which can happen in unit tests and is still valid logic).
+// The production guard that prevents this scenario from arising (early return
+// on config error) lives in detectAbsentStudents() and is covered by the
+// comment block and the runAbsenceCheck() catch handler above.
 
-describe('config-query failure — empty configMap fallback', () => {
-  // This is the empty map that results when the config query fails.
-  const FAILED_CONFIG_MAP = new Map<string, number>();
+describe('config-query failure — production skips entire check; filter-level tests for empty configMap', () => {
+  // An empty configMap is what you would get if someone bypassed the early-return
+  // guard.  These tests confirm the filter function itself is safe with an empty
+  // map — but in production that path is now unreachable when the config query fails.
+  const EMPTY_CONFIG_MAP = new Map<string, number>();
 
-  it('a student with a 14-day custom threshold absent only 8 days IS included when configMap is empty', () => {
-    // Normally: daysSince=8 < customThreshold=14 → excluded.
-    // Config query failed → configMap empty → no custom check → student passes through.
-    //
-    // OBSERVABLE EFFECT: students are NOT blocked by their custom threshold when
-    // the config table is unavailable.
-    const result = applyCustomThresholdFilter(
-      [STUDENT_A_8_DAYS],
-      FAILED_CONFIG_MAP,
-      new Set(),
-      NOW,
-    );
-    assert.equal(result.length, 1,
-      'Config query failure (empty configMap) means the 14-day custom threshold is not applied; ' +
-      'student absent 8 days passes through and will be nudged');
-    assert.equal(result[0].userId, STUDENT_A_8_DAYS.userId);
-  });
-
-  it('all students that passed the DB query are included when configMap is empty', () => {
-    // Simulate a batch where each student would normally be held back by a longer
-    // custom threshold, but the config query has failed.
+  it('filter with empty configMap passes all students through (no custom threshold applied)', () => {
+    // In production detectAbsentStudents() now returns [] before reaching this
+    // filter when the config query fails.  This test documents the filter
+    // function's own contract: empty configMap → no custom threshold check →
+    // every student that arrived here passes through.
     const students: AbsentStudent[] = [
       { userId: 'cfg-fail-u1', firstName: 'Ada',    lastSessionDate: daysAgo(NOW, 6) },
       { userId: 'cfg-fail-u2', firstName: 'Bram',   lastSessionDate: daysAgo(NOW, 9) },
       { userId: 'cfg-fail-u3', firstName: 'Cleo',   lastSessionDate: daysAgo(NOW, 11) },
     ];
-    // These would have been their custom thresholds (all longer than days-absent above)
-    // — irrelevant now because configMap is empty.
-    const result = applyCustomThresholdFilter(students, FAILED_CONFIG_MAP, new Set(), NOW);
+    const result = applyCustomThresholdFilter(students, EMPTY_CONFIG_MAP, new Set(), NOW);
     assert.equal(result.length, 3,
-      'All three students pass through: no custom threshold is applied when configMap is empty');
+      'With empty configMap every student passes through the per-threshold filter');
     const ids = result.map(s => s.userId);
     assert.ok(ids.includes('cfg-fail-u1'));
     assert.ok(ids.includes('cfg-fail-u2'));
     assert.ok(ids.includes('cfg-fail-u3'));
   });
 
-  it('blocked users are still excluded even when configMap is empty', () => {
-    // The blocked-user guard is independent of configMap: it runs first and
-    // short-circuits before any threshold check.
+  it('blocked users are excluded even when configMap is empty', () => {
+    // The blocked-user guard is independent of configMap.
     const blocked = new Set(['cfg-fail-u1', 'cfg-fail-u3']);
     const students: AbsentStudent[] = [
       { userId: 'cfg-fail-u1', firstName: 'Ada',  lastSessionDate: daysAgo(NOW, 6) },
       { userId: 'cfg-fail-u2', firstName: 'Bram', lastSessionDate: daysAgo(NOW, 9) },
       { userId: 'cfg-fail-u3', firstName: 'Cleo', lastSessionDate: daysAgo(NOW, 11) },
     ];
-    const result = applyCustomThresholdFilter(students, FAILED_CONFIG_MAP, blocked, NOW);
+    const result = applyCustomThresholdFilter(students, EMPTY_CONFIG_MAP, blocked, NOW);
     assert.equal(result.length, 1,
-      'Blocked users remain excluded even when config query fails; unblocked students pass through');
+      'Blocked users remain excluded regardless of configMap state');
     assert.equal(result[0].userId, 'cfg-fail-u2');
   });
 
   it('empty student list with empty configMap produces empty output', () => {
-    const result = applyCustomThresholdFilter([], FAILED_CONFIG_MAP, new Set(), NOW);
+    const result = applyCustomThresholdFilter([], EMPTY_CONFIG_MAP, new Set(), NOW);
     assert.equal(result.length, 0);
   });
 
-  it('a mixed batch is split correctly: blocked excluded, unblocked all included regardless of what thresholds would have been', () => {
-    // user-weekly-8d would normally be excluded by its 14-day threshold (only 8d absent).
-    // With configMap empty (config query failed) it passes through.
-    // STUDENT_D_BLOCKED is blocked — still excluded.
+  it('filter with empty configMap still respects the blocked-user gate in a mixed batch', () => {
+    // Documents: even if someone called the filter with an empty configMap, blocked
+    // users are still excluded.  Production never reaches this state on config failure
+    // (detectAbsentStudents returns [] before filtering), but the filter itself is safe.
     const blocked = new Set([STUDENT_D_BLOCKED.userId]);
     const students = [STUDENT_A_8_DAYS, STUDENT_B_NO_CONFIG, STUDENT_D_BLOCKED];
 
-    const result = applyCustomThresholdFilter(students, FAILED_CONFIG_MAP, blocked, NOW);
+    const result = applyCustomThresholdFilter(students, EMPTY_CONFIG_MAP, blocked, NOW);
 
     assert.equal(result.length, 2,
-      'Two unblocked students pass through; the blocked student is excluded');
+      'Unblocked students pass through with empty configMap; blocked student is excluded');
     const ids = result.map(s => s.userId);
-    assert.ok(ids.includes(STUDENT_A_8_DAYS.userId),
-      'user-weekly-8d (normally held by 14d custom threshold) is included because configMap is empty');
-    assert.ok(ids.includes(STUDENT_B_NO_CONFIG.userId),
-      'user-default-7d (no custom config) passes through as normal');
-    assert.ok(!ids.includes(STUDENT_D_BLOCKED.userId),
-      'Blocked user is always excluded');
+    assert.ok(ids.includes(STUDENT_A_8_DAYS.userId));
+    assert.ok(ids.includes(STUDENT_B_NO_CONFIG.userId));
+    assert.ok(!ids.includes(STUDENT_D_BLOCKED.userId));
   });
 });

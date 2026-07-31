@@ -65,12 +65,25 @@ async function detectAbsentStudents(): Promise<Array<{
   // Load all per-student threshold configs upfront.
   // Use the minimum configured threshold (or global default) as the DB query
   // threshold so students with shorter custom thresholds are not missed.
+  //
+  // SAFETY: if this query fails we skip the entire absence check rather than
+  // falling back to an empty configMap.  An empty configMap would silently
+  // ignore longer custom thresholds and could nudge weekly learners after only
+  // 5 days — exactly the failure mode this worker is supposed to avoid.
+  // A missed run is recoverable (the check fires again next cycle); a false
+  // nudge to a student who set a 14-day threshold is not.
   let allConfigs: Array<{ userId: string; thresholdDays: number }> = [];
   try {
     allConfigs = await db
       .select({ userId: studentAbsenceConfig.userId, thresholdDays: studentAbsenceConfig.thresholdDays })
       .from(studentAbsenceConfig);
-  } catch { /* non-critical — fall back to global threshold */ }
+  } catch (configErr: any) {
+    console.warn(
+      '[AbsenceWorker] studentAbsenceConfig table unavailable — skipping absence check to prevent premature nudges:',
+      configErr.message,
+    );
+    return [];
+  }
 
   const configMap = new Map(allConfigs.map(c => [c.userId, c.thresholdDays]));
   const minConfiguredThreshold = allConfigs.length > 0
