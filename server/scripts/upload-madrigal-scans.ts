@@ -60,6 +60,7 @@ async function uploadSource(source: (typeof SOURCES)[0]) {
 
   let uploaded = 0;
   let skipped = 0;
+  let failed = 0;
 
   console.log(`\n[MadrigalScans:${source.label}] Processing ${source.totalPages} pages…`);
 
@@ -67,41 +68,49 @@ async function uploadSource(source: (typeof SOURCES)[0]) {
     const padded = String(pageNum).padStart(3, "0");
     const destination = `${source.storagePrefix}/page-${padded}.jpg`;
 
-    // Check if already uploaded
-    const exists = await makeStorageFile(BUCKET_NAME, destination).exists();
-    if (exists) {
-      skipped++;
-      process.stdout.write(`  skip page-${padded}\r`);
-      continue;
+    try {
+      // Check if already uploaded
+      const exists = await makeStorageFile(BUCKET_NAME, destination).exists();
+      if (exists) {
+        skipped++;
+        process.stdout.write(`  skip page-${padded}\r`);
+        continue;
+      }
+
+      // Extract single page
+      const outBase = path.join(tmpDir, `page-${padded}`);
+      execSync(
+        `pdftoppm -jpeg -r ${DPI} -f ${pageNum} -l ${pageNum} "${pdfPath}" "${outBase}"`,
+        { stdio: "pipe", timeout: 30_000 }
+      );
+
+      // pdftoppm appends -1 or -01 etc — find it
+      const files = readdirSync(tmpDir).filter((f) => f.startsWith(`page-${padded}`));
+      if (files.length === 0) {
+        console.error(`\n  [!] No file produced for page ${pageNum} — skipping`);
+        failed++;
+        continue;
+      }
+      const localFile = path.join(tmpDir, files[0]);
+
+      const imageBuffer = readFileSync(localFile);
+      await uploadBuffer(BUCKET_NAME, destination, imageBuffer, "image/jpeg");
+      uploaded++;
+      process.stdout.write(`  ✓ page-${padded} (${uploaded} uploaded, ${skipped} skipped)\r`);
+      unlinkSync(localFile);
+    } catch (err) {
+      failed++;
+      console.error(`\n  [!] page-${padded} failed — ${(err as Error).message ?? err}`);
+      // Continue to the next page; the skip-if-exists check means a retry
+      // will re-attempt only the pages that were not successfully uploaded.
     }
-
-    // Extract single page
-    const outBase = path.join(tmpDir, `page-${padded}`);
-    execSync(
-      `pdftoppm -jpeg -r ${DPI} -f ${pageNum} -l ${pageNum} "${pdfPath}" "${outBase}"`,
-      { stdio: "pipe", timeout: 30_000 }
-    );
-
-    // pdftoppm appends -1 or -01 etc — find it
-    const files = readdirSync(tmpDir).filter((f) => f.startsWith(`page-${padded}`));
-    if (files.length === 0) {
-      console.error(`  [!] No file produced for page ${pageNum}`);
-      continue;
-    }
-    const localFile = path.join(tmpDir, files[0]);
-
-    const imageBuffer = readFileSync(localFile);
-    await uploadBuffer(BUCKET_NAME, destination, imageBuffer, "image/jpeg");
-    uploaded++;
-    process.stdout.write(`  ✓ page-${padded} (${uploaded} uploaded, ${skipped} skipped)\r`);
-    unlinkSync(localFile);
   }
 
   // Clean up tmp dir
   try { execSync(`rm -rf "${tmpDir}"`); } catch (_) {}
 
   console.log(
-    `\n[MadrigalScans:${source.label}] Done — ${uploaded} uploaded, ${skipped} already present`
+    `\n[MadrigalScans:${source.label}] Done — ${uploaded} uploaded, ${skipped} already present, ${failed} failed`
   );
 }
 
