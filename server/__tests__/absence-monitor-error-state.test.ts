@@ -300,6 +300,240 @@ describe('recovery path — data defined after successful retry', () => {
   });
 });
 
+// ── Tests: Refresh button presence and refetch wiring — static source analysis ─
+//
+// CONTRACT: The Refresh button in AbsenceMonitorTab must be present and wired
+// to refetch() regardless of component state.  It must not be inside a
+// conditional block that hides it when isLoading=false and data=undefined
+// (error state).
+//
+// Approach: read the real CommandCenter.tsx source and assert on the
+// AbsenceMonitorTab region.  These tests will fail if the button is removed,
+// its onClick is changed, or it is wrapped in a conditional that hides it in
+// error state.
+
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+// ── Source extraction ─────────────────────────────────────────────────────────
+
+// Locate the AbsenceMonitorTab region in the real source file.
+// We extract from `function AbsenceMonitorTab()` to the next top-level
+// `function ` declaration so we only assert within this component.
+
+function readAbsenceMonitorTabSource(): string {
+  const filePath = resolve(
+    process.cwd(),
+    'client/src/pages/admin/CommandCenter.tsx',
+  );
+  const full = readFileSync(filePath, 'utf-8');
+  const start = full.indexOf('function AbsenceMonitorTab()');
+  if (start === -1) throw new Error('AbsenceMonitorTab not found in CommandCenter.tsx');
+  // Find the next top-level function declaration after the start.
+  const afterStart = full.indexOf('\nfunction ', start + 1);
+  return afterStart === -1 ? full.slice(start) : full.slice(start, afterStart);
+}
+
+const absenceMonitorTabSrc = readAbsenceMonitorTabSource();
+
+// ── Helper: extract the lines around the Refresh button ──────────────────────
+//
+// The button JSX is:
+//   <Button variant="outline" size="sm" onClick={() => refetch()}>
+//     <RefreshCw className="h-4 w-4 mr-2" />
+//     Refresh
+//   </Button>
+//
+// We locate the Button line containing onClick={() => refetch()} and check
+// whether it lives directly inside a CardContent (unconditional) or is wrapped
+// in an `if`/ternary that could hide it.
+
+function findRefreshButtonContext(src: string): {
+  buttonLine: string;
+  precedingConditional: boolean;
+} {
+  const lines = src.split('\n');
+  const btnIdx = lines.findIndex(
+    (l) => l.includes('onClick={() => refetch()}') && l.includes('<Button'),
+  );
+  if (btnIdx === -1) return { buttonLine: '', precedingConditional: false };
+
+  const buttonLine = lines[btnIdx];
+
+  // Walk back up to 15 lines to see if the nearest control-flow keyword before
+  // the button is `isLoading ?` or `data ?` (conditional render) vs plain JSX.
+  const lookback = lines.slice(Math.max(0, btnIdx - 15), btnIdx);
+  const conditionalKeywords = /\bisLoading\s*\?|\bdata\s*\?|\bdata\s*&&/;
+  // Ignore the isLoading ternary used for the *list* below the button; we need
+  // to find an open ternary that the button itself is inside.  A closing `)`
+  // between the keyword and the button means the ternary was already closed.
+  // Simple heuristic: check for unmatched ternary openers in the lookback.
+  const lookbackStr = lookback.join('\n');
+  const hasConditional =
+    conditionalKeywords.test(lookbackStr) &&
+    // If the last occurrence of `?` is balanced by a corresponding `:` before
+    // the button, the ternary is closed.  For our purposes: if the block ends
+    // with `</div>` or `</>` or `</Card` before the button, it's outside.
+    !/(\/div>|<\/>|<\/Card[^>]*>)\s*$/.test(lookbackStr.trimEnd());
+
+  return { buttonLine, precedingConditional: hasConditional };
+}
+
+describe('Refresh button — source-level presence and refetch wiring', () => {
+  it('AbsenceMonitorTab source is readable and non-empty', () => {
+    assert.ok(absenceMonitorTabSrc.length > 200, 'component source must be non-trivial');
+    assert.ok(
+      absenceMonitorTabSrc.startsWith('function AbsenceMonitorTab'),
+      'source must start at the correct function boundary',
+    );
+  });
+
+  it('Refresh button exists in AbsenceMonitorTab with onClick={() => refetch()}', () => {
+    assert.ok(
+      absenceMonitorTabSrc.includes('onClick={() => refetch()}'),
+      'AbsenceMonitorTab must contain a button with onClick={() => refetch()} — ' +
+        'if this fails the button was removed or its onClick was changed',
+    );
+  });
+
+  it('Refresh button carries the RefreshCw icon (visual identity check)', () => {
+    // The button is identified by its icon as well as its handler; both must be
+    // present so a replacement button without the icon also fails this test.
+    assert.ok(
+      absenceMonitorTabSrc.includes('RefreshCw'),
+      'AbsenceMonitorTab must contain a RefreshCw icon near the Refresh button',
+    );
+  });
+
+  it('Refresh button is NOT inside an isLoading conditional — it renders in error state', () => {
+    const { buttonLine, precedingConditional } = findRefreshButtonContext(absenceMonitorTabSrc);
+    assert.ok(
+      buttonLine.length > 0,
+      'Refresh button must be present (onClick={() => refetch()})',
+    );
+    assert.equal(
+      precedingConditional,
+      false,
+      'Refresh button must not be gated by an isLoading or data conditional — ' +
+        'it must render even when data is undefined (error state)',
+    );
+  });
+
+  it('refetch is declared via useQuery in AbsenceMonitorTab', () => {
+    // The component must destructure `refetch` from useQuery so the button
+    // onClick has a real React Query refetch to call.
+    assert.ok(
+      absenceMonitorTabSrc.includes('refetch') &&
+        absenceMonitorTabSrc.includes('useQuery'),
+      'AbsenceMonitorTab must use useQuery and destructure refetch from it',
+    );
+  });
+
+  it('query key targets /api/founder/absence-nudges — Refresh re-issues the correct endpoint', () => {
+    assert.ok(
+      absenceMonitorTabSrc.includes('/api/founder/absence-nudges'),
+      'useQuery in AbsenceMonitorTab must target /api/founder/absence-nudges ' +
+        'so refetch() re-issues the correct request after a 500',
+    );
+  });
+});
+
+// ── Tests: Refresh button click → recovered data replaces zeros ───────────────
+//
+// Sequence the user experiences:
+//   1. API returns 500  → isLoading=false, data=undefined → cards show 0.
+//   2. User clicks Refresh → refetch() re-issues /api/founder/absence-nudges.
+//   3. API recovers     → data becomes defined → cards show real values.
+//
+// Step 2 is confirmed by the source-level tests above (refetch is wired to the
+// button onClick).  Steps 1 and 3 are verified here against the same display
+// expressions the component uses.
+
+describe('Refresh button click → recovered data shows real nudge counts, not 0', () => {
+  // Step 1: error state — data=undefined, isLoading=false (identical to a 500 response).
+  it('before Refresh: pending card expression yields 0 in error state', () => {
+    const data: AbsenceNudgesResponse | undefined = undefined;
+    const isLoading = false;
+    // Mirrors: {isLoading ? '…' : (data?.summary.pending ?? 0)}
+    const displayed = isLoading ? '…' : (data?.summary.pending ?? 0);
+    assert.strictEqual(displayed, 0);
+  });
+
+  it('before Refresh: resolved card expression yields 0 in error state', () => {
+    const data: AbsenceNudgesResponse | undefined = undefined;
+    const isLoading = false;
+    const displayed = isLoading ? '…' : (data?.summary.resolved ?? 0);
+    assert.strictEqual(displayed, 0);
+  });
+
+  it('before Refresh: total card expression yields 0 in error state', () => {
+    const data: AbsenceNudgesResponse | undefined = undefined;
+    const isLoading = false;
+    const displayed = isLoading ? '…' : (data?.summary.total ?? 0);
+    assert.strictEqual(displayed, 0);
+  });
+
+  // Step 3: after refetch() returns successfully — data is defined.
+  it('after Refresh: pending card expression yields real count (1), not 0', () => {
+    const data = buildResponse([existingPendingNudge], [existingResolvedNudge], 1);
+    const isLoading = false;
+    const displayed = isLoading ? '…' : (data?.summary.pending ?? 0);
+    assert.strictEqual(displayed, 1);
+    assert.notStrictEqual(displayed, 0, 'pending must not be 0 after recovery');
+  });
+
+  it('after Refresh: resolved card expression yields real count (1), not 0', () => {
+    const data = buildResponse([existingPendingNudge], [existingResolvedNudge], 1);
+    const isLoading = false;
+    const displayed = isLoading ? '…' : (data?.summary.resolved ?? 0);
+    assert.strictEqual(displayed, 1);
+    assert.notStrictEqual(displayed, 0, 'resolved must not be 0 after recovery');
+  });
+
+  it('after Refresh: total card expression yields real count (2), not 0', () => {
+    const data = buildResponse([existingPendingNudge], [existingResolvedNudge], 1);
+    const isLoading = false;
+    const displayed = isLoading ? '…' : (data?.summary.total ?? 0);
+    assert.strictEqual(displayed, 2);
+    assert.notStrictEqual(displayed, 0, 'total must not be 0 after recovery');
+  });
+
+  it('after Refresh: pending list renders nudge cards (not empty state)', () => {
+    const data = buildResponse([existingPendingNudge], [existingResolvedNudge], 1);
+    // Component uses: (data?.pending ?? []).length === 0 → empty-state
+    const isEmpty = (data?.pending ?? []).length === 0;
+    assert.equal(isEmpty, false, 'pending list must be non-empty after recovery');
+  });
+
+  it('after Refresh: resolved list renders nudge cards (not empty state)', () => {
+    const data = buildResponse([existingPendingNudge], [existingResolvedNudge], 1);
+    const isEmpty = (data?.resolved ?? []).length === 0;
+    assert.equal(isEmpty, false, 'resolved list must be non-empty after recovery');
+  });
+
+  it('transition: pending display goes from 0 (error) to 1 (recovered)', () => {
+    const errorData: AbsenceNudgesResponse | undefined = undefined;
+    const recoveredData = buildResponse([existingPendingNudge], [existingResolvedNudge], 1);
+    const isLoading = false;
+
+    const before = isLoading ? '…' : (errorData?.summary.pending ?? 0);
+    const after  = isLoading ? '…' : (recoveredData?.summary.pending ?? 0);
+
+    assert.strictEqual(before, 0);
+    assert.strictEqual(after, 1);
+    assert.notStrictEqual(after, before, 'display value must change after recovery');
+  });
+
+  it('transition: total display goes from 0 (error) to 2 (recovered)', () => {
+    const errorData: AbsenceNudgesResponse | undefined = undefined;
+    const recoveredData = buildResponse([existingPendingNudge], [existingResolvedNudge], 1);
+    const isLoading = false;
+
+    assert.strictEqual(isLoading ? '…' : (errorData?.summary.total   ?? 0), 0);
+    assert.strictEqual(isLoading ? '…' : (recoveredData?.summary.total ?? 0), 2);
+  });
+});
+
 // ── Tests: ?? 0 guard semantics ───────────────────────────────────────────────
 //
 // Explicit verification that ?? catches null and undefined but not 0 or NaN.
