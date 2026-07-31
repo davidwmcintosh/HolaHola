@@ -4225,9 +4225,16 @@ export class NativeFunctionCallHandler {
 
             // 5) Refresh mid-session pattern anchor so buildActflPersonaAnchor stays current.
             //    Mirrors the same refresh applied on the PTT and OpenMic command-parser paths.
-            //    null clears stale patterns when all compartments resolve to stable.
-            const refreshed = await fetchPatternSignalContext(userId, language).catch(() => null);
-            session.activePatternSignals = refreshed;
+            //    null  = all compartments resolved to stable → intentional clear of the anchor
+            //    undefined = fetchPatternSignalContext threw → preserve the stale-but-correct value
+            //    string = active patterns found → replace with fresh signal
+            const refreshed = await fetchPatternSignalContext(userId, language).catch((): undefined => {
+              console.warn('[Native Function→RecordPatternSignal] fetchPatternSignalContext threw unexpectedly — preserving existing activePatternSignals to avoid silently dropping live wobble context');
+              return undefined;
+            });
+            if (refreshed !== undefined) {
+              session.activePatternSignals = refreshed;
+            }
           } catch (err: any) {
             console.error(`[Native Function→RecordPatternSignal] Error:`, err.message);
           }
