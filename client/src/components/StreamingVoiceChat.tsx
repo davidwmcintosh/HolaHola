@@ -1241,6 +1241,11 @@ export function StreamingVoiceChat({
             pronunciationScoreTimerRef.current = setTimeout(() => setPronunciationScore(null), 8000);
           },
           onGrammarFlagShown: (data) => {
+            if (!data.original || !data.original.trim() || !data.corrected || !data.corrected.trim()) {
+              console.warn('[StreamingVoiceChat] onGrammarFlagShown: malformed grammar flag data (blank original or corrected)', data);
+              toast({ title: 'Grammar correction unavailable', description: 'Daniela sent an incomplete grammar correction card — skipping.', variant: 'destructive' });
+              return;
+            }
             if (grammarFlagTimerRef.current) clearTimeout(grammarFlagTimerRef.current);
             setGrammarFlag(data);
             grammarFlagTimerRef.current = setTimeout(() => setGrammarFlag(null), 6000);

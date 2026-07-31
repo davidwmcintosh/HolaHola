@@ -1548,9 +1548,14 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
 
   const handleGrammarFlagShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
-    if (sessionConfigRef.current?.onGrammarFlagShown && message.data) {
-      sessionConfigRef.current.onGrammarFlagShown(message.data);
+    if (!sessionConfigRef.current?.onGrammarFlagShown || !message.data) return;
+    const d = message.data;
+    if (!d.original || typeof d.original !== 'string' || !d.original.trim() ||
+        !d.corrected || typeof d.corrected !== 'string' || !d.corrected.trim()) {
+      console.warn('[useStreamingVoice] handleGrammarFlagShown: malformed grammar flag data (blank original or corrected)', d);
+      return;
     }
+    sessionConfigRef.current.onGrammarFlagShown(d);
   }, []);
 
   const handleQuizPresented = useCallback((message: { type: string; timestamp: number; data: any }) => {
