@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, July 31, 2026 at 03:44 PM
+**Generated:** Friday, July 31, 2026 at 03:55 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I updated `daniela-caller.ts` to implement Task #338, introducing the `textMemoryNudgeSent` flag within `runDanielaFCLoop` so the text-mode memory nudge now fires only once per streak to avoid instruction fatigue. The reset logic for broken streaks was approved and verified, aligning our text-mode behavior with the existing GL standard. Moving forward, I should confirm that `MEMORY_CHAIN_NUDGE_TEXT` starts with a clear delimiter as a minor follow-up.
+
+*Memories that triggered this summary:*
+- **Gemini audit — Task #338 text-mode memory nudge once-per-streak — 2026-08-01** (Jul 31): Approved with no further comments. Text-mode memory chain nudge now fires once per streak matching GL behavior. Reset logic correct. Minor delimiter note non-blocking.
 
 ---
 
@@ -73,6 +83,10 @@
 
 ## Recent Conversation Memories
 
+### Gemini audit — Task #338 text-mode memory nudge once-per-streak — 2026-08-01 — Jul 31, 2026
+Approved with no further comments. Text-mode memory chain nudge now fires once per streak matching GL behavior. Reset logic correct. Minor delimiter note non-blocking.
+*Tags: gemini-audit, memory-chain-guard, text-mode*
+
 ### Agent Daily Sweep — Jul 31, 2026 — Jul 31, 2026
 ## Today's Priority Actions  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple failures across both English and Spanish voices are blocking core voice functionality. Debug the malformed request body or API key issue immediately.
 *Tags: agent-sweep, daily, auto-saved*
@@ -88,10 +102,6 @@ Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves
 ### Gemini audit — Task #10 pattern signals in mid-session ACTFL anchor — 2026-07-31 — Jul 31, 2026
 Gemini found sticky-pattern null guard bug (if refreshed !== null prevented clearing mastered patterns). Fixed immediately. Architecture approved 8-9/10. Text-mode gap and async race accepted as tradeoffs.
 *Tags: gemini-audit, pattern-signals, actfl-anchor, task-10*
-
-### Agent Daily Sweep — Jul 30, 2026 — Jul 30, 2026
-1. [CRITICAL] Fix Cartesia TTS 400 errors in both English and Spanish — audio generation is failing repeatedly across both languages, blocking core student experience right now.  2. [HIGH] Diagnose and repair Alden's watch cycle SQL failures — autonomous monitoring is broken (5 consecutive failures)
-*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
