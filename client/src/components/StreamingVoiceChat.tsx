@@ -46,6 +46,7 @@ import type { VoiceInputMode, OpenMicState } from "@shared/streaming-voice-types
 import type { VoiceOverride } from "./VoiceLabPanel";
 import type { LessonNote } from "@shared/whiteboard-types";
 import { SofiaWidget } from "@/components/SophiaWidget";
+import { isSpotlightMessageValid } from "@/lib/spotlight-guard";
 
 // ============================================================================
 // STREAMING MODE CONFIGURATION
@@ -1275,7 +1276,7 @@ export function StreamingVoiceChat({
             setCulturalContext(data);
           },
           onSpotlightShown: (data) => {
-            if (!data.message || !data.message.trim()) {
+            if (!isSpotlightMessageValid(data)) {
               console.warn('[StreamingVoiceChat] onSpotlightShown: malformed spotlight data (empty message)', data);
               toast({ title: 'Spotlight unavailable', description: 'Daniela sent an incomplete spotlight card — skipping.', variant: 'destructive' });
               return;

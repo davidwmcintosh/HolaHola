@@ -16,6 +16,7 @@ import { setGlobalPlaybackState, getGlobalPlaybackState } from '../lib/playbackS
 import { useGlobalPropTap } from '../lib/propTapStore';
 import { diagSetSession, diagSetHookRefs, diagEvent, diagMarkConnect, diagMarkFirstAudio, diagMarkResponseComplete, diagMarkDisconnect, diagMarkTurnStart, diagMarkSpeechEnd, diagMarkError, diagMarkTtsError, diagMarkFailsafe, reportDiagnostic, startLockoutWatchdog, startGreetingSilenceWatchdog } from '../lib/lockoutDiagnostics';
 import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock';
+import { validateSpotlightMessage } from '../lib/spotlight-guard';
 import { preWarmMicroAcks, selectMicroAck, playMicroAck } from '../services/microAckService';
 import { 
   STREAMING_FEATURE_FLAGS,
@@ -1596,12 +1597,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
 
   const handleSpotlightShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
     if (!sessionConfigRef.current?.onSpotlightShown || !message.data) return;
-    const d = message.data;
-    if (!d.message || typeof d.message !== 'string' || !d.message.trim()) {
-      console.warn('[useStreamingVoice] handleSpotlightShown: malformed spotlight data (empty message)', d);
+    const d = validateSpotlightMessage(message.data);
+    if (!d) {
+      console.warn('[useStreamingVoice] handleSpotlightShown: malformed spotlight data (empty message)', message.data);
       return;
     }
-    sessionConfigRef.current.onSpotlightShown(d);
+    sessionConfigRef.current.onSpotlightShown(d as any);
   }, []);
 
   // Gap D — Shared Mission
