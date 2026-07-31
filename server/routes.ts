@@ -33382,22 +33382,8 @@ You have full access to your neural network knowledge.
   });
 
   // ABSENCE NUDGES: Resolved nudge history with resolutionType labels
-  app.get("/api/admin/absence-nudges/history", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
-    try {
-      const { listResolvedNudges } = await import('./services/daniela-absence-worker');
-      const rawLimit = parseInt(req.query.limit as string, 10);
-      const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 20, 1), 100);
-      const rawType = req.query.resolutionType as string | undefined;
-      const VALID_TYPES = ['student_returned', 'message_queued', 'dismissed'] as const;
-      type ValidType = typeof VALID_TYPES[number];
-      const resolutionType = VALID_TYPES.includes(rawType as ValidType) ? (rawType as ValidType) : undefined;
-      const history = await listResolvedNudges(limit, resolutionType);
-      res.json({ history });
-    } catch (error: any) {
-      console.error('[AbsenceNudges] History endpoint error:', error);
-      res.status(500).json({ error: error.message });
-    }
-  });
+  // Handler extracted to server/routes/absence-nudges-history.ts for testability.
+  app.get("/api/admin/absence-nudges/history", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, (await import('./routes/absence-nudges-history')).absenceHistoryHandler);
 
   // PROCEDURE FLAGS: Daniela's knowledge-domain flags from normal sessions
   // These land in agent_notes with subject prefix "[Daniela — REQUIRES FOUNDER REVIEW]"
