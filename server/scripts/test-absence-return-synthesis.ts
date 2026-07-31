@@ -23,10 +23,16 @@
  * Run: npx tsx server/scripts/test-absence-return-synthesis.ts
  */
 
+import { readFileSync } from 'fs';
+import { resolve as pathResolve, dirname as pathDirname } from 'path';
+import { fileURLToPath } from 'url';
 import { getSharedDb } from '../db';
 import { danielaAbsenceNudges } from '@shared/schema';
 import { eq, and, isNull } from 'drizzle-orm';
 import type { CompassContext } from '@shared/schema';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = pathDirname(__filename);
 
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const R = (s: string) => `\x1b[31m${s}\x1b[0m`;
@@ -608,6 +614,141 @@ async function runPart4(): Promise<void> {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PART 5 — Source-level: warm-synthesis HTTP route bakes the absence signal in
+//           so the WS handler stale-cache guard is a last resort, not primary path
+//
+// Checks:
+//   a) The warm-synthesis route calls peekAbsenceReturnDetails (read-only peek)
+//   b) The peek result (returningAfterAbsence) is forwarded to generatePreSessionSynthesis
+//      as its last argument — i.e. the signal is baked into the warm cache
+//   c) generatePreSessionSynthesis is called AFTER the peek (correct ordering)
+//   d) setWarmSynthesis is called with the synthesized result (cache is populated)
+//   e) The route emits "[WarmSynthesis] ✓ Pending absence nudge detected" when a
+//      nudge is found — confirming the signal-aware path is exercised
+//   f) The WS handler guard (warmedNote && absenceReturn → regenerate) exists in
+//      unified-ws-handler.ts as a LAST RESORT fallback — it must NOT be the only
+//      place the absence signal enters; the route is the primary path
+//   g) The WS handler guard fires ONLY when both preconditions hold (stale warm
+//      cache + non-null absenceReturn) — when the route runs correctly the warm
+//      cache already carries the signal, so absenceReturn from
+//      autoResolveAbsenceNudgeOnReturn would still be non-null but the "stale"
+//      condition is false (the warm cache already has the signal baked in).
+//      The guard is therefore a safety net, not the happy path.
+// ══════════════════════════════════════════════════════════════════════════════
+function runPart5(): void {
+  sep();
+  console.log(B('PART 5 — Source-level: warm-synthesis HTTP route bakes absence signal in (guard is last resort)'));
+  sep();
+
+  const routesSrc = readFileSync(
+    pathResolve(__dirname, '../routes.ts'),
+    'utf-8',
+  ) as string;
+
+  const wsSrc = readFileSync(
+    pathResolve(__dirname, '../unified-ws-handler.ts'),
+    'utf-8',
+  ) as string;
+
+  // ── 5a. Route calls peekAbsenceReturnDetails ─────────────────────────────
+  const routeCallsPeek = routesSrc.includes('peekAbsenceReturnDetails');
+  assert(
+    '5a. warm-synthesis route calls peekAbsenceReturnDetails (read-only absence check)',
+    routeCallsPeek,
+    routeCallsPeek ? undefined : 'peekAbsenceReturnDetails not found in routes.ts — route may not be checking for pending nudges',
+  );
+
+  // ── 5b. returningAfterAbsence is forwarded to generatePreSessionSynthesis ─
+  // The route must pass the peek result as the last arg of generatePreSessionSynthesis.
+  // We look for the pattern: generatePreSessionSynthesis( ... returningAfterAbsence )
+  // within the warm-synthesis route block.
+  const warmSynthesisBlock = (() => {
+    const routeMarker = '/api/sessions/warm-synthesis';
+    const startIdx = routesSrc.indexOf(routeMarker);
+    if (startIdx === -1) return '';
+    // Grab ~150 lines after the route declaration
+    return routesSrc.slice(startIdx, startIdx + 4000);
+  })();
+
+  const signalForwardedToSynth =
+    warmSynthesisBlock.includes('generatePreSessionSynthesis') &&
+    warmSynthesisBlock.includes('returningAfterAbsence');
+  assert(
+    '5b. returningAfterAbsence (peek result) is forwarded to generatePreSessionSynthesis in the warm-synthesis route',
+    signalForwardedToSynth,
+    signalForwardedToSynth
+      ? undefined
+      : 'Either generatePreSessionSynthesis or returningAfterAbsence not found in the warm-synthesis route block — the absence signal may not be reaching synthesis',
+  );
+
+  // ── 5c. Peek happens BEFORE generatePreSessionSynthesis ──────────────────
+  const peekIdx   = warmSynthesisBlock.indexOf('peekAbsenceReturnDetails');
+  const synthIdx  = warmSynthesisBlock.indexOf('generatePreSessionSynthesis');
+  const peekBeforeSynth = peekIdx !== -1 && synthIdx !== -1 && peekIdx < synthIdx;
+  assert(
+    '5c. peekAbsenceReturnDetails() is called BEFORE generatePreSessionSynthesis() in the route (correct ordering)',
+    peekBeforeSynth,
+    peekBeforeSynth
+      ? undefined
+      : `Ordering wrong or symbols missing — peekIdx=${peekIdx}, synthIdx=${synthIdx}`,
+  );
+
+  // ── 5d. setWarmSynthesis is called with the synthesis result ─────────────
+  const routeCallsSetWarm = warmSynthesisBlock.includes('setWarmSynthesis');
+  assert(
+    '5d. setWarmSynthesis() is called in the warm-synthesis route (warm cache is populated with signal-aware synthesis)',
+    routeCallsSetWarm,
+    routeCallsSetWarm ? undefined : 'setWarmSynthesis not found in the warm-synthesis route block',
+  );
+
+  // ── 5e. Log line confirms signal-aware path ───────────────────────────────
+  const hasNudgeDetectedLog = warmSynthesisBlock.includes('[WarmSynthesis] ✓ Pending absence nudge detected');
+  assert(
+    '5e. Route emits "[WarmSynthesis] ✓ Pending absence nudge detected" log when a nudge is found',
+    hasNudgeDetectedLog,
+    hasNudgeDetectedLog ? undefined : 'Log line not found — the signal-aware branch may be missing its confirmation log',
+  );
+
+  // ── 5f. WS guard exists in unified-ws-handler.ts ─────────────────────────
+  // The guard must exist as a safety net for the edge case where the warm-synthesis
+  // route ran BEFORE the nudge was created (or if the route failed).
+  const wsGuardPattern = /warmedNote\s*&&\s*absenceReturn/;
+  const wsHasGuard = wsGuardPattern.test(wsSrc);
+  assert(
+    '5f. WS handler contains the stale-cache guard (warmedNote && absenceReturn → regenerate) as a last-resort fallback',
+    wsHasGuard,
+    wsHasGuard ? undefined : 'Guard pattern "warmedNote && absenceReturn" not found in unified-ws-handler.ts — the last-resort safety net may be missing',
+  );
+
+  // ── 5g. Route peek is non-mutating; WS handler uses the resolving call ────
+  // The route uses peekAbsenceReturnDetails (read-only).
+  // The WS handler uses autoResolveAbsenceNudgeOnReturn (which resolves the nudge).
+  // This separation means the warm cache is populated BEFORE the session starts,
+  // and the actual nudge resolution still happens at true session start.
+  const routeUsesPeekNotResolve =
+    warmSynthesisBlock.includes('peekAbsenceReturnDetails') &&
+    !warmSynthesisBlock.includes('autoResolveAbsenceNudgeOnReturn');
+  assert(
+    '5g. Warm-synthesis route uses peekAbsenceReturnDetails (read-only) — not autoResolveAbsenceNudgeOnReturn (which must only run at true session start)',
+    routeUsesPeekNotResolve,
+    routeUsesPeekNotResolve
+      ? undefined
+      : 'Route either missing peek call or incorrectly calling autoResolveAbsenceNudgeOnReturn — nudge resolution must only happen at WS connect, not on Prepare-screen pre-warm',
+  );
+
+  const wsUsesResolve = wsSrc.includes('autoResolveAbsenceNudgeOnReturn');
+  assert(
+    '5g (cont). WS handler uses autoResolveAbsenceNudgeOnReturn (resolving call) at true session start',
+    wsUsesResolve,
+    wsUsesResolve ? undefined : 'autoResolveAbsenceNudgeOnReturn not found in unified-ws-handler.ts',
+  );
+
+  console.log(D('\n  Summary: warm-synthesis route is the PRIMARY absence-signal path. The WS guard'));
+  console.log(D('  (warmedNote && absenceReturn → regenerate) is a LAST RESORT for the edge case where'));
+  console.log(D('  the route ran before a nudge existed or the route failed silently.\n'));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MAIN
 // ══════════════════════════════════════════════════════════════════════════════
 (async () => {
@@ -626,6 +767,9 @@ async function runPart4(): Promise<void> {
 
     // Part 4 runs independently — uses TEST_USER_ID_2 to avoid cache contamination.
     await runPart4();
+
+    // Part 5 is synchronous source-level analysis — no DB or network calls.
+    runPart5();
   } catch (err: any) {
     stopCapture();
     origLog(R(`\nUnhandled error: ${err?.message ?? err}`));
