@@ -35,6 +35,7 @@ import {
   buildHistoryUrl,
   isActiveButton,
   buildFilters,
+  getEmptyStateMessage,
   type ResolvedNudge,
 } from '../lib/absence-history-panel-logic.js';
 
@@ -233,5 +234,25 @@ describe('AbsenceHistoryPanel — buildFilters array structure (production helpe
     const allEntry = filters.find((f) => f.key === 'all')!;
     assert.equal(shouldRenderFilterButtons(history), true);
     assert.ok(allEntry.count > 0);
+  });
+});
+
+describe('AbsenceHistoryPanel — empty-state message (production helper)', () => {
+  it('shows "No resolved nudges yet" when allHistory is empty (zero nudges total)', () => {
+    assert.equal(getEmptyStateMessage([]), 'No resolved nudges yet');
+  });
+
+  it('shows "No nudges match this filter" when allHistory is non-empty but filtered history is empty', () => {
+    // allHistory has entries (filter buttons are visible) but the active filter
+    // matched nothing — the component passes allHistory to getEmptyStateMessage
+    // so it can distinguish the two states.
+    const allHistory = [nudgeReturned, nudgeMessaged];
+    assert.equal(getEmptyStateMessage(allHistory), 'No nudges match this filter');
+  });
+
+  it('the two messages are distinct strings', () => {
+    const noNudgesMsg = getEmptyStateMessage([]);
+    const noMatchMsg = getEmptyStateMessage([nudgeDismissed]);
+    assert.notEqual(noNudgesMsg, noMatchMsg);
   });
 });

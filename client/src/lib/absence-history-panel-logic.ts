@@ -55,6 +55,23 @@ export function isActiveButton(activeFilter: AbsenceFilterType, key: AbsenceFilt
 }
 
 /**
+ * Returns the correct empty-state message for the history list.
+ *
+ * When both the full list and the filtered list are empty there are no nudges
+ * at all → "No resolved nudges yet".
+ * When the full list has entries but the filtered view is empty the active
+ * filter produced no matches → "No nudges match this filter".
+ *
+ * Mirrors the ternary on lines 165-168 of ExpressLanePane.tsx:
+ *   allHistory.length === 0 ? "No resolved nudges yet" : "No nudges match this filter"
+ */
+export function getEmptyStateMessage(allHistory: ResolvedNudge[]): string {
+  return allHistory.length === 0
+    ? "No resolved nudges yet"
+    : "No nudges match this filter";
+}
+
+/**
  * Builds the full filters array as AbsenceHistoryPanel does.
  * Mirrors the `filters` array construction inside the component.
  */

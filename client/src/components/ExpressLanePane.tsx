@@ -35,6 +35,7 @@ import {
   buildHistoryUrl,
   isActiveButton,
   buildFilters,
+  getEmptyStateMessage,
   type ResolvedNudge,
 } from "@/lib/absence-history-panel-logic";
 
@@ -163,8 +164,8 @@ function AbsenceHistoryPanel() {
 
       {/* History list */}
       {history.length === 0 ? (
-        <p className="text-[10px] text-muted-foreground px-1 py-1 italic">
-          {allHistory.length === 0 ? "No resolved nudges yet" : "No nudges match this filter"}
+        <p className="text-[10px] text-muted-foreground px-1 py-1 italic" data-testid="absence-history-empty-state">
+          {getEmptyStateMessage(allHistory)}
         </p>
       ) : (
         <div className="space-y-1.5" data-testid="absence-nudge-history">
