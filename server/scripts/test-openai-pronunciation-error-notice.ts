@@ -249,20 +249,60 @@ console.log('\n[6] analyzePronunciation() throws (not silent) when no key — ma
   }
 }
 
-// ── Scenario 7: StreamingVoiceChat.tsx — streaming path guard ─────────────────
+// ── Scenario 7: Hook-level guard in useStreamingVoice.ts + StreamingVoiceChat.tsx ─
 //
 // The streaming voice path does NOT call /api/pronunciation-scores/analyze.
 // Instead Daniela scores pronunciation herself via the show_pronunciation_score
 // tool; scores arrive over WebSocket as a structured event. Because there is no
 // server-side OpenAI call in this path, the pronunciation_unavailable error
-// shape from scenario 4 cannot occur. The streaming path has its own guard:
-// it validates the incoming tool data before touching React state, and shows the
-// same "Pronunciation feedback is temporarily unavailable" toast on malformed data.
+// shape from scenario 4 cannot occur. The streaming path has two layers of guards:
+//
+//  Layer 1 (hook): handlePronunciationScoreShown in useStreamingVoice.ts validates
+//    phrase, wordScores, and overallScore before calling the consumer callback.
+//    This is the primary gate — it ensures ANY future consumer of the hook
+//    receives only well-formed pronunciation data, matching the quiz pattern.
+//
+//  Layer 2 (component): StreamingVoiceChat.tsx keeps its own guard as a
+//    belt-and-suspenders layer, showing the user-visible toast on bad data.
 
-console.log('\n[7] StreamingVoiceChat.tsx — streaming path: no direct endpoint call, malformed-data guard present');
+console.log('\n[7] useStreamingVoice.ts hook-level guard + StreamingVoiceChat.tsx component guard both present');
 {
   const fs = await import('node:fs/promises');
   const path = await import('node:path');
+
+  // ── Layer 1: hook-level guard in useStreamingVoice.ts ──────────────────────
+  const hookPath = path.join(process.cwd(), 'client', 'src', 'hooks', 'useStreamingVoice.ts');
+  const hookSource = await fs.readFile(hookPath, 'utf8');
+
+  // The hook must define handlePronunciationScoreShown and validate before calling consumer.
+  if (hookSource.includes('handlePronunciationScoreShown')) {
+    pass('useStreamingVoice.ts defines handlePronunciationScoreShown');
+  } else {
+    fail('useStreamingVoice.ts is missing handlePronunciationScoreShown');
+  }
+
+  // phrase validation must be present in the hook (not just the component).
+  if (/handlePronunciationScoreShown[\s\S]{0,600}typeof d\.phrase/.test(hookSource)) {
+    pass('useStreamingVoice.ts validates phrase in handlePronunciationScoreShown before calling consumer');
+  } else {
+    fail('useStreamingVoice.ts is missing phrase validation in handlePronunciationScoreShown');
+  }
+
+  // wordScores array check must be present in the hook.
+  if (/handlePronunciationScoreShown[\s\S]{0,600}Array\.isArray\(d\.wordScores\)/.test(hookSource)) {
+    pass('useStreamingVoice.ts validates wordScores array in handlePronunciationScoreShown');
+  } else {
+    fail('useStreamingVoice.ts is missing wordScores array validation in handlePronunciationScoreShown');
+  }
+
+  // overallScore type check must be present in the hook.
+  if (/handlePronunciationScoreShown[\s\S]{0,600}typeof d\.overallScore/.test(hookSource)) {
+    pass('useStreamingVoice.ts validates overallScore in handlePronunciationScoreShown');
+  } else {
+    fail('useStreamingVoice.ts is missing overallScore validation in handlePronunciationScoreShown');
+  }
+
+  // ── Layer 2: component-level guard in StreamingVoiceChat.tsx ───────────────
   const streamingPath = path.join(process.cwd(), 'client', 'src', 'components', 'StreamingVoiceChat.tsx');
   const source = await fs.readFile(streamingPath, 'utf8');
 
