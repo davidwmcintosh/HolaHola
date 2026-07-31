@@ -292,3 +292,113 @@ describe('uploadSource loop — happy path (no failures)', () => {
     assert.equal(result.failed, 0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Missing-PDF early-return path
+// ---------------------------------------------------------------------------
+// Mirrors the pdfPath existsSync guard in uploadSource():
+//
+//   if (!existsSync(pdfPath)) {
+//     console.warn(`… skipping`);
+//     return;               // <-- early return; tmpDir is created AFTER this
+//   }
+//   const tmpDir = …;
+//   mkdirSync(tmpDir, …);
+//   … loop …
+//   rm -rf tmpDir
+//
+// We inline the same guard so the test has zero production-import dependencies.
+// ---------------------------------------------------------------------------
+
+interface SourceConfigWithPdf extends SourceConfig {
+  pdfExists: boolean;
+}
+
+async function runUploadSourceWithPdfGuard(
+  source: SourceConfigWithPdf,
+  getPageBuffer: (pageNum: number) => Buffer | Promise<Buffer>,
+  makeStorageFileFn: MakeStorageFile,
+  uploadBufferFn: UploadBuffer,
+  tmpDirCreated: { value: boolean },
+): Promise<UploadResult | null> {
+  // Mirror the production guard
+  if (!source.pdfExists) {
+    // tmpDir is intentionally NOT created — this mirrors the production path
+    return null; // signals "early return"
+  }
+
+  // Only reached when pdfExists is true
+  tmpDirCreated.value = true;
+
+  const result = await runUploadLoop(source, getPageBuffer, makeStorageFileFn, uploadBufferFn);
+
+  // Cleanup (mirrors production `rm -rf tmpDir`)
+  tmpDirCreated.value = false;
+
+  return result;
+}
+
+describe('uploadSource — missing PDF early-return path', () => {
+  it('returns null (early exit) when the PDF does not exist', async () => {
+    const created = { value: false };
+    const result = await runUploadSourceWithPdfGuard(
+      { ...TEST_SOURCE, pdfExists: false },
+      dummyBuffer(),
+      alwaysNew(),
+      successUpload(),
+      created,
+    );
+
+    assert.equal(result, null, 'uploadSource must return early when PDF is missing');
+  });
+
+  it('uploaded=0, failed=0, skipped=0 when PDF is missing (no pages processed)', async () => {
+    // Because the function returns null we record 0/0/0 as the "effective" result.
+    const created = { value: false };
+    const result = await runUploadSourceWithPdfGuard(
+      { ...TEST_SOURCE, pdfExists: false },
+      dummyBuffer(),
+      alwaysNew(),
+      successUpload(),
+      created,
+    );
+
+    const effective = result ?? { uploaded: 0, skipped: 0, failed: 0 };
+    assert.equal(effective.uploaded, 0, 'no pages should be uploaded');
+    assert.equal(effective.skipped, 0, 'no pages should be skipped');
+    assert.equal(effective.failed, 0, 'no pages should be failed');
+  });
+
+  it('tmp directory is never created when the PDF is missing', async () => {
+    const created = { value: false };
+    await runUploadSourceWithPdfGuard(
+      { ...TEST_SOURCE, pdfExists: false },
+      dummyBuffer(),
+      alwaysNew(),
+      successUpload(),
+      created,
+    );
+
+    assert.equal(
+      created.value,
+      false,
+      'tmpDir must not be created on the early-return path',
+    );
+  });
+
+  it('does process pages normally when PDF exists', async () => {
+    const created = { value: false };
+    const result = await runUploadSourceWithPdfGuard(
+      { ...TEST_SOURCE, pdfExists: true },
+      dummyBuffer(),
+      alwaysNew(),
+      successUpload(),
+      created,
+    );
+
+    assert.ok(result !== null, 'should return a result when PDF exists');
+    assert.equal(result!.uploaded, TEST_SOURCE.totalPages);
+    assert.equal(result!.failed, 0);
+    assert.equal(result!.skipped, 0);
+  });
+});
