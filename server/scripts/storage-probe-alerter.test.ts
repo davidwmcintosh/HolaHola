@@ -14,6 +14,7 @@ import assert from 'node:assert/strict';
 
 import {
   handleStorageProbeResult,
+  runPeriodicStorageProbe,
   EXPRESS_LANE_FOUNDER_ID,
   EXPRESS_LANE_SESSION_TITLE,
   type ProbeAlerterSessionService,
@@ -243,6 +244,58 @@ describe('handleStorageProbeResult — resilience', () => {
     await assert.doesNotReject(
       () => handleStorageProbeResult(probe, brokenSessionService, broker),
       'handleStorageProbeResult should not propagate service errors',
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Interval wiring — confirms setInterval callback reaches handleStorageProbeResult
+// ---------------------------------------------------------------------------
+
+describe('runPeriodicStorageProbe — interval wiring', () => {
+  it('calls handleStorageProbeResult with a failing probe result and posts [STORAGE PROBE FAILED]', async () => {
+    const { sessionService, broker, state } = makeMocks();
+
+    // Stub logStorageBackend to return a failing result, just as a broken
+    // credential rotation mid-session would.
+    const stubLogFn = async (): Promise<StorageProbeResult> => ({
+      ok: false,
+      bucket: 'periodic-probe-bucket',
+      error: 'token expired',
+    });
+
+    await runPeriodicStorageProbe(stubLogFn, sessionService, broker);
+
+    assert.equal(state.postedMessages.length, 1, 'expected exactly one alert message from the interval callback');
+    const msg = state.postedMessages[0]!;
+    assert.ok(
+      msg.content?.includes('[STORAGE PROBE FAILED]'),
+      'interval callback must post [STORAGE PROBE FAILED] on a failing probe',
+    );
+    assert.ok(
+      msg.content?.includes('periodic-probe-bucket'),
+      'alert must include the bucket name from the probe result',
+    );
+    assert.ok(
+      msg.content?.includes('token expired'),
+      'alert must include the error text from the probe result',
+    );
+  });
+
+  it('posts nothing when logStorageBackend returns a passing result with no prior failure', async () => {
+    const { sessionService, broker, state } = makeMocks([]);
+
+    const stubLogFn = async (): Promise<StorageProbeResult> => ({
+      ok: true,
+      bucket: 'periodic-probe-bucket',
+    });
+
+    await runPeriodicStorageProbe(stubLogFn, sessionService, broker);
+
+    assert.equal(
+      state.postedMessages.length,
+      0,
+      'interval callback must not post when probe passes and there is no prior failure to clear',
     );
   });
 });

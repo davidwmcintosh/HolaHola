@@ -604,9 +604,8 @@ app.use((req, res, next) => {
     setInterval(async () => {
       try {
         const { logStorageBackend } = await import('./replit_integrations/object_storage/objectStorage');
-        const { handleStorageProbeResult } = await import('./services/storage-probe-alerter');
-        const probeResult = await logStorageBackend();
-        await handleStorageProbeResult(probeResult, founderCollabService, founderCollabWSBroker);
+        const { runPeriodicStorageProbe } = await import('./services/storage-probe-alerter');
+        await runPeriodicStorageProbe(logStorageBackend, founderCollabService, founderCollabWSBroker);
       } catch (err: any) {
         console.warn('[ObjectStorage] Periodic probe threw unexpectedly:', err?.message ?? err);
       }

@@ -43,6 +43,30 @@ export const EXPRESS_LANE_SESSION_TITLE = 'Daniela — Student Watch';
 // Core logic
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Interval wiring helper — injectable so the setInterval body is testable
+// ---------------------------------------------------------------------------
+
+/**
+ * Thin wrapper called by the `setInterval` block in server/index.ts.
+ *
+ * Accepts the probe function as a dependency so tests can stub it without
+ * touching global module state.  The real `server/index.ts` passes
+ * `logStorageBackend` from objectStorage directly.
+ */
+export async function runPeriodicStorageProbe(
+  logFn: () => Promise<StorageProbeResult>,
+  sessionService: ProbeAlerterSessionService,
+  broker: ProbeAlerterBroker,
+): Promise<void> {
+  const probeResult = await logFn();
+  await handleStorageProbeResult(probeResult, sessionService, broker);
+}
+
+// ---------------------------------------------------------------------------
+// Core logic
+// ---------------------------------------------------------------------------
+
 /**
  * Post the appropriate alert (or nothing) to the Express Lane based on the
  * outcome of the storage probe.
