@@ -19,7 +19,17 @@ import * as path from "path";
 import * as os from "os";
 import { makeStorageFile, uploadBuffer } from "../replit_integrations/object_storage/objectStorage";
 
-const BUCKET_NAME = "replit-objstore-cf6ba6d4-2685-4f0a-9ea8-f1861aefef11";
+const BUCKET_NAME =
+  process.env.DEFAULT_OBJECT_STORAGE_BUCKET_ID ||
+  process.env.AWS_S3_DESTINATION_BUCKET ||
+  "";
+
+if (!BUCKET_NAME) {
+  console.error(
+    "[MadrigalScans] No bucket configured. Set DEFAULT_OBJECT_STORAGE_BUCKET_ID or AWS_S3_DESTINATION_BUCKET."
+  );
+  process.exit(1);
+}
 const DPI = 120;
 const CROOT = process.cwd();
 
