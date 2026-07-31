@@ -341,7 +341,22 @@ async function main() {
     fail('Could not decrypt phone number from storage');
   }
 
-  const smsSent = decryptedPhone ? await sendSms(decryptedPhone, vmUrl) : false;
+  // Validate E.164 format before attempting the Twilio call.
+  // A number without a leading '+' will be silently rejected by Twilio;
+  // catching it here produces a clear, actionable failure instead.
+  let e164Phone = decryptedPhone;
+  if (decryptedPhone) {
+    const { normalizeE164 } = await import('../services/voice-message-delivery');
+    try {
+      e164Phone = normalizeE164(decryptedPhone);
+      pass(`Phone passes E.164 validation: ${e164Phone.slice(0, 3)}${'*'.repeat(Math.max(0, e164Phone.length - 5))}${e164Phone.slice(-2)}`);
+    } catch (err: any) {
+      fail(`E.164 validation failed — ${err.message}`);
+      e164Phone = '';
+    }
+  }
+
+  const smsSent = e164Phone ? await sendSms(e164Phone, vmUrl) : false;
   if (smsSent) {
     await db.update(danielaOutboundQueue)
       .set({ smsDeliveredAt: new Date() })

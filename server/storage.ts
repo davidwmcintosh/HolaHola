@@ -1585,9 +1585,20 @@ export class DatabaseStorage implements IStorage {
   }): Promise<import('@shared/schema').StudentContactPreferences> {
     const { studentContactPreferences } = await import('@shared/schema');
     const { encryptPhone, decryptPhone } = await import('./services/phone-encryption');
+
+    // Normalise and validate the phone number to E.164 before storing.
+    // Twilio requires E.164 (+[country][subscriber]). Rejecting non-E.164 here
+    // surfaces the problem at write-time with a clear error rather than producing
+    // a silent SMS failure when the stored value is later passed to Twilio.
+    let normalizedPhone = data.phone;
+    if (normalizedPhone != null) {
+      const { normalizeE164 } = await import('./services/voice-message-delivery');
+      normalizedPhone = normalizeE164(normalizedPhone);
+    }
+
     const storedData = {
       ...data,
-      phone: data.phone != null ? encryptPhone(data.phone) : data.phone,
+      phone: normalizedPhone != null ? encryptPhone(normalizedPhone) : normalizedPhone,
     };
     const [result] = await db.insert(studentContactPreferences)
       .values({ userId, ...storedData, updatedAt: new Date() })

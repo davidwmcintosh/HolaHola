@@ -68,14 +68,34 @@ export async function sendSmsWithCredentials(
   return true;
 }
 
-function normalizeE164(phone: string): string {
+/**
+ * Normalise a phone number to E.164 format (+[country][subscriber]).
+ *
+ * Throws an explicit error when the number cannot be confirmed valid so callers
+ * receive a clear, actionable message instead of a cryptic Twilio rejection.
+ *
+ * Exported for use by the pipeline test script and upsert-time validation.
+ */
+export function normalizeE164(phone: string): string {
   const stripped = phone.replace(/[\s\-().]/g, '');
-  if (!stripped.startsWith('+')) return stripped;
-  for (const len of [3, 2, 1]) {
-    const cc = stripped.slice(1, 1 + len);
-    const rest = stripped.slice(1 + len);
-    if (rest.startsWith(cc)) return '+' + cc + rest.slice(cc.length);
+
+  if (!stripped.startsWith('+')) {
+    throw new Error(
+      `Phone number "${stripped}" is not in E.164 format — it must start with '+' followed by the ` +
+      `country code (e.g. +15551234567). ` +
+      `Store numbers with the leading '+' to prevent silent Twilio rejections.`,
+    );
   }
+
+  // E.164 requires '+' then 7–15 digits (country code + subscriber number).
+  if (!/^\+[1-9]\d{6,14}$/.test(stripped)) {
+    throw new Error(
+      `Phone "${stripped}" is not a valid E.164 number — ` +
+      `expected '+' followed by 7–15 digits (country code + subscriber). ` +
+      `Twilio will reject this number.`,
+    );
+  }
+
   return stripped;
 }
 
