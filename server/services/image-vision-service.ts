@@ -70,8 +70,10 @@ async function fetchImageBytes(url: string): Promise<{ data: string; mimeType: s
  * After the backfill (backfill-image-vision-cache-urls.ts) all rows are stored
  * under the /api/media/ai-image/ proxy form, so a single equality check is
  * sufficient.  The raw GCS URL is no longer needed as a fallback key.
+ *
+ * Exported for unit-testing the cache lookup contract.
  */
-async function getCachedDescription(normUrl: string): Promise<string | null> {
+export async function getCachedDescription(normUrl: string): Promise<string | null> {
   try {
     const db = getUserDb();
     const result = await db.execute(sql`
