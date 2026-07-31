@@ -20,6 +20,7 @@ import type { StreamingSession } from './streaming-session-types';
 import { getUserDb } from '../db';
 import { sql } from 'drizzle-orm';
 import { GoogleGenAI } from '@google/genai';
+import { normalizeImageUrl } from './image-storage';
 
 const gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
 
@@ -63,16 +64,28 @@ async function fetchImageBytes(url: string): Promise<{ data: string; mimeType: s
   return { data, mimeType };
 }
 
-async function getCachedDescription(imageUrl: string): Promise<string | null> {
+/**
+ * Look up a cached description by URL.
+ *
+ * @param normUrl - The normalised proxy URL (/api/media/ai-image/…) — used for new rows.
+ * @param rawUrl  - The original URL as supplied by the caller (may be a raw GCS URL for
+ *                  legacy rows that pre-date URL normalisation).  When the two are equal
+ *                  (already normalised) the IN () degenerates to a single-value lookup.
+ */
+async function getCachedDescription(normUrl: string, rawUrl: string): Promise<string | null> {
   try {
     const db = getUserDb();
+    // Query both keys so old GCS-keyed rows are found even when new code passes proxy URLs.
     const result = await db.execute(sql`
-      SELECT description FROM image_vision_cache WHERE image_url = ${imageUrl} LIMIT 1
+      SELECT description FROM image_vision_cache
+      WHERE image_url IN (${normUrl}, ${rawUrl})
+      LIMIT 1
     `);
     const row = result.rows[0] as any;
     if (row?.description) {
       db.execute(sql`
-        UPDATE image_vision_cache SET last_used_at = NOW() WHERE image_url = ${imageUrl}
+        UPDATE image_vision_cache SET last_used_at = NOW()
+        WHERE image_url IN (${normUrl}, ${rawUrl})
       `).catch(() => {});
       return row.description as string;
     }
@@ -139,9 +152,12 @@ async function storeCachedDescription(
 ): Promise<void> {
   try {
     const db = getUserDb();
+    // Always store under the normalised proxy URL so future lookups (which also
+    // normalise) hit the row regardless of whether the caller passed a raw GCS URL.
+    const normUrl = normalizeImageUrl(imageUrl);
     await db.execute(sql`
       INSERT INTO image_vision_cache (id, image_url, description, mime_type, source_conversation_id)
-      VALUES (gen_random_uuid(), ${imageUrl}, ${description}, ${mimeType}, ${sourceConversationId ?? null})
+      VALUES (gen_random_uuid(), ${normUrl}, ${description}, ${mimeType}, ${sourceConversationId ?? null})
       ON CONFLICT (image_url) DO UPDATE SET
         description = EXCLUDED.description,
         source_conversation_id = COALESCE(image_vision_cache.source_conversation_id, EXCLUDED.source_conversation_id),
@@ -176,16 +192,20 @@ export async function getImageVision(
     return { description: fallbackDescription, mode: 'error' };
   }
 
+  // Normalise early so all downstream checks and stores use the canonical proxy URL.
+  const normUrl = normalizeImageUrl(imageUrl);
+
   // 1. Session-level cache: already sent as inlineData this session — Gemini has it in context
-  if (session.seenImageUrls?.has(imageUrl)) {
+  if (session.seenImageUrls?.has(normUrl)) {
     return { description: fallbackDescription, mode: 'session_reference' };
   }
 
-  // 2. Persistent cache: described in a prior session — use text, no byte fetch needed
-  const cached = await getCachedDescription(imageUrl);
+  // 2. Persistent cache: described in a prior session — use text, no byte fetch needed.
+  // Pass both the normalised URL and the original raw URL so legacy GCS-keyed rows are found.
+  const cached = await getCachedDescription(normUrl, imageUrl);
   if (cached) {
     if (!session.seenImageUrls) session.seenImageUrls = new Set();
-    session.seenImageUrls.add(imageUrl);
+    session.seenImageUrls.add(normUrl);
     return { description: cached, mode: 'cached_description' };
   }
 
@@ -194,13 +214,13 @@ export async function getImageVision(
   // If it times out, fall back to the word label and store the description in the background
   // so future sessions benefit from it.
   try {
-    const { data, mimeType } = await fetchImageBytes(imageUrl);
+    const { data, mimeType } = await fetchImageBytes(normUrl);
     if (!session.seenImageUrls) session.seenImageUrls = new Set();
-    session.seenImageUrls.add(imageUrl);
+    session.seenImageUrls.add(normUrl);
 
     let descriptionToUse = fallbackDescription;
     const sourceConversationId = session.conversationId ?? null;
-    const descriptionPromise = generateAndStoreCachedDescription(imageUrl, data, mimeType, fallbackDescription, sourceConversationId);
+    const descriptionPromise = generateAndStoreCachedDescription(normUrl, data, mimeType, fallbackDescription, sourceConversationId);
     try {
       const raceResult = await Promise.race([
         descriptionPromise,
@@ -216,12 +236,12 @@ export async function getImageVision(
 
     return { description: descriptionToUse, inlineData: { mimeType, data }, mode: 'bytes' };
   } catch (err: any) {
-    console.error(`[ImageVisionCache] Fetch error for ${imageUrl}:`, err.message);
+    console.error(`[ImageVisionCache] Fetch error for ${normUrl}:`, err.message);
     // Still anchor to conversation — future introspect can find this image by conversation
     // even without byte-level vision. The description will be the fallback word/label.
     const sourceConversationId = session.conversationId ?? null;
     if (sourceConversationId) {
-      storeCachedDescription(imageUrl, fallbackDescription, 'image/jpeg', sourceConversationId)
+      storeCachedDescription(normUrl, fallbackDescription, 'image/jpeg', sourceConversationId)
         .catch(() => {});
     }
     return { description: fallbackDescription, mode: 'error' };
