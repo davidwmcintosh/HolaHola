@@ -23,4 +23,8 @@ jobs:
         run: npm ci
 
       - name: Run tests
+        # npm test runs npx tsx --test with an explicit file list that includes
+        # client/src/components/floating-voice-widget-state.test.ts
+        # (26 cases: computeWidgetLabel, computeWidgetClasses, deriveVoiceStatus).
+        # Confirmed passing: 26/26 on 2026-07-31.
         run: npm test
