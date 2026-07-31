@@ -54,6 +54,10 @@ args = "memory-tool-coverage"
 task = "workflow.run"
 args = "absence-gl-path"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "voice-sms-pipeline"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -128,6 +132,17 @@ args = "npx tsx server/scripts/test-absence-text-path.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow]]
+name = "voice-sms-pipeline"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-voice-sms-pipeline.ts"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [agent]
 integrations = ["javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.0.0", "javascript_log_in_with_replit:1.0.0", "stripe:1.0.0", "javascript_gemini_ai_integrations:1.0.0", "javascript_anthropic_ai_integrations:1.0.0", "perplexity_v0:1.0.0", "javascript_object_storage:2.0.0"]
