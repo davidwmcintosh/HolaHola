@@ -9270,7 +9270,12 @@ Return ONLY the ${targetLanguage} phrase:`;
 
               let formattedTranscript = transcript; // fallback: raw combined transcript
               if (words.length > 0 && words[0]?.speaker !== undefined) {
-                // Group consecutive same-speaker words into utterances
+                // Group consecutive same-speaker words into utterances.
+                // Deepgram assigns speaker IDs (0, 1, …) but does NOT guarantee
+                // that speaker 0 is the first person to speak chronologically —
+                // the words array IS in chronological order, so we use the speaker
+                // of the first word as the Daniela label (she always initiates the
+                // outbound call).
                 const utterances: Array<{ speaker: number; text: string }> = [];
                 let curSpeaker = words[0].speaker as number;
                 let curWords: string[] = [];
@@ -9286,10 +9291,26 @@ Return ONLY the ${targetLanguage} phrase:`;
                 }
                 if (curWords.length > 0) utterances.push({ speaker: curSpeaker, text: curWords.join(' ') });
 
-                const firstSpeaker = utterances[0]?.speaker ?? 0;
-                formattedTranscript = utterances
-                  .map(u => `${u.speaker === firstSpeaker ? 'Daniela' : 'Student'}: ${u.text}`)
-                  .join('\n');
+                // Sanity-check: if Deepgram only detected one unique speaker the
+                // diarization failed to separate the channels — every utterance
+                // would be mislabelled as "Daniela".  Fall back to the raw
+                // (un-labeled) combined transcript so we don't corrupt the memory.
+                const uniqueSpeakers = new Set(utterances.map(u => u.speaker));
+                if (uniqueSpeakers.size < 2) {
+                  console.warn(`[Route] recording-complete — diarization returned ${uniqueSpeakers.size} speaker(s); falling back to raw transcript`);
+                  // formattedTranscript already holds the raw transcript — no change needed
+                } else {
+                  // Use the first-speaking voice as Daniela.  If more than 2 speakers
+                  // are detected (e.g. background noise assigned its own ID) we still
+                  // apply the heuristic: first speaker = Daniela, all others = Student.
+                  const firstSpeaker = utterances[0].speaker;
+                  if (uniqueSpeakers.size > 2) {
+                    console.warn(`[Route] recording-complete — diarization detected ${uniqueSpeakers.size} speakers; labelling first as Daniela, rest as Student`);
+                  }
+                  formattedTranscript = utterances
+                    .map(u => `${u.speaker === firstSpeaker ? 'Daniela' : 'Student'}: ${u.text}`)
+                    .join('\n');
+                }
               }
 
               // Fetch student name — non-fatal if missing
