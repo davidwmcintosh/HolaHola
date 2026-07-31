@@ -1012,6 +1012,10 @@ export function StreamingVoiceChat({
 
     return () => {
       if (restartPollRef.current) clearTimeout(restartPollRef.current);
+      if (reconnectToastRef.current) {
+        reconnectToastRef.current.dismiss();
+        reconnectToastRef.current = null;
+      }
     };
   }, [streamingVoice.state.serverRestarting, toast, navigate, homeRoute]);
   

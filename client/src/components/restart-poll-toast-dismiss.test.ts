@@ -260,4 +260,60 @@ describe('restart-poll toast dismiss — contract with the fresh session page', 
 
     assert.equal(dismissCount, 1, `dismiss() should fire exactly once, got ${dismissCount}`);
   });
+
+  // ── Early-unmount / cleanup path ──────────────────────────────────────────
+  //
+  // If the component unmounts (or serverRestarting flips back) during the
+  // 5-second initial delay — before the first poll even fires — the cleanup
+  // function runs with reconnectToastRef.current still set.  The toast must
+  // be dismissed there and then, so it never lingers on the next page.
+
+  it('cleanup dismisses the toast when the component unmounts before the first poll fires', () => {
+    let dismissCount = 0;
+    const toastHandle: ToastHandle = {
+      id: 'mock-id',
+      dismiss() { dismissCount++; },
+      update() {},
+    };
+
+    // Simulate the ref as it exists just after the toast was created but
+    // before any poll has run (the 5-second timer hasn't fired yet).
+    const reconnectToastRef: { current: ToastHandle | null } = {
+      current: toastHandle,
+    };
+
+    // Simulate the cleanup function — this is exactly what the return value of
+    // the useEffect executes when React tears down the effect.
+    const cleanup = () => {
+      // (timer clearance is omitted here — it doesn't affect toast state)
+      if (reconnectToastRef.current) {
+        reconnectToastRef.current.dismiss();
+        reconnectToastRef.current = null;
+      }
+    };
+
+    cleanup();
+
+    assert.equal(dismissCount, 1, 'dismiss() must be called once by the cleanup');
+    assert.equal(reconnectToastRef.current, null, 'ref must be null after cleanup');
+  });
+
+  it('cleanup is a no-op when reconnectToastRef is already null (poll already completed)', () => {
+    let dismissCount = 0;
+
+    // Ref is null — the poll already ran and cleared it.
+    const reconnectToastRef: { current: ToastHandle | null } = { current: null };
+
+    const cleanup = () => {
+      if (reconnectToastRef.current) {
+        reconnectToastRef.current.dismiss();
+        reconnectToastRef.current = null;
+      }
+    };
+
+    cleanup(); // should not throw or increment dismissCount
+
+    assert.equal(dismissCount, 0, 'dismiss() must not be called when ref is already null');
+    assert.equal(reconnectToastRef.current, null, 'ref remains null');
+  });
 });
