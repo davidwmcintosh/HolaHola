@@ -462,10 +462,8 @@ export async function callDaniela(
   let systemPrompt = systemParts.join('\n\n');
 
   // ── Pattern signal injection for the simple (non-tools) path ─────────────
-  // The tools path delegates injection to runDanielaFCLoop (via effectiveSystemPrompt
-  // inside that loop), so we must NOT inject here when enableTools=true — doing so
-  // would double-stamp the pattern note and cause instruction fatigue.
-  // For the simple (generateContent) path there is no FC loop, so we inject here.
+  // The tools path delegates injection to runDanielaFCLoop — do NOT inject
+  // here when enableTools=true or the note will appear twice in the system prompt.
   if (!enableTools) {
     systemPrompt = buildTextModeSystemPrompt(systemPrompt, activePatternSignals);
   }

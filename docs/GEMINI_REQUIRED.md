@@ -36,6 +36,19 @@ A task agent that merges without this loop is shipping a behavioral change witho
 
 ---
 
+## Machine-readable protected path fragments
+
+> **For tooling only.** The `scripts/post-merge.sh` gate parses this section at runtime.  
+> Any file whose path **contains** one of these strings is treated as protected.  
+> List only strings that actually appear in file paths, not function names.
+
+<!--PROTECTED_FRAGMENTS_START-->
+- `classroom-environment`
+- `unified-recall`
+<!--PROTECTED_FRAGMENTS_END-->
+
+---
+
 ## The approval loop
 
 1. Gather the exact diff (function body, not just the patch — include surrounding context).

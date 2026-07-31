@@ -8,26 +8,57 @@
 # protected file was touched but no docs/gemini-audit-*.md doc appears in the
 # same commit range, exit 1 so the post-merge setup step fails visibly.
 #
-# Protected-file list is kept in sync with docs/GEMINI_REQUIRED.md.
+# Protected-file list is parsed at runtime from docs/GEMINI_REQUIRED.md —
+# the single authoritative source.  To add a new protected file, update that
+# doc; this script requires no separate change.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Files that always require Gemini approval (exact path match)
-PROTECTED_EXACT=(
-  "server/services/system-prompt.ts"
-  "server/services/pre-session-synthesis.ts"
-  "server/services/streaming-voice-orchestrator.ts"
-  "server/services/daniela-caller.ts"
-  "server/services/daniela-function-registry.ts"
-  "server/services/neural-memory-search.ts"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GEMINI_DOC="$SCRIPT_DIR/../docs/GEMINI_REQUIRED.md"
+
+if [ ! -f "$GEMINI_DOC" ]; then
+  echo ""
+  echo "╔══════════════════════════════════════════════════════════════════════════╗"
+  echo "║       ⚠️   GEMINI APPROVAL GATE FAILED — PROTECTED-FILE LIST MISSING ⚠️  ║"
+  echo "╠══════════════════════════════════════════════════════════════════════════╣"
+  echo "║                                                                          ║"
+  echo "║  docs/GEMINI_REQUIRED.md was not found.                                 ║"
+  echo "║                                                                          ║"
+  echo "║  This file is the authoritative source of the protected-file list.      ║"
+  echo "║  Without it the gate cannot determine which files require Gemini         ║"
+  echo "║  approval, so the merge is blocked.                                      ║"
+  echo "║                                                                          ║"
+  echo "║  WHAT TO DO:                                                            ║"
+  echo "║    • Restore docs/GEMINI_REQUIRED.md if it was accidentally deleted.    ║"
+  echo "║    • If you intentionally moved it, update SCRIPT_DIR/../docs/ path in  ║"
+  echo "║      scripts/gemini-gate-check.sh to point to the new location.        ║"
+  echo "║                                                                          ║"
+  echo "╚══════════════════════════════════════════════════════════════════════════╝"
+  echo ""
+  exit 1
+fi
+
+# ── Parse protected lists from GEMINI_REQUIRED.md ────────────────────────────
+
+# Files that always require Gemini approval (exact path match).
+# Scoped to the "Protected categories and files" section of the doc so that
+# audit-doc paths and script references in other sections are not picked up.
+mapfile -t PROTECTED_EXACT < <(
+  awk '/^## Protected categories and files/,/^---/' "$GEMINI_DOC" \
+  | grep -oP '(?<=`)[^`]+(?=`)' \
+  | grep '/' \
+  | grep -v '^[A-Z]' \
+  | sort -u
 )
 
-# Path fragments — any changed file whose path contains one of these strings
-# is treated as protected.  Only use strings that actually appear in file
-# paths, not function names.
-PROTECTED_FRAGMENTS=(
-  "classroom-environment"
-  "unified-recall"
+# Path fragments — extracted from the machine-readable block between
+# <!--PROTECTED_FRAGMENTS_START--> and <!--PROTECTED_FRAGMENTS_END-->.
+mapfile -t PROTECTED_FRAGMENTS < <(
+  awk '/<!--PROTECTED_FRAGMENTS_START-->/,/<!--PROTECTED_FRAGMENTS_END-->/' "$GEMINI_DOC" \
+  | grep -oP '(?<=`)[^`]+(?=`)'
 )
+
+echo "[gemini-gate] Loaded from docs/GEMINI_REQUIRED.md: ${#PROTECTED_EXACT[@]} exact path(s), ${#PROTECTED_FRAGMENTS[@]} fragment(s)."
 
 # ── Determine the full commit range introduced by this merge ──────────────────
 # ORIG_HEAD is set by git during a real merge; it points to the tip before the

@@ -6,10 +6,11 @@ set -e
 # without running npm install or db:push.
 #
 # Gate logic lives in scripts/gemini-gate-check.sh so it can be exercised by
-# CI tests (server/scripts/gemini-gate-check.test.ts) without triggering the
-# npm install / db:push steps below.
+# CI tests without triggering the npm install / db:push steps below.
 #
-# Protected-file list is kept in sync with docs/GEMINI_REQUIRED.md.
+# Protected-file list is parsed at runtime from docs/GEMINI_REQUIRED.md —
+# the single authoritative source.  To add a new protected file, update that
+# doc; this script requires no separate change.
 # To pass this gate the committing agent must include a docs/gemini-audit-*.md
 # file in the same commit (or commit batch).  See docs/GEMINI_REQUIRED.md for
 # the full approval loop.
