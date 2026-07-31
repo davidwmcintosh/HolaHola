@@ -73,12 +73,15 @@ function runPart1() {
   );
 
   const suiteRef = 'client/src/components/absence-return-badge-render.test.ts';
+  // Accept either the explicit path or a glob that covers it (e.g. client/src/components/*.test.ts).
+  const coveredByGlob = testScript.includes('client/src/components/*.test.ts');
+  const coveredExplicitly = testScript.includes(suiteRef);
   assert(
-    `"${suiteRef}" is listed in npm test`,
-    testScript.includes(suiteRef),
-    testScript.includes(suiteRef)
-      ? undefined
-      : `Not found in test script. Add it to package.json "test".`,
+    `"${suiteRef}" is listed in npm test (directly or via glob)`,
+    coveredExplicitly || coveredByGlob,
+    (!coveredExplicitly && !coveredByGlob)
+      ? `Not found in test script. Add "${suiteRef}" or "client/src/components/*.test.ts" to package.json "test".`
+      : undefined,
   );
 }
 

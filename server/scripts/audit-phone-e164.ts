@@ -56,13 +56,13 @@ async function main(): Promise<void> {
 
   const db = getSharedDb();
 
-  const result = await db.execute<Row>(sql`
+  const result = await db.execute(sql`
     SELECT id, user_id, phone
     FROM student_contact_preferences
     WHERE phone IS NOT NULL
   `);
 
-  const rows = result.rows;
+  const rows = result.rows as unknown as Row[];
   console.log(`[AuditPhoneE164] Found ${rows.length} row(s) with a stored phone number`);
 
   let passCount = 0;
