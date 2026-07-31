@@ -1250,6 +1250,11 @@ export function StreamingVoiceChat({
             setActiveQuiz({ ...data, selectedIndex: undefined, showResult: false });
           },
           onCulturalContextShown: (data) => {
+            if (!data.title || !data.title.trim() || !data.text || !data.text.trim()) {
+              console.warn('[StreamingVoiceChat] onCulturalContextShown: malformed cultural context data', data);
+              toast({ title: 'Cultural note unavailable', description: 'Daniela sent an incomplete cultural context card — skipping.', variant: 'destructive' });
+              return;
+            }
             setCulturalContext(data);
           },
           onSpotlightShown: (data) => {

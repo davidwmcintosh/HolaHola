@@ -3732,6 +3732,14 @@ export class NativeFunctionCallHandler {
         const ccText = fn.args.text as string;
         const ccCategory = fn.args.category as string | undefined;
         const ccSourceUrl = fn.args.source_url as string | undefined;
+        if (!ccTitle || typeof ccTitle !== 'string' || !ccTitle.trim()) {
+          console.warn('[Native Function→CulturalContext] missing or empty title — skipping');
+          break;
+        }
+        if (!ccText || typeof ccText !== 'string' || !ccText.trim()) {
+          console.warn('[Native Function→CulturalContext] missing or empty text — skipping');
+          break;
+        }
         console.log(`[Native Function→CulturalContext] title="${ccTitle}"`);
         this.sendMessage(session.ws, {
           type: 'cultural_context_shown',

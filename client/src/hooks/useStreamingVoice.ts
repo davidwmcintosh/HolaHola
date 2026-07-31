@@ -1568,9 +1568,14 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
   }, []);
 
   const handleCulturalContextShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
-    if (sessionConfigRef.current?.onCulturalContextShown && message.data) {
-      sessionConfigRef.current.onCulturalContextShown(message.data);
+    if (!sessionConfigRef.current?.onCulturalContextShown || !message.data) return;
+    const d = message.data;
+    if (!d.title || typeof d.title !== 'string' || !d.title.trim() ||
+        !d.text  || typeof d.text  !== 'string' || !d.text.trim()) {
+      console.warn('[useStreamingVoice] handleCulturalContextShown: malformed cultural context data', d);
+      return;
     }
+    sessionConfigRef.current.onCulturalContextShown(d);
   }, []);
 
   const handleSpotlightShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
