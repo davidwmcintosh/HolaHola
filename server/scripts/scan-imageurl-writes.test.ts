@@ -37,13 +37,27 @@ const SCRIPTS_DIR = path.resolve(
 );
 
 /**
- * Patterns that indicate a script is writing to an imageUrl column.
- * We use a broad match so multi-line set() calls are also detected.
+ * Patterns that indicate a file is writing to an imageUrl column.
+ *
+ * We use two precise patterns instead of a single broad one to avoid false
+ * positives on service / helper files that return `{ imageUrl }` objects
+ * without ever writing to the database:
+ *
+ *   Pattern 1 — Drizzle ORM update:  .set({ imageUrl: ... })
+ *   Pattern 2 — Drizzle ORM insert:  .values({ imageUrl: ... })  (single or array)
+ *
+ * Both patterns use the /s (dotAll) flag to catch multi-line calls.
  */
 const IMAGEURL_WRITE_PATTERNS = [
-  /\.set\s*\(\s*\{[^}]*imageUrl\s*:/s,   // .set({ imageUrl: ... })
-  /\{\s*imageUrl\s*:/,                     // standalone { imageUrl: ... } object literal
+  /\.set\s*\(\s*\{[^}]*imageUrl\s*:/s,             // .set({ imageUrl: ... })
+  /\.values\s*\(\s*[\[{][^)\]]*imageUrl\s*:/s,     // .values({ imageUrl: ... }) or .values([{ imageUrl: ... }])
 ];
+
+/**
+ * Alias so the negative-path self-test can reference the definite pattern directly.
+ * (Kept for clarity — it's identical to IMAGEURL_WRITE_PATTERNS[0].)
+ */
+const DEFINITE_DB_WRITE_PATTERN = IMAGEURL_WRITE_PATTERNS[0];
 
 /**
  * The guard that MUST appear in any file that writes to imageUrl.
@@ -163,6 +177,171 @@ describe('imageUrl write guard — every script that writes imageUrl calls norma
     );
   });
 
+});
+
+// ---------------------------------------------------------------------------
+// #590 — server/services/, server/workers/, and server/routes coverage
+//
+// A developer adding an imageUrl write in a service, worker, or route file
+// must call normalizeImageUrl() just like script authors do.  These blocks
+// extend the guard to those directories so a raw GCS URL cannot slip past CI.
+// ---------------------------------------------------------------------------
+
+describe('imageUrl write guard — server/services/ coverage (#590)', () => {
+  const SERVICES_DIR = path.resolve(SCRIPTS_DIR, '..', 'services');
+
+  it('finds no service files that write to imageUrl without calling normalizeImageUrl', () => {
+    if (!fs.existsSync(SERVICES_DIR)) return;
+
+    const violations = scanScripts(SERVICES_DIR);
+
+    if (violations.length > 0) {
+      const detail = violations
+        .map(v => `  server/services/${v.file}\n    Reason: ${v.reason}`)
+        .join('\n');
+      assert.fail(
+        `Found ${violations.length} service file(s) that write to imageUrl without ` +
+        `calling normalizeImageUrl().\n\n` +
+        `Each service that persists an image URL must wrap the value in ` +
+        `normalizeImageUrl() from server/services/image-storage.ts before storage.\n\n` +
+        `Violations:\n${detail}`,
+      );
+    }
+  });
+});
+
+describe('imageUrl write guard — server/workers/ coverage (#590)', () => {
+  const WORKERS_DIR = path.resolve(SCRIPTS_DIR, '..', 'workers');
+
+  it('server/workers/ files are included in the scan scope (future-proof)', () => {
+    // Directory does not exist yet; this test passes vacuously and will
+    // automatically catch any worker added later that omits the guard.
+    if (!fs.existsSync(WORKERS_DIR)) return;
+
+    const violations = scanScripts(WORKERS_DIR);
+
+    if (violations.length > 0) {
+      const detail = violations
+        .map(v => `  server/workers/${v.file}\n    Reason: ${v.reason}`)
+        .join('\n');
+      assert.fail(
+        `Found ${violations.length} worker file(s) that write to imageUrl without ` +
+        `calling normalizeImageUrl().\n\nViolations:\n${detail}`,
+      );
+    }
+  });
+});
+
+describe('imageUrl write guard — server/routes.ts and server/routes/ coverage (#590)', () => {
+  const SERVER_DIR = path.resolve(SCRIPTS_DIR, '..');
+  const ROUTES_FILE = path.resolve(SERVER_DIR, 'routes.ts');
+  const ROUTES_DIR  = path.resolve(SERVER_DIR, 'routes');
+
+  it('routes.ts does not write to imageUrl without calling normalizeImageUrl', () => {
+    if (!fs.existsSync(ROUTES_FILE)) return;
+
+    const source = fs.readFileSync(ROUTES_FILE, 'utf8');
+    const writesImageUrl = IMAGEURL_WRITE_PATTERNS.some(p => p.test(source));
+    if (!writesImageUrl) return; // no imageUrl writes — nothing to enforce
+
+    assert.ok(
+      source.includes(NORMALIZE_CALL),
+      `server/routes.ts writes to imageUrl but does not call ${NORMALIZE_CALL}() — ` +
+      `raw GCS URLs would be persisted to the database without normalisation`,
+    );
+  });
+
+  it('server/routes/ files do not write to imageUrl without calling normalizeImageUrl', () => {
+    if (!fs.existsSync(ROUTES_DIR)) return;
+
+    const violations = scanScripts(ROUTES_DIR);
+
+    if (violations.length > 0) {
+      const detail = violations
+        .map(v => `  server/routes/${v.file}\n    Reason: ${v.reason}`)
+        .join('\n');
+      assert.fail(
+        `Found ${violations.length} route file(s) that write to imageUrl without ` +
+        `calling normalizeImageUrl().\n\nViolations:\n${detail}`,
+      );
+    }
+  });
+});
+
+describe('imageUrl write guard — services/workers/routes scanner self-validation (#590)', () => {
+  // Synthetic violation placed in /tmp/ so the scripts/ scan never sees it.
+  const TEMP_DIR  = path.resolve('/tmp', 'imageurl-services-selftest');
+  const TEMP_FILE = path.resolve(TEMP_DIR, '__imageurl-service-write-selftest-tmp__.ts');
+
+  it('flags a service file that writes imageUrl without calling normalizeImageUrl', () => {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+
+    const source = [
+      `// Temporary file written by scan-imageurl-writes.test.ts — DO NOT COMMIT`,
+      `import { getSharedDb } from '../db';`,
+      `import { curriculumLessons } from '../../shared/schema';`,
+      `import { eq } from 'drizzle-orm';`,
+      ``,
+      `// BAD PATTERN: a service/worker writing a raw URL directly to imageUrl.`,
+      `export async function saveLesson(id: number, rawUrl: string) {`,
+      `  const db = getSharedDb();`,
+      `  await db.update(curriculumLessons).set({ imageUrl: rawUrl }).where(eq(curriculumLessons.id, id));`,
+      `}`,
+    ].join('\n');
+
+    fs.writeFileSync(TEMP_FILE, source, 'utf8');
+    try {
+      const violations = scanScripts(TEMP_DIR).filter(
+        v => v.file.includes('__imageurl-service-write-selftest-tmp__'),
+      );
+      assert.equal(
+        violations.length,
+        1,
+        `Scanner must detect exactly 1 violation for the temp service file but found ` +
+        `${violations.length}.\nViolations: ${JSON.stringify(violations)}`,
+      );
+      assert.ok(
+        violations[0].reason.includes(NORMALIZE_CALL),
+        `Violation message must mention ${NORMALIZE_CALL}`,
+      );
+    } finally {
+      fs.unlinkSync(TEMP_FILE);
+    }
+  });
+
+  it('does NOT flag a service file that writes imageUrl and calls normalizeImageUrl', () => {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+
+    const source = [
+      `// Temporary file written by scan-imageurl-writes.test.ts — DO NOT COMMIT`,
+      `import { getSharedDb } from '../db';`,
+      `import { curriculumLessons } from '../../shared/schema';`,
+      `import { normalizeImageUrl } from '../services/image-storage';`,
+      `import { eq } from 'drizzle-orm';`,
+      ``,
+      `// CORRECT PATTERN: normalizes before writing.`,
+      `export async function saveLesson(id: number, rawUrl: string) {`,
+      `  const db = getSharedDb();`,
+      `  const url = normalizeImageUrl(rawUrl);`,
+      `  await db.update(curriculumLessons).set({ imageUrl: url }).where(eq(curriculumLessons.id, 1));`,
+      `}`,
+    ].join('\n');
+
+    fs.writeFileSync(TEMP_FILE, source, 'utf8');
+    try {
+      const violations = scanScripts(TEMP_DIR).filter(
+        v => v.file.includes('__imageurl-service-write-selftest-tmp__'),
+      );
+      assert.equal(
+        violations.length,
+        0,
+        `Scanner must NOT flag a correctly-guarded service file but found ` +
+        `${violations.length} violation(s).\nViolations: ${JSON.stringify(violations)}`,
+      );
+    } finally {
+      fs.unlinkSync(TEMP_FILE);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
