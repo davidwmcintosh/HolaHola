@@ -15998,7 +15998,7 @@ function ProcedureFlagsSection() {
   };
 
   const flagsUrl = buildFlagsUrl();
-  const { data, isLoading, refetch } = useQuery<{ flags: ProcedureFlag[]; pending: number; total: number }>({
+  const { data, isLoading, isFetching, refetch } = useQuery<{ flags: ProcedureFlag[]; pending: number; total: number }>({
     queryKey: ["/api/admin/procedure-flags", showReviewed, targetTable, afterDays, searchQuery],
     queryFn: async () => {
       const res = await fetch(flagsUrl, { credentials: 'include' });
@@ -16089,8 +16089,8 @@ function ProcedureFlagsSection() {
               Show reviewed
             </label>
           </div>
-          <Button variant="outline" size="sm" onClick={() => refetch()} data-testid="button-refresh-flags">
-            <RefreshCw className="h-4 w-4 mr-1" />
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} data-testid="button-refresh-flags">
+            <RefreshCw className={`h-4 w-4 mr-1${isFetching ? ' animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
@@ -16230,40 +16230,56 @@ function ProcedureFlagsSection() {
 
                   {/* Action buttons — only for pending flags */}
                   {flag.pending && (
-                    <div className="flex items-center gap-2 pt-1 border-t flex-wrap">
-                      <Button
-                        size="sm"
-                        variant="default"
-                        onClick={() => promoteMutation.mutate(flag.id)}
-                        disabled={promoteMutation.isPending}
-                        data-testid={`button-promote-flag-${flag.id}`}
-                      >
-                        {promoteMutation.isPending
-                          ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                          : <Zap className="h-3.5 w-3.5 mr-1" />}
-                        Promote to Proposal
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => markMutation.mutate({ id: flag.id, action: 'reviewed' })}
-                        disabled={markMutation.isPending}
-                        data-testid={`button-reviewed-flag-${flag.id}`}
-                      >
-                        <Check className="h-3.5 w-3.5 mr-1" />
-                        Mark Reviewed
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="text-muted-foreground"
-                        onClick={() => markMutation.mutate({ id: flag.id, action: 'dismissed' })}
-                        disabled={markMutation.isPending}
-                        data-testid={`button-dismiss-flag-${flag.id}`}
-                      >
-                        <XCircle className="h-3.5 w-3.5 mr-1" />
-                        Dismiss
-                      </Button>
+                    <div className="flex flex-col gap-2 pt-1 border-t">
+                      {/* #501: Incomplete-flag warning — flag lacks proposed content */}
+                      {!flag.parsedProposedContent && (
+                        <div
+                          className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-50/80 dark:bg-amber-950/30 px-3 py-2 text-xs text-amber-800 dark:text-amber-300"
+                          data-testid={`warning-incomplete-flag-${flag.id}`}
+                        >
+                          <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                          <span>
+                            <strong>Incomplete flag</strong> — no proposed content was parsed. Review the full note
+                            body below and add a "Proposed content:" section before promoting.
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Button
+                          size="sm"
+                          variant="default"
+                          onClick={() => promoteMutation.mutate(flag.id)}
+                          disabled={promoteMutation.isPending || !flag.parsedProposedContent}
+                          title={!flag.parsedProposedContent ? 'Add proposed content to the note before promoting' : undefined}
+                          data-testid={`button-promote-flag-${flag.id}`}
+                        >
+                          {promoteMutation.isPending
+                            ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                            : <Zap className="h-3.5 w-3.5 mr-1" />}
+                          Promote to Proposal
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => markMutation.mutate({ id: flag.id, action: 'reviewed' })}
+                          disabled={markMutation.isPending}
+                          data-testid={`button-reviewed-flag-${flag.id}`}
+                        >
+                          <Check className="h-3.5 w-3.5 mr-1" />
+                          Mark Reviewed
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-muted-foreground"
+                          onClick={() => markMutation.mutate({ id: flag.id, action: 'dismissed' })}
+                          disabled={markMutation.isPending}
+                          data-testid={`button-dismiss-flag-${flag.id}`}
+                        >
+                          <XCircle className="h-3.5 w-3.5 mr-1" />
+                          Dismiss
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </CardContent>

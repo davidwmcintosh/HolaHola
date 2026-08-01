@@ -3236,9 +3236,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
       // Tool Call Deadlock fix: record the in-flight call IDs so that if the connection
       // drops before sendToolResponse fires, the reconnect path can unblock GL.
-      this.pendingFunctionCallIds = msg.toolCall.functionCalls
-        .map((fc: any) => fc.id as string)
-        .filter(Boolean);
+      // Use push (not =) so that if GL sends a second tool batch before the first
+      // sendToolResponse fires, both batches' IDs are retained for the reconnect handler.
+      this.pendingFunctionCallIds.push(
+        ...msg.toolCall.functionCalls
+          .map((fc: any) => fc.id as string)
+          .filter(Boolean),
+      );
       const responses: Array<{ id: string; name: string; response: GLToolResponsePayload }> = [];
 
       // Phase 1: Build extractedFcs upfront (order-safe) then fire all handlers in parallel.

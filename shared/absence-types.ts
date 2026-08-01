@@ -9,6 +9,8 @@
  * enum from it — keeps compile-time types and runtime validation in sync.
  */
 
+import { z } from 'zod';
+
 export const RESOLUTION_TYPE_VALUES = [
   "student_returned",
   "message_queued",
@@ -16,3 +18,10 @@ export const RESOLUTION_TYPE_VALUES = [
 ] as const;
 
 export type ResolutionType = typeof RESOLUTION_TYPE_VALUES[number] | null;
+
+/**
+ * Zod schema for runtime validation of resolutionType inputs.
+ * Use resolutionTypeSchema.safeParse(value) at API boundaries to reject
+ * misspelled values before they reach the database.
+ */
+export const resolutionTypeSchema = z.enum(RESOLUTION_TYPE_VALUES);

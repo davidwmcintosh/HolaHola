@@ -16566,6 +16566,9 @@ Return ONLY valid JSON, no markdown, no explanation.`;
   // Manually trigger an outbound Daniela call for a specific user (bypasses time-window)
   app.post("/api/admin/trigger-call", isAuthenticated, loadAuthenticatedUser(storage), requireRole('admin'), async (req: any, res: Response) => {
     try {
+      if (!req.body || typeof req.body !== 'object') {
+        return res.status(400).json({ error: 'Request body must be JSON' });
+      }
       const { userId, content } = req.body;
       if (!userId || typeof userId !== 'string') {
         return res.status(400).json({ error: 'userId is required' });

@@ -166,6 +166,30 @@ describe('RECORD_PATTERN_SIGNAL handler → DB integration', () => {
     assert.equal(rows.length, 1, 'Expected 1 stability event row');
   });
 
+  it('stability event does not reset wobbleCount — compartment retains its prior count (#450)', async () => {
+    // A 'stability' event fires when the student uses the pattern correctly.
+    // It must NOT decrement or reset wobbleCount — the wobble history is
+    // diagnostic data.  Only a manual reset or a new installation clears it.
+    // At this point in the suite the compartment has wobbleCount=1 from s1.
+    const db = getSharedDb();
+    const [row] = await db
+      .select({ wobbleCount: compartmentInstallation.wobbleCount })
+      .from(compartmentInstallation)
+      .where(
+        and(
+          eq(compartmentInstallation.userId, testUserId),
+          eq(compartmentInstallation.language, language),
+          eq(compartmentInstallation.patternKey, patternKey),
+        )
+      );
+    assert.ok(row, 'Installation row must exist after stability event');
+    assert.equal(
+      row.wobbleCount,
+      1,
+      'stability event must NOT reset wobbleCount — prior wobble history must be preserved',
+    );
+  });
+
   it('derivation event → writes a compartment_events row', async () => {
     const handler = makeHandler();
     const session = makeSession(testUserId);

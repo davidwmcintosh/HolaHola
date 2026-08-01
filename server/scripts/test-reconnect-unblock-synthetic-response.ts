@@ -19,7 +19,13 @@
  * Run: npx tsx server/scripts/test-reconnect-unblock-synthetic-response.ts
  */
 
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { GLToolResponsePayload } from '../services/gemini-live-session';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 // ── Colour helpers ─────────────────────────────────────────────────────────────
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -386,6 +392,45 @@ function testOnlyLastBatchWouldFail() {
   );
 }
 
+// ── #578 — pendingFunctionCallIds accumulation source guard ───────────────────
+//
+// Verifies that the production gemini-live-session.ts uses Array.push() (not =)
+// when recording in-flight tool-call IDs, so multiple GL tool batches
+// fired before a sendToolResponse accumulate rather than overwriting each other.
+
+function testPendingFunctionCallIdsUsesPush(): void {
+  const name = 'pendingFunctionCallIds uses .push() not = [...] (#578)';
+  const src = (() => {
+    try {
+      return readFileSync(
+        resolve(__dirname, '../services/gemini-live-session.ts'),
+        'utf-8',
+      );
+    } catch {
+      return null as null;
+    }
+  })();
+
+  if (src === null) {
+    return fail(name, 'Could not read server/services/gemini-live-session.ts — ensure the file exists');
+  }
+
+  // The accumulation assignment: this.pendingFunctionCallIds.push(...)
+  if (!src.includes('this.pendingFunctionCallIds.push(')) {
+    return fail(name, 'this.pendingFunctionCallIds.push() not found — multi-batch IDs would be overwritten');
+  }
+
+  // Regression: confirm there is NO bare assignment of the form
+  //   this.pendingFunctionCallIds = msg.toolCall.functionCalls...
+  // (a = without .push indicates the old reset-on-each-batch behaviour)
+  const bareAssignPattern = /this\.pendingFunctionCallIds\s*=\s*msg\.toolCall/;
+  if (bareAssignPattern.test(src)) {
+    return fail(name, 'Found this.pendingFunctionCallIds = msg.toolCall.* — accumulation is broken, first batch IDs would be lost');
+  }
+
+  pass(name, '.push() used; bare msg.toolCall assignment is absent');
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 (async () => {
@@ -407,6 +452,11 @@ function testOnlyLastBatchWouldFail() {
   testMultiBatchIdsAllForwarded();
   testMultiBatchCountMatchesTotal();
   testOnlyLastBatchWouldFail();
+
+  sep();
+  console.log(B('  Source guards\n'));
+
+  testPendingFunctionCallIdsUsesPush();
 
   sep();
   const total = passed + failed;

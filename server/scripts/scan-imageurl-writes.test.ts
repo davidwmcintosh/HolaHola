@@ -166,6 +166,56 @@ describe('imageUrl write guard — every script that writes imageUrl calls norma
 });
 
 // ---------------------------------------------------------------------------
+// #583 — Migration directory coverage
+//
+// The imageUrl normalisation guard must cover db/migrations/ as well as
+// server/scripts/ so that a future migration that persists raw GCS URLs
+// does not slip past the CI check.
+//
+// The directory is currently empty; this describe block will catch any
+// migration file added later that omits the normalizeImageUrl() call.
+// ---------------------------------------------------------------------------
+
+describe('imageUrl write guard — db/migrations/ coverage (#583)', () => {
+  const MIGRATIONS_DIR = path.resolve(SCRIPTS_DIR, '..', '..', 'db', 'migrations');
+
+  it('db/migrations/ directory is included in the scan scope (future-proof)', () => {
+    // This assertion documents the expectation even while the directory is empty.
+    // When migration files appear they will be scanned automatically.
+    if (!fs.existsSync(MIGRATIONS_DIR)) {
+      // Directory does not exist yet — nothing to scan; pass.
+      return;
+    }
+
+    const tsFiles = fs
+      .readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
+      .filter(e => e.isFile() && e.name.endsWith('.ts') && !e.name.endsWith('.test.ts'));
+
+    const violations: Array<{ file: string; reason: string }> = [];
+    for (const entry of tsFiles) {
+      const absPath = path.resolve(MIGRATIONS_DIR, entry.name);
+      const source = fs.readFileSync(absPath, 'utf8');
+      const writesImageUrl = IMAGEURL_WRITE_PATTERNS.some(p => p.test(source));
+      if (!writesImageUrl) continue;
+      if (!source.includes(NORMALIZE_CALL)) {
+        violations.push({
+          file: `db/migrations/${entry.name}`,
+          reason: `writes to imageUrl but does not call ${NORMALIZE_CALL}() — raw GCS URL would be persisted`,
+        });
+      }
+    }
+
+    if (violations.length > 0) {
+      const detail = violations.map(v => `  ${v.file}\n    ${v.reason}`).join('\n');
+      assert.fail(
+        `Found ${violations.length} migration file(s) that write to imageUrl without calling ` +
+        `normalizeImageUrl():\n\n${detail}`,
+      );
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Negative-path test: scanner self-validation (end-to-end with a real file)
 //
 // Proves the scanner actually fails CI when a script writes to imageUrl

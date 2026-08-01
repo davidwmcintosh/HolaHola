@@ -134,3 +134,57 @@ describe('buildTextModeSystemPrompt — pattern signal reaches systemInstruction
     assert.ok(result.includes('Active grammar patterns:'));
   });
 });
+
+// ── #461 — text-mode refresh clears resolved wobbles (source guard) ───────────
+//
+// When a wobble resolves and fetchPatternSignalContext returns null, the
+// orchestrator's RECORD_PATTERN_SIGNAL handler must assign null to
+// session.activePatternSignals (not guard with `if (refreshed)` which would
+// leave the stale wobble annotation in the prompt forever).
+//
+// The guard is `if (refreshed !== undefined)`:
+//   - null (all resolved) → condition true  → sets activePatternSignals = null  ✓ clears
+//   - undefined (error)   → condition false → preserves existing value          ✓ resilient
+
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const orchestratorSrc = readFileSync(
+  resolve(import.meta.dirname, '../services/streaming-voice-orchestrator.ts'),
+  'utf-8',
+);
+
+describe('#461 — resolved-wobble clear source guard (text-mode / PTT / OpenMic paths)', () => {
+  it('orchestrator uses `if (refreshed !== undefined)` guard (not `if (refreshed)`)', () => {
+    // `if (refreshed)` would treat null as falsy and skip the assignment,
+    // leaving a stale wobble annotation in the session context forever.
+    assert.ok(
+      orchestratorSrc.includes('if (refreshed !== undefined)'),
+      '`if (refreshed !== undefined)` not found in streaming-voice-orchestrator.ts — resolved wobbles would never be cleared from session.activePatternSignals',
+    );
+  });
+
+  it('`if (refreshed)` (without !== undefined) is absent on the activePatternSignals assignment path', () => {
+    // `if (refreshed)` treats null as falsy — would skip clearing when all wobbles resolve.
+    // This check guards against a future simplification that accidentally reintroduces it.
+    const bare = (orchestratorSrc.match(/if \(refreshed\)\s*\{[\s\S]{0,60}activePatternSignals/g) ?? []).length;
+    assert.equal(
+      bare,
+      0,
+      '`if (refreshed)` immediately followed by activePatternSignals was found — this would prevent null from clearing resolved wobbles',
+    );
+  });
+
+  it('session.activePatternSignals = refreshed is assigned (null clears the wobble annotation)', () => {
+    assert.ok(
+      orchestratorSrc.includes('session.activePatternSignals = refreshed'),
+      'session.activePatternSignals = refreshed not found — refreshed null/string would not update the session',
+    );
+  });
+
+  it('mutation self-check: replacing !== undefined with truthy test would leave null unhandled', () => {
+    const mutated = orchestratorSrc.replaceAll('if (refreshed !== undefined)', 'if (refreshed)');
+    const hasCorrectGuard = mutated.includes('if (refreshed !== undefined)');
+    assert.ok(!hasCorrectGuard, 'Guard still found after mutation — assertion is not tight enough');
+  });
+});

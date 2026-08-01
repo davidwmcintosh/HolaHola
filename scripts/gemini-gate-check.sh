@@ -59,6 +59,8 @@ mapfile -t PROTECTED_FRAGMENTS < <(
 )
 
 echo "[gemini-gate] Loaded from docs/GEMINI_REQUIRED.md: ${#PROTECTED_EXACT[@]} exact path(s), ${#PROTECTED_FRAGMENTS[@]} fragment(s)."
+for _gf in "${PROTECTED_EXACT[@]}"; do echo "[gemini-gate]   exact:    $_gf"; done
+for _gfrag in "${PROTECTED_FRAGMENTS[@]}"; do echo "[gemini-gate]   fragment: $_gfrag"; done
 
 # ── Determine the full commit range introduced by this merge ──────────────────
 # ORIG_HEAD is set by git during a real merge; it points to the tip before the
