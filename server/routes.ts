@@ -159,6 +159,7 @@ import { validateOneUnitRule, countConceptualUnits } from "./phrase-detection";
 import { getOnboardingDialogue, updateOnboardingDialogue, resetOnboardingDialogue, fillTemplate, DEFAULT_DIALOGUE } from "./onboarding-dialogue-config";
 import { brainHealthTelemetry } from "./services/brain-health-telemetry";
 import { mapApiErrorToReason } from "./lib/pronunciation-error-reason";
+import { resolutionTypeSchema } from "../shared/absence-types";
 
 // ============================================================================
 // AI PROVIDERS: Gemini (Text) + Deepgram (Voice STT) + Google Cloud (Voice TTS)
@@ -16569,12 +16570,24 @@ Return ONLY valid JSON, no markdown, no explanation.`;
       if (!req.body || typeof req.body !== 'object') {
         return res.status(400).json({ error: 'Request body must be JSON' });
       }
-      const { userId, content } = req.body;
+      const { userId, content, resolutionType } = req.body;
       if (!userId || typeof userId !== 'string') {
         return res.status(400).json({ error: 'userId is required' });
       }
       if (!content || typeof content !== 'string') {
         return res.status(400).json({ error: 'content is required' });
+      }
+
+      // Validate resolutionType at the HTTP boundary so a misspelled value never
+      // reaches the database (which would surface as a confusing CHECK-constraint 500).
+      if (resolutionType !== undefined && resolutionType !== null) {
+        const parsed = resolutionTypeSchema.safeParse(resolutionType);
+        if (!parsed.success) {
+          return res.status(400).json({
+            error: 'Invalid resolutionType',
+            details: parsed.error.issues,
+          });
+        }
       }
 
       const user = await storage.getUser(userId);

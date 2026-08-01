@@ -1,5 +1,5 @@
 /**
- * Zod runtime validation for resolutionType (#537).
+ * Zod runtime validation for resolutionType (#537 / #592).
  *
  * CONTRACT:
  *   A misspelled resolutionType string must be rejected at runtime by
@@ -10,11 +10,16 @@
  *   The Zod schema is derived from RESOLUTION_TYPE_VALUES so the two are
  *   always in sync — no manual maintenance required.
  *
+ *   The schema must also be wired to the POST /api/admin/trigger-call route
+ *   so invalid values are rejected at the HTTP boundary.
+ *
  * Run: npx tsx --test server/__tests__/resolution-type-zod.test.ts
  */
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import { resolutionTypeSchema, RESOLUTION_TYPE_VALUES } from '../../shared/absence-types.js';
 
@@ -87,5 +92,44 @@ describe('resolutionTypeSchema — Zod runtime validation (#537)', () => {
     // instead of z.enum(RESOLUTION_TYPE_VALUES).
     const result = resolutionTypeSchema.safeParse('__invalid__test__value__');
     assert.ok(!result.success, 'An obviously invalid value must be rejected');
+  });
+});
+
+// ── route-wiring assertion ─────────────────────────────────────────────────────
+
+describe('POST /api/admin/trigger-call — resolutionTypeSchema wired at HTTP boundary (#592)', () => {
+  const routesSource = readFileSync(
+    resolve(process.cwd(), 'server/routes.ts'),
+    'utf-8',
+  );
+
+  it('routes.ts imports resolutionTypeSchema from shared/absence-types', () => {
+    assert.ok(
+      routesSource.includes('resolutionTypeSchema') && routesSource.includes('absence-types'),
+      'server/routes.ts must import resolutionTypeSchema from shared/absence-types',
+    );
+  });
+
+  it('trigger-call handler calls resolutionTypeSchema.safeParse()', () => {
+    // Find the trigger-call route block and confirm safeParse is called within it.
+    const triggerCallIdx = routesSource.indexOf('/api/admin/trigger-call');
+    assert.ok(triggerCallIdx !== -1, '/api/admin/trigger-call route must exist in routes.ts');
+
+    // Look for safeParse within a reasonable window after the route declaration (~3 KB).
+    const window = routesSource.slice(triggerCallIdx, triggerCallIdx + 3000);
+    assert.ok(
+      window.includes('resolutionTypeSchema.safeParse'),
+      'POST /api/admin/trigger-call must call resolutionTypeSchema.safeParse() to validate resolutionType at the HTTP boundary',
+    );
+  });
+
+  it('trigger-call handler returns 400 when resolutionTypeSchema.safeParse fails', () => {
+    // Confirm the handler returns a 400 response on parse failure.
+    const triggerCallIdx = routesSource.indexOf('/api/admin/trigger-call');
+    const window = routesSource.slice(triggerCallIdx, triggerCallIdx + 3000);
+    assert.ok(
+      window.includes('status(400)') && window.includes('resolutionTypeSchema.safeParse'),
+      'POST /api/admin/trigger-call must return HTTP 400 when resolutionTypeSchema.safeParse fails',
+    );
   });
 });
