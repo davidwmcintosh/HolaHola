@@ -934,6 +934,22 @@ async function runPart6(): Promise<void> {
       : 'console.warn with [WarmSynthesis] not found in the catch block in warm-synthesis-core.ts — error may surface as 500 or block synthesis',
   );
 
+  // 6c. The catch block must NOT call process.exit() — a fatal exit would
+  // terminate the whole server process if peek fails, rather than recovering
+  // gracefully and letting synthesis continue without the absence signal.
+  // This check confirms that re-introducing process.exit() in the catch would
+  // be caught by CI before it reaches production.  (#517)
+  const catchBlockMatch = coreSrc6.match(/catch\s*\([^)]*\)\s*\{[^}]*\}/s);
+  const catchBlock = catchBlockMatch ? catchBlockMatch[0] : '';
+  const catchHasExit = catchBlock.includes('process.exit');
+  assert(
+    '6c. Catch block in warm-synthesis-core.ts does NOT call process.exit() — failure must be non-fatal',
+    !catchHasExit,
+    catchHasExit
+      ? 'process.exit() found in catch block — a peek failure would terminate the server process instead of recovering'
+      : undefined,
+  );
+
   // ── Seed a fresh nudge for Part 6 ─────────────────────────────────────────
   // Clean up any stale row first
   await db.delete(danielaAbsenceNudges).where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_3));

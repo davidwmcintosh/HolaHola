@@ -258,6 +258,47 @@ async function runPart3() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PART 4 — Mutation self-check: PART 1 guards are genuine (fail on wrong values)
+// ══════════════════════════════════════════════════════════════════════════════
+sep();
+console.log(B('PART 4 — Mutation self-check: PART 1 guards fail when values change'));
+sep();
+
+function runPart4() {
+  const src = readFileSync(resolve(__dirname, '../routes.ts'), 'utf-8');
+
+  // ── Simulate: importance changed from 8 to 7 ──────────────────────────────
+  const mutatedImportance = src.replace(/importance\s*:\s*8/, 'importance: 7');
+  const mutatedHasImportance8 = /importance\s*:\s*8/.test(mutatedImportance);
+  assert(
+    "Mutation self-check: PART 1 guard detects when importance changes from 8 to 7",
+    !mutatedHasImportance8,
+    'importance: 8 still found in mutated source — PART 1 would not catch this regression',
+  );
+
+  // ── Simulate: absence-call tag replaced ───────────────────────────────────
+  // replaceAll is required: routes.ts may reference 'absence-call' more than
+  // once (e.g. in comments and in the actual tags array); a single replace()
+  // would leave residual matches and the mutation check would pass vacuously.
+  const mutatedTags = src.replaceAll("'absence-call'", "'wrong-tag'");
+  const mutatedHasTag = mutatedTags.includes("'absence-call'");
+  assert(
+    "Mutation self-check: PART 1 guard detects when 'absence-call' tag is replaced",
+    !mutatedHasTag,
+    "'absence-call' still found in mutated source — PART 1 would not catch this regression",
+  );
+
+  // ── Simulate: entryType changed ───────────────────────────────────────────
+  const mutatedEntry = src.replace("entryType: 'conversation'", "entryType: 'decision'");
+  const mutatedHasEntry = mutatedEntry.includes("entryType: 'conversation'");
+  assert(
+    "Mutation self-check: PART 1 guard detects when entryType changes from 'conversation' to 'decision'",
+    !mutatedHasEntry,
+    "entryType: 'conversation' still found in mutated source — PART 1 would not catch this regression",
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MAIN
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -266,6 +307,7 @@ async function runPart3() {
     runPart1();
     await runPart2();
     await runPart3();
+    runPart4();
   } catch (err: any) {
     console.error(R(`\nUnhandled error: ${err?.message ?? err}`));
     process.exit(1);

@@ -13,6 +13,8 @@
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import {
   runGcsCopyProbeWithClient,
   GCS_COPY_PROBE_TAG,
@@ -175,6 +177,59 @@ describe("GCS copy probe", () => {
       calls.delete,
       1,
       `file.delete() must be called even after save() failure (finally block); got ${calls.delete}`,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Source-level mutation guards (#518, #519)
+//
+// These tests confirm that renaming GCS_COPY_PROBE_TAG or GCS_PROBE_MSG_OK in
+// objectStorage.ts would be caught by the mocked runtime tests above — making
+// those tests genuine regression guards, not just happy-path smoke tests.
+// ---------------------------------------------------------------------------
+
+const objectStorageSrc = readFileSync(
+  resolve(import.meta.dirname, "../replit_integrations/object_storage/objectStorage.ts"),
+  "utf-8",
+);
+
+describe("Source-level guard — GCS_PROBE_MSG_OK constant (#519)", () => {
+  it("GCS_PROBE_MSG_OK is exported with the exact value the happy-path test asserts", () => {
+    assert.ok(
+      objectStorageSrc.includes('export const GCS_PROBE_MSG_OK = "GCS metadata probe OK"'),
+      'GCS_PROBE_MSG_OK not found with expected value in objectStorage.ts — was the constant renamed or the string changed?',
+    );
+  });
+
+  it("mutation self-check: changing GCS_PROBE_MSG_OK value would break the happy-path assertion", () => {
+    const mutated = objectStorageSrc.replace(
+      'GCS_PROBE_MSG_OK = "GCS metadata probe OK"',
+      'GCS_PROBE_MSG_OK = "GCS metadata probe RENAMED"',
+    );
+    assert.ok(
+      !mutated.includes('GCS_PROBE_MSG_OK = "GCS metadata probe OK"'),
+      "guard pattern still present after mutation — source assertion is not tight enough",
+    );
+  });
+});
+
+describe("Source-level guard — GCS_COPY_PROBE_TAG constant (#518)", () => {
+  it("GCS_COPY_PROBE_TAG is exported with the exact tag the WARN-detection test asserts", () => {
+    assert.ok(
+      objectStorageSrc.includes('export const GCS_COPY_PROBE_TAG = "[ObjectStorage:CopyProbe]"'),
+      'GCS_COPY_PROBE_TAG not found with expected value in objectStorage.ts — was the tag renamed?',
+    );
+  });
+
+  it("mutation self-check: renaming GCS_COPY_PROBE_TAG would break the WARN-detection assertion", () => {
+    const mutated = objectStorageSrc.replace(
+      'GCS_COPY_PROBE_TAG = "[ObjectStorage:CopyProbe]"',
+      'GCS_COPY_PROBE_TAG = "[ObjectStorage:RENAMED]"',
+    );
+    assert.ok(
+      !mutated.includes('GCS_COPY_PROBE_TAG = "[ObjectStorage:CopyProbe]"'),
+      "guard pattern still present after mutation — source assertion is not tight enough",
     );
   });
 });

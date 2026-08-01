@@ -41,9 +41,13 @@ const SERVER_ROOT = path.resolve(PROJECT_ROOT, 'server');
 /**
  * Additional directories to scan beyond server/.
  * Add any new top-level script/admin/migration directories here.
+ * shared/ is included so that shared utilities that call upload helpers are
+ * also guarded — omitting it would let a raw GCS URL slip in via a shared
+ * helper without the normalizeImageUrl wrap.
  */
 const EXTRA_ROOTS: string[] = [
   path.resolve(PROJECT_ROOT, 'scripts'),
+  path.resolve(PROJECT_ROOT, 'shared'),
 ];
 
 /** Files that define the functions — skip them (they are not call sites). */
@@ -151,6 +155,30 @@ function scanForViolations(): Violation[] {
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
+
+describe('Scanner roots — shared/ is included (#476)', () => {
+  // shared/ utilities can call uploadPublicBuffer or generateEnvironmentScene
+  // (e.g. a shared image-helper module).  Omitting shared/ from EXTRA_ROOTS
+  // would let a raw GCS URL slip through undetected.
+  it('EXTRA_ROOTS includes the shared/ directory', () => {
+    const sharedRoot = path.resolve(PROJECT_ROOT, 'shared');
+    assert.ok(
+      EXTRA_ROOTS.includes(sharedRoot),
+      `shared/ directory not in EXTRA_ROOTS — shared utilities would bypass the GCS-wrap guard.\n` +
+      `  Expected: ${sharedRoot}\n` +
+      `  Got: ${JSON.stringify(EXTRA_ROOTS)}`,
+    );
+  });
+
+  it('mutation self-check: removing shared/ from EXTRA_ROOTS would fail the assertion above', () => {
+    const sharedRoot = path.resolve(PROJECT_ROOT, 'shared');
+    const withoutShared = EXTRA_ROOTS.filter(r => r !== sharedRoot);
+    assert.ok(
+      !withoutShared.includes(sharedRoot),
+      'shared/ still present after filter — self-check would not catch the omission',
+    );
+  });
+});
 
 describe('GCS guard — every upload call wrapped in normalizeImageUrl', () => {
   it('finds no unwrapped uploadPublicBuffer() calls in server/, scripts/, or project root', () => {

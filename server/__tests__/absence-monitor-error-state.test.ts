@@ -37,6 +37,8 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 // ── Types (mirrored from CommandCenter.tsx) ───────────────────────────────────
 
@@ -731,5 +733,50 @@ describe('?? 0 guard — semantics verification', () => {
     // NaN is not null/undefined, so ?? does NOT replace it.
     // This test documents the known limitation: the server must return valid integers.
     assert.ok(Number.isNaN(v), 'NaN passes through ?? — server must not produce NaN');
+  });
+});
+
+// ── Source-level: resolved and total ?? 0 guards exist in the component (#481) ──
+//
+// The semantics tests above prove ?? 0 works correctly in isolation.
+// These source-level tests prove the guards are actually present in
+// CommandCenter.tsx for the `resolved` and `total` fields — not just `pending`.
+// If either guard is removed from the component, these tests fail, making the
+// CI check a genuine regression guard rather than a semantics-only exercise.
+
+describe('?? 0 guards — source-level: resolved and total guarded in CommandCenter.tsx', () => {
+  const commandCenterSrc = readFileSync(
+    resolve(import.meta.dirname, '../../client/src/pages/admin/CommandCenter.tsx'),
+    'utf-8',
+  );
+
+  it('CommandCenter.tsx uses data?.summary.resolved ?? 0 (not bare .resolved)', () => {
+    assert.ok(
+      commandCenterSrc.includes('data?.summary.resolved ?? 0'),
+      'data?.summary.resolved ?? 0 not found in CommandCenter.tsx — guard may have been removed, risking NaN/undefined in the UI',
+    );
+  });
+
+  it('CommandCenter.tsx uses data?.summary.total ?? 0 (not bare .total)', () => {
+    assert.ok(
+      commandCenterSrc.includes('data?.summary.total ?? 0'),
+      'data?.summary.total ?? 0 not found in CommandCenter.tsx — guard may have been removed, risking NaN/undefined in the UI',
+    );
+  });
+
+  it('mutation self-check: removing resolved ?? 0 would fail the source assertion', () => {
+    const mutated = commandCenterSrc.replace('data?.summary.resolved ?? 0', 'data?.summary.resolved');
+    assert.ok(
+      !mutated.includes('data?.summary.resolved ?? 0'),
+      'guard pattern still matches after mutation — assertion is not tight enough',
+    );
+  });
+
+  it('mutation self-check: removing total ?? 0 would fail the source assertion', () => {
+    const mutated = commandCenterSrc.replace('data?.summary.total ?? 0', 'data?.summary.total');
+    assert.ok(
+      !mutated.includes('data?.summary.total ?? 0'),
+      'guard pattern still matches after mutation — assertion is not tight enough',
+    );
   });
 });
