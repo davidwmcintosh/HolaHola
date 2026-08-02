@@ -478,6 +478,10 @@ describe('Static source-code scan — no raw storage.googleapis.com literals out
     // the database without normalisation, bypassing the proxy.
     path.resolve(workspaceRoot, 'scripts'),
     path.resolve(workspaceRoot, 'migrations'),
+    // Shared utilities (URL-builders, normalisers, type helpers) are imported by
+    // both server and client.  A raw GCS URL hardcoded here would bypass the
+    // proxy on every call site.
+    path.resolve(workspaceRoot, 'shared'),
   ];
 
   const TARGET = 'storage.googleapis.com';
@@ -612,6 +616,35 @@ describe('Static source-code scan — no raw storage.googleapis.com literals out
       violations,
       [],
       `Raw storage.googleapis.com URL literal(s) found in non-exempt migrations/ files.\n` +
+        `These must be normalised via normalizeImageUrl() in image-storage.ts before storage.\n\n` +
+        violations.join('\n'),
+    );
+  });
+
+  it('finds no raw GCS URL literals in shared/ (shared utility helpers)', () => {
+    const violations: string[] = [];
+
+    const sharedDir = SCAN_DIRS[4];
+    if (!fs.existsSync(sharedDir)) return; // nothing to scan
+
+    for (const file of collectTsFiles(sharedDir)) {
+      if (isExemptPath(file)) continue;
+
+      const lines = fs.readFileSync(file, 'utf8').split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trimStart();
+        if (trimmed.startsWith('//') || trimmed.startsWith('*')) continue;
+        if (trimmed.includes(TARGET)) {
+          const rel = path.relative(workspaceRoot, file);
+          violations.push(`${rel}:${i + 1}: ${lines[i].trim()}`);
+        }
+      }
+    }
+
+    assert.deepEqual(
+      violations,
+      [],
+      `Raw storage.googleapis.com URL literal(s) found in non-exempt shared/ files.\n` +
         `These must be normalised via normalizeImageUrl() in image-storage.ts before storage.\n\n` +
         violations.join('\n'),
     );
@@ -799,6 +832,45 @@ describe('Static source-code scan — scanner self-validation (end-to-end with a
       );
     } finally {
       fs.unlinkSync(TEMP_SCRIPTS_FILE);
+    }
+  });
+
+  it('detects a violation when a non-test .ts file in shared/ (repo root) contains a raw GCS URL', () => {
+    // Proves the scanner now covers the repo-root shared/ directory.  A URL
+    // builder or normaliser helper that hardcodes a raw GCS URL would be caught
+    // here before it could be imported by server or client code.
+    const sharedRoot = path.resolve(workspaceRoot2, 'shared');
+    if (!fs.existsSync(sharedRoot)) {
+      fs.mkdirSync(sharedRoot, { recursive: true });
+    }
+
+    const TEMP_SHARED_FILE = path.resolve(sharedRoot, '__gcs-source-selftest-shared-tmp__.ts');
+    const source = [
+      `// Temporary file written by scan-gcs-urls.test.ts — DO NOT COMMIT`,
+      `export const helperUrl = 'https://storage.googleapis.com/my-bucket/public/ai-images/helper.jpg';`,
+      `export function buildImageUrl() { return helperUrl; }`,
+    ].join('\n');
+
+    fs.writeFileSync(TEMP_SHARED_FILE, source, 'utf8');
+    try {
+      assert.ok(
+        !isExemptSelfTest(TEMP_SHARED_FILE),
+        'Temp file in shared/ must not be exempt so the scanner actually processes it',
+      );
+      const lines = fs.readFileSync(TEMP_SHARED_FILE, 'utf8').split('\n');
+      const violations = scanLines(TEMP_SHARED_FILE, lines);
+      assert.equal(
+        violations.length,
+        1,
+        `Scanner must detect exactly 1 violation in shared/ but found ${violations.length}.\n` +
+        `Violations: ${JSON.stringify(violations)}`,
+      );
+      assert.ok(
+        violations[0].includes('storage.googleapis.com'),
+        'Violation message must name the offending GCS URL',
+      );
+    } finally {
+      fs.unlinkSync(TEMP_SHARED_FILE);
     }
   });
 });
