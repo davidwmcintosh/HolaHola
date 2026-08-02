@@ -465,6 +465,12 @@ export class GeminiLiveSession {
   // greetingPhaseActive is done, so GL multi-chunk greetings are never suppressed.
   // Prevents spurious second GL generation (unmasked by Bug 1 gate removal July 24 2026).
   private hasStudentInputSinceLastResponse = true;
+  // Double-generation guard — part 2: tracks whether response_complete has already been
+  // flushed to the client for the current turn. Once flushed, any new GL audio arriving
+  // without new student input is definitively spurious (covers the case where the second
+  // generation starts while isTutorGeneratingAudio is still true, so the part-1 guard
+  // can't fire). Reset to false when a genuine new generation begins.
+  private responseFlushedToClient = false;
   // Tool Call Deadlock fix: track function call IDs that were in-flight when the connection
   // dropped. On reconnect with a resumption handle, GL resumes in "waiting for tool response"
   // state — we send synthetic error responses to unblock it before the session hangs silently.
@@ -1157,6 +1163,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               this.greetingPhaseActive = false;
               this.isTutorGeneratingAudio = false;
               this.hasStudentInputSinceLastResponse = false;
+              this.responseFlushedToClient = false;
               if (this.playbackGateSafetyTimeout) {
                 clearTimeout(this.playbackGateSafetyTimeout);
                 this.playbackGateSafetyTimeout = null;
@@ -1403,6 +1410,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
     this.usingOutputTranscription = false;
     // Student actively interrupted — their audio is arriving, so count it as input.
     this.hasStudentInputSinceLastResponse = true;
+    // Reset response-flushed guard so the next generation is not spuriously suppressed.
+    this.responseFlushedToClient = false;
     // DOUBLE-AUDIO FIX: Clear suppress flag on interrupt so a stale reconnect-era flag
     // doesn't carry into the next turn if GL never generated audio after the reconnect.
     this.suppressNextProcessingPending = false;
@@ -1935,6 +1944,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             console.warn('[GeminiLive] Spurious GL audio — no student input since last response; suppressing double-generation (turnId:', this.currentTurnId, ')');
             continue;
           }
+          // Double-generation guard — part 2: response_complete already sent to the client
+          // for this turn (the flush debounce fired), so the response is definitively done.
+          // Any new GL audio without new student input is a spurious re-generation, even if
+          // isTutorGeneratingAudio is still true (client hasn't reported playback_ended yet).
+          // This closes the window that part-1 misses: second audio arriving while the first
+          // stream is still playing but AFTER response_complete was flushed.
+          // Safe for multi-part continuations: those arrive before the debounce seal fires,
+          // so responseFlushedToClient is still false when the continuation chunks arrive.
+          if (this.responseFlushedToClient && !this.greetingPhaseActive && !this.hasStudentInputSinceLastResponse) {
+            console.warn('[GeminiLive] Spurious GL audio after response_complete — suppressing double-generation during playback (turnId:', this.currentTurnId, ')');
+            continue;
+          }
           // Bug 1 gate REMOVED (July 24 2026): the drop gate was intended to suppress GL
           // tail-filler sub-turns ("ok"/"hey") that arrive after generationComplete. However,
           // GL also fires generationComplete between legitimate sub-turns of a multi-part
@@ -2008,6 +2029,8 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             // This is the start of a new response — clear the post-generationComplete gate
             // so legitimate next-turn audio isn't blocked.
             this.afterGenerationComplete = false;
+            // Clear the response-flushed guard so this generation can pass through.
+            this.responseFlushedToClient = false;
             console.log('[GeminiLive] Mic gated — Daniela is generating audio (echo suppression active)');
           }
 
@@ -4225,6 +4248,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
       totalSentences,
       fullText: '',
     });
+    // Arm the response-flushed guard: any GL audio arriving after this point (with no new
+    // student input) is a spurious re-generation and should be suppressed.
+    this.responseFlushedToClient = true;
 
     console.log(`[GeminiLive] Transcripts flushed & response_complete sent — sentences: ${totalSentences}, old turnId: ${flushTurnId}, new turnId: ${this.currentTurnId}`);
   }
