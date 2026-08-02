@@ -115,6 +115,49 @@ function postJson(
   });
 }
 
+/**
+ * Send a raw POST with no Content-Type header (body may be any string).
+ * express.json() will not parse it, leaving req.body undefined.
+ */
+function postRaw(
+  url: string,
+  rawBody: string,
+  contentType?: string,
+): Promise<{ status: number; body: any }> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const headers: Record<string, string | number> = {
+      'Content-Length': Buffer.byteLength(rawBody),
+    };
+    if (contentType) {
+      headers['Content-Type'] = contentType;
+    }
+    const req = http.request(
+      {
+        hostname: parsed.hostname,
+        port: Number(parsed.port),
+        path: parsed.pathname,
+        method: 'POST',
+        headers,
+      },
+      (resp) => {
+        let raw = '';
+        resp.on('data', (chunk) => { raw += chunk; });
+        resp.on('end', () => {
+          try {
+            resolve({ status: resp.statusCode ?? 0, body: JSON.parse(raw) });
+          } catch {
+            resolve({ status: resp.statusCode ?? 0, body: raw });
+          }
+        });
+      },
+    );
+    req.on('error', reject);
+    req.write(rawBody);
+    req.end();
+  });
+}
+
 // ── Test lifecycle ────────────────────────────────────────────────────────────
 
 let server: http.Server;
@@ -200,6 +243,59 @@ describe('POST /api/admin/test-voice-sms — unknown userId', () => {
       status,
       400,
       `Expected 400 when userId is absent, got ${status}.`,
+    );
+  });
+
+});
+
+// ── Non-JSON body: missing or wrong Content-Type ─────────────────────────────
+//
+// When no Content-Type header is present, express.json() does not parse the
+// body and leaves req.body as undefined.  The handler must return 400 (not 500)
+// and must NOT reach the queue insert.
+
+describe('POST /api/admin/test-voice-sms — non-JSON body', () => {
+
+  it('returns 400 when no Content-Type header is sent', async () => {
+    // Send a raw body that looks like JSON but without the header so Express
+    // will not parse it, leaving req.body undefined.
+    const { status } = await postRaw(
+      `${baseUrl}/api/admin/test-voice-sms`,
+      JSON.stringify({ userId: 'some-user-id' }),
+    );
+    assert.equal(
+      status,
+      400,
+      `Expected 400 when Content-Type is absent, got ${status}. ` +
+      'The handler may be crashing (500) instead of returning 400 — ' +
+      'check that req.body is guarded against undefined.',
+    );
+  });
+
+  it('returns 400 when Content-Type is text/plain (not JSON)', async () => {
+    const { status } = await postRaw(
+      `${baseUrl}/api/admin/test-voice-sms`,
+      'userId=some-user-id',
+      'text/plain',
+    );
+    assert.equal(
+      status,
+      400,
+      `Expected 400 for text/plain body, got ${status}.`,
+    );
+  });
+
+  it('does not insert a queue row when the body is not JSON', async () => {
+    // The insertQueue spy throws if called, so a 400 response proves it was
+    // never reached.
+    const { status } = await postRaw(
+      `${baseUrl}/api/admin/test-voice-sms`,
+      'not-json-at-all',
+    );
+    assert.equal(
+      status,
+      400,
+      'Expected 400 — queue insert must not be reached when body is not JSON.',
     );
   });
 

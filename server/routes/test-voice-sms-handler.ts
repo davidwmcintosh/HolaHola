@@ -41,7 +41,7 @@ export interface TestVoiceSmsHandlerDeps {
 export function buildTestVoiceSmsHandler(deps: TestVoiceSmsHandlerDeps) {
   return async function testVoiceSmsHandler(req: Request, res: Response): Promise<void> {
     try {
-      const { userId, message } = req.body as { userId?: unknown; message?: unknown };
+      const { userId, message } = (req.body ?? {}) as { userId?: unknown; message?: unknown };
 
       if (!userId || typeof userId !== 'string') {
         res.status(400).json({ error: 'userId is required' });
