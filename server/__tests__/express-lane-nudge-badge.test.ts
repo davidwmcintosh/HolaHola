@@ -318,7 +318,7 @@ describe('CommandCenter.tsx — badge invalidated immediately on nudge dismissal
 
   it('dismiss route calls resolveAbsenceNudge (reuses the worker function)', () => {
     const DISMISS_ROUTE = '/api/admin/absence-nudges/:userId/dismiss';
-    const region = regionAround(routesSrc, DISMISS_ROUTE, 0, 600);
+    const region = regionAround(routesSrc, DISMISS_ROUTE, 0, 2000);
     assert.ok(
       region.includes('resolveAbsenceNudge'),
       'resolveAbsenceNudge not called in the dismiss route — ' +

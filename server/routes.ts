@@ -33503,8 +33503,18 @@ You have full access to your neural network knowledge.
       if (!userId || typeof userId !== 'string') {
         return res.status(400).json({ error: 'userId param required' });
       }
+      // Validate resolutionType at the HTTP boundary so a misspelled value never
+      // reaches the database.  Defaults to 'dismissed' when not supplied.
+      const rawResolutionType = req.body?.resolutionType ?? 'dismissed';
+      const parsedResolutionType = resolutionTypeSchema.safeParse(rawResolutionType);
+      if (!parsedResolutionType.success) {
+        return res.status(400).json({
+          error: 'Invalid resolutionType',
+          details: parsedResolutionType.error.issues,
+        });
+      }
       const { resolveAbsenceNudge } = await import('./services/daniela-absence-worker');
-      await resolveAbsenceNudge(userId, 'dismissed');
+      await resolveAbsenceNudge(userId, parsedResolutionType.data);
       res.json({ ok: true });
     } catch (error: any) {
       console.error('[AbsenceNudges] Dismiss endpoint error:', error);

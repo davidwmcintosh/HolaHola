@@ -133,3 +133,88 @@ describe('POST /api/admin/trigger-call — resolutionTypeSchema wired at HTTP bo
     );
   });
 });
+
+// ── dismiss route wiring (#595) ───────────────────────────────────────────────
+
+describe('PATCH /api/admin/absence-nudges/:userId/dismiss — resolutionTypeSchema wired (#595)', () => {
+  const routesSource = readFileSync(
+    resolve(process.cwd(), 'server/routes.ts'),
+    'utf-8',
+  );
+
+  it('dismiss route exists in routes.ts', () => {
+    assert.ok(
+      routesSource.includes('/api/admin/absence-nudges/') &&
+        routesSource.includes('/dismiss'),
+      'PATCH /api/admin/absence-nudges/:userId/dismiss route must exist in routes.ts',
+    );
+  });
+
+  it('dismiss handler calls resolutionTypeSchema.safeParse()', () => {
+    const dismissIdx = routesSource.indexOf('absence-nudges/:userId/dismiss');
+    assert.ok(dismissIdx !== -1, 'absence-nudges/:userId/dismiss route must exist in routes.ts');
+
+    // Look for safeParse within a reasonable window after the route declaration (~2 KB).
+    const window = routesSource.slice(dismissIdx, dismissIdx + 2000);
+    assert.ok(
+      window.includes('resolutionTypeSchema.safeParse'),
+      'PATCH /api/admin/absence-nudges/:userId/dismiss must call resolutionTypeSchema.safeParse() to validate resolutionType',
+    );
+  });
+
+  it('dismiss handler returns 400 when resolutionTypeSchema.safeParse fails', () => {
+    const dismissIdx = routesSource.indexOf('absence-nudges/:userId/dismiss');
+    const window = routesSource.slice(dismissIdx, dismissIdx + 2000);
+    assert.ok(
+      window.includes('status(400)') && window.includes('resolutionTypeSchema.safeParse'),
+      'PATCH /api/admin/absence-nudges/:userId/dismiss must return HTTP 400 when resolutionTypeSchema.safeParse fails',
+    );
+  });
+
+  it('dismiss handler defaults to "dismissed" when resolutionType is not supplied', () => {
+    const dismissIdx = routesSource.indexOf('absence-nudges/:userId/dismiss');
+    const window = routesSource.slice(dismissIdx, dismissIdx + 2000);
+    assert.ok(
+      window.includes("'dismissed'") || window.includes('"dismissed"'),
+      'dismiss handler must default resolutionType to "dismissed" when body omits it',
+    );
+  });
+});
+
+// ── history route wiring (#595) ───────────────────────────────────────────────
+
+describe('GET /api/admin/absence-nudges/history — resolutionTypeSchema wired (#595)', () => {
+  const historySource = readFileSync(
+    resolve(process.cwd(), 'server/routes/absence-nudges-history.ts'),
+    'utf-8',
+  );
+
+  it('absence-nudges-history.ts imports resolutionTypeSchema from shared/absence-types', () => {
+    assert.ok(
+      historySource.includes('resolutionTypeSchema') && historySource.includes('absence-types'),
+      'server/routes/absence-nudges-history.ts must import resolutionTypeSchema from shared/absence-types',
+    );
+  });
+
+  it('history handler calls resolutionTypeSchema.safeParse()', () => {
+    assert.ok(
+      historySource.includes('resolutionTypeSchema.safeParse'),
+      'GET /api/admin/absence-nudges/history must call resolutionTypeSchema.safeParse() to validate resolutionType query param',
+    );
+  });
+
+  it('history handler returns 400 when resolutionTypeSchema.safeParse fails', () => {
+    assert.ok(
+      historySource.includes('status(400)') && historySource.includes('resolutionTypeSchema.safeParse'),
+      'GET /api/admin/absence-nudges/history must return HTTP 400 when resolutionTypeSchema.safeParse fails',
+    );
+  });
+
+  it('history handler does not use a manual includes() guard in place of Zod', () => {
+    // The old guard was VALID_RESOLUTION_TYPES.includes(...) — Zod replaces it.
+    assert.ok(
+      !historySource.includes('VALID_RESOLUTION_TYPES.includes'),
+      'history handler must not use the old manual VALID_RESOLUTION_TYPES.includes() guard',
+    );
+  });
+});

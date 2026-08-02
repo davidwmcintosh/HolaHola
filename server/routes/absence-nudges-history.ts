@@ -19,11 +19,11 @@
  */
 
 import type { Request, Response } from 'express';
+import { resolutionTypeSchema } from '../../shared/absence-types';
 
 // ── Types shared with the service layer ──────────────────────────────────────
 
-const VALID_RESOLUTION_TYPES = ['student_returned', 'message_queued', 'dismissed'] as const;
-export type AbsenceResolutionType = typeof VALID_RESOLUTION_TYPES[number];
+export type AbsenceResolutionType = 'student_returned' | 'message_queued' | 'dismissed';
 
 export type ListResolvedNudgesFn = (
   limit: number,
@@ -52,11 +52,21 @@ export function buildAbsenceHistoryHandler(
       const limit = Math.min(Math.max(Number.isFinite(rawLimit) ? rawLimit : 20, 1), 100);
       // ─────────────────────────────────────────────────────────────────────
 
-      // Resolution-type filter
+      // Resolution-type filter — validate with Zod so a misspelled value returns
+      // 400 instead of silently being ignored or reaching the DB.
       const rawType = req.query.resolutionType as string | undefined;
-      const resolutionType = VALID_RESOLUTION_TYPES.includes(rawType as AbsenceResolutionType)
-        ? (rawType as AbsenceResolutionType)
-        : undefined;
+      let resolutionType: AbsenceResolutionType | undefined;
+      if (rawType !== undefined && rawType !== '') {
+        const parsedType = resolutionTypeSchema.safeParse(rawType);
+        if (!parsedType.success) {
+          res.status(400).json({
+            error: 'Invalid resolutionType',
+            details: parsedType.error.issues,
+          });
+          return;
+        }
+        resolutionType = parsedType.data as AbsenceResolutionType;
+      }
 
       const history = await listResolvedNudges(limit, resolutionType);
       res.json({ history });
