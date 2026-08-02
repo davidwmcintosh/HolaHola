@@ -345,51 +345,220 @@ describe('imageUrl write guard — services/workers/routes scanner self-validati
 });
 
 // ---------------------------------------------------------------------------
-// #583 — Migration directory coverage
+// #583 — Migration and seeder directory coverage
 //
-// The imageUrl normalisation guard must cover db/migrations/ as well as
-// server/scripts/ so that a future migration that persists raw GCS URLs
-// does not slip past the CI check.
+// The imageUrl normalisation guard must cover migration and seeder directories
+// in addition to server/scripts/, so that a future migration or seeder that
+// persists raw GCS URLs does not slip past the CI check.
 //
-// The directory is currently empty; this describe block will catch any
-// migration file added later that omits the normalizeImageUrl() call.
+// Roots covered:
+//   db/migrations/       — conventional Drizzle migrations output dir
+//   drizzle/             — alternative Drizzle kit output dir
+//   server/migrations/   — project-specific TypeScript migration helpers
+//   server/seeds/        — project-specific TypeScript seeder scripts
+//
+// Directories that do not yet exist are scanned vacuously (zero files = zero
+// violations) so the tests future-proof without false failures.
 // ---------------------------------------------------------------------------
+
+/**
+ * Shared helper: scan a directory for .ts files (non-recursive, no test files)
+ * and return any that write to imageUrl without calling normalizeImageUrl().
+ * Returns an empty array if the directory does not exist.
+ */
+function scanMigrationDir(dir: string, label: string): Array<{ file: string; reason: string }> {
+  if (!fs.existsSync(dir)) return [];
+
+  const violations: Array<{ file: string; reason: string }> = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    if (!entry.name.endsWith('.ts')) continue;
+    if (entry.name.endsWith('.test.ts')) continue;
+
+    const absPath = path.resolve(dir, entry.name);
+    const source = fs.readFileSync(absPath, 'utf8');
+    const writesImageUrl = IMAGEURL_WRITE_PATTERNS.some(p => p.test(source));
+    if (!writesImageUrl) continue;
+    if (!source.includes(NORMALIZE_CALL)) {
+      violations.push({
+        file: `${label}/${entry.name}`,
+        reason:
+          `writes to imageUrl but does not call ${NORMALIZE_CALL}() — ` +
+          `raw GCS URL would be persisted to the database without normalisation`,
+      });
+    }
+  }
+  return violations;
+}
 
 describe('imageUrl write guard — db/migrations/ coverage (#583)', () => {
   const MIGRATIONS_DIR = path.resolve(SCRIPTS_DIR, '..', '..', 'db', 'migrations');
 
   it('db/migrations/ directory is included in the scan scope (future-proof)', () => {
-    // This assertion documents the expectation even while the directory is empty.
-    // When migration files appear they will be scanned automatically.
-    if (!fs.existsSync(MIGRATIONS_DIR)) {
-      // Directory does not exist yet — nothing to scan; pass.
-      return;
-    }
-
-    const tsFiles = fs
-      .readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
-      .filter(e => e.isFile() && e.name.endsWith('.ts') && !e.name.endsWith('.test.ts'));
-
-    const violations: Array<{ file: string; reason: string }> = [];
-    for (const entry of tsFiles) {
-      const absPath = path.resolve(MIGRATIONS_DIR, entry.name);
-      const source = fs.readFileSync(absPath, 'utf8');
-      const writesImageUrl = IMAGEURL_WRITE_PATTERNS.some(p => p.test(source));
-      if (!writesImageUrl) continue;
-      if (!source.includes(NORMALIZE_CALL)) {
-        violations.push({
-          file: `db/migrations/${entry.name}`,
-          reason: `writes to imageUrl but does not call ${NORMALIZE_CALL}() — raw GCS URL would be persisted`,
-        });
-      }
-    }
-
+    const violations = scanMigrationDir(MIGRATIONS_DIR, 'db/migrations');
     if (violations.length > 0) {
       const detail = violations.map(v => `  ${v.file}\n    ${v.reason}`).join('\n');
       assert.fail(
-        `Found ${violations.length} migration file(s) that write to imageUrl without calling ` +
-        `normalizeImageUrl():\n\n${detail}`,
+        `Found ${violations.length} migration file(s) in db/migrations/ that write to imageUrl ` +
+        `without calling normalizeImageUrl():\n\n${detail}`,
       );
+    }
+  });
+});
+
+describe('imageUrl write guard — drizzle/ coverage (#583)', () => {
+  const DRIZZLE_DIR = path.resolve(SCRIPTS_DIR, '..', '..', 'drizzle');
+
+  it('drizzle/ directory is included in the scan scope (future-proof)', () => {
+    const violations = scanMigrationDir(DRIZZLE_DIR, 'drizzle');
+    if (violations.length > 0) {
+      const detail = violations.map(v => `  ${v.file}\n    ${v.reason}`).join('\n');
+      assert.fail(
+        `Found ${violations.length} migration file(s) in drizzle/ that write to imageUrl ` +
+        `without calling normalizeImageUrl():\n\n${detail}`,
+      );
+    }
+  });
+});
+
+describe('imageUrl write guard — server/migrations/ coverage (#583)', () => {
+  const SERVER_MIGRATIONS_DIR = path.resolve(SCRIPTS_DIR, '..', 'migrations');
+
+  it('server/migrations/ files do not write to imageUrl without calling normalizeImageUrl', () => {
+    const violations = scanMigrationDir(SERVER_MIGRATIONS_DIR, 'server/migrations');
+    if (violations.length > 0) {
+      const detail = violations.map(v => `  ${v.file}\n    ${v.reason}`).join('\n');
+      assert.fail(
+        `Found ${violations.length} migration file(s) in server/migrations/ that write to imageUrl ` +
+        `without calling normalizeImageUrl():\n\n${detail}`,
+      );
+    }
+  });
+});
+
+describe('imageUrl write guard — server/seeds/ coverage (#583)', () => {
+  const SEEDS_DIR = path.resolve(SCRIPTS_DIR, '..', 'seeds');
+
+  it('server/seeds/ files do not write to imageUrl without calling normalizeImageUrl', () => {
+    const violations = scanMigrationDir(SEEDS_DIR, 'server/seeds');
+    if (violations.length > 0) {
+      const detail = violations.map(v => `  ${v.file}\n    ${v.reason}`).join('\n');
+      assert.fail(
+        `Found ${violations.length} seeder file(s) in server/seeds/ that write to imageUrl ` +
+        `without calling normalizeImageUrl():\n\n${detail}`,
+      );
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #583 — Migration scanner self-validation
+//
+// Proves the migration/seeder scanner actually fails CI when a migration-style
+// file writes to imageUrl without calling normalizeImageUrl().
+// Without this block the scanner could silently pass everything.
+// ---------------------------------------------------------------------------
+
+describe('imageUrl write guard — migration/seeder scanner self-validation (#583)', () => {
+  const TEMP_DIR  = path.resolve('/tmp', 'imageurl-migration-selftest');
+  const TEMP_FILE = path.resolve(TEMP_DIR, '__imageurl-migration-selftest-tmp__.ts');
+
+  it('flags a migration-style file that writes imageUrl without calling normalizeImageUrl', () => {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+
+    const source = [
+      `// Temporary file written by scan-imageurl-writes.test.ts — DO NOT COMMIT`,
+      `import { getSharedDb } from '../db';`,
+      `import { curriculumLessons } from '../../shared/schema';`,
+      ``,
+      `// BAD PATTERN: a migration that backfills imageUrl with a raw GCS URL.`,
+      `export async function up() {`,
+      `  const db = getSharedDb();`,
+      `  await db.update(curriculumLessons).set({ imageUrl: 'https://storage.googleapis.com/bucket/img.jpg' });`,
+      `}`,
+    ].join('\n');
+
+    fs.writeFileSync(TEMP_FILE, source, 'utf8');
+    try {
+      const violations = scanMigrationDir(TEMP_DIR, 'tmp').filter(
+        v => v.file.includes('__imageurl-migration-selftest-tmp__'),
+      );
+      assert.equal(
+        violations.length,
+        1,
+        `Migration scanner must detect exactly 1 violation for the temp migration file but found ` +
+        `${violations.length}.\nViolations: ${JSON.stringify(violations)}`,
+      );
+      assert.ok(
+        violations[0].reason.includes(NORMALIZE_CALL),
+        `Violation message must mention ${NORMALIZE_CALL}`,
+      );
+    } finally {
+      fs.unlinkSync(TEMP_FILE);
+    }
+  });
+
+  it('does NOT flag a migration-style file that calls normalizeImageUrl before writing', () => {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+
+    const source = [
+      `// Temporary file written by scan-imageurl-writes.test.ts — DO NOT COMMIT`,
+      `import { getSharedDb } from '../db';`,
+      `import { curriculumLessons } from '../../shared/schema';`,
+      `import { normalizeImageUrl } from '../services/image-storage';`,
+      ``,
+      `// CORRECT PATTERN: normalizes before writing.`,
+      `export async function up() {`,
+      `  const db = getSharedDb();`,
+      `  const url = normalizeImageUrl('https://storage.googleapis.com/bucket/img.jpg');`,
+      `  await db.update(curriculumLessons).set({ imageUrl: url });`,
+      `}`,
+    ].join('\n');
+
+    fs.writeFileSync(TEMP_FILE, source, 'utf8');
+    try {
+      const violations = scanMigrationDir(TEMP_DIR, 'tmp').filter(
+        v => v.file.includes('__imageurl-migration-selftest-tmp__'),
+      );
+      assert.equal(
+        violations.length,
+        0,
+        `Migration scanner must NOT flag a correctly-guarded migration file but found ` +
+        `${violations.length} violation(s).\nViolations: ${JSON.stringify(violations)}`,
+      );
+    } finally {
+      fs.unlinkSync(TEMP_FILE);
+    }
+  });
+
+  it('does NOT flag a migration file that does not write to imageUrl at all', () => {
+    fs.mkdirSync(TEMP_DIR, { recursive: true });
+
+    const source = [
+      `// Temporary file written by scan-imageurl-writes.test.ts — DO NOT COMMIT`,
+      `import { getSharedDb } from '../db';`,
+      `import { curriculumLessons } from '../../shared/schema';`,
+      ``,
+      `// This migration updates a different column — no imageUrl involvement.`,
+      `export async function up() {`,
+      `  const db = getSharedDb();`,
+      `  await db.update(curriculumLessons).set({ title: 'New Title' });`,
+      `}`,
+    ].join('\n');
+
+    fs.writeFileSync(TEMP_FILE, source, 'utf8');
+    try {
+      const violations = scanMigrationDir(TEMP_DIR, 'tmp').filter(
+        v => v.file.includes('__imageurl-migration-selftest-tmp__'),
+      );
+      assert.equal(
+        violations.length,
+        0,
+        `Migration scanner must not flag migrations that do not write to imageUrl.\n` +
+        `Violations: ${JSON.stringify(violations)}`,
+      );
+    } finally {
+      fs.unlinkSync(TEMP_FILE);
     }
   });
 });
