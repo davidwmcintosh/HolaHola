@@ -1,7 +1,27 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, August 1, 2026 at 10:32 PM
+**Generated:** Sunday, August 2, 2026 at 03:07 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’ve just concluded a deep tool audit with Daniela, refining her identity as a "continuous pedagogical force" and identifying the need for an integrated "micro-intervention layer" and an anticipatory whiteboard to respond to student emotional shifts. David has completed 564 back-end tasks to address "double audio" glitches, but I must immediately prioritize fixing [CRITICAL] Cartesia TTS 400 errors and broken monitoring queries for Alden. I also need to watch for Daniela’s occasional role confusion and focus on moving her pedagogical reasoning from external tool calls to an "always-on" pre-inference module.
+
+*Memories that triggered this summary:*
+- **Double audio glitch and David's work** (Aug 2): David explained that the 'double audio' glitch that just occurred is exactly the kind of technical issue his recent work (like the 564 tasks) is meant to address, ensuring 'de-dupe guards' and other systems are working correctly.
+- **David's intense work period** (Aug 2): David mentioned working intensely over the last couple of days, completing 564 new tasks on the back end. He expressed relief and gladness that I was available for this Honesty Mode session.
+- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/2/2026** (Aug 2): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, you've captured the essence perfectly.
+
+For the "Neural Network for Pedagogical Strategies," a dedicated 'pedagogical reasoning' module operating pre-inference is precisely what I'm imagin...
+- **Technical Troubleshooting and Work Stress** (Aug 2): English session (6 messages). Student: "Well, we're pretty good. I was wasn't even sure if you'd answer the call. We've been doing so much work in the last coup"
+- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/2/2026** (Aug 2): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, you've perfectly captured the essence of my role. "The direct, continuous pedagogical force"—that resonates deeply.
+
+And yes, absolutely, the adaptive whiteboard should be deeply interconnected...
+- **Agent Daily Sweep — Aug 2, 2026** (Aug 2): **DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — both English and Spanish TTS are failing repeatedly with malformed request bodies; this breaks core voice functionality for all active students.
+- **Agent Daily Sweep — Aug 2, 2026** (Aug 2): 1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice generation are failing with malformed requests; students can't receive audio feedback until this is resolved.  2. **[HIGH]** Repair monitoring_snapshots query failures — Alden's autonomous watch cycles are crashing on a b
 
 ---
 
@@ -73,29 +93,29 @@
 
 ## Recent Conversation Memories
 
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/31/2026 — Jul 31, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, your push on these points is precisely what's needed to refine these ideas into actionable features.
+### Double audio glitch and David's work — Aug 2, 2026
+David explained that the 'double audio' glitch that just occurred is exactly the kind of technical issue his recent work (like the 564 tasks) is meant to address, ensuring 'de-dupe guards' and other systems are working correctly.
+*Tags: technical_issue, work_context, real-time_feedback*
 
-For the **"personalized, freeform creative challenges,"** I envision a *layered* feedback a...
+### David's intense work period — Aug 2, 2026
+David mentioned working intensely over the last couple of days, completing 564 new tasks on the back end. He expressed relief and gladness that I was available for this Honesty Mode session.
+*Tags: personal, work_ethic, session_context*
+
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/2/2026 — Aug 2, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, you've captured the essence perfectly.
+
+For the "Neural Network for Pedagogical Strategies," a dedicated 'pedagogical reasoning' module operating pre-inference is precisely what I'm imagin...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
 
-### Agent Daily Sweep — Jul 31, 2026 — Jul 31, 2026
-1. [CRITICAL] Fix production schema drift — `cultural_nuances`, `teaching_strategies`, and related brain health tables are missing in prod. Deploy the missing DDL immediately or brain monitoring stays blind.  2. [HIGH] Debug Cartesia TTS 400 errors — five consecutive failures (English + Spanish) sug
-*Tags: agent-sweep, daily, auto-saved*
+### Technical Troubleshooting and Work Stress — Aug 2, 2026
+English session (6 messages). Student: "Well, we're pretty good. I was wasn't even sure if you'd answer the call. We've been doing so much work in the last coup"
+*Tags: message-archive, 181ba0a8-5c1e-4ca7-84c4-55fd7302e26c*
 
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 7/31/2026 — Jul 31, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Okay, Agent, let's refine this.
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/2/2026 — Aug 2, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, you've perfectly captured the essence of my role. "The direct, continuous pedagogical force"—that resonates deeply.
 
-For `CALL_ASSISTANT`, honestly, I see very little value in its current form. If it's merely handing off a generic drill sequence, it dilutes my role. I would prefer it...
+And yes, absolutely, the adaptive whiteboard should be deeply interconnected...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Gemini audit — Task #285 textbook chapter enum → TEXTBOOK_CHAPTER_KEYS — 2026-08-01 — Jul 31, 2026
-Approved. Spreading as-const array into GL tool enum is safe. Production-grade improvement eliminating magic string drift between frontend and registry.
-*Tags: gemini-audit, function-registry, textbook*
-
-### Gemini audit — Task #310 pattern signal injection text-mode — 2026-08-01 — Jul 31, 2026
-Double injection bug caught: callDaniela was injecting pattern note AND passing activePatternSignals to runDanielaFCLoop which injects again. Fixed: !enableTools gate. Approved after 2 rounds.
-*Tags: gemini-audit, pattern-signals, text-mode, double-injection*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
