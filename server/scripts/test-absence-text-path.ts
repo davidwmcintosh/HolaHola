@@ -287,6 +287,36 @@ function part1() {
       ? undefined
       : 'Stale-discard log not found in text-mode region — discard branch is unobservable',
   );
+
+  // ── 1s. Stale-discard log exists in handler source (file-wide check) ──────
+  // The region check in 1r is windowed; this confirms the exact log string is
+  // present in unified-ws-handler.ts at the file level, independent of the
+  // region anchor position.
+  const staleDiscardLogStr = '[TextMode] Warm cache present but absence signal detected — regenerating with signal';
+  const staleDiscardInSource = wsHandlerSrc.includes(staleDiscardLogStr);
+  assert(
+    'Stale-discard log "[TextMode] Warm cache present but absence signal detected — regenerating with signal" found in handler source (file-level)',
+    staleDiscardInSource,
+    staleDiscardInSource
+      ? undefined
+      : 'Log not found anywhere in unified-ws-handler.ts — the stale-discard branch may have been removed',
+  );
+
+  // ── 1t. Branch ordering: stale-discard log appears BEFORE warm-path log ───
+  // The three-branch structure is:
+  //   if (warmedNote && absenceReturn)  → stale-discard (regenerate)
+  //   else if (warmedNote)              → warm-path (use cache directly)
+  //   else if (absenceReturn)           → generate with signal, no cache
+  // The stale-discard log must appear before the warm-path log in source to
+  // confirm the branch ordering has not been inverted.
+  const warmPathLogStr = '[TextMode] \u2713 Using pre-warmed synthesis';
+  const staleDiscardSrcIdx = wsHandlerSrc.indexOf(staleDiscardLogStr);
+  const warmPathSrcIdx     = wsHandlerSrc.indexOf(warmPathLogStr);
+  assert(
+    'Stale-discard log appears BEFORE warm-path log in source (branch ordering: warmedNote&&absenceReturn → discard, else if warmedNote → use cache)',
+    staleDiscardSrcIdx !== -1 && warmPathSrcIdx !== -1 && staleDiscardSrcIdx < warmPathSrcIdx,
+    `staleDiscardSrcIdx=${staleDiscardSrcIdx}, warmPathSrcIdx=${warmPathSrcIdx}`,
+  );
 }
 
 part1();
