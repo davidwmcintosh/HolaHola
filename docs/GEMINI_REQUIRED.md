@@ -77,5 +77,6 @@ If a task agent cannot run the loop (no direct API access), the task description
 | Date | File/area changed | Audit doc | Outcome |
 |------|-------------------|-----------|---------|
 | 2026-07-31 | `buildActflPersonaAnchor` + pattern signal injection | `docs/gemini-audit-2026-07-31.md` | Approved (8-9/10). Null guard bug caught and fixed. |
+| 2026-08-02 | `fetchPatternSignalContext` error-path (null→undefined sentinel + console.warn) | `docs/gemini-audit-2026-08-02.md` | Approved unconditionally. No behavioral change, improved observability. |
 
 _Add a row for every approved change going forward._
