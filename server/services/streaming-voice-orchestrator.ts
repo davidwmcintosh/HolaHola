@@ -9315,7 +9315,9 @@ Remember: David may reference things discussed in these recent text chats.
       }
 
       // Fetch grammar pattern signals — wobbling/pounding compartments Daniela should revisit
-      let patternSignalContext: string | null = null;
+      // undefined = fetch threw (storage error) → skip session.activePatternSignals assignment entirely
+      // null     = fetch resolved cleanly but no active signals exist
+      let patternSignalContext: string | null | undefined = null;
       let recentMilestonesContext: string | null = null;
       // PRE-SESSION FLASHBACK: Run a semantic memory search at session start — in parallel with
       // pattern signals. This extends the Bootstrap Turn beyond a cold structured profile into
@@ -9327,7 +9329,11 @@ Remember: David may reference things discussed in these recent text chats.
           ? `${userName} — who they are, what matters to them, learning goals, breakthroughs, struggles`
           : `this student — personal history, goals, breakthroughs, struggles`;
         const [psCtx, msCtx, flashback] = await Promise.all([
-          fetchPatternSignalContext(String(session.userId), session.targetLanguage).catch(() => null),
+          // catch returns undefined (not null) so the assignment guard below skips
+          // session.activePatternSignals instead of writing null on a storage error.
+          fetchPatternSignalContext(String(session.userId), session.targetLanguage).catch((err): undefined => {
+            console.warn('[PatternSignal] fetchPatternSignalContext threw at greeting time — session will start without pattern context', err instanceof Error ? err.message : String(err));
+          }),
           fetchRecentMilestonesContext(String(session.userId), session.targetLanguage).catch(() => null),
           // Flashback: semantic search for lived memories — only for real students (not incognito)
           (!(session as any).isIncognito && session.userId
