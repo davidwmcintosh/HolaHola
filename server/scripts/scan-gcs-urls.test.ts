@@ -536,6 +536,24 @@ describe('Static source-code scan — no raw storage.googleapis.com literals out
     );
   });
 
+  it('all exempt files exist on disk', () => {
+    // If a file in EXEMPT_FILES is deleted or renamed its exemption becomes a
+    // silent no-op: the scan skips a name that no longer exists while a
+    // replacement file with the same GCS URL pattern goes undetected.
+    const missing: string[] = [];
+    for (const absPath of EXEMPT_FILES) {
+      if (!fs.existsSync(absPath)) {
+        missing.push(path.relative(workspaceRoot, absPath));
+      }
+    }
+    assert.deepEqual(
+      missing,
+      [],
+      `Exempt file(s) no longer exist — update the list or remove the exemption:\n` +
+        missing.map(p => `  • ${p}`).join('\n'),
+    );
+  });
+
   it('fails (simulated) when a new write path hardcodes a raw GCS URL', () => {
     // Inject a synthetic violation to prove the detection logic actually fires.
     // We run the same loop logic but over a fake in-memory "file" so we do not
