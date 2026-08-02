@@ -18,6 +18,8 @@
  * - Auto-vocabulary extraction from [WRITE] tags
  */
 
+import type { TextbookChapterKey } from './textbook-chapter-keys';
+
 /**
  * Whiteboard markup tags
  * 
@@ -1219,7 +1221,7 @@ export interface OverlayPanelColumn {
 export type OverlayPanel =
   | { type: 'vocab-grid'; words: OverlayPanelVocabWord[]; title?: string }
   | { type: 'sentence-builder'; columns: OverlayPanelColumn[]; patternLabel?: string; title?: string }
-  | { type: 'textbook-section'; chapterKey: string; title?: string };
+  | { type: 'textbook-section'; chapterKey: TextbookChapterKey; title?: string };
 
 export interface OverlayPanelItemData {
   panel: OverlayPanel;
