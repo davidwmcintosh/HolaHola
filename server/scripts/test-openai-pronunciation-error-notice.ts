@@ -839,6 +839,143 @@ console.log('\n[13] Hook-level guard (validateQuizPayload) blocks malformed and 
   }
 }
 
+// ── Scenario 14: Hook-level cultural-context guard blocks malformed payloads ──
+//
+// Imports validateCulturalContextPayload from the production guard module
+// (client/src/lib/cultural-context-guard.ts) and executes it directly against a
+// spy callback — proving the guard blocks bad data in execution, not just by
+// source scan. useStreamingVoice.ts delegates handleCulturalContextShown entirely
+// to this same function.
+
+console.log('\n[14] Hook-level guard (validateCulturalContextPayload) blocks malformed and passes well-formed payloads');
+{
+  const { validateCulturalContextPayload } = await import(
+    '../../client/src/lib/cultural-context-guard.js'
+  );
+
+  let spyCalls = 0;
+  const spy = () => { spyCalls++; };
+
+  function simulateCulturalDispatch(rawData: any): void {
+    const payload = validateCulturalContextPayload(rawData);
+    if (!payload) return;
+    spy();
+  }
+
+  // ── malformed: missing title ──────────────────────────────────────────────
+  spyCalls = 0;
+  simulateCulturalDispatch({ text: 'In Mexico, it is customary to greet everyone in a room.', timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when title is missing');
+  } else {
+    fail('spy was called despite missing title — cultural-context guard is not blocking');
+  }
+
+  // ── malformed: whitespace-only title ─────────────────────────────────────
+  spyCalls = 0;
+  simulateCulturalDispatch({ title: '   ', text: 'In Mexico, it is customary to greet everyone in a room.', timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when title is whitespace-only');
+  } else {
+    fail('spy was called despite whitespace-only title — cultural-context guard is not blocking');
+  }
+
+  // ── malformed: missing text ───────────────────────────────────────────────
+  spyCalls = 0;
+  simulateCulturalDispatch({ title: 'Greeting customs', timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when text is missing');
+  } else {
+    fail('spy was called despite missing text — cultural-context guard is not blocking');
+  }
+
+  // ── malformed: whitespace-only text ──────────────────────────────────────
+  spyCalls = 0;
+  simulateCulturalDispatch({ title: 'Greeting customs', text: '   ', timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when text is whitespace-only');
+  } else {
+    fail('spy was called despite whitespace-only text — cultural-context guard is not blocking');
+  }
+
+  // ── well-formed: required fields only ────────────────────────────────────
+  spyCalls = 0;
+  simulateCulturalDispatch({
+    id: 'ctx-test-01',
+    title: 'Greeting customs in Mexico',
+    text: 'In Mexico, it is customary to greet everyone individually in a room when you arrive.',
+    timestamp: Date.now(),
+  });
+  if (spyCalls === 1) {
+    pass('spy IS called exactly once for a well-formed payload');
+  } else {
+    fail(`spy call count was ${spyCalls} for a well-formed payload (expected 1)`);
+  }
+
+  // ── well-formed: optional fields included ────────────────────────────────
+  spyCalls = 0;
+  simulateCulturalDispatch({
+    title: 'Día de los Muertos',
+    text: 'A multi-day Mexican holiday that honors deceased loved ones.',
+    category: 'holidays',
+    sourceUrl: 'https://example.com/dia-de-los-muertos',
+  });
+  if (spyCalls === 1) {
+    pass('spy IS called for well-formed payload with optional category and sourceUrl');
+  } else {
+    fail(`spy call count was ${spyCalls} for a well-formed payload with optional fields (expected 1)`);
+  }
+
+  // ── guard generates id and timestamp when absent ──────────────────────────
+  let capturedPayload: any = null;
+  function simulateCapture(rawData: any): void {
+    const payload = validateCulturalContextPayload(rawData);
+    if (!payload) return;
+    capturedPayload = payload;
+    spy();
+  }
+  spyCalls = 0;
+  simulateCapture({ title: 'Sobremesa', text: 'The time spent at the table after finishing a meal, talking.' });
+  if (capturedPayload !== null && typeof capturedPayload.id === 'string' && capturedPayload.id.length > 0) {
+    pass('guard generates a fallback id when payload omits it');
+  } else {
+    fail('guard did not generate a fallback id', String(capturedPayload?.id));
+  }
+  if (capturedPayload !== null && typeof capturedPayload.timestamp === 'number') {
+    pass('guard generates a fallback timestamp when payload omits it');
+  } else {
+    fail('guard did not generate a fallback timestamp', String(capturedPayload?.timestamp));
+  }
+
+  // ── guard module file exists and exports the function ─────────────────────
+  const fsC = await import('node:fs/promises');
+  const pathC = await import('node:path');
+  const guardPath = pathC.join(process.cwd(), 'client', 'src', 'lib', 'cultural-context-guard.ts');
+  const guardSource = await fsC.readFile(guardPath, 'utf8');
+
+  if (guardSource.includes('validateCulturalContextPayload')) {
+    pass('cultural-context-guard.ts exports validateCulturalContextPayload');
+  } else {
+    fail('cultural-context-guard.ts does not export validateCulturalContextPayload');
+  }
+
+  // ── hook imports from the guard module ────────────────────────────────────
+  const hookPath = pathC.join(process.cwd(), 'client', 'src', 'hooks', 'useStreamingVoice.ts');
+  const hookSource = await fsC.readFile(hookPath, 'utf8');
+  if (hookSource.includes("from '../lib/cultural-context-guard'")) {
+    pass('useStreamingVoice.ts imports from cultural-context-guard (guard is not orphaned)');
+  } else {
+    fail('useStreamingVoice.ts does not import from cultural-context-guard — guard may have drifted from hook');
+  }
+
+  // ── hook delegates to the guard in handleCulturalContextShown ─────────────
+  if (/handleCulturalContextShown[\s\S]{0,400}validateCulturalContextPayload/.test(hookSource)) {
+    pass('useStreamingVoice.ts delegates to validateCulturalContextPayload in handleCulturalContextShown');
+  } else {
+    fail('useStreamingVoice.ts does not call validateCulturalContextPayload — guard may be orphaned from the hook');
+  }
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 console.log(`\n${'─'.repeat(60)}`);
@@ -856,9 +993,10 @@ if (failed > 0) {
     'malformed-data guard shows the same user-visible toast.\n' +
     'The hook-level guard (validatePronunciationScorePayload) is confirmed\n' +
     'to block malformed payloads in execution — not just by source scan.\n' +
-    'The grammar-flag guard (validateGrammarFlagPayload) and quiz guard\n' +
-    '(validateQuizPayload) are both confirmed to block malformed payloads\n' +
-    'in execution and are properly wired into useStreamingVoice.ts.'
+    'The grammar-flag guard (validateGrammarFlagPayload), quiz guard\n' +
+    '(validateQuizPayload), and cultural-context guard\n' +
+    '(validateCulturalContextPayload) are all confirmed to block malformed\n' +
+    'payloads in execution and are properly wired into useStreamingVoice.ts.'
   );
   process.exit(0);
 }

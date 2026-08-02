@@ -20,6 +20,7 @@ import { validateSpotlightMessage } from '../lib/spotlight-guard';
 import { validatePronunciationScorePayload } from '../lib/pronunciation-score-guard';
 import { validateGrammarFlagPayload } from '../lib/grammar-flag-guard';
 import { validateQuizPayload } from '../lib/quiz-guard';
+import { validateCulturalContextPayload } from '../lib/cultural-context-guard';
 import { preWarmMicroAcks, selectMicroAck, playMicroAck } from '../services/microAckService';
 import { 
   STREAMING_FEATURE_FLAGS,
@@ -1580,13 +1581,12 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
 
   const handleCulturalContextShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
     if (!sessionConfigRef.current?.onCulturalContextShown || !message.data) return;
-    const d = message.data;
-    if (!d.title || typeof d.title !== 'string' || !d.title.trim() ||
-        !d.text  || typeof d.text  !== 'string' || !d.text.trim()) {
-      console.warn('[useStreamingVoice] handleCulturalContextShown: malformed cultural context data', d);
+    const payload = validateCulturalContextPayload(message.data);
+    if (!payload) {
+      console.warn('[useStreamingVoice] handleCulturalContextShown: malformed cultural context data', message.data);
       return;
     }
-    sessionConfigRef.current.onCulturalContextShown(d);
+    sessionConfigRef.current.onCulturalContextShown(payload);
   }, []);
 
   const handleSpotlightShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
