@@ -29,7 +29,15 @@
 
 import { Type } from '@google/genai';
 import { DANIELA_FUNCTION_DECLARATIONS } from '../services/daniela-function-registry';
-import { MEMORY_TOOL_NAMES, CLASSROOM_BLOCKED_EXEMPTIONS } from '../services/memory-chain-guard';
+import { MEMORY_TOOL_NAMES } from '../services/memory-chain-guard';
+import {
+  MEMORY_PATTERN_PREFIXES,
+  KNOWN_NON_GUARD_TOOLS,
+  KNOWN_MEMORY_DISPATCHERS,
+} from '../services/memory-tool-coverage-constants';
+// ↑ Single source of truth — do NOT redefine these here.
+// To add a new prefix, exemption, or dispatcher, edit memory-tool-coverage-constants.ts.
+// Both test-memory-tool-coverage.ts and this script import from there.
 
 // ─── Colour helpers ───────────────────────────────────────────────────────────
 const G = (s: string) => `\x1b[32m${s}\x1b[0m`;
@@ -38,62 +46,18 @@ const Y = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const B = (s: string) => `\x1b[34m${s}\x1b[0m`;
 const sep = () => console.log('\n' + '─'.repeat(70));
 
-// ─── Same prefix list as test-memory-tool-coverage.ts ────────────────────────
-//
-// Must stay in sync with the MEMORY_PATTERN_PREFIXES constant in the coverage
-// script.  If a new prefix is added there, add it here too — otherwise this
-// negative-path test will miss tools that use the new prefix convention.
-//
-const MEMORY_PATTERN_PREFIXES = [
-  'recall',
-  'browse_',
-  'search_my_',
-  'introspect',
-  'read_',
-  'memory_',
-  'fetch_',
-  'retrieve_',
-  'get_memory_',
-  'load_',
-];
-
-// ─── Known-non-guard whitelist (same semantics as coverage script) ────────────
-//
-// This set mirrors KNOWN_NON_GUARD_TOOLS in test-memory-tool-coverage.ts.
-// It intentionally does NOT include 'recall_fake_coverage_test' so the
-// negative-path injection is caught.
-//
-// If you add a new entry to KNOWN_NON_GUARD_TOOLS in the coverage script you
-// must add it here too, otherwise this test will start failing with a spurious
-// "uncategorized" result for the new tool.
-//
-const KNOWN_NON_GUARD_TOOLS = new Set<string>([
-  'browse_syllabus',
-  'recall_express_lane_image',
-  'search_my_feelings',
-  'search_my_history',
-  'read_my_diary',
-  'read_my_core_self',
-  'read_my_curiosities',
-  'read_queued_for_student',
-  'read_full_memory',
-  'recall_what_i_shared',
-  'memory_record',
-  'load_scenario',
-  'load_vocab_set',
-  'load_whiteboard_snapshot',
-  'fetch_lesson_context',
-  'fetch_scene_context',
-  'fetch_scene_image',
-  'fetch_cultural_context',
-  'fetch_grammar_correction',
-  'fetch_pronunciation_score',
-  'fetch_spotlight_sentence',
-  'retrieve_voice_clone',
-  'get_memory_tools_summary',
-]);
-
 // ─── Core check: returns names of uncategorized tools ─────────────────────────
+//
+// Mirrors the categorisation logic in test-memory-tool-coverage.ts:
+//   1. Skip tools not matching any memory-retrieval prefix.
+//   2. Skip tools in MEMORY_TOOL_NAMES     (chain-guarded).
+//   3. Skip tools in KNOWN_NON_GUARD_TOOLS (intentionally excluded).
+//   4. Skip tools in KNOWN_MEMORY_DISPATCHERS (dispatcher-level exemptions).
+//   5. Everything else is uncategorized — a coverage gap.
+//
+// 'recall_fake_coverage_test' intentionally appears in none of the above sets,
+// so the negative-path injection (Step 1 below) will surface it correctly.
+//
 function runUncategorizedCheck(declarations: typeof DANIELA_FUNCTION_DECLARATIONS): string[] {
   const uncategorized: string[] = [];
   for (const decl of declarations) {
@@ -104,6 +68,7 @@ function runUncategorizedCheck(declarations: typeof DANIELA_FUNCTION_DECLARATION
     if (!matchesPattern) continue;
     if (MEMORY_TOOL_NAMES.has(name)) continue;
     if (KNOWN_NON_GUARD_TOOLS.has(name)) continue;
+    if (KNOWN_MEMORY_DISPATCHERS.has(name)) continue;
     uncategorized.push(name);
   }
   return uncategorized;
