@@ -70,6 +70,18 @@ function commitFiles(dir: string, files: string[], message: string): string {
  * script falls back to HEAD~1..HEAD.
  */
 function runGate(repoDir: string, origHead?: string): number {
+  return runGateResult(repoDir, origHead).status;
+}
+
+/**
+ * Run scripts/gemini-gate-check.sh inside `repoDir` and return both exit
+ * code and captured stdout.  Useful when a test needs to assert on log output
+ * rather than (or in addition to) the exit code.
+ */
+function runGateResult(
+  repoDir: string,
+  origHead?: string,
+): { status: number; stdout: string } {
   if (origHead) {
     // Write ORIG_HEAD the same way git does during a real merge
     fs.writeFileSync(path.join(repoDir, '.git', 'ORIG_HEAD'), origHead + '\n');
@@ -92,7 +104,7 @@ function runGate(repoDir: string, origHead?: string): number {
       `stdout: ${result.stdout}\nstderr: ${result.stderr}`,
     );
   }
-  return result.status;
+  return { status: result.status, stdout: result.stdout ?? '' };
 }
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
@@ -269,6 +281,44 @@ describe('gemini-gate-check.sh — exit-code assertions', () => {
       code, 1,
       'Gate must block a protected-file change via the HEAD~1..HEAD fallback range ' +
       'when ORIG_HEAD is absent. Exit code was 0 — fallback path is broken.',
+    );
+  });
+
+  // ── Case 9: protected-file log lines appear even in the no-hit path ───────
+  //
+  // Lines 62–63 of gemini-gate-check.sh print every loaded exact path and
+  // fragment regardless of whether any protected file was changed.  This test
+  // asserts those lines are present in stdout on a clean (no-hit) run.  If
+  // the for-loops on lines 62–63 are accidentally removed or gated behind a
+  // condition, this test catches it before CI logs go dark.
+
+  it('emits [gemini-gate]   exact: and [gemini-gate]   fragment: lines even when no protected files changed', () => {
+    // Commit only a safe, non-protected file so the gate takes the no-hit path
+    commitFiles(repoDir, ['client/src/SafeComponent.tsx'], 'safe-only change for log test');
+
+    const { status, stdout } = runGateResult(repoDir, /* origHead= */ undefined);
+
+    assert.equal(
+      status, 0,
+      'Gate must exit 0 when no protected files are changed (pre-condition for this test)',
+    );
+
+    const hasExactLine = stdout.includes('[gemini-gate]   exact:');
+    assert.ok(
+      hasExactLine,
+      'stdout must contain at least one "[gemini-gate]   exact:" line ' +
+      '(lines 62–63 of gemini-gate-check.sh). ' +
+      'If this fails, those log lines were removed or gated — CI logs will go dark.\n' +
+      `Actual stdout:\n${stdout}`,
+    );
+
+    const hasFragmentLine = stdout.includes('[gemini-gate]   fragment:');
+    assert.ok(
+      hasFragmentLine,
+      'stdout must contain at least one "[gemini-gate]   fragment:" line ' +
+      '(lines 62–63 of gemini-gate-check.sh). ' +
+      'If this fails, those log lines were removed or gated — CI logs will go dark.\n' +
+      `Actual stdout:\n${stdout}`,
     );
   });
 });
