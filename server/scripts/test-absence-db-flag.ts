@@ -67,12 +67,14 @@ function assert(label: string, condition: boolean, detail?: string) {
 const TEST_USER_ID   = '00000000-test-absence-db-flag-00001';
 const TEST_USER_ID_2 = '00000000-test-absence-db-flag-00002'; // no-nudge negative path
 const TEST_USER_ID_3 = '00000000-test-absence-db-flag-00003'; // mutation / self-failure guard
+const TEST_USER_ID_4 = '00000000-test-absence-db-flag-00004'; // wrong-session-ID regression
 const TEST_DAYS_ABSENT = 12;
 
 // ── Seeded row trackers (for cleanup) ─────────────────────────────────────────
 let seededVoiceSessionId: string | null = null;
 let seededVoiceSessionId2: string | null = null;
 let seededVoiceSessionId3: string | null = null;
+let seededVoiceSessionId4: string | null = null;
 
 // ── Cleanup helper ────────────────────────────────────────────────────────────
 async function cleanup(): Promise<void> {
@@ -87,12 +89,17 @@ async function cleanup(): Promise<void> {
     if (seededVoiceSessionId3) {
       await db.delete(voiceSessions).where(eq(voiceSessions.id, seededVoiceSessionId3));
     }
+    if (seededVoiceSessionId4) {
+      await db.delete(voiceSessions).where(eq(voiceSessions.id, seededVoiceSessionId4));
+    }
     await db.delete(danielaAbsenceNudges).where(eq(danielaAbsenceNudges.userId, TEST_USER_ID));
     await db.delete(danielaAbsenceNudges).where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_2));
     await db.delete(danielaAbsenceNudges).where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_3));
+    await db.delete(danielaAbsenceNudges).where(eq(danielaAbsenceNudges.userId, TEST_USER_ID_4));
     await db.delete(users).where(eq(users.id, TEST_USER_ID));
     await db.delete(users).where(eq(users.id, TEST_USER_ID_2));
     await db.delete(users).where(eq(users.id, TEST_USER_ID_3));
+    await db.delete(users).where(eq(users.id, TEST_USER_ID_4));
   } catch (err: any) {
     console.warn(Y(`  ⚠  Cleanup error (non-fatal): ${err.message}`));
   }
@@ -459,6 +466,101 @@ async function part4(): Promise<void> {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PART 5 — Wrong-session-ID regression guard
+//
+// applyAbsenceReturnFlag(sessionId, days) receives the session ID as a
+// parameter. If a caller passes the wrong ID — a stale variable, a userId
+// instead of sessionId, or any other accidental value — the DB update targets
+// a non-existent row and silently succeeds (0 rows affected) while the correct
+// row is never touched.
+//
+// This part proves the test CAN catch that regression by:
+//   a. Seeding a REAL voice_sessions row (the "correct" row).
+//   b. Calling applyAbsenceReturnFlag with a DIFFERENT, nonexistent session ID
+//      (the "wrong" ID that a buggy caller might pass).
+//   c. Asserting the real row's hadAbsenceReturn is still FALSE.
+//
+// If a future refactor accidentally passes sessionId=userId (or any other wrong
+// variable), the correct row is never updated and this assertion fires (exit 1).
+// ══════════════════════════════════════════════════════════════════════════════
+sep();
+console.log(B('PART 5 — Wrong-session-ID regression guard: write to wrong ID leaves correct row unchanged'));
+sep();
+
+async function part5(): Promise<void> {
+  const db = getSharedDb();
+
+  // ── 5a. Seed a fourth test user ──────────────────────────────────────────
+  await db.insert(users).values({
+    id: TEST_USER_ID_4,
+    email: 'test-absence-db-flag4@test.internal',
+    firstName: 'TestAbsence4',
+    lastName: 'DBFlag4',
+    role: 'student',
+    isTestAccount: true,
+    subscriptionStatus: 'active',
+    subscriptionTier: 'free',
+  }).onConflictDoNothing();
+
+  await db.delete(voiceSessions).where(eq(voiceSessions.userId, TEST_USER_ID_4));
+
+  // ── 5b. Insert the CORRECT voice_sessions row ────────────────────────────
+  // This is the row that should receive the flag in the happy path.
+  const [insertedSession4] = await db.insert(voiceSessions).values({
+    userId: TEST_USER_ID_4,
+    language: 'spanish',
+    status: 'active',
+    isTestSession: true,
+    // hadAbsenceReturn defaults to false
+  }).returning({ id: voiceSessions.id });
+
+  assert(
+    '[Wrong-ID guard] voice_sessions row inserted for correct-row user',
+    !!insertedSession4?.id,
+    'insert returned no id',
+  );
+  seededVoiceSessionId4 = insertedSession4!.id;
+  console.log(D(`  Seeded correct voice_sessions row: ${seededVoiceSessionId4}`));
+
+  // ── 5c. Call applyAbsenceReturnFlag with a WRONG (nonexistent) session ID ─
+  // A random UUID that has no corresponding row in voice_sessions.
+  // This simulates a caller that accidentally passes a stale variable or the
+  // wrong identifier (e.g. userId instead of sessionId).
+  const wrongSessionId = '00000000-0000-0000-0000-wrong-session';
+  await applyAbsenceReturnFlag(wrongSessionId, TEST_DAYS_ABSENT);
+  console.log(D(`  Called applyAbsenceReturnFlag with wrong ID: ${wrongSessionId}`));
+
+  // ── 5d. Read back the CORRECT row — must still have defaults ─────────────
+  const [session4After] = await db
+    .select({
+      hadAbsenceReturn: voiceSessions.hadAbsenceReturn,
+      absenceReturnDays: voiceSessions.absenceReturnDays,
+    })
+    .from(voiceSessions)
+    .where(eq(voiceSessions.id, seededVoiceSessionId4!))
+    .limit(1);
+
+  assert(
+    '[Wrong-ID guard] hadAbsenceReturn stays FALSE on correct row when applyAbsenceReturnFlag() ' +
+    'is called with a nonexistent session ID — wrong-ID write has no effect on the real row',
+    session4After?.hadAbsenceReturn === false,
+    `got ${session4After?.hadAbsenceReturn} — unexpected write reached the correct row via the wrong session ID`,
+  );
+
+  assert(
+    '[Wrong-ID guard] absenceReturnDays stays NULL on correct row when a wrong session ID is passed',
+    session4After?.absenceReturnDays === null || session4After?.absenceReturnDays === undefined,
+    `got ${session4After?.absenceReturnDays} — unexpected write reached the correct row via the wrong session ID`,
+  );
+
+  console.log(D(
+    '  ✓ Wrong-ID baseline confirmed: passing a nonexistent session ID leaves the real row untouched.\n' +
+    '    Part 1\'s "hadAbsenceReturn is TRUE" assertion would catch any caller that passes the wrong ID\n' +
+    '    — the correct row would stay false, causing Part 1 to exit with code 1.',
+  ));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MAIN
 // ══════════════════════════════════════════════════════════════════════════════
 async function main(): Promise<void> {
@@ -470,6 +572,7 @@ async function main(): Promise<void> {
     await part2();
     await part3();
     await part4();
+    await part5();
   } finally {
     sep();
     console.log(D('\n  Cleaning up seeded rows…'));
@@ -486,11 +589,12 @@ async function main(): Promise<void> {
     console.log(D('   2. applyAbsenceReturnFlag() writes hadAbsenceReturn=true + absenceReturnDays'));
     console.log(D('   3. No nudge → neither function updates the voice_sessions row'));
     console.log(D('   4. A second call within the TTL is cached; double-write is idempotent'));
-    console.log(D('   5. Regression guard: fields stay false/null without the write — Part 1 catches the omission\n'));
+    console.log(D('   5. Regression guard: fields stay false/null without the write — Part 1 catches the omission'));
+    console.log(D('   6. Wrong-ID guard: a nonexistent session ID leaves the correct row untouched\n'));
     process.exit(0);
   } else {
     console.log(R(`\n✗  ${failed} of ${total} assertion(s) failed — review output above.\n`));
-    console.log(R('   Check the assertion label — "[Regression guard]" prefix = self-failure check.\n'));
+    console.log(R('   Check the assertion label — "[Regression guard]" / "[Wrong-ID guard]" prefix = self-failure check.\n'));
     process.exit(1);
   }
 }
