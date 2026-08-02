@@ -229,6 +229,67 @@ const KNOWN_MEMORY_DISPATCHERS = new Set<string>([
   // because the sub-tool level is where the chain-guard fires correctly.
 ]);
 
+// ─── Non-memory dispatcher tools ─────────────────────────────────────────────
+//
+// Every tool that uses dispatchSubTool() internally must appear in either
+// KNOWN_MEMORY_DISPATCHERS (above) or this set.  Together they form the
+// complete registry of all dispatcher tools in the codebase.
+//
+// WHY THIS EXISTS
+// ───────────────
+// MEMORY_PATTERN_PREFIXES only catches dispatchers whose name prefix is
+// already listed there.  A developer who names a new dispatcher "agent_",
+// "meta_", or "context_" would bypass the coverage check entirely — just
+// as "self_read" once did before its prefix was registered (the original
+// blind-spot that motivated Task #336).
+//
+// The static check below reads native-fc-handlers.ts at CI time, extracts
+// every tool name passed to dispatchSubTool() via regex, and verifies each
+// one is either:
+//   a) covered by a prefix in MEMORY_PATTERN_PREFIXES (already audited), or
+//   b) listed here.
+// Any dispatcher whose prefix is novel AND is not listed here will cause
+// the script to exit non-zero, regardless of its prefix.
+//
+// HOW TO UPDATE
+// ─────────────
+// When you add a new dispatcher tool that uses dispatchSubTool():
+//   • Routes to ANY memory-reading sub-tool → add to KNOWN_MEMORY_DISPATCHERS
+//     AND add its name prefix to MEMORY_PATTERN_PREFIXES.
+//   • Routes ONLY to non-memory sub-tools → add it here with a comment
+//     listing the sub-tools it routes to.
+//
+// NOTE: dispatchers whose prefix IS already in MEMORY_PATTERN_PREFIXES
+// (e.g. memory_record "memory_", self_write "self_") are handled by the
+// existing pattern check and do NOT need an entry here.
+//
+const KNOWN_NON_MEMORY_DISPATCHERS = new Set<string>([
+  // ── widget_ dispatchers ──────────────────────────────────────────────────
+  // Each routes to UI-widget sub-tools only; no DB/embedding reads.
+  'widget_time',    // sub-tools: set_clock, countdown_timer, etc.
+  'widget_state',   // sub-tools: show_widget, hide_widget, toggle_widget
+  'widget_body',    // sub-tools: set_body_part, set_face_part, set_hand_part, set_thermometer, set_emotion
+  'widget_scene',   // sub-tools: open_scene, add_to_scene, remove_from_scene, move_in_scene, clear_scene
+  'widget_board',   // sub-tools: whiteboard/conjugation/calendar widget actions
+  'widget_media',   // sub-tools: audio/video media controls
+
+  // ── exercise_ dispatchers ────────────────────────────────────────────────
+  // Each routes to exercise/drill sub-tools only; no memory retrieval.
+  'exercise_language',  // sub-tools: language drill types (matching, fill-in, etc.)
+  'exercise_drill',     // sub-tools: pronunciation / translation drill sub-tools
+  'exercise_content',   // sub-tools: content-generation exercise sub-tools
+
+  // ── admin_ dispatchers ───────────────────────────────────────────────────
+  // Admin/founder-mode only; no student memory retrieval.
+  'admin_session',  // sub-tools: session-admin actions (switch, override, inspect)
+  'admin_tools',    // sub-tools: administrative utility sub-tools
+
+  // ── teaching_ dispatchers ────────────────────────────────────────────────
+  // Routes to card-display and content-delivery sub-tools; no memory reads.
+  'teaching_cards',    // sub-tools: vocab cards, grammar cards, etc.
+  'teaching_content',  // sub-tools: content-delivery sub-tools
+]);
+
 // ─── Run ─────────────────────────────────────────────────────────────────────
 
 sep();
@@ -419,6 +480,106 @@ if (classroomDrift.length > 0) {
   console.log(`  ${G('✓')} All classroom-blocked exemptions are still excluded from student sessions.`);
 }
 
+// ── Static check: every dispatchSubTool() caller is in the dispatcher registry ─
+//
+// Read native-fc-handlers.ts and extract every tool name passed as the 5th
+// argument to dispatchSubTool() (the dispatcher tool name, e.g. 'widget_time').
+// Verify that each name is either:
+//   a) covered by a prefix in MEMORY_PATTERN_PREFIXES — already audited by the
+//      pattern-match check above, OR
+//   b) listed in KNOWN_NON_MEMORY_DISPATCHERS.
+//
+// This catches any future dispatcher whose prefix is novel (e.g. "agent_",
+// "meta_", "context_") before it can bypass the coverage check silently.
+//
+sep();
+console.log(B('Static check: every dispatchSubTool() caller is in the dispatcher registry'));
+console.log(Y('  Parses native-fc-handlers.ts to extract all dispatcher tool names.'));
+console.log(Y('  Each must be covered by a prefix in MEMORY_PATTERN_PREFIXES OR listed in'));
+console.log(Y('  KNOWN_NON_MEMORY_DISPATCHERS — no dispatcher may be invisible to the check.'));
+
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
+
+const handlersPath = resolve(process.cwd(), 'server/services/native-fc-handlers.ts');
+let handlersSource: string;
+try {
+  handlersSource = readFileSync(handlersPath, 'utf-8');
+} catch (e) {
+  console.log(R(`FAIL — could not read native-fc-handlers.ts: ${e}`));
+  allPassed = false;
+  handlersSource = '';
+}
+
+// dispatchSubTool call shape:
+//   this.dispatchSubTool(sessionId, session, firstArg, paramsArg, 'dispatcher_name', 'paramKey')
+// Capture the 5th argument (4th 0-indexed after the opening paren).
+const dispatchSubToolRegex = /dispatchSubTool\s*\([^,]+,[^,]+,[^,]+,[^,]+,\s*'([^']+)'/g;
+const extractedDispatchers = new Set<string>();
+if (handlersSource) {
+  let m: RegExpExecArray | null;
+  while ((m = dispatchSubToolRegex.exec(handlersSource)) !== null) {
+    extractedDispatchers.add(m[1]);
+  }
+  console.log(`\n  Dispatchers extracted from native-fc-handlers.ts: ${extractedDispatchers.size}`);
+  for (const name of [...extractedDispatchers].sort()) {
+    console.log(`    • ${name}`);
+  }
+}
+
+// A dispatcher is "covered" if its prefix appears in MEMORY_PATTERN_PREFIXES
+// (meaning the pattern check will catch it if it drifts) OR it is explicitly
+// listed in KNOWN_NON_MEMORY_DISPATCHERS.
+const uncoveredDispatchers: string[] = [];
+for (const name of extractedDispatchers) {
+  const prefixCovered = MEMORY_PATTERN_PREFIXES.some((prefix) => name.startsWith(prefix));
+  const explicitlyCovered = KNOWN_NON_MEMORY_DISPATCHERS.has(name);
+  if (!prefixCovered && !explicitlyCovered) {
+    uncoveredDispatchers.push(name);
+  }
+}
+
+if (uncoveredDispatchers.length > 0) {
+  console.log('');
+  console.log(R('FAIL — dispatcher(s) found in native-fc-handlers.ts with no coverage:'));
+  console.log('');
+  for (const name of uncoveredDispatchers) {
+    console.log(R(`  ✗ ${name}  (prefix not in MEMORY_PATTERN_PREFIXES; not in KNOWN_NON_MEMORY_DISPATCHERS)`));
+  }
+  console.log('');
+  console.log(Y('  To fix, do ONE of the following for each dispatcher above:'));
+  console.log(Y('    a) If it routes to any memory-reading sub-tool:'));
+  console.log(Y('       • Add its name prefix to MEMORY_PATTERN_PREFIXES'));
+  console.log(Y('       • Add the tool name to KNOWN_MEMORY_DISPATCHERS'));
+  console.log(Y('    b) If it routes ONLY to non-memory sub-tools:'));
+  console.log(Y('       • Add the tool name to KNOWN_NON_MEMORY_DISPATCHERS'));
+  console.log('');
+  allPassed = false;
+} else if (extractedDispatchers.size > 0) {
+  console.log(G(`✓ All ${extractedDispatchers.size} dispatchSubTool() callers are covered.`));
+}
+
+// ── Sanity: KNOWN_NON_MEMORY_DISPATCHERS has no phantom entries ───────────────
+sep();
+console.log(B('Sanity check: KNOWN_NON_MEMORY_DISPATCHERS entries exist as dispatchSubTool() callers'));
+console.log(Y('  If a dispatcher was renamed or removed, its entry here becomes a phantom.'));
+const nonMemoryPhantoms: string[] = [];
+for (const name of KNOWN_NON_MEMORY_DISPATCHERS) {
+  if (handlersSource && !extractedDispatchers.has(name)) {
+    nonMemoryPhantoms.push(name);
+  }
+}
+if (nonMemoryPhantoms.length > 0) {
+  console.log(R('FAIL — KNOWN_NON_MEMORY_DISPATCHERS contains entries not found as dispatchSubTool() callers:'));
+  for (const name of nonMemoryPhantoms) {
+    console.log(R(`  ✗ ${name}  (was it renamed or removed?)`));
+  }
+  console.log(Y('  Remove or rename these entries in KNOWN_NON_MEMORY_DISPATCHERS above.'));
+  allPassed = false;
+} else {
+  console.log(G('✓ Every entry in KNOWN_NON_MEMORY_DISPATCHERS exists as a dispatchSubTool() caller.'));
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 sep();
 console.log(`  Pattern-matching tools found:  ${patternMatches.length}`);
@@ -427,6 +588,8 @@ console.log(`  Excluded (KNOWN_NON_GUARD):    ${inExclusion.length}`);
 console.log(`  Dispatchers (KNOWN_DISPATCH):  ${inDispatcher.length}`);
 console.log(`  Uncategorized (FAIL):          ${uncategorized.length}`);
 console.log(`  Classroom-blocked exemptions:  ${CLASSROOM_BLOCKED_EXEMPTIONS.size} checked, ${classroomDrift.length} drifted`);
+console.log(`  dispatchSubTool() callers:     ${extractedDispatchers.size} found, ${uncoveredDispatchers.length} uncovered`);
+console.log(`  Non-memory dispatcher set:     ${KNOWN_NON_MEMORY_DISPATCHERS.size} entries, ${nonMemoryPhantoms.length} phantom`);
 sep();
 
 if (allPassed) {
