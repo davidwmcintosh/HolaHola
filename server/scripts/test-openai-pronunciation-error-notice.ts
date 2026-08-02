@@ -578,6 +578,267 @@ console.log('\n[11] Hook-level guard (validatePronunciationScorePayload) blocks 
   }
 }
 
+// ── Scenario 12: Hook-level grammar-flag guard blocks malformed payloads ──────
+//
+// Imports validateGrammarFlagPayload from the production guard module
+// (client/src/lib/grammar-flag-guard.ts) and executes it directly against a
+// spy callback — proving the guard blocks bad data in execution, not just by
+// source scan. useStreamingVoice.ts delegates handleGrammarFlagShown entirely
+// to this same function.
+
+console.log('\n[12] Hook-level guard (validateGrammarFlagPayload) blocks malformed and passes well-formed payloads');
+{
+  const { validateGrammarFlagPayload } = await import(
+    '../../client/src/lib/grammar-flag-guard.js'
+  );
+
+  let spyCalls = 0;
+  const spy = () => { spyCalls++; };
+
+  function simulateGrammarDispatch(rawData: any): void {
+    const payload = validateGrammarFlagPayload(rawData);
+    if (!payload) return;
+    spy();
+  }
+
+  // ── malformed: missing original ───────────────────────────────────────────
+  spyCalls = 0;
+  simulateGrammarDispatch({ corrected: 'Yo fui', explanation: 'Use preterite for completed action', timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when original is missing');
+  } else {
+    fail('spy was called despite missing original — grammar guard is not blocking');
+  }
+
+  // ── malformed: whitespace-only original ───────────────────────────────────
+  spyCalls = 0;
+  simulateGrammarDispatch({ original: '   ', corrected: 'Yo fui', explanation: 'Use preterite', timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when original is whitespace-only');
+  } else {
+    fail('spy was called despite whitespace-only original — grammar guard is not blocking');
+  }
+
+  // ── malformed: missing corrected ──────────────────────────────────────────
+  spyCalls = 0;
+  simulateGrammarDispatch({ original: 'Yo iba', explanation: 'Use preterite for completed action', timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when corrected is missing');
+  } else {
+    fail('spy was called despite missing corrected — grammar guard is not blocking');
+  }
+
+  // ── malformed: whitespace-only corrected ──────────────────────────────────
+  spyCalls = 0;
+  simulateGrammarDispatch({ original: 'Yo iba', corrected: '  ', explanation: 'Use preterite', timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when corrected is whitespace-only');
+  } else {
+    fail('spy was called despite whitespace-only corrected — grammar guard is not blocking');
+  }
+
+  // ── malformed: missing explanation ────────────────────────────────────────
+  spyCalls = 0;
+  simulateGrammarDispatch({ original: 'Yo iba', corrected: 'Yo fui', timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when explanation is missing');
+  } else {
+    fail('spy was called despite missing explanation — grammar guard is not blocking');
+  }
+
+  // ── malformed: whitespace-only explanation ────────────────────────────────
+  spyCalls = 0;
+  simulateGrammarDispatch({ original: 'Yo iba', corrected: 'Yo fui', explanation: '   ', timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when explanation is whitespace-only');
+  } else {
+    fail('spy was called despite whitespace-only explanation — grammar guard is not blocking');
+  }
+
+  // ── well-formed: all required fields present ──────────────────────────────
+  spyCalls = 0;
+  simulateGrammarDispatch({
+    id: 'gflag-test-01',
+    original: 'Yo iba al mercado ayer',
+    corrected: 'Yo fui al mercado ayer',
+    explanation: 'Use the preterite (fui) for a completed past action, not the imperfect (iba).',
+    ruleLabel: 'Preterite vs Imperfect',
+    timestamp: Date.now(),
+  });
+  if (spyCalls === 1) {
+    pass('spy IS called exactly once for a well-formed grammar flag payload');
+  } else {
+    fail(`spy call count was ${spyCalls} for a well-formed payload (expected 1)`);
+  }
+
+  // ── guard module file exists and exports the function ─────────────────────
+  const fsG = await import('node:fs/promises');
+  const pathG = await import('node:path');
+  const guardPath = pathG.join(process.cwd(), 'client', 'src', 'lib', 'grammar-flag-guard.ts');
+  const guardSource = await fsG.readFile(guardPath, 'utf8');
+
+  if (guardSource.includes('validateGrammarFlagPayload')) {
+    pass('grammar-flag-guard.ts exports validateGrammarFlagPayload');
+  } else {
+    fail('grammar-flag-guard.ts does not export validateGrammarFlagPayload');
+  }
+
+  // ── hook imports from the guard module ────────────────────────────────────
+  const hookPath = pathG.join(process.cwd(), 'client', 'src', 'hooks', 'useStreamingVoice.ts');
+  const hookSource = await fsG.readFile(hookPath, 'utf8');
+  if (hookSource.includes("from '../lib/grammar-flag-guard'")) {
+    pass('useStreamingVoice.ts imports from grammar-flag-guard (guard is not orphaned)');
+  } else {
+    fail('useStreamingVoice.ts does not import from grammar-flag-guard — guard may have drifted from hook');
+  }
+
+  // ── hook delegates to the guard in handleGrammarFlagShown ─────────────────
+  if (/handleGrammarFlagShown[\s\S]{0,400}validateGrammarFlagPayload/.test(hookSource)) {
+    pass('useStreamingVoice.ts delegates to validateGrammarFlagPayload in handleGrammarFlagShown');
+  } else {
+    fail('useStreamingVoice.ts does not call validateGrammarFlagPayload — guard may be orphaned from the hook');
+  }
+}
+
+// ── Scenario 13: Hook-level quiz guard blocks malformed payloads ──────────────
+//
+// Imports validateQuizPayload from the production guard module
+// (client/src/lib/quiz-guard.ts) and executes it directly against a spy
+// callback. useStreamingVoice.ts delegates handleQuizPresented entirely to this
+// same function.
+
+console.log('\n[13] Hook-level guard (validateQuizPayload) blocks malformed and passes well-formed payloads');
+{
+  const { validateQuizPayload } = await import(
+    '../../client/src/lib/quiz-guard.js'
+  );
+
+  let spyCalls = 0;
+  const spy = () => { spyCalls++; };
+
+  function simulateQuizDispatch(rawData: any): void {
+    const payload = validateQuizPayload(rawData);
+    if (!payload) return;
+    spy();
+  }
+
+  // ── malformed: missing question ───────────────────────────────────────────
+  spyCalls = 0;
+  simulateQuizDispatch({ options: ['Fui', 'Iba', 'Voy'], correctIndex: 0, timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when question is missing');
+  } else {
+    fail('spy was called despite missing question — quiz guard is not blocking');
+  }
+
+  // ── malformed: whitespace-only question ───────────────────────────────────
+  spyCalls = 0;
+  simulateQuizDispatch({ question: '   ', options: ['Fui', 'Iba', 'Voy'], correctIndex: 0, timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when question is whitespace-only');
+  } else {
+    fail('spy was called despite whitespace-only question — quiz guard is not blocking');
+  }
+
+  // ── malformed: options not an array ───────────────────────────────────────
+  spyCalls = 0;
+  simulateQuizDispatch({ question: 'Which is preterite?', options: null, correctIndex: 0, timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when options is null');
+  } else {
+    fail('spy was called despite null options — quiz guard is not blocking');
+  }
+
+  // ── malformed: options is empty array ─────────────────────────────────────
+  spyCalls = 0;
+  simulateQuizDispatch({ question: 'Which is preterite?', options: [], correctIndex: 0, timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when options is empty array');
+  } else {
+    fail('spy was called despite empty options array — quiz guard is not blocking');
+  }
+
+  // ── malformed: an option is whitespace-only ───────────────────────────────
+  spyCalls = 0;
+  simulateQuizDispatch({ question: 'Which is preterite?', options: ['Fui', '   ', 'Voy'], correctIndex: 0, timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when an option is whitespace-only');
+  } else {
+    fail('spy was called despite whitespace-only option — quiz guard is not blocking');
+  }
+
+  // ── malformed: correctIndex not a number ──────────────────────────────────
+  spyCalls = 0;
+  simulateQuizDispatch({ question: 'Which is preterite?', options: ['Fui', 'Iba', 'Voy'], correctIndex: '0', timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when correctIndex is a string (not a number)');
+  } else {
+    fail('spy was called despite string correctIndex — quiz guard is not blocking');
+  }
+
+  // ── malformed: correctIndex out of bounds ─────────────────────────────────
+  spyCalls = 0;
+  simulateQuizDispatch({ question: 'Which is preterite?', options: ['Fui', 'Iba', 'Voy'], correctIndex: 5, timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when correctIndex is out of bounds');
+  } else {
+    fail('spy was called despite out-of-bounds correctIndex — quiz guard is not blocking');
+  }
+
+  // ── malformed: correctIndex is negative ───────────────────────────────────
+  spyCalls = 0;
+  simulateQuizDispatch({ question: 'Which is preterite?', options: ['Fui', 'Iba', 'Voy'], correctIndex: -1, timestamp: Date.now() });
+  if (spyCalls === 0) {
+    pass('spy NOT called when correctIndex is negative');
+  } else {
+    fail('spy was called despite negative correctIndex — quiz guard is not blocking');
+  }
+
+  // ── well-formed: all required fields present ──────────────────────────────
+  spyCalls = 0;
+  simulateQuizDispatch({
+    id: 'quiz-test-01',
+    question: '¿Cuál es la forma correcta del pretérito?',
+    options: ['Yo iba', 'Yo fui', 'Yo voy', 'Yo iré'],
+    correctIndex: 1,
+    explanation: '"Fui" is the preterite of ir — use it for a single completed past action.',
+    timestamp: Date.now(),
+  });
+  if (spyCalls === 1) {
+    pass('spy IS called exactly once for a well-formed quiz payload');
+  } else {
+    fail(`spy call count was ${spyCalls} for a well-formed payload (expected 1)`);
+  }
+
+  // ── guard module file exists and exports the function ─────────────────────
+  const fsQ = await import('node:fs/promises');
+  const pathQ = await import('node:path');
+  const guardPath = pathQ.join(process.cwd(), 'client', 'src', 'lib', 'quiz-guard.ts');
+  const guardSource = await fsQ.readFile(guardPath, 'utf8');
+
+  if (guardSource.includes('validateQuizPayload')) {
+    pass('quiz-guard.ts exports validateQuizPayload');
+  } else {
+    fail('quiz-guard.ts does not export validateQuizPayload');
+  }
+
+  // ── hook imports from the guard module ────────────────────────────────────
+  const hookPath = pathQ.join(process.cwd(), 'client', 'src', 'hooks', 'useStreamingVoice.ts');
+  const hookSource = await fsQ.readFile(hookPath, 'utf8');
+  if (hookSource.includes("from '../lib/quiz-guard'")) {
+    pass('useStreamingVoice.ts imports from quiz-guard (guard is not orphaned)');
+  } else {
+    fail('useStreamingVoice.ts does not import from quiz-guard — guard may have drifted from hook');
+  }
+
+  // ── hook delegates to the guard in handleQuizPresented ────────────────────
+  if (/handleQuizPresented[\s\S]{0,400}validateQuizPayload/.test(hookSource)) {
+    pass('useStreamingVoice.ts delegates to validateQuizPayload in handleQuizPresented');
+  } else {
+    fail('useStreamingVoice.ts does not call validateQuizPayload — guard may be orphaned from the hook');
+  }
+}
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 
 console.log(`\n${'─'.repeat(60)}`);
@@ -594,7 +855,10 @@ if (failed > 0) {
     'show_pronunciation_score tool instead of the REST endpoint — its own\n' +
     'malformed-data guard shows the same user-visible toast.\n' +
     'The hook-level guard (validatePronunciationScorePayload) is confirmed\n' +
-    'to block malformed payloads in execution — not just by source scan.'
+    'to block malformed payloads in execution — not just by source scan.\n' +
+    'The grammar-flag guard (validateGrammarFlagPayload) and quiz guard\n' +
+    '(validateQuizPayload) are both confirmed to block malformed payloads\n' +
+    'in execution and are properly wired into useStreamingVoice.ts.'
   );
   process.exit(0);
 }

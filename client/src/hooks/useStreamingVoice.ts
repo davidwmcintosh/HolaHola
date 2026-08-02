@@ -18,6 +18,8 @@ import { diagSetSession, diagSetHookRefs, diagEvent, diagMarkConnect, diagMarkFi
 import { acquireWakeLock, releaseWakeLock } from '../lib/wakeLock';
 import { validateSpotlightMessage } from '../lib/spotlight-guard';
 import { validatePronunciationScorePayload } from '../lib/pronunciation-score-guard';
+import { validateGrammarFlagPayload } from '../lib/grammar-flag-guard';
+import { validateQuizPayload } from '../lib/quiz-guard';
 import { preWarmMicroAcks, selectMicroAck, playMicroAck } from '../services/microAckService';
 import { 
   STREAMING_FEATURE_FLAGS,
@@ -1558,28 +1560,22 @@ export function useStreamingVoice(): UseStreamingVoiceReturn {
 
   const handleGrammarFlagShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
     if (!sessionConfigRef.current?.onGrammarFlagShown || !message.data) return;
-    const d = message.data;
-    if (!d.original || typeof d.original !== 'string' || !d.original.trim() ||
-        !d.corrected || typeof d.corrected !== 'string' || !d.corrected.trim() ||
-        !d.explanation || typeof d.explanation !== 'string' || !d.explanation.trim()) {
-      console.warn('[useStreamingVoice] handleGrammarFlagShown: malformed grammar flag data (blank original, corrected, or explanation)', d);
+    const payload = validateGrammarFlagPayload(message.data);
+    if (!payload) {
+      console.warn('[useStreamingVoice] handleGrammarFlagShown: malformed grammar flag data (blank original, corrected, or explanation)', message.data);
       return;
     }
-    sessionConfigRef.current.onGrammarFlagShown(d);
+    sessionConfigRef.current.onGrammarFlagShown(payload);
   }, []);
 
   const handleQuizPresented = useCallback((message: { type: string; timestamp: number; data: any }) => {
     if (!sessionConfigRef.current?.onQuizPresented || !message.data) return;
-    const d = message.data;
-    if (typeof d.question !== 'string' || !d.question.trim() ||
-        !Array.isArray(d.options) || d.options.length === 0 ||
-        !d.options.every((o: unknown) => typeof o === 'string' && (o as string).trim().length > 0) ||
-        typeof d.correctIndex !== 'number' || !Number.isInteger(d.correctIndex) ||
-        d.correctIndex < 0 || d.correctIndex >= d.options.length) {
-      console.warn('[useStreamingVoice] handleQuizPresented: malformed data, skipping', d);
+    const payload = validateQuizPayload(message.data);
+    if (!payload) {
+      console.warn('[useStreamingVoice] handleQuizPresented: malformed data, skipping', message.data);
       return;
     }
-    sessionConfigRef.current.onQuizPresented(d);
+    sessionConfigRef.current.onQuizPresented(payload);
   }, []);
 
   const handleCulturalContextShown = useCallback((message: { type: string; timestamp: number; data: any }) => {
