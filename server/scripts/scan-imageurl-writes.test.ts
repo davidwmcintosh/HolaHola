@@ -564,6 +564,40 @@ describe('imageUrl write guard — migration/seeder scanner self-validation (#58
 });
 
 // ---------------------------------------------------------------------------
+// #614 — Root scripts/ seed file coverage
+//
+// Seeder scripts also live in the root scripts/ directory (e.g.
+// scripts/seed-prop-library.ts, scripts/seed-north-star.ts,
+// scripts/seed-syllabi.ts).  These are separate from server/scripts/ and
+// were not covered by the original guard.  This block extends coverage so
+// that any root-level seed file that writes to imageUrl must also call
+// normalizeImageUrl().
+//
+// The directory path is resolved relative to the project root (two levels up
+// from server/scripts/).  If the directory is absent the scan passes vacuously
+// so that the test remains green in environments without it.
+// ---------------------------------------------------------------------------
+
+describe('imageUrl write guard — root scripts/ seed file coverage (#614)', () => {
+  const ROOT_SCRIPTS_DIR = path.resolve(SCRIPTS_DIR, '..', '..', 'scripts');
+
+  it('root scripts/ seed files do not write to imageUrl without calling normalizeImageUrl', () => {
+    const violations = scanMigrationDir(ROOT_SCRIPTS_DIR, 'scripts');
+
+    if (violations.length > 0) {
+      const detail = violations.map(v => `  ${v.file}\n    ${v.reason}`).join('\n');
+      assert.fail(
+        `Found ${violations.length} root scripts/ file(s) that write to imageUrl without ` +
+        `calling normalizeImageUrl().\n\n` +
+        `Each seed script that persists an image URL must wrap the value in ` +
+        `normalizeImageUrl() from server/services/image-storage.ts before storage.\n\n` +
+        `Violations:\n${detail}`,
+      );
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Negative-path test: scanner self-validation (end-to-end with a real file)
 //
 // Proves the scanner actually fails CI when a script writes to imageUrl
