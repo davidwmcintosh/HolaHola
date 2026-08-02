@@ -397,6 +397,29 @@ function part4() {
     staleDiscardIdx !== -1 && warmLogIdx !== -1 && staleDiscardIdx < warmLogIdx,
     `staleDiscardIdx=${staleDiscardIdx}, warmLogIdx=${warmLogIdx}`,
   );
+
+  // ── 4i. Stale-discard branch emits its regeneration log ───────────────────────
+  // When branch 1 fires (warmedNote && absenceReturn), it must log:
+  // "[GeminiLive] Warm cache present but absence signal detected — regenerating with signal"
+  // Without this log the discard path is invisible in production observability.
+  const staleDiscardLog = '[GeminiLive] Warm cache present but absence signal detected — regenerating with signal';
+  const hasStaleDiscardLog = wsHandlerSrc.includes(staleDiscardLog);
+  assert(
+    'Stale-discard branch emits log: "[GeminiLive] Warm cache present but absence signal detected — regenerating with signal"',
+    hasStaleDiscardLog,
+    hasStaleDiscardLog ? undefined : 'Stale-discard regeneration log not found — the branch may exist but be invisible in observability',
+  );
+
+  // ── 4j. Stale-discard log appears BEFORE warm-path log in source ──────────────
+  // Branch 1 (stale-discard, regenerates) must appear before branch 2 (warm-only,
+  // uses cache) in the if/else chain — this ordering proves branch 1 is the first
+  // guard and branch 2 is the fallthrough path.
+  const staleDiscardLogIdx = wsHandlerSrc.indexOf(staleDiscardLog);
+  assert(
+    'Stale-discard log appears before warm-path log in source (branch 1 fires before branch 2 in the if/else)',
+    staleDiscardLogIdx !== -1 && warmLogIdx !== -1 && staleDiscardLogIdx < warmLogIdx,
+    `staleDiscardLogIdx=${staleDiscardLogIdx}, warmLogIdx=${warmLogIdx}`,
+  );
 }
 
 part4();
