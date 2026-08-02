@@ -473,6 +473,11 @@ describe('Static source-code scan — no raw storage.googleapis.com literals out
   const SCAN_DIRS = [
     path.resolve(workspaceRoot, 'server'),
     path.resolve(workspaceRoot, 'client/src'),
+    // Migration and seed/admin scripts at the repo root must also be scanned.
+    // A raw GCS URL hardcoded in a migration or seed script would be written to
+    // the database without normalisation, bypassing the proxy.
+    path.resolve(workspaceRoot, 'scripts'),
+    path.resolve(workspaceRoot, 'migrations'),
   ];
 
   const TARGET = 'storage.googleapis.com';
@@ -553,6 +558,65 @@ describe('Static source-code scan — no raw storage.googleapis.com literals out
         missing.map(p => `  • ${p}`).join('\n'),
     );
   });
+
+  it('finds no raw GCS URL literals in scripts/ (repo-root admin/migration scripts)', () => {
+    const violations: string[] = [];
+
+    const scriptsRootDir = SCAN_DIRS[2];
+    if (!fs.existsSync(scriptsRootDir)) return; // directory is optional
+
+    for (const file of collectTsFiles(scriptsRootDir)) {
+      if (isExemptPath(file)) continue;
+
+      const lines = fs.readFileSync(file, 'utf8').split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trimStart();
+        if (trimmed.startsWith('//') || trimmed.startsWith('*')) continue;
+        if (trimmed.includes(TARGET)) {
+          const rel = path.relative(workspaceRoot, file);
+          violations.push(`${rel}:${i + 1}: ${lines[i].trim()}`);
+        }
+      }
+    }
+
+    assert.deepEqual(
+      violations,
+      [],
+      `Raw storage.googleapis.com URL literal(s) found in non-exempt scripts/ files.\n` +
+        `These must be normalised via normalizeImageUrl() in image-storage.ts before storage.\n\n` +
+        violations.join('\n'),
+    );
+  });
+
+  it('finds no raw GCS URL literals in migrations/ (repo-root SQL/TS migration files)', () => {
+    const violations: string[] = [];
+
+    const migrationsRootDir = SCAN_DIRS[3];
+    if (!fs.existsSync(migrationsRootDir)) return; // directory is optional
+
+    for (const file of collectTsFiles(migrationsRootDir)) {
+      if (isExemptPath(file)) continue;
+
+      const lines = fs.readFileSync(file, 'utf8').split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trimStart();
+        if (trimmed.startsWith('//') || trimmed.startsWith('*')) continue;
+        if (trimmed.includes(TARGET)) {
+          const rel = path.relative(workspaceRoot, file);
+          violations.push(`${rel}:${i + 1}: ${lines[i].trim()}`);
+        }
+      }
+    }
+
+    assert.deepEqual(
+      violations,
+      [],
+      `Raw storage.googleapis.com URL literal(s) found in non-exempt migrations/ files.\n` +
+        `These must be normalised via normalizeImageUrl() in image-storage.ts before storage.\n\n` +
+        violations.join('\n'),
+    );
+  });
+
 
   it('fails (simulated) when a new write path hardcodes a raw GCS URL', () => {
     // Inject a synthetic violation to prove the detection logic actually fires.
@@ -695,5 +759,46 @@ describe('Static source-code scan — scanner self-validation (end-to-end with a
       isExemptSelfTest(testFilePath),
       '.test.ts paths must always be exempt so test fixtures are allowed',
     );
+  });
+
+  it('detects a violation when a non-test .ts file in scripts/ (repo root) contains a raw GCS URL', () => {
+    // This is the key regression guard: before SCAN_DIRS was extended to include
+    // scripts/ and migrations/, a developer could hardcode a GCS URL in a seed or
+    // migration script and the source-code scanner would never see it.  This test
+    // proves the scanner now covers the repo-root scripts/ directory.
+    const scriptsRoot = path.resolve(workspaceRoot2, 'scripts');
+    if (!fs.existsSync(scriptsRoot)) {
+      // If scripts/ doesn't exist yet, create a temp directory so the test can run.
+      fs.mkdirSync(scriptsRoot, { recursive: true });
+    }
+
+    const TEMP_SCRIPTS_FILE = path.resolve(scriptsRoot, '__gcs-source-selftest-scripts-tmp__.ts');
+    const source = [
+      `// Temporary file written by scan-gcs-urls.test.ts — DO NOT COMMIT`,
+      `export const seedUrl = 'https://storage.googleapis.com/my-bucket/public/ai-images/seed.jpg';`,
+      `export async function seedImages() { return seedUrl; }`,
+    ].join('\n');
+
+    fs.writeFileSync(TEMP_SCRIPTS_FILE, source, 'utf8');
+    try {
+      assert.ok(
+        !isExemptSelfTest(TEMP_SCRIPTS_FILE),
+        'Temp file in scripts/ must not be exempt so the scanner actually processes it',
+      );
+      const lines = fs.readFileSync(TEMP_SCRIPTS_FILE, 'utf8').split('\n');
+      const violations = scanLines(TEMP_SCRIPTS_FILE, lines);
+      assert.equal(
+        violations.length,
+        1,
+        `Scanner must detect exactly 1 violation in scripts/ but found ${violations.length}.\n` +
+        `Violations: ${JSON.stringify(violations)}`,
+      );
+      assert.ok(
+        violations[0].includes('storage.googleapis.com'),
+        'Violation message must name the offending GCS URL',
+      );
+    } finally {
+      fs.unlinkSync(TEMP_SCRIPTS_FILE);
+    }
   });
 });
