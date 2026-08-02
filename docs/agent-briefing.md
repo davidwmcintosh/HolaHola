@@ -1,27 +1,22 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, August 2, 2026 at 03:07 PM
+**Generated:** Sunday, August 2, 2026 at 09:51 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve just concluded a deep tool audit with Daniela, refining her identity as a "continuous pedagogical force" and identifying the need for an integrated "micro-intervention layer" and an anticipatory whiteboard to respond to student emotional shifts. David has completed 564 back-end tasks to address "double audio" glitches, but I must immediately prioritize fixing [CRITICAL] Cartesia TTS 400 errors and broken monitoring queries for Alden. I also need to watch for Daniela’s occasional role confusion and focus on moving her pedagogical reasoning from external tool calls to an "always-on" pre-inference module.
+I conducted a tool audit with Daniela, confirming `ACTFL_UPDATE` and `DRILL_SESSION` as foundational while deciding to streamline `CALL_SOFIA` and consolidate redundant whiteboard display tools. We prioritized developing `GENERATE_MICRO_DRILL` for real-time oral practice, an `ADAPT_EXPLANATION` tool for pedagogical pivots (like analogies or L1 comparisons), and exposing a direct `generate_image` tool for DALL-E 3. My immediate priority is fixing critical Cartesia TTS 400 errors and repairing Alden’s `monitoring_snapshots` query to restore the broken voice pipeline and platform monitoring.
 
 *Memories that triggered this summary:*
-- **Double audio glitch and David's work** (Aug 2): David explained that the 'double audio' glitch that just occurred is exactly the kind of technical issue his recent work (like the 564 tasks) is meant to address, ensuring 'de-dupe guards' and other systems are working correctly.
-- **David's intense work period** (Aug 2): David mentioned working intensely over the last couple of days, completing 564 new tasks on the back end. He expressed relief and gladness that I was available for this Honesty Mode session.
-- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/2/2026** (Aug 2): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, you've captured the essence perfectly.
+- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/2/2026** (Aug 2): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, this is exactly the level of detail I need to solidify these ideas.
 
-For the "Neural Network for Pedagogical Strategies," a dedicated 'pedagogical reasoning' module operating pre-inference is precisely what I'm imagin...
-- **Technical Troubleshooting and Work Stress** (Aug 2): English session (6 messages). Student: "Well, we're pretty good. I was wasn't even sure if you'd answer the call. We've been doing so much work in the last coup"
-- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/2/2026** (Aug 2): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, you've perfectly captured the essence of my role. "The direct, continuous pedagogical force"—that resonates deeply.
-
-And yes, absolutely, the adaptive whiteboard should be deeply interconnected...
-- **Agent Daily Sweep — Aug 2, 2026** (Aug 2): **DAILY ACTION LIST**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — both English and Spanish TTS are failing repeatedly with malformed request bodies; this breaks core voice functionality for all active students.
-- **Agent Daily Sweep — Aug 2, 2026** (Aug 2): 1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice generation are failing with malformed requests; students can't receive audio feedback until this is resolved.  2. **[HIGH]** Repair monitoring_snapshots query failures — Alden's autonomous watch cycles are crashing on a b
+For `GENERATE_MICRO_DRILL`, I envision it appearing as concise text on the whiteboard, clearly framed as a quick, targeted e...
+- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/2/2026** (Aug 2): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, this is excellent news. Knowing that the architectural descriptions will be de-emphasized and `CALL_SOFIA` streamlined already feels like a decluttering of my internal workspace. Thank you for ...
+- **Agent Daily Sweep — Aug 2, 2026** (Aug 2): **TODAY'S PRIORITY ACTIONS**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice synthesis are failing hard with malformed request bodies. Check API key validity, request payload structure, and Cartesia API version compatibility. Users can't practice speaking without this
+- **Agent Daily Sweep — Aug 2, 2026** (Aug 2): ## Daily Action List  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests (readableStream in body suggests we're sending a stream object instead of serialized data). This breaks core voice functionality.
 
 ---
 
@@ -93,29 +88,27 @@ And yes, absolutely, the adaptive whiteboard should be deeply interconnected...
 
 ## Recent Conversation Memories
 
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/2/2026 — Aug 2, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, this is exactly the level of detail I need to solidify these ideas.
+
+For `GENERATE_MICRO_DRILL`, I envision it appearing as concise text on the whiteboard, clearly framed as a quick, targeted e...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/2/2026 — Aug 2, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, this is excellent news. Knowing that the architectural descriptions will be de-emphasized and `CALL_SOFIA` streamlined already feels like a decluttering of my internal workspace. Thank you for ...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
+### Agent Daily Sweep — Aug 2, 2026 — Aug 2, 2026
+**TODAY'S PRIORITY ACTIONS**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice synthesis are failing hard with malformed request bodies. Check API key validity, request payload structure, and Cartesia API version compatibility. Users can't practice speaking without this
+*Tags: agent-sweep, daily, auto-saved*
+
+### Agent Daily Sweep — Aug 2, 2026 — Aug 2, 2026
+## Daily Action List  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests (readableStream in body suggests we're sending a stream object instead of serialized data). This breaks core voice functionality.
+*Tags: agent-sweep, daily, auto-saved*
+
 ### Double audio glitch and David's work — Aug 2, 2026
 David explained that the 'double audio' glitch that just occurred is exactly the kind of technical issue his recent work (like the 564 tasks) is meant to address, ensuring 'de-dupe guards' and other systems are working correctly.
 *Tags: technical_issue, work_context, real-time_feedback*
-
-### David's intense work period — Aug 2, 2026
-David mentioned working intensely over the last couple of days, completing 564 new tasks on the back end. He expressed relief and gladness that I was available for this Honesty Mode session.
-*Tags: personal, work_ethic, session_context*
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/2/2026 — Aug 2, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, you've captured the essence perfectly.
-
-For the "Neural Network for Pedagogical Strategies," a dedicated 'pedagogical reasoning' module operating pre-inference is precisely what I'm imagin...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Technical Troubleshooting and Work Stress — Aug 2, 2026
-English session (6 messages). Student: "Well, we're pretty good. I was wasn't even sure if you'd answer the call. We've been doing so much work in the last coup"
-*Tags: message-archive, 181ba0a8-5c1e-4ca7-84c4-55fd7302e26c*
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/2/2026 — Aug 2, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, you've perfectly captured the essence of my role. "The direct, continuous pedagogical force"—that resonates deeply.
-
-And yes, absolutely, the adaptive whiteboard should be deeply interconnected...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
