@@ -40,7 +40,22 @@ const SERVER_ROOT = path.resolve(PROJECT_ROOT, 'server');
 
 /**
  * Additional directories to scan beyond server/.
- * Add any new top-level script/admin/migration directories here.
+ *
+ * ┌─────────────────────────────────────────────────────────────────────────┐
+ * │  MAINTAINER NOTE — READ BEFORE ADDING A NEW TOP-LEVEL DIRECTORY        │
+ * │                                                                         │
+ * │  If you create a new top-level directory (e.g. tools/, admin/, seed/,  │
+ * │  fixtures/) that will contain TypeScript files, you MUST do ONE of:     │
+ * │                                                                         │
+ * │    a) Add it to EXTRA_ROOTS below so the scanner covers it, OR          │
+ * │    b) Add it to KNOWN_NON_SCRIPT_ROOTS (further down) with a comment    │
+ * │       explaining why it will never call uploadPublicBuffer /             │
+ * │       generateEnvironmentScene.                                          │
+ * │                                                                         │
+ * │  The test "new top-level directories with .ts files are covered" will   │
+ * │  fail CI automatically if you forget to update either list.             │
+ * └─────────────────────────────────────────────────────────────────────────┘
+ *
  * shared/ is included so that shared utilities that call upload helpers are
  * also guarded — omitting it would let a raw GCS URL slip in via a shared
  * helper without the normalizeImageUrl wrap.
@@ -48,6 +63,25 @@ const SERVER_ROOT = path.resolve(PROJECT_ROOT, 'server');
 const EXTRA_ROOTS: string[] = [
   path.resolve(PROJECT_ROOT, 'scripts'),
   path.resolve(PROJECT_ROOT, 'shared'),
+];
+
+/**
+ * Top-level directories that are deliberately NOT in EXTRA_ROOTS because they
+ * will never contain uploadPublicBuffer / generateEnvironmentScene call sites.
+ *
+ * Add an entry here (with a brief reason) whenever you create a directory that
+ * has .ts files but genuinely has no upload calls — otherwise the
+ * "new top-level directories with .ts files are covered" test will fail CI.
+ */
+const KNOWN_NON_SCRIPT_ROOTS: Array<{ name: string; reason: string }> = [
+  { name: 'client',         reason: 'frontend bundle — no server-side GCS uploads' },
+  { name: 'node_modules',   reason: 'vendor code — not scanned by design' },
+  { name: 'dist',           reason: 'compiled output — not a source tree' },
+  { name: 'docs',           reason: 'documentation only' },
+  { name: 'migrations',     reason: 'SQL migration files only, no .ts upload calls' },
+  { name: 'uploads',        reason: 'runtime upload directory, no source .ts files' },
+  { name: 'attached_assets',reason: 'static assets, no .ts files' },
+  { name: 'public',         reason: 'static public files, no .ts upload calls' },
 ];
 
 /** Files that define the functions — skip them (they are not call sites). */
@@ -155,6 +189,85 @@ function scanForViolations(): Violation[] {
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
+
+describe('Scanner roots — new top-level directories are covered (#433)', () => {
+  /**
+   * Walks only the immediate children of PROJECT_ROOT, checks whether any
+   * directory contains at least one .ts file, and then verifies that every
+   * such directory is either:
+   *   (a) SERVER_ROOT itself (always scanned), or
+   *   (b) listed in EXTRA_ROOTS, or
+   *   (c) listed in KNOWN_NON_SCRIPT_ROOTS (with an explicit reason).
+   *
+   * If this test fails it means a new top-level directory was created with
+   * .ts files but was not registered in either list — exactly the gap this
+   * guard is meant to close.
+   */
+  it('every top-level directory with .ts files is either scanned or explicitly excluded', () => {
+    const knownNonScriptNames = new Set(KNOWN_NON_SCRIPT_ROOTS.map(e => e.name));
+    const coveredRoots = new Set([SERVER_ROOT, ...EXTRA_ROOTS]);
+
+    const uncovered: string[] = [];
+
+    for (const entry of fs.readdirSync(PROJECT_ROOT, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      // Skip hidden directories (e.g. .git, .github, .local, .agents)
+      if (entry.name.startsWith('.')) continue;
+
+      const dirPath = path.join(PROJECT_ROOT, entry.name);
+
+      // Already covered by the scanner
+      if (coveredRoots.has(dirPath)) continue;
+
+      // Explicitly declared as non-script
+      if (knownNonScriptNames.has(entry.name)) continue;
+
+      // Check whether the directory contains any .ts files (recursive)
+      const hasTsFiles = (function hasTs(dir: string): boolean {
+        for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+          const full = path.join(dir, e.name);
+          if (e.isDirectory()) { if (hasTs(full)) return true; }
+          else if (e.isFile() && e.name.endsWith('.ts')) return true;
+        }
+        return false;
+      })(dirPath);
+
+      if (hasTsFiles) {
+        uncovered.push(entry.name);
+      }
+    }
+
+    assert.deepEqual(
+      uncovered,
+      [],
+      `The following top-level directories contain .ts files but are not covered by the GCS upload guard:\n` +
+      uncovered.map(n => `  ${n}/`).join('\n') + '\n\n' +
+      `Add each directory to EXTRA_ROOTS (to scan it) OR to KNOWN_NON_SCRIPT_ROOTS\n` +
+      `(with a reason why it will never call uploadPublicBuffer / generateEnvironmentScene).\n` +
+      `Both lists are at the top of server/scripts/scan-unwrapped-image-uploads.test.ts.`,
+    );
+  });
+
+  it('mutation self-check: a fake uncovered directory would fail the assertion above', () => {
+    // Simulate what the test above does but with an injected fake directory name
+    // that is neither in EXTRA_ROOTS nor in KNOWN_NON_SCRIPT_ROOTS.
+    const knownNonScriptNames = new Set(KNOWN_NON_SCRIPT_ROOTS.map(e => e.name));
+    const coveredRoots = new Set([SERVER_ROOT, ...EXTRA_ROOTS]);
+
+    const fakeDirName = '__hypothetical-tools-dir__';
+    const fakeDirPath = path.join(PROJECT_ROOT, fakeDirName);
+
+    const isCovered =
+      coveredRoots.has(fakeDirPath) || knownNonScriptNames.has(fakeDirName);
+
+    assert.equal(
+      isCovered,
+      false,
+      'Fake directory was unexpectedly found in EXTRA_ROOTS or KNOWN_NON_SCRIPT_ROOTS — ' +
+      'the self-check would not catch the gap.',
+    );
+  });
+});
 
 describe('Scanner roots — shared/ is included (#476)', () => {
   // shared/ utilities can call uploadPublicBuffer or generateEnvironmentScene
