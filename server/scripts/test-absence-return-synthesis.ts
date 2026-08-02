@@ -1245,6 +1245,128 @@ async function runPart7(): Promise<void> {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PART 8 — Anti-drift: routes.ts must still delegate to runWarmSynthesisCore
+//
+// runWarmSynthesisCore was extracted into server/services/warm-synthesis-core.ts
+// so the route and the test share one production copy instead of maintaining a
+// hand-extracted duplicate that can quietly diverge.
+//
+// This part guards that delegation contract at the source level:
+//
+//   8a. routes.ts imports runWarmSynthesisCore (dynamic import from the service)
+//   8b. The warm-synthesis route block calls runWarmSynthesisCore(
+//   8c. The real peek function (peekAbsenceReturnDetails) is passed as an argument
+//   8d. The real generate function (generatePreSessionSynthesis) is passed as an argument
+//   8e. The real warm-setter (setWarmSynthesis) is passed as an argument
+//   8f. warm-synthesis-core.ts exports runWarmSynthesisCore as a named export
+//       (verifies the export still exists so future imports don't silently become undefined)
+//
+// If any of these assertions fail it means the route has been modified to bypass
+// the shared production unit — the fix is to restore the delegation, NOT to update
+// this test.
+// ══════════════════════════════════════════════════════════════════════════════
+function runPart8(): void {
+  sep();
+  console.log(B('PART 8 — Anti-drift: routes.ts delegates to runWarmSynthesisCore (no silent re-inline)'));
+  sep();
+
+  const routesSrc = readFileSync(
+    pathResolve(__dirname, '../routes.ts'),
+    'utf-8',
+  ) as string;
+
+  const coreSrc = readFileSync(
+    pathResolve(__dirname, '../services/warm-synthesis-core.ts'),
+    'utf-8',
+  ) as string;
+
+  // Extract the warm-synthesis route block for scoped checks (avoids false
+  // positives from other parts of the file that might mention the same names).
+  const warmSynthesisBlock = (() => {
+    const marker = '/api/sessions/warm-synthesis';
+    const startIdx = routesSrc.indexOf(marker);
+    if (startIdx === -1) return '';
+    // Grab enough characters to cover the entire handler (~4000 chars is generous)
+    return routesSrc.slice(startIdx, startIdx + 4000);
+  })();
+
+  assert(
+    '8-precondition. /api/sessions/warm-synthesis route block found in routes.ts',
+    warmSynthesisBlock.length > 0,
+    'Route marker "/api/sessions/warm-synthesis" not found — did the route path change?',
+  );
+
+  // ── 8a. Route imports runWarmSynthesisCore ────────────────────────────────
+  // The route uses a dynamic import inside the handler, so the word
+  // 'runWarmSynthesisCore' must appear in the route block (from the destructure).
+  const routeImportsCore = warmSynthesisBlock.includes('runWarmSynthesisCore');
+  assert(
+    '8a. warm-synthesis route block references runWarmSynthesisCore (dynamic import / destructure present)',
+    routeImportsCore,
+    routeImportsCore
+      ? undefined
+      : 'runWarmSynthesisCore not found in the route block — logic may have been re-inlined into routes.ts; restore the delegation to server/services/warm-synthesis-core.ts',
+  );
+
+  // ── 8b. Route calls runWarmSynthesisCore( ─────────────────────────────────
+  const routeCallsCore = warmSynthesisBlock.includes('runWarmSynthesisCore(') ||
+    warmSynthesisBlock.includes('await runWarmSynthesisCore(');
+  assert(
+    '8b. warm-synthesis route block calls runWarmSynthesisCore() — delegation is active',
+    routeCallsCore,
+    routeCallsCore
+      ? undefined
+      : 'runWarmSynthesisCore() call not found in the route block — the import exists but is never invoked, or logic was inlined',
+  );
+
+  // ── 8c. Real peek function is passed ─────────────────────────────────────
+  const routePassesPeek = warmSynthesisBlock.includes('peekAbsenceReturnDetails');
+  assert(
+    '8c. peekAbsenceReturnDetails is passed to runWarmSynthesisCore in the route block',
+    routePassesPeek,
+    routePassesPeek
+      ? undefined
+      : 'peekAbsenceReturnDetails not found in the route block — the peek function may not be wired through to runWarmSynthesisCore',
+  );
+
+  // ── 8d. Real generate function is passed ──────────────────────────────────
+  const routePassesGenerate = warmSynthesisBlock.includes('generatePreSessionSynthesis');
+  assert(
+    '8d. generatePreSessionSynthesis is passed to runWarmSynthesisCore in the route block',
+    routePassesGenerate,
+    routePassesGenerate
+      ? undefined
+      : 'generatePreSessionSynthesis not found in the route block — synthesis function may not be wired through to runWarmSynthesisCore',
+  );
+
+  // ── 8e. Real warm-setter is passed ────────────────────────────────────────
+  const routePassesSetWarm = warmSynthesisBlock.includes('setWarmSynthesis');
+  assert(
+    '8e. setWarmSynthesis is passed to runWarmSynthesisCore in the route block',
+    routePassesSetWarm,
+    routePassesSetWarm
+      ? undefined
+      : 'setWarmSynthesis not found in the route block — warm-cache setter may not be wired through to runWarmSynthesisCore',
+  );
+
+  // ── 8f. Core service still exports runWarmSynthesisCore ───────────────────
+  // Guard against the export being accidentally renamed or removed, which would
+  // make the route's dynamic import silently destructure undefined at runtime.
+  const coreExportsFunction =
+    coreSrc.includes('export async function runWarmSynthesisCore(') ||
+    coreSrc.includes('export function runWarmSynthesisCore(');
+  assert(
+    '8f. warm-synthesis-core.ts still exports runWarmSynthesisCore as a named export',
+    coreExportsFunction,
+    coreExportsFunction
+      ? undefined
+      : 'Named export "runWarmSynthesisCore" not found in warm-synthesis-core.ts — the export was renamed or removed; update the route import to match',
+  );
+
+  console.log(D('\n  Summary: routes.ts delegates to runWarmSynthesisCore — no logic copy to drift.\n'));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MAIN
 // ══════════════════════════════════════════════════════════════════════════════
 (async () => {
@@ -1274,6 +1396,10 @@ async function runPart7(): Promise<void> {
     // confirm the inner try/catch recovers (synthesis completes, warn emitted, no re-throw).
     // This is the runtime complement to Parts 6a/6b which were source-level grep checks.
     await runPart7();
+
+    // Part 8 — Anti-drift: source-level check that routes.ts still delegates to
+    // runWarmSynthesisCore and has not re-inlined the logic.
+    runPart8();
   } catch (err: any) {
     stopCapture();
     origLog(R(`\nUnhandled error: ${err?.message ?? err}`));
