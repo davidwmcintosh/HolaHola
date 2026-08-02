@@ -329,7 +329,7 @@ async function evaluateDaniela(roomContext: string, speaker: string, newMessage:
   const [memoryContext, patternSignals] = await Promise.all([
     getDanielaMemoryContext(),
     (studentUserId && studentLanguage)
-      ? fetchPatternSignalContext(studentUserId, studentLanguage)
+      ? fetchPatternSignalContext(studentUserId, studentLanguage).catch(() => null)
       : Promise.resolve(null),
   ]);
   const danielaContext = memoryContext

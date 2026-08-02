@@ -485,37 +485,53 @@ describe('RECORD_PATTERN_SIGNAL handler — session.activePatternSignals write-b
     );
   });
 
-  it('clears session.activePatternSignals to null when storage throws (fetchPatternSignalContext swallows errors internally)', async () => {
-    // fetchPatternSignalContext has its own try/catch that returns null on any storage
-    // error (pattern-signal-context.ts lines 51-54):
-    //   } catch (err) {
-    //     console.warn('[PatternSignals] Failed to fetch compartment context:', err);
-    //     return null;
-    //   }
+  it('preserves stale session.activePatternSignals when storage throws', async () => {
+    // fetchPatternSignalContext now re-throws storage errors instead of swallowing
+    // them with `return null` (pattern-signal-context.ts catch block).
     //
-    // This means the outer `.catch(() => undefined)` in the orchestrator handler is
-    // never triggered in practice — the function always resolves (never rejects).
-    // When storage throws, fetchPatternSignalContext returns null, which the handler
-    // then writes to session.activePatternSignals via the `refreshed !== undefined` guard.
+    // This makes the outer `.catch(() => undefined)` in the orchestrator/handler
+    // actually fire:
+    //
+    //   const refreshed = await fetchPatternSignalContext(...).catch((): undefined => undefined);
+    //   if (refreshed !== undefined) { session.activePatternSignals = refreshed; }
+    //
+    // On a storage error:
+    //   fetchPatternSignalContext rejects → .catch returns undefined → refreshed === undefined
+    //   → the `if` guard skips the assignment → stale value is preserved.
+    //
+    // Without the re-throw the outer guard was dead code and a transient DB blip
+    // silently wiped Daniela's live wobble context for the rest of the session.
     (storage as any).getCompartmentMap = async () => {
       throw new Error('DB connection lost');
     };
 
+    const staleSignals = '- imperfect_tense: WOBBLING — slipped back. Needs revisiting.';
     const session: PatternAnchorSession = {
       studentActflLevel: 'intermediate_low',
       targetLanguage: 'Spanish',
       nativeLanguage: 'english',
-      activePatternSignals: '- imperfect_tense: WOBBLING — slipped back. Needs revisiting.',
+      activePatternSignals: staleSignals,
     };
 
     await simulateHandlerWriteBack(session, 'user-test', 'spanish');
 
-    // fetchPatternSignalContext caught the error internally and returned null;
-    // null !== undefined so the handler assigned it to the session field.
+    // fetchPatternSignalContext re-threw; .catch(() => undefined) returned undefined;
+    // the handler skipped the assignment → stale value is intact.
     assert.strictEqual(
       session.activePatternSignals,
-      null,
-      'Handler writes null to session.activePatternSignals when fetchPatternSignalContext swallows a storage error',
+      staleSignals,
+      'Handler must preserve stale session.activePatternSignals when fetchPatternSignalContext throws (storage error)',
+    );
+
+    // Confirm the per-turn anchor still carries the pattern section.
+    const anchor = buildActflPersonaAnchor(session)!;
+    assert.ok(
+      anchor.includes('Active grammar patterns:'),
+      'Per-turn anchor must still show pattern section when stale signals are preserved after a storage error',
+    );
+    assert.ok(
+      anchor.includes('imperfect_tense'),
+      'Stale patternKey must survive into the per-turn anchor after a storage error',
     );
   });
 

@@ -50,7 +50,11 @@ export async function fetchPatternSignalContext(userId: string, language: string
     return lines.join('\n');
   } catch (err) {
     console.warn('[PatternSignals] Failed to fetch compartment context:', err);
-    return null;
+    // Re-throw so callers can distinguish a storage error (undefined sentinel via .catch())
+    // from a genuine empty result (null = no active compartments).  Without re-throwing,
+    // the outer .catch(() => undefined) guard in every RECORD_PATTERN_SIGNAL handler is
+    // dead code and a transient DB blip silently wipes session.activePatternSignals.
+    throw err;
   }
 }
 
