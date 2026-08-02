@@ -1367,6 +1367,135 @@ function runPart8(): void {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PART 9 — RUNTIME: throwing generateFn is caught; warm cache stays cold
+//
+// The outer catch in routes.ts (console.warn + no rethrow) silently swallows
+// a crash that originates inside generatePreSessionSynthesis itself — the warm
+// cache ends up neither populated nor errored, which is correct, but the
+// behaviour was previously untested.
+//
+// After the warm-synthesis-core.ts fix, generateFn is wrapped in its own
+// try/catch:
+//   • runWarmSynthesisCore does NOT propagate the error
+//   • setWarmFn is never called → warm cache stays cold
+//   • console.warn emits "[WarmSynthesis] Synthesis generation failed (non-fatal):"
+//     with the injected error message
+//
+// Checks:
+//   9a. No exception propagates from runWarmSynthesisCore when generateFn throws
+//   9b. Return value is null (synthesis could not be computed)
+//   9c. "[WarmSynthesis] Synthesis generation failed (non-fatal):" warn captured
+//       with the injected error message
+//   9d. Warm cache is cold — consumeWarmSynthesis returns null (setWarmFn was never called)
+// ══════════════════════════════════════════════════════════════════════════════
+async function runPart9(): Promise<void> {
+  sep();
+  origLog(B('PART 9 — RUNTIME: throwing generateFn is caught; warm cache stays cold'));
+  sep();
+
+  const { setWarmSynthesis, consumeWarmSynthesis } =
+    await import('../services/pre-session-synthesis');
+
+  const TEST_USER_ID_9 = '00000000-test-absence-gen-throw-000';
+
+  // Clear any stale warm-cache entry from a prior interrupted run
+  consumeWarmSynthesis(TEST_USER_ID_9);
+
+  const compassContext: any = {
+    studentName: 'TestStudent9',
+    studentGoals: 'Learn conversational Spanish',
+    studentInterests: 'Film and architecture',
+    studentActflLevel: 'novice-mid',
+    lastSessionSummary: 'We practised describing places. TestStudent9 did well with spatial vocabulary.',
+    danielaSelfReflection: 'TestStudent9 responds well to vivid visual prompts.',
+    conversationMemories: [],
+    mustHaveTopics: [],
+    niceToHaveTopics: [],
+  };
+
+  // Throwing mock — simulates generatePreSessionSynthesis crashing (e.g. Gemini 503)
+  const GENERATE_ERROR_MSG = 'simulated Gemini 503 in generatePreSessionSynthesis';
+  const throwingGenerateFn = async (
+    _ctx: any,
+    _tutorName: string,
+    _userId: string,
+    _language: string,
+    _signal: WarmSynthesisSignal,
+  ): Promise<string | null> => {
+    throw new Error(GENERATE_ERROR_MSG);
+  };
+
+  // A no-op peekFn — we want the generate path, not the peek path
+  const noopPeekFn = async (_userId: string): Promise<WarmSynthesisSignal> => null;
+
+  origLog(D('\n  Calling runWarmSynthesisCore with a throwing generateFn (no DB, no HTTP)...'));
+
+  let threwOutside = false;
+  let result: string | null = 'SENTINEL';
+
+  startCapture();
+  try {
+    result = await runWarmSynthesisCore(
+      TEST_USER_ID_9,
+      compassContext,
+      'spanish',
+      noopPeekFn,
+      throwingGenerateFn,
+      setWarmSynthesis,
+    );
+  } catch (err: any) {
+    threwOutside = true;
+    origLog(R(`  runWarmSynthesisCore unexpectedly propagated the generate error: ${err?.message}`));
+  }
+  const logs9 = stopCapture();
+
+  // 9a. No exception must escape runWarmSynthesisCore
+  assert(
+    '9a. runWarmSynthesisCore does NOT propagate the generateFn error (inner catch recovers)',
+    !threwOutside,
+    threwOutside
+      ? 'Function threw — generateFn error was re-thrown instead of being caught by the inner try/catch in runWarmSynthesisCore'
+      : undefined,
+  );
+
+  // 9b. Return value must be null (synthesis could not be produced)
+  assert(
+    '9b. Return value is null when generateFn throws (synthesis not computed)',
+    result === null,
+    result !== null
+      ? `Expected null but got: ${typeof result === 'string' ? `"${result.slice(0, 80)}"` : result}`
+      : undefined,
+  );
+
+  // 9c. The warn log must be captured with the injected error message
+  const warnLog9 = logs9.find(
+    l =>
+      l.includes('[WARN]') &&
+      l.includes('[WarmSynthesis] Synthesis generation failed (non-fatal):') &&
+      l.includes(GENERATE_ERROR_MSG),
+  );
+  assert(
+    '9c. "[WarmSynthesis] Synthesis generation failed (non-fatal):" captured in console.warn with injected error text',
+    !!warnLog9,
+    warnLog9
+      ? undefined
+      : `Warn line not found. First 10 captured logs:\n      ${logs9.slice(0, 10).join('\n      ')}`,
+  );
+
+  // 9d. Warm cache must be cold — setWarmFn must not have been called after the throw
+  const cached9 = consumeWarmSynthesis(TEST_USER_ID_9);
+  assert(
+    '9d. Warm cache is cold after generateFn throws — consumeWarmSynthesis returns null (setWarmFn never called)',
+    cached9 === null,
+    cached9 !== null
+      ? `consumeWarmSynthesis returned a non-null value: "${String(cached9).slice(0, 80)}" — setWarmFn was called despite the throw`
+      : undefined,
+  );
+
+  origLog(D('\n  Part 9 complete — generateFn crash path exercised at runtime with an injected throwing mock.\n'));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MAIN
 // ══════════════════════════════════════════════════════════════════════════════
 (async () => {
@@ -1400,6 +1529,11 @@ function runPart8(): void {
     // Part 8 — Anti-drift: source-level check that routes.ts still delegates to
     // runWarmSynthesisCore and has not re-inlined the logic.
     runPart8();
+
+    // Part 9 — RUNTIME: inject a throwing generateFn and confirm the inner
+    // try/catch recovers (no propagation, cache cold, warn emitted).
+    // This is the runtime complement to the outer-catch gap the task identified.
+    await runPart9();
   } catch (err: any) {
     stopCapture();
     origLog(R(`\nUnhandled error: ${err?.message ?? err}`));

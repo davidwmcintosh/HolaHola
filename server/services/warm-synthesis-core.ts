@@ -64,7 +64,20 @@ export async function runWarmSynthesisCore(
   }
 
   // ── Generate synthesis (with or without absence signal) ──────────────────
-  const synthesis = await generateFn(compassContext, 'Daniela', userId, language, returningAfterAbsence);
+  // Wrapped in its own try/catch so a crash in generatePreSessionSynthesis is
+  // also caught here rather than propagating to the outer catch in routes.ts,
+  // which only emits a console.warn. Keeping the catch here means:
+  //   • no exception escapes runWarmSynthesisCore
+  //   • the warm cache is left cold (setWarmFn is never called)
+  //   • a recognizable warn is emitted so the failure is observable
+  let synthesis: string | null = null;
+  try {
+    synthesis = await generateFn(compassContext, 'Daniela', userId, language, returningAfterAbsence);
+  } catch (genErr: any) {
+    // Non-fatal — WS handler will generate on demand if the cache is cold
+    console.warn('[WarmSynthesis] Synthesis generation failed (non-fatal):', genErr?.message);
+    return null;
+  }
   if (synthesis) {
     setWarmFn(userId, synthesis);
     console.log(`[WarmSynthesis] ✓ Pre-computed for user ${userId.substring(0, 8)} (${synthesis.length} chars)`);
