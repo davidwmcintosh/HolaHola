@@ -345,11 +345,39 @@ describe('partial / malformed response shapes', () => {
 let componentSrc: string;
 
 // Helper: extract the AbsenceMonitorTab function body from the full source.
-// 8000 chars covers: summary cards (~3.5k offset), pending list (~3.5k), resolved list (~5.8k).
+//
+// Uses balanced-brace matching so the region grows automatically as the
+// component gains new cards, tabs, or list sections — no fixed byte cap.
+// Falls back to scanning for the next top-level `function` declaration if
+// the brace scan somehow fails to close.
 function absenceMonitorRegion(src: string): string {
-  const start = src.indexOf('function AbsenceMonitorTab()');
+  const marker = 'function AbsenceMonitorTab()';
+  const start = src.indexOf(marker);
   if (start === -1) return '';
-  return src.slice(start, start + 8000);
+
+  // Find the opening brace of the function body.
+  const braceOpen = src.indexOf('{', start + marker.length);
+  if (braceOpen === -1) return src.slice(start);
+
+  // Walk forward counting brace depth until the outermost brace closes.
+  let depth = 0;
+  for (let i = braceOpen; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === '{') depth++;
+    else if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        // i+1 to include the closing brace itself.
+        return src.slice(start, i + 1);
+      }
+    }
+  }
+
+  // Brace scan never closed (malformed source) — fall back to next top-level
+  // function so coverage is still better than a fixed 8000-char window.
+  const tail = src.slice(start + 1);
+  const nextFn = tail.search(/\nfunction [A-Z]/);
+  return nextFn === -1 ? src.slice(start) : src.slice(start, start + 1 + nextFn);
 }
 
 before(() => {
@@ -428,6 +456,63 @@ describe('AbsenceMonitorTab source — summary card binding expressions exist', 
     assert.ok(
       componentSrc.includes('function AbsenceMonitorTab()'),
       'AbsenceMonitorTab function not found in CommandCenter.tsx — file path may have changed.',
+    );
+  });
+
+  it('absenceMonitorRegion captures the last known binding expression (window coverage check)', () => {
+    // If the component grows and a new binding expression lands beyond the extracted
+    // region, every source-binding test above would silently pass even though the
+    // real component has drifted.  This assertion uses the LAST occurrence of each
+    // tracked binding so a new usage appended after the old last one is still caught.
+    //
+    // The last binding expression currently is `data?.resolved` (in the resolved-list
+    // .map() call).  If absenceMonitorRegion ever stops covering it the region helper
+    // is broken and must be fixed.
+    const region = absenceMonitorRegion(componentSrc);
+
+    assert.ok(
+      region.includes('function AbsenceMonitorTab()'),
+      'absenceMonitorRegion must start with the AbsenceMonitorTab declaration.',
+    );
+
+    // Verify each tracked binding appears at least once inside the extracted region.
+    const requiredBindings = [
+      'data?.summary.pending',
+      'data?.summary.resolved',
+      'data?.summary.total',
+      'data?.pending',
+      'data?.resolved',
+    ];
+
+    for (const binding of requiredBindings) {
+      assert.ok(
+        region.includes(binding),
+        `absenceMonitorRegion does not cover the binding expression "${binding}". ` +
+        'The component may have grown beyond the extracted window — update absenceMonitorRegion.',
+      );
+    }
+
+    // Additionally assert that the LAST occurrence of `data?.resolved` in the full
+    // source is also present inside the extracted region.  A fixed-byte window that
+    // is too small will miss it; balanced-brace extraction will always capture it.
+    const fullFnLastResolved = componentSrc.lastIndexOf(
+      'data?.resolved',
+      componentSrc.indexOf('function AbsenceMonitorTab()') + componentSrc.length,
+    );
+    const regionLastResolved = region.lastIndexOf('data?.resolved');
+    assert.ok(
+      regionLastResolved !== -1,
+      'The last occurrence of data?.resolved was not found inside the extracted region.',
+    );
+    // The offset of the last occurrence within the region must equal the distance
+    // from the function start to the last occurrence in the full source.
+    const fnStart = componentSrc.indexOf('function AbsenceMonitorTab()');
+    const expectedOffset = fullFnLastResolved - fnStart;
+    assert.ok(
+      expectedOffset >= 0 && regionLastResolved >= expectedOffset - 10,
+      `The extracted region ends before the last data?.resolved. ` +
+      `Last occurrence is at function-relative offset ${expectedOffset} but region ` +
+      `only captured up to offset ${region.length}.`,
     );
   });
 });
