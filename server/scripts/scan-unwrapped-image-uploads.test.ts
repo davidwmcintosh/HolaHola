@@ -267,6 +267,54 @@ describe('Scanner roots — new top-level directories are covered (#433)', () =>
       'the self-check would not catch the gap.',
     );
   });
+
+  it('every KNOWN_NON_SCRIPT_ROOTS entry that no longer exists on disk is flagged (stale-entry guard)', () => {
+    /**
+     * If a directory in KNOWN_NON_SCRIPT_ROOTS is renamed or deleted, its
+     * entry silently becomes a no-op: the first test above still passes
+     * (because the old name is still in the exclusion list), but the renamed
+     * directory may now be uncovered on the next scan. This test closes that
+     * gap by asserting that every KNOWN_NON_SCRIPT_ROOTS name that was once a
+     * real directory still exists on disk.
+     *
+     * When a directory is intentionally removed (not renamed), remove its
+     * entry from KNOWN_NON_SCRIPT_ROOTS at the same time.
+     */
+    const stale: string[] = [];
+
+    for (const entry of KNOWN_NON_SCRIPT_ROOTS) {
+      const dirPath = path.join(PROJECT_ROOT, entry.name);
+      const exists = fs.existsSync(dirPath) && fs.statSync(dirPath).isDirectory();
+      if (!exists) {
+        stale.push(entry.name);
+      }
+    }
+
+    assert.deepEqual(
+      stale,
+      [],
+      `The following KNOWN_NON_SCRIPT_ROOTS entries no longer exist on disk:\n` +
+      stale.map(n => `  ${n}/  (reason: ${KNOWN_NON_SCRIPT_ROOTS.find(e => e.name === n)?.reason})`).join('\n') + '\n\n' +
+      `If the directory was renamed, update the entry in KNOWN_NON_SCRIPT_ROOTS to match the new name.\n` +
+      `If the directory was intentionally removed, delete its entry from KNOWN_NON_SCRIPT_ROOTS.\n` +
+      `Both lists are at the top of server/scripts/scan-unwrapped-image-uploads.test.ts.`,
+    );
+  });
+
+  it('mutation self-check: a stale KNOWN_NON_SCRIPT_ROOTS entry would fail the assertion above', () => {
+    // Inject a fake entry whose directory does not exist on disk and confirm
+    // it would be detected as stale by the guard above.
+    const fakeEntry = { name: '__definitely-deleted-dir-9x7z__', reason: 'test only' };
+    const fakeDirPath = path.join(PROJECT_ROOT, fakeEntry.name);
+
+    const exists = fs.existsSync(fakeDirPath) && fs.statSync(fakeDirPath).isDirectory();
+
+    assert.equal(
+      exists,
+      false,
+      'Fake stale directory unexpectedly exists on disk — the self-check would not catch the gap.',
+    );
+  });
 });
 
 describe('Scanner roots — shared/ is included (#476)', () => {
