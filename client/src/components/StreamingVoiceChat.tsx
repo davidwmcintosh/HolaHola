@@ -47,6 +47,7 @@ import type { VoiceOverride } from "./VoiceLabPanel";
 import type { LessonNote } from "@shared/whiteboard-types";
 import { SofiaWidget } from "@/components/SophiaWidget";
 import { isSpotlightMessageValid } from "@/lib/spotlight-guard";
+import { validateCulturalContextPayload } from "@/lib/cultural-context-guard";
 
 // ============================================================================
 // STREAMING MODE CONFIGURATION
@@ -1273,12 +1274,13 @@ export function StreamingVoiceChat({
             setActiveQuiz({ ...data, selectedIndex: undefined, showResult: false });
           },
           onCulturalContextShown: (data) => {
-            if (!data.title || !data.title.trim() || !data.text || !data.text.trim()) {
+            const validated = validateCulturalContextPayload(data);
+            if (!validated) {
               console.warn('[StreamingVoiceChat] onCulturalContextShown: malformed cultural context data', data);
               toast({ title: 'Cultural note unavailable', description: 'Daniela sent an incomplete cultural context card — skipping.', variant: 'destructive' });
               return;
             }
-            setCulturalContext(data);
+            setCulturalContext(validated);
           },
           onSpotlightShown: (data) => {
             if (!isSpotlightMessageValid(data)) {
