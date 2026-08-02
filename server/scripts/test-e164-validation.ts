@@ -102,6 +102,75 @@ async function testUpsertAllowsGoodPhone(): Promise<void> {
   }
 }
 
+// ── Case 5: Full round-trip — encrypt → store → decrypt → normalizeE164 ───
+// Uses the first real user in the DB so the FK constraint is satisfied.
+// Saves and restores the user's original contact preferences afterwards.
+async function testRoundTrip(): Promise<void> {
+  const { getUserDb } = await import('../db');
+  const { users } = await import('@shared/schema');
+  const { asc } = await import('drizzle-orm');
+
+  // Find a real user to work with.
+  const [firstUser] = await getUserDb().select({ id: users.id }).from(users).orderBy(asc(users.createdAt)).limit(1);
+  if (!firstUser) {
+    fail('Round-trip test skipped — no users found in the database');
+    return;
+  }
+  const testUserId = firstUser.id;
+
+  // Snapshot the current contact preferences so we can restore them.
+  const original = await storage.getContactPreferences(testUserId);
+
+  const TEST_PHONE = '+15550199000';
+
+  try {
+    // 1. Upsert the test phone number.
+    const upserted = await storage.upsertContactPreferences(testUserId, { phone: TEST_PHONE });
+    if (upserted.phone !== TEST_PHONE) {
+      fail(`upsert returned phone="${upserted.phone}" but expected "${TEST_PHONE}" (decrypt may be broken)`);
+    } else {
+      pass(`upsert returned decrypted phone="${upserted.phone}" (matches original)`);
+    }
+
+    // 2. Read it back via getContactPreferences().
+    const readBack = await storage.getContactPreferences(testUserId);
+    if (!readBack?.phone) {
+      fail(`getContactPreferences() returned no phone — decryption failed or row missing`);
+      return;
+    }
+    if (readBack.phone !== TEST_PHONE) {
+      fail(`getContactPreferences() returned phone="${readBack.phone}" but expected "${TEST_PHONE}"`);
+    } else {
+      pass(`getContactPreferences() returned "${readBack.phone}" — exact match with original`);
+    }
+
+    // 3. normalizeE164() must not throw on the decrypted value.
+    try {
+      const normalized = normalizeE164(readBack.phone);
+      if (normalized === TEST_PHONE) {
+        pass(`normalizeE164("${readBack.phone}") succeeded and returned "${normalized}"`);
+      } else {
+        fail(`normalizeE164 returned "${normalized}" instead of "${TEST_PHONE}"`);
+      }
+    } catch (err: any) {
+      fail(`normalizeE164 threw on the decrypted phone "${readBack.phone}": ${err.message}`);
+    }
+  } finally {
+    // Restore original preferences so the test is non-destructive.
+    try {
+      await storage.upsertContactPreferences(testUserId, {
+        phone: original?.phone ?? null,
+        phoneConsentSms: original?.phoneConsentSms ?? false,
+        phoneConsentVoice: original?.phoneConsentVoice ?? false,
+        phoneConsentAt: original?.phoneConsentAt ?? undefined,
+        phoneConsentSource: original?.phoneConsentSource ?? undefined,
+      });
+    } catch {
+      // Best-effort cleanup; don't mask test failures.
+    }
+  }
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 async function main() {
   console.log(B('\n═══ E.164 Phone Validation — CI Check ═══\n'));
@@ -117,6 +186,9 @@ async function main() {
 
   console.log(B('\nCase 4: upsertContactPreferences allows a valid E.164 number past validation'));
   await testUpsertAllowsGoodPhone();
+
+  console.log(B('\nCase 5: Full round-trip — upsert E.164 phone → read back → normalizeE164 still passes'));
+  await testRoundTrip();
 
   console.log(B('\n═══ Summary ═══'));
   if (failures === 0) {
