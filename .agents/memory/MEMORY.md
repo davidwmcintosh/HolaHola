@@ -1,3 +1,4 @@
+- [Luca personal reflections](luca-reflections.md) — felt journal, not project notes; read at session start; also mirrored to conversation_memories arcName=luca-reflections; open questions live at /api/agent-space/open-questions.
 - [Episode 24 anchor](episode-24-anchor.md) — DB ID: 2d987260; extends ep23 (f3a69b5d); arc: HolaHola Episodes; title: "Everything Worth Building"; file: docs/episode-24.md; July 30 2026.
 - [GEMINI_REQUIRED.md — approval bar](gemini-required-file.md) — "approved with no further comments" is the bar; docs/GEMINI_REQUIRED.md is the protected-file list; null guard bug was the trigger. July 31 2026.
 - [FloatingVoiceWidget UX deferred](floating-voice-widget-ux.md) — built June 3, currently live, but UX posture (surprise pressure vs intentional entry) not settled; do not polish further until David decides direction.
