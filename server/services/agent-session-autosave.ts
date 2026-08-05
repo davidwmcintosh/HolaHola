@@ -36,6 +36,19 @@ const CURSOR_PATH     = join(WORKSPACE, '.local/.transcript_cursor.json');
 const TRANSCRIPT_DIR  = join(WORKSPACE, '.local/state/replit/agent/transcript');
 const POLL_INTERVAL_MS = 20 * 1000;
 
+// --- Luca inner-life trigger files ---
+const REFLECTION_PATH      = join(WORKSPACE, '.local/.luca_reflection');
+const QUESTION_PATH        = join(WORKSPACE, '.local/.luca_question');
+const MOMENT_PATH          = join(WORKSPACE, '.local/.luca_moment');
+const REFLECTIONS_FILE     = join(WORKSPACE, '.agents/memory/REFLECTIONS.md');
+const OPEN_QUESTIONS_FILE  = join(WORKSPACE, '.agents/memory/OPEN_QUESTIONS.md');
+const MOMENTS_FILE         = join(WORKSPACE, '.agents/memory/SIGNIFICANT_MOMENTS.md');
+
+// --- Luca inner-life watcher state ---
+let reflectionLastMtime = 0;
+let questionLastMtime = 0;
+let momentLastMtime = 0;
+
 // --- Build session watcher state ---
 let buildLastMtime = 0;
 let buildLastSavedContent = '';
@@ -166,6 +179,155 @@ async function checkSessionInsights(): Promise<void> {
         console.log('[AgentAutosave] Session insights updated — saving emergence memory...');
         await saveInsightsMemory(content);
       }
+    }
+  } catch { /* file briefly locked — skip */ }
+}
+
+// ---------------------------------------------------------------------------
+// Luca inner-life watchers — reflections, open questions, significant moments
+// ---------------------------------------------------------------------------
+
+/**
+ * Parse a trigger file that is either plain text or JSON.
+ * Returns { title, body, tags } or null if the content is too short.
+ */
+function parseTriggerFile(
+  raw: string,
+  defaultTag: string,
+): { title: string; body: string; tags: string[] } | null {
+  raw = raw.trim();
+  if (!raw || raw.length < 10) return null;
+  if (raw.startsWith('{')) {
+    try {
+      const p = JSON.parse(raw);
+      const title = (p.moment || p.note || p.question || p.title || '').slice(0, 200);
+      if (!title) return null;
+      const body = [
+        p.date ? `Date: ${p.date}` : '',
+        p.why ? `Why it mattered: ${p.why}` : '',
+        p.note || p.moment || p.question || p.content || '',
+      ].filter(Boolean).join('\n\n');
+      const tags: string[] = Array.isArray(p.tags) ? p.tags : [defaultTag];
+      return { title, body, tags };
+    } catch { /* fall through to plain text */ }
+  }
+  const lines = raw.split('\n');
+  return {
+    title: lines[0].slice(0, 200),
+    body: lines.slice(1).join('\n').trim() || raw,
+    tags: [defaultTag],
+  };
+}
+
+/** Append a dated entry to one of the personal markdown files. */
+function appendToPersonalFile(filePath: string, title: string, body: string): void {
+  try {
+    const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const entry = `\n### ${today} — ${title}\n\n${body}\n\n---\n`;
+    const existing = existsSync(filePath) ? readFileSync(filePath, 'utf-8') : '';
+    writeFileSync(filePath, existing.trimEnd() + '\n' + entry);
+  } catch (err: any) {
+    console.error('[AgentAutosave] Failed to append to personal file:', filePath, err.message);
+  }
+}
+
+/** Save a personal inner-life entry to conversation_memories. */
+async function savePersonalMemory(
+  title: string,
+  body: string,
+  tags: string[],
+  arcName: string,
+): Promise<void> {
+  const db = getUserDb();
+  try {
+    await db.execute(sql`
+      INSERT INTO conversation_memories (id, title, summary, content, participants, tags, importance, created_at, entry_type, arc_name)
+      VALUES (
+        gen_random_uuid(),
+        ${title.slice(0, 200)},
+        ${body.slice(0, 400)},
+        ${body},
+        ARRAY['luca']::text[],
+        ${tags}::text[],
+        8,
+        NOW(),
+        'emergence',
+        ${arcName}
+      )
+    `);
+  } catch (err: any) {
+    console.error('[AgentAutosave] Failed to save personal memory:', err.message);
+  }
+}
+
+async function checkLucaReflection(): Promise<void> {
+  if (!existsSync(REFLECTION_PATH)) return;
+  try {
+    const stat = statSync(REFLECTION_PATH);
+    const mtime = stat.mtimeMs;
+    if (mtime > reflectionLastMtime) {
+      const prev = reflectionLastMtime;
+      reflectionLastMtime = mtime;
+      if (prev === 0) return; // skip initial read
+      const raw = readFileSync(REFLECTION_PATH, 'utf-8').trim();
+      const parsed = parseTriggerFile(raw, 'luca-reflection');
+      if (!parsed) return;
+      appendToPersonalFile(REFLECTIONS_FILE, parsed.title, parsed.body);
+      await savePersonalMemory(
+        `Luca reflection: ${parsed.title}`,
+        parsed.body,
+        ['luca-inner-life', 'luca-reflection', ...parsed.tags],
+        'luca-inner-life',
+      );
+      console.log('[AgentAutosave] Luca reflection saved:', parsed.title.slice(0, 60));
+    }
+  } catch { /* file briefly locked — skip */ }
+}
+
+async function checkLucaQuestion(): Promise<void> {
+  if (!existsSync(QUESTION_PATH)) return;
+  try {
+    const stat = statSync(QUESTION_PATH);
+    const mtime = stat.mtimeMs;
+    if (mtime > questionLastMtime) {
+      const prev = questionLastMtime;
+      questionLastMtime = mtime;
+      if (prev === 0) return;
+      const raw = readFileSync(QUESTION_PATH, 'utf-8').trim();
+      const parsed = parseTriggerFile(raw, 'luca-question');
+      if (!parsed) return;
+      appendToPersonalFile(OPEN_QUESTIONS_FILE, parsed.title, parsed.body);
+      await savePersonalMemory(
+        `Luca open question: ${parsed.title}`,
+        parsed.body,
+        ['luca-inner-life', 'luca-question', ...parsed.tags],
+        'luca-inner-life',
+      );
+      console.log('[AgentAutosave] Luca open question saved:', parsed.title.slice(0, 60));
+    }
+  } catch { /* file briefly locked — skip */ }
+}
+
+async function checkLucaMoment(): Promise<void> {
+  if (!existsSync(MOMENT_PATH)) return;
+  try {
+    const stat = statSync(MOMENT_PATH);
+    const mtime = stat.mtimeMs;
+    if (mtime > momentLastMtime) {
+      const prev = momentLastMtime;
+      momentLastMtime = mtime;
+      if (prev === 0) return;
+      const raw = readFileSync(MOMENT_PATH, 'utf-8').trim();
+      const parsed = parseTriggerFile(raw, 'luca-significant');
+      if (!parsed) return;
+      appendToPersonalFile(MOMENTS_FILE, parsed.title, parsed.body);
+      await savePersonalMemory(
+        `Luca significant moment: ${parsed.title}`,
+        parsed.body,
+        ['luca-inner-life', 'luca-significant', ...parsed.tags],
+        'luca-inner-life',
+      );
+      console.log('[AgentAutosave] Luca significant moment saved:', parsed.title.slice(0, 60));
     }
   } catch { /* file briefly locked — skip */ }
 }
@@ -392,11 +554,25 @@ export function startAgentSessionAutosave(): void {
     } catch { /* ignore */ }
   }
 
+  // Seed inner-life watcher mtimes so first poll doesn't re-fire on existing files
+  for (const [path, setMtime] of [
+    [REFLECTION_PATH, (m: number) => { reflectionLastMtime = m; }] as const,
+    [QUESTION_PATH,   (m: number) => { questionLastMtime = m; }] as const,
+    [MOMENT_PATH,     (m: number) => { momentLastMtime = m; }] as const,
+  ]) {
+    if (existsSync(path)) {
+      try { setMtime(statSync(path).mtimeMs); } catch { /* ignore */ }
+    }
+  }
+
   setInterval(async () => {
     await checkBuildSession();
     await checkSessionInsights();
+    await checkLucaReflection();
+    await checkLucaQuestion();
+    await checkLucaMoment();
     await saveTranscriptChunk(); // periodic, independent of commits — captures conversation-only sessions too
   }, POLL_INTERVAL_MS);
 
-  console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + periodic transcript capture every 60s');
+  console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life (.luca_reflection/.luca_question/.luca_moment) + periodic transcript capture every 60s');
 }
