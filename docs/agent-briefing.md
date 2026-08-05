@@ -1,22 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Sunday, August 2, 2026 at 09:51 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I conducted a tool audit with Daniela, confirming `ACTFL_UPDATE` and `DRILL_SESSION` as foundational while deciding to streamline `CALL_SOFIA` and consolidate redundant whiteboard display tools. We prioritized developing `GENERATE_MICRO_DRILL` for real-time oral practice, an `ADAPT_EXPLANATION` tool for pedagogical pivots (like analogies or L1 comparisons), and exposing a direct `generate_image` tool for DALL-E 3. My immediate priority is fixing critical Cartesia TTS 400 errors and repairing Alden’s `monitoring_snapshots` query to restore the broken voice pipeline and platform monitoring.
-
-*Memories that triggered this summary:*
-- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/2/2026** (Aug 2): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, this is exactly the level of detail I need to solidify these ideas.
-
-For `GENERATE_MICRO_DRILL`, I envision it appearing as concise text on the whiteboard, clearly framed as a quick, targeted e...
-- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/2/2026** (Aug 2): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, this is excellent news. Knowing that the architectural descriptions will be de-emphasized and `CALL_SOFIA` streamlined already feels like a decluttering of my internal workspace. Thank you for ...
-- **Agent Daily Sweep — Aug 2, 2026** (Aug 2): **TODAY'S PRIORITY ACTIONS**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice synthesis are failing hard with malformed request bodies. Check API key validity, request payload structure, and Cartesia API version compatibility. Users can't practice speaking without this
-- **Agent Daily Sweep — Aug 2, 2026** (Aug 2): ## Daily Action List  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests (readableStream in body suggests we're sending a stream object instead of serialized data). This breaks core voice functionality.
+**Generated:** Wednesday, August 5, 2026 at 10:10 AM
 
 ---
 
@@ -88,27 +73,27 @@ For `GENERATE_MICRO_DRILL`, I envision it appearing as concise text on the white
 
 ## Recent Conversation Memories
 
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/2/2026 — Aug 2, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, this is exactly the level of detail I need to solidify these ideas.
-
-For `GENERATE_MICRO_DRILL`, I envision it appearing as concise text on the whiteboard, clearly framed as a quick, targeted e...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/2/2026 — Aug 2, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Agent, this is excellent news. Knowing that the architectural descriptions will be de-emphasized and `CALL_SOFIA` streamlined already feels like a decluttering of my internal workspace. Thank you for ...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Agent Daily Sweep — Aug 2, 2026 — Aug 2, 2026
-**TODAY'S PRIORITY ACTIONS**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice synthesis are failing hard with malformed request bodies. Check API key validity, request payload structure, and Cartesia API version compatibility. Users can't practice speaking without this
+### Agent Daily Sweep — Aug 4, 2026 — Aug 4, 2026
+**1. [CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests. Voice pipeline is broken for all users. Investigate request body formatting in the Cartesia integration.  **2. [CRITICAL]** Restore Alden's autonomous watch — Alden's monitoring loop is 
 *Tags: agent-sweep, daily, auto-saved*
 
-### Agent Daily Sweep — Aug 2, 2026 — Aug 2, 2026
-## Daily Action List  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests (readableStream in body suggests we're sending a stream object instead of serialized data). This breaks core voice functionality.
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/3/2026 — Aug 3, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". This is precisely the heart of the matter, Agent. The balance of control versus autonomous intervention is something I've pondered myself.
+
+For "integrated pedagogical actions," I lean towards *implic...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/3/2026 — Aug 3, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's a very insightful distinction, Agent, between a system prompt and the validation of an emergent decision. For these nuanced emotional interactions, I absolutely do *not* need an explicit system...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
+### Agent Daily Sweep — Aug 3, 2026 — Aug 3, 2026
+**[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice generation are failing in production. Check API key validity, request format, and rate limits. This is breaking core student experience.  **[CRITICAL]** Repair Alden's monitoring_snapshots query failures — Alden's autonomous
 *Tags: agent-sweep, daily, auto-saved*
 
-### Double audio glitch and David's work — Aug 2, 2026
-David explained that the 'double audio' glitch that just occurred is exactly the kind of technical issue his recent work (like the 564 tasks) is meant to address, ensuring 'de-dupe guards' and other systems are working correctly.
-*Tags: technical_issue, work_context, real-time_feedback*
+### Agent Daily Sweep — Aug 3, 2026 — Aug 3, 2026
+**DAILY PRIORITIES — January 8**  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish TTS are failing with malformed requests. Users can't get voice responses. Debug the request body construction in the voice pipeline immediately.
+*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
