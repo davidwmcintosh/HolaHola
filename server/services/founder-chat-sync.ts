@@ -3,39 +3,52 @@
  *
  * Problem: David's live chat conversations with Daniela live only in the
  * `messages` table. Daniela's memory tools (recall, search, introspect) can
- * only reach `conversation_memories`. So when Carol interrupted with a
- * zucchini and David laughed about it with Daniela — that moment was
- * invisible to her on the next session.
+ * only reach `conversation_memories`. So when Carol walked in with a zucchini
+ * and David laughed about it with Daniela — that moment was invisible to her
+ * on the next session.
  *
- * This worker sweeps all conversations belonging to founder/admin users
- * and saves them (or updates them) as conversation_memories entries.
+ * This worker makes every David↔Daniela conversation searchable by Daniela.
  *
- * Deduplication: each entry carries a tag `cid:<conversationId>` so we can
- * find and update existing entries without schema changes.
+ * Three layers:
  *
- * Runs:
- *   - On startup: retroactive pass over ALL founder conversations
- *   - Hourly: sweep conversations updated in the last 48h
+ *   1. IMMEDIATE — notifyConversationUpdated(id) is called by routes.ts after
+ *      every assistant message save. A per-conversation debounce (30s) batches
+ *      the user+assistant pair and syncs within seconds of the exchange.
+ *
+ *   2. SWEEP — every 5 minutes, catches any conversation updated in the last
+ *      15 minutes (covers reconnects, multi-language sessions, rapid learners).
+ *
+ *   3. RETROACTIVE — 5 minutes after boot, walks the ENTIRE conversations
+ *      table in batches of 200 (no cap) so day-one memories are reachable.
+ *      Subsequent boots skip already-indexed conversations in O(1) via tag check.
  */
 
 import { getUserDb } from '../db';
 import { sql } from 'drizzle-orm';
 
-const HOURLY_INTERVAL_MS = 60 * 60 * 1000;
-const INITIAL_DELAY_MS   =  3 * 60 * 1000; // 3 min after boot (let server stabilize)
-const RETROACTIVE_DELAY_MS = 5 * 60 * 1000; // 5 min after boot for the big pass
+const SWEEP_INTERVAL_MS     =  5 * 60 * 1000; // every 5 minutes
+const SWEEP_INITIAL_DELAY   =  3 * 60 * 1000; // 3 min after boot
+const RETROACTIVE_DELAY_MS  =  5 * 60 * 1000; // 5 min after boot
+const SWEEP_WINDOW_MINUTES  = 15;              // look back 15 min on each sweep
+const RETROACTIVE_BATCH     = 200;             // rows per DB page — no total cap
+const NOTIFY_DEBOUNCE_MS    = 30 * 1000;       // batch user+assistant pair
 
-let isRunning = false;
+// Per-conversation debounce map: conversationId → timeout handle
+const pendingNotifications = new Map<string, ReturnType<typeof setTimeout>>();
+
+let retroactiveRunning = false;
+let sweepRunning       = false;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function formatTranscript(messages: Array<{ role: string; content: string; created_at: string }>): string {
+function formatTranscript(
+  messages: Array<{ role: string; content: string }>
+): string {
   return messages
     .filter(m => m.role === 'user' || m.role === 'assistant')
     .map(m => {
       const speaker = m.role === 'user' ? 'David' : 'Daniela';
-      const text = (m.content || '').replace(/\n{3,}/g, '\n\n').trim();
-      return `${speaker}: ${text}`;
+      return `${speaker}: ${(m.content ?? '').replace(/\n{3,}/g, '\n\n').trim()}`;
     })
     .join('\n\n');
 }
@@ -45,15 +58,15 @@ function buildSummary(
   topic: string | null,
   language: string
 ): string {
-  const firstUserMsg = messages.find(m => m.role === 'user')?.content?.slice(0, 300) ?? '';
-  const firstDanielaMsg = messages.find(m => m.role === 'assistant')?.content?.slice(0, 200) ?? '';
-  const msgCount = messages.filter(m => m.role === 'user' || m.role === 'assistant').length;
+  const firstUser     = messages.find(m => m.role === 'user')?.content?.slice(0, 300)     ?? '';
+  const firstDaniela  = messages.find(m => m.role === 'assistant')?.content?.slice(0, 200) ?? '';
+  const count         = messages.filter(m => m.role === 'user' || m.role === 'assistant').length;
 
   const parts: string[] = [];
   if (topic) parts.push(`Topic: ${topic}.`);
-  parts.push(`Language: ${language}. ${msgCount} exchanges.`);
-  if (firstUserMsg) parts.push(`David opened: "${firstUserMsg.replace(/\n/g, ' ')}"`);
-  if (firstDanielaMsg) parts.push(`Daniela: "${firstDanielaMsg.replace(/\n/g, ' ')}"`);
+  parts.push(`Language: ${language}. ${count} exchanges.`);
+  if (firstUser)    parts.push(`David opened: "${firstUser.replace(/\n/g, ' ')}"`);
+  if (firstDaniela) parts.push(`Daniela: "${firstDaniela.replace(/\n/g, ' ')}"`);
   return parts.join(' ');
 }
 
@@ -63,7 +76,7 @@ function buildTags(conv: {
   topic: string | null;
   message_count: number;
 }): string[] {
-  const tags: string[] = [
+  const tags = [
     'founder-chat',
     'daniela-chat',
     conv.language,
@@ -74,7 +87,7 @@ function buildTags(conv: {
   return tags;
 }
 
-// ── Core sync logic ───────────────────────────────────────────────────────────
+// ── Core: sync one conversation ───────────────────────────────────────────────
 
 async function syncConversation(conv: {
   id: string;
@@ -87,27 +100,25 @@ async function syncConversation(conv: {
 }): Promise<'saved' | 'updated' | 'skipped' | 'empty'> {
   const db = getUserDb();
 
-  // Load all messages for this conversation
   const msgResult = await db.execute(sql.raw(`
     SELECT role, content, created_at
     FROM messages
     WHERE conversation_id = '${conv.id.replace(/'/g, "''")}'
     ORDER BY created_at ASC
-    LIMIT 2000
+    LIMIT 5000
   `));
   const messages = msgResult.rows as Array<{ role: string; content: string; created_at: string }>;
-
-  const realMessages = messages.filter(m => m.role === 'user' || m.role === 'assistant');
-  if (realMessages.length < 2) return 'empty'; // Not worth saving
+  const real = messages.filter(m => m.role === 'user' || m.role === 'assistant');
+  if (real.length < 2) return 'empty';
 
   const transcript = formatTranscript(messages);
-  const summary = buildSummary(messages, conv.topic, conv.language);
-  const tags = buildTags(conv);
-  const title = conv.title
+  const summary    = buildSummary(messages, conv.topic, conv.language);
+  const tags       = buildTags(conv);
+  const title      = conv.title
     || (conv.topic ? `Chat: ${conv.topic}` : null)
     || `David + Daniela — ${conv.created_at.slice(0, 10)}`;
 
-  // Check if we already have an entry for this conversation
+  // Check for existing entry via cid: tag
   const existing = await db.execute(sql.raw(`
     SELECT id, tags
     FROM conversation_memories
@@ -116,159 +127,240 @@ async function syncConversation(conv: {
   `));
 
   if (existing.rows.length > 0) {
-    const existingRow = existing.rows[0] as { id: string; tags: string[] };
-    const existingTags: string[] = existingRow.tags ?? [];
+    const row = existing.rows[0] as { id: string; tags: string[] };
+    const existingMsgCount = (row.tags ?? []).find((t: string) => t.startsWith('msgcount:'));
+    if (existingMsgCount === `msgcount:${conv.message_count}`) return 'skipped';
 
-    // Check if message count has changed
-    const existingMsgCount = existingTags.find(t => t.startsWith('msgcount:'));
-    const newMsgCount = `msgcount:${conv.message_count}`;
-    if (existingMsgCount === newMsgCount) return 'skipped'; // No new messages
-
-    // Update: conversation has grown — overwrite content, summary, tags
-    const escapedTitle = title.replace(/'/g, "''");
-    const escapedSummary = summary.replace(/'/g, "''");
-    const escapedContent = transcript.replace(/'/g, "''");
-    const tagsLiteral = tags.map(t => `'${t.replace(/'/g, "''")}'`).join(', ');
-
+    // Conversation has grown — update in place
     await db.execute(sql.raw(`
-      UPDATE conversation_memories
-      SET
-        title   = '${escapedTitle}',
-        summary = '${escapedSummary}',
-        content = '${escapedContent}',
-        tags    = ARRAY[${tagsLiteral}]
-      WHERE id = '${existingRow.id}'
+      UPDATE conversation_memories SET
+        title   = '${title.replace(/'/g, "''")}',
+        summary = '${summary.replace(/'/g, "''")}',
+        content = '${transcript.replace(/'/g, "''")}',
+        tags    = ARRAY[${tags.map(t => `'${t.replace(/'/g, "''")}'`).join(', ')}]
+      WHERE id = '${row.id}'
     `));
-
-    // Re-embed the updated entry
-    try {
-      const { reembedConversationMemory } = await import('../scripts/reembed-memory');
-      await reembedConversationMemory(existingRow.id);
-    } catch { /* non-fatal */ }
-
+    reembedAsync(row.id);
     return 'updated';
   }
 
-  // Insert new entry
-  const escapedTitle = title.replace(/'/g, "''");
-  const escapedSummary = summary.replace(/'/g, "''");
-  const escapedContent = transcript.replace(/'/g, "''");
-  const tagsLiteral = tags.map(t => `'${t.replace(/'/g, "''")}'`).join(', ');
-
+  // New entry
   const insertResult = await db.execute(sql.raw(`
-    INSERT INTO conversation_memories (title, summary, content, participants, entry_type, tags, importance, arc_name)
+    INSERT INTO conversation_memories
+      (title, summary, content, participants, entry_type, tags, importance, arc_name)
     VALUES (
-      '${escapedTitle}',
-      '${escapedSummary}',
-      '${escapedContent}',
+      '${title.replace(/'/g, "''")}',
+      '${summary.replace(/'/g, "''")}',
+      '${transcript.replace(/'/g, "''")}',
       'David + Daniela',
       'conversation',
-      ARRAY[${tagsLiteral}],
+      ARRAY[${tags.map(t => `'${t.replace(/'/g, "''")}'`).join(', ')}],
       7,
       'david-daniela-chats'
     )
     RETURNING id
   `));
-
   const newId = (insertResult.rows[0] as { id: string })?.id;
-  if (newId) {
-    try {
-      const { reembedConversationMemory } = await import('../scripts/reembed-memory');
-      await reembedConversationMemory(newId);
-    } catch { /* non-fatal */ }
-  }
-
+  if (newId) reembedAsync(newId);
   return 'saved';
 }
 
-// ── Founder user lookup ───────────────────────────────────────────────────────
-
-async function getFounderUserIds(): Promise<string[]> {
-  const db = getUserDb();
-  const result = await db.execute(sql.raw(`
-    SELECT id FROM users
-    WHERE role IN ('admin', 'developer')
-    ORDER BY created_at ASC
-  `));
-  return (result.rows as Array<{ id: string }>).map(r => r.id);
+function reembedAsync(id: string): void {
+  import('../scripts/reembed-memory')
+    .then(mod => mod.reembedConversationMemory(id))
+    .catch(() => { /* non-fatal */ });
 }
 
-// ── Sweep ─────────────────────────────────────────────────────────────────────
+// ── Founder user IDs (cached after first load) ────────────────────────────────
 
-async function runSweep(opts: { recentOnly: boolean }): Promise<void> {
-  if (isRunning) return;
-  isRunning = true;
+let cachedFounderIds: string[] | null = null;
 
+async function getFounderUserIds(): Promise<string[]> {
+  if (cachedFounderIds) return cachedFounderIds;
+  const db = getUserDb();
+  const result = await db.execute(sql.raw(`
+    SELECT id FROM users WHERE role IN ('admin', 'developer') ORDER BY created_at ASC
+  `));
+  cachedFounderIds = (result.rows as Array<{ id: string }>).map(r => r.id);
+  return cachedFounderIds;
+}
+
+// ── Immediate hook (called by routes.ts) ──────────────────────────────────────
+
+/**
+ * Call this after every assistant message is saved for a conversation.
+ * A 30-second debounce batches the user+assistant pair into one sync.
+ * Fire-and-forget — never throws.
+ */
+export function notifyConversationUpdated(conversationId: string): void {
+  const existing = pendingNotifications.get(conversationId);
+  if (existing) clearTimeout(existing);
+
+  const handle = setTimeout(async () => {
+    pendingNotifications.delete(conversationId);
+    try {
+      const founderIds = await getFounderUserIds();
+      if (!founderIds.length) return;
+
+      const idList = founderIds.map(id => `'${id}'`).join(', ');
+      const db = getUserDb();
+      const result = await db.execute(sql.raw(`
+        SELECT id, title, topic, language, message_count, created_at, last_message_at
+        FROM conversations
+        WHERE id = '${conversationId.replace(/'/g, "''")}' AND user_id IN (${idList})
+        LIMIT 1
+      `));
+      if (!result.rows.length) return; // not a founder conversation — skip
+
+      const conv = result.rows[0] as {
+        id: string; title: string | null; topic: string | null;
+        language: string; message_count: number;
+        created_at: string; last_message_at: string | null;
+      };
+      const outcome = await syncConversation(conv);
+      if (outcome === 'saved' || outcome === 'updated') {
+        console.log(`[FounderChatSync] Immediate sync: ${outcome} — conv ${conversationId.slice(0, 8)}`);
+      }
+    } catch (err) {
+      console.warn('[FounderChatSync] Immediate sync error:', err instanceof Error ? err.message : err);
+    }
+  }, NOTIFY_DEBOUNCE_MS);
+
+  pendingNotifications.set(conversationId, handle);
+}
+
+// ── Sweep (recent conversations) ──────────────────────────────────────────────
+
+async function runSweep(): Promise<void> {
+  if (sweepRunning) return;
+  sweepRunning = true;
   try {
     const founderIds = await getFounderUserIds();
-    if (founderIds.length === 0) return;
+    if (!founderIds.length) return;
 
     const idList = founderIds.map(id => `'${id}'`).join(', ');
-    const recencyClause = opts.recentOnly
-      ? `AND (c.last_message_at > NOW() - INTERVAL '48 hours' OR c.created_at > NOW() - INTERVAL '48 hours')`
-      : '';
-
-    const convResult = await getUserDb().execute(sql.raw(`
-      SELECT c.id, c.title, c.topic, c.language, c.message_count, c.created_at, c.last_message_at
-      FROM conversations c
-      WHERE c.user_id IN (${idList})
-        AND c.message_count >= 2
-        ${recencyClause}
-      ORDER BY COALESCE(c.last_message_at, c.created_at) DESC
-      LIMIT ${opts.recentOnly ? 50 : 1000}
+    const db = getUserDb();
+    const result = await db.execute(sql.raw(`
+      SELECT id, title, topic, language, message_count, created_at, last_message_at
+      FROM conversations
+      WHERE user_id IN (${idList})
+        AND message_count >= 2
+        AND (
+          last_message_at > NOW() - INTERVAL '${SWEEP_WINDOW_MINUTES} minutes'
+          OR created_at    > NOW() - INTERVAL '${SWEEP_WINDOW_MINUTES} minutes'
+        )
+      ORDER BY COALESCE(last_message_at, created_at) DESC
+      LIMIT 100
     `));
 
-    const conversations = convResult.rows as Array<{
-      id: string;
-      title: string | null;
-      topic: string | null;
-      language: string;
-      message_count: number;
-      created_at: string;
-      last_message_at: string | null;
+    const convs = result.rows as Array<{
+      id: string; title: string | null; topic: string | null;
+      language: string; message_count: number;
+      created_at: string; last_message_at: string | null;
     }>;
 
-    let saved = 0, updated = 0, skipped = 0, empty = 0;
-
-    for (const conv of conversations) {
+    let saved = 0, updated = 0;
+    for (const conv of convs) {
+      // Skip if already being handled by a pending immediate notification
+      if (pendingNotifications.has(conv.id)) continue;
       try {
-        const result = await syncConversation(conv);
-        if (result === 'saved') saved++;
-        else if (result === 'updated') updated++;
-        else if (result === 'skipped') skipped++;
-        else empty++;
-      } catch (err) {
-        console.warn(`[FounderChatSync] Error syncing conversation ${conv.id}:`, err instanceof Error ? err.message : err);
-      }
-      // Small delay between conversations to avoid hammering the DB
-      await new Promise(res => setTimeout(res, 50));
+        const outcome = await syncConversation(conv);
+        if (outcome === 'saved')   saved++;
+        if (outcome === 'updated') updated++;
+      } catch { /* non-fatal */ }
+      await new Promise(r => setTimeout(r, 30));
     }
-
     if (saved + updated > 0) {
-      console.log(`[FounderChatSync] ${opts.recentOnly ? 'Hourly' : 'Retroactive'} sweep complete — saved: ${saved}, updated: ${updated}, skipped: ${skipped}, empty: ${empty}`);
+      console.log(`[FounderChatSync] Sweep complete — saved: ${saved}, updated: ${updated}`);
     }
   } catch (err) {
     console.error('[FounderChatSync] Sweep error:', err instanceof Error ? err.message : err);
   } finally {
-    isRunning = false;
+    sweepRunning = false;
+  }
+}
+
+// ── Retroactive pass (no cap, paginated) ──────────────────────────────────────
+
+async function runRetroactivePass(): Promise<void> {
+  if (retroactiveRunning) return;
+  retroactiveRunning = true;
+
+  try {
+    const founderIds = await getFounderUserIds();
+    if (!founderIds.length) { retroactiveRunning = false; return; }
+
+    const idList = founderIds.map(id => `'${id}'`).join(', ');
+    const db     = getUserDb();
+
+    let offset = 0;
+    let totalSaved = 0, totalUpdated = 0, totalSkipped = 0, totalEmpty = 0;
+
+    while (true) {
+      const batch = await db.execute(sql.raw(`
+        SELECT id, title, topic, language, message_count, created_at, last_message_at
+        FROM conversations
+        WHERE user_id IN (${idList}) AND message_count >= 2
+        ORDER BY created_at ASC
+        LIMIT ${RETROACTIVE_BATCH} OFFSET ${offset}
+      `));
+
+      const convs = batch.rows as Array<{
+        id: string; title: string | null; topic: string | null;
+        language: string; message_count: number;
+        created_at: string; last_message_at: string | null;
+      }>;
+
+      if (!convs.length) break; // done
+
+      for (const conv of convs) {
+        try {
+          const outcome = await syncConversation(conv);
+          if (outcome === 'saved')   totalSaved++;
+          if (outcome === 'updated') totalUpdated++;
+          if (outcome === 'skipped') totalSkipped++;
+          if (outcome === 'empty')   totalEmpty++;
+        } catch (err) {
+          console.warn(`[FounderChatSync] Retroactive error on ${conv.id}:`,
+            err instanceof Error ? err.message : err);
+        }
+        // Light throttle — avoid holding the DB connection pool under load
+        await new Promise(r => setTimeout(r, 50));
+      }
+
+      offset += RETROACTIVE_BATCH;
+
+      // Brief pause between pages
+      await new Promise(r => setTimeout(r, 500));
+    }
+
+    console.log(
+      `[FounderChatSync] Retroactive pass complete — ` +
+      `saved: ${totalSaved}, updated: ${totalUpdated}, ` +
+      `skipped: ${totalSkipped}, empty: ${totalEmpty}, ` +
+      `total processed: ${offset}`
+    );
+  } catch (err) {
+    console.error('[FounderChatSync] Retroactive pass error:', err instanceof Error ? err.message : err);
+  } finally {
+    retroactiveRunning = false;
   }
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 export function startFounderChatSyncWorker(): void {
-  // Retroactive pass: all-time conversations after 5 min
-  setTimeout(() => {
-    runSweep({ recentOnly: false }).catch(err =>
-      console.error('[FounderChatSync] Retroactive pass error:', err)
-    );
-  }, RETROACTIVE_DELAY_MS);
+  // Retroactive: full table walk, 5 min after boot
+  setTimeout(() => runRetroactivePass(), RETROACTIVE_DELAY_MS);
 
-  // Hourly sweep: recent conversations only
+  // Sweep: every 5 minutes, starting 3 min after boot
   setTimeout(() => {
-    runSweep({ recentOnly: true });
-    setInterval(() => runSweep({ recentOnly: true }), HOURLY_INTERVAL_MS);
-  }, INITIAL_DELAY_MS);
+    runSweep();
+    setInterval(runSweep, SWEEP_INTERVAL_MS);
+  }, SWEEP_INITIAL_DELAY);
 
-  console.log('[FounderChatSync] Worker registered — retroactive pass in 5min, hourly sweeps starting in 3min');
+  console.log(
+    '[FounderChatSync] Worker registered — ' +
+    'immediate sync on each message, 5-min sweeps, retroactive pass in 5min'
+  );
 }

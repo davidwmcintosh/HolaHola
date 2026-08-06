@@ -1,3 +1,4 @@
+- [Founder Chat Sync](founder-chat-sync.md) — 3-layer sync: immediate hook (30s debounce on every assistant message), 5-min sweep (15-min window), retroactive paginated pass of full table. cid: tag for dedup. No schema changes.
 - [Guardian injection — PRIOR TURN CONTEXT](guardian-prior-turn-context.md) — 5 bugs fixed Aug 6 2026: double-injection gate, dishonest LUCA label, passenger problem, ReferenceError in dedup, lucaCtx lost on carry-forward. Gemini-approved.
 - [Luca Team Room presence](luca-team-room-presence.md) — server-side Socket.IO client in luca-presence.ts; auth via agentToken in socket.handshake.auth; nudge buffer + 4 endpoints; speaker now "Luca" not "Agent".
 - [Luca responder and observer](luca-responder-observer.md) — NudgeEntry lives in luca-responder.ts to break circular import; observer polls session store every 5s; responder uses claude-sonnet-4-5.

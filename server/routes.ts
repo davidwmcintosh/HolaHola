@@ -145,6 +145,7 @@ import { supportPersonaService } from "./services/support-persona-service";
 import { generateAldenResponse } from "./services/alden-persona-service";
 import { founderCollabService } from "./services/founder-collaboration-service";
 import { founderCollabWSBroker } from "./services/founder-collab-ws-broker";
+import { notifyConversationUpdated } from "./services/founder-chat-sync";
 import { memoryConsolidationService } from "./services/memory-consolidation-service";
 import { learnerMemoryExtractionService } from "./services/learner-memory-extraction-service";
 import { 
@@ -4541,6 +4542,7 @@ Return [] if nothing is worth surfacing.`;
               role: "assistant",
               content: warmMessage,
             });
+            notifyConversationUpdated(conversationId);
             
             // Emit handoff beacon for Hive collaboration
             await supportPersonaService.emitHandoffBeacon({
@@ -4602,6 +4604,7 @@ Return [] if nothing is worth surfacing.`;
             role: "assistant",
             content: getOnboardingDialogue().step1.opener,
           });
+          notifyConversationUpdated(conversationId);
           return res.json({ userMessage, aiMessage });
         }
 
@@ -4782,6 +4785,7 @@ Be yourself: warm, confident, a little personality. Keep it short.`;
           ...(hasTargetLanguage ? { targetLanguageText } : {}),
           ...(isVoiceMode ? { enrichmentStatus: "pending" } : {}),
         });
+        notifyConversationUpdated(conversationId);
 
         // Return onboarding response with updated conversation
         res.json({ 
@@ -5277,6 +5281,7 @@ Bad: "'Hola' means 'hello'. Try saying 'Hola'!"  (has quotes - causes pronunciat
           targetLanguageText: hasTargetLanguage ? targetLanguageText : undefined,
           enrichmentStatus: "pending", // Mark for background enrichment
         });
+        notifyConversationUpdated(conversationId);
 
         const totalTime = Date.now() - startTime;
         console.log(`[VOICE FAST-PATH] Completed in ${totalTime}ms (fetch: ${fetchTime}ms, AI: ${completionTime}ms)`);
@@ -5955,6 +5960,7 @@ ${memoryContext}
           content: aiResponse,
           enrichmentStatus: "pending", // Mark for background enrichment
         });
+        notifyConversationUpdated(conversationId);
 
         // Return response immediately for fast TTS
         res.json({ userMessage, aiMessage });
@@ -6463,6 +6469,7 @@ ${memoryContext}
         content: aiResponse,
         mediaJson: mediaJson || undefined,
       });
+      notifyConversationUpdated(conversationId);
 
       // Generate conversation title automatically after 5 messages (if no title exists)
       // This helps users find and resume conversations later
