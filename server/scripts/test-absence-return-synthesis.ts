@@ -1367,6 +1367,93 @@ function runPart8(): void {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PART 9a — Source-level: generateFn try/catch is intact in warm-synthesis-core.ts
+//
+// Mirrors Parts 6a/6b which verify the peekFn try/catch at the source level.
+// A source grep catches a silent removal during refactoring BEFORE the runtime
+// test (Part 9) even runs.
+//
+// Checks:
+//   9a-1. generateFn call is inside a try block in warm-synthesis-core.ts
+//   9a-2. The catch block emits console.warn with
+//         "[WarmSynthesis] Synthesis generation failed"
+//   9a-3. The catch block does NOT call setWarmFn (cache stays cold on error)
+// ══════════════════════════════════════════════════════════════════════════════
+function runPart9a(): void {
+  sep();
+  console.log(B('PART 9a — Source-level: generateFn try/catch is intact in warm-synthesis-core.ts'));
+  sep();
+
+  const coreSrc = readFileSync(
+    pathResolve(__dirname, '../services/warm-synthesis-core.ts'),
+    'utf-8',
+  ) as string;
+
+  // 9a-1. generateFn call must be inside a try block
+  //       Strategy: find the position of `await generateFn(` and confirm a
+  //       `try {` (with optional whitespace) exists somewhere before it in the
+  //       source *after* the first try/catch (which wraps peekFn).
+  const generateFnInTryCatch = (() => {
+    const generateIdx = coreSrc.indexOf('await generateFn(');
+    if (generateIdx === -1) return false;
+    // Locate the second `try {` block — the first one wraps peekFn
+    const firstTryIdx = coreSrc.indexOf('try {');
+    if (firstTryIdx === -1) return false;
+    const secondTryIdx = coreSrc.indexOf('try {', firstTryIdx + 1);
+    // The second try block must exist and appear before the generateFn call
+    return secondTryIdx !== -1 && secondTryIdx < generateIdx;
+  })();
+  assert(
+    '9a-1. generateFn call is inside a try block in warm-synthesis-core.ts',
+    generateFnInTryCatch,
+    generateFnInTryCatch
+      ? undefined
+      : 'No try block found enclosing await generateFn() — a crash in generatePreSessionSynthesis would propagate uncaught',
+  );
+
+  // 9a-2. The catch block must emit console.warn with the expected prefix
+  const catchWarnPattern = /catch\s*\([^)]*\)\s*\{[^}]*console\.warn[^}]*\[WarmSynthesis\]\s*Synthesis generation failed[^}]*\}/s;
+  const hasCatchWarnGenerate = catchWarnPattern.test(coreSrc);
+  assert(
+    '9a-2. Catch block for generateFn emits console.warn with "[WarmSynthesis] Synthesis generation failed"',
+    hasCatchWarnGenerate,
+    hasCatchWarnGenerate
+      ? undefined
+      : 'console.warn with "[WarmSynthesis] Synthesis generation failed" not found in a catch block — generation errors would be silent',
+  );
+
+  // 9a-3. The catch block for generateFn must NOT call setWarmFn
+  //       Strategy: extract the text of the catch block that follows the
+  //       second try block and confirm setWarmFn is absent from it.
+  const generateCatchCallsSetWarm = (() => {
+    // Find the second try/catch pair (the one that wraps generateFn)
+    const firstTryIdx = coreSrc.indexOf('try {');
+    if (firstTryIdx === -1) return false; // can't determine — treat as safe
+    const secondTryIdx = coreSrc.indexOf('try {', firstTryIdx + 1);
+    if (secondTryIdx === -1) return false;
+    // Find the catch that follows the second try
+    const catchIdx = coreSrc.indexOf('} catch (', secondTryIdx);
+    if (catchIdx === -1) return false;
+    // Grab the catch block body (from `catch` to the closing `}` of that block)
+    const catchBodyStart = coreSrc.indexOf('{', catchIdx);
+    if (catchBodyStart === -1) return false;
+    const catchBodyEnd = coreSrc.indexOf('}', catchBodyStart);
+    if (catchBodyEnd === -1) return false;
+    const catchBody = coreSrc.slice(catchBodyStart, catchBodyEnd + 1);
+    return catchBody.includes('setWarmFn');
+  })();
+  assert(
+    '9a-3. Catch block for generateFn does NOT call setWarmFn — warm cache stays cold on generation error',
+    !generateCatchCallsSetWarm,
+    generateCatchCallsSetWarm
+      ? 'setWarmFn found in the generateFn catch block — the cache would be populated even on error, masking the failure'
+      : undefined,
+  );
+
+  console.log(D('\n  Summary: generateFn try/catch structure verified at source level — removals caught before runtime.\n'));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // PART 9 — RUNTIME: throwing generateFn is caught; warm cache stays cold
 //
 // The outer catch in routes.ts (console.warn + no rethrow) silently swallows
@@ -1529,6 +1616,11 @@ async function runPart9(): Promise<void> {
     // Part 8 — Anti-drift: source-level check that routes.ts still delegates to
     // runWarmSynthesisCore and has not re-inlined the logic.
     runPart8();
+
+    // Part 9a — Source-level: confirm the generateFn try/catch is intact in
+    // warm-synthesis-core.ts — mirrors Parts 6a/6b for the peekFn catch path.
+    // Catches a silent removal during refactoring before Part 9 (runtime) runs.
+    runPart9a();
 
     // Part 9 — RUNTIME: inject a throwing generateFn and confirm the inner
     // try/catch recovers (no propagation, cache cold, warn emitted).
