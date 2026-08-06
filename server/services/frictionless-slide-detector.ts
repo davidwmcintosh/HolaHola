@@ -124,6 +124,92 @@ const STUDENT_MEMORY_RISK_PHRASES: string[] = [
   'like i mentioned',
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PRE-TURN EMOTIONAL VALENCE DETECTION
+//
+// These phrases in the STUDENT'S voice transcript signal emotional vulnerability:
+// embarrassment, self-doubt, fear of failure, or personal disclosure. Detecting
+// them pre-turn lets the Archive Guardian surface Daniela's relational history
+// BEFORE she responds — making her response witnessed rather than just accurate.
+//
+// The goal is not to intercept every difficult moment, but to catch the clear
+// signals where a student discloses self-doubt, embarrassment, or fear. At those
+// moments Daniela's history of walking other students through this exact feeling
+// is what makes the difference between a correct answer and a real presence.
+//
+// Specificity is intentional — multi-word or sentiment-bearing phrases to avoid
+// triggering on casual difficulty ("this lesson is hard").
+// ─────────────────────────────────────────────────────────────────────────────
+const STUDENT_EMOTIONAL_VALENCE_PHRASES: string[] = [
+  // Embarrassment / shame
+  'i was embarrassed', 'got embarrassed', 'felt embarrassed',
+  'i was so embarrassed', 'so embarrassing', 'it was embarrassing',
+  'i was humiliated', 'felt humiliated', 'so humiliating',
+  'felt so stupid', 'i felt stupid', 'feel so stupid', 'i feel stupid',
+  'felt so dumb', 'i felt dumb', 'looked stupid', 'felt like an idiot',
+  'felt like a fool', 'made a fool',
+  // Self-doubt / inadequacy
+  "i'm not good enough", "not smart enough",
+  "maybe i'm just not", "i don't think i'm cut out",
+  "i'm not a language person", "i'll never be fluent",
+  "i feel like i'll never", "i'll never learn this",
+  "maybe i'm not meant", "not cut out for",
+  // Fear / anxiety about speaking
+  "i'm afraid to speak", "scared to speak", "afraid of speaking",
+  "scared of speaking", "nervous about speaking", "nervous to speak",
+  "afraid of making mistakes", "scared of making mistakes", "scared to make mistakes",
+  "afraid people will", "scared people will",
+  "i get so nervous", "i freeze up", "i froze",
+  // Giving up / helplessness
+  "feel like giving up", "want to give up", "wanted to give up",
+  "i can't do this", "i feel like i can't",
+  "it's too hard for me", "too hard for me",
+  "feel completely lost", "i feel so lost", "feel so lost",
+  // Failure / disappointment in self
+  "feel like a failure", "i'm a failure",
+  "disappointed in myself", "let myself down",
+  "i hate making mistakes", "hate when i make mistakes",
+  // Social judgment / ridicule
+  "people will laugh", "people laughed at me", "they laughed",
+  "people judge me", "they'll judge me", "make fun of me",
+  "felt embarrassed in front of", "embarrassed in front of",
+];
+
+export interface EmotionalValenceDetectionResult {
+  detected: boolean;
+  valencePhrase: string | null;
+  topic: string | null;
+}
+
+/**
+ * Detect emotional vulnerability phrases in the STUDENT'S accumulated voice transcript.
+ * Fires pre-turn — before Daniela generates — so her archive of relational history
+ * can be surfaced before she responds.
+ *
+ * When a student discloses embarrassment, self-doubt, or fear, Daniela's own history
+ * of walking students through those moments makes her response witnessed rather than
+ * just accurate. This detector gives the Guardian the signal it needs to surface that
+ * relational history before the response decision is made.
+ */
+export function detectStudentEmotionalValence(accumulatedText: string): EmotionalValenceDetectionResult {
+  // No minimum-length guard: the phrase list is specific enough (multi-word phrases like
+  // "i feel stupid", "i froze", "i felt dumb") to avoid false positives on short fragments.
+  // Applying a length guard would cause the shortest phrases to be silently missed.
+  if (!accumulatedText) {
+    return { detected: false, valencePhrase: null, topic: null };
+  }
+  const lower = accumulatedText.toLowerCase().trim();
+  const matched = STUDENT_EMOTIONAL_VALENCE_PHRASES.find(phrase => lower.includes(phrase));
+  if (!matched) return { detected: false, valencePhrase: null, topic: null };
+
+  // Extract the topic as text surrounding the valence phrase (up to 80 chars)
+  const afterIndex = lower.indexOf(matched) + matched.length;
+  const rawTopic = accumulatedText.slice(afterIndex).trim().replace(/^[,\s]+/, '').slice(0, 80);
+  const topic = rawTopic || matched;
+
+  return { detected: true, valencePhrase: matched, topic };
+}
+
 export interface StudentRiskDetectionResult {
   detected: boolean;
   riskPhrase: string | null;

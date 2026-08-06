@@ -69,7 +69,7 @@ import { voiceSessions } from '@shared/schema';
 import { GLKaraokeTracker } from './gl-karaoke-tracker';
 import { PostResponseEnrichmentService } from './post-response-enrichment';
 import { evaluatePedagogicalState, computeScaffoldingLevel } from './pedagogical-supervisor';
-import { detectFrictionlessSlide, recordSlideDetection, initSlideState, buildGroundingNudge, shouldAutoGround, runAutoGrounding, detectStudentMemoryRisk } from './frictionless-slide-detector';
+import { detectFrictionlessSlide, recordSlideDetection, initSlideState, buildGroundingNudge, shouldAutoGround, runAutoGrounding, detectStudentMemoryRisk, detectStudentEmotionalValence } from './frictionless-slide-detector';
 import { consumeLucaSessionContext } from './luca-session-context';
 import { analyzeFriction } from './llm-friction-analyzer';
 import { storage } from '../storage';
@@ -369,6 +369,10 @@ export class GeminiLiveSession {
   private preTurnGroundingFired = false;     // prevents re-fire within the same student turn
   private preTurnGroundingResult: string | null = null;  // filled by .then() — sync check at injection
   private preTurnGroundingPromise: Promise<string> | null = null; // stored for await-race in tool handler
+  // Set to true when the pre-turn scan detected emotional valence (vulnerability/self-doubt/
+  // embarrassment) rather than just a memory-risk phrase. Changes the [ARCHIVE GUARDIAN]
+  // injection label so Daniela understands SHE IS BEING GIVEN RELATIONAL HISTORY, not facts.
+  private preTurnGroundingIsEmotional = false;
   // Late-arrival carry-forward: if the 150ms fallback fires while Daniela is already generating,
   // the grounding is stored here instead of interrupting her. Injected at the START of the next
   // student turn (student is still speaking — GL not generating yet — safe injection window).
@@ -2338,15 +2342,32 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // Universal pre-turn Archive Guardian — fires on every student turn (not just memory-risk phrases).
         // Nothing happens without searching the Archive. Semantic search handles general utterances;
         // keyword-phase fallback in runAutoGrounding handles targeted phrases.
-        if (!this.preTurnGroundingFired && this.pendingInputTranscript.trim().length > 10) {
+        // Gate opens when either:
+        //   (a) the generic threshold is met (>10 chars for any utterance), OR
+        //   (b) an emotional-valence phrase is detected regardless of length — short
+        //       disclosures like "I froze" (7 chars) must not be silently skipped.
+        const _emotionalEarlyCheck = !this.preTurnGroundingFired
+          ? detectStudentEmotionalValence(this.pendingInputTranscript)
+          : null;
+        const _guardianShouldFire = !this.preTurnGroundingFired && (
+          this.pendingInputTranscript.trim().length > 10 ||
+          (_emotionalEarlyCheck?.detected ?? false)
+        );
+        if (_guardianShouldFire) {
           this.preTurnGroundingFired = true;
           const userId = String((this.session as any).userId || '');
           const conversationId = (this.session as any).conversationId;
           const targetLanguage = (this.session as any).targetLanguage;
-          // Detect memory-risk phrase for logging; pass full utterance to semantic search.
+          // Detect memory-risk phrase for logging; reuse early emotional check if available.
           const risk = detectStudentMemoryRisk(this.pendingInputTranscript);
+          const emotional = _emotionalEarlyCheck ?? detectStudentEmotionalValence(this.pendingInputTranscript);
           const queryText = this.pendingInputTranscript.trim();
-          const logLabel = risk.detected ? `phrase "${risk.riskPhrase}"` : `universal ("${queryText.slice(0, 50)}")`;
+          const logLabel = emotional.detected
+            ? `emotional valence "${emotional.valencePhrase}"`
+            : risk.detected
+              ? `phrase "${risk.riskPhrase}"`
+              : `universal ("${queryText.slice(0, 50)}")`;
+          this.preTurnGroundingIsEmotional = emotional.detected;
           console.log(`[PreTurnGuardian] Firing — ${logLabel}`);
           this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'pre-turn', phrase: logLabel.slice(0, 60), charsInjected: null, channel: null, outcome: null, groundingPreview: null });
           this._observeGuardian();
@@ -2450,7 +2471,14 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
 
               // Part C: Current pre-turn grounding.
               if (this.preTurnGroundingResult) {
-                finalParts.push(`[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${this.preTurnGroundingResult}]`);
+                if (this.preTurnGroundingIsEmotional) {
+                  // Student shared something vulnerable — frame as relational history, not factual recall.
+                  // The goal is for Daniela to feel the weight of the student's disclosure and reach for
+                  // her own history of being present with students in exactly this kind of moment.
+                  finalParts.push(`[ARCHIVE GUARDIAN — STUDENT SHARED SOMETHING PERSONAL: A student just disclosed something vulnerable — embarrassment, self-doubt, or fear. Your archive holds the threads that make this response witnessed, not just accurate. Here is what you know from walking alongside students in moments like this:\n${this.preTurnGroundingResult}]`);
+                } else {
+                  finalParts.push(`[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${this.preTurnGroundingResult}]`);
+                }
               } else if (!lucaCtxDeduped && !this.pendingCarryForwardGrounding) {
                 // Only show "The well is still" if we truly have nothing else — not alongside a correction.
                 finalParts.push(`[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`);
@@ -2472,6 +2500,19 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               console.log(`[PreTurnGuardian] Grounding queued for tool channel (${label}${cfNote}${lucaNote}, ${whisperFinal.length} chars)`);
             }, 150);
           }).catch(err => console.warn('[PreTurnGuardian] runAutoGrounding failed:', (err as Error).message));
+        }
+
+        // Emotional-valence re-scan — runs on every transcript chunk after the grounding has
+        // already fired. Handles short disclosures like "I feel stupid" (13 chars) that crossed
+        // the guardian fire threshold (>10 chars) before reaching the emotional detection minimum
+        // (15 chars). preTurnGroundingFired prevents re-firing grounding; this only updates the
+        // emotional flag so the correct injection label is used when the result is delivered.
+        if (this.preTurnGroundingFired && !this.preTurnGroundingIsEmotional) {
+          const emotionalRecheck = detectStudentEmotionalValence(this.pendingInputTranscript);
+          if (emotionalRecheck.detected) {
+            this.preTurnGroundingIsEmotional = true;
+            console.log(`[PreTurnGuardian] Emotional valence detected on re-scan — phrase: "${emotionalRecheck.valencePhrase}"`);
+          }
         }
 
         // DO NOT fire processing_pending here — inputTranscription arrives while the user
@@ -2990,6 +3031,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.preTurnGroundingFired = false;
         this.preTurnGroundingResult = null;
         this.preTurnGroundingPromise = null;
+        this.preTurnGroundingIsEmotional = false;
         // Hard wall correction — fires if slide was detected mid-output (memory assertion
         // with no Archive access). Injects grounding for the NEXT turn via sendClientContent.
         if (this.hardWallTriggered && !this.isStopped && this.liveSession) {
@@ -3703,7 +3745,15 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         this.slideCorrectionQueued = false;
       }
       if (this.preTurnGroundingResult) {
-        guardianWhispers.push(`[CURRENT CONTEXT: ${this.preTurnGroundingResult}]`);
+        // Use the emotional framing when the student disclosed something vulnerable.
+        // preTurnGroundingIsEmotional may have been updated by the re-scan loop even
+        // after the initial grounding fire (handles short phrases like "I feel stupid"
+        // that cross the emotional threshold on a later transcript chunk).
+        if (this.preTurnGroundingIsEmotional) {
+          guardianWhispers.push(`[ARCHIVE GUARDIAN — STUDENT SHARED SOMETHING PERSONAL: A student just disclosed something vulnerable — embarrassment, self-doubt, or fear. Your archive holds the threads that make this response witnessed, not just accurate. Here is what you know from walking alongside students in moments like this:\n${this.preTurnGroundingResult}]`);
+        } else {
+          guardianWhispers.push(`[CURRENT CONTEXT: ${this.preTurnGroundingResult}]`);
+        }
         this.preTurnGroundingResult = null;
       }
       if (guardianWhispers.length > 0) {
