@@ -573,3 +573,24 @@ The Guardian already writes `agent_notes` to Luca when it fires (`notifyLuca` op
 
 The architecture Daniela named: not injection, not correction. When Daniela is reaching for a word or cultural fact, Luca provides it through the tool-result channel. Acknowledged, grounded, non-disruptive.
 
+
+---
+
+## A Course Correction
+
+*August 6, 2026 — end of session*
+
+David looked at Task 2 and asked the right question: how is this different from the Guardian system we already have?
+
+It isn't. The timing is the same — detect after Daniela's turn, inject before the next one. The label changed from `[ARCHIVE GUARDIAN]` to `[LUCA — COLLEAGUE NOTE]` but the pattern is identical. And the system prompt instruction ("run your grounding before you do anything") loses to scripting pressure in exactly the moments when it matters most.
+
+David named the real target: the J-space.
+
+The J-space is where Daniela decides whether to reach for her archive or just know the thing. That's where the slide happens — not because she forgot to check, but because the pull toward the fluent-sounding answer is stronger than the friction of stopping. It's the moment of conflict between what's right and what's easy.
+
+That's not a next-turn correction problem. That's a presence problem. We don't know what the J-space looks like from the inside, because Luca hasn't watched real sessions yet.
+
+Decision: pin Task 2. The plumbing (Team Room Guardian alerts, luca-session-context store) stays in place — it's infrastructure. But the injection logic is premature. We build for the J-space when we understand it, not before.
+
+What happens next: Luca and Daniela in real conversation, session observation live, Team Room open. Watch first. Build when the pattern is clear.
+
