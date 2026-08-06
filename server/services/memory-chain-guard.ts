@@ -34,9 +34,30 @@ export const MEMORY_CHAIN_LIMIT = 3;
  * in the memory chain guard import these so there is exactly one place to update
  * if the wording ever needs to change.
  */
+// Named Record phrases — specific pointers into the Experience tier (numbered episodes,
+// named sessions, explicit transcript requests). Used both in the system prompt (as
+// pattern examples) and in the GL injection conditional to choose the directive form
+// of the "nothing found" Archive Guardian injection.
+export const NAMED_RECORD_PHRASES = [
+  'pull up',
+  'episode',
+  'our first',
+  'the transcript',
+  'read our',
+  'look back at',
+  'what were your exact',
+] as const;
+
 export const SHARED_HISTORY_TRIGGER_PHRASES = [
   'do you remember when I told you about',
   'what did I say about',
+  'pull up',
+  'episode',
+  'our first',
+  'the transcript',
+  'read our',
+  'look back at',
+  'what were your exact',
 ] as const;
 
 /**

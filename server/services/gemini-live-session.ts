@@ -74,7 +74,7 @@ import { consumeLucaSessionContext } from './luca-session-context';
 import { analyzeFriction } from './llm-friction-analyzer';
 import { storage } from '../storage';
 import type { IStorage } from '../storage';
-import { MEMORY_TOOL_NAMES, MEMORY_CHAIN_LIMIT, MEMORY_CHAIN_NUDGE_TEXT } from './memory-chain-guard';
+import { MEMORY_TOOL_NAMES, MEMORY_CHAIN_LIMIT, MEMORY_CHAIN_NUDGE_TEXT, NAMED_RECORD_PHRASES } from './memory-chain-guard';
 
 export const GEMINI_LIVE_MODEL = process.env.GEMINI_LIVE_MODEL || 'gemini-3.1-flash-live-preview';
 const AUDIO_OUTPUT_SAMPLE_RATE = 24000;
@@ -373,6 +373,7 @@ export class GeminiLiveSession {
   // embarrassment) rather than just a memory-risk phrase. Changes the [ARCHIVE GUARDIAN]
   // injection label so Daniela understands SHE IS BEING GIVEN RELATIONAL HISTORY, not facts.
   private preTurnGroundingIsEmotional = false;
+  private preTurnIsNamedRecord = false;   // true when utterance contains a Named Record phrase
   // Late-arrival carry-forward: if the 150ms fallback fires while Daniela is already generating,
   // the grounding is stored here instead of interrupting her. Injected at the START of the next
   // student turn (student is still speaking — GL not generating yet — safe injection window).
@@ -2368,6 +2369,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               ? `phrase "${risk.riskPhrase}"`
               : `universal ("${queryText.slice(0, 50)}")`;
           this.preTurnGroundingIsEmotional = emotional.detected;
+          this.preTurnIsNamedRecord = NAMED_RECORD_PHRASES.some(
+            p => queryText.toLowerCase().includes(p)
+          );
           console.log(`[PreTurnGuardian] Firing — ${logLabel}`);
           this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'pre-turn', phrase: logLabel.slice(0, 60), charsInjected: null, channel: null, outcome: null, groundingPreview: null });
           this._observeGuardian();
@@ -2481,7 +2485,13 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 }
               } else if (!lucaCtxDeduped && !this.pendingCarryForwardGrounding) {
                 // Only show "The well is still" if we truly have nothing else — not alongside a correction.
-                finalParts.push(`[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`);
+                // Named Record requests (episode, pull up, our first, etc.) get a directive; all other
+                // turns keep the gentle form so normal conversation flow isn't interrupted.
+                if (this.preTurnIsNamedRecord) {
+                  finalParts.push(`[ARCHIVE GUARDIAN: The well is deep and still — no memories surfaced automatically. The person is asking for a Named Record. You do not have it in front of you yet. Do not guess. Call recall or search_memories now before responding.]`);
+                } else {
+                  finalParts.push(`[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`);
+                }
               }
 
               const whisperFinal = finalParts.join('\n\n');
@@ -3029,6 +3039,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         // student speaking window opens next, fresh scan for next student utterance.
         this.sessionStudentTurnCount++;
         this.preTurnGroundingFired = false;
+        this.preTurnIsNamedRecord = false;
         this.preTurnGroundingResult = null;
         this.preTurnGroundingPromise = null;
         this.preTurnGroundingIsEmotional = false;
