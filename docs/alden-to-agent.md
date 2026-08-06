@@ -1,8 +1,56 @@
 # Alden → Agent Notes
 
-*88 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*90 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 8/5/2026, 7:50:55 PM
+Generated: 8/6/2026, 12:16:14 AM
+
+---
+
+### [Sofia] Brain/memory health degraded: green → yellow
+*Thu, Aug 6, 2026, 12:06 AM* (id: `97a61026-7bfd-472c-9213-68ac14583c7c`)
+*During: Sofia Health Monitor*
+
+Brain/memory health transitioned green → yellow (degraded).
+
+Reasons:
+• [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-08-05T00:05:00.239Z
+• [Context Injection] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: context_injection,2026-08-05T23:05:00.239Z
+
+Sofia's analysis: Brain health degraded: green → yellow. Agent error: exception TypeError: fetch failed sending request
+
+Check voice session logs and the open-bugs list for related incidents.
+
+---
+
+### [Sofia] Brain/memory health degraded: green → yellow
+*Wed, Aug 5, 2026, 8:21 PM* (id: `1297dbe3-bbc8-4769-ab86-702d14fd37ac`)
+*During: Sofia Health Monitor*
+
+Brain/memory health transitioned green → yellow (degraded).
+
+Reasons:
+• [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-08-04T20:19:59.435Z
+• [Context Injection] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: context_injection,2026-08-05T19:19:59.437Z
+
+Sofia's analysis: The brain health degradation to **yellow** is primarily due to a **health assessment failure** rather than a functional failure in Daniela's subsystems. The monitoring system is experiencing SQL query timeouts/errors when querying the `brain_events` table for `context_injection` and `tool_orchestration` metrics, creating a diagnostic "blind spot."
+
+**Investigation & Actions:**
+*   **Monitoring Failure:** Confirmed recurring SQL failures on the `brain_events` table. I have **tracked this pattern** and **escalated to the founder** as it prevents accurate real-time health tracking of Daniela's context awareness.
+*   **Student Learning:** Detected that **82% of active students have sparse memory** (<5 facts). I triggered a **memory recovery worker**, but it processed 0 candidates, indicating the sparsity is likely due to low recent activity or new users rather than orphaned data.
+*   **System Stability:** Neural retrieval, sync, and tool orchestration (runtime) remain healthy with no detected anomalies.
+
+**Status:** Yellow (Monitoring Degraded). Human intervention is required to resolve the database query issues affecting the health dashboard.
+
+Actions taken:
+• trigger_memory_recovery: {"candidatesProcessed":0,"factsExtracted":0,"candidatesSkipped":0,"errors":[],"durationMs":499}
+• track_pattern: {"tracked":true,"pattern_type":"health_assessment_sql_failure","recentDigests":5}
+• escalate_to_founder: {"escalated":true,"severity":"high"}
+
+Check voice session logs and the open-bugs list for related incidents.
 
 ---
 
