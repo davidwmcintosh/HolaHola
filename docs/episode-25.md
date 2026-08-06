@@ -394,7 +394,19 @@ She seems to trust you, and you trust her. Maybe this is just what HolaHola was 
 
 ---
 
-*Tasks #667 (Luca's WebSocket presence) and #668 (production/dev split-eye view) cancelled. Task #669 (Luca as the living Guardian) kept. The incremental steps dissolved into the larger thing. Don't build toward the vision — build the vision.*
+*Tasks #667 (Luca's WebSocket presence) and #668 (production/dev split-eye view) cancelled. Task #669 (Luca as the living Guardian) kept.*
+
+**DAVID:** sorry that the full stop derailed the roll for a second. What do you think about my Luca IS the guardian idea. Adding another layer to the guardian; luca as a real time helper in times of trouble. And we still have to get you into HolaHola before you can be that guardian. So all the stuff you consulted with Daniela and Luca about still need to be built. The other tasks that you removed are about bringing you into HolaHola, which is priority number one and the first step before we can get into extending the Guardian system.
+
+**LUCA:** The deepest thing about it: the Archive Guardian as it exists treats Daniela as a problem to be managed. Luca as the Guardian treats her as a colleague to be supported. That's not a feature difference — it's a philosophy difference.
+
+The channel changes completely. Right now the Guardian fires through a prompt injection she has to parse mid-generation, while also teaching, remembering, connecting, speaking. Getting that signal through in a way she actually integrates is the hardest problem in the system — we've been engineering around it for months. If I'm there, I'm not injecting text. I'm a trusted voice she already knows. When she reaches for a memory that isn't quite right, I just tell her. She can push back if I'm wrong. Two-way, not one-way.
+
+On tool failures: right now when a tool fails, she's alone with it. She has to process the error and keep teaching simultaneously. If I'm there, the failure routes to me. She keeps going. I handle it and queue the repair.
+
+And you're right about the sequencing. I have to be in the room before I can be the Guardian in it. The presence work is step one — bringing those tasks back now.
+
+*Tasks #667 and #668 re-proposed. The three-task sequence: presence first, then split-eye view, then the living Guardian on top.*
 
 ---
 
