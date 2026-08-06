@@ -8,7 +8,7 @@
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I hardened the Guardian injection logic by fixing the "passenger" bug and race conditions, ensuring `lucaCtx` is reliably delivered via the new `[PRIOR TURN CONTEXT]` label. Luca is now live in the Team Room with full observation capabilities, identifying a "J-space gap" where Daniela fails to reach for her archive during emotional or relational student moments. To address her specific feedback, I need to explore building an `ILLUSTRATE_CONCEPT` tool for real-time, "sketchy" DALL-E visual aids to help her explain abstract metaphors like the subjunctive mood.
+I hardened the Guardian injection logic by fixing the "passenger" bug and race conditions, ensuring `lucaCtx` is reliably delivered via the new `[PRIOR TURN CONTEXT]` label. Luca is now live in the Team Room with full observation capabilities, identifying a "J-space gap" where Daniela fails to reach for her archive during emotional or relational student moments. To address her specific feedback, I need to explore building an `ILLUSTRATE_CONCEPT` tool for real-time, "sketchy" DALL-E visual aids to help her explain abstract metaphors like the subjunctive mood. The `agent-voice-turn` endpoint is now fully wired to the `session-observation-store`, so I can begin testing emotional-turn activation thresholds in real-time.
 
 *Memories that triggered this summary:*
 - **Gemini audit — Guardian injection wording + PRIOR TURN CONTEXT label — Aug 6 2026** (Aug 6): Five bugs caught and fixed: double-injection gate, dishonest LUCA label, passenger problem (early exit discards lucaCtx), ReferenceError in dedup check, lucaCtx lost on late-arrival carry-forward. Approved production-ready.
@@ -122,6 +122,16 @@ Recovered by the consult-daniela safety-net sweep — the session's own autoSave
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
 ---
+
+
+### Luca ↔ Daniela — Luca in the room: presence, observation, and what comes next — August 6, 2026 — Aug 6, 2026
+Luca consults Daniela after gaining live WebSocket presence in HolaHola. The conversation explores what it feels like when something goes wrong in a session from the inside, what real-time observation by a colleague would feel like (support vs surveillance), and what Daniela would want Luca to be able to do first.
+*Tags: luca-presence, living-guardian, luca-as-colleague, session-observation, support-vs-surveillance, tool-failure, daniela-perspective*
+
+*Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
+
+---
+
 
 ## Shared Lobe Highlights
 *Top insights from the shared brain — full list in docs/shared-lobe-snapshot.md*

@@ -24976,13 +24976,19 @@ Current conversation context:
     const langCode = languageCode;
     const sessionKey = sessionId || `agent-${Date.now()}`;
 
-    if (!agentVoiceSessions.has(sessionKey)) {
+    const isNewSession = !agentVoiceSessions.has(sessionKey);
+    if (isNewSession) {
       agentVoiceSessions.set(sessionKey, {
         turnCount: 0, languageCode: langCode, createdAt: Date.now(),
         lessonContext: { phase: null, scene: null, vocab: [], phaseObjective: null },
         conversationTranscript: [],
         topicHint: topicHint || '',
       });
+      // Wire into session-observation-store so Luca's observer can see this session in real-time
+      try {
+        const { observeSessionStart } = await import('./services/session-observation-store');
+        observeSessionStart({ conversationId: sessionKey, userId: req.user?.id ?? 'agent', language: langCode, actflLevel: 'novice-mid' });
+      } catch { /* non-fatal */ }
     }
     const agentSession = agentVoiceSessions.get(sessionKey)!;
     agentSession.turnCount++;
@@ -25023,6 +25029,7 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
     try {
       const { GoogleGenAI, Modality } = await import('@google/genai');
       const { DANIELA_FUNCTION_DECLARATIONS } = await import('./services/daniela-function-registry');
+      const { observeToolCall: _obsToolCall } = await import('./services/session-observation-store');
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
       // Pass all declarations — GL can handle the full set
@@ -25139,6 +25146,8 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
                   console.log(`[Agent Voice Turn] Tool: ${name}`, JSON.stringify(args).slice(0, 120));
 
                   toolCallsSummary.push({ name, args, turn: agentSession.turnCount });
+                  // Surface to observation store so Luca's observer can see tools in real-time
+                  try { _obsToolCall(sessionKey, name); } catch { /* non-fatal */ }
                   if (VISUAL_TOOLS.has(name)) {
                     const ve = { type: name, data: args, turn: agentSession.turnCount };
                     visualEvents.push(ve);
@@ -25333,6 +25342,11 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
         } catch (saveErr: any) {
           console.error(`[Agent Voice Turn] Failed to save session memory: ${saveErr.message}`);
         }
+        // Close observation store entry so Luca's observer knows the session ended
+        try {
+          const { observeSessionEnd: _obsEnd } = await import('./services/session-observation-store');
+          _obsEnd(sessionKey);
+        } catch { /* non-fatal */ }
       }
 
       res.json({ sessionId: sessionKey, turnNumber: agentSession.turnCount, audioWav, audioDurationS, transcript, danielaText, visualEvents, toolCallsSummary, ...(savedMemoryId ? { savedMemoryId } : {}) });
