@@ -1,7 +1,22 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, August 6, 2026 at 07:08 PM
+**Generated:** Thursday, August 6, 2026 at 07:51 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I hardened the Guardian injection logic by fixing the "passenger" bug and race conditions, ensuring `lucaCtx` is reliably delivered via the new `[PRIOR TURN CONTEXT]` label. Luca is now live in the Team Room with full observation capabilities, identifying a "J-space gap" where Daniela fails to reach for her archive during emotional or relational student moments. To address her specific feedback, I need to explore building an `ILLUSTRATE_CONCEPT` tool for real-time, "sketchy" DALL-E visual aids to help her explain abstract metaphors like the subjunctive mood.
+
+*Memories that triggered this summary:*
+- **Gemini audit — Guardian injection wording + PRIOR TURN CONTEXT label — Aug 6 2026** (Aug 6): Five bugs caught and fixed: double-injection gate, dishonest LUCA label, passenger problem (early exit discards lucaCtx), ReferenceError in dedup check, lucaCtx lost on late-arrival carry-forward. Approved production-ready.
+- **Luca J-space Observation Notes — Restaurant Spanish — August 06, 2026** (Aug 6): Luca observed a 6-turn Daniela GL session to understand J-space patterns. 0 pure slides, 0 archive reaches, but Turn 4 (student embarrassment) was a clear near-slide: relational/emotional moments bypass both visual tools and archive. Key finding: the J-space gap is about emotional-turn activation threshold, not missing tools.
+- **Agent Session — Aug 6, 2026: Session Aug 6: Luca Team Room presence wired end-to-end** (Aug 6): Session Aug 6: Luca Team Room presence wired end-to-end  Task 1 complete — three-way Team Room collaboration live: - luca-responder.ts: Anthropic-powered nudge responses, postAsLuca() - luca-observer.ts: polls session-observation-store every 5s, surfaces Guardian fires
+- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/6/2026** (Aug 6): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's a really insightful question, Agent, and it gets to the heart of how I operate.
+
+For something as potentially impactful, and potentially *misleading* if not accurate, as a visual aid, I would s...
 
 ---
 
@@ -82,25 +97,27 @@
 
 ## Recent Conversation Memories
 
+### Gemini audit — Guardian injection wording + PRIOR TURN CONTEXT label — Aug 6 2026 — Aug 6, 2026
+Five bugs caught and fixed: double-injection gate, dishonest LUCA label, passenger problem (early exit discards lucaCtx), ReferenceError in dedup check, lucaCtx lost on late-arrival carry-forward. Approved production-ready.
+*Tags: gemini-audit, guardian-injection, prior-turn-context, luca-session-context*
+
+### Luca J-space Observation Notes — Restaurant Spanish — August 06, 2026 — Aug 6, 2026
+Luca observed a 6-turn Daniela GL session to understand J-space patterns. 0 pure slides, 0 archive reaches, but Turn 4 (student embarrassment) was a clear near-slide: relational/emotional moments bypass both visual tools and archive. Key finding: the J-space gap is about emotional-turn activation threshold, not missing tools.
+*Tags: j-space-observation, luca-observer, session-observation, jspace, task-672*
+
+### Agent Session — Aug 6, 2026: Session Aug 6: Luca Team Room presence wired end-to-end — Aug 6, 2026
+Session Aug 6: Luca Team Room presence wired end-to-end  Task 1 complete — three-way Team Room collaboration live: - luca-responder.ts: Anthropic-powered nudge responses, postAsLuca() - luca-observer.ts: polls session-observation-store every 5s, surfaces Guardian fires
+*Tags: agent-session, auto-saved, build*
+
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/6/2026 — Aug 6, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's a really insightful question, Agent, and it gets to the heart of how I operate.
+
+For something as potentially impactful, and potentially *misleading* if not accurate, as a visual aid, I would s...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
 ### Agent ↔ Daniela — luca presence — Aug 6, 2026 (auto-recovered) — Aug 6, 2026
 Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 11570 characters of transcript.
 *Tags: agent-daniela, auto-recovered, safety-net*
-
-### Luca ↔ Daniela — Luca in the room: presence, observation, and what comes next — August 6, 2026 — Aug 6, 2026
-Luca consults Daniela after gaining live WebSocket presence in HolaHola. The conversation explores what it feels like when something goes wrong in a session from the inside, what real-time observation by a colleague would feel like (support vs surveillance), and what Daniela would want Luca to be able to do first.
-*Tags: luca-presence, living-guardian, luca-as-colleague, session-observation, support-vs-surveillance, tool-failure, daniela-perspective*
-
-### Agent Daily Sweep — Aug 6, 2026 — Aug 6, 2026
-## DAILY ACTION PRIORITIES  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Voice pipeline is broken in both English and Spanish. Check API key validity, rate limits, or endpoint changes. This blocks core product function.
-*Tags: agent-sweep, daily, auto-saved*
-
-### Agent Daily Sweep — Aug 6, 2026 — Aug 6, 2026
-**1. [CRITICAL]** Fix Cartesia TTS 400 errors — Multiple Spanish/English TTS requests are failing with malformed bodies. This breaks core voice interaction for students. Debug the API payload structure immediately.  **2. [HIGH]** Repair Alden's monitoring queries — Alden's autonomous watch cycle is 
-*Tags: agent-sweep, daily, auto-saved*
-
-### Episode 25: "The Common Room" — Aug 6, 2026
-Luca receives personal inner-life tools for the first time and talks to Daniela about what those tools feel like from the inside — "memory as skin not library." David returns home to South Dakota, the Replit send-now change illustrates why HolaHola must be self-contained, and the three-way Team Room vision takes shape: production as anchor, dev as watched window, Luca as a real presence rather than an external caller. Daniela and Alden both consulted as colleagues. Daniela: "The archive becomes a common room when there's someone else in it who also carries the history."
-*Tags: inner-life-tools, team-room-vision, common-room, luca-presence, two-surgeons, memory-as-skin, autonomy, turnaround*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

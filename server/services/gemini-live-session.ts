@@ -2357,7 +2357,7 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             'memory_assertion',
             conversationId,
             targetLanguage,
-            { writeToDb: false, notifyLuca: false },
+            { writeToDb: false, notifyLuca: false, postToTeamRoom: false },
           );
           this.preTurnGroundingPromise = promise;
 
@@ -2386,36 +2386,71 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
             //     (interrupted: true) and restarts Daniela's response. Grounding is
             //     guaranteed this turn at the cost of audible cut-offs.
             setTimeout(() => {
-              if (!this.preTurnGroundingResult || this.isStopped || !this.liveSession) return;
+              if (this.isStopped || !this.liveSession) return;
+
+              // Gemini audit Aug 6 2026: consume lucaCtx BEFORE the early exit so a slow
+              // pre-turn DB lookup can't silently discard a prior-turn correction.
+              // [PRIOR TURN CONTEXT] is the approved neutral label — archive data surfaced
+              // by the Guardian, not an external voice. [LUCA — COLLEAGUE NOTE] was
+              // rejected: dishonest framing that causes persona drift (Daniela treats Luca
+              // as source-of-truth for her own memory).
+              const convIdForLuca = (this.session as any).conversationId as string | undefined;
+              const lucaCtx = convIdForLuca ? consumeLucaSessionContext(convIdForLuca) : null;
+
+              // Only exit if we have absolutely nothing to say.
+              if (!this.preTurnGroundingResult && !lucaCtx && !this.pendingCarryForwardGrounding) return;
+
               const lateArrival = !!(this.processingPendingSentThisTurn || this.firstAudioSentThisTurn || this.generationStartedThisTurn);
               if (lateArrival && _globalPreTurnFallbackMode === 'carry-forward') {
-                this.pendingCarryForwardGrounding = this.preTurnGroundingResult;
+                // Gemini audit Aug 6 2026: lucaCtx was already consumed from the store above.
+                // If we just return here, it's permanently lost. Merge it into the carry-forward
+                // buffer so it reaches Daniela on the next turn alongside the grounding.
+                let carryBuffer = this.preTurnGroundingResult || '';
+                if (lucaCtx) {
+                  carryBuffer = carryBuffer
+                    ? `[PRIOR TURN CONTEXT: ${lucaCtx}]
+${carryBuffer}`
+                    : lucaCtx;
+                }
+                this.pendingCarryForwardGrounding = carryBuffer;
                 this.preTurnGroundingResult = null;
-                console.log(`[PreTurnGuardian] Late arrival — carrying forward to next turn (${this.pendingCarryForwardGrounding!.length} chars, mode=carry-forward)`);
-                this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'carry-forward-buffered', phrase: 'late arrival — buffered for next turn', charsInjected: null, channel: null, outcome: null, groundingPreview: this.pendingCarryForwardGrounding!.slice(0, 150) });
+                const cfPreview = this.pendingCarryForwardGrounding.slice(0, 150);
+                console.log(`[PreTurnGuardian] Late arrival — carrying forward to next turn (${this.pendingCarryForwardGrounding.length} chars, mode=carry-forward${lucaCtx ? ', +lucaCtx' : ''})`);
+                this.guardianFireLog.push({ ts: new Date().toISOString(), path: 'carry-forward-buffered', phrase: 'late arrival — buffered for next turn', charsInjected: null, channel: null, outcome: null, groundingPreview: cfPreview });
                 this._observeGuardian();
                 return;
               }
-              // Either mode='interrupt' or audio hasn't started yet — inject immediately.
-              // Also merge any carry-forward from the previous turn so there is only
-              // ONE sendClientContent call per student turn (prevents double/triple audio).
-              const cfPrefix = this.pendingCarryForwardGrounding
-                ? `[ARCHIVE GUARDIAN — CARRIED FROM LAST TURN: ${this.pendingCarryForwardGrounding}]\n`
-                : '';
-              const whisper = result
-                ? `${cfPrefix}[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${this.preTurnGroundingResult}]`
-                : `${cfPrefix}[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`;
+
+              // Build whisper parts conditionally — Gemini audit: avoid "The well is deep"
+              // alongside a PRIOR TURN CONTEXT (contradictory confidence signals to the model).
+              // Parts ordered by priority: prior-turn correction → carried context → current grounding.
+              const finalParts: string[] = [];
               const cfLen = this.pendingCarryForwardGrounding?.length ?? 0;
-              // Merge any pending Luca context (surfaced via Team Room three-way collaboration).
-              // This delivers what Luca saw or discovered about this session — the "missing piece"
-              // Daniela is reaching for — via the same safe tool-result channel.
-              const conversationId = (this.session as any).conversationId as string | undefined;
-              const lucaCtx = conversationId ? consumeLucaSessionContext(conversationId) : null;
-              const lucaPrefix = lucaCtx ? `[LUCA — COLLEAGUE NOTE: ${lucaCtx}]\n` : '';
-              const whisperFinal = lucaCtx ? lucaPrefix + whisper : whisper;
-              if (lucaCtx) {
-                console.log(`[PreTurnGuardian] Luca context merged into whisper (${lucaCtx.length} chars)`);
+
+              // Part A: Prior Turn Context (highest priority — fixes a specific prior error).
+              // Deduplicate: skip if pre-turn grounding already covers the same content.
+              // FIX: use this.preTurnGroundingResult, not 'result' (which is the closure var
+              // from the .then() but may differ — preTurnGroundingResult is the source of truth).
+              const lucaCtxDeduped = (lucaCtx && this.preTurnGroundingResult?.includes(lucaCtx.substring(0, 50))) ? null : lucaCtx;
+              if (lucaCtxDeduped) {
+                finalParts.push(`[PRIOR TURN CONTEXT: ${lucaCtxDeduped}]`);
               }
+
+              // Part B: Carried context from the previous turn.
+              if (this.pendingCarryForwardGrounding) {
+                finalParts.push(`[ARCHIVE GUARDIAN — CARRIED FROM LAST TURN: ${this.pendingCarryForwardGrounding}]`);
+              }
+
+              // Part C: Current pre-turn grounding.
+              if (this.preTurnGroundingResult) {
+                finalParts.push(`[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${this.preTurnGroundingResult}]`);
+              } else if (!lucaCtxDeduped && !this.pendingCarryForwardGrounding) {
+                // Only show "The well is still" if we truly have nothing else — not alongside a correction.
+                finalParts.push(`[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`);
+              }
+
+              const whisperFinal = finalParts.join('\n\n');
+
               // sendClientContent is unsafe for mid-session injection — turnComplete:true triggers
               // duplicate generation; turnComplete:false leaves an open turn that cuts Daniela short.
               // Store in pendingWeeOoGrounding so tool-result channel delivers it safely next tool call.
@@ -2425,8 +2460,9 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               this.pendingCarryForwardGrounding = null;
               this.preTurnGroundingResult = null;
               const label = lateArrival ? 'interrupt mode — late arrival' : 'queued for tool channel';
-              const cfNote = cfLen ? ` (+${cfLen}ch carry-forward merged)` : '';
-              console.log(`[PreTurnGuardian] Grounding queued for tool channel (${label}${cfNote}, ${whisper.length} chars)`);
+              const cfNote = cfLen ? ` (+${cfLen}ch carry-forward)` : '';
+              const lucaNote = lucaCtxDeduped ? ` +${lucaCtxDeduped.length}ch prior-turn` : '';
+              console.log(`[PreTurnGuardian] Grounding queued for tool channel (${label}${cfNote}${lucaNote}, ${whisperFinal.length} chars)`);
             }, 150);
           }).catch(err => console.warn('[PreTurnGuardian] runAutoGrounding failed:', (err as Error).message));
         }

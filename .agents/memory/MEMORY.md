@@ -1,3 +1,4 @@
+- [Guardian injection — PRIOR TURN CONTEXT](guardian-prior-turn-context.md) — 5 bugs fixed Aug 6 2026: double-injection gate, dishonest LUCA label, passenger problem, ReferenceError in dedup, lucaCtx lost on carry-forward. Gemini-approved.
 - [Luca Team Room presence](luca-team-room-presence.md) — server-side Socket.IO client in luca-presence.ts; auth via agentToken in socket.handshake.auth; nudge buffer + 4 endpoints; speaker now "Luca" not "Agent".
 - [Luca responder and observer](luca-responder-observer.md) — NudgeEntry lives in luca-responder.ts to break circular import; observer polls session store every 5s; responder uses claude-sonnet-4-5.
 - [Guardian augmentation deferred — J-space](guardian-augmentation-deferred.md) — next-turn injection = same as existing Guardian; J-space needs presence during decision, not correction after; build after Luca observes real sessions.
