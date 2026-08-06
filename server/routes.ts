@@ -36511,6 +36511,15 @@ Under 250 words. Write as yourself.`;
     } catch (e: any) { res.status(500).json({ error: (e as Error).message }); }
   });
 
+  // Team Room: return configured dev-eye URL so the production app can embed the dev environment
+  app.get("/api/team-room/dev-url", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req: Request, res: Response) => {
+    try {
+      const raw = process.env.DEV_EYE_URL || process.env.REPLIT_DEV_DOMAIN || null;
+      const url = raw ? (raw.startsWith('http') ? raw : `https://${raw}`) : null;
+      res.json({ url });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // Team Room: available tutors for invite
   app.get("/api/team-room/available-tutors", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req: Request, res: Response) => {
     try {

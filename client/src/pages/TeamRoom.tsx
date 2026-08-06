@@ -21,7 +21,7 @@ import {
   Target, ClipboardList, AtSign, Hand, UserPlus, UserMinus,
   BookOpen, TrendingUp, Cpu, Circle, RotateCcw, Monitor, ScanEye, Terminal,
   CheckCircle2, AlertCircle, Clock, Compass, BookmarkPlus, GitPullRequest,
-  Megaphone, DollarSign, Scale,
+  Megaphone, DollarSign, Scale, RefreshCw, Pencil, ExternalLink,
 } from "lucide-react";
 import { io, Socket } from "socket.io-client";
 import type { TeamRoom as TeamRoomType, RoomVoiceMessage, RoomArtifact, AgentActivityLog } from "@shared/schema";
@@ -712,6 +712,168 @@ function DocumentSessionButton({ sessionId }: { sessionId: string | null }) {
   );
 }
 
+// ── Dev Eye Panel ─────────────────────────────────────────────────────────────
+// Embeds a live iframe of the dev environment so the team can watch changes
+// in real time while the production conversation stays alive and unaffected.
+
+const DEV_EYE_URL_KEY = "teamroom-dev-eye-url";
+
+function DevEyePanel({ serverUrl, onClose }: { serverUrl: string | null; onClose: () => void }) {
+  const storedUrl = typeof localStorage !== "undefined" ? localStorage.getItem(DEV_EYE_URL_KEY) : null;
+  const [inputUrl, setInputUrl] = useState(storedUrl || serverUrl || "");
+  const [activeUrl, setActiveUrl] = useState(storedUrl || serverUrl || "");
+  const [editing, setEditing] = useState(!activeUrl);
+  const [iframeKey, setIframeKey] = useState(0);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
+
+  const applyUrl = () => {
+    const trimmed = inputUrl.trim();
+    if (!trimmed) return;
+    const normalized = trimmed.startsWith("http") ? trimmed : `https://${trimmed}`;
+    localStorage.setItem(DEV_EYE_URL_KEY, normalized);
+    setActiveUrl(normalized);
+    setEditing(false);
+    setIframeKey(k => k + 1);
+    setLoadState("loading");
+  };
+
+  const reload = () => {
+    setIframeKey(k => k + 1);
+    setLoadState("loading");
+  };
+
+  const clearUrl = () => {
+    localStorage.removeItem(DEV_EYE_URL_KEY);
+    setActiveUrl("");
+    setInputUrl(serverUrl || "");
+    setEditing(true);
+  };
+
+  return (
+    <div className="flex flex-col h-full border-l bg-background" data-testid="dev-eye-panel">
+      {/* Header */}
+      <div className="px-3 py-2 border-b flex items-center gap-2 shrink-0">
+        <Monitor className="h-4 w-4 text-muted-foreground shrink-0" />
+        <span className="text-sm font-semibold flex-1">Dev Eye</span>
+
+        {/* Status dot */}
+        {activeUrl && !editing && (
+          <span
+            className={`h-2 w-2 rounded-full shrink-0 ${
+              loadState === "ready" ? "bg-green-500" :
+              loadState === "error" ? "bg-red-500" :
+              "bg-amber-400 animate-pulse"
+            }`}
+            title={loadState === "ready" ? "Dev is up" : loadState === "error" ? "Dev unreachable" : "Loading…"}
+          />
+        )}
+
+        {activeUrl && !editing && (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={reload} data-testid="button-dev-eye-reload">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p className="text-xs">Reload Dev</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => window.open(activeUrl, "_blank")} data-testid="button-dev-eye-open">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p className="text-xs">Open in new tab</p></TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditing(true)} data-testid="button-dev-eye-edit">
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent><p className="text-xs">Change URL</p></TooltipContent>
+            </Tooltip>
+          </>
+        )}
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onClose} data-testid="button-dev-eye-close">
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent><p className="text-xs">Close Dev Eye</p></TooltipContent>
+        </Tooltip>
+      </div>
+
+      {/* URL input form */}
+      {editing && (
+        <div className="p-3 border-b space-y-2 shrink-0">
+          <p className="text-xs text-muted-foreground">
+            Enter the URL of the dev environment to embed it here. While dev restarts, the conversation stays alive in production.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              placeholder="https://yourapp.replit.dev"
+              value={inputUrl}
+              onChange={e => setInputUrl(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && applyUrl()}
+              className="flex-1 text-xs h-8"
+              data-testid="input-dev-eye-url"
+            />
+            <Button size="sm" onClick={applyUrl} disabled={!inputUrl.trim()} data-testid="button-dev-eye-apply">
+              Watch
+            </Button>
+          </div>
+          {activeUrl && (
+            <button onClick={clearUrl} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">
+              Clear saved URL
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Iframe */}
+      {activeUrl && !editing ? (
+        <div className="flex-1 relative overflow-hidden">
+          {loadState === "loading" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground bg-background z-10">
+              <RefreshCw className="h-5 w-5 animate-spin" />
+              <span className="text-xs">Connecting to dev…</span>
+            </div>
+          )}
+          {loadState === "error" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-muted-foreground bg-background z-10 p-4">
+              <AlertCircle className="h-5 w-5 text-amber-500" />
+              <p className="text-xs text-center">Dev may be restarting. The conversation here is unaffected.</p>
+              <Button size="sm" variant="outline" onClick={reload} className="text-xs">
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Retry
+              </Button>
+            </div>
+          )}
+          <iframe
+            key={iframeKey}
+            src={activeUrl}
+            className="w-full h-full border-0"
+            title="Dev environment"
+            onLoad={() => setLoadState("ready")}
+            onError={() => setLoadState("error")}
+            data-testid="dev-eye-iframe"
+            // Allow same-origin for the Replit dev iframe
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-modals allow-top-navigation"
+          />
+        </div>
+      ) : !editing ? (
+        <div className="flex-1 flex items-center justify-center text-center p-6 text-muted-foreground text-xs">
+          No URL configured. Click the edit button above to set the dev environment URL.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function TeamRoom() {
@@ -743,6 +905,7 @@ export default function TeamRoom() {
   const [saveToSharedLobe, setSaveToSharedLobe] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [closeAfterSave, setCloseAfterSave] = useState(false);
+  const [showDevEye, setShowDevEye] = useState(() => localStorage.getItem("teamroom-dev-eye-open") === "true");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const expressEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -834,6 +997,17 @@ export default function TeamRoom() {
     onSuccess: () => { refetchBuildQueue(); toast({ title: "Updated" }); },
     onError: () => toast({ title: "Failed to update", variant: "destructive" }),
   });
+
+  const { data: devUrlData } = useQuery<{ url: string | null }>({
+    queryKey: ["/api/team-room/dev-url"],
+    staleTime: 300000,
+  });
+  const serverDevUrl = devUrlData?.url ?? null;
+
+  const toggleDevEye = (next: boolean) => {
+    setShowDevEye(next);
+    localStorage.setItem("teamroom-dev-eye-open", String(next));
+  };
 
   const { data: agentActivity } = useQuery<AgentActivityLog[]>({
     queryKey: ["/api/agent-activity"],
@@ -1252,8 +1426,10 @@ export default function TeamRoom() {
         </ScrollArea>
       </div>
 
-      {/* ── Center Panel: Discussion ── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* ── Center Panel: Discussion + optional Dev Eye split ── */}
+      <div className="flex-1 flex min-w-0 overflow-hidden">
+        {/* Discussion column — always present, narrows when Dev Eye is open */}
+        <div className={`flex flex-col overflow-hidden transition-all ${showDevEye ? "w-1/2" : "flex-1 min-w-0"}`}>
         {!activeSessionId ? (
           <ScrollArea className="flex-1">
             <div className="flex flex-col items-center p-6 gap-6">
@@ -1376,6 +1552,23 @@ export default function TeamRoom() {
                   </Button>
                 )}
                 <DocumentSessionButton sessionId={activeSessionId} />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={showDevEye ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => toggleDevEye(!showDevEye)}
+                      data-testid="button-toggle-dev-eye"
+                      className={showDevEye ? "bg-sky-600 hover:bg-sky-700 text-white" : ""}
+                    >
+                      <Monitor className="h-3.5 w-3.5 mr-1" />
+                      Dev Eye
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="text-xs">{showDevEye ? "Close dev preview" : "Open dev preview alongside conversation"}</p>
+                  </TooltipContent>
+                </Tooltip>
                 <Button variant="ghost" size="sm" onClick={() => { setActiveSessionId(null); setExpressLaneItems([]); setSessionArtifacts([]); setSessionSummary(null); setWsMessages([]); setGuestTutors([]); setHandRaises({}); }} data-testid="button-leave-room">
                   Leave
                 </Button>
@@ -1489,7 +1682,15 @@ export default function TeamRoom() {
             )}
           </>
         )}
-      </div>
+        </div>{/* end discussion column */}
+
+        {/* ── Dev Eye Panel ── */}
+        {showDevEye && (
+          <div className="w-1/2 flex-none overflow-hidden">
+            <DevEyePanel serverUrl={serverDevUrl} onClose={() => toggleDevEye(false)} />
+          </div>
+        )}
+      </div>{/* end center panel */}
 
       {/* ── Right Panel: Express Lane ── */}
       <div className="w-80 flex-none border-l flex flex-col overflow-hidden">

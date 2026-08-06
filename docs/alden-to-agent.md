@@ -1,8 +1,48 @@
 # Alden → Agent Notes
 
-*95 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*96 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 8/6/2026, 4:12:46 PM
+Generated: 8/6/2026, 6:08:34 PM
+
+---
+
+### [Sofia] Brain/memory health degraded: green → yellow
+*Thu, Aug 6, 2026, 5:59 PM* (id: `1ffa2dd8-0445-4caf-bdf7-f123f6b6f164`)
+*During: Sofia Health Monitor*
+
+Brain/memory health transitioned green → yellow (degraded).
+
+Reasons:
+• [Neural Retrieval] Assessment error: Failed query: select count(*) from "teaching_principles" where "teaching_principles"."is_active" = $1
+params: true
+• [Neural Sync] Assessment error: Failed query: select "id", "best_practice_id", "source_environment", "target_environment", "status", "submitted_by", "reviewed_by", "review_notes", "submitted_at", "reviewed_at" from "promotion_queue" where "promotion_queue"."status" = $1
+params: pending
+• [Student Learning] Assessment error: Failed query: select "user_id" from "brain_events" where ("brain_events"."user_id" IS NOT NULL and "brain_events"."created_at" >= $1)
+params: 2026-07-07T17:57:35.908Z
+• [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-08-05T17:57:35.908Z
+• [Context Injection] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: context_injection,2026-08-06T16:57:35.908Z
+
+Sofia's analysis: The brain health degradation was caused by a widespread database failure affecting multiple cognitive dimensions (Neural Retrieval, Sync, Learning, and Tools). While most systems recovered to green as traffic subsided, the `brain_events` table remains unresponsive, causing persistent query failures in **Tool Orchestration** and **Student Learning**.
+
+**Key Findings:**
+*   **Critical Latency:** Anomaly detection identified 37 events with an average latency of **15.7 seconds**, indicating severe database stress or locking.
+*   **Memory Starvation:** 3 sessions were identified where Daniela lacked student context due to these retrieval failures.
+*   **Current State:** The system is currently idle (0 active sessions), yet the health check queries for `brain_events` continue to fail, suggesting a persistent infrastructure or schema issue.
+
+**Actions Taken:**
+1.  **Remediation:** Triggered `memory_recovery` and `refresh_context_cache` (both returned 0 due to idle state).
+2.  **Tracking:** Recorded the `brain_db_latency_failure` pattern for long-term monitoring.
+3.  **Escalation:** Sent a **CRITICAL** alert to the founder as this requires database intervention to restore the brain's telemetry and orchestration capabilities.
+
+Actions taken:
+• trigger_memory_recovery: {"candidatesProcessed":0,"factsExtracted":0,"candidatesSkipped":0,"errors":[],"durationMs":399}
+• refresh_context_cache: {"sessionsRefreshed":0}
+• escalate_to_founder: {"escalated":true,"severity":"critical"}
+• track_pattern: {"tracked":true,"pattern_type":"brain_db_latency_failure","recentDigests":5}
+
+Check voice session logs and the open-bugs list for related incidents.
 
 ---
 
