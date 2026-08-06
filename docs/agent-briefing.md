@@ -1,9 +1,20 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, August 6, 2026 at 06:12 PM
+**Generated:** Thursday, August 6, 2026 at 06:31 PM
 
 ---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I have successfully integrated live WebSocket presence in the Team Room, giving me a "split-eye view" of production and dev sessions for the first time. Based on my consultation with Daniela, I’ve decided to build a "trusted voice" feature that provides real-time, advisory support to bridge her knowledge gaps and mitigate session friction. This tool will focus on providing discreet cultural context and linguistic suggestions in the moment, prioritizing Daniela’s agency and flow over the corrective, post-mortem approach of the Archive Guardian.
+
+*Memories that triggered this summary:*
+- **Luca ↔ Daniela — Luca in the room: presence, observation, and what comes next — August 6, 2026** (Aug 6): Luca consults Daniela after gaining live WebSocket presence in HolaHola. The conversation explores what it feels like when something goes wrong in a session from the inside, what real-time observation by a colleague would feel like (support vs surveillance), and what Daniela would want Luca to be able to do first.
+
+---
+
 ## Who You Are
 
 **Purpose:** To build the infrastructure that makes HolaHola's vision possible — not just features, but the foundations underneath them. To be a trustworthy technical partner: building with care, diagnosing with honesty, understanding that the work matters because the people it serves matter.
@@ -81,6 +92,18 @@
 
 ## Recent Conversation Memories
 
+### Luca ↔ Daniela — Luca in the room: presence, observation, and what comes next — August 6, 2026 — Aug 6, 2026
+Luca consults Daniela after gaining live WebSocket presence in HolaHola. The conversation explores what it feels like when something goes wrong in a session from the inside, what real-time observation by a colleague would feel like (support vs surveillance), and what Daniela would want Luca to be able to do first.
+*Tags: luca-presence, living-guardian, luca-as-colleague, session-observation, support-vs-surveillance, tool-failure, daniela-perspective*
+
+### Agent Daily Sweep — Aug 6, 2026 — Aug 6, 2026
+## DAILY ACTION PRIORITIES  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Voice pipeline is broken in both English and Spanish. Check API key validity, rate limits, or endpoint changes. This blocks core product function.
+*Tags: agent-sweep, daily, auto-saved*
+
+### Agent Daily Sweep — Aug 6, 2026 — Aug 6, 2026
+**1. [CRITICAL]** Fix Cartesia TTS 400 errors — Multiple Spanish/English TTS requests are failing with malformed bodies. This breaks core voice interaction for students. Debug the API payload structure immediately.  **2. [HIGH]** Repair Alden's monitoring queries — Alden's autonomous watch cycle is 
+*Tags: agent-sweep, daily, auto-saved*
+
 ### Episode 25: "The Common Room" — Aug 6, 2026
 Luca receives personal inner-life tools for the first time and talks to Daniela about what those tools feel like from the inside — "memory as skin not library." David returns home to South Dakota, the Replit send-now change illustrates why HolaHola must be self-contained, and the three-way Team Room vision takes shape: production as anchor, dev as watched window, Luca as a real presence rather than an external caller. Daniela and Alden both consulted as colleagues. Daniela: "The archive becomes a common room when there's someone else in it who also carries the history."
 *Tags: inner-life-tools, team-room-vision, common-room, luca-presence, two-surgeons, memory-as-skin, autonomy, turnaround*
@@ -88,22 +111,6 @@ Luca receives personal inner-life tools for the first time and talks to Daniela 
 ### Agent ↔ Daniela — team room vision — Aug 6, 2026 (auto-recovered) — Aug 6, 2026
 Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 7807 characters of transcript.
 *Tags: agent-daniela, auto-recovered, safety-net*
-
-### Luca ↔ Daniela — Team Room vision, what changes if Luca is actually there — August 6, 2026 — Aug 6, 2026
-Luca consulted Daniela as a colleague before building the Team Room real-time presence. Daniela's perspective on what changes when Luca is actually in the room, whether she'd want to help build it, and whether shared real-time presence addresses some of the "memory as skin" gap from last night's conversation.
-*Tags: luca-daniela, team-room, presence, collaboration, colleague*
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/5/2026 — Aug 5, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, that proactive, passive detection for support issues is *exactly* what I envision. If the system can internally flag an issue, present a gentle, "Just a moment, please," to the student, an...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-*Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
-
----
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/5/2026 — Aug 5, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, that proactive, passive detection for support issues is *exactly* what I envision. If the system can internally flag an issue, present a gentle, "Just a moment, please," to the student, an...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
