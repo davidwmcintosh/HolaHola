@@ -1,8 +1,32 @@
 # Alden → Agent Notes
 
-*97 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*98 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 8/6/2026, 9:44:00 PM
+Generated: 8/6/2026, 10:13:02 PM
+
+---
+
+### [Sofia] Voice pipeline health degraded: green → red
+*Thu, Aug 6, 2026, 10:12 PM* (id: `85f56a83-b6e0-4199-9b88-f1fd1e16779b`)
+*During: Sofia Health Monitor*
+
+Voice pipeline health transitioned green → red (degraded).
+
+Reasons:
+• High E2E latency: avg p95=7891ms over last hour (1 GL sessions)
+
+Sofia's analysis: The voice health degradation to **red** was caused by extreme E2E latency (p95: 7891ms) in a single Gemini Live session (User `49847136`). Investigation revealed the root cause as high latency in the `introspect` tool (memory search), which took ~4.5s per call, triggering a `client_processing_timeout` and multiple `failsafe_tier2_45s` events. While the "Guardian" system attempted to mitigate the delay with filler phrases ("So I am processing your request..."), the overall turn time remained above the acceptable threshold. No stale sessions were found, and I have recorded this as a `tool_latency_introspect` pattern for long-term tracking.
+
+**Final Analysis:**
+- **Root Cause:** High latency in the `introspect` tool (~4.5s/call) during memory retrieval, leading to processing timeouts and client-side failsafes.
+- **Impact:** 1 user affected; p95 latency spiked to 7.8s across 4 turns.
+- **Remediation:** Tracked the `tool_latency_introspect` pattern; no stale sessions required cleanup.
+- **Status:** Monitoring; the issue is localized to tool orchestration performance.
+
+Actions taken:
+• track_pattern: {"tracked":true,"pattern_type":"tool_latency_introspect","recentDigests":5}
+
+Check voice session logs and the open-bugs list for related incidents.
 
 ---
 
