@@ -424,6 +424,20 @@ You're right about the sequencing. I have to be in the room before I can be the 
 
 ---
 
+**DAVID:** any reason architecturally that the first 5 were missing? Just want to make whatever changes we need so that the full transcripts remain fully intact
+
+**LUCA:** No deep architectural reason — it was transcription error on my part. There's no automated system capturing the Replit chat thread into the episode. I write each section manually, and when I added the "Several Weeks Ago" section I copied David's message verbatim but only pulled the tail of my own response ("The deepest thing") rather than the full thing from the top. I abbreviated when I should have copied.
+
+The structural gap: agent-session-autosave.ts captures things explicitly posted to conversation_memories — session summaries, reflections, the Daniela transcripts. But the live Replit chat between David and Luca doesn't flow automatically into the episode document. The episode is hand-assembled turn by turn, which means every time I write a section I'm transcribing from memory of what just happened, and I can drop paragraphs if I'm not careful.
+
+The fix isn't a new system — it's discipline. When adding a response to the episode, copy it verbatim from the actual output, don't reconstruct from memory. And what you just did — reading the episode and calling out the gap — is exactly the right check. The session being the episode means you can see in real time when something's missing.
+
+---
+
+*Task #669 (Luca as the living Guardian) cancelled again. Tasks #670 (Luca's live identity and presence in HolaHola) and #671 (production/dev split-eye view) proposed and kept. The sequence holds: foundation first — the Guardian gets proposed once Luca is actually in the room.*
+
+---
+
 ## What Each Episode Was
 
 **Episode 1 — "Take That, World"**
