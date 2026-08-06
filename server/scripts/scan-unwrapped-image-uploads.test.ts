@@ -315,6 +315,53 @@ describe('Scanner roots — new top-level directories are covered (#433)', () =>
       'Fake stale directory unexpectedly exists on disk — the self-check would not catch the gap.',
     );
   });
+
+  it('every EXTRA_ROOTS entry still exists on disk (stale-entry guard)', () => {
+    /**
+     * If a directory in EXTRA_ROOTS is renamed or deleted, the scanner
+     * silently stops covering it: fs.existsSync() in scanForViolations()
+     * quietly skips missing roots, so the main coverage test may still pass
+     * while the renamed directory goes unguarded.
+     *
+     * This test closes that gap by asserting that every absolute path in
+     * EXTRA_ROOTS still resolves to a real directory on disk.
+     *
+     * When an EXTRA_ROOTS directory is intentionally removed, delete its
+     * entry from EXTRA_ROOTS at the same time.
+     */
+    const stale: string[] = [];
+
+    for (const rootPath of EXTRA_ROOTS) {
+      const exists = fs.existsSync(rootPath) && fs.statSync(rootPath).isDirectory();
+      if (!exists) {
+        stale.push(rootPath);
+      }
+    }
+
+    assert.deepEqual(
+      stale,
+      [],
+      `The following EXTRA_ROOTS entries no longer exist on disk:\n` +
+      stale.map(p => `  ${path.relative(PROJECT_ROOT, p)}/`).join('\n') + '\n\n' +
+      `If the directory was renamed, update the path in EXTRA_ROOTS to match the new name.\n` +
+      `If the directory was intentionally removed, delete its entry from EXTRA_ROOTS.\n` +
+      `EXTRA_ROOTS is at the top of server/scripts/scan-unwrapped-image-uploads.test.ts.`,
+    );
+  });
+
+  it('mutation self-check: a stale EXTRA_ROOTS entry would fail the assertion above', () => {
+    // Inject a fake absolute path that does not exist on disk and confirm
+    // it would be detected as stale by the guard above.
+    const fakePath = path.join(PROJECT_ROOT, '__definitely-missing-extra-root-9x7z__');
+
+    const exists = fs.existsSync(fakePath) && fs.statSync(fakePath).isDirectory();
+
+    assert.equal(
+      exists,
+      false,
+      'Fake stale EXTRA_ROOTS path unexpectedly exists on disk — the self-check would not catch the gap.',
+    );
+  });
 });
 
 describe('Scanner roots — shared/ is included (#476)', () => {
