@@ -3147,6 +3147,20 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         turnId: this.currentTurnId, hadAudio: this.hadAudioInCurrentSubturn,
       });
 
+      // Close transcription immediately at generationComplete — BEFORE the 800ms
+      // audio-seal debounce. Audio chunks can still arrive for 300-700ms after
+      // generationComplete (network buffer), so we wait to seal audio. But
+      // outputTranscription arriving after generationComplete is ghost content:
+      // GL streams transcription for sentences it *intended* to say even when its
+      // internal audio budget ran out mid-response. Without this early close, both
+      // ghost guards miss it — Layer 1 (transcriptClosed) is still false, and
+      // Layer 2 (800ms audio silence) hasn't elapsed yet — so ghost words accumulate
+      // in pendingOutputTranscript and the DB transcript is longer than what was spoken.
+      // Trade-off: trailing real transcription chunks that arrive just after
+      // generationComplete may be suppressed, but those words were already captured
+      // as part.text in pendingOutputTranscript before outputTranscription switched sources.
+      this.transcriptClosed = true;
+
       // ── Tutor speaking end ─────────────────────────────────────────────
       if (this.tutorSpeakingStartTime !== null) {
         this.tutorSpeakingMs += Date.now() - this.tutorSpeakingStartTime;
