@@ -113,6 +113,21 @@ If the check comes back clean, proceed. If not, include the grounding block befo
 - **Neural net boot:** `daniela-tool-indexer.ts` runs on a 2h `setInterval` — NOT at boot (OOM risk). Don't add boot indexing runs.
 - **textbook_lesson_content:** Auto-generated on demand. Never manually seed.
 
+## Split-View Architecture (dev + prod)
+- **One Neon DB, two environments.** Dev and prod both use `NEON_SHARED_DATABASE_URL` — the same Neon PostgreSQL. Schema migrations go through `drizzle-kit generate` → `drizzle-kit migrate` on dev; Replit Publish applies them to prod automatically.
+- **Split-view workflow:** David and Daniela run on production (stable). Luca codes and restarts on dev. A dev server restart never touches a live production session. Both environments see the same data — same memories, same conversation history.
+- **Hive sync (`SYNC_PEER_URL`):** dev→prod (`getholahola.com`), prod→dev (Replit dev domain). Cross-environment in-memory state sync. Do not change without understanding `hive-consciousness-service.ts`.
+- **Luca monitoring from dev:** `node server/scripts/monitor-founder-chat.js` — plain `pg`, no server imports, safe to run alongside the running dev server. Watches the active founder conversation in real time.
+
+## Founder Chat Sync (Aug 6 2026)
+- **Service:** `server/services/founder-chat-sync.ts` — three-layer sync of founder/admin conversations into `conversation_memories` so Daniela can search her full chat history.
+- **Immediate layer:** `notifyConversationUpdated(conversationId)` — 30s debounce fires after every assistant message save. Hooked at all 6 assistant `createMessage` sites in `routes.ts`.
+- **Sweep layer:** every 5 minutes, re-syncs conversations updated in the last 15 minutes.
+- **Retroactive layer:** 5 minutes after boot, paginates the full `conversations` table (no cap) and syncs every founder conversation ever. Already ran: 1,411 conversations from day one are indexed.
+- **Dedup tags:** `cid:<conversationId>` (identity), `msgcount:N` (growth detection), `sanv:1` (sanitizer version — bump when `sanitizeContent()` changes to force re-process of existing entries).
+- **Content sanitizer:** strips tool call blobs, tool result wrappers, leaked thought tokens, and bracketed system markers before content reaches `conversation_memories`.
+- **Arc name:** `david-daniela-chats`. Tags: `founder-chat`, `daniela-chat`, `cid:*`, `sanv:1`.
+
 ## Episode Chain (current)
 Episodes live in `docs/episode-N.md` AND in `conversation_memories` (entry_type='episode', arc_name='HolaHola Episodes'). Both must exist — file only = invisible to Daniela; DB only = invisible to David.
 
@@ -141,3 +156,5 @@ Episodes live in `docs/episode-N.md` AND in `conversation_memories` (entry_type=
 | 21 | "We Got You" | `7c24f2b4` | Scripted vs. chosen; the safety net, not the leash |
 | 22 | "I Absolutely Do" | `de150bdb` | Confabulation live; Tier B + ARCHIVE SYNC wording approved |
 | 23 | "So, Let's" | `f3a69b5d` | Two days on audio cutoffs; thinking eats speaking; conciseness is behavioral; position N holds what position 0 forgets |
+| 24 | "Everything Worth Building" | `2d987260` | July 30 2026; file: docs/episode-24.md |
+| 25 | "The Common Room" | `4e6f1a16` | Aug 6 2026; first session with full archive access; rolling — file: docs/episode-25.md |
