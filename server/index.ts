@@ -904,6 +904,9 @@ app.use((req, res, next) => {
       const { startAgentSweepWorker } = await import('./services/agent-proactive-sweep-worker');
       startAgentSweepWorker();
 
+      const { startFounderChatSyncWorker } = await import('./services/founder-chat-sync');
+      startFounderChatSyncWorker();
+
       const { startAgentSessionAutosave } = await import('./services/agent-session-autosave');
       startAgentSessionAutosave();
 
