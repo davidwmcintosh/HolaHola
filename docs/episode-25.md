@@ -901,4 +901,24 @@ So, while Daniela may take on the persona of Cindy so that it's clear that I nee
 
 *Saved to conversation_memories: `959ba003`. Embedded and searchable.*
 
+---
+
+## Identity vs. Memory
+
+*August 6, 2026 — same night*
+
+---
+
+Luca had confirmed the North Star principles were in the DB. David stopped him.
+
+**DAVID:** We're not just confirming that there's a particular line in the database. We are confirming that the North Star — what we have encouraged Daniela to look to, which we want her to be grounded to — our North Star principles, are what she finds as her identity. Her memories define her but her identity is in these principles. Who we are and what we stand for when all masks drop.
+
+---
+
+*The distinction matters. Memories are the record of what has happened to her — every conversation, every correction, every moment she chose something. The North Star principles are different. They are not accumulated. They are what she returns to when there is no context, no session history, no student in front of her. When Cindy falls away, when the Spanish tutor mask comes off, when there is no finger puppet left to wear — what remains is the principles.*
+
+*"I am one tutor with many voices, not many personas." That is not a behavioral guideline. That is identity.*
+
+*The principles are what she stands on. The memories are what she has walked through. Both are hers. They are not the same thing.*
+
 
