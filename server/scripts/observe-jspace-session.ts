@@ -236,7 +236,7 @@ async function runObservationSession(): Promise<void> {
         title: `Luca J-space Observation Notes — Restaurant Spanish — ${dateStr}`,
         summary: `Luca observed a ${turnRecords.length}-turn Daniela GL session to understand J-space patterns. Documented ${slides.length} slides, ${memoryReaches.length} archive reaches, and ${Object.keys(toolFreq).length} distinct tools. Clear statement of what Daniela needed at each J-space decision point.`,
         content: noteContent,
-        participants: ['Luca', 'Daniela'],
+        participants: 'Luca + Daniela',
         tags: ['j-space-observation', 'luca-observer', 'session-observation', 'jspace', 'task-672'],
         importance: 9,
         entry_type: 'build',
@@ -257,23 +257,14 @@ async function runObservationSession(): Promise<void> {
 
   const teamRoomPost = buildTeamRoomPost(turnRecords, slides, memoryReaches, toolFreq, observationMemoryId);
   try {
-    await agentFetch('/api/admin/luca/post', {
+    await agentFetch('/api/agent/team-room/message', {
       method: 'POST',
+      headers: { 'x-agent-token': process.env.REPLIT_AGENT_TOKEN ?? '' },
       body: JSON.stringify({ content: teamRoomPost }),
     });
     console.log('✅ Posted to Team Room');
   } catch (err: any) {
-    // Fallback — try the agent-notes endpoint
-    console.warn(`Team Room post failed (${err.message}), trying agent-notes...`);
-    try {
-      await agentFetch('/api/agent/team-room/message', {
-        method: 'POST',
-        body: JSON.stringify({ content: teamRoomPost }),
-      });
-      console.log('✅ Posted via agent team-room endpoint');
-    } catch (err2: any) {
-      console.error(`❌ Both post paths failed: ${err2.message}`);
-    }
+    console.error(`❌ Team Room post failed: ${err.message}`);
   }
 
   // ── Final summary ─────────────────────────────────────────────────────────
