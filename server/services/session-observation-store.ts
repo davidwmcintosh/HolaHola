@@ -37,6 +37,31 @@ export interface MemorySearchRecord {
   formattedChars: number;
 }
 
+export interface TurnSummary {
+  /** sessionStudentTurnCount at the time the turn completed */
+  turn: number;
+  /** All tool names called during this turn */
+  tools: string[];
+  /** Did any tool belong to the Archive set (recall, grounding_query, etc.)? */
+  hasArchiveCall: boolean;
+  ts: number;
+}
+
+export interface FrictionRecord {
+  /** sessionStudentTurnCount when friction was measured */
+  turn: number;
+  /** 'CLEAN' | 'LOW' | 'MODERATE' | 'HIGH' */
+  label: string;
+  totalScore: number;
+  archiveAccess: boolean;
+  /** Inverted-threshold: Guardian-primed turn came back smooth → slide ran unimpeded */
+  smoothSlide: boolean;
+  unverifiedAssertionCount: number;
+  /** Preview of the first unverified assertion phrase, if any */
+  firstUnverifiedAssertion: string | null;
+  ts: number;
+}
+
 export interface SessionObservation {
   conversationId: string;
   userId: string;
@@ -55,6 +80,10 @@ export interface SessionObservation {
   guardianFireLog: GuardianFireRecord[];
   // Neural net memory searches (last 20)
   recentMemorySearches: MemorySearchRecord[];
+  // Per-turn tool-call summaries (last 15 turns)
+  turnSummaries: TurnSummary[];
+  // Friction history from analyzeFriction (last 20 records)
+  frictionHistory: FrictionRecord[];
 }
 
 const store = new Map<string, SessionObservation>();
@@ -90,6 +119,8 @@ export function observeSessionStart(opts: {
     guardianChannel: existing?.guardianChannel ?? 'concat',
     guardianFireLog: existing?.guardianFireLog ?? [],
     recentMemorySearches: existing?.recentMemorySearches ?? [],
+    turnSummaries: existing?.turnSummaries ?? [],
+    frictionHistory: existing?.frictionHistory ?? [],
   });
 }
 
@@ -176,6 +207,53 @@ export function observeGuardianState(
   if (!entry) return;
   entry.guardianChannel = channel;
   entry.guardianFireLog = [...fireLog];
+  entry.lastUpdatedMs = now();
+}
+
+/**
+ * Record a completed Daniela turn — which tools were called and whether any
+ * were Archive-class. Called from GeminiLiveSession right before resetting
+ * currentTurnToolCalls at generationComplete.
+ */
+export function observeTurnComplete(
+  conversationId: string,
+  turn: number,
+  tools: string[],
+  hasArchiveCall: boolean,
+): void {
+  const entry = touch(conversationId);
+  if (!entry) return;
+  const summary: TurnSummary = { turn, tools: [...tools], hasArchiveCall, ts: now() };
+  entry.turnSummaries = [summary, ...entry.turnSummaries].slice(0, 15);
+  entry.lastUpdatedMs = now();
+}
+
+/**
+ * Record the friction score computed by analyzeFriction() for the current turn.
+ * Called from GeminiLiveSession after analyzeFriction + smoothSlide are computed.
+ */
+export function observeFrictionScore(
+  conversationId: string,
+  turn: number,
+  label: string,
+  score: number,
+  archiveAccess: boolean,
+  smoothSlide: boolean,
+  unverifiedAssertions: string[],
+): void {
+  const entry = touch(conversationId);
+  if (!entry) return;
+  const record: FrictionRecord = {
+    turn,
+    label,
+    totalScore: score,
+    archiveAccess,
+    smoothSlide,
+    unverifiedAssertionCount: unverifiedAssertions.length,
+    firstUnverifiedAssertion: unverifiedAssertions[0] ?? null,
+    ts: now(),
+  };
+  entry.frictionHistory = [record, ...entry.frictionHistory].slice(0, 20);
   entry.lastUpdatedMs = now();
 }
 

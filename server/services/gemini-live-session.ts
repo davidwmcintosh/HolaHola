@@ -61,7 +61,7 @@ import type { ExtractedFunctionCall } from './gemini-function-declarations';
 import { reportGlToolCallFailure, reportGlToolCallSuccess, reportGreetingRetryAttempt, reportGreetingRetryExhausted } from './sofia-billing-monitor';
 import { voiceTelemetry } from './voice-pipeline-telemetry';
 import { glLiveAlert } from './gl-live-monitor';
-import { observeSessionStart, observeActflUpdate, observeSessionEnd, observeGuardianState } from './session-observation-store';
+import { observeSessionStart, observeActflUpdate, observeSessionEnd, observeGuardianState, observeTurnComplete, observeFrictionScore } from './session-observation-store';
 import { getSharedDb } from '../db';
 import { generateConversationTitle } from '../conversation-utils';
 import { sql, eq } from 'drizzle-orm';
@@ -2405,11 +2405,18 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 // Gemini audit Aug 6 2026: lucaCtx was already consumed from the store above.
                 // If we just return here, it's permanently lost. Merge it into the carry-forward
                 // buffer so it reaches Daniela on the next turn alongside the grounding.
+                // Fix: seed from preTurnGroundingResult first, then merge any already-buffered
+                // pendingCarryForwardGrounding — don't overwrite it when preTurnGroundingResult is null.
                 let carryBuffer = this.preTurnGroundingResult || '';
+                if (this.pendingCarryForwardGrounding) {
+                  // Preserve previously buffered carry-forward; merge with fresh grounding.
+                  carryBuffer = carryBuffer
+                    ? `${carryBuffer}\n\n[ARCHIVE GUARDIAN — CARRIED FROM PRIOR TURN: ${this.pendingCarryForwardGrounding}]`
+                    : this.pendingCarryForwardGrounding;
+                }
                 if (lucaCtx) {
                   carryBuffer = carryBuffer
-                    ? `[PRIOR TURN CONTEXT: ${lucaCtx}]
-${carryBuffer}`
+                    ? `[PRIOR TURN CONTEXT: ${lucaCtx}]\n${carryBuffer}`
                     : lucaCtx;
                 }
                 this.pendingCarryForwardGrounding = carryBuffer;
@@ -2868,6 +2875,22 @@ ${carryBuffer}`
               && !friction.archiveAccess
               && (friction.label === 'CLEAN' || friction.label === 'LOW');
 
+            // Surface friction data to Luca's observer store so it can post to Team Room.
+            {
+              const _frictionConvId = (this.session as any).conversationId as string | undefined;
+              if (_frictionConvId) {
+                observeFrictionScore(
+                  _frictionConvId,
+                  this.sessionStudentTurnCount,
+                  friction.label,
+                  friction.totalScore,
+                  friction.archiveAccess,
+                  smoothSlide,
+                  friction.unverifiedAssertions,
+                );
+              }
+            }
+
             // Fire on HIGH (≥60), strong MODERATE (≥50), OR smooth slide on a memory-request turn.
             const shouldFire = friction.label === 'HIGH'
               || (friction.label === 'MODERATE' && friction.totalScore >= 50)
@@ -2946,6 +2969,18 @@ ${carryBuffer}`
           if (recentFire) {
             recentFire.outcome = 'missed';
             console.log(`[ArchiveGuardian] Outcome 'missed' — no Archive tool called this turn (phrase: "${recentFire.phrase.slice(0, 50)}")`);
+          }
+        }
+        // Surface per-turn tool summary to Luca's observer before resetting the list.
+        {
+          const _tcConvId = (this.session as any).conversationId as string | undefined;
+          if (_tcConvId) {
+            observeTurnComplete(
+              _tcConvId,
+              this.sessionStudentTurnCount,
+              [...this.currentTurnToolCalls],
+              archiveToolsUsedThisTurn,
+            );
           }
         }
         this.currentTurnToolCalls = [];
