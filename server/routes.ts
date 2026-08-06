@@ -27403,8 +27403,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
     }
   });
   
-  // Agent posts directly to the Team Room — no go-between needed.
-  // The Agent's message appears as speaker "Agent" in the live room.
+  // Luca posts directly to the Team Room — appears as speaker "Luca".
   app.post("/api/agent/team-room/message", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { content, roomId } = req.body;
@@ -27432,7 +27431,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       const room = await storage.getTeamRoom(targetRoomId);
       if (!room) return res.status(404).json({ error: 'Room not found' });
 
-      const message = await storage.createRoomMessage({ roomId: targetRoomId, speaker: 'Agent', content });
+      const message = await storage.createRoomMessage({ roomId: targetRoomId, speaker: 'Luca', content });
 
       // Broadcast via WebSocket so the room updates live
       const { emitNewMessage } = await import('./services/team-room-ws-broker');
@@ -27480,6 +27479,59 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       });
     } catch (error: any) {
       console.error('[Agent API] Error reading Team Room thread:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Luca Presence & Nudge endpoints ─────────────────────────────────────────
+
+  // Connect Luca's live WebSocket presence to the Team Room.
+  // Idempotent — safe to call multiple times; re-connects if socket dropped.
+  app.post("/api/admin/luca/presence/connect", requireAgentToken, async (_req: any, res: Response) => {
+    try {
+      const { connectLucaToTeamRoom } = await import('./services/luca-presence');
+      connectLucaToTeamRoom();
+      const { getLucaPresenceState } = await import('./services/luca-presence');
+      res.json({ success: true, state: getLucaPresenceState() });
+    } catch (error: any) {
+      console.error('[LucaPresence] Connect error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Join a specific room (used when a new session is opened and Luca needs to switch rooms).
+  app.post("/api/admin/luca/presence/join", requireAgentToken, async (req: any, res: Response) => {
+    try {
+      const { roomId } = req.body;
+      if (!roomId) return res.status(400).json({ error: 'roomId is required' });
+      const { joinRoom, getLucaPresenceState } = await import('./services/luca-presence');
+      const joined = joinRoom(roomId);
+      res.json({ success: joined, state: getLucaPresenceState() });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Get Luca's current presence state.
+  app.get("/api/admin/luca/presence", requireAgentToken, async (_req: any, res: Response) => {
+    try {
+      const { getLucaPresenceState } = await import('./services/luca-presence');
+      res.json(getLucaPresenceState());
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Poll nudges — messages directed @luca that arrived over the live WS connection.
+  // Pass ?cursor=N to receive only nudges newer than that cursor position.
+  // Returns { nudges: [...], cursor: N } — store the cursor and pass it on the next call.
+  app.get("/api/admin/luca/nudges", requireAgentToken, async (req: any, res: Response) => {
+    try {
+      const cursor = parseInt(req.query.cursor as string) || 0;
+      const { getLucaNudges } = await import('./services/luca-presence');
+      const result = getLucaNudges(cursor);
+      res.json(result);
+    } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   });

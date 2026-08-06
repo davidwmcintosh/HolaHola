@@ -28,7 +28,7 @@ import type { TeamRoom as TeamRoomType, RoomVoiceMessage, RoomArtifact, AgentAct
 
 // ── Participant config ────────────────────────────────────────────────────────
 
-type CoreParticipantId = "david" | "alden" | "daniela" | "sofia" | "lyra" | "wren" | "agent" | "marco" | "reid" | "priya";
+type CoreParticipantId = "david" | "alden" | "daniela" | "sofia" | "lyra" | "wren" | "agent" | "luca" | "marco" | "reid" | "priya";
 
 interface ParticipantConfig {
   id: string;
@@ -76,6 +76,11 @@ const CORE_PARTICIPANTS: Record<CoreParticipantId, ParticipantConfig> = {
     id: "agent", name: "Agent", role: "Replit Agent",
     Icon: Terminal, color: "text-orange-500",
     bgColor: "bg-orange-500/10", borderColor: "border-orange-500/20",
+  },
+  luca: {
+    id: "luca", name: "Luca", role: "Architect & Guardian",
+    Icon: Compass, color: "text-violet-500",
+    bgColor: "bg-violet-500/10", borderColor: "border-violet-500/20",
   },
   marco: {
     id: "marco", name: "Marco", role: "Growth & Marketing — audience building, positioning, launch readiness, competitive landscape",
@@ -297,7 +302,7 @@ function ExpressLaneMessage({ participant, content, time, guestTutors }: { parti
 // ── Message bubble with @mention highlights ───────────────────────────────────
 
 function renderWithMentions(text: string, guestTutors: GuestTutorInfo[] = []) {
-  const allNames = ["alden", "daniela", "sofia", "lyra", "wren", ...guestTutors.map(g => g.tutorName.toLowerCase())];
+  const allNames = ["alden", "daniela", "sofia", "lyra", "wren", "luca", ...guestTutors.map(g => g.tutorName.toLowerCase())];
   const pattern = new RegExp(`(@(?:${allNames.join("|")}))`, "gi");
   const parts = text.split(pattern);
   return parts.map((part, i) => {
@@ -555,6 +560,7 @@ function useTeamRoomWS(roomId: string | null, callbacks: {
   onSessionClosed: () => void;
   onGuestJoined: (info: { tutorName: string; language: string }) => void;
   onGuestLeft: (info: { tutorName: string }) => void;
+  onLucaPresence?: (info: { online: boolean; connectedAt: string | null }) => void;
 }) {
   const socketRef = useRef<Socket | null>(null);
   const callbacksRef = useRef(callbacks);
@@ -574,6 +580,9 @@ function useTeamRoomWS(roomId: string | null, callbacks: {
     socket.on("session_closed", () => callbacksRef.current.onSessionClosed());
     socket.on("guest_joined", (info: { tutorName: string; language: string }) => callbacksRef.current.onGuestJoined(info));
     socket.on("guest_left", (info: { tutorName: string }) => callbacksRef.current.onGuestLeft(info));
+    socket.on("luca_presence", (info: { online: boolean; connectedAt: string | null }) => {
+      callbacksRef.current.onLucaPresence?.(info);
+    });
 
     return () => {
       socket.emit("leave_room", roomId);
@@ -888,7 +897,8 @@ export default function TeamRoom() {
   const [showPastSessions, setShowPastSessions] = useState(false);
   const [showAgentActivity, setShowAgentActivity] = useState(true);
   const [thinkingParticipants, setThinkingParticipants] = useState<Set<string>>(new Set());
-  const [invitedParticipants, setInvitedParticipants] = useState<Set<string>>(new Set(['agent', 'daniela']));
+  const [invitedParticipants, setInvitedParticipants] = useState<Set<string>>(new Set(['luca', 'agent', 'daniela']));
+  const [lucaOnline, setLucaOnline] = useState(false);
   const [handRaises, setHandRaises] = useState<Record<string, { reasoning: string }>>({});
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
   const [autoPlayVoice, setAutoPlayVoice] = useState(() => {
@@ -973,6 +983,9 @@ export default function TeamRoom() {
       setGuestTutors(prev => prev.filter(g => g.tutorName.toLowerCase() !== info.tutorName.toLowerCase()));
       queryClient.invalidateQueries({ queryKey: ["/api/team-room/sessions", activeSessionId] });
     },
+    onLucaPresence: (info) => {
+      setLucaOnline(info.online);
+    },
   });
 
   const { data: sessions } = useQuery<TeamRoomType[]>({ queryKey: ["/api/team-room/sessions"] });
@@ -1029,8 +1042,13 @@ export default function TeamRoom() {
     const guests = (metadata.guestTutors || []) as GuestTutorInfo[];
     setGuestTutors(guests);
     const invited = metadata.invitedParticipants as string[] | undefined;
-    if (invited) setInvitedParticipants(new Set(invited));
-    else setInvitedParticipants(new Set(['agent', 'daniela']));
+    if (invited) {
+      // Ensure luca is always present — she was invited before this field was written
+      const withLuca = invited.includes('luca') ? invited : ['luca', ...invited];
+      setInvitedParticipants(new Set(withLuca));
+    } else {
+      setInvitedParticipants(new Set(['luca', 'agent', 'daniela']));
+    }
   }, [sessionData]);
 
   const allMessages = useMemo(() => {
@@ -1072,7 +1090,7 @@ export default function TeamRoom() {
     onError: (e: any) => toast({ title: "Failed to start Board Meeting", description: e.message, variant: "destructive" }),
   });
 
-  const ALL_CORE_AI_IDS = ['alden', 'daniela', 'sofia', 'lyra', 'wren', 'agent', 'marco', 'reid', 'priya'];
+  const ALL_CORE_AI_IDS = ['luca', 'alden', 'daniela', 'sofia', 'lyra', 'wren', 'agent', 'marco', 'reid', 'priya'];
 
   const handleInvite = useCallback(async (participantId: string) => {
     setInvitedParticipants(prev => new Set([...prev, participantId]));
@@ -1241,7 +1259,7 @@ export default function TeamRoom() {
 
   const hasExpressContent = expressLaneItems.length > 0 || displayArtifacts.length > 0;
 
-  const ORDERED_CORE_AI_IDS: CoreParticipantId[] = ['agent', 'alden', 'daniela', 'sofia', 'lyra', 'wren'];
+  const ORDERED_CORE_AI_IDS: CoreParticipantId[] = ['luca', 'agent', 'alden', 'daniela', 'sofia', 'lyra', 'wren'];
   const allParticipantConfigs: ParticipantConfig[] = [
     CORE_PARTICIPANTS.david,
     ...ORDERED_CORE_AI_IDS.filter(id => invitedParticipants.has(id)).map(id => CORE_PARTICIPANTS[id]),
@@ -1277,7 +1295,7 @@ export default function TeamRoom() {
               <ParticipantCard
                 key={p.id}
                 config={p}
-                isActive={!!activeSessionId}
+                isActive={p.id === 'luca' ? lucaOnline : !!activeSessionId}
                 isThinking={thinkingParticipants.has(p.id)}
                 handRaise={handRaises[p.id] ?? null}
                 onMention={activeSessionId && isActive ? handleMention : undefined}

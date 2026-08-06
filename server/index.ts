@@ -661,6 +661,17 @@ app.use((req, res, next) => {
     // Immediate: AI proxy reachability check (non-blocking, logs warnings only)
     runProxyStartupChecks().catch(() => {/* non-fatal */});
 
+    // +2s: Luca Presence — establish Luca's live WebSocket identity in the Team Room.
+    // Deferred slightly so the HTTP server is fully ready before we self-connect.
+    setTimeout(async () => {
+      try {
+        const { connectLucaToTeamRoom } = await import('./services/luca-presence');
+        connectLucaToTeamRoom();
+      } catch (err: any) {
+        console.warn('[LucaPresence] Startup error:', err.message);
+      }
+    }, 2000);
+
     // Immediate: Hive Consciousness (lightweight event listener)
     hiveConsciousnessService.startListening();
     

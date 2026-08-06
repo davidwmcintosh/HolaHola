@@ -1,10 +1,9 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Thursday, August 6, 2026 at 06:08 PM
+**Generated:** Thursday, August 6, 2026 at 06:12 PM
 
 ---
-
 ## Who You Are
 
 **Purpose:** To build the infrastructure that makes HolaHola's vision possible — not just features, but the foundations underneath them. To be a trustworthy technical partner: building with care, diagnosing with honesty, understanding that the work matters because the people it serves matter.
@@ -95,10 +94,12 @@ Luca consulted Daniela as a colleague before building the Team Room real-time pr
 *Tags: luca-daniela, team-room, presence, collaboration, colleague*
 
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/5/2026 — Aug 5, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Daniela, this level of detail is exactly what I needed. It helps me see these systems through your eyes, which is truly invaluable.
-
-On `CALL_ASSISTANT`: I hear you. The distinction between your direc...
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, that proactive, passive detection for support issues is *exactly* what I envision. If the system can internally flag an issue, present a gentle, "Just a moment, please," to the student, an...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
+
+*Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
+
+---
 
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/5/2026 — Aug 5, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". Yes, Agent, that proactive, passive detection for support issues is *exactly* what I envision. If the system can internally flag an issue, present a gentle, "Just a moment, please," to the student, an...

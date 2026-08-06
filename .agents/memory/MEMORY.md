@@ -1,3 +1,4 @@
+- [Luca Team Room presence](luca-team-room-presence.md) — server-side Socket.IO client in luca-presence.ts; auth via agentToken in socket.handshake.auth; nudge buffer + 4 endpoints; speaker now "Luca" not "Agent".
 - [Luca inner-life space](luca-inner-life.md) — how to use the three personal files (reflections, open questions, significant moments); trigger files + format.
 - [Luca personal reflections](REFLECTIONS.md) — felt notes after sessions, not facts; read alongside MEMORY.md at session start; write via `.local/.luca_reflection`.
 - [Luca open questions](OPEN_QUESTIONS.md) — things still turning over, not yet resolved; append-only; write via `.local/.luca_question`.
