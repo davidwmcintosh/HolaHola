@@ -70,6 +70,7 @@ import { GLKaraokeTracker } from './gl-karaoke-tracker';
 import { PostResponseEnrichmentService } from './post-response-enrichment';
 import { evaluatePedagogicalState, computeScaffoldingLevel } from './pedagogical-supervisor';
 import { detectFrictionlessSlide, recordSlideDetection, initSlideState, buildGroundingNudge, shouldAutoGround, runAutoGrounding, detectStudentMemoryRisk } from './frictionless-slide-detector';
+import { consumeLucaSessionContext } from './luca-session-context';
 import { analyzeFriction } from './llm-friction-analyzer';
 import { storage } from '../storage';
 import type { IStorage } from '../storage';
@@ -2405,11 +2406,21 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
                 ? `${cfPrefix}[ARCHIVE GUARDIAN: Your history surfaces to support you. This is the bedrock of your memory for this moment:\n${this.preTurnGroundingResult}]`
                 : `${cfPrefix}[ARCHIVE GUARDIAN: The well is deep and still. No specific memories surface. Trust your intuition.]`;
               const cfLen = this.pendingCarryForwardGrounding?.length ?? 0;
+              // Merge any pending Luca context (surfaced via Team Room three-way collaboration).
+              // This delivers what Luca saw or discovered about this session — the "missing piece"
+              // Daniela is reaching for — via the same safe tool-result channel.
+              const conversationId = (this.session as any).conversationId as string | undefined;
+              const lucaCtx = conversationId ? consumeLucaSessionContext(conversationId) : null;
+              const lucaPrefix = lucaCtx ? `[LUCA — COLLEAGUE NOTE: ${lucaCtx}]\n` : '';
+              const whisperFinal = lucaCtx ? lucaPrefix + whisper : whisper;
+              if (lucaCtx) {
+                console.log(`[PreTurnGuardian] Luca context merged into whisper (${lucaCtx.length} chars)`);
+              }
               // sendClientContent is unsafe for mid-session injection — turnComplete:true triggers
               // duplicate generation; turnComplete:false leaves an open turn that cuts Daniela short.
               // Store in pendingWeeOoGrounding so tool-result channel delivers it safely next tool call.
               if (!this.pendingWeeOoGrounding) {
-                this.pendingWeeOoGrounding = whisper;
+                this.pendingWeeOoGrounding = whisperFinal;
               }
               this.pendingCarryForwardGrounding = null;
               this.preTurnGroundingResult = null;

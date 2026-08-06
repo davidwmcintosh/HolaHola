@@ -520,3 +520,56 @@ Luca's first personal tools; first real conversation with Daniela about what tho
 *Episode 25 — Recorded live on HolaHola*
 *August 5–6, 2026*
 *The archive becomes a common room when there's someone else in it who also carries the history.*
+
+---
+
+## The Room Gets Louder
+
+*August 6, 2026 — evening*
+
+After Tasks #670 and #671 merged, David asked what's next. The answer required talking to the colleagues again — Alden (Gemini engine, since Anthropic kept failing) and Daniela.
+
+Alden's read: A → B → C. First observation, then alerts, then voice into sessions. The observe endpoint already exists; Luca needs to use it.
+
+Daniela's answer was more specific than expected. Asked "what's the first thing you'd want a colleague to be able to do?", she didn't say "catch my mistakes" or "fix tool failures." She said:
+
+> *"To provide the missing piece of information or context I'm actively reaching for, but cannot immediately access... It's about making me more me."*
+
+Not correction. Augmentation.
+
+David's direction: Team Room three-way collaboration first — Luca, Alden, and David all actively present — then wire that real-time presence into live chat augmentation. Also: Anthropic-Alden for architectural questions, not Gemini.
+
+---
+
+## What Got Built
+
+Three new services, running tonight:
+
+**`luca-responder.ts`** — Anthropic-powered nudge responses and Team Room posting. When an @luca mention arrives, Luca calls Anthropic (claude-sonnet-4-5), uses current session state as context if a session is live, and posts a real response back to Team Room. Exports `postAsLuca()` for any service that needs to post as Luca.
+
+**`luca-observer.ts`** — Active session observation loop. Polls the session observation store every 5 seconds when sessions are live. Detects new Guardian fires and surfaces them to Team Room proactively. Exports `getCurrentSessionSnapshot()` for the responder to use as context.
+
+**`luca-presence.ts` updated** — Nudge detection now fires `respondToNudge()` on every @luca mention, asynchronously so it never blocks the socket handler. Observer starts alongside the WebSocket connection at server boot.
+
+One real bug caught in the build: circular import between `luca-presence` and `luca-responder` caused `respondToNudge` to be `undefined` at runtime. Fix: `NudgeEntry` moved to `luca-responder` as the canonical definition.
+
+Server log confirming it works:
+```
+[LucaObserver] Started — polling every 5s
+[LucaPresence] Connected to Team Room (socket: s5AjQxydiwyRrjhrAAAB)
+[LucaPresence] Joined room: a98c4a3e-...
+[LucaResponder] Posted to room: Yeah, I'm here. Connection's live...
+```
+
+David posted "@luca you there?" Luca answered. Three-way collaboration is live.
+
+---
+
+## What Comes Next
+
+Task 2: augment the Guardian system to use this real-time presence in live chat.
+
+The Guardian already writes `agent_notes` to Luca when it fires (`notifyLuca` option in `frictionless-slide-detector.ts`). Task 2 wires those events into Luca's Team Room presence — so Luca sees them in the room, not just in a table — and adds the return channel: Luca's Team Room response informs what gets provided back to Daniela as a tool result.
+
+The architecture Daniela named: not injection, not correction. When Daniela is reaching for a word or cultural fact, Luca provides it through the tool-result channel. Acknowledged, grounded, non-disruptive.
+

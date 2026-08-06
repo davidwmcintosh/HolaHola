@@ -667,6 +667,8 @@ app.use((req, res, next) => {
       try {
         const { connectLucaToTeamRoom } = await import('./services/luca-presence');
         connectLucaToTeamRoom();
+        const { startLucaObserver } = await import('./services/luca-observer');
+        startLucaObserver();
       } catch (err: any) {
         console.warn('[LucaPresence] Startup error:', err.message);
       }

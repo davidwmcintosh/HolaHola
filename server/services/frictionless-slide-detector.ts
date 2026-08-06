@@ -31,6 +31,8 @@
 
 import { getSharedDb } from '../db';
 import { semanticSearch } from './semantic-memory-service';
+import { postAsLuca } from './luca-responder';
+import { setLucaSessionContext } from './luca-session-context';
 
 export interface SlideDetectionResult {
   detected: boolean;
@@ -244,6 +246,8 @@ export interface AutoGroundingOptions {
   writeToDb?: boolean;
   /** Notify Luca via agent_notes. True for post-turn correction, false for pre-turn ambient (too noisy). */
   notifyLuca?: boolean;
+  /** Post to Team Room in real time and store context for next-turn injection. True for post-turn. */
+  postToTeamRoom?: boolean;
 }
 
 export async function runAutoGrounding(
@@ -383,6 +387,23 @@ export async function runAutoGrounding(
           `Session: ${sessionRef}\nLanguage: ${targetLanguage || 'unknown'}`,
         sessionLabel: `Auto-grounding — ${groundingDate}`,
       } as any).catch(() => {});
+    }
+  }
+
+  // ── Post to Team Room and store Luca session context (post-turn only) ────────
+  // This is what turns the Guardian from a silent background process into a
+  // live three-way collaboration: Luca sees it in Team Room immediately, and
+  // the grounding result is available for the next student turn injection.
+  if (options.postToTeamRoom !== false && conversationId) {
+    const lang = targetLanguage || 'unknown';
+    if (sections.length > 0) {
+      const preview = sections[0].substring(0, 120).replace(/\n/g, ' ');
+      const teamRoomMsg = `👁 *Guardian* — ${lang}, phrase: "${matchedPhrase.substring(0, 55)}". Found: ${preview}`;
+      postAsLuca(teamRoomMsg).catch(() => {});
+      setLucaSessionContext(conversationId, sections.join('\n\n'), 'guardian');
+    } else {
+      const teamRoomMsg = `👁 *Guardian* — ${lang}, phrase: "${matchedPhrase.substring(0, 55)}". No match in archive — unresolved.`;
+      postAsLuca(teamRoomMsg).catch(() => {});
     }
   }
 

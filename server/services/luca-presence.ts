@@ -18,6 +18,8 @@ import { getSharedDb } from "../db";
 import { teamRooms } from "../../shared/schema";
 import { desc, eq } from "drizzle-orm";
 import { emitToRoom } from "./team-room-ws-broker";
+import { respondToNudge } from "./luca-responder";
+import { getCurrentSessionSnapshot, startLucaObserver } from "./luca-observer";
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -230,6 +232,12 @@ export function connectLucaToTeamRoom(): void {
         _nudgeBuffer = _nudgeBuffer.slice(-NUDGE_BUFFER_LIMIT);
       }
       console.log(`[LucaPresence] Nudge buffered from ${msg.speaker}: ${msg.content.substring(0, 60)}`);
+
+      // Respond to the nudge with Anthropic — fire-and-forget, never block the socket handler
+      const snapshot = getCurrentSessionSnapshot();
+      respondToNudge(entry, snapshot).catch((err: any) => {
+        console.warn('[LucaPresence] Nudge response error:', err.message);
+      });
     }
   );
 
