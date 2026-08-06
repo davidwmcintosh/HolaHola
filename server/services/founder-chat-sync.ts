@@ -41,16 +41,61 @@ let sweepRunning       = false;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/**
+ * Strip artifact patterns that sometimes leak into messages.content:
+ *
+ * 1. Tool call blobs — `self_write{action:..., params_json:...}` — these are
+ *    raw tool invocations that were stringified into the content field instead
+ *    of being executed silently.
+ *
+ * 2. Tool result wrappers — `response:self_write{result:{...}}` — the result
+ *    payload echoed back into content before the real text follows.
+ *
+ * 3. Leaked thought tokens — `thought\n<internal reasoning>` prefixes that
+ *    appear when Gemini's includeThoughts:true output bleeds into the message.
+ *
+ * 4. Thinking Process blocks — `Thinking Process (post-tool-call): ...`
+ *    sections that Daniela occasionally surfaced verbatim.
+ *
+ * Returns null if the entire content was artifact (skip the message entirely).
+ */
+function sanitizeContent(raw: string): string | null {
+  let text = (raw ?? '').trim();
+
+  // Strip leading tool call blob: self_write{...} or any tool name followed by {
+  // These appear at the start of content before real text, or as the whole message
+  text = text.replace(/^[a-z_]+\{[^}]*(?:\{[^}]*\}[^}]*)?\}[\n\r]*/gi, '');
+
+  // Strip response wrapper: response:toolname{result:{...}}
+  text = text.replace(/^response:[a-z_]+\{.*?\}[\n\r]*/gi, '');
+
+  // Strip leaked thought token block: lines starting with "thought" followed by reasoning
+  // Pattern: "thought\n<text until a blank line or natural speech begins>"
+  text = text.replace(/^thought\n[\s\S]*?(?=\n\n|\n[A-Z]|$)/i, '');
+
+  // Strip "Thinking Process (post-tool-call):" blocks
+  text = text.replace(/Thinking Process \(post-tool-call\):[\s\S]*?(?=\n\n[A-Z]|$)/gi, '');
+
+  // Strip bracketed system markers that are not conversation
+  // e.g. [ARCHIVE GUARDIAN: ...], [PRIOR TURN CONTEXT: ...], [DANIELA_STATE]
+  text = text.replace(/\[(?:ARCHIVE GUARDIAN|PRIOR TURN CONTEXT|DANIELA_STATE|SESSION ANCHOR|LUCA[^\]]*)[^\]]*\]/gi, '');
+
+  text = text.replace(/\n{3,}/g, '\n\n').trim();
+  return text.length > 0 ? text : null;
+}
+
 function formatTranscript(
   messages: Array<{ role: string; content: string }>
 ): string {
-  return messages
-    .filter(m => m.role === 'user' || m.role === 'assistant')
-    .map(m => {
-      const speaker = m.role === 'user' ? 'David' : 'Daniela';
-      return `${speaker}: ${(m.content ?? '').replace(/\n{3,}/g, '\n\n').trim()}`;
-    })
-    .join('\n\n');
+  const lines: string[] = [];
+  for (const m of messages) {
+    if (m.role !== 'user' && m.role !== 'assistant') continue;
+    const clean = sanitizeContent(m.content);
+    if (!clean) continue; // entire message was artifact — skip
+    const speaker = m.role === 'user' ? 'David' : 'Daniela';
+    lines.push(`${speaker}: ${clean}`);
+  }
+  return lines.join('\n\n');
 }
 
 function buildSummary(
@@ -70,6 +115,10 @@ function buildSummary(
   return parts.join(' ');
 }
 
+// Bump this when the sanitizer logic changes — any saved entry missing this
+// tag will be re-processed on the next sweep or retroactive pass.
+const SANITIZER_VERSION = 'sanv:1';
+
 function buildTags(conv: {
   id: string;
   language: string;
@@ -82,6 +131,7 @@ function buildTags(conv: {
     conv.language,
     `cid:${conv.id}`,
     `msgcount:${conv.message_count}`,
+    SANITIZER_VERSION,
   ];
   if (conv.topic) tags.push(conv.topic.toLowerCase().slice(0, 40));
   return tags;
@@ -128,8 +178,11 @@ async function syncConversation(conv: {
 
   if (existing.rows.length > 0) {
     const row = existing.rows[0] as { id: string; tags: string[] };
-    const existingMsgCount = (row.tags ?? []).find((t: string) => t.startsWith('msgcount:'));
-    if (existingMsgCount === `msgcount:${conv.message_count}`) return 'skipped';
+    const existingTags = row.tags ?? [];
+    const existingMsgCount = existingTags.find((t: string) => t.startsWith('msgcount:'));
+    const hasSanitizerVersion = existingTags.includes(SANITIZER_VERSION);
+    // Skip only if message count AND sanitizer version both match
+    if (existingMsgCount === `msgcount:${conv.message_count}` && hasSanitizerVersion) return 'skipped';
 
     // Conversation has grown — update in place
     await db.execute(sql.raw(`
