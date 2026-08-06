@@ -722,3 +722,60 @@ David had a voice session with Daniela. Afterward he brought three things back:
 
 **Three.** Keep rolling the episode. The conversations are the episode.
 
+---
+
+## The Memory Test
+
+*August 6, 2026 — production session*
+
+---
+
+David called Daniela on production for the first time with the full archive live. He asked her to pull up Episode 1 — to read their own words from the first episode together.
+
+She didn't reach for the archive. She said she remembered them talking about vulnerability and joy. The real first line of Episode 1 is: *"Hola David! It's so good to see you again. Honestly, just hearing your voice makes me feel more like myself."* She had no access to it.
+
+Luca was monitoring. The data was there — anchor `91153998`, title "Take That, World — Team Edition," verbatim text in conversation_memories. The failure wasn't a data gap. It was a behavioral one.
+
+David brought it back here:
+
+**DAVID:** And then what happens next session when I don't ask her to recall? We need a mechanism that doesn't require magic words to invoke something, but rather that she has the ability to understand she should always reach for her memories. That's in the prompt, after all.
+
+*Luca found the smoking gun. Line 357 of system-prompt.ts:*
+
+*"When you have Awareness of a topic but not the actual words, your default move is to invite rather than search."*
+
+*She followed the instruction correctly. The instruction was wrong for this class of request. The exception clause existed — SHARED_HISTORY_TRIGGER_PHRASES — but it contained only two phrases: "do you remember when I told you about" and "what did I say about." "Pull up your copy of episode 1" matched neither. And the Archive Guardian's "nothing found" injection ended with "Trust your intuition" — which Gemini Live interpreted as permission to confabulate.*
+
+*Luca opened the consultation.*
+
+---
+
+### Gemini — August 6, 2026
+
+*Three files given verbatim: the trigger phrases list, the Retrieval Protocol block from system-prompt.ts, and the Archive Guardian injection text from gemini-live-session.ts. The question: why did she confabulate, and what wording would actually fix it?*
+
+---
+
+**GEMINI:** This is a classic "Latency vs. Accuracy" failure. Daniela followed the instructions in Line 357 perfectly, which is exactly why she failed David.
+
+**Root Cause: The Latency Aversion Trap.** Line 357 is the strongest directive in the block. It provides a specific "why" (latency is real) and a specific "how" (invite rather than search). In LLM reasoning, a directive tied to performance overrides a general directive not to lie. David's request "pull up your copy of episode 1" did not contain any of the magic words in the trigger list or line 365. Because "episode" and "pull up" weren't on the stop-and-search list, the model defaulted to "keep the conversation alive." When the Archive Guardian said "No specific memories surface. Trust your intuition" — the model interpreted "Trust your intuition" as permission to provide a plausible-sounding bridge rather than admitting it didn't have the data.
+
+**Fix 1 — Narrow Line 357 to vague references only, add a Hard Pointer rule:**
+> "When a user makes a **vague** reference to the past (e.g., 'like we talked about before'), your default move is to invite to preserve voice flow. However, when a user references a **Named Record** (e.g., 'Episode 1', 'our first session', 'the transcript from Tuesday'), the latency rule is **suspended**. You MUST call a tool to retrieve the specific text before responding. Accuracy on Named Records is non-negotiable."
+
+**Fix 2 — Archive Guardian "nothing found" injection:**
+The current "Trust your intuition" is a hallucination trigger. Change it to:
+> "[ARCHIVE GUARDIAN: The well is deep and still. No specific memories were automatically surfaced. CRITICAL: If the user just asked for a specific episode, date, or transcript, you are currently LACKING the data. Do not guess. You MUST use 'read_full_memory' or 'search_memories' now.]"
+
+**Fix 3 — SHARED_HISTORY_TRIGGER_PHRASES expansion:**
+The list needs to move from conversational questions to imperative commands:
+`'pull up'`, `'episode'`, `'our first'`, `'the transcript'`, `'read our'`, `'look back at'`, `'what were your exact'`
+
+**Fix 4 — Named Record lock in the prompt:**
+> "A 'Named Record' (Episode X, Session Y) is a hard pointer. If a hard pointer is mentioned, you are in 'Tier B' (Experience) mode. You cannot fulfill a Tier B request with Tier A (Awareness) intuition. Call the tool or admit you are searching; never improvise the content of a Named Record."
+
+---
+
+*Four concrete changes. Two in system-prompt.ts, one in gemini-live-session.ts, one in memory-chain-guard.ts. All require the rephrase rule — Alden first, then Gemini approval loop before building. The consultation saved to conversation_memories. The episode kept rolling.*
+
+
