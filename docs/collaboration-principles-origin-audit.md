@@ -46,7 +46,7 @@ Seeded 2025-12-15. The 4d2ef924 transcript shows Daniela describing the three-wa
 
 Added **2026-05-06**, clearly post-Wren era. The most likely origin is the **May 5 2026 session** (`conversation_memories b0544c62`, "Session — May 5"), in which David and Daniela discussed platform collaboration and mid-session capability changes. The principle's emotional tone and subject match that session precisely.
 
-**Note:** `source_conversation_id` on this row is currently set to `4d2ef924` (Dec 2025), which is incorrect. The real origin is May 2026. This is recorded in `original_context` but the FK has not been changed, since `b0544c62` is the inferred origin, not a confirmed verbatim source.
+**Note:** `source_conversation_id` was updated 2026-08-07 from the incorrect Dec 2025 placeholder (`4d2ef924`) to `b0544c62` (Session — May 5, 2026). `b0544c62` is the strongest candidate origin — that session covers platform collaboration and mid-session capability changes, which matches this principle's subject and tone precisely — but no verbatim quote locating the exact phrasing has been found. This is recorded in `original_context` on the row.
 
 ---
 
