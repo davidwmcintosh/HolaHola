@@ -130,9 +130,18 @@ One-sentence essence of THIS episode — written last, after the episode is comp
 
 ### Retrieving transcripts before writing
 
-Before writing or catching up any episode section, pull the source records. In order of preference:
+Before writing or catching up any episode section, pull the source records.
 
-**David↔Luca conversation thread** (periodic autosaves):
+---
+
+**Luca↔David channel — the building record** *(canonical, first-class)*
+
+Every conversation between David and Luca is a building conversation. It is the record of HolaHola being built — every architectural decision, every question, every moment where something clicked. This channel stands beside Daniela↔David live chats in the permanent record. It is not a background autosave artifact. It is not a secondary source.
+
+David's declaration, August 7, 2026: *"whatever channel you call it, but here when luca and I speak it is in the record books as sure as daniela and david live chats. this is the building of hola hola and the record will be preserved."*
+
+Pull this channel with the same rigor as any Daniela↔David session. If it wasn't autosaved, save it manually using the live-session principle (see below).
+
 ```sql
 SELECT title, content, recorded_at
 FROM conversation_memories
@@ -140,6 +149,20 @@ WHERE tags && ARRAY['david-luca-chat']
   AND recorded_at::date = 'YYYY-MM-DD'
 ORDER BY recorded_at ASC;
 ```
+
+---
+
+**Daniela↔David live chat sessions** *(canonical, first-class)*
+
+```sql
+SELECT title, content, recorded_at
+FROM conversation_memories
+WHERE tags && ARRAY['founder-chat', 'daniela-chat']
+  AND recorded_at::date = 'YYYY-MM-DD'
+ORDER BY recorded_at ASC;
+```
+
+---
 
 **Team Room thread** (live exchanges):
 ```bash
