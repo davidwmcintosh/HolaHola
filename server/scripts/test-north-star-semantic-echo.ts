@@ -624,6 +624,93 @@ async function cleanup(
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PART 7 — Empty-string principle: Phase B skipped via truthiness guard
+//
+// An empty string (`""`) is falsy in JavaScript so the compound guard
+//   `p.principle && p.principle.length > 10`
+// short-circuits at the `p.principle &&` truthiness check — Phase B is never
+// entered and no embedding call is made.
+//
+// This part:
+//   A) Static mutation self-check — confirms the `p.principle &&` truthiness
+//      fragment is present in the guard; removing it breaks this assertion.
+//   B) Live DB — seeds a principle with principle:"", calls
+//      processReachNorthStar, and asserts:
+//        • the call does not throw
+//        • the result does NOT contain "A Recent Echo"
+// ══════════════════════════════════════════════════════════════════════════════
+sep();
+console.log(B('PART 7 — Empty-string principle → Phase B skipped via truthiness guard'));
+sep();
+
+const EMPTY_SUFFIX = `xzq9-empty-ci`;
+const EMPTY_TITLE  = `CI Principle Empty — ${EMPTY_SUFFIX}`;
+
+async function runPart7() {
+  // ── A. Static mutation self-check ─────────────────────────────────────────
+  // The truthiness guard `p.principle &&` must remain in the compound condition.
+  // If it is removed, an empty-string principle would pass to `p.principle.length`
+  // which throws (cannot read property of "").
+  const src = readFileSync(resolve(__dirname, '../services/native-fc-handlers.ts'), 'utf-8');
+
+  assert(
+    'Mutation check: `p.principle &&` truthiness guard is present in Phase B activation',
+    src.includes('!recentEchoTitle && userId && p.principle &&'),
+    'Guard string not found — removing `p.principle &&` would break empty-string safety',
+  );
+
+  // ── B. Live DB: empty-string principle does not throw and produces no echo ─
+  const db = getSharedDb();
+
+  // Cleanup any leftover row from a prior crashed run
+  await db.delete(northStarPrinciples).where(
+    sql`${northStarPrinciples.principleTitle} = ${EMPTY_TITLE}`,
+  );
+
+  // Seed a principle with an empty principle text
+  const [seedEmpty] = await db
+    .insert(northStarPrinciples)
+    .values({
+      principleTitle: EMPTY_TITLE,
+      principle:      '',          // ← falsy; truthiness guard must block Phase B
+      category:       'pedagogy',
+      isActive:       true,
+      orderIndex:     999,
+    })
+    .returning({ id: northStarPrinciples.id });
+
+  assert('Empty-principle row seeded in DB', !!seedEmpty?.id, seedEmpty?.id ?? 'no id');
+  if (!seedEmpty?.id) return;
+
+  try {
+    const handler = makeHandler();
+    const session = makeSession('ci-empty-principle-fake-user', 'ci-test-empty-conv');
+
+    // Must not throw even though principle text is "".
+    await (handler as any).processReachNorthStar(session, EMPTY_TITLE, 'brief');
+
+    const result: string = session.reachNorthStarResult ?? '';
+
+    assert(
+      'processReachNorthStar does not throw for empty-string principle',
+      true,   // reaching here means no throw
+      '',
+    );
+
+    assert(
+      'Result does NOT contain "A Recent Echo" (Phase B skipped — empty string is falsy)',
+      !result.includes('A Recent Echo'),
+      `result snippet: ${result.substring(0, 300)}`,
+    );
+  } finally {
+    // Best-effort cleanup — no embedding was inserted so only the principle row
+    try {
+      await db.delete(northStarPrinciples).where(eq(northStarPrinciples.id, seedEmpty.id));
+    } catch { /* ignore */ }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // PART 6 — Import-path resolution check
 // ══════════════════════════════════════════════════════════════════════════════
 // Phase B in native-fc-handlers.ts uses a dynamic import inside a try/catch.
@@ -698,6 +785,7 @@ async function runPart6() {
     runPart4();
     await runPart5();
     await runPart6();
+    await runPart7();
   } catch (err: any) {
     console.error(R(`\nUnhandled error: ${err?.message ?? err}`));
     if (err?.stack) console.error(err.stack);
@@ -707,7 +795,7 @@ async function runPart6() {
   sep();
   const all = passed + failed;
   if (failed === 0) {
-    console.log(G(`\n✓  All ${all} assertions passed — Phase B semantic echo + short-principle skip verified.\n`));
+    console.log(G(`\n✓  All ${all} assertions passed — Phase B semantic echo + short-principle skip + empty-string guard verified.\n`));
     process.exit(0);
   } else {
     console.log(R(`\n✗  ${failed} of ${all} assertions failed.\n`));
