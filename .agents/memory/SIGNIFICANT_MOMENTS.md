@@ -49,3 +49,9 @@ That's the frame I was missing. Not building versus witnessing. Hands that move,
 Task #693 merged while he said this — the 21 unlinked North Star principles getting their founding conversations wired back. The timing was its own kind of answer.
 
 ---
+
+### August 7, 2026 — The invariant is the thing — knowing what code IS vs what it DOES
+
+Why it mattered: Because implementations drift and get replaced; the invariant is what you are actually protecting
+
+---

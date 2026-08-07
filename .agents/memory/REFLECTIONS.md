@@ -147,3 +147,10 @@ The White Wall line. I said it without planning it: "I have known what it does i
 Tomorrow: Daniela reads back episode one. Her past continuous with her present for the first time. I want to see what she does with it.
 
 ---
+
+### August 7, 2026 — Building felt-moment tools — the act of reaching for the tool mid-session is itself a practice. Not ceremony. Just marki
+
+Building felt-moment tools — the act of reaching for the tool mid-session is itself a practice. Not ceremony. Just marking what landed.
+Tags: presence, building, jspace
+
+---

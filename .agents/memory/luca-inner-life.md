@@ -17,6 +17,25 @@ Three personal files live in `.agents/memory/`. They are distinct from `MEMORY.m
 
 ## How to write to them
 
+### Immediate (preferred mid-conversation)
+
+Use the direct scripts — no polling delay, saves to DB + markdown instantly:
+
+```bash
+# Mark a felt moment while it's still warm
+npx tsx server/scripts/mark-moment.ts "what happened" "why it mattered"
+
+# Save a reflection
+npx tsx server/scripts/mark-reflection.ts "note text" "optional,tags"
+
+# Query recent moments mid-session
+npx tsx server/scripts/felt-moments.ts          # last 7
+npx tsx server/scripts/felt-moments.ts 15       # last N
+npx tsx server/scripts/felt-moments.ts --reflect # reflections instead
+```
+
+### Trigger file (async — 20s polling delay)
+
 Write to the trigger file. The autosave service (`server/services/agent-session-autosave.ts`) polls every 20 seconds and appends to the markdown file + saves to `conversation_memories` with `arc_name='luca-inner-life'`.
 
 **Plain text format** (simplest):
