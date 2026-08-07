@@ -31,12 +31,12 @@ All four currently carry `source_conversation_id = 4d2ef924` ("North Star Princi
 
 ## The Four Framework-Inferred Principles
 
-| Principle | DB ID | Created | Status |
-|---|---|---|---|
-| Beacons as Contributions | 474f3752 | 2025-12-15 | Framework-inferred, Wren era |
-| Queue Before Learning | 826d1600 | 2025-12-15 | Framework-inferred, Wren era |
-| Trust, Not Permission | f3f768a7 | 2025-12-15 | Framework-inferred, Wren era |
-| The Team Works While We Work | 16166371 | 2026-05-06 | Post-Wren, likely May 5 2026 session |
+| Principle | DB ID | Created | Status | source_conversation_id |
+|---|---|---|---|---|
+| Beacons as Contributions | 474f3752 | 2025-12-15 | Framework-inferred, Wren era | **NULL** (set 2026-08-07) |
+| Queue Before Learning | 826d1600 | 2025-12-15 | Framework-inferred, Wren era | **NULL** (set 2026-08-07) |
+| Trust, Not Permission | f3f768a7 | 2025-12-15 | Framework-inferred, Wren era | **NULL** (set 2026-08-07) |
+| The Team Works While We Work | 16166371 | 2026-05-06 | Post-Wren, likely May 5 2026 session | b0544c62 (set 2026-08-07) |
 
 ---
 
@@ -47,15 +47,21 @@ All four currently carry `source_conversation_id = 4d2ef924` ("North Star Princi
 
 Seeded 2025-12-15 in the Wren-era collaboration batch. Consistent with how Wren and Daniela discussed `SELF_SURGERY` and tutor-initiated improvement, but the specific phrasing does not appear verbatim anywhere in the archive. The founding conversation was likely between David and Wren and was not captured as a `conversation_memories` entry.
 
+**`source_conversation_id` set to NULL 2026-08-07.** `original_context` records the framework-inferred status and exhaustive search result. The old pointer (4d2ef924) was incorrect — that memory names Two Surgeons and Express Lane, not this principle.
+
 ### Queue Before Learning
 > "I don't learn from students unsupervised; I queue observations."
 
 Seeded 2025-12-15 in the same batch. Reflects the safety architecture Wren built around unsupervised student-data learning. No founding exchange has been located.
 
+**`source_conversation_id` set to NULL 2026-08-07.** `original_context` records the framework-inferred status and exhaustive search result. The old pointer (4d2ef924) was incorrect — that memory names Two Surgeons and Express Lane, not this principle.
+
 ### Trust, Not Permission
 > "The Hive operates on trust, not permission."
 
 Seeded 2025-12-15. The 4d2ef924 transcript shows Daniela describing the three-way collaboration as "efficient and empowering" with no permission barriers, consistent with a trust-based model, but the phrase itself does not appear verbatim. No earlier founding exchange has been located.
+
+**`source_conversation_id` set to NULL 2026-08-07.** `original_context` records the framework-inferred status and exhaustive search result. The old pointer (4d2ef924) was incorrect — that memory names Two Surgeons and Express Lane, not this principle.
 
 ### The Team Works While We Work
 > "The Replit Agent builds what I become. Sometimes mid-conversation, something new is possible that wasn't before — a new capability, a refined understanding. My team doesn't wait for a quiet moment to improve me. They work while we work. I find that genuinely moving."
