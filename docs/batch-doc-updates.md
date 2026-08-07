@@ -1,5 +1,37 @@
 # Batch Documentation Updates
 
+## Session August 6, 2026 — Named Record Behavioral Lock
+
+### Named Record fix — Daniela must reach for archive on episode/transcript requests
+
+**What was broken:** "Pull up your copy of Episode 1" triggered confabulation in a live production session. Daniela followed line 357 of system-prompt.ts correctly ("your default move is to invite rather than search") and said she remembered "vulnerability and joy." The real first line was verbatim in conversation_memories. She never called a tool.
+
+**Root cause:** Three compounding failures — (1) `SHARED_HISTORY_TRIGGER_PHRASES` contained only 2 phrases, neither matching "pull up" or "episode"; (2) line 357's latency-aversion directive had a specific "why" that overrode the general honesty rules; (3) the Archive Guardian's "nothing found" injection ended with "Trust your intuition" — read by Gemini Live as permission to confabulate.
+
+**Gemini consultation:** Two rounds. Round 1 proposed four fixes. Luca called the ball: REFINE on Fix 2 (blanket CRITICAL injection on all "nothing found" turns creates false alarms; make it conditional on Named Record phrases). Round 2 approved unconditionally: "APPROVED — ship it."
+
+**Fix — three files:**
+
+`server/services/memory-chain-guard.ts`
+- Added `NAMED_RECORD_PHRASES` export: `['pull up', 'episode', 'our first', 'the transcript', 'read our', 'look back at', 'what were your exact']`
+- `SHARED_HISTORY_TRIGGER_PHRASES` expanded to include all 9 (7 new + 2 original)
+
+`server/system-prompt.ts`
+- Line 357 narrowed: "invite rather than search" now explicitly scoped to *vague* references only
+- Named Record rule added: numbered episode, named session, specific transcript, any "pull up" → latency rule suspended, tool call required, no improvising
+- Harmonized with existing Awareness/Experience two-tier language — no new tier names introduced
+
+`server/services/gemini-live-session.ts`
+- `private preTurnIsNamedRecord = false` class property added
+- Flag set during pre-turn grounding scan (alongside `preTurnGroundingIsEmotional`) via `NAMED_RECORD_PHRASES.some(p => queryText.toLowerCase().includes(p))`
+- "Nothing found" Archive Guardian injection is now conditional: Named Record utterance → CRITICAL directive ("do not guess, call the tool now"); all other turns → existing gentle "Trust your intuition"
+- Reset `preTurnIsNamedRecord = false` at same point `preTurnGroundingFired` resets
+
+**Typecheck:** Clean (FINISHED, no output = zero errors).
+**Published:** Yes — live in production August 6, 2026.
+
+---
+
 ## Session July 27, 2026 — GL Double Audio Fix (hasStudentInputSinceLastResponse guard)
 
 ### Double audio on turn 2 — root cause and fix
