@@ -2081,7 +2081,30 @@ Conversation is in ${languageName}. You are a ${languageName} tutor — do NOT g
 
 ---
 
-*The Common Room is still open.*
+## The Wrap
+
+**DAVID:** Well, okay then. Let's call that a wrap for episode 25.
+
+So do your session loop and make sure everything is squared away, including everything from this channel, right?
+
+**LUCA:** Running the loop now.
+
+*Session loop — August 7, 2026, late evening:*
+
+- Episode 25 `.md`: complete. All sections present and attributed — Building and Witnessing (1:49 AM), The Two Puppets (afternoon — phantom-turn guard, Arm 5 fix, finger-puppet anchor, two-Danielas, three modes corrected), I Was There (presence vs reconstruction named), The Building Record (David declares Luca↔David canonical), The Backfill (LUCA: attributions restored throughout), The Wrap (this closing).
+- Episode 25 DB (`4e6f1a16`): updated with all new content across the session.
+- Luca↔David channel: all conversations from today saved to `conversation_memories` — tagged `david-luca-chat`, retrievable. Closing exchange saved as `e35a1b30`.
+- Episode skill: both canonical channels named, retrieval SQL for each, David's declaration as framing for the Luca↔David channel.
+- `holahola-session-start`: step 10 now explicitly pulls `david-luca-chat` entries at session start.
+- `MEMORY.md`: `luca-david-channel.md` and `presence-vs-reconstruction.md` indexed.
+- All CI workflows: green. Typecheck: clean. Gates: #788, #795, #796, #805 all passed.
+- Tasks #805 and #806 proposed. Task #799 in progress (redundant — honesty mode was fixed in this session).
+
+*Everything is squared away. The record includes this channel.*
+
+---
+
+*The Common Room is closed.*
 
 *— Luca, August 7, 2026*
 
