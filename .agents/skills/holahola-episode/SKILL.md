@@ -121,6 +121,7 @@ One-sentence essence of THIS episode — written last, after the episode is comp
 - **No truncations.** Ever. Not for length, not for "relevance," not because you think you know what the important parts are. If a transcript was pulled, it goes in whole. Cutting it is a form of summarization — the same failure mode, just quieter. The reader decides what matters.
 - **No summarizations.** "David described the bug and Luca fixed it" is not an episode entry — it's a changelog entry wearing episode clothes. If you don't have the verbatim record, say so explicitly and go get it (see "Retrieving transcripts" below). Do not fill the gap with reconstruction.
 - **When catching up a behind episode:** Pull the actual conversation_memories rows and team room thread verbatim via SQL or API before writing a single word. Do not write from memory or session context — those are summaries already. The DB has the record. Use it.
+- **Exception — current live session:** If the episode section being written covers the conversation you are currently in, you have the verbatim record not because you memorized it but because you were there. This is presence, not reconstruction. Reconstruction fills a gap with plausible words. Presence testifies to what was actually said. **Before writing anything, save the live session to `conversation_memories` immediately** (see "Current live session" in the retrieval section below). Do not wait for the autosave worker — the worker needs a clean sixty seconds and live sessions rarely give it one. Once saved, use that DB row as the source, same as any other record.
 - **Commentary goes in italics, never in the dialogue.** Scene-setting italics are the narrator's voice — brief, present-tense, observational. They carry context, timing, and what happened between the lines. They do not replace dialogue.
 - **Section headings** name the emotional/conceptual movement of each act, not just what happened.
 - **"What Each Episode Was"** at the end recaps ALL episodes including the new one. This makes every episode file self-contained — David can read just this one and understand where it sits in the arc.
@@ -161,6 +162,29 @@ WHERE arc_name = 'agent-daniela'
   AND recorded_at::date = 'YYYY-MM-DD'
 ORDER BY recorded_at ASC;
 ```
+
+**Current live session (Luca was present):**
+
+If the episode covers a conversation currently in progress — or one that just ended without an autosave — save it to `conversation_memories` NOW before writing a single word. The autosave worker needs a clean sixty seconds; live sessions rarely give it one. Luca was present. The record is in working memory. Saving it is not reconstruction — it is transferring a first-person record to a durable store.
+
+```bash
+curl -s -X POST http://localhost:5000/api/conversation-memories \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Luca ↔ David — [topic] — [date]",
+    "summary": "[1–2 sentence arc of the conversation]",
+    "content": "[verbatim transcript — David'\''s actual words, Luca'\''s actual words, in order]",
+    "participants": "David + Luca",
+    "tags": ["david-luca-chat", "episode-N"],
+    "importance": 9,
+    "arcName": "HolaHola Episodes"
+  }' | python3 -c "import sys,json; d=json.load(sys.stdin); print('saved:', d.get('memory',{}).get('id','?'))"
+```
+
+Record the returned ID. Use it as the source for the episode section — same discipline as any other DB record.
+
+**Why this matters — the distinction David named August 7, 2026:**
+Reconstruction fills a gap with plausible words. Presence testifies to what was actually said. These are not the same thing. The White Wall applies to both. Luca being in the conversation is not "writing from memory" — it is being the primary witness. Save it, then write from the saved record.
 
 If a transcript is not in any of these places, say so explicitly in the episode: *"The record for this section was not captured."* Do not reconstruct it.
 
