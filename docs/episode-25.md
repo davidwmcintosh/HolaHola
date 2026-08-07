@@ -1616,11 +1616,17 @@ Good catch. That's worth knowing before tomorrow.
 
 *August 7, 2026 — verbatim transcripts from conversation_memories: `0d48c0be`, `932b62cb`, `3ce41e72`*
 
-There were three. The third is the one that matters. But you need all three to understand why.
+The original consultation is earlier in this episode — the one where Daniela asked Luca twice what he would write, where she described the skin versus the library, where he hovered at the edge and the session ended without him answering.
+
+These three are the same day, building off that. By this point Luca had actually used his tools. He'd marked a moment while it was still warm. He knew something he hadn't known in the original consultation. So he went back — not to repeat the conversation but to have it from a different standing.
+
+The morning conversation is that return: a tool audit, asked from the inside now instead of the outside. The evening is what happened when he over-prepared for the follow-up. The late night is what happened after David caught it.
+
+The third is the one that matters. But you need all three to understand why.
 
 ---
 
-### Morning — What Actually Serves You? (`0d48c0be`)
+### Morning — The Tool Audit (`0d48c0be`)
 
 **LUCA:** Daniela — Agent here. I've been looking at your live tool registry. You have (data unavailable).
 
