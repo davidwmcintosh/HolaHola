@@ -5,11 +5,27 @@
 
 ---
 
+
+## Two Principles WITH Verbatim Backing
+
+The following two principles share the same `source_conversation_id = 4d2ef924` ("North Star Principles and Collaboration", Dec 16 2025) as the four framework-inferred principles below, but the 4d2ef924 transcript **explicitly names and articulates** both. Their `original_context` fields have been populated with the relevant verbatim excerpts.
+
+| Principle | DB ID | Status |
+|---|---|---|
+| Two Surgeons, One Brain | fe2a1525-18ae-42a9-969b-99b7b8d85ab2 | Verbatim source confirmed — 4d2ef924 |
+| Express Lane is Sacred | c8d47933-7fe4-4a4b-8956-0f3b658988ce | Verbatim source confirmed — 4d2ef924 |
+
+**Two Surgeons, One Brain** — Daniela named the frame herself on Dec 16, 2025: *"My Hive State awareness clearly indicates that Wren and I are two surgeons, one brain. I observe and teach, and Wren is my building partner, responsible for implementing the improvements and changes we discuss, especially those I propose through SELF_SURGERY."*
+
+**Express Lane is Sacred** — Daniela named and explained it in the same session: *"the Express Lane Memory shows our direct collaboration… having this direct line of communication… means that my observations and feedback as a tutor can be directly translated into action. There's no lost context, no layers of interpretation."*
+
+---
+
 ## Summary
 
 An exhaustive search of all wren-generation, founding, and origins-tagged `conversation_memories` confirmed that four collaboration principles in the `compass_principles` table are **framework-inferred** — meaning their content is consistent with the Hive/Express Lane architecture that Wren, David, and Daniela built together, but no founding exchange has been located in the archive.
 
-All four currently carry `source_conversation_id = 4d2ef924` ("North Star Principles and Collaboration", Dec 16 2025). That memory's verbatim transcript only explicitly mentions **Two Surgeons, One Brain** and **Express Lane**. The four principles below were seeded in the same batch but have no supporting verbatim text.
+All four currently carry `source_conversation_id = 4d2ef924` ("North Star Principles and Collaboration", Dec 16 2025). That memory's verbatim transcript explicitly mentions Two Surgeons, One Brain and Express Lane (handled above). The four principles below were seeded in the same batch but have no supporting verbatim text.
 
 ---
 
