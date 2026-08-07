@@ -15,17 +15,24 @@ interface LucaObserverPanelProps {
 }
 
 interface ObserveResponse {
-  session?: {
-    sessionId?: string;
-    currentScene?: string;
-    studentProfile?: { firstName?: string };
+  status?: string;
+  conversationId?: string;
+  language?: string;
+  actflLevel?: string;
+  exchangeCount?: number;
+  sceneEnvironment?: string | null;
+  sceneVisionDescription?: string | null;
+  recentToolCalls?: Array<{ name: string; secsAgo: number; note?: string }>;
+  recentMessages?: Array<{ role: string; content: string; at?: string }>;
+  guardianAB?: {
+    globalChannel?: string;
+    recentFires?: Array<{ ts: string; path: string; phrase: string; outcome?: string | null }>;
+    heardCount?: number;
+    missedCount?: number;
   };
-  toolCalls?: Array<{ toolName: string; timestamp?: string; result?: string }>;
-  messages?: Array<{ role: string; content: string; createdAt?: string }>;
-  guardianAB?: { recentFires?: number; heardCount?: number };
-  frictionHistory?: Array<{ score: number; label: string; turnId?: string }>;
-  memorySearches?: Array<{ query: string }>;
-  imageDescription?: string | null;
+  frictionHistory?: Array<{ score: number; label: string; turnId?: string; secsAgo?: number; smoothSlide?: boolean }>;
+  recentMemorySearches?: Array<{ query: string; tool?: string; resultCount?: number }>;
+  turnSummaries?: Array<{ turn: number; tools: string[]; hasArchiveCall: boolean; secsAgo: number }>;
 }
 
 interface DevNote {
@@ -66,7 +73,7 @@ export function LucaObserverPanel({ isOpen, onToggle, sessionId }: LucaObserverP
     mutationFn: async (note: string) => {
       await apiRequest("POST", "/api/admin/luca/dev-note", {
         note,
-        sessionId: sessionId ?? obs?.session?.sessionId,
+        sessionId: sessionId ?? obs?.conversationId,
       });
     },
     onSuccess: () => {
@@ -75,10 +82,12 @@ export function LucaObserverPanel({ isOpen, onToggle, sessionId }: LucaObserverP
     },
   });
 
-  const latestTool = obs?.toolCalls?.[obs.toolCalls.length - 1];
+  const hasActiveSession = obs?.status === "active";
+  // Arrays are oldest-first; last item = most recent
+  const latestTool = obs?.recentToolCalls?.[0]; // recentToolCalls is newest-first in the endpoint
   const latestFriction = obs?.frictionHistory?.[obs.frictionHistory.length - 1];
-  const recentMessages = obs?.messages?.slice(-3) ?? [];
-  const guardianFires = obs?.guardianAB?.recentFires ?? 0;
+  const recentMessages = obs?.recentMessages?.slice(-3) ?? [];
+  const guardianFires = obs?.guardianAB?.recentFires?.length ?? 0;
 
   const frictionColor = !latestFriction ? "text-muted-foreground"
     : latestFriction.label === "HIGH" ? "text-orange-500"
@@ -102,7 +111,7 @@ export function LucaObserverPanel({ isOpen, onToggle, sessionId }: LucaObserverP
           <div className="p-3 border-b flex items-center gap-2 shrink-0">
             <div className="relative">
               <Bot className="h-4 w-4 text-violet-500" />
-              <span className={`absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ${obs ? "bg-green-500" : "bg-muted-foreground"}`} />
+              <span className={`absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ${hasActiveSession ? "bg-green-500" : "bg-muted-foreground"}`} />
             </div>
             <span className="font-medium text-sm">Luca</span>
             {isFetching && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground ml-auto" />}
@@ -111,21 +120,21 @@ export function LucaObserverPanel({ isOpen, onToggle, sessionId }: LucaObserverP
           <ScrollArea className="flex-1">
             <div className="p-3 space-y-4">
               {/* Live session snapshot */}
-              {obs?.session && (
+              {hasActiveSession && (
                 <div className="space-y-1.5">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Now</p>
 
-                  {obs.session.currentScene && (
+                  {obs?.sceneEnvironment && (
                     <div className="flex items-center gap-1.5 text-xs">
                       <Eye className="h-3 w-3 text-muted-foreground shrink-0" />
-                      <span className="truncate text-muted-foreground">{obs.session.currentScene}</span>
+                      <span className="truncate text-muted-foreground">{obs.sceneEnvironment}</span>
                     </div>
                   )}
 
                   {latestTool && (
                     <div className="flex items-center gap-1.5 text-xs">
                       <Zap className="h-3 w-3 text-amber-500 shrink-0" />
-                      <span className="truncate font-mono text-amber-700 dark:text-amber-400">{latestTool.toolName}</span>
+                      <span className="truncate font-mono text-amber-700 dark:text-amber-400">{latestTool.name}</span>
                     </div>
                   )}
 
@@ -160,10 +169,10 @@ export function LucaObserverPanel({ isOpen, onToggle, sessionId }: LucaObserverP
               )}
 
               {/* Memory searches */}
-              {(obs?.memorySearches?.length ?? 0) > 0 && (
+              {(obs?.recentMemorySearches?.length ?? 0) > 0 && (
                 <div className="space-y-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Memory</p>
-                  {obs!.memorySearches!.slice(-2).map((s, i) => (
+                  {obs!.recentMemorySearches!.slice(-2).map((s, i) => (
                     <div key={i} className="text-[11px] text-muted-foreground truncate">
                       → {s.query}
                     </div>
@@ -186,7 +195,7 @@ export function LucaObserverPanel({ isOpen, onToggle, sessionId }: LucaObserverP
                 </div>
               )}
 
-              {!obs && (
+              {!hasActiveSession && (
                 <p className="text-xs text-muted-foreground text-center py-4">
                   No active session
                 </p>

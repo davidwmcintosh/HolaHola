@@ -27053,8 +27053,8 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
 
   // Observation bench — Luca reads the live session state from the Replit chat window.
   // Returns in-memory GL state + last N DB messages for the active conversation.
-  // Auth: x-agent-token header.
-  app.get("/api/admin/luca/observe", requireFounderOrAgent, async (req: any, res: Response) => {
+  // Auth: x-agent-token header OR authenticated founder browser session.
+  app.get("/api/admin/luca/observe", loadAuthenticatedUser(storage), requireFounderOrAgent, async (req: any, res: Response) => {
     try {
       const { getAllActiveObservations, getObservation } = await import('./services/session-observation-store');
       const { getGlobalPreTurnFallbackMode } = await import('./services/gemini-live-session');
@@ -27177,6 +27177,24 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
           durationMs:    s.durationMs,
           domainsHit:    s.domainsSearched,
           formattedChars: s.formattedChars,
+        })),
+        // Per-turn tool-call summaries (last 5, oldest-first so [length-1] = latest)
+        turnSummaries: (observation.turnSummaries ?? []).slice(0, 5).reverse().map(t => ({
+          turn:           t.turn,
+          tools:          t.tools,
+          hasArchiveCall: t.hasArchiveCall,
+          secsAgo:        Math.round((Date.now() - t.ts) / 1000),
+        })),
+        // Friction history from analyzeFriction (last 5, oldest-first so [length-1] = latest)
+        frictionHistory: (observation.frictionHistory ?? []).slice(0, 5).reverse().map(f => ({
+          turnId:                   String(f.turn),
+          label:                    f.label,
+          score:                    f.totalScore,
+          archiveAccess:            f.archiveAccess,
+          smoothSlide:              f.smoothSlide,
+          unverifiedAssertionCount: f.unverifiedAssertionCount,
+          firstUnverifiedAssertion: f.firstUnverifiedAssertion,
+          secsAgo:                  Math.round((Date.now() - f.ts) / 1000),
         })),
       });
     } catch (err: any) {
