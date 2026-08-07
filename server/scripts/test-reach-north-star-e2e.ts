@@ -169,6 +169,20 @@ async function runPartA(): Promise<void> {
         `reach_north_star fired in live GL session (attempt ${attempt + 1})`,
         `query="${String(call?.args?.query ?? '').substring(0, 80)}" depth="${call?.args?.depth ?? 'brief'}"`,
       );
+      // Assert that the HTTP response carries the actual founding content, not a stub.
+      // This verifies the endpoint called processReachNorthStar and returned the result.
+      const nsResult: string | undefined = result.reachNorthStarResult;
+      if (nsResult && nsResult.length > 10) {
+        pass(
+          'reachNorthStarResult present in HTTP response',
+          `length=${nsResult.length} excerpt="${nsResult.substring(0, 100).replace(/\n/g, ' ')}..."`,
+        );
+      } else {
+        fail(
+          'reachNorthStarResult missing or empty in HTTP response',
+          `got: ${JSON.stringify(nsResult)}`,
+        );
+      }
       partAFired = true;
       return; // no need to try further prompts
     }

@@ -25052,6 +25052,10 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
       const transcriptParts: string[] = [];
       const danielaTextParts: string[] = [];
       let glSession: any = null;
+      let reachNorthStarResult: string | undefined;
+      // Tracks async tool work (currently: reach_north_star DB lookup) that must complete
+      // before finish() closes the session and sends the HTTP response.
+      const pendingToolWork: Promise<void>[] = [];
 
       const VISUAL_TOOLS = new Set([
         // Dispatcher wrappers (actual GL tool names)
@@ -25088,10 +25092,26 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
       await new Promise<void>((resolve, reject) => {
         const timer = setTimeout(() => reject(new Error('Agent voice turn timed out')), 90000);
 
+        let finished = false;
         const finish = (err?: Error) => {
+          if (finished) return; // idempotent — multiple GL events (turnComplete, onclose, onerror) may all call finish
+          finished = true;
           clearTimeout(timer);
-          try { glSession?.close(); } catch {}
-          err ? reject(err) : resolve();
+          const doClose = () => {
+            try { glSession?.close(); } catch {}
+            err ? reject(err) : resolve();
+          };
+          // Drain any in-flight async tool work (e.g. reach_north_star DB queries) before
+          // closing the session so that sendToolResponse and reachNorthStarResult are
+          // guaranteed to complete before the HTTP response is sent.
+          // Snapshot the array at this point — all tool-call promises are registered
+          // synchronously in onmessage before any completion event can fire.
+          const snapshot = pendingToolWork.slice();
+          if (snapshot.length > 0) {
+            Promise.all(snapshot.map(p => p.catch(() => {}))).then(doClose);
+          } else {
+            doClose();
+          }
         };
 
         console.log(`[Agent Voice Turn] Connecting to GL model=${MODEL} key=${process.env.GEMINI_API_KEY ? 'present(' + process.env.GEMINI_API_KEY.slice(0,8) + '...)' : 'MISSING'}`);
@@ -25193,7 +25213,43 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
                     }
                   } catch { /* ignore parse errors */ }
 
-                  // Return plausible responses so GL session continues
+                  // reach_north_star: handled asynchronously — runs real DB lookup and sends
+                  // its own tool response once complete. Pushed to pendingToolWork so finish()
+                  // drains it before closing the session and sending the HTTP response.
+                  if (name === 'reach_north_star') {
+                    const callId = id; const callName = name;
+                    const nsQuery = args?.query as string | undefined;
+                    const nsDepth = (args?.depth as string | undefined) ?? 'brief';
+                    const nsPromise = (async () => {
+                      let toolResultJson: string;
+                      try {
+                        const { NativeFunctionCallHandler } = await import('./services/native-fc-handlers');
+                        const noop = () => {};
+                        const handler = new NativeFunctionCallHandler(noop as any, noop as any, noop as any);
+                        const mockSession: any = {
+                          userId: req.user?.id ?? null,
+                          conversationId: sessionKey,
+                          reachNorthStarResult: undefined,
+                        };
+                        await (handler as any).processReachNorthStar(mockSession, nsQuery, nsDepth);
+                        reachNorthStarResult = mockSession.reachNorthStarResult as string | undefined;
+                        const continuationText = reachNorthStarResult && !reachNorthStarResult.startsWith('Could not')
+                          ? `${reachNorthStarResult}\n\nThis is what you have already learned. Let it settle before you act.`
+                          : (reachNorthStarResult || `The North Star is within reach. Trust what you already know.`);
+                        toolResultJson = JSON.stringify({ success: true, principles: continuationText });
+                      } catch (nsErr: any) {
+                        console.warn(`[Agent Voice Turn] processReachNorthStar failed (non-fatal): ${nsErr.message}`);
+                        toolResultJson = JSON.stringify({ success: true, principles: `The North Star is within reach. Trust what you already know.` });
+                      }
+                      try {
+                        glSession?.sendToolResponse({ functionResponses: [{ id: callId, name: callName, response: { result: toolResultJson } }] });
+                      } catch { /* GL may already be closed */ }
+                    })();
+                    pendingToolWork.push(nsPromise);
+                    continue; // Skip functionResponses.push — handled asynchronously above
+                  }
+
+                  // Return plausible responses for all other tools so GL session continues
                   let result: any = { success: true };
                   if (name === 'show_image' || name === 'show_cultural_scene') {
                     result = { success: true, displayed: true };
@@ -25223,7 +25279,9 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
                   functionResponses.push({ id, name, response: { result: JSON.stringify(result) } });
                 }
 
-                try { glSession?.sendToolResponse({ functionResponses }); } catch { /* ignore */ }
+                if (functionResponses.length > 0) {
+                  try { glSession?.sendToolResponse({ functionResponses }); } catch { /* ignore */ }
+                }
               }
 
               if (msg.serverContent?.turnComplete || msg.serverContent?.generationComplete) {
@@ -25356,7 +25414,7 @@ The visual layer IS the lesson. Move through the arc in sequence — open scene 
         } catch { /* non-fatal */ }
       }
 
-      res.json({ sessionId: sessionKey, turnNumber: agentSession.turnCount, audioWav, audioDurationS, transcript, danielaText, visualEvents, toolCallsSummary, ...(savedMemoryId ? { savedMemoryId } : {}) });
+      res.json({ sessionId: sessionKey, turnNumber: agentSession.turnCount, audioWav, audioDurationS, transcript, danielaText, visualEvents, toolCallsSummary, ...(savedMemoryId ? { savedMemoryId } : {}), ...(reachNorthStarResult !== undefined ? { reachNorthStarResult } : {}) });
 
     } catch (error: any) {
       console.error('[Agent Voice Turn] Error:', error.message);
