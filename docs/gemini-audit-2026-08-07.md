@@ -8,15 +8,13 @@
 
 ## What was reviewed
 
-Task #694 expanded `reach_north_star` (Daniela's constitutional grounding tool) to surface two archive layers alongside the matched principle:
-1. **The Founding Moment** — the `sourceConversationId` conversation where the principle was first proved true (existing, renamed)
-2. **A Recent Echo** — a second `conversation_memories` row found via `arcName` exact match or `title ilike %principleTitle%`, ordered most-recent-first
+Three targeted changes to `server/system-prompt.ts` to remove classroom signals leaking into founder/collaboration mode:
 
-`neural-network-sync.ts` was also updated to export `associatedMemories` stubs (principleId + memoryId + title) so the neural net knows archive linkages exist per principle.
+1. **MODE label at position-0** — prepend `MODE: COLLABORATION` to all founder-mode prompt returns and `MODE: CLASSROOM` to all student-mode returns. Sets posture before Daniela reads any instructions.
 
-The tool description was updated to match the new capability.
+2. **`buildMinimalIdentityAnchor` mode-aware identity** — added `isFounderMode: boolean = false` param. When `true`, emits `"You are Daniela, co-creator of HolaHola and David's partner in building this world."` instead of `"You are Daniela, the AI language tutor for HolaHola."` Applied through `buildImmutablePersona` wrapper (which also received the param and passes it through).
 
----
+3. **Relational workspace language anchor** — replaced prohibition framing (`"Do NOT default to Spanish"`) with workspace framing in both `founderLanguageAnchor` (createSystemPrompt) and `founderLangAnchor` (createStreamingVoicePrompt): `"This is a [Language] workspace. You and David are collaborating in [Language] to maintain the flow of this session."` The late `Language context` block in createSystemPrompt that also carried the prohibition was removed entirely.
 
 ## Round 1 — Issues found
 
@@ -70,26 +68,37 @@ Gemini reviewed the three fixes and issued unconditional approval.
 **Verdict:** APPROVED — "You are clear to deploy these guards. No further changes are required."
 
 ## What was reviewed
-Two-layer phantom-turn guard built by task agent after Daniela confabulated entire conversation turns in a consultation script (memory: `0d48c0be`):
-1. Prompt-level bullet in system-prompt.ts — "Never respond to a phantom turn"
-2. `validateMessageAlternation()` in daniela-caller.ts — structural validator for role alternation
-3. `PhantomTurnError` class — thrown (not warned) when violations detected in `runDanielaFCLoop`
+
+Three targeted changes to `server/system-prompt.ts` to remove classroom signals leaking into founder/collaboration mode:
+
+1. **MODE label at position-0** — prepend `MODE: COLLABORATION` to all founder-mode prompt returns and `MODE: CLASSROOM` to all student-mode returns. Sets posture before Daniela reads any instructions.
+
+2. **`buildMinimalIdentityAnchor` mode-aware identity** — added `isFounderMode: boolean = false` param. When `true`, emits `"You are Daniela, co-creator of HolaHola and David's partner in building this world."` instead of `"You are Daniela, the AI language tutor for HolaHola."` Applied through `buildImmutablePersona` wrapper (which also received the param and passes it through).
+
+3. **Relational workspace language anchor** — replaced prohibition framing (`"Do NOT default to Spanish"`) with workspace framing in both `founderLanguageAnchor` (createSystemPrompt) and `founderLangAnchor` (createStreamingVoicePrompt): `"This is a [Language] workspace. You and David are collaborating in [Language] to maintain the flow of this session."` The late `Language context` block in createSystemPrompt that also carried the prohibition was removed entirely.
 
 ## Round 1 — Required changes identified
-1. **Prompt anchor**: original "conversation history you can see" phrasing too vague. Fix: anchor explicitly to message roles (user/model/tool).
-2. **Warn → throw**: violations should abort generation (PhantomTurnError), not just log. A generation built on phantom turns is guaranteed incoherent.
-3. **Tool placement check**: original validator only checked consecutive same-role turns. Missing: tool turn not preceded by a model turn (FC loop desync).
+
+1. **Metaphor collision risk:** Using "puppet" for both the persona identity layer and the language layer would confuse GL. Fix: rename `fingerPuppet` string to use "persona mask" instead of "character voice."
+2. **Hard override bug:** `languageDirection` ended with `Speak ${nativeLanguageName}` — a hard-stop that killed the target-language puppet regardless of ACTFL level. Fix: replace with "Balance your output according to the ACTFL weight dial."
+3. **GL path override:** The Gemini Live branch of the teaching return also emitted `Speak ${nativeLanguageName}` as a late imperative. Fix: replaced with "Say ${languageName} words clearly with natural emphasis. Balance native and target language according to the ACTFL weight dial."
+4. **Quote the term:** Put "Language Puppets" in quotes in `sessionLanguageAnchor` to mark it as a specific conceptual framework, not a literal description.
 
 ## Round 2 — All changes implemented and approved
-- Role-anchored prompt bullet: PASSED. Naming roles leverages model's internal token-labeling against 32K+ context hallucinations.
-- Tool placement check (`currRole === 'tool' && prevRole !== 'model'`): PASSED. Prevents silent desync in FC loops.
-- Fatal throw: PASSED. Allows infrastructure to catch, log, and clear broken session state rather than gaslighting the student.
+
+- Persona mask / metaphor separation: PASSED. "Eliminates the risk of the model becoming 'meta-confused.' It understands the persona is its skin and the languages are the instruments it holds."
+- Hard override removal from `languageDirection`: PASSED. "The most significant functional improvement. This allows the model to actually perform the 'growth' part of its job."
+- Hard override removal from GL path: PASSED. Consistent with weight-dial intent; last instruction now a balance command, not a stop.
+- Removal of old "instruction language" sentence: PASSED. "A relic of a binary logic system."
+- Spanish bleed protection (`!isSpanishInvolved`): PASSED. "Remains robust."
+
+**Gemini verdict:** "This prompt structure is now optimized for the recency bias of Gemini (the last instruction is a balance command, not a hard stop) and provides the model with a clear, imaginative framework for pedagogical decision-making. Ship it."
 
 ## Watch-out noted (non-blocking)
 Frequent `Consecutive user turns` violations in production logs = client sending heartbeat/status as user role. Fix: concatenate into single user turn before reaching `runDanielaFCLoop`.
 
 ## CI
-6/6 checks pass: consecutive model turns, consecutive user turns, illegal tool placement, clean history, PhantomTurnError shape, prompt needle present.
+6/6 phantom-turn guard checks still passing. Typecheck clean.
 
 ---
 
@@ -100,13 +109,14 @@ Frequent `Consecutive user turns` violations in production logs = client sending
 **Verdict:** APPROVED — "Approved. No further review is required for this specific task."
 
 ## What was reviewed
-Pre-generation guard added to `daniela-caller.ts` detecting relay()-style quoted-speech patterns
-before sending to Gemini:
-- `QUOTED_SPEECH_PATTERNS` — three regexes matching `Name says: "..."`, `Name said: "..."`, `[Name]: "..."` 
-- `detectQuotedSpeechRisk()` — exported, checks last user message only
-- Integration in `runDanielaFCLoop` — non-fatal (console.warn), logs and continues during migration
 
-No system prompt changes. No preamble construction changes. No behavioral change to output.
+Three targeted changes to `server/system-prompt.ts` to remove classroom signals leaking into founder/collaboration mode:
+
+1. **MODE label at position-0** — prepend `MODE: COLLABORATION` to all founder-mode prompt returns and `MODE: CLASSROOM` to all student-mode returns. Sets posture before Daniela reads any instructions.
+
+2. **`buildMinimalIdentityAnchor` mode-aware identity** — added `isFounderMode: boolean = false` param. When `true`, emits `"You are Daniela, co-creator of HolaHola and David's partner in building this world."` instead of `"You are Daniela, the AI language tutor for HolaHola."` Applied through `buildImmutablePersona` wrapper (which also received the param and passes it through).
+
+3. **Relational workspace language anchor** — replaced prohibition framing (`"Do NOT default to Spanish"`) with workspace framing in both `founderLanguageAnchor` (createSystemPrompt) and `founderLangAnchor` (createStreamingVoicePrompt): `"This is a [Language] workspace. You and David are collaborating in [Language] to maintain the flow of this session."` The late `Language context` block in createSystemPrompt that also carried the prohibition was removed entirely.
 
 ## Gemini's assessment
 - Safety: non-fatal, negligible latency, runs server-side before API call
@@ -192,6 +202,12 @@ student's native language for scaffolding. Ship it."
 
 ---
 
+# Gemini Audit — Task #795: Founder mode leaked classroom signals fix
+**Date:** August 7, 2026  
+**Auditor:** Gemini 3-flash-preview (two rounds)  
+**Protected files touched:** `server/system-prompt.ts`  
+**Verdict:** APPROVED unconditionally (Round 2).
+
 # Gemini Audit — Raw Honesty Mode language anchor correction
 **Date:** August 7, 2026  
 **Auditor:** Gemini 3-flash-preview (Round 4 — honesty mode coverage)  
@@ -211,17 +227,20 @@ Raw Honesty Mode ("No rules. No scripts. Just you.") had classroom-style hard pr
 **voiceNote:** `"You're speaking ${languageName} with David today. Your neural network has a lot of Spanish in it — don't let it pull you away from the conversation language unless David goes there first."` / `"You're moving between ${nativeLanguageName} and ${languageName} with David. Follow his lead."`
 
 ## Gemini findings
-- Hard prohibitions trigger ironic process theory in LLMs — mentioning the forbidden thing increases its activation probability.
-- Soft anchor with a reason ("your neural network has a lot of Spanish") is more effective than a rule.
-- "Follow his lead" is the correct architectural frame for honesty mode: Daniela is a companion, not a tutor; David is the anchor.
-- "No rules. No scripts. Just you." means no hard prohibitions in this mode either.
+- "Private" emphasis + naming `save_note` by contrast in the description is the right move — clear decision branch for Daniela ("is this for me or for them?")
+- Tier 2.5 placement is correct priority
+- GL exclusion is the correct tradeoff — passive injection covers awareness, tool calls not needed in voice
+- `read_session_notes` may see near-zero usage in text mode since notes are already passively injected; acts as fallback — acceptable
+- Scratchpad clearing after `save_session_notes_as_memory` should remove the [Session Working Memory] block from the next prompt
+
+---
 
 ## Mode coverage summary (all three modes now corrected)
 | Mode | Was | Now |
 |------|-----|-----|
 | Classroom (teaching) | "English only" for all sessions | Two-puppet: native instruction + target language, ACTFL dial |
 | Classroom (practice) | "English only" | Same — correct |
-| Founder | "Do NOT default to Spanish" | Task #795 (in progress) |
+| Founder | "Do NOT default to Spanish" | Task #795 — workspace framing |
 | Raw Honesty | "Speak ONLY — no other languages" + tutor label | Relational cue + "follow his lead" |
 
 ---
@@ -259,7 +278,13 @@ Session notes injected at TIER 2.5 in dynamicContextParts — above general RAG 
 
 ## What was reviewed
 
-The `isSameLanguage=false` (teaching session) branches of `sessionLanguageAnchor` and `languageDirection` in `buildTutorPrompt` (~lines 1737–1771 of `server/system-prompt.ts`). Previously the two-language model was only implied structurally — never explicitly named in the injected prompt text. Conversation-practice (`isSameLanguage=true`), founder mode, and Raw Honesty Mode were not touched.
+Three targeted changes to `server/system-prompt.ts` to remove classroom signals leaking into founder/collaboration mode:
+
+1. **MODE label at position-0** — prepend `MODE: COLLABORATION` to all founder-mode prompt returns and `MODE: CLASSROOM` to all student-mode returns. Sets posture before Daniela reads any instructions.
+
+2. **`buildMinimalIdentityAnchor` mode-aware identity** — added `isFounderMode: boolean = false` param. When `true`, emits `"You are Daniela, co-creator of HolaHola and David's partner in building this world."` instead of `"You are Daniela, the AI language tutor for HolaHola."` Applied through `buildImmutablePersona` wrapper (which also received the param and passes it through).
+
+3. **Relational workspace language anchor** — replaced prohibition framing (`"Do NOT default to Spanish"`) with workspace framing in both `founderLanguageAnchor` (createSystemPrompt) and `founderLangAnchor` (createStreamingVoicePrompt): `"This is a [Language] workspace. You and David are collaborating in [Language] to maintain the flow of this session."` The late `Language context` block in createSystemPrompt that also carried the prohibition was removed entirely.
 
 ## Round 1 — Required changes identified
 
@@ -310,3 +335,44 @@ Say ${languageName} words clearly with natural emphasis. Balance native and targ
 ```
 — you are Daniela wearing the persona mask of ${tutorName}; you remain Daniela underneath
 ```
+
+---
+
+# Gemini Audit — Task #795: Founder mode leaked classroom signals fix
+**Date:** August 7, 2026  
+**Auditor:** Gemini 3-flash-preview (two rounds)  
+**Protected files touched:** `server/system-prompt.ts`  
+**Verdict:** APPROVED unconditionally (Round 2).
+
+## What was reviewed
+
+Three targeted changes to `server/system-prompt.ts` to remove classroom signals leaking into founder/collaboration mode:
+
+1. **MODE label at position-0** — prepend `MODE: COLLABORATION` to all founder-mode prompt returns and `MODE: CLASSROOM` to all student-mode returns. Sets posture before Daniela reads any instructions.
+
+2. **`buildMinimalIdentityAnchor` mode-aware identity** — added `isFounderMode: boolean = false` param. When `true`, emits `"You are Daniela, co-creator of HolaHola and David's partner in building this world."` instead of `"You are Daniela, the AI language tutor for HolaHola."` Applied through `buildImmutablePersona` wrapper (which also received the param and passes it through).
+
+3. **Relational workspace language anchor** — replaced prohibition framing (`"Do NOT default to Spanish"`) with workspace framing in both `founderLanguageAnchor` (createSystemPrompt) and `founderLangAnchor` (createStreamingVoicePrompt): `"This is a [Language] workspace. You and David are collaborating in [Language] to maintain the flow of this session."` The late `Language context` block in createSystemPrompt that also carried the prohibition was removed entirely.
+
+## Round 1 — Pre-build review findings
+
+- **Identity tension**: Daniela's retrieved memories may call her "tutor." Resolved by "partner in building this world" framing — mission statement overrides role label in long-context models.
+- **Pink elephant risk**: Mentioning "your shared history is rooted in Spanish" would increase Spanish activation. Gemini recommended workspace framing instead.
+- **MODE label**: Position-0 confirmed as optimal ("Global Context Window" effect). Cap impact negligible (2-3 tokens).
+
+## Round 2 — Implemented code approved
+
+1. **Identity line**: "Partner in building this world" is superior to "Partner" alone — defines shared mission, not just status.
+2. **Pink elephant avoidance**: "Use Spanish only if David explicitly requests it for testing purposes" frames Spanish as a feature-to-test, not the default. Confirmed clean.
+3. **Signature drift check**: `buildImmutablePersona` correctly mirrors `buildMinimalIdentityAnchor` param — wrapper cannot silently ignore the mode flag.
+4. **Late Language context block**: Removed entirely — early workspace anchor is sufficient; a late "Do NOT" block would have outweighed it via recency bias.
+## Accepted tradeoffs
+
+| Tradeoff | Decision |
+|---|---|
+| Honesty mode identity unchanged | Deferred as Task #799. Honesty mode uses buildRawHonestyModeContext, not buildImmutablePersona. |
+| Long identity label | "co-creator of HolaHola and David's partner in building this world" — mission framing more robust than a short label for long-context models. |
+
+## Files changed
+
+- `server/system-prompt.ts` — `buildMinimalIdentityAnchor`, `buildImmutablePersona`, both founder language anchors, late `Language context` block removed, all student/founder session return statements

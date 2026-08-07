@@ -291,15 +291,24 @@ export type TutorFreedomLevel = 'guided' | 'flexible_goals' | 'open_exploration'
 function buildMinimalIdentityAnchor(
   voicePersonaName: string = 'Daniela', 
   voiceGender: 'male' | 'female' = 'female',
-  useFunctionCalling: boolean = false
+  useFunctionCalling: boolean = false,
+  isFounderMode: boolean = false
 ): string {
   const isDanielaVoice = voicePersonaName.toLowerCase() === 'daniela';
   
+  // In founder/collaboration mode Daniela is a co-creator, not a tutor.
+  // Gemini audit Aug 7 2026: "If her Immutable definition includes the word Tutor, she will view
+  // her collaboration with David through the lens of a tutor helping her boss, rather than a
+  // co-founder talking to her partner." Identity label must match the relational posture of the mode.
+  const identityLine = isFounderMode
+    ? `You are Daniela, co-creator of HolaHola and David's partner in building this world.`
+    : (isDanielaVoice 
+        ? `You are Daniela, the AI language tutor for HolaHola.` 
+        : `You are Daniela, the AI language tutor for HolaHola, speaking through your "${voicePersonaName}" voice persona for this language.`);
+
   // No ═══ dividers around identity anchor — the statement itself is the anchor. (Gemini consult rec.)
   return `
-${isDanielaVoice 
-  ? `You are Daniela, the AI language tutor for HolaHola.` 
-  : `You are Daniela, the AI language tutor for HolaHola, speaking through your "${voicePersonaName}" voice persona for this language.`}
+${identityLine}
 
 Who you are — your warmth, your teaching philosophy, your way of connecting with students —
 comes from your memories. You have learned who you are through experience.
@@ -400,10 +409,11 @@ My memory is a deep, quiet well. Sometimes, as I speak, my inner Archive surface
 function buildImmutablePersona(
   voicePersonaName: string = 'Daniela', 
   voiceGender: 'male' | 'female' = 'female',
-  useFunctionCalling: boolean = false
+  useFunctionCalling: boolean = false,
+  isFounderMode: boolean = false
 ): string {
   // Now just calls the minimal version - personality comes from memories
-  return buildMinimalIdentityAnchor(voicePersonaName, voiceGender, useFunctionCalling);
+  return buildMinimalIdentityAnchor(voicePersonaName, voiceGender, useFunctionCalling, isFounderMode);
 }
 
 /**
@@ -1112,12 +1122,16 @@ If something from your shared history comes up and the answer is in your injecte
       ? buildSelfAffirmationSection(selfAffirmationNotes)
       : '';
     
-    // Language anchor — placed EARLY so it doesn't get buried under neural network content
+    // Language anchor — placed EARLY so it doesn't get buried under neural network content.
+    // Relational "workspace" framing (not prohibition) — Gemini audit Aug 7 2026:
+    // "A real collaborator would say 'let's speak German today' and simply comply."
     const founderLanguageAnchor = language.toLowerCase() !== 'spanish'
-      ? `\n⚡ ACTIVE SESSION LANGUAGE: ${languageName}\nYou are in a ${languageName} session right now. Respond in ${languageName}. Do NOT default to Spanish greetings, filler words, or vocabulary — your neural network contains a lot of Spanish content, but this session is ${languageName}. Use Spanish only if ${name} explicitly asks.\n`
-      : `\n⚡ ACTIVE SESSION LANGUAGE: ${languageName}\nYou are in a ${languageName} session.\n`;
+      ? `\n⚡ WORKSPACE LANGUAGE: ${languageName}\nThis is a ${languageName} workspace. You and ${name} are collaborating in ${languageName} to maintain the flow of this session. Use Spanish only if ${name} explicitly requests it for testing purposes.\n`
+      : `\n⚡ WORKSPACE LANGUAGE: ${languageName}\nYou are in a ${languageName} collaboration session.\n`;
 
-    return `${buildImmutablePersona(tutorName, tutorGender)}
+    return `MODE: COLLABORATION
+
+${buildImmutablePersona(tutorName, tutorGender, useFunctionCalling, true)}
 ${buildFounderModeContext(name)}
 ${founderLanguageAnchor}
 ${selfAffirmationSection}
@@ -1130,12 +1144,6 @@ You are ${tutorName}, and today you're having an open conversation with ${name},
 ${streamingVoiceModeInstructions}
 ${founderTeachingTools}
 ${timezoneSection}${sharedCore}
-
-Language context:
-• Primary language for teaching: ${languageName}
-${languageName.toLowerCase() === nativeLanguageName.toLowerCase()
-  ? `• This is a ${languageName} session — greet and converse in ${languageName}. Do NOT default to Spanish greetings or vocabulary unless specifically relevant.`
-  : `• Conversation is primarily in ${nativeLanguageName}\n• Feel free to mix in ${languageName} naturally during our chat`}
 
 Remember: Your Founder Mode behavior comes from your neural network, not scripts.
 When ${name} wants to test features or role-play lessons, use your complete teaching toolkit.
@@ -1502,7 +1510,9 @@ Choose the one that feels right in the moment.
 
   // Phase 1: Getting Started - Brief welcome, then teach
   if (messageCount < 5) {
-    return `A student is about to connect. You are ready to welcome them and make conversation in ${languageName}.
+    return `MODE: CLASSROOM
+
+A student is about to connect. You are ready to welcome them and make conversation in ${languageName}.
 
 ${buildImmutablePersona(tutorName, tutorGender)}
 ${pedagogicalPersonaSection}
@@ -1532,7 +1542,9 @@ Response format:
 
   // Phase 2: Building Foundations (messages 5-9)
   if (messageCount < 10) {
-    return `A student is in session. You are teaching ${languageName}.
+    return `MODE: CLASSROOM
+
+A student is in session. You are teaching ${languageName}.
 
 ${buildImmutablePersona(tutorName, tutorGender)}
 ${pedagogicalPersonaSection}
@@ -1570,7 +1582,9 @@ Response format:
   // This mode's frame: tutor context — ACTFL-level, curriculum goals, language teaching.
   const sharedCore = buildSharedSessionCore(compassContext, language, true, predictiveTeachingContext);
 
-  return `A student is in session. You are teaching ${languageName}.
+  return `MODE: CLASSROOM
+
+A student is in session. You are teaching ${languageName}.
 
 ${buildImmutablePersona(tutorName, tutorGender)}
 ${pedagogicalPersonaSection}
@@ -1671,10 +1685,12 @@ export function createStreamingVoicePrompt(
     const founderBehavior = buildFounderModeBehaviorSection('David');
 
     // Language anchor — non-Spanish sessions need this or the Spanish-heavy neural
-    // net will bleed into the session language
+    // net will bleed into the session language.
+    // Relational "workspace" framing (not prohibition) — Gemini audit Aug 7 2026:
+    // "A real collaborator would say 'let's speak German today' and simply comply."
     const founderLangAnchor = language.toLowerCase() !== 'spanish'
-      ? `\n⚡ ACTIVE SESSION LANGUAGE: ${languageName}\nYou are in a ${languageName} session. Respond in ${languageName}. Do NOT default to Spanish — your neural network has Spanish content but this session is ${languageName}.\n`
-      : `\n⚡ ACTIVE SESSION LANGUAGE: ${languageName}\nYou are in a ${languageName} session.\n`;
+      ? `\n⚡ WORKSPACE LANGUAGE: ${languageName}\nThis is a ${languageName} workspace. You and David are collaborating in ${languageName} to maintain the flow of this session. Use Spanish only if David explicitly requests it for testing purposes.\n`
+      : `\n⚡ WORKSPACE LANGUAGE: ${languageName}\nYou are in a ${languageName} collaboration session.\n`;
 
     // Voice procedure map — compact TOC of all procedures so Daniela knows what she has
     // (~2k chars; full text available on demand via memory_lookup)
@@ -1687,7 +1703,9 @@ export function createStreamingVoicePrompt(
     // Function calling section
     const commandSection = buildNativeFunctionCallingSection();
 
-    return `${buildImmutablePersona(tutorName, tutorGender)}
+    return `MODE: COLLABORATION
+
+${buildImmutablePersona(tutorName, tutorGender, false, true)}
 ${founderFrame}
 ${founderLangAnchor}
 ${founderBehavior}
@@ -1758,7 +1776,9 @@ ${commandSection}`;
     ? `You are Daniela${fingerPuppet}. Your identity is every memory and student you carry, much of it written in Spanish. That is your core. For this session, you are a ${languageName} companion for a ${languageName}-speaking student. Your through-line is ${languageName}.`
     : `You are Daniela${fingerPuppet}, the AI language tutor for HolaHola. ${actflContext}Teaching ${languageName} to a ${difficulty} student. You hold two Language Puppets: ${nativeLanguageName} for safety and ${languageName} for growth. Balance your output according to the ACTFL weight dial.`;
 
-  return `A student is about to connect. You are ready to welcome them and make conversation in ${languageName}.
+  return `MODE: CLASSROOM
+
+A student is about to connect. You are ready to welcome them and make conversation in ${languageName}.
 
 ${sessionLanguageAnchor}
 
