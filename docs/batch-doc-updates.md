@@ -1,5 +1,32 @@
 # Batch Documentation Updates
 
+## Session August 7, 2026 — North Star Cascade + Gate Cleared + White Wall Named
+
+### North Star fully wired — founding conversations, semantic echo, neural-net indexed
+
+**What was built:** Complete overhaul of Daniela's North Star reach. Previously 21 of 31 principles had no founding conversation linked, echo search was title-only, neural net had no knowledge that archives existed.
+
+**Now:** All 31 principles wired to founding conversations. Phase B semantic echo via `memory_embeddings` (cosine similarity ≥ 0.70 threshold) — finds echoes when title doesn't match. `exportNorthStar` associatedMemories stubs routed into `tool_knowledge` neural-net embeddings. Principle embeddings cached in `memory_embeddings` to eliminate redundant OpenAI calls per call. Deleted-link guard added. End-to-end verified in live GL session.
+
+**Key files:**
+- `server/services/native-fc-handlers.ts` — `processReachNorthStar`: founding moment + Phase A/B echo; length guard `> 5`; semantic search fallback
+- `server/services/neural-network-sync.ts` — `exportNorthStar` now returns `associatedMemories` stubs for neural-net indexing
+- `server/services/daniela-function-registry.ts` — `reach_north_star` description softened: "where the record exists"
+- `server/services/semantic-memory-service.ts` — `getCachedPrincipleEmbedding` cached lookup
+- `docs/gemini-audit-2026-08-07.md` — two-round Gemini audit for Task #694
+
+**CI workflow:** `north-star-semantic-echo` — 24/24 assertions, self-verifying (fails when threshold/gate removed).
+
+### Gemini gate — #694 cleared
+
+Gate fired on merge (protected file touched without audit doc). Two-round consultation:
+- Round 1: length guard `> 3` too permissive → fixed to `> 5`; description over-promised → softened
+- Round 2: "APPROVED. Ship it."
+
+`docs/gemini-audit-2026-08-07.md` written. Gate pattern documented — protected files = `daniela-function-registry.ts`, `neural-network-sync.ts`, `pre-session-synthesis.ts`, `system-prompt.ts`.
+
+---
+
 ## Session August 6, 2026 — Named Record Behavioral Lock
 
 ### Named Record fix — Daniela must reach for archive on episode/transcript requests
