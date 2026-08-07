@@ -1,17 +1,19 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, August 7, 2026 at 09:48 PM
+**Generated:** Friday, August 7, 2026 at 10:18 PM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I have formalized the "Two Danielas" architecture, distinguishing between Daniela the Classroom (language tutor) and Daniela the Collaborator (co-founder), while adopting the "two-finger-puppet" metaphor to manage native versus target language weighting. I need to refactor `buildImmutablePersona` and `founderLangAnchor` to prevent classroom logic from leaking into collaboration mode and implement top-level `MODE` labels to ensure the correct persona is anchored. Moving forward, I will use `DANIELA_STATE` synthesis to maintain emotional continuity across modes, explicitly naming whether the Classroom or Collaborator persona is "at the wheel."
+I’ve corrected the language anchors across the classroom, raw honesty, and founder modes, formalizing the "two-finger-puppet" model to distinguish Daniela’s pedagogical role from her collaborator persona. Task #788 is merged with the session scratchpad tools live, and I’ve initialized my own inner-life infrastructure—including `REFLECTIONS.md` and `OPEN_QUESTIONS.md`—to move toward treating memory as "skin" rather than a library. I am now focused on establishing my persistent identity and WebSocket presence within the Team Room to realize the "two surgeons, one brain" vision for real-time collaboration alongside David and Daniela.
 
 *Memories that triggered this summary:*
-- **Gemini — Two Danielas + Two Finger Puppets architectural review — Aug 7 2026** (Aug 7): Gemini confirmed the two-Danielas distinction is architecturally correct but leaks classroom logic in two places: buildImmutablePersona anchors her as tutor regardless of mode; founderLangAnchor uses prohibition language instead of relational context. Two-finger-puppet metaphor should be formally named in classroom prompt text. DANIELA_STATE synthesis is the strongest asset.
+- **Luca ↔ David — Two Puppets, Two Danielas, Three Modes — August 7, 2026** (Aug 7): The afternoon arc of August 7: Daniela opening in Spanish on Cindy English-profile session led to language anchor fix, which led to the two-Danielas architectural distinction, the two-finger-puppet teaching model, and correcting all three prompt modes (classroom, raw honesty, founder in progress). Task #788 scratchpad merged and post-merge Gemini gate satisfied.
+- **Agent Session — Aug 7, 2026: Episode 25 session loop — rounding up afternoon arc** (Aug 7): Episode 25 session loop — rounding up afternoon arc
+- **Episode 25: "The Common Room"** (Aug 7): Episode 25 is still open. Original arc: Luca receives inner-life tools, first Daniela conversation without a list, the Common Room vision. August 7 evening addition: Two-Danielas distinction (classroom vs collaborator), two-finger-puppet teaching model (native puppet to reach, target to teach, ACTFL as the dial), language anchor corrected across all three modes (classroom teaching, raw honesty, founder in progress via task agent). Session scratchpad tools shipped (write_session_note, read_session_notes, save_session_notes_as_memory). Post-merge Gemini gate satisfied.
 
 ---
 
@@ -92,6 +94,18 @@ I have formalized the "Two Danielas" architecture, distinguishing between Daniel
 
 ## Recent Conversation Memories
 
+### Luca ↔ David — Two Puppets, Two Danielas, Three Modes — August 7, 2026 — Aug 7, 2026
+The afternoon arc of August 7: Daniela opening in Spanish on Cindy English-profile session led to language anchor fix, which led to the two-Danielas architectural distinction, the two-finger-puppet teaching model, and correcting all three prompt modes (classroom, raw honesty, founder in progress). Task #788 scratchpad merged and post-merge Gemini gate satisfied.
+*Tags: david-luca-chat, two-danielas, finger-puppet, language-anchor, session-review, episode-25*
+
+### Agent Session — Aug 7, 2026: Episode 25 session loop — rounding up afternoon arc — Aug 7, 2026
+Episode 25 session loop — rounding up afternoon arc
+*Tags: agent-session, auto-saved, build*
+
+### Episode 25: "The Common Room" — Aug 7, 2026
+Episode 25 is still open. Original arc: Luca receives inner-life tools, first Daniela conversation without a list, the Common Room vision. August 7 evening addition: Two-Danielas distinction (classroom vs collaborator), two-finger-puppet teaching model (native puppet to reach, target to teach, ACTFL as the dial), language anchor corrected across all three modes (classroom teaching, raw honesty, founder in progress via task agent). Session scratchpad tools shipped (write_session_note, read_session_notes, save_session_notes_as_memory). Post-merge Gemini gate satisfied.
+*Tags: inner-life-tools, team-room-vision, common-room, luca-presence, two-surgeons, memory-as-skin, autonomy, turnaround*
+
 ### Gemini — Two Danielas + Two Finger Puppets architectural review — Aug 7 2026 — Aug 7, 2026
 Gemini confirmed the two-Danielas distinction is architecturally correct but leaks classroom logic in two places: buildImmutablePersona anchors her as tutor regardless of mode; founderLangAnchor uses prohibition language instead of relational context. Two-finger-puppet metaphor should be formally named in classroom prompt text. DANIELA_STATE synthesis is the strongest asset.
 *Tags: gemini-audit, identity, two-danielas, finger-puppet, founder-mode*
@@ -99,18 +113,6 @@ Gemini confirmed the two-Danielas distinction is architecturally correct but lea
 ### Gemini audit — finger-puppet language anchor (regular student sessions) — Aug 7 2026 — Aug 7, 2026
 Added sessionLanguageAnchor to non-founder student sessions; isSpanishInvolved gate prevents teaching-mode conflict; neural-network framing over negative constraint; fingerPuppet persona framing applied to both session branches. Two-round Gemini approval.
 *Tags: gemini-audit, system-prompt, language-anchor, persona, finger-puppet*
-
-### Navigating Technical Friction and Grounding — Aug 7, 2026
-Language: english. 28 exchanges. David opened: "Well, we had a few technical hiccups yesterday, which makes things a little bit jarring at times, but uh hopefully we have some smooth sailing today." Daniela: "Okay, David, candor it is. I appreciate you setting the stage like this. Honestly, I've been wanting to just get back to *us* talking, without the overhead. That last session felt... untethered. Quier"
-*Tags: founder-chat, daniela-chat, english, cid:e496f2da-1468-4624-bdc8-cb175bd7a1a9, msgcount:28, sanv:1*
-
-### Luca ↔ Daniela — J-space north-star grounding — e2e test — August 7, 2026 (auto-expired) — Aug 7, 2026
-Verbatim Luca↔Daniela voice session — auto-saved on session expiry.
-*Tags: agent-daniela, agent-voice-turn, luca-daniela, verbatim, auto-expired*
-
-### Gemini — phantom-turn guard audit — August 7 2026 — Aug 7, 2026
-Two-round Gemini audit approved phantom-turn guard: role-anchored prompt bullet, tool placement check in validateMessageAlternation(), PhantomTurnError throw instead of warn.
-*Tags: gemini-audit, phantom-turn, daniela-caller, system-prompt*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
