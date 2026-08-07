@@ -90,3 +90,28 @@ Frequent `Consecutive user turns` violations in production logs = client sending
 
 ## CI
 6/6 checks pass: consecutive model turns, consecutive user turns, illegal tool placement, clean history, PhantomTurnError shape, prompt needle present.
+
+---
+
+# Gemini Audit — Task #772: Quoted-speech risk detector in relay() pattern
+**Date:** August 7, 2026  
+**Auditor:** Gemini 3-flash-preview (one round)  
+**Protected files touched:** `server/services/daniela-caller.ts`  
+**Verdict:** APPROVED — "Approved. No further review is required for this specific task."
+
+## What was reviewed
+Pre-generation guard added to `daniela-caller.ts` detecting relay()-style quoted-speech patterns
+before sending to Gemini:
+- `QUOTED_SPEECH_PATTERNS` — three regexes matching `Name says: "..."`, `Name said: "..."`, `[Name]: "..."` 
+- `detectQuotedSpeechRisk()` — exported, checks last user message only
+- Integration in `runDanielaFCLoop` — non-fatal (console.warn), logs and continues during migration
+
+No system prompt changes. No preamble construction changes. No behavioral change to output.
+
+## Gemini's assessment
+- Safety: non-fatal, negligible latency, runs server-side before API call
+- Regex: correctly targets relay-style framing that primes continuation rather than response
+- Note: verify backslash escaping is intact in `.ts` file (markdown rendering stripped them in the review diff — actual source was confirmed clean)
+
+## CI
+6/6 phantom-turn guard checks still passing. Typecheck clean.
