@@ -20,6 +20,7 @@ import { useCredits } from "@/contexts/UsageContext";
 import { InsufficientCreditsDialog } from "@/components/InsufficientCreditsDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { DevToolsFloatingMenu } from "@/components/DevToolsFloatingMenu";
+import { LucaObserverPanel } from "@/components/LucaObserverPanel";
 import { ImmersiveOverlay } from "@/components/ImmersiveOverlay";
 import { getTutorAvatar } from "@/lib/tutor-avatars";
 import type { WhiteboardItem, ScenarioItemData, SceneCanvasItemData, OverlayPanel, CenterBackdropItemData } from "@shared/whiteboard-types";
@@ -174,6 +175,8 @@ export default function Chat() {
 
   // Founder Collaboration EXPRESS Lane state
   const [syncPanelOpen, setSyncPanelOpen] = useState(false);
+  // Luca Observer Panel state
+  const [lucaPanelOpen, setLucaPanelOpen] = useState(false);
   const [syncMessage, setSyncMessage] = useState("");
   const syncMessagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -1177,6 +1180,15 @@ export default function Chat() {
               </>
             )}
           </div>
+        )}
+
+        {/* Luca Observer Panel - Founder Mode only, shows Luca's live session observations */}
+        {isFounderMode && (
+          <LucaObserverPanel
+            isOpen={lucaPanelOpen}
+            onToggle={() => setLucaPanelOpen(!lucaPanelOpen)}
+            sessionId={conversationId}
+          />
         )}
       </div>
       

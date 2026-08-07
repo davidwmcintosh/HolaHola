@@ -27054,7 +27054,7 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
   // Observation bench — Luca reads the live session state from the Replit chat window.
   // Returns in-memory GL state + last N DB messages for the active conversation.
   // Auth: x-agent-token header.
-  app.get("/api/admin/luca/observe", requireAgentToken, async (req: any, res: Response) => {
+  app.get("/api/admin/luca/observe", requireFounderOrAgent, async (req: any, res: Response) => {
     try {
       const { getAllActiveObservations, getObservation } = await import('./services/session-observation-store');
       const { getGlobalPreTurnFallbackMode } = await import('./services/gemini-live-session');
@@ -27610,6 +27610,46 @@ ${behavioralFlags && behavioralFlags.length > 0 ? `Behavioral notes: ${behaviora
       const { getLucaNudges } = await import('./services/luca-presence');
       const result = getLucaNudges(cursor);
       res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Luca Dev Notes — David flags observations from the /chat UI for Luca to read at session start.
+  // GET returns the 10 most recent notes; POST saves a new one.
+  app.get("/api/admin/luca/dev-notes", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (_req: any, res: Response) => {
+    try {
+      const { agentNotes } = await import('@shared/schema');
+      const { desc, eq } = await import('drizzle-orm');
+      const notes = await getUserDb()
+        .select()
+        .from(agentNotes)
+        .where(eq(agentNotes.fromAgent, 'founder'))
+        .orderBy(desc(agentNotes.createdAt))
+        .limit(10);
+      res.json(notes);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/luca/dev-note", isAuthenticated, loadAuthenticatedUser(storage), requireFounder, async (req: any, res: Response) => {
+    try {
+      const { note, sessionId } = req.body as { note: string; sessionId?: string };
+      if (!note?.trim()) return res.status(400).json({ error: 'note is required' });
+      const { agentNotes } = await import('@shared/schema');
+      const sessionLabel = sessionId ? `Session: ${sessionId}` : undefined;
+      const [saved] = await getUserDb()
+        .insert(agentNotes)
+        .values({
+          fromAgent: 'founder',
+          toAgent: 'agent',
+          subject: `[DEV] ${note.slice(0, 250)}`,
+          body: note,
+          ...(sessionLabel ? { sessionLabel } : {}),
+        })
+        .returning({ id: agentNotes.id });
+      res.json({ success: true, id: saved.id });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
