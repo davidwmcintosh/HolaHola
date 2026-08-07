@@ -661,6 +661,21 @@ app.use((req, res, next) => {
     // Immediate: AI proxy reachability check (non-blocking, logs warnings only)
     runProxyStartupChecks().catch(() => {/* non-fatal */});
 
+    // Immediate (fire-and-forget): pre-warm North Star principle embeddings so the
+    // first reach_north_star call is fast even after a cold deploy or new principle add.
+    // Guard: skip in test environments to avoid unexpected OpenAI calls during CI.
+    if (process.env.NODE_ENV !== 'test') {
+      setImmediate(async () => {
+        try {
+          const { populatePrincipleEmbeddings } = await import('./scripts/populate-principle-embeddings');
+          const result = await populatePrincipleEmbeddings();
+          console.log(`[PrincipleEmbeddings] Boot warm-up complete — ${result.processed} processed, ${result.failed} failed (${result.total} total).`);
+        } catch (err: any) {
+          console.warn('[PrincipleEmbeddings] Boot warm-up failed (non-fatal):', err?.message);
+        }
+      });
+    }
+
     // +2s: Luca Presence — establish Luca's live WebSocket identity in the Team Room.
     // Deferred slightly so the HTTP server is fully ready before we self-connect.
     setTimeout(async () => {

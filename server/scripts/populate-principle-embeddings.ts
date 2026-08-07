@@ -17,7 +17,12 @@ import { northStarPrinciples } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import { getCachedPrincipleEmbedding } from '../services/semantic-memory-service';
 
-async function main() {
+/**
+ * Exported function — safe to call from the server boot path (no process.exit).
+ * Idempotent: reads cache first, computes + stores only if the embedding is missing or stale.
+ * Returns a summary so the caller can log a single line.
+ */
+export async function populatePrincipleEmbeddings(): Promise<{ total: number; processed: number; failed: number }> {
   const db = getSharedDb();
 
   const principles = await db
@@ -27,13 +32,12 @@ async function main() {
 
   if (principles.length === 0) {
     console.log('[populate-principle-embeddings] No active principles found — nothing to do.');
-    process.exit(0);
+    return { total: 0, processed: 0, failed: 0 };
   }
 
   console.log(`[populate-principle-embeddings] Seeding embeddings for ${principles.length} active principle(s)…`);
 
-  let cached = 0;
-  let computed = 0;
+  let processed = 0;
   let failed = 0;
 
   for (const p of principles) {
@@ -41,10 +45,8 @@ async function main() {
       // getCachedPrincipleEmbedding is idempotent: reads cache first, computes+stores only if missing/stale
       const vec = await getCachedPrincipleEmbedding(p.id, p.principle);
       if (vec.length > 0) {
-        // We can tell whether it was a cache hit by checking if OpenAI was called,
-        // but getCachedPrincipleEmbedding doesn't expose that flag — log uniformly.
         console.log(`  ✓ [${p.id}] "${p.principleTitle ?? p.principle.substring(0, 60)}…"`);
-        computed++;
+        processed++;
       }
     } catch (err: any) {
       console.error(`  ✗ [${p.id}] "${p.principleTitle ?? '?'}" — ${err.message}`);
@@ -52,12 +54,22 @@ async function main() {
     }
   }
 
-  console.log(`\n[populate-principle-embeddings] Done. ${computed} processed, ${failed} failed.`);
-  if (failed > 0) process.exit(1);
-  process.exit(0);
+  console.log(`[populate-principle-embeddings] Done. ${processed} processed, ${failed} failed.`);
+  return { total: principles.length, processed, failed };
 }
 
-main().catch(err => {
-  console.error('[populate-principle-embeddings] Fatal:', err);
-  process.exit(1);
-});
+// CLI entry-point — only runs when invoked directly (not when imported by the server).
+// The import.meta.url check prevents process.exit() from firing during a server import.
+const isMain = process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'));
+if (isMain) {
+  (async () => {
+    try {
+      const result = await populatePrincipleEmbeddings();
+      if (result.failed > 0) process.exit(1);
+      process.exit(0);
+    } catch (err: any) {
+      console.error('[populate-principle-embeddings] Fatal:', err);
+      process.exit(1);
+    }
+  })();
+}
