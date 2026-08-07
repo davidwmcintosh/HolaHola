@@ -10871,7 +10871,7 @@ export class NativeFunctionCallHandler {
           // Minimum principle length of 10 chars ensures the embedding is meaningful.
           // The principle's embedding is read from memory_embeddings cache (type
           // 'north_star_principle') so no OpenAI call is needed on subsequent runs.
-          if (!recentEchoTitle && userId && p.principle && p.principle.length > 10) {
+          if (!recentEchoTitle && userId && p.principle && p.principle.trim().length > 10) {
             try {
               const { getCachedPrincipleEmbedding, semanticSearchByVector } = await import('./semantic-memory-service');
               const principleVec = await getCachedPrincipleEmbedding(p.id, p.principle);

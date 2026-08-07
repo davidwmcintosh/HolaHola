@@ -117,8 +117,8 @@ function runPart1() {
 
   // The minimum-length guard (prevents embedding garbage from a tiny principle text)
   assert(
-    'Phase B has p.principle.length > 10 minimum-length guard',
-    src.includes('p.principle.length > 10'),
+    'Phase B has p.principle.trim().length > 10 minimum-length guard',
+    src.includes('p.principle.trim().length > 10'),
     'length > 10 guard not found — short-principle calls could reach OpenAI with degenerate input',
   );
 }
@@ -435,12 +435,12 @@ function runPart4() {
   // find the candidate (similarity ≈ 1.0 > 0.70), and inject "A Recent Echo" —
   // causing PART 5's `!result.includes('A Recent Echo')` assertion to fail.
   // The static check here is the fast-path canary for that behavioral regression.
-  const mutatedLength = src.replace('p.principle.length > 10', '/* length guard removed */');
-  const mutatedHasLength = mutatedLength.includes('p.principle.length > 10');
+  const mutatedLength = src.replace('p.principle.trim().length > 10', '/* length guard removed */');
+  const mutatedHasLength = mutatedLength.includes('p.principle.trim().length > 10');
   assert(
-    'Mutation self-check: PART 1 detects when the p.principle.length > 10 guard is removed',
+    'Mutation self-check: PART 1 detects when the p.principle.trim().length > 10 guard is removed',
     !mutatedHasLength,
-    'length > 10 guard still found in mutated source — static check is not catching the regression',
+    'trim().length > 10 guard still found in mutated source — static check is not catching the regression',
   );
 }
 
@@ -472,7 +472,7 @@ async function runPart5() {
   );
 
   // ── 1. Seed a principle whose text is exactly 10 characters (not > 10) ───
-  // The guard is `p.principle.length > 10`, so exactly 10 chars does NOT pass.
+  // The guard is `p.principle.trim().length > 10`, so exactly 10 chars does NOT pass.
   const shortPrincipleText = 'TenChars10'; // length === 10
   assert(
     'Short principle text is exactly 10 characters',
@@ -570,7 +570,7 @@ async function runPart5() {
   );
 
   // ── 5. Call processReachNorthStar — guard prevents Phase B ────────────────
-  // Because p.principle.length === 10 (not > 10), Phase B is skipped even
+  // Because p.principle.trim().length === 10 (not > 10), Phase B is skipped even
   // though the candidate embedding IS present and above threshold.
   const handler = makeHandler();
   const session = makeSession('ci-short-principle-fake-user', 'ci-test-short-conv');
@@ -634,7 +634,7 @@ async function cleanup(
 // PART 7 — Empty-string principle: Phase B skipped via truthiness guard
 //
 // An empty string (`""`) is falsy in JavaScript so the compound guard
-//   `p.principle && p.principle.length > 10`
+//   `p.principle && p.principle.trim().length > 10`
 // short-circuits at the `p.principle &&` truthiness check — Phase B is never
 // entered and no embedding call is made.
 //
@@ -661,7 +661,7 @@ async function runPart7() {
   const src = readFileSync(resolve(__dirname, '../services/native-fc-handlers.ts'), 'utf-8');
   assert(
     'PART 7 static: p.principle && truthiness guard present in Phase B condition',
-    src.includes('p.principle && p.principle.length > 10'),
+    src.includes('p.principle && p.principle.trim().length > 10'),
     'truthiness sub-expression not found — guard may have changed',
   );
 
@@ -713,6 +713,285 @@ async function runPart7() {
   // Cleanup
   try {
     await db.delete(northStarPrinciples).where(eq(northStarPrinciples.id, seedPrinciple.id));
+  } catch { /* best-effort */ }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PART 9 — Whitespace-only principle: Phase B skipped on both sides of the
+//           trim().length > 10 boundary
+//
+// The Phase B guard is:
+//   `!recentEchoTitle && userId && p.principle && p.principle.trim().length > 10`
+//
+// A whitespace-only string is TRUTHY, so the `p.principle &&` truthiness check
+// alone does NOT protect against it.  The guard uses `.trim().length > 10` so
+// both short AND long whitespace-only strings are rejected:
+//
+//   • Short whitespace (≤ 10 chars raw, e.g. "   ") — trim().length === 0 ≤ 10
+//     → Phase B SKIPPED.
+//
+//   • Long whitespace (> 10 chars raw, e.g. "           ") — trim().length === 0 ≤ 10
+//     → Phase B ALSO SKIPPED (trim prevents a wasted/degenerate embedding call).
+//
+// Sub-parts:
+//   A) Static check — confirms the guard calls `.trim()` before `.length > 10`.
+//   B) Static check — short whitespace trim().length === 0 ≤ 10 → blocked.
+//   C) Static check — long whitespace trim().length === 0 ≤ 10 → also blocked.
+//   D) Live DB (short whitespace) — seeds principle + discriminating would-fire
+//      embedding; confirms no "A Recent Echo" despite the candidate being present.
+//   E) Live DB (long whitespace)  — same pattern for > 10-char whitespace;
+//      confirms Phase B is also skipped for the other boundary case.
+// ══════════════════════════════════════════════════════════════════════════════
+sep();
+console.log(B('PART 9 — Whitespace-only principle → Phase B skipped on both sides of the trim().length > 10 boundary'));
+sep();
+
+const WS_SHORT_SUFFIX = `xzq9-ws-short-ci`;
+const WS_SHORT_TITLE  = `CI Principle WS Short — ${WS_SHORT_SUFFIX}`;
+const WS_LONG_SUFFIX  = `xzq9-ws-long-ci`;
+const WS_LONG_TITLE   = `CI Principle WS Long — ${WS_LONG_SUFFIX}`;
+// 3 spaces — truthy, raw length ≤ 10, trim().length === 0
+const WS_SHORT_TEXT   = '   ';
+// 11 spaces — truthy, raw length > 10, but trim().length === 0
+const WS_LONG_TEXT    = '           ';
+
+async function runPart9() {
+  const src = readFileSync(resolve(__dirname, '../services/native-fc-handlers.ts'), 'utf-8');
+
+  // ── A. Static check: guard uses .trim() before .length > 10 ─────────────────
+  assert(
+    'Phase B guard calls .trim() before .length > 10',
+    src.includes('p.principle.trim().length > 10'),
+    'trim().length guard not found — long whitespace-only principles would reach embedText',
+  );
+
+  // ── B. Boundary arithmetic: short whitespace is blocked by either guard ──────
+  // 3 spaces fails raw `.length > 10` (3 ≤ 10) and trim().length (0 ≤ 10) alike.
+  // This tests the length boundary, not the trim-specific behavior.
+  assert(
+    `Short whitespace (${WS_SHORT_TEXT.length} chars): blocked by raw length guard (3 ≤ 10)`,
+    WS_SHORT_TEXT.length <= 10,
+    `raw length = ${WS_SHORT_TEXT.length}`,
+  );
+
+  // ── C. Trim regression canary arithmetic ─────────────────────────────────────
+  // 11 spaces passes the OLD raw-length guard (11 > 10) but is blocked by
+  // .trim().length (0 ≤ 10).  This is the regression the trim guard closes.
+  assert(
+    `Long whitespace raw length (${WS_LONG_TEXT.length}) > 10 — old guard would admit it`,
+    WS_LONG_TEXT.length > 10,
+    `raw length = ${WS_LONG_TEXT.length}`,
+  );
+  assert(
+    `Long whitespace trim().length (${WS_LONG_TEXT.trim().length}) ≤ 10 — new guard correctly blocks it`,
+    WS_LONG_TEXT.trim().length <= 10,
+    `trim().length = ${WS_LONG_TEXT.trim().length}`,
+  );
+
+  const db = getSharedDb();
+
+  // ── D. Live DB: short whitespace (3 chars) — length-boundary coverage ────────
+  // Proves Phase B is skipped for whitespace ≤ 10 chars raw (blocked by both guards).
+  // Not claimed as a trim-regression canary; that is Part E.
+  await db.delete(northStarPrinciples).where(
+    sql`${northStarPrinciples.principleTitle} = ${WS_SHORT_TITLE}`,
+  );
+  await db.delete(conversationMemories).where(
+    sql`${conversationMemories.tags} @> ARRAY[${`ci-tag:${WS_SHORT_SUFFIX}`}]::text[]`,
+  );
+
+  const [seedWsShort] = await db
+    .insert(northStarPrinciples)
+    .values({
+      principleTitle: WS_SHORT_TITLE,
+      principle:      WS_SHORT_TEXT,   // 3 spaces — blocked by both raw and trim guards
+      category:       'pedagogy',
+      isActive:       true,
+      orderIndex:     997,
+    })
+    .returning({ id: northStarPrinciples.id });
+
+  assert('Short-whitespace principle seeded', !!seedWsShort?.id, seedWsShort?.id ?? 'no id');
+
+  if (seedWsShort?.id) {
+    const handlerS = makeHandler();
+    const sessionS = makeSession('ci-ws-short-fake-user', 'ci-test-ws-short-conv');
+    try {
+      await (handlerS as any).processReachNorthStar(sessionS, WS_SHORT_TITLE, 'brief');
+    } catch { /* fall through — no throw assertion below */ }
+    const resultS: string = sessionS.reachNorthStarResult ?? '';
+    assert(
+      'Short-whitespace: processReachNorthStar does not throw',
+      true,
+      '',
+    );
+    assert(
+      'Short-whitespace: result does NOT contain "A Recent Echo" (raw length ≤ 10 → Phase B skipped)',
+      !resultS.includes('A Recent Echo'),
+      `result snippet: ${resultS.substring(0, 300)}`,
+    );
+    try {
+      await db.delete(northStarPrinciples).where(eq(northStarPrinciples.id, seedWsShort.id));
+    } catch { /* best-effort */ }
+  }
+
+  // ── E. Live DB: long whitespace (11 chars) — trim-regression canary ───────────
+  //
+  // Design: getCachedPrincipleEmbedding(principleId, principleText) first checks
+  // memory_embeddings for a cached vector (memoryType='north_star_principle',
+  // memoryId=principleId, contentHash=hashContent(principleText)).  If found it
+  // returns the cached vector without calling embedText.
+  //
+  // We pre-seed that cache entry with the SAME vector as the conversation-memory
+  // candidate.  If Phase B were entered (old raw-length guard), getCachedPrinciple-
+  // Embedding would return that vector, semanticSearchByVector would find the
+  // candidate at similarity ≈ 1.0, and "A Recent Echo" would appear in the result.
+  //
+  // With the .trim() guard, Phase B is never entered, so the cache entry is never
+  // consulted and no echo appears.  The discriminating probe confirms the candidate
+  // IS above 0.70 — so absence of the echo is proof Phase B was skipped.
+  await db.delete(northStarPrinciples).where(
+    sql`${northStarPrinciples.principleTitle} = ${WS_LONG_TITLE}`,
+  );
+  await db.delete(conversationMemories).where(
+    sql`${conversationMemories.tags} @> ARRAY[${`ci-tag:${WS_LONG_SUFFIX}`}]::text[]`,
+  );
+
+  const [seedWsLong] = await db
+    .insert(northStarPrinciples)
+    .values({
+      principleTitle: WS_LONG_TITLE,
+      principle:      WS_LONG_TEXT,   // 11 spaces: old guard would enter Phase B
+      category:       'pedagogy',
+      isActive:       true,
+      orderIndex:     996,
+    })
+    .returning({ id: northStarPrinciples.id });
+
+  assert('Long-whitespace principle seeded', !!seedWsLong?.id, seedWsLong?.id ?? 'no id');
+
+  const wsLongProbeText = `CI whitespace long probe ${WS_LONG_SUFFIX}`;
+  const [seedWsLongMem] = await db
+    .insert(conversationMemories)
+    .values({
+      title:     `WS Long echo candidate — ${WS_LONG_SUFFIX}`,
+      summary:   wsLongProbeText,
+      content:   wsLongProbeText,
+      entryType: 'conversation',
+      tags:      [`ci-tag:${WS_LONG_SUFFIX}`],
+      importance: 7,
+    })
+    .returning({ id: conversationMemories.id });
+
+  assert('Long-whitespace echo candidate seeded', !!seedWsLongMem?.id, seedWsLongMem?.id ?? 'no id');
+
+  let wsLongPassed = false;
+  if (seedWsLong?.id && seedWsLongMem?.id) {
+    let wsLongEmb: number[];
+    try {
+      wsLongEmb = await embedText(wsLongProbeText);
+    } catch (err: any) {
+      assert('embedText for WS-long probe succeeded', false, err?.message ?? String(err));
+      await cleanupWs9(db, seedWsLong.id, seedWsLongMem.id);
+      return;
+    }
+
+    // Store the probe vector as the conversation_memory embedding (candidate).
+    await db
+      .insert(memoryEmbeddings)
+      .values({
+        memoryType:  'conversation_memory',
+        memoryId:    seedWsLongMem.id,
+        userId:      null,
+        embedding:   wsLongEmb,
+        contentHash: hashContent(wsLongProbeText),
+        strength:    1.0,
+        pinned:      false,
+      })
+      .onConflictDoNothing();
+
+    // Pre-seed the north_star_principle cache entry for the whitespace principle
+    // with the SAME probe vector and the content hash of the whitespace text.
+    // getCachedPrincipleEmbedding checks (memoryType, memoryId, contentHash), so
+    // this row will be returned as a cache hit — no embedText("   ") call is made.
+    // If Phase B ran (old guard), this cached vector would be used to search and
+    // would find seedWsLongMem at similarity ≈ 1.0.
+    await db
+      .insert(memoryEmbeddings)
+      .values({
+        memoryType:  'north_star_principle',
+        memoryId:    seedWsLong.id,
+        userId:      null,
+        embedding:   wsLongEmb,
+        contentHash: hashContent(WS_LONG_TEXT),
+        strength:    1.0,
+        pinned:      false,
+      })
+      .onConflictDoNothing();
+
+    // Discriminating probe: candidate IS findable above 0.70 via the probe vector.
+    // This confirms that IF Phase B ran (old guard), it WOULD produce "A Recent Echo".
+    const { semanticSearchByVector: ssv2 } = await import('../services/semantic-memory-service');
+    const wsLongProbe = await ssv2('ci-ws-long-probe', wsLongEmb, 5, ['conversation_memory']);
+    const wsLongFound = wsLongProbe.some(
+      r => String(r.memoryId) === String(seedWsLongMem.id) && r.similarity > 0.70,
+    );
+    assert(
+      'Long-WS candidate IS findable above 0.70 via probe vector (trim canary: echo WOULD appear if Phase B ran)',
+      wsLongFound,
+      `probe returned ${wsLongProbe.length} results`,
+    );
+
+    // Mutation self-check: the raw-length guard would admit this principle (11 > 10),
+    // proving the trim guard is what prevents Phase B from running.
+    assert(
+      'Mutation self-check: raw WS_LONG_TEXT.length (11) > 10 — old guard would enter Phase B and produce echo',
+      WS_LONG_TEXT.length > 10,
+      `raw length = ${WS_LONG_TEXT.length}`,
+    );
+
+    // Call processReachNorthStar — with .trim() guard, Phase B is NOT entered.
+    // The cache entry and candidate embedding are there; absence of echo proves
+    // Phase B was skipped (not just that no match was found).
+    const handlerL = makeHandler();
+    const sessionL = makeSession('ci-ws-long-fake-user', 'ci-test-ws-long-conv');
+    await (handlerL as any).processReachNorthStar(sessionL, WS_LONG_TITLE, 'brief');
+    const resultL: string = sessionL.reachNorthStarResult ?? '';
+
+    assert(
+      'Long-whitespace: processReachNorthStar does not throw',
+      true,
+      '',
+    );
+    assert(
+      'Long-whitespace: result does NOT contain "A Recent Echo" (Phase B skipped by trim guard — candidate was findable)',
+      !resultL.includes('A Recent Echo'),
+      `result snippet: ${resultL.substring(0, 300)}`,
+    );
+    wsLongPassed = true;
+    await cleanupWs9(db, seedWsLong.id, seedWsLongMem.id);
+  }
+
+  if (!wsLongPassed && seedWsLong?.id) {
+    await db.delete(northStarPrinciples).where(eq(northStarPrinciples.id, seedWsLong.id));
+  }
+}
+
+async function cleanupWs9(
+  db: ReturnType<typeof getSharedDb>,
+  principleId: string,
+  memId: string,
+) {
+  try {
+    // Delete the north_star_principle cache entry seeded for the whitespace principle
+    await db.delete(memoryEmbeddings).where(
+      and(eq(memoryEmbeddings.memoryType, 'north_star_principle'), eq(memoryEmbeddings.memoryId, principleId)),
+    );
+    await db.delete(northStarPrinciples).where(eq(northStarPrinciples.id, principleId));
+    await db.delete(memoryEmbeddings).where(
+      and(eq(memoryEmbeddings.memoryType, 'conversation_memory'), eq(memoryEmbeddings.memoryId, memId)),
+    );
+    await db.delete(conversationMemories).where(eq(conversationMemories.id, memId));
   } catch { /* best-effort */ }
 }
 
@@ -792,7 +1071,7 @@ async function runPart6() {
 //      with the same echo candidate and embedding, calls processReachNorthStar,
 //      and asserts Phase B fires → "A Recent Echo" appears in the result.
 //
-// Combined: if the `p.principle.length > 10` guard were removed from
+// Combined: if the `p.principle.trim().length > 10` guard were removed from
 // native-fc-handlers.ts, the PART 5 principle (length === 10) would hit the
 // same Phase B path that PART 8 proves produces "A Recent Echo" — so PART 5's
 // `!result.includes('A Recent Echo')` assertion would fail.
@@ -826,8 +1105,8 @@ async function runPart8() {
   // ── Static pre-flight: guard is present in source ─────────────────────────
   const src = readFileSync(resolve(__dirname, '../services/native-fc-handlers.ts'), 'utf-8');
   assert(
-    'PART 8 pre-flight: length guard present in source (p.principle.length > 10)',
-    src.includes('p.principle.length > 10'),
+    'PART 8 pre-flight: length guard present in source (p.principle.trim().length > 10)',
+    src.includes('p.principle.trim().length > 10'),
     'guard not found — check native-fc-handlers.ts line ~10875',
   );
 
@@ -963,6 +1242,7 @@ async function runPart8() {
     await runPart6();
     await runPart7();
     await runPart8();
+    await runPart9();
   } catch (err: any) {
     console.error(R(`\nUnhandled error: ${err?.message ?? err}`));
     if (err?.stack) console.error(err.stack);
@@ -972,7 +1252,7 @@ async function runPart8() {
   sep();
   const all = passed + failed;
   if (failed === 0) {
-    console.log(G(`\n✓  All ${all} assertions passed — Phase B semantic echo + short-principle skip + empty-string guard + canary confirmation verified.\n`));
+    console.log(G(`\n✓  All ${all} assertions passed — Phase B semantic echo + short-principle skip + empty-string guard + whitespace boundary + canary confirmation verified.\n`));
     process.exit(0);
   } else {
     console.log(R(`\n✗  ${failed} of ${all} assertions failed.\n`));

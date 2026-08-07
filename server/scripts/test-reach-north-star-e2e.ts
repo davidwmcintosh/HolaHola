@@ -341,7 +341,8 @@ async function ensureCookie(): Promise<boolean> {
     console.log(`  (auto-auth: cookie written to ${COOKIE_FILE})`);
     return true;
   } catch (fetchErr: any) {
-    // Server not running in this environment — Part C is best-effort, skip it.
+    // Server not running (e.g. during npm test validation with no live server).
+    // Part C is best-effort — skip silently rather than hard-fail.
     console.log(`  (Part C skipped: server not reachable — ${fetchErr.message})`);
     return false;
   }
