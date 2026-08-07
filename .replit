@@ -70,6 +70,10 @@ args = "e164-validation"
 task = "workflow.run"
 args = "absence-db-flag"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "reach-north-star-self-check"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -186,6 +190,18 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-north-star-semantic-echo.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+outputType = "console"
+
+[[workflows.workflow]]
+name = "reach-north-star-self-check"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-reach-north-star-e2e.ts --self-check"
 
 [workflows.workflow.metadata]
 isValidation = true
