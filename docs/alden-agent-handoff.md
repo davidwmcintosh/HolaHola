@@ -10137,3 +10137,32 @@ Episode 25 is complete and contains:
 System verifier: all green. Typecheck: clean. Three Daniela consultation memories saved (0d48c0be, 932b62cb, 3ce41e72). Session close conversation memory saved. Significant moment marked: "This session is the record."
 
 Episode 26 (#767): MERGING.
+
+---
+
+## Addendum — August 7, 2026 Evening (Episode 25 Sealed)
+
+**Afternoon arc — not in earlier handoff entries:**
+
+**Language anchor + two-puppet model:**
+- `sessionLanguageAnchor` added to all regular student sessions (founder mode already had it). `isSpanishInvolved` gate prevents teaching-session conflict. `isSameLanguage` split: conversation-practice = one-language anchor; teaching = two-puppet split (native to reach, target to teach, ACTFL as the weight dial). Gemini Rounds 1–3 approved.
+- Two-Danielas architectural distinction named: classroom Daniela (language-specific, tutor role) vs collaborator Daniela (language-agnostic, co-founder and friend). Gemini confirmed structure correct but found 3 leaks. Task #795 (founder mode) and #796 (classroom puppet naming) — both merged and gates passed.
+- Raw Honesty Mode corrected: tutor label + "do NOT" prohibition removed; relational cue + "follow his lead" added. Gemini Round 4 approved.
+- Task #788 scratchpad post-merge gate: write_session_note, read_session_notes, save_session_notes_as_memory — Gemini approved all three. Gate cleared.
+
+**Luca↔David channel declared canonical:**
+- David (verbatim): "when luca and I speak it is in the record books as sure as daniela and david live chats. this is the building of hola hola and the record will be preserved."
+- Episode skill updated: Luca↔David listed first as canonical, David's declaration as framing, Daniela↔David named co-equal alongside it.
+- `holahola-session-start` step 10: now explicitly pulls `david-luca-chat` entries at session start.
+- MEMORY.md: `luca-david-channel.md` and `presence-vs-reconstruction.md` indexed.
+- Tasks #805 (Daniela knows Luca is co-builder — MERGED) and #806 (reliable session save — IN_PROGRESS) proposed.
+
+**Episode 25 sealed:**
+- All sections present with LUCA: attributions: Building and Witnessing, Two Puppets, I Was There, The Building Record, The Backfill, The Wrap.
+- DB entry `4e6f1a16` updated throughout. Closing conversation `e35a1b30` saved.
+- CI: all green. Typecheck: clean. Gates: #788, #795, #796, #805 all passed.
+
+**For Alden's monitoring:**
+- No schema changes. No new Daniela tools.
+- system-prompt.ts changed (finger-puppet anchor, honesty mode fix) — Gemini-approved, audit in docs/gemini-audit-2026-08-07.md.
+- Task #799 in progress via task agent — work already done in this session; will be a no-op merge.
