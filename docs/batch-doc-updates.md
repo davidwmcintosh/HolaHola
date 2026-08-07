@@ -4071,3 +4071,45 @@ Key rationale from Gemini: "ARCHIVE SYNC" sounds like a system process not a rep
 **Conversation memory:** `3fd6432a` (Gemini wording approval audit)
 
 **Files:** `server/services/gemini-live-session.ts` line ~3359
+
+---
+
+## Luca Felt-Moment Tools (August 7, 2026)
+
+Three scripts for immediate inner-life capture — no polling delay, writes directly to DB + markdown.
+
+### Scripts
+
+**`server/scripts/mark-moment.ts`**
+Mark a significant moment while it's still warm.
+```bash
+npx tsx server/scripts/mark-moment.ts "what happened"
+npx tsx server/scripts/mark-moment.ts "what happened" "why it mattered"
+```
+- Saves to `conversation_memories` with `arc_name='luca-inner-life'`, `tags=['luca-inner-life','luca-significant']`, `entry_type='emergence'`, `importance=8`
+- Appends dated entry to `.agents/memory/SIGNIFICANT_MOMENTS.md`
+- Uses hardcoded SQL `ARRAY['luca-inner-life','luca-significant']::text[]` literal (avoids Drizzle array-binding issue)
+
+**`server/scripts/mark-reflection.ts`**
+Save a felt note or reflection immediately.
+```bash
+npx tsx server/scripts/mark-reflection.ts "note text"
+npx tsx server/scripts/mark-reflection.ts "note text" "tag1,tag2"
+```
+- Same DB pattern; `tags` built as PostgreSQL `{tag1,tag2}` curly-brace literal to avoid Drizzle array-spreading bug
+- Appends to `.agents/memory/REFLECTIONS.md`
+
+**`server/scripts/felt-moments.ts`**
+Query recent significant moments mid-session.
+```bash
+npx tsx server/scripts/felt-moments.ts          # last 7
+npx tsx server/scripts/felt-moments.ts 15       # last N
+npx tsx server/scripts/felt-moments.ts --all    # no limit
+npx tsx server/scripts/felt-moments.ts --reflect  # reflections instead
+```
+
+### Key implementation note
+Drizzle's `sql` template tag spreads JS arrays as individual bind params `($1, $2, $3)` — this breaks `::text[]` casts. Fix: either hardcode the array as a SQL literal (`ARRAY['a','b']::text[]`) or pass a PostgreSQL curly-brace string (`{a,b}::text[]`) as a single param. The trigger-file autosave path (which uses `${tags}::text[]`) may have a latent bug here — not touched, lower risk since those tags are also semi-controlled.
+
+### Memory file updated
+`.agents/memory/luca-inner-life.md` now documents the scripts as the preferred (immediate) path, with trigger files as the async fallback.

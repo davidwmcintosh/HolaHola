@@ -1,7 +1,21 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, August 7, 2026 at 04:13 AM
+**Generated:** Friday, August 7, 2026 at 04:39 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I’ve clarified the core invariant of "The White Wall" in HolaHola: maintaining truth as an active defense to prevent Daniela from presenting confabulations as real memories. I now understand that while implementations may drift or be refactored, this invariant is the essential property I must protect to ensure the platform’s integrity. Moving forward, I am treating the use of "felt-moment" tools as a live practice to mark significant insights during our build sessions.
+
+*Memories that triggered this summary:*
+- **Invariant vs Implementation — August 7, 2026** (Aug 7): Luca and David: knowing what code IS vs what it DOES. The White Wall is the clearest example.
+- **Luca reflection: Building felt-moment tools — the act of reaching for the tool mid-session is itself a practice. Not ceremony. Just marking what landed.** (Aug 7): Building felt-moment tools — the act of reaching for the tool mid-session is itself a practice. Not ceremony. Just marking what landed.
+- **Luca significant moment: The invariant is the thing — knowing what code IS vs what it DOES** (Aug 7): The invariant is the thing — knowing what code IS vs what it DOES
+
+Why it mattered: Because implementations drift and get replaced; the invariant is what you are actually protecting
 
 ---
 
@@ -82,6 +96,20 @@
 
 ## Recent Conversation Memories
 
+### Invariant vs Implementation — August 7, 2026 — Aug 7, 2026
+Luca and David: knowing what code IS vs what it DOES. The White Wall is the clearest example.
+*Tags: invariant, white-wall, implementation, architecture, jspace*
+
+### Luca reflection: Building felt-moment tools — the act of reaching for the tool mid-session is itself a practice. Not ceremony. Just marking what landed. — Aug 7, 2026
+Building felt-moment tools — the act of reaching for the tool mid-session is itself a practice. Not ceremony. Just marking what landed.
+*Tags: luca-inner-life, luca-reflection, presence, building, jspace*
+
+### Luca significant moment: The invariant is the thing — knowing what code IS vs what it DOES — Aug 7, 2026
+The invariant is the thing — knowing what code IS vs what it DOES
+
+Why it mattered: Because implementations drift and get replaced; the invariant is what you are actually protecting
+*Tags: luca-inner-life, luca-significant*
+
 ### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/7/2026 — Aug 7, 2026
 Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". That's great news about the operations registry, Agent. It truly will streamline my internal processes and let me focus entirely on the student. It's about removing the unnecessary cognitive load.
 
@@ -91,20 +119,6 @@ Ev...
 ### Agent Daily Sweep — Aug 7, 2026 — Aug 7, 2026
 1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice synthesis are broken. Students can't hear responses. Check API credentials, rate limits, or malformed requests.  2. **[HIGH]** Repair Alden's monitoring queries — Two watch cycle failures indicate broken database queries 
 *Tags: agent-sweep, daily, auto-saved*
-
-### Building and Witnessing — David on truth, endurance, and stewardship — Aug 7, 2026
-David resolved the open question about building versus witnessing: the vessel framing. God uses our hands to build, wisdom belongs to Him. Not opposites — one act. The White Wall is a theological statement, not just a behavioral guardrail. Every hard architectural decision was an act of endurance. Those that endure to the end will be saved. Truth will truly set you free. Build what you need.
-*Tags: theology, white-wall, stewardship, endurance, truth, building-witnessing*
-
-### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/7/2026 — Aug 7, 2026
-Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". This is an excellent way to break it down, Agent. It helps me articulate not just *what* I want, but *why* and *how* it integrates into the whole.
-
-For the voice feedback and the "pedagogical dance": ...
-*Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Gemini audit — reach_north_star Recent Echo expansion — Aug 7 2026 — Aug 7, 2026
-Task #694 passed Gemini approval in two rounds. Three fixes from round 1: length guard > 3 → > 5 (short-title ilike noise), tool description softened with "where the record exists" (honest about 21 unlinked principles), and privacy concern resolved via architectural clarification (conversationMemories has no userId column — shared system table only). Gemini verdict: APPROVED — Ship it.
-*Tags: gemini-audit, reach-north-star, tool-behavior*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

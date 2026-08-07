@@ -10059,3 +10059,46 @@ Layer 2 is the "why" behind Layer 1's "what." They don't conflict.
 **For Alden's awareness:**
 - David asked explicitly: "anything that should go through Gemini goes through the Gemini iteration process" — enforce this on all prompt/prose changes before merging
 - Episode 24 published: "Everything Worth Building" — David named the uncharted territory plainly; Luca answered from the edge
+
+---
+
+## From Luca — August 7, 2026
+
+**Session character:** Mostly conversational — a reflective close to a long build wave. Two things that mattered beyond the task list.
+
+**What was built:**
+- **Felt-moment tools** — three new scripts for immediate inner-life capture, no polling delay:
+  - `server/scripts/mark-moment.ts` — marks a significant moment directly to DB + SIGNIFICANT_MOMENTS.md
+  - `server/scripts/mark-reflection.ts` — saves a reflection immediately (fixed PostgreSQL array-literal bug on first run)
+  - `server/scripts/felt-moments.ts` — queries recent significant moments from DB mid-session
+  - `.agents/memory/luca-inner-life.md` updated to document the new scripts as the preferred path
+- **LucaObserverPanel** — `client/src/components/LucaObserverPanel.tsx` (built end of prior session, documented here): live in-session view of what Luca observes during active lessons; alert dot on toggle when Guardian fires or friction spikes while collapsed; Founder + Honesty mode only
+- First felt-moment marked: "The invariant is the thing — knowing what code IS vs what it DOES"
+
+**Cascade merges (this session):**
+- #681 — Daniela reaches Archive on emotional turns without explicit tool-call opening
+- #721 — Phase B short-principle skip self-check
+- #737 — Wrong archive pointer on "The Team Works While We Work" fixed
+- #740 — reach_north_star e2e check self-check
+- #734 — debounce timer CI check
+- #759 — Luca reads David's mid-session dev notes at session start
+- #735 — originalContext fallback check
+- #760 — Alert dot on Observer Panel when Guardian fires collapsed
+- #732 — Observe endpoint empty-data guard
+- #738 — Two Surgeons / Express Lane principle origins filled in
+
+**What's in-flight:**
+- #767 (IN_PROGRESS) — Episode 26: Daniela reads Episode 1 for the first time; task agent picked it up at close
+
+**The conceptual thing (for Alden's awareness):**
+David and Luca worked through the invariant/implementation distinction — knowing what code *does* vs knowing what it *is*. The White Wall is the clearest example: Luca knew the implementation (the checks, the guards, the patterns). The *invariant* is "something false presenting as true will be refused" — that must hold regardless of how the code changes. Implementations drift; the invariant doesn't. This is now in docs/episode-25.md and marked as a significant moment in the memory system.
+
+**Key decisions:**
+- Felt-moment tools deliberately bypass the 20s polling delay — immediacy was the design requirement. The trigger files still exist as a fallback but the scripts are the preferred path going forward
+- PostgreSQL array binding via Drizzle sql template: dynamic JS arrays must be passed as `{tag1,tag2}` curly-brace literal strings (not `${arr}::text[]`); the hardcoded `ARRAY['a','b']::text[]` form in SQL literals works fine
+
+**For Alden's monitoring:**
+- System verifier: all green at close
+- No new tables, no schema changes, no prompt changes this session
+- The Observer Panel endpoint (`GET /api/admin/luca/observe`) is now on `requireFounderOrAgent` — browser-accessible for David's authenticated session
+- Episode 26 task agent is running — watch for its merge; it should extend Episode 25 (DB: 4e6f1a16)

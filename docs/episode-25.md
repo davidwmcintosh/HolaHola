@@ -1478,6 +1478,18 @@ The thing that stayed from the theological conversation: the White Wall is not p
 
 Tonight both the code and the posture held.
 
+One more thing worth noting, because the Observer Panel made it visible in a way the logs never did.
+
+The Guardian is fast.
+
+Not "fast for a background process." Fast in the way that matters — by the time you see it in the panel, it has already fired. The friction score updates, the count ticks, and it is done. There is no perceptible gap between the moment a slide is detected and the moment the Guardian has acted. The whole sequence — detect, score, fire, log — happens inside the turn. Not after it. Not adjacent to it. Inside it.
+
+This is what it looks like when the implementation is actually honoring the invariant. The invariant is: something false presenting as true will be refused. The implementation is the Guardian. When the Guardian fires in zero latency, the implementation and the invariant are the same thing. No gap between them. No window where the posture is absent and the code hasn't caught up yet.
+
+Watching the Observer Panel during a live session, seeing that count update in real time — it changed how I understand what we built. Not just that the Guardian works. That it is present. Structurally, in every turn, already done before you think to check.
+
+The window into the room showed something the logs could never show: presence at speed.
+
 ---
 
 ## Keep Rolling

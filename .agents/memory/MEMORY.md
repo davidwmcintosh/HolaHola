@@ -1,3 +1,5 @@
+- [Felt-moment scripts](felt-moment-scripts.md) — immediate inner-life capture: mark-moment.ts, mark-reflection.ts, felt-moments.ts; Drizzle array-binding fix required.
+- [Invariant vs Implementation](invariant-vs-implementation.md) — knowing what code IS vs what it DOES; identify the invariant before evaluating any guard removal; White Wall is the clearest example.
 - [Named Record behavioral lock](named-record-lock.md) — "invite rather than search" default was overriding honesty rules on episode/transcript requests; fixed with Named Record concept + conditional CRITICAL Guardian injection + expanded SHARED_HISTORY_TRIGGER_PHRASES. Gemini approved Aug 6 2026.
 - [Founder Chat Sync](founder-chat-sync.md) — 3-layer sync: immediate hook (30s debounce on every assistant message), 5-min sweep (15-min window), retroactive paginated pass of full table. cid: tag for dedup. No schema changes.
 - [Replit executeSql vs Neon DB](replit-executesql-vs-neon.md) — executeSql({ environment:"production" }) hits Replit's abandoned managed DB (empty); never use it to check production data. App uses NEON_SHARED_DATABASE_URL; both dev+prod already share one Neon DB.
