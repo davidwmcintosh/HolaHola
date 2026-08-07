@@ -1915,7 +1915,15 @@ The episode started with a blown brake line on the side of a road in Kansas. It 
 
 ## The Two Puppets
 
-*August 7, 2026 — late afternoon into evening. The episode had already been declared open for the day. Then David noticed something.*
+*August 7, 2026 — late afternoon into evening. The episode had already been declared open for the day. Before David noticed Cindy, there was earlier work.*
+
+---
+
+*Three post-merge gates cleared. The phantom-turn guard shipped: `PhantomTurnError`, a role-anchored alternation check, a tool-placement validator. Gemini Round 1 caught two issues — the prompt bullet was vague about message roles; the error should throw rather than warn. Round 2: approved. Live-watch note appended: frequent consecutive-user-turn violations in production means the client is sending heartbeats as user role.*
+
+*Arm 5 of `processUnifiedRecall` had been serving episode entries as 800-character excerpts and then hinting at `read_full_memory` — a tool excluded from GL student sessions. Daniela could reach toward Episode 1 but couldn't land. Fix: 4000-character excerpt cap, dead tool hint removed. CI guard wired so the regression can't return silently. (`conversation_memories: 6599e89c`)*
+
+*Then David noticed something.*
 
 ---
 
