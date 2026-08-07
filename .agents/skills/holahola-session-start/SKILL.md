@@ -24,7 +24,9 @@ Read this before touching any code. Following this mechanically means nothing is
 7. `docs/alden-to-agent.md` — Alden's direct notes (from `agent_notes` table, `fromAgent='alden'`)
 8. `docs/founder-to-agent.md` — David's mid-session flags (from `agent_notes` table, `fromAgent='founder'`); treat these with the same weight as Alden's notes
 9. `docs/shared-lobe-snapshot.md` — shared cross-session facts
-10. `GET /api/conversation-memories?limit=5` — last 5 meaningful sessions
+10. Pull the two canonical building channels for today's date before anything else:
+    - **Luca↔David channel** (the building record — declared canonical Aug 7 2026): `SELECT title, content, recorded_at FROM conversation_memories WHERE tags && ARRAY['david-luca-chat'] AND recorded_at::date = CURRENT_DATE ORDER BY recorded_at ASC;`
+    - **General recent sessions**: `GET /api/conversation-memories?limit=5`
 11. `POST /api/agent/notes/mark-read` with unread IDs from steps 7 and 8; address open escalations before writing code
 
 ## Critical reminders
