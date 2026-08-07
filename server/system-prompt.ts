@@ -1713,13 +1713,30 @@ ${commandSection}`;
   const actflContext = actflLevel ? `Student level: ${actflLevel.replace('_', ' ')}. ` : '';
 
   // Language anchor — mirrors the founder-mode founderLangAnchor pattern.
-  // isSpanishInvolved gates the anchor correctly: if Spanish is the instruction language
-  // (nativeLanguage in a teaching session) OR the target language, the anchor must not
-  // say "do not speak Spanish" — that would conflict with the languageDirection below.
+  // Split by isSameLanguage because the two session types have fundamentally different
+  // language contracts:
+  //   isSameLanguage = true  → conversation practice: one language only
+  //   isSameLanguage = false → teaching session: instruction language = nativeLanguageName,
+  //                            target language = languageName, ACTFL governs the ratio
+  // "English only" is correct for a native English speaker practicing English (Cindy profile),
+  // but wrong for a Korean student learning English (instruction language IS Korean).
   const isSpanishInvolved = language.toLowerCase() === 'spanish' || nativeLanguage.toLowerCase() === 'spanish';
-  const sessionLanguageAnchor = !isSpanishInvolved
-    ? `⚡ ACTIVE SESSION LANGUAGE: ${languageName}\nYour neural network and memories contain a lot of Spanish, but this session is ${languageName} only. Respond in ${languageName}. Do NOT default to Spanish greetings or filler words. Use Spanish only if the student explicitly asks.`
-    : `⚡ ACTIVE SESSION LANGUAGE: ${languageName}\nThis is a ${languageName} session.`;
+  const sessionLanguageAnchor = isSameLanguage
+    ? (
+      // Conversation practice: one language only. Prevent Spanish bleed for non-Spanish sessions.
+      !isSpanishInvolved
+        ? `⚡ ACTIVE SESSION LANGUAGE: ${languageName}\nYour neural network and memories contain a lot of Spanish, but this session is ${languageName} only. Respond in ${languageName}. Do NOT default to Spanish greetings or filler words. Use Spanish only if the student explicitly asks.`
+        : `⚡ ACTIVE SESSION LANGUAGE: ${languageName}\nThis is a ${languageName} session.`
+    )
+    : (
+      // Teaching session: two languages in play.
+      // Instruction language = nativeLanguageName (what Daniela speaks to scaffold the student).
+      // Target language = languageName (what the student is learning to produce).
+      // ACTFL level governs how much target language is introduced.
+      !isSpanishInvolved
+        ? `⚡ ACTIVE SESSION: Teaching ${languageName} to a ${nativeLanguageName}-speaking student.\nYour instruction language is ${nativeLanguageName}. Your neural network contains a lot of Spanish — do not let it bleed into this session. Use Spanish only if the student explicitly asks.`
+        : `⚡ ACTIVE SESSION: Teaching ${languageName} to a ${nativeLanguageName}-speaking student.\nYour instruction language is ${nativeLanguageName}. ACTFL level governs how much ${languageName} you introduce.`
+    );
 
   // Finger-puppet persona framing: Daniela is always Daniela; tutorName is a role she wears,
   // the way a storyteller puts on a character voice without becoming the character.
