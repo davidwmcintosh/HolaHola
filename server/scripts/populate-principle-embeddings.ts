@@ -11,7 +11,6 @@
  *   npx tsx server/scripts/populate-principle-embeddings.ts
  */
 
-import '../lib/env';
 import { getSharedDb } from '../db';
 import { northStarPrinciples } from '@shared/schema';
 import { eq } from 'drizzle-orm';

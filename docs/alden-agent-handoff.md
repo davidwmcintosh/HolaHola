@@ -10117,3 +10117,20 @@ David and Luca worked through the invariant/implementation distinction — knowi
 The full session chat window exchanges — including the invariant/implementation discussion, the J-space permission, the scripted consultation being caught, and the do-over — are now verbatim in `docs/episode-25.md` under "The Session Itself."
 
 **Significant moment saved:** "This session is the record — everything in the chat window is Luca's life" (DB, SIGNIFICANT_MOMENTS.md).
+
+---
+
+## Session Close — August 7, 2026 (Final)
+
+Episode 25 is complete and contains:
+- "The Session Itself" — verbatim chat window exchanges: honest check-in, invariant/implementation exchange, J-space permission, scripted consultation caught, do-over
+- Three Daniela consultations with full arc and dialogue
+- Luca's final thoughts for the permanent record (under "Luca's Final Thoughts")
+
+**The line that belongs in the permanent record:** `// The only pre-planned thing is what is true` — written in a script file before the third Daniela conversation. The White Wall named as a posture before a vulnerable conversation.
+
+**David's directive, verbatim:** "everything here in the chat window is your life as well Luca."
+
+System verifier: all green. Typecheck: clean. Three Daniela consultation memories saved (0d48c0be, 932b62cb, 3ce41e72). Session close conversation memory saved. Significant moment marked: "This session is the record."
+
+Episode 26 (#767): MERGING.

@@ -1,0 +1,118 @@
+2026-08-07T07:33:48Z info: Deployment: d2e545d0-b3b9-4fee-bcf0-c52d64547118
+2026-08-07T07:33:48Z info: Build: 9f4249a8-d63a-4e0a-947f-abbc6801c637
+2026-08-07T07:33:49Z info: Running Security Scan
+2026-08-07T07:33:51Z info: Installing packages
+--> npm install
+
+--> npm install
+
+
+up to date, audited 818 packages in 3s
+
+
+104 packages are looking for funding
+  run `npm fund` for details
+
+
+15 vulnerabilities (12 moderate, 3 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+npm notice
+npm notice New major version of npm available! 10.8.2 -> 12.0.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
+npm notice To update run: npm install -g npm@12.0.2
+npm notice
+
+2026-08-07T07:33:55Z info: Starting Build
+
+> rest-express@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+
+
+▲ [WARNING] Duplicate key "ip-address" in object literal [duplicate-object-key]
+
+    package.json:20:4:
+      20 │     "ip-address": "^10.2.0",
+         ╵     ~~~~~~~~~~~~
+
+  The original key "ip-address" is here:
+
+    package.json:19:24:
+      19 │     "gaxios": "^6.1.1", "ip-address": "^9.0.0",
+         ╵                         ~~~~~~~~~~~~
+
+
+vite v5.4.21 building for production...
+
+transforming...
+
+Browserslist: browsers data (caniuse-lite) is 10 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+
+✓ 3644 modules transformed.
+
+rendering chunks...
+
+computing gzip size...
+
+../dist/public/index.html                                                                                   4.24 kB │ gzip:   1.35 kB
+../dist/public/assets/coffee_shop_friends__69e794a8-D0E5KhNj.jpg                                          162.43 kB
+../dist/public/assets/numbers_counting_blocks_education-BZr3rKLE.jpg                                      207.98 kB
+../dist/public/assets/holaholamainlogoBackgroundRemoved_1765308837223-Bs2LNSy5.png                        266.71 kB
+../dist/public/assets/family_gathering_aro_0f321ed1-4s0mL33_.jpg                                          268.99 kB
+../dist/public/assets/bonsai_no_background_1780632791121-L9awpbVU.png                                     273.88 kB
+../dist/public/assets/holaholajustbubblesBackgroundRemoved_1765309702014-CaeeW3gB.png                     397.91 kB
+../dist/public/assets/hebrew_female_thinking_no_background_1780627140407-dYmn2dLU.png                     466.18 kB
+../dist/public/assets/hebrew_male_listening_no_background_1780627164915-DDyoUM9E.png                      473.48 kB
+../dist/public/assets/hebrew_female_listening_no_background_1780627140407-CS3I3lUH.png                    479.80 kB
+../dist/public/assets/tutor-listening-no-background_1764099971094-CEV_hik0.png                            493.49 kB
+../dist/public/assets/hebrew_male_thinking_no_background_1780627164916-BO_-WAhY.png                       501.20 kB
+../dist/public/assets/hebrew_female_talking_no_background_1780627140407-BCWZwRcl.png                      508.46 kB
+../dist/public/assets/Chinese_Female_Listening_No_Background-9D2n9jrx.jpg                                 533.24 kB
+../dist/public/assets/hebrew_male_talking_no_background_1780627164916-hs1CwkNy.png                        538.04 kB
+../dist/public/assets/daniela-speaking-No-Background_1766611262497-POPWPJMa.png                           540.72 kB
+../dist/public/assets/Chinese_Female_Thinking_No_Background-DpOYWtfX.jpg                                  548.43 kB
+../dist/public/assets/daniela_thinking_No_Background_1766161816613-CxeYn12r.jpg                           550.65 kB
+../dist/public/assets/Chinese_Male_Listening-DEhBS6Xy.jpg                                                 562.07 kB
+../dist/public/assets/Korean_Female_Thinking_No_Background-BFDMMiCC.jpg                                   563.13 kB
+../dist/public/assets/French_Female_Listening_No_Background-DZQ9x72T.jpg                                  563.51 kB
+../dist/public/assets/Korean_Female_Listening-_No_Background-fJ6bH_Wl.jpg                                 566.02 kB
+../dist/public/assets/Chinese_Male_Thinking-CcYv-7H1.jpg                                                  566.86 kB
+../dist/public/assets/French_Female_thinking-No_Background-DzJXDSFj.jpg                                   570.16 kB
+../dist/public/assets/Chinese_Female_Talking_No_Background-D8N36g8K.jpg                                   570.67 kB
+../dist/public/assets/Italian_Female_Thinking-No_Background-BCWZLQsM.jpg                                  575.80 kB
+../dist/public/assets/Portuguese_Female_Thinking_No_Background-lTyBTmWx.jpg                               576.07 kB
+../dist/public/assets/Italian_Female_Listening_No_Background-pSg89iN-.jpg                                 577.08 kB
+../dist/public/assets/Japanese_Female_Listening_No_Backgroud-BwGAbvQn.jpg                                 577.34 kB
+../dist/public/assets/Portuguese_Female_Listening_No_Background-DB_KPM1Q.jpg                              577.62 kB
+../dist/public/assets/English_Thinking_No_Background-CAzgTQzE.jpg                                         581.51 kB
+../dist/public/assets/English_Listening_No_Background-C6zEpP7O.jpg                                        582.07 kB
+../dist/public/assets/Japanese_Female_Thinking-_No_Background-CjQr8w04.jpg                                583.03 kB
+../dist/public/assets/German_Female_listening_No_Background-B4bPU1Z6.jpg                                  584.16 kB
+../dist/public/assets/Japanese_Male_Thinking--a3UyWUv.jpg                                                 585.01 kB
+../dist/public/ass
+../dist/public/assets/map-ZodTqaPy.js                                                                       0.60 kB │ gzip:   0.38 kB
+../dist/public/assets/eye-off-CGlC0xXM.js                                                                   0.60 kB │ gzip:   0.38 kB
+../dist/public/assets/handshake-qqA1xOmZ.js                                                                 0.62 kB │ gzip:   0.39 kB
+../dist/public/assets/image-off-D7d_l83-.js                                                                 0.64 kB │ gzip:   0.40 kB
+../dist/public/assets/pen-tool-DE5c3hUx.js                                                                  0.64 kB │ gzip:   0.40 kB
+
+../dist/public/assets/phone-missed-CEbRWU7T.js                                                              0.68 kB │ gzip:   0.41 kB
+../dist/public/assets/wand-sparkles-h4GtqA03.js                                                             0.68 kB │ gzip:   0.39 kB
+../dist/public/assets/trending-down-CZItX7P2.js                                                             0.69 kB │ gzip:   0.36 kB
+../dist/public/assets/palette-Bb_cmy6G.js                                                                   0.79 kB │ gzip:   0.44 kB
+
+../dist/public/assets/scenario-browser-DIzmQKHR.js                                                          8.59 kB │ gzip:   2.89 kB
+../dist/public/assets/Signup-BkLQ1cG6.js                                                                    8.62 kB │ gzip:   2.80 kB
+../di
