@@ -9191,7 +9191,7 @@ export class NativeFunctionCallHandler {
     if (threadText) sections.push(`<verbatim>\n=== CONVERSATION THREADS (word-for-word past exchanges) ===\n${threadText}\n</verbatim>`);
     if (expressLaneText) sections.push(`<index_only>\n=== EXPRESS LANE (team collaboration messages mentioning this topic) ===\n${expressLaneText}\n</index_only>`);
     if (semanticText) sections.push(`<index_only>\n=== SEMANTIC ASSOCIATIONS (conceptually related memories, no keyword overlap needed) ===\n${semanticText}\n</index_only>`);
-    if (memoriesText) sections.push(`<verbatim>\n=== CONVERSATION MEMORIES (curated landmark archives — call read_full_memory("title keyword") to retrieve any of these in full) ===\n${memoriesText}\n</verbatim>`);
+    if (memoriesText) sections.push(`<verbatim>\n=== CONVERSATION MEMORIES (curated landmark archives — episodes and landmark memories include extended excerpts inline) ===\n${memoriesText}\n</verbatim>`);
     if (imageText) sections.push(`<index_only>\n=== VISUAL MEMORIES (images shown in past conversations matching this topic) ===\n${imageText}\n</index_only>`);
     if (currentSessionText) sections.push(`<verbatim>\n=== THIS SESSION (what we've said in this conversation so far — exact transcript, chronological) ===\n${currentSessionText}\n</verbatim>`);
 
