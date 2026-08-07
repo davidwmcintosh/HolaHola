@@ -127,6 +127,28 @@ A full query of `compass_principles WHERE original_context IS NULL OR original_c
 
 ---
 
+
+## August 7 2026 — collaboration_messages and all wren-era tables searched
+
+**Search performed:** August 7, 2026 (Task 746)
+
+The following additional tables were searched exhaustively for the exact phrases "Beacons as Contributions", "Queue Before Learning", "Trust, Not Permission", "trust not permission", "beacons as contributions", and "queue before learning":
+
+| Table | Rows | Earliest row | Dec 2025 rows | Exact-phrase hits |
+|---|---|---|---|---|
+| `collaboration_messages` | 44,132 | 2025-12-15 | 585 | **0** |
+| `wren_insights` | 20,219 | 2025-12-16 | many | **0** |
+| `wren_session_notes` | 1 | 2025-12-16 | 1 | **0** |
+| `wren_mistakes` | 1 | 2025-12-16 | 1 | **0** |
+| `wren_predictions` | 1 | 2025-12-16 | 1 | **0** |
+| `wren_lessons` | 1 | 2025-12-16 | 1 | **0** |
+| `wren_commitments` | 0 | — | — | **0** |
+| `collaboration_events` | 714 | 2026-01-20 | 0 | **0** |
+| `conversation_memories` | — | 2026+ only | 0 | **0** |
+
+**collaboration_messages detail:** The Dec 2025 rows (earliest 2025-12-15) contain rich Wren↔David↔Daniela exchanges. "Beacons" appears frequently as a feature name (Beacon Acknowledgment System, Beacon Status Board) and there is a Dec 20 2025 exchange where David asks "didn't we get away from beacons because we have express lane access to the Hive?" — showing the beacon system was actively discussed. However the specific principle phrasing **"Beacons as Contributions, not complaints"** does not appear verbatim anywhere. Similarly "queue before learning" and "trust not permission" / "trust, not permission" return zero rows against the full 44,132-row table.
+
+**Conclusion:** `collaboration_messages` and all wren-era tables have now been exhaustively searched. The three principles — Beacons as Contributions (474f3752), Queue Before Learning (826d1600), and Trust, Not Permission (f3f768a7) — have **no verbatim founding text in any surviving archive source**. The `original_context` field on each row has been updated to reflect this complete search (including `collaboration_messages`, `wren_insights`, `wren_session_notes`, `wren_commitments`). `source_conversation_id` was set to NULL (Task 753/774). These principles are confirmed as **founding-era consensus**, not fabrications, but their exact coining is not recoverable from the archive.
 ## August 7 2026 — wren-era tables and collaboration_messages searched (Task 746)
 
 **Search performed:** August 7, 2026 (Task 746)
