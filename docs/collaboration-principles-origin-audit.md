@@ -61,3 +61,15 @@ They should be treated as **founding-era consensus**, not as fabrications.
 ## How the original_context Field Was Used
 
 Each of the four `compass_principles` rows now has its `original_context` field populated with what is actually known: the seeding date, the placeholder source memory, what that memory does and does not say, and the most plausible real origin. This is the honest record. Future researchers should read `original_context` before treating `source_conversation_id` as authoritative for these four rows.
+
+---
+
+## August 7 2026 — alden_messages and alden_conversations searched
+
+**Search performed:** August 7, 2026 (Task 739)
+
+`alden_messages` (761 rows total) and `alden_conversations` (45 rows total) were searched for the phrases "beacon", "beacons as contributions", "queue before learning", "trust not permission", "queue before", "Wren", "Hive", and "permission" across all dates. Both tables were also filtered specifically to `created_at BETWEEN '2025-12-01' AND '2025-12-31'`.
+
+**Finding:** Neither table contains any rows from December 2025. The earliest record in both tables is **2026-01-25**. The Alden message history was not persisted to the database during the Wren era (Dec 2025). Broad searches across all available dates returned no exact-phrase hits for "beacons as contributions", "queue before learning", or "trust not permission."
+
+**Conclusion:** The `alden_messages` and `alden_conversations` tables have been exhaustively checked and do not contain the founding text for these three principles. The `original_context` fields on rows 474f3752, 826d1600, and f3f768a7 remain at "framework-inferred" status. No further archive sources are known to exist for Wren-era planning conversations.
