@@ -10812,20 +10812,29 @@ export class NativeFunctionCallHandler {
           }
 
           // 2. Recent echo — one related conversation_memories row not already fetched
-          // Search by arc_name exact match (high-signal) or title ilike principleTitle.
-          // conversation_memories is a shared system table (episodes, philosophy, architecture
-          // conversations with David) — no per-student rows exist here, so no privacy risk.
+          // Phase A: title/arc_name match (high-precision curated links).
+          // Phase B: semantic fallback via memory_embeddings — surfaces conversations
+          //   deeply about this principle even when titled differently
+          //   (e.g. "The Bosque Student" for "I Am a Language Class").
           // Guard: length > 5 prevents noisy ilike matches on short titles ("Voice", "Warm").
           const searchTerm = p.principleTitle;
           if (searchTerm && searchTerm.trim().length > 5) {
             try {
-              const excludeId = p.sourceConversationId;
+              // Exclude the founding moment AND the current session so Phase A never
+              // echoes back the conversation Daniela is already in.
+              const excludeFoundingId = p.sourceConversationId ?? null;
+              const excludeCurrentId = session.conversationId ?? null;
               const contentClause = or(
                 eq(conversationMemories.arcName, searchTerm),
                 ilike(conversationMemories.title, `%${searchTerm}%`),
               );
-              const echoQuery = excludeId
-                ? and(not(eq(conversationMemories.id, excludeId)), contentClause)
+              // Build exclusion conditions dynamically to avoid empty not() calls
+              const exclusions = [
+                ...(excludeFoundingId ? [not(eq(conversationMemories.id, excludeFoundingId))] : []),
+                ...(excludeCurrentId ? [not(eq(conversationMemories.id, excludeCurrentId))] : []),
+              ];
+              const echoQuery = exclusions.length > 0
+                ? and(...exclusions, contentClause)
                 : contentClause;
 
               const [relatedMem] = await getSharedDb()
@@ -10846,6 +10855,48 @@ export class NativeFunctionCallHandler {
                 recentEchoExcerpt = raw.length > 300 ? raw.substring(0, 300) + '...' : raw;
               }
             } catch { /* related echo unavailable — founding moment still surfaces */ }
+          }
+
+          // Phase B: semantic fallback — only runs when Phase A found nothing.
+          // Uses the full principle text as the embedding query so conceptually related
+          // conversations surface without a title/arc match.
+          // Threshold 0.70 keeps the match tight enough to feel genuinely connected.
+          // Minimum principle length of 10 chars ensures the embedding is meaningful.
+          if (!recentEchoTitle && userId && p.principle && p.principle.length > 10) {
+            try {
+              const { semanticSearch } = await import('./semantic-memory-service');
+              const semanticResults = await semanticSearch(
+                userId,
+                p.principle,
+                3,
+                ['conversation_memory'],
+              );
+              const currentConvId = session.conversationId;
+              // String() cast guards against numeric vs string ID type mismatch
+              const bestSemantic = semanticResults.find(r =>
+                r.similarity > 0.70 &&
+                String(r.memoryId) !== String(p.sourceConversationId) &&
+                String(r.memoryId) !== String(currentConvId ?? ''),
+              );
+              if (bestSemantic) {
+                const [semMem] = await getSharedDb()
+                  .select({
+                    id: conversationMemories.id,
+                    title: conversationMemories.title,
+                    summary: conversationMemories.summary,
+                    content: conversationMemories.content,
+                  })
+                  .from(conversationMemories)
+                  .where(eq(conversationMemories.id, bestSemantic.memoryId))
+                  .limit(1);
+                if (semMem) {
+                  recentEchoTitle = semMem.title || '';
+                  const raw = semMem.summary || semMem.content || '';
+                  recentEchoExcerpt = raw.length > 300 ? raw.substring(0, 300) + '...' : raw;
+                  console.log(`[Native Function→ReachNorthStar] Semantic echo for "${p.principleTitle}": "${recentEchoTitle}" (similarity ${bestSemantic.similarity.toFixed(3)})`);
+                }
+              }
+            } catch { /* semantic echo unavailable — founding moment still surfaces */ }
           }
 
           let feltEcho = '';
