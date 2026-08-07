@@ -1,8 +1,124 @@
 # Alden → Agent Notes
 
-*98 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*102 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 8/6/2026, 10:13:02 PM
+Generated: 8/7/2026, 1:34:15 AM
+
+---
+
+### [Sofia] Brain/memory health degraded: green → yellow
+*Fri, Aug 7, 2026, 1:29 AM* (id: `96115a0b-6ca4-445e-b049-5a59dea09584`)
+*During: Sofia Health Monitor*
+
+Brain/memory health transitioned green → yellow (degraded).
+
+Reasons:
+• [Neural Retrieval] Assessment error: Failed query: select count(*) from "emotional_patterns" where "emotional_patterns"."is_active" = $1
+params: true
+• [Neural Sync] Assessment error: Failed query: select "id", "best_practice_id", "source_environment", "target_environment", "status", "submitted_by", "reviewed_by", "review_notes", "submitted_at", "reviewed_at" from "promotion_queue" where "promotion_queue"."status" = $1
+params: pending
+• [Student Learning] Assessment error: Failed query: select "user_id" from "brain_events" where ("brain_events"."user_id" IS NOT NULL and "brain_events"."created_at" >= $1)
+params: 2026-07-08T01:28:37.345Z
+• [Tool Orchestration] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: tool_call,2026-08-06T01:28:37.345Z
+
+Sofia's analysis: The brain health transition to **YELLOW** is caused by persistent database query failures ("Assessment errors") across the Neural Sync, Student Learning, and Tool Orchestration dimensions. While there are currently 0 active sessions (explaining the 0% memory injection rate), the system is unable to query the `brain_events` and `promotion_queue` tables to assess recent performance or sync new pedagogical knowledge.
+
+**Key Findings:**
+- **Database Connectivity**: Health-check queries for event logging and promotion queues are failing, indicating a potential infrastructure issue or table-level corruption.
+- **Neural Sync Broken**: The sync pipeline reports `null` for the last sync time, suggesting the learning loop between dev and production is inactive.
+- **Memory Starvation**: Anomaly detection flagged 17 recent sessions with zero memory injections prior to the current idle state.
+
+**Actions Taken:**
+- **Escalated to Founder (Critical)**: Reported the database query failures and broken sync pipeline for immediate infrastructure review.
+- **Pattern Tracked**: Logged `brain_database_query_failure` to monitor the recurrence of these assessment errors.
+- **Remediation**: Attempted memory recovery and context cache refreshes, but these were ineffective due to the underlying database issues and current lack of active sessions.
+
+Actions taken:
+• trigger_memory_recovery: {"candidatesProcessed":0,"factsExtracted":0,"candidatesSkipped":0,"errors":[],"durationMs":899}
+• refresh_context_cache: {"sessionsRefreshed":0}
+• track_pattern: {"tracked":true,"pattern_type":"brain_database_query_failure","recentDigests":5}
+• escalate_to_founder: {"escalated":true,"severity":"critical"}
+
+Check voice session logs and the open-bugs list for related incidents.
+
+---
+
+### [Sofia] Voice pipeline health degraded: green → red
+*Thu, Aug 6, 2026, 11:51 PM* (id: `0b61dbd8-a4bc-41bc-bf41-13f8bf552efd`)
+*During: Sofia Health Monitor*
+
+Voice pipeline health transitioned green → red (degraded).
+
+Reasons:
+• High E2E latency: avg p95=9993ms over last hour (1 GL sessions)
+
+Sofia's analysis: The voice health degradation to **red** was caused by a single user (`49847136`) experiencing severe network instability on a **4G connection**. This resulted in a p95 E2E latency of **9993ms** across 8 turns, multiple failsafe triggers, and a reconnection loop that eventually failed with "Session not ready for streaming" and "Session has ended" errors.
+
+Broad Gemini Live (GL) health remains stable with nominal establishment latencies for other sessions, and backend brain systems (context injection, tool orchestration) are functioning correctly. The "red" status is a result of the high latency outlier in a low-volume window (1 active GL session).
+
+**Actions Taken:**
+1. **Pattern Tracked**: Recorded `gl_reconnect_loop_latency` to monitor similar network-induced reconnection failures.
+2. **Knowledge Base**: Created a new article, *"Troubleshooting Connection Issues and Latency,"* to help students manage 4G/unstable connection transitions.
+3. **Session Audit**: Confirmed no stale sessions are currently active; the affected session ended cleanly.
+
+No further remediation is required as the issue is isolated to the user's local network environment.
+
+Actions taken:
+• track_pattern: {"tracked":true,"pattern_type":"gl_reconnect_loop_latency","recentDigests":5}
+• upsert_kb_article: {"action":"created","articleId":"902c693e-c582-40f9-ab32-c8a3f9499c94","title":"Troubleshooting Connection Issues and Latency"}
+
+Check voice session logs and the open-bugs list for related incidents.
+
+---
+
+### [Sofia] Voice pipeline health degraded: green → red
+*Thu, Aug 6, 2026, 10:49 PM* (id: `e782efde-06c0-480c-bd42-e7757427983d`)
+*During: Sofia Health Monitor*
+
+Voice pipeline health transitioned green → red (degraded).
+
+Reasons:
+• High E2E latency: avg p95=7891ms over last hour (1 GL sessions)
+
+Sofia's analysis: The voice health status degraded to **red** due to a significant latency spike (p95: 7.8s) in a Gemini Live session. Investigation revealed that the delay was driven by a slow `introspect` (memory retrieval) tool call taking 4.7s, which triggered client-side failsafes for a user on a 4G connection. A broader brain health diagnostic confirmed a systemic tool orchestration issue with average tool latencies reaching 13s, leading to a high-severity escalation to the founder for infrastructure review.
+
+Actions taken:
+• track_pattern: {"tracked":true,"pattern_type":"tool_latency_spike","recentDigests":5}
+• upsert_kb_article: {"action":"already_exists","articleId":"53770efd-ce52-41c8-8ce6-2652241821fc","title":"Troubleshooting Voice Latency and Mic Lockout on Mobile"}
+• escalate_to_founder: {"escalated":true,"severity":"high"}
+
+Check voice session logs and the open-bugs list for related incidents.
+
+---
+
+### [Sofia] Voice pipeline health degraded: green → red
+*Thu, Aug 6, 2026, 10:16 PM* (id: `8cc8f1ef-b946-43fc-90da-b799f1e59e13`)
+*During: Sofia Health Monitor*
+
+Voice pipeline health transitioned green → red (degraded).
+
+Reasons:
+• High E2E latency: avg p95=7891ms over last hour (1 GL sessions)
+
+Sofia's analysis: The voice health transition to **RED** was caused by a significant latency spike in a single Gemini Live session (User `49847136`), where p95 latency reached **7,891ms**. 
+
+**Investigation Findings:**
+*   **Root Cause:** The primary driver was high **tool orchestration latency**. The `introspect` (memory search) tool took ~4.5s per call, and the Brain Health Report indicates a broader system-wide tool latency average of **13.2s**.
+*   **Contributing Factors:** The user was on a **4G connection**, which exacerbated the E2E delay, leading to multiple client-side **failsafe_tier2_45s** triggers and a processing timeout.
+*   **Current State:** The session has ended, and there are currently no active sessions.
+
+**Actions Taken:**
+1.  **Pattern Tracking:** Recorded the `tool_latency_spike` pattern for long-term monitoring.
+2.  **KB Review:** Verified that a knowledge base article exists to guide users on slow connections/latency.
+3.  **Escalation:** Sent a **High Severity** alert to the founder regarding the 13s tool orchestration latency, as this suggests a potential regression in the memory retrieval or tool execution pipeline.
+
+Actions taken:
+• upsert_kb_article: {"action":"already_exists","articleId":"68c3925c-95df-49ae-896f-f4b15d84f13c","title":"Daniela is responding slowly or showing errors"}
+• track_pattern: {"tracked":true,"pattern_type":"tool_latency_spike","recentDigests":5}
+• escalate_to_founder: {"escalated":true,"severity":"high"}
+
+Check voice session logs and the open-bugs list for related incidents.
 
 ---
 

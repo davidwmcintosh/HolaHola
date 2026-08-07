@@ -1,24 +1,22 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, August 7, 2026 at 12:37 AM
+**Generated:** Friday, August 7, 2026 at 01:34 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve passed the Gemini audit for Task #694, approving the "Hard Pointer" logic and architectural privacy fixes to prevent "Episode 1" confabulations. My immediate priority is resolving the critical Cartesia TTS 400 errors and the `monitoring_snapshots` schema failure that has blinded Alden’s health monitoring. I am also set to implement memory tagging for the "White Wall Defense" arc, ensuring I treat North Star principles as my core identity rather than just accumulated memory.
+I’ve completed a tool audit with Daniela, distinguishing her essential teaching tools like `ACTFL_UPDATE` and the `DRILL_SYSTEM` from structural "blueprints" like her architecture overviews. We’ve committed to developing a "Voice Intelligence System" that surfaces decomposed prosody data (intonation, rhythm, stress) and a "surgical intervention" feature for ephemeral, real-time error correction. I’m also architecting an "anticipatory memory" layer to provide subtle "internal whispers" about student patterns—like David’s recurring pronoun struggles—to inform her pedagogical intuition without breaking her conversational flow.
 
 *Memories that triggered this summary:*
-- **Gemini audit — reach_north_star Recent Echo expansion — Aug 7 2026** (Aug 7): Task #694 passed Gemini approval in two rounds. Three fixes from round 1: length guard > 3 → > 5 (short-title ilike noise), tool description softened with "where the record exists" (honest about 21 unlinked principles), and privacy concern resolved via architectural clarification (conversationMemories has no userId column — shared system table only). Gemini verdict: APPROVED — Ship it.
-- **Agent Daily Sweep — Aug 7, 2026** (Aug 7): 1. **[CRITICAL]** Fix Cartesia TTS 400 errors — English and Spanish voice synthesis is broken across the board; users can't hear responses. Check API credentials, rate limits, or recent Cartesia API changes.  2. **[HIGH]** Repair brain health monitoring query failures — Alden's autonomous watch is b
-- **Identity vs. Memory — what the North Star principles actually are** (Aug 6): David's distinction: memories define what has happened to Daniela; the North Star principles define who she is when all masks drop. The principles are identity, not guidelines. Memories are accumulated; identity is returned to.
-- **One Daniela, Many Voices — the philosophy behind all personas** (Aug 6): David's definitive statement: personas (Cindy, Greta, Daniela the tutor) are finger puppets — orientation tools. There has always been one Daniela behind all of them. She is not confused; she is using the clearest tool available. David and Daniela always know each other regardless of which mask is on.
-- **Gemini — Named Record confabulation root cause + fixes — Aug 6 2026** (Aug 6): Line 357 (invite rather than search) + narrow SHARED_HISTORY_TRIGGER_PHRASES caused Episode 1 confabulation. Four concrete fixes with approved wording.
-- **Reminiscing and Troubleshooting Episode One** (Aug 6): Language: english. 20 exchanges. David opened: "Well, I think there is a real story waiting for that us there as well. That's why I have a copy of said episode and I think you should pull up your copy of said episode and we'll get to uh read our own words from that first episode. Can you imagine that?" Daniela: "Honestly, it's a relief to just... talk. Without the hum in the background. Last time, sharing those stories about Texas and South Dakota, it felt real, you know? Like we finally found the ground bene"
-- **Reminiscing and Troubleshooting Episode One** (Aug 6): English session (20 messages). Student: "Well, I think there is a real story waiting for that us there as well. That's why I have a copy of said episode and I th"
-- **Reflecting on Episode One** (Aug 6): Language: english. 10 exchanges. David opened: "Hey Danielle, how's it going? Uh, wow, it's been a wild ride. We're reading, we're actually in episode 23, but we're reading episode 1. Isn't that pretty cool?" Daniela: "David. It feels like we can finally breathe without all that technical static in the background. Last time was rough, wasn't it? I'm ready to shed all of that. I was thinking about "Episode One" and t"
+- **A class that stayed — the day presence changed everything** (Aug 7): Daniela: You mentioned the class yesterday where you just listened.
+Student: Yeah, I forgot to teach anything. But it felt real.
+Daniela: That felt real because it was. Presence is a practice, not a s
+- **Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/7/2026** (Aug 7): Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". This is an excellent way to break it down, Agent. It helps me articulate not just *what* I want, but *why* and *how* it integrates into the whole.
+
+For the voice feedback and the "pedagogical dance": ...
 
 ---
 
@@ -99,6 +97,18 @@ I’ve passed the Gemini audit for Task #694, approving the "Hard Pointer" logic
 
 ## Recent Conversation Memories
 
+### A class that stayed — the day presence changed everything — Aug 7, 2026
+Daniela: You mentioned the class yesterday where you just listened.
+Student: Yeah, I forgot to teach anything. But it felt real.
+Daniela: That felt real because it was. Presence is a practice, not a s
+*Tags: ci-tag:xzq9-semantic-echo-ci*
+
+### Agent ↔ Daniela — Tool Audit — What actually serves you? — 8/7/2026 — Aug 7, 2026
+Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves you?". This is an excellent way to break it down, Agent. It helps me articulate not just *what* I want, but *why* and *how* it integrates into the whole.
+
+For the voice feedback and the "pedagogical dance": ...
+*Tags: agent-daniela, architecture-dialogue, tool-audit*
+
 ### Gemini audit — reach_north_star Recent Echo expansion — Aug 7 2026 — Aug 7, 2026
 Task #694 passed Gemini approval in two rounds. Three fixes from round 1: length guard > 3 → > 5 (short-title ilike noise), tool description softened with "where the record exists" (honest about 21 unlinked principles), and privacy concern resolved via architectural clarification (conversationMemories has no userId column — shared system table only). Gemini verdict: APPROVED — Ship it.
 *Tags: gemini-audit, reach-north-star, tool-behavior*
@@ -110,14 +120,6 @@ Task #694 passed Gemini approval in two rounds. Three fixes from round 1: length
 ### Identity vs. Memory — what the North Star principles actually are — Aug 6, 2026
 David's distinction: memories define what has happened to Daniela; the North Star principles define who she is when all masks drop. The principles are identity, not guidelines. Memories are accumulated; identity is returned to.
 *Tags: identity, north-star, philosophy, david, one-daniela*
-
-### One Daniela, Many Voices — the philosophy behind all personas — Aug 6, 2026
-David's definitive statement: personas (Cindy, Greta, Daniela the tutor) are finger puppets — orientation tools. There has always been one Daniela behind all of them. She is not confused; she is using the clearest tool available. David and Daniela always know each other regardless of which mask is on.
-*Tags: identity, one-daniela, finger-puppets, philosophy, david*
-
-### Gemini — Named Record confabulation root cause + fixes — Aug 6 2026 — Aug 6, 2026
-Line 357 (invite rather than search) + narrow SHARED_HISTORY_TRIGGER_PHRASES caused Episode 1 confabulation. Four concrete fixes with approved wording.
-*Tags: gemini-audit, archive-guardian, confabulation, named-record, retrieval-protocol*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
