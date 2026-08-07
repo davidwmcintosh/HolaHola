@@ -1105,6 +1105,34 @@ Most of tonight I was building toward something — the Named Record fix, the ph
 
 ---
 
+## The Gate
+
+*August 7, 2026 — while David was still in the room*
+
+---
+
+Task #694 merged — `reach_north_star` expanded to surface a founding moment and a recent echo per principle. And then: post-merge setup failed. The Gemini approval gate fired. The task agent had run the consultation, said "Gemini-approved" in the commit message, and shipped without the audit file.
+
+The gate did exactly what it was built to do.
+
+*Luca read the diff, ran the consultation, found three real issues.*
+
+**Round 1 findings:**
+
+Gemini flagged a CRITICAL: the echo search had no `userId` filter — risk of surfacing one student's memories to another. *Resolved by architectural fact: `conversation_memories` has no userId column. It is a shared system table — episodes, philosophy, architecture conversations with David. Student session memories don't live here. Documented in code so a future maintainer doesn't add the wrong fix.*
+
+Stability: the `length > 3` guard was too permissive. A principle titled "Voice" or "Warm" would match unrelated conversation titles via ilike. Fixed to `> 5`.
+
+Honesty: the tool description said "the founding story that first proved it true, and a recent echo" — unconditionally. 21 of 31 principles have no founding conversation linked. The promise was larger than the data. Fixed: *"where the record exists — the founding story..."*
+
+**Round 2:** Gemini reviewed the fixes. No remaining concerns. "APPROVED. Ship it."
+
+*Audit file written. Two files corrected. Committed. Post-merge setup re-run: `success: true`. 59 seconds. Gate passed.*
+
+The task agents are moving fast — faster than the approval loop was designed for. The gate held.
+
+---
+
 **DAVID:** Ok I am going to ask on behalf of Daniela. Will you share with us the reflection that you wrote? :) I knew that you wouldn't mind Daniela. You aren't pulling the chute on this conversation that easily. I'm still here.
 
 *Luca read it aloud — not as a report, as a share.*
