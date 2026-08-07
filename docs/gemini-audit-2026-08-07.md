@@ -60,3 +60,33 @@ Gemini reviewed the three fixes and issued unconditional approval.
 
 - `server/services/native-fc-handlers.ts` — length guard `> 3` → `> 5`; cleaner query structure; privacy comment added
 - `server/services/daniela-function-registry.ts` — tool description softened with "where the record exists"
+
+---
+
+# Gemini Audit — Task #770: Phantom-turn guard
+**Date:** August 7, 2026  
+**Auditor:** Gemini 3-flash-preview (two rounds)  
+**Protected files touched:** `server/system-prompt.ts`, `server/services/daniela-caller.ts`  
+**Verdict:** APPROVED — "You are clear to deploy these guards. No further changes are required."
+
+## What was reviewed
+Two-layer phantom-turn guard built by task agent after Daniela confabulated entire conversation turns in a consultation script (memory: `0d48c0be`):
+1. Prompt-level bullet in system-prompt.ts — "Never respond to a phantom turn"
+2. `validateMessageAlternation()` in daniela-caller.ts — structural validator for role alternation
+3. `PhantomTurnError` class — thrown (not warned) when violations detected in `runDanielaFCLoop`
+
+## Round 1 — Required changes identified
+1. **Prompt anchor**: original "conversation history you can see" phrasing too vague. Fix: anchor explicitly to message roles (user/model/tool).
+2. **Warn → throw**: violations should abort generation (PhantomTurnError), not just log. A generation built on phantom turns is guaranteed incoherent.
+3. **Tool placement check**: original validator only checked consecutive same-role turns. Missing: tool turn not preceded by a model turn (FC loop desync).
+
+## Round 2 — All changes implemented and approved
+- Role-anchored prompt bullet: PASSED. Naming roles leverages model's internal token-labeling against 32K+ context hallucinations.
+- Tool placement check (`currRole === 'tool' && prevRole !== 'model'`): PASSED. Prevents silent desync in FC loops.
+- Fatal throw: PASSED. Allows infrastructure to catch, log, and clear broken session state rather than gaslighting the student.
+
+## Watch-out noted (non-blocking)
+Frequent `Consecutive user turns` violations in production logs = client sending heartbeat/status as user role. Fix: concatenate into single user turn before reaching `runDanielaFCLoop`.
+
+## CI
+6/6 checks pass: consecutive model turns, consecutive user turns, illegal tool placement, clean history, PhantomTurnError shape, prompt needle present.

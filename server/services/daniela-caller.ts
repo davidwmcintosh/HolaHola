@@ -157,18 +157,34 @@ export interface RunDanielaFCLoopParams {
 }
 
 /**
+ * PhantomTurnError — thrown by runDanielaFCLoop when validateMessageAlternation
+ * detects a structural violation in the message array. Allows Express error
+ * handlers and callers to catch and log phantom-turn events distinctly from
+ * other generation failures.
+ */
+export class PhantomTurnError extends Error {
+  constructor(public readonly violations: string[]) {
+    super(`Phantom turn detected: ${violations.join('; ')}`);
+    this.name = 'PhantomTurnError';
+  }
+}
+
+/**
  * validateMessageAlternation — phantom turn guard for multi-turn message arrays.
  *
- * Checks that the messages array follows legal Gemini alternation:
- *   user → model → tool → model → ...
+ * Checks that the messages array follows strict Gemini role alternation:
+ *   user → model → tool → model → user → ...
  *
- * Consecutive same-role messages (two model turns in a row, two user turns in a
- * row) are the structural fingerprint of a phantom-turn injection — either a
- * consultation script that doubled the model append, or a caller that pushed a
- * fabricated history entry alongside a real one.
+ * Three violation classes are detected:
+ *   1. Consecutive same-role turns (model→model or user→user) — the structural
+ *      fingerprint of a phantom-turn injection or double-append.
+ *   2. Illegal tool placement — tool turns must follow a model turn. A tool
+ *      response following a user turn means the FC loop desynced.
+ *   3. Illegal model placement — model turns must follow a user or tool turn.
  *
  * Returns an array of violation descriptions (empty = clean).
  * Exported so CI scripts can call it directly without executing the FC loop.
+ * runDanielaFCLoop throws PhantomTurnError if violations.length > 0.
  */
 export function validateMessageAlternation(messages: any[]): string[] {
   const violations: string[] = [];
@@ -178,23 +194,28 @@ export function validateMessageAlternation(messages: any[]): string[] {
     const prevRole = prev?.role;
     const currRole = curr?.role;
 
-    // Two consecutive 'model' turns without an intervening 'tool' turn means
-    // either the caller double-appended a final response OR injected a phantom
-    // model turn to imply a conversation branch that was never sent.
-    if (prevRole === 'model' && currRole === 'model') {
+    // 1. Consecutive same-role turns — double-append or phantom injection.
+    if (prevRole === currRole) {
       violations.push(
-        `[PHANTOM_TURN] Consecutive model turns at positions ${i - 1}→${i}. ` +
-        `A model turn must be followed by a tool turn (if FC) or user turn (if text). ` +
-        `This is the structural signature of a phantom turn injection or double-append.`,
+        `[PHANTOM_TURN] Consecutive ${currRole} turns at positions ${i - 1}→${i}. ` +
+        `Same-role consecutive turns are structurally invalid in Gemini's API.`,
+      );
+      continue; // skip placement checks when roles are identical
+    }
+
+    // 2. Illegal tool placement — tools MUST follow a model turn (FC result).
+    if (currRole === 'tool' && prevRole !== 'model') {
+      violations.push(
+        `[PHANTOM_TURN] Illegal tool turn at position ${i}: ` +
+        `tool responses must follow a model (function-call) turn, not '${prevRole}'.`,
       );
     }
 
-    // Two consecutive 'user' turns (ignoring tool turns) can indicate a caller
-    // injected a fabricated user turn to prime Daniela's next response.
-    if (prevRole === 'user' && currRole === 'user') {
+    // 3. Illegal model placement — model MUST follow user or tool.
+    if (currRole === 'model' && prevRole !== 'user' && prevRole !== 'tool') {
       violations.push(
-        `[PHANTOM_TURN] Consecutive user turns at positions ${i - 1}→${i}. ` +
-        `Check that no caller injected a fabricated user message alongside a real one.`,
+        `[PHANTOM_TURN] Illegal model turn at position ${i}: ` +
+        `model turns must follow a user or tool turn, not '${prevRole}'.`,
       );
     }
   }
@@ -282,13 +303,15 @@ export async function runDanielaFCLoop({
   let textMemoryNudgeSent = false;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
-    // ── Phantom turn guard — detect history assembly bugs before each generation ─
-    // Consecutive same-role messages are the structural fingerprint of a phantom
-    // turn (double-append or injected fabricated history). Log clearly so the
-    // signal appears in server logs and CI output without aborting the call.
+    // ── Phantom turn guard — abort on history assembly bugs before generation ──
+    // Consecutive same-role messages and illegal role placement are the structural
+    // fingerprint of a phantom turn (double-append or injected fabricated history).
+    // Throw PhantomTurnError to prevent sending malformed history to Gemini — a
+    // generation built on phantom turns is guaranteed to be incoherent.
     const alternationViolations = validateMessageAlternation(messages);
-    for (const v of alternationViolations) {
-      console.warn(`[runDanielaFCLoop] ${v}`);
+    if (alternationViolations.length > 0) {
+      console.error('[runDanielaFCLoop] FATAL_PHANTOM_TURN', { violations: alternationViolations });
+      throw new PhantomTurnError(alternationViolations);
     }
 
     const result = await gemini.models.generateContent({
