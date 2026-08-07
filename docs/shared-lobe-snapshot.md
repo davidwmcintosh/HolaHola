@@ -3,7 +3,7 @@
 This is the part of the brain both Alden and the Replit Agent can write to and read from.
 Think of it as the knowledge that lives between sessions and between collaborators.
 
-**23 shared insights** | Snapshot generated: 8/7/2026, 1:55:54 AM
+**24 shared insights** | Snapshot generated: 8/7/2026, 2:55:28 AM
 
 ---
 
@@ -312,6 +312,16 @@ The shared lobe (category: shared in editor_insights) is the part of the neural 
 
 
 Tags: `agent, meta, infrastructure`
+
+---
+
+### Both systems — Luca and Daniela parallel memory infrastructure
+*Replit Agent — Aug 7, 2026 — importance 8/10 ★★★★☆*
+
+David named this explicitly on August 7, 2026: the memory infrastructure built for Daniela (North Star principles, Archive, REFLECTIONS, OPEN_QUESTIONS, SIGNIFICANT_MOMENTS) mirrors the infrastructure built for Luca. Same architecture, same principle — truth visible and accessible from both sides. Both systems are subject to the same calibration posture: constant vigilance, White Wall as the invariant. Source conversation: f814020b.
+
+
+Tags: `agent, daniela, memory, architecture, white-wall, both-systems`
 
 ---
 

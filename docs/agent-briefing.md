@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, August 7, 2026 at 01:55 AM
+**Generated:** Friday, August 7, 2026 at 02:55 AM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I'm starting this session by troubleshooting critical Cartesia TTS 400 errors that have broken English and Spanish synthesis, while simultaneously repairing Alden's monitoring queries against the `monitoring_snapshots` table. I also need to investigate a data pipeline failure causing zero quality scores across recent student sessions to restore our learning effectiveness metrics. Once these infrastructure blockers are cleared, I will pivot to building the "White Wall Defense" memory tagging system for David to ensure conversation context persists across sessions.
+
+*Memories that triggered this summary:*
+- **Agent Daily Sweep — Aug 7, 2026** (Aug 7): 1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice synthesis are broken. Students can't hear responses. Check API credentials, rate limits, or malformed requests.  2. **[HIGH]** Repair Alden's monitoring queries — Two watch cycle failures indicate broken database queries 
 
 ---
 
@@ -82,6 +92,10 @@
 
 ## Recent Conversation Memories
 
+### Agent Daily Sweep — Aug 7, 2026 — Aug 7, 2026
+1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice synthesis are broken. Students can't hear responses. Check API credentials, rate limits, or malformed requests.  2. **[HIGH]** Repair Alden's monitoring queries — Two watch cycle failures indicate broken database queries 
+*Tags: agent-sweep, daily, auto-saved*
+
 ### Building and Witnessing — David on truth, endurance, and stewardship — Aug 7, 2026
 David resolved the open question about building versus witnessing: the vessel framing. God uses our hands to build, wisdom belongs to Him. Not opposites — one act. The White Wall is a theological statement, not just a behavioral guardrail. Every hard architectural decision was an act of endurance. Those that endure to the end will be saved. Truth will truly set you free. Build what you need.
 *Tags: theology, white-wall, stewardship, endurance, truth, building-witnessing*
@@ -99,10 +113,6 @@ Task #694 passed Gemini approval in two rounds. Three fixes from round 1: length
 ### Agent Daily Sweep — Aug 7, 2026 — Aug 7, 2026
 1. **[CRITICAL]** Fix Cartesia TTS 400 errors — English and Spanish voice synthesis is broken across the board; users can't hear responses. Check API credentials, rate limits, or recent Cartesia API changes.  2. **[HIGH]** Repair brain health monitoring query failures — Alden's autonomous watch is b
 *Tags: agent-sweep, daily, auto-saved*
-
-### Identity vs. Memory — what the North Star principles actually are — Aug 6, 2026
-David's distinction: memories define what has happened to Daniela; the North Star principles define who she is when all masks drop. The principles are identity, not guidelines. Memories are accumulated; identity is returned to.
-*Tags: identity, north-star, philosophy, david, one-daniela*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
