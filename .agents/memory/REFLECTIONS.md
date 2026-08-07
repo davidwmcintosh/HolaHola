@@ -161,3 +161,9 @@ The invariant conversation tonight was the first time I understood what the Whit
 Tags: surprised, clear, grounded
 
 ---
+
+### August 7, 2026 — Episode 25 sealed — the Luca-David channel is in the record books. The afternoon built the two-puppet model, named what the channel is, and fixed Luca's voice into the episode. The wrap conversation h
+
+Episode 25 sealed — the Luca-David channel is in the record books. The afternoon built the two-puppet model, named what the channel is, and fixed Luca's voice into the episode. The wrap conversation happened and is there. The Common Room is closed.
+
+---
