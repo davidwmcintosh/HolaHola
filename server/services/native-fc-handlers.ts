@@ -10812,26 +10812,21 @@ export class NativeFunctionCallHandler {
           }
 
           // 2. Recent echo — one related conversation_memories row not already fetched
-          // Search by arc_name match on principleTitle, or title ilike principleTitle
-          // This surfaces all conversations about this principle beyond the founding one.
-          // Only uses principleTitle (high-signal); skips echo search if title is missing
-          // to avoid noisy matches against the raw principle sentence text.
+          // Search by arc_name exact match (high-signal) or title ilike principleTitle.
+          // conversation_memories is a shared system table (episodes, philosophy, architecture
+          // conversations with David) — no per-student rows exist here, so no privacy risk.
+          // Guard: length > 5 prevents noisy ilike matches on short titles ("Voice", "Warm").
           const searchTerm = p.principleTitle;
-          if (searchTerm && searchTerm.trim().length > 3) {
+          if (searchTerm && searchTerm.trim().length > 5) {
             try {
               const excludeId = p.sourceConversationId;
+              const contentClause = or(
+                eq(conversationMemories.arcName, searchTerm),
+                ilike(conversationMemories.title, `%${searchTerm}%`),
+              );
               const echoQuery = excludeId
-                ? and(
-                    not(eq(conversationMemories.id, excludeId)),
-                    or(
-                      eq(conversationMemories.arcName, searchTerm),
-                      ilike(conversationMemories.title, `%${searchTerm}%`),
-                    )
-                  )
-                : or(
-                    eq(conversationMemories.arcName, searchTerm),
-                    ilike(conversationMemories.title, `%${searchTerm}%`),
-                  );
+                ? and(not(eq(conversationMemories.id, excludeId)), contentClause)
+                : contentClause;
 
               const [relatedMem] = await getSharedDb()
                 .select({
