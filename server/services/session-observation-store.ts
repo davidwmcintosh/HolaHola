@@ -22,7 +22,7 @@ export interface GuardianFireRecord {
   path: 'pre-turn' | 'post-turn-phrase' | 'friction-signal' | 'hard-wall' | 'carry-forward-buffered' | 'carry-forward-injected';
   phrase: string;
   charsInjected: number | null;
-  channel: 'concat' | 'dedicated' | null;
+  channel: 'concat' | 'dedicated' | 'pre-turn-sendclientcontent' | null;
   outcome: 'heard' | 'missed' | null;
   groundingPreview: string | null;
 }

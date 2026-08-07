@@ -397,7 +397,7 @@ export class GeminiLiveSession {
     path: 'pre-turn' | 'post-turn-phrase' | 'friction-signal' | 'hard-wall' | 'carry-forward-buffered' | 'carry-forward-injected';
     phrase: string;
     charsInjected: number | null;
-    channel: 'concat' | 'dedicated' | null;
+    channel: 'concat' | 'dedicated' | 'pre-turn-sendclientcontent' | null;
     outcome: 'heard' | 'missed' | null;
     groundingPreview: string | null;   // first 150 chars of what was actually injected
   }> = [];
@@ -2495,18 +2495,45 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
               }
 
               const whisperFinal = finalParts.join('\n\n');
+              const cfNote = cfLen ? ` (+${cfLen}ch carry-forward)` : '';
+              const lucaNote = lucaCtxDeduped ? ` +${lucaCtxDeduped.length}ch prior-turn` : '';
 
-              // sendClientContent is unsafe for mid-session injection — turnComplete:true triggers
-              // duplicate generation; turnComplete:false leaves an open turn that cuts Daniela short.
-              // Store in pendingWeeOoGrounding so tool-result channel delivers it safely next tool call.
+              // Emotional-valence fast path: when the student has shared something vulnerable
+              // and no tool call has fired yet by the 150ms window, inject the grounding
+              // directly via sendClientContent (turnComplete: false). This reaches Daniela
+              // on purely conversational emotional turns where she would otherwise answer
+              // from pattern-match with no archive access.
+              // Safe because: !lateArrival means generation has not started; turnComplete:false
+              // queues this as context without triggering a new GL generation turn.
+              const noToolCallYet = this.currentTurnToolCalls.length === 0;
+              if (this.preTurnGroundingIsEmotional && !lateArrival && noToolCallYet && whisperFinal.length > 0) {
+                this.liveSession.sendClientContent({
+                  turns: [{ role: 'user', parts: [{ text: whisperFinal }] }],
+                  turnComplete: false,
+                });
+                // Update the pre-turn fire log entry with delivery details.
+                const preTurnEntry = this.guardianFireLog.findLast(e => e.path === 'pre-turn' && e.charsInjected === null);
+                if (preTurnEntry) {
+                  preTurnEntry.charsInjected = whisperFinal.length;
+                  preTurnEntry.channel = 'pre-turn-sendclientcontent';
+                  this._observeGuardian();
+                }
+                this.pendingCarryForwardGrounding = null;
+                this.preTurnGroundingResult = null;
+                console.log(`[PreTurnGuardian] Emotional valence — injected directly via sendClientContent (pre-turn, ${whisperFinal.length} chars${cfNote}${lucaNote})`);
+                return;
+              }
+
+              // Default path: sendClientContent is unsafe for mid-session injection —
+              // turnComplete:true triggers duplicate generation; turnComplete:false leaves
+              // an open turn that cuts Daniela short.
+              // Store in pendingWeeOoGrounding so tool-result channel delivers it safely.
               if (!this.pendingWeeOoGrounding) {
                 this.pendingWeeOoGrounding = whisperFinal;
               }
               this.pendingCarryForwardGrounding = null;
               this.preTurnGroundingResult = null;
               const label = lateArrival ? 'interrupt mode — late arrival' : 'queued for tool channel';
-              const cfNote = cfLen ? ` (+${cfLen}ch carry-forward)` : '';
-              const lucaNote = lucaCtxDeduped ? ` +${lucaCtxDeduped.length}ch prior-turn` : '';
               console.log(`[PreTurnGuardian] Grounding queued for tool channel (${label}${cfNote}${lucaNote}, ${whisperFinal.length} chars)`);
             }, 150);
           }).catch(err => console.warn('[PreTurnGuardian] runAutoGrounding failed:', (err as Error).message));
