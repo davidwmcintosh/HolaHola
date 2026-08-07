@@ -1182,8 +1182,8 @@ export default function Chat() {
           </div>
         )}
 
-        {/* Luca Observer Panel - Founder Mode only, shows Luca's live session observations */}
-        {isFounderMode && (
+        {/* Luca Observer Panel - Founder Mode + Honesty Mode, shows Luca's live session observations */}
+        {(isFounderMode || isHonestyMode) && (
           <LucaObserverPanel
             isOpen={lucaPanelOpen}
             onToggle={() => setLucaPanelOpen(!lucaPanelOpen)}
