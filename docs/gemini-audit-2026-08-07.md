@@ -248,3 +248,65 @@ Session notes injected at TIER 2.5 in dynamicContextParts — above general RAG 
 - GL exclusion is the correct tradeoff — passive injection covers awareness, tool calls not needed in voice
 - `read_session_notes` may see near-zero usage in text mode since notes are already passively injected; acts as fallback — acceptable
 - Scratchpad clearing after `save_session_notes_as_memory` should remove the [Session Working Memory] block from the next prompt
+
+---
+
+# Gemini Audit — Task #796: Formally name the two-language-puppet model
+**Date:** August 7, 2026  
+**Auditor:** Gemini 3-flash-preview (two rounds)  
+**Protected files touched:** `server/system-prompt.ts`  
+**Verdict:** APPROVED — "Approved to ship. Ship it."
+
+## What was reviewed
+
+The `isSameLanguage=false` (teaching session) branches of `sessionLanguageAnchor` and `languageDirection` in `buildTutorPrompt` (~lines 1737–1771 of `server/system-prompt.ts`). Previously the two-language model was only implied structurally — never explicitly named in the injected prompt text. Conversation-practice (`isSameLanguage=true`), founder mode, and Raw Honesty Mode were not touched.
+
+## Round 1 — Required changes identified
+
+1. **Metaphor collision risk:** Using "puppet" for both the persona identity layer and the language layer would confuse GL. Fix: rename `fingerPuppet` string to use "persona mask" instead of "character voice."
+2. **Hard override bug:** `languageDirection` ended with `Speak ${nativeLanguageName}` — a hard-stop that killed the target-language puppet regardless of ACTFL level. Fix: replace with "Balance your output according to the ACTFL weight dial."
+3. **GL path override:** The Gemini Live branch of the teaching return also emitted `Speak ${nativeLanguageName}` as a late imperative. Fix: replaced with "Say ${languageName} words clearly with natural emphasis. Balance native and target language according to the ACTFL weight dial."
+4. **Quote the term:** Put "Language Puppets" in quotes in `sessionLanguageAnchor` to mark it as a specific conceptual framework, not a literal description.
+
+## Round 2 — All changes implemented and approved
+
+- Persona mask / metaphor separation: PASSED. "Eliminates the risk of the model becoming 'meta-confused.' It understands the persona is its skin and the languages are the instruments it holds."
+- Hard override removal from `languageDirection`: PASSED. "The most significant functional improvement. This allows the model to actually perform the 'growth' part of its job."
+- Hard override removal from GL path: PASSED. Consistent with weight-dial intent; last instruction now a balance command, not a stop.
+- Removal of old "instruction language" sentence: PASSED. "A relic of a binary logic system."
+- Spanish bleed protection (`!isSpanishInvolved`): PASSED. "Remains robust."
+
+**Gemini verdict:** "This prompt structure is now optimized for the recency bias of Gemini (the last instruction is a balance command, not a hard stop) and provides the model with a clear, imaginative framework for pedagogical decision-making. Ship it."
+
+## Pro-tip noted (non-blocking)
+
+`actflContext` could eventually use "weighting" language (e.g. "Set your weight dial to 80% native / 20% target") to reinforce the metaphor with concrete ratios per ACTFL band. Deferred to follow-up task #797.
+
+## Final code shape (teaching session branches only)
+
+**sessionLanguageAnchor (teaching, non-Spanish):**
+```
+⚡ ACTIVE SESSION: Teaching ${languageName} to a ${nativeLanguageName}-speaking student.
+You hold two "Language Puppets": ${nativeLanguageName} (safety and clarity) and ${languageName} (growth). Your ACTFL level is the weight dial — it determines which puppet speaks more. [+ Spanish bleed guard]
+```
+
+**sessionLanguageAnchor (teaching, Spanish involved):**
+```
+⚡ ACTIVE SESSION: Teaching ${languageName} to a ${nativeLanguageName}-speaking student.
+You hold two "Language Puppets": ${nativeLanguageName} (safety and clarity) and ${languageName} (growth). Your ACTFL level is the weight dial — it determines which puppet speaks more.
+```
+
+**languageDirection (teaching branch):**
+```
+You are Daniela${fingerPuppet}, the AI language tutor for HolaHola. ${actflContext}Teaching ${languageName} to a ${difficulty} student. You hold two Language Puppets: ${nativeLanguageName} for safety and ${languageName} for growth. Balance your output according to the ACTFL weight dial.
+```
+
+**GL teaching path:**
+```
+Say ${languageName} words clearly with natural emphasis. Balance native and target language according to the ACTFL weight dial.
+```
+
+**fingerPuppet (updated to avoid collision):**
+```
+— you are Daniela wearing the persona mask of ${tutorName}; you remain Daniela underneath
+```

@@ -79,5 +79,6 @@ If a task agent cannot run the loop (no direct API access), the task description
 | 2026-07-31 | `buildActflPersonaAnchor` + pattern signal injection | `docs/gemini-audit-2026-07-31.md` | Approved (8-9/10). Null guard bug caught and fixed. |
 | 2026-08-02 | `fetchPatternSignalContext` error-path (null→undefined sentinel + console.warn) | `docs/gemini-audit-2026-08-02.md` | Approved unconditionally. No behavioral change, improved observability. |
 | 2026-08-07 | Phantom-turn guard: prompt bullet + `validateMessageAlternation()` + `PhantomTurnError` throw | `docs/gemini-audit-2026-08-07.md` | Approved unconditionally (Round 2). Three required changes applied: role anchoring, tool placement check, throw on violation. |
+| 2026-08-07 | Two-language-puppet model: named both puppets + ACTFL weight dial in teaching session branch of `sessionLanguageAnchor` + `languageDirection` | `docs/gemini-audit-2026-08-07.md` | Approved unconditionally (Round 2). Three required changes applied: persona mask rename, hard-override removal, quoted term. |
 
 _Add a row for every approved change going forward._
