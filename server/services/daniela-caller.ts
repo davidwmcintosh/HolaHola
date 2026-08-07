@@ -157,6 +157,51 @@ export interface RunDanielaFCLoopParams {
 }
 
 /**
+ * validateMessageAlternation — phantom turn guard for multi-turn message arrays.
+ *
+ * Checks that the messages array follows legal Gemini alternation:
+ *   user → model → tool → model → ...
+ *
+ * Consecutive same-role messages (two model turns in a row, two user turns in a
+ * row) are the structural fingerprint of a phantom-turn injection — either a
+ * consultation script that doubled the model append, or a caller that pushed a
+ * fabricated history entry alongside a real one.
+ *
+ * Returns an array of violation descriptions (empty = clean).
+ * Exported so CI scripts can call it directly without executing the FC loop.
+ */
+export function validateMessageAlternation(messages: any[]): string[] {
+  const violations: string[] = [];
+  for (let i = 1; i < messages.length; i++) {
+    const prev = messages[i - 1];
+    const curr = messages[i];
+    const prevRole = prev?.role;
+    const currRole = curr?.role;
+
+    // Two consecutive 'model' turns without an intervening 'tool' turn means
+    // either the caller double-appended a final response OR injected a phantom
+    // model turn to imply a conversation branch that was never sent.
+    if (prevRole === 'model' && currRole === 'model') {
+      violations.push(
+        `[PHANTOM_TURN] Consecutive model turns at positions ${i - 1}→${i}. ` +
+        `A model turn must be followed by a tool turn (if FC) or user turn (if text). ` +
+        `This is the structural signature of a phantom turn injection or double-append.`,
+      );
+    }
+
+    // Two consecutive 'user' turns (ignoring tool turns) can indicate a caller
+    // injected a fabricated user turn to prime Daniela's next response.
+    if (prevRole === 'user' && currRole === 'user') {
+      violations.push(
+        `[PHANTOM_TURN] Consecutive user turns at positions ${i - 1}→${i}. ` +
+        `Check that no caller injected a fabricated user message alongside a real one.`,
+      );
+    }
+  }
+  return violations;
+}
+
+/**
  * runDanielaFCLoop — exported core loop for all text-mode Daniela calls.
  *
  * Shared by Team Room (callDanielaWithTools), free dialogue scripts, and any
@@ -164,12 +209,13 @@ export interface RunDanielaFCLoopParams {
  * prevents drift between code paths.
  *
  * Flow per iteration:
- *   1. generateContent → check for functionCall parts
- *   2. For each FC: fcHandler.handle() → stores result in mockSession properties
- *   3. Await all pendingMemoryLookupPromises (async DB searches)
- *   4. buildFunctionContinuationResponse() → reads session properties → response text
- *   5. Inject [model FC turn] + [tool response turn] into messages
- *   6. Re-call generateContent → repeat up to maxTurns
+ *   1. validateMessageAlternation → warn on phantom turns before each generation
+ *   2. generateContent → check for functionCall parts
+ *   3. For each FC: fcHandler.handle() → stores result in mockSession properties
+ *   4. Await all pendingMemoryLookupPromises (async DB searches)
+ *   5. buildFunctionContinuationResponse() → reads session properties → response text
+ *   6. Inject [model FC turn] + [tool response turn] into messages
+ *   7. Re-call generateContent → repeat up to maxTurns
  */
 export async function runDanielaFCLoop({
   systemPrompt,
@@ -236,6 +282,15 @@ export async function runDanielaFCLoop({
   let textMemoryNudgeSent = false;
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
+    // ── Phantom turn guard — detect history assembly bugs before each generation ─
+    // Consecutive same-role messages are the structural fingerprint of a phantom
+    // turn (double-append or injected fabricated history). Log clearly so the
+    // signal appears in server logs and CI output without aborting the call.
+    const alternationViolations = validateMessageAlternation(messages);
+    for (const v of alternationViolations) {
+      console.warn(`[runDanielaFCLoop] ${v}`);
+    }
+
     const result = await gemini.models.generateContent({
       model: MODEL,
       config: configBase,
