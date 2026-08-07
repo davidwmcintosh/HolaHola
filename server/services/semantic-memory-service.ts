@@ -143,6 +143,66 @@ export async function generateAndStoreEmbedding(
   return true;
 }
 
+// ─── North Star principle embedding cache ─────────────────────────────────────
+
+const NORTH_STAR_MEMORY_TYPE = 'north_star_principle';
+
+/**
+ * Return the embedding vector for a North Star principle, reading from the
+ * memory_embeddings cache first.  If no cached entry exists (or the principle
+ * text has changed since it was cached), the embedding is computed via OpenAI
+ * and stored so future calls are free.
+ *
+ * Callers in processReachNorthStar should use this instead of calling
+ * embedText(p.principle) directly — principles are static, so the embedding
+ * never changes and should be paid for at most once.
+ */
+export async function getCachedPrincipleEmbedding(
+  principleId: string,
+  principleText: string,
+): Promise<number[]> {
+  const db = getSharedDb();
+  const hash = hashContent(principleText);
+
+  const [cached] = await db
+    .select({ embedding: memoryEmbeddings.embedding, contentHash: memoryEmbeddings.contentHash })
+    .from(memoryEmbeddings)
+    .where(and(
+      eq(memoryEmbeddings.memoryType, NORTH_STAR_MEMORY_TYPE),
+      eq(memoryEmbeddings.memoryId, principleId),
+    ))
+    .limit(1);
+
+  if (cached && cached.contentHash === hash) {
+    // Cache hit — no OpenAI call needed
+    return cached.embedding as number[];
+  }
+
+  // Cache miss or stale — compute and store
+  const embedding = await embedText(principleText);
+
+  if (cached) {
+    await db
+      .update(memoryEmbeddings)
+      .set({ embedding, contentHash: hash, createdAt: new Date() })
+      .where(and(
+        eq(memoryEmbeddings.memoryType, NORTH_STAR_MEMORY_TYPE),
+        eq(memoryEmbeddings.memoryId, principleId),
+      ));
+  } else {
+    await db.insert(memoryEmbeddings).values({
+      memoryType: NORTH_STAR_MEMORY_TYPE,
+      memoryId: principleId,
+      userId: null, // global — not per-student
+      embedding,
+      contentHash: hash,
+      strength: 1.0,
+    });
+  }
+
+  return embedding;
+}
+
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 // Global memory types that are always safe to include in student recall searches.
@@ -289,6 +349,104 @@ export async function semanticSearch(
     } catch (err: any) {
       console.warn('[SemanticSearch] Ghost facts validity check failed — returning unfiltered:', err.message);
     }
+  }
+
+  return aboveThreshold
+    .filter(r => !expiredIds.has(r.memoryId))
+    .slice(0, limit)
+    .map(r => ({ memoryType: r.memoryType, memoryId: r.memoryId, similarity: r.similarity, contentHash: r.contentHash }));
+}
+
+/**
+ * Identical to semanticSearch but accepts a pre-computed query vector instead of a
+ * text string.  Use this when the embedding is already known (e.g. from the North
+ * Star principle cache) to avoid a redundant OpenAI API call.
+ */
+export async function semanticSearchByVector(
+  userId: string,
+  queryVec: number[],
+  limit: number = 5,
+  memoryTypes?: string[],
+): Promise<SemanticSearchResult[]> {
+  const db = getSharedDb();
+
+  const wantsCollabMessages = memoryTypes?.includes('collaboration_message') ?? false;
+
+  const userTypeCondition = memoryTypes && memoryTypes.length > 0
+    ? inArray(memoryEmbeddings.memoryType, memoryTypes)
+    : undefined;
+
+  const globalTypes = memoryTypes && memoryTypes.length > 0
+    ? (wantsCollabMessages ? memoryTypes : memoryTypes.filter(t => t !== 'collaboration_message'))
+    : GLOBAL_RECALL_TYPES;
+
+  const [userRows, globalRows] = await Promise.all([
+    db
+      .select(EMBED_SELECT)
+      .from(memoryEmbeddings)
+      .where(
+        userTypeCondition
+          ? and(eq(memoryEmbeddings.userId, userId), userTypeCondition)
+          : eq(memoryEmbeddings.userId, userId),
+      )
+      .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.lastReinforcedAt), desc(memoryEmbeddings.strength))
+      .limit(8000),
+
+    globalTypes.length > 0
+      ? db
+        .select(EMBED_SELECT)
+        .from(memoryEmbeddings)
+        .where(and(
+          isNull(memoryEmbeddings.userId),
+          inArray(memoryEmbeddings.memoryType, globalTypes),
+        ))
+        .orderBy(desc(memoryEmbeddings.pinned), desc(memoryEmbeddings.strength))
+        .limit(1000)
+      : Promise.resolve([]),
+  ]);
+
+  const rows = [...userRows, ...globalRows];
+  if (rows.length === 0) return [];
+
+  const scored = rows.map(row => {
+    const similarity = cosineSimilarity(queryVec, row.embedding as number[]);
+    const decay = computeDecayMultiplier(
+      row.strength ?? 1.0,
+      row.lastReinforcedAt ?? null,
+      row.pinned ?? false,
+    );
+    return {
+      memoryType: row.memoryType,
+      memoryId: row.memoryId,
+      contentHash: row.contentHash,
+      similarity,
+      effectiveScore: similarity * decay,
+    };
+  });
+
+  scored.sort((a, b) => b.effectiveScore - a.effectiveScore);
+
+  const aboveThreshold = scored.filter(r => r.similarity > 0.65);
+
+  // Ghost-facts expiry check (mirrors semanticSearch)
+  const personalFactIds = aboveThreshold
+    .filter(r => r.memoryType === 'learner_personal_fact')
+    .map(r => r.memoryId);
+
+  let expiredIds = new Set<string>();
+  if (personalFactIds.length > 0) {
+    try {
+      const now = new Date();
+      const facts = await db
+        .select({ id: learnerPersonalFacts.id, validTo: learnerPersonalFacts.validTo })
+        .from(learnerPersonalFacts)
+        .where(inArray(learnerPersonalFacts.id, personalFactIds));
+      for (const fact of facts) {
+        if (fact.validTo !== null && fact.validTo < now) {
+          expiredIds.add(fact.id);
+        }
+      }
+    } catch { /* non-fatal — return unfiltered */ }
   }
 
   return aboveThreshold

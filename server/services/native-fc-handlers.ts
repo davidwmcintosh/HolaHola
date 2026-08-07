@@ -10862,12 +10862,15 @@ export class NativeFunctionCallHandler {
           // conversations surface without a title/arc match.
           // Threshold 0.70 keeps the match tight enough to feel genuinely connected.
           // Minimum principle length of 10 chars ensures the embedding is meaningful.
+          // The principle's embedding is read from memory_embeddings cache (type
+          // 'north_star_principle') so no OpenAI call is needed on subsequent runs.
           if (!recentEchoTitle && userId && p.principle && p.principle.length > 10) {
             try {
-              const { semanticSearch } = await import('./semantic-memory-service');
-              const semanticResults = await semanticSearch(
+              const { getCachedPrincipleEmbedding, semanticSearchByVector } = await import('./semantic-memory-service');
+              const principleVec = await getCachedPrincipleEmbedding(p.id, p.principle);
+              const semanticResults = await semanticSearchByVector(
                 userId,
-                p.principle,
+                principleVec,
                 3,
                 ['conversation_memory'],
               );
