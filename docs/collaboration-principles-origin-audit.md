@@ -25,7 +25,9 @@ The following two principles share the same `source_conversation_id = 4d2ef924` 
 
 An exhaustive search of all wren-generation, founding, and origins-tagged `conversation_memories` confirmed that four collaboration principles in the `compass_principles` table are **framework-inferred** — meaning their content is consistent with the Hive/Express Lane architecture that Wren, David, and Daniela built together, but no founding exchange has been located in the archive.
 
-All four currently carry `source_conversation_id = 4d2ef924` ("North Star Principles and Collaboration", Dec 16 2025). That memory's verbatim transcript explicitly mentions Two Surgeons, One Brain and Express Lane (handled above). The four principles below were seeded in the same batch but have no supporting verbatim text.
+All four were originally seeded with `source_conversation_id = 4d2ef924` ("North Star Principles and Collaboration", Dec 16 2025). That memory's verbatim transcript explicitly mentions Two Surgeons, One Brain and Express Lane (handled above). The four principles below were seeded in the same batch but have no supporting verbatim text.
+
+**Current DB status (as of August 7, 2026):** The three Wren-era framework-inferred principles (474f3752, 826d1600, f3f768a7) now have `source_conversation_id = NULL`. The placeholder pointer to 4d2ef924 has been removed. See the August 7 2026 search section below for the full search record that confirmed no verbatim source exists.
 
 ---
 
@@ -122,3 +124,21 @@ A full query of `compass_principles WHERE original_context IS NULL OR original_c
 **Finding:** Neither table contains any rows from December 2025. The earliest record in both tables is **2026-01-25**. The Alden message history was not persisted to the database during the Wren era (Dec 2025). Broad searches across all available dates returned no exact-phrase hits for "beacons as contributions", "queue before learning", or "trust not permission."
 
 **Conclusion:** The `alden_messages` and `alden_conversations` tables have been exhaustively checked and do not contain the founding text for these three principles. The `original_context` fields on rows 474f3752, 826d1600, and f3f768a7 remain at "framework-inferred" status. No further archive sources are known to exist for Wren-era planning conversations.
+
+---
+
+## August 7 2026 — wren-era tables and collaboration_messages searched (Task 746)
+
+**Search performed:** August 7, 2026 (Task 746)
+
+The following tables were searched for the exact phrases "beacons as contributions", "queue before learning", "trust not permission", and "hive operates on trust", plus broad terms "beacon", "queue before", "unsupervised", and "hive operates":
+
+- `collaboration_messages` — full-text ILIKE search across all rows
+- `wren_insights` — full-text search; returned three beacon-related rows from Dec 2025, all discussing Beacons as a system concept (not the principle phrase)
+- `agent_collab_messages` — no matching rows
+- `wren_session_notes` — title search; no matching rows
+- `conversation_memories` — searched for exact principle phrases across all dates; no matching rows
+
+**Finding:** No row in any of these tables contains verbatim text for "Beacons as Contributions", "Queue Before Learning", or "Trust, Not Permission" as principle phrases. The Dec 2025 `collaboration_messages` and `wren_insights` rows that mention "beacons" refer to the Beacon system architecture, not to the principle wording. The founding exchanges — most likely David↔Wren planning conversations from Dec 2025 — were never captured in any searchable DB table.
+
+**Action taken:** `source_conversation_id` has been set to `NULL` on all three rows (474f3752, 826d1600, f3f768a7). The placeholder pointer to 4d2ef924 accurately described those rows as "framework-inferred" but was itself a false attribution. `NULL` is the honest state. The `original_context` fields on all three rows document the full audit trail.
