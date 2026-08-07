@@ -4376,7 +4376,15 @@ export class NativeFunctionCallHandler {
             extendsMemoryId: memExtendsId || null,
             recordedAt: new Date(),
           } as any)
-          .then(() => console.log(`[Native Function→SaveConversationMemory] ✓ Saved: "${memTitle}" (importance: ${memImportance})`))
+          .then(() => {
+            console.log(`[Native Function→SaveConversationMemory] ✓ Saved: "${memTitle}" (importance: ${memImportance})`);
+            // Re-sync North Star tool_knowledge rows ONLY after the insert commits so the
+            // Related Archives lookup sees the new memory row — not before it's persisted.
+            import('./context-sync-service').then(({ contextSyncService }) => {
+              contextSyncService.syncNorthStarToNeuralNetwork()
+                .catch((err: Error) => console.warn('[SaveConversationMemory] North Star re-sync failed:', err.message));
+            });
+          })
           .catch((err: Error) => console.error(`[Native Function→SaveConversationMemory] Error:`, err.message));
         }
         break;

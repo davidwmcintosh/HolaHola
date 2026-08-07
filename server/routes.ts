@@ -31903,6 +31903,12 @@ ${memoryContext}
           console.warn('[Conversation Memories] Briefing refresh failed:', err.message)
         );
       });
+      // Re-sync North Star tool_knowledge rows so any new Related Archives links are picked
+      // up immediately — without waiting for the next server restart.
+      import('./services/context-sync-service').then(({ contextSyncService }) => {
+        contextSyncService.syncNorthStarToNeuralNetwork()
+          .catch((err: Error) => console.warn('[Conversation Memories] North Star re-sync failed:', err.message));
+      });
     } catch (error: any) {
       console.error('[Conversation Memories] Save error:', error);
       res.status(500).json({ error: error.message });
