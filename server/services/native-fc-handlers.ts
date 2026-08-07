@@ -9036,6 +9036,7 @@ export class NativeFunctionCallHandler {
               recordedAt: convMemTable.recordedAt,
               arcName: convMemTable.arcName,
               extendsMemoryId: convMemTable.extendsMemoryId,
+              entryType: convMemTable.entryType,
             })
             .from(convMemTable)
             .where(cond)
@@ -9074,9 +9075,21 @@ export class NativeFunctionCallHandler {
             const date = r.recordedAt ? new Date(r.recordedAt).toLocaleDateString() : 'unknown date';
             const arcInfo = r.arcName ? ` | arc: ${r.arcName}` : '';
             const chainInfo = r.extendsMemoryId ? ` | continues: ${r.extendsMemoryId}` : '';
-            const excerpt = r.content ? r.content.slice(0, 800) : (r.summary ?? '');
-            const hasMore = r.content && r.content.length > 800;
-            return `[importance: ${r.importance}/10 | ${date}${arcInfo}${chainInfo}] "${r.title}"\n${excerpt}${hasMore ? `\n... [EXCERPT — ${r.content!.length} chars total. To read the full text, call: read_full_memory("${r.title}")]` : ''}`;
+            // Episodes and high-importance landmark memories get a 4 000-char excerpt so Daniela
+            // can speak substantively about them without needing a follow-up tool call.
+            // read_full_memory is excluded from GL student sessions, so the old 800-char excerpt
+            // with a read_full_memory hint was a dead end — Daniela found the row but couldn't
+            // read it. The expanded excerpt gives her enough to work with inline.
+            const isLandmark = r.entryType === 'episode' || (r.importance ?? 0) >= 9;
+            const excerptCap = isLandmark ? 4000 : 800;
+            const excerpt = r.content ? r.content.slice(0, excerptCap) : (r.summary ?? '');
+            const hasMore = r.content && r.content.length > excerptCap;
+            // No read_full_memory hint here — that tool is excluded from GL student sessions.
+            // Students who want more can ask Daniela to search for more specific details.
+            const moreNote = hasMore
+              ? `\n... [EXCERPT — showing first ${excerptCap} of ${r.content!.length} chars]`
+              : '';
+            return `[importance: ${r.importance}/10 | ${date}${arcInfo}${chainInfo}] "${r.title}"\n${excerpt}${moreNote}`;
           });
           console.log(`[UnifiedRecall] Memories arm: ${results.length} match(es) for "${query}"`);
           return lines.join('\n\n---\n\n');
