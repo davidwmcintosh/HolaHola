@@ -1,17 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, August 7, 2026 at 08:08 PM
-
----
-
-## Since Last Briefing
-*Auto-generated from memories saved since this file was last written.*
-
-I updated `system-prompt.ts` to include the `sessionLanguageAnchor` for non-founder sessions, ensuring Daniela maintains the correct session language for profiles like Cindy regardless of memory context. I implemented the "finger-puppet" persona framing across both session branches and established the `isSpanishInvolved` logic gate to protect teaching-mode sessions from being over-restricted. These changes, which utilize positive neural-network framing instead of negative constraints, are approved for shipping after a successful two-round Gemini audit.
-
-*Memories that triggered this summary:*
-- **Gemini audit — finger-puppet language anchor (regular student sessions) — Aug 7 2026** (Aug 7): Added sessionLanguageAnchor to non-founder student sessions; isSpanishInvolved gate prevents teaching-mode conflict; neural-network framing over negative constraint; fingerPuppet persona framing applied to both session branches. Two-round Gemini approval.
+**Generated:** Friday, August 7, 2026 at 09:28 PM
 
 ---
 

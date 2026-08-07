@@ -146,3 +146,5 @@
 - [Node.js ESM import-in-callback](node-esm-import-callback.md) — `await import()` inside a Promise constructor callback fails in Node 20 ESM; always use top-level static `import` at the module head.
 - [Agent tool name uniqueness](agent-tool-name-uniqueness.md) — same tool name across separate agent registries creates logging ambiguity even with no shared dispatch; prefix or differentiate when multiple agents need the same concept.
 - [GL SDK turnComplete default](gl-sdk-turncomplete-default.md) — sendClientContent defaults turnComplete:true in @google/genai SDK; every injection without explicit turnComplete:false triggers a new GL generation = extra voice stream. Root cause of triple audio July 24 2026.
+- [Finger-puppet persona + language anchor](finger-puppet-language-anchor.md) — sessionLanguageAnchor added to regular student sessions; isSpanishInvolved gate required; neural-net framing beats negative constraint; Aug 7 2026.
+- [Progressive episode injection architecture](progressive-episode-injection.md) — session enrichment buffer + turn-start injection + scratchpad pattern; Tasks #787/#788; no summarization, full content turn-by-turn.
