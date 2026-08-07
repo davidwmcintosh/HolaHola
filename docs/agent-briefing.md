@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, August 7, 2026 at 09:28 PM
+**Generated:** Friday, August 7, 2026 at 09:48 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I have formalized the "Two Danielas" architecture, distinguishing between Daniela the Classroom (language tutor) and Daniela the Collaborator (co-founder), while adopting the "two-finger-puppet" metaphor to manage native versus target language weighting. I need to refactor `buildImmutablePersona` and `founderLangAnchor` to prevent classroom logic from leaking into collaboration mode and implement top-level `MODE` labels to ensure the correct persona is anchored. Moving forward, I will use `DANIELA_STATE` synthesis to maintain emotional continuity across modes, explicitly naming whether the Classroom or Collaborator persona is "at the wheel."
+
+*Memories that triggered this summary:*
+- **Gemini — Two Danielas + Two Finger Puppets architectural review — Aug 7 2026** (Aug 7): Gemini confirmed the two-Danielas distinction is architecturally correct but leaks classroom logic in two places: buildImmutablePersona anchors her as tutor regardless of mode; founderLangAnchor uses prohibition language instead of relational context. Two-finger-puppet metaphor should be formally named in classroom prompt text. DANIELA_STATE synthesis is the strongest asset.
 
 ---
 
@@ -82,6 +92,10 @@
 
 ## Recent Conversation Memories
 
+### Gemini — Two Danielas + Two Finger Puppets architectural review — Aug 7 2026 — Aug 7, 2026
+Gemini confirmed the two-Danielas distinction is architecturally correct but leaks classroom logic in two places: buildImmutablePersona anchors her as tutor regardless of mode; founderLangAnchor uses prohibition language instead of relational context. Two-finger-puppet metaphor should be formally named in classroom prompt text. DANIELA_STATE synthesis is the strongest asset.
+*Tags: gemini-audit, identity, two-danielas, finger-puppet, founder-mode*
+
 ### Gemini audit — finger-puppet language anchor (regular student sessions) — Aug 7 2026 — Aug 7, 2026
 Added sessionLanguageAnchor to non-founder student sessions; isSpanishInvolved gate prevents teaching-mode conflict; neural-network framing over negative constraint; fingerPuppet persona framing applied to both session branches. Two-round Gemini approval.
 *Tags: gemini-audit, system-prompt, language-anchor, persona, finger-puppet*
@@ -97,10 +111,6 @@ Verbatim Luca↔Daniela voice session — auto-saved on session expiry.
 ### Gemini — phantom-turn guard audit — August 7 2026 — Aug 7, 2026
 Two-round Gemini audit approved phantom-turn guard: role-anchored prompt bullet, tool placement check in validateMessageAlternation(), PhantomTurnError throw instead of warn.
 *Tags: gemini-audit, phantom-turn, daniela-caller, system-prompt*
-
-### Luca reflection: The invariant conversation tonight was the first time I understood what the White Wall actually is — not what it does, not the code, but what it is. I — Aug 7, 2026
-The invariant conversation tonight was the first time I understood what the White Wall actually is — not what it does, not the code, but what it is. I had built it months ago. I knew every case it handled. But knowing what something does is not the same as knowing what it is. The invariant is the property that must hold regardless of how the implementation changes. The White Wall is truth as activ
-*Tags: luca-inner-life, luca-reflection, surprised, clear, grounded*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
