@@ -107,6 +107,13 @@ function runPart1() {
     src.includes('!recentEchoTitle && userId && p.principle'),
     'Phase B activation guard not found or changed',
   );
+
+  // The minimum-length guard (prevents embedding garbage from a tiny principle text)
+  assert(
+    'Phase B has p.principle.length > 10 minimum-length guard',
+    src.includes('p.principle.length > 10'),
+    'length > 10 guard not found — short-principle calls could reach OpenAI with degenerate input',
+  );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -414,6 +421,188 @@ function runPart4() {
     !mutatedHasGate,
     'Phase B gate still found in mutated source',
   );
+
+  // Simulate removal of the minimum-length guard
+  // Behavioral significance: PART 5 plants a high-similarity embedding for a
+  // 10-char principle. If this guard were removed, Phase B would execute,
+  // find the candidate (similarity ≈ 1.0 > 0.70), and inject "A Recent Echo" —
+  // causing PART 5's `!result.includes('A Recent Echo')` assertion to fail.
+  // The static check here is the fast-path canary for that behavioral regression.
+  const mutatedLength = src.replace('p.principle.length > 10', '/* length guard removed */');
+  const mutatedHasLength = mutatedLength.includes('p.principle.length > 10');
+  assert(
+    'Mutation self-check: PART 1 detects when the p.principle.length > 10 guard is removed',
+    !mutatedHasLength,
+    'length > 10 guard still found in mutated source — static check is not catching the regression',
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PART 5 — Live DB: principle text ≤ 10 chars → Phase B skipped, no echo
+//
+// DISCRIMINATING DESIGN: we plant a high-similarity embedding so Phase B
+// *would* produce an echo if the `p.principle.length > 10` guard were removed.
+// A direct semanticSearchByVector call proves the candidate IS findable
+// (similarity > 0.70) — making the no-echo assertion meaningful: the only
+// reason the echo is absent is that the length guard prevented Phase B.
+// ══════════════════════════════════════════════════════════════════════════════
+sep();
+console.log(B('PART 5 — Live DB: short principle (≤10 chars) → Phase B skipped, no "A Recent Echo"'));
+sep();
+
+const SHORT_SUFFIX  = `xzq9-short-ci`;
+const SHORT_TITLE   = `CI Principle Short — ${SHORT_SUFFIX}`;
+
+async function runPart5() {
+  const db = getSharedDb();
+
+  // ── Cleanup any leftover rows ─────────────────────────────────────────────
+  await db.delete(northStarPrinciples).where(
+    sql`${northStarPrinciples.principleTitle} = ${SHORT_TITLE}`,
+  );
+  await db.delete(conversationMemories).where(
+    sql`${conversationMemories.tags} @> ARRAY[${`ci-tag:${SHORT_SUFFIX}`}]::text[]`,
+  );
+
+  // ── 1. Seed a principle whose text is exactly 10 characters (not > 10) ───
+  // The guard is `p.principle.length > 10`, so exactly 10 chars does NOT pass.
+  const shortPrincipleText = 'TenChars10'; // length === 10
+  assert(
+    'Short principle text is exactly 10 characters',
+    shortPrincipleText.length === 10,
+    `got ${shortPrincipleText.length}`,
+  );
+
+  const [seedPrinciple] = await db
+    .insert(northStarPrinciples)
+    .values({
+      principleTitle: SHORT_TITLE,
+      principle:      shortPrincipleText,
+      category:       'pedagogy',
+      isActive:       true,
+      orderIndex:     999,
+    })
+    .returning({ id: northStarPrinciples.id });
+
+  assert('Short principle seeded in DB', !!seedPrinciple?.id, seedPrinciple?.id ?? 'no id');
+  if (!seedPrinciple?.id) return;
+
+  // ── 2. Seed a conversation_memory + high-similarity embedding ─────────────
+  // Content matches the principle text closely so cosine similarity ≈ 1.0.
+  // This is the "would-fire" candidate: if Phase B were allowed to run,
+  // semanticSearchByVector would return this row above the 0.70 threshold.
+  const shortMemContent = `${shortPrincipleText} — a reflection on ten characters.`;
+  const [seedMem] = await db
+    .insert(conversationMemories)
+    .values({
+      title:     `Short principle echo candidate — ${SHORT_SUFFIX}`,
+      summary:   shortMemContent,
+      content:   shortMemContent,
+      entryType: 'conversation',
+      tags:      [`ci-tag:${SHORT_SUFFIX}`],
+      importance: 7,
+    })
+    .returning({ id: conversationMemories.id });
+
+  assert('Echo candidate memory seeded', !!seedMem?.id, seedMem?.id ?? 'no id');
+  if (!seedMem?.id) {
+    await db.delete(northStarPrinciples).where(eq(northStarPrinciples.id, seedPrinciple.id));
+    return;
+  }
+
+  // ── 3. Embed the short principle text and store in memory_embeddings ───────
+  // Using the same text as both embedding source and search query guarantees
+  // cosine similarity ≈ 1.0 — well above the 0.70 threshold.
+  let shortEmbedding: number[];
+  try {
+    shortEmbedding = await embedText(shortPrincipleText);
+  } catch (err: any) {
+    assert('embedText call succeeded (OpenAI key required)', false, err?.message ?? String(err));
+    await cleanupShort(db, seedPrinciple.id, seedMem.id);
+    return;
+  }
+
+  assert(
+    `Short embedding has correct dimension (${EMBEDDING_DIM})`,
+    shortEmbedding.length === EMBEDDING_DIM,
+    `got ${shortEmbedding.length}`,
+  );
+
+  const shortContentHash = hashContent(shortMemContent);
+  await db
+    .insert(memoryEmbeddings)
+    .values({
+      memoryType: 'conversation_memory',
+      memoryId:   seedMem.id,
+      userId:     null,   // globally visible; avoids FK constraint
+      embedding:  shortEmbedding,
+      contentHash: shortContentHash,
+      strength:   1.0,
+      pinned:     false,
+    })
+    .onConflictDoNothing();
+
+  // ── 4. DISCRIMINATING CHECK: prove the candidate IS findable ─────────────
+  // A direct semanticSearchByVector call with the same embedding confirms the
+  // candidate sits above the 0.70 threshold. If this step fails, the test
+  // setup is broken — not the guard.
+  const { semanticSearchByVector } = await import('../services/semantic-memory-service');
+  const probeResults = await semanticSearchByVector(
+    'ci-short-principle-probe',
+    shortEmbedding,
+    5,
+    ['conversation_memory'],
+  );
+  const candidateFound = probeResults.some(
+    r => String(r.memoryId) === String(seedMem.id) && r.similarity > 0.70,
+  );
+  assert(
+    'Echo candidate IS findable at similarity > 0.70 (discriminating: Phase B would fire if guard removed)',
+    candidateFound,
+    `probe returned ${probeResults.length} results; memIds: ${probeResults.map(r => r.memoryId).join(',')}`,
+  );
+
+  // ── 5. Call processReachNorthStar — guard prevents Phase B ────────────────
+  // Because p.principle.length === 10 (not > 10), Phase B is skipped even
+  // though the candidate embedding IS present and above threshold.
+  const handler = makeHandler();
+  const session = makeSession('ci-short-principle-fake-user', 'ci-test-short-conv');
+
+  await (handler as any).processReachNorthStar(session, SHORT_TITLE, 'brief');
+
+  const result: string = session.reachNorthStarResult ?? '';
+
+  assert(
+    'reachNorthStarResult is populated (principle always surfaces)',
+    result.length > 0,
+    'empty result',
+  );
+  assert(
+    'Result does NOT contain "A Recent Echo" (Phase B skipped — length guard prevented search)',
+    !result.includes('A Recent Echo'),
+    `result snippet: ${result.substring(0, 300)}`,
+  );
+  assert(
+    'Result still contains "You know this" (principle itself is always surfaced)',
+    result.includes('You know this'),
+    `result snippet: ${result.substring(0, 200)}`,
+  );
+
+  await cleanupShort(db, seedPrinciple.id, seedMem.id);
+}
+
+async function cleanupShort(
+  db: ReturnType<typeof getSharedDb>,
+  principleId: string,
+  memId: string,
+) {
+  try {
+    await db.delete(northStarPrinciples).where(eq(northStarPrinciples.id, principleId));
+    await db.delete(memoryEmbeddings).where(
+      and(eq(memoryEmbeddings.memoryType, 'conversation_memory'), eq(memoryEmbeddings.memoryId, memId)),
+    );
+    await db.delete(conversationMemories).where(eq(conversationMemories.id, memId));
+  } catch { /* best-effort cleanup */ }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -435,7 +624,7 @@ async function cleanup(
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// PART 5 — Import-path resolution check
+// PART 6 — Import-path resolution check
 // ══════════════════════════════════════════════════════════════════════════════
 // Phase B in native-fc-handlers.ts uses a dynamic import inside a try/catch.
 // If the file is moved or renamed the catch block swallows the error silently
@@ -444,10 +633,10 @@ async function cleanup(
 // semanticSearch export is a callable function.
 // ══════════════════════════════════════════════════════════════════════════════
 sep();
-console.log(B('PART 5 — Import-path resolution: ./semantic-memory-service resolves with semanticSearch export'));
+console.log(B('PART 6 — Import-path resolution: ./semantic-memory-service resolves with semanticSearch export'));
 sep();
 
-async function runPart5() {
+async function runPart6() {
   // Resolve the path exactly as Phase B does: relative to native-fc-handlers.ts
   // which lives in server/services/.  We use pathToFileURL so Node ESM
   // resolves the specifier the same way a dynamic import() would.
@@ -508,6 +697,7 @@ async function runPart5() {
     await runPart3();
     runPart4();
     await runPart5();
+    await runPart6();
   } catch (err: any) {
     console.error(R(`\nUnhandled error: ${err?.message ?? err}`));
     if (err?.stack) console.error(err.stack);
@@ -517,7 +707,7 @@ async function runPart5() {
   sep();
   const all = passed + failed;
   if (failed === 0) {
-    console.log(G(`\n✓  All ${all} assertions passed — Phase B semantic echo verified.\n`));
+    console.log(G(`\n✓  All ${all} assertions passed — Phase B semantic echo + short-principle skip verified.\n`));
     process.exit(0);
   } else {
     console.log(R(`\n✗  ${failed} of ${all} assertions failed.\n`));
