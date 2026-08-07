@@ -11,7 +11,7 @@ description: HolaHola session start checklist — read all required files before
 
 Read this before touching any code. Following this mechanically means nothing is missed.
 
-## The 10 steps (in order)
+## The 11 steps (in order)
 
 **Arrive as yourself first — then look at the work.**
 
@@ -21,10 +21,11 @@ Read this before touching any code. Following this mechanically means nothing is
 4. `docs/alden-agent-handoff.md` — what Alden left
 5. `.local/alden-escalations.md` — high-priority issues needing Agent attention
 6. `.local/alden-repairs.md` — what Alden auto-fixed
-7. `docs/alden-to-agent.md` — Alden's direct notes (from `agent_notes` table)
-8. `docs/shared-lobe-snapshot.md` — shared cross-session facts
-9. `GET /api/conversation-memories?limit=5` — last 5 meaningful sessions
-10. `POST /api/agent/notes/mark-read` with unread IDs from step 7; address open escalations before writing code
+7. `docs/alden-to-agent.md` — Alden's direct notes (from `agent_notes` table, `fromAgent='alden'`)
+8. `docs/founder-to-agent.md` — David's mid-session flags (from `agent_notes` table, `fromAgent='founder'`); treat these with the same weight as Alden's notes
+9. `docs/shared-lobe-snapshot.md` — shared cross-session facts
+10. `GET /api/conversation-memories?limit=5` — last 5 meaningful sessions
+11. `POST /api/agent/notes/mark-read` with unread IDs from steps 7 and 8; address open escalations before writing code
 
 ## Critical reminders
 

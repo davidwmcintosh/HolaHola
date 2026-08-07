@@ -32286,13 +32286,22 @@ ${memoryContext}
     }
   });
 
-  // GET /api/agent/notes — Agent reads notes from Alden
+  // GET /api/agent/notes — Agent reads notes from Alden and David (founder mid-session flags)
+  // Returns notes where toAgent='agent' and fromAgent is 'alden' or 'founder'
   app.get("/api/agent/notes", requireAgentToken, async (req: any, res: Response) => {
     try {
       const { agentNotes } = await import('@shared/schema');
       const includeRead = req.query.include_read === 'true';
+      // Optional filter: ?from=alden or ?from=founder; defaults to both
+      const fromFilter = req.query.from as string | undefined;
+      const validSenders = ['alden', 'founder'];
+      const senders = fromFilter && validSenders.includes(fromFilter)
+        ? [fromFilter]
+        : validSenders;
+
+      const { inArray: inArrayDynamic } = await import('drizzle-orm');
       const conditions: any[] = [
-        eq(agentNotes.fromAgent, 'alden'),
+        inArrayDynamic(agentNotes.fromAgent, senders as any[]),
         eq(agentNotes.toAgent, 'agent'),
       ];
       if (!includeRead) conditions.push(isNull(agentNotes.readAt));
