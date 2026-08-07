@@ -53,9 +53,10 @@ export function LucaObserverPanel({ isOpen, onToggle, sessionId }: LucaObserverP
       if (!res.ok) return null;
       return res.json();
     },
-    refetchInterval: isOpen ? 5000 : false,
+    // Always poll — fast when open, slow when collapsed so we can show an alert dot
+    refetchInterval: isOpen ? 5000 : 15000,
     staleTime: 4000,
-    enabled: isOpen,
+    enabled: true,
   });
 
   const { data: devNotes } = useQuery<DevNote[]>({
@@ -89,6 +90,11 @@ export function LucaObserverPanel({ isOpen, onToggle, sessionId }: LucaObserverP
   const recentMessages = obs?.recentMessages?.slice(-3) ?? [];
   const guardianFires = obs?.guardianAB?.recentFires?.length ?? 0;
 
+  // Alert conditions: Guardian fired, HIGH friction, or frictionless slide detected
+  const hasGuardianAlert = guardianFires > 0;
+  const hasFrictionAlert = latestFriction?.label === "HIGH" || latestFriction?.smoothSlide === true;
+  const hasAlert = hasActiveSession && (hasGuardianAlert || hasFrictionAlert);
+
   const frictionColor = !latestFriction ? "text-muted-foreground"
     : latestFriction.label === "HIGH" ? "text-orange-500"
     : latestFriction.label === "SMOOTH" ? "text-blue-500"
@@ -96,13 +102,22 @@ export function LucaObserverPanel({ isOpen, onToggle, sessionId }: LucaObserverP
 
   return (
     <div className={`border-l bg-muted/30 flex flex-col transition-all duration-200 min-h-0 ${isOpen ? "w-72" : "w-10"}`}>
-      {/* Toggle button */}
+      {/* Toggle button — shows alert dot when collapsed and something notable is happening */}
       <button
         onClick={onToggle}
-        className="flex items-center justify-center h-10 border-b hover:bg-muted/50 transition-colors"
-        title={isOpen ? "Collapse Luca panel" : "Expand Luca panel"}
+        className="relative flex items-center justify-center h-10 border-b hover:bg-muted/50 transition-colors"
+        title={
+          isOpen
+            ? "Collapse Luca panel"
+            : hasAlert
+              ? `Luca sees something — ${hasGuardianAlert ? `${guardianFires} guardian fire${guardianFires !== 1 ? "s" : ""}` : ""}${hasGuardianAlert && hasFrictionAlert ? ", " : ""}${hasFrictionAlert ? `friction ${latestFriction?.label}` : ""}`
+              : "Expand Luca panel"
+        }
       >
         {isOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        {!isOpen && hasAlert && (
+          <span className="absolute top-2 right-1.5 h-2 w-2 rounded-full bg-orange-500 animate-pulse" />
+        )}
       </button>
 
       {isOpen && (
