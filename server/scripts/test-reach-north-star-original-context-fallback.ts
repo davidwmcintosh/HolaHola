@@ -235,19 +235,14 @@ async function runFallbackCheck() {
       console.error('✗ FAILED: Handler returned empty/blank output — Daniela would receive silence.');
       console.error('  The originalContext fallback did not fire. Check that principle.originalContext is non-null in the handler.');
     } else if (!resultAfter.includes(ctxSnippet)) {
-      // The originalContext snippet wasn't found verbatim; check if the output is still non-empty
-      // (truncation may change exact text). Accept any non-empty output that lacks "Founding Moment".
-      console.log(`  Note: exact ctxSnippet not found verbatim (may have been truncated), but output is non-empty.`);
-      console.log(`  Checking output contains meaningful content (not just principle + blank)…`);
-      const lines = resultAfter.trim().split('\n').filter(l => l.trim().length > 0);
-      if (lines.length >= 2) {
-        // At least two non-empty lines means something beyond the principle title was emitted
-        console.log('✓ Output contains multiple non-empty lines — fallback emitted content.\n');
-        fallbackCheckPassed = true;
-      } else {
-        console.error('✗ FAILED: Output has only one line — originalContext fallback likely silent.');
-        console.error(`  Full output: ${resultAfter}`);
-      }
+      // originalContext snippet is required verbatim (or its deterministic prefix).
+      // Multi-line output alone is NOT accepted — a felt echo or recent echo would also
+      // produce multiple lines even when the originalContext branch is missing.
+      // Requiring the snippet ensures the fallback branch specifically fired.
+      console.error('✗ FAILED: originalContext snippet not found in output.');
+      console.error(`  Expected snippet: "${ctxSnippet}"`);
+      console.error(`  Full output: ${resultAfter.substring(0, 400)}`);
+      console.error('  The originalContext fallback did not fire — ensure the else-if branch is present in native-fc-handlers.ts.');
     } else {
       console.log(`✓ originalContext snippet found in output — fallback fired correctly.`);
       console.log('✓ "The Founding Moment" correctly absent.\n');
