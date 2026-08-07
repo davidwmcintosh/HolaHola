@@ -115,3 +115,41 @@ No system prompt changes. No preamble construction changes. No behavioral change
 
 ## CI
 6/6 phantom-turn guard checks still passing. Typecheck clean.
+
+---
+
+# Gemini Audit — Finger-puppet language anchor: regular student session prompt
+**Date:** August 7, 2026  
+**Auditor:** Gemini 3-flash-preview (two rounds)  
+**Protected files touched:** `server/system-prompt.ts`  
+**Verdict:** APPROVED FOR SHIPPING (Round 2 — unconditional)
+
+## Problem addressed
+When a student uses a persona profile whose memory history is Spanish-dominant (e.g. "Cindy"),
+but the session is configured for English, Daniela opened in Spanish. The founder-mode prompt
+already had a strong `⚡ ACTIVE SESSION LANGUAGE` anchor; the regular student session prompt
+did not — it only said "your through-line is [language]," too soft to override Spanish-saturated
+persona context.
+
+## Round 1 — Required changes caught by Gemini
+1. **Logic gate bug**: `language.toLowerCase() !== 'spanish'` would tell Daniela "Do NOT speak
+   Spanish" even in a teaching session where Spanish IS the native instruction language
+   (e.g. teaching English to a Spanish speaker). Gemini: "personality fry / logic loop."
+2. **Pink-elephant framing**: "Do NOT open with Spanish greetings" was inferior to the
+   founder-mode "your neural network contains a lot of Spanish content" framing.
+3. **Finger-puppet scope**: The finger-puppet framing was only in isSameLanguage; teaching-mode
+   personas (e.g. Cindy teaching German) also need it.
+
+## Round 2 — Implemented and approved
+Changes applied:
+- `isSpanishInvolved = language.toLowerCase() === 'spanish' || nativeLanguage.toLowerCase() === 'spanish'`  
+  gates the "no Spanish" anchor so it never fires when Spanish is the instruction language
+- "Neural network" framing replaces "Do NOT open with": "Your neural network and memories contain  
+  a lot of Spanish, but this session is [language] only"
+- `fingerPuppet` const applied to both `isSameLanguage` and teaching branches
+- `name` → "the student" (name is not a parameter in this function)
+
+## What Gemini approved
+"The prompt is now logically sound, handles the 'Spanish leakage' issue without breaking the
+instructional flow for Spanish speakers, and maintains persona integrity across all session types.
+No further changes required."

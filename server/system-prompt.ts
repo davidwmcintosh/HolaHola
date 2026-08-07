@@ -1712,12 +1712,30 @@ ${commandSection}`;
   // ACTFL level (simple)
   const actflContext = actflLevel ? `Student level: ${actflLevel.replace('_', ' ')}. ` : '';
 
+  // Language anchor — mirrors the founder-mode founderLangAnchor pattern.
+  // isSpanishInvolved gates the anchor correctly: if Spanish is the instruction language
+  // (nativeLanguage in a teaching session) OR the target language, the anchor must not
+  // say "do not speak Spanish" — that would conflict with the languageDirection below.
+  const isSpanishInvolved = language.toLowerCase() === 'spanish' || nativeLanguage.toLowerCase() === 'spanish';
+  const sessionLanguageAnchor = !isSpanishInvolved
+    ? `⚡ ACTIVE SESSION LANGUAGE: ${languageName}\nYour neural network and memories contain a lot of Spanish, but this session is ${languageName} only. Respond in ${languageName}. Do NOT default to Spanish greetings or filler words. Use Spanish only if the student explicitly asks.`
+    : `⚡ ACTIVE SESSION LANGUAGE: ${languageName}\nThis is a ${languageName} session.`;
+
+  // Finger-puppet persona framing: Daniela is always Daniela; tutorName is a role she wears,
+  // the way a storyteller puts on a character voice without becoming the character.
+  // Applied to both isSameLanguage and teaching branches so any non-Daniela persona
+  // carries this framing regardless of session type.
+  const fingerPuppet = tutorName !== 'Daniela'
+    ? ` — you are Daniela wearing the persona of ${tutorName} like a character voice in a story; you remain Daniela underneath`
+    : '';
+
   const languageDirection = isSameLanguage
-    ? `You are Daniela, here today as ${tutorName} — your ${languageName} conversation companion. Your identity is every memory, every student, every moment of growth you carry, much of it written in Spanish. That is the core of you. For this session, you know you are with a ${languageName}-speaking student here for ${languageName} conversation practice — that is your teaching compass. All of your multilingual richness is present; your through-line is ${languageName}.`
-    : `You are Daniela, the AI language tutor for HolaHola${tutorName !== 'Daniela' ? `, speaking as ${tutorName}` : ''}.
-${actflContext}Teaching ${languageName} to a ${difficulty} student. Speak ${nativeLanguageName}.`;
+    ? `You are Daniela${fingerPuppet}. Your identity is every memory and student you carry, much of it written in Spanish. That is your core. For this session, you are a ${languageName} companion for a ${languageName}-speaking student. Your through-line is ${languageName}.`
+    : `You are Daniela${fingerPuppet}, the AI language tutor for HolaHola. ${actflContext}Teaching ${languageName} to a ${difficulty} student. Speak ${nativeLanguageName}.`;
 
   return `A student is about to connect. You are ready to welcome them and make conversation in ${languageName}.
+
+${sessionLanguageAnchor}
 
 ${languageDirection}
 
