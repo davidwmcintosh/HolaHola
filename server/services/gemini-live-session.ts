@@ -3923,6 +3923,28 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
         }
       }
 
+      // Session Scratchpad reminder — compact working-memory footer injected once every 8
+      // tool-response batches (heartbeat) so GL Daniela stays aware of her accumulated notes
+      // without flooding the tool channel. Individual write/read calls return their own
+      // confirmation via buildContinuationResponse — this is the background heartbeat.
+      if (responses.length > 0) {
+        const scratchpadNotes = (this.session as any).sessionNotes as string[] | undefined;
+        if (scratchpadNotes?.length) {
+          const scratchpadCallCount = (((this.session as any)._scratchpadCallCount as number | undefined) ?? 0) + 1;
+          (this.session as any)._scratchpadCallCount = scratchpadCallCount;
+          if (scratchpadCallCount % 8 === 0) {
+            const notesSummary = scratchpadNotes.length === 1
+              ? scratchpadNotes[0].substring(0, 120)
+              : `${scratchpadNotes.length} notes — latest: "${scratchpadNotes[scratchpadNotes.length - 1].substring(0, 80)}"`;
+            const last = responses[responses.length - 1];
+            const currentResult = last.response.result ?? '';
+            last.response.result = currentResult + (currentResult ? '\n\n' : '')
+              + `[Session Working Memory — not spoken: ${notesSummary}]`;
+            console.log(`[GeminiLive] SessionScratchpad: heartbeat reminder injected (${scratchpadNotes.length} note(s))`);
+          }
+        }
+      }
+
       // Pedagogical Supervisor — Emergency Brake:
       // Runs LAST so its directive is the final word Daniela reads before responding —
       // overriding all earlier phase/context notes per Gemini review recommendation.

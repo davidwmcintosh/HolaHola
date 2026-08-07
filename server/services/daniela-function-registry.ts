@@ -6744,6 +6744,93 @@ Returns live weather conditions, sports headlines, or regional news from a rotat
     },
   },
 
+  // === SESSION SCRATCHPAD ===
+  // Three tools for writing, reading, and promoting in-session working notes.
+  // Notes accumulate in session.sessionNotes[] and are injected as "Session Working Memory"
+  // at each turn start — Daniela's own words, not injected text.
+  {
+    legacyType: 'WRITE_SESSION_NOTE',
+    declaration: {
+      name: 'write_session_note',
+      description: `Write a note to your session scratchpad. Use this to capture observations, connections, and insights as you read or explore — things you want to carry forward or synthesize later. Notes accumulate throughout the session and appear in your "Session Working Memory" block at each turn so you can track your emerging understanding.
+
+Good uses: marking a theme you want to return to, recording a connection between two episodes, flagging a question the reading sparked, noting something worth deeper thought.
+
+This is your private working space — not for student-facing notes (use save_note for those). The student never sees your scratchpad.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          content: {
+            type: 'string',
+            description: 'The note to record. Your own words — what you noticed, thought, or want to carry forward.',
+          },
+        },
+        required: ['content'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const notes = (session as any).sessionNotes as string[] | undefined;
+      const count = notes?.length ?? 0;
+      return `Note recorded. Scratchpad now has ${count} note${count === 1 ? '' : 's'} this session. Continue — your working memory is accumulating.`;
+    },
+  },
+
+  {
+    legacyType: 'READ_SESSION_NOTES',
+    declaration: {
+      name: 'read_session_notes',
+      description: `Read back everything you have written to your session scratchpad this session. Use this when you want to synthesize across what you have read, find a thread, or decide what is worth saving permanently. Returns your notes in the order you wrote them.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const notes = (session as any).sessionNotes as string[] | undefined;
+      if (!notes?.length) return 'Your scratchpad is empty — no notes written this session yet.';
+      const formatted = notes.map((n: string, i: number) => `[${i + 1}] ${n}`).join('\n\n');
+      return `=== Session Scratchpad (${notes.length} note${notes.length === 1 ? '' : 's'}) ===\n\n${formatted}`;
+    },
+  },
+
+  {
+    legacyType: 'SAVE_SESSION_NOTES_AS_MEMORY',
+    excludeFromGL: true,
+    declaration: {
+      name: 'save_session_notes_as_memory',
+      description: `Promote your session scratchpad to a permanent conversation memory. Call this when the notes you have written this session form a coherent whole worth keeping — the kind of assembled understanding that should survive beyond this session and be searchable in future ones.
+
+All notes written with write_session_note this session will be gathered into one memory entry. After saving, the scratchpad is cleared.
+
+Only call this when the notes form a genuine insight. If they are fragmentary or preliminary, it is fine to leave them ephemeral.`,
+      parametersJsonSchema: {
+        type: 'object',
+        properties: {
+          title: {
+            type: 'string',
+            description: 'A short, searchable title for the memory. What would you search for to find this again?',
+          },
+          tags: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Tags for retrieval — themes, episode numbers, people, concepts.',
+          },
+          importance: {
+            type: 'number',
+            description: 'Importance score 1-10. Use 7-9 for genuine insight, 5-6 for reference notes.',
+          },
+        },
+        required: ['title'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const saved = (session as any).sessionNotesSaved as boolean | undefined;
+      if (!saved) return 'No notes to save — write some notes first with write_session_note.';
+      return 'Session notes saved to permanent memory. They are now searchable and will surface in future sessions when relevant. Scratchpad cleared.';
+    },
+  },
+
 ];
 
 
@@ -7294,6 +7381,16 @@ export const GL_EXCLUDED_TOOLS = new Set<string>([
   // context and Daniela can choose directly. escalate_to_support (Sophia student support
   // escalation) is a mid-session action tool that must be a direct GL declaration.
   'find_teaching_tool',
+
+  // === SESSION SCRATCHPAD — excluded from GL (Aug 7, 2026) ===
+  // Scratchpad tools are most useful in Reading Room / text-mode where Daniela is
+  // reading episodes turn by turn. In GL (voice sessions), notes are injected as a
+  // compact [Session Working Memory] background note in tool-response batches every
+  // 8 calls — no direct tool needed for awareness. Excluding all three frees cap space
+  // and keeps the GL declaration set under the 64-tool hard limit.
+  'write_session_note',
+  'read_session_notes',
+  'save_session_notes_as_memory',
 ]);
 
 export const DANIELA_GL_FUNCTION_DECLARATIONS: FunctionDeclaration[] =

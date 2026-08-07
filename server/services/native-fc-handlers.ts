@@ -4347,6 +4347,79 @@ export class NativeFunctionCallHandler {
         break;
       }
       
+      case 'WRITE_SESSION_NOTE': {
+        const noteContent = fn.args.content as string | undefined;
+        if (!noteContent?.trim()) {
+          console.warn('[SessionScratchpad] write_session_note called with no content');
+          break;
+        }
+        if (!(session as any).sessionNotes) (session as any).sessionNotes = [];
+        (session as any).sessionNotes.push(noteContent.trim());
+        console.log(`[SessionScratchpad] Note added (${(session as any).sessionNotes.length} total): "${noteContent.substring(0, 80)}"`);
+        break;
+      }
+
+      case 'READ_SESSION_NOTES': {
+        // buildContinuationResponse handles the output — handler just logs
+        const existingNotes = (session as any).sessionNotes as string[] | undefined;
+        console.log(`[SessionScratchpad] read_session_notes: ${existingNotes?.length ?? 0} note(s) in scratchpad`);
+        break;
+      }
+
+      case 'SAVE_SESSION_NOTES_AS_MEMORY': {
+        const existingScratchpad = (session as any).sessionNotes as string[] | undefined;
+        if (!existingScratchpad?.length) {
+          console.warn('[SessionScratchpad] save_session_notes_as_memory: no notes to save');
+          (session as any).sessionNotesSaved = false;
+          break;
+        }
+        const snmTitle = fn.args.title as string | undefined;
+        const snmTags = fn.args.tags as string[] | undefined;
+        const snmImportance = fn.args.importance as number | undefined;
+        if (!snmTitle) {
+          console.warn('[SessionScratchpad] save_session_notes_as_memory: no title provided');
+          (session as any).sessionNotesSaved = false;
+          break;
+        }
+        // Snapshot the notes at call time — the async insert must resolve before we
+        // clear them or signal success. Notes are preserved on failure so Daniela can retry.
+        const snmSnapshot = [...existingScratchpad];
+        const notesContent = snmSnapshot.map((n, i) => `[${i + 1}] ${n}`).join('\n\n');
+        // Use pendingMemoryLookupPromises so buildContinuationResponse fires AFTER the
+        // insert resolves — this is the established pattern for async handlers.
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(
+          (async () => {
+            try {
+              const snmDb = getSharedDb();
+              await snmDb.insert(conversationMemories).values({
+                title: snmTitle,
+                content: notesContent,
+                summary: notesContent.substring(0, 200),
+                importance: Math.min(10, Math.max(1, Math.round(snmImportance ?? 7))),
+                participants: 'Daniela',
+                tags: snmTags?.length ? snmTags : ['session-scratchpad'],
+                arcName: null,
+                extendsMemoryId: null,
+                recordedAt: new Date(),
+              } as any);
+              console.log(`[SessionScratchpad] ✓ Saved session notes as memory: "${snmTitle}" (${snmSnapshot.length} note(s))`);
+              // Only clear scratchpad and signal success after confirmed DB write
+              (session as any).sessionNotesSaved = true;
+              (session as any).sessionNotes = [];
+              import('./context-sync-service').then(({ contextSyncService }) => {
+                contextSyncService.scheduleNorthStarResync();
+              });
+            } catch (err: any) {
+              console.error(`[SessionScratchpad] Error saving memory — notes preserved:`, err.message);
+              // Notes are NOT cleared — Daniela can retry or they survive to session end
+              (session as any).sessionNotesSaved = false;
+            }
+          })()
+        );
+        break;
+      }
+
       case 'SAVE_CONVERSATION_MEMORY': {
         if (session.isIncognito) {
           console.log(`[Native Function→SaveConversationMemory] INCOGNITO - skipping`);

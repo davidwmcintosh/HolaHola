@@ -168,6 +168,13 @@ export const KNOWN_NON_GUARD_TOOLS = new Set<string>([
   // Reads curriculum/lesson data, not student-session or conversation memory.
   // No embedding search; no chain risk.
 
+  // ── read_session_ prefix ─────────────────────────────────────────────────────
+  'read_session_notes',
+  // Reads Daniela's own in-session scratchpad notes (stored in session.sessionNotes[]).
+  // These are Daniela's private working notes from the current session — not conversation
+  // memory records, embedding stores, or student history.  No DB query, no embedding
+  // search; purely reads an in-memory array.  Cannot cause a recall chain.
+
   // ── self_ prefix — write-side dispatcher and admin edit tool ────────────────
   'self_write',
   // Write-side dispatcher — routes to write-only sub-tools

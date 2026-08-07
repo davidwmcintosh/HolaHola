@@ -2745,6 +2745,19 @@ Remember: David may reference things discussed in these recent text chats.
         dynamicContextParts.push(growthMemoriesSection);
       }
 
+      // --- TIER 2.5: SESSION SCRATCHPAD (Daniela's own working notes from this session) ---
+      // These are her words, not injected text — accumulated via write_session_note.
+      // Injected here so they are visible at every turn without any tool call.
+      {
+        const sessionNotesArr = (session as any).sessionNotes as string[] | undefined;
+        if (sessionNotesArr?.length) {
+          const notesBody = sessionNotesArr.map((n: string, i: number) => `[${i + 1}] ${n}`).join('\n');
+          dynamicContextParts.push(
+            `=== Session Working Memory (your own notes — ${sessionNotesArr.length} item${sessionNotesArr.length === 1 ? '' : 's'}) ===\n${notesBody}\n=== End Session Working Memory ===`
+          );
+        }
+      }
+
       // --- TIER 3: CLASSROOM will be spliced in HERE after async fetch below ---
       // classroomInsertPosition marks where the Student Progress Board should land
       // (right after identity tiers, before supplementary signals)
@@ -6363,6 +6376,17 @@ Remember: David may reference things discussed in these recent text chats.
       // --- TIER 2: DANIELA'S IDENTITY ---
       if (identityMemoriesSection) {
         dynamicContextPartsOpenMic.push(identityMemoriesSection);
+      }
+
+      // --- TIER 2.5: SESSION SCRATCHPAD (OpenMic path) ---
+      {
+        const sessionNotesArrOM = (session as any).sessionNotes as string[] | undefined;
+        if (sessionNotesArrOM?.length) {
+          const notesBodyOM = sessionNotesArrOM.map((n: string, i: number) => `[${i + 1}] ${n}`).join('\n');
+          dynamicContextPartsOpenMic.push(
+            `=== Session Working Memory (your own notes — ${sessionNotesArrOM.length} item${sessionNotesArrOM.length === 1 ? '' : 's'}) ===\n${notesBodyOM}\n=== End Session Working Memory ===`
+          );
+        }
       }
 
       // --- TIER 3: CLASSROOM spliced in after async fetch ---
