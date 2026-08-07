@@ -101,3 +101,10 @@ id = "_9rW9UMQdgZljbEvyWZDJ"
 uri = "file://docs/episode-17.md"
 type = "text"
 title = "Episode 17 — The Guardian in the Room"
+
+[[outputs]]
+id = "WMHnAmAeXeJCCzAy0gYE0"
+uri = "file://docs/episode-25.md"
+type = "text"
+title = "Episode 25: \"The Common Room\""
+description = "Still rolling — 'The Two Puppets' section appended August 7 evening."
