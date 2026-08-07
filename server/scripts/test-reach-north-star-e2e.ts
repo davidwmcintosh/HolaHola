@@ -154,6 +154,27 @@ function runPartA(): void {
     // Not a failure — the formatter may be inlined — but flag it.
     console.warn('  ⚠  No `continuationText` variable found in principles assignment — verify manually.');
   }
+
+  // ── New sub-check: res.json() spread ─────────────────────────────────────
+  // The agent-voice-turn res.json() call must include the reachNorthStarResult
+  // spread so Part C can read it from the HTTP response.
+  // Pattern: ...(reachNorthStarResult !== undefined ? { reachNorthStarResult } : {})
+  const hasResJsonSpread =
+    /res\.json\([^)]*reachNorthStarResult[^)]*\)/.test(src) ||
+    src.includes('reachNorthStarResult !== undefined ? { reachNorthStarResult }');
+
+  if (!hasResJsonSpread) {
+    fail(
+      'routes.ts res.json() reachNorthStarResult spread',
+      'The agent-voice-turn res.json() call no longer spreads reachNorthStarResult — ' +
+      'HTTP responses will never carry the field and Part C will always fail.',
+    );
+  } else {
+    pass(
+      'routes.ts: res.json() spreads reachNorthStarResult into HTTP response',
+      '',
+    );
+  }
 }
 
 /** Extract the reach_north_star async IIFE block from routes.ts source. */
@@ -432,9 +453,83 @@ async function runPartC(): Promise<void> {
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Self-check — verify the Part A res.json() guard actually fails when the spread
+// is removed.  Run with:  npx tsx server/scripts/test-reach-north-star-e2e.ts --self-check
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * The exact snippet that routes.ts spreads into res.json().
+ * If this literal changes, update SPREAD_NEEDLE to match.
+ */
+const SPREAD_NEEDLE = ', ...(reachNorthStarResult !== undefined ? { reachNorthStarResult } : {})';
+
+async function runSelfCheck(): Promise<void> {
+  console.log('\n=== reach_north_star self-check ===');
+  console.log('Temporarily removes the reachNorthStarResult spread from routes.ts');
+  console.log('and asserts that Part A detects the regression.\n');
+
+  // ── 1. Read original source ──────────────────────────────────────────────
+  let original: string;
+  try {
+    original = fs.readFileSync(ROUTES_TS, 'utf8');
+  } catch (err: any) {
+    console.error(`Self-check FAIL: cannot read ${ROUTES_TS}: ${err.message}`);
+    process.exit(1);
+  }
+
+  if (!original.includes(SPREAD_NEEDLE)) {
+    console.error(
+      'Self-check FAIL: SPREAD_NEEDLE not found in routes.ts.\n' +
+      `  Needle: ${SPREAD_NEEDLE}\n` +
+      '  The spread may have been reworded — update SPREAD_NEEDLE to match.',
+    );
+    process.exit(1);
+  }
+
+  const mutated = original.replace(SPREAD_NEEDLE, '');
+
+  // ── 2. Write mutated file, run Part A, restore in finally ────────────────
+  let selfCheckPassed = false;
+  try {
+    fs.writeFileSync(ROUTES_TS, mutated, 'utf8');
+    console.log('  → routes.ts mutated (spread removed)\n');
+
+    // Run Part A against the mutated file.  FAIL_REASONS is module-level;
+    // clear it first so previous test-run state doesn't bleed in.
+    FAIL_REASONS.length = 0;
+    runPartA();
+
+    const spreadFailure = FAIL_REASONS.find(r =>
+      r.includes('res.json()') && r.includes('reachNorthStarResult'),
+    );
+
+    if (spreadFailure) {
+      console.log('\n  ✓ Self-check PASSED: Part A correctly detected the missing spread.');
+      console.log(`    Captured failure: "${spreadFailure.substring(0, 120)}"`);
+      selfCheckPassed = true;
+    } else {
+      console.error('\n  ✗ Self-check FAILED: Part A did NOT detect the missing spread.');
+      console.error('    FAIL_REASONS after Part A:', FAIL_REASONS);
+    }
+  } finally {
+    // ── 3. Always restore the original ──────────────────────────────────────
+    fs.writeFileSync(ROUTES_TS, original, 'utf8');
+    console.log('\n  → routes.ts restored to original.\n');
+  }
+
+  process.exit(selfCheckPassed ? 0 : 1);
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
+  // Self-check mode — runs before normal test logic
+  if (process.argv.includes('--self-check')) {
+    await runSelfCheck();
+    return; // runSelfCheck always calls process.exit
+  }
+
   console.log('\n=== reach_north_star end-to-end verification ===\n');
   console.log(`Session ID : ${SESSION_ID}`);
   console.log(`Server     : ${BASE_URL}\n`);
