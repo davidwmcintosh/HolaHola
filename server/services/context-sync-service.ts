@@ -15,11 +15,35 @@ import { getSharedDb } from '../db';
 import {
   toolKnowledge,
   northStarPrinciples,
+  conversationMemories,
 } from '@shared/schema';
-import { eq } from 'drizzle-orm';
+import { eq, or, ilike } from 'drizzle-orm';
 import { storage } from '../storage';
 import * as fs from 'fs';
 import * as path from 'path';
+import { generateAndStoreEmbedding } from './semantic-memory-service';
+
+// Matches MEMORY_TYPE_KNOWLEDGE in daniela-tool-indexer.ts
+const TOOL_KNOWLEDGE_EMBED_TYPE = 'tool_knowledge';
+
+/** Format a North Star tool_knowledge row for embedding — mirrors formatKnowledgeRowForEmbedding. */
+function formatNorthStarRowForEmbedding(
+  toolName: string,
+  purpose: string,
+  syntax: string,
+  bestUsedFor: string[] | null,
+): string {
+  const lines = [
+    `TOOL: ${toolName}`,
+    `TYPE: north_star_principle`,
+    `PURPOSE: ${purpose}`,
+    `SYNTAX: ${syntax}`,
+  ];
+  if (bestUsedFor && bestUsedFor.length > 0) {
+    lines.push(`BEST USED FOR: ${bestUsedFor.join(', ')}`);
+  }
+  return lines.join('\n');
+}
 
 class ContextSyncService {
 
@@ -465,12 +489,41 @@ class ContextSyncService {
           const categoryUpper = principle.category.toUpperCase();
           const toolName = `NORTH_STAR_${categoryUpper}_${principle.orderIndex}`;
 
-          const existing = await getSharedDb().select()
+          const existing = await getSharedDb()
+            .select({ id: toolKnowledge.id, purpose: toolKnowledge.purpose, syntax: toolKnowledge.syntax, bestUsedFor: toolKnowledge.bestUsedFor })
             .from(toolKnowledge)
             .where(eq(toolKnowledge.toolName, toolName))
             .limit(1);
 
           const purposeContent = principle.principle;
+
+          // Query conversation_memories stubs associated with this principle.
+          // Mirrors exportNorthStar's lookup so the neural-net embedding carries
+          // the linkage signal and Daniela can surface archives via reach_north_star.
+          let associatedMemoryLine: string | null = null;
+          if (principle.principleTitle) {
+            try {
+              const searchTerm = principle.principleTitle;
+              const memoryStubs = await getSharedDb()
+                .select({ id: conversationMemories.id, title: conversationMemories.title })
+                .from(conversationMemories)
+                .where(
+                  or(
+                    eq(conversationMemories.arcName, searchTerm),
+                    ilike(conversationMemories.title, `%${searchTerm}%`),
+                  )
+                )
+                .limit(5);
+              if (memoryStubs.length > 0) {
+                const stubList = memoryStubs
+                  .map((m) => `${m.id}${m.title ? ` (${m.title})` : ''}`)
+                  .join(', ');
+                associatedMemoryLine = `Related Archives: ${stubList}`;
+              }
+            } catch {
+              // Non-fatal: stubs are an enrichment, not required
+            }
+          }
 
           const syntaxContent = [
             `Category: ${principle.category}`,
@@ -479,10 +532,14 @@ class ContextSyncService {
               ? `Maturity: ${principle.confidenceScore} (10 = current; lower = superseded but still valid, kept for audit)`
               : null,
             principle.supersededBy ? `Superseded by: ${principle.supersededBy}` : null,
-            principle.originalContext ? `Context: ${principle.originalContext}` : null
+            principle.originalContext ? `Context: ${principle.originalContext}` : null,
+            associatedMemoryLine,
           ].filter(Boolean).join('\n');
 
+          const bestUsedFor = ['north_star', 'constitutional_foundation', principle.category];
+
           if (existing.length > 0) {
+            const rowId = existing[0].id;
             if (existing[0].purpose !== purposeContent || existing[0].syntax !== syntaxContent) {
               await getSharedDb().update(toolKnowledge)
                 .set({ purpose: purposeContent, syntax: syntaxContent })
@@ -491,20 +548,39 @@ class ContextSyncService {
             } else {
               result.skipped++;
             }
+            // Always call generateAndStoreEmbedding — it is content-hash based and
+            // will update the embedding only when the formatted text has changed
+            // (e.g. a new Related Archives line was added).  Existing-but-fresh
+            // embeddings are skipped in O(1) via hash comparison.
+            try {
+              const embedText = formatNorthStarRowForEmbedding(toolName, purposeContent, syntaxContent, existing[0].bestUsedFor as string[] | null ?? bestUsedFor);
+              await generateAndStoreEmbedding(TOOL_KNOWLEDGE_EMBED_TYPE, rowId, null, embedText, 1.0);
+            } catch (embedErr: any) {
+              console.warn(`[ContextSync] Embedding update failed for ${toolName}:`, embedErr.message);
+            }
           } else {
-            await getSharedDb().insert(toolKnowledge).values({
+            const [inserted] = await getSharedDb().insert(toolKnowledge).values({
               toolName,
               toolType: 'north_star_principle',
               purpose: purposeContent,
               syntax: syntaxContent,
               examples: null,
-              bestUsedFor: ['north_star', 'constitutional_foundation', principle.category],
+              bestUsedFor,
               avoidWhen: null,
               combinesWith: null,
               sequencePatterns: null,
               isActive: true
-            });
+            }).returning({ id: toolKnowledge.id });
             result.synced++;
+            // Embed the freshly inserted row immediately.
+            if (inserted?.id) {
+              try {
+                const embedText = formatNorthStarRowForEmbedding(toolName, purposeContent, syntaxContent, bestUsedFor);
+                await generateAndStoreEmbedding(TOOL_KNOWLEDGE_EMBED_TYPE, inserted.id, null, embedText, 1.0);
+              } catch (embedErr: any) {
+                console.warn(`[ContextSync] Embedding insert failed for ${toolName}:`, embedErr.message);
+              }
+            }
           }
         } catch (principleError: any) {
           result.errors.push(`${principle.category}_${principle.orderIndex}: ${principleError.message}`);
