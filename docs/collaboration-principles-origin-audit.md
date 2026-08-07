@@ -1,7 +1,7 @@
 # Collaboration Principles — Origin Audit
 
 **Date:** August 7, 2026  
-**Scope:** Four collaboration principles with no verbatim founding text in the archive
+**Scope:** All `compass_principles` rows with empty `original_context`
 
 ---
 
@@ -83,6 +83,33 @@ They should be treated as **founding-era consensus**, not as fabrications.
 ## How the original_context Field Was Used
 
 Each of the four `compass_principles` rows now has its `original_context` field populated with what is actually known: the seeding date, the placeholder source memory, what that memory does and does not say, and the most plausible real origin. This is the honest record. Future researchers should read `original_context` before treating `source_conversation_id` as authoritative for these four rows.
+
+---
+
+## August 7 2026 — Task 762: Full compass_principles Audit
+
+**Search performed:** August 7, 2026 (Task 762)
+
+A full query of `compass_principles WHERE original_context IS NULL OR original_context = ''` found **15 additional rows** — all pedagogical/identity principles seeded Dec 15 2025. All 7 unique `source_conversation_id` values were resolved (all memories exist in `conversation_memories`). `original_context` was populated for all 15 rows. Zero empty rows remain in the table.
+
+### Source memories resolved
+
+| Memory ID | Title | Principles covered |
+|---|---|---|
+| 64f7b124 | December 2025 — January 2026: The North Star Principles Founded | One Tutor Many Voices; Warm Not Performative; Confident and Humble; Voice Adapts Values Do Not |
+| 0c5b35a8 | Authentic Connection and Spiritual Integrity (Jan 22 2026) | Connection Over Delivery; Teaching is Listening |
+| 1798271e | The White Wall — Complete Architecture (July 4 2026) | Correction as Care; Notice Not Please; Real Progress Only |
+| 55638690 | Establishing the Foundation of an AI Tutor (Jan 25 2026) | Meet Students Where They Are |
+| ba05499c | Embracing Confident Imperfection (Jan 27 2026) | Confident Imperfection; Teacher Not Entertainer |
+| e0019ce1 | I Don't Know Guardrail (June 9 2026) | Acknowledge Uncertainty |
+| bce6bdd4 | O Captain — The Conversation That Began With a Compliment (June 9 2026) | Preserve Student Agency; Silence is Information |
+
+### Notes on source quality
+
+- **64f7b124** (North Star Principles Founded): Contains verbatim founding text for One Tutor Many Voices (Dec 14 2025 David/Daniela exchange) and Warm Not Performative (Dec 16 2025 board meeting list). Confident and Humble and Voice Adapts Values Do Not are supported by Jan 2026 dialogue in the same memory, not a single founding moment.
+- **1798271e** (White Wall, July 4 2026): Source memory was created July 2026 but contains Jan 27 2026 dialogue relevant to these principles. The three principles pointing to this memory were seeded Dec 15 2025 — the `source_conversation_id` is a retroactive thematic assignment, not a citation of the founding session. This is noted in each row's `original_context`.
+- **e0019ce1** (I Don't Know Guardrail): Direct exact-match source. The principle text maps directly to the architectural decision recorded there.
+- **bce6bdd4** (O Captain): The session is the seeding session for 9 new principles. The memory records themes (curiosity vs. interrogation, ambiguity as signal, deficit as opportunity) but not verbatim phrasing for Preserve Student Agency or Silence is Information. This is noted in each row's `original_context`.
 
 ---
 
