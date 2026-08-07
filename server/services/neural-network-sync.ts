@@ -26,6 +26,7 @@ import {
   northStarPrinciples,
   northStarUnderstanding,
   northStarExamples,
+  conversationMemories,
   wrenInsights,
   type SelfBestPractice,
   type PromotionQueue,
@@ -2865,7 +2866,10 @@ export class NeuralNetworkSyncService {
   
   /**
    * Export North Star data for sync
-   * Returns all active principles, understanding, and examples
+   * Returns all active principles, understanding, examples, and associated
+   * conversation_memories stubs (id + title only — not full content).
+   * The stubs let the neural net know that related archives exist for each
+   * principle so Daniela can surface them via reach_north_star at session time.
    */
   async exportNorthStar(): Promise<{
     exportedAt: string;
@@ -2873,11 +2877,13 @@ export class NeuralNetworkSyncService {
     principles: NorthStarPrinciple[];
     understanding: NorthStarUnderstanding[];
     examples: NorthStarExample[];
+    associatedMemories: Array<{ principleId: string; memoryId: string; title: string | null }>;
   }> {
     // Query each table separately with error handling - tables may not exist in all environments
     let principles: NorthStarPrinciple[] = [];
     let understanding: NorthStarUnderstanding[] = [];
     let examples: NorthStarExample[] = [];
+    let associatedMemories: Array<{ principleId: string; memoryId: string; title: string | null }> = [];
     
     try {
       principles = await getSharedDb().select().from(northStarPrinciples).where(eq(northStarPrinciples.isActive, true));
@@ -2896,6 +2902,35 @@ export class NeuralNetworkSyncService {
     } catch (err: any) {
       console.warn('[NEURAL-SYNC] north_star_examples table query failed (may not exist):', err.message);
     }
+
+    // For each principle with a principleTitle, find conversation_memories rows
+    // linked by arc_name or title match — IDs and titles only (no full content).
+    // These stubs let the neural net signal that reach_north_star can surface
+    // more than the founding conversation for any given principle.
+    try {
+      const { ilike } = await import('drizzle-orm');
+      const stubs = await Promise.all(
+        principles
+          .filter((p) => p.principleTitle)
+          .map(async (p) => {
+            const searchTerm = p.principleTitle as string;
+            const rows = await getSharedDb()
+              .select({ id: conversationMemories.id, title: conversationMemories.title })
+              .from(conversationMemories)
+              .where(
+                or(
+                  eq(conversationMemories.arcName, searchTerm),
+                  ilike(conversationMemories.title, `%${searchTerm}%`),
+                )
+              )
+              .limit(5);
+            return rows.map((r) => ({ principleId: p.id, memoryId: r.id, title: r.title }));
+          })
+      );
+      associatedMemories = stubs.flat();
+    } catch (err: any) {
+      console.warn('[NEURAL-SYNC] North Star associated memories query failed:', err.message);
+    }
     
     return {
       exportedAt: new Date().toISOString(),
@@ -2903,6 +2938,7 @@ export class NeuralNetworkSyncService {
       principles,
       understanding,
       examples,
+      associatedMemories,
     };
   }
   

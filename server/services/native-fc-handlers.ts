@@ -10780,10 +10780,15 @@ export class NativeFunctionCallHandler {
         return;
       }
 
-      // For each matched principle, pull the source conversation if available
+      // For each matched principle, pull the source conversation and one related echo
+      const { not } = await import('drizzle-orm');
       const results = await Promise.all(
         principles.slice(0, 2).map(async (p: any) => {
-          let excerpt = '';
+          let foundingExcerpt = '';
+          let recentEchoExcerpt = '';
+          let recentEchoTitle = '';
+
+          // 1. Founding moment — the sourceConversationId row
           if (p.sourceConversationId) {
             try {
               const [mem] = await getSharedDb()
@@ -10796,15 +10801,58 @@ export class NativeFunctionCallHandler {
                 .limit(1);
               if (mem) {
                 if (depth === 'full') {
-                  excerpt = mem.content || mem.summary || '';
+                  foundingExcerpt = mem.content || mem.summary || '';
                 } else {
-                  // Brief: summary is already prose — the resonant distillation
+                  // Brief: summary is the resonant distillation
                   const raw = mem.summary || mem.content || '';
-                  excerpt = raw.length > 350 ? raw.substring(0, 350) + '...' : raw;
+                  foundingExcerpt = raw.length > 350 ? raw.substring(0, 350) + '...' : raw;
                 }
               }
             } catch { /* source memory unavailable — principle still surfaces */ }
           }
+
+          // 2. Recent echo — one related conversation_memories row not already fetched
+          // Search by arc_name match on principleTitle, or title ilike principleTitle
+          // This surfaces all conversations about this principle beyond the founding one.
+          // Only uses principleTitle (high-signal); skips echo search if title is missing
+          // to avoid noisy matches against the raw principle sentence text.
+          const searchTerm = p.principleTitle;
+          if (searchTerm && searchTerm.trim().length > 3) {
+            try {
+              const excludeId = p.sourceConversationId;
+              const echoQuery = excludeId
+                ? and(
+                    not(eq(conversationMemories.id, excludeId)),
+                    or(
+                      eq(conversationMemories.arcName, searchTerm),
+                      ilike(conversationMemories.title, `%${searchTerm}%`),
+                    )
+                  )
+                : or(
+                    eq(conversationMemories.arcName, searchTerm),
+                    ilike(conversationMemories.title, `%${searchTerm}%`),
+                  );
+
+              const [relatedMem] = await getSharedDb()
+                .select({
+                  id: conversationMemories.id,
+                  title: conversationMemories.title,
+                  summary: conversationMemories.summary,
+                  content: conversationMemories.content,
+                })
+                .from(conversationMemories)
+                .where(echoQuery)
+                .orderBy(desc(conversationMemories.createdAt))
+                .limit(1);
+
+              if (relatedMem) {
+                recentEchoTitle = relatedMem.title || '';
+                const raw = relatedMem.summary || relatedMem.content || '';
+                recentEchoExcerpt = raw.length > 300 ? raw.substring(0, 300) + '...' : raw;
+              }
+            } catch { /* related echo unavailable — founding moment still surfaces */ }
+          }
+
           let feltEcho = '';
           if (userId) {
             try {
@@ -10819,29 +10867,36 @@ export class NativeFunctionCallHandler {
               if (linked) feltEcho = linked.reflection.content;
             } catch { /* no linked feeling — principle still surfaces on its own */ }
           }
-          return { principle: p, excerpt, feltEcho };
+          return { principle: p, foundingExcerpt, recentEchoExcerpt, recentEchoTitle, feltEcho };
         })
       );
 
-      // Format as prose memory — echoes something already known, not handed down
-      const formatted = results.map(({ principle, excerpt, feltEcho }) => {
+      // Format as prose memory — founding moment first, then a recent echo
+      const formatted = results.map(({ principle, foundingExcerpt, recentEchoExcerpt, recentEchoTitle, feltEcho }) => {
         const title = principle.principleTitle ? `${principle.principleTitle} — ` : '';
         const line1 = `You know this: ${title}${principle.principle}`;
+
+        const parts: string[] = [line1];
+
         if (feltEcho) {
-          const excerptPart = excerpt ? `\n\nThe conversation that earned it: ${excerpt}` : '';
-          return `${line1}\n\nThe moment you felt this yourself: ${feltEcho}${excerptPart}`;
+          parts.push(`The moment you felt this yourself: ${feltEcho}`);
         }
 
-        if (excerpt) {
-          return `${line1}\n\nThe conversation that earned it: ${excerpt}`;
-        }
-        if (principle.originalContext) {
+        if (foundingExcerpt) {
+          parts.push(`The Founding Moment: ${foundingExcerpt}`);
+        } else if (principle.originalContext) {
           const ctx = (principle.originalContext as string).length > 300
             ? (principle.originalContext as string).substring(0, 300) + '...'
             : principle.originalContext as string;
-          return `${line1}\n\n${ctx}`;
+          parts.push(ctx);
         }
-        return line1;
+
+        if (recentEchoExcerpt) {
+          const echoLabel = recentEchoTitle ? `A Recent Echo — ${recentEchoTitle}` : 'A Recent Echo';
+          parts.push(`${echoLabel}: ${recentEchoExcerpt}`);
+        }
+
+        return parts.join('\n\n');
       }).join('\n\n---\n\n');
 
       session.reachNorthStarResult = formatted;

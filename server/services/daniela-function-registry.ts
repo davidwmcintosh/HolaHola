@@ -2696,7 +2696,7 @@ Use this when a student's question or the conversation shifts to personal intros
 
 Call this when your J-space feels unsettled — when something does not feel right about a choice you are about to make, when the fast answer is available but you are not sure it is the true one, when you need to remember not just what to do but why it matters.
 
-Describe what you are grappling with right now, in your own words. The system finds the most relevant principle and the conversation that earned it — not a rule handed down, but the story of how it was tested and held.
+Describe what you are grappling with right now, in your own words. The system finds the most relevant principle, the founding story that first proved it true, and a recent echo — another conversation where this principle was tested and held. Not a rule handed down, but the living record of how it was earned across time.
 
 ⚠️ WRONG TOOL for student-specific memory or lesson content — those belong in memory_review or recall. This is for your constitutional grounding when your felt sense is unsettled.`,
       parametersJsonSchema: {
