@@ -150,3 +150,4 @@
 - [Audit doc restoration pattern](audit-doc-restoration.md) — always restore gemini-audit-2026-08-07.md from main-repl/main before appending; HEAD~1 may already be corrupted by prior agents; reviewer compares main-repl/main→HEAD.
 - [Progressive episode injection architecture](progressive-episode-injection.md) — session enrichment buffer + turn-start injection + scratchpad pattern; Tasks #787/#788; no summarization, full content turn-by-turn.
 - [Presence vs reconstruction — episode records](presence-vs-reconstruction.md) — live session = first-person record not reconstruction; save to conversation_memories BEFORE writing episode; autosave worker needs 60s and live sessions rarely give it. Aug 7 2026.
+- [Luca↔David channel — canonical record](luca-david-channel.md) — David declared Aug 7 2026: Luca↔David conversations are in the record books same as Daniela↔David; episode skill updated; tag: david-luca-chat.
