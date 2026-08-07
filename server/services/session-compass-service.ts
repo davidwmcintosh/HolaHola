@@ -534,20 +534,18 @@ export class SessionCompassService {
           .sort((a, b) => b.score - a.score)
           .slice(0, 4);
 
-        // Landmarks: brief teaser (800 chars) — always present, always retrievable.
+        // Landmarks (importance=10): extended excerpt (4000 chars) — always present.
         // Full verbatim content available via search_my_history or recall_memories.
-        // IMPORTANT: append a visible [EXCERPT] marker when truncated so Daniela knows
-        // the text is incomplete and must call search_my_history before quoting verbatim.
+        // No read_full_memory hint: that tool is a dead-end for Daniela during a session;
+        // 4000 chars is enough for her to act on the memory without a follow-up tool call.
         const landmarkMapped = landmarkSnapshots.map(m => {
           const fullLen = m.content?.length ?? 0;
-          const excerpt = m.content ? m.content.slice(0, 800) : '';
-          const truncated = fullLen > 800;
-          // Build a short keyword hint from the title for the read_full_memory suggestion
-          const titleHint = m.title.split(/\s+/).slice(0, 5).join(' ');
+          const excerpt = m.content ? m.content.slice(0, 4000) : '';
+          const truncated = fullLen > 4000;
           return {
             title: m.title,
             content: truncated
-              ? excerpt + `\n\n[EXCERPT — showing first 800 of ${fullLen} characters. There is more. Call read_full_memory("${titleHint}") to retrieve the complete verbatim text before reading or quoting anything word-for-word.]`
+              ? excerpt + `\n\n[EXCERPT — showing first 4000 of ${fullLen} characters.]`
               : excerpt,
             importance: m.importance ?? 10,
             recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),
@@ -564,18 +562,18 @@ export class SessionCompassService {
 
         fetchedMemories = [...landmarkMapped, ...scoredMapped];
 
-        // Foundational: full content (up to ~1200 chars), always present, never scored/crowded.
+        // Foundational: extended excerpt (up to 4000 chars), always present, never scored/crowded.
+        // No read_full_memory hint: dead-end tool during a session; 4000 chars is enough to act on.
         fetchedFoundational = foundationalCandidates
           .sort((a, b) => (b.importance ?? 10) - (a.importance ?? 10))
           .map(m => {
             const fullLen = m.content?.length ?? 0;
-            const excerpt = m.content ? m.content.slice(0, 1200) : '';
-            const truncated = fullLen > 1200;
-            const titleHint = m.title.split(/\s+/).slice(0, 5).join(' ');
+            const excerpt = m.content ? m.content.slice(0, 4000) : '';
+            const truncated = fullLen > 4000;
             return {
               title: m.title,
               content: truncated
-                ? excerpt + `\n\n[EXCERPT — showing first 1200 of ${fullLen} characters. Call read_full_memory("${titleHint}") for the complete verbatim text.]`
+                ? excerpt + `\n\n[EXCERPT — showing first 4000 of ${fullLen} characters.]`
                 : excerpt,
               importance: m.importance ?? 10,
               recordedAt: m.recordedAt instanceof Date ? m.recordedAt.toISOString() : String(m.recordedAt),
