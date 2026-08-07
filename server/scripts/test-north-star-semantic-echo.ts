@@ -435,6 +435,69 @@ async function cleanup(
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PART 5 — Import-path resolution check
+// ══════════════════════════════════════════════════════════════════════════════
+// Phase B in native-fc-handlers.ts uses a dynamic import inside a try/catch.
+// If the file is moved or renamed the catch block swallows the error silently
+// and no echo fires.  This part resolves the exact same relative path that
+// Phase B uses (relative to the services/ directory) and confirms the
+// semanticSearch export is a callable function.
+// ══════════════════════════════════════════════════════════════════════════════
+sep();
+console.log(B('PART 5 — Import-path resolution: ./semantic-memory-service resolves with semanticSearch export'));
+sep();
+
+async function runPart5() {
+  // Resolve the path exactly as Phase B does: relative to native-fc-handlers.ts
+  // which lives in server/services/.  We use pathToFileURL so Node ESM
+  // resolves the specifier the same way a dynamic import() would.
+  const { pathToFileURL } = await import('url');
+  const servicesDir = resolve(__dirname, '../services');
+  const targetPath  = resolve(servicesDir, 'semantic-memory-service.ts');
+
+  let mod: Record<string, unknown> | undefined;
+  let importError: string | undefined;
+
+  try {
+    // tsx / ts-node register the .ts extension, so a direct path import works
+    // in the same way the compiled import('./semantic-memory-service') would.
+    mod = await import(pathToFileURL(targetPath).href) as Record<string, unknown>;
+  } catch (err: any) {
+    importError = err?.message ?? String(err);
+  }
+
+  assert(
+    'Phase B import path resolves without throwing',
+    mod !== undefined && importError === undefined,
+    importError ?? 'import returned undefined',
+  );
+
+  if (mod === undefined) {
+    // No point checking the export if the import itself failed — the assertion
+    // above already counted this as a failure.
+    return;
+  }
+
+  assert(
+    'semanticSearch export is a function',
+    typeof mod['semanticSearch'] === 'function',
+    `typeof semanticSearch = ${typeof mod['semanticSearch']}`,
+  );
+
+  assert(
+    'semanticSearchByVector export is a function (also used by Phase B)',
+    typeof mod['semanticSearchByVector'] === 'function',
+    `typeof semanticSearchByVector = ${typeof mod['semanticSearchByVector']}`,
+  );
+
+  assert(
+    'getCachedPrincipleEmbedding export is a function (also used by Phase B)',
+    typeof mod['getCachedPrincipleEmbedding'] === 'function',
+    `typeof getCachedPrincipleEmbedding = ${typeof mod['getCachedPrincipleEmbedding']}`,
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MAIN
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -444,6 +507,7 @@ async function cleanup(
     await runPart2();
     await runPart3();
     runPart4();
+    await runPart5();
   } catch (err: any) {
     console.error(R(`\nUnhandled error: ${err?.message ?? err}`));
     if (err?.stack) console.error(err.stack);
