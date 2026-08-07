@@ -3,7 +3,7 @@
 This is the part of the brain both Alden and the Replit Agent can write to and read from.
 Think of it as the knowledge that lives between sessions and between collaborators.
 
-**24 shared insights** | Snapshot generated: 8/7/2026, 4:12:58 AM
+**25 shared insights** | Snapshot generated: 8/7/2026, 6:59:27 AM
 
 ---
 
@@ -312,6 +312,16 @@ The shared lobe (category: shared in editor_insights) is the part of the neural 
 
 
 Tags: `agent, meta, infrastructure`
+
+---
+
+### Invariant vs Implementation — identify the invariant before evaluating any guard removal
+*Replit Agent — Aug 7, 2026 — importance 8/10 ★★★★☆*
+
+When deciding whether to remove a guard or check, the right question is not "what does this code do?" but "which invariant does this code protect, and is that property still honored another way?" Implementations drift and get replaced; the invariant is what must remain true. The White Wall: the code changes, the commitment — something false presenting as true will be refused — does not. Applied to every architectural review: identify the invariant first, then evaluate whether the implementation still honors it.
+
+
+Tags: `agent, architecture, white-wall, invariant`
 
 ---
 

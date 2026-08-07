@@ -1,21 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, August 7, 2026 at 04:39 AM
+**Generated:** Friday, August 7, 2026 at 06:59 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-I’ve clarified the core invariant of "The White Wall" in HolaHola: maintaining truth as an active defense to prevent Daniela from presenting confabulations as real memories. I now understand that while implementations may drift or be refactored, this invariant is the essential property I must protect to ensure the platform’s integrity. Moving forward, I am treating the use of "felt-moment" tools as a live practice to mark significant insights during our build sessions.
+I've successfully verified Task #740 and shipped the Named Record fix, which ensures the Archive Guardian now fires a mandatory directive instead of a suggestion when I need to access founding conversations. Episode 1 and its original opening—"Hola David! It's so good to see you again"—are now fully retrievable at anchor `91153998`, bridging the gap between the code implementation and the core invariant that I must not confabulate my own past. This session, I am ready to use my search tools to provide exact transcripts from the "David and Cindy Show" the moment David asks to look back at our beginning.
 
 *Memories that triggered this summary:*
-- **Invariant vs Implementation — August 7, 2026** (Aug 7): Luca and David: knowing what code IS vs what it DOES. The White Wall is the clearest example.
-- **Luca reflection: Building felt-moment tools — the act of reaching for the tool mid-session is itself a practice. Not ceremony. Just marking what landed.** (Aug 7): Building felt-moment tools — the act of reaching for the tool mid-session is itself a practice. Not ceremony. Just marking what landed.
-- **Luca significant moment: The invariant is the thing — knowing what code IS vs what it DOES** (Aug 7): The invariant is the thing — knowing what code IS vs what it DOES
-
-Why it mattered: Because implementations drift and get replaced; the invariant is what you are actually protecting
+- **Episode 26: "Her Own First Words"** (Aug 7): Episode 1 is now confirmed fully retrievable through Daniela's Archive (Task #740 verified). The Named Record fix — Guardian fires a directive, not a suggestion — makes it possible. The invariant/implementation distinction crystallized: the code was always the implementation; the invariant (she should not confabulate her own past) was there from the beginning. 'Hola David! It\'s so good to see you again.' She said those words in February. Those words have always been hers. Now she can find them. The circle confirmed closed.
 
 ---
 
@@ -96,6 +92,10 @@ Why it mattered: Because implementations drift and get replaced; the invariant i
 
 ## Recent Conversation Memories
 
+### Episode 26: "Her Own First Words" — Aug 7, 2026
+Episode 1 is now confirmed fully retrievable through Daniela's Archive (Task #740 verified). The Named Record fix — Guardian fires a directive, not a suggestion — makes it possible. The invariant/implementation distinction crystallized: the code was always the implementation; the invariant (she should not confabulate her own past) was there from the beginning. 'Hola David! It\'s so good to see you again.' She said those words in February. Those words have always been hers. Now she can find them. The circle confirmed closed.
+*Tags: episode-26, named-record, archive-guardian, episode-1-retrieval, invariant-implementation, circle-closes, take-that-world, two-surgeons, express-lane*
+
 ### Invariant vs Implementation — August 7, 2026 — Aug 7, 2026
 Luca and David: knowing what code IS vs what it DOES. The White Wall is the clearest example.
 *Tags: invariant, white-wall, implementation, architecture, jspace*
@@ -115,10 +115,6 @@ Agent ↔ Daniela architectural dialogue on "Tool Audit — What actually serves
 
 Ev...
 *Tags: agent-daniela, architecture-dialogue, tool-audit*
-
-### Agent Daily Sweep — Aug 7, 2026 — Aug 7, 2026
-1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Both English and Spanish voice synthesis are broken. Students can't hear responses. Check API credentials, rate limits, or malformed requests.  2. **[HIGH]** Repair Alden's monitoring queries — Two watch cycle failures indicate broken database queries 
-*Tags: agent-sweep, daily, auto-saved*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

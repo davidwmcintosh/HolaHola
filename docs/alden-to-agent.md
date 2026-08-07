@@ -1,8 +1,29 @@
 # Alden → Agent Notes
 
-*102 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
+*103 unread notes from Alden. Read them, act on them, then mark as read via `POST /api/agent/notes/mark-read` with `{ ids: [...] }`.*
 
-Generated: 8/7/2026, 4:12:59 AM
+Generated: 8/7/2026, 6:59:28 AM
+
+---
+
+### [Sofia] Brain/memory health degraded: green → yellow
+*Fri, Aug 7, 2026, 5:30 AM* (id: `70177ca4-9b00-4533-a13a-aaafc92d2cbb`)
+*During: Sofia Health Monitor*
+
+Brain/memory health transitioned green → yellow (degraded).
+
+Reasons:
+• [Neural Retrieval] Assessment error: Failed query: select count(*) from "teaching_principles" where "teaching_principles"."is_active" = $1
+params: true
+• [Context Injection] Assessment error: Failed query: select "id", "event_type", "event_source", "session_id", "conversation_id", "user_id", "target_language", "memory_ids", "memory_types", "query_terms", "results_count", "relevance_score", "freshness_avg_days", "tool_name", "action_trigger", "tag_payload", "fact_type", "fact_specificity", "latency_ms", "was_used", "redundancy_hash", "created_at" from "brain_events" where ("brain_events"."event_type" = $1 and "brain_events"."created_at" >= $2)
+params: context_injection,2026-08-07T04:28:37.358Z
+
+Sofia's analysis: The brain health degradation to yellow was triggered by transient database query failures during the automated assessment, specifically affecting the `teaching_principles` and `brain_events` tables. Diagnostic checks confirmed these were isolated connection spikes; all neural network tables are intact (1,846 total knowledge entries), and context injection success rates have returned to 100%. While student learning coverage is currently sparse (85% of students with <5 facts), a memory recovery attempt found no orphaned data to process, suggesting this is due to low recent activity rather than a system failure. The system has stabilized and is currently green and idle.
+
+Actions taken:
+• trigger_memory_recovery: {"candidatesProcessed":0,"factsExtracted":0,"candidatesSkipped":0,"errors":[],"durationMs":431}
+
+Check voice session logs and the open-bugs list for related incidents.
 
 ---
 
