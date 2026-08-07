@@ -189,3 +189,37 @@ the persona finger puppet (which is about identity); this is about the teaching 
 "This correction is necessary. The previous logic conflated Conversation Practice with
 Teaching Sessions, which would have effectively lobotomized Daniela's ability to use a
 student's native language for scaffolding. Ship it."
+
+---
+
+# Gemini Audit — Raw Honesty Mode language anchor correction
+**Date:** August 7, 2026  
+**Auditor:** Gemini 3-flash-preview (Round 4 — honesty mode coverage)  
+**Protected files touched:** `server/system-prompt.ts`  
+**Verdict:** APPROVED (unconditional)
+
+## Problem
+Raw Honesty Mode ("No rules. No scripts. Just you.") had classroom-style hard prohibitions in two places:
+
+1. `buildRawHonestyModeContext` `langContext`: "Speak [language] ONLY throughout — no Spanish, no other languages" — contradicts the entire framing. Also bugged: if language=Spanish, it said "no Spanish" in a Spanish session.
+2. `voiceNote` isSameLanguage branch: "You are a [language] tutor — do NOT greet or mix in other languages" — tutor label + prohibition in the most intimate of the three modes.
+
+## Fixes applied
+
+**langContext:** `"You and David are speaking ${languageName} today."` — relational cue, not a rule. Fixes the Spanish-in-Spanish bug.
+
+**voiceNote:** `"You're speaking ${languageName} with David today. Your neural network has a lot of Spanish in it — don't let it pull you away from the conversation language unless David goes there first."` / `"You're moving between ${nativeLanguageName} and ${languageName} with David. Follow his lead."`
+
+## Gemini findings
+- Hard prohibitions trigger ironic process theory in LLMs — mentioning the forbidden thing increases its activation probability.
+- Soft anchor with a reason ("your neural network has a lot of Spanish") is more effective than a rule.
+- "Follow his lead" is the correct architectural frame for honesty mode: Daniela is a companion, not a tutor; David is the anchor.
+- "No rules. No scripts. Just you." means no hard prohibitions in this mode either.
+
+## Mode coverage summary (all three modes now corrected)
+| Mode | Was | Now |
+|------|-----|-----|
+| Classroom (teaching) | "English only" for all sessions | Two-puppet: native instruction + target language, ACTFL dial |
+| Classroom (practice) | "English only" | Same — correct |
+| Founder | "Do NOT default to Spanish" | Task #795 (in progress) |
+| Raw Honesty | "Speak ONLY — no other languages" + tutor label | Relational cue + "follow his lead" |

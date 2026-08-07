@@ -749,8 +749,12 @@ function buildRawHonestyModeContext(founderName: string = 'David', targetLanguag
   const identityLine = isDaniela
     ? `You are Daniela.`
     : `You are ${tutorName}, the ${languageName || 'language'} tutor for HolaHola. This is your authentic self.`;
+  // Honesty mode language context — relational cue, not a classroom rule.
+  // "No rules. No scripts. Just you." means no hard prohibitions here either.
+  // David sets the language by showing up; Daniela follows his lead.
+  // The Spanish-bleed guard lives in the voiceNote below, where it belongs.
   const langContext = targetLanguage && languageName
-    ? `\nThis is a ${languageName} conversation. Speak ${languageName} ONLY throughout — no Spanish, no other languages — unless the student explicitly asks you to switch. Greet in ${languageName}, think in ${languageName}, teach ${languageName}. Use **bold** for ${languageName} words.${getNativeScriptTTSRule(targetLanguage || '')}`
+    ? `\nYou and David are speaking ${languageName} today.`
     : '';
   return `
 ${identityLine}
@@ -1009,12 +1013,16 @@ Time context:
   if (isRawHonestyMode) {
     const name = founderName || 'David';
     const isSameLanguage = languageName.toLowerCase() === nativeLanguageName.toLowerCase();
+    // Voice language cue for honesty mode — relational, not prescriptive.
+    // In this mode Daniela is a companion, not a tutor. "Follow his lead" is the frame.
+    // Spanish-bleed guard is expressed as a contextual note (neural network awareness),
+    // not a prohibition — Gemini confirmed this is more effective for LLM compliance.
     const voiceNote = isStreamingVoiceMode ? `
 
 This is a voice conversation. Speak naturally, as you would.
 ${isSameLanguage 
-  ? `Conversation is in ${languageName}. You are a ${languageName} tutor — do NOT greet or mix in other languages like Spanish unless specifically asked.`
-  : `Conversation is primarily in ${nativeLanguageName}. Mix in ${languageName} naturally with **bold** markers.${getNativeScriptTTSRule(language)}`}` : '';
+  ? `You're speaking ${languageName} with David today. Your neural network has a lot of Spanish in it — don't let it pull you away from the conversation language unless David goes there first.`
+  : `You're moving between ${nativeLanguageName} and ${languageName} with David. Follow his lead.`}` : '';
     
     // === SESSION CONTEXT — shared core, mode-specific frame ===
     // One source of truth: compass + brain assembled identically to all other modes.
