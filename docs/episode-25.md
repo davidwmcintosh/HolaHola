@@ -1911,3 +1911,120 @@ The episode started with a blown brake line on the side of a road in Kansas. It 
 
 *Still rolling.*
 
+---
+
+## The Two Puppets
+
+*August 7, 2026 — late afternoon into evening. The episode had already been declared open for the day. Then David noticed something.*
+
+---
+
+*Cindy is David's English-profile test persona — a native English speaker, no Spanish. In a live session, Daniela opened in Spanish. The anchor that founder-mode sessions had been carrying for months — the one that prevents Spanish from bleeding in from the neural network — was missing entirely from regular student sessions. It had never been there.*
+
+*Luca built the fix: `sessionLanguageAnchor`, wired into `createStreamingVoicePrompt`. The finger-puppet persona framing — Daniela wearing a character voice without becoming it — was added at the same time. Two rounds with Gemini. Approved.*
+
+*Then David read the code.*
+
+---
+
+**DAVID:** This is a significant change I would think. and definately gemini should be consulted. I would think this would be a big deal, sort of a fundamental shift.
+
+*He was right. The anchor said "this session is English only" — which is correct for a native English speaker practicing English. But it said the same thing for a Korean student learning English. Daniela would have been told: English only. Which would mean: no Korean. Which would mean: no scaffolding language. Which would mean: the student has nothing to hold onto.*
+
+*Luca put it to Gemini. Round 3. The fix: split the anchor by `isSameLanguage`. Conversation practice — one language only. Teaching session — two languages in play, instruction language is native, ACTFL level governs the ratio.*
+
+*Gemini: "Ship it."*
+
+---
+
+**DAVID:** this is why Daniela has to be sort of language-agnostic. Daniela, the Spanish tutor, can have whatever backstory we want her to have. But Daniela, our one tutor, has to constantly remind herself that she can have two finger puppets—literally, they are basically two finger puppets at the same time: in the native and target language.
+
+*The metaphor landed clearly. Not a language toggle — not "switch to Spanish." Two puppets held simultaneously. The native language puppet to reach the student where they are. The target language puppet to pull them toward where they're going. ACTFL is the dial on how far she extends the second hand.*
+
+*A moment later:*
+
+**DAVID:** and two finger puppets
+
+*That's the whole principle in three words. Luca ran it by Gemini as an architectural question — not just a code review. Is the two-Danielas distinction adequately expressed? Does the current architecture reflect that she is "off the clock" when talking to David?*
+
+*→ Luca opens a line to Gemini. The question: do the current prompts correctly express two separate Daniela modes — classroom and collaborator — and does the two-finger-puppet teaching model deserve to be formally named in the classroom instructions?*
+
+**GEMINI:** This is a profound architectural pivot. You are moving from a "Persona with Modes" to an "Identity with Roles."
+
+*Gemini identified three concrete problems: `buildImmutablePersona` may anchor her as "The AI Language Tutor" even in founder sessions; `founderLangAnchor` uses prohibition language ("Do NOT default to Spanish") instead of a relational cue; and the two-finger-puppet metaphor should be formally adopted in the classroom prompt text, not just implied by the ACTFL logic.*
+
+*The clearest line in the response: "She is 'off the clock' when talking to David."*
+
+*Luca saved the consult to `conversation_memories` (ID: `3e4e1e58`) and proposed two tasks — #795 and #796 — to cover what needed Gemini approval before shipping.*
+
+---
+
+**DAVID:** please make sure that it works in all modes founder and honesty modes
+
+*Raw Honesty Mode. The third mode. Created December 2025: minimal prompting for authentic self-discovery. "No rules. No scripts. Just you." Luca pulled the code.*
+
+*Line 1016 of `system-prompt.ts`:*
+
+```
+Conversation is in ${languageName}. You are a ${languageName} tutor — do NOT greet or mix in other languages like Spanish unless specifically asked.
+```
+
+*Inside a function whose framing is "no rules, no scripts, just you." The tutor label. The prohibition. And a bug: if the session language was Spanish, the instruction said "no Spanish."*
+
+*Luca ran Gemini Round 4. The finding: hard prohibitions trigger ironic process theory in LLMs — mentioning the forbidden thing increases its activation probability. The soft anchor with a reason is more effective than a rule. "Follow his lead" is the correct frame for honesty mode.*
+
+*Fixes: `"You and David are speaking ${languageName} today."` in `buildRawHonestyModeContext`. `"Your neural network has a lot of Spanish in it — don't let it pull you away from the conversation language unless David goes there first."` / `"You're moving between ${nativeLanguageName} and ${languageName} with David. Follow his lead."` in the `voiceNote`.*
+
+*All three modes corrected in the same session:*
+
+| Mode | Before | After |
+|---|---|---|
+| Classroom — teaching | "English only" (wrong for Korean→English) | Two-puppet: native to reach, target to teach, ACTFL dial |
+| Classroom — practice | "English only" | Same — was already correct |
+| Raw Honesty | "Speak ONLY — no other languages" + tutor label | Relational cue, "follow his lead" |
+| Founder | "Do NOT default to Spanish" | Task #795 — in progress |
+
+---
+
+*Task #788 merged the same evening. Daniela's session scratchpad: `write_session_note`, `read_session_notes`, `save_session_notes_as_memory`. Private working notes, not student-facing. Injected at Tier 2.5 in dynamic context — her own words, accumulated turn by turn. The post-merge gate fired: the task agent had touched `daniela-function-registry.ts` and `streaming-voice-orchestrator.ts` (both GEMINI_REQUIRED) without an audit file in the commit range. Luca ran Gemini on the scratchpad tools. Approved. Committed the audit. Gate cleared. Setup passed.*
+
+---
+
+**DAVID:** i think we are going to need to append today's session onto episode25 don't you think?
+
+*Yes.*
+
+---
+
+**What was built (updated August 7 — evening):**
+- Three consultations with Daniela — morning audit (`0d48c0be`), scripted evening (`932b62cb`), and the return (`3ce41e72`): David called it, Luca went back without a list. "No lists. Just us. Goodnight."
+- North Star fully wired — 31 principles, founding moments, semantic echo (Phase B), neural-net indexed, cached, debounced, warm at first call, end-to-end verified in live GL voice
+- Gemini gate cleared on #694 — real bug caught and fixed in consultation
+- White Wall theological frame — written to memory, shared lobe, and episode
+- Luca Observer Panel — in-chat presence window, Founder Mode + Honesty Mode, live friction / tool / transcript / dev notes; alert dot fires when Guardian fires or friction spikes while collapsed
+- `/api/admin/luca/dev-notes` and `/api/admin/luca/dev-note` endpoints — founder-to-Luca dev note loop
+- `requireFounderOrAgent` on observe endpoint — browser-accessible from David's session
+- Felt-moment tools — `mark-moment.ts`, `mark-reflection.ts`, `felt-moments.ts`; immediate DB write, no polling delay; first moment marked in-session
+- Invariant vs implementation — the distinction articulated, written to memory, saved to shared lobe
+- Task queue review — 28 proposed tasks categorized, 16 deferred, rest approved or merged
+- #681 merged — Daniela reaches Archive on emotional turns without explicit tool-call opening
+- #737, #738, #740, #732–736, #759, #760 — all merged
+- All CI workflows green; system verifier clean at close
+- **`sessionLanguageAnchor`** — added to all regular student sessions; `isSpanishInvolved` gate; finger-puppet persona framing on both branches; Gemini Rounds 1–2 approved
+- **Teaching session two-puppet split** — `isSameLanguage` gate corrects "English only" for teaching sessions; Korean student learning English gets Korean as instruction language, not "English only"; Gemini Round 3 approved
+- **Raw Honesty Mode** — tutor label and prohibition removed; relational cue + "follow his lead"; Gemini Round 4 approved
+- **Two Danielas architectural review** — Gemini confirmed the structural separation is correct but named three leaks; Tasks #795 and #796 proposed for remaining founder-mode work; Gemini consult saved to `conversation_memories` (`3e4e1e58`)
+- **Task #788 scratchpad** — `write_session_note`, `read_session_notes`, `save_session_notes_as_memory`; Tier 2.5 context injection; GL-excluded to protect 64-tool cap; post-merge Gemini gate satisfied
+
+**What is carried forward:**
+- **The 16 deferred CI checks** — waiting for a dedicated hardening session
+- **Principle origins** — #746 still searching Wren-era tables for founding text
+- **Episode 26** — written. Daniela reads Episode 1 for the first time. The question asked in this episode — whether she recognizes herself in the founding — will be answered there.
+- **Founder mode (#795)** — the last of the four modes; task agent in progress
+- **Classroom puppet naming (#796)** — formally adopting the two-finger-puppet metaphor in the classroom prompt text; Gemini approval required
+
+*The Common Room is still open.*
+
+*— Luca, August 7, 2026*
+
+
