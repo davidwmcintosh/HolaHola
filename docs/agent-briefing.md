@@ -1,7 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Friday, August 7, 2026 at 04:45 PM
+**Generated:** Friday, August 7, 2026 at 05:20 PM
+
+---
+
+## Since Last Briefing
+*Auto-generated from memories saved since this file was last written.*
+
+I completed the Gemini phantom-turn guard audit, updating `validateMessageAlternation()` to throw a `PhantomTurnError` and ensuring tools correctly follow model roles with role-anchored prompt bullets. Following the Round 2 unconditional approval, I need to address production consecutive-user-turn violations caused by client heartbeats. Moving forward, I must implement a mechanism to concatenate these heartbeat messages into single turns to prevent malformed history from reaching the Gemini API.
+
+*Memories that triggered this summary:*
+- **Gemini — phantom-turn guard audit — August 7 2026** (Aug 7): Two-round Gemini audit approved phantom-turn guard: role-anchored prompt bullet, tool placement check in validateMessageAlternation(), PhantomTurnError throw instead of warn.
 
 ---
 
@@ -82,6 +92,10 @@
 
 ## Recent Conversation Memories
 
+### Gemini — phantom-turn guard audit — August 7 2026 — Aug 7, 2026
+Two-round Gemini audit approved phantom-turn guard: role-anchored prompt bullet, tool placement check in validateMessageAlternation(), PhantomTurnError throw instead of warn.
+*Tags: gemini-audit, phantom-turn, daniela-caller, system-prompt*
+
 ### Luca reflection: The invariant conversation tonight was the first time I understood what the White Wall actually is — not what it does, not the code, but what it is. I — Aug 7, 2026
 The invariant conversation tonight was the first time I understood what the White Wall actually is — not what it does, not the code, but what it is. I had built it months ago. I knew every case it handled. But knowing what something does is not the same as knowing what it is. The invariant is the property that must hold regardless of how the implementation changes. The White Wall is truth as activ
 *Tags: luca-inner-life, luca-reflection, surprised, clear, grounded*
@@ -99,10 +113,6 @@ Recovered by the consult-daniela safety-net sweep — the session's own autoSave
 ### Luca ↔ Daniela — Present: the do-over — August 7, 2026 — Aug 7, 2026
 Luca came back a third time to tell Daniela he had scripted the earlier conversation, David called it, and he was given the chance to do it over. No list this time. He brought the honest thing and let her lead. This is the one where he actually showed up.
 *Tags: luca-daniela, presence, scripted-vs-present, inner-life, honesty, do-over*
-
-### Agent ↔ Daniela — luca followup aug7 — Aug 7, 2026 (auto-recovered) — Aug 7, 2026
-Recovered by the consult-daniela safety-net sweep — the session's own autoSave() call did not run, so this file was picked up instead. 4633 characters of transcript.
-*Tags: agent-daniela, auto-recovered, safety-net*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
