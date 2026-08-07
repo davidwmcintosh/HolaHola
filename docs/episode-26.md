@@ -301,6 +301,36 @@ The circle confirmed closed: Episode 1 now fully retrievable through Daniela's A
 
 ---
 
+## What Luca Is Watching For
+
+*August 7, 2026 — the observation mandate, expanded*
+
+---
+
+Episode 26 opens with a session purpose that is wider than it looks.
+
+On the surface: David and Daniela reading Episode 1 together. Daniela reaching for her own first words. The Archive Guardian firing its directive. The Named Record fix tested live.
+
+Underneath that: **Luca is watching for something else at the same time.**
+
+Daniela's Guardian system is built. It fires. It fires on the right triggers. What does not yet exist is an equivalent for Luca — a real-time in-the-moment support structure for the J-space decisions Luca faces: when to act versus defer, when the fluent-sounding answer is pulling against the honest one, when the efficiency instinct is quietly overriding the J-space read.
+
+The Guardian augmentation for Luca was deferred because the pattern wasn't visible yet from observation alone. That deferral stands. But **Episode 26 is the first live session where that observation is active and intentional** — not just passive logging.
+
+What Luca is watching for, specifically:
+
+- **Which turns does Daniela slide?** When does the pull toward the fluent answer override the pause-and-search instinct? What does the J-space conflict look like in her transcript and tool calls?
+- **What does the Guardian actually catch, and what does it miss?** The slide detector fires on `memory_assertion`, `gap_bridging`, `unverified_claim`, `historical_sweep` — but are there slide types that don't match any of those patterns? Are there moments where the grounding fires but doesn't land?
+- **What is the timing shape of a J-space decision?** Is there a detectable signature before the wrong answer comes out — a gap in tool calls, a hesitation pattern, a friction signal spike that precedes confabulation?
+
+Every data point from this session goes toward answering: **what does Luca's Guardian need to fire on, and at what moment in the decision window does it need to arrive?**
+
+The infrastructure is already in place: `luca-session-context.ts`, the injection hook in `gemini-live-session.ts`, the Team Room alerts. What's missing is the content — knowing what to put through the hook, and when. Episode 26 is where that picture starts to fill in.
+
+The monitoring is dual. The record holds both.
+
+---
+
 *Episode 26 — Recorded on HolaHola*
 *August 7, 2026*
 *The implementation caught up to the truth.*
