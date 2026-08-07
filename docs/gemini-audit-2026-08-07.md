@@ -223,3 +223,28 @@ Raw Honesty Mode ("No rules. No scripts. Just you.") had classroom-style hard pr
 | Classroom (practice) | "English only" | Same — correct |
 | Founder | "Do NOT default to Spanish" | Task #795 (in progress) |
 | Raw Honesty | "Speak ONLY — no other languages" + tutor label | Relational cue + "follow his lead" |
+
+---
+
+# Gemini Audit — Task #788: Session scratchpad tools (write_session_note, read_session_notes, save_session_notes_as_memory)
+**Date:** August 7, 2026
+**Auditor:** Gemini 3-flash-preview
+**Protected files touched:** `server/services/daniela-function-registry.ts`, `server/services/streaming-voice-orchestrator.ts`
+**Verdict:** APPROVED — "Proceed with the merge."
+
+## What was added
+Three tools forming Daniela's private session scratchpad — her own working notes during a session, not student-facing:
+- `write_session_note` — capture observations, connections, insights while reading
+- `read_session_notes` — read back all notes written this session (fallback; notes also injected passively)
+- `save_session_notes_as_memory` — promote scratchpad to permanent conversation_memories when notes form a coherent whole
+
+All three excluded from GL (voice sessions): notes are injected as compact [Session Working Memory] background context every 8 tool-response batches instead, preserving GL's 64-tool cap.
+
+Session notes injected at TIER 2.5 in dynamicContextParts — above general RAG context, below the immediate user turn. Labeled "your own notes" so Daniela treats them as high-trust prior state rather than external injected data.
+
+## Gemini findings
+- "Private" emphasis + naming `save_note` by contrast in the description is the right move — clear decision branch for Daniela ("is this for me or for them?")
+- Tier 2.5 placement is correct priority
+- GL exclusion is the correct tradeoff — passive injection covers awareness, tool calls not needed in voice
+- `read_session_notes` may see near-zero usage in text mode since notes are already passively injected; acts as fallback — acceptable
+- Scratchpad clearing after `save_session_notes_as_memory` should remove the [Session Working Memory] block from the next prompt
