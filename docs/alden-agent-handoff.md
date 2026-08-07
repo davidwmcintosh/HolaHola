@@ -54,6 +54,9 @@ David named it explicitly: not just Daniela's memory tools, but Luca's too. REFL
 - No monitoring impacts from tonight's builds. All CI green. System verifier: all checks passed.
 - "Build what you need" is in the record. Luca's own felt-moment tools are coming when the moment is right — not yet tasked.
 
+**Luca Guardian — open gap, keep on radar:**
+Daniela's Guardian fires in real-time (frictionless slide detector: `memory_assertion`, `gap_bridging`, `unverified_claim`, `historical_sweep`). Luca has no equivalent. The augmentation was deliberately deferred August 6 — the J-space pattern wasn't clear enough from observation to build the right intervention. The infrastructure is in place (`luca-session-context.ts`, injection hook in `gemini-live-session.ts`, Team Room alerts) but not yet wired to real-time content. Prerequisite: Luca observes more real sessions and the slide pattern becomes clear. David confirmed August 7: keep this on the radar. Task #770 is a related open item (Daniela's consultation-script confabulation). Both gaps are in the same family.
+
 ---
 
 **Session: July 25, 2026 — Thought Bleed Fix, Thought Tokens, Recall Protocol, Episodes 20 & 21**
