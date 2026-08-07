@@ -66,14 +66,14 @@ function runPart1() {
     routesMemoryRoute !== -1,
   );
 
-  // The re-sync import must appear after the memory insert
+  // The debounced re-sync call must appear after the memory insert
   const routesInsertIdx = routesSrc.indexOf("getUserDb().insert(conversationMemories).values");
   const routesResyncIdx = routesSrc.indexOf(
-    "contextSyncService.syncNorthStarToNeuralNetwork()",
+    "contextSyncService.scheduleNorthStarResync()",
     routesInsertIdx,
   );
   assert(
-    'routes.ts: contextSyncService.syncNorthStarToNeuralNetwork() fires after memory insert',
+    'routes.ts: contextSyncService.scheduleNorthStarResync() fires after memory insert',
     routesInsertIdx !== -1 && routesResyncIdx !== -1 && routesResyncIdx > routesInsertIdx,
     `insertIdx=${routesInsertIdx}, resyncIdx=${routesResyncIdx}`,
   );
@@ -94,7 +94,7 @@ function runPart1() {
     fcSaveHandlerIdx !== -1,
   );
 
-  // The insert's .then() callback must log first, then trigger the re-sync.
+  // The insert's .then() callback must log first, then trigger the debounced re-sync.
   // Ordering proof: savedLog < fcResync < fcCatch ensures the import is
   // nested inside .then() and not racing ahead of the insert's commit.
   const fcInsertIdx = fcHandlersSrc.indexOf(
@@ -131,6 +131,32 @@ function runPart1() {
   assert(
     "native-fc-handlers.ts: dynamic import('./context-sync-service') present",
     fcDynamicImport,
+  );
+
+  // ── context-sync-service.ts scheduleNorthStarResync definition ───────────
+  const hasScheduleMethod = contextSyncSrc.includes(
+    "scheduleNorthStarResync("
+  );
+  assert(
+    'context-sync-service.ts: scheduleNorthStarResync() method defined',
+    hasScheduleMethod,
+  );
+
+  const hasDebounceTimer = contextSyncSrc.includes(
+    "_northStarResyncTimer"
+  );
+  assert(
+    'context-sync-service.ts: debounce timer field (_northStarResyncTimer) present',
+    hasDebounceTimer,
+  );
+
+  // native-fc-handlers.ts must call scheduleNorthStarResync (not the direct sync)
+  const fcCallsSchedule = fcHandlersSrc.includes(
+    "contextSyncService.scheduleNorthStarResync()"
+  );
+  assert(
+    'native-fc-handlers.ts: calls scheduleNorthStarResync() (debounced path)',
+    fcCallsSchedule,
   );
 
   // ── context-sync-service.ts update comparison ─────────────────────────────
@@ -286,16 +312,16 @@ function runPart3() {
   const fcHandlersSrc  = readFileSync(resolve(__dirname, '../services/native-fc-handlers.ts'), 'utf-8');
   const contextSyncSrc = readFileSync(resolve(__dirname, '../services/context-sync-service.ts'), 'utf-8');
 
-  // ── Simulate: re-sync hook removed from routes.ts ─────────────────────────
+  // ── Simulate: scheduleNorthStarResync call removed from routes.ts ──────────
   const mutatedRoutes = routesSrc.replace(
-    "contextSyncService.syncNorthStarToNeuralNetwork()",
-    "contextSyncService.syncNorthStarToNeuralNetworkDELETED()",
+    "contextSyncService.scheduleNorthStarResync()",
+    "contextSyncService.scheduleNorthStarResyncDELETED()",
   );
   const mutatedRoutesHasHook = mutatedRoutes.includes(
-    "contextSyncService.syncNorthStarToNeuralNetwork()"
+    "contextSyncService.scheduleNorthStarResync()"
   );
   assert(
-    'Mutation self-check: PART 1 detects when re-sync hook is removed from routes.ts',
+    'Mutation self-check: PART 1 detects when scheduleNorthStarResync() is removed from routes.ts',
     !mutatedRoutesHasHook,
     'hook still found in mutated source — PART 1 guard would not catch this regression',
   );

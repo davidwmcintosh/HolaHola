@@ -597,6 +597,31 @@ class ContextSyncService {
   }
 
   // ============================================================================
+  // DEBOUNCED NORTH STAR RESYNC
+  // ============================================================================
+
+  /** Pending debounce timer for scheduleNorthStarResync(). */
+  private _northStarResyncTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Schedule a syncNorthStarToNeuralNetwork() call, debounced by `delayMs`
+   * (default 5 000 ms).  Any call while a timer is already pending cancels
+   * the old timer so that a burst of N memory inserts collapses into a
+   * single scan that fires after the last insert settles.
+   */
+  scheduleNorthStarResync(delayMs = 5000): void {
+    if (this._northStarResyncTimer !== null) {
+      clearTimeout(this._northStarResyncTimer);
+    }
+    this._northStarResyncTimer = setTimeout(() => {
+      this._northStarResyncTimer = null;
+      this.syncNorthStarToNeuralNetwork()
+        .catch((err: Error) =>
+          console.warn('[ContextSync] Scheduled North Star re-sync failed:', err.message)
+        );
+    }, delayMs);
+  }
+
   // ON-DEMAND REFRESH
   // ============================================================================
 

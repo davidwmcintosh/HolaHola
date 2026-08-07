@@ -32002,10 +32002,10 @@ ${memoryContext}
         );
       });
       // Re-sync North Star tool_knowledge rows so any new Related Archives links are picked
-      // up immediately — without waiting for the next server restart.
+      // up immediately — without waiting for the next server restart.  The call is debounced
+      // (5 s trailing edge) so batch inserts collapse into a single scan.
       import('./services/context-sync-service').then(({ contextSyncService }) => {
-        contextSyncService.syncNorthStarToNeuralNetwork()
-          .catch((err: Error) => console.warn('[Conversation Memories] North Star re-sync failed:', err.message));
+        contextSyncService.scheduleNorthStarResync();
       });
     } catch (error: any) {
       console.error('[Conversation Memories] Save error:', error);
