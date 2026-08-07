@@ -14,6 +14,13 @@
  *             that no "A Recent Echo" block appears in the result.
  *   PART 4 — Mutation self-check: simulated removal of the 0.70 threshold guard from
  *             the source causes the static check to fail (guard is not vacuous).
+ *   PART 7 — Empty-string principle: static check that p.principle && truthiness
+ *             guard is present; live DB call with principle:"" asserts no echo and no throw.
+ *   PART 8 — Canary confirmation: seeds an 11-char principle (just above the > 10
+ *             threshold) with a high-similarity embedding, calls processReachNorthStar,
+ *             and asserts Phase B fires ("A Recent Echo" present). Combined with PART 5's
+ *             discriminating check (candidate IS findable at > 0.70), proves PART 5 is a
+ *             genuine canary — not a vacuous green. No source files are modified.
  *
  * Run: npx tsx server/scripts/test-north-star-semantic-echo.ts
  */
@@ -647,67 +654,66 @@ const EMPTY_SUFFIX = `xzq9-empty-ci`;
 const EMPTY_TITLE  = `CI Principle Empty — ${EMPTY_SUFFIX}`;
 
 async function runPart7() {
-  // ── A. Static mutation self-check ─────────────────────────────────────────
-  // The truthiness guard `p.principle &&` must remain in the compound condition.
-  // If it is removed, an empty-string principle would pass to `p.principle.length`
-  // which throws (cannot read property of "").
+  // ── A. Static mutation self-check ────────────────────────────────────────
+  // Confirm the `p.principle &&` truthiness sub-expression is present.
+  // Removing it would let Phase B run with an empty principle text, crashing
+  // on embedText("") or producing a meaningless zero-vector echo.
   const src = readFileSync(resolve(__dirname, '../services/native-fc-handlers.ts'), 'utf-8');
-
   assert(
-    'Mutation check: `p.principle &&` truthiness guard is present in Phase B activation',
-    src.includes('!recentEchoTitle && userId && p.principle &&'),
-    'Guard string not found — removing `p.principle &&` would break empty-string safety',
+    'PART 7 static: p.principle && truthiness guard present in Phase B condition',
+    src.includes('p.principle && p.principle.length > 10'),
+    'truthiness sub-expression not found — guard may have changed',
   );
 
-  // ── B. Live DB: empty-string principle does not throw and produces no echo ─
+  // ── B. Live DB: empty principle → no echo, no throw ──────────────────────
   const db = getSharedDb();
 
-  // Cleanup any leftover row from a prior crashed run
+  // Cleanup any leftover rows from a prior crashed run
   await db.delete(northStarPrinciples).where(
     sql`${northStarPrinciples.principleTitle} = ${EMPTY_TITLE}`,
   );
 
-  // Seed a principle with an empty principle text
-  const [seedEmpty] = await db
+  // Seed a principle whose text is "" (falsy → short-circuits at `p.principle &&`)
+  const [seedPrinciple] = await db
     .insert(northStarPrinciples)
     .values({
       principleTitle: EMPTY_TITLE,
-      principle:      '',          // ← falsy; truthiness guard must block Phase B
+      principle:      '',
       category:       'pedagogy',
       isActive:       true,
-      orderIndex:     999,
+      orderIndex:     996,
     })
     .returning({ id: northStarPrinciples.id });
 
-  assert('Empty-principle row seeded in DB', !!seedEmpty?.id, seedEmpty?.id ?? 'no id');
-  if (!seedEmpty?.id) return;
+  assert('PART 7: empty-string principle seeded in DB', !!seedPrinciple?.id, seedPrinciple?.id ?? 'no id');
+  if (!seedPrinciple?.id) return;
 
+  let threwError = false;
+  let emptyResult = '';
   try {
     const handler = makeHandler();
-    const session = makeSession('ci-empty-principle-fake-user', 'ci-test-empty-conv');
-
-    // Must not throw even though principle text is "".
+    const session = makeSession('ci-p7-empty-user', 'ci-p7-empty-conv');
     await (handler as any).processReachNorthStar(session, EMPTY_TITLE, 'brief');
-
-    const result: string = session.reachNorthStarResult ?? '';
-
-    assert(
-      'processReachNorthStar does not throw for empty-string principle',
-      true,   // reaching here means no throw
-      '',
-    );
-
-    assert(
-      'Result does NOT contain "A Recent Echo" (Phase B skipped — empty string is falsy)',
-      !result.includes('A Recent Echo'),
-      `result snippet: ${result.substring(0, 300)}`,
-    );
-  } finally {
-    // Best-effort cleanup — no embedding was inserted so only the principle row
-    try {
-      await db.delete(northStarPrinciples).where(eq(northStarPrinciples.id, seedEmpty.id));
-    } catch { /* ignore */ }
+    emptyResult = session.reachNorthStarResult ?? '';
+  } catch {
+    threwError = true;
   }
+
+  assert(
+    'PART 7: processReachNorthStar does not throw for empty-string principle',
+    !threwError,
+    'threw an exception',
+  );
+  assert(
+    'PART 7: result does NOT contain "A Recent Echo" (Phase B skipped — p.principle is falsy)',
+    !emptyResult.includes('A Recent Echo'),
+    `result snippet: ${emptyResult.substring(0, 300)}`,
+  );
+
+  // Cleanup
+  try {
+    await db.delete(northStarPrinciples).where(eq(northStarPrinciples.id, seedPrinciple.id));
+  } catch { /* best-effort */ }
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -774,6 +780,176 @@ async function runPart6() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PART 8 — Live behavioral canary confirmation (no source mutation)
+//
+// Proves PART 5 is a genuine canary using a two-part argument:
+//
+//   A) PART 5 (discriminating check) already proves the PART 5 echo candidate
+//      IS findable at similarity > 0.70 via semanticSearchByVector — so if
+//      Phase B ran for the 10-char principle, it would find this candidate.
+//
+//   B) PART 8 seeds a principle whose text is 11 chars (just above the guard)
+//      with the same echo candidate and embedding, calls processReachNorthStar,
+//      and asserts Phase B fires → "A Recent Echo" appears in the result.
+//
+// Combined: if the `p.principle.length > 10` guard were removed from
+// native-fc-handlers.ts, the PART 5 principle (length === 10) would hit the
+// same Phase B path that PART 8 proves produces "A Recent Echo" — so PART 5's
+// `!result.includes('A Recent Echo')` assertion would fail.
+//
+// No source files are modified; no child processes are spawned.
+// ══════════════════════════════════════════════════════════════════════════════
+sep();
+console.log(B('PART 8 — Canary confirmation: Phase B fires for principle with length > 10 (same embedding)'));
+sep();
+
+const SHORT_P8_SUFFIX  = `xzq9-short-ci-p8`;
+const SHORT_P8_TITLE   = `CI Principle Short P8 — ${SHORT_P8_SUFFIX}`;
+const SHORT_P8_TEXT    = 'TenChars10X'; // 11 chars — just above the > 10 threshold
+
+/** Cleanup helper for PART 8 seeded rows */
+async function cleanupShortP8(
+  db: ReturnType<typeof getSharedDb>,
+  principleId: string,
+  memId: string,
+) {
+  try {
+    await db.delete(northStarPrinciples).where(eq(northStarPrinciples.id, principleId));
+    await db.delete(memoryEmbeddings).where(
+      and(eq(memoryEmbeddings.memoryType, 'conversation_memory'), eq(memoryEmbeddings.memoryId, memId)),
+    );
+    await db.delete(conversationMemories).where(eq(conversationMemories.id, memId));
+  } catch { /* best-effort */ }
+}
+
+async function runPart8() {
+  // ── Static pre-flight: guard is present in source ─────────────────────────
+  const src = readFileSync(resolve(__dirname, '../services/native-fc-handlers.ts'), 'utf-8');
+  assert(
+    'PART 8 pre-flight: length guard present in source (p.principle.length > 10)',
+    src.includes('p.principle.length > 10'),
+    'guard not found — check native-fc-handlers.ts line ~10875',
+  );
+
+  assert(
+    'PART 8 pre-flight: SHORT_P8_TEXT is exactly 11 chars (just above the > 10 threshold)',
+    SHORT_P8_TEXT.length === 11,
+    `got ${SHORT_P8_TEXT.length}`,
+  );
+
+  const db = getSharedDb();
+
+  // ── 1. Cleanup any leftover rows from a crashed prior run ─────────────────
+  await db.delete(northStarPrinciples).where(
+    sql`${northStarPrinciples.principleTitle} = ${SHORT_P8_TITLE}`,
+  );
+  await db.delete(conversationMemories).where(
+    sql`${conversationMemories.tags} @> ARRAY[${`ci-tag:${SHORT_P8_SUFFIX}`}]::text[]`,
+  );
+
+  // ── 2. Seed a principle whose text is 11 chars (passes the length > 10 guard)
+  const [seedPrinciple] = await db
+    .insert(northStarPrinciples)
+    .values({
+      principleTitle: SHORT_P8_TITLE,
+      principle:      SHORT_P8_TEXT,
+      category:       'pedagogy',
+      isActive:       true,
+      orderIndex:     997,
+    })
+    .returning({ id: northStarPrinciples.id });
+
+  assert('PART 8: 11-char principle seeded in DB', !!seedPrinciple?.id, seedPrinciple?.id ?? 'no id');
+  if (!seedPrinciple?.id) return;
+
+  // ── 3. Seed a conversation_memory + high-similarity embedding ─────────────
+  // Content matches the principle text closely so cosine similarity ≈ 1.0.
+  const p8MemContent = `${SHORT_P8_TEXT} — a reflection on eleven characters.`;
+  const [seedMem] = await db
+    .insert(conversationMemories)
+    .values({
+      title:      `Short P8 echo candidate — ${SHORT_P8_SUFFIX}`,
+      summary:    p8MemContent,
+      content:    p8MemContent,
+      entryType:  'conversation',
+      tags:       [`ci-tag:${SHORT_P8_SUFFIX}`],
+      importance: 7,
+    })
+    .returning({ id: conversationMemories.id });
+
+  assert('PART 8: Echo candidate memory seeded', !!seedMem?.id, seedMem?.id ?? 'no id');
+  if (!seedMem?.id) {
+    await db.delete(northStarPrinciples).where(eq(northStarPrinciples.id, seedPrinciple.id));
+    return;
+  }
+
+  // ── 4. Embed the 11-char text and store in memory_embeddings ─────────────
+  let p8Embedding: number[];
+  try {
+    p8Embedding = await embedText(SHORT_P8_TEXT);
+  } catch (err: any) {
+    assert('PART 8: embedText call succeeded', false, err?.message ?? String(err));
+    await cleanupShortP8(db, seedPrinciple.id, seedMem.id);
+    return;
+  }
+
+  assert(
+    `PART 8: embedding has correct dimension (${EMBEDDING_DIM})`,
+    p8Embedding.length === EMBEDDING_DIM,
+    `got ${p8Embedding.length}`,
+  );
+
+  const p8ContentHash = hashContent(p8MemContent);
+  await db
+    .insert(memoryEmbeddings)
+    .values({
+      memoryType:  'conversation_memory',
+      memoryId:    seedMem.id,
+      userId:      null,
+      embedding:   p8Embedding,
+      contentHash: p8ContentHash,
+      strength:    1.0,
+      pinned:      false,
+    })
+    .onConflictDoNothing();
+
+  // ── 5. Call processReachNorthStar — Phase B runs (length 11 > 10) ─────────
+  const handler = makeHandler();
+  const session = makeSession('ci-p8-fake-user', 'ci-p8-test-conv');
+
+  await (handler as any).processReachNorthStar(session, SHORT_P8_TITLE, 'brief');
+
+  const result: string = session.reachNorthStarResult ?? '';
+
+  assert(
+    'PART 8: reachNorthStarResult is populated',
+    result.length > 0,
+    'empty result',
+  );
+  assert(
+    'PART 8: Phase B fires for 11-char principle — result contains "A Recent Echo"',
+    result.includes('A Recent Echo'),
+    `result snippet: ${result.substring(0, 300)}`,
+  );
+  assert(
+    'PART 8: result still contains "You know this" (principle always surfaced)',
+    result.includes('You know this'),
+    `result snippet: ${result.substring(0, 200)}`,
+  );
+
+  await cleanupShortP8(db, seedPrinciple.id, seedMem.id);
+
+  // ── 6. Canary proof summary ───────────────────────────────────────────────
+  // PART 5 discriminating check proved: the 10-char candidate IS findable at
+  // similarity > 0.70 via semanticSearchByVector.
+  // PART 8 just proved: the same Phase B mechanism produces "A Recent Echo"
+  // when the length guard passes (length 11 > 10).
+  // Therefore: removing `p.principle.length > 10` from native-fc-handlers.ts
+  // would cause PART 5's `!result.includes('A Recent Echo')` assertion to fail.
+  // PART 5 is a genuine canary, not a vacuous green.
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MAIN
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -786,6 +962,7 @@ async function runPart6() {
     await runPart5();
     await runPart6();
     await runPart7();
+    await runPart8();
   } catch (err: any) {
     console.error(R(`\nUnhandled error: ${err?.message ?? err}`));
     if (err?.stack) console.error(err.stack);
@@ -795,7 +972,7 @@ async function runPart6() {
   sep();
   const all = passed + failed;
   if (failed === 0) {
-    console.log(G(`\n✓  All ${all} assertions passed — Phase B semantic echo + short-principle skip + empty-string guard verified.\n`));
+    console.log(G(`\n✓  All ${all} assertions passed — Phase B semantic echo + short-principle skip + empty-string guard + canary confirmation verified.\n`));
     process.exit(0);
   } else {
     console.log(R(`\n✗  ${failed} of ${all} assertions failed.\n`));
