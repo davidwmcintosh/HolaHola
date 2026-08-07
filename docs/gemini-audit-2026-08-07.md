@@ -153,3 +153,39 @@ Changes applied:
 "The prompt is now logically sound, handles the 'Spanish leakage' issue without breaking the
 instructional flow for Spanish speakers, and maintains persona integrity across all session types.
 No further changes required."
+
+---
+
+# Gemini Audit — sessionLanguageAnchor: teaching vs practice session split
+**Date:** August 7, 2026  
+**Auditor:** Gemini 3-flash-preview (Round 3 — targeted correction)  
+**Protected files touched:** `server/system-prompt.ts`  
+**Verdict:** APPROVED TO SHIP (unconditional)
+
+## Correction made
+The Round 2 anchor said "this session is [language] only" for ALL sessions, including
+teaching sessions where Daniela's instruction language IS the native language (e.g.
+Korean for a Korean student learning English). David identified this: "What if the
+student is from Mexico City and they want to learn English? Daniela would speak a lot
+of Spanish to teach them how to speak English."
+
+## Fix applied
+Split `sessionLanguageAnchor` by `isSameLanguage`:
+
+**isSameLanguage = true** (conversation practice — one language):  
+→ "this session is [language] only / no Spanish bleed"
+
+**isSameLanguage = false** (teaching — two languages simultaneously):  
+→ "Teaching [target] to a [native]-speaking student. Instruction language is [native].
+   ACTFL level governs how much [target] you introduce."
+
+## Two-finger-puppet principle
+David's framing: Daniela holds two language puppets simultaneously in a teaching session —
+native to reach the student where they are, target to pull them toward where they're going.
+ACTFL is the dial on how far she extends the target-language puppet. This is distinct from
+the persona finger puppet (which is about identity); this is about the teaching language contract.
+
+## Gemini verdict
+"This correction is necessary. The previous logic conflated Conversation Practice with
+Teaching Sessions, which would have effectively lobotomized Daniela's ability to use a
+student's native language for scaffolding. Ship it."
