@@ -170,6 +170,71 @@ export class PhantomTurnError extends Error {
 }
 
 /**
+ * QUOTED_SPEECH_PATTERNS — patterns that indicate a relay()-style quoted-speech
+ * injection in the last user message. These are the pre-generation risk: Gemini
+ * may treat the framing as an open quote and generate a continuation of the
+ * speaker's words rather than a response to them.
+ *
+ * Each pattern captures a "Name says: '...'" or "Name said: '...'" style where
+ * the quoted string is the full content of the user turn. The risk is highest
+ * when the quote closes cleanly at the end of the message — Gemini reads it as
+ * "this person said X, what would they say next?" rather than "respond to X".
+ */
+const QUOTED_SPEECH_PATTERNS: RegExp[] = [
+  // e.g. "David says: "Hey"" or "David says: 'Hey'"
+  /\b\w+\s+says?:\s*["'""][^"'""\n]{3,}["'""](\s*$)/i,
+  // e.g. "David said: "Hey"" or "Luca said: 'Hey'"
+  /\b\w+\s+saids?:\s*["'""][^"'""\n]{3,}["'""](\s*$)/i,
+  // e.g. "[David]: "Hey"" — bracket-label with closing quote
+  /^\[[\w\s]+\]:\s*["'""][^"'""\n]{3,}["'""](\s*$)/i,
+];
+
+/**
+ * detectQuotedSpeechRisk — pre-generation guard that checks the last user message
+ * for relay()-style quoted-speech patterns before sending to Gemini.
+ *
+ * The relay() pattern (`David says: "..."`) primes Gemini to imagine what David
+ * would say next rather than respond to his message. This is structurally
+ * different from the post-hoc consecutive-model-turns artifact caught by
+ * validateMessageAlternation — it fires *before* generation, when the risk is
+ * still preventable.
+ *
+ * Returns an array of warning strings (empty = clean). The caller decides whether
+ * to warn or throw; runDanielaFCLoop logs and continues (non-fatal) to avoid
+ * breaking existing scripts while the relay() pattern is being migrated.
+ *
+ * Exported so CI scripts can exercise the detection logic directly.
+ */
+export function detectQuotedSpeechRisk(messages: any[]): string[] {
+  if (messages.length === 0) return [];
+  const last = messages[messages.length - 1];
+  if (last?.role !== 'user') return [];
+
+  // Extract all text parts from the last user message
+  const parts: any[] = last?.parts || [];
+  const textContent = parts
+    .filter((p: any) => p?.text)
+    .map((p: any) => p.text as string)
+    .join('\n');
+
+  if (!textContent.trim()) return [];
+
+  const warnings: string[] = [];
+  for (const pattern of QUOTED_SPEECH_PATTERNS) {
+    if (pattern.test(textContent)) {
+      warnings.push(
+        `[PHANTOM_TURN_RISK] Last user message contains a quoted-speech pattern matching /${pattern.source}/. ` +
+        `Relay-style framing ("X says: \\"...\\"") primes Gemini to generate a continuation of the quoted ` +
+        `speech rather than respond to it. Use speaker-label format ([X] message) instead. ` +
+        `Snippet: "${textContent.slice(0, 120).replace(/\n/g, ' ')}…"`,
+      );
+      break; // one warning per message is enough
+    }
+  }
+  return warnings;
+}
+
+/**
  * validateMessageAlternation — phantom turn guard for multi-turn message arrays.
  *
  * Checks that the messages array follows strict Gemini role alternation:
@@ -312,6 +377,19 @@ export async function runDanielaFCLoop({
     if (alternationViolations.length > 0) {
       console.error('[runDanielaFCLoop] FATAL_PHANTOM_TURN', { violations: alternationViolations });
       throw new PhantomTurnError(alternationViolations);
+    }
+
+    // ── Pre-generation quoted-speech risk check ───────────────────────────────
+    // Detects relay()-style framing ("X says: '...'") in the last user message
+    // before it reaches Gemini. Unlike the alternation guard above, this is
+    // non-fatal — it logs a warning so the pattern can be caught in CI without
+    // breaking existing dialogue scripts mid-migration. See detectQuotedSpeechRisk
+    // for the full list of patterns that trigger this warning.
+    const quotedSpeechWarnings = detectQuotedSpeechRisk(messages);
+    if (quotedSpeechWarnings.length > 0) {
+      for (const w of quotedSpeechWarnings) {
+        console.warn(`[runDanielaFCLoop] ${w}`);
+      }
     }
 
     const result = await gemini.models.generateContent({

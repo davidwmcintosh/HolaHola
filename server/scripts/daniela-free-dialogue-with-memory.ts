@@ -140,7 +140,11 @@ TONE: Present. Real. Quiet curiosity. Let things land before you respond. A few 
 
   const relay = async (davidMsg: string): Promise<string> => {
     log('DAVID', davidMsg);
-    messages.push({ role: 'user', parts: [{ text: `David says: "${davidMsg}"` }] });
+    // Use speaker-label format instead of quoted-speech wrapping.
+    // "David says: '...'" primes Gemini to generate a continuation of the quote
+    // rather than a response to it (PHANTOM_TURN_RISK). "[David] message" is a
+    // clear speaker-switch marker — structurally a labelled turn, not an open quote.
+    messages.push({ role: 'user', parts: [{ text: `[David] ${davidMsg}` }] });
     const response = await runDanielaFCLoop(loopParams);
     log('DANIELA', response);
     messages.push({ role: 'model', parts: [{ text: response }] });
