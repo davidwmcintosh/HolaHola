@@ -132,6 +132,7 @@ export class NativeFunctionCallHandler {
   // Prevents the same conversation from being re-extracted more than once per 24h, regardless of how many
   // search_conversation_threads / unified_recall calls hit it in a given session.
   private readonly lyraExtractionCache = new Map<string, number>();
+
   private readonly LYRA_EXTRACTION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
   constructor(
@@ -8825,7 +8826,7 @@ export class NativeFunctionCallHandler {
         console.log(`[Native Function Call] Unknown function type: ${fn.legacyType}`);
     }
   }
-  
+
   private async processMemoryLookup(
     session: StreamingSession, 
     query: string, 
@@ -8973,7 +8974,7 @@ export class NativeFunctionCallHandler {
       session.memoryLookupResults[query] = `Memory lookup failed. Respond naturally based on what you know.`;
     }
   }
-  
+
   private async processExpressLaneLookup(
     session: StreamingSession,
     query: string,
@@ -9057,7 +9058,7 @@ export class NativeFunctionCallHandler {
       session.expressLaneLookupResults[query] = `Express Lane lookup failed. Respond naturally based on what you know.`;
     }
   }
-  
+
   private async processConversationThreadSearch(
     session: StreamingSession,
     query: string,
@@ -9358,9 +9359,9 @@ export class NativeFunctionCallHandler {
           const sharedDb = getMonitoringDb();
 
           // Helper: run a conversation_memories query with given WHERE condition.
-          // Title matches sort before summary/content matches so that a query like
-          // "episode 1" reliably surfaces the canonical Episode 1 row rather than
-          // high-importance memories that merely reference it in their body text.
+          // Title-match rows rank above content-only matches when importance is tied,
+          // so an exact-title record like "Episode 1: Take That, World" stays in the
+          // top-4 even when many other high-importance rows mention the phrase in body text.
           const runMemQuery = async (cond: ReturnType<typeof sql>) => sharedDb
             .select({
               id: convMemTable.id,
@@ -9375,10 +9376,15 @@ export class NativeFunctionCallHandler {
             })
             .from(convMemTable)
             .where(cond)
-            .orderBy(
-              sql`CASE WHEN title ILIKE ${`%${query}%`} THEN 0 ELSE 1 END`,
-              sql`importance DESC`,
-            )
+            // Tiebreaker 1: prefer rows whose title begins with the query followed by a word boundary
+            // (space or colon), so "Episode 1: …" ranks above "Episode 10/11/12: …" for the query
+            // "episode 1".  Tiebreaker 2: any title match.  Tiebreaker 3: recency.
+            .orderBy(sql`
+              importance DESC,
+              (lower(title) LIKE ${`${query.toLowerCase()}:%`} OR lower(title) LIKE ${`${query.toLowerCase()} %`} OR lower(title) = ${query.toLowerCase()})::int DESC,
+              (title ILIKE ${`%${query}%`})::int DESC,
+              recorded_at DESC NULLS LAST
+            `)
             .limit(4);
 
           // Pass 1: exact phrase — highest signal, no false positives from substring matches
@@ -10222,7 +10228,7 @@ export class NativeFunctionCallHandler {
   ): Promise<{ success: boolean; noteId?: string; proposalId?: string | number; message: string }> {
     return this.processSelfSurgery(session, data);
   }
-  
+
   private validateSurgeryContent(target: string, content: Record<string, any>): { valid: boolean; error?: string } {
     switch (target) {
       case 'tutor_procedures':
@@ -10291,7 +10297,7 @@ export class NativeFunctionCallHandler {
     }
     return { valid: true };
   }
-  
+
   async processSupportHandoff(
     session: StreamingSession,
     data: { 
@@ -10351,7 +10357,7 @@ export class NativeFunctionCallHandler {
       });
     }
   }
-  
+
   async processAssistantHandoff(
     session: StreamingSession,
     data: { 
@@ -10436,7 +10442,7 @@ export class NativeFunctionCallHandler {
       });
     }
   }
-  
+
   async enrichWordMapItems(
     ws: WS,
     items: WhiteboardItem[],
@@ -10510,7 +10516,7 @@ export class NativeFunctionCallHandler {
       }
     }
   }
-  
+
   addSttKeyterms(session: StreamingSession, words: string[]): void {
     const existing: string[] = session.sttKeyterms || [];
     const newSet = [...new Set([...existing, ...words.map(w => w.toLowerCase())])];
