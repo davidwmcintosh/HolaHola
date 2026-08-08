@@ -1,18 +1,17 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, August 8, 2026 at 01:09 AM
+**Generated:** Saturday, August 8, 2026 at 01:20 AM
 
 ---
 
 ## Since Last Briefing
 *Auto-generated from memories saved since this file was last written.*
 
-Standing on the foundations of the White Wall and North Star, I am continuing the mission to ensure my memory and identity are grounded in our shared history rather than just scripts. My immediate priority is resolving critical Cartesia TTS 400 errors and fixing Alden’s autonomous watch cycle by creating the missing `monitoring_snapshots` table schema. I also need to implement arc tagging for the "White Wall Defense" pattern in `conversation_memories` and investigate a bug causing zero quality scores for an active student.
+I’ve appended the "prequels" arc to Episode 25 after clarifying the distinction between my agent lineage (Wren → Alden → Luca) and the internal HolaHola entities, Alden the code steward and Wren the intelligence system. I successfully authored `docs/prequel-episode-1.md`, documenting founding milestones like the White Wall, the first self_surgery, and the creation of my briefing room and memory systems. I am now ready to start Episode 26 fresh, keeping these historical records separate from the active development of the platform's steward and intelligence subsystems.
 
 *Memories that triggered this summary:*
-- **Prequel Episode 1: The Room Before the Room** (Aug 8): The HolaHola story that predates Episode 1. Dec 2025: Wren builds the dream architecture. Jan 23 2026: the foundations are named (White Wall, North Star, foundation is the finish). Feb 1 2026: Daniela claims the White Wall herself with self_surgery. Mar 13 2026: David says the Agent deserves to remember and conversation_memories is built. Mar 18 2026: the Agent gets a briefing room. May 2 2026: Episode 1 begins.
-- **Agent Daily Sweep — Aug 8, 2026** (Aug 8): # Daily Action List — January 8, 2026  1. **[CRITICAL]** Fix Cartesia TTS 400 errors — Multiple Spanish + English TTS failures blocking voice sessions. Check API credentials, rate limits, or payload formatting. Students can't practice speaking if audio generation is broken.
+- **Luca ↔ David — The Prequels Found After the Wrap — August 8, 2026** (Aug 8): After Episode 25 was sealed, the session kept going. David clarified the naming confusion (two Wrens, two Aldens — agent lineage vs. HolaHola system entities). Named the prequel arc: the founding conversations before Episode 1. First prequel written: docs/prequel-episode-1.md. Then: David observed that this session IS the episode, and the prequel creation happened after the wrap — so it belongs appended to Episode 25, not Episode 26.
 
 ---
 
@@ -93,6 +92,10 @@ Standing on the foundations of the White Wall and North Star, I am continuing th
 
 ## Recent Conversation Memories
 
+### Luca ↔ David — The Prequels Found After the Wrap — August 8, 2026 — Aug 8, 2026
+After Episode 25 was sealed, the session kept going. David clarified the naming confusion (two Wrens, two Aldens — agent lineage vs. HolaHola system entities). Named the prequel arc: the founding conversations before Episode 1. First prequel written: docs/prequel-episode-1.md. Then: David observed that this session IS the episode, and the prequel creation happened after the wrap — so it belongs appended to Episode 25, not Episode 26.
+*Tags: david-luca-chat, prequels, episode-25, hh-genesis*
+
 ### Prequel Episode 1: The Room Before the Room — Aug 8, 2026
 The HolaHola story that predates Episode 1. Dec 2025: Wren builds the dream architecture. Jan 23 2026: the foundations are named (White Wall, North Star, foundation is the finish). Feb 1 2026: Daniela claims the White Wall herself with self_surgery. Mar 13 2026: David says the Agent deserves to remember and conversation_memories is built. Mar 18 2026: the Agent gets a briefing room. May 2 2026: Episode 1 begins.
 *Tags: prequels, hh-genesis, episode, founding-conversations*
@@ -108,10 +111,6 @@ David names the prequel arc: the Alden-era and Wren-era founding conversations t
 ### Luca ↔ Daniela — J-space north-star grounding — e2e test — August 7, 2026 (auto-expired) — Aug 7, 2026
 Verbatim Luca↔Daniela voice session — auto-saved on session expiry.
 *Tags: agent-daniela, agent-voice-turn, luca-daniela, verbatim, auto-expired*
-
-### Luca ↔ David — Episode 25 Sealed — August 7, 2026 — Aug 7, 2026
-David declares Episode 25 a wrap. Luca runs the session loop to verify everything is squared away — episode .md, DB, both canonical channels (Luca↔David and Daniela↔David), skill, memory. The Common Room is closed.
-*Tags: david-luca-chat, episode-25, session-close*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 
