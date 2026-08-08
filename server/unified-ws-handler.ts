@@ -263,6 +263,13 @@ interface PendingReconnectData {
   userId: string;
   conversationId: string;
   timer: NodeJS.Timeout;
+  /** Orchestrator session ID — present for in-memory entries only (not persisted to DB).
+   *  Used by armReconnectTimer to call persistReadingRoomCarryState() at true grace-expiry. */
+  orchestratorSessionId?: string;
+  /** Carry-forward state extracted from the session before endSession() removes it.
+   *  Populated only for Reading Room sessions that are not incognito.
+   *  Awaited by armReconnectTimer so the DB write completes before the timer resolves. */
+  rrCarryState?: { notes: string[]; notesSaved: boolean; userId: string };
 }
 const RECONNECT_GRACE_PERIOD_MS = 120000;
 const pendingReconnectSessions = new Map<string, PendingReconnectData>();
@@ -310,6 +317,17 @@ function armReconnectTimer(
         console.warn('[Reconnect Grace] Failed to end compass session:', err.message);
       }
     }
+    // READING ROOM NOTES CARRY-FORWARD: persist notes now that the session has truly ended.
+    // The endSession() call at WS close skips carry-forward for grace-eligible disconnects
+    // (_deferCarryForward flag). We use the state captured at that time to write atomically here.
+    // Awaited before the timer resolves so the DB write completes before any next-session load.
+    if (current.rrCarryState) {
+      try {
+        await getStreamingVoiceOrchestrator().persistReadingRoomCarryState(current.rrCarryState);
+      } catch (rrGraceErr: any) {
+        console.warn('[ReadingRoom] Carry-forward via grace-expiry failed (non-fatal):', rrGraceErr.message);
+      }
+    }
   }, delayMs);
 }
 
@@ -331,7 +349,9 @@ function storePendingReconnect(
     graceMs: RECONNECT_GRACE_PERIOD_MS,
   });
 
-  // Persist to DB for server-restart resilience (fire-and-forget)
+  // Persist to DB for server-restart resilience (fire-and-forget).
+  // rrCarryNotes is the JSON-serialised Reading Room carry state — null for non-RR or incognito.
+  const rrCarryNotesJson = data.rrCarryState ? JSON.stringify(data.rrCarryState) : null;
   db.insert(voiceGracePeriods).values({
     conversationId,
     usageSessionId: data.usageSessionId,
@@ -344,6 +364,7 @@ function storePendingReconnect(
     sessionStartTime: data.sessionStartTime,
     userId: data.userId,
     expiresAt: new Date(Date.now() + RECONNECT_GRACE_PERIOD_MS),
+    rrCarryNotes: rrCarryNotesJson,
   }).onConflictDoUpdate({
     target: voiceGracePeriods.conversationId,
     set: {
@@ -357,6 +378,7 @@ function storePendingReconnect(
       sessionStartTime: data.sessionStartTime,
       userId: data.userId,
       expiresAt: new Date(Date.now() + RECONNECT_GRACE_PERIOD_MS),
+      rrCarryNotes: rrCarryNotesJson,
     },
   }).catch((err: Error) => {
     console.warn('[Reconnect Grace] DB write failed (in-memory path still active):', err.message);
@@ -401,6 +423,16 @@ async function claimPendingReconnect(conversationId: string, userId: string): Pr
       exchangeCount: row.exchangeCount,
       path: 'db_fallback',
     });
+    // Restore rrCarryState from the durable JSON field so the grace timer can persist
+    // Reading Room notes even after a server restart during the grace window.
+    let claimedRrCarryState: PendingReconnectData['rrCarryState'] | undefined;
+    if (row.rrCarryNotes) {
+      try {
+        claimedRrCarryState = JSON.parse(row.rrCarryNotes) as PendingReconnectData['rrCarryState'];
+      } catch {
+        console.warn('[Reconnect Grace] Failed to parse rrCarryNotes on DB claim (ignored)');
+      }
+    }
     return {
       conversationId: row.conversationId,
       usageSessionId: row.usageSessionId,
@@ -413,6 +445,7 @@ async function claimPendingReconnect(conversationId: string, userId: string): Pr
       sessionStartTime: row.sessionStartTime,
       userId: row.userId,
       timer: null as any,
+      rrCarryState: claimedRrCarryState,
     };
   } catch (err: any) {
     console.error('[Reconnect Grace] DB claim failed:', err.message);
@@ -435,11 +468,24 @@ async function hydratePendingReconnectsFromDb(): Promise<void> {
       tutorSpeakingSeconds: voiceGracePeriods.tutorSpeakingSeconds,
       ttsCharacters: voiceGracePeriods.ttsCharacters,
       sttSeconds: voiceGracePeriods.sttSeconds,
+      rrCarryNotes: voiceGracePeriods.rrCarryNotes,
     }).from(voiceGracePeriods).where(lt(voiceGracePeriods.expiresAt, now));
 
     await db.delete(voiceGracePeriods).where(lt(voiceGracePeriods.expiresAt, now));
 
     for (const expired of expiredRows) {
+      // Persist Reading Room carry-forward notes before ending the usage session.
+      // This covers the "server restarted during grace window, session has now expired" path.
+      if (expired.rrCarryNotes) {
+        try {
+          const carryState = JSON.parse(expired.rrCarryNotes) as PendingReconnectData['rrCarryState'];
+          if (carryState) {
+            await getStreamingVoiceOrchestrator().persistReadingRoomCarryState(carryState);
+          }
+        } catch (rrErr: any) {
+          console.warn(`[Reconnect Grace] Carry-forward persist failed for expired session ${expired.conversationId.substring(0, 8)} (non-fatal):`, rrErr.message);
+        }
+      }
       usageService.updateSessionMetrics(expired.usageSessionId, {
         exchangeCount: expired.exchangeCount,
         studentSpeakingSeconds: expired.studentSpeakingSeconds,
@@ -462,6 +508,16 @@ async function hydratePendingReconnectsFromDb(): Promise<void> {
     for (const row of rows) {
       const remainingMs = row.expiresAt.getTime() - Date.now();
       if (remainingMs <= 0) continue;
+      // Restore rrCarryState from the durable JSON field so the grace timer fires
+      // with the correct state even after a server restart.
+      let hydratedRrCarryState: PendingReconnectData['rrCarryState'] | undefined;
+      if (row.rrCarryNotes) {
+        try {
+          hydratedRrCarryState = JSON.parse(row.rrCarryNotes) as PendingReconnectData['rrCarryState'];
+        } catch {
+          console.warn(`[Reconnect Grace] Failed to parse rrCarryNotes for ${row.conversationId.substring(0, 8)} (ignored)`);
+        }
+      }
       const entry: PendingReconnectData = {
         conversationId: row.conversationId,
         usageSessionId: row.usageSessionId,
@@ -474,6 +530,7 @@ async function hydratePendingReconnectsFromDb(): Promise<void> {
         sessionStartTime: row.sessionStartTime,
         userId: row.userId,
         timer: null as any,
+        rrCarryState: hydratedRrCarryState,
       };
       entry.timer = armReconnectTimer(row.conversationId, entry, remainingMs);
       pendingReconnectSessions.set(row.conversationId, entry);
@@ -2444,6 +2501,27 @@ When asked about specific past moments, quotes, or exchanges (e.g. "our podcast 
               (session as any).__bootstrapProfile = bootstrapProfile;
             }
 
+            // READING ROOM RECONNECT: restore scratchpad notes from the interrupted session.
+            // The grace record (which holds rrCarryState) is deleted on claim, so notes must
+            // be injected explicitly here or they are permanently lost.
+            // Only sessionNotes is restored — NOT carriedNotes. Per-turn context renders
+            // sessionNotes as "Session Notes (N items)"; a separate carriedNotes would cause
+            // the same notes to appear twice in Daniela's context.
+            // Incognito semantics: prospective only — notes already in the baked GL system prompt
+            // cannot be removed retroactively; incognito prevents future writes/persistence only.
+            // Skip if notes were explicitly saved before the interruption (they are in the archive;
+            // sessionNotesSaved is restored so endSession() cleans up rather than re-persists).
+            if (pendingReconnectSO?.rrCarryState && session?.isReadingRoom) {
+              const { notes: restoredNotes, notesSaved: restoredSaved } = pendingReconnectSO.rrCarryState;
+              if (restoredNotes.length > 0 && !restoredSaved) {
+                (session as any).sessionNotes = [...restoredNotes];
+                // carriedNotes intentionally NOT set here — sessionNotes is already rendered
+                // in per-turn context; setting carriedNotes too would display the same notes twice.
+                console.log(`[ReadingRoom] ✓ Restored ${restoredNotes.length} scratchpad note(s) into reconnected session (sessionNotes only, no duplicate carriedNotes)`);
+              }
+              if (restoredSaved) (session as any).sessionNotesSaved = true;
+            }
+
             // Pre-load ACTFL level onto session before GL connects.
             // The greeting flow (streaming-voice-orchestrator.ts) also sets
             // session.studentActflLevel, but only AFTER GL's realtimeInputConfig
@@ -2820,6 +2898,55 @@ The acknowledgment is not filler. It is how you stay present while the search ru
                         richSections.push(arcHeader + parts.join('\n\n'));
                         console.log(`[GeminiLive/ReadingRoom] ✓ Arc memories loaded: ${parts.length} blocks (${usedChars} chars)`);
                       }
+                    }
+
+                    // ── CARRIED NOTES: Rehydrate scratchpad notes from the previous Reading Room session ──
+                    // Auto-persisted at session close when notes weren't explicitly saved as memories.
+                    // Injected once into the baked system prompt with a distinct header, and set on
+                    // session.carriedNotes so per-turn context rendering also shows them with the
+                    // "Carried from Last Reading Room Session" label.
+                    //
+                    // INCOGNITO SEMANTICS (prospective, not retroactive):
+                    // Once notes are baked into this GL system prompt they cannot be removed from the
+                    // in-flight session regardless of a later toggle_incognito call. Incognito only
+                    // prevents future writes (new notes, carry-forward persistence). If the user requires
+                    // true privacy from the start, they must begin the session in incognito mode rather
+                    // than toggling it mid-session. This is the intended contract — document it in UI.
+                    try {
+                      const rrKey = `rr_notes_${userId}`;
+                      const { getSharedDb: getCarryDb } = await import('./neon-db');
+                      const { sql: sqlCarry } = await import('drizzle-orm');
+                      const carryDb = getCarryDb();
+                      const carryRows = await carryDb.execute(sqlCarry`
+                        SELECT content FROM editor_insights
+                        WHERE title = ${rrKey} AND category = 'context'
+                        ORDER BY created_at DESC
+                        LIMIT 1
+                      `);
+                      const carryRow = (carryRows as any).rows?.[0] ?? (carryRows as any)[0];
+                      if (carryRow?.content) {
+                        let carriedNotes: string[] = [];
+                        try {
+                          carriedNotes = JSON.parse(carryRow.content as string);
+                        } catch {
+                          // Non-JSON legacy row — treat as single note
+                          carriedNotes = [carryRow.content as string];
+                        }
+                        if (carriedNotes.length > 0) {
+                          const carriedBody = carriedNotes.map((n: string, i: number) => `[${i + 1}] ${n}`).join('\n');
+                          richSections.push(
+                            `=== Carried from Last Reading Room Session (${carriedNotes.length} item${carriedNotes.length === 1 ? '' : 's'}) ===\n${carriedBody}\n=== End Carried Notes ===`
+                          );
+                          // Make them available for per-turn context rendering (PTT / open-mic paths)
+                          if (session) (session as any).carriedNotes = carriedNotes;
+                          console.log(`[GeminiLive/ReadingRoom] ✓ Carried ${carriedNotes.length} note(s) from previous session into context`);
+                          // DO NOT delete the row here — we don't know yet whether this session
+                          // will become incognito. Deletion/refresh happens at session end via
+                          // endSession() or persistReadingRoomNotes() (grace-expiry path).
+                        }
+                      }
+                    } catch (carryErr: any) {
+                      console.warn('[GeminiLive/ReadingRoom] Carried notes load failed (non-fatal):', carryErr.message);
                     }
                   } else {
                     // REGULAR MODE: importance-9+ only, 10K budget
@@ -3815,8 +3942,11 @@ ${lastNote.tutorNotes}`);
           if (!session) break;
           const incogEnabled = !!(message as any).enabled;
           const sessObj = orchestrator.getSession(session.id);
-          if (sessObj && (sessObj.isFounderMode || sessObj.isRawHonestyMode)) {
+          if (sessObj && (sessObj.isFounderMode || sessObj.isRawHonestyMode || sessObj.isReadingRoom)) {
             sessObj.isIncognito = incogEnabled;
+            // Mark that incognito was ever active this session so carry-forward
+            // logic can exclude the entire scratchpad regardless of final state.
+            if (incogEnabled) (sessObj as any)._wasEverIncognito = true;
             console.log(`[Streaming Voice] Incognito mode ${incogEnabled ? 'ENABLED' : 'DISABLED'} for session ${session.id} (open-mic path)`);
             ws.send(JSON.stringify({
               type: 'incognito_changed',
@@ -4808,6 +4938,12 @@ ${lastNote.tutorNotes}`);
     duplicateReplacedCallbacks.set(conversationId, () => {
       if (usageSession && conversationId && userId && !pendingReconnectAlreadyStored) {
         console.log(`[Streaming Voice] Duplicate connection detected — storing session for reconnect grace period early (${conversationId.substring(0, 8)})`);
+        // Capture carry-forward state before endSession() removes the session from memory.
+        // _deferCarryForward tells endSession() to skip persist for this grace-eligible close.
+        const earlyRrCarryState = session?.isReadingRoom && !session.isIncognito && !(session as any)._wasEverIncognito
+          ? { notes: (session as any).sessionNotes as string[] ?? [], notesSaved: !!(session as any).sessionNotesSaved, userId: String(session.userId) }
+          : undefined;
+        if (session && earlyRrCarryState) (session as any)._deferCarryForward = true;
         storePendingReconnect(conversationId, {
           usageSessionId: usageSession.id,
           compassSessionActive: !!compassSession,
@@ -4818,6 +4954,8 @@ ${lastNote.tutorNotes}`);
           sttSeconds: Math.round(sttSeconds),
           sessionStartTime,
           userId: userId!,
+          orchestratorSessionId: session?.id,
+          rrCarryState: earlyRrCarryState,
         });
         pendingReconnectAlreadyStored = true;
         usageSession = null;
@@ -5073,6 +5211,12 @@ ${lastNote.tutorNotes}`);
     // callback if a replacement connection landed before this close fired)
     if (usageSession && conversationId && userId && !pendingReconnectAlreadyStored) {
       console.log(`[Streaming Voice] Socket.io disconnect — storing session for reconnect grace period (${conversationId.substring(0, 8)})`);
+      // Capture carry-forward state before endSession() removes the session from memory.
+      // _deferCarryForward tells endSession() to skip persist for this grace-eligible close.
+      const wsRrCarryState = session?.isReadingRoom && !session.isIncognito && !(session as any)._wasEverIncognito
+        ? { notes: (session as any).sessionNotes as string[] ?? [], notesSaved: !!(session as any).sessionNotesSaved, userId: String(session.userId) }
+        : undefined;
+      if (session && wsRrCarryState) (session as any)._deferCarryForward = true;
       storePendingReconnect(conversationId, {
         usageSessionId: usageSession.id,
         compassSessionActive: !!compassSession,
@@ -5083,6 +5227,8 @@ ${lastNote.tutorNotes}`);
         sttSeconds: Math.round(sttSeconds),
         sessionStartTime,
         userId: userId!,
+        orchestratorSessionId: session?.id,
+        rrCarryState: wsRrCarryState,
       });
       pendingReconnectAlreadyStored = true;
       usageSession = null;
@@ -5242,6 +5388,23 @@ ${lastNote.tutorNotes}`);
       usageSession = null;
     }
     
+    // READING ROOM NOTES CARRY-FORWARD (error path):
+    // Unlike the normal close path, WS errors do not use the grace-period mechanism, so
+    // we must capture and start the atomic persist here before endSession() removes the
+    // session. _deferCarryForward prevents a double-write from endSession's internal call.
+    // The CTE write is fire-and-forget (unavoidable in a sync error handler) but is atomic
+    // at the DB level — if the process survives long enough for it to commit, the notes are
+    // durable and will be picked up by the next Reading Room session.
+    if (session?.isReadingRoom && !session.isIncognito && !(session as any)._wasEverIncognito) {
+      const errNotes = (session as any).sessionNotes as string[] | undefined;
+      const errSaved = (session as any).sessionNotesSaved as boolean | undefined;
+      const errCarryState = { notes: errNotes ?? [], notesSaved: !!errSaved, userId: String(session.userId) };
+      (session as any)._deferCarryForward = true; // prevent double-write in endSession()
+      getStreamingVoiceOrchestrator().persistReadingRoomCarryState(errCarryState)
+        .catch((e: Error) => console.warn('[ReadingRoom] Error-path carry-forward failed (non-fatal):', e.message));
+      console.log(`[ReadingRoom] Carry-forward initiated on WS error (${errNotes?.length ?? 0} note(s))`);
+    }
+
     if (session) orchestrator.endSession(session.id);
   });
 }

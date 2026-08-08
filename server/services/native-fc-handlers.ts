@@ -4353,6 +4353,9 @@ export class NativeFunctionCallHandler {
           console.warn('[SessionScratchpad] write_session_note called with no content');
           break;
         }
+        // Belt-and-suspenders: if the session is currently incognito at write time,
+        // mark it so the carry-forward logic skips persistence regardless of final state.
+        if (session.isIncognito) (session as any)._wasEverIncognito = true;
         if (!(session as any).sessionNotes) (session as any).sessionNotes = [];
         (session as any).sessionNotes.push(noteContent.trim());
         console.log(`[SessionScratchpad] Note added (${(session as any).sessionNotes.length} total): "${noteContent.substring(0, 80)}"`);

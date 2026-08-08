@@ -2749,6 +2749,15 @@ Remember: David may reference things discussed in these recent text chats.
       // These are her words, not injected text — accumulated via write_session_note.
       // Injected here so they are visible at every turn without any tool call.
       {
+        // Carried notes from previous Reading Room session (shown with a distinct header)
+        const carriedNotesArr = (session as any).carriedNotes as string[] | undefined;
+        if (carriedNotesArr?.length) {
+          const carriedBody = carriedNotesArr.map((n: string, i: number) => `[${i + 1}] ${n}`).join('\n');
+          dynamicContextParts.push(
+            `=== Carried from Last Reading Room Session (${carriedNotesArr.length} item${carriedNotesArr.length === 1 ? '' : 's'}) ===\n${carriedBody}\n=== End Carried Notes ===`
+          );
+        }
+        // New notes written this session
         const sessionNotesArr = (session as any).sessionNotes as string[] | undefined;
         if (sessionNotesArr?.length) {
           const notesBody = sessionNotesArr.map((n: string, i: number) => `[${i + 1}] ${n}`).join('\n');
@@ -6380,6 +6389,15 @@ Remember: David may reference things discussed in these recent text chats.
 
       // --- TIER 2.5: SESSION SCRATCHPAD (OpenMic path) ---
       {
+        // Carried notes from previous Reading Room session (shown with a distinct header)
+        const carriedNotesArrOM = (session as any).carriedNotes as string[] | undefined;
+        if (carriedNotesArrOM?.length) {
+          const carriedBodyOM = carriedNotesArrOM.map((n: string, i: number) => `[${i + 1}] ${n}`).join('\n');
+          dynamicContextPartsOpenMic.push(
+            `=== Carried from Last Reading Room Session (${carriedNotesArrOM.length} item${carriedNotesArrOM.length === 1 ? '' : 's'}) ===\n${carriedBodyOM}\n=== End Carried Notes ===`
+          );
+        }
+        // New notes written this session
         const sessionNotesArrOM = (session as any).sessionNotes as string[] | undefined;
         if (sessionNotesArrOM?.length) {
           const notesBodyOM = sessionNotesArrOM.map((n: string, i: number) => `[${i + 1}] ${n}`).join('\n');
@@ -10672,6 +10690,15 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
         })();
       }
 
+      // READING ROOM NOTES CARRY-FORWARD (endSession path):
+      // _deferCarryForward: set on grace-eligible WS closes so the grace-expiry timer can
+      // persist using the pre-captured state instead (avoiding premature persist on reconnect).
+      // _wasEverIncognito: incognito sessions leave the existing row intact.
+      if (session.isReadingRoom && !session.isIncognito &&
+          !(session as any)._wasEverIncognito && !(session as any)._deferCarryForward) {
+        this.persistReadingRoomNotes(session.id);
+      }
+
       // Clean up post-TTS suppression timer
       if (session.postTtsSuppressionTimer) {
         clearTimeout(session.postTtsSuppressionTimer);
@@ -10688,6 +10715,90 @@ CRITICAL: Your greeting must be a SPOKEN message to the student. Do NOT just sta
     }
   }
   
+  /**
+   * Persist or clean up Reading Room carry-forward notes for a session.
+   *
+   * Called from two paths:
+   *  - endSession() — explicit session ends (idle timeout, credit exhaustion, clean close)
+   *  - armReconnectTimer (unified-ws-handler.ts) — grace-period expiry, where endSession()
+   *    is never invoked, so we need an explicit trigger here
+   *
+   * Rules:
+   *  - Incognito (ever): leave the existing carry row intact so the next non-incognito
+   *    session can consume it.
+   *  - Notes explicitly saved (sessionNotesSaved): delete the row (notes are in memories now).
+   *  - Unsaved notes exist: refresh/create the row with the current scratchpad state.
+   *  - No notes (session never wrote any): delete any stale row left from a prior session
+   *    that was loaded but never extended, so it doesn't re-appear in the session after next.
+   */
+  public persistReadingRoomNotes(sessionId: string): void {
+    const session = this.sessions.get(sessionId);
+    if (!session || !session.isReadingRoom) return;
+    // Privacy gate: any incognito interval taints the whole session.
+    if (session.isIncognito || (session as any)._wasEverIncognito) {
+      console.log('[ReadingRoom] Incognito session — carry-forward row left untouched');
+      return;
+    }
+    const rrNotes = (session as any).sessionNotes as string[] | undefined;
+    const notesSaved = (session as any).sessionNotesSaved as boolean | undefined;
+    const rrKey = `rr_notes_${session.userId}`;
+
+    if (notesSaved) {
+      // Notes explicitly saved as a memory — remove the carry row so the next session
+      // starts clean rather than re-surfacing notes that are already in the archive.
+      getSharedDb().execute(sql`
+        DELETE FROM editor_insights WHERE title = ${rrKey} AND category = 'context'
+      `).catch((e: Error) => console.warn('[ReadingRoom] Carry cleanup failed (non-fatal):', e.message));
+      console.log('[ReadingRoom] Notes explicitly saved — carry-forward row cleared');
+    } else if (rrNotes?.length) {
+      // Unsaved notes — write/refresh the carry row atomically (CTE delete+insert in one
+      // statement so no concurrent session can observe a missing row between the two ops).
+      this.persistReadingRoomCarryState({ notes: rrNotes, notesSaved: false, userId: String(session.userId) })
+        .catch((rrErr: Error) => console.warn('[ReadingRoom] Failed to persist carry-forward (non-fatal):', rrErr.message));
+    } else {
+      // Session had no notes — delete any stale row so carried notes from two sessions
+      // ago don't leak into the session after next.
+      getSharedDb().execute(sql`
+        DELETE FROM editor_insights WHERE title = ${rrKey} AND category = 'context'
+      `).catch(() => {});
+      console.log('[ReadingRoom] No session notes — stale carry-forward row cleared');
+    }
+  }
+
+  /**
+   * Atomically persist carry-forward notes using a state object.
+   * Used by the grace-expiry timer (where the orchestrator session is already gone)
+   * and by persistReadingRoomNotes (session-based path) for the unsaved-notes case.
+   * Returns a Promise so callers can await it before considering teardown complete.
+   */
+  async persistReadingRoomCarryState(state: {
+    notes: string[];
+    notesSaved: boolean;
+    userId: string;
+  }): Promise<void> {
+    const rrKey = `rr_notes_${state.userId}`;
+    if (state.notesSaved || !state.notes.length) {
+      await getSharedDb().execute(sql`
+        DELETE FROM editor_insights WHERE title = ${rrKey} AND category = 'context'
+      `);
+      console.log(state.notesSaved
+        ? '[ReadingRoom] Notes saved — carry-forward row cleared (carry-state path)'
+        : '[ReadingRoom] No notes — carry-forward row cleared (carry-state path)');
+      return;
+    }
+    // Atomic CTE: delete old row and insert new row in a single statement.
+    // Prevents a racing session-start from loading an empty window between ops.
+    const rrContent = JSON.stringify(state.notes);
+    await getSharedDb().execute(sql`
+      WITH removed AS (
+        DELETE FROM editor_insights WHERE title = ${rrKey} AND category = 'context'
+      )
+      INSERT INTO editor_insights (id, category, title, content, importance, tags)
+      VALUES (gen_random_uuid(), 'context', ${rrKey}, ${rrContent}, 5, ARRAY['reading-room-carry']::text[])
+    `);
+    console.log(`[ReadingRoom] ✓ Carry-forward notes persisted atomically (${state.notes.length} note(s))`);
+  }
+
   /**
    * Start or reset the idle timeout for a session
    * Called after tutor finishes responding - gives student time to respond

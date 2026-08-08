@@ -9163,6 +9163,10 @@ export const voiceGracePeriods = pgTable('voice_grace_periods', {
   sessionStartTime: bigint('session_start_time', { mode: 'number' }).notNull(),
   userId: varchar('user_id').notNull(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  /** JSON-serialised { notes: string[]; notesSaved: boolean; userId: string } for Reading Room
+   *  carry-forward. Null for non-Reading-Room sessions or incognito sessions.
+   *  Persisted so carry state survives a server restart during the grace window. */
+  rrCarryNotes: text('rr_carry_notes'),
 });
 
 export const aiCostLogs = pgTable('ai_cost_logs', {
