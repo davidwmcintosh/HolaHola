@@ -7540,6 +7540,11 @@ export const conversationMemories = pgTable("conversation_memories", {
   //   'obliterated-prompt', 'first-students', 'founding-night', 'architecture-revealed'
   arcName: text("arc_name"),
 
+  // episode_order: explicit sort position for arc traversal — overrides created_at when set.
+  // Use 0 for prequels, 1..N for numbered episodes. NULL = not an ordered episode (sort to end).
+  // The read_next query in recall_episode_deep orders by episode_order ASC NULLS LAST, created_at ASC.
+  episodeOrder: integer("episode_order"),
+
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

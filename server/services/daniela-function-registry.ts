@@ -6877,7 +6877,7 @@ WRONG TOOL for keyword search across episodes — use introspect() instead. This
           },
           read_next: {
             type: 'boolean',
-            description: 'When true, automatically fetches the next episode in arc order (by created_at ASC) after the last episode delivered in this session. Use this to chain through all episodes without knowing their titles. On the first call with read_next: true, starts from the very first episode. On each subsequent call, advances by one.',
+            description: 'When true, automatically fetches the next episode in arc order after the last episode delivered in this session. Order is: episode_order ASC NULLS LAST, created_at ASC — episodes with an explicit episode_order (0 = prequel, 1–26 = numbered episodes) appear first in that order; episodes without an explicit order sort to the end by creation date. On the first call with read_next: true, starts from the very first episode (the prequel, episode_order=0). On each subsequent call, advances by one.',
           },
           after_episode_id: {
             type: 'string',

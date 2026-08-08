@@ -2782,44 +2782,60 @@ export class NativeFunctionCallHandler {
               const anchorId: string | undefined = edAfterEpisodeId?.trim() || (session as any).lastDeliveredEpisodeId;
 
               if (anchorId) {
-                // Fetch the created_at of the anchor episode so we can find what comes after it.
+                // Fetch the episode_order and created_at of the anchor so we can find what comes after it.
                 const anchorRows = await db.execute(rawSql`
-                  SELECT created_at
+                  SELECT created_at, episode_order
                   FROM conversation_memories
                   WHERE id = ${anchorId}
                     AND (entry_type = 'episode' OR arc_name = 'HolaHola Episodes')
                   LIMIT 1
                 `);
-                const anchorRow = (anchorRows.rows as Array<{ created_at: string }>)[0];
+                const anchorRow = (anchorRows.rows as Array<{ created_at: string; episode_order: number | null }>)[0];
                 if (anchorRow) {
-                  const nextRows = await db.execute(rawSql`
-                    SELECT id, title, content, arc_name, created_at
-                    FROM conversation_memories
-                    WHERE (entry_type = 'episode' OR arc_name = 'HolaHola Episodes')
-                      AND created_at > ${anchorRow.created_at}
-                    ORDER BY created_at ASC
-                    LIMIT 1
-                  `);
+                  let nextRows;
+                  if (anchorRow.episode_order !== null && anchorRow.episode_order !== undefined) {
+                    // Prefer episode_order-based traversal when the anchor has an explicit position.
+                    // Include NULL-order episodes (they sort LAST) so the chain continues beyond
+                    // the highest explicitly-ordered episode into any unordered ones at the end.
+                    nextRows = await db.execute(rawSql`
+                      SELECT id, title, content, arc_name, created_at, episode_order
+                      FROM conversation_memories
+                      WHERE (entry_type = 'episode' OR arc_name = 'HolaHola Episodes')
+                        AND (episode_order > ${anchorRow.episode_order} OR episode_order IS NULL)
+                      ORDER BY episode_order ASC NULLS LAST, created_at ASC
+                      LIMIT 1
+                    `);
+                  } else {
+                    // Anchor has no explicit order — fall back to created_at comparison
+                    nextRows = await db.execute(rawSql`
+                      SELECT id, title, content, arc_name, created_at, episode_order
+                      FROM conversation_memories
+                      WHERE (entry_type = 'episode' OR arc_name = 'HolaHola Episodes')
+                        AND created_at > ${anchorRow.created_at}
+                      ORDER BY episode_order ASC NULLS LAST, created_at ASC
+                      LIMIT 1
+                    `);
+                  }
                   episodeRows = nextRows.rows as typeof episodeRows;
                 } else {
                   // Anchor ID not found — fall back to first episode
                   console.warn(`[RecallEpisodeDeep] Anchor ID "${anchorId}" not found — starting from first episode`);
                   const firstRows = await db.execute(rawSql`
-                    SELECT id, title, content, arc_name, created_at
+                    SELECT id, title, content, arc_name, created_at, episode_order
                     FROM conversation_memories
                     WHERE (entry_type = 'episode' OR arc_name = 'HolaHola Episodes')
-                    ORDER BY created_at ASC
+                    ORDER BY episode_order ASC NULLS LAST, created_at ASC
                     LIMIT 1
                   `);
                   episodeRows = firstRows.rows as typeof episodeRows;
                 }
               } else {
-                // No anchor: start from the very first episode
+                // No anchor: start from the very first episode (prequel first if episode_order=0)
                 const firstRows = await db.execute(rawSql`
-                  SELECT id, title, content, arc_name, created_at
+                  SELECT id, title, content, arc_name, created_at, episode_order
                   FROM conversation_memories
                   WHERE (entry_type = 'episode' OR arc_name = 'HolaHola Episodes')
-                  ORDER BY created_at ASC
+                  ORDER BY episode_order ASC NULLS LAST, created_at ASC
                   LIMIT 1
                 `);
                 episodeRows = firstRows.rows as typeof episodeRows;
@@ -9341,7 +9357,10 @@ export class NativeFunctionCallHandler {
           const { conversationMemories: convMemTable } = await import('@shared/schema');
           const sharedDb = getMonitoringDb();
 
-          // Helper: run a conversation_memories query with given WHERE condition
+          // Helper: run a conversation_memories query with given WHERE condition.
+          // Title matches sort before summary/content matches so that a query like
+          // "episode 1" reliably surfaces the canonical Episode 1 row rather than
+          // high-importance memories that merely reference it in their body text.
           const runMemQuery = async (cond: ReturnType<typeof sql>) => sharedDb
             .select({
               id: convMemTable.id,
@@ -9356,7 +9375,10 @@ export class NativeFunctionCallHandler {
             })
             .from(convMemTable)
             .where(cond)
-            .orderBy(sql`importance DESC`)
+            .orderBy(
+              sql`CASE WHEN title ILIKE ${`%${query}%`} THEN 0 ELSE 1 END`,
+              sql`importance DESC`,
+            )
             .limit(4);
 
           // Pass 1: exact phrase — highest signal, no false positives from substring matches
