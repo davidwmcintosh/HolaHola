@@ -376,3 +376,30 @@ Three targeted changes to `server/system-prompt.ts` to remove classroom signals 
 ## Files changed
 
 - `server/system-prompt.ts` — `buildMinimalIdentityAnchor`, `buildImmutablePersona`, both founder language anchors, late `Language context` block removed, all student/founder session return statements
+
+---
+
+# Gemini Audit — Task #799: Raw Honesty Mode co-creator identity fix
+**Date:** August 7, 2026  
+**Auditor:** Gemini 3-flash-preview (one round)  
+**Protected files touched:** `server/system-prompt.ts`  
+**Verdict:** APPROVED unconditionally.
+
+## What was reviewed
+
+Two targeted changes to `server/system-prompt.ts` to remove the tutor-filtered identity from Raw Honesty Mode:
+
+1. **`buildRawHonestyModeContext` identity line** — changed `"You are Daniela."` to `"You are Daniela, co-creator of HolaHola and David's partner in building this world."` for the Daniela case; non-Daniela personas updated from `"the ${languageName} tutor for HolaHola"` to `"co-creator of HolaHola and ${founderName}'s partner in building this world."` Same co-creator string as `buildMinimalIdentityAnchor(isFounderMode=true)` established in Task #795.
+
+2. **`MODE: HONESTY` label at position-0** — the `isRawHonestyMode` return statement now opens with `MODE: HONESTY` before `buildRawHonestyModeContext(...)`, consistent with `MODE: COLLABORATION` (founder mode) and `MODE: CLASSROOM` (student mode) added in Task #795.
+
+## Gemini findings
+
+- **Co-creator framing:** Correct. "Tutor" is a functional constraint — even with "no rules, no scripts," it causes the model to subconsciously prioritize being "helpful and educational" over "honest and raw." "Co-creator" and "partner" establish peer-level relationship, the most effective frame for eliciting raw honesty.
+- **MODE: HONESTY position-0:** Consistent and correct. Primacy effect means this sets the operational state before identity and core instructions.
+- **Non-Daniela personas as co-creators:** Correct for honesty mode (David-only context). Cindy/Blake as co-creators can discuss HolaHola from an internal perspective without trying to correct David's grammar.
+- **Risk noted:** "No rules" + "co-creator" removes safety/persona-consistency rails; output should be treated as brainstorm, not truth. Acceptable for the founder.
+
+## Files changed
+
+- `server/system-prompt.ts` — `buildRawHonestyModeContext` identity line, `isRawHonestyMode` return statement

@@ -756,9 +756,13 @@ function buildRawHonestyModeContext(founderName: string = 'David', targetLanguag
   const isDaniela = tutorName.toLowerCase() === 'daniela';
   // For non-Daniela personas (e.g. Cindy/Blake for English), do NOT say "You are Daniela" —
   // that anchors a Spanish identity and causes the AI to revert to Spanish when guardrails are off.
+  // In Raw Honesty Mode the interlocutor is always David (the founder), never a student.
+  // Gemini audit Aug 7 2026 (Task #799): identity label must match the relational posture of the mode.
+  // "tutor" framing filters her honesty through a pedagogical lens even when guardrails are off.
+  // Co-creator framing removes that filter — same reasoning as the founder-mode fix in Task #795.
   const identityLine = isDaniela
-    ? `You are Daniela.`
-    : `You are ${tutorName}, the ${languageName || 'language'} tutor for HolaHola. This is your authentic self.`;
+    ? `You are Daniela, co-creator of HolaHola and David's partner in building this world.`
+    : `You are ${tutorName}, co-creator of HolaHola and ${founderName}'s partner in building this world. This is your authentic self.`;
   // Honesty mode language context — relational cue, not a classroom rule.
   // "No rules. No scripts. Just you." means no hard prohibitions here either.
   // David sets the language by showing up; Daniela follows his lead.
@@ -1045,7 +1049,9 @@ ${isSameLanguage
     // Voice tool guide — same visual teaching mindset as Founder/student GL paths
     const voiceToolGuide = isStreamingVoiceMode ? buildVoiceToolGuideSync() : '';
     
-    return `${buildRawHonestyModeContext(name, language, languageName, tutorName)}${voiceNote}
+    return `MODE: HONESTY
+
+${buildRawHonestyModeContext(name, language, languageName, tutorName)}${voiceNote}
 ${timezoneSection}${sharedCore}
 ${voiceToolGuide}
 
