@@ -38,6 +38,9 @@
  *   PART 5 — Hydration round-trip: simulate DB-row → PendingReconnectData →
  *             applyReconnectSessionNotes() path that runs after a server restart.
  *   PART 6 — Mutation self-checks: static guards fail when guards removed.
+ *   G7 — GL session reconnect: buildContextBridge() re-injects sessionNotes into
+ *         the reconnect system prompt so the new GL instance is aware of notes
+ *         immediately, rather than waiting up to 8 tool calls for the heartbeat.
  *
  * Run: npx tsx server/scripts/test-scratchpad-reconnect-survival.ts
  */
@@ -78,11 +81,12 @@ function assert(label: string, condition: boolean, detail?: string): void {
 }
 
 // ── Source paths ──────────────────────────────────────────────────────────────
-const HANDLERS_PATH  = resolve(__dirname, '../services/native-fc-handlers.ts');
-const ORCH_PATH      = resolve(__dirname, '../services/streaming-voice-orchestrator.ts');
-const WS_PATH        = resolve(__dirname, '../unified-ws-handler.ts');
-const SCHEMA_PATH    = resolve(__dirname, '../../shared/schema.ts');
-const MIGRATION_PATH = resolve(__dirname, '../../migrations/0015_mighty_human_fly.sql');
+const HANDLERS_PATH    = resolve(__dirname, '../services/native-fc-handlers.ts');
+const ORCH_PATH        = resolve(__dirname, '../services/streaming-voice-orchestrator.ts');
+const WS_PATH          = resolve(__dirname, '../unified-ws-handler.ts');
+const SCHEMA_PATH      = resolve(__dirname, '../../shared/schema.ts');
+const MIGRATION_PATH   = resolve(__dirname, '../../migrations/0015_mighty_human_fly.sql');
+const GL_SESSION_PATH  = resolve(__dirname, '../services/gemini-live-session.ts');
 
 // ── Guard predicates ──────────────────────────────────────────────────────────
 
@@ -123,6 +127,21 @@ const g5 = (s: string) => s.includes("sessionNotes: text('session_notes')");
 // G6 — Migration file
 const g6 = (s: string) =>
   s.includes('voice_grace_periods') && s.includes('session_notes');
+
+// G7 — GL reconnect: buildContextBridge() re-injects sessionNotes so the first
+// new-session turn already carries working memory (not deferred to the next heartbeat).
+const g7a = (s: string) => {
+  const idx = s.indexOf('private buildContextBridge()');
+  if (idx < 0) return false;
+  const body = s.slice(idx, idx + 2000);
+  return body.includes('(this.session as any).sessionNotes');
+};
+const g7b = (s: string) => {
+  const idx = s.indexOf('private buildContextBridge()');
+  if (idx < 0) return false;
+  const body = s.slice(idx, idx + 2000);
+  return body.includes('[Session Working Memory — notes you wrote earlier this session');
+};
 
 // ── Mock helpers ──────────────────────────────────────────────────────────────
 function makeMockWs(): any {
@@ -187,13 +206,14 @@ function makeHandler(): NativeFunctionCallHandler {
 // ── PART 1 — Static source scan ───────────────────────────────────────────────
 function part1(): void {
   sep();
-  console.log(B('PART 1 — Static source scan: G1–G6 guards in production files'));
+  console.log(B('PART 1 — Static source scan: G1–G7 guards in production files'));
 
-  const hSrc  = readFileSync(HANDLERS_PATH, 'utf-8');
-  const oSrc  = readFileSync(ORCH_PATH,     'utf-8');
-  const wsSrc = readFileSync(WS_PATH,       'utf-8');
-  const sSrc  = readFileSync(SCHEMA_PATH,   'utf-8');
-  const mSrc  = readFileSync(MIGRATION_PATH,'utf-8');
+  const hSrc  = readFileSync(HANDLERS_PATH,   'utf-8');
+  const oSrc  = readFileSync(ORCH_PATH,       'utf-8');
+  const wsSrc = readFileSync(WS_PATH,         'utf-8');
+  const sSrc  = readFileSync(SCHEMA_PATH,     'utf-8');
+  const mSrc  = readFileSync(MIGRATION_PATH,  'utf-8');
+  const glSrc = readFileSync(GL_SESSION_PATH, 'utf-8');
 
   assert("G1a: 'WRITE_SESSION_NOTE' case label in native-fc-handlers.ts",       g1a(hSrc));
   assert("G1b: sessionNotes.push() in WRITE_SESSION_NOTE handler",               g1b(hSrc),
@@ -216,6 +236,10 @@ function part1(): void {
     "Missing: sessionNotes: text('session_notes') in shared/schema.ts");
   assert("G6:  migration file adds session_notes to voice_grace_periods",        g6(mSrc),
     "Migration file missing or does not touch voice_grace_periods.session_notes");
+  assert("G7a: buildContextBridge() in gemini-live-session.ts reads sessionNotes", g7a(glSrc),
+    "Missing: (this.session as any).sessionNotes in buildContextBridge()");
+  assert("G7b: buildContextBridge() injects '[Session Working Memory' into reconnect prompt", g7b(glSrc),
+    "Missing '[Session Working Memory — notes you wrote earlier this session' in buildContextBridge()");
 }
 
 // ── PART 2 — Handler unit test ────────────────────────────────────────────────
@@ -421,10 +445,11 @@ function part6(): void {
   console.log(B('PART 6 — Mutation self-check: static guards fail when removed'));
   console.log(D('  In-memory string mutations only — no files written.'));
 
-  const hSrc  = readFileSync(HANDLERS_PATH, 'utf-8');
-  const wsSrc = readFileSync(WS_PATH,       'utf-8');
-  const sSrc  = readFileSync(SCHEMA_PATH,   'utf-8');
-  const mSrc  = readFileSync(MIGRATION_PATH,'utf-8');
+  const hSrc  = readFileSync(HANDLERS_PATH,   'utf-8');
+  const wsSrc = readFileSync(WS_PATH,         'utf-8');
+  const sSrc  = readFileSync(SCHEMA_PATH,     'utf-8');
+  const mSrc  = readFileSync(MIGRATION_PATH,  'utf-8');
+  const glSrc = readFileSync(GL_SESSION_PATH, 'utf-8');
 
   assert('[Self-check] G1b fails when push line removed',
     !g1b(hSrc.replace("(session as any).sessionNotes.push(noteContent.trim());", "/* removed */")));
@@ -447,6 +472,16 @@ function part6(): void {
   assert('[Self-check] G5 fails when schema column removed',
     !g5(sSrc.replace("sessionNotes: text('session_notes')", "/* removed */")));
   assert('[Self-check] G6 fails when migration file emptied', !g6(''));
+  assert('[Self-check] G7a fails when sessionNotes read removed from buildContextBridge',
+    !g7a(glSrc.replace(
+      '(this.session as any).sessionNotes as string[] | undefined;\n    if (scratchpadNotes?.length)',
+      '/* removed */;\n    if (false)',
+    )));
+  assert('[Self-check] G7b fails when Working Memory label removed from buildContextBridge',
+    !g7b(glSrc.replace(
+      '[Session Working Memory — notes you wrote earlier this session',
+      '[REMOVED',
+    )));
 
   assert('[Self-check] G1c fails when MAX_SESSION_NOTES renamed away',
     !g1c(hSrc.replace(/MAX_SESSION_NOTES/g, 'SCRATCHPAD_CAP')));
@@ -462,6 +497,8 @@ function part6(): void {
   assert('[Self-check] G4c passes on original source',  g4c(wsSrc));
   assert('[Self-check] G5  passes on original source',  g5(sSrc));
   assert('[Self-check] G6  passes on original source',  g6(mSrc));
+  assert('[Self-check] G7a passes on original source',  g7a(glSrc));
+  assert('[Self-check] G7b passes on original source',  g7b(glSrc));
 
   console.log(D('  ✓ All mutation probes confirmed — static guards are sensitive.'));
 }
@@ -489,6 +526,7 @@ async function main(): Promise<void> {
     console.log(D('   G4 – shared deserializeSessionNotesFromDb() used by claim AND hydration paths'));
     console.log(D('   G5 – voiceGracePeriods schema has session_notes column'));
     console.log(D('   G6 – migration file adds session_notes to voice_grace_periods'));
+    console.log(D('   G7 – buildContextBridge() re-injects sessionNotes into GL reconnect system prompt'));
     console.log(D('   In-memory round-trip: extract → apply → intact'));
     console.log(D('   DB round-trip: JSON.stringify → deserializeSessionNotesFromDb → apply → intact'));
     console.log(D('   Hydration round-trip: DB row → PendingReconnectData → apply → intact\n'));

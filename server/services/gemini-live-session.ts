@@ -4575,13 +4575,30 @@ LEXICAL CONSTRAINT: Do not use regional slang, fillers, or interjections from yo
    * Returns empty string if the buffer has fewer than 2 turns (not worth injecting).
    */
   private buildContextBridge(): string {
-    if (this.transcriptBuffer.length < 2) return '';
-    const turns = this.transcriptBuffer.slice(-6).map(t => {
-      const label = t.role === 'student' ? 'Student' : 'You';
-      const text = t.text.length > 250 ? t.text.slice(0, 250) + '…' : t.text;
-      return `${label}: ${text}`;
-    }).join('\n');
-    return `[Your conversation just before this connection resumed — continue naturally from here, do not acknowledge the reconnection]\n${turns}`;
+    const parts: string[] = [];
+
+    if (this.transcriptBuffer.length >= 2) {
+      const turns = this.transcriptBuffer.slice(-6).map(t => {
+        const label = t.role === 'student' ? 'Student' : 'You';
+        const text = t.text.length > 250 ? t.text.slice(0, 250) + '…' : t.text;
+        return `${label}: ${text}`;
+      }).join('\n');
+      parts.push(`[Your conversation just before this connection resumed — continue naturally from here, do not acknowledge the reconnection]\n${turns}`);
+    }
+
+    // Re-inject scratchpad notes so the new GL session is aware of them immediately.
+    // The per-turn heartbeat only fires every 8 tool calls — without this injection a
+    // freshly reconnected GL instance would be blind to the notes for the first 1–7
+    // tool calls after the GL session recreate.  Including them here means the very
+    // first tool-response batch (or any sendClientContent turn) already carries the
+    // notes as part of the system instruction context bridge.
+    const scratchpadNotes = (this.session as any).sessionNotes as string[] | undefined;
+    if (scratchpadNotes?.length) {
+      const noteLines = scratchpadNotes.map((n, i) => `${i + 1}. ${n}`).join('\n');
+      parts.push(`[Session Working Memory — notes you wrote earlier this session, still apply]\n${noteLines}`);
+    }
+
+    return parts.join('\n\n');
   }
 }
 
