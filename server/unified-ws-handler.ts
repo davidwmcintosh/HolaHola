@@ -2920,6 +2920,7 @@ The acknowledgment is not filler. It is how you stay present while the search ru
                       const carryRows = await carryDb.execute(sqlCarry`
                         SELECT content FROM editor_insights
                         WHERE title = ${rrKey} AND category = 'context'
+                          AND created_at > NOW() - INTERVAL '30 days'
                         ORDER BY created_at DESC
                         LIMIT 1
                       `);
