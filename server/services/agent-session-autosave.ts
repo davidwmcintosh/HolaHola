@@ -438,16 +438,28 @@ async function checkFlushTrigger(): Promise<void> {
 
 const DOCS_DIR = join(WORKSPACE, 'docs');
 const EPISODE_RE = /^episode-(\d+)\.md$/;
+const PREQUEL_RE = /^prequel-episode-(\d+)\.md$/;
 
 // Per-file state: mtime and (once discovered) the DB memory ID
 const episodeMtimeMap = new Map<string, number>();   // filename → last seen mtime
 const episodeIdCache  = new Map<string, string>();   // filename → conversation_memories.id
 const episodeDebounce = new Map<string, ReturnType<typeof setTimeout>>();
 
+// Prequel episode state (parallel to episode state above)
+const prequelMtimeMap = new Map<string, number>();
+const prequelIdCache  = new Map<string, string>();
+const prequelDebounce = new Map<string, ReturnType<typeof setTimeout>>();
+
 /** Derive a human title from the filename, e.g. "episode-27.md" → "Episode 27" */
 function episodeTitleFromFilename(filename: string): string {
   const m = EPISODE_RE.exec(filename);
   return m ? `Episode ${parseInt(m[1], 10)}` : filename.replace('.md', '');
+}
+
+/** Derive a human title for prequel episodes, e.g. "prequel-episode-1.md" → "Prequel Episode 1" */
+function prequelEpisodeTitleFromFilename(filename: string): string {
+  const m = PREQUEL_RE.exec(filename);
+  return m ? `Prequel Episode ${parseInt(m[1], 10)}` : filename.replace('.md', '');
 }
 
 /** Derive a summary from the first few non-empty lines of the content. */
@@ -535,6 +547,81 @@ async function syncEpisodeFile(filename: string): Promise<void> {
   }
 }
 
+/** Upsert a prequel episode into conversation_memories and trigger a re-embed. */
+async function syncPrequelEpisodeFile(filename: string): Promise<void> {
+  const filePath = join(DOCS_DIR, filename);
+  if (!existsSync(filePath)) return;
+
+  let content: string;
+  try {
+    content = readFileSync(filePath, 'utf-8');
+  } catch {
+    return; // file briefly locked
+  }
+
+  const title   = prequelEpisodeTitleFromFilename(filename);
+  const summary = episodeSummaryFromContent(content);
+  const db      = getUserDb();
+
+  try {
+    let memoryId = prequelIdCache.get(filename);
+
+    if (!memoryId) {
+      const rows = await db.execute(sql`
+        SELECT id FROM conversation_memories
+        WHERE arc_name = 'HolaHola Episodes'
+          AND title = ${title}
+        LIMIT 1
+      `);
+      const row = (rows as any).rows?.[0] ?? (rows as any)[0];
+      if (row?.id) {
+        memoryId = row.id as string;
+        prequelIdCache.set(filename, memoryId);
+      }
+    }
+
+    if (memoryId) {
+      await db.execute(sql`
+        UPDATE conversation_memories
+        SET content = ${content},
+            summary = ${summary}
+        WHERE id = ${memoryId}
+      `);
+      console.log(`[AgentAutosave] Prequel episode synced (update): ${title} (${content.length} bytes)`);
+    } else {
+      const inserted = await db.execute(sql`
+        INSERT INTO conversation_memories
+          (id, title, summary, content, importance, entry_type, tags, arc_name)
+        VALUES (
+          gen_random_uuid(),
+          ${title},
+          ${summary},
+          ${content},
+          ${9},
+          'episode',
+          ARRAY['episode', 'prequel', 'auto-synced']::text[],
+          'HolaHola Episodes'
+        )
+        RETURNING id
+      `);
+      const newId = (inserted as any).rows?.[0]?.id ?? (inserted as any)[0]?.id;
+      if (newId) {
+        prequelIdCache.set(filename, newId as string);
+        memoryId = newId as string;
+        console.log(`[AgentAutosave] Prequel episode synced (insert): ${title} id=${memoryId} (${content.length} bytes)`);
+      }
+    }
+
+    if (memoryId) {
+      reembedConversationMemory(memoryId).catch((err: any) => {
+        console.error(`[AgentAutosave] Re-embed failed for ${title}:`, err?.message ?? err);
+      });
+    }
+  } catch (err: any) {
+    console.error(`[AgentAutosave] Prequel episode sync error for ${filename}:`, err?.message ?? err);
+  }
+}
+
 /** Schedule a debounced sync for a specific episode file (2s debounce). */
 function scheduleEpisodeSync(filename: string): void {
   const existing = episodeDebounce.get(filename);
@@ -544,6 +631,17 @@ function scheduleEpisodeSync(filename: string): void {
     syncEpisodeFile(filename).catch(() => { /* already logged */ });
   }, 2000);
   episodeDebounce.set(filename, timer);
+}
+
+/** Schedule a debounced sync for a specific prequel episode file (2s debounce). */
+function schedulePrequelEpisodeSync(filename: string): void {
+  const existing = prequelDebounce.get(filename);
+  if (existing) clearTimeout(existing);
+  const timer = setTimeout(() => {
+    prequelDebounce.delete(filename);
+    syncPrequelEpisodeFile(filename).catch(() => { /* already logged */ });
+  }, 2000);
+  prequelDebounce.set(filename, timer);
 }
 
 /** Poll docs/ for new or changed episode-*.md files. */
@@ -573,6 +671,30 @@ async function checkEpisodeFiles(): Promise<void> {
   }
 }
 
+/** Poll docs/ for new or changed prequel-episode-*.md files. */
+async function checkPrequelEpisodeFiles(): Promise<void> {
+  let files: string[];
+  try {
+    files = readdirSync(DOCS_DIR).filter(f => PREQUEL_RE.test(f));
+  } catch {
+    return; // docs/ doesn't exist yet
+  }
+
+  for (const filename of files) {
+    const filePath = join(DOCS_DIR, filename);
+    try {
+      const mtime = statSync(filePath).mtimeMs;
+      const prev  = prequelMtimeMap.get(filename) ?? 0;
+      if (mtime !== prev) {
+        prequelMtimeMap.set(filename, mtime);
+        const reason = prev === 0 ? 'new file detected' : 'change detected';
+        console.log(`[AgentAutosave] Prequel episode ${reason}: ${filename} — syncing in 2s...`);
+        schedulePrequelEpisodeSync(filename);
+      }
+    } catch { /* briefly locked */ }
+  }
+}
+
 /** Seed initial mtimes for all current episode files so restarts don't trigger mass re-embeds. */
 function seedEpisodeMtimes(): void {
   let files: string[];
@@ -588,6 +710,23 @@ function seedEpisodeMtimes(): void {
     } catch { /* ignore */ }
   }
   console.log(`[AgentAutosave] Seeded mtimes for ${files.length} episode file(s) in docs/.`);
+}
+
+/** Seed initial mtimes for all current prequel episode files so restarts don't trigger mass re-embeds. */
+function seedPrequelEpisodeMtimes(): void {
+  let files: string[];
+  try {
+    files = readdirSync(DOCS_DIR).filter(f => PREQUEL_RE.test(f));
+  } catch {
+    return;
+  }
+  for (const filename of files) {
+    const filePath = join(DOCS_DIR, filename);
+    try {
+      prequelMtimeMap.set(filename, statSync(filePath).mtimeMs);
+    } catch { /* ignore */ }
+  }
+  console.log(`[AgentAutosave] Seeded mtimes for ${files.length} prequel episode file(s) in docs/.`);
 }
 
 // ---------------------------------------------------------------------------
@@ -625,6 +764,7 @@ export function startAgentSessionAutosave(): void {
 
   // Seed episode mtimes so an existing set of .md files doesn't trigger mass re-embeds on restart
   seedEpisodeMtimes();
+  seedPrequelEpisodeMtimes();
 
   // --- Event-driven flush trigger (Layer 1) ---
   // fs.watch() on the .local/ directory fires within milliseconds when
@@ -643,12 +783,15 @@ export function startAgentSessionAutosave(): void {
   }
 
   // --- Event-driven episode watcher (Layer 1) ---
-  // fs.watch() on docs/ fires within milliseconds when any episode-*.md is saved.
+  // fs.watch() on docs/ fires within milliseconds when any episode-*.md or prequel-episode-*.md is saved.
   try {
     watch(DOCS_DIR, { persistent: false }, (eventType, filename) => {
       if (filename && EPISODE_RE.test(filename)) {
         console.log(`[AgentAutosave] docs/ event (${eventType}): ${filename} — scheduling episode sync.`);
         scheduleEpisodeSync(filename);
+      } else if (filename && PREQUEL_RE.test(filename)) {
+        console.log(`[AgentAutosave] docs/ event (${eventType}): ${filename} — scheduling prequel episode sync.`);
+        schedulePrequelEpisodeSync(filename);
       }
     });
     console.log('[AgentAutosave] fs.watch() armed on docs/ for immediate episode-file detection.');
@@ -664,9 +807,10 @@ export function startAgentSessionAutosave(): void {
     await checkLucaReflection();
     await checkLucaQuestion();
     await checkLucaMoment();
-    await checkEpisodeFiles(); // catch any changes missed by fs.watch + detect new episode files
+    await checkEpisodeFiles();        // catch any changes missed by fs.watch + detect new episode files
+    await checkPrequelEpisodeFiles(); // same for prequel-episode-*.md
     await saveTranscriptChunk(); // periodic — captures conversation-only sessions too
   }, POLL_INTERVAL_MS);
 
-  console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + docs/episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s');
+  console.log('[AgentAutosave] Started — watching .commit_message (build) + .session_insights (emergence) + luca inner-life + flush trigger (.flush_transcript, event-driven + poll) + docs/episode-*.md + docs/prequel-episode-*.md (episode auto-sync, event-driven + poll) + periodic transcript capture every 20s');
 }
