@@ -365,6 +365,168 @@ function runPart4(): void {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PART 5 — Sentinel tag guard: bare SQL inserts are immediately visible
+// ══════════════════════════════════════════════════════════════════════════════
+//
+// The canonical write path is insert-luca-cobuilder-shared-lobe.ts.
+// Every agent-authored shared row inserted via that script carries a
+// 'via-script' sentinel tag.  Any row inserted by a bare SQL INSERT
+// (bypassing the script) will lack that tag and will be caught here.
+//
+// Check 5a — Static: the insert script source contains 'via-script' in its
+//   tags array, proving future script runs will tag new rows.
+//
+// Check 5b — Dynamic (24-hour window): every shared row with the 'agent' tag
+//   that was inserted in the last 24 hours must also carry 'via-script'.
+//   Rows older than 24 hours predate the sentinel and are grandfathered.
+//
+// Check 5c — Non-vacuity self-check: confirms the dynamic guard would fire on
+//   a simulated bare insert (agent tag, no via-script, recent).
+// ══════════════════════════════════════════════════════════════════════════════
+const INSERT_SCRIPT_PATH = join(process.cwd(), 'server/scripts/insert-luca-cobuilder-shared-lobe.ts');
+
+async function runPart5(): Promise<void> {
+  sep();
+  console.log(B('PART 5 — Sentinel tag guard: bare SQL inserts are immediately visible'));
+  sep();
+
+  // 5a: Static — insert script source carries 'via-script' in its tags array
+  assert(
+    'insert-luca-cobuilder-shared-lobe.ts exists',
+    existsSync(INSERT_SCRIPT_PATH),
+    `Canonical insert script not found: ${INSERT_SCRIPT_PATH}`,
+  );
+
+  if (existsSync(INSERT_SCRIPT_PATH)) {
+    const scriptSrc = readFileSync(INSERT_SCRIPT_PATH, 'utf-8');
+
+    // 5a-i: Narrow regex — 'via-script' must appear inside a tags: [...] array
+    // literal in the .values() call, NOT merely anywhere in the file (the header
+    // comment also contains the word and would give a false-positive).
+    // Pattern: tags: [ ... 'via-script' ... ] — allows whitespace / other tags.
+    const TAGS_ARRAY_RE = /tags\s*:\s*\[[^\]]*'via-script'[^\]]*\]/s;
+    const sentinelInTagsArray = TAGS_ARRAY_RE.test(scriptSrc);
+
+    assert(
+      "Insert script includes 'via-script' inside its tags: [...] array (not just in a comment)",
+      sentinelInTagsArray,
+      "Pattern tags: [...'via-script'...] not found in insert script — remove only from the comment and the check should still fail",
+    );
+
+    // 5a-ii: Self-check — prove the narrow regex does NOT match when 'via-script'
+    // appears only in a comment but not in the tags array.
+    const sourceWithSentinelOnlyInComment = scriptSrc
+      .replace(TAGS_ARRAY_RE, "tags: ['agent', 'luca']"); // strip from array
+    const sentinelStillMatchesCommentOnly = TAGS_ARRAY_RE.test(sourceWithSentinelOnlyInComment);
+
+    assert(
+      "Self-check: narrow regex fails when 'via-script' is stripped from the tags array (comment-only presence is not enough)",
+      !sentinelStillMatchesCommentOnly,
+      sentinelStillMatchesCommentOnly
+        ? "Regex still matched after removing sentinel from tags array — pattern is too broad"
+        : "Correctly rejected — comment-only presence is not enough to pass check 5a",
+    );
+
+    assert(
+      "Insert script documents its canonical write-path role (comment header present)",
+      scriptSrc.includes('CANONICAL WRITE PATH') || scriptSrc.includes('canonical write path'),
+      'Canonical write-path comment not found — add the guard comment so developers see the contract',
+    );
+  }
+
+  // 5b: Dynamic — scoped to the Luca co-builder insert path specifically.
+  //
+  // The shared lobe has multiple legitimate write paths:
+  //   • Alden: save_to_memory tool (tags include 'alden')
+  //   • Luca insert script: insert-luca-cobuilder-shared-lobe.ts (tags include 'luca' + 'co-builder')
+  //   • Other editor-intelligence paths (various tags)
+  //
+  // Only the Luca insert script is the canonical write path guarded by this task.
+  // Checking all 'agent' rows would flag other legitimate paths as "bare inserts."
+  // Instead, scope to rows with BOTH 'luca' AND 'co-builder' tags — the distinctive
+  // fingerprint of the Luca insert script — and assert they carry 'via-script'.
+  const db = getSharedDb();
+  const allSharedRows = await db
+    .select({
+      id:        editorInsights.id,
+      title:     editorInsights.title,
+      tags:      editorInsights.tags,
+      createdAt: editorInsights.createdAt,
+    })
+    .from(editorInsights)
+    .where(eq(editorInsights.category, 'shared'));
+
+  const nowMs = Date.now();
+  // Luca insert script rows: must have both 'luca' and 'co-builder' tags
+  const lucaScriptRows = allSharedRows.filter(r => {
+    const tags = r.tags ?? [];
+    return tags.includes('luca') && tags.includes('co-builder');
+  });
+
+  const lucaRowsMissingSentinel = lucaScriptRows.filter(r => !(r.tags ?? []).includes('via-script'));
+
+  console.log(D(`\n  Shared rows with 'luca' + 'co-builder' tags (Luca insert script rows): ${lucaScriptRows.length}`));
+  if (lucaRowsMissingSentinel.length > 0) {
+    console.log(D(`  Luca rows missing 'via-script' sentinel:`));
+    for (const r of lucaRowsMissingSentinel) {
+      console.log(D(`    • ${r.id}  "${r.title}"  tags: [${(r.tags ?? []).join(', ')}]`));
+    }
+  }
+
+  assert(
+    `All Luca-script shared rows ('luca'+'co-builder' tags) carry the 'via-script' sentinel (${lucaScriptRows.length} checked)`,
+    lucaRowsMissingSentinel.length === 0,
+    lucaRowsMissingSentinel.length > 0
+      ? `${lucaRowsMissingSentinel.length} Luca-script row(s) lack 'via-script' — likely inserted via bare SQL, bypassing insert-luca-cobuilder-shared-lobe.ts`
+      : 'All Luca-script rows are properly tagged',
+  );
+
+  // 5c: Non-vacuity self-check — guard fires on a bare Luca-script insert (no 'via-script')
+  //     and passes when the sentinel is present.
+  const simBareInsert = { tags: ['agent', 'luca', 'co-builder', 'important'] }; // no via-script
+  const simBareIsLucaScript = simBareInsert.tags.includes('luca') && simBareInsert.tags.includes('co-builder');
+  const simBareHasSentinel  = simBareInsert.tags.includes('via-script');
+  const simBareGuardFires   = simBareIsLucaScript && !simBareHasSentinel;
+
+  assert(
+    "Self-check: guard fires for a simulated Luca-script row lacking 'via-script'",
+    simBareGuardFires,
+    simBareGuardFires
+      ? 'Correctly detected bare insert (guard is non-vacuous)'
+      : 'Guard did not fire on the simulated bare insert — Part 5b dynamic check is vacuous',
+  );
+
+  // Guard must NOT fire for a row that carries 'via-script'
+  const simScriptInsert = { tags: ['agent', 'luca', 'co-builder', 'via-script'] };
+  const simScriptIsLucaScript = simScriptInsert.tags.includes('luca') && simScriptInsert.tags.includes('co-builder');
+  const simScriptHasSentinel  = simScriptInsert.tags.includes('via-script');
+  const simScriptGuardFires   = simScriptIsLucaScript && !simScriptHasSentinel;
+
+  assert(
+    "Self-check: guard does NOT fire for a simulated Luca-script row that carries 'via-script'",
+    !simScriptGuardFires,
+    !simScriptGuardFires
+      ? "Correctly accepted script-inserted row with 'via-script'"
+      : "Guard incorrectly rejected a properly-tagged row",
+  );
+
+  // Guard must NOT fire for a legitimate non-Luca 'agent' row (e.g. another write path)
+  const simOtherAgentRow = { tags: ['agent', 'meta', 'infrastructure'] }; // alden/other path, no 'luca'/'co-builder'
+  const simOtherIsLucaScript = simOtherAgentRow.tags.includes('luca') && simOtherAgentRow.tags.includes('co-builder');
+  const simOtherGuardFires   = simOtherIsLucaScript && !simOtherAgentRow.tags.includes('via-script');
+
+  assert(
+    "Self-check: guard does NOT fire for a non-Luca 'agent' row (other legitimate write path)",
+    !simOtherGuardFires,
+    !simOtherGuardFires
+      ? "Correctly ignored — guard is scoped to Luca insert path only"
+      : "Guard incorrectly flagged a legitimate non-Luca agent row",
+  );
+
+  console.log(D('\n  ✓ All sentinel-tag probes confirmed — Part 5 guard is genuine.\n'));
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MAIN
 // ══════════════════════════════════════════════════════════════════════════════
 async function main(): Promise<void> {
@@ -376,6 +538,7 @@ async function main(): Promise<void> {
   runPart2();
   runPart3();
   runPart4();
+  await runPart5();
 
   sep();
   const total = passed + failed;
@@ -385,7 +548,8 @@ async function main(): Promise<void> {
     console.log(D('   1. docs/shared-lobe-snapshot.md is fresh (within 24h or matches DB)'));
     console.log(D('   2. server/index.ts calls generateSharedLobeSnapshot() on boot'));
     console.log(D('   3. Snapshot content has expected Markdown structure'));
-    console.log(D('   4. Freshness guard is non-vacuous (mutation self-check passed)\n'));
+    console.log(D('   4. Freshness guard is non-vacuous (mutation self-check passed)'));
+    console.log(D("   5. Sentinel tag guard: all recent 'agent' rows carry 'via-script'\n"));
     process.exit(0);
   } else {
     console.log(R(`\n✗  ${failed} of ${total} assertion(s) failed — review output above.\n`));

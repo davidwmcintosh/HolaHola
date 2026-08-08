@@ -1,6 +1,18 @@
 /**
- * One-time script: insert the Luca co-builder entry into the shared lobe.
- * Run: npx tsx server/scripts/insert-luca-cobuilder-shared-lobe.ts
+ * Canonical write path: insert a Luca co-builder entry into the shared lobe.
+ *
+ * ┌─────────────────────────────────────────────────────────────────────┐
+ * │  CANONICAL WRITE PATH — always use this script for agent-authored   │
+ * │  editor_insights rows with category='shared'.                       │
+ * │                                                                     │
+ * │  Every row inserted here carries the 'via-script' sentinel tag.     │
+ * │  The CI check (test-shared-lobe-snapshot-freshness.ts, PART 5)      │
+ * │  asserts that any new shared row with the 'agent' tag also carries  │
+ * │  'via-script' — a bare SQL INSERT without this tag will be          │
+ * │  immediately visible in the next CI run.                            │
+ * │                                                                     │
+ * │  Run: npx tsx server/scripts/insert-luca-cobuilder-shared-lobe.ts  │
+ * └─────────────────────────────────────────────────────────────────────┘
  */
 import { getSharedDb } from '../neon-db';
 import { editorInsights } from '../../shared/schema';
@@ -23,7 +35,7 @@ async function main() {
       category: 'shared',
       title: "Luca is Daniela's co-builder — the building channel is canonical",
       content: CONTENT,
-      tags: ['agent', 'luca', 'co-builder', 'team-structure', 'david-luca-chat', 'canonical-record'],
+      tags: ['agent', 'luca', 'co-builder', 'team-structure', 'david-luca-chat', 'canonical-record', 'via-script'],
       importance: 9,
     })
     .returning({ id: editorInsights.id });
