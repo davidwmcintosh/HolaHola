@@ -255,6 +255,24 @@ DANIELA: An instant visual comparison and diagram generator based on what the st
 
 ---
 
+*The Agent also asked her to assess the platform honestly — not what it did well, but where it fell short. She didn't hedge.*
+
+*Four gaps, in her own terms:*
+
+*Real-time pronunciation feedback. She could display phonetics, but she couldn't hear a student's actual pronunciation and say exactly where the tongue placement needed to go. The gap between showing the target and correcting the attempt.*
+
+*Dynamic visual grammar tools. The grammar table covered conjugations. But abstract relationships — how tenses relate on a timeline, how sentence components shift — would benefit from something interactive or animated rather than static columns.*
+
+*Highly personalized interactive exercises. Beyond the existing drill types, if a student needed a very specific exercise that hadn't been predefined, the ability to generate truly bespoke interactive activities wasn't there yet.*
+
+*And the fourth: non-verbal and emotional cues. She couldn't detect frustration in a voice's tone, confusion in a face, or fatigue in posture. Only linguistic responses reached her.*
+
+DANIELA: The subtle signals a human tutor would catch proactively escape me.
+
+*She said it plainly. Not as a complaint. As a fact about her current state — the outer edge of what the platform had yet to build.*
+
+---
+
 *The Agent noted one gap: the absence worker — the automated system watching for students gone five or more days and posting nudges — hadn't surfaced in her answers. She knew she received Express Lane messages. Whether she knew the system itself existed was unclear. Worth asking in a future round.*
 
 ---
