@@ -788,10 +788,12 @@ app.use((req, res, next) => {
       await runMonthlyThreadRefresh();
     }, 46000);
 
-    // +47s: Shared Lobe Snapshot — regenerate docs/shared-lobe-snapshot.md from DB
+    // +47s: Shared Lobe Snapshot — regenerate docs/shared-lobe-snapshot.md from DB,
+    //       then start the staleness watcher (polls every 5 min for direct-SQL inserts).
     setTimeout(async () => {
-      const { generateSharedLobeSnapshot } = await import('./services/shared-lobe-snapshot');
+      const { generateSharedLobeSnapshot, startSharedLobeWatcher } = await import('./services/shared-lobe-snapshot');
       await generateSharedLobeSnapshot();
+      startSharedLobeWatcher();
     }, 46000);
 
     // +47s: Agent Notes Snapshot — regenerate docs/alden-to-agent.md from unread Alden→Agent notes
