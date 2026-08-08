@@ -24,6 +24,6 @@ npm install --legacy-peer-deps
 npm run db:push
 
 # ── Prequel Episode 1 DB sync ─────────────────────────────────────────────────
-# Keep docs/prequel-episode-1.md and DB record dd8cf439 in sync after every merge.
-# Idempotent: reads .md and writes its content to the DB verbatim.
-npx tsx server/scripts/sync-prequel-episode-1-direct.ts
+# NOT run automatically. To repair a mismatch, run explicitly:
+#   DB → .md:  npx tsx server/scripts/sync-prequel-ep1-from-db.ts
+#   .md → DB:  npx tsx server/scripts/sync-prequel-episode-1.ts

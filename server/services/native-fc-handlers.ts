@@ -4643,18 +4643,20 @@ export class NativeFunctionCallHandler {
         const MAX_SESSION_NOTES = 50;
         // When the scratchpad is full, auto-flush the current batch to long-term memory
         // so no note is ever lost, then start a fresh array before appending.
+        // Never flush incognito sessions — isIncognito or _wasEverIncognito both block persistence.
+        const isIncognitoSession = session.isIncognito || (session as any)._wasEverIncognito;
         if ((session as any).sessionNotes.length >= MAX_SESSION_NOTES) {
-          const flushSnapshot: string[] = [...(session as any).sessionNotes];
-          const flushBatch = ((session as any)._scratchpadFlushCount ?? 0) + 1;
-          (session as any)._scratchpadFlushCount = flushBatch;
-          (session as any).sessionNotes = [];
-          console.warn(`[SessionScratchpad] Cap reached (${MAX_SESSION_NOTES}); auto-flushing batch #${flushBatch} to memory.`);
-          // Notify Daniela in-context so she knows her earlier notes are searchable.
-          // This is a one-shot entry — it's consumed on the next GL injection cycle.
-          if (!session.pendingGlContext) session.pendingGlContext = [];
-          session.pendingGlContext.push(`Earlier session notes saved to memory — search 'session notes batch' to retrieve them`);
-          // Fire-and-forget DB flush — mirrors SAVE_SESSION_NOTES_AS_MEMORY logic
-          (async () => {
+          if (isIncognitoSession) {
+            // Incognito: silently discard the oldest note to keep the cap without writing to DB.
+            (session as any).sessionNotes.shift();
+            console.log(`[SessionScratchpad] Cap reached but session is incognito — oldest note discarded, no DB write.`);
+          } else {
+            const flushSnapshot: string[] = [...(session as any).sessionNotes];
+            const flushBatch = ((session as any)._scratchpadFlushCount ?? 0) + 1;
+            (session as any)._scratchpadFlushCount = flushBatch;
+            (session as any).sessionNotes = [];
+            console.warn(`[SessionScratchpad] Cap reached (${MAX_SESSION_NOTES}); auto-flushing batch #${flushBatch} to memory.`);
+            // Await DB flush before clearing notes so we can restore on failure.
             try {
               const notesContent = flushSnapshot.map((n, i) => `[${i + 1}] ${n}`).join('\n\n');
               const flushTitle = `Session notes batch #${flushBatch} — ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`;
@@ -4670,10 +4672,16 @@ export class NativeFunctionCallHandler {
                 recordedAt: new Date(),
               } as any);
               console.log(`[SessionScratchpad] ✓ Auto-flushed batch #${flushBatch} (${flushSnapshot.length} note(s)) to memory.`);
+              // Notify Daniela that her notes are now searchable in long-term memory.
+              if (!session.pendingGlContext) session.pendingGlContext = [];
+              session.pendingGlContext.push(`Earlier session notes saved to memory — search 'session notes batch' to retrieve them`);
             } catch (err: any) {
-              console.error(`[SessionScratchpad] Auto-flush failed — batch #${flushBatch} lost:`, err.message);
+              // DB write failed — restore notes so they are not silently dropped.
+              console.error(`[SessionScratchpad] Auto-flush failed — restoring batch #${flushBatch} to scratchpad:`, err.message);
+              (session as any)._scratchpadFlushCount = flushBatch - 1;
+              (session as any).sessionNotes = flushSnapshot;
             }
-          })();
+          }
         }
         (session as any).sessionNotes.push(noteContent.trim());
         console.log(`[SessionScratchpad] Note added (${(session as any).sessionNotes.length} total): "${noteContent.substring(0, 80)}"`);

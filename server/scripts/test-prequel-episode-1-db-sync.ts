@@ -5,8 +5,16 @@
  * conversation_memories id = dd8cf439-867d-47f5-999c-a1a10c3a88d5 contain
  * the same content (modulo trailing whitespace normalization).
  *
- * If the .md has been edited but the DB was not updated via
- * sync-prequel-episode-1.ts, this check fails loudly.
+ * READ-ONLY — this script never writes to the DB.
+ * To repair a mismatch, run the explicit sync command:
+ *   npx tsx server/scripts/sync-prequel-ep1-from-db.ts   (DB → .md)
+ *   npx tsx server/scripts/sync-prequel-episode-1.ts      (.md → DB)
+ *
+ * The check fails hard for:
+ *   - .md file missing or empty
+ *   - .md is missing expected content landmarks
+ *   - DB record not found
+ *   - .md and DB content do not match
  *
  * Run: npx tsx server/scripts/test-prequel-episode-1-db-sync.ts
  */
@@ -67,8 +75,8 @@ async function main() {
     mdContent = readFileSync(MD_PATH, 'utf8');
     console.log(Y(`  ℹ  Read ${MD_PATH} — ${mdContent.length} bytes`));
     assert('.md file is non-empty', mdContent.length > 0, 'File is empty');
-  } catch (err: any) {
-    console.error(R(`  ✗  Could not read .md file: ${err?.message ?? err}`));
+  } catch (err: unknown) {
+    console.error(R(`  ✗  Could not read .md file: ${err instanceof Error ? err.message : String(err)}`));
     process.exit(1);
   }
 
@@ -88,7 +96,7 @@ async function main() {
     );
   }
 
-  // Also confirm the required source threads are present.
+  // Confirm the required source threads are present.
   assert(
     '.md source list contains 7eed487d',
     mdContent.includes('7eed487d'),
@@ -100,16 +108,23 @@ async function main() {
     'b34c7741 missing from source thread list',
   );
 
+  if (failed > 0) {
+    sep();
+    console.log(R(`\n✗  .md file failed landmark checks — aborting.\n`));
+    process.exit(1);
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
-  // PART 2 — Read the DB record
+  // PART 2 — Read DB record
   // ══════════════════════════════════════════════════════════════════════════
   sep();
   console.log(B(`PART 2 — Read DB record ${EPISODE_ID}`));
   sep();
 
   const sql = neon(DATABASE_URL);
+
   const rows = await sql`
-    SELECT id, content, length(content) AS len
+    SELECT content, length(content) AS len
     FROM conversation_memories
     WHERE id = ${EPISODE_ID}
   `;
@@ -128,13 +143,13 @@ async function main() {
     process.exit(1);
   }
 
-  const dbContent: string = rows[0].content ?? '';
-  const dbLen: number = Number(rows[0].len ?? 0);
+  const dbContent: string = rows[0]?.content ?? '';
+  const dbLen: number = Number(rows[0]?.len ?? 0);
   console.log(Y(`  ℹ  DB record length: ${dbLen} bytes`));
   assert('DB record is non-empty', dbLen > 0, 'DB content field is empty');
 
   // ══════════════════════════════════════════════════════════════════════════
-  // PART 3 — Compare
+  // PART 3 — Compare .md vs DB (whitespace-normalized)
   // ══════════════════════════════════════════════════════════════════════════
   sep();
   console.log(B('PART 3 — Compare .md vs DB (whitespace-normalized)'));
@@ -149,32 +164,26 @@ async function main() {
   const inSync = mdNorm === dbNorm;
 
   if (!inSync) {
-    // Find first differing position for diagnostics.
     let firstDiff = -1;
     const shorter = Math.min(mdNorm.length, dbNorm.length);
     for (let i = 0; i < shorter; i++) {
       if (mdNorm[i] !== dbNorm[i]) { firstDiff = i; break; }
     }
     if (firstDiff === -1 && mdNorm.length !== dbNorm.length) {
-      firstDiff = shorter; // one is a prefix of the other
+      firstDiff = shorter;
     }
-
     const snippet = (s: string, pos: number) =>
       JSON.stringify(s.slice(Math.max(0, pos - 30), pos + 60));
-
     console.log(R(`  First divergence at position ${firstDiff}:`));
     console.log(R(`    .md context : ${snippet(mdNorm, firstDiff)}`));
     console.log(R(`    DB  context : ${snippet(dbNorm, firstDiff)}`));
-    console.log(R(`\n  FIX: run  npx tsx server/scripts/sync-prequel-episode-1.ts\n`));
+    console.log(R(`\n  FIX: run  npx tsx server/scripts/sync-prequel-ep1-from-db.ts`));
   }
 
   assert(
     '.md and DB record are in sync (whitespace-normalized content matches)',
     inSync,
-    inSync
-      ? undefined
-      : 'Content diverged — the .md was edited without syncing the DB. ' +
-        'Run: npx tsx server/scripts/sync-prequel-episode-1.ts',
+    inSync ? undefined : 'Content diverged — the .md was edited without syncing the DB. Run: npx tsx server/scripts/sync-prequel-ep1-from-db.ts',
   );
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -193,6 +202,6 @@ async function main() {
 }
 
 main().catch(err => {
-  console.error(R(`\nUnhandled error: ${err?.message ?? err}`));
+  console.error(R(`\nUnhandled error: ${err instanceof Error ? err.message : String(err)}`));
   process.exit(1);
 });
