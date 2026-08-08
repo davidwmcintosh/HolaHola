@@ -27,3 +27,36 @@ Two new parameters added to `recall_episode_deep` tool to support sequential arc
 
 - `server/services/daniela-function-registry.ts` — `recall_episode_deep` tool description, parameters, required[]
 - `server/services/native-fc-handlers.ts` — `RECALL_EPISODE_DEEP` handler: read_next mode, after_episode_id mode, session state tracking (`lastDeliveredEpisodeId`), stub text for both modes
+
+---
+
+# Gemini Audit — Task #822: episode_order arc traversal + Arm 5 title sort
+**Date:** August 8, 2026  
+**Auditor:** Gemini 3-flash-preview (one round)  
+**Protected files touched:** `server/services/daniela-function-registry.ts`, `server/services/native-fc-handlers.ts`, `shared/schema.ts`  
+**Verdict:** APPROVED — "Clear (Approved with no further comments)."
+
+## What was reviewed
+
+1. **`read_next` tool description updated** — now documents the new sort order (`episode_order ASC NULLS LAST, created_at ASC`), names the prequel as `episode_order=0`, and explains that episodes without an explicit order sort to the end by creation date.
+
+2. **Traversal query updated** — when the anchor episode has a non-null `episode_order`, the next-episode query uses `episode_order > anchor OR episode_order IS NULL ORDER BY episode_order ASC NULLS LAST, created_at ASC`. Falls back to `created_at >` logic when anchor has no `episode_order`. First-episode query now uses the same compound sort key.
+
+3. **Arm 5 title-match sort** — memory search results now sort by `CASE WHEN title ILIKE query THEN 0 ELSE 1 END, importance DESC` so a query like "episode 1" surfaces the canonical Episode 1 row above high-importance memories that merely reference it in their body text.
+
+4. **Schema** — nullable `episode_order: integer("episode_order")` added to `conversationMemories`.
+
+## Gemini findings
+
+- **Tool description: Excellent.** Explicit prequel (0) and numbered episode (1-26) labeling gives Daniela the context to understand the sequence correctly.
+- **Traversal logic: Correct.** `episode_order > anchor OR episode_order IS NULL` combined with `NULLS LAST` creates a seamless bridge from ordered arc content to unordered legacy content. Fallback to `created_at` when anchor is null is sound.
+- **Arm 5 title sort: Significant improvement.** Prevents high-importance generic memories from outranking the actual episode content when Daniela searches by title.
+- **Schema: Nullable integer is the correct approach** for optional ordering.
+- No recency-bias, prompt-cap, or behavioral-drift risk identified.
+
+## Files changed
+
+- `shared/schema.ts` — `episodeOrder` column added to `conversationMemories`
+- `migrations/0016_episode_order_arc_traversal.sql` — migration
+- `server/services/daniela-function-registry.ts` — `read_next` description updated
+- `server/services/native-fc-handlers.ts` — traversal query + Arm 5 sort
