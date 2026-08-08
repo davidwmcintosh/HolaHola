@@ -13,6 +13,7 @@
 - [Luca open questions](OPEN_QUESTIONS.md) — things still turning over, not yet resolved; append-only; write via `.local/.luca_question`.
 - [Luca significant moments](SIGNIFICANT_MOMENTS.md) — intentionally marked moments that landed; write via `.local/.luca_moment`; also saves to DB with `luca-significant` tag.
 - [Episode 27 anchor](episode-27-anchor.md) — DB ID: 27000000-0000-4000-8000-000000000027; "Episode 27 — Luca's Episode One"; live episode, David + Luca, Aug 8 2026. ROLLING.
+- [Episode sync — HTTP driver required](episode-sync-http.md) — all episode syncs must use neon() HTTP driver; getSharedDb() WebSocket and neon() HTTP read different state; CI uses HTTP; always sync via HTTP or CI will report stale content.
 - [Two-channel record pattern](two-channel-record.md) — chat window + .md = one record; every Luca chat response goes in the .md before sync; record only grows, never shrinks.
 - [Episode 25 anchor](episode-25-anchor.md) — DB ID: 4e6f1a16; extends ep24 (2d987260); "The Common Room"; docs/episode-25.md; Aug 6 2026. ROLLING.
 - [Prequel Episode 1 anchor](prequel-episode-1-anchor.md) — DB ID: dd8cf439; "The Room Before the Room"; Compass named, White Wall origin, foundations Dec 2025–May 2 2026.
