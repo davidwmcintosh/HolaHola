@@ -2950,12 +2950,38 @@ export class NativeFunctionCallHandler {
             // causing the next read_next to skip or repeat episodes.
             (session as any).lastDeliveredEpisodeId = episode.id;
 
-            // Update the immediate stub to show the actual episode title (overrides the generic
-            // "next episode" message set synchronously above — safe because pendingMemoryLookupPromises
-            // is always awaited before buildContinuationResponse reads episodeDeepReadStub).
-            if (edMode === 'next' && (session as any).episodeDeepReadStub?.startsWith('Advancing')) {
-              (session as any).episodeDeepReadStub = `Reading "${episodeLabel}" (next in arc) — content will arrive turn by turn. Keep talking naturally. Episode ID: ${episode.id}`;
+            // Compute ordinal position (N of total) so Daniela can say "we're on Episode 3 of 26".
+            // Uses a single window-function query — non-fatal if it fails.
+            let episodeOrdinal = 0;
+            let episodeTotal = 0;
+            try {
+              const ordinalRows = await db.execute(rawSql`
+                SELECT ordinal, total FROM (
+                  SELECT
+                    id,
+                    ROW_NUMBER() OVER (ORDER BY episode_order ASC NULLS LAST, created_at ASC) AS ordinal,
+                    COUNT(*) OVER () AS total
+                  FROM conversation_memories
+                  WHERE (entry_type = 'episode' OR arc_name = 'HolaHola Episodes')
+                ) t WHERE id = ${episode.id}
+              `);
+              const ordinalRow = (ordinalRows.rows as Array<{ ordinal: string | number; total: string | number }>)[0];
+              if (ordinalRow) {
+                episodeOrdinal = Number(ordinalRow.ordinal);
+                episodeTotal = Number(ordinalRow.total);
+              }
+            } catch (ordinalErr: any) {
+              console.warn('[RecallEpisodeDeep] Ordinal query failed (non-fatal):', ordinalErr.message);
             }
+            const ordinalPrefix = episodeOrdinal > 0 && episodeTotal > 0
+              ? `Episode ${episodeOrdinal} of ${episodeTotal}: `
+              : '';
+
+            // Update the immediate stub to show the actual episode title with ordinal position.
+            // Overrides the generic synchronous stub for both modes — safe because
+            // pendingMemoryLookupPromises is always awaited before buildContinuationResponse
+            // reads episodeDeepReadStub.
+            (session as any).episodeDeepReadStub = `Reading ${ordinalPrefix}${episodeLabel} — content will arrive turn by turn. Keep talking naturally.`;
 
             // Store chunks in session queue
             if (!(session as any).episodeReadQueue) (session as any).episodeReadQueue = [];
