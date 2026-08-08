@@ -3387,7 +3387,11 @@ export class NativeFunctionCallHandler {
           ? fn.args.chapter
           : parseInt(String(fn.args.chapter ?? '1'), 10);
         console.log(`[Native Function→ReadMyStory] chapter: ${chapterNum}`);
-        (async () => {
+        // Assign to a named promise and push onto pendingMemoryLookupPromises so the
+        // orchestrator awaits DB resolution before calling buildContinuationResponse.
+        // Without this the IIFE races the continuation builder and readMyStoryResult
+        // is always unset when the response is assembled.
+        const readMyStoryPromise = (async () => {
           try {
             const { sql: rawSql } = await import('drizzle-orm');
             const db = getSharedDb();
@@ -3412,12 +3416,15 @@ export class NativeFunctionCallHandler {
               : chapterNum === 27 ? 'Prequel Episode 1'
               : chapterNum < 31 ? `Prequel Episode ${chapterNum - 27 + 1}`
               : null;
+            // Use a regex anchor so "Episode 1" does not match "Episode 10", "Episode 14", etc.
+            // Pattern: title starts with the label and is followed by end-of-string or a non-digit char.
+            const titleRegex = '^' + titlePattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^0-9].*)?$';
             const rows = await db.execute(rawSql`
               SELECT title, LEFT(content, 6000) AS preview, LENGTH(content) AS total_length
               FROM conversation_memories
               WHERE arc_name = 'HolaHola Episodes'
                 AND entry_type = 'episode'
-                AND title LIKE ${titlePattern + '%'}
+                AND title ~ ${titleRegex}
               ORDER BY recorded_at DESC
               LIMIT 1
             `);
@@ -3448,6 +3455,8 @@ export class NativeFunctionCallHandler {
             (session as any).readMyStoryResult = JSON.stringify({ status: 'error', message: err.message });
           }
         })();
+        if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
+        session.pendingMemoryLookupPromises.push(readMyStoryPromise);
         break;
       }
 

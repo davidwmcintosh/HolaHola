@@ -120,6 +120,12 @@ export const KNOWN_NON_GUARD_TOOLS = new Set<string>([
   // never trigger this. Excluded to avoid poisoning the student-session guard.
 
   // ── read_ prefix ────────────────────────────────────────────────────────────
+  'read_my_story',
+  // Sequential story reader — reads Daniela's own narrative episodes from
+  // conversation_memories (arc_name='HolaHola Episodes', entry_type='episode').
+  // One DB lookup per call; no embedding search; not student session memory.
+  // Called via self_read(action:"read_my_story"); cannot cause a recall chain.
+
   'read_my_diary',
   // Reads David↔Daniela voice-conversation transcripts (Founder mode only).
   // Not a student-session memory lookup.
