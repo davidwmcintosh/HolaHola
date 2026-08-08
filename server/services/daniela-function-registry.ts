@@ -2724,6 +2724,28 @@ Describe what you are grappling with right now, in your own words. The system fi
     },
   },
   {
+    legacyType: 'READ_MY_STORY',
+    declaration: {
+      name: 'read_my_story',
+      description: 'Read your own story from the beginning — one chapter at a time, in order. Chapters 1–27 are Episodes 1–27. Chapters 28–31 are Prequel Episodes 1–4. Use this to read your history sequentially, not by search. Returns the chapter content and tells you what comes next.',
+      parametersJsonSchema: {
+        type: 'OBJECT',
+        properties: {
+          chapter: {
+            type: 'NUMBER',
+            description: 'Chapter number to read (1–31). 1=Episode 1, 27=Episode 27, 28=Prequel Episode 1, 31=Prequel Episode 4.',
+          },
+        },
+        required: ['chapter'],
+      },
+    },
+    buildContinuationResponse: ({ session }) => {
+      const r = (session as any).readMyStoryResult as string | undefined;
+      (session as any).readMyStoryResult = undefined;
+      return r ?? JSON.stringify({ status: 'error', message: 'Chapter not found.' });
+    },
+  },
+  {
     legacyType: 'LINK_FEELING_TO_PRINCIPLE',
     declaration: {
       name: 'link_feeling_to_principle',
@@ -6186,13 +6208,13 @@ The card is a visual summary only — it does not start any activity automatical
     legacyType: 'SELF_READ',
     declaration: {
       name: 'self_read',
-      description: 'Read from your inner life and private memory. Use for: reading past session transcripts in your diary (read_my_diary), reading your private reflections (read_my_reflections), reading your core identity document (read_my_core_self), searching your reflections for felt moments by mood or emotional quality (search_my_feelings), recalling what you shared with David on a topic (recall_what_i_shared), fast express lane fact lookup (express_lane_lookup), checking your queued pending student message (read_queued_for_student), reviewing your pending character candidates (list_character_candidates), or reaching for your constitutional principles in a shaky moment (reach_north_star).',
+      description: 'Read from your inner life and private memory. Use for: reading your own story from the beginning one chapter at a time (read_my_story), reading past session transcripts in your diary (read_my_diary), reading your private reflections (read_my_reflections), reading your core identity document (read_my_core_self), searching your reflections for felt moments by mood or emotional quality (search_my_feelings), recalling what you shared with David on a topic (recall_what_i_shared), fast express lane fact lookup (express_lane_lookup), checking your queued pending student message (read_queued_for_student), reviewing your pending character candidates (list_character_candidates), or reaching for your constitutional principles in a shaky moment (reach_north_star).',
       parametersJsonSchema: {
         type: 'OBJECT',
         properties: {
           action: {
             type: 'STRING',
-            enum: ['read_my_diary', 'read_my_reflections', 'read_my_core_self', 'search_my_feelings', 'recall_what_i_shared', 'express_lane_lookup', 'read_queued_for_student', 'list_character_candidates', 'reach_north_star'],
+            enum: ['read_my_diary', 'read_my_reflections', 'read_my_core_self', 'search_my_feelings', 'recall_what_i_shared', 'express_lane_lookup', 'read_queued_for_student', 'list_character_candidates', 'reach_north_star', 'read_my_story'],
             description: 'Which inner-life read action to perform.',
           },
           params_json: {
@@ -7257,6 +7279,7 @@ export const GL_EXCLUDED_TOOLS = new Set<string>([
   'search_my_feelings',           // → self_read(action:"search_my_feelings") — mood-based reflection search
   'list_character_candidates',    // → self_read(action:"list_character_candidates") — review pending slow-tier candidates
   'reach_north_star',             // → self_read(action:"reach_north_star") — constitutional grounding in shaky moments
+  'read_my_story',                // → self_read(action:"read_my_story") — sequential story reading chapter by chapter
   'link_feeling_to_principle',    // → self_write(action:"link_feeling_to_principle") — explicit feeling<->principle association
   'propose_character_candidate',  // → self_write(action:"propose_character_candidate") — flag identity candidate
   'request_stewardship_review',   // → self_write(action:"request_stewardship_review") — trigger stewardship conversation

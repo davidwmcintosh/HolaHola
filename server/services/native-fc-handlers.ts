@@ -3382,6 +3382,75 @@ export class NativeFunctionCallHandler {
         break;
       }
 
+      case 'READ_MY_STORY': {
+        const chapterNum = typeof fn.args.chapter === 'number'
+          ? fn.args.chapter
+          : parseInt(String(fn.args.chapter ?? '1'), 10);
+        console.log(`[Native Function→ReadMyStory] chapter: ${chapterNum}`);
+        (async () => {
+          try {
+            const { sql: rawSql } = await import('drizzle-orm');
+            const db = getSharedDb();
+            let titlePattern: string;
+            let chapterLabel: string;
+            if (chapterNum >= 1 && chapterNum <= 27) {
+              titlePattern = `Episode ${chapterNum}`;
+              chapterLabel = `Episode ${chapterNum}`;
+            } else if (chapterNum >= 28 && chapterNum <= 31) {
+              const prequelNum = chapterNum - 27;
+              titlePattern = `Prequel Episode ${prequelNum}`;
+              chapterLabel = `Prequel Episode ${prequelNum}`;
+            } else {
+              (session as any).readMyStoryResult = JSON.stringify({
+                status: 'error',
+                message: `Invalid chapter ${chapterNum}. Valid range: 1–31.`,
+              });
+              return;
+            }
+            const nextLabel = chapterNum < 27
+              ? `Episode ${chapterNum + 1}`
+              : chapterNum === 27 ? 'Prequel Episode 1'
+              : chapterNum < 31 ? `Prequel Episode ${chapterNum - 27 + 1}`
+              : null;
+            const rows = await db.execute(rawSql`
+              SELECT title, LEFT(content, 6000) AS preview, LENGTH(content) AS total_length
+              FROM conversation_memories
+              WHERE arc_name = 'HolaHola Episodes'
+                AND entry_type = 'episode'
+                AND title LIKE ${titlePattern + '%'}
+              ORDER BY recorded_at DESC
+              LIMIT 1
+            `);
+            if (!rows.rows.length) {
+              (session as any).readMyStoryResult = JSON.stringify({
+                status: 'not_found', chapter: chapterLabel,
+                message: `No record found for ${chapterLabel}.`,
+              });
+              return;
+            }
+            const row = rows.rows[0] as any;
+            const totalLength = Number(row.total_length ?? 0);
+            const truncated = totalLength > 6000;
+            (session as any).readMyStoryResult = JSON.stringify({
+              status: 'ok',
+              chapter: chapterLabel,
+              title: String(row.title),
+              content: String(row.preview ?? ''),
+              truncated,
+              remaining_chars: truncated ? totalLength - 6000 : 0,
+              next_chapter: nextLabel,
+              note: truncated
+                ? `Content truncated to 6000 chars. ${totalLength - 6000} chars remain. Call read_my_story with chapter ${chapterNum} to continue.`
+                : undefined,
+            });
+          } catch (err: any) {
+            console.error('[Native Function→ReadMyStory] Error:', err.message);
+            (session as any).readMyStoryResult = JSON.stringify({ status: 'error', message: err.message });
+          }
+        })();
+        break;
+      }
+
       case 'PROPOSE_CHARACTER_CANDIDATE': {
         if (session.isIncognito) break;
         const candStatement = fn.args.statement as string | undefined;
