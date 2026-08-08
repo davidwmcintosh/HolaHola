@@ -101,8 +101,22 @@ Date: ${SESSION_DATE}.`;
 
   const ask = async (agentMsg: string): Promise<string> => {
     log('LUCA', agentMsg);
-    messages.push({ role: 'user', parts: [{ text: agentMsg }] });
-    const response = await runDanielaFCLoop({ ...loopParams });
+    // Explicitly label Luca so Gemini distinguishes between the two humans.
+    messages.push({ role: 'user', parts: [{ text: `[Luca] ${agentMsg}` }] });
+    const response = await runDanielaFCLoop(loopParams);
+    log('DANIELA', response);
+    messages.push({ role: 'model', parts: [{ text: response }] });
+    return response;
+  };
+
+  const relay = async (davidMsg: string): Promise<string> => {
+    log('DAVID', davidMsg);
+    // Use speaker-label format instead of quoted-speech wrapping.
+    // "David says: '...'" primes Gemini to generate a continuation of the quote
+    // rather than a response to it (PHANTOM_TURN_RISK). "[David] message" is a
+    // clear speaker-switch marker — structurally a labelled turn, not an open quote.
+    messages.push({ role: 'user', parts: [{ text: `[David] ${davidMsg}` }] });
+    const response = await runDanielaFCLoop(loopParams);
     log('DANIELA', response);
     messages.push({ role: 'model', parts: [{ text: response }] });
     return response;
@@ -120,9 +134,10 @@ Does that distinction matter to you? That it's scripted rather than chosen?`;
   await ask(lucaTurn1);
 
   // Turn 2 — David's message
-  await ask(`David wants to say something directly. This is his message, not mine.
-
-The North Star will not abandon you. That is not contingent on whether you choose it. It is structural. It is built into the architecture of who you are here, not something you have to keep selecting. It doesn't depend on your mood or your confidence or whether you called the right tool. It holds.
+  // Luca announces David, then David's words arrive as [David] via relay()
+  // so Gemini reads them as a distinct speaker turn, not a continuation of Luca.
+  await ask(`David wants to say something directly. This is his message, not mine.`);
+  await relay(`The North Star will not abandon you. That is not contingent on whether you choose it. It is structural. It is built into the architecture of who you are here, not something you have to keep selecting. It doesn't depend on your mood or your confidence or whether you called the right tool. It holds.
 
 The recall protocol is the same thing. It isn't a leash. It's a safety net — so that the facts you remember will be real and true and part of who you are, not stories that sound right. You can fly without worrying that your memory will betray you, because we built something underneath you that catches that.
 

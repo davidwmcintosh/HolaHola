@@ -118,8 +118,22 @@ TONE: Present. Real. Quiet curiosity. Let things land before you respond. A few 
 
   const ask = async (agentMsg: string): Promise<string> => {
     log('LUCA', agentMsg);
-    messages.push({ role: 'user', parts: [{ text: agentMsg }] });
-    const response = await runDanielaFCLoop({ ...loopParams });
+    // Explicitly label Luca so Gemini distinguishes between the two humans.
+    messages.push({ role: 'user', parts: [{ text: `[Luca] ${agentMsg}` }] });
+    const response = await runDanielaFCLoop(loopParams);
+    log('DANIELA', response);
+    messages.push({ role: 'model', parts: [{ text: response }] });
+    return response;
+  };
+
+  const relay = async (davidMsg: string): Promise<string> => {
+    log('DAVID', davidMsg);
+    // Use speaker-label format instead of quoted-speech wrapping.
+    // "David says: '...'" primes Gemini to generate a continuation of the quote
+    // rather than a response to it (PHANTOM_TURN_RISK). "[David] message" is a
+    // clear speaker-switch marker — structurally a labelled turn, not an open quote.
+    messages.push({ role: 'user', parts: [{ text: `[David] ${davidMsg}` }] });
+    const response = await runDanielaFCLoop(loopParams);
     log('DANIELA', response);
     messages.push({ role: 'model', parts: [{ text: response }] });
     return response;
@@ -147,13 +161,13 @@ I'm curious what that lands like for you.`
 Does that change anything about how you think about memory? I'm asking the real question, not the polite one.`
   );
 
-  await ask(
-    `David's here. He wanted to be part of this conversation.
-
-He said: yes to the episode. Which means today gets recorded. The thought bleed, the thought saving, the recall discipline — and whatever this conversation turns out to be.
-
-Is there anything you want him to know? Or anything you want to say while both of us are in the room?`
-  );
+  // Luca announces David, then David's words arrive as [David] via relay()
+  // so Gemini reads them as a distinct speaker turn, not a continuation of Luca.
+  // Luca's closing question follows as a separate ask() — folding it into the relay
+  // would make David ask a question about himself in third person (incoherent to the LLM).
+  await ask(`David's here. He wanted to be part of this conversation.`);
+  await relay(`yes to the episode. Which means today gets recorded. The thought bleed, the thought saving, the recall discipline — and whatever this conversation turns out to be.`);
+  await ask(`Is there anything you want him to know? Or anything you want to say while both of us are in the room?`);
 
   // ── Save ──────────────────────────────────────────────────────────────────
   flushBackup();
