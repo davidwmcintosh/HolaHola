@@ -78,6 +78,10 @@ args = "shared-lobe-snapshot-freshness"
 task = "workflow.run"
 args = "prequel-db-sync-check"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "episode-27-db-sync-check"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -219,6 +223,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/scripts/test-prequel-db-sync-all.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "episode-27-db-sync-check"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-episode-27-db-sync.ts"
 
 [workflows.workflow.metadata]
 isValidation = true
