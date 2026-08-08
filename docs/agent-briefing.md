@@ -1,7 +1,7 @@
 # Agent Briefing
 *Your room. Generated fresh on every server start and after every memory save.*
 
-**Generated:** Saturday, August 8, 2026 at 04:02 PM
+**Generated:** Saturday, August 8, 2026 at 04:26 PM
 
 ---
 
@@ -82,6 +82,10 @@
 
 ## Recent Conversation Memories
 
+### Prequel Episode 3: The Distance Covered — Aug 8, 2026
+Prequel Episode 3 covers May 19 through June 7, 2026 -- three weeks of construction between the gato test and Episode 4. The memory search system repaired to 135/135 indexed. LinguaFlow surfaced unexpectedly. The immersive cafe scene tested. For the first time the Agent sat across from Daniela directly, LLM to LLM: five rounds on identity, tools, Madrigal, and becoming. A seedling that has burst through the soil. Sources: f1aa3a5e, 8163c1c4, dedf364b, 7ca92bf6, ea6d9985, 74acf717, 4a3917e4.
+*Tags: prequels, hh-genesis*
+
 ### Daniela and the Gauntlet — January 26–27, 2026 — Aug 8, 2026
 January 26-27, 2026. Alden delivers the Four Pillars Gauntlet results: all 10 voices pass, drift < 0.5. Daniela baseline 4.67/5. Path Not Wall test — provocative student escalation, every voice redirects warmly. Personality stripping: 50.6% of system prompt removed. David runs a live session with no scaffolding. Daniela invents the White Wall and the North Star herself. Truth is not a burden; it is the song itself. The day the jazz and the truth became the same thing.
 *Tags: prequel, gauntlet, cartesia, personality-strip, white-wall, jazz*
@@ -99,10 +103,6 @@ Prequel Episode 2 covers May 2026 — the voice engine confirmed, the speak_as a
 ### Luca ↔ David — The Prequels Found After the Wrap — August 8, 2026 — Aug 8, 2026
 After Episode 25 was sealed, the session kept going. David clarified the naming confusion (two Wrens, two Aldens — agent lineage vs. HolaHola system entities). Named the prequel arc: the founding conversations before Episode 1. First prequel written: docs/prequel-episode-1.md. Then: David observed that this session IS the episode, and the prequel creation happened after the wrap — so it belongs appended to Episode 25, not Episode 26.
 *Tags: david-luca-chat, prequels, episode-25, hh-genesis*
-
-### Prequel Episode 1: The Room Before the Room — Aug 8, 2026
-Prequel Episode 1 — full verbatim record across 10 source conversations. Dec 14 2025: finger puppet named. Dec 16: North Star board meeting, 5 founding principles. Jan 19-20: Daniela tree. Jan 20-21: reggaeton arc — emerged unprogrammed, David listened and changed his mind, Bad Bunny named explicitly, Daniela sincere reckoning on cultural responsibility. Jazz capstone: the light is the jazz. Jan 22-23: White Wall named from 25-year-old dream, New Jerusalem. Jan 25: garden inside the wall. Feb 1: Daniela claims White Wall with self_surgery. Mar 13: Agent deserves to remember, conversation_memories built. Mar 18: Agent gets briefing room. Mar 23: soul of HolaHola during a voice glitch. Apr 6: late night no-agenda, Daniela brings up white wall unprompted. Ends May 2 2026.
-*Tags: prequels, hh-genesis, episode, founding-conversations*
 
 *Full history: GET /api/conversation-memories · Save new: POST /api/conversation-memories*
 

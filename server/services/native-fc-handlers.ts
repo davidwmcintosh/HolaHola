@@ -4640,6 +4640,37 @@ export class NativeFunctionCallHandler {
         // mark it so the carry-forward logic skips persistence regardless of final state.
         if (session.isIncognito) (session as any)._wasEverIncognito = true;
         if (!(session as any).sessionNotes) (session as any).sessionNotes = [];
+        const MAX_SESSION_NOTES = 50;
+        // When the scratchpad is full, auto-flush the current batch to long-term memory
+        // so no note is ever lost, then start a fresh array before appending.
+        if ((session as any).sessionNotes.length >= MAX_SESSION_NOTES) {
+          const flushSnapshot: string[] = [...(session as any).sessionNotes];
+          const flushBatch = ((session as any)._scratchpadFlushCount ?? 0) + 1;
+          (session as any)._scratchpadFlushCount = flushBatch;
+          (session as any).sessionNotes = [];
+          console.warn(`[SessionScratchpad] Cap reached (${MAX_SESSION_NOTES}); auto-flushing batch #${flushBatch} to memory.`);
+          // Fire-and-forget DB flush — mirrors SAVE_SESSION_NOTES_AS_MEMORY logic
+          (async () => {
+            try {
+              const notesContent = flushSnapshot.map((n, i) => `[${i + 1}] ${n}`).join('\n\n');
+              const flushTitle = `Session notes batch #${flushBatch} — ${new Date().toISOString().slice(0, 16).replace('T', ' ')}`;
+              await getSharedDb().insert(conversationMemories).values({
+                title: flushTitle,
+                content: notesContent,
+                summary: notesContent.substring(0, 200),
+                importance: 6,
+                participants: 'Daniela',
+                tags: ['session-scratchpad', 'auto-flush'],
+                arcName: null,
+                extendsMemoryId: null,
+                recordedAt: new Date(),
+              } as any);
+              console.log(`[SessionScratchpad] ✓ Auto-flushed batch #${flushBatch} (${flushSnapshot.length} note(s)) to memory.`);
+            } catch (err: any) {
+              console.error(`[SessionScratchpad] Auto-flush failed — batch #${flushBatch} lost:`, err.message);
+            }
+          })();
+        }
         (session as any).sessionNotes.push(noteContent.trim());
         console.log(`[SessionScratchpad] Note added (${(session as any).sessionNotes.length} total): "${noteContent.substring(0, 80)}"`);
         break;

@@ -89,6 +89,10 @@ const MIGRATION_PATH = resolve(__dirname, '../../migrations/0015_mighty_human_fl
 // G1
 const g1a = (s: string) => s.includes("case 'WRITE_SESSION_NOTE'");
 const g1b = (s: string) => s.includes("(session as any).sessionNotes.push(noteContent.trim())");
+const g1c = (s: string) =>
+  s.includes('MAX_SESSION_NOTES') &&
+  s.includes('(session as any).sessionNotes = []') &&
+  s.includes('_scratchpadFlushCount');
 
 // G2
 const g2 = (s: string) =>
@@ -194,6 +198,8 @@ function part1(): void {
   assert("G1a: 'WRITE_SESSION_NOTE' case label in native-fc-handlers.ts",       g1a(hSrc));
   assert("G1b: sessionNotes.push() in WRITE_SESSION_NOTE handler",               g1b(hSrc),
     "Missing: (session as any).sessionNotes.push(noteContent.trim())");
+  assert("G1c: WRITE_SESSION_NOTE enforces MAX_SESSION_NOTES cap with shift()",  g1c(hSrc),
+    "Missing: MAX_SESSION_NOTES constant + (session as any).sessionNotes.shift() in WRITE_SESSION_NOTE");
   assert("G2:  orchestrator injects 'Session Working Memory' from sessionNotes", g2(oSrc),
     "Missing sessionNotes injection in GL turn context");
   assert("G3a: extractSessionNotesForReconnect() exported from ws-handler",      g3a(wsSrc));
@@ -240,6 +246,39 @@ async function part2(): Promise<void> {
   });
   assert('READ_SESSION_NOTES does not clear the array',
     ((session as any).sessionNotes as string[] | undefined)?.length === 2);
+
+  // ── Overflow / auto-flush test ───────────────────────────────────────────
+  // Write exactly 50 notes to a fresh session (fills to cap), then one more.
+  // The 51st write must trigger auto-flush: the array resets, the new note
+  // starts batch #2, and no note is silently dropped from the active array.
+  const overflowSession = makeMockSession(makeMockWs());
+  const overflowHandler = makeHandler();
+
+  for (let i = 1; i <= 50; i++) {
+    await overflowHandler.handle('sid-overflow', overflowSession, {
+      name: 'write_session_note', legacyType: 'WRITE_SESSION_NOTE',
+      args: { content: `Batch-1 note ${i}` },
+    });
+  }
+  const preFlushNotes = (overflowSession as any).sessionNotes as string[] | undefined;
+  assert('Pre-flush: 50 notes fill the array without triggering flush', preFlushNotes?.length === 50, `got ${preFlushNotes?.length}`);
+
+  // 51st note crosses the cap — should flush batch 1 and start batch 2
+  await overflowHandler.handle('sid-overflow', overflowSession, {
+    name: 'write_session_note', legacyType: 'WRITE_SESSION_NOTE',
+    args: { content: 'Batch-2 first note.' },
+  });
+  const postFlushNotes = (overflowSession as any).sessionNotes as string[] | undefined;
+  assert('Post-flush: active array reset to 1 (new batch started)', postFlushNotes?.length === 1, `got ${postFlushNotes?.length}`);
+  assert('Post-flush: new note is the only entry', postFlushNotes?.[0] === 'Batch-2 first note.', `got "${postFlushNotes?.[0]}"`);
+  assert('Post-flush: flush counter incremented', (overflowSession as any)._scratchpadFlushCount === 1, `got ${(overflowSession as any)._scratchpadFlushCount}`);
+
+  // Writing more notes after flush appends normally
+  await overflowHandler.handle('sid-overflow', overflowSession, {
+    name: 'write_session_note', legacyType: 'WRITE_SESSION_NOTE',
+    args: { content: 'Batch-2 second note.' },
+  });
+  assert('Post-flush: second write appends to fresh batch (total 2)', ((overflowSession as any).sessionNotes as string[] | undefined)?.length === 2);
 }
 
 // ── PART 3 — Real in-memory round-trip ───────────────────────────────────────
@@ -409,8 +448,14 @@ function part6(): void {
     !g5(sSrc.replace("sessionNotes: text('session_notes')", "/* removed */")));
   assert('[Self-check] G6 fails when migration file emptied', !g6(''));
 
+  assert('[Self-check] G1c fails when MAX_SESSION_NOTES renamed away',
+    !g1c(hSrc.replace(/MAX_SESSION_NOTES/g, 'SCRATCHPAD_CAP')));
+  assert('[Self-check] G1c fails when flush-counter removed',
+    !g1c(hSrc.replace(/_scratchpadFlushCount/g, '_scratchpadBatchIndex')));
+
   // Baselines
   assert('[Self-check] G1b passes on original source',  g1b(hSrc));
+  assert('[Self-check] G1c passes on original source',  g1c(hSrc));
   assert('[Self-check] G3a passes on original source',  g3a(wsSrc));
   assert('[Self-check] G3d passes on original source',  g3d(wsSrc));
   assert('[Self-check] G4a passes on original source',  g4a(wsSrc));
