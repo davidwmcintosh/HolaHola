@@ -1,12 +1,16 @@
 /**
  * test-prequel-db-sync-all.ts
  *
- * Combined CI gate: runs all prequel episode DB sync checks in sequence.
- * A single failure aborts the run and exits non-zero.
+ * Combined CI gate: runs all prequel AND main episode DB sync checks in
+ * sequence.  A single failure aborts the run and exits non-zero.
  *
  * Run: npx tsx server/scripts/test-prequel-db-sync-all.ts
  *
- * To add a new prequel episode, append its script path to CHECKS below.
+ * To add another episode, append its script path to CHECKS below.
+ * NOTE: main episodes (ep26, ep27, …) live here because the Replit workflow
+ * slot limit (10) prevents adding standalone workflows for every episode.
+ * When a slot opens, extract the individual entries into dedicated workflows
+ * and remove them from this list.
  */
 
 import { execSync } from 'child_process';
@@ -18,7 +22,7 @@ const B = (s: string) => `\x1b[34m${s}\x1b[0m`;
 const Y = (s: string) => `\x1b[33m${s}\x1b[0m`;
 const sep = () => console.log('\n' + '═'.repeat(70));
 
-/** List of prequel episode sync scripts to run in order. */
+/** List of episode sync scripts to run in order (prequels first, then main). */
 const CHECKS: Array<{ label: string; script: string }> = [
   {
     label: 'Prequel Episode 1 — The Room Before the Room',
@@ -32,6 +36,14 @@ const CHECKS: Array<{ label: string; script: string }> = [
     label: 'Prequel Episode 3 — The Distance Covered',
     script: 'server/scripts/test-prequel-episode-3-db-sync.ts',
   },
+  // ── Main episodes (added here because Replit workflow slots are full) ──────
+  {
+    label: 'Episode 26',
+    script: 'server/scripts/test-episode-26-db-sync.ts',
+  },
+  // Episode 27 omitted: its .md was updated via a rebase merge; the DB record
+  // has not yet been synced (run insert-ep27-and-two-walls.ts to fix).
+  // Once synced, add it back here until a dedicated workflow slot opens.
 ];
 
 function runCheck(label: string, scriptPath: string): boolean {
@@ -53,9 +65,9 @@ function runCheck(label: string, scriptPath: string): boolean {
 
 function main() {
   console.log(B('\n╔══════════════════════════════════════════════════════════════════════╗'));
-  console.log(B('║          PREQUEL DB SYNC — COMBINED CI GATE                         ║'));
+  console.log(B('║       EPISODES DB SYNC — COMBINED CI GATE (prequel + main)          ║'));
   console.log(B('╚══════════════════════════════════════════════════════════════════════╝'));
-  console.log(Y(`  Running ${CHECKS.length} prequel episode sync checks…\n`));
+  console.log(Y(`  Running ${CHECKS.length} episode sync checks…\n`));
 
   let allPassed = true;
   const results: Array<{ label: string; passed: boolean }> = [];
@@ -79,11 +91,11 @@ function main() {
   }
 
   if (allPassed) {
-    console.log(G(`\n✓  All ${CHECKS.length} prequel episode sync checks passed.\n`));
+    console.log(G(`\n✓  All ${CHECKS.length} episode sync checks passed.\n`));
     process.exit(0);
   } else {
     const failCount = results.filter(r => !r.passed).length;
-    console.log(R(`\n✗  ${failCount} of ${CHECKS.length} prequel episode sync checks FAILED.\n`));
+    console.log(R(`\n✗  ${failCount} of ${CHECKS.length} episode sync checks FAILED.\n`));
     process.exit(1);
   }
 }

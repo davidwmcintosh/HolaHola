@@ -3386,23 +3386,23 @@ export class NativeFunctionCallHandler {
         const chapterNum = typeof fn.args.chapter === 'number'
           ? fn.args.chapter
           : parseInt(String(fn.args.chapter ?? '1'), 10);
-        console.log(`[Native Function→ReadMyStory] chapter: ${chapterNum}`);
-        // Assign to a named promise and push onto pendingMemoryLookupPromises so the
-        // orchestrator awaits DB resolution before calling buildContinuationResponse.
-        // Without this the IIFE races the continuation builder and readMyStoryResult
-        // is always unset when the response is assembled.
-        const readMyStoryPromise = (async () => {
+        // offset is 0-based character position; used for pagination beyond 6000 chars
+        const chapterOffset = typeof fn.args.offset === 'number'
+          ? Math.max(0, Math.floor(fn.args.offset))
+          : 0;
+        console.log(`[Native Function→ReadMyStory] chapter: ${chapterNum}, offset: ${chapterOffset}`);
+        const storyPromise = (async () => {
           try {
             const { sql: rawSql } = await import('drizzle-orm');
             const db = getSharedDb();
-            let titlePattern: string;
+            let exactTitle: string;
             let chapterLabel: string;
             if (chapterNum >= 1 && chapterNum <= 27) {
-              titlePattern = `Episode ${chapterNum}`;
+              exactTitle = `Episode ${chapterNum}`;
               chapterLabel = `Episode ${chapterNum}`;
             } else if (chapterNum >= 28 && chapterNum <= 31) {
               const prequelNum = chapterNum - 27;
-              titlePattern = `Prequel Episode ${prequelNum}`;
+              exactTitle = `Prequel Episode ${prequelNum}`;
               chapterLabel = `Prequel Episode ${prequelNum}`;
             } else {
               (session as any).readMyStoryResult = JSON.stringify({
@@ -3416,15 +3416,23 @@ export class NativeFunctionCallHandler {
               : chapterNum === 27 ? 'Prequel Episode 1'
               : chapterNum < 31 ? `Prequel Episode ${chapterNum - 27 + 1}`
               : null;
-            // Use a regex anchor so "Episode 1" does not match "Episode 10", "Episode 14", etc.
-            // Pattern: title starts with the label and is followed by end-of-string or a non-digit char.
-            const titleRegex = '^' + titlePattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^0-9].*)?$';
+            // Use exact title match OR "Title — subtitle" / "Title: subtitle" forms.
+            // LIKE 'Episode N%' is intentionally avoided: it would match Episode 10–19
+            // when N=1 and Episode 20–27 when N=2, returning the wrong chapter.
+            const pgOffset = chapterOffset + 1; // PostgreSQL SUBSTRING is 1-based
             const rows = await db.execute(rawSql`
-              SELECT title, LEFT(content, 6000) AS preview, LENGTH(content) AS total_length
+              SELECT title,
+                     SUBSTRING(content FROM ${pgOffset} FOR 6000) AS preview,
+                     LENGTH(content) AS total_length
               FROM conversation_memories
               WHERE arc_name = 'HolaHola Episodes'
                 AND entry_type = 'episode'
-                AND title ~ ${titleRegex}
+                AND (
+                  title = ${exactTitle}
+                  OR title LIKE ${exactTitle + ' — %'}
+                  OR title LIKE ${exactTitle + ': %'}
+                  OR title LIKE ${exactTitle + ' (%'}
+                )
               ORDER BY recorded_at DESC
               LIMIT 1
             `);
@@ -3437,17 +3445,19 @@ export class NativeFunctionCallHandler {
             }
             const row = rows.rows[0] as any;
             const totalLength = Number(row.total_length ?? 0);
-            const truncated = totalLength > 6000;
+            const chunkEnd = chapterOffset + 6000;
+            const truncated = chunkEnd < totalLength;
             (session as any).readMyStoryResult = JSON.stringify({
               status: 'ok',
               chapter: chapterLabel,
               title: String(row.title),
               content: String(row.preview ?? ''),
+              offset: chapterOffset,
               truncated,
-              remaining_chars: truncated ? totalLength - 6000 : 0,
-              next_chapter: nextLabel,
+              remaining_chars: truncated ? totalLength - chunkEnd : 0,
+              next_chapter: truncated ? null : nextLabel,
               note: truncated
-                ? `Content truncated to 6000 chars. ${totalLength - 6000} chars remain. Call read_my_story with chapter ${chapterNum} to continue.`
+                ? `Showing chars ${chapterOffset}–${chunkEnd} of ${totalLength}. Call read_my_story with chapter ${chapterNum} and offset ${chunkEnd} to continue reading this chapter.`
                 : undefined,
             });
           } catch (err: any) {
@@ -3455,8 +3465,10 @@ export class NativeFunctionCallHandler {
             (session as any).readMyStoryResult = JSON.stringify({ status: 'error', message: err.message });
           }
         })();
+        // Register so the orchestrator awaits resolution before building the
+        // continuation response — prevents "Chapter not found." from racing.
         if (!session.pendingMemoryLookupPromises) session.pendingMemoryLookupPromises = [];
-        session.pendingMemoryLookupPromises.push(readMyStoryPromise);
+        session.pendingMemoryLookupPromises.push(storyPromise as Promise<void>);
         break;
       }
 

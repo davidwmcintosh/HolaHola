@@ -121,10 +121,12 @@ export const KNOWN_NON_GUARD_TOOLS = new Set<string>([
 
   // ── read_ prefix ────────────────────────────────────────────────────────────
   'read_my_story',
-  // Sequential story reader — reads Daniela's own narrative episodes from
-  // conversation_memories (arc_name='HolaHola Episodes', entry_type='episode').
-  // One DB lookup per call; no embedding search; not student session memory.
-  // Called via self_read(action:"read_my_story"); cannot cause a recall chain.
+  // Reads a single HolaHola episode from the conversation_memories archive by
+  // chapter number (1–31). One-shot DB lookup; no embedding search; no student
+  // session memory involved. Cannot form a recall chain: each call resolves to
+  // exactly one row. Result is registered in pendingMemoryLookupPromises so the
+  // continuation response waits for it, but the chain guard is not needed here
+  // (static archive content, not iterative conversational memory retrieval).
 
   'read_my_diary',
   // Reads David↔Daniela voice-conversation transcripts (Founder mode only).
