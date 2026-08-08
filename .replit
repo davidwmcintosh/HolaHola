@@ -74,6 +74,10 @@ args = "transcript-save-trigger"
 task = "workflow.run"
 args = "shared-lobe-snapshot-freshness"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "prequel-ep2-db-sync-check"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -219,6 +223,17 @@ args = "npx tsx server/scripts/test-prequel-episode-1-db-sync.ts"
 [workflows.workflow.metadata]
 isValidation = true
 outputType = "console"
+
+[[workflows.workflow]]
+name = "prequel-ep2-db-sync-check"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/scripts/test-prequel-episode-2-db-sync.ts"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [agent]
 integrations = ["javascript_openai_ai_integrations:1.0.0", "javascript_mem_db:1.0.0", "javascript_log_in_with_replit:1.0.0", "stripe:1.0.0", "javascript_gemini_ai_integrations:1.0.0", "javascript_anthropic_ai_integrations:1.0.0", "perplexity_v0:1.0.0", "javascript_object_storage:2.0.0"]
