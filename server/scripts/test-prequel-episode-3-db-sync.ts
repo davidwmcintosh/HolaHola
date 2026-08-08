@@ -5,8 +5,8 @@
  * conversation_memories id = cd66b19d-be9c-410c-8721-c3d3e16e3f79 contain
  * the same content (modulo trailing whitespace normalization).
  *
- * If the .md has been edited but the DB was not updated, this check fails
- * loudly so the drift is caught before it ships.
+ * If the .md has been edited but the DB was not updated via
+ * sync-prequel-episode-3.ts, this check fails loudly.
  *
  * Run: npx tsx server/scripts/test-prequel-episode-3-db-sync.ts
  */
@@ -153,7 +153,7 @@ async function main() {
     console.log(R(`  First divergence at position ${firstDiff}:`));
     console.log(R(`    .md context : ${snippet(mdNorm, firstDiff)}`));
     console.log(R(`    DB  context : ${snippet(dbNorm, firstDiff)}`));
-    console.log(R(`\n  FIX: sync the DB record with the .md content.\n`));
+    console.log(R(`\n  FIX: run  npx tsx server/scripts/sync-prequel-episode-3.ts\n`));
   }
 
   assert(
@@ -161,7 +161,8 @@ async function main() {
     inSync,
     inSync
       ? undefined
-      : 'Content diverged — the .md was edited without syncing the DB.',
+      : 'Content diverged — the .md was edited without syncing the DB. ' +
+        'Run: npx tsx server/scripts/sync-prequel-episode-3.ts',
   );
 
   // ══════════════════════════════════════════════════════════════════════════
